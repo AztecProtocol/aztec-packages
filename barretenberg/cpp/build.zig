@@ -640,7 +640,7 @@ fn buildLibdeflate(b: *std.Build, target: std.Build.ResolvedTarget, optimize: st
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-    var optimize = b.standardOptimizeOption(.{});
+    const optimize = b.standardOptimizeOption(.{});
 
     // Add AVM option
     const enable_avm = b.option(bool, "avm", "Enable Aztec Virtual Machine support") orelse false;
@@ -656,23 +656,22 @@ pub fn build(b: *std.Build) void {
     const cross_step = b.step("cross", "Build for all platforms");
 
     for (platforms) |platform| {
-        // We always default to ReleaseSmall for WASM builds.
-        // Debug builds are so slow they basically hang.
         if (platform.os == .wasi) {
-            optimize = .ReleaseSmall;
+            // We always default to ReleaseSmall for WASM builds with no AVM.
+            // Debug builds are so slow they basically hang.
+            const platform_step = buildForTarget(b, platform, optimize, enable_avm);
+            // We build the wasm reactor for JS.
+            buildWasmReactor(b, optimize, platform_step);
+            cross_step.dependOn(platform_step);
+        } else {
+            const platform_step = buildForTarget(b, platform, optimize, enable_avm);
+            cross_step.dependOn(platform_step);
+
+            // If this platform matches the host, add to default build.
+            if (std.mem.eql(u8, platform.name, host_platform)) {
+                b.getInstallStep().dependOn(platform_step);
+            }
         }
-
-        const platform_step = buildForTarget(b, platform, optimize, enable_avm);
-        cross_step.dependOn(platform_step);
-
-        // If this platform matches the host, add to default build.
-        if (std.mem.eql(u8, platform.name, host_platform)) {
-            b.getInstallStep().dependOn(platform_step);
-        }
-
-        // if (platform.os == .wasi) {
-        //     buildWasmReactor(b, optimize, platform_step);
-        // }
     }
 }
 
