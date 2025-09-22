@@ -15,13 +15,6 @@ contract SignalTest is GovernanceProposerBase {
   address internal proposer = address(0x1234567890);
   Fakerollup internal validatorSelection;
 
-  // Skipping this test since the it matches the for now skipped check in `EmpireBase::signal`
-  function skip__test_WhenProposalHoldNoCode() external {
-    // it revert
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__PayloadHaveNoCode.selector, proposal));
-    governanceProposer.signal(proposal);
-  }
-
   modifier whenProposalHoldCode() {
     proposal = IPayload(address(this));
     _;
