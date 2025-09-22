@@ -68,8 +68,7 @@ const std::vector<WycherproofSecp256k1> secp256k1_tests{
         .r = WycherproofSecp256k1::Fr("0xbb5a52f42f9c9261ed4361f59422a1e30036e7c32b270c8807a419feca605023"),
         .s = WycherproofSecp256k1::Fr("0x2492492492492492492492492492492463cfd66a190a6008891e0d81d49a0952"),
         .is_valid_signature = false,
-        .is_circuit_satisfied =
-            false, // When the public key is equal to ±G, the circuit fails because of the generation of lookup tables
+        .is_circuit_satisfied = true,
         .comment = "Point duplication",
     },
     // Edge case public key tests

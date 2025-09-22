@@ -404,6 +404,9 @@ TYPED_TEST(EcdsaTests, OutOfBoundsHash)
 
 TYPED_TEST(EcdsaTests, Infinity)
 {
+    // Disable asserts because native ecdsa verification raises an error if the result of the scalar multiplication is
+    // the point at infinity
+    BB_DISABLE_ASSERTS();
     TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::Infinity);
 }
 

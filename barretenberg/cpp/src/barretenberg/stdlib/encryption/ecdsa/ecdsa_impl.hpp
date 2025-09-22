@@ -62,8 +62,8 @@ void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
         vinfo("The public key is not a point on the elliptic curve. This will produce an unsatisfied circuit.");
     }
 
-    // P != ±G
-    if (public_key.get_value().x == Curve::g1::affine_one.x) {
+    // P != ±G for Secp256r1
+    if ((public_key.get_value().x == Curve::g1::affine_one.x) && (Curve::type == bb::CurveType::SECP256R1)) {
         vinfo(
             "The public key is equal to plus or minus the generator point. This will produce an unsatisfied circuit.");
     }
