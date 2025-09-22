@@ -1625,12 +1625,21 @@ template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint32_t lo_idx,
                                                                      const uint32_t hi_idx,
                                                                      const size_t lo_limb_bits,
-                                                                     const size_t hi_limb_bits)
+                                                                     const size_t hi_limb_bits,
+                                                                     std::string const& msg)
 {
     // Validate limbs are <= 70 bits. If limbs are larger we require more witnesses and cannot use our limb accumulation
     // custom gate
     BB_ASSERT_LTE(lo_limb_bits, 14U * 5U);
     BB_ASSERT_LTE(hi_limb_bits, 14U * 5U);
+
+    // If the value is larger than the range, we raise the error flag
+    if (uint256_t(this->get_variable_reference(lo_idx)) >= (uint256_t(1) << lo_limb_bits)) {
+        this->failure(msg + ": lo limb.");
+    }
+    if (uint256_t(this->get_variable_reference(hi_idx)) >= (uint256_t(1) << hi_limb_bits)) {
+        this->failure(msg + ": hi limb.");
+    }
 
     // Sometimes we try to use limbs that are too large. It's easier to catch this issue here
     const auto get_sublimbs = [&](const uint32_t& limb_idx, const std::array<uint64_t, 5>& sublimb_masks) {

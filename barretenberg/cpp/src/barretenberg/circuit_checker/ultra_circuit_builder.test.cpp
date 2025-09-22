@@ -709,6 +709,7 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplicationRegression)
     builder.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70);
     bool result_b = CircuitChecker::check(builder);
     EXPECT_EQ(result_b, false);
+    EXPECT_EQ(builder.err(), "range_constrain_two_limbs: hi limb.");
 }
 
 /**
