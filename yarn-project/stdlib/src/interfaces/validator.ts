@@ -54,7 +54,6 @@ export const ValidatorClientConfigSchema = z.object({
 
 export interface Validator {
   start(): Promise<void>;
-  registerBlockProposalHandler(): void;
   updateConfig(config: Partial<ValidatorClientFullConfig>): void;
 
   // Block validation responsibilities
