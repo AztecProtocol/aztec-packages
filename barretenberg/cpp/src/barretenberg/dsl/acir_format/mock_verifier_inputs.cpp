@@ -185,7 +185,7 @@ template <typename Flavor>
 std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construct_honk_proof_for_simple_circuit(
     size_t num_inner_public_inputs)
 {
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using InnerProver = bb::UltraProver_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
     using Builder = typename Flavor::CircuitBuilder;
@@ -226,7 +226,7 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
 
     // prove the circuit constructed above
     // Create the decider proving key
-    auto decider_pk = std::make_shared<DeciderProvingKey>(builder);
+    auto decider_pk = std::make_shared<ProverInstance>(builder);
 
     // Construct the Ultra VK
     auto vk = std::make_shared<VerificationKey>(decider_pk->get_precomputed());
