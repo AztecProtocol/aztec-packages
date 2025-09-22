@@ -128,14 +128,19 @@ template <typename Flavor> class SumcheckProverRound {
     {
         for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
             if constexpr (Flavor::USE_SHORT_MONOMIALS) {
+                BB_BENCH_NAME("Reconstruct univariate when USE_SHORT_MONOMIALS");
                 extended_edge = bb::Univariate<FF, 2>({ multivariate[edge_idx], multivariate[edge_idx + 1] });
             } else {
                 if (multivariate.end_index() < edge_idx) {
                     static const auto zero_univariate = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>::zero();
                     extended_edge = zero_univariate;
                 } else {
-                    extended_edge = bb::Univariate<FF, 2>({ multivariate[edge_idx], multivariate[edge_idx + 1] })
-                                        .template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+                    BB_BENCH_NAME("Reconstruct univariate");
+                    bb::Univariate<FF, 2> univariate({ multivariate[edge_idx], multivariate[edge_idx + 1] });
+                    {
+                        BB_BENCH_NAME("extend_to");
+                        extended_edge = univariate.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+                    }
                 }
             }
         }
