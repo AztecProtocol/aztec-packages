@@ -44,6 +44,9 @@ global:
   # -- Use GCP logging
   useGcloudLogging: false
 
+  sponsoredFPC: false
+  testAccounts: false
+
 # -- Use host network - this will disable nodePort service and use host networking instead
 hostNetwork: false
 

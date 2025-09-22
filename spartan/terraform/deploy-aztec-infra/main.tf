@@ -56,6 +56,8 @@ locals {
     "global.customAztecNetwork.feeAssetHandlerContractAddress" = var.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
     "global.customAztecNetwork.l1ChainId"                      = var.L1_CHAIN_ID
     "global.otelCollectorEndpoint"                             = var.OTEL_COLLECTOR_ENDPOINT
+    "global.sponsoredFPC"                                      = var.SPONSORED_FPC
+    "global.testAccounts"                                      = var.TEST_ACCOUNTS
   }
 
   common_list_settings = {
@@ -126,6 +128,8 @@ locals {
         "validator.slash.maxPayloadSize"                    = var.SLASH_MAX_PAYLOAD_SIZE
         "validator.node.env.TRANSACTIONS_DISABLED"          = var.TRANSACTIONS_DISABLED
         "validator.node.env.NETWORK"                        = var.NETWORK
+        "validator.node.env.SEQ_MIN_TX_PER_BLOCK"           = var.SEQ_MIN_TX_PER_BLOCK
+        "validator.node.env.SEQ_MAX_TX_PER_BLOCK"           = var.SEQ_MAX_TX_PER_BLOCK
       }
       boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
