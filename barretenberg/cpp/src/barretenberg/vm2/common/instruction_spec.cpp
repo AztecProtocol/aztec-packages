@@ -686,7 +686,7 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
     { ExecutionOpCode::EMITUNENCRYPTEDLOG,
       { .num_addresses = 2,
         .gas_cost = { .opcode_gas = AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS,
-                      .base_da = 0,
+                      .base_da = AVM_EMITUNENCRYPTEDLOG_BASE_DA_GAS,
                       .dyn_l2 = AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS,
                       .dyn_da = AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS },
         .dyn_gas_id = AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG,
