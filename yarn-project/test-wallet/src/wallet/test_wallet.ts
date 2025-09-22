@@ -7,6 +7,7 @@ import {
   type ContractArtifact,
   type ContractFunctionInteractionCallIntent,
   type IntentInnerHash,
+  type PXE,
   SetPublicAuthwitContractInteraction,
   SignerlessAccount,
   type SimulateMethodOptions,
@@ -18,7 +19,9 @@ import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { CompleteAddress, ContractInstanceWithAddress, PartialAddress } from '@aztec/stdlib/contract';
+import type { PXEInfo } from '@aztec/stdlib/interfaces/client';
+import type { NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import type { TxSimulationResult } from '@aztec/stdlib/tx';
 
 /**
@@ -175,5 +178,31 @@ export abstract class BaseTestWallet extends BaseWallet {
       };
       return this.pxe.simulateTx(txRequest, true /* simulatePublic */, true, true, { contracts: contractOverrides });
     }
+  }
+
+  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
+  registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
+    return this.pxe.registerAccount(secretKey, partialAddress);
+  }
+
+  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
+  getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
+    return this.pxe.getNotes(filter);
+  }
+
+  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
+  // Temporary hack to be able to instantiate TestWalletInternals
+  getPxe(): PXE {
+    return this.pxe;
+  }
+
+  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
+  getPXEInfo(): Promise<PXEInfo> {
+    return this.pxe.getPXEInfo();
+  }
+
+  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
+  getContracts(): Promise<AztecAddress[]> {
+    return this.pxe.getContracts();
   }
 }

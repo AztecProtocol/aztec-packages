@@ -4,28 +4,26 @@ import {
   type DeployOptions,
   Fr,
   type Logger,
-  type PXE,
   TxStatus,
-  type Wallet,
   getContractInstanceFromInstantiationParams,
 } from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { DeployTest } from './deploy_test.js';
 
 describe('e2e_deploy_contract legacy', () => {
   const t = new DeployTest('legacy');
 
-  let pxe: PXE;
   let logger: Logger;
-  let wallet: Wallet;
+  let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
 
   beforeAll(async () => {
-    ({ pxe, logger, wallet, defaultAccountAddress } = await t.setup());
+    ({ logger, wallet, defaultAccountAddress } = await t.setup());
   });
 
   afterAll(() => t.teardown());
@@ -46,8 +44,8 @@ describe('e2e_deploy_contract legacy', () => {
       .send({ from: defaultAccountAddress, contractAddressSalt: salt })
       .wait({ wallet });
     expect(receipt.contract.address).toEqual(deploymentData.address);
-    expect((await pxe.getContractMetadata(deploymentData.address)).contractInstance).toBeDefined();
-    expect((await pxe.getContractMetadata(deploymentData.address)).isContractPublished).toBeTrue();
+    expect((await wallet.getContractMetadata(deploymentData.address)).contractInstance).toBeDefined();
+    expect((await wallet.getContractMetadata(deploymentData.address)).isContractPublished).toBeTrue();
   });
 
   /**
@@ -130,7 +128,7 @@ describe('e2e_deploy_contract legacy', () => {
 
     expect(badTxReceipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
 
-    const { isContractClassPubliclyRegistered } = await pxe.getContractClassMetadata(
+    const { isContractClassPubliclyRegistered } = await wallet.getContractClassMetadata(
       (await badDeploy.getInstance()).currentContractClassId,
     );
     // But the bad tx did not deploy

@@ -2,7 +2,8 @@ import { AztecAddress, Fr, SentTx, TxReceipt, type Wallet } from '@aztec/aztec.j
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { AztecNode, AztecNodeAdmin, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { BaseBot } from './base_bot.js';
 import type { BotConfig } from './config.js';
@@ -28,13 +29,17 @@ export class AmmBot extends BaseBot {
 
   static async create(
     config: BotConfig,
-    dependencies: { pxe?: PXE; node?: AztecNode; nodeAdmin?: AztecNodeAdmin },
+    wallet: TestWallet,
+    aztecNode: AztecNode,
+    aztecNodeAdmin: AztecNodeAdmin | undefined,
   ): Promise<AmmBot> {
-    const { node, wallet, defaultAccountAddress, token0, token1, amm } = await new BotFactory(
+    const { defaultAccountAddress, token0, token1, amm } = await new BotFactory(
       config,
-      dependencies,
+      wallet,
+      aztecNode,
+      aztecNodeAdmin,
     ).setupAmm();
-    return new AmmBot(node, wallet, defaultAccountAddress, amm, token0, token1, config);
+    return new AmmBot(aztecNode, wallet, defaultAccountAddress, amm, token0, token1, config);
   }
 
   protected async createAndSendTx(logCtx: object): Promise<SentTx> {

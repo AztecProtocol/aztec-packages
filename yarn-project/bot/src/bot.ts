@@ -2,7 +2,8 @@ import { type AztecAddress, BatchCall, SentTx, type Wallet } from '@aztec/aztec.
 import { times } from '@aztec/foundation/collection';
 import type { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { AztecNode, AztecNodeAdmin, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { BaseBot } from './base_bot.js';
 import type { BotConfig } from './config.js';
@@ -25,13 +26,17 @@ export class Bot extends BaseBot {
 
   static async create(
     config: BotConfig,
-    dependencies: { pxe?: PXE; node?: AztecNode; nodeAdmin?: AztecNodeAdmin },
+    wallet: TestWallet,
+    aztecNode: AztecNode,
+    aztecNodeAdmin?: AztecNodeAdmin,
   ): Promise<Bot> {
-    const { node, wallet, defaultAccountAddress, token, recipient } = await new BotFactory(
+    const { defaultAccountAddress, token, recipient } = await new BotFactory(
       config,
-      dependencies,
+      wallet,
+      aztecNode,
+      aztecNodeAdmin,
     ).setup();
-    return new Bot(node, wallet, defaultAccountAddress, token, recipient, config);
+    return new Bot(aztecNode, wallet, defaultAccountAddress, token, recipient, config);
   }
 
   public updateConfig(config: Partial<BotConfig>) {

@@ -58,7 +58,7 @@ describe('e2e_sandbox_example', () => {
     // docs:start:load_accounts
     ////////////// LOAD SOME ACCOUNTS FROM THE SANDBOX //////////////
     // The sandbox comes with a set of created accounts. Load them
-    const [aliceAccount, bobAccount] = await getDeployedTestAccounts(pxe);
+    const [aliceAccount, bobAccount] = await getDeployedTestAccounts(wallet);
     await wallet.createSchnorrAccount(aliceAccount.secret, aliceAccount.salt);
     await wallet.createSchnorrAccount(bobAccount.secret, bobAccount.salt);
 
@@ -77,7 +77,7 @@ describe('e2e_sandbox_example', () => {
     // docs:end:Deployment
 
     // ensure that token contract is registered in PXE
-    expect(await pxe.getContracts()).toEqual(expect.arrayContaining([tokenContract.address]));
+    expect(await wallet.getContracts()).toEqual(expect.arrayContaining([tokenContract.address]));
 
     // docs:start:Balance
 
@@ -148,8 +148,8 @@ describe('e2e_sandbox_example', () => {
     ////////////// CREATE SOME ACCOUNTS WITH SCHNORR SIGNERS //////////////
 
     // Use one of the pre-funded accounts to pay for the deployments.
-    const [fundedAccount] = await getDeployedTestAccounts(pxe);
     const wallet = new TestWallet(pxe, node);
+    const [fundedAccount] = await getDeployedTestAccounts(wallet);
     await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
 
     // Creates new accounts using an account contract that verifies schnorr signatures
@@ -177,7 +177,7 @@ describe('e2e_sandbox_example', () => {
     const [alice, bob] = (await Promise.all(accounts.map(a => a.getCompleteAddress()))).map(a => a.address);
 
     ////////////// VERIFY THE ACCOUNTS WERE CREATED SUCCESSFULLY //////////////
-    const registeredAccounts = (await pxe.getRegisteredAccounts()).map(x => x.address);
+    const registeredAccounts = (await wallet.getAccounts()).map(x => x.item);
     for (const [account, name] of [
       [alice, 'Alice'],
       [bob, 'Bob'],
@@ -195,14 +195,14 @@ describe('e2e_sandbox_example', () => {
     expect(registeredAccounts.find(acc => acc.equals(bob))).toBeTruthy();
 
     ////////////// FUND A NEW ACCOUNT WITH BANANA COIN //////////////
-    const bananaCoinAddress = await getDeployedBananaCoinAddress(pxe);
+    const bananaCoinAddress = await getDeployedBananaCoinAddress(wallet);
     const bananaCoin = await TokenContract.at(bananaCoinAddress, wallet);
     const mintAmount = 10n ** 20n;
     await bananaCoin.methods.mint_to_private(alice, mintAmount).send({ from: fundedAccount.address }).wait();
 
     ////////////// USE A NEW ACCOUNT TO SEND A TX AND PAY WITH BANANA COIN //////////////
     const amountTransferToBob = 100n;
-    const bananaFPCAddress = await getDeployedBananaFPCAddress(pxe);
+    const bananaFPCAddress = await getDeployedBananaFPCAddress(wallet);
     const paymentMethod = new PrivateFeePaymentMethod(bananaFPCAddress, alice, wallet);
     const receiptForAlice = await bananaCoin.methods
       .transfer(bob, amountTransferToBob)
@@ -223,7 +223,7 @@ describe('e2e_sandbox_example', () => {
     ////////////// USE A NEW ACCOUNT TO SEND A TX AND PAY VIA SPONSORED FPC //////////////
     const amountTransferToAlice = 48n;
 
-    const sponsoredFPC = await getDeployedSponsoredFPCAddress(pxe);
+    const sponsoredFPC = await getDeployedSponsoredFPCAddress(wallet);
     const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC);
     // The payment method can also be initialized as follows:
     // const sponsoredPaymentMethod = await SponsoredFeePaymentMethod.new(pxe);

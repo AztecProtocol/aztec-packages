@@ -43,7 +43,8 @@ const setupSandbox = async () => {
   const pxe = await createPXEClient(PXE_URL);
   await waitForPXE(pxe);
   const node = createAztecNodeClient(AZTEC_NODE_URL);
-  return { pxe, node };
+  const wallet = new TestWallet(pxe, node);
+  return { node, wallet };
 };
 
 async function deployTestERC20(): Promise<EthAddress> {
@@ -79,9 +80,8 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
   it('Deploys tokens & bridges to L1 & L2, mints & publicly bridges tokens', async () => {
     // docs:start:setup
     const logger = createLogger('aztec:token-bridge-tutorial');
-    const { pxe, node } = await setupSandbox();
-    const wallet = new TestWallet(pxe, node);
-    const [ownerAccount] = await getDeployedTestAccounts(pxe);
+    const { wallet, node } = await setupSandbox();
+    const [ownerAccount] = await getDeployedTestAccounts(wallet);
     await wallet.createSchnorrAccount(ownerAccount.secret, ownerAccount.salt, ownerAccount.signingKey);
     const { address: ownerAztecAddress } = ownerAccount;
     const l1ContractAddresses = (await node.getNodeInfo()).l1ContractAddresses;

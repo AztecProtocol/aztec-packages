@@ -1,17 +1,18 @@
 // CREATE_CHAOS_MESH should be set to true to run this test
-import { type AztecNode, type PXE, createAztecNodeClient, sleep } from '@aztec/aztec.js';
+import { type AztecNode, sleep } from '@aztec/aztec.js';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
+import { TestWallet } from '@aztec/test-wallet';
 
 import { expect, jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
 import {
   type TestAccounts,
+  createWalletAndAztecNodeClient,
   deploySponsoredTestAccounts,
   performTransfers,
-  startCompatiblePXE,
 } from './setup_test_wallets.js';
 import { applyProverFailure, setupEnvironment, startPortForwardForEthereum, startPortForwardForRPC } from './utils.js';
 
@@ -43,10 +44,9 @@ describe('reorg test', () => {
   let ETHEREUM_HOSTS: string[];
   const forwardProcesses: ChildProcess[] = [];
   let rpcUrl: string;
-
+  let wallet: TestWallet;
   let testAccounts: TestAccounts;
-  let pxe: PXE;
-  let node: AztecNode;
+  let aztecNode: AztecNode;
   let cleanup: undefined | (() => Promise<void>);
 
   afterAll(async () => {
@@ -63,9 +63,8 @@ describe('reorg test', () => {
     rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
     ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
 
-    node = createAztecNodeClient(rpcUrl);
-    ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, debugLogger));
-    testAccounts = await deploySponsoredTestAccounts(pxe, node, MINT_AMOUNT, debugLogger);
+    ({ wallet, aztecNode, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, debugLogger));
+    testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, debugLogger);
   });
 
   it('survives a reorg', async () => {
@@ -107,9 +106,10 @@ describe('reorg test', () => {
     await sleep(30 * 1000);
 
     // Restart the PXE
-    ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, debugLogger));
+    ({ wallet, aztecNode, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, debugLogger));
+
     await sleep(30 * 1000);
-    testAccounts = await deploySponsoredTestAccounts(pxe, node, MINT_AMOUNT, debugLogger);
+    testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, debugLogger);
     // TODO(#9327): end delete
 
     await performTransfers({

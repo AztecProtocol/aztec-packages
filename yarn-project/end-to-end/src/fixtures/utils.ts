@@ -8,7 +8,6 @@ import {
   BatchCall,
   type ContractMethod,
   type Logger,
-  type PXE,
   type Wallet,
   createAztecNodeClient,
   createLogger,
@@ -57,12 +56,7 @@ import type { P2PClientDeps } from '@aztec/p2p';
 import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
-import {
-  type PXEService,
-  type PXEServiceConfig,
-  createPXEServiceWithSimulator,
-  getPXEServiceConfig,
-} from '@aztec/pxe/server';
+import { type PXEServiceConfig, createPXEServiceWithSimulator, getPXEServiceConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import { MemoryCircuitRecorder, SimulatorRecorderWrapper, WASMSimulator } from '@aztec/simulator/client';
@@ -148,23 +142,23 @@ export const setupL1Contracts = async (
 };
 
 /**
- * Sets up Private eXecution Environment (PXE).
+ * Sets up Private eXecution Environment (PXE) and returns the corresponding test wallet.
  * @param aztecNode - An instance of Aztec Node.
  * @param opts - Partial configuration for the PXE service.
  * @param logger - The logger to be used.
  * @param useLogSuffix - Whether to add a randomly generated suffix to the PXE debug logs.
- * @returns Private eXecution Environment (PXE), logger and teardown function.
+ * @returns A test wallet, logger and teardown function.
  */
-export async function setupPXEService(
+export async function setupPXEServiceAndGetWallet(
   aztecNode: AztecNode,
   opts: Partial<PXEServiceConfig> = {},
   logger = getLogger(),
   useLogSuffix = false,
 ): Promise<{
   /**
-   * The PXE instance.
+   * The wallet instance.
    */
-  pxe: PXEService;
+  wallet: TestWallet;
   /**
    * Logger instance named as the current test.
    */
@@ -195,8 +189,10 @@ export async function setupPXEService(
 
   const teardown = configuredDataDirectory ? () => Promise.resolve() : () => tryRmDir(pxeServiceConfig.dataDirectory!);
 
+  const wallet = new TestWallet(pxe, aztecNode);
+
   return {
-    pxe,
+    wallet,
     logger,
     teardown,
   };
@@ -236,12 +232,12 @@ async function setupWithRemoteEnvironment(
     rollupVersion,
   };
   const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls);
-  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxeClient!, aztecNode);
+  const wallet = new TestWallet(pxeClient, aztecNode);
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, wallet, aztecNode);
   const teardown = () => Promise.resolve();
 
   logger.verbose('Populating wallet from already registered accounts...');
-  const initialFundedAccounts = await getDeployedTestAccounts(pxeClient);
-  const wallet = new TestWallet(pxeClient, aztecNode);
+  const initialFundedAccounts = await getDeployedTestAccounts(wallet);
 
   if (initialFundedAccounts.length < numberOfAccounts) {
     throw new Error(`Required ${numberOfAccounts} accounts. Found ${initialFundedAccounts.length}.`);
@@ -260,7 +256,6 @@ async function setupWithRemoteEnvironment(
     aztecNodeAdmin: undefined,
     sequencer: undefined,
     proverNode: undefined,
-    pxe: pxeClient,
     deployL1ContractsValues,
     config,
     initialFundedAccounts,
@@ -337,8 +332,6 @@ export type EndToEndContext = {
   proverNode: ProverNode | undefined;
   /** A client to the sequencer service (undefined if connected to remote environment) */
   sequencer: SequencerClient | undefined;
-  /** The Private eXecution Environment (PXE). */
-  pxe: PXE;
   /** Return values from deployL1Contracts function. */
   deployL1ContractsValues: DeployL1ContractsReturnType;
   /** The Aztec Node configuration. */
@@ -655,9 +648,9 @@ export async function setup(
     }
 
     logger.verbose('Creating a pxe...');
-    const { pxe, teardown: pxeTeardown } = await setupPXEService(aztecNode!, pxeOpts, logger);
+    const { wallet, teardown: pxeTeardown } = await setupPXEServiceAndGetWallet(aztecNode!, pxeOpts, logger);
 
-    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxe!, aztecNode);
+    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, wallet, aztecNode);
 
     if (
       (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
@@ -670,7 +663,6 @@ export async function setup(
       await cheatCodes.rollup.setupEpoch();
       await cheatCodes.rollup.debugRollup();
     }
-    const wallet = new TestWallet(pxe, aztecNode);
     let accounts: AztecAddress[] = [];
     // Below we continue with what we described in the long comment on line 571.
     if (numberOfAccounts === 0) {
@@ -736,7 +728,6 @@ export async function setup(
       mockGossipSubNetwork,
       prefilledPublicData,
       proverNode,
-      pxe,
       sequencer: sequencerClient,
       teardown,
       telemetryClient: telemetry,
@@ -866,7 +857,7 @@ export async function expectMappingDelta<K, V extends number | bigint>(
 }
 
 /**
- * Computes the address of the "canonical" SponosoredFPCContract. This is not a protocol contract
+ * Computes the address of the "canonical" SponsoredFPCContract. This is not a protocol contract
  * but by conventions its address is computed with a salt of 0.
  * @returns The address of the sponsored FPC contract
  */
@@ -879,7 +870,7 @@ export function getSponsoredFPCInstance(): Promise<ContractInstanceWithAddress> 
 }
 
 /**
- * Computes the address of the "canonical" SponosoredFPCContract. This is not a protocol contract
+ * Computes the address of the "canonical" SponsoredFPCContract. This is not a protocol contract
  * but by conventions its address is computed with a salt of 0.
  * @returns The address of the sponsored FPC contract
  */
@@ -891,22 +882,22 @@ export async function getSponsoredFPCAddress() {
 /**
  * Deploy a sponsored FPC contract to a running instance.
  */
-export async function setupSponsoredFPC(pxe: PXE) {
+export async function setupSponsoredFPC(wallet: Wallet) {
   const instance = await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
     salt: new Fr(SPONSORED_FPC_SALT),
   });
 
-  await pxe.registerContract({ instance, artifact: SponsoredFPCContract.artifact });
+  await wallet.registerContract({ instance, artifact: SponsoredFPCContract.artifact });
   getLogger().info(`SponsoredFPC: ${instance.address}`);
   return instance;
 }
 
 /**
  * Registers the SponsoredFPC in this PXE instance
- * @param pxe - The pxe client
+ * @param wallet - The wallet
  */
-export async function registerSponsoredFPC(pxe: PXE | Wallet): Promise<void> {
-  await pxe.registerContract({ instance: await getSponsoredFPCInstance(), artifact: SponsoredFPCContract.artifact });
+export async function registerSponsoredFPC(wallet: Wallet): Promise<void> {
+  await wallet.registerContract({ instance: await getSponsoredFPCInstance(), artifact: SponsoredFPCContract.artifact });
 }
 
 export async function waitForProvenChain(node: AztecNode, targetBlock?: number, timeoutSec = 60, intervalSec = 1) {
