@@ -1251,9 +1251,14 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
 
+            // Get unreduced inputs
             auto [a_native, a_ct] = get_random_witness(&builder); // fq_native, fq_ct
             auto [b_native, b_ct] = get_random_witness(&builder); // fq_native, fq_ct
 
+            // Get a reduced input
+            auto [d_native, d_ct] = get_random_witness(&builder, true); // fq_native, fq_ct
+
+            // c_ct will be unreduced while performing operations
             fq_ct c_ct = a_ct;
             fq_native expected = a_native;
             for (size_t i = 0; i < 16; ++i) {
@@ -1262,10 +1267,18 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             }
 
             c_ct.set_origin_tag(challenge_origin_tag);
+
+            // We need to reduce before calling assert_is_in_field
+            c_ct.self_reduce();
             c_ct.assert_is_in_field();
+
+            // We can directly call assert_is_in_field on a reduced element
+            d_ct.set_origin_tag(challenge_origin_tag);
+            d_ct.assert_is_in_field();
 
             // assert_is_in_field preserves tags
             EXPECT_EQ(c_ct.get_origin_tag(), challenge_origin_tag);
+            EXPECT_EQ(d_ct.get_origin_tag(), challenge_origin_tag);
 
             uint256_t result = (c_ct.get_value().lo);
             EXPECT_EQ(result, uint256_t(expected));
@@ -1273,6 +1286,38 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         }
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
+    }
+
+    static void test_assert_is_in_field_fails()
+    {
+        auto builder = Builder();
+        size_t num_repetitions = 10;
+        fq_ct c_ct = fq_ct::zero();
+        fq_native expected = fq_native::zero();
+        for (size_t i = 0; i < num_repetitions; ++i) {
+
+            auto [a_native, a_ct] = get_random_witness(&builder); // fq_native, fq_ct
+            auto [b_native, b_ct] = get_random_witness(&builder); // fq_native, fq_ct
+
+            for (size_t i = 0; i < 16; ++i) {
+                c_ct += a_ct * b_ct;
+                expected += a_native * b_native;
+            }
+        }
+
+        // Ensure that c has exceeded p (as mul and add have been performed without reduction so far)
+        EXPECT_EQ(c_ct.get_value() >= fq_ct::modulus, true);
+
+        // this will fail because mult and add have been performed without reduction
+        c_ct.assert_is_in_field();
+
+        // results must match (reduction called after assert_is_in_field)
+        c_ct.self_reduce();
+        uint256_t result_val = c_ct.get_value().lo;
+        EXPECT_EQ(result_val, uint256_t(expected));
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, false);
     }
 
     static void test_assert_less_than_success()
@@ -1283,37 +1328,106 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         constexpr uint256_t bit_mask = (uint256_t(1) << num_bits) - 1;
         for (size_t i = 0; i < num_repetitions; ++i) {
 
-            uint256_t a_u256 = uint256_t(fq_native::random_element()) && bit_mask;
-            uint256_t b_u256 = uint256_t(fq_native::random_element()) && bit_mask;
+            uint256_t a_u256 = uint256_t(fq_native::random_element()) & bit_mask;
+            uint256_t b_u256 = uint256_t(fq_native::random_element()) & bit_mask;
 
+            // Construct 200-bit bigfield elements
             fq_ct a_ct(witness_ct(&builder, fr(a_u256.slice(0, fq_ct::NUM_LIMB_BITS * 2))),
                        witness_ct(&builder, fr(a_u256.slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
             fq_ct b_ct(witness_ct(&builder, fr(b_u256.slice(0, fq_ct::NUM_LIMB_BITS * 2))),
                        witness_ct(&builder, fr(b_u256.slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
 
-            fq_ct c_ct = a_ct;
-            fq_native expected = fq_native(a_u256);
-            for (size_t i = 0; i < 16; ++i) {
-                c_ct = b_ct * b_ct + c_ct;
-                expected = fq_native(b_u256) * fq_native(b_u256) + expected;
-            }
-
-            c_ct.assert_less_than(bit_mask + 1);
-            uint256_t result = (c_ct.get_value().lo);
-            EXPECT_EQ(result, uint256_t(expected));
-            EXPECT_EQ(c_ct.get_value().get_msb() < num_bits, true);
+            // Assert a, b < 2^200
+            a_ct.assert_less_than(bit_mask + 1);
+            b_ct.assert_less_than(bit_mask + 1);
+            EXPECT_EQ(a_ct.get_value().get_msb() < num_bits, true);
+            EXPECT_EQ(b_ct.get_value().get_msb() < num_bits, true);
         }
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
+    }
 
-        // Checking edge conditions
-        auto [random_input, a_ct] = get_random_witness(&builder);
+    static void test_assert_less_than_fails()
+    {
+        auto builder = Builder();
+        size_t num_repetitions = 10;
+        constexpr size_t num_bits = 200;
+        constexpr uint256_t bit_mask = (uint256_t(1) << num_bits) - 1;
 
-        a_ct.assert_less_than(random_input + 1);
-        EXPECT_EQ(CircuitChecker::check(builder), true);
+        fq_ct c_ct = fq_ct::zero();
+        fq_native expected = fq_native::zero();
+        for (size_t i = 0; i < num_repetitions; ++i) {
 
-        a_ct.assert_less_than(random_input);
-        EXPECT_EQ(CircuitChecker::check(builder), false);
+            uint256_t a_u256 = uint256_t(fq_native::random_element()) & bit_mask;
+            uint256_t b_u256 = uint256_t(fq_native::random_element()) & bit_mask;
+
+            // Construct 200-bit bigfield elements
+            fq_ct a_ct(witness_ct(&builder, fr(a_u256.slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                       witness_ct(&builder, fr(a_u256.slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+            fq_ct b_ct(witness_ct(&builder, fr(b_u256.slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                       witness_ct(&builder, fr(b_u256.slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+
+            // Mul and add without reduction to exceed 200 bits
+            for (size_t i = 0; i < 16; ++i) {
+                c_ct += a_ct * b_ct;
+                expected += fq_native(a_u256) * fq_native(b_u256);
+            }
+        }
+
+        // Ensure that c has exceeded 200 bits
+        EXPECT_EQ(c_ct.get_value().get_msb() >= num_bits, true);
+
+        // check that assert_less_than fails
+        c_ct.assert_less_than(bit_mask + 1);
+
+        // results must match (reduction called after assert_is_in_field)
+        c_ct.self_reduce();
+        uint256_t result_val = c_ct.get_value().lo;
+        EXPECT_EQ(result_val, uint256_t(expected));
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, false);
+    }
+
+    static void test_reduce_mod_target_modulus()
+    {
+        auto builder = Builder();
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+
+            // Get unreduced inputs
+            auto [a_native, a_ct] = get_random_witness(&builder); // fq_native, fq_ct
+            auto [b_native, b_ct] = get_random_witness(&builder); // fq_native, fq_ct
+
+            // c_ct will be unreduced while performing operations
+            fq_ct c_ct = a_ct;
+            fq_native expected = a_native;
+            for (size_t i = 0; i < 16; ++i) {
+                c_ct = b_ct * b_ct + c_ct;
+                expected = b_native * b_native + expected;
+            }
+
+            c_ct.set_origin_tag(challenge_origin_tag);
+
+            // reduce c to [0, p)
+            // count gates for the last iteration only
+            if (i == num_repetitions - 1) {
+                BENCH_GATE_COUNT_START(builder, "REDUCE_MOD_P");
+                c_ct.reduce_mod_target_modulus();
+                BENCH_GATE_COUNT_END(builder, "REDUCE_MOD_P");
+            } else {
+                c_ct.reduce_mod_target_modulus();
+            }
+
+            // reduce_mod_target_modulus preserves tags
+            EXPECT_EQ(c_ct.get_origin_tag(), challenge_origin_tag);
+
+            uint256_t result = (c_ct.get_value().lo);
+            EXPECT_EQ(result, uint256_t(expected));
+            EXPECT_EQ(c_ct.get_value() < fq_ct::modulus, true);
+        }
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
     }
 
     static void test_byte_array_constructors()
@@ -1525,6 +1639,108 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
 
         bool check_result = CircuitChecker::check(builder);
         EXPECT_EQ(check_result, true);
+    }
+
+    static void test_unsafe_assert_less_than()
+    {
+        auto builder = Builder();
+        size_t num_repetitions = 10;
+        constexpr size_t num_bits = 200;
+        constexpr uint256_t bit_mask = (uint256_t(1) << num_bits) - 1;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+
+            uint256_t a_u256 = uint256_t(fq_native::random_element()) & bit_mask;
+            uint256_t b_u256 = uint256_t(fq_native::random_element()) & bit_mask;
+
+            // Construct 200-bit bigfield elements
+            fq_ct a_ct(witness_ct(&builder, fr(a_u256.slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                       witness_ct(&builder, fr(a_u256.slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+            fq_ct b_ct(witness_ct(&builder, fr(b_u256.slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                       witness_ct(&builder, fr(b_u256.slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+
+            // Assert a, b < 2^200
+            stdlib::bigfield_test_access::unsafe_assert_less_than(a_ct, bit_mask + 1);
+            stdlib::bigfield_test_access::unsafe_assert_less_than(b_ct, bit_mask + 1);
+            EXPECT_EQ(a_ct.get_value().get_msb() < num_bits, true);
+            EXPECT_EQ(b_ct.get_value().get_msb() < num_bits, true);
+        }
+
+        // Also test when: p < a < bound
+        // define a = p + small_random_value
+        uint256_t small_mask = (uint256_t(1) << 16) - 1;
+        uint256_t a_u256 = uint256_t(fq_native::random_element()) & small_mask;
+        a_u256 += uint256_t(fq_native::modulus);
+
+        // upper bound must be greater than p + 2^16: we set it to p + 2^30
+        uint256_t upper_bound = (uint256_t(1) << 30) + uint256_t(fq_native::modulus);
+
+        // Construct bigfield element
+        fq_ct a_ct(witness_ct(&builder, fr(a_u256.slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                   witness_ct(&builder, fr(a_u256.slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))),
+                   /*can_overflow*/ true);
+
+        // Assert a < bound
+        stdlib::bigfield_test_access::unsafe_assert_less_than(a_ct, upper_bound);
+        EXPECT_EQ(a_ct.get_value() > uint512_t(fq_native::modulus), true);
+
+        // Combined circuit should pass
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
+    static void test_unsafe_assert_less_than_fails()
+    {
+        {
+            // Test a case when the value is exactly equal to the limit
+            auto builder = Builder();
+            constexpr size_t num_bits = 200;
+            constexpr uint256_t bit_mask = (uint256_t(1) << num_bits) - 1;
+            fq_ct a_ct(witness_ct(&builder, fr(bit_mask.slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                       witness_ct(&builder, fr(bit_mask.slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+
+            // check that unsafe_assert_less_than fails when we try to check a < a.
+            stdlib::bigfield_test_access::unsafe_assert_less_than(a_ct, a_ct.get_value().lo);
+
+            bool result = CircuitChecker::check(builder);
+            EXPECT_EQ(result, false);
+        }
+        {
+            // Test a case when the value is (B + 2) but the bound is B.
+            auto builder = Builder();
+            constexpr size_t num_bits = 200;
+            constexpr uint256_t bit_mask = (uint256_t(1) << num_bits) - 1;
+            const uint256_t upper_bound = uint256_t(fq_native::random_element()) & bit_mask;
+            const uint256_t a_value = upper_bound + uint256_t(2);
+            fq_ct a_ct(witness_ct(&builder, fr(a_value.slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                       witness_ct(&builder, fr(a_value.slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+
+            // check that unsafe_assert_less_than fails when we try to check (B + 2) < B.
+            stdlib::bigfield_test_access::unsafe_assert_less_than(a_ct, upper_bound);
+
+            bool result = CircuitChecker::check(builder);
+            EXPECT_EQ(result, false);
+        }
+        {
+            // Test a case when p < bound < a
+            auto builder = Builder();
+            uint256_t small_mask = (uint256_t(1) << 32) - 1;
+            uint256_t a_u256 = uint256_t(fq_native::random_element()) & small_mask;
+            a_u256 += uint256_t(fq_native::modulus);
+
+            // upper bound must be greater than p but smaller than a
+            uint256_t upper_bound = uint256_t(fq_native::modulus) + uint256_t(1);
+
+            // Construct bigfield element
+            fq_ct a_ct(witness_ct(&builder, fr(a_u256.slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                       witness_ct(&builder, fr(a_u256.slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))),
+                       /*can_overflow*/ true);
+
+            // check that unsafe_assert_less_than fails when we try to check a < bound.
+            stdlib::bigfield_test_access::unsafe_assert_less_than(a_ct, upper_bound);
+
+            bool result = CircuitChecker::check(builder);
+            EXPECT_EQ(result, false);
+        }
     }
 
     static void test_unsafe_evaluate_multiply_add()
@@ -2178,6 +2394,14 @@ TYPED_TEST(stdlib_bigfield, equality_with_constants)
     TestFixture::test_equality_operator(InputType::CONSTANT, InputType::CONSTANT); // c == c
 }
 
+TYPED_TEST(stdlib_bigfield, unsafe_assert_less_than)
+{
+    TestFixture::test_unsafe_assert_less_than();
+}
+TYPED_TEST(stdlib_bigfield, unsafe_assert_less_than_fails)
+{
+    TestFixture::test_unsafe_assert_less_than_fails();
+}
 TYPED_TEST(stdlib_bigfield, unsafe_evaluate_multiply_add)
 {
     TestFixture::test_unsafe_evaluate_multiply_add();
@@ -2199,9 +2423,21 @@ TYPED_TEST(stdlib_bigfield, assert_is_in_field_success)
 {
     TestFixture::test_assert_is_in_field_success();
 }
+TYPED_TEST(stdlib_bigfield, assert_is_in_field_fails)
+{
+    TestFixture::test_assert_is_in_field_fails();
+}
 TYPED_TEST(stdlib_bigfield, assert_less_than_success)
 {
     TestFixture::test_assert_less_than_success();
+}
+TYPED_TEST(stdlib_bigfield, assert_less_than_fails)
+{
+    TestFixture::test_assert_less_than_fails();
+}
+TYPED_TEST(stdlib_bigfield, reduce_mod_target_modulus)
+{
+    TestFixture::test_reduce_mod_target_modulus();
 }
 TYPED_TEST(stdlib_bigfield, byte_array_constructors)
 {
