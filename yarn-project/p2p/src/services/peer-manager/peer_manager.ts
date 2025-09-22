@@ -883,7 +883,7 @@ export class PeerManager implements PeerManagerInterface {
       const response = await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.AUTH, authRequest.toBuffer());
       const { status } = response;
       if (status !== ReqRespStatus.SUCCESS) {
-        this.logger.verbose(`Disconnecting peer ${peerId} who failed to respond auth handshake`, {
+        this.logger.debug(`Disconnecting peer ${peerId} who failed to respond auth handshake`, {
           peerId,
           status: ReqRespStatus[status],
         });
@@ -899,7 +899,7 @@ export class PeerManager implements PeerManagerInterface {
 
       const peerStatusMessage = peerAuthResponse.status;
       if (!ourStatus.validate(peerStatusMessage)) {
-        this.logger.verbose(`Disconnecting peer ${peerId} due to failed status handshake as part of auth.`, logData);
+        this.logger.debug(`Disconnecting peer ${peerId} due to failed status handshake as part of auth.`, logData);
         this.markAuthHandshakeFailed(peerId);
         this.markPeerForDisconnect(peerId);
         return;
@@ -911,9 +911,12 @@ export class PeerManager implements PeerManagerInterface {
       const registeredValidators = await this.epochCache.getRegisteredValidators();
       const found = registeredValidators.find(v => v.toString() === sender.toString()) !== undefined;
       if (!found) {
-        this.logger.verbose(
+        this.logger.debug(
           `Disconnecting peer ${peerId} due to failed auth handshake, peer is not a registered validator.`,
-          { ...logData, address: sender.toString() },
+          {
+            peerId,
+            address: sender.toString(),
+          },
         );
         this.markAuthHandshakeFailed(peerId);
         this.markPeerForDisconnect(peerId);
@@ -923,9 +926,8 @@ export class PeerManager implements PeerManagerInterface {
       // Check to see that this validator address isn't already allocated to a different peer
       const peerForAddress = this.authenticatedValidatorAddressToPeerId.get(sender.toString());
       if (peerForAddress !== undefined && peerForAddress.toString() !== peerIdString) {
-        this.logger.verbose(
+        this.logger.debug(
           `Received auth for validator ${sender.toString()} from peer ${peerIdString}, but this validator is already authenticated to peer ${peerForAddress.toString()}`,
-          { ...logData, address: sender.toString() },
         );
         return;
       }
@@ -935,13 +937,12 @@ export class PeerManager implements PeerManagerInterface {
       this.authenticatedValidatorAddressToPeerId.set(sender.toString(), peerId);
       this.logger.info(
         `Successfully completed auth handshake with peer ${peerId}, validator address ${sender.toString()}`,
-        { ...logData, address: sender.toString() },
+        logData,
       );
     } catch (err: any) {
       //TODO: maybe hard ban these peers in the future
-      this.logger.verbose(`Disconnecting peer ${peerId} due to error during auth handshake: ${err.message}`, {
+      this.logger.debug(`Disconnecting peer ${peerId} due to error during auth handshake: ${err.message ?? err}`, {
         peerId,
-        err,
       });
       this.markAuthHandshakeFailed(peerId);
       this.markPeerForDisconnect(peerId);
