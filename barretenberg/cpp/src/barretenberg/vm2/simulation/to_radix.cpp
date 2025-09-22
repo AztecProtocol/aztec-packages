@@ -13,14 +13,15 @@ namespace bb::avm2::simulation {
 
 std::vector<uint8_t> ToRadix::to_le_radix(const FF& value, uint32_t num_limbs, uint32_t radix)
 {
-    uint256_t value_integer = static_cast<uint256_t>(value);
-    auto limbs = std::vector<uint8_t>();
-    size_t radix_index = static_cast<size_t>(radix);
-    limbs.reserve(std::max(num_limbs, static_cast<uint32_t>(get_p_limbs_per_radix()[radix_index].size())));
+    std::vector<uint8_t> limbs;
+    uint32_t num_p_limbs = static_cast<uint32_t>(get_p_limbs_per_radix_size(radix));
+    limbs.reserve(std::max(num_limbs, num_p_limbs));
 
-    while (value_integer > 0) {
-        limbs.push_back(static_cast<uint8_t>(value_integer % radix));
-        value_integer /= radix;
+    uint256_t value_integer = static_cast<uint256_t>(value);
+    while (value_integer != 0) {
+        auto [quotient, remainder] = value_integer.divmod(radix);
+        limbs.push_back(static_cast<uint8_t>(remainder));
+        value_integer = quotient;
     }
 
     if (num_limbs > limbs.size()) {
