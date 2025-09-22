@@ -65,7 +65,7 @@ contract ExecuteTest is GovernanceBase {
   {
     // it revert
     _stateExecutable("empty", _voter, _totalPower, _votesCast, _yeas);
-    assertTrue(governance.execute(proposalId));
+    governance.execute(proposalId);
     assertEq(governance.getProposalState(proposalId), ProposalState.Executed);
   }
 
@@ -131,7 +131,7 @@ contract ExecuteTest is GovernanceBase {
 
     vm.expectEmit(true, true, true, true, address(governance));
     emit IGovernance.ProposalExecuted(proposalId);
-    assertTrue(governance.execute(proposalId));
+    governance.execute(proposalId);
 
     proposal = governance.getProposal(proposalId);
 
