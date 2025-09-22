@@ -118,6 +118,8 @@ jobs:
           PROVER_FAILED_PROOF_STORE=gs://aztec-develop/staging-public/failed-proofs
           TEST_ACCOUNTS=false
           SPONSORED_FPC=true
+          SEQ_MIN_TX_PER_BLOCK=0
+          SEQ_MAX_TX_PER_BLOCK=8
 
           BOT_TRANSFERS_REPLICAS=1
           BOT_TRANSFERS_TX_INTERVAL_SECONDS=250
@@ -172,6 +174,8 @@ jobs:
           TRANSACTIONS_DISABLED=true
           TEST_ACCOUNTS=false
           SPONSORED_FPC=false
+          SEQ_MIN_TX_PER_BLOCK=0
+          SEQ_MAX_TX_PER_BLOCK=0
           NETWORK=staging-ignition
 
           ETHEREUM_CHAIN_ID=11155111
@@ -228,6 +232,8 @@ jobs:
           AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
           TEST_ACCOUNTS=false
           SPONSORED_FPC=true
+          SEQ_MIN_TX_PER_BLOCK=0
+          SEQ_MAX_TX_PER_BLOCK=8
           NETWORK=testnet
 
           ETHEREUM_CHAIN_ID=11155111
