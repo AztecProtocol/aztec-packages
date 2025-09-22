@@ -84,6 +84,19 @@ export class ProposedBlockHeader {
     );
   }
 
+  equals(other: ProposedBlockHeader): boolean {
+    return (
+      this.lastArchiveRoot.equals(other.lastArchiveRoot) &&
+      this.contentCommitment.equals(other.contentCommitment) &&
+      this.slotNumber.equals(other.slotNumber) &&
+      this.timestamp === other.timestamp &&
+      this.coinbase.equals(other.coinbase) &&
+      this.feeRecipient.equals(other.feeRecipient) &&
+      this.gasFees.equals(other.gasFees) &&
+      this.totalManaUsed.equals(other.totalManaUsed)
+    );
+  }
+
   toBuffer() {
     // Note: The order here must match the order in the ProposedHeaderLib solidity library.
     return serializeToBuffer([
