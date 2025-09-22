@@ -64,13 +64,12 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
 }
 
 /**
- * @brief Construct a new cycle group<Builder>::cycle group object
+ * @brief Construct a constant cycle_group object from raw field elements and a boolean
  *
  * @details is_infinity is a circuit constant. We EXPLICITLY require that whether this point is infinity/not infinity is
- * known at circuit-construction time *and* we know this point is on the curve. These checks are not constrained.
- * Use from_witness if these conditions are not met.
- * Examples of when conditions are met: point is a derived from a point that is on the curve + not at infinity.
- * e.g. output of a doubling operation
+ * known at circuit-construction time *and* we know this point is on the curve. These checks are not constrained. Use
+ * from_witness if these conditions are not met. Examples of when conditions are met: point is a derived from a point
+ * that is on the curve + not at infinity. e.g. output of a doubling operation
  * @tparam Builder
  * @param _x
  * @param _y
@@ -89,11 +88,10 @@ cycle_group<Builder>::cycle_group(const bb::fr& _x, const bb::fr& _y, bool is_in
 
 /**
  * @brief Construct a cycle_group object out of an AffineElement object
+ * @details Uses convention that the coordinates of the point at infinity are (0,0).
  *
- * @note This produces a circuit-constant object i.e. known at compile-time, no constraints.
- *       If `_in` is not fixed for a given circuit, use `from_witness` instead
- *
- * @details ensures the representation of point at infinity is consistent
+ * @note This produces a circuit-constant object i.e. known at compile-time, no constraints. If `_in` is not fixed for a
+ * given circuit, use `from_witness` instead.
  * @tparam Builder
  * @param _in
  */
@@ -118,7 +116,9 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::one(Build
 {
     field_t x(_context, Group::one.x);
     field_t y(_context, Group::one.y);
-    return cycle_group<Builder>(x, y, /*is_infinity=*/false);
+    bool_t is_infinity(_context, false);
+
+    return cycle_group<Builder>(x, y, is_infinity);
 }
 
 /**
@@ -157,15 +157,13 @@ cycle_group<Builder> cycle_group<Builder>::from_witness(Builder* _context, const
 {
     cycle_group result(_context);
 
-    // Point at infinity's coordinates break our arithmetic
-    // Since we are not using these coordinates anyway
-    // We can set them both to be zero
+    // By convention we set the coordinates of the point at infinity to (0,0).
     if (_in.is_point_at_infinity()) {
-        result.x = field_t(witness_t(_context, bb::fr::zero()));
-        result.y = field_t(witness_t(_context, bb::fr::zero()));
+        result.x = field_t::from_witness(_context, bb::fr::zero());
+        result.y = field_t::from_witness(_context, bb::fr::zero());
     } else {
-        result.x = field_t(witness_t(_context, _in.x));
-        result.y = field_t(witness_t(_context, _in.y));
+        result.x = field_t::from_witness(_context, _in.x);
+        result.y = field_t::from_witness(_context, _in.y);
     }
     result._is_infinity = bool_t(witness_t(_context, _in.is_point_at_infinity()));
     result._is_standard = true;
@@ -177,9 +175,9 @@ cycle_group<Builder> cycle_group<Builder>::from_witness(Builder* _context, const
 /**
  * @brief Converts a native AffineElement into a witness, but constrains the witness values to be known constants.
  *
- * @details When performing group operations where one operand is a witness and one is a constant,
- * it can be more efficient to convert the constant element into a witness. This is because we have custom gates
- * that evaluate additions in one constraint, but only if both operands are witnesses.
+ * @note This is useful when performing group operations where one operand is a witness and one is a constant. In such
+ * cases it can be more efficient to convert the constant into a "fixed" witness because we have custom gates that
+ * evaluate additions in one constraint, but only if both operands are witnesses.
  *
  * @tparam Builder
  * @param _context
@@ -197,8 +195,8 @@ cycle_group<Builder> cycle_group<Builder>::from_constant_witness(Builder* _conte
     if (_in.is_point_at_infinity()) {
         result = constant_infinity(_context);
     } else {
-        result.x = field_t(witness_t(_context, _in.x));
-        result.y = field_t(witness_t(_context, _in.y));
+        result.x = field_t::from_witness(_context, _in.x);
+        result.y = field_t::from_witness(_context, _in.y);
         result.x.assert_equal(result.x.get_value());
         result.y.assert_equal(result.y.get_value());
     }
@@ -228,6 +226,7 @@ template <typename Builder> typename cycle_group<Builder>::AffineElement cycle_g
 
 /**
  * @brief On-curve check.
+ * @details Validates that the point satisfies the curve equation or is the point at infinity.
  *
  * @tparam Builder
  */
@@ -238,13 +237,15 @@ template <typename Builder> void cycle_group<Builder>::validate_on_curve() const
     auto xx = x * x;
     auto xxx = xx * x;
     auto res = y.madd(y, -xxx - Group::curve_b);
-    // if the point is marked as the point at infinity, then res should be changed to 0, but otherwise, we leave res
-    // unchanged from the original value
+    // If this is the point at infinity, then res is changed to 0, otherwise it remains unchanged
     res *= !is_point_at_infinity();
     res.assert_is_zero();
 }
+
 /**
- * @brief  Get point in standard form. If the point is a point at infinity, ensure the coordinates are (0,0)
+ * @brief Convert the point to standard form.
+ * @details If the point is a point at infinity, ensure the coordinates are (0,0). If the point is already standard
+ * nothing changes.
  *
  */
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::get_standard_form()
@@ -314,8 +315,9 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
 }
 
 /**
- * @brief Get the point to the standard form. If the point is a point at infinity, ensure the coordinates are (0,0)
- * If the point is already standard nothing changes
+ * @brief Convert the point to standard form.
+ * @details If the point is a point at infinity, ensure the coordinates are (0,0). If the point is already standard
+ * nothing changes.
  *
  */
 template <typename Builder> void cycle_group<Builder>::standardize()
@@ -1206,6 +1208,7 @@ cycle_group<Builder> cycle_group<Builder>::conditional_assign(const bool_t& pred
         _is_standard_res = predicate.get_value() ? lhs._is_standard : rhs._is_standard;
     }
 
+    // AUDITTODO: Talk to Sasha. Comment seems to be unrelated and its not clear why the logic is needed.
     // Rare case when we bump into two constants, s.t. lhs = -rhs
     if (x_res.is_constant() && !y_res.is_constant()) {
         auto ctx = predicate.get_context();
