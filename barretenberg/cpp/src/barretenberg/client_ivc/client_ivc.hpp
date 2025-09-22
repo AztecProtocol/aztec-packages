@@ -62,12 +62,11 @@ class ClientIVC {
     using Transcript = NativeTranscript;
 
     using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
-    using RecursiveVerifierInstances = bb::stdlib::recursion::honk::RecursiveVerifierInstances_<RecursiveFlavor, 2>;
-    using RecursiveVerifierInstance = RecursiveVerifierInstances::VerifierInstance;
+    using RecursiveVerifierInstance = stdlib::recursion::honk::RecursiveVerifierInstance_<RecursiveFlavor>;
     using RecursiveVerificationKey = RecursiveFlavor::VerificationKey;
     using RecursiveVKAndHash = RecursiveFlavor::VKAndHash;
     using FoldingRecursiveVerifier =
-        bb::stdlib::recursion::honk::ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
+        bb::stdlib::recursion::honk::ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstance>;
     using OinkRecursiveVerifier = stdlib::recursion::honk::OinkRecursiveVerifier_<RecursiveFlavor>;
     using DeciderRecursiveVerifier = stdlib::recursion::honk::DeciderRecursiveVerifier_<RecursiveFlavor>;
     using RecursiveTranscript = RecursiveFlavor::Transcript;
