@@ -195,6 +195,11 @@ tests:
   - regex: "src/e2e_epochs/epochs_l1_reorgs.test.ts"
     owners:
       - *palla
+  # http://ci.aztec-labs.com/e85ff6c5da65a1e7
+  - regex: "src/e2e_cross_chain_messaging/l1_to_l2.test.ts"
+    error_regex: "Failed to advance block"
+    owners:
+      - *palla
   - regex: "src/e2e_epochs/epochs_empty_blocks"
     error_regex: "✕ successfully proves multiple epochs"
     owners:
