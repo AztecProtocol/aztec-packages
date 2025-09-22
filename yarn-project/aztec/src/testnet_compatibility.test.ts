@@ -11,12 +11,12 @@ import { getGenesisValues } from '@aztec/world-state/testing';
  */
 describe('Testnet compatibility', () => {
   it('has expected VK tree root', () => {
-    const expectedRoots = [Fr.fromHexString('0x1a5079b513266d78cf61cc98914d568e800982d8b2b9fe79c90f47ce27ffa2ec')];
+    const expectedRoots = [Fr.fromHexString('0x0c7576d33473911a15b9b490f1d9ba378355e17b956d974bf89d604b6b1b0b0f')];
 
     if (process.env.ACCEPT_DISABLED_AVM_VK_TREE_ROOT === '1') {
       expectedRoots.push(
         //  Accept the VK tree root when the AVM is disabled (the AVM is only enabled on ARM release builds because of build times).
-        Fr.fromHexString('0x19e3d93ad6369e960f28fdda0da5110129c2db67f49445d8406001eab1a1ae6a'),
+        Fr.fromHexString('0x06bd48482dcad6f1ea4d4b6a3c1956509dc1250d10be755fa5f6d68dbf6c5899'),
       );
     }
 
@@ -24,7 +24,7 @@ describe('Testnet compatibility', () => {
   });
   it('has expected Protocol Contracts tree root', () => {
     expect(protocolContractTreeRoot).toEqual(
-      Fr.fromHexString('0x20b49b5e2004b516f057509123ae1a4a2120605005351776051867e3caab413e'),
+      Fr.fromHexString('0x227802391f582e49922178a4d4de61384eda4ee4ba69708f0349b76dd04db461'),
     );
   });
   it('has expected Genesis tree roots', async () => {
@@ -34,7 +34,7 @@ describe('Testnet compatibility', () => {
     const { genesisArchiveRoot } = await getGenesisValues(initialFundedAccounts);
 
     expect(genesisArchiveRoot).toEqual(
-      Fr.fromHexString('0x204ce64a69ce23a572afdbb50a156a58b2ee1c37ea92a278f96147f3aec93dfc'),
+      Fr.fromHexString('0x1fa3de2e35ec7d3dce2bbd63848d90ea140a98b5db8cfd531e7a50776976d1ec'),
     );
   });
 });
