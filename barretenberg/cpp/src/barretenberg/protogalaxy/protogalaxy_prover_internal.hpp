@@ -43,7 +43,7 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
         bb::RelationParameters<Univariate<FF, EXTENDED_LENGTH, 0, /*skip_count=*/SKIP_COUNT>>;
     using UnivariateSubrelationSeparators = std::array<Univariate<FF, BATCHED_EXTENDED_LENGTH>, NUM_SUBRELATIONS - 1>;
 
-    // Contianer for a folded subrelation
+    // Container for a folded subrelation
     using ExtendedUnivariate = Univariate<FF, EXTENDED_LENGTH>;
     // Container for the combiner
     using ExtendedUnivariateWithRandomization = Univariate<FF, BATCHED_EXTENDED_LENGTH>;

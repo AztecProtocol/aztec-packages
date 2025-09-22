@@ -10,7 +10,8 @@
 #include "barretenberg/protogalaxy/constants.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
-#include "barretenberg/ultra_honk/instances.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
+#include "barretenberg/ultra_honk/verifier_instance.hpp"
 
 namespace bb {
 
@@ -26,7 +27,7 @@ template <IsUltraOrMegaHonk Flavor> class ProtogalaxyProver_ {
     using VerifierInstance = VerifierInstance_<Flavor>;
     using FF = typename Flavor::FF;
     using CombinerQuotient = Univariate<FF, BATCHED_EXTENDED_LENGTH>;
-    using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<2>;
+    using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<NUM_INSTANCES>;
     using UnivariateRelationParameters =
         bb::RelationParameters<Univariate<FF, EXTENDED_LENGTH, 0, /*skip_count=*/SKIP_COUNT>>;
     using UnivariateSubrelationSeparators = std::array<Univariate<FF, BATCHED_EXTENDED_LENGTH>, NUM_SUBRELATIONS - 1>;
@@ -59,8 +60,8 @@ template <IsUltraOrMegaHonk Flavor> class ProtogalaxyProver_ {
                        const VerifierInstances& verifier_insts,
                        const std::shared_ptr<Transcript>& transcript,
                        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
-        : prover_insts_to_fold(ProverInstances_(prover_insts))
-        , verifier_insts_to_fold(VerifierInstances_(verifier_insts))
+        : prover_insts_to_fold(prover_insts)
+        , verifier_insts_to_fold(verifier_insts)
         , commitment_key(prover_insts_to_fold[1]->commitment_key)
         , transcript(transcript)
         , pg_internal(trace_usage_tracker)
