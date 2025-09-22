@@ -27,7 +27,7 @@ void MerkleCheck::assert_membership(const FF& leaf_value,
     }
 
     if (curr_index != 0) {
-        throw std::runtime_error("Merkle check's final node index 0");
+        throw std::runtime_error("Merkle check's final node index must be 0");
     }
     if (curr_value != root) {
         throw std::runtime_error("Merkle read check failed");
@@ -63,7 +63,7 @@ FF MerkleCheck::write(const FF& current_value,
     }
 
     if (curr_index != 0) {
-        throw std::runtime_error("Merkle check's final node index 0");
+        throw std::runtime_error("Merkle check's final node index must be 0");
     }
     if (read_value != current_root) {
         throw std::runtime_error("Merkle read check failed");
