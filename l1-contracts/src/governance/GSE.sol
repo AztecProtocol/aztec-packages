@@ -250,6 +250,9 @@ contract GSECore is IGSECore, Ownable {
    * simply add a new rollup and the bonus instance mechanism ensures a smooth transition by allowing the new rollup
    * to immediately inherit attesters.
    *
+   * @dev Beware that multiple calls to `addRollup` at the same `block.timestamp` will override each other and only
+   * the last will be in the `rollups`.
+   *
    * @param _rollup - The address of the rollup to add
    */
   function addRollup(address _rollup) external override(IGSECore) onlyOwner {
