@@ -570,7 +570,18 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     // Execute point addition with modified lambda = (y2 - y1)/(x2 - x1 + x_coordinates_match) to avoid the possibility
     // of division by zero.
     const field_t x_diff = x2.add_two(-x1, x_coordinates_match);
-    const field_t lambda = (y2 - y1).divide_no_zero_check(x_diff);
+    // Compute lambda in one of two ways depending on whether either numerator or denominator is constant or not
+    field_t lambda;
+    if ((y1.is_constant() && y2.is_constant()) || x_diff.is_constant()) {
+        lambda = (y2 - y1).divide_no_zero_check(x_diff);
+    } else {
+        Builder* context = get_context(other);
+        lambda = field_t::from_witness(context, (y2.get_value() - y1.get_value()) / x_diff.get_value());
+        // We need to manually propagate the origin tag
+        lambda.set_origin_tag(OriginTag(x_diff.get_origin_tag(), y1.get_origin_tag(), y2.get_origin_tag()));
+        // Constrain x_diff * lambda = y2 - y1
+        field_t::evaluate_polynomial_identity(x_diff, lambda, -y2, y1);
+    }
     const field_t x3 = lambda.madd(lambda, -(x2 + x1)); // x3 = lambda^2 - x1 - x2
     const field_t y3 = lambda.madd(x1 - x3, -y1);       // y3 = lambda * (x1 - x3) - y1
     cycle_group add_result(x3, y3, /*is_infinity=*/x_coordinates_match);
@@ -633,7 +644,18 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     // Execute point addition with modified lambda = (-y2 - y1)/(x2 - x1 + x_coordinates_match) to avoid the possibility
     // of division by zero.
     const field_t x_diff = x2.add_two(-x1, x_coordinates_match);
-    const field_t lambda = (-y2 - y1).divide_no_zero_check(x_diff);
+    // Compute lambda in one of two ways depending on whether either numerator or denominator is constant or not
+    field_t lambda;
+    if ((y1.is_constant() && y2.is_constant()) || x_diff.is_constant()) {
+        lambda = (-y2 - y1).divide_no_zero_check(x_diff);
+    } else {
+        Builder* context = get_context(other);
+        lambda = field_t::from_witness(context, (-y2.get_value() - y1.get_value()) / x_diff.get_value());
+        // We need to manually propagate the origin tag
+        lambda.set_origin_tag(OriginTag(x_diff.get_origin_tag(), y1.get_origin_tag(), y2.get_origin_tag()));
+        // Constrain x_diff * lambda = -y2 - y1
+        field_t::evaluate_polynomial_identity(x_diff, lambda, y2, y1);
+    }
     const field_t x3 = lambda.madd(lambda, -(x2 + x1)); // x3 = lambda^2 - x1 - x2
     const field_t y3 = lambda.madd(x1 - x3, -y1);       // y3 = lambda * (x1 - x3) - y1
     cycle_group sub_result(x3, y3, /*is_infinity=*/x_coordinates_match);
