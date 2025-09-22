@@ -89,7 +89,7 @@ template <class VerifierInstance> class ProtogalaxyRecursiveVerifier_ {
      *           q_l_0   q_l_1   q_l_2   q_l_3
      *             ⋮        ⋮        ⋮       ⋮
      * If we wanted to extract the commitments from the verification keys in order to fold them, we would pass to the
-     * function {insts_to_fold[0]->vk->get_all(), insts_to_fold[1]->vk->get_all()} and the function would return
+     * function the type parameter FOLDING_DATA::PRECOMPUTED_COMMITMENTS, and the function would return
      * {{q_c_0, q_c_1, q_c_2, q_c_3}, {q_l_0, q_l_1, q_l_2, q_l_3},...}. Here the "commitment index" is the index of the
      * row in the matrix whose columns are given be the instance components to be folded.
      *

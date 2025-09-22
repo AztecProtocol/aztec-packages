@@ -92,7 +92,7 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
      * @brief For a fixed row index and each polynomial, construct univariates from the corresponding value
      * from each prover instance over the domain 0, .., EXTENDED_LENGTH-1.
      *
-     * @example if the row index is 2, and there are 4 prover instances, visually we have
+     * @example If the row index is 2, and there are 4 prover instances, visually we have
      *
      *           PK 0             PK 1             PK 2             PK 3
      *           q_c q_l q_r ...  q_c q_l q_r ...  q_c q_l q_r ...  q_c q_l q_r ...
@@ -103,13 +103,17 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
      *
      * and the function returns the univariates [{a_1, b_1, c_1, d_1}, {a_2, b_2, c_2, d_2}, ...]
      *
+     * @tparam skip_count The number of evaluations to skip in the returned univariates. Used only if not using short
+     * monomials.
      * @param row_idx A fixed row position in several execution traces
-     * @tparam UnivariateType The type of the univariate to be returned
      * @return The univariates whose extensions will be used to construct the combiner.
      */
-    template <class ContainerType>
-    static ContainerType row_to_univariates(const ProverInstances& instances, size_t row_idx)
+    template <size_t skip_count = 0> static auto row_to_univariates(const ProverInstances& instances, size_t row_idx)
     {
+        using ContainerType =
+            std::conditional_t<Flavor::USE_SHORT_MONOMIALS,
+                               typename Flavor::template ProverUnivariates<2>,
+                               std::array<Univariate<FF, ExtendedUnivariate::LENGTH, 0, skip_count>, NUM_INSTANCES>>;
         // As a practical measure, get the first prover instance's view to deduce the array type
         std::array<decltype(instances[0]->polynomials.get_all()), NUM_INSTANCES> views;
         views[0] = instances[0]->polynomials.get_all();
@@ -121,8 +125,8 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
         for (size_t inst_idx = 0; auto& get_all : views) {
             // Iterate over all columns in the trace execution of an prover instance and extract their value at row_idx.
             if constexpr (Flavor::USE_SHORT_MONOMIALS) {
-                // In this case, the elements of the array are AllEntities, so we need to get the underlying polynomials
-                // via get_all()
+                // In this case, the elements of the ContainerType are AllEntities, so we need to get the underlying
+                // polynomials via get_all()
                 for (auto [result, poly_ptr] : zip_view(results.get_all(), get_all)) {
                     result.evaluations[inst_idx] = poly_ptr[row_idx];
                 }
@@ -321,12 +325,9 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
                                              const size_t row_idx)
     {
         if constexpr (Flavor::USE_SHORT_MONOMIALS) {
-            extended_univariates =
-                std::move(row_to_univariates<typename Flavor::template ProverUnivariates<2>>(instances, row_idx));
+            extended_univariates = std::move(row_to_univariates(instances, row_idx));
         } else {
-            auto incoming_univariates = row_to_univariates<
-                std::array<Univariate<FF, ExtendedUnivariates::LENGTH, 0, skip_count>, NUM_INSTANCES>>(instances,
-                                                                                                       row_idx);
+            auto incoming_univariates = row_to_univariates<skip_count>(instances, row_idx);
             for (auto [extended_univariate, incoming_univariate] :
                  zip_view(extended_univariates.get_all(), incoming_univariates)) {
                 incoming_univariate.template self_extend_from<NUM_INSTANCES>();

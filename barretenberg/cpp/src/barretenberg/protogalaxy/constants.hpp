@@ -13,21 +13,21 @@ namespace bb {
 // Number of instances to be folded
 static constexpr std::size_t NUM_INSTANCES = 2;
 
-// Number of coeffiecients calculation to be skipped in the calculation of the combiner
+// Number of coeffiecients whose calculation is to be skipped in the calculation of the combiner
 static constexpr std::size_t SKIP_COUNT = NUM_INSTANCES - 1;
 
 /**
  * Write \f$\omega_0, \dots, \omega_k\f$, for a series of prover instances. Each instance is given by
  * \f$\omega_i = (p_{1,i}, \dots, p_{M,i}, \alpha_{1,i}, \dots, \alpha_{N,i}, \theta_{1,i}, \dots, \theta_{6,i})\f$,
  * where \f$p_{j,i}\f$ are the prover polynomials, \f$\alpha_{j,i}\f$ are the batching challenges, and
- * \f$\theta_{j,i}\f$ are the relation parameters,.
+ * \f$\theta_{j,i}\f$ are the relation parameters.
  *
  * To fold these instances together we need to compute the combiner polynomial \f$G\f$ as defined in the Protogalaxy
  * paper. This polynomial is defined as
  * \f[
  *  G(X) = \sum_{1}^{2^n} pow(\beta^{\ast}) f_i( \sum_{j=0}^k L_j(X) \omega_j )
  * \f]
- * where \f$n\f$ is the dyadic size of the circuit from which the instances are derived. the We now compute its
+ * where \f$n\f$ is the dyadic size of the circuit from which the instances are derived. We now compute its
  * degree.
  *
  * If \f$R_1, \dots, R_N\f$ are the polynomials defining all the subrelations that make up the relations listed in
@@ -64,7 +64,7 @@ static constexpr size_t computed_extended_length()
 }
 /**
  * @brief Compute the number of evaluation neeeded to represent the combiner polynomial (\f$G\f$ in the Protogalaxy
- * paper). See the documentation about computed_extended_length() for the calculation.
+ * paper). See the documentation for computed_extended_length() for the calculation.
  *
  * @tparam Flavor
  */

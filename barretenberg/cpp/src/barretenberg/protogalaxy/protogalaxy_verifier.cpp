@@ -47,7 +47,7 @@ std::shared_ptr<VerifierInstance> ProtogalaxyVerifier_<VerifierInstance>::verify
 {
     // The degree of the combiner quotient (K in the paper) is dk - k - 1 = k(d - 1) - 1.
     // Hence we need  k(d - 1) evaluations to represent it.
-    static constexpr size_t COMBINER_LENGTH = BATCHED_EXTENDED_LENGTH - NUM_INSTANCES;
+    static constexpr size_t COMBINER_QUOTIENT_LENGTH = BATCHED_EXTENDED_LENGTH - NUM_INSTANCES;
 
     const std::shared_ptr<VerifierInstance>& accumulator = insts_to_fold[0];
 
@@ -67,7 +67,7 @@ std::shared_ptr<VerifierInstance> ProtogalaxyVerifier_<VerifierInstance>::verify
     const Polynomial<FF> perturbator(perturbator_coeffs);
     const FF perturbator_evaluation = perturbator.evaluate(perturbator_challenge);
 
-    std::array<FF, COMBINER_LENGTH> combiner_quotient_evals;
+    std::array<FF, COMBINER_QUOTIENT_LENGTH> combiner_quotient_evals;
     for (size_t idx = NUM_INSTANCES; auto& val : combiner_quotient_evals) {
         val = transcript->template receive_from_prover<FF>("combiner_quotient_" + std::to_string(idx++));
     }
