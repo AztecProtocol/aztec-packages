@@ -298,8 +298,7 @@ namespace public_data_check;
         public_inputs.cols[1]
     };
 
-    // TODO: On end, lookup the length of public data writes in public inputs.
-    // Consider not doing it here if we implement the solution for accurate write counting during execution.
+    // Consider not doing following constraints here if we implement the solution for accurate write counting during execution.
 
     // ========= ASSERT FINAL LENGTH =========
     // Every transaction we prove must have at least one public data write, the fee one.

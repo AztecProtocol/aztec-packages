@@ -116,8 +116,6 @@ AppendOnlyTreeSnapshot PublicDataTreeCheck::write(const FF& slot,
     uint32_t execution_id =
         is_protocol_write ? std::numeric_limits<uint32_t>::max() : execution_id_manager.get_execution_id();
 
-    // TODO(Alvaro): Figure out a good way to handle sorting range checks
-
     events.emit(PublicDataTreeReadWriteEvent{
         .contract_address = contract_address,
         .slot = slot,
@@ -153,6 +151,8 @@ void PublicDataTreeCheck::on_checkpoint_reverted()
     events.emit(CheckPointEventType::REVERT_CHECKPOINT);
 }
 
+// Leaf slot needs to be casted as uint256_t to compare.
+// Sorting over pointers instead of structs would be faster but probably negligible for such a small array.
 void PublicDataTreeCheck::generate_ff_gt_events_for_squashing(
     std::array<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>& public_data_writes,
     uint32_t public_data_writes_length)

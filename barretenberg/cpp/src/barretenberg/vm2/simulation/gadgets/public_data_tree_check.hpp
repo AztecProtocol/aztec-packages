@@ -47,8 +47,6 @@ class PublicDataTreeCheck : public PublicDataTreeCheckInterface, public Checkpoi
     void on_checkpoint_reverted() override;
 
     // Sort public data writes by leaf slot between index 0 and of size publicDataWritesLength.
-    // Leaf slot needs to be casted as uint256_t to compare.
-    // Sorting over pointers instead of structs would be faster but probably negligible for such a small array.
     void generate_ff_gt_events_for_squashing(
         std::array<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>& public_data_writes,
         uint32_t public_data_writes_length);
