@@ -22,13 +22,12 @@ constexpr size_t NUM_INSTANCES = 2;
  * we can test whether the optimistic skipping algorithm produces the correct result
  *
  */
-class PGInternalTest : public ProtogalaxyProverInternal<ProverInstances_<Flavor, NUM_INSTANCES>> {
+class PGInternalTest : public ProtogalaxyProverInternal<ProverInstance_<Flavor>> {
   public:
     using ExtendedUnivariatesNoOptimisticSkipping =
         typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
 
-    using UnivariateRelationParametersNoOptimisticSkipping =
-        bb::RelationParameters<Univariate<FF, ProverInstances::EXTENDED_LENGTH>>;
+    using UnivariateRelationParametersNoOptimisticSkipping = bb::RelationParameters<Univariate<FF, EXTENDED_LENGTH>>;
     using ExtendedUnivariatesTypeNoOptimisticSkipping =
         std::conditional_t<Flavor::USE_SHORT_MONOMIALS, ShortUnivariates, ExtendedUnivariatesNoOptimisticSkipping>;
 
