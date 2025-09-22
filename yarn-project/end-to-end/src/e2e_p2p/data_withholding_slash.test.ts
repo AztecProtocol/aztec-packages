@@ -47,6 +47,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
   const slashingUnit = BigInt(1e18);
   const slashingQuorum = 3;
   const slashingRoundSize = 4;
+  const aztecEpochDuration = 2;
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -57,13 +58,13 @@ describe('e2e_p2p_data_withholding_slash', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         listenAddress: '127.0.0.1',
-        aztecEpochDuration: 2,
+        aztecEpochDuration,
         ethereumSlotDuration: 4,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         aztecProofSubmissionEpochs: 0, // effectively forces instant reorgs
         aztecTargetCommitteeSize: COMMITTEE_SIZE,
         slashingQuorum,
-        slashingRoundSizeInEpochs: slashingRoundSize / 2,
+        slashingRoundSizeInEpochs: slashingRoundSize / aztecEpochDuration,
         slashAmountSmall: slashingUnit,
         slashAmountMedium: slashingUnit * 2n,
         slashAmountLarge: slashingUnit * 3n,
@@ -179,6 +180,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     // Check offenses are correct
     expect(offenses.map(o => o.validator.toChecksumString()).sort()).toEqual(committee.map(a => a.toString()).sort());
     expect(offenses.map(o => o.offenseType)).toEqual(times(COMMITTEE_SIZE, () => OffenseType.DATA_WITHHOLDING));
+    const offenseEpoch = Number(offenses[0].epochOrSlot);
 
     await awaitCommitteeKicked({
       rollup,
@@ -190,6 +192,8 @@ describe('e2e_p2p_data_withholding_slash', () => {
       aztecSlotDuration: AZTEC_SLOT_DURATION,
       logger: t.logger,
       dateProvider: t.ctx.dateProvider,
+      offenseEpoch,
+      aztecEpochDuration,
     });
   });
 });
