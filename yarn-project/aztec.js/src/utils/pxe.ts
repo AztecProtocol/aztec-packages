@@ -6,12 +6,12 @@ export const waitForPXE = async (pxe: PXE, logger?: Logger) => {
   await retryUntil(async () => {
     try {
       logger?.verbose('Attempting to contact PXE...');
-      await pxe.getNodeInfo();
+      await pxe.getPXEInfo();
       logger?.verbose('Contacted PXE');
       return true;
     } catch {
       logger?.verbose('Failed to contact PXE');
     }
     return undefined;
-  }, 'RPC Get Node Info');
+  }, 'RPC Get PXE Info');
 };

@@ -61,9 +61,9 @@ impl TailOutputValidator {
         // Whilst we could just assert the entire `constants` struct to be equal, we broke it
         // up to test with the specific error messages.
         assert_eq(
-            self.output.constants.historical_header,
-            self.previous_kernel.constants.historical_header,
-            "mismatch historical_header",
+            self.output.constants.anchor_block_header,
+            self.previous_kernel.constants.anchor_block_header,
+            "mismatch anchor_block_header",
         );
         assert_eq(
             self.output.constants.tx_context,
@@ -93,7 +93,7 @@ impl TailOutputValidator {
         );
         validate_include_by_timestamp_duration(
             include_by_timestamp,
-            self.previous_kernel.constants.historical_header.global_variables,
+            self.previous_kernel.constants.anchor_block_header.global_variables,
         );
         assert_eq(
             self.output.include_by_timestamp,

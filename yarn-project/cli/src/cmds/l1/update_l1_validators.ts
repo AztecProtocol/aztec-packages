@@ -308,7 +308,7 @@ export async function debugRollup({ rpcUrls, chainId, rollupAddress, log }: Roll
   log(`Committee: ${committee?.map(v => v.toString()).join(', ')}`);
   const archive = await rollup.archive();
   log(`Archive: ${archive}`);
-  const epochNum = await rollup.getEpochNumber();
+  const epochNum = await rollup.getCurrentEpochNumber();
   log(`Current epoch: ${epochNum}`);
   const slot = await rollup.getSlotNumber();
   log(`Current slot: ${slot}`);

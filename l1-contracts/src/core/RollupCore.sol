@@ -122,8 +122,8 @@ import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
  *         - And pushes messages to the outbox for L1 processing
  *
  *      Unhappy path for invalid attestations:
- *      - Attestations in blocks are not validated on-chain to save gas. Since attestations are still posted to L1,
- *        nodes are expected to verify them off-chain, and skip a block if its attestations are invalid.
+ *      - Attestations in blocks are not validated onchain to save gas. Since attestations are still posted to L1,
+ *        nodes are expected to verify them offchain, and skip a block if its attestations are invalid.
  *      - If a block has invalid attestation signatures, anyone can call `invalidateBadAttestation()`
  *      - If a block has insufficient valid attestations (<= 2/3 of committee), anyone can call
  *        `invalidateInsufficientAttestations()`
@@ -194,7 +194,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
   /**
    * @notice Flag to enable/disable blob verification during simulations
-   * @dev Always true, gets unset only via state overrides during off-chain simulations or in tests
+   * @dev Always true, gets unset only via state overrides during offchain simulations or in tests
    */
   bool public checkBlob = true;
 
@@ -228,6 +228,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     // from the onset). It might be updated later to 0 by governance in order to close the validator set for this
     // instance. For details see `StakingLib.getEntryQueueFlushSize` function.
     require(_config.stakingQueueConfig.normalFlushSizeMin > 0, Errors.Staking__InvalidStakingQueueConfig());
+    require(_config.stakingQueueConfig.normalFlushSizeQuotient > 0, Errors.Staking__InvalidNormalFlushSizeQuotient());
 
     TimeLib.initialize(
       block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration, _config.aztecProofSubmissionEpochs
@@ -255,7 +256,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
         _config.slashAmounts,
         _config.targetCommitteeSize,
         _config.aztecEpochDuration,
-        _config.slashingOffsetInRounds
+        _config.slashingOffsetInRounds,
+        _config.slashingDisableDuration
       );
     } else {
       slasher = EmpireSlasherDeploymentExtLib.deployEmpireSlasher(
@@ -265,14 +267,15 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
         _config.slashingQuorum,
         _config.slashingRoundSize,
         _config.slashingLifetimeInRounds,
-        _config.slashingExecutionDelayInRounds
+        _config.slashingExecutionDelayInRounds,
+        _config.slashingDisableDuration
       );
     }
 
     StakingLib.initialize(
       _stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig, _config.localEjectionThreshold
     );
-    ValidatorOperationsExtLib.initializeValidatorSelection(_config.targetCommitteeSize);
+    ValidatorOperationsExtLib.initializeValidatorSelection(_config.targetCommitteeSize, _config.lagInEpochs);
 
     // If no booster is specifically provided, deploy one.
     if (address(_config.rewardConfig.booster) == address(0)) {
@@ -446,9 +449,14 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @notice Processes the validator entry queue to add new validators to the active set
    * @dev Can be called by anyone. The number of validators added is limited by queue configuration.
    *      This helps maintain a controlled growth rate of the validator set.
+   * @param _toAdd - The max number the caller will try to add
    */
+  function flushEntryQueue(uint256 _toAdd) external override(IStakingCore) {
+    ValidatorOperationsExtLib.flushEntryQueue(_toAdd);
+  }
+
   function flushEntryQueue() external override(IStakingCore) {
-    ValidatorOperationsExtLib.flushEntryQueue();
+    ValidatorOperationsExtLib.flushEntryQueue(type(uint256).max);
   }
 
   /**

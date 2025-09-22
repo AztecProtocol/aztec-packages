@@ -34,7 +34,7 @@ use aztec::macros::aztec;
 pub contract Orderbook {
     use crate::{config::Config, order::Order};
     use aztec::{
-        event::event_interface::emit_event_in_public,
+        event::event_emission::emit_event_in_public,
         macros::{
             events::event,
             functions::{initializer, internal, private, public, utility},

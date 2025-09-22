@@ -26,7 +26,7 @@
 #include <utility>
 
 #include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 
 namespace bb {
 /**
@@ -40,13 +40,13 @@ namespace bb {
 template <IsUltraOrMegaHonk Flavor> class OinkProver {
     using CommitmentKey = typename Flavor::CommitmentKey;
     using HonkVK = typename Flavor::VerificationKey;
-    using DeciderPK = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
     using Proof = typename Transcript::Proof;
 
   public:
-    std::shared_ptr<DeciderPK> proving_key;
+    std::shared_ptr<ProverInstance> prover_instance;
     std::shared_ptr<HonkVK> honk_vk;
     std::shared_ptr<Transcript> transcript;
     std::string domain_separator;
@@ -55,12 +55,12 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     typename Flavor::CommitmentLabels commitment_labels;
     using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
-    OinkProver(std::shared_ptr<DeciderPK> proving_key,
+    OinkProver(std::shared_ptr<ProverInstance> prover_instance,
                std::shared_ptr<HonkVK> honk_vk,
                const std::shared_ptr<typename Flavor::Transcript>& transcript = std::make_shared<Transcript>(),
                std::string domain_separator = "",
                const ExecutionTraceUsageTracker& trace_usage_tracker = ExecutionTraceUsageTracker{})
-        : proving_key(proving_key)
+        : prover_instance(prover_instance)
         , honk_vk(honk_vk)
         , transcript(transcript)
         , domain_separator(std::move(domain_separator))

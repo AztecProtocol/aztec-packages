@@ -259,7 +259,7 @@ export class ProverNodePublisher {
       {
         previousArchive: args.publicInputs.previousArchiveRoot.toString(),
         endArchive: args.publicInputs.endArchiveRoot.toString(),
-        proverId: EthAddress.fromField(args.publicInputs.proverId).toString(),
+        proverId: EthAddress.fromField(args.publicInputs.constants.proverId).toString(),
       } /*_args*/,
       makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>
         i % 2 === 0

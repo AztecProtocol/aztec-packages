@@ -1,7 +1,6 @@
-import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { type AccountWalletWithSecretKey, AztecAddress, EthAddress, Fr } from '@aztec/aztec.js';
+import { AztecAddress, EthAddress, Fr } from '@aztec/aztec.js';
 import {
   type EmpireSlashingProposerContract,
   type ExtendedViemWalletClient,
@@ -26,6 +25,7 @@ import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
+import type { TestWallet } from '@aztec/test-wallet';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import getPort from 'get-port';
@@ -43,7 +43,7 @@ import {
   createSnapshotManager,
   deployAccounts,
 } from '../fixtures/snapshot_manager.js';
-import { getPrivateKeyFromIndex, getSponsoredFPCAddress } from '../fixtures/utils.js';
+import { type SetupOptions, getPrivateKeyFromIndex, getSponsoredFPCAddress } from '../fixtures/utils.js';
 import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils.js';
 
 // Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
@@ -75,18 +75,18 @@ export class P2PNetworkTest {
   public prefilledPublicData: PublicDataTreeLeaf[] = [];
 
   // The re-execution test needs a wallet and a spam contract
-  public wallet?: AccountWalletWithSecretKey;
+  public wallet?: TestWallet;
   public defaultAccountAddress?: AztecAddress;
   public spamContract?: SpamContract;
 
   public bootstrapNode?: BootstrapNode;
 
   constructor(
-    testName: string,
+    public readonly testName: string,
     public bootstrapNodeEnr: string,
     public bootNodePort: number,
     public numberOfValidators: number,
-    initialValidatorConfig: AztecNodeConfig,
+    initialValidatorConfig: SetupOptions,
     public numberOfNodes = 0,
     // If set enable metrics collection
     private metricsPort?: number,
@@ -162,7 +162,7 @@ export class P2PNetworkTest {
     numberOfValidators: number;
     basePort?: number;
     metricsPort?: number;
-    initialConfig?: Partial<AztecNodeConfig>;
+    initialConfig?: SetupOptions;
     startProverNode?: boolean;
     mockZkPassportVerifier?: boolean;
   }) {
@@ -291,14 +291,15 @@ export class P2PNetworkTest {
           hash: await multiAdder.write.addValidators([validatorTuples]),
         });
 
-        const timestamp = await cheatCodes.rollup.advanceToEpoch(2n, { updateDateProvider: dateProvider });
+        await cheatCodes.rollup.advanceToEpoch(
+          (await cheatCodes.rollup.getEpoch()) + (await rollup.read.getLagInEpochs()) + 1n,
+          {
+            updateDateProvider: dateProvider,
+          },
+        );
 
         // Send and await a tx to make sure we mine a block for the warp to correctly progress.
         await this._sendDummyTx(deployL1ContractsValues.l1Client);
-
-        // Set the system time in the node, only after we have warped the time and waited for a block
-        // Time is only set in the NEXT block
-        dateProvider.setTime(Number(timestamp) * 1000);
       },
     );
   }
@@ -306,12 +307,12 @@ export class P2PNetworkTest {
   async setupAccount() {
     await this.snapshotManager.snapshot(
       'setup-account',
-      deployAccounts(1, this.logger, false),
-      async ({ deployedAccounts }, { pxe }) => {
+      deployAccounts(1, this.logger),
+      ({ deployedAccounts }, { wallet }) => {
         this.deployedAccounts = deployedAccounts;
-        const [account] = deployedAccounts;
-        this.wallet = await getSchnorrWalletWithSecretKey(pxe, account.secret, account.signingKey, account.salt);
-        this.defaultAccountAddress = this.wallet.getAddress();
+        [{ address: this.defaultAccountAddress }] = deployedAccounts;
+        this.wallet = wallet;
+        return Promise.resolve();
       },
     );
   }
@@ -415,7 +416,7 @@ export class P2PNetworkTest {
     );
 
     const slasherContract = getContract({
-      address: getAddress(await rollup.getSlasher()),
+      address: getAddress(await rollup.getSlasherAddress()),
       abi: SlasherAbi,
       client: this.ctx.deployL1ContractsValues.l1Client,
     });

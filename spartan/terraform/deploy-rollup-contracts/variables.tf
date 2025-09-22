@@ -20,8 +20,8 @@ variable "L1_RPC_URLS" {
   type        = string
 }
 
-variable "MNEMONIC" {
-  description = "Mnemonic for deployment"
+variable "PRIVATE_KEY" {
+  description = "Private key for deployment"
   type        = string
   sensitive   = true
 }
@@ -46,6 +46,11 @@ variable "VALIDATORS" {
 
 variable "SPONSORED_FPC" {
   description = "Enable sponsored FPC"
+  type        = bool
+}
+
+variable "TEST_ACCOUNTS" {
+  description = "Enable test accounts"
   type        = bool
 }
 
@@ -209,4 +214,10 @@ variable "NETWORK" {
   description = "One of the existing network names to use default config for"
   type        = string
   nullable    = true
+}
+
+variable "FLUSH_ENTRY_QUEUE" {
+  description = "Flush the entry queue after adding initial validators"
+  type        = bool
+  default     = true
 }

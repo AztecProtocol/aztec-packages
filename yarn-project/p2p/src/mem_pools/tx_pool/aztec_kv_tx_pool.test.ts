@@ -309,8 +309,8 @@ describe('KV TX pool', () => {
     const tx3 = await mockTx(3);
 
     // modify tx1 to return no archive indices
-    tx1.data.constants.historicalHeader.globalVariables.blockNumber = 1;
-    const tx1HeaderHash = await tx1.data.constants.historicalHeader.hash();
+    tx1.data.constants.anchorBlockHeader.globalVariables.blockNumber = 1;
+    const tx1HeaderHash = await tx1.data.constants.anchorBlockHeader.hash();
     txPool.mockArchiveCache.getArchiveIndices.mockImplementation((archives: Fr[]) => {
       if (archives[0].equals(tx1HeaderHash)) {
         return Promise.resolve([]);

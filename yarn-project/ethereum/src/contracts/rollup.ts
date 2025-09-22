@@ -3,7 +3,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
-import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
 import chunk from 'lodash.chunk';
 import {
@@ -11,8 +10,8 @@ import {
   type GetContractReturnType,
   type Hex,
   type StateOverride,
+  type WatchContractEventReturnType,
   encodeFunctionData,
-  getAddress,
   getContract,
   hexToBigInt,
   keccak256,
@@ -160,13 +159,12 @@ export class RollupContract {
   public async getSlashingProposer(): Promise<
     EmpireSlashingProposerContract | TallySlashingProposerContract | undefined
   > {
-    const slasherAddress = await this.rollup.read.getSlasher();
-    if (EthAddress.fromString(slasherAddress).isZero()) {
+    const slasher = await this.getSlasherContract();
+    if (!slasher) {
       return undefined;
     }
 
-    const slasher = getContract({ address: slasherAddress, abi: SlasherAbi, client: this.client });
-    const proposerAddress = await slasher.read.PROPOSER();
+    const proposerAddress = await slasher.getProposer();
     const proposerAbi = [
       {
         type: 'function',
@@ -177,7 +175,7 @@ export class RollupContract {
       },
     ] as const;
 
-    const proposer = getContract({ address: proposerAddress, abi: proposerAbi, client: this.client });
+    const proposer = getContract({ address: proposerAddress.toString(), abi: proposerAbi, client: this.client });
     const proposerType = await proposer.read.SLASHING_PROPOSER_TYPE();
     if (proposerType === SlashingProposerType.Tally.valueOf()) {
       return new TallySlashingProposerContract(this.client, proposerAddress);
@@ -226,6 +224,11 @@ export class RollupContract {
   @memoize
   getLocalEjectionThreshold() {
     return this.rollup.read.getLocalEjectionThreshold();
+  }
+
+  @memoize
+  getLagInEpochs() {
+    return this.rollup.read.getLagInEpochs();
   }
 
   @memoize
@@ -298,16 +301,19 @@ export class RollupContract {
     };
   }
 
-  getSlasher() {
+  getSlasherAddress() {
     return this.rollup.read.getSlasher();
   }
 
   /**
    * Returns a SlasherContract instance for interacting with the slasher contract.
    */
-  async getSlasherContract(): Promise<SlasherContract> {
-    const slasherAddress = await this.getSlasher();
-    return new SlasherContract(this.client, EthAddress.fromString(slasherAddress));
+  async getSlasherContract(): Promise<SlasherContract | undefined> {
+    const slasherAddress = EthAddress.fromString(await this.getSlasherAddress());
+    if (slasherAddress.isZero()) {
+      return undefined;
+    }
+    return new SlasherContract(this.client, slasherAddress);
   }
 
   getOwner() {
@@ -319,13 +325,11 @@ export class RollupContract {
   }
 
   public async getSlashingProposerAddress() {
-    const slasherAddress = await this.getSlasher();
-    const slasher = getContract({
-      address: getAddress(slasherAddress.toString()),
-      abi: SlasherAbi,
-      client: this.client,
-    });
-    return EthAddress.fromString(await slasher.read.PROPOSER());
+    const slasher = await this.getSlasherContract();
+    if (!slasher) {
+      return EthAddress.ZERO;
+    }
+    return await slasher.getProposer();
   }
 
   getBlockReward() {
@@ -438,8 +442,19 @@ export class RollupContract {
     return this.rollup.read.getEntryQueueLength();
   }
 
-  async getEpochNumber(blockNumber?: bigint) {
-    blockNumber ??= await this.getBlockNumber();
+  getAvailableValidatorFlushes() {
+    return this.rollup.read.getAvailableValidatorFlushes();
+  }
+
+  getNextFlushableEpoch() {
+    return this.rollup.read.getNextFlushableEpoch();
+  }
+
+  getCurrentEpochNumber(): Promise<bigint> {
+    return this.rollup.read.getCurrentEpoch();
+  }
+
+  getEpochNumberForBlock(blockNumber: bigint) {
     return this.rollup.read.getEpochForBlock([BigInt(blockNumber)]);
   }
 
@@ -702,6 +717,10 @@ export class RollupContract {
     return this.rollup.read.getStakingAsset();
   }
 
+  getRewardConfig() {
+    return this.rollup.read.getRewardConfig();
+  }
+
   setupEpoch(l1TxUtils: L1TxUtils) {
     return l1TxUtils.sendAndMonitorTransaction({
       to: this.address,
@@ -724,7 +743,9 @@ export class RollupContract {
     });
   }
 
-  public listenToSlasherChanged(callback: (args: { oldSlasher: `0x${string}`; newSlasher: `0x${string}` }) => unknown) {
+  public listenToSlasherChanged(
+    callback: (args: { oldSlasher: `0x${string}`; newSlasher: `0x${string}` }) => unknown,
+  ): WatchContractEventReturnType {
     return this.rollup.watchEvent.SlasherUpdated(
       {},
       {
@@ -740,6 +761,22 @@ export class RollupContract {
     );
   }
 
+  public listenToBlockInvalidated(callback: (args: { blockNumber: bigint }) => unknown): WatchContractEventReturnType {
+    return this.rollup.watchEvent.BlockInvalidated(
+      {},
+      {
+        onLogs: logs => {
+          for (const log of logs) {
+            const args = log.args;
+            if (args.blockNumber !== undefined) {
+              callback({ blockNumber: args.blockNumber });
+            }
+          }
+        },
+      },
+    );
+  }
+
   public async getSlashEvents(l1BlockHash: Hex): Promise<{ amount: bigint; attester: EthAddress }[]> {
     const events = await this.rollup.getEvents.Slashed({}, { blockHash: l1BlockHash, strict: true });
     return events.map(event => ({
@@ -748,7 +785,9 @@ export class RollupContract {
     }));
   }
 
-  public listenToSlash(callback: (args: { amount: bigint; attester: EthAddress }) => unknown) {
+  public listenToSlash(
+    callback: (args: { amount: bigint; attester: EthAddress }) => unknown,
+  ): WatchContractEventReturnType {
     return this.rollup.watchEvent.Slashed(
       {},
       {

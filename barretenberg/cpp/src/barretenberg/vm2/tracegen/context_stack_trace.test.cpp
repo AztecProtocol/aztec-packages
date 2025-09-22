@@ -55,7 +55,7 @@ TEST(ContextStackTraceGenTest, TraceGenerationSnapshot)
         .nextAvailableLeafIndex = 10,
     };
 
-    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogs = 1, .numL2ToL1Messages = 2 };
+    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogFields = 1, .numL2ToL1Messages = 2 };
 
     builder.process({ {
                         .id = 1,
@@ -94,7 +94,7 @@ TEST(ContextStackTraceGenTest, TraceGenerationSnapshot)
                              written_public_data_slots_tree_snapshot.root),
                 ROW_FIELD_EQ(context_stack_written_public_data_slots_tree_size,
                              written_public_data_slots_tree_snapshot.nextAvailableLeafIndex),
-                ROW_FIELD_EQ(context_stack_num_unencrypted_logs, side_effect_states.numUnencryptedLogs),
+                ROW_FIELD_EQ(context_stack_num_unencrypted_log_fields, side_effect_states.numUnencryptedLogFields),
                 ROW_FIELD_EQ(context_stack_num_l2_to_l1_messages, side_effect_states.numL2ToL1Messages))));
 }
 

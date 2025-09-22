@@ -230,7 +230,7 @@ unconstrained fn get_current_value_in_private_initial() {
         assert_eq(state_var.get_current_value(), zeroed());
         assert_eq(
             context.include_by_timestamp,
-            context.get_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
+            context.get_anchor_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
         );
     });
 }
@@ -271,12 +271,15 @@ unconstrained fn get_current_value_in_private_immediately_before_change() {
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
-        assert_eq(context.get_block_header().global_variables.timestamp, timestamp_of_change - 1);
+        assert_eq(
+            context.get_anchor_block_header().global_variables.timestamp,
+            timestamp_of_change - 1,
+        );
 
         let state_var = in_private(context);
 
-        // Note that this transaction would never be valid since the max timestamp is the same as the historical timestamp
-        // used to built the proof, i.e. in the past.
+        // Note that this transaction would never be valid since the include_by_timestamp is the same as the anchor
+        // block's timestamp, i.e. in the past.
         assert_eq(state_var.get_current_value(), MockStruct::empty());
         assert_eq(context.include_by_timestamp, timestamp_of_change - 1);
     });
@@ -298,14 +301,17 @@ unconstrained fn get_current_value_in_private_at_change() {
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
-        assert_eq(context.get_block_header().global_variables.timestamp, timestamp_of_change);
+        assert_eq(
+            context.get_anchor_block_header().global_variables.timestamp,
+            timestamp_of_change,
+        );
 
         let state_var = in_private(context);
 
         assert_eq(state_var.get_current_value(), new_value);
         assert_eq(
             context.include_by_timestamp,
-            context.get_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
+            context.get_anchor_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
         );
     });
 }
@@ -326,14 +332,17 @@ unconstrained fn get_current_value_in_private_after_change() {
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
-        assert_eq(context.get_block_header().global_variables.timestamp, timestamp_of_change + 10);
+        assert_eq(
+            context.get_anchor_block_header().global_variables.timestamp,
+            timestamp_of_change + 10,
+        );
 
         let state_var = in_private(context);
 
         assert_eq(state_var.get_current_value(), new_value);
         assert_eq(
             context.include_by_timestamp,
-            context.get_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
+            context.get_anchor_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
         );
     });
 }
@@ -357,7 +366,10 @@ unconstrained fn get_current_value_in_private_with_non_initial_delay() {
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
-        assert_eq(context.get_block_header().global_variables.timestamp, historical_timestamp);
+        assert_eq(
+            context.get_anchor_block_header().global_variables.timestamp,
+            historical_timestamp,
+        );
 
         let state_var = in_private(context);
 

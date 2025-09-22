@@ -8,8 +8,8 @@ import type { ContractClassLog, IndexedTaggingSecret } from '@aztec/stdlib/logs'
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
-import type { UInt64 } from '@aztec/stdlib/types';
 
+import type { UtilityContext } from '../noir-structs/utility_context.js';
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
 /**
@@ -62,24 +62,8 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError(this.className, 'privateLoadFromExecutionCache'));
   }
 
-  utilityGetBlockNumber(): Promise<number> {
-    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetBlockNumber'));
-  }
-
-  utilityGetTimestamp(): Promise<UInt64> {
-    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetTimestamp'));
-  }
-
-  utilityGetContractAddress(): Promise<AztecAddress> {
-    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetContractAddress'));
-  }
-
-  utilityGetChainId(): Promise<Fr> {
-    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetChainId'));
-  }
-
-  utilityGetVersion(): Promise<Fr> {
-    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetVersion'));
+  utilityGetUtilityContext(): Promise<UtilityContext> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetUtilityContext'));
   }
 
   utilityGetKeyValidationRequest(_pkMHash: Fr): Promise<KeyValidationRequest> {

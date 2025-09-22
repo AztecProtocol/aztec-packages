@@ -50,10 +50,8 @@ namespace poseidon2_perm_mem;
     ////////////////////////////////////////////////
     // Error Handling - Out of Range Memory Access
     ////////////////////////////////////////////////
-    pol commit sel_src_out_of_range_err;
-    sel_src_out_of_range_err * (1 - sel_src_out_of_range_err) = 0;
-    pol commit sel_dst_out_of_range_err;
-    sel_dst_out_of_range_err * (1 - sel_dst_out_of_range_err) = 0;
+    pol commit sel_src_out_of_range_err; // Constrained to be boolean by the lookup into gt. (provided that sel == 1).
+    pol commit sel_dst_out_of_range_err; // Constrained to be boolean by the lookup into gt. (provided that sel == 1).
 
     // Use the comparison gadget to check that the max addresses are within range
     // The comparison gadget provides the ability to test GreaterThan so we check
@@ -64,12 +62,12 @@ namespace poseidon2_perm_mem;
     #[CHECK_SRC_ADDR_IN_RANGE]
     sel { read_address[3], max_mem_addr, sel_src_out_of_range_err }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     #[CHECK_DST_ADDR_IN_RANGE]
     sel { write_address[3], max_mem_addr, sel_dst_out_of_range_err }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     ////////////////////////////////////////////////
     // Read from memory into input columns

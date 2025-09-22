@@ -993,7 +993,7 @@ async function makeRollupTx(l2Block: L2Block, signers: Secp256k1Signer[] = []) {
     .map(signer => makeBlockAttestationFromBlock(l2Block, signer))
     .map(blockAttestation => CommitteeAttestation.fromSignature(blockAttestation.signature))
     .map(committeeAttestation => committeeAttestation.toViem());
-  const header = l2Block.header.toPropose().toViem();
+  const header = l2Block.getCheckpointHeader().toViem();
   const blobInput = Blob.getPrefixedEthBlobCommitments(await Blob.getBlobsPerBlock(l2Block.body.toBlobFields()));
   const archive = toHex(l2Block.archive.root.toBuffer());
   const stateReference = l2Block.header.state.toViem();
@@ -1044,7 +1044,9 @@ async function makeRollupTx(l2Block: L2Block, signers: Secp256k1Signer[] = []) {
  * @returns Versioned blob hashes.
  */
 async function makeVersionedBlobHashes(l2Block: L2Block): Promise<`0x${string}`[]> {
-  const blobHashes = (await Blob.getBlobsPerBlock(l2Block.body.toBlobFields())).map(b => b.getEthVersionedBlobHash());
+  const blobFields = l2Block.body.toBlobFields();
+  const blobs = await Blob.getBlobsPerBlock(blobFields);
+  const blobHashes = blobs.map(b => b.getEthVersionedBlobHash());
   return blobHashes.map(h => `0x${h.toString('hex')}` as `0x${string})`);
 }
 
@@ -1054,6 +1056,7 @@ async function makeVersionedBlobHashes(l2Block: L2Block): Promise<`0x${string}`[
  * @returns The blobs.
  */
 async function makeBlobsFromBlock(block: L2Block) {
-  const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
+  const blobFields = block.body.toBlobFields();
+  const blobs = await Blob.getBlobsPerBlock(blobFields);
   return blobs.map((blob, index) => new BlobWithIndex(blob, index));
 }

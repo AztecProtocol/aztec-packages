@@ -262,7 +262,7 @@ contract RollupBuilder is Test {
     }
 
     if (address(config.coinIssuer) == address(0)) {
-      config.coinIssuer = new CoinIssuer(config.testERC20, 1e18, address(this));
+      config.coinIssuer = new CoinIssuer(config.testERC20, TestConstants.AZTEC_COIN_ISSUER_RATE, address(this));
     }
 
     if (address(config.gse) == address(0)) {

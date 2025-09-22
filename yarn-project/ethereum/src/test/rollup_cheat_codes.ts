@@ -112,14 +112,14 @@ export class RollupCheatCodes {
    * @param opts - Options
    */
   public async advanceToEpoch(
-    epoch: bigint,
+    epoch: bigint | number,
     opts: {
       /** Optional test date provider to update with the epoch timestamp */
       updateDateProvider?: TestDateProvider;
     } = {},
   ) {
     const { epochDuration: slotsInEpoch } = await this.getConfig();
-    const timestamp = await this.rollup.read.getTimestampForSlot([epoch * slotsInEpoch]);
+    const timestamp = await this.rollup.read.getTimestampForSlot([BigInt(epoch) * slotsInEpoch]);
     try {
       await this.ethCheatCodes.warp(Number(timestamp), { ...opts, silent: true, resetBlockInterval: true });
       this.logger.warn(`Warped to epoch ${epoch}`);
@@ -205,6 +205,47 @@ export class RollupCheatCodes {
       this.logger.info(
         `Proven tip moved: ${tipsBefore.proven} -> ${tipsAfter.proven}. Pending tip: ${tipsAfter.pending}.`,
       );
+    });
+  }
+
+  /**
+   * Overrides the inProgress field of the Inbox contract state
+   * @param howMuch - How many blocks to move it forward
+   */
+  public advanceInboxInProgress(howMuch: number | bigint): Promise<bigint> {
+    return this.ethCheatCodes.execWithPausedAnvil(async () => {
+      // Storage slot 2 contains the InboxState struct
+      const inboxStateSlot = 2n;
+
+      // Get inbox and its current state values
+      const inboxAddress = await this.rollup.read.getInbox();
+      const currentStateValue = await this.ethCheatCodes.load(EthAddress.fromString(inboxAddress), inboxStateSlot);
+
+      // Extract current values from the packed storage slot
+      // Storage layout: rollingHash (128 bits) | totalMessagesInserted (64 bits) | inProgress (64 bits)
+      const currentRollingHash = currentStateValue & ((1n << 128n) - 1n);
+      const currentTotalMessages = (currentStateValue >> 128n) & ((1n << 64n) - 1n);
+      const currentInProgress = currentStateValue >> 192n;
+      const newInProgress = currentInProgress + BigInt(howMuch);
+
+      // Pack new values: rollingHash (low 128 bits) | totalMessages (middle 64 bits) | inProgress (high 64 bits)
+      const newValue = (BigInt(newInProgress) << 192n) | (currentTotalMessages << 128n) | currentRollingHash;
+
+      await this.ethCheatCodes.store(EthAddress.fromString(inboxAddress), inboxStateSlot, newValue, {
+        silent: true,
+      });
+
+      this.logger.warn(`Inbox inProgress advanced from ${currentInProgress} to ${newInProgress}`, {
+        inbox: inboxAddress,
+        oldValue: '0x' + currentStateValue.toString(16),
+        newValue: '0x' + newValue.toString(16),
+        rollingHash: currentRollingHash,
+        totalMessages: currentTotalMessages,
+        oldInProgress: currentInProgress,
+        newInProgress,
+      });
+
+      return newInProgress;
     });
   }
 

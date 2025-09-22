@@ -2,7 +2,7 @@ import { Aes128 } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import { PXEOracleInterface } from '@aztec/pxe/server';
-import { ExecutionNoteCache, HashedValuesCache, type NoteData, pickNotes } from '@aztec/pxe/simulator';
+import { ExecutionNoteCache, HashedValuesCache, type NoteData, UtilityContext, pickNotes } from '@aztec/pxe/simulator';
 import type { NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Body, L2Block } from '@aztec/stdlib/block';
@@ -27,7 +27,7 @@ export class TXE extends TXETypedOracle {
 
   public noteCache: ExecutionNoteCache;
 
-  constructor(
+  private constructor(
     private contractAddress: AztecAddress,
     private pxeOracleInterface: PXEOracleInterface,
     private forkedWorldTrees: MerkleTreeWriteOperations,
@@ -43,15 +43,31 @@ export class TXE extends TXETypedOracle {
     this.noteCache = new ExecutionNoteCache(txRequestHash);
   }
 
+  static async create(
+    contractAddress: AztecAddress,
+    pxeOracleInterface: PXEOracleInterface,
+    forkedWorldTrees: MerkleTreeWriteOperations,
+    anchorBlockGlobalVariables: GlobalVariables,
+    nextBlockGlobalVariables: GlobalVariables,
+    txRequestHash: Fr,
+  ) {
+    // There is no automatic message discovery and contract-driven syncing process in inlined private or utility
+    // contexts, which means that known nullifiers are also not searched for, since it is during the tagging sync that
+    // we perform this. We therefore search for known nullifiers now, as otherwise notes that were nullified would not
+    // be removed from the database.
+    await pxeOracleInterface.removeNullifiedNotes(contractAddress);
+
+    return new TXE(
+      contractAddress,
+      pxeOracleInterface,
+      forkedWorldTrees,
+      anchorBlockGlobalVariables,
+      nextBlockGlobalVariables,
+      txRequestHash,
+    );
+  }
+
   // Utils
-
-  override utilityGetChainId(): Promise<Fr> {
-    return Promise.resolve(this.anchorBlockGlobalVariables.chainId);
-  }
-
-  override utilityGetVersion(): Promise<Fr> {
-    return Promise.resolve(this.anchorBlockGlobalVariables.version);
-  }
 
   async checkNullifiersNotInTree(contractAddress: AztecAddress, nullifiers: Fr[]) {
     const siloedNullifiers = await Promise.all(nullifiers.map(nullifier => siloNullifier(contractAddress, nullifier)));
@@ -67,20 +83,20 @@ export class TXE extends TXETypedOracle {
 
   // TypedOracle
 
-  override utilityGetBlockNumber() {
-    return Promise.resolve(this.anchorBlockGlobalVariables.blockNumber);
-  }
-
-  override utilityGetTimestamp() {
-    return Promise.resolve(this.anchorBlockGlobalVariables.timestamp);
-  }
-
-  override utilityGetContractAddress() {
-    return Promise.resolve(this.contractAddress);
-  }
-
   override utilityGetRandomField() {
     return Fr.random();
+  }
+
+  override utilityGetUtilityContext() {
+    return Promise.resolve(
+      UtilityContext.from({
+        blockNumber: this.anchorBlockGlobalVariables.blockNumber,
+        timestamp: this.anchorBlockGlobalVariables.timestamp,
+        contractAddress: this.contractAddress,
+        version: this.anchorBlockGlobalVariables.version,
+        chainId: this.anchorBlockGlobalVariables.chainId,
+      }),
+    );
   }
 
   override privateStoreInExecutionCache(values: Fr[], hash: Fr) {
@@ -130,7 +146,7 @@ export class TXE extends TXETypedOracle {
   }
 
   override async utilityGetBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
-    return (await this.pxeOracleInterface.getBlock(blockNumber))?.header;
+    return (await this.pxeOracleInterface.getBlock(blockNumber))?.header.toBlockHeader();
   }
 
   override utilityGetPublicKeysAndPartialAddress(account: AztecAddress) {

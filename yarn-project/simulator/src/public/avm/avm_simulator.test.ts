@@ -467,8 +467,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     ['sha256_hash_256', /*input=*/ randomMemoryBytes(256), /*output=*/ sha256FromMemoryBytes],
     ['sha256_hash_511', /*input=*/ randomMemoryBytes(511), /*output=*/ sha256FromMemoryBytes],
     ['sha256_hash_512', /*input=*/ randomMemoryBytes(512), /*output=*/ sha256FromMemoryBytes],
-    ['sha256_hash_2048', /*input=*/ randomMemoryBytes(2048), /*output=*/ sha256FromMemoryBytes],
-    ['sha256_hash_2500', /*input=*/ randomMemoryBytes(2500), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_1024', /*input=*/ randomMemoryBytes(1024), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_1536', /*input=*/ randomMemoryBytes(1536), /*output=*/ sha256FromMemoryBytes],
     ['keccak_hash', /*input=*/ randomMemoryBytes(10), /*output=*/ keccak256FromMemoryBytes],
     ['keccak_f1600', /*input=*/ randomMemoryUint64s(25), /*output=*/ keccakF1600FromMemoryUint64s],
     ['poseidon2_hash', /*input=*/ randomMemoryFields(10), /*output=*/ poseidon2FromMemoryFields],
@@ -736,11 +736,13 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           '\0A long time ago, in a galaxy fa',
           '\0r far away...\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
         ].map(s => new Fr(Buffer.from(s)));
+        const expectedLargeLog = Array.from({ length: 42 }, (_, i) => new Fr(i + 1));
 
-        expect(trace.tracePublicLog).toHaveBeenCalledTimes(3);
+        expect(trace.tracePublicLog).toHaveBeenCalledTimes(4);
         expect(trace.tracePublicLog).toHaveBeenCalledWith(address, expectedFields);
         expect(trace.tracePublicLog).toHaveBeenCalledWith(address, expectedString);
         expect(trace.tracePublicLog).toHaveBeenCalledWith(address, expectedCompressedString);
+        expect(trace.tracePublicLog).toHaveBeenCalledWith(address, expectedLargeLog);
       });
     });
 
@@ -1061,7 +1063,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         ['Public storage writes', () => new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 0)],
         ['New note hashes', () => new EmitNoteHash(/*indirect=*/ 0, /*noteHashOffset=*/ 0)],
         ['New nullifiers', () => new EmitNullifier(/*indirect=*/ 0, /*noteHashOffset=*/ 0)],
-        ['New unencrypted logs', () => new EmitUnencryptedLog(/*indirect=*/ 0, /*logOffset=*/ 0, /*logSizeOffest=*/ 1)],
+        ['New unencrypted logs', () => new EmitUnencryptedLog(/*indirect=*/ 0, /*logSizeOffest=*/ 1, /*logOffset=*/ 0)],
         [
           'New L1 to L2 messages',
           () => new SendL2ToL1Message(/*indirect=*/ 0, /*recipientOffset=*/ 0, /*contentOffest=*/ 0),

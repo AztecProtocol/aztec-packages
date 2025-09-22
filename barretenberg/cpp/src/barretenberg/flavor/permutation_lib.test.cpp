@@ -53,7 +53,7 @@ class PermutationHelperTests : public ::testing::Test {
 
          */
 
-        // construct_selector_polynomials<Flavor>(circuit_constructor, proving_key.get());
+        // construct_selector_polynomials<Flavor>(circuit_constructor, prover_instance.get());
     }
 };
 

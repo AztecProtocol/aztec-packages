@@ -69,12 +69,14 @@ value_yamls="../aztec-network/values/$values_file ../aztec-network/values.yaml"
 num_validators=$(./read_value.sh "validator.replicas" $value_yamls)
 validators_per_node=$(./read_value.sh "validator.keysPerNode" $value_yamls)
 num_provers=$(./read_value.sh "proverNode.replicas" $value_yamls)
+publishers_per_validator=$(./read_value.sh "validator.publishersPerValidatorKey" $value_yamls)
 
 # Get the key index start values
 validator_key_index_start=$(./read_value.sh "aztec.validatorKeyIndexStart" $value_yamls)
 prover_key_index_start=$(./read_value.sh "aztec.proverKeyIndexStart" $value_yamls)
 bot_key_index_start=$(./read_value.sh "aztec.botKeyIndexStart" $value_yamls)
 slasher_key_index_start=$(./read_value.sh "aztec.slasherKeyIndexStart" $value_yamls)
+validator_publisher_index_start=$(./read_value.sh "aztec.validatorPublisherIndexStart" $value_yamls)
 
 # bots might be disabled
 bot_enabled=$(./read_value.sh "bot.enabled" $value_yamls)
@@ -95,8 +97,9 @@ max_index=$((validator_max_index > prover_max_index ? validator_max_index : prov
 max_index=$((max_index > bot_max_index ? max_index : bot_max_index))
 max_index=$((max_index > slasher_max_index ? max_index : slasher_max_index))
 
-# Total number of accounts needed
-total_accounts=$((num_validators * validators_per_node + num_provers + num_bots + num_validators))
+# Total number of accounts needed (approx; for logging)
+total_publishers=$((num_validators * validators_per_node * publishers_per_validator))
+total_accounts=$((num_validators * validators_per_node + num_provers + num_bots + num_validators + total_publishers))
 
 # Check if mnemonic is provided
 if [ "${MNEMONIC:-}" = "" ]; then
@@ -145,6 +148,14 @@ fi
 # Add slasher indices (one per validator)
 for ((i = 0; i < num_validators; i++)); do
   indices_to_fund+=($((slasher_key_index_start + i)))
+done
+
+# Add publisher indices (per validator key)
+for ((v = 0; v < num_validators * validators_per_node; v++)); do
+  base=$((validator_publisher_index_start + v * publishers_per_validator))
+  for ((p = 0; p < publishers_per_validator; p++)); do
+    indices_to_fund+=($((base + p)))
+  done
 done
 
 # Get the addresses to fund

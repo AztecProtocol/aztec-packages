@@ -19,13 +19,17 @@ namespace bb::avm2::tracegen {
 // A lookup builder that uses a function `find_in_dst` to find the destination row for a given source tuple.
 template <typename LookupSettings_> class IndexedLookupTraceBuilder : public InteractionBuilderInterface {
   public:
+    IndexedLookupTraceBuilder()
+        : outer_dst_selector(LookupSettings_::DST_SELECTOR)
+    {}
+    IndexedLookupTraceBuilder(Column outer_dst_selector)
+        : outer_dst_selector(outer_dst_selector)
+    {}
     ~IndexedLookupTraceBuilder() override = default;
 
     void process(TraceContainer& trace) override
     {
         init(trace);
-
-        SetDummyInverses<LookupSettings_>(trace);
 
         // Let "src_sel {c1, c2, ...} in dst_sel {d1, d2, ...}" be a lookup,
         // For each row that has a 1 in the src_sel, we take the values of {c1, c2, ...},
@@ -43,6 +47,11 @@ template <typename LookupSettings_> class IndexedLookupTraceBuilder : public Int
             }
 
             trace.set(LookupSettings::COUNTS, dst_row, trace.get(LookupSettings::COUNTS, dst_row) + 1);
+            // Set the fine grained inner selector if it's not already one.
+            if (LookupSettings::DST_SELECTOR != this->outer_dst_selector &&
+                trace.get(LookupSettings::DST_SELECTOR, dst_row) != 1) {
+                trace.set(LookupSettings::DST_SELECTOR, dst_row, 1);
+            }
         });
     }
 
@@ -50,6 +59,9 @@ template <typename LookupSettings_> class IndexedLookupTraceBuilder : public Int
     using LookupSettings = LookupSettings_;
     virtual uint32_t find_in_dst(const std::array<FF, LookupSettings::LOOKUP_TUPLE_SIZE>& tup) const = 0;
     virtual void init(TraceContainer&) {}; // Optional initialization step.
+
+    // The outer (bigger) table selector.
+    Column outer_dst_selector;
 };
 
 // This class is used when the lookup is into a non-precomputed table.
@@ -59,6 +71,12 @@ template <typename LookupSettings_> class IndexedLookupTraceBuilder : public Int
 template <typename LookupSettings_>
 class LookupIntoDynamicTableGeneric : public IndexedLookupTraceBuilder<LookupSettings_> {
   public:
+    LookupIntoDynamicTableGeneric()
+        : IndexedLookupTraceBuilder<LookupSettings_>()
+    {}
+    LookupIntoDynamicTableGeneric(Column outer_dst_selector)
+        : IndexedLookupTraceBuilder<LookupSettings_>(outer_dst_selector)
+    {}
     virtual ~LookupIntoDynamicTableGeneric() = default;
 
   protected:
@@ -67,8 +85,8 @@ class LookupIntoDynamicTableGeneric : public IndexedLookupTraceBuilder<LookupSet
 
     void init(TraceContainer& trace) override
     {
-        row_idx.reserve(trace.get_column_rows(LookupSettings::DST_SELECTOR));
-        trace.visit_column(LookupSettings::DST_SELECTOR, [&](uint32_t row, const FF&) {
+        row_idx.reserve(trace.get_column_rows(this->outer_dst_selector));
+        trace.visit_column(this->outer_dst_selector, [&](uint32_t row, const FF&) {
             auto dst_values = trace.get_multiple(LookupSettings::DST_COLUMNS, row);
             row_idx.insert({ dst_values, row });
         });
@@ -101,14 +119,18 @@ class LookupIntoDynamicTableGeneric : public IndexedLookupTraceBuilder<LookupSet
 // In this case the two tables will likely not be in order.
 template <typename LookupSettings> class LookupIntoDynamicTableSequential : public InteractionBuilderInterface {
   public:
+    LookupIntoDynamicTableSequential()
+        : outer_dst_selector(LookupSettings::DST_SELECTOR)
+    {}
+    LookupIntoDynamicTableSequential(Column outer_dst_selector)
+        : outer_dst_selector(outer_dst_selector)
+    {}
     ~LookupIntoDynamicTableSequential() override = default;
 
     void process(TraceContainer& trace) override
     {
         uint32_t dst_row = 0;
-        uint32_t max_dst_row = trace.get_column_rows(LookupSettings::DST_SELECTOR);
-
-        SetDummyInverses<LookupSettings>(trace);
+        uint32_t max_dst_row = trace.get_column_rows(this->outer_dst_selector);
 
         // For the sequential builder, it is critical that we visit the source rows in order.
         // Since the trace does not guarantee visiting rows in order, we need to collect the rows.
@@ -126,9 +148,16 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
             while (!found && dst_row < max_dst_row) {
                 // TODO: As an optimization, we could try to only walk the rows where the selector is active.
                 // We can't just do a visit because we cannot skip rows with that.
-                auto dst_selector = trace.get(LookupSettings::DST_SELECTOR, dst_row);
+                auto dst_selector = trace.get(this->outer_dst_selector, dst_row);
                 if (dst_selector == 1 && src_values == trace.get_multiple(LookupSettings::DST_COLUMNS, dst_row)) {
                     trace.set(LookupSettings::COUNTS, dst_row, trace.get(LookupSettings::COUNTS, dst_row) + 1);
+
+                    // Set the fine grained inner selector if it's not already one.
+                    if (LookupSettings::DST_SELECTOR != this->outer_dst_selector &&
+                        trace.get(LookupSettings::DST_SELECTOR, dst_row) != 1) {
+                        trace.set(LookupSettings::DST_SELECTOR, dst_row, 1);
+                    }
+
                     found = true;
                     // We don't want to increment dst_row if we found a match.
                     // It could be that the next "query" will find the same tuple.
@@ -146,6 +175,10 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
             }
         }
     }
+
+  private:
+    // The outer (bigger) table selector.
+    Column outer_dst_selector;
 };
 
 } // namespace bb::avm2::tracegen

@@ -35,23 +35,23 @@ template <typename FF> class nullifier_check : public Relation<nullifier_checkIm
   public:
     static constexpr const std::string_view NAME = "nullifier_check";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 5:
-            return "PASSTHROUGH_SILOING";
-        case 12:
-            return "EXISTS_CHECK";
-        case 15:
-            return "NEXT_NULLIFIER_IS_ZERO_CHECK";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_PASSTHROUGH_SILOING = 5;
     static constexpr size_t SR_EXISTS_CHECK = 12;
     static constexpr size_t SR_NEXT_NULLIFIER_IS_ZERO_CHECK = 15;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_PASSTHROUGH_SILOING:
+            return "PASSTHROUGH_SILOING";
+        case SR_EXISTS_CHECK:
+            return "EXISTS_CHECK";
+        case SR_NEXT_NULLIFIER_IS_ZERO_CHECK:
+            return "NEXT_NULLIFIER_IS_ZERO_CHECK";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

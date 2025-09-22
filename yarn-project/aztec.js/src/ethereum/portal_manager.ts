@@ -12,12 +12,10 @@ import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { TokenPortalAbi } from '@aztec/l1-artifacts/TokenPortalAbi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeL2ToL1MessageHash, computeSecretHash } from '@aztec/stdlib/hash';
-import type { PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
 
 import { type Hex, getContract, toFunctionSelector } from 'viem';
-
-import type { Wallet } from '../index.js';
 
 // docs:start:claim_type
 // docs:start:claim_type_amount
@@ -208,18 +206,18 @@ export class L1FeeJuicePortalManager {
 
   /**
    * Creates a new instance
-   * @param walletOrPxe - Wallet or PXE client used for retrieving the L1 contract addresses.
+   * @param node - Aztec node client used for retrieving the L1 contract addresses.
    * @param extendedClient - Wallet client, extended with public actions.
    * @param logger - Logger.
    */
   public static async new(
-    walletOrPxe: Wallet | PXE,
+    node: AztecNode,
     extendedClient: ExtendedViemWalletClient,
     logger: Logger,
   ): Promise<L1FeeJuicePortalManager> {
     const {
       l1ContractAddresses: { feeJuiceAddress, feeJuicePortalAddress, feeAssetHandlerAddress },
-    } = await walletOrPxe.getNodeInfo();
+    } = await node.getNodeInfo();
 
     if (feeJuiceAddress.isZero() || feeJuicePortalAddress.isZero()) {
       throw new Error('Portal or token not deployed on L1');
