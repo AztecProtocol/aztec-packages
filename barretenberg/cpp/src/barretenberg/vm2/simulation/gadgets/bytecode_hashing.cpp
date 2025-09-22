@@ -20,6 +20,9 @@ void BytecodeHasher::assert_public_bytecode_commitment(const BytecodeId& bytecod
 
     FF hash = hasher.hash(inputs);
     assert(hash == public_bytecode_commitment);
+    // To please the compiler.
+    (void)hash;
+    (void)public_bytecode_commitment;
 
     events.emit({ .bytecode_id = bytecode_id,
                   .bytecode_length = bytecode_length_in_bytes,
