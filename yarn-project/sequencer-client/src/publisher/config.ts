@@ -74,7 +74,7 @@ export const getPublisherConfigMappings: (
   publisherAllowInvalidStates: {
     description: 'True to use publishers in invalid states (timed out, cancelled, etc) if no other is available',
     env: scope === `PROVER` ? `PROVER_PUBLISHER_ALLOW_INVALID_STATES` : `SEQ_PUBLISHER_ALLOW_INVALID_STATES`,
-    ...booleanConfigHelper(false),
+    ...booleanConfigHelper(true),
   },
   ...l1TxUtilsConfigMappings,
   ...blobSinkConfigMapping,
