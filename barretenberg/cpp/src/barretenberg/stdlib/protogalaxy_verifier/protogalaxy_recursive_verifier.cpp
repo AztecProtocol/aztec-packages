@@ -17,7 +17,6 @@ template <class VerifierInstance>
 void ProtogalaxyRecursiveVerifier_<VerifierInstance>::run_oink_verifier_on_each_incomplete_instance(
     const std::vector<FF>& proof)
 {
-    BB_ASSERT_EQ(insts_to_fold.NUM, 2UL, "Protogalaxy only supports folding 2 instances.");
     transcript->load_proof(proof);
     auto key = insts_to_fold[0];
     auto domain_separator = std::to_string(0);
