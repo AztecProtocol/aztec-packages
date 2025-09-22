@@ -34,10 +34,13 @@ namespace bb {
  */
 
 template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
+  public:
     using Flavor = Flavor_;
+    using FF = typename Flavor::FF;
+
+  private:
     using Circuit = typename Flavor::CircuitBuilder;
     using CommitmentKey = typename Flavor::CommitmentKey;
-    using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Polynomial = typename Flavor::Polynomial;
     using SubrelationSeparators = typename Flavor::SubrelationSeparators;

@@ -491,7 +491,7 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
                 return;
             }
 
-            auto extended = element.template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
+            auto extended = element.template extend_to<BATCHED_EXTENDED_LENGTH>();
             extended *= alphas[idx];
             result += extended;
             idx++;
@@ -503,7 +503,7 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
         return result;
     }
 
-    static std::pair<typename ProverInstances::FF, std::array<typename ProverInstances::FF, NUM_INSTANCES>>
+    static std::pair<typename ProverInstance::FF, std::array<typename ProverInstance::FF, NUM_INSTANCES>>
     compute_vanishing_polynomial_and_lagranges(const FF& challenge)
     {
         FF vanishing_polynomial_at_challenge;

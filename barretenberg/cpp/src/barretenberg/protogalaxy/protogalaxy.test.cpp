@@ -22,9 +22,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
   public:
     using VerificationKey = typename Flavor::VerificationKey;
     using ProverInstance = ProverInstance_<Flavor>;
-    using ProverInstances = ProverInstances_<Flavor, 2>;
     using VerifierInstance = VerifierInstance_<Flavor>;
-    using VerifierInstances = VerifierInstances_<Flavor, 2>;
     using ProtogalaxyProver = ProtogalaxyProver_<Flavor>;
     using FF = typename Flavor::FF;
     using Affine = typename Flavor::Commitment;
@@ -39,8 +37,9 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     using DeciderProver = DeciderProver_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
     using FoldingProver = ProtogalaxyProver_<Flavor>;
-    using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstances>;
-    using PGInternal = ProtogalaxyProverInternal<ProverInstances>;
+    using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstance>;
+    using PGInternal = ProtogalaxyProverInternal<ProverInstance>;
+    using ProverInstances = ProtogalaxyProver::ProverInstances;
 
     using TupleOfKeys =
         std::tuple<std::vector<std::shared_ptr<ProverInstance>>, std::vector<std::shared_ptr<VerifierInstance>>>;
@@ -585,10 +584,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         constexpr size_t total_insts = k + 1;
         TupleOfKeys insts = construct_keys(total_insts);
 
-        ProtogalaxyProver_<Flavor, total_insts> folding_prover(
-            get<0>(insts), get<1>(insts), std::make_shared<NativeTranscript>());
-        ProtogalaxyVerifier_<VerifierInstances_<Flavor, total_insts>> folding_verifier(
-            get<1>(insts), std::make_shared<NativeTranscript>());
+        ProtogalaxyProver_<Flavor> folding_prover(get<0>(insts), get<1>(insts), std::make_shared<NativeTranscript>());
+        ProtogalaxyVerifier_<VerifierInstance> folding_verifier(get<1>(insts), std::make_shared<NativeTranscript>());
 
         auto [prover_accumulator, folding_proof] = folding_prover.prove();
         auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);

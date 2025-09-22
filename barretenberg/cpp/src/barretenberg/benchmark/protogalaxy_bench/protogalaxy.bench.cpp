@@ -27,7 +27,7 @@ void vector_of_evaluations(State& state) noexcept
 
 void compute_row_evaluations(State& state) noexcept
 {
-    using PGInternal = ProtogalaxyProverInternal<ProverInstances_<Flavor, 2>>;
+    using PGInternal = ProtogalaxyProverInternal<ProverInstances_<Flavor>>;
     using Polys = Flavor::ProverPolynomials;
     using Alphas = Flavor::SubrelationSeparators;
     using Params = RelationParameters<FF>;
@@ -50,7 +50,7 @@ void fold(State& state) noexcept
 
     using ProverInstance = ProverInstance_<Flavor>;
     using VerifierInstance = VerifierInstance_<Flavor>;
-    using ProtogalaxyProver = ProtogalaxyProver_<Flavor, 2>;
+    using ProtogalaxyProver = ProtogalaxyProver_<Flavor>;
     using Builder = typename Flavor::CircuitBuilder;
 
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
@@ -62,15 +62,15 @@ void fold(State& state) noexcept
         MockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
         return std::make_shared<ProverInstance>(builder);
     };
-    std::vector<std::shared_ptr<ProverInstance>> prover_insts;
-    std::vector<std::shared_ptr<VerifierInstance>> verifier_insts;
+    std::array<std::shared_ptr<ProverInstance>, 2> prover_insts;
+    std::array<std::shared_ptr<VerifierInstance>, 2> verifier_insts;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop
     for (size_t i = 0; i < 2; ++i) {
         std::shared_ptr<ProverInstance> prover_inst = construct_inst();
         auto honk_vk = std::make_shared<Flavor::VerificationKey>(prover_inst->get_precomputed());
         std::shared_ptr<VerifierInstance> verifier_inst = std::make_shared<VerifierInstance>(honk_vk);
-        prover_insts.emplace_back(prover_inst);
-        verifier_insts.emplace_back(verifier_inst);
+        prover_insts[i] = prover_inst;
+        verifier_insts[i] = verifier_inst;
     }
     std::shared_ptr<typename ProtogalaxyProver::Transcript> transcript =
         std::make_shared<typename ProtogalaxyProver::Transcript>();
