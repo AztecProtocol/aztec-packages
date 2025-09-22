@@ -56,12 +56,12 @@ static constexpr std::size_t SKIP_COUNT = NUM_INSTANCES - 1;
  * - BATCHED_EXTENDED_LENGTH = number of evaluations needed to determine the combiner
  *                   = Flavor::MAX_TOTAL_RELATION_LENGTH + 1
  */
-template <IsUltraOrMegaHonk Flavor> static constexpr size_t computed_extended_length()
+template <IsMegaFlavor Flavor> static constexpr size_t computed_extended_length()
 {
     return Flavor::MAX_TOTAL_RELATION_LENGTH;
 }
 
-template <IsUltraOrMegaHonk Flavor> static constexpr size_t computed_batched_extended_length()
+template <IsMegaFlavor Flavor> static constexpr size_t computed_batched_extended_length()
 {
     return Flavor::MAX_TOTAL_RELATION_LENGTH + 1;
 }

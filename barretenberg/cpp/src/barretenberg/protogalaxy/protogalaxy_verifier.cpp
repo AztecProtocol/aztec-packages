@@ -89,7 +89,7 @@ std::shared_ptr<VerifierInstance> ProtogalaxyVerifier_<VerifierInstance>::verify
     accumulator->gate_challenges = // note: known already in previous round
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
-    // // Fold the commitments
+    // Fold the commitments
     for (auto [combination, to_combine] :
          zip_view(accumulator->vk->get_all(), get_data_to_fold<FOLDING_DATA::PRECOMPUTED_COMMITMENTS>())) {
         combination = batch_mul_native(to_combine, lagranges);
