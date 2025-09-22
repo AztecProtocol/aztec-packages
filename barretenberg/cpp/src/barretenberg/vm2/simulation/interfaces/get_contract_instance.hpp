@@ -7,6 +7,9 @@
 
 namespace bb::avm2::simulation {
 
+// Forward declaration
+class MemoryInterface;
+
 class GetContractInstanceInterface {
   public:
     virtual ~GetContractInstanceInterface() = default;

@@ -3,8 +3,9 @@
 #include <array>
 #include <gmock/gmock.h>
 
-#include "barretenberg/vm2/simulation/gadgets/keccakf1600.hpp"
-#include "barretenberg/vm2/simulation/gadgets/memory.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/simulation/interfaces/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/interfaces/memory.hpp"
 
 namespace bb::avm2::simulation {
 

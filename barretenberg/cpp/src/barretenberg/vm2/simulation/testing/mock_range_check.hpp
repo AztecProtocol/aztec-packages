@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
+#include "barretenberg/vm2/simulation/interfaces/range_check.hpp"
 
 #include <cstddef>
 #include <gmock/gmock.h>

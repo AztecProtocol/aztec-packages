@@ -4,6 +4,9 @@
 
 namespace bb::avm2::simulation {
 
+// Forward declaration
+class MemoryInterface;
+
 class KeccakF1600Interface {
   public:
     virtual ~KeccakF1600Interface() = default;

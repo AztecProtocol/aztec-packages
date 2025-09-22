@@ -6,6 +6,9 @@
 
 namespace bb::avm2::simulation {
 
+// Forward declaration
+class MemoryInterface;
+
 class EccInterface {
   public:
     virtual ~EccInterface() = default;
