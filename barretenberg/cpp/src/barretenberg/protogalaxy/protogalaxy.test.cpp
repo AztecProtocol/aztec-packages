@@ -84,8 +84,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     }
 
     static std::tuple<std::shared_ptr<ProverInstance>, std::shared_ptr<VerifierInstance>> fold_and_verify(
-        const std::array<std::shared_ptr<ProverInstance>, NUM_INSTANCES>& prover_instances,
-        const std::array<std::shared_ptr<VerifierInstance>, NUM_INSTANCES>& verification_keys,
+        const ProverInstances& prover_instances,
+        const VerifierInstances& verification_keys,
         ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
     {
         FoldingProver folding_prover(prover_instances,

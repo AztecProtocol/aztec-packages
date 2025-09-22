@@ -62,7 +62,12 @@ static constexpr size_t computed_extended_length()
 {
     return Flavor::MAX_TOTAL_RELATION_LENGTH;
 }
-
+/**
+ * @brief Compute the number of evaluation neeeded to represent the combiner polynomial (\f$G\f$ in the Protogalaxy
+ * paper). See the documentation about computed_extended_length() for the calculation.
+ *
+ * @tparam Flavor
+ */
 template <typename Flavor>
     requires(IsMegaFlavor<Flavor> || IsUltraOrMegaHonk<Flavor>)
 static constexpr size_t computed_batched_extended_length()

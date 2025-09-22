@@ -61,10 +61,10 @@ void fold(State& state) noexcept
         MockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
         return std::make_shared<ProverInstance>(builder);
     };
-    std::array<std::shared_ptr<ProverInstance>, 2> prover_insts;
-    std::array<std::shared_ptr<VerifierInstance>, 2> verifier_insts;
+    std::array<std::shared_ptr<ProverInstance>, NUM_INSTANCES> prover_insts;
+    std::array<std::shared_ptr<VerifierInstance>, NUM_INSTANCES> verifier_insts;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop
-    for (size_t i = 0; i < 2; ++i) {
+    for (size_t i = 0; i < NUM_INSTANCES; ++i) {
         std::shared_ptr<ProverInstance> prover_inst = construct_inst();
         auto honk_vk = std::make_shared<Flavor::VerificationKey>(prover_inst->get_precomputed());
         std::shared_ptr<VerifierInstance> verifier_inst = std::make_shared<VerifierInstance>(honk_vk);
