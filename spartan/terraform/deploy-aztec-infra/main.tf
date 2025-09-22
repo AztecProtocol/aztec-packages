@@ -128,7 +128,6 @@ locals {
         "validator.slash.maxPayloadSize"                    = var.SLASH_MAX_PAYLOAD_SIZE
         "validator.node.env.TRANSACTIONS_DISABLED"          = var.TRANSACTIONS_DISABLED
         "validator.node.env.NETWORK"                        = var.NETWORK
-        "validator.node.env.KEY_INDEX_START"                = var.VALIDATOR_MNEMONIC_START_INDEX
         "validator.node.env.SEQ_MIN_TX_PER_BLOCK"           = var.SEQ_MIN_TX_PER_BLOCK
         "validator.node.env.SEQ_MAX_TX_PER_BLOCK"           = var.SEQ_MAX_TX_PER_BLOCK
       }
