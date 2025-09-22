@@ -35,8 +35,7 @@ class ClientIVCTests : public ::testing::Test {
     using DeciderVerifier = ClientIVC::DeciderVerifier;
     using ProverInstances = ProverInstances_<Flavor>;
     using FoldingProver = ProtogalaxyProver_<Flavor>;
-    using VerifierInstances = VerifierInstances_<Flavor>;
-    using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstances>;
+    using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstance>;
     using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
 
   public:

@@ -27,7 +27,7 @@ void vector_of_evaluations(State& state) noexcept
 
 void compute_row_evaluations(State& state) noexcept
 {
-    using PGInternal = ProtogalaxyProverInternal<ProverInstances_<Flavor>>;
+    using PGInternal = ProtogalaxyProverInternal<ProverInstance_<Flavor>>;
     using Polys = Flavor::ProverPolynomials;
     using Alphas = Flavor::SubrelationSeparators;
     using Params = RelationParameters<FF>;

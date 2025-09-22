@@ -15,7 +15,7 @@
 #include "protogalaxy_prover.hpp"
 
 namespace bb {
-template <IsMegaFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void ProtogalaxyProver_<Flavor>::run_oink_prover_on_one_incomplete_instance(std::shared_ptr<ProverInstance> key,
                                                                             std::shared_ptr<VerifierInstance> vk,
                                                                             const std::string& domain_separator)
@@ -26,7 +26,7 @@ void ProtogalaxyProver_<Flavor>::run_oink_prover_on_one_incomplete_instance(std:
     oink_prover.prove();
 }
 
-template <IsMegaFlavor Flavor> void ProtogalaxyProver_<Flavor>::run_oink_prover_on_each_incomplete_instance()
+template <IsUltraOrMegaHonk Flavor> void ProtogalaxyProver_<Flavor>::run_oink_prover_on_each_incomplete_instance()
 {
     size_t idx = 0;
     auto& key = prover_insts_to_fold[0];
@@ -50,7 +50,7 @@ template <IsMegaFlavor Flavor> void ProtogalaxyProver_<Flavor>::run_oink_prover_
     accumulator = prover_insts_to_fold[0];
 };
 
-template <IsMegaFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 std::tuple<std::vector<typename Flavor::FF>, Polynomial<typename Flavor::FF>> ProtogalaxyProver_<
     Flavor>::perturbator_round(const std::shared_ptr<const ProverInstance>& accumulator)
 {
@@ -70,7 +70,7 @@ std::tuple<std::vector<typename Flavor::FF>, Polynomial<typename Flavor::FF>> Pr
     return std::make_tuple(deltas, perturbator);
 };
 
-template <IsMegaFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 std::tuple<std::vector<typename Flavor::FF>,
            typename ProtogalaxyProver_<Flavor>::UnivariateSubrelationSeparators,
            typename ProtogalaxyProver_<Flavor>::UnivariateRelationParameters,
@@ -110,7 +110,7 @@ ProtogalaxyProver_<Flavor>::combiner_quotient_round(const std::vector<FF>& gate_
 /**
  * @brief Given the challenge \gamma, compute Z(\gamma) and {L_0(\gamma),L_1(\gamma)}
  */
-template <IsMegaFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
     const ProverInstances& instances,
     const CombinerQuotient& combiner_quotient,
@@ -175,7 +175,7 @@ void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
     }
 }
 
-template <IsMegaFlavor Flavor> FoldingResult<Flavor> ProtogalaxyProver_<Flavor>::prove()
+template <IsUltraOrMegaHonk Flavor> FoldingResult<Flavor> ProtogalaxyProver_<Flavor>::prove()
 {
     BB_BENCH_NAME("ProtogalaxyProver::prove");
 
