@@ -1,4 +1,3 @@
-import type { Tx } from '@aztec/aztec.js';
 import { EpochCache } from '@aztec/epoch-cache';
 import { merge, pick } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -17,7 +16,7 @@ import type {
   SlasherConfig,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { OffenseType } from '@aztec/stdlib/slashing';
+import { OffenseType, getOffenseTypeName } from '@aztec/stdlib/slashing';
 import {
   ReExFailedTxsError,
   ReExStateMismatchError,
@@ -79,54 +78,45 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
 
   private handlePruneL2Blocks(event: L2BlockPruneEvent): void {
     const { blocks, epochNumber } = event;
-    const l1Constants = this.epochCache.getL1Constants();
-    const epochBlocks = blocks.filter(b => getEpochAtSlot(b.slot, l1Constants) === epochNumber);
-    this.log.info(
-      `Detected chain prune. Validating epoch ${epochNumber} with blocks ${epochBlocks[0]?.number} to ${epochBlocks[epochBlocks.length - 1]?.number}.`,
-      { blocks: epochBlocks.map(b => b.toBlockInfo()) },
+    this.log.info(`Detected chain prune. Validating epoch ${epochNumber}`);
+    void this.processPruneL2Blocks(blocks, epochNumber).catch(err =>
+      this.log.error('Error processing pruned L2 blocks', err, { epochNumber }),
     );
+  }
 
-    this.validateBlocks(epochBlocks)
-      .then(async () => {
-        this.log.info(`Pruned epoch ${epochNumber} was valid. Want to slash committee for not having it proven.`);
-        const validators = await this.getValidatorsForEpoch(epochNumber);
-        // need to specify return type to be able to return offense as undefined later on
-        const result: { validators: EthAddress[]; offense: OffenseType | undefined } = {
-          validators,
-          offense: OffenseType.VALID_EPOCH_PRUNED,
-        };
-        return result;
-      })
-      .catch(async error => {
-        if (error instanceof TransactionsNotAvailableError) {
-          this.log.info(`Data for pruned epoch ${epochNumber} was not available. Will want to slash.`, {
-            message: error.message,
-          });
-          const validators = await this.getValidatorsForEpoch(epochNumber);
-          return {
-            validators,
-            offense: OffenseType.DATA_WITHHOLDING,
-          };
-        } else {
-          this.log.error(`Error while validating pruned epoch ${epochNumber}. Will not want to slash.`, error);
-          return {
-            validators: [],
-            offense: undefined,
-          };
-        }
-      })
-      .then(({ validators, offense }) => {
-        if (validators.length === 0 || offense === undefined) {
-          return;
-        }
-        const args = this.validatorsToSlashingArgs(validators, offense, BigInt(epochNumber));
-        this.log.info(`Slash for epoch ${epochNumber} created`, args);
-        this.emit(WANT_TO_SLASH_EVENT, args);
-      })
-      .catch(error => {
-        // This can happen if we fail to get the validators for the epoch.
-        this.log.error('Error while creating slash for epoch', error);
-      });
+  private async emitSlashForEpoch(offense: OffenseType, epochNumber: bigint): Promise<void> {
+    const validators = await this.getValidatorsForEpoch(epochNumber);
+    if (validators.length === 0) {
+      this.log.warn(`No validators found for epoch ${epochNumber} (cannot slash for ${getOffenseTypeName(offense)})`);
+      return;
+    }
+    const args = this.validatorsToSlashingArgs(validators, offense, BigInt(epochNumber));
+    this.log.verbose(`Created slash for ${getOffenseTypeName(offense)} at epoch ${epochNumber}`, args);
+    this.emit(WANT_TO_SLASH_EVENT, args);
+  }
+
+  private async processPruneL2Blocks(blocks: L2Block[], epochNumber: bigint): Promise<void> {
+    try {
+      const l1Constants = this.epochCache.getL1Constants();
+      const epochBlocks = blocks.filter(b => getEpochAtSlot(b.slot, l1Constants) === epochNumber);
+      this.log.info(
+        `Detected chain prune. Validating epoch ${epochNumber} with blocks ${epochBlocks[0]?.number} to ${epochBlocks[epochBlocks.length - 1]?.number}.`,
+        { blocks: epochBlocks.map(b => b.toBlockInfo()) },
+      );
+
+      await this.validateBlocks(epochBlocks);
+      this.log.info(`Pruned epoch ${epochNumber} was valid. Want to slash committee for not having it proven.`);
+      await this.emitSlashForEpoch(OffenseType.VALID_EPOCH_PRUNED, epochNumber);
+    } catch (error) {
+      if (error instanceof TransactionsNotAvailableError) {
+        this.log.info(`Data for pruned epoch ${epochNumber} was not available. Will want to slash.`, {
+          message: error.message,
+        });
+        await this.emitSlashForEpoch(OffenseType.DATA_WITHHOLDING, epochNumber);
+      } else {
+        this.log.error(`Error while validating pruned epoch ${epochNumber}. Will not want to slash.`, error);
+      }
+    }
   }
 
   public async validateBlocks(blocks: L2Block[]): Promise<void> {
@@ -157,7 +147,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
 
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockFromL1.number);
     const { block, failedTxs, numTxs } = await this.blockBuilder.buildBlock(
-      txs as Tx[],
+      txs,
       l1ToL2Messages,
       blockFromL1.header.globalVariables,
       {},

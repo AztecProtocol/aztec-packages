@@ -1,4 +1,5 @@
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
+import { TimeoutError } from '@aztec/foundation/error';
 import type { Logger } from '@aztec/foundation/log';
 
 import { type EncodeFunctionDataParameters, type Hex, encodeFunctionData, multicall3Abi } from 'viem';
@@ -92,6 +93,10 @@ export class Multicall3 {
         return { receipt, gasPrice, errorMsg };
       }
     } catch (err) {
+      if (err instanceof TimeoutError) {
+        throw err;
+      }
+
       for (const request of requests) {
         logger.debug('Simulating request', { request });
         const result = await l1TxUtils
