@@ -5,7 +5,6 @@
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include "barretenberg/ultra_honk/instances.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 
 using namespace benchmark;

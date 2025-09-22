@@ -20,7 +20,6 @@
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
-#include "barretenberg/ultra_honk/instances.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include <algorithm>
@@ -51,7 +50,6 @@ class ClientIVC {
     using ClientCircuit = MegaCircuitBuilder; // can only be Mega
     using DeciderProver = DeciderProver_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
-    using ProverInstances = ProverInstances_<Flavor>;
     using FoldingProver = ProtogalaxyProver_<Flavor>;
     using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstance>;
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;

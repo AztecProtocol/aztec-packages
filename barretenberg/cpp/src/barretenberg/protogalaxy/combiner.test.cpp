@@ -3,7 +3,6 @@
 #include "barretenberg/protogalaxy/constants.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
-#include "barretenberg/ultra_honk/instances.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;

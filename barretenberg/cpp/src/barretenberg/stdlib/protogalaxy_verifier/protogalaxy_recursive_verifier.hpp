@@ -12,7 +12,6 @@
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
-#include "barretenberg/ultra_honk/instances.hpp"
 
 namespace bb::stdlib::recursion::honk {
 template <class VerifierInstance> class ProtogalaxyRecursiveVerifier_ {

@@ -3,7 +3,6 @@
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp" // just for an alias; should perhaps move to prover
 #include "barretenberg/translator_vm/translator_flavor.hpp"
-#include "barretenberg/ultra_honk/instances.hpp"
 #include <benchmark/benchmark.h>
 
 namespace {

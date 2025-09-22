@@ -9,7 +9,6 @@
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
-#include "barretenberg/ultra_honk/instances.hpp"
 
 namespace bb::stdlib::recursion::honk {
 
