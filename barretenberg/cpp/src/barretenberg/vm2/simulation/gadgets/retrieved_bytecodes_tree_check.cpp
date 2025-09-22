@@ -1,6 +1,6 @@
 #include "barretenberg/vm2/simulation/gadgets/retrieved_bytecodes_tree_check.hpp"
 
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 
 namespace bb::avm2::simulation {

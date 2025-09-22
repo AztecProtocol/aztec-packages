@@ -10,6 +10,10 @@
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
+#include "barretenberg/vm2/simulation/interfaces/bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/interfaces/contract_instance_manager.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/vm2/simulation/interfaces/memory.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
 namespace bb::avm2::simulation {

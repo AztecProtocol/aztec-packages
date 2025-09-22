@@ -44,4 +44,16 @@ class BytecodeManagerInterface {
     virtual std::optional<BytecodeId> get_retrieved_bytecode_id() = 0;
 };
 
+struct BytecodeRetrievalError : public std::runtime_error {
+    BytecodeRetrievalError(const std::string& message)
+        : std::runtime_error(message)
+    {}
+};
+
+struct InstructionFetchingError : public std::runtime_error {
+    InstructionFetchingError(const std::string& message)
+        : std::runtime_error(message)
+    {}
+};
+
 } // namespace bb::avm2::simulation

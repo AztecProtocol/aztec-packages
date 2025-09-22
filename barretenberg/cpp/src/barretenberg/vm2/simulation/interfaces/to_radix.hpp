@@ -21,4 +21,11 @@ class ToRadixInterface {
                              MemoryAddress dst_addr) = 0;
 };
 
+class ToRadixException : public std::runtime_error {
+  public:
+    explicit ToRadixException(const std::string& message)
+        : std::runtime_error("ToRadix Exception: " + message)
+    {}
+};
+
 } // namespace bb::avm2::simulation

@@ -5,8 +5,8 @@
 #include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
 #include "barretenberg/vm2/simulation/gadgets/merkle_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/public_data_tree_check.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 
 namespace bb::avm2::simulation {
 

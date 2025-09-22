@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/vm2/simulation/gadgets/update_check.hpp"
+#include "barretenberg/vm2/simulation/interfaces/update_check.hpp"
 
 namespace bb::avm2::simulation {
 

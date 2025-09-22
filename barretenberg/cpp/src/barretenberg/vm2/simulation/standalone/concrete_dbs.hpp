@@ -2,11 +2,14 @@
 
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/simulation/gadgets/written_public_data_slots_tree_check.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/vm2/simulation/lib/db_types.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
 
 namespace bb::avm2::simulation {
+
+// Forward declaration.
+class WrittenPublicDataSlotsInterface;
 
 // Does not generate events.
 class PureContractDB final : public ContractDBInterface {

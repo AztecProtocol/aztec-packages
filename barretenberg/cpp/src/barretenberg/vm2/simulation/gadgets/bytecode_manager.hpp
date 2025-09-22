@@ -20,22 +20,10 @@
 #include "barretenberg/vm2/simulation/gadgets/siloing.hpp"
 #include "barretenberg/vm2/simulation/gadgets/update_check.hpp"
 #include "barretenberg/vm2/simulation/interfaces/bytecode_manager.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
 namespace bb::avm2::simulation {
-
-struct BytecodeRetrievalError : public std::runtime_error {
-    BytecodeRetrievalError(const std::string& message)
-        : std::runtime_error(message)
-    {}
-};
-
-struct InstructionFetchingError : public std::runtime_error {
-    InstructionFetchingError(const std::string& message)
-        : std::runtime_error(message)
-    {}
-};
 
 class TxBytecodeManager : public TxBytecodeManagerInterface {
   public:

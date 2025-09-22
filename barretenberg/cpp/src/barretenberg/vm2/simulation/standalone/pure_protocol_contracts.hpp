@@ -4,7 +4,7 @@
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/map.hpp"
-#include "barretenberg/vm2/simulation/gadgets/protocol_contracts.hpp"
+#include "barretenberg/vm2/simulation/interfaces/protocol_contracts.hpp"
 
 namespace bb::avm2::simulation {
 

@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
 
-#include "barretenberg/vm2/simulation/gadgets/memory.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_to_radix.hpp"
 
 namespace bb::avm2::simulation {

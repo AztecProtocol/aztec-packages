@@ -3,8 +3,8 @@
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/update_check.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 
 namespace bb::avm2::simulation {
 

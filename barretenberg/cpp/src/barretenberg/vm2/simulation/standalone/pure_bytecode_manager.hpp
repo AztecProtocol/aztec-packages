@@ -12,11 +12,14 @@
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/common/set.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
-#include "barretenberg/vm2/simulation/gadgets/bytecode_manager.hpp"
-#include "barretenberg/vm2/simulation/gadgets/contract_instance_manager.hpp"
+#include "barretenberg/vm2/simulation/interfaces/bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
 namespace bb::avm2::simulation {
+
+// Forward declaration.
+class ContractInstanceManagerInterface;
+class ContractDBInterface;
 
 class PureTxBytecodeManager : public TxBytecodeManagerInterface {
   public:

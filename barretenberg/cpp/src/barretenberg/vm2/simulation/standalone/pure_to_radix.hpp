@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/vm2/simulation/gadgets/to_radix.hpp"
+#include "barretenberg/vm2/simulation/interfaces/to_radix.hpp"
 
 #include "barretenberg/vm2/common/field.hpp"
 

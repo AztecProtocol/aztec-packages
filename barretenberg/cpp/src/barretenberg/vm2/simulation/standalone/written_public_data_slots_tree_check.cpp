@@ -1,5 +1,7 @@
 #include "barretenberg/vm2/simulation/standalone/written_public_data_slots_tree_check.hpp"
 
+#include "barretenberg/vm2/simulation/interfaces/poseidon2.hpp"
+
 namespace bb::avm2::simulation {
 
 FF PureWrittenPublicDataSlotsTreeCheck::compute_leaf_slot(const AztecAddress& contract_address, const FF& slot)

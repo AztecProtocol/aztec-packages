@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/vm2/simulation/gadgets/bitwise.hpp"
+#include "barretenberg/vm2/simulation/interfaces/bitwise.hpp"
 
 #include "barretenberg/vm2/common/tagged_value.hpp"
 

@@ -4,6 +4,7 @@
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/simulation/lib/db_types.hpp"
 
 namespace bb::avm2::simulation {
 

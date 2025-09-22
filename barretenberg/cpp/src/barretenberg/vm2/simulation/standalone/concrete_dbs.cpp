@@ -1,8 +1,9 @@
 #include "barretenberg/vm2/simulation/standalone/concrete_dbs.hpp"
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/simulation/gadgets/protocol_contracts.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/vm2/simulation/interfaces/protocol_contracts.hpp"
+#include "barretenberg/vm2/simulation/interfaces/written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 
 namespace bb::avm2::simulation {

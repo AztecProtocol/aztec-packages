@@ -10,7 +10,7 @@
 #include "barretenberg/vm2/simulation/gadgets/nullifier_tree_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/tx_context.hpp"
 #include "barretenberg/vm2/simulation/gadgets/written_public_data_slots_tree_check.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 
 namespace bb::avm2::simulation {
 

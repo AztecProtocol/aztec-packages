@@ -8,7 +8,7 @@
 #include "barretenberg/vm2/simulation/gadgets/protocol_contracts.hpp"
 #include "barretenberg/vm2/simulation/gadgets/update_check.hpp"
 #include "barretenberg/vm2/simulation/interfaces/contract_instance_manager.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 
 namespace bb::avm2::simulation {
 

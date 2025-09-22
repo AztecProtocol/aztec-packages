@@ -2,7 +2,7 @@
 
 #include <array>
 
-#include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/interfaces/poseidon2.hpp"
 
 namespace bb::avm2::simulation {
 

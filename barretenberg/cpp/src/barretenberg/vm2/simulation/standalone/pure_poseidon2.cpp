@@ -1,6 +1,7 @@
 #include "barretenberg/vm2/simulation/standalone/pure_poseidon2.hpp"
 
-#include "barretenberg//crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/interfaces/memory.hpp"
 
 namespace bb::avm2::simulation {
 

@@ -70,15 +70,6 @@ class LowLevelMerkleDBInterface {
     virtual uint32_t get_checkpoint_id() const = 0;
 };
 
-struct TreeCounters {
-    uint32_t note_hash_counter;
-    uint32_t nullifier_counter;
-    uint32_t l2_to_l1_msg_counter;
-    // public data tree counter is tracked via the written public data slots tree
-
-    bool operator==(const TreeCounters& other) const = default;
-};
-
 // High level access to a merkle db. In general these will be constrained.
 class HighLevelMerkleDBInterface {
   public:

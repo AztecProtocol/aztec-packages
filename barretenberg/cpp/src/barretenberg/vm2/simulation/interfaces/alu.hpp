@@ -21,4 +21,11 @@ class AluInterface {
     virtual MemoryValue shl(const MemoryValue& a, const MemoryValue& b) = 0;
 };
 
+class AluException : public std::runtime_error {
+  public:
+    explicit AluException(const std::string& message)
+        : std::runtime_error("ALU Exception: " + message)
+    {}
+};
+
 } // namespace bb::avm2::simulation

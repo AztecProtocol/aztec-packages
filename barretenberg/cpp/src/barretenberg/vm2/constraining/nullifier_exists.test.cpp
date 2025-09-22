@@ -10,7 +10,7 @@
 #include "barretenberg/vm2/simulation/gadgets/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/gadgets/execution.hpp"
 #include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_nullifier_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"

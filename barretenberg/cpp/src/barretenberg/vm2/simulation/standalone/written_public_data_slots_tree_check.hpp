@@ -5,12 +5,13 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/set.hpp"
-#include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
-#include "barretenberg/vm2/simulation/gadgets/written_public_data_slots_tree_check.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/interfaces/written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/simulation/lib/written_slots_tree.hpp"
 
 namespace bb::avm2::simulation {
+
+// Forward declaration.
+class Poseidon2Interface;
 
 class PureWrittenPublicDataSlotsTreeCheck : public WrittenPublicDataSlotsTreeCheckInterface {
   public:
