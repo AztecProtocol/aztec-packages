@@ -35,13 +35,34 @@ provider "helm" {
   }
 }
 
+module "web3signer" {
+  source                 = "../modules/web3signer"
+  NAMESPACE              = var.NAMESPACE
+  RELEASE_NAME           = var.RELEASE_PREFIX
+  AZTEC_DOCKER_IMAGE     = var.AZTEC_DOCKER_IMAGE
+  CHAIN_ID               = var.L1_CHAIN_ID
+  MNEMONIC               = var.VALIDATOR_MNEMONIC
+  ADDRESS_CONFIGMAP_NAME = "${var.RELEASE_PREFIX}-attester-addresses"
+  ATTESTERS_PER_NODE     = tonumber(var.VALIDATORS_PER_NODE)
+  NODE_COUNT             = tonumber(var.VALIDATOR_REPLICAS)
+  MNEMONIC_INDEX_START   = tonumber(var.VALIDATOR_MNEMONIC_START_INDEX)
+
+  providers = {
+    helm       = helm.gke-cluster
+    kubernetes = kubernetes.gke-cluster
+  }
+}
+
 locals {
   aztec_image = {
     repository = split(":", var.AZTEC_DOCKER_IMAGE)[0]
     tag        = split(":", var.AZTEC_DOCKER_IMAGE)[1]
   }
 
-  boot_node_url = "http://${var.RELEASE_PREFIX}-p2p-bootstrap-node.${var.NAMESPACE}.svc.cluster.local:8080"
+  internal_boot_node_url = var.DEPLOY_INTERNAL_BOOTNODE ? "http://${var.RELEASE_PREFIX}-p2p-bootstrap-node.${var.NAMESPACE}.svc.cluster.local:8080" : ""
+
+  internal_rpc_url       = "http://${var.RELEASE_PREFIX}-rpc-aztec-node.${var.NAMESPACE}.svc.cluster.local:8080"
+  internal_rpc_admin_url = "http://${var.RELEASE_PREFIX}-rpc-aztec-node-admin.${var.NAMESPACE}.svc.cluster.local:8880"
 
   # Common settings for all releases
   common_settings = {
@@ -64,7 +85,21 @@ locals {
 
   # Define all releases in a map
   helm_releases = {
-    p2p_bootstrap = {
+    snapshot = var.STORE_SNAPSHOT_URL != null ? {
+      name   = "${var.RELEASE_PREFIX}-snapshot"
+      chart  = "aztec-snapshots"
+      values = []
+      custom_settings = {
+        "snapshots.aztecNodeAdminUrl" = local.internal_rpc_admin_url
+        "snapshots.uploadLocation"    = var.STORE_SNAPSHOT_URL
+        "snapshots.frequency"         = var.SNAPSHOT_CRON
+      }
+      boot_node_host_path  = ""
+      bootstrap_nodes_path = ""
+      wait                 = true
+    } : null
+
+    p2p_bootstrap = var.DEPLOY_INTERNAL_BOOTNODE ? {
       name  = "${var.RELEASE_PREFIX}-p2p-bootstrap"
       chart = "aztec-node"
       values = [
@@ -75,8 +110,10 @@ locals {
       custom_settings = {
         "nodeType" = "p2p-bootstrap"
       }
-      boot_node_path = ""
-    }
+      boot_node_host_path  = ""
+      bootstrap_nodes_path = ""
+      wait                 = true
+    } : null
 
     validators = {
       name  = "${var.RELEASE_PREFIX}-validator"
@@ -88,9 +125,12 @@ locals {
       ]
       custom_settings = {
         "global.customAztecNetwork.enabled"                 = true
+        "validator.web3signerUrl"                           = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
         "validator.mnemonic"                                = var.VALIDATOR_MNEMONIC
         "validator.mnemonicStartIndex"                      = var.VALIDATOR_MNEMONIC_START_INDEX
         "validator.validatorsPerNode"                       = var.VALIDATORS_PER_NODE
+        "validator.publishersPerValidatorKey"               = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
+        "validator.publisherMnemonicStartIndex"             = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
         "validator.replicaCount"                            = var.VALIDATOR_REPLICAS
         "validator.sentinel.enabled"                        = var.SENTINEL_ENABLED
         "validator.slash.minPenaltyPercentage"              = var.SLASH_MIN_PENALTY_PERCENTAGE
@@ -105,8 +145,16 @@ locals {
         "validator.slash.invalidBlockPenalty"               = var.SLASH_INVALID_BLOCK_PENALTY
         "validator.slash.offenseExpirationRounds"           = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
         "validator.slash.maxPayloadSize"                    = var.SLASH_MAX_PAYLOAD_SIZE
+        "validator.node.env.TRANSACTIONS_DISABLED"          = var.TRANSACTIONS_DISABLED
+        "validator.node.env.NETWORK"                        = var.NETWORK
+        "validator.node.env.KEY_INDEX_START"                = var.VALIDATOR_MNEMONIC_START_INDEX
+        "validator.node.env.PUBLISHER_KEY_INDEX_START"      = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
+        "validator.node.env.VALIDATORS_PER_NODE"            = var.VALIDATORS_PER_NODE
+        "validator.node.env.PUBLISHERS_PER_VALIDATOR_KEY"   = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
       }
-      boot_node_path = "validator.node.env.BOOT_NODE_HOST"
+      boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
+      bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
+      wait                 = true
     }
 
     prover = {
@@ -118,13 +166,20 @@ locals {
         "prover-resources-${var.PROVER_RESOURCE_PROFILE}.yaml"
       ]
       custom_settings = {
-        "node.mnemonic"                = var.PROVER_MNEMONIC
-        "node.mnemonicStartIndex"      = var.PROVER_MNEMONIC_START_INDEX
-        "node.node.proverRealProofs"   = var.PROVER_REAL_PROOFS
-        "broker.node.proverRealProofs" = var.PROVER_REAL_PROOFS
-        "agent.node.proverRealProofs"  = var.PROVER_REAL_PROOFS
+        "node.mnemonic"                           = var.PROVER_MNEMONIC
+        "node.mnemonicStartIndex"                 = var.PROVER_MNEMONIC_START_INDEX
+        "node.node.proverRealProofs"              = var.PROVER_REAL_PROOFS
+        "node.web3signerUrl"                      = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
+        "node.node.env.NETWORK"                   = var.NETWORK
+        "node.node.env.PROVER_FAILED_PROOF_STORE" = var.PROVER_FAILED_PROOF_STORE
+        "broker.node.proverRealProofs"            = var.PROVER_REAL_PROOFS
+        "broker.node.env.NETWORK"                 = var.NETWORK
+        "agent.node.proverRealProofs"             = var.PROVER_REAL_PROOFS
+        "agent.node.env.NETWORK"                  = var.NETWORK
       }
-      boot_node_path = "node.node.env.BOOT_NODE_HOST"
+      boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
+      bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
+      wait                 = true
     }
 
     rpc = {
@@ -135,17 +190,108 @@ locals {
         "rpc.yaml",
         "rpc-resources-${var.RPC_RESOURCE_PROFILE}.yaml"
       ]
+      inline_values = var.RPC_INGRESS_ENABLED ? [yamlencode({
+        service = {
+          rpc = {
+            annotations = {
+              "cloud.google.com/neg" = jsonencode({ ingress = true })
+              "cloud.google.com/backend-config" = jsonencode({
+                default = "${var.RELEASE_PREFIX}-rpc-ingress-backend"
+              })
+            }
+          }
+        }
+        ingress = {
+          rpc = {
+            annotations = {
+              "kubernetes.io/ingress.class"                 = "gce"
+              "kubernetes.io/ingress.global-static-ip-name" = var.RPC_INGRESS_STATIC_IP_NAME
+              "ingress.gcp.kubernetes.io/pre-shared-cert"   = var.RPC_INGRESS_SSL_CERT_NAME
+              "kubernetes.io/ingress.allow-http"            = "false"
+            }
+          }
+        }
+      })] : []
       custom_settings = {
-        "nodeType" = "rpc"
+        "nodeType"            = "rpc"
+        "node.env.NETWORK"    = var.NETWORK
+        "ingress.rpc.enabled" = var.RPC_INGRESS_ENABLED
+        "ingress.rpc.host"    = var.RPC_INGRESS_HOST
       }
-      boot_node_path = "node.env.BOOT_NODE_HOST"
+      boot_node_host_path  = "node.env.BOOT_NODE_HOST"
+      bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
+      wait                 = true
     }
+
+    archive = var.DEPLOY_ARCHIVAL_NODE ? {
+      name  = "${var.RELEASE_PREFIX}-archive"
+      chart = "aztec-node"
+      values = [
+        "common.yaml",
+        "archive.yaml",
+        "archive-resources-dev.yaml"
+      ]
+      custom_settings = {
+        "nodeType"                       = "archive"
+        "node.env.NETWORK"               = var.NETWORK
+        "node.env.P2P_ARCHIVED_TX_LIMIT" = "10000000"
+      }
+      boot_node_host_path  = "node.env.BOOT_NODE_HOST"
+      bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
+      wait                 = true
+    } : null
+
+    # Optional: transfer bots
+    bot_transfers = var.BOT_TRANSFERS_REPLICAS > 0 ? {
+      name  = "${var.RELEASE_PREFIX}-bot-transfers"
+      chart = "aztec-bot"
+      values = [
+        "common.yaml",
+        "bot-token-transfer.yaml",
+        "bot-resources-${var.BOT_RESOURCE_PROFILE}.yaml",
+      ]
+      custom_settings = {
+        "bot.replicaCount"       = var.BOT_TRANSFERS_REPLICAS
+        "bot.txIntervalSeconds"  = var.BOT_TRANSFERS_TX_INTERVAL_SECONDS
+        "bot.followChain"        = var.BOT_TRANSFERS_FOLLOW_CHAIN
+        "bot.botPrivateKey"      = var.BOT_TRANSFERS_L2_PRIVATE_KEY
+        "bot.nodeUrl"            = local.internal_rpc_url
+        "bot.mnemonic"           = var.BOT_MNEMONIC
+        "bot.mnemonicStartIndex" = var.BOT_TRANSFERS_MNEMONIC_START_INDEX
+      }
+      boot_node_host_path  = ""
+      bootstrap_nodes_path = ""
+      wait                 = false
+    } : null
+
+    # Optional: AMM swap bots
+    bot_swaps = var.BOT_SWAPS_REPLICAS > 0 ? {
+      name  = "${var.RELEASE_PREFIX}-bot-swaps"
+      chart = "aztec-bot"
+      values = [
+        "common.yaml",
+        "bot-amm-swaps.yaml",
+        "bot-resources-${var.BOT_RESOURCE_PROFILE}.yaml",
+      ]
+      custom_settings = {
+        "bot.replicaCount"       = var.BOT_SWAPS_REPLICAS
+        "bot.txIntervalSeconds"  = var.BOT_SWAPS_TX_INTERVAL_SECONDS
+        "bot.followChain"        = var.BOT_SWAPS_FOLLOW_CHAIN
+        "bot.botPrivateKey"      = var.BOT_SWAPS_L2_PRIVATE_KEY
+        "bot.nodeUrl"            = local.internal_rpc_url
+        "bot.mnemonic"           = var.BOT_MNEMONIC
+        "bot.mnemonicStartIndex" = var.BOT_SWAPS_MNEMONIC_START_INDEX
+      }
+      boot_node_host_path  = ""
+      bootstrap_nodes_path = ""
+      wait                 = false
+    } : null
   }
 }
 
 # Create all helm releases using for_each
 resource "helm_release" "releases" {
-  for_each = local.helm_releases
+  for_each = { for k, v in local.helm_releases : k => v if v != null }
 
   provider         = helm.gke-cluster
   name             = each.value.name
@@ -156,12 +302,15 @@ resource "helm_release" "releases" {
   upgrade_install  = true
   force_update     = true
   recreate_pods    = true
-  reuse_values     = true
+  reuse_values     = false
   timeout          = 600
-  wait             = true
+  wait             = each.value.wait
   wait_for_jobs    = true
 
-  values = [for v in each.value.values : file("./values/${v}")]
+  values = concat(
+    [for v in each.value.values : file("./values/${v}")],
+    lookup(each.value, "inline_values", [])
+  )
 
   # Common settings
   dynamic "set" {
@@ -169,8 +318,11 @@ resource "helm_release" "releases" {
       local.common_settings,
       each.value.custom_settings,
       # Add boot node if needed
-      each.value.boot_node_path != "" ? {
-        (each.value.boot_node_path) = local.boot_node_url
+      each.value.boot_node_host_path != "" && local.internal_boot_node_url != "" ? {
+        (each.value.boot_node_host_path) = local.internal_boot_node_url
+      } : {},
+      each.value.bootstrap_nodes_path != "" && length(var.EXTERNAL_BOOTNODES) > 0 ? {
+        (each.value.bootstrap_nodes_path) = join(",", var.EXTERNAL_BOOTNODES)
       } : {}
     ) : k => v if v != null }
     content {
@@ -189,3 +341,27 @@ resource "helm_release" "releases" {
   }
 }
 
+resource "kubernetes_manifest" "rpc_ingress_backend" {
+  count    = var.RPC_INGRESS_ENABLED ? 1 : 0
+  provider = kubernetes.gke-cluster
+
+  manifest = {
+    apiVersion = "cloud.google.com/v1"
+    kind       = "BackendConfig"
+    metadata = {
+      name      = "${var.RELEASE_PREFIX}-rpc-ingress-backend"
+      namespace = var.NAMESPACE
+    }
+    spec = {
+      healthCheck = {
+        checkIntervalSec   = 15
+        timeoutSec         = 5
+        healthyThreshold   = 2
+        unhealthyThreshold = 2
+        type               = "HTTP"
+        port               = 8080
+        requestPath        = "/status"
+      }
+    }
+  }
+}

@@ -238,6 +238,11 @@ RUN apt update && \
         inotify-tools \
         # Annoyingly unminimize upgrades nodejs.
         nodejs=22.16.0-1nodesource1 \
+        # smt_verification dependencies
+        python3-venv \
+        python3-pip \
+        m4 \
+        bison \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install osxcross. Requires developer to mount SDK from their mac host.

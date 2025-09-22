@@ -1,6 +1,7 @@
-import { BatchedBlobAccumulator, Blob, type SpongeBlob } from '@aztec/blob-lib';
+import { BatchedBlob, BatchedBlobAccumulator, Blob, SpongeBlob } from '@aztec/blob-lib';
 import {
   ARCHIVE_HEIGHT,
+  CIVC_PROOF_LENGTH,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -16,23 +17,23 @@ import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256ToField, sha256Trunc } from '@aztec/foundation/crypto';
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
-import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { type Bufferable, type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { MembershipWitness, MerkleTreeCalculator, computeUnbalancedMerkleTreeRoot } from '@aztec/foundation/trees';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
+import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { PublicDataHint } from '@aztec/stdlib/avm';
-import { Body } from '@aztec/stdlib/block';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { Body, L2BlockHeader, getBlockBlobFields } from '@aztec/stdlib/block';
+import type { MerkleTreeWriteOperations, PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import { ContractClassLogFields } from '@aztec/stdlib/logs';
-import type { ParityPublicInputs } from '@aztec/stdlib/parity';
+import { Proof, ProofData, RecursiveProof } from '@aztec/stdlib/proofs';
 import {
-  type BaseOrMergeRollupPublicInputs,
   BlockConstantData,
-  type BlockRootOrBlockMergePublicInputs,
+  BlockRollupPublicInputs,
   PrivateBaseRollupHints,
   PrivateBaseStateDiffHints,
   PublicBaseRollupHints,
+  PublicTubePrivateInputs,
 } from '@aztec/stdlib/rollup';
 import {
   AppendOnlyTreeSnapshot,
@@ -45,12 +46,13 @@ import {
 import {
   BlockHeader,
   ContentCommitment,
-  type GlobalVariables,
+  GlobalVariables,
   PartialStateReference,
   type ProcessedTx,
   StateReference,
-  TxEffect,
+  Tx,
 } from '@aztec/stdlib/tx';
+import { VkData } from '@aztec/stdlib/vks';
 import { Attributes, type Span, runInSpan } from '@aztec/telemetry-client';
 import type { MerkleTreeReadOperations } from '@aztec/world-state';
 
@@ -70,14 +72,14 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
   async (
     span: Span,
     tx: ProcessedTx,
-    globalVariables: GlobalVariables,
+    lastArchive: AppendOnlyTreeSnapshot,
     newL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    db: MerkleTreeWriteOperations,
     startSpongeBlob: SpongeBlob,
+    proverId: Fr,
+    db: MerkleTreeWriteOperations,
   ) => {
     span.setAttribute(Attributes.TX_HASH, tx.hash.toString());
     // Get trees info before any changes hit
-    const lastArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
     const start = new PartialStateReference(
       await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE, db),
       await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE, db),
@@ -135,17 +137,13 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
       i < nullifierSubtreeSiblingPathArray.length ? nullifierSubtreeSiblingPathArray[i] : Fr.ZERO,
     );
 
-    // Append new data to startSpongeBlob
-    const inputSpongeBlob = startSpongeBlob.clone();
-    await startSpongeBlob.absorb(tx.txEffect.toBlobFields());
-
     const contractClassLogsFields = makeTuple(
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
       i => tx.txEffect.contractClassLogs[i]?.fields || ContractClassLogFields.empty(),
     );
 
     if (tx.avmProvingRequest) {
-      const blockHash = await tx.data.constants.historicalHeader.hash();
+      const blockHash = await tx.data.constants.anchorBlockHeader.hash();
       const archiveRootMembershipWitness = await getMembershipWitnessFor(
         blockHash,
         MerkleTreeId.ARCHIVE,
@@ -154,10 +152,11 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
       );
 
       return PublicBaseRollupHints.from({
-        startSpongeBlob: inputSpongeBlob,
+        startSpongeBlob,
         lastArchive,
         archiveRootMembershipWitness,
         contractClassLogsFields,
+        proverId,
       });
     } else {
       if (
@@ -197,7 +196,7 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
         feeWriteSiblingPath,
       });
 
-      const blockHash = await tx.data.constants.historicalHeader.hash();
+      const blockHash = await tx.data.constants.anchorBlockHeader.hash();
       const archiveRootMembershipWitness = await getMembershipWitnessFor(
         blockHash,
         MerkleTreeId.ARCHIVE,
@@ -207,15 +206,16 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
 
       const constants = BlockConstantData.from({
         lastArchive,
-        newL1ToL2: newL1ToL2MessageTreeSnapshot,
-        vkTreeRoot: getVKTreeRoot(),
-        protocolContractTreeRoot,
-        globalVariables,
+        l1ToL2TreeSnapshot: newL1ToL2MessageTreeSnapshot,
+        vkTreeRoot: tx.data.constants.vkTreeRoot,
+        protocolContractTreeRoot: tx.data.constants.protocolContractTreeRoot,
+        globalVariables: tx.globalVariables,
+        proverId,
       });
 
       return PrivateBaseRollupHints.from({
         start,
-        startSpongeBlob: inputSpongeBlob,
+        startSpongeBlob,
         stateDiffHints,
         feePayerFeeJuiceBalanceReadHint,
         archiveRootMembershipWitness,
@@ -246,11 +246,30 @@ export async function getPublicDataHint(db: MerkleTreeWriteOperations, leafSlot:
   return new PublicDataHint(new Fr(leafSlot), value, membershipWitness, leafPreimage);
 }
 
+export function getCivcProofFromTx(tx: Tx | ProcessedTx) {
+  const proofFields = tx.clientIvcProof.proof;
+  const numPublicInputs = proofFields.length - CIVC_PROOF_LENGTH;
+  const binaryProof = new Proof(Buffer.concat(proofFields.map(field => field.toBuffer())), numPublicInputs);
+  const proofFieldsWithoutPublicInputs = proofFields.slice(numPublicInputs);
+  return new RecursiveProof(proofFieldsWithoutPublicInputs, binaryProof, true, CIVC_PROOF_LENGTH);
+}
+
+export function getPublicTubePrivateInputsFromTx(tx: Tx | ProcessedTx) {
+  const proofData = new ProofData(
+    tx.data.toPrivateToPublicKernelCircuitPublicInputs(),
+    getCivcProofFromTx(tx),
+    getVkData('HidingKernelToPublic'),
+  );
+  return new PublicTubePrivateInputs(proofData);
+}
+
+// Build "hints" as the private inputs for the checkpoint root rollup circuit.
+// The `blobCommitments` will be accumulated and checked in the root rollup against the `finalBlobChallenges`.
+// The `blobsHash` will be validated on L1 against the blob fields.
 export const buildBlobHints = runInSpan(
   'BlockBuilderHelpers',
   'buildBlobHints',
-  async (_span: Span, txEffects: TxEffect[]) => {
-    const blobFields = txEffects.flatMap(tx => tx.toBlobFields());
+  async (_span: Span, blobFields: Fr[]) => {
     const blobs = await Blob.getBlobsPerBlock(blobFields);
     // TODO(#13430): The blobsHash is confusingly similar to blobCommitmentsHash, calculated from below blobCommitments:
     // - blobsHash := sha256([blobhash_0, ..., blobhash_m]) = a hash of all blob hashes in a block with m+1 blobs inserted into the header, exists so a user can cross check blobs.
@@ -259,15 +278,26 @@ export const buildBlobHints = runInSpan(
     // We may be able to combine these values e.g. blobCommitmentsHash := sha256( ...sha256(sha256(blobshash_0), blobshash_1) ... blobshash_l) for an epoch with l+1 blocks.
     const blobCommitments = blobs.map(b => BLS12Point.decompress(b.commitment));
     const blobsHash = new Fr(getBlobsHashFromBlobs(blobs));
-    return { blobFields, blobCommitments, blobs, blobsHash };
+    return { blobCommitments, blobs, blobsHash };
   },
 );
+
+// Build the data required to prove the txs in an epoch. Currently only used in tests.
+export const buildBlobDataFromTxs = async (txsPerCheckpoint: ProcessedTx[][]) => {
+  const blobFields = txsPerCheckpoint.map(txs => getBlockBlobFields(txs.map(tx => tx.txEffect)));
+  const finalBlobChallenges = await buildFinalBlobChallenges(blobFields);
+  return { blobFieldsLengths: blobFields.map(fields => fields.length), finalBlobChallenges };
+};
+
+export const buildFinalBlobChallenges = async (blobFieldsPerCheckpoint: Fr[][]) => {
+  const blobs = await Promise.all(blobFieldsPerCheckpoint.map(blobFields => Blob.getBlobsPerBlock(blobFields)));
+  return await BatchedBlob.precomputeBatchedBlobChallenges(blobs.flat());
+};
 
 export const accumulateBlobs = runInSpan(
   'BlockBuilderHelpers',
   'accumulateBlobs',
-  async (_span: Span, txs: ProcessedTx[], startBlobAccumulator: BatchedBlobAccumulator) => {
-    const blobFields = txs.flatMap(tx => tx.txEffect.toBlobFields());
+  async (_span: Span, blobFields: Fr[], startBlobAccumulator: BatchedBlobAccumulator) => {
     const blobs = await Blob.getBlobsPerBlock(blobFields);
     const endBlobAccumulator = startBlobAccumulator.accumulateBlobs(blobs);
     return endBlobAccumulator;
@@ -277,36 +307,28 @@ export const accumulateBlobs = runInSpan(
 export const buildHeaderFromCircuitOutputs = runInSpan(
   'BlockBuilderHelpers',
   'buildHeaderFromCircuitOutputs',
-  (
-    _span,
-    previousRollupData: BaseOrMergeRollupPublicInputs[],
-    parityPublicInputs: ParityPublicInputs,
-    rootRollupOutputs: BlockRootOrBlockMergePublicInputs,
-    blobsHash: Fr,
-    endState: StateReference,
-  ) => {
-    if (previousRollupData.length > 2) {
-      throw new Error(`There can't be more than 2 previous rollups. Received ${previousRollupData.length}.`);
-    }
+  async (_span, blockRootRollupOutput: BlockRollupPublicInputs) => {
+    const constants = blockRootRollupOutput.constants;
+    const globalVariables = GlobalVariables.from({
+      chainId: constants.chainId,
+      version: constants.version,
+      blockNumber: blockRootRollupOutput.previousArchive.nextAvailableLeafIndex,
+      timestamp: blockRootRollupOutput.endTimestamp,
+      slotNumber: constants.slotNumber,
+      coinbase: constants.coinbase,
+      feeRecipient: constants.feeRecipient,
+      gasFees: constants.gasFees,
+    });
 
-    const outHash =
-      previousRollupData.length === 0
-        ? Fr.ZERO
-        : previousRollupData.length === 1
-          ? previousRollupData[0].outHash
-          : sha256ToField([previousRollupData[0].outHash, previousRollupData[1].outHash]);
-    const contentCommitment = new ContentCommitment(blobsHash, parityPublicInputs.shaRoot, outHash);
-
-    const accumulatedFees = previousRollupData.reduce((sum, d) => sum.add(d.accumulatedFees), Fr.ZERO);
-    const accumulatedManaUsed = previousRollupData.reduce((sum, d) => sum.add(d.accumulatedManaUsed), Fr.ZERO);
+    const spongeBlobHash = await blockRootRollupOutput.endSpongeBlob.clone().squeeze();
 
     return new BlockHeader(
-      rootRollupOutputs.previousArchive,
-      contentCommitment,
-      endState,
-      rootRollupOutputs.endGlobalVariables,
-      accumulatedFees,
-      accumulatedManaUsed,
+      blockRootRollupOutput.previousArchive,
+      blockRootRollupOutput.endState,
+      spongeBlobHash,
+      globalVariables,
+      blockRootRollupOutput.accumulatedFees,
+      blockRootRollupOutput.accumulatedManaUsed,
     );
   },
 );
@@ -320,6 +342,7 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     globalVariables: GlobalVariables,
     l1ToL2Messages: Fr[],
     db: MerkleTreeReadOperations,
+    startSpongeBlob?: SpongeBlob,
   ) => {
     span.setAttribute(Attributes.BLOCK_NUMBER, globalVariables.blockNumber);
     const stateReference = new StateReference(
@@ -340,16 +363,64 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     const outHash = txOutHashes.length === 0 ? Fr.ZERO : new Fr(computeUnbalancedMerkleTreeRoot(txOutHashes));
 
     const parityShaRoot = await computeInHashFromL1ToL2Messages(l1ToL2Messages);
-    const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobsPerBlock(body.toBlobFields()));
+    const blobFields = body.toBlobFields();
+    const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobsPerBlock(blobFields));
 
     const contentCommitment = new ContentCommitment(blobsHash, parityShaRoot, outHash);
 
     const fees = txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
     const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
 
-    const header = new BlockHeader(previousArchive, contentCommitment, stateReference, globalVariables, fees, manaUsed);
+    const endSpongeBlob = startSpongeBlob?.clone() ?? SpongeBlob.init(blobFields.length);
+    await endSpongeBlob.absorb(blobFields);
+    const spongeBlobHash = await endSpongeBlob.squeeze();
+
+    const header = new L2BlockHeader(
+      previousArchive,
+      contentCommitment,
+      stateReference,
+      globalVariables,
+      fees,
+      manaUsed,
+      spongeBlobHash,
+    );
 
     return { header, body };
+  },
+);
+
+export const buildBlockHeaderFromTxs = runInSpan(
+  'BlockBuilderHelpers',
+  'buildBlockHeaderFromTxs',
+  async (
+    span,
+    txs: ProcessedTx[],
+    globalVariables: GlobalVariables,
+    startSpongeBlob: SpongeBlob,
+    db: MerkleTreeReadOperations,
+  ) => {
+    span.setAttribute(Attributes.BLOCK_NUMBER, globalVariables.blockNumber);
+    const stateReference = new StateReference(
+      await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db),
+      new PartialStateReference(
+        await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE, db),
+        await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE, db),
+        await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE, db),
+      ),
+    );
+
+    const previousArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
+
+    const blobFields = getBlockBlobFields(txs.map(tx => tx.txEffect));
+    const endSpongeBlob = startSpongeBlob.clone();
+    await endSpongeBlob.absorb(blobFields);
+    const spongeBlobHash = await endSpongeBlob.squeeze();
+
+    const txEffects = txs.map(tx => tx.txEffect);
+    const fees = txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
+    const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
+
+    return new BlockHeader(previousArchive, stateReference, spongeBlobHash, globalVariables, fees, manaUsed);
   },
 );
 
@@ -374,40 +445,6 @@ export async function getEmptyBlockBlobsHash(): Promise<Fr> {
   const blobHash = (await Blob.getBlobsPerBlock([])).map(b => b.getEthVersionedBlobHash());
   return sha256ToField(blobHash);
 }
-
-// Validate that the roots of all local trees match the output of the root circuit simulation
-// TODO: does this get called?
-export async function validateBlockRootOutput(
-  blockRootOutput: BlockRootOrBlockMergePublicInputs,
-  blockHeader: BlockHeader,
-  db: MerkleTreeReadOperations,
-) {
-  await Promise.all([
-    validateState(blockHeader.state, db),
-    validateSimulatedTree(await getTreeSnapshot(MerkleTreeId.ARCHIVE, db), blockRootOutput.newArchive, 'Archive'),
-  ]);
-}
-
-export const validateState = runInSpan(
-  'BlockBuilderHelpers',
-  'validateState',
-  async (_span, state: StateReference, db: MerkleTreeReadOperations) => {
-    const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
-      async (id: MerkleTreeId) => {
-        return { key: id, value: await getTreeSnapshot(id, db) };
-      },
-    );
-    const snapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot> = new Map(
-      (await Promise.all(promises)).map(obj => [obj.key, obj.value]),
-    );
-    validatePartialState(state.partial, snapshots);
-    validateSimulatedTree(
-      await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db),
-      state.l1ToL2MessageTree,
-      'L1ToL2MessageTree',
-    );
-  },
-);
 
 export async function getLastSiblingPath<TID extends MerkleTreeId>(treeId: TID, db: MerkleTreeReadOperations) {
   const { size } = await db.getTreeInfo(treeId);
@@ -541,7 +578,7 @@ function validateSimulatedTree(
 }
 
 export function validateTx(tx: ProcessedTx) {
-  const txHeader = tx.data.constants.historicalHeader;
+  const txHeader = tx.data.constants.anchorBlockHeader;
   if (txHeader.state.l1ToL2MessageTree.isEmpty()) {
     throw new Error(`Empty L1 to L2 messages tree in tx: ${toFriendlyJSON(tx)}`);
   }
@@ -554,4 +591,13 @@ export function validateTx(tx: ProcessedTx) {
   if (txHeader.state.partial.publicDataTree.isEmpty()) {
     throw new Error(`Empty public data tree in tx: ${toFriendlyJSON(tx)}`);
   }
+}
+
+export function toProofData<T extends Bufferable, PROOF_LENGTH extends number>(
+  { inputs, proof, verificationKey }: PublicInputsAndRecursiveProof<T, PROOF_LENGTH>,
+  vkIndex?: number,
+) {
+  const leafIndex = vkIndex || getVKIndex(verificationKey.keyAsFields);
+  const vkData = new VkData(verificationKey, leafIndex, getVKSiblingPath(leafIndex));
+  return new ProofData(inputs, proof, vkData);
 }

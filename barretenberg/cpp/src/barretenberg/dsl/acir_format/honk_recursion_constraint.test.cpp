@@ -4,7 +4,7 @@
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "proof_surgeon.hpp"
@@ -20,7 +20,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
   public:
     using InnerFlavor = typename RecursiveFlavor::NativeFlavor;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
-    using InnerDeciderProvingKey = DeciderProvingKey_<InnerFlavor>;
+    using InnerProverInstance = ProverInstance_<InnerFlavor>;
     using InnerProver = bb::UltraProver_<InnerFlavor>;
     using InnerVerificationKey = typename InnerFlavor::VerificationKey;
     using InnerVerifier = bb::UltraVerifier_<InnerFlavor>;
@@ -29,7 +29,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         std::conditional_t<IsMegaBuilder<OuterBuilder>,
                            MegaFlavor,
                            std::conditional_t<HasIPAAccumulator<InnerFlavor>, UltraRollupFlavor, UltraFlavor>>;
-    using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
+    using OuterProverInstance = ProverInstance_<OuterFlavor>;
     using OuterProver = bb::UltraProver_<OuterFlavor>;
     using OuterVerificationKey = typename OuterFlavor::VerificationKey;
     using OuterVerifier = bb::UltraVerifier_<OuterFlavor>;
@@ -148,9 +148,9 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
 
         for (auto& inner_circuit : inner_circuits) {
 
-            auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
-            auto verification_key = std::make_shared<InnerVerificationKey>(proving_key->get_precomputed());
-            InnerProver prover(proving_key, verification_key);
+            auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
+            auto verification_key = std::make_shared<InnerVerificationKey>(prover_instance->get_precomputed());
+            InnerProver prover(prover_instance, verification_key);
             InnerVerifier verifier(verification_key);
             auto inner_proof = prover.construct_proof();
 
@@ -216,7 +216,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         return outer_circuit;
     }
 
-    bool verify_proof(const std::shared_ptr<OuterDeciderProvingKey>& proving_key,
+    bool verify_proof(const std::shared_ptr<OuterProverInstance>& prover_instance,
                       const std::shared_ptr<OuterVerificationKey>& verification_key,
                       const HonkProof& proof)
     {
@@ -227,7 +227,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
             VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
             OuterVerifier verifier(verification_key, ipa_verification_key);
-            result = verifier.template verify_proof<IO>(proof, proving_key->ipa_proof).result;
+            result = verifier.template verify_proof<IO>(proof, prover_instance->ipa_proof).result;
         } else {
             OuterVerifier verifier(verification_key);
             result = verifier.template verify_proof<IO>(proof).result;
@@ -260,14 +260,14 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestHonkRecursionConstraintVKGeneration)
         TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_1_circuits,
                                                                                        /*dummy_witnesses=*/true);
 
-    auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_2_circuit);
+    auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_2_circuit);
     auto verification_key =
-        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->get_precomputed());
+        std::make_shared<typename TestFixture::OuterVerificationKey>(prover_instance->get_precomputed());
 
-    auto proving_key_dummy =
-        std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_2_circuit_with_dummy_witnesses);
+    auto prover_instance_dummy =
+        std::make_shared<typename TestFixture::OuterProverInstance>(layer_2_circuit_with_dummy_witnesses);
     auto verification_key_dummy =
-        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key_dummy->get_precomputed());
+        std::make_shared<typename TestFixture::OuterVerificationKey>(prover_instance_dummy->get_precomputed());
 
     // Compare the two vks
     EXPECT_EQ(*verification_key_dummy, *verification_key);
@@ -283,14 +283,14 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
 
     info("estimate finalized circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
-    auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_2_circuit);
+    auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_2_circuit);
     auto verification_key =
-        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->get_precomputed());
-    typename TestFixture::OuterProver prover(proving_key, verification_key);
-    info("prover gates = ", proving_key->dyadic_size());
+        std::make_shared<typename TestFixture::OuterVerificationKey>(prover_instance->get_precomputed());
+    typename TestFixture::OuterProver prover(prover_instance, verification_key);
+    info("prover gates = ", prover_instance->dyadic_size());
     auto proof = prover.construct_proof();
 
-    EXPECT_EQ(TestFixture::verify_proof(proving_key, verification_key, proof), true);
+    EXPECT_EQ(TestFixture::verify_proof(prover_instance, verification_key, proof), true);
 }
 
 TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
@@ -305,14 +305,14 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
 
     info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
-    auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_2_circuit);
+    auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_2_circuit);
     auto verification_key =
-        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->get_precomputed());
-    typename TestFixture::OuterProver prover(proving_key, verification_key);
-    info("prover gates = ", proving_key->dyadic_size());
+        std::make_shared<typename TestFixture::OuterVerificationKey>(prover_instance->get_precomputed());
+    typename TestFixture::OuterProver prover(prover_instance, verification_key);
+    info("prover gates = ", prover_instance->dyadic_size());
     auto proof = prover.construct_proof();
 
-    EXPECT_EQ(TestFixture::verify_proof(proving_key, verification_key, proof), true);
+    EXPECT_EQ(TestFixture::verify_proof(prover_instance, verification_key, proof), true);
 }
 
 TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
@@ -367,14 +367,14 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
     info("created second outer circuit");
     info("number of gates in layer 3 = ", layer_3_circuit.get_estimated_num_finalized_gates());
 
-    auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_3_circuit);
+    auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_3_circuit);
     auto verification_key =
-        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->get_precomputed());
-    typename TestFixture::OuterProver prover(proving_key, verification_key);
-    info("prover gates = ", proving_key->dyadic_size());
+        std::make_shared<typename TestFixture::OuterVerificationKey>(prover_instance->get_precomputed());
+    typename TestFixture::OuterProver prover(prover_instance, verification_key);
+    info("prover gates = ", prover_instance->dyadic_size());
     auto proof = prover.construct_proof();
 
-    EXPECT_EQ(TestFixture::verify_proof(proving_key, verification_key, proof), true);
+    EXPECT_EQ(TestFixture::verify_proof(prover_instance, verification_key, proof), true);
 }
 
 /**
@@ -418,12 +418,12 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
     info("created third outer circuit");
     info("number of gates in layer 3 circuit = ", layer_3_circuit.get_estimated_num_finalized_gates());
 
-    auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_3_circuit);
+    auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_3_circuit);
     auto verification_key =
-        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->get_precomputed());
-    typename TestFixture::OuterProver prover(proving_key, verification_key);
-    info("prover gates = ", proving_key->dyadic_size());
+        std::make_shared<typename TestFixture::OuterVerificationKey>(prover_instance->get_precomputed());
+    typename TestFixture::OuterProver prover(prover_instance, verification_key);
+    info("prover gates = ", prover_instance->dyadic_size());
     auto proof = prover.construct_proof();
 
-    EXPECT_EQ(TestFixture::verify_proof(proving_key, verification_key, proof), true);
+    EXPECT_EQ(TestFixture::verify_proof(prover_instance, verification_key, proof), true);
 }

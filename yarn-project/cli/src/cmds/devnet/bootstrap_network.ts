@@ -1,14 +1,15 @@
-import { getInitialTestAccountsManagers } from '@aztec/accounts/testing';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import {
   AztecAddress,
+  type AztecNode,
   BatchCall,
   EthAddress,
   Fr,
   L1FeeJuicePortalManager,
-  type PXE,
   type WaitForProvenOpts,
   type WaitOpts,
   type Wallet,
+  createAztecNodeClient,
   createCompatibleClient,
   retryUntil,
   waitForProven,
@@ -21,6 +22,7 @@ import {
   deployL1Contract,
 } from '@aztec/ethereum';
 import type { LogFn, Logger } from '@aztec/foundation/log';
+import { TestWallet } from '@aztec/test-wallet';
 
 import { getContract } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
@@ -43,6 +45,7 @@ const provenWaitOpts: WaitForProvenOpts = {
 
 export async function bootstrapNetwork(
   pxeUrl: string,
+  nodeUrl: string,
   l1Urls: string[],
   l1ChainId: string,
   l1PrivateKey: `0x${string}` | undefined,
@@ -53,14 +56,19 @@ export async function bootstrapNetwork(
   debugLog: Logger,
 ) {
   const pxe = await createCompatibleClient(pxeUrl, debugLog);
+  const node = createAztecNodeClient(nodeUrl);
+  const wallet = new TestWallet(pxe, node);
 
   // We assume here that the initial test accounts were prefunded with deploy-l1-contracts, and deployed with setup-l2-contracts
   // so all we need to do is register them to our pxe.
-  const [accountManager] = await getInitialTestAccountsManagers(pxe);
-  await accountManager.register();
+  const [accountData] = await getInitialTestAccountsData();
+  const accountManager = await wallet.createSchnorrAccount(
+    accountData.secret,
+    accountData.salt,
+    accountData.signingKey,
+  );
 
-  const wallet = await accountManager.getWallet();
-  const defaultAccountAddress = wallet.getAddress();
+  const defaultAccountAddress = accountManager.getAddress();
 
   const l1Client = createExtendedL1Client(
     l1Urls,
@@ -76,14 +84,14 @@ export async function bootstrapNetwork(
 
   const { token, bridge } = await deployToken(wallet, defaultAccountAddress, portalAddress);
 
-  await initPortal(pxe, l1Client, erc20Address, portalAddress, bridge.address);
+  await initPortal(node, l1Client, erc20Address, portalAddress, bridge.address);
 
-  const fpcAdmin = wallet.getAddress();
+  const fpcAdmin = defaultAccountAddress;
   const fpc = await deployFPC(wallet, defaultAccountAddress, token.address, fpcAdmin);
 
   const counter = await deployCounter(wallet, defaultAccountAddress);
 
-  await fundFPC(pxe, counter.address, wallet, defaultAccountAddress, l1Client, fpc.address, debugLog);
+  await fundFPC(node, counter.address, wallet, defaultAccountAddress, l1Client, fpc.address, debugLog);
 
   if (json) {
     log(
@@ -210,7 +218,7 @@ async function deployToken(
  * Step 3. Initialize DevCoin's L1 portal
  */
 async function initPortal(
-  pxe: PXE,
+  aztecNode: AztecNode,
   l1Client: ExtendedViemWalletClient,
   erc20: EthAddress,
   portal: EthAddress,
@@ -219,7 +227,7 @@ async function initPortal(
   const { TokenPortalAbi } = await import('@aztec/l1-artifacts');
   const {
     l1ContractAddresses: { registryAddress },
-  } = await pxe.getNodeInfo();
+  } = await aztecNode.getNodeInfo();
 
   const contract = getContract({
     abi: TokenPortalAbi,
@@ -269,7 +277,7 @@ async function deployCounter(wallet: Wallet, defaultAccountAddress: AztecAddress
 
 // NOTE: Disabling for now in order to get devnet running
 async function fundFPC(
-  pxe: PXE,
+  node: AztecNode,
   counterAddress: AztecAddress,
   wallet: Wallet,
   defaultAccountAddress: AztecAddress,
@@ -285,11 +293,11 @@ async function fundFPC(
   const { CounterContract } = await import('@aztec/noir-test-contracts.js/Counter');
   const {
     protocolContractAddresses: { feeJuice },
-  } = await wallet.getPXEInfo();
+  } = await node.getNodeInfo();
 
   const feeJuiceContract = await FeeJuiceContract.at(feeJuice, wallet);
 
-  const feeJuicePortal = await L1FeeJuicePortalManager.new(wallet, l1Client, debugLog);
+  const feeJuicePortal = await L1FeeJuicePortalManager.new(node, l1Client, debugLog);
 
   const { claimAmount, claimSecret, messageLeafIndex, messageHash } = await feeJuicePortal.bridgeTokensPublic(
     fpcAddress,
@@ -297,7 +305,12 @@ async function fundFPC(
     true,
   );
 
-  await retryUntil(async () => await pxe.isL1ToL2MessageSynced(Fr.fromHexString(messageHash)), 'message sync', 600, 1);
+  await retryUntil(
+    async () => (await node.getL1ToL2MessageBlock(Fr.fromHexString(messageHash))) !== undefined,
+    'message sync',
+    600,
+    1,
+  );
 
   const counter = await CounterContract.at(counterAddress, wallet);
 
@@ -305,8 +318,8 @@ async function fundFPC(
 
   // TODO (alexg) remove this once sequencer builds blocks continuously
   // advance the chain
-  await counter.methods.increment(wallet.getAddress()).send({ from: defaultAccountAddress }).wait(waitOpts);
-  await counter.methods.increment(wallet.getAddress()).send({ from: defaultAccountAddress }).wait(waitOpts);
+  await counter.methods.increment(defaultAccountAddress).send({ from: defaultAccountAddress }).wait(waitOpts);
+  await counter.methods.increment(defaultAccountAddress).send({ from: defaultAccountAddress }).wait(waitOpts);
 
   debugLog.info('Claiming FPC');
 
@@ -315,7 +328,7 @@ async function fundFPC(
     .send({ from: defaultAccountAddress })
     .wait({ ...waitOpts });
 
-  await waitForProven(pxe, receipt, provenWaitOpts);
+  await waitForProven(node, receipt, provenWaitOpts);
 
   debugLog.info('Finished claiming FPC');
 }

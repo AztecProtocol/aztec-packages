@@ -1,63 +1,38 @@
 use crate::{
-    context::PrivateContext,
     messages::{
         encoding::encode_message,
         encryption::{aes128::AES128, log_encryption::LogEncryption},
         logs::utils::prefix_with_tag,
         msg_type::{PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID},
-        offchain_messages::emit_offchain_message,
     },
-    note::{note_emission::NoteEmission, note_interface::NoteType},
-    utils::{array::subarray::subarray, remove_constraints::remove_constraints},
+    note::note_interface::NoteType,
 };
 use protocol_types::{
-    abis::note_hash::NoteHash,
-    address::AztecAddress,
-    constants::{PRIVATE_LOG_CIPHERTEXT_LEN, PRIVATE_LOG_SIZE_IN_FIELDS},
-    traits::Packable,
+    address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS, traits::Packable,
 };
 
-// TODO: it feels like this existence check is in the wrong place. In fact, why is it needed at all? Under what circumstances have we found a non-existent note being emitted accidentally?
-fn assert_note_exists(context: PrivateContext, note_hash_counter: u32) {
-    // TODO(#8589): use typesystem to skip this check when not needed
-    let note_exists =
-        context.note_hashes.storage().any(|n: NoteHash| n.counter == note_hash_counter);
-    assert(note_exists, "Can only emit a note log for an existing note.");
-}
-
-pub fn compute_note_log<Note>(
-    note: Note,
+// TODO(#16881): once partial notes support emission via an offchain message we will most likely want to remove this.
+pub fn compute_partial_note_private_content_log<PartialNotePrivateContent>(
+    partial_note_private_content: PartialNotePrivateContent,
     storage_slot: Field,
     recipient: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
-    Note: NoteType + Packable,
+    PartialNotePrivateContent: NoteType + Packable,
 {
-    compute_log(note, storage_slot, recipient, PRIVATE_NOTE_MSG_TYPE_ID)
-}
-
-pub fn compute_partial_note_log<Note>(
-    note: Note,
-    storage_slot: Field,
-    recipient: AztecAddress,
-) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
-where
-    Note: NoteType + Packable,
-{
-    compute_log(
-        note,
+    let message_plaintext = partial_note_private_content_to_message_plaintext(
+        partial_note_private_content,
         storage_slot,
-        recipient,
-        PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID,
-    )
+    );
+    let message_ciphertext = AES128::encrypt_log(message_plaintext, recipient);
+
+    prefix_with_tag(message_ciphertext, recipient)
 }
 
-fn compute_log<Note>(
+pub fn private_note_to_message_plaintext<Note>(
     note: Note,
     storage_slot: Field,
-    recipient: AztecAddress,
-    msg_type: u64,
-) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
+) -> [Field; <Note as Packable>::N + 2]
 where
     Note: NoteType + Packable,
 {
@@ -71,100 +46,29 @@ where
     }
 
     // Notes use the note type id for metadata
-    let plaintext = encode_message(msg_type, Note::get_id() as u64, msg_content);
-
-    let ciphertext = AES128::encrypt_log(plaintext, recipient);
-
-    let log = prefix_with_tag(ciphertext, recipient);
-
-    log
+    encode_message(PRIVATE_NOTE_MSG_TYPE_ID, Note::get_id() as u64, msg_content)
 }
 
-/// Sends an encrypted message to `recipient` with the content of the note, which they will discover when processing
-/// private logs.
-pub fn encode_and_encrypt_note<Note>(
-    context: &mut PrivateContext,
-    recipient: AztecAddress,
-) -> fn[(&mut PrivateContext, AztecAddress)](NoteEmission<Note>) -> ()
+pub fn partial_note_private_content_to_message_plaintext<PartialNotePrivateContent>(
+    partial_note_private_content: PartialNotePrivateContent,
+    storage_slot: Field,
+) -> [Field; <PartialNotePrivateContent as Packable>::N + 2]
 where
-    Note: NoteType + Packable,
+    PartialNotePrivateContent: NoteType + Packable,
 {
-    |e: NoteEmission<Note>| {
-        let note = e.note;
-        let storage_slot = e.storage_slot;
-        let note_hash_counter = e.note_hash_counter;
-        assert_note_exists(*context, note_hash_counter);
+    let packed_private_content = partial_note_private_content.pack();
 
-        let encrypted_log = compute_note_log(note, storage_slot, recipient);
-        // Regardless of the original note size `N, the log is padded with random bytes up to
-        // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
-        let length = encrypted_log.len();
-        context.emit_raw_note_log(encrypted_log, length, note_hash_counter);
+    // A partial note message's content is the storage slot followed by the packed private content representation
+    let mut msg_content = [0; 1 + <PartialNotePrivateContent as Packable>::N];
+    msg_content[0] = storage_slot;
+    for i in 0..packed_private_content.len() {
+        msg_content[1 + i] = packed_private_content[i];
     }
-}
 
-/// Same as `encode_and_encrypt_note`, except encryption is unconstrained. This means that the sender is free to make
-/// the log contents be whatever they wish, potentially resulting in scenarios in which the recipient is unable to
-/// decrypt and process the payload, **leading to the note being lost**.
-///
-/// Only use this function in scenarios where the recipient not receiving the note is an acceptable outcome.
-pub fn encode_and_encrypt_note_unconstrained<Note>(
-    context: &mut PrivateContext,
-    recipient: AztecAddress,
-) -> fn[(&mut PrivateContext, AztecAddress)](NoteEmission<Note>) -> ()
-where
-    Note: NoteType + Packable,
-{
-    |e: NoteEmission<Note>| {
-        let note = e.note;
-        let storage_slot = e.storage_slot;
-        let note_hash_counter = e.note_hash_counter;
-
-        assert_note_exists(*context, note_hash_counter);
-
-        // Safety: this function does not constrain the encryption of the log, as explained on its description.
-        let encrypted_log =
-            unsafe { remove_constraints(|| compute_note_log(note, storage_slot, recipient)) };
-        // Regardless of the original note size `N`, the log is padded with random bytes up to
-        // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
-        let length = encrypted_log.len();
-        context.emit_raw_note_log(encrypted_log, length, note_hash_counter);
-    }
-}
-
-/// Same as `encode_and_encrypt_note_unconstrained`, except the note is emitted as an offchain message instead of a
-/// private log.
-///
-/// Like `encode_and_encrypt_note_unconstrained`, this function uses unconstrained encryption. The sender can set any
-/// message contents, potentially preventing recipient decryption and resulting in note loss. Since offchain messages
-/// inherently lack delivery guarantees, constrained encryption provides no benefit and is not offered.
-///
-/// While delivery is not guaranteed, message integrity is still protected via cryptographic commitments in the note
-/// hash tree. For guaranteed delivery, use `encode_and_encrypt_note` with private logs instead. See
-/// `messages::offchain_message::emit_offchain_message` for more details on delivery guarantees.
-pub fn encode_and_encrypt_note_and_emit_as_offchain_message<Note>(
-    context: &mut PrivateContext,
-    recipient: AztecAddress,
-) -> fn[(&mut PrivateContext, AztecAddress)](NoteEmission<Note>) -> ()
-where
-    Note: NoteType + Packable,
-{
-    |e: NoteEmission<Note>| {
-        let note = e.note;
-        let storage_slot = e.storage_slot;
-        let note_hash_counter = e.note_hash_counter;
-
-        assert_note_exists(*context, note_hash_counter);
-
-        // Safety: this function does not constrain the encryption of the log, as explained on its description.
-        let encrypted_log =
-            unsafe { remove_constraints(|| compute_note_log(note, storage_slot, recipient)) };
-
-        // Remove the tag from the log
-        // TODO: This is a tech debt. We should refactor this file such that the log is by default computed without
-        // the tag.
-        let message_ciphertext: [_; PRIVATE_LOG_CIPHERTEXT_LEN] = subarray(encrypted_log, 1);
-
-        emit_offchain_message(message_ciphertext, recipient);
-    }
+    encode_message(
+        PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID,
+        // Notes use the note type id for metadata
+        PartialNotePrivateContent::get_id() as u64,
+        msg_content,
+    )
 }

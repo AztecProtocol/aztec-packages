@@ -1,6 +1,5 @@
 import { DefaultAccountContract } from '@aztec/accounts/defaults';
 import {
-  AccountManager,
   AuthWitness,
   type AuthWitnessProvider,
   type CompleteAddress,
@@ -11,6 +10,7 @@ import {
 } from '@aztec/aztec.js';
 import { SchnorrHardcodedAccountContractArtifact } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TestWallet } from '@aztec/test-wallet';
 
 import { setup } from '../fixtures/utils.js';
 
@@ -55,36 +55,42 @@ describe('guides/writing_an_account_contract', () => {
   afterEach(() => context.teardown());
 
   it('works', async () => {
-    const { pxe, logger, wallet: fundedWallet } = context;
+    const {
+      logger,
+      wallet,
+      accounts: [fundedAccount],
+    } = context;
 
     // docs:start:account-contract-deploy
     const secretKey = Fr.random();
-    const account = await AccountManager.create(pxe, secretKey, new SchnorrHardcodedKeyAccountContract());
+
+    const account = await (wallet as TestWallet).createAccount({
+      secret: secretKey,
+      contract: new SchnorrHardcodedKeyAccountContract(),
+      salt: Fr.random(),
+    });
 
     if (await account.hasInitializer()) {
       // The account has no funds. Use a funded wallet to pay for the fee for the deployment.
-      await account.deploy({ deployWallet: fundedWallet }).wait();
+      await account.deploy({ deployAccount: fundedAccount }).wait();
     } else {
       // The contract has no constructor. Deployment is not required.
       // Register it in the PXE Service to start using it.
       await account.register();
     }
 
-    const wallet = await account.getWallet();
-    const address = wallet.getAddress();
+    const address = account.getAddress();
     // docs:end:account-contract-deploy
     logger.info(`Deployed account contract at ${address}`);
 
-    const fundedWalletAddress = fundedWallet.getAddress();
-
     // docs:start:token-contract-deploy
-    const token = await TokenContract.deploy(fundedWallet, fundedWalletAddress, 'TokenName', 'TokenSymbol', 18)
-      .send({ from: fundedWalletAddress })
+    const token = await TokenContract.deploy(wallet, fundedAccount, 'TokenName', 'TokenSymbol', 18)
+      .send({ from: fundedAccount })
       .deployed();
     logger.info(`Deployed token contract at ${token.address}`);
 
     const mintAmount = 50n;
-    await token.methods.mint_to_private(address, mintAmount).send({ from: fundedWalletAddress }).wait();
+    await token.methods.mint_to_private(address, mintAmount).send({ from: fundedAccount }).wait();
 
     const balance = await token.methods.balance_of_private(address).simulate({ from: address });
     logger.info(`Balance of wallet is now ${balance}`);
@@ -94,12 +100,14 @@ describe('guides/writing_an_account_contract', () => {
     // docs:start:account-contract-fails
     const wrongKey = GrumpkinScalar.random();
     const wrongAccountContract = new SchnorrHardcodedKeyAccountContract(wrongKey);
-    const wrongAccount = await AccountManager.create(pxe, secretKey, wrongAccountContract, account.salt);
-    const wrongWallet = await wrongAccount.getWallet();
-    const tokenWithWrongWallet = token.withWallet(wrongWallet);
+    const wrongAccount = await (wallet as TestWallet).createAccount({
+      secret: secretKey,
+      contract: wrongAccountContract,
+      salt: Fr.random(),
+    });
 
     try {
-      await tokenWithWrongWallet.methods.mint_to_public(address, 200).prove({ from: wrongWallet.getAddress() });
+      await token.methods.mint_to_public(address, 200).prove({ from: wrongAccount.getAddress() });
     } catch (err) {
       logger.info(`Failed to send tx: ${err}`);
     }

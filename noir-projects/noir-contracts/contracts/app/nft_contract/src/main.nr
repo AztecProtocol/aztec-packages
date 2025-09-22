@@ -16,7 +16,7 @@ pub contract NFT {
             functions::{authorize_once, initializer, internal, private, public, utility, view},
             storage::storage,
         },
-        messages::logs::note::encode_and_encrypt_note,
+        messages::message_delivery::MessageDelivery,
         note::{
             constants::MAX_NOTES_PER_PAGE, note_getter_options::NoteGetterOptions,
             note_interface::NoteProperties, note_viewer_options::NoteViewerOptions,
@@ -302,7 +302,7 @@ pub contract NFT {
 
         let new_note = NFTNote::new(token_id, to);
 
-        nfts.at(to).insert(new_note).emit(encode_and_encrypt_note(&mut context, to));
+        nfts.at(to).insert(new_note).emit(&mut context, to, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
     // docs:end:transfer_in_private
 

@@ -1,13 +1,17 @@
 import type { SecretValue } from '@aztec/foundation/config';
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import type { SequencerConfig, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
-import type { ProposedBlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
+import type { StateReference, Tx } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 import { z } from 'zod';
+
+import type { CommitteeAttestationsAndSigners } from '../block/index.js';
+import type { CheckpointHeader } from '../rollup/checkpoint_header.js';
 
 /**
  * Validator client configuration
@@ -56,7 +60,7 @@ export interface Validator {
   // Block validation responsibilities
   createBlockProposal(
     blockNumber: number,
-    header: ProposedBlockHeader,
+    header: CheckpointHeader,
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
@@ -67,4 +71,8 @@ export interface Validator {
 
   broadcastBlockProposal(proposal: BlockProposal): Promise<void>;
   collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]>;
+  signAttestationsAndSigners(
+    attestationsAndSigners: CommitteeAttestationsAndSigners,
+    proposer: EthAddress,
+  ): Promise<Signature>;
 }

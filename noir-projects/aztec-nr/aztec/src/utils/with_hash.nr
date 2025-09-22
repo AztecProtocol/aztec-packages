@@ -146,7 +146,7 @@ mod test {
 
         env.private_context(|context| {
             let result = WithHash::<MockStruct, _>::historical_public_storage_read(
-                context.historical_header,
+                context.anchor_block_header,
                 context.this_address(),
                 STORAGE_SLOT,
             );
@@ -166,7 +166,7 @@ mod test {
 
         env.private_context(|context| {
             let result = WithHash::<MockStruct, _>::historical_public_storage_read(
-                context.historical_header,
+                context.anchor_block_header,
                 context.this_address(),
                 STORAGE_SLOT,
             );
@@ -179,7 +179,7 @@ mod test {
         let env = TestEnvironment::new();
 
         env.private_context(|context| {
-            let block_header = context.historical_header;
+            let block_header = context.anchor_block_header;
             let address = context.this_address();
 
             // Mock the oracle to return a non-zero hint/packed value
@@ -217,7 +217,7 @@ mod test {
 
         env.private_context(|context| {
             let _ = WithHash::<MockStruct, _>::historical_public_storage_read(
-                context.historical_header,
+                context.anchor_block_header,
                 context.this_address(),
                 STORAGE_SLOT,
             );

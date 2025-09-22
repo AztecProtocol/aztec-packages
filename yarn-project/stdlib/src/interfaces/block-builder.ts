@@ -2,6 +2,8 @@ import type { Fr } from '@aztec/foundation/fields';
 import type { Timer } from '@aztec/foundation/timer';
 
 import type { L2Block } from '../block/l2_block.js';
+import type { ChainConfig, SequencerConfig } from '../config/chain-config.js';
+import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import type { Gas } from '../gas/gas.js';
 import type { MerkleTreeWriteOperations } from '../trees/index.js';
 import type { BlockHeader } from '../tx/block_header.js';
@@ -17,13 +19,8 @@ export interface IBlockFactory extends ProcessedTxHandler {
    * Prepares to build a new block. Updates the L1 to L2 message tree.
    * @param globalVariables - The global variables for this block.
    * @param l1ToL2Messages - The set of L1 to L2 messages to be included in this block.
-   * @param previousBlockHeader - The header of the previous block.
    */
-  startNewBlock(
-    globalVariables: GlobalVariables,
-    l1ToL2Messages: Fr[],
-    previousBlockHeader: BlockHeader,
-  ): Promise<void>;
+  startNewBlock(globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void>;
 
   /**
    * Adds all processed txs to the block. Updates world state with the effects from this tx.
@@ -41,6 +38,7 @@ export interface PublicProcessorLimits {
   maxTransactions?: number;
   maxBlockSize?: number;
   maxBlockGas?: Gas;
+  maxBlobFields?: number;
   deadline?: Date;
 }
 
@@ -59,13 +57,14 @@ export interface BuildBlockResult {
   usedTxs: Tx[];
 }
 
+export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'> &
+  Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
+  Pick<SequencerConfig, 'txPublicSetupAllowList' | 'fakeProcessingDelayPerTxMs'>;
+
 export interface IFullNodeBlockBuilder {
-  getConfig(): {
-    l1GenesisTime: bigint;
-    slotDuration: number;
-    l1ChainId: number;
-    rollupVersion: number;
-  };
+  getConfig(): FullNodeBlockBuilderConfig;
+
+  updateConfig(config: Partial<FullNodeBlockBuilderConfig>): void;
 
   buildBlock(
     txs: Iterable<Tx> | AsyncIterable<Tx>,

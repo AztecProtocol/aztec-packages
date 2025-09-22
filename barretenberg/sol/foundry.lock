@@ -1,0 +1,23 @@
+{
+  "../../bb-pilcom/powdr": {
+    "rev": "c3006c11819d9b53fb183c9c12a10b83481bb631"
+  },
+  "../../l1-contracts/lib/circuits": {
+    "rev": "e47bcd526f5e38f9603d07d0791984ec53efd254"
+  },
+  "../../l1-contracts/lib/forge-std": {
+    "rev": "0e7097750918380d84dd3cfdef595bee74dabb70"
+  },
+  "../../l1-contracts/lib/openzeppelin-contracts": {
+    "rev": "448efeea6640bbbc09373f03fbc9c88e280147ba"
+  },
+  "lib/forge-std": {
+    "rev": "74cfb77e308dd188d2f58864aaf44963ae6b88b1"
+  },
+  "lib/openzeppelin-contracts": {
+    "rev": "e50c24f5839db17f46991478384bfda14acfb830"
+  },
+  "lib/solidity-stringutils": {
+    "rev": "46983c6d9462a80229cf0d5bab8ea3b3ee31066c"
+  }
+}

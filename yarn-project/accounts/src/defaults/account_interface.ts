@@ -1,4 +1,5 @@
 import type { AccountInterface, AuthWitnessProvider } from '@aztec/aztec.js/account';
+import type { ChainInfo } from '@aztec/aztec.js/wallet';
 import { DefaultAccountEntrypoint } from '@aztec/entrypoints/account';
 import type { EntrypointInterface, FeeOptions, TxExecutionOptions } from '@aztec/entrypoints/interfaces';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
@@ -6,7 +7,6 @@ import { Fr } from '@aztec/foundation/fields';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CompleteAddress } from '@aztec/stdlib/contract';
-import type { NodeInfo } from '@aztec/stdlib/contract';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
 /**
@@ -22,16 +22,16 @@ export class DefaultAccountInterface implements AccountInterface {
   constructor(
     private authWitnessProvider: AuthWitnessProvider,
     private address: CompleteAddress,
-    nodeInfo: Pick<NodeInfo, 'l1ChainId' | 'rollupVersion'>,
+    chainInfo: ChainInfo,
   ) {
     this.entrypoint = new DefaultAccountEntrypoint(
       address.address,
       authWitnessProvider,
-      nodeInfo.l1ChainId,
-      nodeInfo.rollupVersion,
+      chainInfo.chainId.toNumber(),
+      chainInfo.version.toNumber(),
     );
-    this.chainId = new Fr(nodeInfo.l1ChainId);
-    this.version = new Fr(nodeInfo.rollupVersion);
+    this.chainId = chainInfo.chainId;
+    this.version = chainInfo.version;
   }
 
   createTxExecutionRequest(

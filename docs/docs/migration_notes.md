@@ -9,6 +9,139 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [Aztec.nr]
+
+### Historical block renamed as anchor block
+
+A historical block term has been used as a term that denotes the block against which a private part of a tx has been executed.
+This name is ambiguous and for this reason we've introduce "anchor block".
+This naming change resulted in quite a few changes and if you've access private context's or utility context's block header you will need to update your code:
+
+```diff
+- let header = context.get_block_header();
++ let header = context.get_anchor_block_header();
+```
+
+### Removed ValueNote utils
+
+The `value_note::utils` module has been removed because it was incorrect to have those in the value note package.
+
+For the increment function you can easily just insert the note:
+
+```diff
+- use value_note::utils;
+- utils::increment(storage.notes.at(owner), value, owner, sender);
++ let note = ValueNote::new(value, owner);
++ storage.notes.at(owner).insert(note).emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+```
+
+### PrivateMutable: replace / initialize_or_replace behaviour change
+
+**Motivation:**
+Updating a note used to require reading it first (via `get_note`, which nullifies and recreates it) and then calling `replace` — effectively proving a note twice. Now, `replace` accepts a callback that transforms the current note directly, and `initialize_or_replace` simply uses this updated `replace` internally. This reduces circuit cost while maintaining exactly one current note.
+
+**Key points:**
+
+1. `replace(self, new_note)` (old) → `replace(self, f)` (new), where `f` takes the current note and returns a transformed note.
+2. `initialize_or_replace(self, note)` (old) → `initialize_or_replace(self, f)` (new), where `f` takes an `Option` with the current none, or `none` if uninitialized.
+3. Previous note is automatically nullified before the new note is inserted.
+4. `NoteEmission<Note>` still requires `.emit()` or `.discard()`.
+
+**Example Migration:**
+
+```diff
+- let current_note = storage.my_var.get_note();
+- let new_note = f(current_note);
+- storage.my_var.replace(new_note);
++ storage.my_var.replace(|current_note| f(current_note));
+```
+
+```diff
+- storage.my_var.initialize_or_replace(new_note);
++ storage.my_var.initialize_or_replace(|_| new_note);
+```
+
+This makes it easy and efficient to handle both initialization and current value mutation via `initialize_or_replace`, e.g. if implementing a note that simply counts how many times it has been read:
+
+```diff
++ storage.my_var.initialize_or_replace(|opt_current: Option<Note>| opt_current.unwrap_or(0 /* initial value */) + 1);
+```
+
+- The callback can be a closure (inline) or a named function.
+- Any previous assumptions that replace simply inserts a new_note directly must be updated.
+
+### Unified oracles into single get_utility_context oracle
+
+The following oracles:
+
+1. get_contract_address,
+2. get_block_number,
+3. get_timestamp,
+4. get_chain_id,
+5. get_version
+
+were replaced with a single `get_utility_context` oracle whose return value contains all the values returned from the removed oracles.
+
+If you have used one of these removed oracles before, update the import, e.g.:
+
+```diff
+- aztec::oracle::execution::get_chain_id;
++ aztec::oracle::execution::get_utility_context
+```
+
+and get the value out of the returned utility context:
+
+```diff
+- let chain_id = get_chain_id();
++ let chain_id = get_utility_context().chain_id();
+```
+
+### Note emission API changes
+
+The note emission API has been significantly reworked to provide clearer semantics around message delivery guarantees. The key changes are:
+
+1. `encode_and_encrypt_note` has been removed in favor of calling `emit` directly with `MessageDelivery.CONSTRAINED_ONCHAIN`
+2. `encode_and_encrypt_note_unconstrained` has been removed in favor of calling `emit` directly with `MessageDelivery.UNCONSTRAINED_ONCHAIN`
+3. `encode_and_encrypt_note_and_emit_as_offchain_message` has been removed in favor of using `emit` with `MessageDelivery.UNCONSTRAINED_OFFCHAIN`
+4. Note emission now takes a `delivery_mode` parameter with the following values:
+   - `CONSTRAINED_ONCHAIN`: For onchain delivery with cryptographic guarantees that recipients can discover and decrypt messages. Uses constrained encryption but is slower to prove. Best for critical messages that contracts need to verify.
+   - `UNCONSTRAINED_ONCHAIN`: For onchain delivery without encryption constraints. Faster proving but trusts the sender. Good when the sender is incentivized to perform encryption correctly (e.g. they are buying something and will only get it if the recipient sees the note). No guarantees that recipients will be able to find or decrypt messages.
+   - `UNCONSTRAINED_OFFCHAIN`: For offchain delivery (e.g. cloud storage) without constraints. Lowest cost since no onchain storage needed. Requires custom infrastructure for delivery. No guarantees that messages will be delivered or that recipients will ever find them.
+
+Example migration:
+
+First you need to update imports in your contract:
+
+```diff
+- aztec::messages::logs::note::encode_and_encrypt_note;
+- aztec::messages::logs::note::encode_and_encrypt_note_unconstrained;
+- aztec::messages::logs::note::encode_and_encrypt_note_and_emit_as_offchain_message;
++ aztec::messages::message_delivery::MessageDelivery;
+```
+
+Then update the emissions:
+
+```diff
+- storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
++ storage.balances.at(from).sub(from, amount).emit(&mut context, from, MessageDelivery.CONSTRAINED_ONCHAIN);
+```
+
+```diff
+- storage.balances.at(from).add(from, change).emit(encode_and_encrypt_note_unconstrained(&mut context, from));
++ storage.balances.at(from).add(from, change).emit(&mut context, from, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+```
+
+```diff
+- storage.balances.at(owner).insert(note).emit(encode_and_encrypt_note_and_emit_as_offchain_message(&mut context, context.msg_sender());
++ storage.balances.at(owner).insert(note).emit(&mut context, context.msg_sender(), MessageDelivery.UNCONSTRAINED_OFFCHAIN);
+```
+
+## 2.0.2
+
+## [Public functions]
+
+The L2 gas cost of the different AVM opcodes have been updated to reflect more realistic proving costs. Developers should review the L2 gas costs of executing public functions and reevaluate any hardcoded L2 gas limits.
+
 ## [Aztec Tools]
 
 ### Contract compilation now requires two steps
@@ -56,9 +189,9 @@ The private event emission API has been significantly reworked to provide cleare
 1. `emit_event_in_private_log` has been renamed to `emit_event_in_private` and now takes a `delivery_mode` parameter instead of `constraints`
 2. `emit_event_as_offchain_message` has been removed in favor of using `emit_event_in_private` with `MessageDelivery.UNCONSTRAINED_OFFCHAIN`
 3. `PrivateLogContent` enum has been replaced with `MessageDelivery` enum with the following values:
-   - `CONSTRAINED_ONCHAIN`: For on-chain delivery with cryptographic guarantees (replaces `CONSTRAINED_ENCRYPTION`)
-   - `UNCONSTRAINED_OFFCHAIN`: For off-chain delivery without constraints
-   - `UNCONSTRAINED_ONCHAIN`: For on-chain delivery without constraints (replaces `NO_CONSTRAINTS`)
+   - `CONSTRAINED_ONCHAIN`: For onchain delivery with cryptographic guarantees that recipients can discover and decrypt messages. Uses constrained encryption but is slower to prove. Best for critical messages that contracts need to verify.
+   - `UNCONSTRAINED_ONCHAIN`: For onchain delivery without encryption constraints. Faster proving but trusts the sender. Good when the sender is incentivized to perform encryption correctly (e.g. they are buying something and will only get it if the recipient sees the note). No guarantees that recipients will be able to find or decrypt messages.
+   - `UNCONSTRAINED_OFFCHAIN`: For offchain delivery (e.g. cloud storage) without constraints. Lowest cost since no onchain storage needed. Requires custom infrastructure for delivery. No guarantees that messages will be delivered or that recipients will ever find them.
 
 ### Contract functions can no longer be `pub` or `pub(crate)`
 
@@ -199,7 +332,7 @@ The `private` and `public` methods are gone. Private, public and utility context
 
 The following are two tests using the older version of `TestEnvironment`:
 
-```noir
+```rust
 #[test]
 unconstrained fn initial_empty_value() {
     let mut env = TestEnvironment::new();
@@ -239,7 +372,7 @@ unconstrained fn non_admin_cannot_set_authorized() {
 
 These now look like this:
 
-```noir
+```rust
 #[test]
 unconstrained fn authorized_initially_unset() {
     let mut env = TestEnvironment::new();
@@ -444,7 +577,7 @@ Aztec contracts have three kinds of functions: `#[private]`, `#[public]` and wha
     }
 ```
 
-Utility functions are standalone unconstrained functions that cannot be called from private or public functions: they are meant to be called by _applications_ to perform auxiliary tasks: query contract state (e.g. a token balance), process messages received off-chain, etc.
+Utility functions are standalone unconstrained functions that cannot be called from private or public functions: they are meant to be called by _applications_ to perform auxiliary tasks: query contract state (e.g. a token balance), process messages received offchain, etc.
 
 All functions in a `contract` block must now be marked as one of either `#[private]`, `#[public]`, `#[utility]`, `#[contract_library_method]`, or `#[test]`.
 
@@ -1035,7 +1168,7 @@ This is a breaking change because we now require `Packable` trait implementation
 
 Example implementation of Packable trait for `U128` type from `noir::std`:
 
-```
+```rust
 use crate::traits::{Packable, ToField};
 
 let U128_PACKED_LEN: u32 = 1;

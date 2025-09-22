@@ -1,10 +1,8 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import { getDeployedTestAccounts } from '@aztec/accounts/testing';
 import {
   type EthAddress,
   FeeJuicePaymentMethodWithClaim,
   Fr,
-  type PXE,
   TxStatus,
   type WaitOpts,
   createAztecNodeClient,
@@ -17,8 +15,9 @@ import type { Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import { PXESchema } from '@aztec/stdlib/interfaces/client';
+import { type AztecNode, PXESchema } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
+import { TestWallet } from '@aztec/test-wallet';
 
 import getPort from 'get-port';
 import { exec } from 'node:child_process';
@@ -28,7 +27,7 @@ import { resolve } from 'node:path';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
-import { getLogger, setupPXEService } from '../fixtures/utils.js';
+import { getLogger, setupPXEServiceAndGetWallet } from '../fixtures/utils.js';
 
 const {
   AZTEC_NODE_URL,
@@ -54,8 +53,9 @@ export const getLocalhost = () =>
     .catch(() => 'localhost');
 
 describe('End-to-end tests for devnet', () => {
-  let pxe: PXE;
   let pxeUrl: string; // needed for the CLI
+  let node: AztecNode;
+  let wallet: TestWallet;
   let logger: Logger;
   let l1ChainId: number;
   let feeJuiceL1: EthAddress;
@@ -80,18 +80,18 @@ describe('End-to-end tests for devnet', () => {
 
     if (AZTEC_NODE_URL) {
       logger.info(`Using AZTEC_NODE_URL: ${AZTEC_NODE_URL}`);
-      const node = createAztecNodeClient(AZTEC_NODE_URL);
+      node = createAztecNodeClient(AZTEC_NODE_URL);
       const bbConfig = await getBBConfig(logger);
       const acvmConfig = await getACVMConfig(logger);
-      const svc = await setupPXEService(node, {
+      const svc = await setupPXEServiceAndGetWallet(node, {
         ...bbConfig,
         ...acvmConfig,
         proverEnabled: ['1', 'true'].includes(PXE_PROVER_ENABLED!),
       });
-      pxe = svc.pxe;
+      wallet = svc.wallet;
 
-      const nodeInfo = await pxe.getNodeInfo();
-      const pxeInfo = await pxe.getPXEInfo();
+      const nodeInfo = await node.getNodeInfo();
+      const pxeInfo = await wallet.getPXEInfo();
 
       expect(nodeInfo.protocolContractAddresses.classRegistry).toEqual(pxeInfo.protocolContractAddresses.classRegistry);
       expect(nodeInfo.protocolContractAddresses.instanceRegistry).toEqual(
@@ -106,7 +106,7 @@ describe('End-to-end tests for devnet', () => {
       const localhost = await getLocalhost();
       pxeUrl = `http://${localhost}:${port}`;
       // start a server for the CLI to talk to
-      const jsonRpcServer = createNamespacedSafeJsonRpcServer({ pxe: [pxe, PXESchema] });
+      const jsonRpcServer = createNamespacedSafeJsonRpcServer({ pxe: [wallet.getPxe(), PXESchema] });
       const server = await startHttpRpcServer(jsonRpcServer, { port });
 
       teardown = async () => {
@@ -120,9 +120,11 @@ describe('End-to-end tests for devnet', () => {
       };
     } else if (PXE_URL) {
       logger.info(`Using PXE_URL: ${PXE_URL}`);
-      pxe = createPXEClient(PXE_URL);
+      const pxe = createPXEClient(PXE_URL);
+      node = createAztecNodeClient(PXE_URL);
       pxeUrl = PXE_URL;
       teardown = () => {};
+      wallet = new TestWallet(pxe, node);
     } else {
       throw new Error('AZTEC_NODE_URL or PXE_URL must be set');
     }
@@ -130,7 +132,7 @@ describe('End-to-end tests for devnet', () => {
     ({
       l1ChainId,
       l1ContractAddresses: { feeJuiceAddress: feeJuiceL1 },
-    } = await pxe.getNodeInfo());
+    } = await node.getNodeInfo());
     logger.info(`PXE instance started`);
   });
 
@@ -141,7 +143,7 @@ describe('End-to-end tests for devnet', () => {
   it('deploys an account while paying with FeeJuice', async () => {
     const privateKey = Fr.random();
     const l1Account = await cli<{ privateKey: string; address: string }>('create-l1-account');
-    const l2Account = await getSchnorrAccount(pxe, privateKey, deriveSigningKey(privateKey), Fr.ZERO);
+    const l2Account = await wallet.createSchnorrAccount(privateKey, Fr.ZERO, deriveSigningKey(privateKey));
     const l2AccountAddress = l2Account.getAddress();
 
     await expect(getL1Balance(l1Account.address)).resolves.toEqual(0n);
@@ -167,7 +169,7 @@ describe('End-to-end tests for devnet', () => {
     });
 
     if (['1', 'true', 'yes'].includes(USE_EMPTY_BLOCKS)) {
-      await advanceChainWithEmptyBlocks(pxe);
+      await advanceChainWithEmptyBlocks(wallet);
     } else {
       await waitForL1MessageToArrive();
     }
@@ -175,7 +177,7 @@ describe('End-to-end tests for devnet', () => {
     const txReceipt = await l2Account
       .deploy({
         fee: {
-          paymentMethod: new FeeJuicePaymentMethodWithClaim(await l2Account.getWallet(), {
+          paymentMethod: new FeeJuicePaymentMethodWithClaim(l2AccountAddress, {
             claimAmount: Fr.fromHexString(claimAmount).toBigInt(),
             claimSecret: Fr.fromHexString(claimSecret.value),
             messageLeafIndex: BigInt(messageLeafIndex),
@@ -205,10 +207,7 @@ describe('End-to-end tests for devnet', () => {
     // );
 
     expect(txReceipt.status).toBe(TxStatus.SUCCESS);
-    const feeJuice = await FeeJuiceContract.at(
-      (await pxe.getNodeInfo()).protocolContractAddresses.feeJuice,
-      await l2Account.getWallet(),
-    );
+    const feeJuice = await FeeJuiceContract.at((await node.getNodeInfo()).protocolContractAddresses.feeJuice, wallet);
     const balance = await feeJuice.methods
       .balance_of_public(l2Account.getAddress())
       .simulate({ from: l2AccountAddress });
@@ -285,25 +284,25 @@ describe('End-to-end tests for devnet', () => {
   }
 
   async function waitForL1MessageToArrive() {
-    const targetBlockNumber = (await pxe.getBlockNumber()) + MIN_BLOCKS_FOR_BRIDGING;
-    await retryUntil(async () => (await pxe.getBlockNumber()) >= targetBlockNumber, 'wait_for_l1_message', 0, 10);
+    const targetBlockNumber = (await node.getBlockNumber()) + MIN_BLOCKS_FOR_BRIDGING;
+    await retryUntil(async () => (await node.getBlockNumber()) >= targetBlockNumber, 'wait_for_l1_message', 0, 10);
   }
 
-  async function advanceChainWithEmptyBlocks(pxe: PXE) {
-    const [deployWallet] = await getDeployedTestAccountsWallets(pxe);
-    if (!deployWallet) {
+  async function advanceChainWithEmptyBlocks(wallet: TestWallet) {
+    const [fundedAccount] = await getDeployedTestAccounts(wallet);
+    if (!fundedAccount) {
       throw new Error('A funded wallet is required to create dummy txs.');
     }
 
-    const deployWalletAddress = deployWallet.getAddress();
+    await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
 
-    const test = await TestContract.deploy(deployWallet)
-      .send({ from: deployWalletAddress, universalDeploy: true, skipClassPublication: true })
+    const test = await TestContract.deploy(wallet)
+      .send({ from: fundedAccount.address, universalDeploy: true, skipClassPublication: true })
       .deployed();
 
     // start at 1 because deploying the contract has already mined a block
     for (let i = 1; i < MIN_BLOCKS_FOR_BRIDGING; i++) {
-      await test.methods.get_this_address().send({ from: deployWalletAddress }).wait(waitOpts);
+      await test.methods.get_this_address().send({ from: fundedAccount.address }).wait(waitOpts);
     }
   }
 });

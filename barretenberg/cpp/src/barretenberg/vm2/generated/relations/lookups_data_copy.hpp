@@ -18,7 +18,7 @@ struct lookup_data_copy_max_read_index_gt_settings_ {
     static constexpr std::string_view RELATION_NAME = "data_copy";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::data_copy_sel_start;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_data_copy_max_read_index_gt_counts;
     static constexpr Column INVERSES = Column::lookup_data_copy_max_read_index_gt_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -43,7 +43,7 @@ struct lookup_data_copy_check_src_addr_in_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "data_copy";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::data_copy_sel_start;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_data_copy_check_src_addr_in_range_counts;
     static constexpr Column INVERSES = Column::lookup_data_copy_check_src_addr_in_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -69,7 +69,7 @@ struct lookup_data_copy_check_dst_addr_in_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "data_copy";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::data_copy_sel_start;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_data_copy_check_dst_addr_in_range_counts;
     static constexpr Column INVERSES = Column::lookup_data_copy_check_dst_addr_in_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -95,7 +95,7 @@ struct lookup_data_copy_offset_gt_max_read_index_settings_ {
     static constexpr std::string_view RELATION_NAME = "data_copy";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::data_copy_sel_start_no_err;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_data_copy_offset_gt_max_read_index_counts;
     static constexpr Column INVERSES = Column::lookup_data_copy_offset_gt_max_read_index_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {

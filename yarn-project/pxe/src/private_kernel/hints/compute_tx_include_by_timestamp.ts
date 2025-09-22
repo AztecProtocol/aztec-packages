@@ -31,8 +31,8 @@ export function computeTxIncludeByTimestamp(
     );
   }
 
-  const blockTimestamp = previousKernel.constants.historicalHeader.globalVariables.timestamp;
-  const maxTimestamp = blockTimestamp + BigInt(maxDuration);
+  const anchorBlockTimestamp = previousKernel.constants.anchorBlockHeader.globalVariables.timestamp;
+  const maxTimestamp = anchorBlockTimestamp + BigInt(maxDuration);
   const includeByTimestamp = previousKernel.includeByTimestamp;
 
   // If the includeByTimestamp set during the tx execution is greater than or equal to the max allowed duration,
@@ -44,13 +44,13 @@ export function computeTxIncludeByTimestamp(
 
   // Round it down to the nearest hour/min/second to reduce precision and avoid revealing the exact value.
   // This makes it harder for others to infer what function calls may have been used to produce a specific timestamp.
-  const roundedTimestamp = roundTimestamp(blockTimestamp, includeByTimestamp);
+  const roundedTimestamp = roundTimestamp(anchorBlockTimestamp, includeByTimestamp);
 
-  // The tx can't be published if the timestamp is the same or less than the historical block's timestamp.
+  // The tx can't be published if the timestamp is the same or less than the anchor block's timestamp.
   // Future blocks will have a greater timestamp, so the tx would never be included.
-  if (roundedTimestamp <= blockTimestamp) {
+  if (roundedTimestamp <= anchorBlockTimestamp) {
     throw new Error(
-      `Include-by timestamp must be greater than the historical block timestamp. Block timestamp: ${blockTimestamp}. Include-by timestamp: ${includeByTimestamp}.`,
+      `Include-by timestamp must be greater than the anchor block timestamp. Anchor block timestamp: ${anchorBlockTimestamp}. Include-by timestamp: ${includeByTimestamp}.`,
     );
   }
 

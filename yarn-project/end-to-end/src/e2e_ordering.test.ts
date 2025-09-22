@@ -1,5 +1,5 @@
 // Test suite for testing proper ordering of side effects
-import { AztecAddress, Fr, type FunctionSelector, type PXE, type Wallet, toBigIntBE } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, Fr, type FunctionSelector, type Wallet, toBigIntBE } from '@aztec/aztec.js';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
@@ -15,19 +15,19 @@ const TIMEOUT = 300_000;
 describe('e2e_ordering', () => {
   jest.setTimeout(TIMEOUT);
 
-  let pxe: PXE;
   let wallet: Wallet;
+  let aztecNode: AztecNode;
   let defaultAccountAddress: AztecAddress;
   let teardown: () => Promise<void>;
 
   const expectLogsFromLastBlockToBe = async (logMessages: bigint[]) => {
     // docs:start:get_logs
-    const fromBlock = await pxe.getBlockNumber();
+    const fromBlock = await aztecNode.getBlockNumber();
     const logFilter = {
       fromBlock,
       toBlock: fromBlock + 1,
     };
-    const publicLogs = (await pxe.getPublicLogs(logFilter)).logs;
+    const publicLogs = (await aztecNode.getPublicLogs(logFilter)).logs;
     // docs:end:get_logs
 
     const bigintLogs = publicLogs.map(extendedLog => toBigIntBE(serializeToBuffer(extendedLog.log.getEmittedFields())));
@@ -38,8 +38,8 @@ describe('e2e_ordering', () => {
   beforeEach(async () => {
     ({
       teardown,
-      pxe,
       wallet,
+      aztecNode,
       accounts: [defaultAccountAddress],
     } = await setup());
   }, TIMEOUT);
@@ -93,7 +93,7 @@ describe('e2e_ordering', () => {
           await expectLogsFromLastBlockToBe(expectedOrder);
 
           // The final value of the child is the last one set
-          const value = await pxe.getPublicStorageAt(child.address, new Fr(1));
+          const value = await aztecNode.getPublicStorageAt('latest', child.address, new Fr(1));
           expect(value.toBigInt()).toBe(expectedOrder[1]); // final state should match last value set
         },
       );
@@ -118,7 +118,7 @@ describe('e2e_ordering', () => {
 
         await child.methods[method]().send({ from: defaultAccountAddress }).wait();
 
-        const value = await pxe.getPublicStorageAt(child.address, new Fr(1));
+        const value = await aztecNode.getPublicStorageAt('latest', child.address, new Fr(1));
         expect(value.toBigInt()).toBe(expectedOrder[expectedOrder.length - 1]); // final state should match last value set
       });
 

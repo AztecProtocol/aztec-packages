@@ -44,21 +44,33 @@ type EnqueuedProvingJob = Pick<ProvingJob, 'id' | 'epochNumber'>;
 export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Traceable {
   private queues: ProvingQueues = {
     [ProvingRequestType.PUBLIC_VM]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.TUBE_PROOF]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.PUBLIC_TUBE]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
-    [ProvingRequestType.PRIVATE_BASE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.PUBLIC_BASE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.MERGE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.PRIVATE_TX_BASE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.PUBLIC_TX_BASE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.TX_MERGE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
     [ProvingRequestType.BLOCK_MERGE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(
+      provingJobComparator,
+    ),
+    [ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(
+      provingJobComparator,
+    ),
     [ProvingRequestType.BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
-    [ProvingRequestType.BASE_PARITY]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.ROOT_PARITY]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.CHECKPOINT_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(
+      provingJobComparator,
+    ),
+    [ProvingRequestType.CHECKPOINT_MERGE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.CHECKPOINT_PADDING_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+
+    [ProvingRequestType.PARITY_BASE]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.PARITY_ROOT]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
   };
 
   // holds a copy of the database in memory in order to quickly fulfill requests
@@ -673,16 +685,22 @@ function proofTypeComparator(a: ProvingRequestType, b: ProvingRequestType): -1 |
  * is to get picked up by agents
  */
 export const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
-  ProvingRequestType.BLOCK_ROOT_ROLLUP,
-  ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP,
-  ProvingRequestType.BLOCK_MERGE_ROLLUP,
   ProvingRequestType.ROOT_ROLLUP,
-  ProvingRequestType.MERGE_ROLLUP,
-  ProvingRequestType.PUBLIC_BASE_ROLLUP,
-  ProvingRequestType.PRIVATE_BASE_ROLLUP,
+  ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP,
+  ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP,
+  ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP,
+  ProvingRequestType.BLOCK_ROOT_ROLLUP,
+  ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP,
+  ProvingRequestType.BLOCK_MERGE_ROLLUP,
+  ProvingRequestType.CHECKPOINT_ROOT_ROLLUP,
+  ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP,
+  ProvingRequestType.CHECKPOINT_MERGE_ROLLUP,
+  ProvingRequestType.CHECKPOINT_PADDING_ROLLUP,
+  ProvingRequestType.TX_MERGE_ROLLUP,
+  ProvingRequestType.PUBLIC_TX_BASE_ROLLUP,
+  ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
   ProvingRequestType.PUBLIC_VM,
-  ProvingRequestType.TUBE_PROOF,
-  ProvingRequestType.ROOT_PARITY,
-  ProvingRequestType.BASE_PARITY,
-  ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP,
+  ProvingRequestType.PUBLIC_TUBE,
+  ProvingRequestType.PARITY_ROOT,
+  ProvingRequestType.PARITY_BASE,
 ];

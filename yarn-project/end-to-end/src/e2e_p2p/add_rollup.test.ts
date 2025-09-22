@@ -1,5 +1,4 @@
-import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
-import { type InitialAccountData, deployFundedSchnorrAccount, getInitialTestAccounts } from '@aztec/accounts/testing';
+import { type InitialAccountData, getInitialTestAccountsData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress, Fr, generateClaimSecret, retryUntil, sleep } from '@aztec/aztec.js';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
@@ -29,6 +28,7 @@ import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { computeL2ToL1MembershipWitness, getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
+import { TestWallet } from '@aztec/test-wallet';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { jest } from '@jest/globals';
@@ -140,7 +140,7 @@ describe('e2e_p2p_add_rollup', () => {
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp));
 
     // Now that we have passed on the registry, we can deploy the new rollup.
-    const initialTestAccounts = await getInitialTestAccounts();
+    const initialTestAccounts = await getInitialTestAccountsData();
     const { genesisArchiveRoot, fundingNeeded, prefilledPublicData } = await getGenesisValues(
       initialTestAccounts.map(a => a.address),
     );
@@ -155,12 +155,14 @@ describe('e2e_p2p_add_rollup', () => {
         aztecSlotDuration: t.ctx.aztecNodeConfig.aztecSlotDuration,
         aztecEpochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
         aztecTargetCommitteeSize: t.ctx.aztecNodeConfig.aztecTargetCommitteeSize,
+        lagInEpochs: t.ctx.aztecNodeConfig.lagInEpochs,
         aztecProofSubmissionEpochs: t.ctx.aztecNodeConfig.aztecProofSubmissionEpochs,
         slashingQuorum: t.ctx.aztecNodeConfig.slashingQuorum,
         slashingRoundSizeInEpochs: t.ctx.aztecNodeConfig.slashingRoundSizeInEpochs,
         slashingLifetimeInRounds: t.ctx.aztecNodeConfig.slashingLifetimeInRounds,
         slashingExecutionDelayInRounds: t.ctx.aztecNodeConfig.slashingExecutionDelayInRounds,
         slashingVetoer: t.ctx.aztecNodeConfig.slashingVetoer,
+        slashingDisableDuration: t.ctx.aztecNodeConfig.slashingDisableDuration,
         manaTarget: t.ctx.aztecNodeConfig.manaTarget,
         provingCostPerMana: t.ctx.aztecNodeConfig.provingCostPerMana,
         feeJuicePortalInitialBalance: fundingNeeded,
@@ -171,6 +173,7 @@ describe('e2e_p2p_add_rollup', () => {
         slashAmountSmall: t.ctx.aztecNodeConfig.slashAmountSmall,
         slashAmountMedium: t.ctx.aztecNodeConfig.slashAmountMedium,
         slashAmountLarge: t.ctx.aztecNodeConfig.slashAmountLarge,
+        localEjectionThreshold: t.ctx.aztecNodeConfig.localEjectionThreshold,
       },
       t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
       t.logger,
@@ -239,18 +242,13 @@ describe('e2e_p2p_add_rollup', () => {
         { ...getPXEServiceConfig(), proverEnabled: false },
         { useLogSuffix: true },
       );
-      await deployFundedSchnorrAccount(pxeService, aliceAccount, undefined, undefined);
+      const wallet = new TestWallet(pxeService, node);
+      const aliceAccountManager = await wallet.createSchnorrAccount(aliceAccount.secret, aliceAccount.salt);
+      await aliceAccountManager.deploy().wait();
 
-      const alice = await getSchnorrWalletWithSecretKey(
-        pxeService,
-        aliceAccount.secret,
-        aliceAccount.signingKey,
-        aliceAccount.salt,
-      );
+      const aliceAddress = aliceAccountManager.getAddress();
 
-      const aliceAddress = alice.getAddress();
-
-      const testContract = await TestContract.deploy(alice).send({ from: aliceAddress }).deployed();
+      const testContract = await TestContract.deploy(wallet).send({ from: aliceAddress }).deployed();
 
       const [secret, secretHash] = await generateClaimSecret();
 
@@ -477,7 +475,7 @@ describe('e2e_p2p_add_rollup', () => {
 
     // With all down, we make a time jump such that we ensure that we will be at a point where epochs are non-empty
     // This is to avoid conflicts when the checkpoints are looking further back.
-    const futureEpoch = 500n + (await newRollup.getEpochNumber());
+    const futureEpoch = 500n + (await newRollup.getCurrentEpochNumber());
     const time = await newRollup.getTimestampForSlot(futureEpoch * BigInt(t.ctx.aztecNodeConfig.aztecEpochDuration));
     if (time > BigInt(await t.ctx.cheatCodes.eth.timestamp())) {
       await t.ctx.cheatCodes.eth.warp(Number(time));

@@ -10,6 +10,7 @@ namespace bb::avm2::simulation {
 template <typename LeafType, typename HashingPolicy> class IndexedMemoryTree {
   public:
     IndexedMemoryTree(size_t depth, size_t num_default_values);
+    IndexedMemoryTree(size_t depth, std::span<IndexedLeaf<LeafType>> initial_leaves);
 
     GetLowIndexedLeafResponse get_low_indexed_leaf(const FF& key) const;
 
@@ -64,6 +65,32 @@ IndexedMemoryTree<LeafType, HashingPolicy>::IndexedMemoryTree(size_t depth, size
         FF leaf_hash = HashingPolicy::hash(initial_leaf.get_hash_inputs());
         tree.update_element(i, leaf_hash);
     }
+}
+
+// This constructor takes an initial set of leaves to insert into the tree. It is assumed that the user is responsible
+// for checking the leaves conform to the requirements of an indexed tree (i.e., one leaf is of zero value, the keys are
+// in insertion order, and that the nextIndex and nextKey values are correctly set).
+template <typename LeafType, typename HashingPolicy>
+IndexedMemoryTree<LeafType, HashingPolicy>::IndexedMemoryTree(size_t depth,
+                                                              std::span<IndexedLeaf<LeafType>> initial_leaves)
+    : tree(depth)
+    , depth(depth)
+    , max_leaves(1 << depth)
+{
+    // It is assumed that you have included any prefill values as part of the initial_leaves. Remember indexed trees
+    // need at least 1 prefill leaf (with value 0) in order to work
+    assert(initial_leaves.size() > 0);
+
+    // Compute the pointers for the prefill leaves and insert them in the tree.
+    for (size_t i = 0; i < initial_leaves.size(); ++i) {
+        auto& leaf = initial_leaves[i];
+        append_leaf(leaf);
+        FF leaf_hash = HashingPolicy::hash(leaf.get_hash_inputs());
+        tree.update_element(i, leaf_hash);
+    }
+
+    leaves.assign(initial_leaves.begin(), initial_leaves.end());
+    leaves.resize(max_leaves, IndexedLeaf<LeafType>::empty());
 }
 
 template <typename LeafType, typename HashingPolicy>

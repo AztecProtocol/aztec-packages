@@ -584,22 +584,34 @@ void Execution::debug_log(ContextInterface& context,
         try {
             auto& memory = context.get_memory();
 
+            // This is a workaround. Do not copy or use in other places.
+            auto unconstrained_read = [&memory](MemoryAddress offset) {
+                Memory* memory_ptr = dynamic_cast<Memory*>(&memory);
+                if (memory_ptr) {
+                    // This means that we are using the event generating memory.
+                    return memory_ptr->unconstrained_get(offset);
+                } else {
+                    // This assumes that any other type will not generate events.
+                    return memory.get(offset);
+                }
+            };
+
             // Get the fields size and validate its tag
-            const auto fields_size_value = memory.get(fields_size_offset);
+            const auto fields_size_value = unconstrained_read(fields_size_offset);
             const uint32_t fields_size = fields_size_value.as<uint32_t>();
 
             // Read message and fields from memory
             std::string message_as_str;
             uint16_t truncated_message_size = std::min<uint16_t>(message_size, 100);
             for (uint32_t i = 0; i < truncated_message_size; ++i) {
-                const auto message_field = memory.get(message_offset + i);
+                const auto message_field = unconstrained_read(message_offset + i);
                 message_as_str += static_cast<char>(static_cast<uint8_t>(message_field.as_ff()));
             }
             message_as_str += ": [";
 
             // Read fields
             for (uint32_t i = 0; i < fields_size; ++i) {
-                const auto field = memory.get(fields_offset + i);
+                const auto field = unconstrained_read(fields_offset + i);
                 message_as_str += field_to_string(field);
                 if (i < fields_size - 1) {
                     message_as_str += ", ";
@@ -992,17 +1004,16 @@ void Execution::to_radix_be(ContextInterface& context,
     }
 }
 
-void Execution::emit_unencrypted_log(ContextInterface& context, MemoryAddress log_offset, MemoryAddress log_size_offset)
+void Execution::emit_unencrypted_log(ContextInterface& context, MemoryAddress log_size_offset, MemoryAddress log_offset)
 {
     constexpr auto opcode = ExecutionOpCode::EMITUNENCRYPTEDLOG;
     auto& memory = context.get_memory();
 
-    auto first_field = memory.get(log_offset);
     auto log_size = memory.get(log_size_offset);
-    set_and_validate_inputs(opcode, { first_field, log_size });
+    set_and_validate_inputs(opcode, { log_size });
     uint32_t log_size_int = log_size.as<uint32_t>();
 
-    get_gas_tracker().consume_gas({ .daGas = log_size_int });
+    get_gas_tracker().consume_gas({ .l2Gas = log_size_int, .daGas = log_size_int });
 
     // Call the dedicated opcode component to emit the log
     try {

@@ -7,7 +7,6 @@ import {
   type FieldsOf,
   Fr,
   type Logger,
-  type PXE,
   type TxReceipt,
   TxStatus,
   type Wallet,
@@ -33,23 +32,17 @@ import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
 describe('e2e_deploy_contract contract class registration', () => {
   const t = new DeployTest('contract class');
 
-  let pxe: PXE;
   let logger: Logger;
   let wallet: Wallet;
   let defaultAccountAddress: AztecAddress;
   let aztecNode: AztecNode;
-
-  beforeAll(async () => {
-    ({ pxe, logger, wallet, aztecNode, defaultAccountAddress } = await t.setup());
-  });
-
-  afterAll(() => t.teardown());
 
   let artifact: ContractArtifact;
   let contractClass: ContractClassWithId & ContractClassIdPreimage;
   let publicationTxReceipt: FieldsOf<TxReceipt>;
 
   beforeAll(async () => {
+    ({ logger, wallet, aztecNode, defaultAccountAddress } = await t.setup());
     artifact = StatefulTestContract.artifact;
     publicationTxReceipt = await publishContractClass(wallet, artifact).then(c =>
       c.send({ from: defaultAccountAddress }).wait(),
@@ -57,6 +50,8 @@ describe('e2e_deploy_contract contract class registration', () => {
     contractClass = await getContractClassFromArtifact(artifact);
     expect(await aztecNode.getContractClass(contractClass.id)).toBeDefined();
   });
+
+  afterAll(() => t.teardown());
 
   describe('publishing a contract class', () => {
     it('emits public bytecode', async () => {
@@ -100,7 +95,7 @@ describe('e2e_deploy_contract contract class registration', () => {
       const tx = await (await broadcastPrivateFunction(wallet, artifact, selector))
         .send({ from: defaultAccountAddress })
         .wait();
-      const logs = await pxe.getContractClassLogs({ txHash: tx.txHash });
+      const logs = await aztecNode.getContractClassLogs({ txHash: tx.txHash });
       const logData = logs.logs[0].log.toBuffer();
 
       // To actually trigger this write:
@@ -120,7 +115,7 @@ describe('e2e_deploy_contract contract class registration', () => {
       const tx = await (await broadcastUtilityFunction(wallet, artifact, selector))
         .send({ from: defaultAccountAddress })
         .wait();
-      const logs = await pxe.getContractClassLogs({ txHash: tx.txHash });
+      const logs = await aztecNode.getContractClassLogs({ txHash: tx.txHash });
       const logData = logs.logs[0].log.toBuffer();
 
       // To actually trigger this write:
@@ -142,7 +137,7 @@ describe('e2e_deploy_contract contract class registration', () => {
       let contract: StatefulTestContract;
 
       const publishInstance = async (opts: { constructorName?: string; deployer?: AztecAddress } = {}) => {
-        const initArgs = [wallet.getAddress(), 42] as StatefulContractCtorArgs;
+        const initArgs = [defaultAccountAddress, 42] as StatefulContractCtorArgs;
         const salt = Fr.random();
         const publicKeys = await PublicKeys.random();
         const instance = await getContractInstanceFromInstantiationParams(artifact, {
@@ -311,7 +306,7 @@ describe('e2e_deploy_contract contract class registration', () => {
 
   describe('error scenarios in deployment', () => {
     it('app logic call to an undeployed contract reverts, but can be included', async () => {
-      const whom = wallet.getAddress();
+      const whom = defaultAccountAddress;
       const sender = whom;
       const instance = await t.registerContract(wallet, StatefulTestContract, { initArgs: [whom, sender, 42] });
       // Confirm that the tx reverts with the expected message
@@ -325,14 +320,6 @@ describe('e2e_deploy_contract contract class registration', () => {
         .send({ from: defaultAccountAddress })
         .wait({ dontThrowOnRevert: true });
       expect(tx.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
-    });
-
-    it('refuses to deploy an instance from a different deployer', async () => {
-      const instance = await getContractInstanceFromInstantiationParams(artifact, {
-        constructorArgs: [await AztecAddress.random(), 42],
-        deployer: await AztecAddress.random(),
-      });
-      await expect(publishInstance(wallet, instance)).rejects.toThrow(/does not match/i);
     });
   });
 });

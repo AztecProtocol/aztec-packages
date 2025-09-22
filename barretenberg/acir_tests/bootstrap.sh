@@ -176,9 +176,6 @@ function test_cmds {
   # the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
   echo "$tests_hash $scripts/bbjs_prove.sh a_6_array"
 
-  # Fold and verify an ACIR program stack using ClientIVC, recursively verify as part of the Tube circuit and produce and verify a Honk proof
-  echo "$tests_hash $scripts/bb_tube_prove.sh a_6_array"
-
   for t in $non_recursive_tests; do
     echo "$tests_hash $scripts/bb_prove.sh $(basename $t)"
   done

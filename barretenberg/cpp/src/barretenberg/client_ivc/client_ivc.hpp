@@ -18,9 +18,9 @@
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
+#include "barretenberg/ultra_honk/instances.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include <algorithm>
@@ -45,16 +45,16 @@ class ClientIVC {
     using FF = Flavor::FF;
     using Point = Flavor::Curve::AffineElement;
     using FoldProof = std::vector<FF>;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
-    using DeciderZKProvingKey = DeciderProvingKey_<MegaZKFlavor>;
-    using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using DeciderZKProvingKey = ProverInstance_<MegaZKFlavor>;
+    using VerifierInstance = VerifierInstance_<Flavor>;
     using ClientCircuit = MegaCircuitBuilder; // can only be Mega
     using DeciderProver = DeciderProver_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
-    using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
+    using ProverInstances = ProverInstances_<Flavor>;
     using FoldingProver = ProtogalaxyProver_<Flavor>;
-    using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
-    using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
+    using VerifierInstances = VerifierInstances_<Flavor>;
+    using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstances>;
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
     using MegaProver = UltraProver_<Flavor>;
@@ -62,13 +62,12 @@ class ClientIVC {
     using Transcript = NativeTranscript;
 
     using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
-    using RecursiveDeciderVerificationKeys =
-        bb::stdlib::recursion::honk::RecursiveDeciderVerificationKeys_<RecursiveFlavor, 2>;
-    using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::DeciderVK;
+    using RecursiveVerifierInstances = bb::stdlib::recursion::honk::RecursiveVerifierInstances_<RecursiveFlavor, 2>;
+    using RecursiveVerifierInstance = RecursiveVerifierInstances::VerifierInstance;
     using RecursiveVerificationKey = RecursiveFlavor::VerificationKey;
     using RecursiveVKAndHash = RecursiveFlavor::VKAndHash;
     using FoldingRecursiveVerifier =
-        bb::stdlib::recursion::honk::ProtogalaxyRecursiveVerifier_<RecursiveDeciderVerificationKeys>;
+        bb::stdlib::recursion::honk::ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
     using OinkRecursiveVerifier = stdlib::recursion::honk::OinkRecursiveVerifier_<RecursiveFlavor>;
     using DeciderRecursiveVerifier = stdlib::recursion::honk::DeciderRecursiveVerifier_<RecursiveFlavor>;
     using RecursiveTranscript = RecursiveFlavor::Transcript;
@@ -132,6 +131,8 @@ class ClientIVC {
          * @return std::vector<FF>
          */
         std::vector<FF> to_field_elements() const;
+
+        static Proof from_field_elements(const std::vector<ClientIVC::FF>& fields);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1299): The following msgpack methods are generic
         // and should leverage some kind of shared msgpack utility.
@@ -255,8 +256,6 @@ class ClientIVC {
     ExecutionTraceUsageTracker trace_usage_tracker;
 
   private:
-    using ProverFoldOutput = FoldingResult<Flavor>;
-
     // Transcript for CIVC prover (shared between Hiding circuit, Merge, ECCVM, and Translator)
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
@@ -267,14 +266,12 @@ class ClientIVC {
   public:
     size_t num_circuits_accumulated = 0; // number of circuits accumulated so far
 
-    ProverFoldOutput fold_output; // prover accumulator and fold proof
-    HonkProof decider_proof;      // decider proof to be verified in the hiding circuit
+    std::shared_ptr<ProverInstance> prover_accumulator; // current PG prover accumulator instance
+    HonkProof decider_proof;                            // decider proof to be verified in the hiding circuit
 
-    std::shared_ptr<DeciderVerificationKey>
-        recursive_verifier_native_accum; // native verifier accumulator used in recursive folding
-    std::shared_ptr<DeciderVerificationKey>
-        native_verifier_accum;                    //  native verifier accumulator used in prover folding
-    std::shared_ptr<MegaVerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
+    std::shared_ptr<VerifierInstance>
+        recursive_verifier_native_accum;                     // native verifier accumulator used in recursive folding
+    std::shared_ptr<VerifierInstance> native_verifier_accum; //  native verifier accumulator used in prover folding
 
     // Set of tuples {proof, verification_key, type (Oink/PG)} to be recursively verified
     VerificationQueue verification_queue;
@@ -299,11 +296,11 @@ class ClientIVC {
                                                const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
 
     [[nodiscard("Pairing points should be accumulated")]] std::
-        tuple<std::shared_ptr<RecursiveDeciderVerificationKey>, PairingPoints, TableCommitments>
+        tuple<std::shared_ptr<RecursiveVerifierInstance>, PairingPoints, TableCommitments>
         perform_recursive_verification_and_databus_consistency_checks(
             ClientCircuit& circuit,
             const StdlibVerifierInputs& verifier_inputs,
-            const std::shared_ptr<RecursiveDeciderVerificationKey>& input_verifier_accumulator,
+            const std::shared_ptr<RecursiveVerifierInstance>& input_verifier_accumulator,
             const TableCommitments& T_prev_commitments,
             const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
 
@@ -323,13 +320,10 @@ class ClientIVC {
     Proof prove();
 
     static void hide_op_queue_accumulation_result(ClientCircuit& circuit);
-    HonkProof construct_mega_proof_for_hiding_kernel(ClientCircuit& circuit);
+    static void hide_op_queue_content_in_tail(ClientCircuit& circuit);
+    static void hide_op_queue_content_in_hiding(ClientCircuit& circuit);
 
     static bool verify(const Proof& proof, const VerificationKey& vk);
-
-    bool verify(const Proof& proof) const;
-
-    bool prove_and_verify();
 
     HonkProof construct_decider_proof(const std::shared_ptr<Transcript>& transcript);
 
@@ -345,27 +339,30 @@ class ClientIVC {
     void update_native_verifier_accumulator(const VerifierInputs& queue_entry,
                                             const std::shared_ptr<Transcript>& verifier_transcript);
 
-    HonkProof construct_oink_proof(const std::shared_ptr<DeciderProvingKey>& proving_key,
+    HonkProof construct_oink_proof(const std::shared_ptr<ProverInstance>& prover_instance,
                                    const std::shared_ptr<MegaVerificationKey>& honk_vk,
                                    const std::shared_ptr<Transcript>& transcript);
 
-    HonkProof construct_pg_proof(const std::shared_ptr<DeciderProvingKey>& proving_key,
+    HonkProof construct_pg_proof(const std::shared_ptr<ProverInstance>& prover_instance,
                                  const std::shared_ptr<MegaVerificationKey>& honk_vk,
                                  const std::shared_ptr<Transcript>& transcript,
                                  bool is_kernel);
 
+    HonkProof construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
+                                                     const std::shared_ptr<MegaVerificationKey>& verification_key);
+
     QUEUE_TYPE get_queue_type() const;
 
-    static std::shared_ptr<RecursiveDeciderVerificationKey> perform_oink_recursive_verification(
+    static std::shared_ptr<RecursiveVerifierInstance> perform_oink_recursive_verification(
         ClientCircuit& circuit,
-        const std::shared_ptr<RecursiveDeciderVerificationKey>& verifier_instance,
+        const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
         const std::shared_ptr<RecursiveTranscript>& transcript,
         const StdlibProof& proof);
 
-    static std::shared_ptr<RecursiveDeciderVerificationKey> perform_pg_recursive_verification(
+    static std::shared_ptr<RecursiveVerifierInstance> perform_pg_recursive_verification(
         ClientCircuit& circuit,
-        const std::shared_ptr<RecursiveDeciderVerificationKey>& verifier_accumulator,
-        const std::shared_ptr<RecursiveDeciderVerificationKey>& verifier_instance,
+        const std::shared_ptr<RecursiveVerifierInstance>& verifier_accumulator,
+        const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
         const std::shared_ptr<RecursiveTranscript>& transcript,
         const StdlibProof& proof,
         std::optional<StdlibFF>& prev_accum_hash,

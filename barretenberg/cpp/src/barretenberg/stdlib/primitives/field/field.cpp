@@ -29,7 +29,9 @@ field_t<Builder>::field_t(const witness_t<Builder>& value)
     , additive_constant(bb::fr::zero())
     , multiplicative_constant(bb::fr::one())
     , witness_index(value.witness_index)
-{}
+{
+    set_free_witness_tag();
+}
 
 template <typename Builder>
 field_t<Builder>::field_t(Builder* parent_context, const bb::fr& value)
@@ -930,7 +932,6 @@ template <typename Builder> void field_t<Builder>::assert_equal(const field_t& r
 {
     const field_t lhs = *this;
     Builder* ctx = validate_context(lhs.get_context(), rhs.get_context());
-    (void)OriginTag(get_origin_tag(), rhs.get_origin_tag());
     if (lhs.is_constant() && rhs.is_constant()) {
         BB_ASSERT_EQ(lhs.get_value(), rhs.get_value(), "field_t::assert_equal: constants are not equal");
         return;
@@ -1074,13 +1075,18 @@ field_t<Builder> field_t<Builder>::select_from_three_bit_table(const std::array<
  * @brief Constrain a + b + c + d to be equal to 0
  */
 template <typename Builder>
-void field_t<Builder>::evaluate_linear_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d)
+void field_t<Builder>::evaluate_linear_identity(
+    const field_t& a, const field_t& b, const field_t& c, const field_t& d, const std::string& msg)
 {
     Builder* ctx = validate_context(a.context, b.context, c.context, d.context);
 
     if (a.is_constant() && b.is_constant() && c.is_constant() && d.is_constant()) {
         BB_ASSERT_EQ(a.get_value() + b.get_value() + c.get_value() + d.get_value(), 0);
         return;
+    }
+
+    if (a.get_value() + b.get_value() + c.get_value() + d.get_value() != bb::fr::zero()) {
+        ctx->failure(msg);
     }
 
     // validate that a + b + c + d = 0
@@ -1104,10 +1110,8 @@ void field_t<Builder>::evaluate_linear_identity(const field_t& a, const field_t&
  * by creating a `big_mul_gate`.
  */
 template <typename Builder>
-void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
-                                                    const field_t& b,
-                                                    const field_t& c,
-                                                    const field_t& d)
+void field_t<Builder>::evaluate_polynomial_identity(
+    const field_t& a, const field_t& b, const field_t& c, const field_t& d, const std::string& msg)
 {
     if (a.is_constant() && b.is_constant() && c.is_constant() && d.is_constant()) {
         ASSERT((a.get_value() * b.get_value() + c.get_value() + d.get_value()).is_zero());
@@ -1115,6 +1119,10 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
     }
 
     Builder* ctx = validate_context(a.context, b.context, c.context, d.context);
+
+    if ((a.get_value() * b.get_value() + c.get_value() + d.get_value()) != bb::fr::zero()) {
+        ctx->failure(msg);
+    }
 
     // validate that a * b + c + d = 0
     bb::fr mul_scaling = a.multiplicative_constant * b.multiplicative_constant;
@@ -1263,10 +1271,13 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
  * @brief Splits the field element into (lo, hi), where:
  * - lo contains bits [0, lsb_index)
  * - hi contains bits [lsb_index, num_bits)
+ * @details Max bits is specified as an argument, and must be <= grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH (to ensure no
+ * modular wrap).
+ *
  */
 template <typename Builder>
-std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::split_at(const size_t lsb_index,
-                                                                         const size_t num_bits) const
+std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::no_wrap_split_at(const size_t lsb_index,
+                                                                                 const size_t num_bits) const
 {
     ASSERT(lsb_index < num_bits);
     ASSERT(num_bits <= grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH);

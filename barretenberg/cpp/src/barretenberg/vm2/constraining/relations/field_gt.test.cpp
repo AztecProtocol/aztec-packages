@@ -28,6 +28,7 @@ using tracegen::FieldGreaterThanTraceBuilder;
 using tracegen::RangeCheckTraceBuilder;
 using tracegen::TestTraceContainer;
 
+using simulation::DeduplicatingEventEmitter;
 using simulation::EventEmitter;
 using simulation::FieldGreaterThan;
 using simulation::FieldGreaterThanEvent;
@@ -87,7 +88,7 @@ TEST_P(GtBasicTest, BasicComparison)
     const auto& param = GetParam();
 
     NiceMock<MockRangeCheck> range_check;
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     EXPECT_EQ(field_gt_simulator.ff_gt(param.a, param.b), param.expected_result);
@@ -111,7 +112,7 @@ TEST_P(DecBasicTest, BasicDecomposition)
     const auto& param = GetParam();
 
     NiceMock<MockRangeCheck> range_check;
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     EXPECT_EQ(field_gt_simulator.canon_dec(param.a), param.expected_result);
@@ -136,7 +137,7 @@ TEST_P(GtInteractionTests, InteractionsWithRangeCheck)
 
     EventEmitter<RangeCheckEvent> range_check_event_emitter;
     RangeCheck range_check(range_check_event_emitter);
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     EXPECT_EQ(field_gt_simulator.ff_gt(param.a, param.b), param.expected_result);
@@ -168,7 +169,7 @@ TEST_P(DecInteractionTests, InteractionsWithRangeCheck)
 
     EventEmitter<RangeCheckEvent> range_check_event_emitter;
     RangeCheck range_check(range_check_event_emitter);
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     EXPECT_EQ(field_gt_simulator.canon_dec(param.a), param.expected_result);
@@ -197,7 +198,7 @@ INSTANTIATE_TEST_SUITE_P(FieldGreaterThanConstrainingTest,
 TEST(FieldGreaterThanConstrainingTest, NegativeManipulatedDecompositions)
 {
     NiceMock<MockRangeCheck> range_check;
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     field_gt_simulator.ff_gt(0, 0);
@@ -220,7 +221,7 @@ TEST(FieldGreaterThanConstrainingTest, NegativeManipulatedDecompositions)
 TEST(FieldGreaterThanConstrainingTest, NegativeManipulatedComparisonsWithP)
 {
     NiceMock<MockRangeCheck> range_check;
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     field_gt_simulator.ff_gt(0, 0);
@@ -257,7 +258,7 @@ TEST(FieldGreaterThanConstrainingTest, NegativeManipulatedComparisonsWithP)
 TEST(FieldGreaterThanConstrainingTest, NegativeLessRangeChecks)
 {
     NiceMock<MockRangeCheck> range_check;
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     field_gt_simulator.ff_gt(0, 0);
@@ -280,7 +281,7 @@ TEST(FieldGreaterThanConstrainingTest, NegativeLessRangeChecks)
 TEST(FieldGreaterThanConstrainingTest, NegativeRangeCheckCtrInitInDec)
 {
     NiceMock<MockRangeCheck> range_check;
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     field_gt_simulator.canon_dec(0);
@@ -303,7 +304,7 @@ TEST(FieldGreaterThanConstrainingTest, NegativeRangeCheckCtrInitInDec)
 TEST(FieldGreaterThanConstrainingTest, NegativeSelectorConsistency)
 {
     NiceMock<MockRangeCheck> range_check;
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     field_gt_simulator.ff_gt(0, 0);
@@ -325,7 +326,7 @@ TEST(FieldGreaterThanConstrainingTest, NegativeSelectorConsistency)
 TEST(FieldGreaterThanConstrainingTest, NegativeEraseShift)
 {
     NiceMock<MockRangeCheck> range_check;
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     field_gt_simulator.ff_gt(42, 27);

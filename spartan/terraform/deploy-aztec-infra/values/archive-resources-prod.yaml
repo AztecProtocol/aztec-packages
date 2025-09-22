@@ -1,0 +1,45 @@
+nodeSelector:
+  local-ssd: "false"
+  node-type: "network"
+  cores: "2"
+
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app
+              operator: In
+              values:
+                - node
+        topologyKey: "kubernetes.io/hostname"
+        namespaceSelector: {}
+
+replicaCount: 1
+hostNetwork: true
+
+node:
+  resources:
+    requests:
+      cpu: "1.5"
+      memory: "5Gi"
+
+persistence:
+  enabled: true
+
+statefulSet:
+  enabled: true
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        annotations:
+          "helm.sh/resource-policy": "Retain"
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: "1Ti"
+
+service:
+  headless:
+    enabled: true

@@ -49,7 +49,7 @@ export class AccountEntrypointMetaPaymentMethod implements FeePaymentMethod {
     const { calls: feeCalls, authWitnesses: feeAuthwitnesses } =
       await this.paymentMethod.getExecutionPayload(gasSettings);
     // Encode the calls for the fee
-    const feePayer = await this.paymentMethod.getFeePayer(gasSettings);
+    const feePayer = await this.paymentMethod.getFeePayer();
     const isFeePayer = feePayer.equals(this.accountAddress);
     const feeEncodedCalls = await EncodedCallsForEntrypoint.fromFeeCalls(feeCalls, isFeePayer);
 
@@ -83,7 +83,7 @@ export class AccountEntrypointMetaPaymentMethod implements FeePaymentMethod {
     );
   }
 
-  getFeePayer(gasSettings: GasSettings): Promise<AztecAddress> {
-    return this.paymentMethod.getFeePayer(gasSettings);
+  getFeePayer(): Promise<AztecAddress> {
+    return this.paymentMethod.getFeePayer();
   }
 }

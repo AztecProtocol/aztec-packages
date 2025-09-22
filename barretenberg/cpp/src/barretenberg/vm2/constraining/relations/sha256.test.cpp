@@ -37,6 +37,7 @@ using ::testing::StrictMock;
 
 using simulation::Bitwise;
 using simulation::BitwiseEvent;
+using simulation::DeduplicatingEventEmitter;
 using simulation::EventEmitter;
 using simulation::FakeBitwise;
 using simulation::FakeGreaterThan;
@@ -114,7 +115,7 @@ TEST(Sha256ConstrainingTest, Interaction)
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
     EventEmitter<BitwiseEvent> bitwise_event_emitter;
     EventEmitter<GreaterThanEvent> gt_event_emitter;
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     EventEmitter<RangeCheckEvent> range_check_event_emitter;
 
     RangeCheck range_check(range_check_event_emitter);
@@ -224,7 +225,7 @@ TEST(Sha256MemoryConstrainingTest, Basic)
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
 
     EventEmitter<RangeCheckEvent> range_check_event_emitter;
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     EventEmitter<GreaterThanEvent> gt_event_emitter;
 
     RangeCheck range_check(range_check_event_emitter);
@@ -275,7 +276,7 @@ TEST(Sha256MemoryConstrainingTest, SimpleOutOfRangeMemoryAddresses)
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
 
     EventEmitter<RangeCheckEvent> range_check_event_emitter;
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     EventEmitter<GreaterThanEvent> gt_event_emitter;
 
     RangeCheck range_check(range_check_event_emitter);
@@ -316,7 +317,7 @@ TEST(Sha256MemoryConstrainingTest, MultiOutOfRangeMemoryAddresses)
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
 
     EventEmitter<RangeCheckEvent> range_check_event_emitter;
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     EventEmitter<GreaterThanEvent> gt_event_emitter;
 
     RangeCheck range_check(range_check_event_emitter);
@@ -357,7 +358,7 @@ TEST(Sha256MemoryConstrainingTest, InvalidStateTagErr)
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
 
     EventEmitter<RangeCheckEvent> range_check_event_emitter;
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     EventEmitter<GreaterThanEvent> gt_event_emitter;
 
     RangeCheck range_check(range_check_event_emitter);
@@ -405,7 +406,7 @@ TEST(Sha256MemoryConstrainingTest, InvalidInputTagErr)
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
 
     EventEmitter<RangeCheckEvent> range_check_event_emitter;
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     EventEmitter<GreaterThanEvent> gt_event_emitter;
 
     RangeCheck range_check(range_check_event_emitter);
@@ -461,7 +462,7 @@ TEST(Sha256MemoryConstrainingTest, PropagateError)
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(0));
 
     EventEmitter<RangeCheckEvent> range_check_event_emitter;
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     EventEmitter<GreaterThanEvent> gt_event_emitter;
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
 
@@ -560,7 +561,7 @@ TEST(Sha256MemoryConstrainingTest, Complex)
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(0)).WillOnce(Return(1));
 
     EventEmitter<RangeCheckEvent> range_check_event_emitter;
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     EventEmitter<GreaterThanEvent> gt_event_emitter;
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
     EventEmitter<BitwiseEvent> bitwise_event_emitter;

@@ -1,20 +1,21 @@
-import { type AccountWalletWithSecretKey, AuthWitness, type AztecAddress, Contract } from '@aztec/aztec.js';
+import { AuthWitness, type AztecAddress, Contract, type Wallet } from '@aztec/aztec.js';
 import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
 
 import { format } from 'util';
 
 import { printAuthorizations } from '../utils/authorizations.js';
-import type { IFeeOpts } from '../utils/options/fees.js';
+import type { CLIFeeArgs } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
 
 export async function simulate(
-  wallet: AccountWalletWithSecretKey,
+  wallet: Wallet,
+  from: AztecAddress,
   functionName: string,
   functionArgsIn: any[],
   contractArtifactPath: string,
   contractAddress: AztecAddress,
-  feeOpts: IFeeOpts,
+  feeOpts: CLIFeeArgs,
   authWitnesses: AuthWitness[],
   verbose: boolean,
   log: LogFn,
@@ -23,8 +24,10 @@ export async function simulate(
 
   const contract = await Contract.at(contractAddress, contractArtifact, wallet);
   const call = contract.methods[functionName](...functionArgs);
+  const userFeeOptions = await feeOpts.toUserFeeOptions(wallet, from);
   const simulationResult = await call.simulate({
-    ...(await feeOpts.toSendOpts(wallet)),
+    fee: userFeeOptions,
+    from,
     authWitnesses,
     includeMetadata: true,
   });

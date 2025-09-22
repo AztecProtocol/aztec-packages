@@ -1,4 +1,4 @@
-import { ContractDeployer, EthAddress, Fr, type Logger, TxStatus, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, ContractDeployer, EthAddress, Fr, type Logger, TxStatus, type Wallet } from '@aztec/aztec.js';
 import { EthCheatCodes } from '@aztec/aztec/testing';
 import type { PublisherManager, ViemClient } from '@aztec/ethereum';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
@@ -8,7 +8,7 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import type { AztecNodeAdmin, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -37,9 +37,10 @@ const createPublisherKeysAndAddresses = () => {
 describe('e2e_multi_eoa', () => {
   jest.setTimeout(5 * 60 * 1000); // 5 minutes
 
-  let pxe: PXE;
+  let aztecNode: AztecNode;
   let logger: Logger;
-  let owner: Wallet;
+  let wallet: Wallet;
+  let defaultAccountAddress: AztecAddress;
   let aztecNodeAdmin: AztecNodeAdmin;
   let sequencer: TestSequencerClient;
   let publisherManager: PublisherManager;
@@ -62,10 +63,11 @@ describe('e2e_multi_eoa', () => {
 
       ({
         teardown,
-        pxe,
+        aztecNode,
         logger,
         aztecNodeAdmin: maybeAztecNodeAdmin,
-        wallets: [owner],
+        wallet,
+        accounts: [defaultAccountAddress],
         sequencer: sequencerClient,
         ethCheatCodes,
       } = await setup(2, {
@@ -100,10 +102,9 @@ describe('e2e_multi_eoa', () => {
     // We should then see that another block is published but this time with a different expected account
     const testAccountRotation = async (expectedFirstSender: number, expectedSecondSender: number) => {
       // the L2 tx we are going to try and execute
-      const deployer = new ContractDeployer(artifact, owner);
-      const ownerAddress = owner.getCompleteAddress().address;
-      const deployMethodTx = await deployer.deploy(ownerAddress, 0).prove({
-        from: ownerAddress,
+      const deployer = new ContractDeployer(artifact, wallet);
+      const deployMethodTx = await deployer.deploy(defaultAccountAddress, 0).prove({
+        from: defaultAccountAddress,
         contractAddressSalt: Fr.random(),
         skipClassPublication: true,
         skipInstancePublication: true,
@@ -182,7 +183,7 @@ describe('e2e_multi_eoa', () => {
       };
 
       // We should be at L2 block 2
-      const blockNumber = await pxe.getBlockNumber();
+      const blockNumber = await aztecNode.getBlockNumber();
       expect(blockNumber).toBe(2);
 
       // This means that 2 of our accounts have been used to send blocks to L1.

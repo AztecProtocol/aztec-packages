@@ -41,6 +41,11 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
+      - name: Configure Git
+        run: |
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+
       - name: Extract version from branch name
         id: version
         run: |
@@ -142,8 +147,10 @@ jobs:
           ref: ${{ fromJSON(needs.release-please.outputs.release-pr).headBranchName }}
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
-      - name: Run corepack enable
-        run: corepack enable
+      - name: Setup dependencies
+        run: |
+          sudo apt install -y --no-install-recommends doxygen
+          corepack enable
 
       - name: Configure Git
         run: |

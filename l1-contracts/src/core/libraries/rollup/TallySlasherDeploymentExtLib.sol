@@ -27,10 +27,11 @@ library TallySlasherDeploymentExtLib {
     uint256[3] calldata _slashAmounts,
     uint256 _committeeSize,
     uint256 _epochDuration,
-    uint256 _slashOffsetInRounds
+    uint256 _slashOffsetInRounds,
+    uint256 _slashingDisableDuration
   ) external returns (ISlasher) {
     // Deploy slasher first
-    Slasher slasher = new Slasher(_vetoer, _governance);
+    Slasher slasher = new Slasher(_vetoer, _governance, _slashingDisableDuration);
 
     // Deploy proposer with slasher address
     TallySlashingProposer proposer = new TallySlashingProposer(

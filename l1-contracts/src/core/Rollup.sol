@@ -24,6 +24,7 @@ import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {CompressedSlot, CompressedTimestamp, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ChainTipsLib, CompressedChainTips} from "./libraries/compressed-data/Tips.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
 import {RewardLib, RewardConfig} from "./libraries/rollup/RewardLib.sol";
@@ -88,6 +89,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     ProposedHeader calldata _header,
     CommitteeAttestations memory _attestations,
     address[] calldata _signers,
+    Signature memory _attestationsAndSignersSignature,
     bytes32 _digest,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags
@@ -102,7 +104,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
         flags: _flags
       }),
       _attestations,
-      _signers
+      _signers,
+      _attestationsAndSignersSignature
     );
   }
 
@@ -200,6 +203,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function getSlasher() external view override(IStaking) returns (address) {
     return StakingLib.getStorage().slasher;
+  }
+
+  function getLocalEjectionThreshold() external view override(IStaking) returns (uint256) {
+    return StakingLib.getStorage().localEjectionThreshold;
   }
 
   function getStakingAsset() external view override(IStaking) returns (IERC20) {
@@ -380,6 +387,14 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return ValidatorOperationsExtLib.getSampleSeedAt(getEpochAt(_ts));
   }
 
+  function getSamplingSizeAt(Timestamp _ts) external view override(IValidatorSelection) returns (uint256) {
+    return ValidatorOperationsExtLib.getSamplingSizeAt(getEpochAt(_ts));
+  }
+
+  function getLagInEpochs() external view override(IValidatorSelection) returns (uint256) {
+    return ValidatorOperationsExtLib.getLagInEpochs();
+  }
+
   /**
    * @notice  Get the sample seed for the current epoch
    *
@@ -519,6 +534,14 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return RewardLib.getBlockReward();
   }
 
+  function getAvailableValidatorFlushes() external view override(IStaking) returns (uint256) {
+    return ValidatorOperationsExtLib.getAvailableValidatorFlushes();
+  }
+
+  function getIsBootstrapped() external view override(IStaking) returns (bool) {
+    return StakingLib.getStorage().isBootstrapped;
+  }
+
   function getBurnAddress() external pure override(IRollup) returns (address) {
     return RewardLib.BURN_ADDRESS;
   }
@@ -539,7 +562,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   /**
    * @notice  Get the proposer for the slot at a specific timestamp
    *
-   * @dev     This function is very useful for off-chain usage, as it easily allow a client to
+   * @dev     This function is very useful for offchain usage, as it easily allow a client to
    *          determine who will be the proposer at the NEXT ethereum block.
    *          Should not be trusted when moving beyond the current epoch, since changes to the
    *          validator set might not be reflected when we actually reach that epoch (more changes
@@ -547,7 +570,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @dev     The proposer is selected from the validator set of the current epoch.
    *
-   * @dev     Should only be access on-chain if epoch is setup, otherwise very expensive.
+   * @dev     Should only be access onchain if epoch is setup, otherwise very expensive.
    *
    * @dev     A return value of address(0) means that the proposer is "open" and can be anyone.
    *

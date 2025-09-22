@@ -6,12 +6,14 @@ import Home from './components/home/Home';
 
 function App() {
   return (
-    <NotificationsProvider slotProps={{
-      snackbar: {
-        anchorOrigin: { vertical: 'top', horizontal: 'right' },
-        autoHideDuration: 5000,
-      }
-    }}>
+    <NotificationsProvider
+      slotProps={{
+        snackbar: {
+          anchorOrigin: { vertical: 'top', horizontal: 'right' },
+          autoHideDuration: 5000,
+        },
+      }}
+    >
       <ThemeProvider theme={theme}>
         <Global styles={globalStyle}></Global>
         <Home />

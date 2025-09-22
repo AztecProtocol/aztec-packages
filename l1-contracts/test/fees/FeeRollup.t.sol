@@ -55,6 +55,7 @@ import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -75,6 +76,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     bytes blobInputs;
     CommitteeAttestation[] attestations;
     address[] signers;
+    Signature attestationsAndSignersSignature;
   }
 
   DecoderBase.Full full = load("empty_block_1");
@@ -170,7 +172,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       body: body,
       blobInputs: full.block.blobCommitments,
       attestations: attestations,
-      signers: signers
+      signers: signers,
+      attestationsAndSignersSignature: Signature({v: 0, r: 0, s: 0})
     });
   }
 
@@ -194,6 +197,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           }),
           AttestationLibHelper.packAttestations(b.attestations),
           b.signers,
+          b.attestationsAndSignersSignature,
           b.blobInputs
         );
         nextSlot = nextSlot + Slot.wrap(1);
@@ -285,6 +289,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           }),
           AttestationLibHelper.packAttestations(b.attestations),
           b.signers,
+          b.attestationsAndSignersSignature,
           b.blobInputs
         );
 

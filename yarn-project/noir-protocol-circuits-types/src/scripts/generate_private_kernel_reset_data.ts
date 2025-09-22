@@ -41,7 +41,7 @@ function generateTypeFileImports() {
 function generateVkFileImports() {
   return `
     import type { VerificationKeyData } from '@aztec/stdlib/vks';
-    import { keyJsonToVKData } from './utils/vk_json.js';
+    import { abiToVKData } from './utils/vk_json.js';
 
     import type { PrivateResetArtifact } from './private_kernel_reset_types.js';
   `;
@@ -89,7 +89,7 @@ function generateVksImports(importTags: string[]) {
   return importTags
     .map(
       tag =>
-        `import PrivateKernelResetVkJson${tag} from '../artifacts/keys/private_kernel_reset${tag}.vk.data.json' with { type: 'json' };`,
+        `import PrivateKernelResetJson${tag} from '../artifacts/private_kernel_reset${tag}.json' with { type: 'json' };`,
     )
     .join('\n');
 }
@@ -127,7 +127,7 @@ function generateSimulatedArtifacts(resetVariantTags: string[], importTags: stri
 
 function generateVks(resetVariantTags: string[], importTags: string[]) {
   const artifacts = resetVariantTags.map(
-    (tag, i) => `${getArtifactName(tag)}: keyJsonToVKData(PrivateKernelResetVkJson${importTags[i]}),`,
+    (tag, i) => `${getArtifactName(tag)}: abiToVKData(PrivateKernelResetJson${importTags[i]}),`,
   );
   return `
     export const PrivateKernelResetVks: Record<PrivateResetArtifact, VerificationKeyData> = {

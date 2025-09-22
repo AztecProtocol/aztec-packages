@@ -1,10 +1,4 @@
 import {
-  MAX_CONTRACT_CLASS_LOGS_PER_TX,
-  MAX_ENQUEUED_CALLS_PER_TX,
-  MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_PRIVATE_LOGS_PER_TX,
   MEGA_VK_LENGTH_IN_FIELDS,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
@@ -35,7 +29,6 @@ import {
   PrivateKernelResetHints,
   PrivateKernelTailCircuitPublicInputs,
   PrivateLogData,
-  PrivateToPublicAccumulatedData,
   PrivateValidationRequests,
   type PrivateVerificationKeyHints,
   ReadRequest,
@@ -78,7 +71,6 @@ import type {
   PrivateKernelDataWithoutPublicInputs as PrivateKernelDataWithoutPublicInputsNoir,
   PrivateKernelResetHints as PrivateKernelResetHintsNoir,
   PrivateLogData as PrivateLogDataNoir,
-  PrivateToPublicAccumulatedData as PrivateToPublicAccumulatedDataNoir,
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
   PrivateToRollupKernelCircuitPublicInputs as PrivateToRollupKernelCircuitPublicInputsNoir,
   PrivateValidationRequests as PrivateValidationRequestsNoir,
@@ -100,6 +92,7 @@ import {
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
   mapBigIntFromNoir,
+  mapBlockHeaderToNoir,
   mapClaimedLengthArrayFromNoir,
   mapClaimedLengthArrayToNoir,
   mapCountedL2ToL1MessageToNoir,
@@ -110,8 +103,6 @@ import {
   mapFunctionSelectorToNoir,
   mapGasFromNoir,
   mapGrumpkinScalarToNoir,
-  mapHeaderFromNoir,
-  mapHeaderToNoir,
   mapMembershipWitnessToNoir,
   mapNullifierLeafPreimageToNoir,
   mapNumberFromNoir,
@@ -122,6 +113,7 @@ import {
   mapPointToNoir,
   mapPrivateLogFromNoir,
   mapPrivateLogToNoir,
+  mapPrivateToPublicAccumulatedDataFromNoir,
   mapPrivateToRollupAccumulatedDataFromNoir,
   mapProtocolContractLeafPreimageToNoir,
   mapPublicCallRequestFromNoir,
@@ -131,10 +123,7 @@ import {
   mapScopedCountedL2ToL1MessageToNoir,
   mapScopedCountedLogHashFromNoir,
   mapScopedCountedLogHashToNoir,
-  mapScopedL2ToL1MessageFromNoir,
-  mapScopedLogHashFromNoir,
-  mapTupleFromNoir,
-  mapTxContextFromNoir,
+  mapTxConstantDataFromNoir,
   mapTxContextToNoir,
   mapU64FromNoir,
   mapU64ToNoir,
@@ -509,7 +498,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     ),
     start_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.startSideEffectCounter),
     end_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.endSideEffectCounter),
-    historical_header: mapHeaderToNoir(privateCircuitPublicInputs.historicalHeader),
+    anchor_block_header: mapBlockHeaderToNoir(privateCircuitPublicInputs.anchorBlockHeader),
     tx_context: mapTxContextToNoir(privateCircuitPublicInputs.txContext),
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
     is_fee_payer: privateCircuitPublicInputs.isFeePayer,
@@ -590,18 +579,9 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
   };
 }
 
-function mapTxConstantDataFromNoir(data: TxConstantDataNoir) {
-  return new TxConstantData(
-    mapHeaderFromNoir(data.historical_header),
-    mapTxContextFromNoir(data.tx_context),
-    mapFieldFromNoir(data.vk_tree_root),
-    mapFieldFromNoir(data.protocol_contract_tree_root),
-  );
-}
-
 function mapTxConstantDataToNoir(data: TxConstantData): TxConstantDataNoir {
   return {
-    historical_header: mapHeaderToNoir(data.historicalHeader),
+    anchor_block_header: mapBlockHeaderToNoir(data.anchorBlockHeader),
     tx_context: mapTxContextToNoir(data.txContext),
     vk_tree_root: mapFieldToNoir(data.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(data.protocolContractTreeRoot),
@@ -664,17 +644,6 @@ export function mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir(
     mapBigIntFromNoir(inputs.include_by_timestamp),
     undefined,
     forRollup,
-  );
-}
-
-export function mapPrivateToPublicAccumulatedDataFromNoir(data: PrivateToPublicAccumulatedDataNoir) {
-  return new PrivateToPublicAccumulatedData(
-    mapTupleFromNoir(data.note_hashes, MAX_NOTE_HASHES_PER_TX, mapFieldFromNoir),
-    mapTupleFromNoir(data.nullifiers, MAX_NULLIFIERS_PER_TX, mapFieldFromNoir),
-    mapTupleFromNoir(data.l2_to_l1_msgs, MAX_L2_TO_L1_MSGS_PER_TX, mapScopedL2ToL1MessageFromNoir),
-    mapTupleFromNoir(data.private_logs, MAX_PRIVATE_LOGS_PER_TX, mapPrivateLogFromNoir),
-    mapTupleFromNoir(data.contract_class_logs_hashes, MAX_CONTRACT_CLASS_LOGS_PER_TX, mapScopedLogHashFromNoir),
-    mapTupleFromNoir(data.public_call_requests, MAX_ENQUEUED_CALLS_PER_TX, mapPublicCallRequestFromNoir),
   );
 }
 

@@ -4,6 +4,7 @@ const { loadTrustedSetup } = cKzg;
 
 export * from './blob.js';
 export * from './blob_batching.js';
+export * from './deserialize.js';
 export * from './encoding.js';
 export * from './interface.js';
 export * from './errors.js';

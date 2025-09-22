@@ -34,25 +34,6 @@ template <typename FF> class emit_nullifier : public Relation<emit_nullifierImpl
   public:
     static constexpr const std::string_view NAME = "emit_nullifier";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 1:
-            return "MAX_NULLIFIER_WRITES_REACHED";
-        case 2:
-            return "VALIDATION_ERROR_DISABLE_WRITE";
-        case 3:
-            return "OPCODE_ERROR_IF_VALIDATION_ERROR";
-        case 4:
-            return "EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED";
-        case 5:
-            return "EMIT_NULLIFIER_TREE_SIZE_INCREASE";
-        case 6:
-            return "EMIT_NULLIFIER_NUM_NULLIFIERS_EMITTED_INCREASE";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_MAX_NULLIFIER_WRITES_REACHED = 1;
     static constexpr size_t SR_VALIDATION_ERROR_DISABLE_WRITE = 2;
@@ -60,6 +41,25 @@ template <typename FF> class emit_nullifier : public Relation<emit_nullifierImpl
     static constexpr size_t SR_EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED = 4;
     static constexpr size_t SR_EMIT_NULLIFIER_TREE_SIZE_INCREASE = 5;
     static constexpr size_t SR_EMIT_NULLIFIER_NUM_NULLIFIERS_EMITTED_INCREASE = 6;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_MAX_NULLIFIER_WRITES_REACHED:
+            return "MAX_NULLIFIER_WRITES_REACHED";
+        case SR_VALIDATION_ERROR_DISABLE_WRITE:
+            return "VALIDATION_ERROR_DISABLE_WRITE";
+        case SR_OPCODE_ERROR_IF_VALIDATION_ERROR:
+            return "OPCODE_ERROR_IF_VALIDATION_ERROR";
+        case SR_EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED:
+            return "EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED";
+        case SR_EMIT_NULLIFIER_TREE_SIZE_INCREASE:
+            return "EMIT_NULLIFIER_TREE_SIZE_INCREASE";
+        case SR_EMIT_NULLIFIER_NUM_NULLIFIERS_EMITTED_INCREASE:
+            return "EMIT_NULLIFIER_NUM_NULLIFIERS_EMITTED_INCREASE";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

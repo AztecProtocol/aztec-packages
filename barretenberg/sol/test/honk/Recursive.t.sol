@@ -9,6 +9,7 @@ import {RecursiveHonkVerifier} from "../../src/honk/instance/RecursiveHonk.sol";
 import {DifferentialFuzzer} from "../base/DifferentialFuzzer.sol";
 import {IVerifier} from "../../src/interfaces/IVerifier.sol";
 
+/// forge-lint: disable-next-item(unaliased-plain-import)
 import "forge-std/console.sol";
 
 contract RecursiveHonkTest is TestBaseHonk {

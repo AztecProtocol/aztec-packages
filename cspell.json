@@ -65,6 +65,7 @@
     "cimg",
     "ciphertext",
     "ciphertexts",
+    "civc",
     "clonedeep",
     "clonedeepwith",
     "cmd",
@@ -252,6 +253,7 @@
     "prestat",
     "prevrandao",
     "println",
+    "privateland",
     "productionify",
     "protobuf",
     "protogalaxy",
@@ -262,6 +264,7 @@
     "proxify",
     "pseudocode",
     "pubkey",
+    "publicland",
     "pxes",
     "quickstart",
     "Quickstarts",
@@ -301,6 +304,7 @@
     "starknet",
     "staticcall",
     "stdlib",
+    "stringifying",
     "struct",
     "structs",
     "subarray",
@@ -319,6 +323,7 @@
     "tldr",
     "tload",
     "tmpfs",
+    "tonelli",
     "toplevel",
     "tparam",
     "transferables",
@@ -394,9 +399,5 @@
     "lib",
     "*.cmake"
   ],
-  "flagWords": [
-    "anonymous",
-    "offence",
-    "offences"
-  ]
+  "flagWords": ["anonymous", "offence", "offences", "on-chain", "off-chain", "out-of-band"]
 }

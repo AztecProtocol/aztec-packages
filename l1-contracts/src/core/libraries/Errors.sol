@@ -48,6 +48,7 @@ library Errors {
   error Outbox__AlreadyNullified(uint256 l2BlockNumber, uint256 leafIndex); // 0xfd71c2d4
   error Outbox__NothingToConsumeAtBlock(uint256 l2BlockNumber); // 0xa4508f22
   error Outbox__BlockNotProven(uint256 l2BlockNumber); // 0x0e194a6d
+  error Outbox__PathTooLong();
 
   // Rollup
   error Rollup__InsufficientBondAmount(uint256 minimum, uint256 provided); // 0xa165f276
@@ -90,6 +91,7 @@ library Errors {
   error Rollup__InvalidFirstEpochProof();
   error Rollup__InvalidCoinbase();
   error Rollup__StaleTempBlockLog(uint256 blockNumber, uint256 pendingBlockNumber, uint256 size);
+  error Rollup__NoBlobsInBlock();
 
   // ProposedHeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
@@ -147,6 +149,7 @@ library Errors {
   error Staking__GovernanceAlreadySet();
   error Staking__InsufficientBootstrapValidators(uint256 queueSize, uint256 bootstrapFlushSize);
   error Staking__InvalidStakingQueueConfig();
+  error Staking__InvalidNormalFlushSizeQuotient();
 
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe
@@ -165,14 +168,17 @@ library Errors {
   // SignatureLib (duplicated)
   error SignatureLib__InvalidSignature(address, address); // 0xd9cbae6c
 
-  error AttestationLib__OutOfBounds(uint256, uint256);
+  error AttestationLib__InvalidDataSize(uint256, uint256);
   error AttestationLib__SignatureIndicesSizeMismatch(uint256, uint256);
   error AttestationLib__SignaturesOrAddressesSizeMismatch(uint256, uint256);
+  error AttestationLib__SignersSizeMismatch(uint256, uint256);
   error AttestationLib__NotASignatureAtIndex(uint256 index);
   error AttestationLib__NotAnAddressAtIndex(uint256 index);
 
   // RewardBooster
   error RewardBooster__OnlyRollup(address caller);
+
+  error RewardLib__InvalidSequencerBps();
 
   // TallySlashingProposer
   error TallySlashingProposer__InvalidSignature();

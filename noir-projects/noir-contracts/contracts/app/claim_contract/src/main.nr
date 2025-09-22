@@ -49,7 +49,7 @@ pub contract Claim {
         // 2) Prove that the note hash exists in the note hash tree
         // Note: The note has been inserted into the donation_receipts set in the Crowdfunding contract.
         let note_storage_slot = Crowdfunding::storage_layout().donation_receipts.slot;
-        let header = context.get_block_header();
+        let header = context.get_anchor_block_header();
         header.prove_note_inclusion(proof_retrieved_note, note_storage_slot);
 
         // 3) Compute and emit a nullifier which is unique to the note and this contract to ensure the reward can be

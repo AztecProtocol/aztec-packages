@@ -26,7 +26,7 @@ function generateImports() {
   import type { NoirCompiledCircuit, NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
   import type { ClientProtocolArtifact } from './artifacts/types.js';
   import { VerificationKeyData } from '@aztec/stdlib/vks';
-  import { keyJsonToVKData } from './utils/vk_json.js';
+  import { abiToVKData } from './utils/vk_json.js';
 `;
 }
 
@@ -55,10 +55,10 @@ function generateCircuitArtifactImportFunction() {
       return hasSimulatedVersion ? [artifactName, generateSimulatedArtifactName(artifactName)] : [artifactName];
     })
     .map(artifactName => {
-      // Cannot assert this import as it's incompatible with browsers
-      // https://caniuse.com/mdn-javascript_statements_import_import_assertions_type_json
-      // Use the new "with" syntax once supported by firefox
-      // https://caniuse.com/mdn-javascript_statements_import_import_attributes_type_json
+      // Cannot assert this import as it's incompatible with bundlers like vite
+      // https://github.com/vitejs/vite/issues/19095#issuecomment-2566074352
+      // Even if now supported by al major browsers, the MIME type is replaced with
+      // "text/javascript"
       // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
       return `case '${artifactName}': {
         const { default: compiledCircuit } = await import("../artifacts/${artifactName}.json");
@@ -82,14 +82,14 @@ function generateCircuitArtifactImportFunction() {
 
 function generateVkImportFunction() {
   const cases = Object.values(ClientCircuitArtifactNames).map(artifactName => {
-    // Cannot assert this import as it's incompatible with browsers
-    // https://caniuse.com/mdn-javascript_statements_import_import_assertions_type_json
-    // Use the new "with" syntax once supported by firefox
-    // https://caniuse.com/mdn-javascript_statements_import_import_attributes_type_json
+    // Cannot assert this import as it's incompatible with bundlers like vite
+    // https://github.com/vitejs/vite/issues/19095#issuecomment-2566074352
+    // Even if now supported by al major browsers, the MIME type is replaced with
+    // "text/javascript"
     // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
     return `case '${artifactName}': {
-        const { default: keyData } = await import("../artifacts/keys/${artifactName}.vk.data.json");
-        return keyJsonToVKData(keyData);
+        const { default: keyData } = await import("../artifacts/${artifactName}.json");
+        return abiToVKData(keyData);
       }`;
   });
 

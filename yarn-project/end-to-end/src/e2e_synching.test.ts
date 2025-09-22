@@ -31,20 +31,10 @@
  * blockCount: 10, txCount: 36, complexity: PublicTransfer:  {"numberOfBlocks":18, "syncTime":21.340179460525512}
  * blockCount: 10, txCount: 9,  complexity: Spam:            {"numberOfBlocks":17, "syncTime":49.40888188171387}
  */
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type InitialAccountData, deployFundedSchnorrAccounts } from '@aztec/accounts/testing';
+import type { InitialAccountData } from '@aztec/accounts/testing';
 import { createArchiver } from '@aztec/archiver';
 import { AztecNodeService } from '@aztec/aztec-node';
-import {
-  type AccountWalletWithSecretKey,
-  BatchCall,
-  type Contract,
-  Fr,
-  GrumpkinScalar,
-  type Logger,
-  createLogger,
-  sleep,
-} from '@aztec/aztec.js';
+import { BatchCall, type Contract, Fr, GrumpkinScalar, type Logger, createLogger, sleep } from '@aztec/aztec.js';
 import { AnvilTestWatcher } from '@aztec/aztec/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
@@ -56,16 +46,17 @@ import {
 } from '@aztec/ethereum';
 import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { SecretValue } from '@aztec/foundation/config';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
-import type { PXEService } from '@aztec/pxe/server';
 import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2Block } from '@aztec/stdlib/block';
+import { CommitteeAttestationsAndSigners, L2Block } from '@aztec/stdlib/block';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
+import { TestWallet } from '@aztec/test-wallet';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs';
@@ -74,7 +65,7 @@ import { getContract } from 'viem';
 
 import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
-import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEService } from './fixtures/utils.js';
+import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEServiceAndGetWallet } from './fixtures/utils.js';
 
 const SALT = 420;
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
@@ -109,11 +100,11 @@ type VariantDefinition = {
  */
 class TestVariant {
   private logger: Logger = createLogger(`test_variant`);
-  private pxe!: PXEService;
   private token!: TokenContract;
   private spam!: SpamContract;
 
-  public wallets!: AccountWalletWithSecretKey[];
+  public wallet!: TestWallet;
+  public accounts: AztecAddress[] = [];
 
   private seed = 0n;
 
@@ -129,8 +120,8 @@ class TestVariant {
     this.txComplexity = def.txComplexity;
   }
 
-  setPXE(pxe: PXEService) {
-    this.pxe = pxe;
+  setWallet(wallet: TestWallet) {
+    this.wallet = wallet;
   }
 
   setToken(token: TokenContract) {
@@ -139,10 +130,6 @@ class TestVariant {
 
   setSpam(spam: SpamContract) {
     this.spam = spam;
-  }
-
-  setWallets(wallets: AccountWalletWithSecretKey[]) {
-    this.wallets = wallets;
   }
 
   toString() {
@@ -157,30 +144,33 @@ class TestVariant {
     return `${this.blockCount}_${this.txCount}_${this.txComplexity}`;
   }
 
-  async deployWallets(accounts: InitialAccountData[]) {
+  async deployAccounts(accounts: InitialAccountData[]) {
     // Create accounts such that we can send from many to not have colliding nullifiers
-    const managers = await deployFundedSchnorrAccounts(this.pxe, accounts);
-    return await Promise.all(managers.map(m => m.getWallet()));
+    const managers = await Promise.all(
+      accounts.map(account => this.wallet.createSchnorrAccount(account.secret, account.salt)),
+    );
+    await Promise.all(managers.map(m => m.deploy().wait()));
+    return accounts.map(acc => acc.address);
   }
 
   async setup(accounts: InitialAccountData[] = []) {
-    if (this.pxe === undefined) {
-      throw new Error('Undefined PXE');
+    if (this.wallet === undefined) {
+      throw new Error('Undefined wallet');
     }
+
+    this.accounts = accounts.map(acc => acc.address);
 
     if (this.txComplexity == TxComplexity.Deployment) {
       return;
     }
 
-    this.wallets = await this.deployWallets(accounts);
-
     // Mint tokens publicly if needed
     if (this.txComplexity == TxComplexity.PublicTransfer) {
       await Promise.all(
-        this.wallets.map(w =>
+        accounts.map(acc =>
           this.token.methods
-            .mint_to_public(w.getAddress(), MINT_AMOUNT)
-            .send({ from: w.getAddress() })
+            .mint_to_public(acc.address, MINT_AMOUNT)
+            .send({ from: acc.address })
             .wait({ timeout: 600 }),
         ),
       );
@@ -188,25 +178,27 @@ class TestVariant {
 
     // Mint tokens privately if needed
     if (this.txComplexity == TxComplexity.PrivateTransfer) {
-      await Promise.all(
-        this.wallets.map((w, _) => mintTokensToPrivate(this.token, w.getAddress(), w, w.getAddress(), MINT_AMOUNT)),
-      );
+      await Promise.all(accounts.map(acc => mintTokensToPrivate(this.token, acc.address, acc.address, MINT_AMOUNT)));
     }
   }
 
   async createAndSendTxs() {
-    if (!this.pxe) {
-      throw new Error('Undefined PXE');
+    if (!this.wallet) {
+      throw new Error('Undefined wallet');
     }
 
     if (this.txComplexity == TxComplexity.Deployment) {
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
-        const deployWallet = this.wallets[i % this.wallets.length];
-        const accountManager = await getSchnorrAccount(this.pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
+        const deployAccount = this.accounts[i % this.accounts.length];
+        const accountManager = await this.wallet.createSchnorrAccount(
+          Fr.random(),
+          Fr.random(),
+          GrumpkinScalar.random(),
+        );
         this.contractAddresses.push(accountManager.getAddress());
         const tx = accountManager.deploy({
-          deployWallet,
+          deployAccount,
           skipClassPublication: true,
           skipInstancePublication: true,
         });
@@ -217,18 +209,18 @@ class TestVariant {
       // To do a private transfer we need to a lot of accounts that all have funds.
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
-        const recipient = this.wallets[(i + 1) % this.txCount].getAddress();
-        const tk = await TokenContract.at(this.token.address, this.wallets[i]);
-        txs.push(tk.methods.transfer(recipient, 1n).send({ from: this.wallets[i].getAddress() }));
+        const recipient = this.accounts[(i + 1) % this.txCount];
+        const tk = await TokenContract.at(this.token.address, this.wallet);
+        txs.push(tk.methods.transfer(recipient, 1n).send({ from: this.accounts[i] }));
       }
       return txs;
     } else if (this.txComplexity == TxComplexity.PublicTransfer) {
       // Public transfer is simpler, we can just transfer to our-selves there.
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
-        const sender = this.wallets[i].getAddress();
-        const recipient = this.wallets[(i + 1) % this.txCount].getAddress();
-        const tk = await TokenContract.at(this.token.address, this.wallets[i]);
+        const sender = this.accounts[i];
+        const recipient = this.accounts[(i + 1) % this.txCount];
+        const tk = await TokenContract.at(this.token.address, this.wallet);
         txs.push(tk.methods.transfer_in_public(sender, recipient, 1n, 0).send({ from: sender }));
       }
       return txs;
@@ -238,7 +230,7 @@ class TestVariant {
 
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
-        const batch = new BatchCall(this.wallets[i], [
+        const batch = new BatchCall(this.wallet, [
           this.spam.methods.spam(this.seed, 16, false),
           this.spam.methods.spam(this.seed + 16n, 16, false),
           this.spam.methods.spam(this.seed + 32n, 16, false),
@@ -246,7 +238,7 @@ class TestVariant {
         ]);
 
         this.seed += 100n;
-        txs.push(batch.send({ from: this.wallets[0].getAddress() }));
+        txs.push(batch.send({ from: this.accounts[0] }));
       }
       return txs;
     } else {
@@ -323,19 +315,27 @@ describe('e2e_synching', () => {
       // The setup is in here and not at the `before` since we are doing different setups depending on what mode we are running in.
       // We require that at least 200 eth blocks have passed from the START_TIME before we see the first L2 block
       // This is to keep the setup more stable, so as long as the setup is less than 100 L1 txs, changing the setup should not break the setup
-      const { teardown, pxe, sequencer, aztecNode, wallet, initialFundedAccounts, cheatCodes } = await setup(1, {
+      const {
+        teardown,
+        sequencer,
+        aztecNode,
+        wallet,
+        accounts: [defaultAccountAddress],
+        initialFundedAccounts,
+        cheatCodes,
+      } = await setup(1, {
         salt: SALT,
         l1StartTime: START_TIME,
         l2StartTime: START_TIME + 200 * ETHEREUM_SLOT_DURATION,
         numberOfInitialFundedAccounts: variant.txCount + 1,
       });
-      variant.setPXE(pxe as PXEService);
+      variant.setWallet(wallet);
 
       // Deploy a token, such that we could use it
-      const token = await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n)
-        .send({ from: wallet.getAddress() })
+      const token = await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n)
+        .send({ from: defaultAccountAddress })
         .deployed();
-      const spam = await SpamContract.deploy(wallet).send({ from: wallet.getAddress() }).deployed();
+      const spam = await SpamContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
 
       variant.setToken(token);
       variant.setSpam(spam);
@@ -382,7 +382,7 @@ describe('e2e_synching', () => {
       aztecNode,
       sequencer,
       watcher,
-      pxe,
+      wallet,
       blobSink,
       initialFundedAccounts,
       dateProvider,
@@ -462,12 +462,15 @@ describe('e2e_synching', () => {
         await cheatCodes.eth.mine();
       }
       // If it breaks here, first place you should look is the pruning.
-      await publisher.enqueueProposeL2Block(block);
+      await publisher.enqueueProposeL2Block(block, CommitteeAttestationsAndSigners.empty(), Signature.empty());
 
       await cheatCodes.rollup.markAsProven(provenThrough);
     }
 
-    await alternativeSync({ deployL1ContractsValues, cheatCodes, config, logger, pxe, initialFundedAccounts }, variant);
+    await alternativeSync(
+      { deployL1ContractsValues, cheatCodes, config, logger, initialFundedAccounts, wallet },
+      variant,
+    );
 
     await teardown();
   };
@@ -535,22 +538,21 @@ describe('e2e_synching', () => {
             const aztecNode = await AztecNodeService.createAndSync(opts.config!);
             const sequencer = aztecNode.getSequencer();
 
-            const { pxe } = await setupPXEService(aztecNode!);
-
-            variant.setPXE(pxe);
-            const wallet = (await variant.deployWallets(opts.initialFundedAccounts!.slice(0, 1)))[0];
+            const { wallet } = await setupPXEServiceAndGetWallet(aztecNode!);
+            variant.setWallet(wallet);
+            const defaultAccountAddress = (await variant.deployAccounts(opts.initialFundedAccounts!.slice(0, 1)))[0];
 
             contracts.push(
-              await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n)
-                .send({ from: wallet.getAddress() })
+              await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n)
+                .send({ from: defaultAccountAddress })
                 .deployed(),
             );
             contracts.push(
-              await SchnorrHardcodedAccountContract.deploy(wallet).send({ from: wallet.getAddress() }).deployed(),
+              await SchnorrHardcodedAccountContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed(),
             );
             contracts.push(
-              await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n)
-                .send({ from: wallet.getAddress() })
+              await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n)
+                .send({ from: defaultAccountAddress })
                 .deployed(),
             );
 
@@ -678,8 +680,8 @@ describe('e2e_synching', () => {
           expect(await aztecNode.getBlockNumber()).toBeLessThan(blockBeforePrune);
 
           // We need to start the pxe after the re-org for now, because it won't handle it otherwise
-          const { pxe } = await setupPXEService(aztecNode!);
-          variant.setPXE(pxe);
+          const { wallet } = await setupPXEServiceAndGetWallet(aztecNode!);
+          variant.setWallet(wallet);
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
 
@@ -736,9 +738,8 @@ describe('e2e_synching', () => {
           const aztecNode = await AztecNodeService.createAndSync(opts.config!);
           const sequencer = aztecNode.getSequencer();
 
-          const { pxe } = await setupPXEService(aztecNode!);
-
-          variant.setPXE(pxe);
+          const { wallet: newWallet } = await setupPXEServiceAndGetWallet(aztecNode!);
+          variant.setWallet(newWallet);
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
 

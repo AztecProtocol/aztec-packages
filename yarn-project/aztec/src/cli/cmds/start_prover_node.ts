@@ -1,6 +1,7 @@
-import { getInitialTestAccounts } from '@aztec/accounts/testing';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { Fr } from '@aztec/aztec.js';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
+import { getL1Config } from '@aztec/cli/config';
 import { getPublicClient } from '@aztec/ethereum';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
@@ -16,7 +17,6 @@ import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker } from '@aztec
 import { initTelemetryClient, makeTracedFetch, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { getL1Config } from '../get_l1_config.js';
 import { extractRelevantOptions, preloadCrsDataForVerifying, setupUpdateMonitor } from '../util.js';
 import { getVersions } from '../versioning.js';
 import { startProverBroker } from './start_prover_broker.js';
@@ -52,7 +52,7 @@ export async function startProverNode(
   proverConfig.l1Contracts = addresses;
   proverConfig = { ...proverConfig, ...config };
 
-  const testAccounts = proverConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
+  const testAccounts = proverConfig.testAccounts ? (await getInitialTestAccountsData()).map(a => a.address) : [];
   const sponsoredFPCAccounts = proverConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
   const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
 

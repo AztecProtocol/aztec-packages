@@ -46,6 +46,7 @@
 #include "relations/nullifier_exists.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_mem.hpp"
+#include "relations/protocol_contract.hpp"
 #include "relations/public_data_check.hpp"
 #include "relations/public_data_squash.hpp"
 #include "relations/range_check.hpp"
@@ -105,6 +106,7 @@
 #include "relations/lookups_nullifier_exists.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_poseidon2_mem.hpp"
+#include "relations/lookups_protocol_contract.hpp"
 #include "relations/lookups_public_data_check.hpp"
 #include "relations/lookups_range_check.hpp"
 #include "relations/lookups_retrieved_bytecodes_tree_check.hpp"
@@ -138,15 +140,14 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3013;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 327;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3056;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 328;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3473;
+    static constexpr size_t NUM_ALL_ENTITIES = 3517;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
     using MainRelations_ = flat_tuple::tuple<
-
         // Optimized Relations
         avm2::optimized_poseidon2_perm<FF_>,
         // Relations
@@ -192,6 +193,7 @@ struct AvmFlavorVariables {
         avm2::nullifier_exists<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_mem<FF_>,
+        avm2::protocol_contract<FF_>,
         avm2::public_data_check<FF_>,
         avm2::public_data_squash<FF_>,
         avm2::range_check<FF_>,
@@ -226,13 +228,13 @@ struct AvmFlavorVariables {
         lookup_address_derivation_public_keys_hash_poseidon2_4_relation<FF_>,
         lookup_address_derivation_salted_initialization_hash_poseidon2_0_relation<FF_>,
         lookup_address_derivation_salted_initialization_hash_poseidon2_1_relation<FF_>,
-        lookup_addressing_relative_overflow_range_0_relation<FF_>,
-        lookup_addressing_relative_overflow_range_1_relation<FF_>,
-        lookup_addressing_relative_overflow_range_2_relation<FF_>,
-        lookup_addressing_relative_overflow_range_3_relation<FF_>,
-        lookup_addressing_relative_overflow_range_4_relation<FF_>,
-        lookup_addressing_relative_overflow_range_5_relation<FF_>,
-        lookup_addressing_relative_overflow_range_6_relation<FF_>,
+        lookup_addressing_relative_overflow_result_0_relation<FF_>,
+        lookup_addressing_relative_overflow_result_1_relation<FF_>,
+        lookup_addressing_relative_overflow_result_2_relation<FF_>,
+        lookup_addressing_relative_overflow_result_3_relation<FF_>,
+        lookup_addressing_relative_overflow_result_4_relation<FF_>,
+        lookup_addressing_relative_overflow_result_5_relation<FF_>,
+        lookup_addressing_relative_overflow_result_6_relation<FF_>,
         lookup_alu_exec_dispatching_cast_relation<FF_>,
         lookup_alu_exec_dispatching_set_relation<FF_>,
         lookup_alu_ff_gt_relation<FF_>,
@@ -249,8 +251,12 @@ struct AvmFlavorVariables {
         lookup_alu_shifts_two_pow_relation<FF_>,
         lookup_alu_tag_max_bits_value_relation<FF_>,
         lookup_bc_decomposition_bytes_are_bytes_relation<FF_>,
-        lookup_bc_hashing_get_packed_field_relation<FF_>,
-        lookup_bc_hashing_iv_is_len_relation<FF_>,
+        lookup_bc_hashing_check_final_bytes_remaining_relation<FF_>,
+        lookup_bc_hashing_get_packed_field_0_relation<FF_>,
+        lookup_bc_hashing_get_packed_field_1_relation<FF_>,
+        lookup_bc_hashing_get_packed_field_2_relation<FF_>,
+        lookup_bc_hashing_poseidon2_hash_relation<FF_>,
+        lookup_bc_retrieval_bytecode_hash_is_correct_relation<FF_>,
         lookup_bc_retrieval_class_id_derivation_relation<FF_>,
         lookup_bc_retrieval_contract_instance_retrieval_relation<FF_>,
         lookup_bc_retrieval_is_new_class_check_relation<FF_>,
@@ -266,7 +272,9 @@ struct AvmFlavorVariables {
         lookup_context_ctx_stack_return_relation<FF_>,
         lookup_context_ctx_stack_rollback_relation<FF_>,
         lookup_contract_instance_retrieval_address_derivation_relation<FF_>,
+        lookup_contract_instance_retrieval_check_protocol_address_range_relation<FF_>,
         lookup_contract_instance_retrieval_deployment_nullifier_read_relation<FF_>,
+        lookup_contract_instance_retrieval_protocol_contract_derived_address_relation<FF_>,
         lookup_contract_instance_retrieval_update_check_relation<FF_>,
         lookup_data_copy_check_dst_addr_in_range_relation<FF_>,
         lookup_data_copy_check_src_addr_in_range_relation<FF_>,
@@ -277,10 +285,10 @@ struct AvmFlavorVariables {
         lookup_ecc_mem_input_output_ecc_add_relation<FF_>,
         lookup_emit_notehash_notehash_tree_write_relation<FF_>,
         lookup_emit_nullifier_write_nullifier_relation<FF_>,
-        lookup_emit_unencrypted_log_check_log_size_too_large_relation<FF_>,
+        lookup_emit_unencrypted_log_check_log_fields_count_relation<FF_>,
         lookup_emit_unencrypted_log_check_memory_out_of_bounds_relation<FF_>,
         lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_relation<FF_>,
-        lookup_emit_unencrypted_log_write_log_to_public_inputs_relation<FF_>,
+        lookup_emit_unencrypted_log_write_data_to_public_inputs_relation<FF_>,
         lookup_execution_bytecode_retrieval_result_relation<FF_>,
         lookup_execution_check_radix_gt_256_relation<FF_>,
         lookup_execution_check_written_storage_slot_relation<FF_>,
@@ -290,13 +298,13 @@ struct AvmFlavorVariables {
         lookup_execution_get_p_limbs_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
         lookup_execution_instruction_fetching_result_relation<FF_>,
-        lookup_external_call_call_allocated_left_da_range_relation<FF_>,
-        lookup_external_call_call_allocated_left_l2_range_relation<FF_>,
+        lookup_external_call_call_is_da_gas_allocated_lt_left_relation<FF_>,
+        lookup_external_call_call_is_l2_gas_allocated_lt_left_relation<FF_>,
         lookup_ff_gt_a_hi_range_relation<FF_>,
         lookup_ff_gt_a_lo_range_relation<FF_>,
         lookup_gas_addressing_gas_read_relation<FF_>,
-        lookup_gas_limit_used_da_range_relation<FF_>,
-        lookup_gas_limit_used_l2_range_relation<FF_>,
+        lookup_gas_is_out_of_gas_da_relation<FF_>,
+        lookup_gas_is_out_of_gas_l2_relation<FF_>,
         lookup_get_contract_instance_contract_instance_retrieval_relation<FF_>,
         lookup_get_contract_instance_precomputed_info_relation<FF_>,
         lookup_get_env_var_precomputed_info_relation<FF_>,
@@ -471,6 +479,9 @@ struct AvmFlavorVariables {
         lookup_poseidon2_mem_check_dst_addr_in_range_relation<FF_>,
         lookup_poseidon2_mem_check_src_addr_in_range_relation<FF_>,
         lookup_poseidon2_mem_input_output_poseidon2_perm_relation<FF_>,
+        lookup_protocol_contract_leaf_hash_relation<FF_>,
+        lookup_protocol_contract_merkle_check_relation<FF_>,
+        lookup_protocol_contract_public_input_protocol_contract_root_relation<FF_>,
         lookup_public_data_check_low_leaf_merkle_check_relation<FF_>,
         lookup_public_data_check_low_leaf_next_slot_validation_relation<FF_>,
         lookup_public_data_check_low_leaf_poseidon2_0_relation<FF_>,

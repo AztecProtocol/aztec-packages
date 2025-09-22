@@ -27,8 +27,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "bb": "node --no-warnings ./dest/bb/index.js",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=3500000 --forceExit",
-    "test:debug": "LOG_LEVEL=debug NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=1500000 --forceExit --testNamePattern prover/bb_prover/parity",
-    "get-proof-inputs": "node --no-warnings ./dest/bin/get-proof-inputs.js"
+    "test:debug": "LOG_LEVEL=debug NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=1500000 --forceExit --testNamePattern prover/bb_prover/parity"
   },
   "jest": {
     "moduleNameMapper": {

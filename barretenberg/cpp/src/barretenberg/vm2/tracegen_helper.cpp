@@ -39,6 +39,7 @@
 #include "barretenberg/vm2/tracegen/opcodes/get_contract_instance_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
+#include "barretenberg/vm2/tracegen/protocol_contract_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_data_tree_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_inputs_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
@@ -162,22 +163,6 @@ void print_trace_stats(const TraceContainer& trace)
     info("Sum of all column rows: ", total_rows, " (~2^", numeric::get_msb(numeric::round_up_power_2(total_rows)), ")");
 }
 
-// Check that inverses have been set, if assertions are enabled.
-// WARNING: This will not warn you if the interaction is not exercised.
-void check_interactions([[maybe_unused]] const TraceContainer& trace)
-{
-#ifndef NDEBUG
-    bb::constexpr_for<0, std::tuple_size_v<typename AvmFlavor::LookupRelations>, 1>([&]<size_t i>() {
-        using Settings = typename std::tuple_element_t<i, typename AvmFlavor::LookupRelations>::Settings;
-        if (trace.get_column_rows(Settings::SRC_SELECTOR) != 0 && trace.get_column_rows(Settings::INVERSES) == 0) {
-            std::cerr << "Inverses not set for " << Settings::NAME << ". Did you forget to run a lookup builder?"
-                      << std::endl;
-            std::abort();
-        }
-    });
-#endif
-}
-
 } // namespace
 
 TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events, const PublicInputs& public_inputs)
@@ -187,7 +172,6 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events, const
     fill_trace_columns(trace, std::move(events), public_inputs);
     fill_trace_interactions(trace);
 
-    check_interactions(trace);
     print_trace_stats(trace);
 
     return trace;
@@ -438,6 +422,12 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                                    retrieved_bytecodes_tree_check_builder.process(
                                        events.retrieved_bytecodes_tree_check_events, trace));
                     clear_events(events.retrieved_bytecodes_tree_check_events);
+                },
+                [&]() {
+                    ProtocolContractTraceBuilder protocol_contract_builder;
+                    AVM_TRACK_TIME("tracegen/protocol_contract",
+                                   protocol_contract_builder.process(events.protocol_contract_events, trace));
+                    clear_events(events.protocol_contract_events);
                 } });
 
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
@@ -477,7 +467,8 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
                              GetContractInstanceTraceBuilder::interactions.get_all_jobs(),
                              L1ToL2MessageTreeCheckTraceBuilder::interactions.get_all_jobs(),
                              EmitUnencryptedLogTraceBuilder::interactions.get_all_jobs(),
-                             RetrievedBytecodesTreeCheckTraceBuilder::interactions.get_all_jobs());
+                             RetrievedBytecodesTreeCheckTraceBuilder::interactions.get_all_jobs(),
+                             ProtocolContractTraceBuilder::interactions.get_all_jobs());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

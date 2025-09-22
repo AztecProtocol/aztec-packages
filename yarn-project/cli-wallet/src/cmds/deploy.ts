@@ -1,22 +1,16 @@
-import {
-  type AccountWalletWithSecretKey,
-  AztecAddress,
-  ContractDeployer,
-  type DeployOptions,
-  Fr,
-} from '@aztec/aztec.js';
+import { AztecAddress, ContractDeployer, type DeployOptions, Fr, type Wallet } from '@aztec/aztec.js';
 import { encodeArgs, getContractArtifact } from '@aztec/cli/utils';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getAllFunctionAbis, getInitializer } from '@aztec/stdlib/abi';
 import { PublicKeys } from '@aztec/stdlib/keys';
 
-import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
+import { CLIFeeArgs } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
 import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
 
 export async function deploy(
-  wallet: AccountWalletWithSecretKey,
-  deployer: AztecAddress | undefined,
+  wallet: Wallet,
+  deployer: AztecAddress,
   artifactPath: string,
   json: boolean,
   publicKeys: PublicKeys | undefined,
@@ -27,7 +21,7 @@ export async function deploy(
   skipClassPublication: boolean,
   skipInitialization: boolean | undefined,
   wait: boolean,
-  feeOpts: IFeeOpts,
+  feeOpts: CLIFeeArgs,
   verbose: boolean,
   timeout: number = DEFAULT_TX_TIMEOUT_S,
   debugLogger: Logger,
@@ -59,8 +53,9 @@ export async function deploy(
   }
 
   const deploy = contractDeployer.deploy(...args);
+  const userFeeOptions = await feeOpts.toUserFeeOptions(wallet, deployer);
   const deployOpts: DeployOptions = {
-    ...(await feeOpts.toDeployAccountOpts(wallet)),
+    fee: userFeeOptions,
     from: deployer ?? AztecAddress.ZERO,
     contractAddressSalt: salt,
     universalDeploy: !deployer,
@@ -70,8 +65,7 @@ export async function deploy(
   };
 
   if (feeOpts.estimateOnly) {
-    const gas = await deploy.estimateGas(deployOpts);
-    printGasEstimates(feeOpts, gas, log);
+    await deploy.estimateGas(deployOpts);
     return;
   }
 

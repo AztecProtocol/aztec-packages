@@ -1,22 +1,13 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
-import {
-  type InitialAccountData,
-  deployFundedSchnorrAccounts,
-  generateSchnorrAccounts,
-  getDeployedTestAccounts,
-  getDeployedTestAccountsWallets,
-} from '@aztec/accounts/testing';
+import { type InitialAccountData, generateSchnorrAccounts, getDeployedTestAccounts } from '@aztec/accounts/testing';
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
-  AccountManager,
-  type AccountWalletWithSecretKey,
-  type AztecAddress,
+  AztecAddress,
   type AztecNode,
   BatchCall,
   type ContractMethod,
   type Logger,
-  type PXE,
   type Wallet,
   createAztecNodeClient,
   createLogger,
@@ -65,12 +56,7 @@ import type { P2PClientDeps } from '@aztec/p2p';
 import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
-import {
-  type PXEService,
-  type PXEServiceConfig,
-  createPXEServiceWithSimulator,
-  getPXEServiceConfig,
-} from '@aztec/pxe/server';
+import { type PXEServiceConfig, createPXEServiceWithSimulator, getPXEServiceConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import { MemoryCircuitRecorder, SimulatorRecorderWrapper, WASMSimulator } from '@aztec/simulator/client';
@@ -91,6 +77,7 @@ import {
   initTelemetryClient,
 } from '@aztec/telemetry-client';
 import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
+import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import type { Anvil } from '@viem/anvil';
@@ -155,23 +142,23 @@ export const setupL1Contracts = async (
 };
 
 /**
- * Sets up Private eXecution Environment (PXE).
+ * Sets up Private eXecution Environment (PXE) and returns the corresponding test wallet.
  * @param aztecNode - An instance of Aztec Node.
  * @param opts - Partial configuration for the PXE service.
  * @param logger - The logger to be used.
  * @param useLogSuffix - Whether to add a randomly generated suffix to the PXE debug logs.
- * @returns Private eXecution Environment (PXE), logger and teardown function.
+ * @returns A test wallet, logger and teardown function.
  */
-export async function setupPXEService(
+export async function setupPXEServiceAndGetWallet(
   aztecNode: AztecNode,
   opts: Partial<PXEServiceConfig> = {},
   logger = getLogger(),
   useLogSuffix = false,
 ): Promise<{
   /**
-   * The PXE instance.
+   * The wallet instance.
    */
-  pxe: PXEService;
+  wallet: TestWallet;
   /**
    * Logger instance named as the current test.
    */
@@ -202,8 +189,10 @@ export async function setupPXEService(
 
   const teardown = configuredDataDirectory ? () => Promise.resolve() : () => tryRmDir(pxeServiceConfig.dataDirectory!);
 
+  const wallet = new TestWallet(pxe, aztecNode);
+
   return {
-    pxe,
+    wallet,
     logger,
     teardown,
   };
@@ -233,7 +222,7 @@ async function setupWithRemoteEnvironment(
   await waitForPXE(pxeClient, logger);
   logger.verbose('JSON RPC client connected to PXE');
   logger.verbose(`Retrieving contract addresses from ${PXE_URL}`);
-  const { l1ContractAddresses, rollupVersion } = await pxeClient.getNodeInfo();
+  const { l1ContractAddresses, rollupVersion } = await aztecNode.getNodeInfo();
 
   const l1Client = createExtendedL1Client(config.l1RpcUrls, account, foundry);
 
@@ -243,30 +232,35 @@ async function setupWithRemoteEnvironment(
     rollupVersion,
   };
   const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls);
-  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxeClient!);
+  const wallet = new TestWallet(pxeClient, aztecNode);
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, wallet, aztecNode);
   const teardown = () => Promise.resolve();
 
-  logger.verbose('Constructing available wallets from already registered accounts...');
-  const initialFundedAccounts = await getDeployedTestAccounts(pxeClient);
-  const wallets = await getDeployedTestAccountsWallets(pxeClient);
+  logger.verbose('Populating wallet from already registered accounts...');
+  const initialFundedAccounts = await getDeployedTestAccounts(wallet);
 
-  if (wallets.length < numberOfAccounts) {
-    throw new Error(`Required ${numberOfAccounts} accounts. Found ${wallets.length}.`);
+  if (initialFundedAccounts.length < numberOfAccounts) {
+    throw new Error(`Required ${numberOfAccounts} accounts. Found ${initialFundedAccounts.length}.`);
     // Deploy new accounts if there's a test that requires more funded accounts in the remote environment.
   }
+
+  const testAccounts = await Promise.all(
+    initialFundedAccounts.slice(0, numberOfAccounts).map(async account => {
+      const accountManager = await wallet.createSchnorrAccount(account.secret, account.salt, account.signingKey);
+      return accountManager.getAddress();
+    }),
+  );
 
   return {
     aztecNode,
     aztecNodeAdmin: undefined,
     sequencer: undefined,
     proverNode: undefined,
-    pxe: pxeClient,
     deployL1ContractsValues,
     config,
     initialFundedAccounts,
-    wallets,
-    wallet: wallets[0],
-    accounts: wallets.slice(0, numberOfAccounts).map(w => w.getAddress()),
+    wallet,
+    accounts: testAccounts,
     logger,
     cheatCodes,
     ethCheatCodes,
@@ -338,19 +332,15 @@ export type EndToEndContext = {
   proverNode: ProverNode | undefined;
   /** A client to the sequencer service (undefined if connected to remote environment) */
   sequencer: SequencerClient | undefined;
-  /** The Private eXecution Environment (PXE). */
-  pxe: PXE;
   /** Return values from deployL1Contracts function. */
   deployL1ContractsValues: DeployL1ContractsReturnType;
   /** The Aztec Node configuration. */
   config: AztecNodeConfig;
   /** The data for the initial funded accounts. */
   initialFundedAccounts: InitialAccountData[];
-  /* Wallets created for the initial funded accounts, with secret keys. */
-  wallets: AccountWalletWithSecretKey[];
-  /** The first wallet to be used. */
-  wallet: AccountWalletWithSecretKey;
-  /** The accounts to be used. */
+  /** The wallet to be used. */
+  wallet: TestWallet;
+  /** The wallets to be used. */
   accounts: AztecAddress[];
   /** Logger instance named as the current test. */
   logger: Logger;
@@ -576,7 +566,7 @@ export async function setup(
     await blobSink.start();
     config.blobSinkUrl = `http://localhost:${blobSinkPort}`;
 
-    logger.verbose('Creating and synching an aztec node...');
+    logger.verbose('Creating and synching an aztec node', config);
 
     const acvmConfig = await getACVMConfig(logger);
     if (acvmConfig) {
@@ -658,39 +648,40 @@ export async function setup(
     }
 
     logger.verbose('Creating a pxe...');
-    const { pxe, teardown: pxeTeardown } = await setupPXEService(aztecNode!, pxeOpts, logger);
+    const { wallet, teardown: pxeTeardown } = await setupPXEServiceAndGetWallet(aztecNode!, pxeOpts, logger);
 
-    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxe!);
+    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, wallet, aztecNode);
 
     if (
       (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
       (opts.initialValidators && opts.initialValidators.length > 0)
     ) {
-      // We need to advance to epoch 2 such that the committee is set up.
-      logger.info(`Advancing to epoch 2`);
-      await cheatCodes.rollup.advanceToEpoch(2n, { updateDateProvider: dateProvider });
+      // We need to advance such that the committee is set up.
+      await cheatCodes.rollup.advanceToEpoch((await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochs + 1), {
+        updateDateProvider: dateProvider,
+      });
       await cheatCodes.rollup.setupEpoch();
       await cheatCodes.rollup.debugRollup();
     }
-
+    let accounts: AztecAddress[] = [];
     // Below we continue with what we described in the long comment on line 571.
-    let accountManagers: AccountManager[] = [];
     if (numberOfAccounts === 0) {
       logger.info('No accounts are being deployed, waiting for an empty block 1 to be mined');
-      while ((await pxe.getBlockNumber()) === 0) {
+      while ((await aztecNode.getBlockNumber()) === 0) {
         await sleep(2000);
       }
     } else {
       logger.info(
         `${numberOfAccounts} accounts are being deployed. Reliably progressing past genesis by setting minTxsPerBlock to 1 and waiting for the accounts to be deployed`,
       );
-      accountManagers = await deployFundedSchnorrAccounts(pxe, initialFundedAccounts.slice(0, numberOfAccounts));
+      const accountsData = initialFundedAccounts.slice(0, numberOfAccounts);
+      const accountManagers = await deployFundedSchnorrAccounts(wallet, accountsData);
+      accounts = accountManagers.map(accountManager => accountManager.getAddress());
     }
 
     // Now we restore the original minTxsPerBlock setting.
     sequencerClient!.getSequencer().updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
 
-    const wallets = await Promise.all(accountManagers.map(account => account.getWallet()));
     if (initialFundedAccounts.length < numberOfAccounts) {
       // TODO: Create (numberOfAccounts - initialFundedAccounts.length) wallets without funds.
       throw new Error(
@@ -737,13 +728,11 @@ export async function setup(
       mockGossipSubNetwork,
       prefilledPublicData,
       proverNode,
-      pxe,
       sequencer: sequencerClient,
       teardown,
       telemetryClient: telemetry,
-      wallets,
-      wallet: wallets[0],
-      accounts: wallets.map(w => w.getAddress()),
+      wallet,
+      accounts,
       watcher,
     };
   } catch (err) {
@@ -761,15 +750,14 @@ export async function setup(
  */
 
 // docs:start:public_deploy_accounts
-export async function ensureAccountContractsPublished(sender: Wallet, accountsToDeploy: Wallet[]) {
+export async function ensureAccountContractsPublished(wallet: Wallet, accountsToDeploy: AztecAddress[]) {
   // We have to check whether the accounts are already deployed. This can happen if the test runs against
   // the sandbox and the test accounts exist
   const accountsAndAddresses = await Promise.all(
-    accountsToDeploy.map(async account => {
-      const address = account.getAddress();
+    accountsToDeploy.map(async address => {
       return {
         address,
-        deployed: (await sender.getContractMetadata(address)).isContractPublished,
+        deployed: (await wallet.getContractMetadata(address)).isContractPublished,
       };
     }),
   );
@@ -777,18 +765,18 @@ export async function ensureAccountContractsPublished(sender: Wallet, accountsTo
     await Promise.all(
       accountsAndAddresses
         .filter(({ deployed }) => !deployed)
-        .map(({ address }) => sender.getContractMetadata(address)),
+        .map(({ address }) => wallet.getContractMetadata(address)),
     )
   ).map(contractMetadata => contractMetadata.contractInstance);
   const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
-  if (!(await sender.getContractClassMetadata(contractClass.id, true)).isContractClassPubliclyRegistered) {
-    await (await publishContractClass(sender, SchnorrAccountContractArtifact))
-      .send({ from: accountsToDeploy[0].getAddress() })
+  if (!(await wallet.getContractClassMetadata(contractClass.id, true)).isContractClassPubliclyRegistered) {
+    await (await publishContractClass(wallet, SchnorrAccountContractArtifact))
+      .send({ from: accountsToDeploy[0] })
       .wait();
   }
-  const requests = await Promise.all(instances.map(async instance => await publishInstance(sender, instance!)));
-  const batch = new BatchCall(sender, requests);
-  await batch.send({ from: accountsToDeploy[0].getAddress() }).wait();
+  const requests = await Promise.all(instances.map(async instance => await publishInstance(wallet, instance!)));
+  const batch = new BatchCall(wallet, requests);
+  await batch.send({ from: accountsToDeploy[0] }).wait();
 }
 // docs:end:public_deploy_accounts
 
@@ -869,7 +857,7 @@ export async function expectMappingDelta<K, V extends number | bigint>(
 }
 
 /**
- * Computes the address of the "canonical" SponosoredFPCContract. This is not a protocol contract
+ * Computes the address of the "canonical" SponsoredFPCContract. This is not a protocol contract
  * but by conventions its address is computed with a salt of 0.
  * @returns The address of the sponsored FPC contract
  */
@@ -882,7 +870,7 @@ export function getSponsoredFPCInstance(): Promise<ContractInstanceWithAddress> 
 }
 
 /**
- * Computes the address of the "canonical" SponosoredFPCContract. This is not a protocol contract
+ * Computes the address of the "canonical" SponsoredFPCContract. This is not a protocol contract
  * but by conventions its address is computed with a salt of 0.
  * @returns The address of the sponsored FPC contract
  */
@@ -894,22 +882,22 @@ export async function getSponsoredFPCAddress() {
 /**
  * Deploy a sponsored FPC contract to a running instance.
  */
-export async function setupSponsoredFPC(pxe: PXE) {
+export async function setupSponsoredFPC(wallet: Wallet) {
   const instance = await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
     salt: new Fr(SPONSORED_FPC_SALT),
   });
 
-  await pxe.registerContract({ instance, artifact: SponsoredFPCContract.artifact });
+  await wallet.registerContract({ instance, artifact: SponsoredFPCContract.artifact });
   getLogger().info(`SponsoredFPC: ${instance.address}`);
   return instance;
 }
 
 /**
  * Registers the SponsoredFPC in this PXE instance
- * @param pxe - The pxe client
+ * @param wallet - The wallet
  */
-export async function registerSponsoredFPC(pxe: PXE): Promise<void> {
-  await pxe.registerContract({ instance: await getSponsoredFPCInstance(), artifact: SponsoredFPCContract.artifact });
+export async function registerSponsoredFPC(wallet: Wallet): Promise<void> {
+  await wallet.registerContract({ instance: await getSponsoredFPCInstance(), artifact: SponsoredFPCContract.artifact });
 }
 
 export async function waitForProvenChain(node: AztecNode, targetBlock?: number, timeoutSec = 60, intervalSec = 1) {
@@ -962,6 +950,7 @@ export function createAndSyncProverNode(
       txGatheringTimeoutMs: 24_000,
       proverNodeFailedEpochStore: undefined,
       proverId: EthAddress.fromNumber(1),
+      proverNodeEpochProvingDelayMs: undefined,
       ...proverNodeConfig,
     };
 

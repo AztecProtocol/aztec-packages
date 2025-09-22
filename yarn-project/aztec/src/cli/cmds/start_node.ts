@@ -1,12 +1,13 @@
-import { getInitialTestAccounts } from '@aztec/accounts/testing';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from '@aztec/aztec-node';
 import { Fr } from '@aztec/aztec.js';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
+import { getL1Config } from '@aztec/cli/config';
 import { getPublicClient } from '@aztec/ethereum';
 import { SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
-import { AztecNodeAdminApiSchema, AztecNodeApiSchema, type PXE } from '@aztec/stdlib/interfaces/client';
+import { AztecNodeAdminApiSchema, AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
 import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
 import {
   type TelemetryClientConfig,
@@ -16,7 +17,6 @@ import {
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { createAztecNode } from '../../sandbox/index.js';
-import { getL1Config } from '../get_l1_config.js';
 import {
   extractNamespacedOptions,
   extractRelevantOptions,
@@ -50,7 +50,7 @@ export async function startNode(
 
   await preloadCrsDataForVerifying(nodeConfig, userLog);
 
-  const testAccounts = nodeConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
+  const testAccounts = nodeConfig.testAccounts ? (await getInitialTestAccountsData()).map(a => a.address) : [];
   const sponsoredFPCAccounts = nodeConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
   const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
 
@@ -128,17 +128,13 @@ export async function startNode(
   // Add node stop function to signal handlers
   signalHandlers.push(node.stop.bind(node));
 
-  // Add a PXE client that connects to this node if requested
-  let pxe: PXE | undefined;
-  if (options.pxe) {
-    const { addPXE } = await import('./start_pxe.js');
-    ({ pxe } = await addPXE(options, signalHandlers, services, userLog, { node }));
-  }
-
   // Add a txs bot if requested
   if (options.bot) {
     const { addBot } = await import('./start_bot.js');
-    await addBot(options, signalHandlers, services, { pxe, node, telemetry });
+    const { startPXEServiceGetWallet } = await import('./start_pxe.js');
+    const { wallet } = await startPXEServiceGetWallet(options, services, userLog, { node });
+
+    await addBot(options, signalHandlers, services, wallet, node, telemetry, undefined);
   }
 
   if (nodeConfig.autoUpdate !== 'disabled' && nodeConfig.autoUpdateUrl) {

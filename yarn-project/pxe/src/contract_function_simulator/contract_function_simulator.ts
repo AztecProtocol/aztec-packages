@@ -94,7 +94,7 @@ export class ContractFunctionSimulator {
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
-    const header = await this.executionDataProvider.getBlockHeader();
+    const anchorBlockHeader = await this.executionDataProvider.getAnchorBlockHeader();
 
     await verifyCurrentClassId(contractAddress, this.executionDataProvider);
 
@@ -127,7 +127,7 @@ export class ContractFunctionSimulator {
       request.firstCallArgsHash,
       request.txContext,
       callContext,
-      header,
+      anchorBlockHeader,
       request.authWitnesses,
       request.capsules,
       HashedValuesCache.create(request.argsOfCalls),
@@ -358,7 +358,7 @@ export async function generateSimulatedProvingResult(
   }
 
   const constantData = new TxConstantData(
-    privateExecutionResult.entrypoint.publicInputs.historicalHeader,
+    privateExecutionResult.entrypoint.publicInputs.anchorBlockHeader,
     privateExecutionResult.entrypoint.publicInputs.txContext,
     getVKTreeRoot(),
     protocolContractTreeRoot,

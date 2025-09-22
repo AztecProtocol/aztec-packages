@@ -1,5 +1,5 @@
 import {
-  type AztecAddress,
+  AztecAddress,
   type AztecNode,
   EthAddress,
   Fr,
@@ -7,7 +7,6 @@ import {
   type L1TokenManager,
   type L2AmountClaim,
   type Logger,
-  type PXE,
   type Wallet,
   retryUntil,
 } from '@aztec/aztec.js';
@@ -27,7 +26,6 @@ export interface IGasBridgingTestHarness {
 export interface FeeJuicePortalTestingHarnessFactoryConfig {
   aztecNode: AztecNode;
   aztecNodeAdmin?: AztecNodeAdmin;
-  pxeService: PXE;
   l1Client: ExtendedViemWalletClient;
   wallet: Wallet;
   logger: Logger;
@@ -38,10 +36,10 @@ export class FeeJuicePortalTestingHarnessFactory {
   private constructor(private config: FeeJuicePortalTestingHarnessFactoryConfig) {}
 
   private async createReal() {
-    const { aztecNode, aztecNodeAdmin, pxeService, l1Client, wallet, logger } = this.config;
+    const { aztecNode, aztecNodeAdmin, l1Client, wallet, logger } = this.config;
 
     const ethAccount = EthAddress.fromString((await l1Client.getAddresses())[0]);
-    const l1ContractAddresses = (await pxeService.getNodeInfo()).l1ContractAddresses;
+    const l1ContractAddresses = (await aztecNode.getNodeInfo()).l1ContractAddresses;
 
     const feeJuiceAddress = l1ContractAddresses.feeJuiceAddress;
     const feeJuicePortalAddress = l1ContractAddresses.feeJuicePortalAddress;
@@ -55,7 +53,7 @@ export class FeeJuicePortalTestingHarnessFactory {
     return new GasBridgingTestHarness(
       aztecNode,
       aztecNodeAdmin,
-      pxeService,
+      wallet,
       logger,
       gasL2,
       ethAccount,
@@ -85,8 +83,8 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     public aztecNode: AztecNode,
     /** Aztec node admin interface */
     public aztecNodeAdmin: AztecNodeAdmin | undefined,
-    /** Private eXecution Environment (PXE). */
-    public pxeService: PXE,
+    /** Wallet. */
+    public wallet: Wallet,
     /** Logger. */
     public logger: Logger,
 

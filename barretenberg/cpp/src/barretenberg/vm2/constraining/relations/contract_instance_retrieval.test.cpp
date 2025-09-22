@@ -62,7 +62,6 @@ TEST(ContractInstanceRetrievalConstrainingTest, CompleteValidTrace)
     const auto contract_address = FF(0x1234567890abcdefULL);
     const auto nullifier_tree_root = FF(0xaabbccdd);
     const auto public_data_tree_root = FF(0xeeff1122);
-    const auto deployer_contract_address = FF(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS);
     const auto exists = true;
     const auto salt = FF(0x555);
     const auto deployer_addr = FF(0x123456789ULL);
@@ -99,7 +98,15 @@ TEST(ContractInstanceRetrievalConstrainingTest, CompleteValidTrace)
           { C::contract_instance_retrieval_outgoing_viewing_key_y, outgoing_viewing_key_y },
           { C::contract_instance_retrieval_tagging_key_x, tagging_key_x },
           { C::contract_instance_retrieval_tagging_key_y, tagging_key_y },
-          { C::contract_instance_retrieval_deployer_protocol_contract_address, deployer_contract_address } },
+          { C::contract_instance_retrieval_deployer_protocol_contract_address,
+            CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
+          // Protocol Contract conditionals
+          { C::contract_instance_retrieval_address_sub_one, contract_address - 1 },
+          { C::contract_instance_retrieval_max_protocol_contract_address, MAX_PROTOCOL_CONTRACT_ADDRESS },
+          { C::contract_instance_retrieval_derived_address, contract_address },
+          { C::contract_instance_retrieval_is_protocol_contract, 0 },
+          { C::contract_instance_retrieval_should_check_nullifier, 1 },
+          { C::contract_instance_retrieval_should_check_for_update, 1 } },
     });
 
     check_relation<contract_instance_retrieval>(trace);
@@ -113,7 +120,6 @@ TEST(ContractInstanceRetrievalConstrainingTest, MultipleInstancesTrace)
     const auto base_nullifier_tree_root = 0x2000;
     const auto base_public_data_tree_root = 0x3000;
     const auto base_salt = 100;
-    const auto deployer_contract_address = FF(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS);
 
     // Test multiple contract instances in sequence
     std::vector<std::vector<std::pair<C, FF>>> trace_data;
@@ -148,7 +154,15 @@ TEST(ContractInstanceRetrievalConstrainingTest, MultipleInstancesTrace)
               contract_instance.public_keys.outgoing_viewing_key.y },
             { C::contract_instance_retrieval_tagging_key_x, contract_instance.public_keys.tagging_key.x },
             { C::contract_instance_retrieval_tagging_key_y, contract_instance.public_keys.tagging_key.y },
-            { C::contract_instance_retrieval_deployer_protocol_contract_address, deployer_contract_address },
+            { C::contract_instance_retrieval_deployer_protocol_contract_address,
+              CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
+            // Protocol Contract conditionals
+            { C::contract_instance_retrieval_address_sub_one, (base_address + i) - 1 },
+            { C::contract_instance_retrieval_max_protocol_contract_address, MAX_PROTOCOL_CONTRACT_ADDRESS },
+            { C::contract_instance_retrieval_derived_address, base_address + i },
+            { C::contract_instance_retrieval_is_protocol_contract, 0 },
+            { C::contract_instance_retrieval_should_check_nullifier, 1 },
+            { C::contract_instance_retrieval_should_check_for_update, 1 },
         });
     }
 
@@ -162,7 +176,6 @@ TEST(ContractInstanceRetrievalConstrainingTest, NonExistentInstanceTrace)
     const auto contract_address = FF(0x99999999);
     const auto nullifier_tree_root = FF(0xffffff);
     const auto public_data_tree_root = FF(0xeeeeee);
-    const auto deployer_contract_address = FF(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS);
     const auto exists = false;
 
     // Test trace for non-existent contract instance
@@ -178,7 +191,15 @@ TEST(ContractInstanceRetrievalConstrainingTest, NonExistentInstanceTrace)
           { C::contract_instance_retrieval_init_hash, 0 },
           { C::contract_instance_retrieval_public_data_tree_root, public_data_tree_root },
           { C::contract_instance_retrieval_nullifier_tree_root, nullifier_tree_root },
-          { C::contract_instance_retrieval_deployer_protocol_contract_address, deployer_contract_address } },
+          { C::contract_instance_retrieval_deployer_protocol_contract_address,
+            CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
+          // Protocol Contract conditionals
+          { C::contract_instance_retrieval_address_sub_one, contract_address - 1 },
+          { C::contract_instance_retrieval_max_protocol_contract_address, MAX_PROTOCOL_CONTRACT_ADDRESS },
+          { C::contract_instance_retrieval_derived_address, contract_address },
+          { C::contract_instance_retrieval_is_protocol_contract, 0 },
+          { C::contract_instance_retrieval_should_check_nullifier, 1 },
+          { C::contract_instance_retrieval_should_check_for_update, 0 /*since exists = false*/ } },
     });
 
     check_relation<contract_instance_retrieval>(trace);
@@ -214,7 +235,6 @@ TEST(ContractInstanceRetrievalConstrainingTest, MaximumFieldValuesTrace)
 {
     // Test constants
     const auto max_field = FF(-1); // Maximum field value
-    const auto deployer_contract_address = FF(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS);
 
     // Test trace with maximum field values
     TestTraceContainer trace({
@@ -237,10 +257,66 @@ TEST(ContractInstanceRetrievalConstrainingTest, MaximumFieldValuesTrace)
           { C::contract_instance_retrieval_outgoing_viewing_key_y, max_field },
           { C::contract_instance_retrieval_tagging_key_x, max_field },
           { C::contract_instance_retrieval_tagging_key_y, max_field },
-          { C::contract_instance_retrieval_deployer_protocol_contract_address, deployer_contract_address } },
+          { C::contract_instance_retrieval_deployer_protocol_contract_address,
+            CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
+          // Protocol Contract conditionals
+          { C::contract_instance_retrieval_address_sub_one, max_field - 1 },
+          { C::contract_instance_retrieval_max_protocol_contract_address, MAX_PROTOCOL_CONTRACT_ADDRESS },
+          { C::contract_instance_retrieval_derived_address, max_field },
+          { C::contract_instance_retrieval_is_protocol_contract, 0 },
+          { C::contract_instance_retrieval_should_check_nullifier, 1 },
+          { C::contract_instance_retrieval_should_check_for_update, 1 } },
     });
 
     check_relation<contract_instance_retrieval>(trace);
+}
+
+TEST(ContractInstanceRetrievalConstrainingTest, ProtocolContractInstance)
+{
+    // Test constants
+    const AztecAddress contract_address = FEE_JUICE_ADDRESS;
+    const AztecAddress derived_address = FF(0xabcdef1234567890ULL);
+    const auto nullifier_tree_root = FF(0xbadc0ffeeULL);
+    const auto public_data_tree_root = FF(0xfacefeedUL);
+    const auto exists = true;
+
+    // Test complete valid trace with all constraints
+    TestTraceContainer trace({
+        {
+            { C::precomputed_first_row, 1 },
+            // Protocol Contract Trace
+            { C::protocol_contract_sel, 1 },
+            { C::protocol_contract_canonical_address, contract_address },
+            { C::protocol_contract_derived_address, derived_address },
+            // Field Greater-Than Trace for Protocol Contract Address Check
+            { C::ff_gt_sel, 1 },
+            { C::ff_gt_a, MAX_PROTOCOL_CONTRACT_ADDRESS },
+            { C::ff_gt_b, contract_address - FF(1) },
+            { C::ff_gt_result, 1 },
+        },
+        {
+            // Contract Retrieval Instance Trace
+            { C::contract_instance_retrieval_sel, 1 },
+            { C::contract_instance_retrieval_address, contract_address },
+            { C::contract_instance_retrieval_exists, exists ? 1 : 0 },
+            { C::contract_instance_retrieval_public_data_tree_root, public_data_tree_root },
+            { C::contract_instance_retrieval_nullifier_tree_root, nullifier_tree_root },
+            { C::contract_instance_retrieval_deployer_protocol_contract_address,
+              CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
+            // Protocol Contract conditionals
+            { C::contract_instance_retrieval_address_sub_one, contract_address - FF(1) },
+            { C::contract_instance_retrieval_max_protocol_contract_address, MAX_PROTOCOL_CONTRACT_ADDRESS },
+            { C::contract_instance_retrieval_derived_address, derived_address },
+            { C::contract_instance_retrieval_is_protocol_contract, 1 },
+            { C::contract_instance_retrieval_should_check_nullifier, 0 },
+            { C::contract_instance_retrieval_should_check_for_update, 0 },
+        },
+    });
+
+    check_relation<contract_instance_retrieval>(trace);
+    check_interaction<ContractInstanceRetrievalTraceBuilder,
+                      lookup_contract_instance_retrieval_protocol_contract_derived_address_settings,
+                      lookup_contract_instance_retrieval_check_protocol_address_range_settings>(trace);
 }
 
 // Integration-style tests using tracegen components
@@ -252,7 +328,6 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenValidInstance
     const auto nullifier_tree_root = FF(0xaabbccdd);
     const auto public_data_tree_root = FF(0xeeff1122);
     const auto deployment_nullifier = FF(0x7777);
-    const auto deployer_protocol_contract_address = FF(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS);
 
     // Use real tracegen to generate a valid trace
     EventEmitter<ContractInstanceRetrievalEvent> emitter;
@@ -263,9 +338,9 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenValidInstance
                                              .nullifier_tree_root = nullifier_tree_root,
                                              .public_data_tree_root = public_data_tree_root,
                                              .deployment_nullifier = deployment_nullifier,
-                                             .nullifier_exists = true,
-                                             .deployer_protocol_contract_address = deployer_protocol_contract_address,
-                                             .error = false };
+                                             .exists = true,
+                                             .error = false,
+                                             .is_protocol_contract = false };
 
     emitter.emit(std::move(event));
     auto events = emitter.dump_events();
@@ -290,7 +365,7 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenValidInstance
             { C::nullifier_check_exists, 1 },
             { C::nullifier_check_nullifier, contract_address },
             { C::nullifier_check_root, nullifier_tree_root },
-            { C::nullifier_check_address, deployer_protocol_contract_address },
+            { C::nullifier_check_address, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
             { C::nullifier_check_should_silo, 1 },
             // For address derivation lookup
             { C::address_derivation_sel, 1 },
@@ -335,7 +410,6 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenNonExistentIn
     const auto nullifier_tree_root = FF(0xffffff);
     const auto public_data_tree_root = FF(0xeeeeee);
     const auto deployment_nullifier = FF(0x8888);
-    const auto deployer_protocol_contract_address = FF(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS);
 
     // Use real tracegen to generate a valid trace for non-existent instance
     EventEmitter<ContractInstanceRetrievalEvent> emitter;
@@ -345,9 +419,9 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenNonExistentIn
                                           .nullifier_tree_root = nullifier_tree_root,
                                           .public_data_tree_root = public_data_tree_root,
                                           .deployment_nullifier = deployment_nullifier,
-                                          .nullifier_exists = false, // Non-existent
-                                          .deployer_protocol_contract_address = deployer_protocol_contract_address,
-                                          .error = false };
+                                          .exists = false, // Non-existent
+                                          .error = false,
+                                          .is_protocol_contract = false };
 
     emitter.emit(std::move(event));
     auto events = emitter.dump_events();
@@ -368,7 +442,7 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenNonExistentIn
                   { C::nullifier_check_exists, 0 }, // Non-existent
                   { C::nullifier_check_nullifier, contract_address },
                   { C::nullifier_check_root, nullifier_tree_root },
-                  { C::nullifier_check_address, deployer_protocol_contract_address },
+                  { C::nullifier_check_address, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
                   { C::nullifier_check_should_silo, 1 },
                   // For address derivation lookup
                   { C::address_derivation_sel, 0 }, // Not selected since nullifier doesn't exist
@@ -414,7 +488,6 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenMultipleInsta
     const auto base_nullifier_tree_root = 0x2000;
     const auto base_public_data_tree_root = 0x3000;
     const auto base_salt = 100;
-    const auto deployer_protocol_contract_address = FF(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS);
 
     // Use real tracegen to generate multiple instances
     EventEmitter<ContractInstanceRetrievalEvent> emitter;
@@ -427,10 +500,9 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenMultipleInsta
                                                  .nullifier_tree_root = FF(base_nullifier_tree_root + i),
                                                  .public_data_tree_root = FF(base_public_data_tree_root + i),
                                                  .deployment_nullifier = FF(base_address + i),
-                                                 .nullifier_exists = true,
-                                                 .deployer_protocol_contract_address =
-                                                     deployer_protocol_contract_address,
-                                                 .error = false };
+                                                 .exists = true,
+                                                 .error = false,
+                                                 .is_protocol_contract = false };
 
         emitter.emit(std::move(event));
     }
@@ -458,7 +530,7 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenMultipleInsta
                 { C::nullifier_check_exists, true },
                 { C::nullifier_check_nullifier, FF(base_address + i) },
                 { C::nullifier_check_root, FF(base_nullifier_tree_root + i) },
-                { C::nullifier_check_address, deployer_protocol_contract_address },
+                { C::nullifier_check_address, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
                 { C::nullifier_check_should_silo, 1 },
                 // For address derivation lookup (only when nullifier exists)
                 { C::address_derivation_sel, 1 },

@@ -5,6 +5,7 @@ mod accounts;
 mod deployment;
 mod private_context;
 mod public_context;
+mod notes;
 
 #[test(should_fail_with = "cannot be before next timestamp")]
 unconstrained fn set_next_block_timestamp_to_past_fails() {
@@ -54,10 +55,13 @@ unconstrained fn set_next_block_timestamp_sets_next_private_context_inclusion_bl
     env.set_next_block_timestamp(expected_next_block_timestamp);
 
     // Note that for private_context what is set is the timestamp of the block that'll be created with the effects
-    // collected there - NOT the timestamp of the historical block in the context, which corresponds to the last block's
+    // collected there - NOT the timestamp of the anchor block in the context, which corresponds to the last block's
     // timestamp.
     env.private_context(|context| {
-        assert_eq(context.get_block_header().global_variables.timestamp, last_block_timestamp);
+        assert_eq(
+            context.get_anchor_block_header().global_variables.timestamp,
+            last_block_timestamp,
+        );
     });
 
     assert_eq(env.last_block_timestamp(), expected_next_block_timestamp);
@@ -192,7 +196,10 @@ unconstrained fn private_context_uses_last_block_number() {
     let last_block_number = env.last_block_number();
 
     env.private_context(|context| {
-        assert_eq(last_block_number, context.get_block_header().global_variables.block_number);
+        assert_eq(
+            last_block_number,
+            context.get_anchor_block_header().global_variables.block_number,
+        );
     });
 }
 
@@ -200,10 +207,12 @@ unconstrained fn private_context_uses_last_block_number() {
 unconstrained fn private_context_advances_block_number() {
     let env = TestEnvironment::new();
 
-    let first_block_number =
-        env.private_context(|context| context.get_block_header().global_variables.block_number);
-    let second_block_number =
-        env.private_context(|context| context.get_block_header().global_variables.block_number);
+    let first_block_number = env.private_context(|context| {
+        context.get_anchor_block_header().global_variables.block_number
+    });
+    let second_block_number = env.private_context(|context| {
+        context.get_anchor_block_header().global_variables.block_number
+    });
 
     assert_eq(second_block_number, first_block_number + 1);
 }
@@ -230,19 +239,26 @@ unconstrained fn private_context_repeats_contract_address() {
     assert_eq(first_address, second_address);
 }
 
-// utility_context currently uses the _next_ block number, not the last one. This is because we actually have a single
-// oracle for the block number, which has a meaning that depends on the current context. Once all three contexts are
-// implemented as actual separate handlers we'll be able to make this test pass.
-// #[test]
-// unconstrained fn utility_context_uses_last_block_number() {
-//     let env = TestEnvironment::new();
+#[test]
+unconstrained fn utility_context_uses_last_block_number() {
+    let env = TestEnvironment::new();
 
-//     let last_block_number = env.last_block_number();
+    let last_block_number = env.last_block_number();
 
-//     env.utility_context(|context| {
-//         assert_eq(last_block_number, context.block_number());
-//     });
-// }
+    env.utility_context(|context| { assert_eq(last_block_number, context.block_number()); });
+}
+
+#[test]
+unconstrained fn utility_context_uses_last_block_timestamp() {
+    let env = TestEnvironment::new();
+
+    let last_block_timestamp = env.last_block_timestamp();
+
+    // This will not affect utility context, as it uses the last timestamp, not the next one
+    env.set_next_block_timestamp(last_block_timestamp + 100);
+
+    env.utility_context(|context| { assert_eq(last_block_timestamp, context.timestamp()); });
+}
 
 #[test]
 unconstrained fn utility_context_does_not_advance_block_number() {
