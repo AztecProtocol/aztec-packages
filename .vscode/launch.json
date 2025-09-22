@@ -44,6 +44,18 @@
       ],
     },
     {
+      // Debug databus_composite_calldata acir test
+      "name": "Debug databus_composite_calldata acir test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-fast-no-avm/bin/bb",
+      "args": ["prove", "--scheme", "ultra_honk", "--output_path", ".", "-b", "$./target/witness.gz"],
+      "cwd": "${workspaceFolder}/barretenberg/acir_tests/acir_tests/databus_composite_calldata",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    },
+    {
       "name": "Debug test_graph_for_arithmetic_gates",
       "type": "lldb",
       "request": "launch",
