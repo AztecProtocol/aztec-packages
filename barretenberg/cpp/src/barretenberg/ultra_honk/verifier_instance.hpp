@@ -17,8 +17,9 @@ namespace bb {
  *
  * @details This is ϕ in the paper.
  */
-template <IsUltraOrMegaHonk Flavor> class VerifierInstance_ {
+template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
   public:
+    using Flavor = Flavor_;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;

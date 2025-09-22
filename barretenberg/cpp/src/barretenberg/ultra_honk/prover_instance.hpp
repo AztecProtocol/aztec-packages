@@ -33,7 +33,8 @@ namespace bb {
  * @details This is the equivalent of ω in the paper.
  */
 
-template <IsUltraOrMegaHonk Flavor> class ProverInstance_ {
+template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
+    using Flavor = Flavor_;
     using Circuit = typename Flavor::CircuitBuilder;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using FF = typename Flavor::FF;
