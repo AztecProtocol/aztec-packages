@@ -1,4 +1,5 @@
 import {
+  AVM_EMITUNENCRYPTEDLOG_BASE_DA_GAS,
   AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS,
   AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS,
   AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS,
@@ -326,7 +327,9 @@ describe('Accrued Substate', () => {
       expect(context.machineState.l2GasLeft).toEqual(
         l2GasBefore - AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS - AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS * values.length,
       );
-      expect(context.machineState.daGasLeft).toEqual(daGasBefore - AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS * values.length);
+      expect(context.machineState.daGasLeft).toEqual(
+        daGasBefore - AVM_EMITUNENCRYPTEDLOG_BASE_DA_GAS - AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS * values.length,
+      );
     });
   });
 
