@@ -31,6 +31,7 @@ names:
   - saleel: &saleel "U07KJ0AV20J"
   - nico: &nico "U06D2QSLY10"
   - lucas: &lucas "U05MW7WQ8LQ"
+  - suyash: &suyash "U08QFSL6LPM"
 
 tests:
   # barretenberg
@@ -83,6 +84,17 @@ tests:
     error_regex: "ultra_circuit_builder.test.cpp:631: Failure"
     owners:
       - *luke
+
+  # /home/aztec-dev/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib/primitives/bigfield/bigfield_edge_cases.test.cpp:142: Failure
+  # Expected equality of these values:
+  #   combined_a.get_value() > fq_ct::modulus
+  #     Which is: false
+  #   true
+  # http://ci.aztec-labs.com/9cb61bfe05d4f32f
+  - regex: "stdlib_primitives_tests stdlib_bigfield_edge_cases/2.reduction_check_works"
+    error_regex: "combined_a.get_value() > fq_ct::modulus"
+    owners:
+      - *suyash
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
