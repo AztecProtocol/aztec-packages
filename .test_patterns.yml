@@ -239,6 +239,11 @@ tests:
     error_regex: "timeout: sending signal TERM to command|ValidatorSelection__InsufficientValidatorSetSize"
     owners:
       - *palla
+  # http://ci.aztec-labs.com/2927032942451013
+  - regex: "src/e2e_p2p/valid_epoch_pruned_slash.test.ts"
+    error_regex: "Timeout waiting for proposal execution"
+    owners:
+      - *palla
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
