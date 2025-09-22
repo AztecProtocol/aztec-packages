@@ -25,7 +25,7 @@ namespace bb::stdlib {
  * @note Please don't use this constructor in case you want to assign the
  * coordinates later.
  */
-// WORKTODO: is this fuzzer only logic? if so lets mark it accordingly e.g. with sig (Builder* _context, FUZZER_ONLY)
+// AUDITTODO: Used only by fuzzer. Remove if possible, otherwise mark it accordingly.
 template <typename Builder> cycle_group<Builder>::cycle_group(Builder* _context)
 {
     *this = constant_infinity(_context);
@@ -97,6 +97,7 @@ cycle_group<Builder>::cycle_group(const bb::fr& _x, const bb::fr& _y, bool is_in
  * @tparam Builder
  * @param _in
  */
+// AUDITTODO: Used only by fuzzer. Remove if possible, otherwise mark it accordingly.
 template <typename Builder>
 cycle_group<Builder>::cycle_group(const AffineElement& _in)
     : x(_in.is_point_at_infinity() ? 0 : _in.x)
@@ -257,6 +258,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::get_stand
  * Depending on constant'ness of the predicate put the coordinates in an apropriate standard form.
  *
  */
+// AUDITTODO: Used only by fuzzer. Remove/simplify if possible, otherwise mark it accordingly.
 template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(const bool_t& is_infinity)
 {
     this->_is_standard = true;
