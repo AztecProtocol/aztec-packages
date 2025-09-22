@@ -195,11 +195,13 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
     ctx->range_constrain_two_limbs(limb_0.get_normalized_witness_index(),
                                    limb_1.get_normalized_witness_index(),
                                    static_cast<size_t>(NUM_LIMB_BITS),
-                                   static_cast<size_t>(NUM_LIMB_BITS));
+                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                   "bigfield::create_from_u512_as_witness: limb 0 or 1 too large");
     ctx->range_constrain_two_limbs(limb_2.get_normalized_witness_index(),
                                    limb_3.get_normalized_witness_index(),
                                    static_cast<size_t>(NUM_LIMB_BITS),
-                                   static_cast<size_t>(num_last_limb_bits));
+                                   static_cast<size_t>(num_last_limb_bits),
+                                   "bigfield::create_from_u512_as_witness: limb 2 or 3 too large");
 
     // Mark the element as coming out of nowhere
     result.set_free_witness_tag();
@@ -2249,7 +2251,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         ctx->range_constrain_two_limbs(hi.get_normalized_witness_index(),
                                        lo.get_normalized_witness_index(),
                                        static_cast<size_t>(carry_hi_msb),
-                                       static_cast<size_t>(carry_lo_msb));
+                                       static_cast<size_t>(carry_lo_msb),
+                                       "bigfield::unsafe_evaluate_multiply_add: carries too large");
     } else {
         ctx->decompose_into_default_range(hi.get_normalized_witness_index(), carry_hi_msb);
         ctx->decompose_into_default_range(lo.get_normalized_witness_index(), carry_lo_msb);
@@ -2548,7 +2551,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         ctx->range_constrain_two_limbs(hi.get_normalized_witness_index(),
                                        lo.get_normalized_witness_index(),
                                        static_cast<size_t>(carry_hi_msb),
-                                       static_cast<size_t>(carry_lo_msb));
+                                       static_cast<size_t>(carry_lo_msb),
+                                       "bigfield::unsafe_evaluate_multiply_add: carries too large");
     } else {
         ctx->decompose_into_default_range(hi.get_normalized_witness_index(), carry_hi_msb);
         ctx->decompose_into_default_range(lo.get_normalized_witness_index(), carry_lo_msb);

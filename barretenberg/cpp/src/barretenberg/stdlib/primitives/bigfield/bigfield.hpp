@@ -208,14 +208,16 @@ template <typename Builder, typename T> class bigfield {
         ctx->range_constrain_two_limbs(result.binary_basis_limbs[0].element.get_normalized_witness_index(),
                                        result.binary_basis_limbs[1].element.get_normalized_witness_index(),
                                        static_cast<size_t>(NUM_LIMB_BITS),
-                                       static_cast<size_t>(NUM_LIMB_BITS));
+                                       static_cast<size_t>(NUM_LIMB_BITS),
+                                       "bigfield::construct_from_limbs: limb 0 or 1 too large");
 
         // Range constrain the last two limbs to NUM_LIMB_BITS and NUM_LAST_LIMB_BITS
         const size_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
         ctx->range_constrain_two_limbs(result.binary_basis_limbs[2].element.get_normalized_witness_index(),
                                        result.binary_basis_limbs[3].element.get_normalized_witness_index(),
                                        static_cast<size_t>(NUM_LIMB_BITS),
-                                       static_cast<size_t>(num_last_limb_bits));
+                                       static_cast<size_t>(num_last_limb_bits),
+                                       "bigfield::construct_from_limbs: limb 2 or 3 too large");
 
         return result;
     };

@@ -1633,7 +1633,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
     BB_ASSERT_LTE(lo_limb_bits, 14U * 5U);
     BB_ASSERT_LTE(hi_limb_bits, 14U * 5U);
 
-    // If the value is larger than the range, we raise the error flag
+    // If the value is larger than the range, we log the error in builder
     if (uint256_t(this->get_variable_reference(lo_idx)) >= (uint256_t(1) << lo_limb_bits)) {
         this->failure(msg + ": lo limb.");
     }
@@ -1726,7 +1726,8 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::decompose_non_nati
     BB_ASSERT_GT(num_limb_bits, DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     const size_t lo_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
     const size_t hi_bits = num_limb_bits - DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-    range_constrain_two_limbs(low_idx, hi_idx, lo_bits, hi_bits);
+    range_constrain_two_limbs(
+        low_idx, hi_idx, lo_bits, hi_bits, "decompose_non_native_field_double_width_limb: limbs too large");
 
     return std::array<uint32_t, 2>{ low_idx, hi_idx };
 }
