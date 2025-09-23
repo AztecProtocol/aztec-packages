@@ -22,7 +22,6 @@ template <typename CircuitBuilder> class pedersen_commitment {
 
   public:
     static cycle_group commit(const std::vector<field_t>& inputs, GeneratorContext context = {});
-    static cycle_group commit(const std::vector<std::pair<field_t, GeneratorContext>>& input_pairs);
 };
 
 } // namespace bb::stdlib
