@@ -37,7 +37,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
       crossChainTestHarness!.l1ContractAddresses.rollupAddress,
     );
 
-    cheatCodes = await CheatCodes.create(t.aztecNodeConfig.l1RpcUrls, t.wallet, t.aztecNode);
+    cheatCodes = t.ctx.cheatCodes;
   }, 300_000);
 
   afterEach(async () => {

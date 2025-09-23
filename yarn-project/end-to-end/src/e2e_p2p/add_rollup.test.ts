@@ -317,7 +317,7 @@ describe('e2e_p2p_add_rollup', () => {
         const leafId = getL2ToL1MessageLeafId(l2ToL1MessageResult!);
 
         // We need to mark things as proven
-        const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses);
+        const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses, t.ctx.dateProvider);
         await cheatcodes.markAsProven();
 
         // Then we want to go and comsume it!

@@ -182,11 +182,11 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'initial_accounts',
       deployAccounts(this.numberOfAccounts, this.logger),
-      async ({ deployedAccounts }, { wallet, aztecNode, aztecNodeConfig }) => {
+      async ({ deployedAccounts }, { wallet, aztecNode, cheatCodes }) => {
         this.wallet = wallet;
         this.aztecNode = aztecNode;
         this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentBaseFees()).mul(2) });
-        this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, wallet, aztecNode);
+        this.cheatCodes = cheatCodes;
         this.accounts = deployedAccounts.map(a => a.address);
         this.accounts.forEach((a, i) => this.logger.verbose(`Account ${i} address: ${a}`));
         [this.aliceAddress, this.bobAddress, this.sequencerAddress] = this.accounts.slice(0, 3);

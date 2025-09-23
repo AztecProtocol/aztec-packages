@@ -108,7 +108,6 @@ describe('e2e_epochs/epochs_first_slot', () => {
     const [epochStart] = getTimestampRangeForEpoch(EPOCH, test.constants);
     await test.context.cheatCodes.eth.warp(Number(epochStart) - test.L1_BLOCK_TIME_IN_S, {
       resetBlockInterval: true,
-      updateDateProvider: test.context.dateProvider,
     });
 
     // Start the sequencers

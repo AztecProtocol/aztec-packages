@@ -97,7 +97,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     const { rollup, slashingProposer, slashFactory } = await t.getContracts();
 
     // Jump forward to an epoch in the future such that the validator set is not empty
-    await t.ctx.cheatCodes.rollup.advanceToEpoch(4n, { updateDateProvider: t.ctx.dateProvider });
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(4n);
     await debugRollup();
 
     const [activationThreshold, ejectionThreshold, localEjectionThreshold] = await Promise.all([
@@ -139,7 +139,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     // Considering the slot duration is 32 seconds,
     // Considering the epoch duration is 2 slots,
     // we have ~64 seconds to do this.
-    await t.ctx.cheatCodes.rollup.advanceToEpoch(8n, { updateDateProvider: t.ctx.dateProvider });
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(8n);
     await t.sendDummyTx();
     await debugRollup();
 
@@ -191,7 +191,6 @@ describe('e2e_p2p_data_withholding_slash', () => {
       slashingRoundSize,
       aztecSlotDuration: AZTEC_SLOT_DURATION,
       logger: t.logger,
-      dateProvider: t.ctx.dateProvider,
       offenseEpoch,
       aztecEpochDuration,
     });
