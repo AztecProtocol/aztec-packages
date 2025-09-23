@@ -147,18 +147,53 @@ void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
         accumulator->set_overflow_size(incoming->get_overflow_size()); // swap overflow size
     }
 
-    // Fold the proving key polynomials
-    parallel_for([&accumulator, &lagranges](const ThreadChunk& chunk) {
-        for (auto& poly : accumulator->polynomials.get_unshifted()) {
-            poly.multiply_chunk(chunk, lagranges[0]);
-        }
-    });
+    // Fold the prover polynomials
+    auto accumulator_polys = accumulator->polynomials.get_unshifted();
+    auto key_polys = incoming->polynomials.get_unshifted();
 
-    // This cannot be combined with the previous parallel_for because add_scaled_chunk is by the key_poly size
-    parallel_for([&accumulator, &lagranges, &incoming](const ThreadChunk& chunk) {
-        for (auto [acc_poly, key_poly] :
-             zip_view(accumulator->polynomials.get_unshifted(), incoming->polynomials.get_unshifted())) {
-            acc_poly.add_scaled_chunk(chunk, key_poly, lagranges[1]);
+    // Instead of iterating the polynomial set and multithreading each inner polynomial,
+    // we only spin up threads to cover the whole polynomial set e.g. say we have 50 polys all of size 100k and have 10
+    // threads we want each thread to iterate over 50 polys and iterate over a 10k range (and not spin up 500 threads
+    // where each thread iterates over a 10k range for 1 poly)
+    const size_t num_polys = key_polys.size();
+    size_t max_size = 0;
+    for (size_t i = 0; i < num_polys; ++i) {
+        max_size = std::max(max_size, key_polys[i].size());
+        max_size = std::max(max_size, accumulator_polys[i].size());
+    }
+    const size_t num_threads = calculate_num_threads(max_size);
+
+    // Convert the polynomials into spans to remove boundary checks and if checks that normally apply when calling
+    // getter/setters in Polynomial (see SharedShiftedVirtualZeroesArray::get)
+    std::vector<PolynomialSpan<FF>> acc_spans;
+    std::vector<PolynomialSpan<FF>> key_spans;
+    acc_spans.reserve(num_polys);
+    key_spans.reserve(num_polys);
+    for (size_t i = 0; i < num_polys; ++i) {
+        acc_spans.emplace_back(static_cast<PolynomialSpan<FF>>(accumulator_polys[i]));
+        key_spans.emplace_back(static_cast<PolynomialSpan<FF>>(key_polys[i]));
+    }
+
+    // Multithread the next part which computes the folded polynomials
+    parallel_for(num_threads, [&](size_t j) {
+        for (size_t i = 0; i < num_polys; ++i) {
+            auto& acc = acc_spans[i];
+            auto& key = key_spans[i];
+            BB_ASSERT_LTE(acc.start_index, key.start_index);
+            BB_ASSERT_GTE(acc.end_index(), key.end_index());
+            const size_t range_per_thread = key.size() / num_threads;
+            const size_t leftovers = key.size() - (range_per_thread * num_threads);
+
+            const size_t offset = j * range_per_thread + key.start_index;
+            const size_t end =
+                (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
+
+            // for each polynomial, we fold by computing acc = acc * lagranges[0] + key * lagranges[1]
+            // which is equivalent to acc * (1 - gamma) + key * gamma
+            // which is equivalent to acc + (key - acc) * gamma
+            for (size_t k = offset; k < end; ++k) {
+                acc[k] += (key[k] - acc[k]) * combiner_challenge;
+            }
         }
     });
 
