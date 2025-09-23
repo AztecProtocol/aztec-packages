@@ -13,7 +13,7 @@ namespace bb {
 // Number of instances to be folded
 static constexpr std::size_t NUM_INSTANCES = 2;
 
-// Number of coeffiecients whose calculation is to be skipped in the calculation of the combiner
+// Number of coefficients whose calculation is to be skipped in the calculation of the combiner
 static constexpr std::size_t SKIP_COUNT = NUM_INSTANCES - 1;
 
 /**

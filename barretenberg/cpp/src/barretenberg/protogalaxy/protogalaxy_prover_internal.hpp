@@ -43,9 +43,9 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
         bb::RelationParameters<Univariate<FF, EXTENDED_LENGTH, 0, /*skip_count=*/SKIP_COUNT>>;
     using UnivariateSubrelationSeparators = std::array<Univariate<FF, BATCHED_EXTENDED_LENGTH>, NUM_SUBRELATIONS - 1>;
 
-    // Container for a folded subrelation
+    // Univariates that interpolate polynomial evaluations at a given vertex across two instances
     using ExtendedUnivariate = Univariate<FF, EXTENDED_LENGTH>;
-    // Container for the combiner
+    // Combiner univariate
     using ExtendedUnivariateWithRandomization = Univariate<FF, BATCHED_EXTENDED_LENGTH>;
 
     /**
@@ -89,19 +89,9 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
     {}
 
     /**
-     * @brief For a fixed row index and each polynomial, construct univariates from the corresponding value
-     * from each prover instance over the domain 0, .., EXTENDED_LENGTH-1.
+     * @brief Constructs univariates that interpolate the values of each instance across a given row.
      *
-     * @example If the row index is 2, and there are 4 prover instances, visually we have
-     *
-     *           PK 0             PK 1             PK 2             PK 3
-     *           q_c q_l q_r ...  q_c q_l q_r ...  q_c q_l q_r ...  q_c q_l q_r ...
-     *           *   *            *   *            *   *            *   *
-     *           a_1 a_2 a_3 ...  b_1 b_2 b_3 ...  c_1 c_2 c_3 ...  d_1 d_2 d_3 ...
-     *           *   *            *   *            *   *            *   *
-     *           ⋮    ⋮             ⋮   ⋮             ⋮   ⋮             ⋮   ⋮
-     *
-     * and the function returns the univariates [{a_1, b_1, c_1, d_1}, {a_2, b_2, c_2, d_2}, ...]
+     * @details The returned univariates are over the domain 0, .., EXTENDED_LENGTH - 1.
      *
      * @tparam skip_count The number of evaluations to skip in the returned univariates. Used only if not using short
      * monomials.
