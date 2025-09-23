@@ -423,12 +423,11 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
             for (const ExecutionTraceUsageTracker::Range& range : trace_usage_tracker.thread_ranges[thread_idx]) {
                 for (size_t idx = range.first; idx < range.second; idx++) {
                     // Instantiate extended univariates: they contain the evaluations of the prover polynomials from the
-                    // instances being folded and are extended to length ProverInstances::EXTENDED_LENGTH, which is the
-                    // maximum length of a folded subrelation polynomial. We set skip_count to ProverInstances::NUM-1
-                    // because the relations evaluate to zero on valid keys, and the evaluations of the combiner on the
-                    // points 1, ..., ProverInstances::NUM-1 are exactly the relation contributions coming from the keys
-                    // being folded (note that the Univariate class skips computing evaluations between 1 and
-                    // skip_count).
+                    // instances being folded and are extended to length EXTENDED_LENGTH, which is the maximum length of
+                    // a folded subrelation polynomial. We set skip_count to NUM_INSTANCES - 1 = 1 because the
+                    // relations evaluate to zero on valid keys, and the evaluations of the combiner on the point 1,
+                    // is exactly the relation contributions coming from the key being folded (note that the Univariate
+                    // class skips computing evaluations between 1 and skip_count).
                     //
                     // The values of the evaluations are still available for skipping relations, but all
                     // derived univariates (coming from addition, multiplication, etc) will ignore those evaluations.
@@ -546,10 +545,9 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
      * instances at once.
      *
      * @details The combiner quotient is defined by the formula \f$G(X) = F(\alpha) L_0(X) + Z(X) K(X)\f$. The
-     * polynomial \f$Z(X)\f$ is the vanishing polynomial of the set 0, .., ProverInstances::NUM-1. Therefore, we cannot
-     * compute the value of \f$K(X)\f$ on these values. We evaluate \f$K(X)\f$ on ProverInstances::NUM, ...,
-     * ProverInstances::BATCHED_EXTENDED_LENGTH (the length of the combiner) and we return the univariate over this
-     * domain.
+     * polynomial \f$Z(X)\f$ is the vanishing polynomial of the set 0, NUM_INSTANCES-1 = 1. Therefore, we cannot
+     * compute the value of \f$K(X)\f$ on these values. We evaluate \f$K(X)\f$ on NUM_INSTANCES = 2, ...,
+     * BATCHED_EXTENDED_LENGTH (the length of the combiner) and we return the univariate over this domain.
      *
      */
     static Univariate<FF, BATCHED_EXTENDED_LENGTH, NUM_INSTANCES> compute_combiner_quotient(
@@ -570,7 +568,7 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
 
     /**
      * @brief For each parameter, collect the value in each ProverInstance in a univariate and extend for use in the
-     * combiner compute.
+     * combiner computation.
      *
      * @note Univariates are in Lagrange basis. Therefore, this function returns the folded relation parameters.
      *
@@ -578,9 +576,8 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
      * challenges. As the relation parameters are part of the instance, they must be folded. This function arranges the
      * relation parameters from the instances in a matrix where column i represents the relation parameters from the
      * i-th instance to be folded and then defines a univariate for each row of the matrix by using the relation
-     * parameters in that row as coefficients. The univariates are extended up to length
-     * ProverInstances::EXTENDED_LENGTH, which is the max length of a subrelation when the relation parameters are
-     * considered as variables.
+     * parameters in that row as coefficients. The univariates are extended up to length EXTENDED_LENGTH, which is the
+     * max length of a subrelation when the relation parameters are considered as variables.
      */
     template <typename ExtendedRelationParameters>
     static ExtendedRelationParameters compute_extended_relation_parameters(const ProverInstances& instances)
@@ -608,13 +605,8 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
      * challenges: the alphas. As the alphas are part of the instance, they must be folded. This function arranges the
      * alphas from the instances in a matrix where column i represents the alphas from the i-th instance to be folded
      * and then defines a univariate for each row of the matrix by using the alphas in that row as coefficients. The
-     * univariates are extended up to length ProverInstances::BATCHED_EXTENDED_LENGTH, which is the max degree of the
+     * univariates are extended up to length BATCHED_EXTENDED_LENGTH, which is the max degree of the
      * \f$f_i\f$'s in the relation calculation.
-     *
-     *  \f$alpha_{1,1}\f$ \f$alpha_{2,1}\f$ --> result[0] = (\f$alpha_{1,1}\f$, \f$alpha_{2,1}\f$, ...)
-     *  \f$alpha_{1,2}\f$ \f$alpha_{2,2}\f$                                     ...
-     *     ...          ...
-     *  \f$alpha_{1,n}\f$ \f$alpha_{2,n}\f$ --> result[n-1] = (\f$alpha_{1,n}\f$, \f$alpha_{2,n}\f$, ...)
      */
     static UnivariateSubrelationSeparators compute_and_extend_alphas(const ProverInstances& instances)
     {
