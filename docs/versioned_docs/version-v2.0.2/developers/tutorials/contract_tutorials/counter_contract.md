@@ -71,45 +71,42 @@ pub contract Counter {
 }
 ```
 
-```rust title="imports" showLineNumbers 
+```rust title="imports" showLineNumbers
 use aztec::{
-    macros::{functions::{initializer, private, public, utility}, storage::storage},
+    macros::{functions::{initializer, private, utility}, storage::storage},
     oracle::debug_log::debug_log_format,
     protocol_types::{address::AztecAddress, traits::ToField},
     state_vars::Map,
 };
 use easy_private_state::EasyPrivateUint;
 ```
+
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v2.0.2/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L7-L15" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L7-L15</a></sub></sup>
 
-
-- `use aztec::macros::{functions::{initializer, private, utility}, storage::storage};`
+- `use aztec::macros::{functions::{initializer, private, utility}, storage::storage},`
   Imports the macros needed to define function types (`initializer`, `private`, and `utility`) and the `storage` macro for declaring contract storage structures.
 
-- `use aztec::prelude::{AztecAddress, Map};`
-  Brings in `AztecAddress` (used to identify accounts/contracts) and `Map` (used for creating state mappings, like our counters).
+- `protocol_types::{address::AztecAddress, traits::ToField},`
+  Brings in `AztecAddress` (used to identify accounts/contracts) and traits for converting values to and from field elements, necessary for serialization and formatting inside Aztec.
 
-- `use aztec::protocol_types::traits::{FromField, ToField};`
-  Provides traits for converting values to and from field elements, necessary for serialization and formatting inside Aztec.
+- `state_vars::Map,`
+  Brings in `Map`, used for creating state mappings, like our counters.
 
 - `use easy_private_state::EasyPrivateUint;`
   Imports a wrapper to manage private integer-like state variables (ie our counter), abstracting away notes.
-
-- `use value_note::{balance_utils, value_note::ValueNote};`
-  Brings in `ValueNote`, which represents a private value stored as a note, and `balance_utils`, which makes working with notes feel like working with simple balances.
 
 ## Declare storage
 
 Add this below the imports. It declares the storage variables for our contract. We are going to store a mapping of values for each `AztecAddress`.
 
-```rust title="storage_struct" showLineNumbers 
+```rust title="storage_struct" showLineNumbers
 #[storage]
 struct Storage<Context> {
     counters: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v2.0.2/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L17-L22" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L17-L22</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v2.0.2/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L17-L22" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L17-L22</a></sub></sup>
 
 ## Keep the counter private
 
@@ -117,7 +114,7 @@ Now we’ve got a mechanism for storing our private state, we can start using it
 
 Let’s create a constructor method to run on deployment that assigns an initial count to a specified owner. This function is called `initialize`, but behaves like a constructor. It is the `#[initializer]` decorator that specifies that this function behaves like a constructor. Write this:
 
-```rust title="constructor" showLineNumbers 
+```rust title="constructor" showLineNumbers
 #[initializer]
 #[private]
 // We can name our initializer anything we want as long as it's marked as aztec(initializer)
@@ -126,8 +123,8 @@ fn initialize(headstart: u64, owner: AztecAddress) {
     counters.at(owner).add(headstart, owner);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v2.0.2/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L24-L32" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L24-L32</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v2.0.2/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L24-L32" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L24-L32</a></sub></sup>
 
 This function accesses the counts from storage. Then it assigns the passed initial counter to the `owner`'s counter privately using `at().add()`.
 
@@ -137,38 +134,31 @@ We have annotated this and other functions with `#[private]` which are ABI macro
 
 Now let’s implement the `increment` function we defined in the first step.
 
-```rust title="increment" showLineNumbers 
+```rust title="increment" showLineNumbers
 #[private]
 fn increment(owner: AztecAddress) {
     debug_log_format("Incrementing counter for owner {0}", [owner.to_field()]);
-
-    Counter::at(context.this_address()).emit_in_public(12345).enqueue(&mut context);
-
     let counters = storage.counters;
     counters.at(owner).add(1, owner);
 }
 ```
+
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v2.0.2/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L34-L44" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L34-L44</a></sub></sup>
 
-
 The `increment` function works very similarly to the `constructor`, but instead directly adds 1 to the counter rather than passing in an initial count parameter.
-
-## Prevent double spending
-
-Because our counters are private, the network can't directly verify if a note was spent or not, which could lead to double-spending. To solve this, we use a nullifier - a unique identifier generated from each spent note and its nullifier key. You can learn more about nullifiers and private state in the [Learn section](../../../aztec/index.md#private-and-public-state).
 
 ## Getting a counter
 
 The last thing we need to implement is the function in order to retrieve a counter. In the `getCounter` we defined in the first step, write this:
 
-```rust title="get_counter" showLineNumbers 
+```rust title="get_counter" showLineNumbers
 #[utility]
 unconstrained fn get_counter(owner: AztecAddress) -> Field {
     storage.counters.at(owner).get_value()
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v2.0.2/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L75-L80" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L75-L80</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v2.0.2/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L75-L80" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L75-L80</a></sub></sup>
 
 This is a `utility` function which is used to obtain the counter information outside of a transaction. We retrieve a reference to the `owner`'s `counter` from the `counters` Map. The `get_balance` function then operates on the owner's counter. This yields a private counter that only the private key owner can decrypt.
 
@@ -196,26 +186,6 @@ aztec codegen -o src/artifacts target
 ```
 
 You can now use the artifact and/or the TS class in your Aztec.js!
-
-## Investigate the `increment` function
-
-Private functions in Aztec contracts are executed client-side, to maintain privacy. Developers need to be mindful of how computationally expensive it is to generate client side proofs for the private functions in the contract they write. To help understand the cost, we can use the Aztec flamegraph tool. The tool takes a contract artifact and function and generates an SVG file that shows the constraint count of each step in the function.
-
-Run it for the `increment` function:
-
-```bash
-SERVE=1 aztec flamegraph target/counter-Counter.json increment
-```
-
-`SERVE=1` will start a local server to view the flamegraph in the browser. You can also run it without this flag and open the generated SVG file in your browser manually.
-
-<Image img={require('/img/flamegraph-counter.png')} />
-
-Note the total gate count at the bottom of the image. The image is interactive; you can hover over different parts of the graph to see the full function name of the execution step and its gate count. This tool also provides insight into the low-level operations that are performed in the private function. Don't worry about the details of the internals of the function right now, just be aware that the more complex the function, the more gates it will use and try out the flamegraph tool on your own functions.
-
-Read more about [profiling transactions with the flamegraph tool](../../guides/smart_contracts/advanced/profiling_transactions.md).
-
-For more information about writing efficient private functions, see [this page](https://noir-lang.org/docs/explainers/explainer-writing-noir) of the Noir documentation.
 
 ## Next Steps
 
