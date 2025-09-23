@@ -1,7 +1,7 @@
 use crate::{
     messages::{
         encoding::encode_message,
-        encryption::{aes128::AES128, log_encryption::LogEncryption},
+        encryption::{aes128::AES128, message_encryption::MessageEncryption},
         logs::utils::prefix_with_tag,
         msg_type::{PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID},
     },
@@ -24,7 +24,7 @@ where
         partial_note_private_content,
         storage_slot,
     );
-    let message_ciphertext = AES128::encrypt_log(message_plaintext, recipient);
+    let message_ciphertext = AES128::encrypt(message_plaintext, recipient);
 
     prefix_with_tag(message_ciphertext, recipient)
 }
