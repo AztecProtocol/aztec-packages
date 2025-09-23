@@ -140,7 +140,8 @@ void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
     // solution is to simply reverse the order or the terms in the linear combination by swapping the polynomials and
     // the lagrange coefficients between the accumulator and the incoming key.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1417): make this swapping logic more robust.
-    if (incoming->get_overflow_size() > accumulator->get_overflow_size()) {
+    bool swap_polys = incoming->get_overflow_size() > accumulator->get_overflow_size();
+    if (swap_polys) {
         std::swap(accumulator->polynomials, incoming->polynomials); // swap the polys
         std::swap(lagranges[0], lagranges[1]);                 // swap the lagrange coefficients so the sum is unchanged
         accumulator->set_dyadic_size(incoming->dyadic_size()); // update dyadic size of accumulator
@@ -159,7 +160,6 @@ void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
     size_t max_size = 0;
     for (size_t i = 0; i < num_polys; ++i) {
         max_size = std::max(max_size, key_polys[i].size());
-        max_size = std::max(max_size, accumulator_polys[i].size());
     }
     const size_t num_threads = calculate_num_threads(max_size);
 
@@ -175,24 +175,35 @@ void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
     }
 
     // Multithread the next part which computes the folded polynomials
-    parallel_for(num_threads, [&](size_t j) {
+    parallel_for(num_threads, [&](size_t thread_idx) {
         for (size_t i = 0; i < num_polys; ++i) {
             auto& acc = acc_spans[i];
             auto& key = key_spans[i];
             BB_ASSERT_LTE(acc.start_index, key.start_index);
             BB_ASSERT_GTE(acc.end_index(), key.end_index());
-            const size_t range_per_thread = key.size() / num_threads;
-            const size_t leftovers = key.size() - (range_per_thread * num_threads);
+            const size_t range_per_thread = acc.size() / num_threads;
+            const size_t leftovers = acc.size() - (num_threads * range_per_thread);
 
-            const size_t offset = j * range_per_thread + key.start_index;
+            const size_t offset = (thread_idx * range_per_thread) + acc.start_index;
+            // The last thread takes up more work than the previous ones
             const size_t end =
-                (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
+                (thread_idx == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
 
-            // for each polynomial, we fold by computing acc = acc * lagranges[0] + key * lagranges[1]
-            // which is equivalent to acc * (1 - gamma) + key * gamma
-            // which is equivalent to acc + (key - acc) * gamma
+            // For each polynomial, we fold by computing: acc = acc * lagranges[0] + key * lagranges[1]
+            // Note that outside the range [key.start_index, key.end_index) this becomes: acc = acc * lagranges[0]
             for (size_t k = offset; k < end; ++k) {
-                acc[k] += (key[k] - acc[k]) * combiner_challenge;
+                if ((k < key.start_index) || (k >= key.end_index())) {
+                    acc[k] = acc[k] * lagranges[0];
+                } else {
+                    // acc * lagranges[0] + key * lagranges[1] =
+                    // acc + (key - acc) * combiner_challenge (if !swap_polys)
+                    // key + (acc - key) * combiner_challenge (if swap_polys)
+                    if (swap_polys) {
+                        acc[k] = key[k] + (acc[k] - key[k]) * combiner_challenge;
+                    } else {
+                        acc[k] = acc[k] + (key[k] - acc[k]) * combiner_challenge;
+                    }
+                }
             }
         }
     });
