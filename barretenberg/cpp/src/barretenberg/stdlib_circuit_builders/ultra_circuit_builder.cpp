@@ -1019,10 +1019,9 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_new_range_constraint(const uin
                                                                        const uint64_t target_range,
                                                                        std::string const msg)
 {
-    if (uint256_t(this->get_variable(variable_index)).data[0] > target_range) {
-        if (!this->failed()) {
-            this->failure(msg);
-        }
+    const bool is_out_of_range = (uint256_t(this->get_variable(variable_index)).data[0] > target_range);
+    if (is_out_of_range && !this->failed()) {
+        this->failure(msg);
     }
     if (range_lists.count(target_range) == 0) {
         range_lists.insert({ target_range, create_range_list(target_range) });
@@ -1634,10 +1633,12 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
     BB_ASSERT_LTE(hi_limb_bits, 14U * 5U);
 
     // If the value is larger than the range, we log the error in builder
-    if (uint256_t(this->get_variable_reference(lo_idx)) >= (uint256_t(1) << lo_limb_bits)) {
+    const bool is_lo_out_of_range = (uint256_t(this->get_variable_reference(lo_idx)) >= (uint256_t(1) << lo_limb_bits));
+    if (is_lo_out_of_range && !this->failed()) {
         this->failure(msg + ": lo limb.");
     }
-    if (uint256_t(this->get_variable_reference(hi_idx)) >= (uint256_t(1) << hi_limb_bits)) {
+    const bool is_hi_out_of_range = (uint256_t(this->get_variable_reference(hi_idx)) >= (uint256_t(1) << hi_limb_bits));
+    if (is_hi_out_of_range && !this->failed()) {
         this->failure(msg + ": hi limb.");
     }
 
