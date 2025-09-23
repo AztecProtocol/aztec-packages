@@ -26,6 +26,9 @@ const testConfigSchema = z.object({
   REAL_VERIFIER: schemas.Boolean.optional().default(true),
   CREATE_ETH_DEVNET: schemas.Boolean.optional().default(false),
   L1_RPC_URLS_JSON: z.string().optional(),
+  L1_ACCOUNT_MNEMONIC: z.string().optional(),
+  AZTEC_SLOT_DURATION: z.coerce.number().optional().default(12),
+  AZTEC_PROOF_SUBMISSION_WINDOW: z.coerce.number().optional().default(5),
 });
 
 export type TestConfig = z.infer<typeof testConfigSchema>;

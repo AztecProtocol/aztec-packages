@@ -112,3 +112,69 @@ else
 fi
 
 $EXE deploy-new-rollup -r $REGISTRY --salt $SALT --json $TEST_ACCOUNTS $SPONSORED_FPC
+# $EXE deploy-new-rollup -r $REGISTRY --salt $SALT --json $TEST_ACCOUNTS $SPONSORED_FPC > .deploy_output.json
+
+# # Parse the newly deployed rollup address from the JSON output
+# NEW_ROLLUP=$(jq -r '.rollupAddress' < .deploy_output.json)
+# echo "New rollup deployed at: $NEW_ROLLUP"
+
+# # Optionally run the governance flow to register the new rollup when not the owner
+# # Toggle via env DO_GOVERNANCE=true|false (default true)
+# DO_GOVERNANCE=${DO_GOVERNANCE:-true}
+# if [ "$DO_GOVERNANCE" = "true" ]; then
+#   if [ -z "${ETHEREUM_HOSTS:-}" ] || [ -z "${L1_CHAIN_ID:-}" ]; then
+#     echo "ETHEREUM_HOSTS and L1_CHAIN_ID must be set for governance flow" >&2
+#     exit 1
+#   fi
+
+#   CALLER_ADDRESS="$($EXE generate-l1-account --json | jq -r '.address' || true)"
+#   if [ -z "$CALLER_ADDRESS" ] && [ -n "${MNEMONIC:-}" ]; then
+#     # Fallback: derive from mnemonic index 0 via cast
+#     CALLER_ADDRESS=$(cast wallet address --mnemonic "$MNEMONIC" --mnemonic-index 0)
+#   fi
+#   echo "Caller address (for governance): ${CALLER_ADDRESS:-unknown}"
+
+#   # Optional: deposit governance tokens if needed (may require minter privileges; disabled by default)
+#   # Enable with DEPOSIT_GOVERNANCE_TOKENS=true and set DEPOSIT_AMOUNT (in wei)
+#   if [ "${DEPOSIT_GOVERNANCE_TOKENS:-false}" = "true" ]; then
+#     AMOUNT=${DEPOSIT_AMOUNT:-100000000000000000000}
+#     echo "Depositing governance tokens: $AMOUNT to $CALLER_ADDRESS"
+#     $EXE deposit-governance-tokens \
+#       -r "$REGISTRY" \
+#       --recipient "$CALLER_ADDRESS" \
+#       --amount "$AMOUNT" \
+#       --mint \
+#       --l1-chain-id "$L1_CHAIN_ID" \
+#       --l1-rpc-urls "$ETHEREUM_HOSTS"
+#   fi
+
+#   # Deploy RegisterNewRollupVersionPayload via bytecode using foundry cast
+#   echo "Deploying RegisterNewRollupVersionPayload for registry $REGISTRY and rollup $NEW_ROLLUP"
+#   PAYLOAD_BYTECODE=$(node -e "console.log(require('@aztec/l1-artifacts').RegisterNewRollupVersionPayloadBytecode)")
+#   CONSTRUCTOR_ARGS=$(cast abi-encode "constructor(address,address)" "$REGISTRY" "$NEW_ROLLUP")
+#   CREATE_CODE="${PAYLOAD_BYTECODE}${CONSTRUCTOR_ARGS#0x}"
+#   MNEMONIC_INDEX=${MNEMONIC_INDEX:-0}
+#   TX_JSON=$(cast send --rpc-url "$ETHEREUM_HOSTS" ${PRIVATE_KEY:+--private-key "$PRIVATE_KEY"} ${MNEMONIC:+--mnemonic "$MNEMONIC"} ${MNEMONIC_INDEX:+--mnemonic-index "$MNEMONIC_INDEX"} --json --create "$CREATE_CODE")
+#   echo "Payload deploy response: $TX_JSON"
+#   PAYLOAD_ADDRESS=$(echo "$TX_JSON" | jq -r '.contractAddress // .contract_address // empty')
+#   if [ -z "$PAYLOAD_ADDRESS" ] || [ "$PAYLOAD_ADDRESS" = "null" ]; then
+#     TX_HASH=$(echo "$TX_JSON" | jq -r '.transactionHash // .txHash // .hash')
+#     echo "Payload deploy tx hash: $TX_HASH"
+#     PAYLOAD_ADDRESS=$(cast receipt "$TX_HASH" --rpc-url "$ETHEREUM_HOSTS" --json | jq -r '.contractAddress')
+#   fi
+#   echo "Payload deployed at: $PAYLOAD_ADDRESS"
+
+#   # Propose with lock
+#   echo "Proposing with lock using payload $PAYLOAD_ADDRESS"
+#   PROPOSE_OUT=$($EXE propose-with-lock -r "$REGISTRY" --payload-address "$PAYLOAD_ADDRESS" --l1-chain-id "$L1_CHAIN_ID" --json)
+#   PROPOSAL_ID=$(echo "$PROPOSE_OUT" | jq -r '.proposalId')
+#   echo "Proposal ID: $PROPOSAL_ID"
+
+#   # Vote in favor and wait until active
+#   echo "Voting on proposal $PROPOSAL_ID and waiting until active"
+#   $EXE vote-on-governance-proposal -r "$REGISTRY" --proposal-id "$PROPOSAL_ID" --in-favor yea --wait true --l1-chain-id "$L1_CHAIN_ID"
+
+#   # Execute when executable
+#   echo "Executing proposal $PROPOSAL_ID when executable"
+#   $EXE execute-governance-proposal -r "$REGISTRY" --proposal-id "$PROPOSAL_ID" --wait true --l1-chain-id "$L1_CHAIN_ID"
+# fi
