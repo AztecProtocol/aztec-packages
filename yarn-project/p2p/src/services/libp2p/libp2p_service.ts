@@ -453,10 +453,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const goodbyeHandler = reqGoodbyeHandler(this.peerManager);
     const blockHandler = reqRespBlockHandler(this.archiver);
     const statusHandler = reqRespStatusHandler(this.protocolVersion, this.worldStateSynchronizer, this.logger);
-    // In case P2P client doesnt'have attestation pool,
-    // const blockTxsHandler = this.mempools.attestationPool
-    //   ? reqRespBlockTxsHandler(this.mempools.attestationPool, this.mempools.txPool)
-    //   : def;
 
     const requestResponseHandlers: Partial<ReqRespSubProtocolHandlers> = {
       [ReqRespSubProtocol.PING]: pingHandler,

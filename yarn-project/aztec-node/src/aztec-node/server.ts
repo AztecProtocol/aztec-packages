@@ -300,12 +300,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       deps.p2pClientDeps,
     );
 
-    // Start world state and wait for it to sync to the archiver.
-    await worldStateSynchronizer.start();
-
-    // Start p2p. Note that it depends on world state to be running.
-    await p2pClient.start();
-
+    // We should really not be modifying the config object
     config.txPublicSetupAllowList = config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
 
     const blockBuilder = new BlockBuilder(
@@ -316,7 +311,36 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       telemetry,
     );
 
+    // We'll accumulate sentinel watchers here
     const watchers: Watcher[] = [];
+
+    // Create validator client if required
+    const validatorClient = createValidatorClient(config, {
+      p2pClient,
+      telemetry,
+      dateProvider,
+      epochCache,
+      blockBuilder,
+      blockSource: archiver,
+      l1ToL2MessageSource: archiver,
+      keyStoreManager,
+    });
+
+    // If we have a validator client, register it as a source of offenses for the slasher,
+    // and have it register callbacks on the p2p client *before* we start it, otherwise messages
+    // like attestations or auths will fail.
+    if (validatorClient) {
+      watchers.push(validatorClient);
+      if (!options.dontStartSequencer) {
+        await validatorClient.registerHandlers();
+      }
+    }
+
+    // Start world state and wait for it to sync to the archiver.
+    await worldStateSynchronizer.start();
+
+    // Start p2p. Note that it depends on world state to be running.
+    await p2pClient.start();
 
     const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
     if (validatorsSentinel) {
@@ -347,21 +371,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config);
       await attestationsBlockWatcher.start();
       watchers.push(attestationsBlockWatcher);
-    }
-
-    const validatorClient = createValidatorClient(config, {
-      p2pClient,
-      telemetry,
-      dateProvider,
-      epochCache,
-      blockBuilder,
-      blockSource: archiver,
-      l1ToL2MessageSource: archiver,
-      keyStoreManager,
-    });
-
-    if (validatorClient) {
-      watchers.push(validatorClient);
     }
 
     log.verbose(`All Aztec Node subsystems synced`);
