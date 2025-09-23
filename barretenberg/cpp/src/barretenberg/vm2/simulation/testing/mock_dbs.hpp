@@ -1,4 +1,4 @@
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 
 #include <cassert>
 #include <gmock/gmock.h>

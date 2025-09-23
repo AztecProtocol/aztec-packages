@@ -5,7 +5,7 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/note_hash_tree_check_event.hpp"
-#include "barretenberg/vm2/simulation/note_hash_tree_check.hpp"
+#include "barretenberg/vm2/simulation/interfaces/note_hash_tree_check.hpp"
 
 namespace bb::avm2::simulation {
 

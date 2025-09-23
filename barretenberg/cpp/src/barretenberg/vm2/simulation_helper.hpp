@@ -7,20 +7,12 @@ namespace bb::avm2 {
 
 class AvmSimulationHelper {
   public:
-    AvmSimulationHelper(ExecutionHints hints)
-        : hints(std::move(hints))
-    {}
-
     // Full simulation with event collection.
-    simulation::EventsContainer simulate();
+    simulation::EventsContainer simulate_for_witgen(const ExecutionHints& hints);
 
     // Fast simulation without event collection.
-    void simulate_fast();
-
-  private:
-    template <typename S> simulation::EventsContainer simulate_with_settings();
-
-    ExecutionHints hints;
+    // FIXME(fcarreiro): This should eventually only take the Tx.
+    void simulate_fast(const ExecutionHints& hints);
 };
 
 } // namespace bb::avm2

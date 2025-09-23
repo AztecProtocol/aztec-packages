@@ -7,13 +7,6 @@
 
 namespace bb::avm2::simulation {
 
-class ToRadixException : public std::runtime_error {
-  public:
-    explicit ToRadixException(const std::string& message)
-        : std::runtime_error("ToRadix Exception: " + message)
-    {}
-};
-
 struct ToRadixEvent {
     FF value;
     uint32_t radix;

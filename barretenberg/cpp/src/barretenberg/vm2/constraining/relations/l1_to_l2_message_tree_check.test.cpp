@@ -13,9 +13,9 @@
 #include "barretenberg/vm2/generated/relations/merkle_check.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/l1_to_l2_message_tree_check_event.hpp"
-#include "barretenberg/vm2/simulation/l1_to_l2_message_tree_check.hpp"
+#include "barretenberg/vm2/simulation/gadgets/l1_to_l2_message_tree_check.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
-#include "barretenberg/vm2/simulation/testing/fakes/fake_poseidon2.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_poseidon2.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/l1_to_l2_message_tree_trace.hpp"
@@ -26,10 +26,10 @@ namespace bb::avm2::constraining {
 namespace {
 
 using simulation::EventEmitter;
-using simulation::FakePoseidon2;
 using simulation::L1ToL2MessageTreeCheck;
 using simulation::MerkleCheck;
 using simulation::MerkleCheckEvent;
+using simulation::PurePoseidon2;
 using simulation::unconstrained_root_from_path;
 
 using tracegen::L1ToL2MessageTreeCheckTraceBuilder;
@@ -43,7 +43,7 @@ using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
 TEST(L1ToL2MessageTreeCheckConstrainingTests, PositiveExists)
 {
-    FakePoseidon2 poseidon2 = FakePoseidon2();
+    PurePoseidon2 poseidon2 = PurePoseidon2();
 
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
@@ -81,7 +81,7 @@ TEST(L1ToL2MessageTreeCheckConstrainingTests, PositiveExists)
 
 TEST(L1ToL2MessageTreeCheckConstrainingTests, PositiveNotExists)
 {
-    FakePoseidon2 poseidon2 = FakePoseidon2();
+    PurePoseidon2 poseidon2 = PurePoseidon2();
 
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);

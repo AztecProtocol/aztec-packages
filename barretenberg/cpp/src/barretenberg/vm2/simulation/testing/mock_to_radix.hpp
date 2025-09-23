@@ -2,7 +2,7 @@
 
 #include <gmock/gmock.h>
 
-#include "barretenberg/vm2/simulation/to_radix.hpp"
+#include "barretenberg/vm2/simulation/interfaces/to_radix.hpp"
 
 namespace bb::avm2::simulation {
 

@@ -9,11 +9,12 @@
 #include "barretenberg/vm2/generated/relations/lookups_to_radix_mem.hpp"
 #include "barretenberg/vm2/simulation/events/gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
-#include "barretenberg/vm2/simulation/range_check.hpp"
-#include "barretenberg/vm2/simulation/testing/fakes/fake_gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
+#include "barretenberg/vm2/simulation/gadgets/to_radix.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_gt.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
-#include "barretenberg/vm2/simulation/to_radix.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/gt_trace.hpp"
@@ -39,12 +40,12 @@ using to_radix_mem = bb::avm2::to_radix_mem<FF>;
 using ToRadixSimulator = simulation::ToRadix;
 
 using simulation::EventEmitter;
-using simulation::FakeGreaterThan;
 using simulation::GreaterThan;
 using simulation::GreaterThanEvent;
 using simulation::MockExecutionIdManager;
 using simulation::MockFieldGreaterThan;
 using simulation::NoopEventEmitter;
+using simulation::PureGreaterThan;
 using simulation::RangeCheck;
 using simulation::RangeCheckEvent;
 using simulation::ToRadixEvent;
@@ -60,7 +61,7 @@ TEST(ToRadixConstrainingTest, ToLeBitsBasicTest)
     EventEmitter<ToRadixEvent> to_radix_event_emitter;
     NoopEventEmitter<ToRadixMemoryEvent> to_radix_mem_event_emitter;
 
-    FakeGreaterThan gt;
+    PureGreaterThan gt;
     StrictMock<MockExecutionIdManager> execution_id_manager;
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
@@ -83,7 +84,7 @@ TEST(ToRadixConstrainingTest, ToLeBitsPMinusOne)
     EventEmitter<ToRadixEvent> to_radix_event_emitter;
     NoopEventEmitter<ToRadixMemoryEvent> to_radix_mem_event_emitter;
 
-    FakeGreaterThan gt;
+    PureGreaterThan gt;
     StrictMock<MockExecutionIdManager> execution_id_manager;
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
@@ -106,7 +107,7 @@ TEST(ToRadixConstrainingTest, ToLeBitsShortest)
     EventEmitter<ToRadixEvent> to_radix_event_emitter;
     NoopEventEmitter<ToRadixMemoryEvent> to_radix_mem_event_emitter;
 
-    FakeGreaterThan gt;
+    PureGreaterThan gt;
     StrictMock<MockExecutionIdManager> execution_id_manager;
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
@@ -129,7 +130,7 @@ TEST(ToRadixConstrainingTest, ToLeBitsPadded)
     EventEmitter<ToRadixEvent> to_radix_event_emitter;
     NoopEventEmitter<ToRadixMemoryEvent> to_radix_mem_event_emitter;
 
-    FakeGreaterThan gt;
+    PureGreaterThan gt;
     StrictMock<MockExecutionIdManager> execution_id_manager;
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
@@ -152,7 +153,7 @@ TEST(ToRadixConstrainingTest, ToLeRadixBasic)
     EventEmitter<ToRadixEvent> to_radix_event_emitter;
     NoopEventEmitter<ToRadixMemoryEvent> to_radix_mem_event_emitter;
 
-    FakeGreaterThan gt;
+    PureGreaterThan gt;
     StrictMock<MockExecutionIdManager> execution_id_manager;
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
@@ -179,7 +180,7 @@ TEST(ToRadixConstrainingTest, ToLeRadixPMinusOne)
     EventEmitter<ToRadixEvent> to_radix_event_emitter;
     NoopEventEmitter<ToRadixMemoryEvent> to_radix_mem_event_emitter;
 
-    FakeGreaterThan gt;
+    PureGreaterThan gt;
     StrictMock<MockExecutionIdManager> execution_id_manager;
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
@@ -206,7 +207,7 @@ TEST(ToRadixConstrainingTest, ToLeRadixOneByte)
     EventEmitter<ToRadixEvent> to_radix_event_emitter;
     NoopEventEmitter<ToRadixMemoryEvent> to_radix_mem_event_emitter;
 
-    FakeGreaterThan gt;
+    PureGreaterThan gt;
     StrictMock<MockExecutionIdManager> execution_id_manager;
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
@@ -230,7 +231,7 @@ TEST(ToRadixConstrainingTest, ToLeRadixPadded)
     EventEmitter<ToRadixEvent> to_radix_event_emitter;
     NoopEventEmitter<ToRadixMemoryEvent> to_radix_mem_event_emitter;
 
-    FakeGreaterThan gt;
+    PureGreaterThan gt;
     StrictMock<MockExecutionIdManager> execution_id_manager;
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
@@ -258,7 +259,7 @@ TEST(ToRadixConstrainingTest, ToLeBitsInteractions)
     EventEmitter<ToRadixEvent> to_radix_event_emitter;
     NoopEventEmitter<ToRadixMemoryEvent> to_radix_mem_event_emitter;
 
-    FakeGreaterThan gt;
+    PureGreaterThan gt;
     StrictMock<MockExecutionIdManager> execution_id_manager;
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
@@ -291,7 +292,7 @@ TEST(ToRadixConstrainingTest, ToLeRadixInteractions)
     EventEmitter<ToRadixEvent> to_radix_event_emitter;
     NoopEventEmitter<ToRadixMemoryEvent> to_radix_mem_event_emitter;
 
-    FakeGreaterThan gt;
+    PureGreaterThan gt;
     StrictMock<MockExecutionIdManager> execution_id_manager;
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
@@ -345,7 +346,7 @@ TEST(ToRadixConstrainingTest, NegativeConsistency)
     EventEmitter<ToRadixEvent> to_radix_event_emitter;
     NoopEventEmitter<ToRadixMemoryEvent> to_radix_mem_event_emitter;
 
-    FakeGreaterThan gt;
+    PureGreaterThan gt;
     StrictMock<MockExecutionIdManager> execution_id_manager;
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
@@ -558,7 +559,7 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
     EventEmitter<ToRadixEvent> to_radix_event_emitter;
     NoopEventEmitter<ToRadixMemoryEvent> to_radix_mem_event_emitter;
 
-    FakeGreaterThan gt;
+    PureGreaterThan gt;
     StrictMock<MockExecutionIdManager> execution_id_manager;
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
@@ -584,7 +585,7 @@ TEST(ToRadixMemoryConstrainingTest, DstOutOfRange)
     FF value = FF(1337);
     uint32_t radix = 10;
     uint32_t num_limbs = 2;
-    uint32_t dst_addr = AVM_HIGHEST_MEM_ADDRESS - 1; // This will cause an out-of-bounds error
+    uint32_t dst_addr = static_cast<uint32_t>(AVM_HIGHEST_MEM_ADDRESS - 1); // This will cause an out-of-bounds error
 
     TestTraceContainer trace = TestTraceContainer({
         // Row 0
