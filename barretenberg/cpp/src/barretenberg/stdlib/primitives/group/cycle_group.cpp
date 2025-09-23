@@ -192,8 +192,8 @@ cycle_group<Builder> cycle_group<Builder>::from_constant_witness(Builder* _conte
     } else {
         result.x = field_t::from_witness(_context, _in.x);
         result.y = field_t::from_witness(_context, _in.y);
-        result.x.fix_witness();
-        result.y.fix_witness();
+        result.x.assert_equal(result.x.get_value());
+        result.y.assert_equal(result.y.get_value());
     }
     // point at infinity is circuit constant
     result._is_infinity = _in.is_point_at_infinity();
