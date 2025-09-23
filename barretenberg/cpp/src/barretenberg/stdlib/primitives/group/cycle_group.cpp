@@ -249,12 +249,12 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::get_stand
     return *this;
 }
 
+#ifdef FUZZING
 /**
  * @brief  Set the point to the point at infinity.
  * Depending on constant'ness of the predicate put the coordinates in an apropriate standard form.
  *
  */
-// AUDITTODO: Used only by fuzzer. Remove/simplify if possible, otherwise mark it accordingly.
 template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(const bool_t& is_infinity)
 {
     this->_is_standard = true;
@@ -305,6 +305,7 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
         this->context = is_infinity.get_context();
     }
 }
+#endif
 
 /**
  * @brief Convert the point to standard form.

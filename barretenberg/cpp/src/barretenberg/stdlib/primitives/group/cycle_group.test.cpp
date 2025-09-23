@@ -306,13 +306,11 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     STDLIB_TYPE_ALIASES;
     auto builder = Builder();
 
+    auto affine_infinity = cycle_group_ct::AffineElement::infinity();
     cycle_group_ct input_a = cycle_group_ct::from_witness(&builder, Element::random_element());
-    cycle_group_ct input_b = cycle_group_ct::from_witness(&builder, Element::random_element());
+    cycle_group_ct input_b = cycle_group_ct::from_witness(&builder, affine_infinity);
     cycle_group_ct input_c = cycle_group_ct(Element::random_element());
-    cycle_group_ct input_d = cycle_group_ct(Element::random_element());
-
-    input_b.set_point_at_infinity(true);
-    input_d.set_point_at_infinity(true);
+    cycle_group_ct input_d = cycle_group_ct(affine_infinity);
 
     auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
     auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
@@ -876,9 +874,9 @@ TYPED_TEST(CycleGroupTest, TestAddLhsInfinity)
     auto builder = Builder();
 
     auto rhs = -TestFixture::generators[1];
+    auto affine_infinity = cycle_group_ct::AffineElement::infinity();
 
-    cycle_group_ct point_at_infinity = cycle_group_ct::from_witness(&builder, rhs);
-    point_at_infinity.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
+    cycle_group_ct point_at_infinity = cycle_group_ct::from_witness(&builder, affine_infinity);
 
     cycle_group_ct a = point_at_infinity;
     cycle_group_ct b = cycle_group_ct::from_witness(&builder, rhs);
@@ -891,7 +889,7 @@ TYPED_TEST(CycleGroupTest, TestAddLhsInfinity)
     EXPECT_EQ(c.get_value(), rhs);
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
-    check_circuit_and_gates(builder, 53);
+    check_circuit_and_gates(builder, 47);
 }
 
 // Test addition with RHS point at infinity
@@ -901,10 +899,9 @@ TYPED_TEST(CycleGroupTest, TestAddRhsInfinity)
     auto builder = Builder();
 
     auto lhs = TestFixture::generators[0];
-    auto rhs = -TestFixture::generators[1];
+    auto affine_infinity = cycle_group_ct::AffineElement::infinity();
 
-    cycle_group_ct point_at_infinity = cycle_group_ct::from_witness(&builder, rhs);
-    point_at_infinity.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
+    cycle_group_ct point_at_infinity = cycle_group_ct::from_witness(&builder, affine_infinity);
 
     cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
     cycle_group_ct b = point_at_infinity;
@@ -918,7 +915,7 @@ TYPED_TEST(CycleGroupTest, TestAddRhsInfinity)
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
     // Addition with witness infinity point
-    check_circuit_and_gates(builder, 53);
+    check_circuit_and_gates(builder, 47);
 }
 
 // Test addition with both points at infinity
@@ -927,13 +924,11 @@ TYPED_TEST(CycleGroupTest, TestAddBothInfinity)
     STDLIB_TYPE_ALIASES;
     auto builder = Builder();
 
-    auto point = -TestFixture::generators[1];
+    auto affine_infinity = cycle_group_ct::AffineElement::infinity();
 
-    cycle_group_ct point_at_infinity1 = cycle_group_ct::from_witness(&builder, point);
-    point_at_infinity1.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
+    cycle_group_ct point_at_infinity1 = cycle_group_ct::from_witness(&builder, affine_infinity);
 
-    cycle_group_ct point_at_infinity2 = cycle_group_ct::from_witness(&builder, point);
-    point_at_infinity2.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
+    cycle_group_ct point_at_infinity2 = cycle_group_ct::from_witness(&builder, affine_infinity);
 
     cycle_group_ct a = point_at_infinity1;
     cycle_group_ct b = point_at_infinity2;
@@ -947,7 +942,7 @@ TYPED_TEST(CycleGroupTest, TestAddBothInfinity)
     EXPECT_TRUE(c.get_value().is_point_at_infinity());
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
-    check_circuit_and_gates(builder, 58);
+    check_circuit_and_gates(builder, 47);
 }
 
 // Test addition of inverse points (result is infinity)
@@ -1237,9 +1232,9 @@ TYPED_TEST(CycleGroupTest, TestSubtract)
 
     auto lhs = TestFixture::generators[0];
     auto rhs = -TestFixture::generators[1];
+    auto affine_infinity = cycle_group_ct::AffineElement::infinity();
 
-    cycle_group_ct point_at_infinity = cycle_group_ct::from_witness(&builder, rhs);
-    point_at_infinity.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
+    cycle_group_ct point_at_infinity = cycle_group_ct::from_witness(&builder, affine_infinity);
 
     // case 1. no edge-cases triggered
     {
@@ -1323,7 +1318,7 @@ TYPED_TEST(CycleGroupTest, TestSubtract)
         EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
-    check_circuit_and_gates(builder, 273);
+    check_circuit_and_gates(builder, 267);
 }
 
 /**
@@ -1451,20 +1446,18 @@ TYPED_TEST(CycleGroupTest, TestBatchMulInputsAreInfinity)
     std::vector<cycle_group_ct> points;
     std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
-    auto element = TestFixture::generators[0];
     typename Group::Fr scalar = Group::Fr::random_element(&engine);
+    auto affine_infinity = cycle_group_ct::AffineElement::infinity();
 
     // is_infinity = witness
     {
-        cycle_group_ct point = cycle_group_ct::from_witness(&builder, element);
-        point.set_point_at_infinity(witness_ct(&builder, true));
+        cycle_group_ct point = cycle_group_ct::from_witness(&builder, affine_infinity);
         points.emplace_back(point);
         scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
     }
     // is_infinity = constant
     {
-        cycle_group_ct point = cycle_group_ct::from_witness(&builder, element);
-        point.set_point_at_infinity(true);
+        cycle_group_ct point = cycle_group_ct(affine_infinity);
         points.emplace_back(point);
         scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
     }
@@ -1474,7 +1467,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMulInputsAreInfinity)
     EXPECT_TRUE(result.is_point_at_infinity().get_value());
     EXPECT_EQ(result.get_origin_tag(), expected_tag);
 
-    check_circuit_and_gates(builder, 3556);
+    check_circuit_and_gates(builder, 3545);
 }
 
 TYPED_TEST(CycleGroupTest, TestBatchMulFixedBaseInLookupTable)

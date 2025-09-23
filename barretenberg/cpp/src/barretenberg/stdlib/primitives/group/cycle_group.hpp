@@ -83,7 +83,9 @@ template <typename Builder> class cycle_group {
     {
         return _is_infinity.is_constant() && _is_infinity.get_value();
     }
+#ifdef FUZZING
     void set_point_at_infinity(const bool_t& is_infinity);
+#endif
     void standardize();
     bool is_standard() const { return this->_is_standard; };
     cycle_group get_standard_form();
