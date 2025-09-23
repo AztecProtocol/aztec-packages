@@ -10,6 +10,7 @@ import {
   waitForPXE,
 } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
+import { TestDateProvider } from '@aztec/foundation/timer';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 // docs:end:imports
 // docs:start:import_contract
@@ -101,7 +102,7 @@ describe('guides/dapp/testing', () => {
         await mintTokensToPrivate(token, ownerAddress, ownerAddress, mintAmount);
 
         // docs:start:calc-slot
-        cheats = await CheatCodes.create(ETHEREUM_HOSTS.split(','), wallet, aztecNode);
+        cheats = await CheatCodes.create(ETHEREUM_HOSTS.split(','), wallet, aztecNode, new TestDateProvider());
         // The balances mapping is indexed by user address
         ownerSlot = await cheats.aztec.computeSlotInMap(TokenContract.storage.balances.slot, ownerAddress);
         // docs:end:calc-slot

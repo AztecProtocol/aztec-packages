@@ -14,7 +14,6 @@ import type { RollupCheatCodes } from '@aztec/aztec/testing';
 import type { EmpireSlashingProposerContract, RollupContract, TallySlashingProposerContract } from '@aztec/ethereum';
 import { timesAsync, unique } from '@aztec/foundation/collection';
 import { pluralize } from '@aztec/foundation/string';
-import type { TestDateProvider } from '@aztec/foundation/timer';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract, TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe/server';
@@ -199,7 +198,6 @@ export async function awaitCommitteeKicked({
   aztecSlotDuration,
   aztecEpochDuration,
   logger,
-  dateProvider,
   offenseEpoch,
 }: {
   rollup: RollupContract;
@@ -210,7 +208,6 @@ export async function awaitCommitteeKicked({
   slashingRoundSize: number;
   aztecSlotDuration: number;
   aztecEpochDuration: number;
-  dateProvider: TestDateProvider;
   logger: Logger;
   offenseEpoch: number;
 }) {
@@ -224,7 +221,7 @@ export async function awaitCommitteeKicked({
     // Await for the slash payload to be created if empire (no payload is created on tally until execution time)
     const targetEpoch = (await cheatCodes.getEpoch()) + (await rollup.getLagInEpochs()) + 1n;
     logger.info(`Advancing to epoch ${targetEpoch} so we start slashing`);
-    await cheatCodes.advanceToEpoch(targetEpoch, { updateDateProvider: dateProvider });
+    await cheatCodes.advanceToEpoch(targetEpoch);
 
     const slashPayloadEvents = await retryUntil(
       async () => {
@@ -247,7 +244,7 @@ export async function awaitCommitteeKicked({
     const slashingOffsetInEpochs = Number(slashOffsetInRounds) * slashingRoundSizeInEpochs;
     const targetEpoch = offenseEpoch + slashingOffsetInEpochs;
     logger.info(`Advancing to epoch ${targetEpoch} so we start slashing`);
-    await cheatCodes.advanceToEpoch(targetEpoch, { updateDateProvider: dateProvider });
+    await cheatCodes.advanceToEpoch(targetEpoch);
   }
 
   const attestersPre = await rollup.getAttesters();
@@ -277,9 +274,7 @@ export async function awaitCommitteeKicked({
 
   logger.info(`Advancing to check current committee`);
   await cheatCodes.debugRollup();
-  await cheatCodes.advanceToEpoch((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochs()) + 1n, {
-    updateDateProvider: dateProvider,
-  });
+  await cheatCodes.advanceToEpoch((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochs()) + 1n);
   await cheatCodes.debugRollup();
 
   const committeeNextEpoch = await rollup.getCurrentEpochCommittee();

@@ -5,7 +5,7 @@ import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { TestDateProvider } from '@aztec/foundation/timer';
+import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 
 import { jest } from '@jest/globals';
 import type { Anvil } from '@viem/anvil';
@@ -60,7 +60,7 @@ describe('L1TxUtils', () => {
 
   beforeEach(async () => {
     ({ anvil, rpcUrl } = await startAnvil({ l1BlockTime: 1, port: port++ }));
-    cheatCodes = new EthCheatCodes([rpcUrl]);
+    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
     const privKeyRaw = hdAccount.getHdKey().privateKey;
     if (!privKeyRaw) {

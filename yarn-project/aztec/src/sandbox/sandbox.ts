@@ -179,7 +179,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
     });
 
     watcher = new AnvilTestWatcher(
-      new EthCheatCodes([l1RpcUrl]),
+      new EthCheatCodes([l1RpcUrl], dateProvider),
       l1ContractAddresses.rollupAddress,
       publicClient,
       dateProvider,

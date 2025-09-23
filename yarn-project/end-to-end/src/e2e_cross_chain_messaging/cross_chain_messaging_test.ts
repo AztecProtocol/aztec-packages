@@ -71,7 +71,7 @@ export class CrossChainMessagingTest {
     this.aztecNode = this.ctx.aztecNode;
     this.wallet = this.ctx.wallet;
     this.aztecNodeConfig = this.ctx.aztecNodeConfig;
-    this.cheatCodes = await CheatCodes.create(this.aztecNodeConfig.l1RpcUrls, this.wallet, this.aztecNode);
+    this.cheatCodes = this.ctx.cheatCodes;
     this.deployL1ContractsValues = this.ctx.deployL1ContractsValues;
     this.aztecNodeAdmin = this.ctx.aztecNode;
   }

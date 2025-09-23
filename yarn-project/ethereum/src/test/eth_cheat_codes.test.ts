@@ -1,6 +1,7 @@
 import { Blob } from '@aztec/blob-lib';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
 import type { Anvil } from '@viem/anvil';
@@ -32,7 +33,7 @@ describe('EthCheatCodes', () => {
       ({ anvil, rpcUrl } = await startAnvil());
     }
 
-    cheatCodes = new EthCheatCodes([rpcUrl]);
+    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
     logger = createLogger('ethereum:test:eth_cheat_codes');
 
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
