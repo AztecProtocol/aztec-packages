@@ -154,7 +154,7 @@ You're absolutely right to be concerned about Web2 privacy. The key difference i
 
 Let's be honest - this privacy gap is one of the biggest barriers to blockchain adoption:
 
-- **Businesses** won't put sensitive operations on-chain if competitors can see everything
+- **Businesses** won't put sensitive operations onchain if competitors can see everything
 - **Individuals** won't use blockchain for daily transactions if everyone can track their spending
 - **Institutions** can't comply with privacy regulations using transparent blockchains
 - **Developers** can't build certain applications that require privacy
@@ -260,7 +260,7 @@ This is where privacy really unlocks adoption:
 
 #### Private DAOs
 
-- Anonymous but accountable voting
+- Private but accountable voting
 - Private treasury management
 - Confidential proposal discussions
 - Hidden member lists
@@ -273,12 +273,12 @@ Privacy enables blockchain to handle real-world data:
 
 - Private medical records with patient control
 - Confidential insurance claims
-- Anonymous medical research participation
+- Private medical research participation
 - Private prescription management
 
 #### Legal and Compliance
 
-- Confidential legal documents on-chain
+- Confidential legal documents onchain
 - Private arbitration systems
 - Sealed records until needed
 - Compliant data handling

@@ -22,7 +22,7 @@ By the end of this section, you'll understand:
 
 ## Core Value #1: Privacy First, Always
 
-### Not Just Private, But Programmably Private
+### Programmable Privacy
 
 Let's start with what makes Aztec unique. While other blockchains treat privacy as an afterthought or optional feature, we've built Aztec from the ground up with privacy at its core.
 
@@ -33,7 +33,7 @@ Think of it this way:
 
 This fundamental difference changes everything about how applications work.
 
-### The UTXO Architecture Advantage
+### The UTXO Architecture
 
 You might have heard of UTXO (Unspent Transaction Output) from Bitcoin, but Aztec takes this concept and supercharges it for privacy. Let me explain why this matters with a simple analogy:
 
@@ -86,7 +86,7 @@ contract PrivateVoting {
 }
 ```
 
-### Real Privacy, Not Just Obscurity
+### Real Privacy
 
 Let's be clear about what we mean by privacy:
 
@@ -102,9 +102,9 @@ This isn't like using a mixer or a privacy coin where you're just obscuring tran
 
 ---
 
-## Core Value #2: Accessibility Through Innovation
+## Core Value #2: Accessibility
 
-### The Magic of Recursive Zero-Knowledge Proofs
+### The Magic of Recursive Proofs
 
 Now, you might be thinking, "Privacy sounds expensive. Won't this make transactions super costly?" This is where Aztec's innovation really shines!
 
@@ -118,7 +118,7 @@ Now imagine each student grades their own test and gives you a magical certifica
 
 That's the power of recursive aggregation! We can batch hundreds or thousands of transactions and prove them all with a single, efficient proof.
 
-### Cost Reduction in Action
+### Cost Reduction
 
 Let's look at what this means for you as a user:
 
@@ -153,7 +153,7 @@ Without accessibility, privacy becomes a luxury only available to the wealthy. W
 
 ---
 
-## Core Value #3: Trustlessness - Your Privacy, No One Else's Control
+## Core Value #3: Trustlessness
 
 ### What Does Trustlessness Really Mean?
 
@@ -175,11 +175,11 @@ Think about the difference:
 - Decentralized network with no single point of failure
 - _You don't have to trust anyone_
 
-### The Decentralized Sequencer Network
+### The Sequencer Network
 
 Here's how Aztec ensures no single entity can compromise your privacy or censor your transactions:
 
-#### The Network Architecture
+#### The Network
 
 ```
 Your Transaction
@@ -210,7 +210,7 @@ No single sequencer can:
 
 This is a fancy term for a simple idea: the same rules apply to everyone, enforced by code, not people.
 
-**What This Means in Practice:**
+**What This Means:**
 
 - A billionaire's transaction follows the same rules as yours
 - Governments can't get special access to private data
@@ -219,7 +219,7 @@ This is a fancy term for a simple idea: the same rules apply to everyone, enforc
 
 It's like having a referee that's actually a robot - it can't be bribed, intimidated, or play favorites!
 
-### Individual Rights Through Technology
+### Individual Rights
 
 We believe strongly that individual rights shouldn't depend on the goodwill of corporations or governments. They should be guaranteed by mathematics and code.
 
@@ -234,7 +234,7 @@ We believe strongly that individual rights shouldn't depend on the goodwill of c
 
 ---
 
-## Core Value #4: Compliance Without Compromising Privacy
+## Core Value #4: Compliance
 
 ### The Compliance Paradox Solved
 
@@ -246,11 +246,11 @@ This might surprise you, but privacy and compliance aren't opposites - they're a
 **The Aztec Way (Best of Both):**
 "You can have privacy AND selective, programmable compliance"
 
-### Programmable Privacy in Action
+### Applied Programmable Privacy
 
 Here's the revolutionary part: developers can build compliance directly into their applications while preserving user privacy. Let's see how:
 
-#### Example: Private KYC Verification
+#### Example: Private KYC
 
 ```javascript
 // A private lending protocol on Aztec (conceptual)
@@ -322,7 +322,7 @@ When you combine privacy with programmable compliance, entirely new business mod
 
 1. **Private DEXs** that meet trading regulations
 2. **Confidential payroll** systems that handle tax withholding
-3. **Anonymous voting** that prevents double-voting
+3. **Private voting** that prevents double-voting
 4. **Private healthcare** applications that meet HIPAA requirements
 5. **Confidential supply chains** that provide necessary customs data
 

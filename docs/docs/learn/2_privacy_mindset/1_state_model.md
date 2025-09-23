@@ -50,7 +50,7 @@ A note a piece of private data owned by someone, they are fundamental building b
 Think of it as a private coin or token fragment:
 
 - Ownership: Only the owner with the nullification key can spend the note.
-- Locationless: In order to maintain privacy, notes aren't tied to a fixed storage slot like an Ethereum account balance.
+- Location-less: In order to maintain privacy, notes aren't tied to a fixed storage slot like an Ethereum account balance.
 - UTXO-like: To "spend" or "update", you consume old notes and create new ones.
 
 Analogy: You have a 5 dollar note. To pay 3.50, you hand over the 5 and get new notes (3.50 to the recipient, 1.50 back to you). On Aztec, you "nullify" the 5 note and create two new notes with the appropriate owners and values. Observers don't learn who owned which note or how it was split.
