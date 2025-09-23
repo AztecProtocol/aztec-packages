@@ -180,12 +180,6 @@ const config = {
             dropdownActiveClassDisabled: true,
           },
           {
-            type: "doc",
-            docId: "aztec/index",
-            position: "left",
-            label: "Learn",
-          },
-          {
             type: "docSidebar",
             sidebarId: "sidebar",
             position: "left",
