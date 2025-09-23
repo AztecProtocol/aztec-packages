@@ -16,7 +16,7 @@ import {
 } from './setup_test_wallets.js';
 import { setupEnvironment, startPortForwardForEthereum, startPortForwardForRPC } from './utils.js';
 
-const config = { ...setupEnvironment(process.env), REAL_VERIFIER: true }; // TODO: remove REAL_VERIFIER: true
+const config = { ...setupEnvironment(process.env) };
 
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 4000); // 40 minutes
