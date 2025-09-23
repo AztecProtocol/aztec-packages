@@ -114,12 +114,11 @@ std::shared_ptr<VerifierInstance> ProtogalaxyRecursiveVerifier_<VerifierInstance
      *
      * The cost of this verification is 3 size N MSMs with short scalars and 1 size 2 MSM with full scalars, amounting
      * to 3 * (33 * roundup(N/4) + 31) + 64 = 99 * roundup(N/4) + 157 ~ 25 * N + 157 rows (here we use that an MSM of
-     * size k with full scalars account for 33 * roundup(N/2) + 31 rows, which for k = 2 equal 64 rows)
+     * size k with full scalars account for 33 * roundup(N/2) + 31 rows, which for k = 2 equals 64 rows)
      *
      * Note: there are more efficient ways to evaluate this relationship if one solely wants to reduce number of
      * scalar muls, however we must also consider the number of ECCVM operations being executed, as each operation
-     * incurs a cost in the translator circuit Each ECCVM opcode produces 5 rows in the translator circuit, which is
-     * approx. equivalent to 9 ECCVM rows.
+     * incurs a cost in the translator circuit.
      */
 
     // New transcript for challenge generation
@@ -165,7 +164,8 @@ std::shared_ptr<VerifierInstance> ProtogalaxyRecursiveVerifier_<VerifierInstance
         batch_mul_transcript.template get_challenges<FF>(args);
     std::vector<FF> scalars(folding_challenges.begin(), folding_challenges.end());
 
-    // Compute [A] = \sum_i c_i [P_{0,i}]
+    // MSMs: edge cases are handled in the MSM only when the builder is Ultra. When the builder is mega, edge cases are
+    // handled by the ECCVM Compute [A] = \sum_i c_i [P_{0,i}]
     Commitment accumulator_sum = Commitment::batch_mul(accumulator_commitments,
                                                        scalars,
                                                        /*max_num_bits=*/0,
