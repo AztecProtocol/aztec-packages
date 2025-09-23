@@ -794,7 +794,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void range_constrain_two_limbs(const uint32_t lo_idx,
                                    const uint32_t hi_idx,
                                    const size_t lo_limb_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS,
-                                   const size_t hi_limb_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
+                                   const size_t hi_limb_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS,
+                                   std::string const& msg = "range_constrain_two_limbs");
     std::array<uint32_t, 2> decompose_non_native_field_double_width_limb(
         const uint32_t limb_idx, const size_t num_limb_bits = (2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS));
     std::array<uint32_t, 2> evaluate_non_native_field_multiplication(
