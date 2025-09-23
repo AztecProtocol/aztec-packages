@@ -12,9 +12,9 @@ use protocol_types::address::AztecAddress;
 /// - `MESSAGE_PLAINTEXT_LEN`: Maximum size of decrypted plaintext (defined globally)
 ///
 /// # Note on privacy sets
-/// To preserve privacy, `encrypt_log` returns a fixed-length array ensuring all log types are indistinguishable
+/// To preserve privacy, `encrypt` returns a fixed-length array ensuring all log types are indistinguishable
 /// onchain. Implementations of this trait must handle padding the encrypted log to match this standardized length.
-pub trait LogEncryption {
+pub trait MessageEncryption {
     /// Encrypts a plaintext field array into a private log that can be emitted onchain.
     ///
     /// # Arguments
@@ -23,7 +23,7 @@ pub trait LogEncryption {
     ///
     /// # Returns
     /// Fixed-size array of encrypted Field elements representing the private log
-    fn encrypt_log<let PlaintextLen: u32>(
+    fn encrypt<let PlaintextLen: u32>(
         plaintext: [Field; PlaintextLen],
         recipient: AztecAddress,
     ) -> [Field; MESSAGE_CIPHERTEXT_LEN];
@@ -42,7 +42,7 @@ pub trait LogEncryption {
     /// `BoundedVec` is required since the log length cannot be determined at compile time. This is because
     /// the `Contract::process_log` function is designed to work with all the private logs, emitted by a given contract
     /// and not just by 1 log type.
-    unconstrained fn decrypt_log(
+    unconstrained fn decrypt(
         ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
         recipient: AztecAddress,
     ) -> BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>;
