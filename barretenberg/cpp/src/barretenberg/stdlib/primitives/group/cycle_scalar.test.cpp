@@ -133,6 +133,84 @@ TYPED_TEST(CycleScalarTest, TestScalarFieldValidation)
 }
 
 /**
+ * @brief Test expected scalar field validation failure with value between Grumpkin and BN254 moduli
+ *
+ * This test creates a scalar with hi/lo decomposition that results in a value greater than BN254::fr modulus but less
+ * than BN254::fq modulus. (We construct the scalar directly from lo/hi components to bypass field reduction).
+ * We demonstrate that validation against Grumpkin scalar field (fq) passes, but validation against BN254 scalar field
+ * (fr) fails, as expected.
+ */
+TYPED_TEST(CycleScalarTest, TestScalarFieldValidationFailureBetweenModuli)
+{
+    using cycle_scalar = typename TestFixture::cycle_scalar;
+    using field_t = typename TestFixture::field_t;
+    using NativeField = typename TestFixture::NativeField;
+
+    // Create a value that is between BN254::fr modulus and BN254::fq modulus
+    // BN254::fr modulus = 0x30644E72E131A029B85045B68181585D2833E84879B9709143E1F593F0000001
+    // BN254::fq modulus = 0x30644E72E131A029B85045B68181585D97816A916871CA8D3C208C16D87CFD47
+    uint256_t bn254_fr_modulus = bb::fr::modulus;
+    uint256_t bn254_fq_modulus = bb::fq::modulus;
+    uint256_t moduli_diff = bn254_fq_modulus - bn254_fr_modulus;
+    uint256_t value_between_moduli = bn254_fr_modulus + moduli_diff / 2;
+
+    // Split the value into lo and hi components at the LO_BITS boundary
+    uint256_t lo_val = value_between_moduli.slice(0, cycle_scalar::LO_BITS);
+    uint256_t hi_val = value_between_moduli.slice(cycle_scalar::LO_BITS, 256);
+
+    // Test 1: Validate with Grumpkin scalar field (larger modulus) - should pass
+    {
+        TypeParam builder;
+
+        // Create lo and hi field elements
+        auto lo = field_t::from_witness(&builder, NativeField(lo_val));
+        auto hi = field_t::from_witness(&builder, NativeField(hi_val));
+
+        // Construct cycle_scalar directly WITHOUT BN254 scalar field validation flag
+        auto scalar = cycle_scalar(lo, hi);
+
+        // This should NOT use BN254 scalar field for primality test
+        EXPECT_FALSE(scalar.use_bn254_scalar_field_for_primality_test());
+
+        // Validate - this should pass because value < BN254::fq modulus (Grumpkin scalar field)
+        scalar.validate_scalar_is_in_field();
+
+        // The builder should NOT have failed
+        EXPECT_FALSE(builder.failed());
+        check_circuit_and_gate_count(builder, 2761);
+    }
+
+    // Test 2: Try to manually validate with BN254 scalar field (smaller modulus)
+    // Since we can't set the use_bn254_scalar_field_for_primality_test flag directly
+    // with the public constructor, we'll test the underlying validate_split_in_field directly
+    {
+        TypeParam builder;
+
+        // Create lo and hi field elements
+        auto lo = field_t::from_witness(&builder, NativeField(lo_val));
+        auto hi = field_t::from_witness(&builder, NativeField(hi_val));
+
+        // Construct cycle_scalar with the public constructor
+        auto scalar = cycle_scalar(lo, hi);
+
+        // This will NOT use BN254 scalar field for primality test (it defaults to false)
+        EXPECT_FALSE(scalar.use_bn254_scalar_field_for_primality_test());
+
+        // Verify the reconstructed value matches what we expect
+        uint256_t reconstructed =
+            uint256_t(scalar.lo.get_value()) + (uint256_t(scalar.hi.get_value()) << cycle_scalar::LO_BITS);
+        EXPECT_EQ(reconstructed, value_between_moduli);
+
+        // Now directly call validate_split_in_field with BN254::fr modulus
+        // This should fail because value > BN254::fr modulus
+        bb::stdlib::validate_split_in_field(lo, hi, cycle_scalar::LO_BITS, bn254_fr_modulus);
+
+        // The builder should have failed
+        EXPECT_TRUE(builder.failed());
+    }
+}
+
+/**
  * @brief Test cycle_scalar construction from BigScalarField
  */
 TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructor)
