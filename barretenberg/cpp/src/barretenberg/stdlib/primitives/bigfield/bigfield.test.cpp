@@ -343,7 +343,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
 
         bool result_check = CircuitChecker::check(builder);
         EXPECT_EQ(result_check, false);
-        EXPECT_EQ(builder.err(), "ultra_circuit_builder: sublimb of low too large");
+        EXPECT_EQ(builder.err(), "bigfield::construct_from_limbs: limb 0 or 1 too large: lo limb.");
     }
 
     static void test_add_two(InputType a_type, InputType b_type, InputType c_type)
@@ -1939,7 +1939,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         // Check circuit correctness
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, false);
-        EXPECT_EQ(builder.err(), "bigfield: prime limb identity failed");
+        EXPECT_EQ(builder.err(), "bigfield::create_from_u512_as_witness: limb 2 or 3 too large: hi limb.");
     }
 
     static void test_nonnormalized_field_bug_regression()
