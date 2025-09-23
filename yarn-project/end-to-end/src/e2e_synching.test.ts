@@ -448,6 +448,7 @@ describe('e2e_synching', () => {
         epochCache,
         dateProvider: dateProvider!,
         metrics: sequencerPublisherMetrics,
+        lastActions: {},
       },
     );
 

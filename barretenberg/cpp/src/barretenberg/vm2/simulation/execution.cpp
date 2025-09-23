@@ -981,7 +981,7 @@ void Execution::to_radix_be(ContextInterface& context,
     uint32_t radix_value = radix.as<uint32_t>();
     uint32_t num_p_limbs = greater_than.gt(radix.as<uint32_t>(), 256)
                                ? 32
-                               : static_cast<uint32_t>(get_p_limbs_per_radix()[radix_value].size());
+                               : static_cast<uint32_t>(get_p_limbs_per_radix_size(radix_value));
 
     // Compute the dynamic gas factor - done this way to trigger relevant circuit interactions
     if (greater_than.gt(num_limbs.as<uint32_t>(), num_p_limbs)) {

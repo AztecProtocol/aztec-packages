@@ -64,6 +64,14 @@ export class ConsensusPayload implements Signable {
     return serializeToBuffer([this.header, this.archive, this.stateReference]);
   }
 
+  public equals(other: ConsensusPayload): boolean {
+    return (
+      this.header.equals(other.header) &&
+      this.archive.equals(other.archive) &&
+      this.stateReference.equals(other.stateReference)
+    );
+  }
+
   static fromBuffer(buf: Buffer | BufferReader): ConsensusPayload {
     const reader = BufferReader.asReader(buf);
     const payload = new ConsensusPayload(
@@ -101,6 +109,14 @@ export class ConsensusPayload implements Signable {
     }
     this.size = this.toBuffer().length;
     return this.size;
+  }
+
+  toInspect() {
+    return {
+      header: this.header.toInspect(),
+      archive: this.archive.toString(),
+      stateReference: this.stateReference.toInspect(),
+    };
   }
 
   toString() {

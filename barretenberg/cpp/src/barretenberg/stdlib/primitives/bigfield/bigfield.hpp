@@ -596,6 +596,7 @@ template <typename Builder, typename T> class bigfield {
 
     void assert_is_in_field() const;
     void assert_less_than(const uint256_t& upper_limit) const;
+    void reduce_mod_target_modulus() const;
     void assert_equal(const bigfield& other) const;
     void assert_is_not_equal(const bigfield& other) const;
 
@@ -943,6 +944,14 @@ template <typename Builder, typename T> class bigfield {
 
   private:
     /**
+     * @brief Assert that the current bigfield is less than the given upper limit.
+     *
+     * @param upper_limit
+     * @warning This function is UNSAFE as it assumes that the bigfield element is already reduced.
+     */
+    void unsafe_assert_less_than(const uint256_t& upper_limit) const;
+
+    /**
      * @brief Get the witness indices of the (normalized) binary basis limbs
      *
      * @return Witness indices of the binary basis limbs
@@ -1128,6 +1137,12 @@ template <typename Builder, typename T> class bigfield {
 // NOTE: For testing private functions in bigfield
 class bigfield_test_access {
   public:
+    template <typename bigfield>
+    static void unsafe_assert_less_than(const bigfield& input, const uint256_t& upper_limit)
+    {
+        input.unsafe_assert_less_than(upper_limit);
+    }
+
     template <typename bigfield>
     static void unsafe_evaluate_multiply_add(const bigfield& input_left,
                                              const bigfield& input_to_mul,

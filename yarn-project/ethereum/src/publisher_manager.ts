@@ -1,3 +1,4 @@
+import { pick } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 
 import { L1TxUtils, TxUtilsState } from './l1_tx_utils.js';
@@ -9,10 +10,15 @@ export type PublisherFilter<UtilsType extends L1TxUtils> = (utils: UtilsType) =>
 
 export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
   private log = createLogger('PublisherManager');
+  private config: { publisherAllowInvalidStates?: boolean };
 
-  constructor(private publishers: UtilsType[]) {
+  constructor(
+    private publishers: UtilsType[],
+    config: { publisherAllowInvalidStates?: boolean },
+  ) {
     this.log.info(`PublisherManager initialized with ${publishers.length} publishers.`);
     this.publishers = publishers;
+    this.config = pick(config, 'publisherAllowInvalidStates');
   }
 
   // Finds and prioritises available publishers based on
@@ -23,9 +29,13 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
   // 5. Then priority based on least recently used
   public async getAvailablePublisher(filter: PublisherFilter<UtilsType> = () => true): Promise<UtilsType> {
     // Extract the valid publishers
-    const validPublishers = this.publishers.filter(
-      (pub: UtilsType) => !invalidStates.includes(pub.state) && filter(pub),
-    );
+    let validPublishers = this.publishers.filter((pub: UtilsType) => !invalidStates.includes(pub.state) && filter(pub));
+
+    // If none found but we allow invalid states, try again including them
+    if (validPublishers.length === 0 && this.config.publisherAllowInvalidStates) {
+      this.log.warn(`No valid publishers found. Trying again including invalid states.`);
+      validPublishers = this.publishers.filter(pub => filter(pub));
+    }
 
     // Error if none found
     if (validPublishers.length === 0) {
