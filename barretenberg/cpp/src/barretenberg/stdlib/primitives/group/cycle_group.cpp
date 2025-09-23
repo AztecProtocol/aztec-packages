@@ -221,7 +221,7 @@ template <typename Builder> typename cycle_group<Builder>::AffineElement cycle_g
 
 /**
  * @brief On-curve check.
- * @details Validates that the point satisfies the curve equation or is the point at infinity.
+ * @details Validates that the point satisfies the curve equation \f$y^2 = x^3 + b\f$ or is the point at infinity.
  *
  * @tparam Builder
  */
@@ -358,7 +358,7 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
         const bb::fr y1 = modified_y.get_value();
 
         // N.B. the formula to derive the witness value for x3 mirrors the formula in elliptic_relation.hpp
-        // Specifically, we derive x^4 via the Short Weierstrass curve formula `y^2 = x^3 + b` i.e. x^4 = x * (y^2 - b)
+        // Specifically, we derive x^4 via the Short Weierstrass curve formula y^2 = x^3 + b i.e. x^4 = x * (y^2 - b)
         // We must follow this pattern exactly to support the edge-case where the input is the point at infinity.
         const bb::fr y_pow_2 = y1.sqr();
         const bb::fr x_pow_4 = x1 * (y_pow_2 - Group::curve_b);
@@ -725,15 +725,15 @@ template <typename Builder> cycle_group<Builder>& cycle_group<Builder>::operator
 /**
  * @brief Internal logic to perform a variable-base batch mul using the Straus MSM algorithm.
  *
- * @details Computes \sum_i scalars[i] * base_points[i] using the windowed Straus algorithm with 4-bit windows.
- * The algorithm operates in three phases:
+ * @details Computes \f$\sum_i scalars[i] \cdot base\_points[i]\f$ using the windowed Straus algorithm with 4-bit
+ * windows. The algorithm operates in three phases:
  * 1. Native computation: Compute all EC operations natively to generate witness hints using batched operations. (This
  * avoids the need to perform expensive modular inversions per operation during witness generation)
  * 2. Table construction: Build in-circuit ROM lookup tables for each base point
  * 3. Circuit execution: Perform the Straus algorithm in-circuit using the ROM tables and precomputed hints
  *
  * @note Offset generators are added to prevent point-at-infinity edge cases. The returned result is:
- * \sum_i scalars[i] * base_points[i] + offset_accumulator
+ * \f$\sum_i scalars[i] \cdot base\_points[i] + offset\_accumulator\f$
  * where offset_accumulator is also returned separately for later subtraction.
  *
  * @param scalars Vector of scalar multipliers (must all have the same bit length)
@@ -899,10 +899,10 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
  *
  * The LO multi-tables consist of fifteen basic tables (14 × 9-bit + 1 × 2-bit = 128 bits) and the HI multi-tables
  * consist of fourteen 9-bit basic tables (14 × 9 = 126 bits). Each basic table stores at index i the precomputed
- * points: [offset_generator_i] + k * 2^(table_bits*i) * [base_point] for k = 0, 1, ..., 2^table_bits - 1. The offset
- * generators prevent point-at-infinity edge cases. The algorithm sums all looked-up points to compute scalar *
- * [base_point] + [sum of offset generators]. We return both the accumulator and the sum of offset generators, so that
- * it can be subtracted off later.
+ * points: \f$[offset\_generator_i] + k \cdot 2^{table\_bits \cdot i} \cdot [base\_point]\f$ for \f$k = 0, 1, ...,
+ * 2^{table\_bits} - 1\f$. The offset generators prevent point-at-infinity edge cases. The algorithm sums all looked-up
+ * points to compute \f$scalar \cdot [base\_point] + [sum\_of\_offset\_generators]\f$. We return both the accumulator
+ * and the sum of offset generators, so that it can be subtracted off later.
  *
  * This approach avoids all point doublings and reduces one scalar mul to ~29 lookups + ~29 ecc addition gates.
  *
