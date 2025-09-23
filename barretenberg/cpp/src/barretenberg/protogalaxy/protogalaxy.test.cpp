@@ -22,9 +22,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
   public:
     using VerificationKey = typename Flavor::VerificationKey;
     using ProverInstance = ProverInstance_<Flavor>;
-    using ProverInstances = ProverInstances_<Flavor, 2>;
     using VerifierInstance = VerifierInstance_<Flavor>;
-    using VerifierInstances = VerifierInstances_<Flavor, 2>;
     using ProtogalaxyProver = ProtogalaxyProver_<Flavor>;
     using FF = typename Flavor::FF;
     using Affine = typename Flavor::Commitment;
@@ -39,11 +37,12 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     using DeciderProver = DeciderProver_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
     using FoldingProver = ProtogalaxyProver_<Flavor>;
-    using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstances>;
-    using PGInternal = ProtogalaxyProverInternal<ProverInstances>;
+    using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstance>;
+    using PGInternal = ProtogalaxyProverInternal<ProverInstance>;
+    using ProverInstances = ProtogalaxyProver::ProverInstances;
+    using VerifierInstances = std::array<std::shared_ptr<VerifierInstance>, NUM_INSTANCES>;
 
-    using TupleOfKeys =
-        std::tuple<std::vector<std::shared_ptr<ProverInstance>>, std::vector<std::shared_ptr<VerifierInstance>>>;
+    using TupleOfKeys = std::tuple<ProverInstances, VerifierInstances>;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
@@ -57,14 +56,17 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     }
 
     // Construct decider keys for a provided circuit and add to tuple
-    static void construct_keys(TupleOfKeys& keys, Builder& builder, TraceSettings trace_settings = TraceSettings{})
+    static void construct_tuple_of_keys(TupleOfKeys& keys,
+                                        Builder& builder,
+                                        size_t idx = 0,
+                                        TraceSettings trace_settings = TraceSettings{})
     {
 
         auto prover_instance = std::make_shared<ProverInstance>(builder, trace_settings);
         auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
         auto verifier_instances = std::make_shared<VerifierInstance>(verification_key);
-        get<0>(keys).emplace_back(prover_instance);
-        get<1>(keys).emplace_back(verifier_instances);
+        get<0>(keys)[idx] = prover_instance;
+        get<1>(keys)[idx] = verifier_instances;
     }
 
     // Construct a given numer of decider key pairs
@@ -76,14 +78,14 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
             auto builder = typename Flavor::CircuitBuilder();
             construct_circuit(builder);
 
-            construct_keys(keys, builder, trace_settings);
+            construct_tuple_of_keys(keys, builder, idx, trace_settings);
         }
         return keys;
     }
 
     static std::tuple<std::shared_ptr<ProverInstance>, std::shared_ptr<VerifierInstance>> fold_and_verify(
-        const std::vector<std::shared_ptr<ProverInstance>>& prover_instances,
-        const std::vector<std::shared_ptr<VerifierInstance>>& verification_keys,
+        const ProverInstances& prover_instances,
+        const VerifierInstances& verification_keys,
         ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
     {
         FoldingProver folding_prover(prover_instances,
@@ -316,8 +318,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         auto check_fold_and_decide = [](Builder& circuit_1, Builder& circuit_2) {
             // Construct decider key pairs for each
             TupleOfKeys keys;
-            construct_keys(keys, circuit_1);
-            construct_keys(keys, circuit_2);
+            construct_tuple_of_keys(keys, circuit_1, 0);
+            construct_tuple_of_keys(keys, circuit_2, 1);
 
             // Perform prover and verifier folding
             auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(keys), get<1>(keys));
@@ -398,8 +400,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         // Construct the key pairs for each
         TupleOfKeys keys;
-        construct_keys(keys, builder1);
-        construct_keys(keys, builder2);
+        construct_tuple_of_keys(keys, builder1, 0);
+        construct_tuple_of_keys(keys, builder2, 1);
 
         // Perform prover and verifier folding
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(keys), get<1>(keys));
@@ -421,7 +423,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         TupleOfKeys insts_2 = construct_keys(1); // just one key pair
         auto [prover_accumulator_2, verifier_accumulator_2] =
-            fold_and_verify({ prover_accumulator, get<0>(insts_2)[0] }, { verifier_accumulator, get<1>(insts_2)[0] });
+            fold_and_verify(ProverInstances{ prover_accumulator, get<0>(insts_2)[0] },
+                            VerifierInstances{ verifier_accumulator, get<1>(insts_2)[0] });
         EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator_2));
 
         decide_and_verify(prover_accumulator_2, verifier_accumulator_2, true);
@@ -442,7 +445,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         TupleOfKeys keys_2 = construct_keys(1, trace_settings); // just one key pair
 
         auto [prover_accumulator_2, verifier_accumulator_2] =
-            fold_and_verify({ prover_accumulator, get<0>(keys_2)[0] }, { verifier_accumulator, get<1>(keys_2)[0] });
+            fold_and_verify(ProverInstances{ prover_accumulator, get<0>(keys_2)[0] },
+                            VerifierInstances{ verifier_accumulator, get<1>(keys_2)[0] });
         EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator_2));
         info(prover_accumulator_2->dyadic_size());
         decide_and_verify(prover_accumulator_2, verifier_accumulator_2, true);
@@ -461,8 +465,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         TraceSettings trace_settings{ SMALL_TEST_STRUCTURE_FOR_OVERFLOWS, overflow_capacity };
         ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker(trace_settings);
 
-        std::vector<std::shared_ptr<ProverInstance>> prover_insts;
-        std::vector<std::shared_ptr<VerifierInstance>> verifier_insts;
+        ProverInstances prover_insts;
+        VerifierInstances verifier_insts;
 
         // define parameters for two circuits; the first fits within the structured trace, the second overflows
         const std::vector<size_t> log2_num_gates = { 14, 18 };
@@ -476,8 +480,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
             trace_usage_tracker.update(builder);
             auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
             auto verifier_instance = std::make_shared<VerifierInstance>(verification_key);
-            prover_insts.push_back(prover_instance);
-            verifier_insts.push_back(verifier_instance);
+            prover_insts[i] = prover_instance;
+            verifier_insts[i] = verifier_instance;
         }
 
         // Ensure the dyadic size of the first key is strictly less than that of the second
@@ -515,8 +519,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         // Construct the decider key pairs for the first two circuits
         TupleOfKeys keys_1;
-        construct_keys(keys_1, builder1, trace_settings);
-        construct_keys(keys_1, builder2, trace_settings);
+        construct_tuple_of_keys(keys_1, builder1, 0, trace_settings);
+        construct_tuple_of_keys(keys_1, builder2, 1, trace_settings);
 
         // Fold the first two pairs
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(keys_1), get<1>(keys_1));
@@ -524,11 +528,12 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         // Construct the decider key pair for the third circuit
         TupleOfKeys keys_2;
-        construct_keys(keys_2, builder3, trace_settings);
+        construct_tuple_of_keys(keys_2, builder3, 0, trace_settings);
 
         // Fold 3rd pair of keys into their respective accumulators
         auto [prover_accumulator_2, verifier_accumulator_2] =
-            fold_and_verify({ prover_accumulator, get<0>(keys_2)[0] }, { verifier_accumulator, get<1>(keys_2)[0] });
+            fold_and_verify(ProverInstances{ prover_accumulator, get<0>(keys_2)[0] },
+                            VerifierInstances{ verifier_accumulator, get<1>(keys_2)[0] });
         EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator_2));
         info(prover_accumulator_2->dyadic_size());
 
@@ -551,7 +556,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         TupleOfKeys insts_2 = construct_keys(1); // just one decider key pair
         auto [prover_accumulator_2, verifier_accumulator_2] =
-            fold_and_verify({ prover_accumulator, get<0>(insts_2)[0] }, { verifier_accumulator, get<1>(insts_2)[0] });
+            fold_and_verify(ProverInstances{ prover_accumulator, get<0>(insts_2)[0] },
+                            VerifierInstances{ verifier_accumulator, get<1>(insts_2)[0] });
         EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator_2));
 
         decide_and_verify(prover_accumulator_2, verifier_accumulator_2, false);
@@ -574,7 +580,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         TupleOfKeys insts_2 = construct_keys(1); // just one decider key pair
         auto [prover_accumulator_2, verifier_accumulator_2] =
-            fold_and_verify({ prover_accumulator, get<0>(insts_2)[0] }, { verifier_accumulator, get<1>(insts_2)[0] });
+            fold_and_verify(ProverInstances{ prover_accumulator, get<0>(insts_2)[0] },
+                            VerifierInstances{ verifier_accumulator, get<1>(insts_2)[0] });
 
         EXPECT_EQ(prover_accumulator_2->target_sum == verifier_accumulator_2->target_sum, false);
         decide_and_verify(prover_accumulator_2, verifier_accumulator_2, false);
@@ -585,10 +592,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         constexpr size_t total_insts = k + 1;
         TupleOfKeys insts = construct_keys(total_insts);
 
-        ProtogalaxyProver_<Flavor, total_insts> folding_prover(
-            get<0>(insts), get<1>(insts), std::make_shared<NativeTranscript>());
-        ProtogalaxyVerifier_<VerifierInstances_<Flavor, total_insts>> folding_verifier(
-            get<1>(insts), std::make_shared<NativeTranscript>());
+        ProtogalaxyProver_<Flavor> folding_prover(get<0>(insts), get<1>(insts), std::make_shared<NativeTranscript>());
+        ProtogalaxyVerifier_<VerifierInstance> folding_verifier(get<1>(insts), std::make_shared<NativeTranscript>());
 
         auto [prover_accumulator, folding_proof] = folding_prover.prove();
         auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);
