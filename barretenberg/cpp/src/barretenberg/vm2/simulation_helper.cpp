@@ -76,66 +76,51 @@ namespace bb::avm2 {
 
 using namespace bb::avm2::simulation;
 
-namespace {
-
-// Configuration for full simulation (for proving).
-struct ProvingSettings {
-    template <typename E> using DefaultEventEmitter = EventEmitter<E>;
-    template <typename E> using DefaultDeduplicatingEventEmitter = DeduplicatingEventEmitter<E>;
-};
-
-// Configuration for fast simulation.
-struct FastSettings {
-    template <typename E> using DefaultEventEmitter = NoopEventEmitter<E>;
-    template <typename E> using DefaultDeduplicatingEventEmitter = NoopEventEmitter<E>;
-};
-
-} // namespace
-
-template <typename S> EventsContainer AvmSimulationHelper::simulate_with_settings()
+EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& hints)
 {
-    typename S::template DefaultEventEmitter<ExecutionEvent> execution_emitter;
-    typename S::template DefaultDeduplicatingEventEmitter<AluEvent> alu_emitter;
-    typename S::template DefaultEventEmitter<BitwiseEvent> bitwise_emitter;
-    typename S::template DefaultEventEmitter<DataCopyEvent> data_copy_emitter;
-    typename S::template DefaultEventEmitter<MemoryEvent> memory_emitter;
-    typename S::template DefaultEventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;
-    typename S::template DefaultEventEmitter<BytecodeHashingEvent> bytecode_hashing_emitter;
-    typename S::template DefaultEventEmitter<BytecodeDecompositionEvent> bytecode_decomposition_emitter;
-    typename S::template DefaultDeduplicatingEventEmitter<InstructionFetchingEvent> instruction_fetching_emitter;
-    typename S::template DefaultEventEmitter<AddressDerivationEvent> address_derivation_emitter;
-    typename S::template DefaultEventEmitter<ClassIdDerivationEvent> class_id_derivation_emitter;
-    typename S::template DefaultEventEmitter<SiloingEvent> siloing_emitter;
-    typename S::template DefaultEventEmitter<Sha256CompressionEvent> sha256_compression_emitter;
-    typename S::template DefaultEventEmitter<EccAddEvent> ecc_add_emitter;
-    typename S::template DefaultEventEmitter<ScalarMulEvent> scalar_mul_emitter;
-    typename S::template DefaultEventEmitter<EccAddMemoryEvent> ecc_add_memory_emitter;
-    typename S::template DefaultEventEmitter<Poseidon2HashEvent> poseidon2_hash_emitter;
-    typename S::template DefaultEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
-    typename S::template DefaultEventEmitter<Poseidon2PermutationMemoryEvent> poseidon2_perm_mem_emitter;
-    typename S::template DefaultEventEmitter<KeccakF1600Event> keccakf1600_emitter;
-    typename S::template DefaultEventEmitter<ToRadixEvent> to_radix_emitter;
-    typename S::template DefaultEventEmitter<ToRadixMemoryEvent> to_radix_memory_emitter;
-    typename S::template DefaultDeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
-    typename S::template DefaultEventEmitter<MerkleCheckEvent> merkle_check_emitter;
-    typename S::template DefaultDeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
-    typename S::template DefaultEventEmitter<ContextStackEvent> context_stack_emitter;
-    typename S::template DefaultEventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_emitter;
-    typename S::template DefaultEventEmitter<UpdateCheckEvent> update_check_emitter;
-    typename S::template DefaultEventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_emitter;
-    typename S::template DefaultEventEmitter<TxEvent> tx_event_emitter;
-    typename S::template DefaultEventEmitter<CalldataEvent> calldata_emitter;
-    typename S::template DefaultEventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
-    typename S::template DefaultEventEmitter<NoteHashTreeCheckEvent> note_hash_tree_check_emitter;
-    typename S::template DefaultEventEmitter<WrittenPublicDataSlotsTreeCheckEvent>
-        written_public_data_slots_tree_check_emitter;
-    typename S::template DefaultDeduplicatingEventEmitter<GreaterThanEvent> greater_than_emitter;
-    typename S::template DefaultEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
-    typename S::template DefaultEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
-    typename S::template DefaultEventEmitter<L1ToL2MessageTreeCheckEvent> l1_to_l2_msg_tree_check_emitter;
-    typename S::template DefaultEventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
-    typename S::template DefaultEventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
-    typename S::template DefaultEventEmitter<GetProtocolContractDerivedAddressEvent> protocol_contract_emitter;
+    BB_BENCH_NAME("AvmSimulationHelper::simulate_for_witgen");
+
+    EventEmitter<ExecutionEvent> execution_emitter;
+    DeduplicatingEventEmitter<AluEvent> alu_emitter;
+    EventEmitter<BitwiseEvent> bitwise_emitter;
+    EventEmitter<DataCopyEvent> data_copy_emitter;
+    EventEmitter<MemoryEvent> memory_emitter;
+    EventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;
+    EventEmitter<BytecodeHashingEvent> bytecode_hashing_emitter;
+    EventEmitter<BytecodeDecompositionEvent> bytecode_decomposition_emitter;
+    DeduplicatingEventEmitter<InstructionFetchingEvent> instruction_fetching_emitter;
+    EventEmitter<AddressDerivationEvent> address_derivation_emitter;
+    EventEmitter<ClassIdDerivationEvent> class_id_derivation_emitter;
+    EventEmitter<SiloingEvent> siloing_emitter;
+    EventEmitter<Sha256CompressionEvent> sha256_compression_emitter;
+    EventEmitter<EccAddEvent> ecc_add_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_emitter;
+    EventEmitter<EccAddMemoryEvent> ecc_add_memory_emitter;
+    EventEmitter<Poseidon2HashEvent> poseidon2_hash_emitter;
+    EventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
+    EventEmitter<Poseidon2PermutationMemoryEvent> poseidon2_perm_mem_emitter;
+    EventEmitter<KeccakF1600Event> keccakf1600_emitter;
+    EventEmitter<ToRadixEvent> to_radix_emitter;
+    EventEmitter<ToRadixMemoryEvent> to_radix_memory_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
+    EventEmitter<MerkleCheckEvent> merkle_check_emitter;
+    DeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
+    EventEmitter<ContextStackEvent> context_stack_emitter;
+    EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_emitter;
+    EventEmitter<UpdateCheckEvent> update_check_emitter;
+    EventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_emitter;
+    EventEmitter<TxEvent> tx_event_emitter;
+    EventEmitter<CalldataEvent> calldata_emitter;
+    EventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
+    EventEmitter<NoteHashTreeCheckEvent> note_hash_tree_check_emitter;
+    EventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_tree_check_emitter;
+    DeduplicatingEventEmitter<GreaterThanEvent> greater_than_emitter;
+    EventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
+    EventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
+    EventEmitter<L1ToL2MessageTreeCheckEvent> l1_to_l2_msg_tree_check_emitter;
+    EventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
+    EventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
+    EventEmitter<GetProtocolContractDerivedAddressEvent> protocol_contract_emitter;
 
     ExecutionIdManager execution_id_manager(1);
     RangeCheck range_check(range_check_emitter);
@@ -297,12 +282,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     };
 }
 
-EventsContainer AvmSimulationHelper::simulate()
-{
-    return simulate_with_settings<ProvingSettings>();
-}
-
-void AvmSimulationHelper::simulate_fast()
+void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints)
 {
     BB_BENCH_NAME("AvmSimulationHelper::simulate_fast");
 
