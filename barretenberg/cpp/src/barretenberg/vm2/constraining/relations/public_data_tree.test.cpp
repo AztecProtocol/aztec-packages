@@ -573,9 +573,12 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
                                                                                           true);
     EXPECT_EQ(next_snapshot, snapshot_after_update);
 
-    public_data_tree_check_simulator.generate_ff_gt_events_for_squashing(
-        test_public_inputs.accumulatedData.publicDataWrites,
-        test_public_inputs.accumulatedDataArrayLengths.publicDataWrites);
+    const auto* public_data_writes_start = test_public_inputs.accumulatedData.publicDataWrites.begin();
+    std::vector<PublicDataWrite> public_data_writes(
+        public_data_writes_start,
+        public_data_writes_start + test_public_inputs.accumulatedDataArrayLengths.publicDataWrites);
+
+    public_data_tree_check_simulator.generate_ff_gt_events_for_squashing(public_data_writes);
 
     precomputed_builder.process_misc(trace, 1 << 16);
     precomputed_builder.process_sel_range_16(trace);

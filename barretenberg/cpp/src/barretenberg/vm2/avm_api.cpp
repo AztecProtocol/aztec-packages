@@ -15,7 +15,14 @@ std::pair<AvmAPI::AvmProof, AvmAPI::AvmVerificationKey> AvmAPI::prove(const AvmA
     // Simulate.
     info("Simulating...");
     AvmSimulationHelper simulation_helper;
-    auto events = AVM_TRACK_TIME_V("simulation/all", simulation_helper.simulate_for_witgen(inputs.hints));
+
+    const auto* public_data_writes_start = inputs.publicInputs.accumulatedData.publicDataWrites.begin();
+    std::vector<PublicDataWrite> public_data_writes(
+        public_data_writes_start,
+        public_data_writes_start + inputs.publicInputs.accumulatedDataArrayLengths.publicDataWrites);
+
+    auto events =
+        AVM_TRACK_TIME_V("simulation/all", simulation_helper.simulate_for_witgen(inputs.hints, public_data_writes));
 
     // Generate trace.
     info("Generating trace...");
@@ -37,7 +44,14 @@ bool AvmAPI::check_circuit(const AvmAPI::ProvingInputs& inputs)
     // Simulate.
     info("Simulating...");
     AvmSimulationHelper simulation_helper;
-    auto events = AVM_TRACK_TIME_V("simulation/all", simulation_helper.simulate_for_witgen(inputs.hints));
+
+    const auto* public_data_writes_start = inputs.publicInputs.accumulatedData.publicDataWrites.begin();
+    std::vector<PublicDataWrite> public_data_writes(
+        public_data_writes_start,
+        public_data_writes_start + inputs.publicInputs.accumulatedDataArrayLengths.publicDataWrites);
+
+    auto events =
+        AVM_TRACK_TIME_V("simulation/all", simulation_helper.simulate_for_witgen(inputs.hints, public_data_writes));
 
     // Generate trace.
     // In contrast to proving, we do this step by step since it's usually more useful to debug

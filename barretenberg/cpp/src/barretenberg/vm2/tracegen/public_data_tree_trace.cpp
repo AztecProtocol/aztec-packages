@@ -115,7 +115,7 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
                       { C::public_data_check_should_insert, should_insert },
                       { C::public_data_check_new_leaf_hash, new_leaf_hash },
                       { C::public_data_check_write_idx, write_idx },
-                      { C::public_data_check_nondiscaded_write, nondiscarded_write },
+                      { C::public_data_check_non_discarded_write, nondiscarded_write },
                       { C::public_data_check_should_write_to_public_inputs, should_write_to_public_inputs },
                       { C::public_data_check_final_value, final_value },
                       { C::public_data_check_public_data_writes_length, public_data_writes_length },

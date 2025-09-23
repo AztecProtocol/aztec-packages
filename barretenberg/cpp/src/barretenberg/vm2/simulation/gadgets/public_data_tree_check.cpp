@@ -152,19 +152,19 @@ void PublicDataTreeCheck::on_checkpoint_reverted()
 }
 
 // Leaf slot needs to be casted as uint256_t to compare.
-// Sorting over pointers instead of structs would be faster but probably negligible for such a small array.
-void PublicDataTreeCheck::generate_ff_gt_events_for_squashing(
-    std::array<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>& public_data_writes,
-    uint32_t public_data_writes_length)
+// Sorting over pointers instead of structs would be faster but probably negligible for such a small vector.
+void PublicDataTreeCheck::generate_ff_gt_events_for_squashing(std::vector<PublicDataWrite>& public_data_writes)
 {
-    std::sort(public_data_writes.begin(),
-              public_data_writes.begin() + public_data_writes_length,
-              [](const PublicDataWrite& a, const PublicDataWrite& b) {
-                  return static_cast<uint256_t>(a.leafSlot) < static_cast<uint256_t>(b.leafSlot);
-              });
+    std::ranges::sort(public_data_writes, [](const PublicDataWrite& a, const PublicDataWrite& b) {
+        return static_cast<uint256_t>(a.leafSlot) < static_cast<uint256_t>(b.leafSlot);
+    });
 
-    for (size_t i = 0; i < public_data_writes_length - 1; i++) {
-        field_gt.ff_gt(public_data_writes.at(i + 1).leafSlot, public_data_writes.at(i).leafSlot);
+    const size_t public_data_writes_length = public_data_writes.size();
+
+    if (public_data_writes_length > 1) {
+        for (size_t i = 0; i < public_data_writes_length - 1; i++) {
+            field_gt.ff_gt(public_data_writes.at(i + 1).leafSlot, public_data_writes.at(i).leafSlot);
+        }
     }
 }
 

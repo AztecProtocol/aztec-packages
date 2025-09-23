@@ -76,7 +76,8 @@ namespace bb::avm2 {
 
 using namespace bb::avm2::simulation;
 
-EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& hints)
+EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& hints,
+                                                         std::vector<PublicDataWrite>& public_data_writes)
 {
     BB_BENCH_NAME("AvmSimulationHelper::simulate_for_witgen");
 
@@ -237,7 +238,7 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
 
     tx_execution.simulate(hints.tx);
 
-    public_data_tree_check.generate_ff_gt_events_for_squashing(public_data_writes, public_data_writes_length);
+    public_data_tree_check.generate_ff_gt_events_for_squashing(public_data_writes);
 
     return {
         tx_event_emitter.dump_events(),

@@ -197,14 +197,14 @@ void public_data_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::public_data_check_nondiscaded_write)) -
+        auto tmp = (static_cast<View>(in.get(C::public_data_check_non_discarded_write)) -
                     static_cast<View>(in.get(C::public_data_check_write)) *
                         (FF(1) - static_cast<View>(in.get(C::public_data_check_discard))));
         std::get<22>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - static_cast<View>(in.get(C::public_data_check_nondiscaded_write))) *
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::public_data_check_non_discarded_write))) *
                    static_cast<View>(in.get(C::public_data_check_should_write_to_public_inputs));
         std::get<23>(evals) += (tmp * scaling_factor);
     }
