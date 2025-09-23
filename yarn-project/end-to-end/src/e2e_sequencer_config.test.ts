@@ -1,7 +1,8 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import type { AztecNode, TxReceipt } from '@aztec/aztec.js';
-import { Bot, type BotConfig, getBotDefaultConfig } from '@aztec/bot';
+import { Bot, type BotConfig, BotStore, getBotDefaultConfig } from '@aztec/bot';
 import type { Logger } from '@aztec/foundation/log';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestWallet } from '@aztec/test-wallet';
 
@@ -41,7 +42,7 @@ describe('e2e_sequencer_config', () => {
         ammTxs: false,
         txMinedWaitSeconds: 12,
       };
-      bot = await Bot.create(config, wallet, aztecNode, undefined);
+      bot = await Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
     });
 
     afterAll(() => teardown());

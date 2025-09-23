@@ -6,10 +6,12 @@ import {
   getDefaultConfig,
   numberConfigHelper,
   optionalNumberConfigHelper,
+  pickConfigMappings,
   secretFrConfigHelper,
   secretStringConfigHelper,
 } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ZodFor, schemas } from '@aztec/stdlib/schemas';
@@ -78,7 +80,7 @@ export type BotConfig = {
   stopWhenUnhealthy: boolean;
   /** Deploy an AMM contract and do swaps instead of transfers */
   ammTxs: boolean;
-};
+} & Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'>;
 
 export const BotConfigSchema = z
   .object({
@@ -108,6 +110,8 @@ export const BotConfigSchema = z
     maxConsecutiveErrors: z.number().int().nonnegative(),
     stopWhenUnhealthy: z.boolean(),
     ammTxs: z.boolean().default(false),
+    dataDirectory: z.string().optional(),
+    dataStoreMapSizeKB: z.number().optional(),
   })
   .transform(config => ({
     nodeUrl: undefined,
@@ -120,6 +124,8 @@ export const BotConfigSchema = z
     l1Mnemonic: undefined,
     l1PrivateKey: undefined,
     senderPrivateKey: undefined,
+    dataDirectory: undefined,
+    dataStoreMapSizeKB: 1_024 * 1_024,
     ...config,
   })) satisfies ZodFor<BotConfig>;
 
@@ -270,6 +276,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     description: 'Deploy an AMM and send swaps to it',
     ...booleanConfigHelper(false),
   },
+  ...pickConfigMappings(dataConfigMappings, ['dataStoreMapSizeKB', 'dataDirectory']),
 };
 
 export function getBotConfigFromEnv(): BotConfig {
