@@ -237,5 +237,37 @@ TEST(AvmSimulationToRadixMemoryTest, InvalidRadixValue)
     EXPECT_THROW(to_radix.to_be_radix(memory, value, radix, num_limbs, is_output_bits, dst_addr), ToRadixException);
 }
 
+TEST(AvmSimulationToRadixMemoryTest, TruncationError)
+{
+    EventEmitter<ToRadixEvent> to_radix_event_emitter;
+    EventEmitter<ToRadixMemoryEvent> to_radix_mem_event_emitter;
+
+    MemoryStore memory;
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(0));
+    FakeGreaterThan gt;
+    ToRadix to_radix(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
+
+    const FF value = 1337;
+    const uint32_t radix = 10;
+    const uint32_t num_limbs = 3;
+    bool is_output_bits = false; // Output is U8, not U1
+    MemoryAddress dst_addr = 0xdeadbeef;
+
+    EXPECT_THROW_WITH_MESSAGE(to_radix.to_be_radix(memory, value, radix, num_limbs, is_output_bits, dst_addr),
+                              "Truncation error");
+
+    std::vector<MemoryValue> expected_limbs = {
+        MemoryValue::from<uint8_t>(3),
+        MemoryValue::from<uint8_t>(3),
+        MemoryValue::from<uint8_t>(7),
+    };
+
+    EXPECT_THAT(to_radix_mem_event_emitter.dump_events(),
+                AllOf(SizeIs(1),
+                      ElementsAre(AllOf(Field(&ToRadixMemoryEvent::limbs, expected_limbs),
+                                        Field(&ToRadixMemoryEvent::num_limbs, 3)))));
+}
+
 } // namespace
 } // namespace bb::avm2::simulation

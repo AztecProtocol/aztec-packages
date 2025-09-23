@@ -581,6 +581,16 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
 
     check_relation<to_radix_mem>(trace);
     check_all_interactions<ToRadixTraceBuilder>(trace);
+
+    // Negative test: disable memory write after the start row:
+    trace.set(Column::to_radix_mem_sel_should_write_mem, 2, 0);
+    EXPECT_THROW_WITH_MESSAGE((check_relation<to_radix_mem>(trace, to_radix_mem::SR_SEL_SHOULD_WRITE_MEM_CONTINUITY)),
+                              "SEL_SHOULD_WRITE_MEM_CONTINUITY");
+
+    // Negative test: disable decomposition after the start row:
+    trace.set(Column::to_radix_mem_sel_can_decompose, 2, 0);
+    EXPECT_THROW_WITH_MESSAGE((check_relation<to_radix_mem>(trace, to_radix_mem::SR_SEL_SHOULD_WRITE_MEM_CONTINUITY)),
+                              "SEL_SHOULD_WRITE_MEM_CONTINUITY");
 }
 
 TEST(ToRadixMemoryConstrainingTest, DstOutOfRange)
@@ -803,6 +813,63 @@ TEST(ToRadixMemoryConstrainingTest, InvalidNumLimbsForValue)
             // Helpers
             { C::to_radix_mem_sel_num_limbs_is_zero, 1 }, // num limbs is zero
             { C::to_radix_mem_num_limbs_inv, 0 },
+            { C::to_radix_mem_sel_value_is_zero, 0 },
+            { C::to_radix_mem_value_inv, value.invert() },
+        },
+    });
+    check_relation<to_radix_mem>(trace);
+    check_interaction<ToRadixTraceBuilder, lookup_to_radix_mem_check_radix_lt_2_settings>(trace);
+}
+
+TEST(ToRadixMemoryConstrainingTest, TruncationError)
+{
+    // Values
+    FF value = FF(1337);
+    uint32_t radix = 10;
+    uint32_t num_limbs = 3;
+    uint32_t dst_addr = 10;
+    bool is_output_bits = false;
+
+    TestTraceContainer trace = TestTraceContainer({
+        // Row 0
+        {
+            { C::precomputed_first_row, 1 },
+            // GT check
+            { C::gt_sel, 1 },
+            { C::gt_input_a, 2 },
+            { C::gt_input_b, radix },
+            { C::gt_res, 0 }, // GT should return false
+        },
+        // Row 1
+        {
+            { C::to_radix_mem_sel, 1 },
+            { C::to_radix_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
+            { C::to_radix_mem_two, 2 },
+            { C::to_radix_mem_two_five_six, 256 },
+            // Memory Inputs
+            { C::to_radix_mem_execution_clk, 0 },
+            { C::to_radix_mem_space_id, 0 },
+            { C::to_radix_mem_dst_addr, dst_addr },
+            { C::to_radix_mem_max_write_addr, dst_addr + num_limbs - 1 },
+            // To Radix Inputs
+            { C::to_radix_mem_value_to_decompose, value },
+            { C::to_radix_mem_radix, radix },
+            { C::to_radix_mem_num_limbs, num_limbs },
+            { C::to_radix_mem_is_output_bits, is_output_bits ? 1 : 0 },
+            // Errors
+            { C::to_radix_mem_sel_truncation_error, 1 }, // found = false on the last le limb
+            { C::to_radix_mem_err, 1 },
+            // Control Flow
+            { C::to_radix_mem_start, 1 },
+            { C::to_radix_mem_last, 1 },
+            { C::to_radix_mem_num_limbs_minus_one_inv, num_limbs - 1 == 0 ? 0 : FF(num_limbs - 1).invert() },
+            // Decomposition
+            { C::to_radix_mem_sel_can_decompose, 1 },
+            { C::to_radix_mem_limb_index_to_lookup, num_limbs - 1 },
+            { C::to_radix_mem_output_limb_value, 3 },
+            { C::to_radix_mem_value_found, 0 },
+            // Helpers
+            { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
         },
