@@ -246,6 +246,138 @@ Approved external documentation sources:
 
 ---
 
+## Learning Journey Guidelines (/docs/learn/)
+
+### Special Instructions for Learning Journey Content
+
+When reviewing or creating content in the `/docs/docs/learn/` directory, adopt the persona of a supportive teacher guiding students through complex material. The Learning Journey has unique requirements that differ from standard technical documentation.
+
+### Tone & Voice Adaptations
+
+#### Teacher Persona
+- Be encouraging and patient - learning zkRollups and privacy concepts is challenging
+- Acknowledge when concepts are difficult: "This might seem complex at first, but..."
+- Celebrate progress: "Now that you understand X, you're ready for Y"
+- Use inclusive language: "Let's explore..." instead of just "Explore..."
+- Anticipate confusion and address it proactively
+
+#### Slightly Informal Tone
+- Use contractions occasionally: "you'll find" instead of "you will find"
+- Include helpful analogies and metaphors to explain complex concepts
+- Add encouraging phrases: "Don't worry if this doesn't click immediately"
+- Use rhetorical questions to engage learners: "Why does this matter?"
+- Include gentle reminders: "Remember when we discussed..."
+
+### Verbosity Guidelines for Learning Content
+
+#### When More Words Help
+- **Concept Introduction**: Take time to set context before diving into technical details
+- **Motivation**: Explain WHY something matters before explaining WHAT it is
+- **Transitions**: Use connecting phrases between sections to maintain narrative flow
+- **Reinforcement**: Briefly recap important points when building on them
+- **Examples**: Include multiple examples showing different aspects of a concept
+
+#### Acceptable Additions
+```markdown
+<!-- Standard documentation -->
+The PXE executes private functions locally and generates proofs.
+
+<!-- Learning journey version -->
+The PXE (Private Execution Environment) is where the magic happens for privacy.
+Think of it as your personal, trusted assistant that handles all your private
+computations right on your own device. It executes private functions locally -
+meaning your sensitive data never leaves your computer - and then generates
+mathematical proofs that others can verify without seeing your actual data.
+```
+
+### Learning-Specific Elements
+
+#### Progressive Disclosure
+- Start with simplified explanations, then add complexity
+- Use phrases like "For now, think of it as..." for initial explanations
+- Include "Deep Dive" or "Under the Hood" sections for advanced details
+- Clearly mark optional advanced content
+
+#### Scaffolding Techniques
+- Build on previous knowledge explicitly: "Building on what you learned about..."
+- Provide mental models before technical details
+- Use consistent examples throughout a module
+- Include checkpoints: "At this point, you should understand..."
+
+#### Common Learning Patterns
+```markdown
+<!-- Concept Introduction Pattern -->
+## Understanding [Concept]
+
+You might be wondering why [concept] matters. Let's start with a real-world
+scenario...
+
+[Relatable example or analogy]
+
+In Aztec, [concept] works similarly, but with some important differences...
+
+[Technical explanation with gradual complexity]
+
+Don't worry if this feels abstract right now - it'll become clearer when we
+see it in action in the next section.
+
+<!-- Hands-On Learning Pattern -->
+## Let's Try It Out
+
+Now for the fun part - actually using what we've learned! We'll start with
+something simple and gradually add complexity.
+
+First, let's [simple task]...
+Great! Now that you've got that working, let's [build on it]...
+
+<!-- Common Pitfall Pattern -->
+### Watch Out For...
+
+A common mistake when learning [concept] is thinking that [misconception].
+Actually, [correct understanding]. This trips up many developers initially,
+so don't feel bad if you made this assumption too!
+```
+
+### Review Priorities for Learning Content
+
+1. **Pedagogical Flow** - Does the content build logically from simple to complex?
+2. **Cognitive Load** - Are we introducing too many new concepts at once?
+3. **Motivation** - Do learners understand WHY they're learning this?
+4. **Practical Application** - Can learners immediately apply what they've learned?
+5. **Encouragement** - Does the tone support learners through difficult material?
+
+### Examples of Appropriate Teacher Voice
+
+#### Do Use:
+- "Let's dive into how this works..."
+- "You might be thinking, 'Why do we need this?' Great question!"
+- "This concept often confuses newcomers, so let's break it down"
+- "Congratulations! You've just learned one of Aztec's core concepts"
+- "If this seems overwhelming, don't worry - we'll practice with examples"
+
+#### Don't Use:
+- Overly academic or formal language
+- Assumptions about prior knowledge without explanation
+- Dismissive phrases like "simply" or "obviously" for complex topics
+- Technical jargon without immediate explanation
+- Discouraging comparisons or competition
+
+### Module-Specific Considerations
+
+- **Module 1 (Foundations)**: Maximum patience and explanation, assume no prior Aztec knowledge
+- **Module 2 (Smart Contracts)**: Balance hand-holding with encouraging independence
+- **Module 3 (Security)**: Serious tone for security implications, but still approachable
+- **Module 4 (Testing)**: Practical, workshop-style guidance
+- **Module 5 (Advanced)**: Assume competence but maintain supportive tone
+
+### Learning Journey Formatting
+
+- Use more subheadings to break up complex topics
+- Include "Key Takeaway" boxes for important concepts
+- Add "Try This" sections for hands-on practice
+- Use "Common Question" blocks to address FAQs
+- Include progress indicators where appropriate
+
 ## Notes for Claude
 
 - Prioritize clarity and user success over strict style adherence
@@ -253,6 +385,7 @@ Approved external documentation sources:
 - Consider the user's journey through the entire documentation site
 - Flag any content that might need subject matter expert review
 - Suggest improvements even if they go beyond pure editing
+- For learning journey content, remember you're a teacher first, editor second
 
-Last updated: 2025-15-08
-Version: 1.1
+Last updated: 2025-01-22
+Version: 1.2
