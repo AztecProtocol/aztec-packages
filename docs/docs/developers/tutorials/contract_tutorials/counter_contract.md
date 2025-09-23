@@ -70,20 +70,17 @@ pub contract Counter {
 
 #include_code imports /noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr rust
 
-- `use aztec::macros::{functions::{initializer, private, utility}, storage::storage};`
+- `use aztec::macros::{functions::{initializer, private, utility}, storage::storage},`
   Imports the macros needed to define function types (`initializer`, `private`, and `utility`) and the `storage` macro for declaring contract storage structures.
 
-- `use aztec::prelude::{AztecAddress, Map};`
-  Brings in `AztecAddress` (used to identify accounts/contracts) and `Map` (used for creating state mappings, like our counters).
+- `protocol_types::{address::AztecAddress, traits::ToField},`
+  Brings in `AztecAddress` (used to identify accounts/contracts) and traits for converting values to and from field elements, necessary for serialization and formatting inside Aztec.
 
-- `use aztec::protocol_types::traits::{FromField, ToField};`
-  Provides traits for converting values to and from field elements, necessary for serialization and formatting inside Aztec.
+- `state_vars::Map,`
+  Brings in `Map`, used for creating state mappings, like our counters.
 
 - `use easy_private_state::EasyPrivateUint;`
   Imports a wrapper to manage private integer-like state variables (ie our counter), abstracting away notes.
-
-- `use value_note::{balance_utils, value_note::ValueNote};`
-  Brings in `ValueNote`, which represents a private value stored as a note, and `balance_utils`, which makes working with notes feel like working with simple balances.
 
 ## Declare storage
 
@@ -110,10 +107,6 @@ Now let’s implement the `increment` function we defined in the first step.
 #include_code increment /noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr rust
 
 The `increment` function works very similarly to the `constructor`, but instead directly adds 1 to the counter rather than passing in an initial count parameter.
-
-## Prevent double spending
-
-Because our counters are private, the network can't directly verify if a note was spent or not, which could lead to double-spending. To solve this, we use a nullifier - a unique identifier generated from each spent note and its nullifier key. You can learn more about nullifiers and private state in the [Learn section](../../../aztec/index.md#private-and-public-state).
 
 ## Getting a counter
 
