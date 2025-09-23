@@ -68,6 +68,7 @@ const DefaultSlashConfig = {
   slashGracePeriodL2Slots: 32 * 2, // Two epochs from genesis
   slashOffenseExpirationRounds: 8,
   sentinelEnabled: true,
+  slashExecuteRoundsLookBack: 4,
 } satisfies Partial<L2ChainConfig>;
 
 export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
@@ -148,6 +149,7 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   slashOffenseExpirationRounds: 8,
   sentinelEnabled: true,
   slashingDisableDuration: 5 * 24 * 60 * 60,
+  slashExecuteRoundsLookBack: 4,
 };
 
 export const stagingPublicL2ChainConfig: L2ChainConfig = {
