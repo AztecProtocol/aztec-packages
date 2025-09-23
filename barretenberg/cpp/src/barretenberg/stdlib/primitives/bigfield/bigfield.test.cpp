@@ -1929,9 +1929,9 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             native_sum += uint1024_t(a_natives[i]) * uint1024_t(b_natives[i]);
         }
         auto [q_native_1024, r_native_1024] = native_sum.divmod(uint1024_t(fq_ct::modulus));
-        fq_ct q_ct =
-            fq_ct::create_from_u512_as_witness(&builder, q_native_1024.lo + uint512_t(1)); // Intentionally poisoned
-        fq_ct r_ct = fq_ct::create_from_u512_as_witness(&builder, r_native_1024.lo);
+        fq_ct q_ct = fq_ct::create_from_u512_as_witness(
+            &builder, q_native_1024.lo + uint512_t(1), true); // Intentionally poisoned
+        fq_ct r_ct = fq_ct::create_from_u512_as_witness(&builder, r_native_1024.lo, true);
 
         // Call unsafe_evaluate_multiply_add (via friendly class)
         stdlib::bigfield_test_access::unsafe_evaluate_multiple_multiply_add(a_cts, b_cts, { c_ct }, q_ct, { r_ct });
@@ -1939,7 +1939,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         // Check circuit correctness
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, false);
-        EXPECT_EQ(builder.err(), "bigfield::create_from_u512_as_witness: limb 2 or 3 too large: hi limb.");
+        EXPECT_EQ(builder.err(), "bigfield: prime limb identity failed");
     }
 
     static void test_nonnormalized_field_bug_regression()
