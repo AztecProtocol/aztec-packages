@@ -474,7 +474,7 @@ std::pair<OpeningClaim<stdlib::grumpkin<Builder>>, HonkProof> handle_IPA_accumul
         // UltraRollupHonk, indicated by the manual setting of the honk_recursion metadata to 2.
         info("Proving with UltraRollupHonk but no IPA claims exist.");
         auto [stdlib_opening_claim, ipa_proof] =
-            IPA<stdlib::grumpkin<Builder>>::create_fake_ipa_claim_and_proof(builder);
+            IPA<stdlib::grumpkin<Builder>>::create_random_valid_ipa_claim_and_proof(builder);
 
         final_ipa_claim = stdlib_opening_claim;
         final_ipa_proof = ipa_proof;
