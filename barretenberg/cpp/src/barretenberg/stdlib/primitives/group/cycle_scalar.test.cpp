@@ -47,6 +47,13 @@ TYPED_TEST(CycleScalarTest, TestFromWitness)
     EXPECT_FALSE(scalar.is_constant());
     EXPECT_EQ(scalar.num_bits(), cycle_scalar::NUM_BITS);
 
+    // Check that lo and hi reconstruct to the original value
+    uint256_t lo_val = uint256_t(scalar.lo.get_value());
+    uint256_t hi_val = uint256_t(scalar.hi.get_value());
+    uint256_t reconstructed = lo_val + (hi_val << cycle_scalar::LO_BITS);
+
+    EXPECT_EQ(ScalarField(reconstructed), scalar_val);
+
     check_circuit_and_gate_count(builder, 0);
 }
 
@@ -66,27 +73,13 @@ TYPED_TEST(CycleScalarTest, TestFromU256Witness)
     EXPECT_FALSE(scalar.is_constant());
     EXPECT_EQ(scalar.num_bits(), 256);
 
-    check_circuit_and_gate_count(builder, 0);
-}
-
-/**
- * @brief Test lo/hi decomposition
- */
-TYPED_TEST(CycleScalarTest, TestLoHiDecomposition)
-{
-    using cycle_scalar = typename TestFixture::cycle_scalar;
-    using ScalarField = typename TestFixture::ScalarField;
-
-    TypeParam builder;
-    auto scalar_val = ScalarField::random_element(&engine);
-    auto scalar = cycle_scalar::from_witness(&builder, scalar_val);
-
     // Check that lo and hi reconstruct to the original value
     uint256_t lo_val = uint256_t(scalar.lo.get_value());
     uint256_t hi_val = uint256_t(scalar.hi.get_value());
     uint256_t reconstructed = lo_val + (hi_val << cycle_scalar::LO_BITS);
 
-    EXPECT_EQ(ScalarField(reconstructed), scalar_val);
+    EXPECT_EQ(reconstructed, value);
+
     check_circuit_and_gate_count(builder, 0);
 }
 
@@ -109,6 +102,13 @@ TYPED_TEST(CycleScalarTest, TestCreateFromBn254Scalar)
     EXPECT_EQ(scalar.get_value(), ScalarField(uint256_t(native_val)));
     EXPECT_FALSE(scalar.is_constant());
     EXPECT_TRUE(scalar.use_bn254_scalar_field_for_primality_test());
+
+    // Check that lo and hi reconstruct to the original value
+    uint256_t lo_val = uint256_t(scalar.lo.get_value());
+    uint256_t hi_val = uint256_t(scalar.hi.get_value());
+    uint256_t reconstructed = lo_val + (hi_val << cycle_scalar::LO_BITS);
+
+    EXPECT_EQ(NativeField(reconstructed), field_val.get_value());
 
     check_circuit_and_gate_count(builder, 2762);
 }
@@ -133,23 +133,51 @@ TYPED_TEST(CycleScalarTest, TestScalarFieldValidation)
 }
 
 /**
- * @brief Test different bit lengths
+ * @brief Test cycle_scalar construction from BigScalarField
  */
-TYPED_TEST(CycleScalarTest, TestDifferentBitLengths)
+TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructor)
 {
     using cycle_scalar = typename TestFixture::cycle_scalar;
     using ScalarField = typename TestFixture::ScalarField;
+    using BigScalarField = typename cycle_scalar::BigScalarField;
 
-    TypeParam builder;
+    // Test with a witness BigScalarField
+    {
+        TypeParam builder;
 
-    // Create scalar with 256 bits
-    uint256_t value_256(0xFFFFFFFFFFFFFFFF);
-    auto scalar_256 = cycle_scalar::from_u256_witness(&builder, value_256);
-    EXPECT_EQ(scalar_256.num_bits(), 256);
+        auto value = ScalarField::random_element(&engine);
+        auto big_scalar = BigScalarField::from_witness(&builder, value);
+        cycle_scalar scalar(big_scalar);
 
-    // Create scalar with default bits (254 for bn254/grumpkin)
-    auto scalar_254 = cycle_scalar::from_witness(&builder, ScalarField::random_element(&engine));
-    EXPECT_EQ(scalar_254.num_bits(), cycle_scalar::NUM_BITS);
+        EXPECT_EQ(scalar.get_value(), value);
+        EXPECT_FALSE(scalar.is_constant());
 
-    check_circuit_and_gate_count(builder, 0);
+        // Verify lo/hi decomposition matches
+        uint256_t lo_val = uint256_t(scalar.lo.get_value());
+        uint256_t hi_val = uint256_t(scalar.hi.get_value());
+        uint256_t reconstructed = lo_val + (hi_val << cycle_scalar::LO_BITS);
+        EXPECT_EQ(ScalarField(reconstructed), value);
+
+        check_circuit_and_gate_count(builder, 3498);
+    }
+
+    // Test with constant BigScalarField
+    {
+        TypeParam builder;
+
+        uint256_t value(0x123456789ABCDEF);
+        BigScalarField big_scalar(&builder, value);
+        cycle_scalar scalar(big_scalar);
+
+        EXPECT_EQ(scalar.get_value(), ScalarField(value));
+        EXPECT_TRUE(scalar.is_constant());
+
+        // Verify lo/hi decomposition matches
+        uint256_t lo_val = uint256_t(scalar.lo.get_value());
+        uint256_t hi_val = uint256_t(scalar.hi.get_value());
+        uint256_t reconstructed = lo_val + (hi_val << cycle_scalar::LO_BITS);
+        EXPECT_EQ(ScalarField(reconstructed), value);
+
+        check_circuit_and_gate_count(builder, 0);
+    }
 }
