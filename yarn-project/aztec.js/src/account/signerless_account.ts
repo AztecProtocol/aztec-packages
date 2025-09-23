@@ -19,10 +19,10 @@ export class SignerlessAccount implements Account {
 
   createTxExecutionRequest(
     execution: ExecutionPayload,
-    fee: FeeOptions,
+    feeOptions: FeeOptions,
     options: TxExecutionOptions,
   ): Promise<TxExecutionRequest> {
-    return this.entrypoint.createTxExecutionRequest(execution, fee, options);
+    return this.entrypoint.createTxExecutionRequest(execution, feeOptions, options);
   }
 
   getChainId(): Fr {

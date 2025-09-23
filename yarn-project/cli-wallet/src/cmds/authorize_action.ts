@@ -36,7 +36,7 @@ export async function authorizeAction(
     { caller, action },
     true,
   );
-  const witness = await setAuthwitnessInteraction.send({ from }).wait({ timeout: DEFAULT_TX_TIMEOUT_S });
+  const witness = await setAuthwitnessInteraction.send().wait({ timeout: DEFAULT_TX_TIMEOUT_S });
 
   log(`Authorized action ${functionName} on contract ${contractAddress} for caller ${caller}`);
 

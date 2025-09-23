@@ -7,7 +7,6 @@ import {
   addOptions,
   createSecretKeyOption,
   l1ChainIdOption,
-  logJson,
   nodeOption,
   parseBigint,
   parseFieldFromHexString,
@@ -105,7 +104,7 @@ export function injectCommands(
     .addOption(createTypeOption(true))
     .option(
       '--register-only',
-      'Just register the account on the PXE. Do not deploy or initialize the account contract.',
+      'Just register the account on the Wallet. Do not deploy or initialize the account contract.',
     )
     .option('--json', 'Emit output as json')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
@@ -292,7 +291,6 @@ export function injectCommands(
       verbose,
       debugLogger,
       log,
-      logJson(log),
     );
     if (db && address) {
       await db.storeContract(address, artifactPath, log, alias);

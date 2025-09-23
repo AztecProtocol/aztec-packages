@@ -620,24 +620,19 @@ export class PXEService implements PXE {
     return Promise.all(extendedNotes);
   }
 
-  public proveTx(
-    txRequest: TxExecutionRequest,
-    privateExecutionResult?: PrivateExecutionResult,
-  ): Promise<TxProvingResult> {
+  public proveTx(txRequest: TxExecutionRequest): Promise<TxProvingResult> {
+    let privateExecutionResult: PrivateExecutionResult;
     // We disable proving concurrently mostly out of caution, since it accesses some of our stores. Proving is so
     // computationally demanding that it'd be rare for someone to try to do it concurrently regardless.
     return this.#putInJobQueue(async () => {
       const totalTimer = new Timer();
       try {
-        let syncTime: number | undefined;
-        let contractFunctionSimulator: ContractFunctionSimulator | undefined;
-        if (!privateExecutionResult) {
-          const syncTimer = new Timer();
-          await this.synchronizer.sync();
-          syncTime = syncTimer.ms();
-          contractFunctionSimulator = this.#getSimulatorForTx();
-          privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest);
-        }
+        const syncTimer = new Timer();
+        await this.synchronizer.sync();
+        const syncTime = syncTimer.ms();
+        const contractFunctionSimulator = this.#getSimulatorForTx();
+        privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest);
+
         const {
           publicInputs,
           clientIvcProof,

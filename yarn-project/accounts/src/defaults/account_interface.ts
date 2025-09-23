@@ -36,10 +36,10 @@ export class DefaultAccountInterface implements AccountInterface {
 
   createTxExecutionRequest(
     exec: ExecutionPayload,
-    fee: FeeOptions,
+    feeOptions: FeeOptions,
     options: TxExecutionOptions,
   ): Promise<TxExecutionRequest> {
-    return this.entrypoint.createTxExecutionRequest(exec, fee, options);
+    return this.entrypoint.createTxExecutionRequest(exec, feeOptions, options);
   }
 
   createAuthWit(messageHash: Fr): Promise<AuthWitness> {

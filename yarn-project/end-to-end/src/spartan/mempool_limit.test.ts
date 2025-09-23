@@ -45,7 +45,7 @@
 //   let tokenContractAddress: AztecAddress;
 //   let sampleTx: Tx;
 
-//   let fee: UserFeeOptions;
+//   let userFeeOptions: UserFeeOptions;
 
 //   const forwardProcesses: ChildProcess[] = [];
 

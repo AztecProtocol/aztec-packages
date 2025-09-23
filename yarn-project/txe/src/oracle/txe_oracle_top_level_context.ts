@@ -343,8 +343,6 @@ export class TXEOracleTopLevelContext extends TXETypedOracle {
         targetContractAddress,
         functionSelector,
       );
-      const { usedTxRequestHashForNonces } = noteCache.finish();
-      const firstNullifierHint = usedTxRequestHashForNonces ? Fr.ZERO : noteCache.getAllNullifiers()[0];
 
       const publicCallRequests = collectNested([executionResult], r =>
         r.publicInputs.publicCallRequests
@@ -359,7 +357,10 @@ export class TXEOracleTopLevelContext extends TXETypedOracle {
         }),
       );
 
-      result = new PrivateExecutionResult(executionResult, firstNullifierHint, publicFunctionsCalldata);
+      // TXE's top level context does not track side effect counters, and as such, minRevertibleSideEffectCounter is always 0.
+      // This has the unfortunate consequence of always producing revertible nullifiers, which means we
+      // must set the firstNullifierHint to Fr.ZERO so the txRequestHash is always used as nonce generator
+      result = new PrivateExecutionResult(executionResult, Fr.ZERO, publicFunctionsCalldata);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }
@@ -410,7 +411,10 @@ export class TXEOracleTopLevelContext extends TXETypedOracle {
       throw new Error(`Public execution has failed: ${failedTxs[0].error}`);
     } else if (!processedTx.revertCode.isOK()) {
       if (processedTx.revertReason) {
-        await enrichPublicSimulationError(processedTx.revertReason, this.contractDataProvider, this.logger);
+        try {
+          await enrichPublicSimulationError(processedTx.revertReason, this.contractDataProvider, this.logger);
+          // eslint-disable-next-line no-empty
+        } catch {}
         throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
       } else {
         throw new Error('Contract execution has reverted');
@@ -548,7 +552,10 @@ export class TXEOracleTopLevelContext extends TXETypedOracle {
       throw new Error(`Public execution has failed: ${failedTxs[0].error}`);
     } else if (!processedTx.revertCode.isOK()) {
       if (processedTx.revertReason) {
-        await enrichPublicSimulationError(processedTx.revertReason, this.contractDataProvider, this.logger);
+        try {
+          await enrichPublicSimulationError(processedTx.revertReason, this.contractDataProvider, this.logger);
+          // eslint-disable-next-line no-empty
+        } catch {}
         throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
       } else {
         throw new Error('Contract execution has reverted');

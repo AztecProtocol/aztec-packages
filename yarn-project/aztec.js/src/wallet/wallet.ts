@@ -14,7 +14,7 @@ import {
   ContractInstanceWithAddressSchema,
   type ContractInstantiationData,
 } from '@aztec/stdlib/contract';
-import { Gas, GasSettings } from '@aztec/stdlib/gas';
+import { Gas } from '@aztec/stdlib/gas';
 import {
   ContractClassMetadataSchema,
   ContractMetadataSchema,
@@ -85,10 +85,6 @@ export type Wallet = Pick<PXE, 'getContractClassMetadata' | 'getContractMetadata
     instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
     artifact?: ContractArtifact,
   ): Promise<ContractInstanceWithAddress>;
-  estimateGas(
-    exec: ExecutionPayload,
-    opts: Omit<SendMethodOptions, 'estimateGas'>,
-  ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>>;
   simulateTx(exec: ExecutionPayload, opts: SimulateMethodOptions): Promise<TxSimulationResult>;
   simulateUtility(
     functionName: string,
@@ -140,9 +136,11 @@ const UserFeeOptionsSchema = z.object({
       maxPriorityFeePerGas: optional(z.object({ feePerDaGas: schemas.BigInt, feePerL2Gas: schemas.BigInt })),
     }),
   ),
-  baseFeePadding: optional(z.number()),
+});
+
+const SimulationUserFeeOptionSchema = UserFeeOptionsSchema.extend({
+  estimatedGasPadding: optional(z.number()),
   estimateGas: optional(z.boolean()),
-  estimateGasPadding: optional(z.number()),
 });
 
 const SendMethodOptionsSchema = z.object({
@@ -152,18 +150,11 @@ const SendMethodOptionsSchema = z.object({
   fee: optional(UserFeeOptionsSchema),
 });
 
-const EstimateGasOptionSchema = z.object({
-  from: schemas.AztecAddress,
-  authWitnesses: optional(z.array(AuthWitness.schema)),
-  capsules: optional(z.array(Capsule.schema)),
-  fee: optional(UserFeeOptionsSchema.omit({ estimateGas: true })),
-});
-
 const SimulateMethodOptionsSchema = z.object({
   from: schemas.AztecAddress,
   authWitnesses: optional(z.array(AuthWitness.schema)),
   capsules: optional(z.array(Capsule.schema)),
-  fee: optional(UserFeeOptionsSchema),
+  fee: optional(SimulationUserFeeOptionSchema),
   skipTxValidation: optional(z.boolean()),
   skipFeeEnforcement: optional(z.boolean()),
   includeMetadata: optional(z.boolean()),
@@ -217,10 +208,6 @@ export const WalletSchema: ApiSchemaFor<Wallet> = {
     .function()
     .args(InstanceDataSchema, optional(ContractArtifactSchema))
     .returns(ContractInstanceWithAddressSchema),
-  estimateGas: z
-    .function()
-    .args(ExecutionPayloadSchema, EstimateGasOptionSchema)
-    .returns(z.object({ gasLimits: Gas.schema, teardownGasLimits: Gas.schema })),
   simulateTx: z.function().args(ExecutionPayloadSchema, SimulateMethodOptionsSchema).returns(TxSimulationResult.schema),
   simulateUtility: z
     .function()

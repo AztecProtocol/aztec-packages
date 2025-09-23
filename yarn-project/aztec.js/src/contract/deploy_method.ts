@@ -1,3 +1,4 @@
+import type { SimulationUserFeeOptions } from '@aztec/entrypoints/interfaces';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
@@ -10,9 +11,8 @@ import {
   getContractClassFromArtifact,
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
-import type { GasSettings } from '@aztec/stdlib/gas';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import type { Capsule, TxProfileResult } from '@aztec/stdlib/tx';
+import { type Capsule, type TxProfileResult, collectOffchainEffects } from '@aztec/stdlib/tx';
 
 import { publishContractClass } from '../deployment/publish_class.js';
 import { publishInstance } from '../deployment/publish_instance.js';
@@ -23,7 +23,8 @@ import type { ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
 import { DeployProvenTx } from './deploy_proven_tx.js';
 import { DeploySentTx } from './deploy_sent_tx.js';
-import type { ProfileMethodOptions, SendMethodOptions } from './interaction_options.js';
+import { getGasLimits } from './get_gas_limits.js';
+import type { ProfileMethodOptions, SendMethodOptions, SimulationReturn } from './interaction_options.js';
 
 /**
  * Options for deploying a contract on the Aztec network.
@@ -44,6 +45,24 @@ export type DeployOptions = {
 } & SendMethodOptions;
 // docs:end:deploy_options
 // TODO(@spalladino): Add unit tests for this class!
+
+/**
+ * Options for simulating the deployment of a contract
+ * Allows skipping certain validations and computing gas estimations
+ */
+export type SimulateDeployOptions = Omit<DeployOptions, 'fee'> & {
+  /** The fee options for the transaction. */
+  fee?: SimulationUserFeeOptions;
+  /** Simulate without checking for the validity of the resulting transaction,
+   * e.g. whether it emits any existing nullifiers. */
+  skipTxValidation?: boolean;
+  /** Whether to ensure the fee payer is not empty and has enough balance to pay for the fee. */
+  skipFeeEnforcement?: boolean;
+  /** Whether to include metadata such as offchain effects and performance statistics
+   * (e.g. timing information of the different circuits and oracles) in
+   * the simulation result, instead of just the return value of the function */
+  includeMetadata?: boolean;
+};
 
 /**
  * Contract interaction for deployment.
@@ -248,15 +267,26 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   }
 
   /**
-   * Estimates gas for the interaction and returns gas limits for it.
-   * @param options - Options.
-   * @returns Gas limits.
+   * Simulate the deployment
+   *
+   * @param options - An optional object containing additional configuration for the simulation.
+   * @returns A simulation result object containing metadata of the execution, including gas
+   * estimations (if requested via options), execution statistics and emitted offchain effects
    */
-  public override async estimateGas(
-    options: Omit<DeployOptions, 'estimateGas'>,
-  ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
+  public async simulate(options: SimulateDeployOptions): Promise<SimulationReturn<true>> {
     const executionPayload = await this.request(options);
-    return this.wallet.estimateGas(executionPayload, options);
+    const simulatedTx = await this.wallet.simulateTx(executionPayload, options);
+
+    const { gasLimits, teardownGasLimits } = getGasLimits(simulatedTx, options.fee?.estimatedGasPadding);
+    this.log.verbose(
+      `Estimated gas limits for tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
+    );
+    return {
+      stats: simulatedTx.stats!,
+      offchainEffects: collectOffchainEffects(simulatedTx.privateExecutionResult),
+      result: undefined,
+      estimatedGas: { gasLimits, teardownGasLimits },
+    };
   }
 
   /** Return this deployment address. */

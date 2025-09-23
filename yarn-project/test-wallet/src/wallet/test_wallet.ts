@@ -60,6 +60,10 @@ export abstract class BaseTestWallet extends BaseWallet {
     this.simulatedSimulations = false;
   }
 
+  setBaseFeePadding(value?: number) {
+    this.baseFeePadding = value ?? 0.5;
+  }
+
   protected async getAccountFromAddress(address: AztecAddress): Promise<Account> {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
@@ -166,13 +170,20 @@ export abstract class BaseTestWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     opts: SimulateMethodOptions,
   ): Promise<TxSimulationResult> {
+    if (this.simulatedSimulations && opts.fee?.estimateGas) {
+      throw new Error(
+        'Simulated simulations potentially skews gas measurements, please disable this feature to estimate gas',
+      );
+    }
     if (!this.simulatedSimulations) {
       return super.simulateTx(executionPayload, opts);
     } else {
       const executionOptions = { txNonce: Fr.random(), cancellable: false };
       const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(opts.from);
-      const fee = await this.getFeeOptions(fromAccount, executionPayload, opts.fee, executionOptions);
-      const txRequest = await fromAccount.createTxExecutionRequest(executionPayload, fee, executionOptions);
+      const feeOptions = opts.fee?.estimateGas
+        ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
+        : await this.getDefaultFeeOptions(opts.from, opts.fee);
+      const txRequest = await fromAccount.createTxExecutionRequest(executionPayload, feeOptions, executionOptions);
       const contractOverrides = {
         [opts.from.toString()]: { instance, artifact },
       };

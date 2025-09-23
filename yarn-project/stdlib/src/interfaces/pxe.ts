@@ -20,7 +20,7 @@ import {
 import { UniqueNote } from '../note/extended_note.js';
 import { type NotesFilter, NotesFilterSchema } from '../note/notes_filter.js';
 import { AbiDecodedSchema, optional, schemas } from '../schemas/schemas.js';
-import { PrivateExecutionResult, SimulationOverrides, TxExecutionRequest, TxSimulationResult } from '../tx/index.js';
+import { SimulationOverrides, TxExecutionRequest, TxSimulationResult } from '../tx/index.js';
 import { TxProfileResult, UtilitySimulationResult } from '../tx/profiling.js';
 import { TxProvingResult } from '../tx/proven_tx.js';
 
@@ -111,13 +111,11 @@ export interface PXE {
    * (where validators prove the public portion).
    *
    * @param txRequest - An authenticated tx request ready for proving
-   * @param privateExecutionResult - (optional) The result of the private execution of the transaction. The txRequest
-   * will be executed if not provided
    * @returns A result containing the proof and public inputs of the tail circuit.
    * @throws If contract code not found, or public simulation reverts.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  proveTx(txRequest: TxExecutionRequest, privateExecutionResult?: PrivateExecutionResult): Promise<TxProvingResult>;
+  proveTx(txRequest: TxExecutionRequest): Promise<TxProvingResult>;
 
   /**
    * Simulates a transaction based on the provided preauthenticated execution request.
@@ -314,10 +312,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .returns(z.void()),
   updateContract: z.function().args(schemas.AztecAddress, ContractArtifactSchema).returns(z.void()),
   getContracts: z.function().returns(z.array(schemas.AztecAddress)),
-  proveTx: z
-    .function()
-    .args(TxExecutionRequest.schema, optional(PrivateExecutionResult.schema))
-    .returns(TxProvingResult.schema),
+  proveTx: z.function().args(TxExecutionRequest.schema).returns(TxProvingResult.schema),
   profileTx: z
     .function()
     .args(
