@@ -117,13 +117,13 @@ template <class Curve> class CommitmentKey {
                                          size_t max_batch_size = std::numeric_limits<size_t>::max()) const
     {
         BB_BENCH_NAME("CommitmentKey::batch_commit");
-        std::span<const G1> point_table = srs->get_monomial_points();
 
         // We can only commit max_batch_size at a time
         // This is to prevent excessive memory usage in the pippenger algorithm
         // First batch, create the commitments vector
         std::vector<Commitment> commitments;
 
+        max_batch_size = 1;
         for (size_t i = 0; i < polynomials.size();) {
             // Note: have to be careful how we compute this to not overlow e.g. max_batch_size + 1 would
             size_t batch_size = std::min(max_batch_size, polynomials.size() - i);
