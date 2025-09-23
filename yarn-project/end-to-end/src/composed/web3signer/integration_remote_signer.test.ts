@@ -4,19 +4,22 @@ import { LocalSigner, RemoteSigner } from '@aztec/node-keystore';
 
 import { jest } from '@jest/globals';
 import type { TransactionSerializable, TypedDataDefinition } from 'viem';
-import { privateKeyToAddress } from 'viem/accounts';
+import { generatePrivateKey, privateKeyToAddress } from 'viem/accounts';
 
-const {
-  WEB3_SIGNER_URL = 'http://localhost:9000',
-  L1_CHAIN_ID = '31337',
-  TEST_PRIVATE_KEY = '0x1111111111111111111111111111111111111111111111111111111111111111',
-} = process.env;
+import {
+  createWeb3SignerKeystore,
+  getWeb3SignerTestKeystoreDir,
+  getWeb3SignerUrl,
+  refreshWeb3Signer,
+} from '../../fixtures/web3signer.js';
+
+const { L1_CHAIN_ID = '31337' } = process.env;
 
 describe('RemoteSigner integration: Web3Signer (compose)', () => {
   jest.setTimeout(180_000);
 
-  let chainId: number;
   let web3SignerUrl: string;
+  let chainId: number;
 
   let privateKey: Buffer32;
   let address: EthAddress;
@@ -24,20 +27,16 @@ describe('RemoteSigner integration: Web3Signer (compose)', () => {
   let remoteSigner: RemoteSigner;
   let localSigner: LocalSigner;
 
-  beforeAll(() => {
-    if (!WEB3_SIGNER_URL) {
-      throw new Error('Need to set WEB3_SIGNER_URL');
-    }
+  beforeAll(async () => {
+    web3SignerUrl = getWeb3SignerUrl();
 
-    if (!TEST_PRIVATE_KEY) {
-      throw new Error('Need to set WEB3_SIGNER_URL');
-    }
-
-    privateKey = Buffer32.fromString(TEST_PRIVATE_KEY);
+    privateKey = Buffer32.fromString(generatePrivateKey());
     address = EthAddress.fromString(privateKeyToAddress(privateKey.toString()));
 
     chainId = parseInt(L1_CHAIN_ID, 10);
-    web3SignerUrl = WEB3_SIGNER_URL;
+
+    await createWeb3SignerKeystore(getWeb3SignerTestKeystoreDir(), privateKey.toString());
+    await refreshWeb3Signer(web3SignerUrl);
   });
 
   beforeEach(() => {
@@ -137,5 +136,22 @@ describe('RemoteSigner integration: Web3Signer (compose)', () => {
     expect(remoteSig.r.toString()).toBe(localSig.r.toString());
     expect(remoteSig.s.toString()).toBe(localSig.s.toString());
     expect([0, 1, 27, 28]).toContain(remoteSig.v);
+  });
+
+  it('validates web3signer accessibility and address availability', async () => {
+    // Should succeed with the correct address
+    await expect(RemoteSigner.validateAccess(web3SignerUrl, [address.toString()])).resolves.not.toThrow();
+
+    // Should fail with a non-existent address
+    const nonExistentAddress = EthAddress.random().toString();
+    await expect(RemoteSigner.validateAccess(web3SignerUrl, [nonExistentAddress])).rejects.toThrow(
+      `The following addresses are not available in the web3signer: ${nonExistentAddress.toLowerCase()}`,
+    );
+
+    // Should succeed when checking multiple addresses where one exists
+    await expect(RemoteSigner.validateAccess(web3SignerUrl, [address.toString()])).resolves.not.toThrow();
+
+    // Should fail with an invalid URL
+    await expect(RemoteSigner.validateAccess('http://invalid-url:9999', [address.toString()])).rejects.toThrow();
   });
 });
