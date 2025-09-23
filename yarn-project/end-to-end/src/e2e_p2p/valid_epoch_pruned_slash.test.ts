@@ -161,9 +161,6 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
     t.logger.warn(`Removing initial node`);
     await t.removeInitialNode();
 
-    // Warp forward so we can prune the epoch
-    await t.ctx.cheatCodes.rollup.advanceToNextEpoch({ updateDateProvider: t.ctx.dateProvider });
-
     // Wait for epoch to be pruned and the offense to be detected
     const offenses = await awaitOffenseDetected({
       logger: t.logger,
@@ -176,6 +173,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
     // Check offenses are correct
     expect(offenses.map(o => o.validator.toChecksumString()).sort()).toEqual(committee.map(a => a.toString()).sort());
     expect(offenses.map(o => o.offenseType)).toEqual(times(COMMITTEE_SIZE, () => OffenseType.VALID_EPOCH_PRUNED));
+    const offenseEpoch = Number(offenses[0].epochOrSlot);
 
     // And then wait for them to be kicked out
     await awaitCommitteeKicked({
@@ -188,6 +186,8 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
       aztecSlotDuration,
       logger: t.logger,
       dateProvider: t.ctx.dateProvider,
+      offenseEpoch,
+      aztecEpochDuration,
     });
   });
 });
