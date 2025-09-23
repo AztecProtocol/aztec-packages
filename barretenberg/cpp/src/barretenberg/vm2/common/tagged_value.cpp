@@ -94,10 +94,7 @@ struct checked_divides {
         if (b == static_cast<T>(0)) {
             throw DivisionByZero("Dividing numeric value by zero");
         }
-        return [&]() {
-            BB_BENCH_NAME("TaggedValue::checked_divides");
-            return std::forward<T>(a) / std::forward<T>(b);
-        }();
+        return std::forward<T>(a) / std::forward<T>(b);
     }
 };
 
