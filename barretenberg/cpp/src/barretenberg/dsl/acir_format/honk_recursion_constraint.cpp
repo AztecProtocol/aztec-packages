@@ -154,7 +154,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         result_vk.reserve(key_fields.size());
         // Replace the proof by the placeholder proof in case the predicate is 1
         for (uint32_t i = 0; i < proof_fields.size(); ++i) {
-            field_ct<Builder> mock_proof_witness = field_ct<Builder>(witness_ct(&builder, mock_proof[i]));
+            field_ct<Builder> mock_proof_witness = field_ct<Builder>(witness_ct<Builder>(&builder, mock_proof[i]));
             // Note: we have essentially created a dangling witness. However, this is not a problem given the context.
             // When this witness is being conditionally assigned, we are in a scenario where we are using an ad hoc
             // correct proof instead of the real proof. Hence, it is not a soundness issue if we use the specific ad hoc
@@ -168,7 +168,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
 
         // Replace the VK with the placeholder vk in case the predicate is 1
         for (uint32_t i = 0; i < key_fields.size(); ++i) {
-            field_ct<Builder> mock_vk_witness = field_ct<Builder>(witness_ct(&builder, mock_vk_fields[i]));
+            field_ct<Builder> mock_vk_witness = field_ct<Builder>(witness_ct<Builder>(&builder, mock_vk_fields[i]));
             // Same as above. This witness being a free witness is not a soundness issue
             mock_vk_witness.unset_free_witness_tag();
             auto valid_vk = field_ct<Builder>::conditional_assign(predicate_witness, key_fields[i], mock_vk_witness);
