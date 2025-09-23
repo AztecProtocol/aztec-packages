@@ -573,6 +573,9 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
                                                                                           true);
     EXPECT_EQ(next_snapshot, snapshot_after_update);
 
+    ASSERT_LE(test_public_inputs.accumulatedDataArrayLengths.publicDataWrites,
+              test_public_inputs.accumulatedData.publicDataWrites.size());
+
     const auto* public_data_writes_start = test_public_inputs.accumulatedData.publicDataWrites.begin();
     std::vector<PublicDataWrite> public_data_writes(
         public_data_writes_start,

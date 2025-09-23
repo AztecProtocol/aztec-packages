@@ -6,7 +6,7 @@ include "../precomputed.pil";
 // Write to public inputs is true in the first write to a leaf slot.
 // The final value is the value written last to the given leaf slot.
 // +-----+-----------+-------+-----+-------------+----------------------+-------------+----------+-------------+
-// | sel | leaf_slot | value | clk | write_to_pi | should_increase_leaf | check_clock | clk_diff | final_value |
+// | sel | leaf_slot | value | clk | write_to_pi |  leaf_slot_increase  | check_clock | clk_diff | final_value |
 // +-----+-----------+-------+-----+-------------+----------------------+-------------+----------+-------------+
 // |   0 |         0 |     0 |   0 |           0 |                    0 |           0 |        0 |           0 |
 // |   1 |        27 |     1 |   5 |           1 |                    0 |           1 |        7 |           2 |

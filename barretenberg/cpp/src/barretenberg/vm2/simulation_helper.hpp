@@ -2,7 +2,6 @@
 
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/simulation/events/events_container.hpp"
-#include <cstdint>
 
 namespace bb::avm2 {
 
@@ -13,7 +12,7 @@ class AvmSimulationHelper {
     // constrain that leaf slots of public data writes are sorted in ascending order.
     // This is needed to perform squashing of public data writes.
     simulation::EventsContainer simulate_for_witgen(const ExecutionHints& hints,
-                                                    std::vector<PublicDataWrite>& public_data_writes);
+                                                    std::vector<PublicDataWrite> public_data_writes);
 
     // Fast simulation without event collection.
     // FIXME(fcarreiro): This should eventually only take the Tx.

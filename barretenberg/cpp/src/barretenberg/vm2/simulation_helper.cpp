@@ -77,7 +77,7 @@ namespace bb::avm2 {
 using namespace bb::avm2::simulation;
 
 EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& hints,
-                                                         std::vector<PublicDataWrite>& public_data_writes)
+                                                         std::vector<PublicDataWrite> public_data_writes)
 {
     BB_BENCH_NAME("AvmSimulationHelper::simulate_for_witgen");
 

@@ -187,6 +187,8 @@ std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi()
 
     AvmSimulationHelper simulation_helper;
 
+    assert(inputs.publicInputs.accumulatedDataArrayLengths.publicDataWrites <=
+           inputs.publicInputs.accumulatedData.publicDataWrites.size());
     const auto* public_data_writes_start = inputs.publicInputs.accumulatedData.publicDataWrites.begin();
     std::vector<PublicDataWrite> public_data_writes(
         public_data_writes_start,

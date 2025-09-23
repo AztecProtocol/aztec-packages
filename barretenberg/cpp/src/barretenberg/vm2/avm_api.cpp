@@ -10,19 +10,27 @@ namespace bb::avm2 {
 
 using namespace bb::avm2::simulation;
 
+namespace {
+
+std::vector<PublicDataWrite> get_public_data_writes(const PublicInputs& inputs)
+{
+    assert(inputs.accumulatedDataArrayLengths.publicDataWrites <= inputs.accumulatedData.publicDataWrites.size());
+    const auto* public_data_writes_start = inputs.accumulatedData.publicDataWrites.begin();
+    return std::vector<PublicDataWrite>(public_data_writes_start,
+                                        public_data_writes_start + inputs.accumulatedDataArrayLengths.publicDataWrites);
+}
+
+} // namespace
+
 std::pair<AvmAPI::AvmProof, AvmAPI::AvmVerificationKey> AvmAPI::prove(const AvmAPI::ProvingInputs& inputs)
 {
     // Simulate.
     info("Simulating...");
     AvmSimulationHelper simulation_helper;
 
-    const auto* public_data_writes_start = inputs.publicInputs.accumulatedData.publicDataWrites.begin();
-    std::vector<PublicDataWrite> public_data_writes(
-        public_data_writes_start,
-        public_data_writes_start + inputs.publicInputs.accumulatedDataArrayLengths.publicDataWrites);
-
-    auto events =
-        AVM_TRACK_TIME_V("simulation/all", simulation_helper.simulate_for_witgen(inputs.hints, public_data_writes));
+    auto events = AVM_TRACK_TIME_V(
+        "simulation/all",
+        simulation_helper.simulate_for_witgen(inputs.hints, get_public_data_writes(inputs.publicInputs)));
 
     // Generate trace.
     info("Generating trace...");
