@@ -886,7 +886,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         }
         // perform each round's additions
         for (size_t j = 0; j < num_points; ++j) {
-            field_t scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
+            field_t scalar_slice = scalar_slices[j][num_rounds - i - 1];
 
             BB_ASSERT_EQ(scalar_slice.get_value(), scalar_slices[j].slices_native[num_rounds - i - 1]);
             const auto& point = points_to_add[point_counter++];

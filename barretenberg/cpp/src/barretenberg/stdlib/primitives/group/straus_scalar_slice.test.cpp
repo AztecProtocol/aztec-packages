@@ -50,8 +50,8 @@ TYPED_TEST(StrausScalarSliceTest, TestSliceReadAndReconstruction)
     // Read all slices and verify reconstruction
     uint256_t reconstructed = 0;
     for (size_t i = 0; i < slices.slices.size(); i++) {
-        auto slice_val = slices.read(i);
-        uint256_t slice_native = uint256_t(slice_val.get_value());
+        auto slice = slices[i];
+        uint256_t slice_native = uint256_t(slice.get_value());
         reconstructed += slice_native << (i * table_bits);
     }
 
