@@ -1,7 +1,7 @@
 #pragma once
 
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/indexed_memory_tree.hpp"
 
 namespace bb::avm2::simulation {

@@ -8,9 +8,9 @@
 #include <vector>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/simulation/addressing.hpp"
+#include "barretenberg/vm2/simulation/interfaces/addressing.hpp"
+#include "barretenberg/vm2/simulation/interfaces/memory.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
-#include "barretenberg/vm2/simulation/memory.hpp"
 
 namespace bb::avm2::simulation {
 

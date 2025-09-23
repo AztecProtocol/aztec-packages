@@ -6,10 +6,11 @@
 #include <stdexcept>
 #include <string>
 
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -67,6 +68,8 @@ auto& get_tree_info_helper(world_state::MerkleTreeId tree_id, auto& tree_roots)
 // HintedRawContractDB starts.
 HintedRawContractDB::HintedRawContractDB(const ExecutionHints& hints)
 {
+    BB_BENCH_NAME("HintedRawContractDB::HintedRawContractDB");
+
     vinfo("Initializing HintedRawContractDB with...",
           "\n * contractInstances: ",
           hints.contractInstances.size(),
@@ -151,6 +154,8 @@ FF HintedRawContractDB::get_bytecode_commitment(const ContractClassId& class_id)
 HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints)
     : tree_roots(hints.startingTreeRoots)
 {
+    BB_BENCH_NAME("HintedRawMerkleDB::HintedRawMerkleDB");
+
     vinfo("Initializing HintedRawMerkleDB with...",
           "\n * get_sibling_path_hints: ",
           hints.getSiblingPathHints.size(),
