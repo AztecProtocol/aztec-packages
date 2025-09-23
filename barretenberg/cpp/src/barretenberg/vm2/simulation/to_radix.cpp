@@ -11,6 +11,19 @@
 
 namespace bb::avm2::simulation {
 
+namespace {
+
+FF reconstruct_from_be(const std::vector<MemoryValue>& limbs, uint32_t radix)
+{
+    FF value = FF(0);
+    for (const auto& limb : limbs) {
+        value = value * radix + limb.as_ff();
+    }
+    return value;
+}
+
+} // namespace
+
 std::vector<uint8_t> ToRadix::to_le_radix(const FF& value, uint32_t num_limbs, uint32_t radix)
 {
     uint256_t value_integer = static_cast<uint256_t>(value);
@@ -60,74 +73,71 @@ void ToRadix::to_be_radix(MemoryInterface& memory,
                           bool is_output_bits, // Decides if output is U1 or U8
                           MemoryAddress dst_addr)
 {
+
     uint32_t execution_clk = execution_id_manager.get_execution_id();
     uint32_t space_id = memory.get_space_id();
 
-    try {
-        // todo(ilyas): there must be a nicer way to do this in the simulator. See if it's fine to provide
-        // a hierarchy of errors so that we can throw on the first error we encounter
+    // todo(ilyas): there must be a nicer way to do this in the simulator. See if it's fine to provide
+    // a hierarchy of errors so that we can throw on the first error we encounter
 
-        // Error handling - check that the maximum write address does not exceed the highest memory address
-        // This subtrace writes in the range { dst_addr, dst_addr + 1, ..., dst_addr + num_limbs - 1 }
-        uint64_t max_write_address = static_cast<uint64_t>(dst_addr) + num_limbs - 1;
-        bool dst_out_of_range = gt.gt(max_write_address, AVM_HIGHEST_MEM_ADDRESS);
+    // Error handling - check that the maximum write address does not exceed the highest memory address
+    // This subtrace writes in the range { dst_addr, dst_addr + 1, ..., dst_addr + num_limbs - 1 }
+    uint64_t max_write_address = static_cast<uint64_t>(dst_addr) + num_limbs - 1;
+    bool dst_out_of_range = gt.gt(max_write_address, AVM_HIGHEST_MEM_ADDRESS);
 
-        // Error handling - check that the radix value is within the valid range
-        // The valid range is [2, 256]. Therefore, the radix is invalid if (2 > radix) or (radix > 256)
-        // We need to perform both checks explicitly since that is what the circuit would do
-        bool radix_is_lt_2 = gt.gt(2, radix);
-        bool radix_is_gt_256 = gt.gt(radix, 256);
+    // Error handling - check that the radix value is within the valid range
+    // The valid range is [2, 256]. Therefore, the radix is invalid if (2 > radix) or (radix > 256)
+    // We need to perform both checks explicitly since that is what the circuit would do
+    bool radix_is_lt_2 = gt.gt(2, radix);
+    bool radix_is_gt_256 = gt.gt(radix, 256);
 
-        // Error handling - check that if is_output_bits is true, the radix has to be 2
-        bool invalid_bitwise_radix = is_output_bits && (radix != 2);
-        // Error handling - if num_limbs is zero, value needs to be zero
-        bool invalid_num_limbs = (num_limbs == 0) && (value != FF(0));
+    // Error handling - check that if is_output_bits is true, the radix has to be 2
+    bool invalid_bitwise_radix = is_output_bits && (radix != 2);
+    // Error handling - if num_limbs is zero, value needs to be zero
+    bool invalid_num_limbs = (num_limbs == 0) && (value != FF(0));
 
-        if (dst_out_of_range || radix_is_lt_2 || radix_is_gt_256 || invalid_bitwise_radix || invalid_num_limbs) {
-            throw std::runtime_error("Invalid parameters for ToRadix");
-        }
+    ToRadixMemoryEvent event = {
+        .execution_clk = execution_clk,
+        .space_id = space_id,
+        .num_limbs = num_limbs,
+        .dst_addr = dst_addr,
+        .value = value,
+        .radix = radix,
+        .is_output_bits = is_output_bits,
+        .limbs = {},
+    };
 
-        // If we get to this point, we are error free.
-        std::vector<MemoryValue> be_output_limbs;
-        be_output_limbs.reserve(num_limbs);
+    if (dst_out_of_range || radix_is_lt_2 || radix_is_gt_256 || invalid_bitwise_radix || invalid_num_limbs) {
+        memory_events.emit(std::move(event));
+        throw ToRadixException("Error during BE conversion: Invalid parameters for ToRadix");
+    }
+
+    if (num_limbs > 0) {
+        event.limbs.reserve(num_limbs);
         if (is_output_bits) {
             std::vector<bool> output_bits = to_le_bits(value, num_limbs);
             std::ranges::for_each(output_bits.rbegin(), output_bits.rend(), [&](bool bit) {
-                be_output_limbs.push_back(MemoryValue::from<uint1_t>(bit));
+                event.limbs.push_back(MemoryValue::from<uint1_t>(bit));
             });
         } else {
             std::vector<uint8_t> output_limbs_u8 = to_le_radix(value, num_limbs, radix);
             std::ranges::for_each(output_limbs_u8.rbegin(), output_limbs_u8.rend(), [&](uint8_t limb) {
-                be_output_limbs.push_back(MemoryValue::from<uint8_t>(limb));
+                event.limbs.push_back(MemoryValue::from<uint8_t>(limb));
             });
         }
-
-        for (uint32_t i = 0; i < num_limbs; i++) {
-            memory.set(dst_addr + i, be_output_limbs[i]);
-        }
-
-        memory_events.emit({
-            .execution_clk = execution_clk,
-            .space_id = space_id,
-            .dst_addr = dst_addr,
-            .value = value,
-            .radix = radix,
-            .is_output_bits = is_output_bits,
-            .limbs = be_output_limbs,
-        });
-
-    } catch (const std::exception& e) {
-        memory_events.emit({
-            .execution_clk = execution_clk,
-            .space_id = space_id,
-            .dst_addr = dst_addr,
-            .value = value,
-            .radix = radix,
-            .is_output_bits = is_output_bits,
-            .limbs = std::vector<MemoryValue>(num_limbs, MemoryValue::from<FF>(0)),
-        });
-        throw ToRadixException("Error during BE conversion, " + std::string(e.what()));
     }
+
+    if (reconstruct_from_be(event.limbs, radix) != value) {
+        memory_events.emit(std::move(event));
+        throw ToRadixException("Error during BE conversion: Truncation error");
+    }
+
+    // If we get to this point, we are error free.
+    for (uint32_t i = 0; i < num_limbs; i++) {
+        memory.set(dst_addr + i, event.limbs[i]);
+    }
+
+    memory_events.emit(std::move(event));
 }
 
 } // namespace bb::avm2::simulation

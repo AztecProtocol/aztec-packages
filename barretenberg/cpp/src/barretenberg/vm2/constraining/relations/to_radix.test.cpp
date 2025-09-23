@@ -446,8 +446,10 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::to_radix_mem_value_inv, value.invert() },
             // Output
             { C::to_radix_mem_output_limb_value, 1 },
-            { C::to_radix_mem_sel_should_exec, 1 },
+            { C::to_radix_mem_sel_can_decompose, 1 },
+            { C::to_radix_mem_sel_should_write_mem, 1 },
             { C::to_radix_mem_limb_index_to_lookup, num_limbs - 1 },
+            { C::to_radix_mem_value_found, 1 },
             { C::to_radix_mem_output_tag, static_cast<uint8_t>(MemoryTag::U8) },
 
             // GT check - 2 > radix = false
@@ -473,7 +475,8 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::to_radix_mem_num_limbs_minus_one_inv, FF(num_limbs - 2).invert() },
             // Output
             { C::to_radix_mem_output_limb_value, 3 },
-            { C::to_radix_mem_sel_should_exec, 1 },
+            { C::to_radix_mem_sel_can_decompose, 1 },
+            { C::to_radix_mem_sel_should_write_mem, 1 },
             { C::to_radix_mem_limb_index_to_lookup, num_limbs - 2 },
             { C::to_radix_mem_output_tag, static_cast<uint8_t>(MemoryTag::U8) },
             // GT check - Radix > 256 = false
@@ -499,7 +502,8 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::to_radix_mem_num_limbs_minus_one_inv, FF(num_limbs - 3).invert() },
             // Output
             { C::to_radix_mem_output_limb_value, 3 },
-            { C::to_radix_mem_sel_should_exec, 1 },
+            { C::to_radix_mem_sel_can_decompose, 1 },
+            { C::to_radix_mem_sel_should_write_mem, 1 },
             { C::to_radix_mem_limb_index_to_lookup, num_limbs - 3 },
             { C::to_radix_mem_output_tag, static_cast<uint8_t>(MemoryTag::U8) },
         },
@@ -519,7 +523,8 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::to_radix_mem_last, 1 },
             // Output
             { C::to_radix_mem_output_limb_value, 7 },
-            { C::to_radix_mem_sel_should_exec, 1 },
+            { C::to_radix_mem_sel_can_decompose, 1 },
+            { C::to_radix_mem_sel_should_write_mem, 1 },
             { C::to_radix_mem_limb_index_to_lookup, num_limbs - 4 },
             { C::to_radix_mem_output_tag, static_cast<uint8_t>(MemoryTag::U8) },
         },
@@ -625,6 +630,7 @@ TEST(ToRadixMemoryConstrainingTest, DstOutOfRange)
             { C::to_radix_mem_is_output_bits, 0 },
             // Errors
             { C::to_radix_mem_sel_dst_out_of_range_err, 1 },
+            { C::to_radix_mem_input_validation_error, 1 },
             { C::to_radix_mem_err, 1 },
             // Control Flow
             { C::to_radix_mem_start, 1 },
@@ -635,8 +641,6 @@ TEST(ToRadixMemoryConstrainingTest, DstOutOfRange)
             { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
-            // Output
-            { C::to_radix_mem_sel_should_exec, 0 },
         },
     });
 
@@ -682,6 +686,7 @@ TEST(ToRadixMemoryConstrainingTest, InvalidRadix)
             { C::to_radix_mem_is_output_bits, 0 },
             // Errors
             { C::to_radix_mem_sel_radix_lt_2_err, 1 },
+            { C::to_radix_mem_input_validation_error, 1 },
             { C::to_radix_mem_err, 1 },
             // Control Flow
             { C::to_radix_mem_start, 1 },
@@ -692,8 +697,6 @@ TEST(ToRadixMemoryConstrainingTest, InvalidRadix)
             { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
-            // Output
-            { C::to_radix_mem_sel_should_exec, 0 },
         },
     });
     check_relation<to_radix_mem>(trace);
@@ -737,6 +740,7 @@ TEST(ToRadixMemoryConstrainingTest, InvalidBitwiseRadix)
             { C::to_radix_mem_is_output_bits, is_output_bits ? 1 : 0 },
             // Errors
             { C::to_radix_mem_sel_invalid_bitwise_radix, 1 }, // Invalid bitwise radix
+            { C::to_radix_mem_input_validation_error, 1 },
             { C::to_radix_mem_err, 1 },
             // Control Flow
             { C::to_radix_mem_start, 1 },
@@ -747,8 +751,6 @@ TEST(ToRadixMemoryConstrainingTest, InvalidBitwiseRadix)
             { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
-            // Output
-            { C::to_radix_mem_sel_should_exec, 0 },
         },
     });
     check_relation<to_radix_mem>(trace);
@@ -792,6 +794,7 @@ TEST(ToRadixMemoryConstrainingTest, InvalidNumLimbsForValue)
             { C::to_radix_mem_is_output_bits, is_output_bits ? 1 : 0 },
             // Errors
             { C::to_radix_mem_sel_invalid_num_limbs_err, 1 }, // num_limbs should not be 0 if value != 0
+            { C::to_radix_mem_input_validation_error, 1 },
             { C::to_radix_mem_err, 1 },
             // Control Flow
             { C::to_radix_mem_start, 1 },
@@ -802,8 +805,6 @@ TEST(ToRadixMemoryConstrainingTest, InvalidNumLimbsForValue)
             { C::to_radix_mem_num_limbs_inv, 0 },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
-            // Output
-            { C::to_radix_mem_sel_should_exec, 0 },
         },
     });
     check_relation<to_radix_mem>(trace);
@@ -854,8 +855,6 @@ TEST(ToRadixMemoryConstrainingTest, ZeroNumLimbsAndZeroValueIsNoop)
             { C::to_radix_mem_num_limbs_inv, 0 },
             { C::to_radix_mem_sel_value_is_zero, 1 },
             { C::to_radix_mem_value_inv, 0 },
-            // Output
-            { C::to_radix_mem_sel_should_exec, 0 }, // Should still not_exec since num_limbs == 0
         },
     });
     check_relation<to_radix_mem>(trace);
@@ -885,7 +884,7 @@ TEST(ToRadixMemoryConstrainingTest, ComplexTest)
     // Two calls to test transitions between contiguous chunks of computation
     to_radix_simulator.to_be_radix(memory, value, radix, num_limbs, is_output_bits, dst_addr);
     to_radix_simulator.to_be_radix(
-        memory, /*value=*/FF(1337), /*radix=*/10, /*num_limbs=*/2, /*is_output_bits=*/false, /*dst_addr=*/0xdeadbeef);
+        memory, /*value=*/FF(1337), /*radix=*/10, /*num_limbs=*/6, /*is_output_bits=*/false, /*dst_addr=*/0xdeadbeef);
 
     TestTraceContainer trace;
     ToRadixTraceBuilder builder;
