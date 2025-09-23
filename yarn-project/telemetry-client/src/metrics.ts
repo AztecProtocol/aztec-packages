@@ -67,14 +67,9 @@ export const SEQUENCER_STATE_TRANSITION_BUFFER_DURATION = 'aztec.sequencer.state
 export const SEQUENCER_BLOCK_BUILD_DURATION = 'aztec.sequencer.block.build_duration';
 export const SEQUENCER_BLOCK_BUILD_MANA_PER_SECOND = 'aztec.sequencer.block.build_mana_per_second';
 export const SEQUENCER_BLOCK_COUNT = 'aztec.sequencer.block.count';
-export const SEQUENCER_CURRENT_STATE = 'aztec.sequencer.current.state';
-export const SEQUENCER_CURRENT_BLOCK_NUMBER = 'aztec.sequencer.current.block_number';
-export const SEQUENCER_CURRENT_BLOCK_SIZE = 'aztec.sequencer.current.block_size';
-export const SEQUENCER_BLOCK_BUILD_INSERTION_TIME = 'aztec.sequencer.block_builder_tree_insertion_duration';
 export const SEQUENCER_CURRENT_BLOCK_REWARDS = 'aztec.sequencer.current_block_rewards';
 export const SEQUENCER_SLOT_COUNT = 'aztec.sequencer.slot.total_count';
 export const SEQUENCER_FILLED_SLOT_COUNT = 'aztec.sequencer.slot.filled_count';
-export const SEQUENCER_MISSED_SLOT_COUNT = 'aztec.sequencer.slot.missed_count';
 
 export const SEQUENCER_COLLECTED_ATTESTATIONS_COUNT = 'aztec.sequencer.attestations.collected_count';
 export const SEQUENCER_REQUIRED_ATTESTATIONS_COUNT = 'aztec.sequencer.attestations.required_count';
