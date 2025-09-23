@@ -232,8 +232,10 @@ export class EmbeddedWallet extends BaseWallet {
   ): Promise<TxSimulationResult> {
     const executionOptions = { txNonce: Fr.random(), cancellable: false };
     const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(opts.from);
-    const fee = await this.getFeeOptions(fromAccount, executionPayload, opts.fee, executionOptions);
-    const txRequest = await fromAccount.createTxExecutionRequest(executionPayload, fee, executionOptions);
+    const feeOptions = opts.fee?.estimateGas
+      ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
+      : await this.getDefaultFeeOptions(opts.from, opts.fee);
+    const txRequest = await fromAccount.createTxExecutionRequest(executionPayload, feeOptions, executionOptions);
     const contractOverrides = {
       [opts.from.toString()]: { instance, artifact },
     };

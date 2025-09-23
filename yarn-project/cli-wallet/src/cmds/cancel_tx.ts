@@ -32,7 +32,7 @@ export async function cancelTx(
     prevTxGasSettings.maxPriorityFeesPerGas.feePerL2Gas + increasedFees.feePerL2Gas,
   );
 
-  const fee: FeeOptions = {
+  const feeOptions: FeeOptions = {
     paymentMethod,
     gasSettings: GasSettings.from({
       ...prevTxGasSettings,
@@ -41,7 +41,7 @@ export async function cancelTx(
     }),
   };
 
-  const txProvingResult = await wallet.proveCancellationTx(from, txNonce, fee);
+  const txProvingResult = await wallet.proveCancellationTx(from, txNonce, feeOptions);
   const sentTx = new SentTx(wallet, async () => {
     const tx = await txProvingResult.toTx();
     return wallet.sendTx(tx);

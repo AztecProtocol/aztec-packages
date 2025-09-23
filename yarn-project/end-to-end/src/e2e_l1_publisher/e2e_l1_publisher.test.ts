@@ -138,7 +138,7 @@ describe('L1Publisher integration', () => {
     const currentSlot = await rollup.getSlotNumber();
     const timestamp = await rollup.getTimestampForSlot(currentSlot + slotsToJump);
     if (timestamp > currentTime) {
-      await ethCheatCodes.warp(Number(timestamp), { resetBlockInterval: true, updateDateProvider: dateProvider });
+      await ethCheatCodes.warp(Number(timestamp), { resetBlockInterval: true });
     }
   };
 
@@ -153,7 +153,8 @@ describe('L1Publisher integration', () => {
       ...deployL1ContractsArgs,
     }));
 
-    ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls);
+    dateProvider = new TestDateProvider();
+    ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls, dateProvider);
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
@@ -167,8 +168,6 @@ describe('L1Publisher integration', () => {
       abi: OutboxAbi,
       client: l1Client,
     });
-
-    dateProvider = new TestDateProvider();
 
     builderDb = await NativeWorldStateService.tmp(EthAddress.fromString(rollupAddress));
     blocks = [];
@@ -264,9 +263,7 @@ describe('L1Publisher integration', () => {
     baseFee = new GasFees(0, await rollup.getManaBaseFeeAt(ts, true));
 
     // We jump two epochs such that the committee can be setup.
-    await rollupCheatCodes.advanceToEpoch(BigInt(config.lagInEpochs + 1), {
-      updateDateProvider: dateProvider,
-    });
+    await rollupCheatCodes.advanceToEpoch(BigInt(config.lagInEpochs + 1));
     await rollupCheatCodes.setupEpoch();
 
     ({ committee } = await epochCache.getCommittee());

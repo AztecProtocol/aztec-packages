@@ -5,7 +5,7 @@
 
 #include <gmock/gmock.h>
 
-#include "barretenberg/vm2/simulation/internal_call_stack_manager.hpp"
+#include "barretenberg/vm2/simulation/interfaces/internal_call_stack_manager.hpp"
 
 namespace bb::avm2::simulation {
 

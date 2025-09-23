@@ -73,15 +73,13 @@ export class AmmBot extends BaseBot {
       )
       .simulate({ from: this.defaultAccountAddress });
 
-    const swapExactTokensInteraction = amm.methods.swap_exact_tokens_for_tokens(
-      tokenIn.address,
-      tokenOut.address,
-      amountIn,
-      amountOutMin,
-      authwitNonce,
-    );
+    const swapExactTokensInteraction = amm.methods
+      .swap_exact_tokens_for_tokens(tokenIn.address, tokenOut.address, amountIn, amountOutMin, authwitNonce)
+      .with({
+        authWitnesses: [swapAuthwit],
+      });
 
-    const opts = this.getSendMethodOpts(swapAuthwit);
+    const opts = await this.getSendMethodOpts(swapExactTokensInteraction);
 
     this.log.verbose(`Proving transaction`, logCtx);
     const tx = await swapExactTokensInteraction.prove(opts);

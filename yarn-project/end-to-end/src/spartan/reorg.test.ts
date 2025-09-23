@@ -3,6 +3,7 @@ import { type AztecNode, sleep } from '@aztec/aztec.js';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import { TestWallet } from '@aztec/test-wallet';
 
 import { expect, jest } from '@jest/globals';
@@ -16,7 +17,7 @@ import {
 } from './setup_test_wallets.js';
 import { applyProverFailure, setupEnvironment, startPortForwardForEthereum, startPortForwardForRPC } from './utils.js';
 
-const config = { ...setupEnvironment(process.env), REAL_VERIFIER: true }; // todo: remove REAL_VERIFIER condition, currently false produces invalid proofs
+const config = { ...setupEnvironment(process.env) };
 const debugLogger = createLogger('e2e:spartan-test:reorg');
 
 async function checkBalances(testAccounts: TestAccounts, mintAmount: bigint, totalAmountTransferred: bigint) {
@@ -69,7 +70,7 @@ describe('reorg test', () => {
 
   it('survives a reorg', async () => {
     const rollupCheatCodes = new RollupCheatCodes(
-      new EthCheatCodesWithState(ETHEREUM_HOSTS),
+      new EthCheatCodesWithState(ETHEREUM_HOSTS, new DateProvider()),
       await testAccounts.aztecNode.getNodeInfo().then(n => n.l1ContractAddresses),
     );
     const { epochDuration, slotDuration } = await rollupCheatCodes.getConfig();

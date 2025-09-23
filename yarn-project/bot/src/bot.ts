@@ -64,8 +64,8 @@ export class Bot extends BaseBot {
           token.methods.transfer(TRANSFER_AMOUNT, this.defaultAccountAddress, recipient),
         );
 
-    const opts = this.getSendMethodOpts();
     const batch = new BatchCall(wallet, calls);
+    const opts = await this.getSendMethodOpts(batch);
 
     this.log.verbose(`Simulating transaction with ${calls.length}`, logCtx);
     await batch.simulate({ from: this.defaultAccountAddress });

@@ -10,6 +10,7 @@
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_decomposition.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_hashing.hpp"
@@ -245,7 +246,6 @@ void BytecodeTraceBuilder::process_instruction_fetching(
     TraceContainer& trace)
 {
     using C = Column;
-    using simulation::BytecodeId;
     using simulation::InstructionFetchingEvent;
     using simulation::InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE;
     using simulation::InstrDeserializationError::OPCODE_OUT_OF_RANGE;

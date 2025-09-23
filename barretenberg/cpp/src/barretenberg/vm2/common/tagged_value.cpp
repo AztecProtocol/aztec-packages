@@ -360,27 +360,11 @@ FF TaggedValue::as_ff() const
 
 ValueTag TaggedValue::get_tag() const
 {
-    // The tag is implicit in the type.
-    if (std::holds_alternative<uint8_t>(value)) {
-        return ValueTag::U8;
-    } else if (std::holds_alternative<uint1_t>(value)) {
-        return ValueTag::U1;
-    } else if (std::holds_alternative<uint16_t>(value)) {
-        return ValueTag::U16;
-    } else if (std::holds_alternative<uint32_t>(value)) {
-        return ValueTag::U32;
-    } else if (std::holds_alternative<uint64_t>(value)) {
-        return ValueTag::U64;
-    } else if (std::holds_alternative<uint128_t>(value)) {
-        return ValueTag::U128;
-    } else if (std::holds_alternative<FF>(value)) {
-        return ValueTag::FF;
-    } else {
-        throw std::runtime_error("Unknown value type");
-    }
-
-    assert(false && "This should never happen.");
-    return ValueTag::FF; // Only to make the compiler happy.
+    // Converts the index of the variant to the tag.
+    static constexpr std::array<ValueTag, 7> index_to_tag = { ValueTag::U8,  ValueTag::U1,  ValueTag::U16,
+                                                              ValueTag::U32, ValueTag::U64, ValueTag::U128,
+                                                              ValueTag::FF };
+    return index_to_tag[value.index()];
 }
 
 std::string TaggedValue::to_string() const

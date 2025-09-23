@@ -78,7 +78,6 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
 
   private handlePruneL2Blocks(event: L2BlockPruneEvent): void {
     const { blocks, epochNumber } = event;
-    this.log.info(`Detected chain prune. Validating epoch ${epochNumber}`);
     void this.processPruneL2Blocks(blocks, epochNumber).catch(err =>
       this.log.error('Error processing pruned L2 blocks', err, { epochNumber }),
     );

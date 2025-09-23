@@ -1,6 +1,7 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import { RegistryAbi } from '@aztec/l1-artifacts/RegistryAbi';
 
 import type { Anvil } from '@viem/anvil';
@@ -68,7 +69,7 @@ describe('Registry', () => {
     const rollup = new RollupContract(l1Client, deployedAddresses.rollupAddress);
     deployedVersion = Number(await rollup.getVersion());
 
-    ethCheatCodes = new EthCheatCodes([rpcUrl]);
+    ethCheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
     await ethCheatCodes.setBalance(deployedAddresses.governanceAddress, 10n ** 18n);
   });
 

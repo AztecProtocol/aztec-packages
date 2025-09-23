@@ -2,21 +2,19 @@ import type { EthAddress } from '@aztec/aztec.js';
 import type { RollupContract } from '@aztec/ethereum';
 import {
   Attributes,
-  type BatchObservableResult,
   type Gauge,
   type Histogram,
   type Meter,
   Metrics,
-  type ObservableGauge,
   type TelemetryClient,
   type Tracer,
   type UpDownCounter,
   ValueType,
 } from '@aztec/telemetry-client';
 
-import { formatUnits } from 'viem';
+import { type Hex, formatUnits } from 'viem';
 
-import { type SequencerState, type SequencerStateCallback, sequencerStateToNumber } from './utils.js';
+import type { SequencerState } from './utils.js';
 
 export class SequencerMetrics {
   public readonly tracer: Tracer;
@@ -26,9 +24,6 @@ export class SequencerMetrics {
   private blockBuildDuration: Histogram;
   private blockBuildManaPerSecond: Gauge;
   private stateTransitionBufferDuration: Histogram;
-  private currentBlockNumber: Gauge;
-  private currentBlockSize: Gauge;
-  private blockBuilderInsertions: Histogram;
 
   // these are gauges because for individual sequencers building a block is not something that happens often enough to warrant a histogram
   private timeToCollectAttestations: Gauge;
@@ -36,18 +31,15 @@ export class SequencerMetrics {
   private requiredAttestions: Gauge;
   private collectedAttestions: Gauge;
 
-  private rewards: ObservableGauge;
+  private rewards: Gauge;
 
   private slots: UpDownCounter;
   private filledSlots: UpDownCounter;
-  private missedSlots: UpDownCounter;
 
   private lastSeenSlot?: bigint;
 
   constructor(
     client: TelemetryClient,
-    getState: SequencerStateCallback,
-    private coinbase: EthAddress,
     private rollup: RollupContract,
     name = 'Sequencer',
   ) {
@@ -78,35 +70,7 @@ export class SequencerMetrics {
       },
     );
 
-    const currentState = this.meter.createObservableGauge(Metrics.SEQUENCER_CURRENT_STATE, {
-      description: 'Current state of the sequencer',
-    });
-
-    currentState.addCallback(observer => {
-      observer.observe(sequencerStateToNumber(getState()));
-    });
-
-    this.currentBlockNumber = this.meter.createGauge(Metrics.SEQUENCER_CURRENT_BLOCK_NUMBER, {
-      description: 'Current block number',
-      valueType: ValueType.INT,
-    });
-
-    this.currentBlockSize = this.meter.createGauge(Metrics.SEQUENCER_CURRENT_BLOCK_SIZE, {
-      description: 'Current block size',
-      valueType: ValueType.INT,
-    });
-
-    this.blockBuilderInsertions = this.meter.createHistogram(Metrics.SEQUENCER_BLOCK_BUILD_INSERTION_TIME, {
-      description: 'Timer for tree insertions performed by the block builder',
-      unit: 'us',
-      valueType: ValueType.INT,
-    });
-
     // Init gauges and counters
-    this.setCurrentBlock(0, 0);
-    this.blockCounter.add(0, {
-      [Attributes.STATUS]: 'cancelled',
-    });
     this.blockCounter.add(0, {
       [Attributes.STATUS]: 'failed',
     });
@@ -114,7 +78,7 @@ export class SequencerMetrics {
       [Attributes.STATUS]: 'built',
     });
 
-    this.rewards = this.meter.createObservableGauge(Metrics.SEQUENCER_CURRENT_BLOCK_REWARDS, {
+    this.rewards = this.meter.createGauge(Metrics.SEQUENCER_CURRENT_BLOCK_REWARDS, {
       valueType: ValueType.DOUBLE,
       description: 'The rewards earned',
     });
@@ -124,14 +88,13 @@ export class SequencerMetrics {
       description: 'The number of slots this sequencer was selected for',
     });
 
+    /**
+     * NOTE: we do not track missed slots as a separate metric. That would be difficult to determine
+     * Instead, use a computed metric, `slots - filledSlots` to get the number of slots a sequencer has missed.
+     */
     this.filledSlots = this.meter.createUpDownCounter(Metrics.SEQUENCER_FILLED_SLOT_COUNT, {
       valueType: ValueType.INT,
       description: 'The number of slots this sequencer has filled',
-    });
-
-    this.missedSlots = this.meter.createUpDownCounter(Metrics.SEQUENCER_MISSED_SLOT_COUNT, {
-      valueType: ValueType.INT,
-      description: 'The number of slots this sequencer has missed to fill',
     });
 
     this.timeToCollectAttestations = this.meter.createGauge(Metrics.SEQUENCER_COLLECT_ATTESTATIONS_DURATION, {
@@ -160,28 +123,6 @@ export class SequencerMetrics {
     });
   }
 
-  public setCoinbase(coinbase: EthAddress) {
-    this.coinbase = coinbase;
-  }
-
-  public start() {
-    this.meter.addBatchObservableCallback(this.observe, [this.rewards]);
-  }
-
-  public stop() {
-    this.meter.removeBatchObservableCallback(this.observe, [this.rewards]);
-  }
-
-  private observe = async (observer: BatchObservableResult): Promise<void> => {
-    let rewards = 0n;
-    rewards = await this.rollup.getSequencerRewards(this.coinbase);
-
-    const fmt = parseFloat(formatUnits(rewards, 18));
-    observer.observe(this.rewards, fmt, {
-      [Attributes.COINBASE]: this.coinbase.toString(),
-    });
-  };
-
   public recordRequiredAttestations(requiredAttestationsCount: number, allowanceMs: number) {
     this.requiredAttestions.record(requiredAttestationsCount);
     this.allowanceToCollectAttestations.record(Math.ceil(allowanceMs));
@@ -196,17 +137,6 @@ export class SequencerMetrics {
     this.timeToCollectAttestations.record(Math.ceil(durationMs));
   }
 
-  recordBlockBuilderTreeInsertions(timeUs: number) {
-    this.blockBuilderInsertions.record(Math.ceil(timeUs));
-  }
-
-  recordCancelledBlock() {
-    this.blockCounter.add(1, {
-      [Attributes.STATUS]: 'cancelled',
-    });
-    this.setCurrentBlock(0, 0);
-  }
-
   recordBuiltBlock(buildDurationMs: number, totalMana: number) {
     this.blockCounter.add(1, {
       [Attributes.STATUS]: 'built',
@@ -219,11 +149,6 @@ export class SequencerMetrics {
     this.blockCounter.add(1, {
       [Attributes.STATUS]: 'failed',
     });
-    this.setCurrentBlock(0, 0);
-  }
-
-  recordNewBlock(blockNumber: number, txCount: number) {
-    this.setCurrentBlock(blockNumber, txCount);
   }
 
   recordStateTransitionBufferMs(durationMs: number, state: SequencerState) {
@@ -232,36 +157,35 @@ export class SequencerMetrics {
     });
   }
 
-  observeSlotChange(slot: bigint | undefined, proposer: string) {
+  incOpenSlot(slot: bigint, proposer: string) {
     // sequencer went through the loop a second time. Noop
     if (slot === this.lastSeenSlot) {
       return;
     }
 
-    if (typeof this.lastSeenSlot === 'bigint') {
-      this.missedSlots.add(1, {
-        [Attributes.BLOCK_PROPOSER]: proposer,
-      });
-    }
-
-    if (typeof slot === 'bigint') {
-      this.slots.add(1, {
-        [Attributes.BLOCK_PROPOSER]: proposer,
-      });
-    }
+    this.slots.add(1, {
+      [Attributes.BLOCK_PROPOSER]: proposer,
+    });
 
     this.lastSeenSlot = slot;
   }
 
-  incFilledSlot(proposer: string) {
+  async incFilledSlot(proposer: string, coinbase: Hex | EthAddress | undefined): Promise<void> {
     this.filledSlots.add(1, {
       [Attributes.BLOCK_PROPOSER]: proposer,
     });
     this.lastSeenSlot = undefined;
-  }
 
-  private setCurrentBlock(blockNumber: number, txCount: number) {
-    this.currentBlockNumber.record(blockNumber);
-    this.currentBlockSize.record(txCount);
+    if (coinbase) {
+      try {
+        const rewards = await this.rollup.getSequencerRewards(coinbase);
+        const fmt = parseFloat(formatUnits(rewards, 18));
+        this.rewards.record(fmt, {
+          [Attributes.COINBASE]: coinbase.toString(),
+        });
+      } catch {
+        // no-op
+      }
+    }
   }
 }

@@ -62,6 +62,12 @@ std::size_t peak_rss_bytes()
 //---------------------------------------------------------------------
 extern "C" void logstr(char const* msg)
 {
+    static bool disable_mem_usage = std::getenv("BB_DISABLE_MEM_USAGE") != nullptr;
+    if (disable_mem_usage) {
+        std::cerr << msg << '\n';
+        return;
+    }
+
     const std::size_t bytes = peak_rss_bytes();
     std::cerr << msg;
 
