@@ -864,9 +864,10 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     // (ecc add/ecc double gates normally cost 2 Ultra gates. However if we chain add->add, add->double,
     // double->add, double->double, they only cost one)
     std::vector<cycle_group> points_to_add;
+    // WORKTODO: convert this to range loop over table/slices
     for (size_t i = 0; i < num_rounds; ++i) {
         for (size_t j = 0; j < num_points; ++j) {
-            const field_t scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
+            const field_t scalar_slice = scalar_slices[j][num_rounds - i - 1];
             const cycle_group point = point_tables[j].read(scalar_slice);
             points_to_add.push_back(point);
         }

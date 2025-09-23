@@ -31,15 +31,15 @@ straus_scalar_slice<Builder>::straus_scalar_slice(Builder* context,
                                                   const size_t table_bits)
     : _table_bits(table_bits)
 {
-    // convert an input cycle_scalar object into a vector of slices, each containing `table_bits` bits.
-    // this also performs an implicit range check on the input slices
+    // Convert an input cycle_scalar object into a vector of slices, each containing `table_bits` bits. Also performs an
+    // implicit range check on the input slices via decompose_into_default_range
     const auto compute_scalar_slices =
         [&](const field_t& scalar, const size_t num_bits) -> std::pair<std::vector<field_t>, std::vector<uint64_t>> {
         const size_t num_slices = numeric::ceil_div(num_bits, table_bits);
 
-        // we record the scalar slices both as field_t circuit elements and u64 values
-        // (u64 values are used to index arrays and we don't want to repeatedly cast a stdlib value to a numeric
-        // primitive as this gets expensive when repeated enough times)
+        // We record the scalar slices both as field_t circuit elements and u64 values. (u64 values are used to index
+        // arrays and we don't want to repeatedly cast a stdlib value to a numeric primitive as this gets expensive when
+        // done repeatedly)
         std::vector<field_t> stdlib_slices;
         std::vector<uint64_t> native_slices;
         stdlib_slices.reserve(num_slices);
@@ -86,6 +86,7 @@ straus_scalar_slice<Builder>::straus_scalar_slice(Builder* context,
     std::copy(hi_slices.first.begin(), hi_slices.first.end(), std::back_inserter(slices));
     std::copy(lo_slices.second.begin(), lo_slices.second.end(), std::back_inserter(slices_native));
     std::copy(hi_slices.second.begin(), hi_slices.second.end(), std::back_inserter(slices_native));
+
     const auto tag = scalar.get_origin_tag();
     for (auto& element : slices) {
         // All slices need to have the same origin tag
@@ -102,7 +103,7 @@ straus_scalar_slice<Builder>::straus_scalar_slice(Builder* context,
  * @param index
  * @return field_t<Builder>
  */
-template <typename Builder> field_t<Builder> straus_scalar_slice<Builder>::read(size_t index)
+template <typename Builder> field_t<Builder> straus_scalar_slice<Builder>::operator[](size_t index)
 {
     BB_ASSERT_LT(index, slices.size(), "Straus scalar slice index out of bounds!");
     return slices[index];

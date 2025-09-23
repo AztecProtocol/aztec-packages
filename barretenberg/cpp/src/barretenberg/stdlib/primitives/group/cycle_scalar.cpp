@@ -233,8 +233,8 @@ template <typename Builder> bool cycle_scalar<Builder>::is_constant() const
 
 /**
  * @brief Validates that the scalar (lo + hi * 2^LO_BITS) is less than the appropriate field modulus
- * @details Checks against either bn254 scalar field or grumpkin scalar field based on internal flags.
- *          If _skip_primality_test is true, no validation is performed.
+ * @details Checks against either bn254 scalar field or grumpkin scalar field based on internal flags. If
+ * _skip_primality_test is true, no validation is performed.
  * @note: Implies (lo + hi * 2^LO_BITS) < field_modulus as integers when combined with appropriate range constraints on
  * lo and hi.
  *
