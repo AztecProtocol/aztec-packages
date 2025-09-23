@@ -71,12 +71,11 @@ void PureToRadix::to_be_radix(MemoryInterface& memory,
 
     uint256_t radix_integer = static_cast<uint256_t>(radix);
     uint256_t value_integer = static_cast<uint256_t>(value);
-    std::vector<uint8_t> limbs;
-    limbs.reserve(num_limbs);
+    std::vector<uint8_t> limbs(num_limbs, 0);
 
     for (uint32_t i = 0; i < num_limbs; i++) {
         auto [quotient, remainder] = value_integer.divmod(radix_integer);
-        limbs.push_back(static_cast<uint8_t>(remainder));
+        limbs.at(num_limbs - i - 1) = static_cast<uint8_t>(remainder);
         value_integer = quotient;
     }
 
