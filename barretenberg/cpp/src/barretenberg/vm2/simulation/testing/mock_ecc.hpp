@@ -3,7 +3,8 @@
 #include <gmock/gmock.h>
 
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/simulation/ecc.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/simulation/interfaces/ecc.hpp"
 
 namespace bb::avm2::simulation {
 

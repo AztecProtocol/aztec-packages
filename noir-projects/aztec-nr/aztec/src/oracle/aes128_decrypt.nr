@@ -34,7 +34,7 @@ mod test {
         let env = TestEnvironment::new();
 
         env.utility_context(|_| {
-            let ciphertext_shared_secret = point_from_x_coord(1);
+            let ciphertext_shared_secret = point_from_x_coord(1).unwrap();
 
             let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<1>(
                 ciphertext_shared_secret,
@@ -91,7 +91,7 @@ mod test {
             // tuple. The eventual decryptor will expect the mac in the decrypted plaintext
             // to match the mac that was broadcast. If not, the recipient knows that
             // decryption has failed.
-            let ciphertext_shared_secret = point_from_x_coord(1);
+            let ciphertext_shared_secret = point_from_x_coord(1).unwrap();
 
             let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<1>(
                 ciphertext_shared_secret,

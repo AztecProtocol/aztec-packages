@@ -71,25 +71,25 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
   public:
     // Declare edge case values
-    constexpr static std::array<uint512_t, 6> edge_case_values = {
+    constexpr static std::array<uint512_t, 5> edge_case_values = {
         uint512_t(uint256_t(0)),                  // 0
         uint512_t(uint256_t(1)),                  // 1
         uint512_t(fr::modulus) - 1,               // n - 1
         uint512_t(fr::modulus),                   // n
         uint512_t(fq_ct::modulus) - uint512_t(1), // p - 1
-        uint512_t(fq_ct::modulus),                // p
     };
 
-    inline static const std::array<uint512_t, 9> values_larger_than_bigfield = {
-        uint512_t(fq_ct::modulus) + uint512_t(1),
-        uint512_t(fq_ct::modulus) + uint512_t(fr::modulus),
-        (uint512_t(1) << 256) - 1,
-        (uint512_t(1) << 256),
-        (uint512_t(1) << 256) + 1,
-        uint512_t(fq_ct::get_maximum_unreduced_value()) - 1,
-        uint512_t(fq_ct::get_maximum_unreduced_value()),
-        uint512_t(fq_ct::get_maximum_unreduced_value()) + 1,
-        (uint512_t(1) << (stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 4)) - 1,
+    inline static const std::array<uint512_t, 10> values_larger_than_bigfield = {
+        uint512_t(fq_ct::modulus),                                             // p
+        uint512_t(fq_ct::modulus) + uint512_t(1),                              // p + 1
+        uint512_t(fq_ct::modulus) + uint512_t(fr::modulus),                    // p + n
+        (uint512_t(1) << 256) - 1,                                             // 2^256 - 1
+        (uint512_t(1) << 256),                                                 // 2^256
+        (uint512_t(1) << 256) + 1,                                             // 2^256 + 1
+        uint512_t(fq_ct::get_maximum_unreduced_value()) - 1,                   // max unreduced - 1
+        uint512_t(fq_ct::get_maximum_unreduced_value()),                       // max unreduced
+        uint512_t(fq_ct::get_maximum_unreduced_value()) + 1,                   // max unreduced + 1
+        (uint512_t(1) << (stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 4)) - 1, // 2^272 - 1
     };
 
     constexpr static uint512_t reduction_upper_bound = uint512_t(1) << (fq_ct::modulus.get_msb() + 1); // p < 2^s
@@ -126,16 +126,16 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
         fq_ct combined_a = fq_ct::unsafe_construct_from_limbs(limb_0, limb_1, limb_2, limb_3, true);
         combined_a.binary_basis_limbs[3].maximum_value = other_mask;
 
-        // Check that individual limbs are less than maximum unreduced limb value
-        const bool limbs_less_than_max = (limb_0_native < fq_ct::get_maximum_unreduced_limb_value()) &&
-                                         (limb_1_native < fq_ct::get_maximum_unreduced_limb_value()) &&
-                                         (limb_2_native < fq_ct::get_maximum_unreduced_limb_value()) &&
-                                         (limb_3_native < fq_ct::get_maximum_unreduced_limb_value());
+        // Check that individual limbs are ≤ than maximum unreduced limb value
+        const bool limbs_less_than_max = (limb_0_native <= fq_ct::get_maximum_unreduced_limb_value()) &&
+                                         (limb_1_native <= fq_ct::get_maximum_unreduced_limb_value()) &&
+                                         (limb_2_native <= fq_ct::get_maximum_unreduced_limb_value()) &&
+                                         (limb_3_native <= fq_ct::get_maximum_unreduced_limb_value());
         EXPECT_EQ(limbs_less_than_max, true);
 
         // Check that the combined max value is greater than the maximum unreduced bigfield value
         EXPECT_GT(combined_a.get_maximum_value(),      // 2^68 * 2^68 * 2^68 * 2^61 = 2^265
-                  fq_ct::get_maximum_unreduced_value() // sqrt(2^272 * |Fr|) ≈ 2^(263) or 2^(264)
+                  fq_ct::get_maximum_unreduced_value() // sqrt(2^272 * |Fr|) ≈ (2^(263) - 1) or (2^(264) - 1)
         );
 
         // Squaring op must perform self-reduction
@@ -144,7 +144,7 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
         // Check that original combined value is now reduced
         EXPECT_EQ(combined_a.get_value() < reduction_upper_bound, true); // reduced value < 2^s
-        EXPECT_EQ(combined_a.get_maximum_value() < fq_ct::get_maximum_unreduced_value(), true);
+        EXPECT_EQ(combined_a.get_maximum_value() <= fq_ct::get_maximum_unreduced_value(), true);
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
@@ -176,14 +176,14 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
             (uint256_t(1) << fq_ct::MAX_UNREDUCED_LIMB_BITS) + 1000; // > 2^78
 
         // Check that the combined max value is less than the maximum unreduced bigfield value
-        EXPECT_EQ(combined_a.get_maximum_value() < fq_ct::get_maximum_unreduced_value(), true);
+        EXPECT_EQ(combined_a.get_maximum_value() <= fq_ct::get_maximum_unreduced_value(), true);
 
         // Perform a squaring which should trigger reduction
         combined_a.sqr();
 
         // Check that the original combined value is now reduced
         EXPECT_EQ(combined_a.get_value() < reduction_upper_bound, true);
-        EXPECT_EQ(combined_a.get_maximum_value() < fq_ct::get_maximum_unreduced_value(), true);
+        EXPECT_EQ(combined_a.get_maximum_value() <= fq_ct::get_maximum_unreduced_value(), true);
 
         // Check the circuit is valid
         bool result = CircuitChecker::check(builder);
@@ -390,20 +390,30 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
     {
         Builder builder = Builder();
         for (const auto& value : edge_case_values) {
-            fq_ct edge_case = fq_ct::create_from_u512_as_witness(&builder, value, true);
+            fq_ct edge_case = fq_ct::create_from_u512_as_witness(&builder, value, /*can_overflow*/ false);
+
+            // This should pass for values strictly less than modulus
             edge_case.assert_is_in_field();
-        }
-
-        for (const auto& large_value : values_larger_than_bigfield) {
-            fq_ct large_case = fq_ct::create_from_u512_as_witness(&builder, large_value, true);
-
-            // Since assert_is_in_field first reduces the value mod p, and then checks if the remainder is < 2^s,
-            // all of our "large" test values will reduce to something < p, so this should always pass.
-            large_case.assert_is_in_field();
         }
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
+    }
+
+    static void test_assert_is_in_field_fails()
+    {
+        for (const auto& large_value : values_larger_than_bigfield) {
+            // Checks each large value individually in its own circuit
+            Builder builder = Builder();
+
+            // For values larger than the field modulus, it should trigger a circuit error.
+            fq_ct large_case = fq_ct::create_from_u512_as_witness(&builder, large_value, true);
+            large_case.assert_is_in_field();
+
+            bool result = CircuitChecker::check(builder);
+            EXPECT_EQ(result, false);
+            EXPECT_EQ(builder.err(), "ultra_circuit_builder: sublimb of hi too large");
+        }
     }
 
     static void test_assert_less_than()
@@ -424,13 +434,61 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
         EXPECT_EQ(result, true);
     }
 
+    static void test_assert_less_than_fails()
+    {
+        for (size_t i = 2; i < edge_case_values.size(); ++i) {
+            // Checks each large value individually in its own circuit
+            Builder builder = Builder();
+
+            // This should fail since values in edge_case_values are sorted in ascending order
+            fq_ct larger_value = fq_ct::create_from_u512_as_witness(&builder, edge_case_values[i], true);
+            uint256_t smaller_value = edge_case_values[i - 1].lo;
+            larger_value.assert_less_than(smaller_value);
+
+            bool result = CircuitChecker::check(builder);
+            EXPECT_EQ(result, false);
+            EXPECT_EQ(builder.err(), "ultra_circuit_builder: sublimb of hi too large");
+        }
+    }
+
+    static void test_reduce_mod_target_modulus()
+    {
+        Builder builder = Builder();
+
+        // Check that both edge case values as well as values larger than bigfield are reduced correctly
+        for (const auto& value : edge_case_values) {
+            fq_ct edge_case = fq_ct::create_from_u512_as_witness(&builder, value, false);
+            fq_native edge_case_native = fq_native(value);
+
+            edge_case.reduce_mod_target_modulus();
+            edge_case_native = edge_case_native.reduce_once().reduce_once();
+
+            EXPECT_EQ(edge_case.get_value() < fq_ct::modulus, true);
+            EXPECT_EQ(edge_case.get_value(), uint512_t(edge_case_native));
+        }
+
+        for (const auto& large_value : values_larger_than_bigfield) {
+            fq_ct large_case = fq_ct::create_from_u512_as_witness(&builder, large_value, true);
+            fq_native large_case_native = fq_native(large_value);
+
+            large_case.reduce_mod_target_modulus();
+            large_case_native = large_case_native.reduce_once().reduce_once();
+
+            EXPECT_EQ(large_case.get_value() < fq_ct::modulus, true);
+            EXPECT_EQ(large_case.get_value(), uint512_t(large_case_native));
+        }
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
     static void test_assert_equal_edge_case()
     {
         Builder builder = Builder();
 
         // One is n, other is (p + n)
         fq_ct value_n = fq_ct::create_from_u512_as_witness(&builder, edge_case_values[3], true);
-        fq_ct value_p_plus_n = fq_ct::create_from_u512_as_witness(&builder, values_larger_than_bigfield[1], true);
+        fq_ct value_p_plus_n = fq_ct::create_from_u512_as_witness(&builder, values_larger_than_bigfield[2], true);
 
         // Both should be equal to n mod p
         value_p_plus_n.assert_equal(value_n);
@@ -443,6 +501,87 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
+    }
+
+    static void test_divide_by_zero_fails()
+    {
+        Builder builder = Builder();
+        {
+            // numerator and denominator both are witnesses
+            auto [a_native, a_ct] = get_random_witness(&builder, false);
+            fq_ct zero = fq_ct::create_from_u512_as_witness(&builder, uint512_t(0), true);
+            fq_ct zero_modulus = fq_ct::create_from_u512_as_witness(&builder, uint512_t(fq_ct::modulus), true);
+
+            // Division by zero should trigger an assertion failure
+            fq_ct output = a_ct / zero;
+            fq_ct output_modulus = a_ct / zero_modulus;
+
+            // outputs are irrelevant
+            EXPECT_EQ(output.get_value(), 0);
+            EXPECT_EQ(output_modulus.get_value(), 0);
+
+            bool result = CircuitChecker::check(builder);
+            EXPECT_EQ(result, false);
+            EXPECT_EQ(builder.err(), "bigfield: prime limb identity failed");
+        }
+        {
+            // numerator is constant, denominator is witness
+            fq_native a_native = fq_native::random_element();
+            fq_ct a_ct(&builder, uint256_t(a_native));
+            fq_ct zero = fq_ct::create_from_u512_as_witness(&builder, uint512_t(0), true);
+
+            // Division by zero should trigger an assertion failure
+            fq_ct output = a_ct / zero;
+
+            // outputs are irrelevant
+            EXPECT_EQ(output.get_value(), 0);
+
+            bool result = CircuitChecker::check(builder);
+            EXPECT_EQ(result, false);
+            EXPECT_EQ(builder.err(), "bigfield: prime limb identity failed");
+        }
+        {
+            // numerator is empty, denominator is witness
+            fq_ct zero = fq_ct::create_from_u512_as_witness(&builder, uint512_t(0), true);
+
+            // Division by zero should trigger an assertion failure
+            fq_ct output = fq_ct::div_check_denominator_nonzero({}, zero);
+
+            // outputs are irrelevant
+            EXPECT_EQ(output.get_value(), 0);
+
+            bool result = CircuitChecker::check(builder);
+            EXPECT_EQ(result, false);
+            EXPECT_EQ(builder.err(), "bigfield: prime limb diff is zero, but expected non-zero");
+        }
+        {
+            // numerator is witness, denominator is constant
+            [[maybe_unused]] auto [a_native, a_ct] = get_random_witness(&builder, false);
+            fq_ct constant_zero = fq_ct(&builder, uint256_t(0));
+
+#ifndef NDEBUG
+            // In debug mode, we should hit an assertion failure
+            EXPECT_THROW_OR_ABORT(a_ct / constant_zero, "bigfield: prime limb diff is zero, but expected non-zero");
+#endif
+        }
+        {
+            // numerator and denominator both are constant
+            fq_native a_native = fq_native::random_element();
+            fq_ct a_ct(&builder, uint256_t(a_native));
+
+#ifndef NDEBUG
+            fq_ct constant_zero = fq_ct(&builder, uint256_t(0));
+            EXPECT_THROW_OR_ABORT(a_ct / constant_zero, "bigfield: division by zero in constant division");
+#endif
+        }
+        {
+            // numerator is empty, denominator is constant
+#ifndef NDEBUG
+            fq_ct constant_zero = fq_ct(&builder, uint256_t(0));
+            EXPECT_THROW_OR_ABORT(fq_ct::div_check_denominator_nonzero({}, constant_zero),
+                                  "bigfield: prime limb diff is zero, but expected non-zero");
+#endif
+        }
     }
 };
 
@@ -504,11 +643,28 @@ TYPED_TEST(stdlib_bigfield_edge_cases, assert_is_in_field)
 {
     TestFixture::test_assert_is_in_field();
 }
+TYPED_TEST(stdlib_bigfield_edge_cases, assert_is_in_field_fails)
+{
+    TestFixture::test_assert_is_in_field_fails();
+}
 TYPED_TEST(stdlib_bigfield_edge_cases, assert_less_than)
 {
     TestFixture::test_assert_less_than();
 }
+TYPED_TEST(stdlib_bigfield_edge_cases, assert_less_than_fails)
+{
+    TestFixture::test_assert_less_than_fails();
+}
+TYPED_TEST(stdlib_bigfield_edge_cases, reduce_mod_target_modulus)
+{
+    TestFixture::test_reduce_mod_target_modulus();
+}
 TYPED_TEST(stdlib_bigfield_edge_cases, assert_equal_edge_case)
 {
     TestFixture::test_assert_equal_edge_case();
+}
+
+TYPED_TEST(stdlib_bigfield_edge_cases, divide_by_zero_fails)
+{
+    TestFixture::test_divide_by_zero_fails();
 }

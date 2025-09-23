@@ -35,10 +35,10 @@ export class BaseAccount implements Account {
 
   createTxExecutionRequest(
     exec: ExecutionPayload,
-    fee: FeeOptions,
+    feeOptions: FeeOptions,
     options: TxExecutionOptions,
   ): Promise<TxExecutionRequest> {
-    return this.account.createTxExecutionRequest(exec, fee, options);
+    return this.account.createTxExecutionRequest(exec, feeOptions, options);
   }
 
   getChainId(): Fr {

@@ -13,6 +13,7 @@ import {
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
 import type { EmpireSlashingProposerContract, RollupContract, TallySlashingProposerContract } from '@aztec/ethereum';
 import { timesAsync, unique } from '@aztec/foundation/collection';
+import { pluralize } from '@aztec/foundation/string';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract, TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
@@ -157,17 +158,20 @@ export async function awaitOffenseDetected({
   nodeAdmin,
   slashingRoundSize,
   epochDuration,
+  waitUntilOffenseCount,
 }: {
   nodeAdmin: AztecNodeAdmin;
   logger: Logger;
   slashingRoundSize: number;
   epochDuration: number;
+  waitUntilOffenseCount?: number;
 }) {
-  logger.info(`Waiting for an offense to be detected`);
+  const targetOffenseCount = waitUntilOffenseCount ?? 1;
+  logger.warn(`Waiting for ${pluralize('offense', targetOffenseCount)} to be detected`);
   const offenses = await retryUntil(
     async () => {
       const offenses = await nodeAdmin.getSlashOffenses('all');
-      if (offenses.length > 0) {
+      if (offenses.length >= targetOffenseCount) {
         return offenses;
       }
     },
@@ -176,7 +180,7 @@ export async function awaitOffenseDetected({
   );
   logger.info(
     `Hit ${offenses.length} offenses on rounds ${unique(offenses.map(o => getRoundForOffense(o, { slashingRoundSize, epochDuration })))}`,
-    offenses,
+    { offenses },
   );
   return offenses;
 }
@@ -193,8 +197,10 @@ export async function awaitCommitteeKicked({
   slashingProposer,
   slashingRoundSize,
   aztecSlotDuration,
+  aztecEpochDuration,
   logger,
   dateProvider,
+  offenseEpoch,
 }: {
   rollup: RollupContract;
   cheatCodes: RollupCheatCodes;
@@ -203,21 +209,23 @@ export async function awaitCommitteeKicked({
   slashingProposer: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
   slashingRoundSize: number;
   aztecSlotDuration: number;
+  aztecEpochDuration: number;
   dateProvider: TestDateProvider;
   logger: Logger;
+  offenseEpoch: number;
 }) {
   if (!slashingProposer) {
     throw new Error('No slashing proposer configured. Cannot test slashing.');
   }
 
-  logger.info(`Advancing epochs so we start slashing`);
   await cheatCodes.debugRollup();
-  await cheatCodes.advanceToEpoch((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochs()) + 1n, {
-    updateDateProvider: dateProvider,
-  });
 
-  // Await for the slash payload to be created if empire (no payload is created on tally until execution time)
   if (slashingProposer.type === 'empire') {
+    // Await for the slash payload to be created if empire (no payload is created on tally until execution time)
+    const targetEpoch = (await cheatCodes.getEpoch()) + (await rollup.getLagInEpochs()) + 1n;
+    logger.info(`Advancing to epoch ${targetEpoch} so we start slashing`);
+    await cheatCodes.advanceToEpoch(targetEpoch, { updateDateProvider: dateProvider });
+
     const slashPayloadEvents = await retryUntil(
       async () => {
         const events = await slashFactory.getSlashPayloadCreatedEvents();
@@ -232,6 +240,14 @@ export async function awaitCommitteeKicked({
     expect(unique(slashPayloadEvents[0].slashes.map(slash => slash.validator.toString()))).toHaveLength(
       committee.length,
     );
+  } else {
+    // Use the slash offset to ensure we are in the right epoch for tally
+    const slashOffsetInRounds = await slashingProposer.getSlashOffsetInRounds();
+    const slashingRoundSizeInEpochs = slashingRoundSize / aztecEpochDuration;
+    const slashingOffsetInEpochs = Number(slashOffsetInRounds) * slashingRoundSizeInEpochs;
+    const targetEpoch = offenseEpoch + slashingOffsetInEpochs;
+    logger.info(`Advancing to epoch ${targetEpoch} so we start slashing`);
+    await cheatCodes.advanceToEpoch(targetEpoch, { updateDateProvider: dateProvider });
   }
 
   const attestersPre = await rollup.getAttesters();
@@ -242,7 +258,7 @@ export async function awaitCommitteeKicked({
     expect(attesterInfo.status).toEqual(1); // Validating
   }
 
-  const timeout = slashingRoundSize * 2 * aztecSlotDuration;
+  const timeout = slashingRoundSize * 2 * aztecSlotDuration + 30;
   logger.info(`Waiting for slash to be executed (timeout ${timeout}s)`);
   await awaitProposalExecution(slashingProposer, timeout, logger);
 

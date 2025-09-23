@@ -18,7 +18,7 @@ describe('PublisherManager', () => {
     it('should initialize with publishers', () => {
       mockPublishers = createMockPublishers(3);
 
-      expect(() => new PublisherManager(mockPublishers)).not.toThrow();
+      expect(() => new PublisherManager(mockPublishers, {})).not.toThrow();
     });
   });
 
@@ -27,7 +27,7 @@ describe('PublisherManager', () => {
     beforeEach(() => {
       addresses = Array.from({ length: 3 }, () => EthAddress.random());
       mockPublishers = createMockPublishers(3, addresses);
-      publisherManager = new PublisherManager(mockPublishers);
+      publisherManager = new PublisherManager(mockPublishers, {});
     });
 
     it('should throw error when no valid publishers found', async () => {
@@ -45,6 +45,17 @@ describe('PublisherManager', () => {
       mockPublishers[2]['state'] = TxUtilsState.NOT_MINED;
 
       await expect(publisherManager.getAvailablePublisher()).rejects.toThrow('Failed to find an available publisher.');
+    });
+
+    it('should return a publisher in invalid state if allowed', async () => {
+      mockPublishers[0]['state'] = TxUtilsState.SENT;
+      mockPublishers[1]['state'] = TxUtilsState.CANCELLED;
+      mockPublishers[2]['state'] = TxUtilsState.NOT_MINED;
+
+      publisherManager = new PublisherManager(mockPublishers, { publisherAllowInvalidStates: true });
+      await expect(publisherManager.getAvailablePublisher(p => p.state === TxUtilsState.CANCELLED)).resolves.toBe(
+        mockPublishers[1],
+      );
     });
 
     it('should return publisher with best state', async () => {
@@ -118,7 +129,7 @@ describe('PublisherManager', () => {
     it('should prioritise same state publishers based on balance and then least recently used', async () => {
       const ethAddresses = Array.from({ length: 5 }, () => EthAddress.random());
       mockPublishers = createMockPublishers(5, ethAddresses);
-      publisherManager = new PublisherManager(mockPublishers);
+      publisherManager = new PublisherManager(mockPublishers, {});
 
       const filter = (utils: L1TxUtils) => utils.getSenderAddress() !== mockPublishers[2].getSenderAddress(); // Filter out publisher in index 2
 

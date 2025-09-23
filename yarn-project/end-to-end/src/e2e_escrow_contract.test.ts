@@ -1,15 +1,15 @@
-import { type AztecAddress, BatchCall, Fr, type Logger, type PXE, type Wallet, deriveKeys } from '@aztec/aztec.js';
+import { type AztecAddress, BatchCall, Fr, type Logger, deriveKeys } from '@aztec/aztec.js';
 import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { computePartialAddress } from '@aztec/stdlib/contract';
 import type { PublicKeys } from '@aztec/stdlib/keys';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { expectTokenBalance, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_escrow_contract', () => {
-  let pxe: PXE;
-  let wallet: Wallet;
+  let wallet: TestWallet;
 
   let logger: Logger;
   let teardown: () => Promise<void>;
@@ -26,7 +26,6 @@ describe('e2e_escrow_contract', () => {
     // Setup environment
     ({
       teardown,
-      pxe,
       wallet,
       accounts: [owner, recipient],
       logger,
@@ -38,7 +37,7 @@ describe('e2e_escrow_contract', () => {
     escrowPublicKeys = (await deriveKeys(escrowSecretKey)).publicKeys;
     const escrowDeployment = EscrowContract.deployWithPublicKeys(escrowPublicKeys, wallet, owner);
     const escrowInstance = await escrowDeployment.getInstance();
-    await pxe.registerAccount(escrowSecretKey, await computePartialAddress(escrowInstance));
+    await wallet.registerAccount(escrowSecretKey, await computePartialAddress(escrowInstance));
     escrowContract = await escrowDeployment.send({ from: owner }).deployed();
     logger.info(`Escrow contract deployed at ${escrowContract.address}`);
 

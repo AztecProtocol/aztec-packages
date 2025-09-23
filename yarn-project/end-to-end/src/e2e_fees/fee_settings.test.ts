@@ -1,9 +1,10 @@
-import { type AztecAddress, type AztecNode, FeeJuicePaymentMethod, type Wallet, retryUntil } from '@aztec/aztec.js';
+import { type AztecAddress, type AztecNode, FeeJuicePaymentMethod, retryUntil } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { Fr } from '@aztec/foundation/fields';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import { TX_ERROR_INSUFFICIENT_FEE_PER_GAS } from '@aztec/stdlib/tx';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { inspect } from 'util';
 
@@ -13,7 +14,7 @@ describe('e2e_fees fee settings', () => {
   let aztecNode: AztecNode;
   let cheatCodes: CheatCodes;
   let aliceAddress: AztecAddress;
-  let wallet: Wallet;
+  let wallet: TestWallet;
   let gasSettings: Partial<GasSettings>;
   let paymentMethod: FeeJuicePaymentMethod;
   let testContract: TestContract;
@@ -54,11 +55,12 @@ describe('e2e_fees fee settings', () => {
       );
     };
 
-    const sendTx = async (baseFeePadding: number | undefined) => {
+    const proveTx = async (baseFeePadding: number | undefined) => {
       t.logger.info(`Preparing tx to be sent with base fee padding ${baseFeePadding}`);
+      wallet.setBaseFeePadding(baseFeePadding);
       const tx = await testContract.methods
         .emit_nullifier_public(Fr.random())
-        .prove({ from: aliceAddress, fee: { gasSettings, paymentMethod, baseFeePadding } });
+        .prove({ from: aliceAddress, fee: { gasSettings, paymentMethod } });
       const { maxFeesPerGas } = tx.data.constants.txContext.gasSettings;
       t.logger.info(`Tx with hash ${tx.getTxHash().toString()} ready with max fees ${inspect(maxFeesPerGas)}`);
       return tx;
@@ -66,8 +68,8 @@ describe('e2e_fees fee settings', () => {
 
     it('handles base fee spikes with default padding', async () => {
       // Prepare two txs using the current L2 base fees: one with no padding and one with default padding
-      const txWithNoPadding = await sendTx(0);
-      const txWithDefaultPadding = await sendTx(undefined);
+      const txWithNoPadding = await proveTx(0);
+      const txWithDefaultPadding = await proveTx(undefined);
 
       // Now bump the L2 fees before we actually send them
       await bumpL2Fees();

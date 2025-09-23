@@ -15,7 +15,7 @@ export class DefaultEntrypoint implements EntrypointInterface {
 
   async createTxExecutionRequest(
     exec: ExecutionPayload,
-    fee: FeeOptions,
+    feeOptions: FeeOptions,
     options: TxExecutionOptions,
   ): Promise<TxExecutionRequest> {
     if (options.txNonce || options.cancellable !== undefined) {
@@ -42,7 +42,7 @@ export class DefaultEntrypoint implements EntrypointInterface {
       call.to,
       call.selector,
       hashedArguments[0].hash,
-      new TxContext(this.chainId, this.rollupVersion, fee.gasSettings),
+      new TxContext(this.chainId, this.rollupVersion, feeOptions.gasSettings),
       [...hashedArguments, ...extraHashedArgs],
       authWitnesses,
       capsules,

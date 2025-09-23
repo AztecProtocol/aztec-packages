@@ -25,8 +25,17 @@ class GoblinRecursiveVerifierTests : public testing::Test {
     using RecursiveCommitment = GoblinRecursiveVerifier::MergeVerifier::Commitment;
     using MergeCommitments = MergeVerifier::InputCommitments;
     using RecursiveMergeCommitments = GoblinRecursiveVerifier::MergeVerifier::InputCommitments;
-
+    using FF = TranslatorFlavor::FF;
+    using BF = TranslatorFlavor::BF;
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+
+    // Compute the size of a Translator commitment (in bb::fr's)
+    static constexpr size_t comm_frs = bb::field_conversion::calc_num_bn254_frs<Commitment>(); // 4
+    static constexpr size_t eval_frs = bb::field_conversion::calc_num_bn254_frs<FF>();         // 1
+
+    // The `op` wire commitment is currently the second element of the proof, following the
+    // `accumulated_result` which is a BN254 BaseField element.
+    static constexpr size_t offset = bb::field_conversion::calc_num_bn254_frs<BF>();
 
     struct ProverOutput {
         GoblinProof proof;
@@ -34,7 +43,37 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         MergeCommitments merge_commitments;
         RecursiveMergeCommitments recursive_merge_commitments;
     };
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
+    // Better recursion testing - create more flexible proof tampering tests.
+    // Modify the `op` commitment which a part of the Merge protocol.
+    static void tamper_with_op_commitment(HonkProof& translator_proof)
+    {
 
+        // Extract `op` fields and convert them to a Commitment object
+        auto element_frs = std::span{ translator_proof }.subspan(offset, comm_frs);
+        auto op_commitment = NativeTranscriptParams::template deserialize<Commitment>(element_frs);
+        // Modify the commitment
+        op_commitment = op_commitment * FF(2);
+        // Serialize the tampered commitment into the proof (overwriting the valid one).
+        auto op_commitment_reserialized = bb::NativeTranscriptParams::serialize(op_commitment);
+        std::copy(op_commitment_reserialized.begin(),
+                  op_commitment_reserialized.end(),
+                  translator_proof.begin() + static_cast<std::ptrdiff_t>(offset));
+    };
+
+    // Translator proof ends with [..., Libra:quotient_eval, Shplonk:Q, KZG:W]. We invalidate the proof by multiplying
+    // the eval by 2 (it leads to a Libra consistency check failure).
+    static void tamper_with_libra_eval(HonkProof& translator_proof)
+    {
+        // Proof tail size
+        static constexpr size_t tail_size = 2 * comm_frs + eval_frs; // 2*4 + 1 = 9
+
+        // Index of the target field (one fr) from the beginning
+        const size_t idx = translator_proof.size() - tail_size;
+
+        // Tamper: multiply by 2 (or tweak however you like)
+        translator_proof[idx] = translator_proof[idx] + translator_proof[idx];
+    };
     /**
      * @brief Create a goblin proof and the VM verification keys needed by the goblin recursive verifier
      *
@@ -208,13 +247,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
     // Tamper with the Translator proof preamble
     {
         GoblinProof tampered_proof = proof;
-        for (auto& val : tampered_proof.translator_proof) {
-            if (val > 0) { // tamper by finding the first non-zero value and incrementing it by 1
-                val += 1;
-                break;
-            }
-        }
-
+        tamper_with_op_commitment(tampered_proof.translator_proof);
         Builder builder;
 
         RecursiveMergeCommitments recursive_merge_commitments;
@@ -232,18 +265,10 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
             verifier.verify(tampered_proof, recursive_merge_commitments, MergeSettings::APPEND);
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
-    // Tamper with the Translator proof non-preamble values
+    // Tamper with the Translator proof non - preamble values
     {
         auto tampered_proof = proof;
-        int seek = 10;
-        for (auto& val : tampered_proof.translator_proof) {
-            if (val > 0) { // tamper by finding the tenth non-zero value and incrementing it by 1
-                if (--seek == 0) {
-                    val += 1;
-                    break;
-                }
-            }
-        }
+        tamper_with_libra_eval(tampered_proof.translator_proof);
 
         Builder builder;
 
@@ -296,9 +321,6 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
 {
 
     {
-        using Commitment = TranslatorFlavor::Commitment;
-        using FF = TranslatorFlavor::FF;
-        using BF = TranslatorFlavor::BF;
 
         Builder builder;
 
@@ -309,27 +331,6 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
 
         // Check natively that the proof is correct.
         EXPECT_TRUE(Goblin::verify(proof, merge_commitments, verifier_transcript, MergeSettings::APPEND));
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
-        // Better recursion testing - create more flexible proof tampering tests.
-        // Modify the `op` commitment which a part of the Merge protocol.
-        auto tamper_with_op_commitment = [](HonkProof& translator_proof) {
-            // Compute the size of a Translator commitment (in bb::fr's)
-            static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
-            // The `op` wire commitment is currently the second element of the proof, following the
-            // `accumulated_result` which is a BN254 BaseField element.
-            static constexpr size_t offset = bb::field_conversion::calc_num_bn254_frs<BF>();
-            // Extract `op` fields and convert them to a Commitment object
-            auto element_frs = std::span{ translator_proof }.subspan(offset, num_frs_comm);
-            auto op_commitment = NativeTranscriptParams::template deserialize<Commitment>(element_frs);
-            // Modify the commitment
-            op_commitment = op_commitment * FF(2);
-            // Serialize the tampered commitment into the proof (overwriting the valid one).
-            auto op_commitment_reserialized = bb::NativeTranscriptParams::serialize(op_commitment);
-            std::copy(op_commitment_reserialized.begin(),
-                      op_commitment_reserialized.end(),
-                      translator_proof.begin() + static_cast<std::ptrdiff_t>(offset));
-        };
 
         tamper_with_op_commitment(proof.translator_proof);
         // Construct and check the Goblin Recursive Verifier circuit

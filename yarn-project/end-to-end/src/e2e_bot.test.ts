@@ -1,16 +1,17 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { type AztecNode, Fr, type PXE } from '@aztec/aztec.js';
+import { type AztecNode, Fr } from '@aztec/aztec.js';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import { AmmBot, Bot, type BotConfig, SupportedTokenContracts, getBotDefaultConfig } from '@aztec/bot';
 import { AVM_MAX_PROCESSABLE_L2_GAS, MAX_PROCESSABLE_DA_GAS_PER_BLOCK } from '@aztec/constants';
 import { SecretValue } from '@aztec/foundation/config';
 import { bufferToHex } from '@aztec/foundation/string';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 
 describe('e2e_bot', () => {
-  let pxe: PXE;
+  let wallet: TestWallet;
   let aztecNode: AztecNode;
   let teardown: () => Promise<void>;
   let aztecNodeAdmin: AztecNodeAdmin | undefined;
@@ -23,7 +24,7 @@ describe('e2e_bot', () => {
     const setupResult = await setup(1, { initialFundedAccounts });
     ({
       teardown,
-      pxe,
+      wallet,
       aztecNode,
       aztecNodeAdmin,
       cheatCodes,
@@ -41,7 +42,7 @@ describe('e2e_bot', () => {
         followChain: 'PENDING',
         ammTxs: false,
       };
-      bot = await Bot.create(config, { node: aztecNode, pxe });
+      bot = await Bot.create(config, wallet, aztecNode);
     });
 
     it('sends token transfers from the bot', async () => {
@@ -65,7 +66,7 @@ describe('e2e_bot', () => {
 
     it('reuses the same account and token contract', async () => {
       const { defaultAccountAddress, token, recipient } = bot;
-      const bot2 = await Bot.create(config, { node: aztecNode, pxe });
+      const bot2 = await Bot.create(config, wallet, aztecNode);
       expect(bot2.defaultAccountAddress.toString()).toEqual(defaultAccountAddress.toString());
       expect(bot2.token.address.toString()).toEqual(token.address.toString());
       expect(bot2.recipient.toString()).toEqual(recipient.toString());
@@ -74,7 +75,8 @@ describe('e2e_bot', () => {
     it('sends token from the bot using PrivateToken', async () => {
       const easyBot = await Bot.create(
         { ...config, contract: SupportedTokenContracts.PrivateTokenContract },
-        { node: aztecNode, pxe },
+        wallet,
+        aztecNode,
       );
       const { recipient: recipientBefore } = await easyBot.getBalances();
 
@@ -93,7 +95,7 @@ describe('e2e_bot', () => {
         followChain: 'PENDING',
         ammTxs: true,
       };
-      bot = await AmmBot.create(config, { node: aztecNode, pxe });
+      bot = await AmmBot.create(config, wallet, aztecNode, undefined);
     });
 
     it('swaps tokens from the bot', async () => {
@@ -133,7 +135,7 @@ describe('e2e_bot', () => {
     // in end-to-end/src/e2e_cross_chain_messaging/l1_to_l2.test.ts for context on this test.
     it('creates bot after inbox drift', async () => {
       await cheatCodes.rollup.advanceInboxInProgress(10);
-      await Bot.create(config, { node: aztecNode, nodeAdmin: aztecNodeAdmin, pxe });
+      await Bot.create(config, wallet, aztecNode, aztecNodeAdmin);
     }, 300_000);
   });
 });

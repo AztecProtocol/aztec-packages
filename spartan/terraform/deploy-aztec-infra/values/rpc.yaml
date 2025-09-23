@@ -1,7 +1,6 @@
 node:
   env:
     OTEL_SERVICE_NAME: "node"
-    SPONSORED_FPC: true
 
   preStartScript: |
     if [ -n "${BOOT_NODE_HOST:-}" ] && [ -z "${NETWORK:-}" ]; then

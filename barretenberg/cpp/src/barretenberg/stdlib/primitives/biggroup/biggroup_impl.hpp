@@ -37,6 +37,13 @@ element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in)
 {}
 
 template <typename C, class Fq, class Fr, class G>
+element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in, const bool_ct& is_infinity)
+    : x(x_in)
+    , y(y_in)
+    , _is_infinity(is_infinity)
+{}
+
+template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>::element(const element& other)
     : x(other.x)
     , y(other.y)
@@ -266,12 +273,13 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
     Fq two_x = x + x;
     if constexpr (G::has_a) {
         Fq a(get_context(), uint256_t(G::curve_a));
-        Fq neg_lambda = Fq::msub_div({ x }, { (two_x + x) }, (y + y), { a });
+        Fq neg_lambda = Fq::msub_div({ x }, { (two_x + x) }, (y + y), { a }, /*enable_divisor_nz_check*/ false);
         Fq x_3 = neg_lambda.sqradd({ -(two_x) });
         Fq y_3 = neg_lambda.madd(x_3 - x, { -y });
         return element(x_3, y_3);
     }
-    Fq neg_lambda = Fq::msub_div({ x }, { (two_x + x) }, (y + y), {});
+    // TODO(): handle y = 0 case.
+    Fq neg_lambda = Fq::msub_div({ x }, { (two_x + x) }, (y + y), {}, /*enable_divisor_nz_check*/ false);
     Fq x_3 = neg_lambda.sqradd({ -(two_x) });
     Fq y_3 = neg_lambda.madd(x_3 - x, { -y });
     element result = element(x_3, y_3);
@@ -343,7 +351,12 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
      * Requires only 2 non-native field reductions
      **/
     auto& x2 = acc.x3_prev;
-    const auto lambda = Fq::msub_div({ acc.lambda_prev }, { (x2 - acc.x1_prev) }, (x2 - p1.x), { acc.y1_prev, p1.y });
+    const auto lambda =
+        Fq::msub_div({ acc.lambda_prev },
+                     { (x2 - acc.x1_prev) },
+                     (x2 - p1.x),
+                     { acc.y1_prev, p1.y },
+                     /*enable_divisor_nz_check*/ false); // divisor is non-zero as x2 != p1.x is enforced
     const auto x3 = lambda.sqradd({ -x2, -p1.x });
 
     chain_add_accumulator output;
@@ -464,8 +477,11 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const chain_add_a
     // => lambda = - (lambda_prev * (x2 - x1_prev) + y1_prev + y1) / (x2 - x1)
 
     auto& x2 = to_add.x3_prev;
-    const auto lambda =
-        Fq::msub_div({ to_add.lambda_prev }, { (x2 - to_add.x1_prev) }, (x2 - x), { to_add.y1_prev, y });
+    const auto lambda = Fq::msub_div({ to_add.lambda_prev },
+                                     { (x2 - to_add.x1_prev) },
+                                     (x2 - x),
+                                     { to_add.y1_prev, y },
+                                     /*enable_divisor_nz_check*/ false); // divisor is non-zero as x2 != x is enforced
     const auto x3 = lambda.sqradd({ -x2, -x });
 
     const Fq minus_lambda_2 = lambda + Fq::div_without_denominator_check({ y + y }, (x3 - x));
@@ -498,10 +514,11 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::quadruple_and_add(const std::vector
     Fq minus_lambda_dbl;
     if constexpr (G::has_a) {
         Fq a(get_context(), uint256_t(G::curve_a));
-        minus_lambda_dbl = Fq::msub_div({ x }, { (two_x + x) }, (y + y), { a });
+        minus_lambda_dbl = Fq::msub_div({ x }, { (two_x + x) }, (y + y), { a }, /*enable_divisor_nz_check*/ false);
         x_1 = minus_lambda_dbl.sqradd({ -(two_x) });
     } else {
-        minus_lambda_dbl = Fq::msub_div({ x }, { (two_x + x) }, (y + y), {});
+        // TODO(): handle y = 0 case.
+        minus_lambda_dbl = Fq::msub_div({ x }, { (two_x + x) }, (y + y), {}, /*enable_divisor_nz_check*/ false);
         x_1 = minus_lambda_dbl.sqradd({ -(two_x) });
     }
 
@@ -510,12 +527,22 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::quadruple_and_add(const std::vector
 
     const Fq x_minus_x_1 = x - x_1;
 
-    const Fq lambda_1 = Fq::msub_div({ minus_lambda_dbl }, { x_minus_x_1 }, (x_1 - to_add[0].x), { to_add[0].y, y });
+    const Fq lambda_1 =
+        Fq::msub_div({ minus_lambda_dbl },
+                     { x_minus_x_1 },
+                     (x_1 - to_add[0].x),
+                     { to_add[0].y, y },
+                     /*enable_divisor_nz_check*/ false); // divisor is non-zero as x1 != to_add[0].x is enforced
 
     const Fq x_3 = lambda_1.sqradd({ -to_add[0].x, -x_1 });
 
+    // TODO(): analyse if (x3 - x1) can be zero.
     const Fq half_minus_lambda_2_minus_lambda_1 =
-        Fq::msub_div({ minus_lambda_dbl }, { x_minus_x_1 }, (x_3 - x_1), { y });
+        Fq::msub_div({ minus_lambda_dbl },
+                     { x_minus_x_1 },
+                     (x_3 - x_1),
+                     { y },
+                     /*enable_divisor_nz_check*/ false); // divisor is non-zero as x3 != x1 is enforced
 
     const Fq minus_lambda_2_minus_lambda_1 = half_minus_lambda_2_minus_lambda_1 + half_minus_lambda_2_minus_lambda_1;
     const Fq minus_lambda_2 = minus_lambda_2_minus_lambda_1 + lambda_1;
@@ -530,8 +557,12 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::quadruple_and_add(const std::vector
     }
     to_add[1].x.assert_is_not_equal(to_add[0].x);
 
-    Fq minus_lambda_3 = Fq::msub_div(
-        { minus_lambda_dbl, minus_lambda_2 }, { x_minus_x_1, x_4_sub_x_1 }, (x_4 - to_add[1].x), { y, -(to_add[1].y) });
+    // TODO(): analyse if (x4 - x1) can be zero.
+    Fq minus_lambda_3 = Fq::msub_div({ minus_lambda_dbl, minus_lambda_2 },
+                                     { x_minus_x_1, x_4_sub_x_1 },
+                                     (x_4 - to_add[1].x),
+                                     { y, -(to_add[1].y) },
+                                     /*enable_divisor_nz_check*/ false);
 
     // X5 = L3.L3 - X4 - XB
     const Fq x_5 = minus_lambda_3.sqradd({ -x_4, -to_add[1].x });
@@ -550,10 +581,13 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::quadruple_and_add(const std::vector
         to_add[i].x.assert_is_not_equal(to_add[i - 1].x);
         // Lambda = Yprev - Yadd[i] / Xprev - Xadd[i]
         //        = -Lprev.(Xprev - Xadd[i-1]) - Yadd[i - 1] - Yadd[i] / Xprev - Xadd[i]
-        const Fq minus_lambda = Fq::msub_div({ minus_lambda_prev },
-                                             { to_add[i - 1].x - x_prev },
-                                             (to_add[i].x - x_prev),
-                                             { to_add[i - 1].y, to_add[i].y });
+        const Fq minus_lambda =
+            Fq::msub_div({ minus_lambda_prev },
+                         { to_add[i - 1].x - x_prev },
+                         (to_add[i].x - x_prev),
+                         { to_add[i - 1].y, to_add[i].y },
+                         /*enable_divisor_nz_check*/ false); // divisor is non-zero as x_prev != to_add[i].x is enforced
+
         // X = Lambda * Lambda - Xprev - Xadd[i]
         const Fq x_out = minus_lambda.sqradd({ -x_prev, -to_add[i].x });
 
@@ -633,7 +667,12 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
         if (!add[i].is_element || i > 0) {
             bool flip_lambda1_denominator = !negate_add_y;
             Fq denominator = flip_lambda1_denominator ? previous_x - add[i].x3_prev : add[i].x3_prev - previous_x;
-            lambda1 = Fq::msub_div(lambda1_left, lambda1_right, denominator, lambda1_add);
+            lambda1 = Fq::msub_div(
+                lambda1_left,
+                lambda1_right,
+                denominator,
+                lambda1_add,
+                /*enable_divisor_nz_check*/ false); // divisor is non-zero as previous_x != add[i].x3_prev is enforced
         } else {
             lambda1 = Fq::div_without_denominator_check({ add[i].y3_prev - y }, (add[i].x3_prev - x));
         }
@@ -650,8 +689,12 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
             lambda2 = Fq::div_without_denominator_check({ y + y }, (previous_x - x_3)) - lambda1;
         } else {
             Fq l2_denominator = previous_y.is_negative ? previous_x - x_3 : x_3 - previous_x;
-            Fq partial_lambda2 =
-                Fq::msub_div(previous_y.mul_left, previous_y.mul_right, l2_denominator, previous_y.add);
+            // TODO(): analyse if l2_denominator can be zero.
+            Fq partial_lambda2 = Fq::msub_div(previous_y.mul_left,
+                                              previous_y.mul_right,
+                                              l2_denominator,
+                                              previous_y.add,
+                                              /*enable_divisor_nz_check*/ false);
             partial_lambda2 = partial_lambda2 + partial_lambda2;
             lambda2 = partial_lambda2 - lambda1;
         }

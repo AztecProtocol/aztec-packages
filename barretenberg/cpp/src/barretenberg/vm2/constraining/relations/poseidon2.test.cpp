@@ -11,8 +11,8 @@
 #include "barretenberg/vm2/generated/relations/poseidon2_hash.hpp"
 #include "barretenberg/vm2/optimized/relations/poseidon2_perm.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
-#include "barretenberg/vm2/simulation/range_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -22,7 +22,7 @@
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 
 // Temporary imports, see comment in test.
-#include "barretenberg/vm2/simulation/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
@@ -389,7 +389,7 @@ TEST_F(Poseidon2MemoryConstrainingTest, PermutationMemoryInvalidTag)
 
 TEST_F(Poseidon2MemoryConstrainingTest, PermutationMemoryInvalidAddressRange)
 {
-    uint32_t src_address = AVM_HIGHEST_MEM_ADDRESS - 2;
+    uint32_t src_address = static_cast<uint32_t>(AVM_HIGHEST_MEM_ADDRESS - 2);
 
     TestTraceContainer trace = TestTraceContainer({
         // Row 0

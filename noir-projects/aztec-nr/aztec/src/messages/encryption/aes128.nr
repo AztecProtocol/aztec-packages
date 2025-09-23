@@ -173,8 +173,10 @@ impl LogEncryption for AES128 {
         let eph_pk_sign_byte: u8 = get_sign_of_point(eph_pk) as u8;
 
         // (not to be confused with the tagging shared secret)
+        // TODO (#17158): Currently we unwrap the Option returned by derive_ecdh_shared_secret_using_aztec_address.
+        // We need to handle the case where the ephemeral public key is invalid to prevent potential DoS vectors.
         let ciphertext_shared_secret =
-            derive_ecdh_shared_secret_using_aztec_address(eph_sk, recipient);
+            derive_ecdh_shared_secret_using_aztec_address(eph_sk, recipient).unwrap();
         // TODO: also use this shared secret for deriving note randomness.
 
         // *****************************************************************************
@@ -338,7 +340,8 @@ impl LogEncryption for AES128 {
         let eph_pk = point_from_x_coord_and_sign(eph_pk_x, eph_pk_sign_bool);
 
         // Derive shared secret
-        let ciphertext_shared_secret = get_shared_secret(recipient, eph_pk);
+        // TODO(#17158): handle invalid ephemeral keys when decrypting to prevent DoS vectors
+        let ciphertext_shared_secret = get_shared_secret(recipient, eph_pk.unwrap());
 
         // Derive symmetric keys:
         let pairs = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<2>(
@@ -426,7 +429,8 @@ mod test {
                 EmbeddedCurveScalar::from_field(eph_sk),
                 recipient,
             );
-            let _ = OracleMock::mock("utilityGetSharedSecret").returns(shared_secret);
+
+            let _ = OracleMock::mock("utilityGetSharedSecret").returns(shared_secret.unwrap());
 
             // Decrypt the log
             let decrypted = AES128::decrypt_log(encrypted_log, recipient);

@@ -247,6 +247,7 @@ describe('L1Publisher integration', () => {
         slashFactoryContract: undefined as unknown as SlashFactoryContract,
         dateProvider,
         metrics: sequencerPublisherMetrics,
+        lastActions: {},
       },
     );
 
