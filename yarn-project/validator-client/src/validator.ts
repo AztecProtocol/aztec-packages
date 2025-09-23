@@ -56,6 +56,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private validationService: ValidationService;
   private metrics: ValidatorMetrics;
 
+  // Whether it has already registered handlers on the p2p client
+  private hasRegisteredHandlers = false;
+
   // Used to check if we are sending the same proposal twice
   private previousProposal?: BlockProposal;
 
@@ -166,8 +169,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       telemetry,
     );
 
-    // TODO(PhilWindle): This seems like it could/should be done inside start()
-    validator.registerBlockProposalHandler();
     return validator;
   }
 
@@ -198,11 +199,14 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   public async start() {
-    // Sync the committee from the smart contract
-    // https://github.com/AztecProtocol/aztec-packages/issues/7962
+    if (this.epochCacheUpdateLoop.isRunning()) {
+      this.log.warn(`Validator client already started`);
+      return;
+    }
+
+    await this.registerHandlers();
 
     const myAddresses = this.getValidatorAddresses();
-
     const inCommittee = await this.epochCache.filterInCommittee('now', myAddresses);
     if (inCommittee.length > 0) {
       this.log.info(
@@ -215,9 +219,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
     this.epochCacheUpdateLoop.start();
 
-    this.p2pClient.registerThisValidatorAddresses(myAddresses);
-    await this.p2pClient.addReqRespSubProtocol(ReqRespSubProtocol.AUTH, this.handleAuthRequest.bind(this));
-
     return Promise.resolve();
   }
 
@@ -225,10 +226,21 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     await this.epochCacheUpdateLoop.stop();
   }
 
-  public registerBlockProposalHandler() {
-    const handler = (block: BlockProposal, proposalSender: PeerId): Promise<BlockAttestation[] | undefined> =>
-      this.attestToProposal(block, proposalSender);
-    this.p2pClient.registerBlockProposalHandler(handler);
+  /** Register handlers on the p2p client */
+  public async registerHandlers() {
+    if (!this.hasRegisteredHandlers) {
+      this.hasRegisteredHandlers = true;
+      this.log.debug(`Registering validator handlers for p2p client`);
+
+      const handler = (block: BlockProposal, proposalSender: PeerId): Promise<BlockAttestation[] | undefined> =>
+        this.attestToProposal(block, proposalSender);
+      this.p2pClient.registerBlockProposalHandler(handler);
+
+      const myAddresses = this.getValidatorAddresses();
+      this.p2pClient.registerThisValidatorAddresses(myAddresses);
+
+      await this.p2pClient.addReqRespSubProtocol(ReqRespSubProtocol.AUTH, this.handleAuthRequest.bind(this));
+    }
   }
 
   async attestToProposal(proposal: BlockProposal, proposalSender: PeerId): Promise<BlockAttestation[] | undefined> {
