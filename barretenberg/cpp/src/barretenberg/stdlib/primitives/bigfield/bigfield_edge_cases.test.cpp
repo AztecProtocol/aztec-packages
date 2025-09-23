@@ -119,7 +119,8 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
         // last limb has only 61 bits
         const uint256_t other_mask = (uint256_t(1) << 61) - 1;
-        const uint256_t limb_3_native = uint256_t(fr::random_element()) & other_mask;
+        uint256_t limb_3_native = uint256_t(fr::random_element()) & other_mask;
+        limb_3_native |= (uint256_t(1) << 60); // set 61st bit to 1 to ensure the combined value is > 2^265
         fr_ct limb_3 = witness_ct(&builder, limb_3_native);
 
         // Create a bigfield from them (without range constraints on limbs)
@@ -412,7 +413,16 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
             bool result = CircuitChecker::check(builder);
             EXPECT_EQ(result, false);
-            EXPECT_EQ(builder.err(), "ultra_circuit_builder: sublimb of hi too large");
+
+            if (large_value < reduction_upper_bound) {
+                // If the value is less than 2^s (i.e., it is reduced), then the error should appear in the borrow
+                // checks (during subtraction).
+                EXPECT_EQ(builder.err(), "bigfield::unsafe_assert_less_than: r2 or r3 too large: hi limb.");
+            } else {
+                // If the value is greater than 2^s, the error appears earlier while performing the range constraint
+                // checks on the limbs.
+                EXPECT_EQ(builder.err(), "bigfield::assert_less_than: limb 2 or 3 too large: hi limb.");
+            }
         }
     }
 
@@ -447,7 +457,7 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
             bool result = CircuitChecker::check(builder);
             EXPECT_EQ(result, false);
-            EXPECT_EQ(builder.err(), "ultra_circuit_builder: sublimb of hi too large");
+            EXPECT_EQ(builder.err(), "bigfield::unsafe_assert_less_than: r2 or r3 too large: hi limb.");
         }
     }
 
@@ -505,8 +515,9 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
     static void test_divide_by_zero_fails()
     {
-        Builder builder = Builder();
         {
+            Builder builder = Builder();
+
             // numerator and denominator both are witnesses
             auto [a_native, a_ct] = get_random_witness(&builder, false);
             fq_ct zero = fq_ct::create_from_u512_as_witness(&builder, uint512_t(0), true);
@@ -522,9 +533,11 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
             bool result = CircuitChecker::check(builder);
             EXPECT_EQ(result, false);
-            EXPECT_EQ(builder.err(), "bigfield: prime limb identity failed");
+            EXPECT_EQ(builder.err(), "bigfield: prime limb diff is zero, but expected non-zero");
         }
         {
+            Builder builder = Builder();
+
             // numerator is constant, denominator is witness
             fq_native a_native = fq_native::random_element();
             fq_ct a_ct(&builder, uint256_t(a_native));
@@ -538,9 +551,11 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
             bool result = CircuitChecker::check(builder);
             EXPECT_EQ(result, false);
-            EXPECT_EQ(builder.err(), "bigfield: prime limb identity failed");
+            EXPECT_EQ(builder.err(), "bigfield: prime limb diff is zero, but expected non-zero");
         }
         {
+            Builder builder = Builder();
+
             // numerator is empty, denominator is witness
             fq_ct zero = fq_ct::create_from_u512_as_witness(&builder, uint512_t(0), true);
 
@@ -555,6 +570,8 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
             EXPECT_EQ(builder.err(), "bigfield: prime limb diff is zero, but expected non-zero");
         }
         {
+            Builder builder = Builder();
+
             // numerator is witness, denominator is constant
             [[maybe_unused]] auto [a_native, a_ct] = get_random_witness(&builder, false);
             fq_ct constant_zero = fq_ct(&builder, uint256_t(0));
@@ -565,6 +582,8 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 #endif
         }
         {
+            Builder builder = Builder();
+
             // numerator and denominator both are constant
             fq_native a_native = fq_native::random_element();
             fq_ct a_ct(&builder, uint256_t(a_native));
@@ -575,6 +594,8 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 #endif
         }
         {
+            Builder builder = Builder();
+
             // numerator is empty, denominator is constant
 #ifndef NDEBUG
             fq_ct constant_zero = fq_ct(&builder, uint256_t(0));
