@@ -49,6 +49,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option('--accelerated-test-deployments', 'Fire and forget deployment transactions, use in testing only', false)
     .option('--real-verifier', 'Deploy the real verifier', false)
     .option('--create-verification-json [path]', 'Create JSON file for etherscan contract verification', false)
+    .option(
+      '--only-add-validators-on-first-deploy',
+      'Only add initial validators if this is the first deployment of the rollup',
+      false,
+    )
     .action(async options => {
       const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
 
@@ -68,6 +73,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.createVerificationJson,
         initialValidators,
         options.realVerifier,
+        options.onlyAddValidatorsOnFirstDeploy,
         log,
         debugLogger,
       );

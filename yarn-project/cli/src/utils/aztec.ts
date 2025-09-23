@@ -59,6 +59,7 @@ export async function deployAztecContracts(
   config: L1ContractsConfig,
   realVerifier: boolean,
   createVerificationJson: string | false,
+  onlyAddValidatorsOnFirstDeploy: boolean,
   debugLogger: Logger,
 ): Promise<DeployL1ContractsReturnType> {
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
@@ -85,6 +86,7 @@ export async function deployAztecContracts(
       acceleratedTestDeployments,
       feeJuicePortalInitialBalance,
       realVerifier,
+      onlyAddValidatorsOnFirstDeploy,
       ...config,
     },
     config,

@@ -27,6 +27,7 @@ locals {
     ["--validators", var.VALIDATORS],
     ["--json"], # Always output JSON for easier parsing
     ["--create-verification-json", "/tmp/l1-verify"],
+    ["--only-add-validators-on-first-deploy"],
     var.SALT != null ? ["--salt", tostring(var.SALT)] : [],
     var.SPONSORED_FPC ? ["--sponsored-fpc"] : [],
     var.TEST_ACCOUNTS ? ["--test-accounts"] : [],
