@@ -145,7 +145,8 @@ template <typename Builder> cycle_group<Builder> straus_lookup_table<Builder>::r
     field_t index(_index);
     // A ROM array index must be a witness; we convert constants to a witness constrained to equal the constant value
     if (index.is_constant()) {
-        index.convert_constant_to_fixed_witness(_context);
+        index = field_t::from_witness(_context, _index.get_value());
+        index.assert_equal(_index.get_value());
     }
     auto [x_idx, y_idx] = _context->read_ROM_array_pair(rom_id, index.get_witness_index());
     field_t x = field_t::from_witness_index(_context, x_idx);
