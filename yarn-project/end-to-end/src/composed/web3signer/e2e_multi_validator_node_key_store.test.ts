@@ -27,31 +27,33 @@ import { NodeKeystoreAdapter, ValidatorClient } from '@aztec/validator-client';
 
 import { jest } from '@jest/globals';
 import { mkdtemp, rmdir } from 'fs/promises';
-import { createServer } from 'http';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { MNEMONIC } from '../fixtures/fixtures.js';
-import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
 import {
   addressForPrivateKey,
-  createJSONRPCSigner,
   createKeyFile1,
   createKeyFile2,
   createKeyFile3,
   createKeyFile4,
   createKeyFile5,
   createKeyFile6,
-} from './utils.js';
+} from '../../e2e_multi_validator/utils.js';
+import { MNEMONIC } from '../../fixtures/fixtures.js';
+import { getPrivateKeyFromIndex, setup } from '../../fixtures/utils.js';
+import {
+  createWeb3SignerKeystore,
+  getWeb3SignerTestKeystoreDir,
+  getWeb3SignerUrl,
+  refreshWeb3Signer,
+} from '../../fixtures/web3signer.js';
 
 const VALIDATOR_COUNT = 7;
 const COMMITTEE_SIZE = VALIDATOR_COUNT;
 const PUBLISHER_COUNT = 7;
 const VALIDATOR_KEY_START_INDEX = 0;
 const PUBLISHER_KEY_START_INDEX = VALIDATOR_COUNT + VALIDATOR_KEY_START_INDEX;
-const SIGNER_URL_PORT = 15000;
-const SIGNER_URL = `http://localhost:${SIGNER_URL_PORT}`;
 const PROVER_PUBLISHER_INDEX = PUBLISHER_KEY_START_INDEX + PUBLISHER_COUNT;
 const BLOCK_COUNT = 20;
 
@@ -67,6 +69,8 @@ const validators = Array.from(
 
 async function createKeyFiles() {
   const directory = await mkdtemp(join(tmpdir(), 'foo-'));
+  const web3signerDir = getWeb3SignerTestKeystoreDir();
+  const web3signerUrl = getWeb3SignerUrl();
   const file1 = join(directory, 'keyfile1.json');
   const file2 = join(directory, 'keyfile2.json');
   const file3 = join(directory, 'keyfile3.json');
@@ -107,9 +111,11 @@ async function createKeyFiles() {
     publishers[2].key,
     publishers[3].key,
     coinbaseAddresses[1],
-    SIGNER_URL,
+    getWeb3SignerUrl(),
     feeRecipientAddresses[2],
   );
+  await createWeb3SignerKeystore(web3signerDir, validators[2]);
+
   await createKeyFile4(
     file4,
     addressForPrivateKey(validators[3]),
@@ -120,12 +126,19 @@ async function createKeyFiles() {
     publishers[6].key,
     coinbaseAddresses[3],
     coinbaseAddresses[4],
-    SIGNER_URL,
+    web3signerUrl,
     feeRecipientAddresses[3],
     feeRecipientAddresses[4],
   );
-  await createKeyFile5(file5, addressForPrivateKey(proverPrivateKey), SIGNER_URL);
+  await createWeb3SignerKeystore(web3signerDir, validators[3], validators[4]);
+
+  await createKeyFile5(file5, addressForPrivateKey(proverPrivateKey), web3signerUrl);
+  await createWeb3SignerKeystore(web3signerDir, proverPrivateKey);
+
   await createKeyFile6(file6, MNEMONIC, 5, coinbaseAddresses[5], feeRecipientAddresses[5]);
+
+  await refreshWeb3Signer(web3signerUrl);
+
   return directory;
 }
 
@@ -158,11 +171,8 @@ describe('e2e_multi_validator_node', () => {
   let sequencerClient: SequencerClient | undefined;
   let publisherFactory: SequencerPublisherFactory;
   let validatorClient: ValidatorClient;
-  let jsonRpcServer: ReturnType<typeof createServer> | null = null;
   const artifact = StatefulTestContractArtifact;
   const addressToPrivateKey = new Map<string, EthPrivateKey>();
-  const remoteSignerStats = new Map<string, number>();
-  const expectedRemoteSigners = new Set<string>();
   const expectedCoinbaseAddresses = new Map<string, string>();
   const expectedFeeRecipientAddresses = new Map<string, string>();
   const expectedPublishers = new Map<string, string[]>();
@@ -185,11 +195,6 @@ describe('e2e_multi_validator_node', () => {
         bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
       };
     });
-
-    // These validators have remote signing configured
-    expectedRemoteSigners.add(validatorAddresses[2].toLowerCase());
-    expectedRemoteSigners.add(validatorAddresses[3].toLowerCase());
-    expectedRemoteSigners.add(validatorAddresses[4].toLowerCase());
 
     // Setup expected coinbase and fee recipient values per validator
     validatorAddresses.forEach((validatorAddress, i) => {
@@ -269,13 +274,6 @@ describe('e2e_multi_validator_node', () => {
       addressToPrivateKey.set(account.toLowerCase(), pk);
     }
 
-    // Create JSON RPC server for signing transactions
-    jsonRpcServer = createJSONRPCSigner(addressToPrivateKey, remoteSignerStats);
-    // Start server on the SIGNER_URL port
-    await new Promise<void>(resolve => {
-      jsonRpcServer!.listen(SIGNER_URL_PORT, resolve);
-    });
-
     const { aztecSlotDuration: _aztecSlotDuration } = getL1ContractsConfigEnvVars();
 
     ({
@@ -323,13 +321,6 @@ describe('e2e_multi_validator_node', () => {
   afterEach(async () => {
     await teardown();
     await rmdir(keyStoreDirectory, { recursive: true });
-
-    // Close JSON RPC server
-    if (jsonRpcServer) {
-      await new Promise<void>(resolve => {
-        jsonRpcServer!.close(() => resolve());
-      });
-    }
   });
 
   const sendTx = async (sender: AztecAddress, contractAddressSalt: Fr) => {
@@ -411,14 +402,6 @@ describe('e2e_multi_validator_node', () => {
         });
       }),
     );
-
-    const currentBlockNumber = await aztecNode.getBlockNumber();
-
-    for (const expectedRemoteSigner of expectedRemoteSigners) {
-      const remoteSigner = remoteSignerStats.get(expectedRemoteSigner);
-      expect(remoteSigner).toBeDefined();
-      expect(remoteSigner).toBeGreaterThanOrEqual(currentBlockNumber);
-    }
 
     for (const [proposer, coinbase] of requestedCoinbaseAddresses) {
       const expectedCoinbase = expectedCoinbaseAddresses.get(proposer);

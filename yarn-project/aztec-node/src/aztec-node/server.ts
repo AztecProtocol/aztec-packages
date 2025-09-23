@@ -217,6 +217,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       }
     }
 
+    await keyStoreManager?.validateSigners();
+
     // If we are a validator, verify our configuration before doing too much more.
     if (!config.disableValidator) {
       if (keyStoreManager === undefined) {
