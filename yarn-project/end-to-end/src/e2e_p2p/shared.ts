@@ -242,9 +242,10 @@ export async function awaitCommitteeKicked({
     const slashOffsetInRounds = await slashingProposer.getSlashOffsetInRounds();
     const slashingRoundSizeInEpochs = slashingRoundSize / aztecEpochDuration;
     const slashingOffsetInEpochs = Number(slashOffsetInRounds) * slashingRoundSizeInEpochs;
-    const targetEpoch = offenseEpoch + slashingOffsetInEpochs;
+    const firstEpochInOffenseRound = offenseEpoch - (offenseEpoch % slashingRoundSizeInEpochs);
+    const targetEpoch = firstEpochInOffenseRound + slashingOffsetInEpochs;
     logger.info(`Advancing to epoch ${targetEpoch} so we start slashing`);
-    await cheatCodes.advanceToEpoch(targetEpoch);
+    await cheatCodes.advanceToEpoch(targetEpoch, { offset: -aztecSlotDuration / 2 });
   }
 
   const attestersPre = await rollup.getAttesters();
