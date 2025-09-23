@@ -11,7 +11,7 @@ This is a guide for sequencer operators to understand how to react to protocol u
 To signal for governance upgrades, sequencers must set their `GOVERNANCE_PROPOSER_PAYLOAD` on their sequencer node to the address of a `payload`. This will register their signal with the GovernanceProposer contract.
 
 :::info
-the `payload` is a contract on L1 that specifies the address of the new rollup contract to be upgraded to. The payloads to be voted on during alpha-testnet will be communicated to sequencers on the forum and on community channels like discord.
+the `payload` is a contract on L1 that specifies the address of the new rollup contract to be upgraded to. The payloads to be voted on during testnet will be communicated to sequencers on the forum and on community channels like discord.
 :::
 
 This signalling phase will pass once `N` sequencers in a round of `M` L2 blocks have signalled for the same payload. Once the quorum is met, anyone can call the `executeProposal(roundNumber)` function on the Governance Proposer contract to advance the upgrade into the next stage.

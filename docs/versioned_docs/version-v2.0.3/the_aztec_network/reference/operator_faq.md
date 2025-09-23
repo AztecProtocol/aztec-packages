@@ -16,9 +16,9 @@ Here is a list of common issues node operators may face. If you don't find your 
 
 If it is regarding a beacon call, it has failed to the beacon rpc call. If it is regarding the execution endpoint, then it is likely just reporting.
 
-## Update aztec alpha-testnet version
+## Update aztec testnet version
 
-To make sure you're using the latest version, run: `aztec-up alpha-testnet`, then restart your node.
+To make sure you're using the latest version, run: `aztec-up latest`, then restart your node.
 
 ## "rpc rate", "quota limit"
 
@@ -42,6 +42,6 @@ Ignore.
 `ERROR: world-state:database Call SYNC_BLOCK failed: Error: Can't synch block: block state does not match world state`
 
 - Stop aztec
-- Delete current snapshot: `rm -rf ~/.aztec/1.2.0/data/archiver`
+- Delete current snapshot: `rm -rf ~/.aztec/2.0.3/data/archiver`
 - Update to latest version: `aztec-up -v latest`
 - Start aztec
