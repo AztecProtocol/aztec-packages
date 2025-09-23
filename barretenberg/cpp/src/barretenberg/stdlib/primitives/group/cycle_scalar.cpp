@@ -168,7 +168,7 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
         uint256_t limb0_hi_max = (scalar.binary_basis_limbs[0].maximum_value >> BigScalarField::NUM_LIMB_BITS);
         const uint64_t limb0_hi_bits = limb0_hi_max.get_msb() + 1;
         limb0_lo.create_range_constraint(BigScalarField::NUM_LIMB_BITS);
-        limb0_hi.create_range_constraint(limb0_hi_bits);
+        limb0_hi.create_range_constraint(static_cast<size_t>(limb0_hi_bits));
         limb0.assert_equal(limb0_lo + (limb0_hi * BigScalarField::shift_1));
 
         // Move the excess bits from limb0 into limb1
