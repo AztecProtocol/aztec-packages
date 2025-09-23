@@ -9,7 +9,7 @@ This guide shows you how to deploy compiled contracts to Aztec using the generat
 
 ## Prerequisites
 
-- Compiled contract artifacts (see [How to Compile](../aztec-nr/how_to_compile_contract.md))
+- Compiled contract artifacts (see [How to Compile](../smart-contracts/how_to_compile_contract.md))
 - Running Aztec sandbox
 - Funded wallet for deployment fees
 - TypeScript project set up

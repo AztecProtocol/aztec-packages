@@ -141,4 +141,4 @@ We don't need to limit ourselves to the `transfer` function, we can use the same
 
 ### Next Steps
 
-Check out the [developer documentation](../../guides/aztec-nr/how_to_use_authwit.md) to see how to implement this in your own contracts.
+Check out the [developer documentation](../../guides/smart-contracts/how_to_use_authwit.md) to see how to implement this in your own contracts.

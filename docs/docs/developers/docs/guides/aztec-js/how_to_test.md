@@ -9,7 +9,7 @@ In this guide we will cover how to interact with your Aztec.nr smart contracts i
 
 ## Prerequisites
 
-- A compiled contract with TS interface (read [how to compile](../aztec-nr/how_to_compile_contract.md))
+- A compiled contract with TS interface (read [how to compile](../smart-contracts/how_to_compile_contract.md))
 - Your sandbox running (read [getting started](../../../getting_started_on_sandbox.md))
 
 ## Create TS file and install libraries
@@ -34,7 +34,7 @@ import { AztecAddress, Fr, type PXE, TxStatus, createPXEClient, waitForPXE } fro
 import { CheatCodes } from '@aztec/aztec/testing';
 ```
 
-You should also import the [Typescript class you generated](../aztec-nr/how_to_compile_contract.md#typescript-interfaces):
+You should also import the [Typescript class you generated](../smart-contracts/how_to_compile_contract.md#typescript-interfaces):
 
 ```typescript
 import { MyTestContract } from './artifacts/MyTestContract';
@@ -265,4 +265,4 @@ expect(logs[0].log.getEmittedFields()).toEqual([value]);
 - [How to deploy a contract in Aztec.js](./how_to_deploy_contract.md)
 - [How to create an account in Aztec.js](./how_to_create_account.md)
 - [Cheat codes](../../reference/environment_reference/cheat_codes.md)
-- [How to compile a contract](../aztec-nr/how_to_compile_contract.md).
+- [How to compile a contract](../smart-contracts/how_to_compile_contract.md).

@@ -30,7 +30,7 @@ Aztec.nr provides pre-built note types for common use cases:
 **ValueNote** - For numeric values like token balances:
 ```toml
 # In Nargo.toml
-value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/value-note" }
+value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/smart-contracts/value-note" }
 ```
 ```rust
 use value_note::value_note::ValueNote;
@@ -40,7 +40,7 @@ let note = ValueNote::new(100, owner);
 **AddressNote** - For storing Aztec addresses:
 ```toml
 # In Nargo.toml
-address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/address-note" }
+address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/smart-contracts/address-note" }
 ```
 ```rust
 use address_note::address_note::AddressNote;

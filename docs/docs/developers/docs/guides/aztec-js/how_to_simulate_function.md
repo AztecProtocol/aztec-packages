@@ -11,7 +11,7 @@ This guide shows you how to simulate function calls to read contract state.
 
 - Deployed contract address and ABI
 - Wallet or PXE connection
-- Understanding of [contract functions](../aztec-nr/how_to_define_functions.md)
+- Understanding of [contract functions](../smart-contracts/how_to_define_functions.md)
 
 ## Connect to a contract
 
@@ -117,7 +117,7 @@ try {
 ## Next steps
 
 - [Send transactions](./how_to_send_transaction.md) to modify contract state
-- Learn about [private and public functions](../aztec-nr/how_to_define_functions.md)
+- Learn about [private and public functions](../smart-contracts/how_to_define_functions.md)
 - Explore [testing patterns](./how_to_test.md) for simulations
-- Understand [state management](../aztec-nr/how_to_define_storage.md)
+- Understand [state management](../smart-contracts/how_to_define_storage.md)
 

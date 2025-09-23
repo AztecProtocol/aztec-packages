@@ -320,35 +320,6 @@
     from = "/developers/getting_started/getting_started.md"
     to = "/developers/getting_started_on_sandbox"
 
-# Redirect guides that moved to aztec-nr
-[[redirects]]
-    from = "/developers/guides/smart_contracts/how_to_compile_contract"
-    to = "/developers/guides/aztec-nr/how_to_compile_contract"
-
-[[redirects]]
-    from = "/developers/guides/smart_contracts/how_to_define_functions"
-    to = "/developers/guides/aztec-nr/how_to_define_functions"
-
-[[redirects]]
-    from = "/developers/guides/smart_contracts/how_to_define_storage"
-    to = "/developers/guides/aztec-nr/how_to_define_storage"
-
-[[redirects]]
-    from = "/developers/guides/smart_contracts/how_to_call_contracts"
-    to = "/developers/guides/aztec-nr/how_to_call_contracts"
-
-[[redirects]]
-    from = "/developers/guides/smart_contracts/how_to_use_authwit"
-    to = "/developers/guides/aztec-nr/how_to_use_authwit"
-
-[[redirects]]
-    from = "/developers/guides/smart_contracts/how_to_communicate_cross_chain"
-    to = "/developers/guides/aztec-nr/how_to_communicate_cross_chain"
-
-[[redirects]]
-    from = "/developers/guides/smart_contracts/how_to_test_contracts"
-    to = "/developers/guides/aztec-nr/how_to_test_contracts"
-
 # Redirect guides that moved to aztec-js
 [[redirects]]
     from = "/developers/guides/js_apps/how_to_connect_to_sandbox"

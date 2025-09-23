@@ -11,14 +11,14 @@ This guide shows you how to create and use authentication witnesses (authwits) t
 
 Using AuthWitnesses is always a two-part process. This guide shows how to generate and use them, but you still need to set up your contract to accept and authenticate them.
 
-Therefore it is recommended to read the `aztec-nr` [guide on authwitnesses](../aztec-nr/how_to_use_authwit.md) before this one.
+Therefore it is recommended to read the `aztec-nr` [guide on authwitnesses](../smart-contracts/how_to_use_authwit.md) before this one.
 
 :::
 
 ## Prerequisites
 
 - Deployed account wallets
-- Contract with authwit validation (see [smart contract authwits](../aztec-nr/how_to_use_authwit.md))
+- Contract with authwit validation (see [smart contract authwits](../smart-contracts/how_to_use_authwit.md))
 - Understanding of [authwit concepts](../../concepts/advanced/authwit.md)
 
 ## AuthWits
@@ -118,7 +118,7 @@ const revoked = await authorizerWallet.setPublicAuthWit({
 
 ## Next steps
 
-- Learn about [authwits in smart contracts](../aztec-nr/how_to_use_authwit.md)
+- Learn about [authwits in smart contracts](../smart-contracts/how_to_use_authwit.md)
 - Understand [authwit concepts](../../concepts/advanced/authwit.md)
 - Explore [account abstraction](../../concepts/accounts/index.md)
-- Implement [cross-chain messaging](../aztec-nr/how_to_communicate_cross_chain.md)
+- Implement [cross-chain messaging](../smart-contracts/how_to_communicate_cross_chain.md)

@@ -50,7 +50,7 @@ Account contracts usually have a specific function called `entrypoint`. It serve
 
 An `entrypoint` function receives the actions to be carried out and an authentication payload. In pseudocode:
 
-```
+```text
 publicKey: PublicKey;
 
 def entryPoint(payload):
