@@ -31,6 +31,7 @@ names:
   - saleel: &saleel "U07KJ0AV20J"
   - nico: &nico "U06D2QSLY10"
   - lucas: &lucas "U05MW7WQ8LQ"
+  - suyash: &suyash "U08QFSL6LPM"
 
 tests:
   # barretenberg
@@ -71,18 +72,17 @@ tests:
     error_regex: "Aborted.*core dumped"
     owners:
       - *adam
-  # Failed NonNativeField relation at row idx = 5 (mem: 9.00 MiB)
-  # Failed at block idx = 6 (mem: 9.00 MiB)
-  # /home/aztec-dev/aztec-packages/barretenberg/cpp/src/barretenberg/circuit_checker/ultra_circuit_builder.test.cpp:631: Failure
+
+  # /home/aztec-dev/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib/primitives/bigfield/bigfield_edge_cases.test.cpp:142: Failure
   # Expected equality of these values:
-  #   result
+  #   combined_a.get_value() > fq_ct::modulus
   #     Which is: false
   #   true
-  # http://ci.aztec-labs.com/f5aa7b4b0e45ade3
-  - regex: "barretenberg/cpp/scripts/run_test.sh circuit_checker_tests UltraCircuitBuilder.NonNativeFieldMultiplication"
-    error_regex: "ultra_circuit_builder.test.cpp:631: Failure"
+  # http://ci.aztec-labs.com/9cb61bfe05d4f32f
+  - regex: "stdlib_primitives_tests stdlib_bigfield_edge_cases/2.reduction_check_works"
+    error_regex: "combined_a.get_value() > fq_ct::modulus"
     owners:
-      - *luke
+      - *suyash
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
@@ -195,6 +195,11 @@ tests:
   - regex: "src/e2e_epochs/epochs_l1_reorgs.test.ts"
     owners:
       - *palla
+  # http://ci.aztec-labs.com/e85ff6c5da65a1e7
+  - regex: "src/e2e_cross_chain_messaging/l1_to_l2.test.ts"
+    error_regex: "Failed to advance block"
+    owners:
+      - *palla
   - regex: "src/e2e_epochs/epochs_empty_blocks"
     error_regex: "✕ successfully proves multiple epochs"
     owners:
@@ -237,6 +242,11 @@ tests:
   # http://ci.aztec-labs.com/d429457d95d075e2
   - regex: "src/e2e_p2p/slash_veto_demo.test.ts"
     error_regex: "timeout: sending signal TERM to command|ValidatorSelection__InsufficientValidatorSetSize"
+    owners:
+      - *palla
+  # http://ci.aztec-labs.com/2927032942451013
+  - regex: "src/e2e_p2p/valid_epoch_pruned_slash.test.ts"
+    error_regex: "Timeout waiting for proposal execution"
     owners:
       - *palla
 

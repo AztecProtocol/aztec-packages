@@ -153,10 +153,10 @@ describe('SequencerPublisher', () => {
       slashFactoryContract,
       dateProvider: new TestDateProvider(),
       metrics: l1Metrics,
+      lastActions: {},
     });
 
-    (publisher as any)['l1TxUtils'] = l1TxUtils;
-    publisher as any;
+    publisher.l1TxUtils = l1TxUtils;
 
     l1TxUtils.sendAndMonitorTransaction.mockResolvedValue({
       receipt: proposeTxReceipt,
@@ -221,17 +221,7 @@ describe('SequencerPublisher', () => {
     });
   };
 
-  it('bundles propose and vote tx to l1', async () => {
-    const kzg = Blob.getViemKzgInstance();
-
-    const expectedBlobs = await Blob.getBlobsPerBlock(l2Block.body.toBlobFields());
-
-    // Expect the blob sink server to receive the blobs
-    await runBlobSinkServer(expectedBlobs);
-
-    expect(
-      await publisher.enqueueProposeL2Block(l2Block, CommitteeAttestationsAndSigners.empty(), Signature.empty()),
-    ).toEqual(true);
+  const mockGovernancePayload = () => {
     const govPayload = EthAddress.random();
     const voteSig = Signature.random();
     governanceProposerContract.getRoundInfo.mockResolvedValue({
@@ -247,7 +237,25 @@ describe('SequencerPublisher', () => {
         args: [govPayload.toString(), voteSig.toViemSignature()],
       }),
     });
+    return { govPayload, voteSig };
+  };
+
+  it('bundles propose and vote tx to l1', async () => {
+    const kzg = Blob.getViemKzgInstance();
+
+    const expectedBlobs = await Blob.getBlobsPerBlock(l2Block.body.toBlobFields());
+
+    // Expect the blob sink server to receive the blobs
+    await runBlobSinkServer(expectedBlobs);
+
+    expect(
+      await publisher.enqueueProposeL2Block(l2Block, CommitteeAttestationsAndSigners.empty(), Signature.empty()),
+    ).toEqual(true);
+
+    const { govPayload, voteSig } = mockGovernancePayload();
+
     rollup.getProposerAt.mockResolvedValueOnce(mockForwarderAddress);
+
     expect(
       await publisher.enqueueGovernanceCastSignal(
         govPayload,

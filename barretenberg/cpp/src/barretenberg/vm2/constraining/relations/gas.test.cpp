@@ -5,6 +5,7 @@
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
+#include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -321,7 +322,7 @@ TEST(GasConstrainingTest, DynGasFactorToRadix)
 
     uint32_t radix = 10;
     uint32_t num_limbs = 20;
-    uint32_t num_p_limbs = static_cast<uint32_t>(get_p_limbs_per_radix()[radix].size());
+    uint32_t num_p_limbs = static_cast<uint32_t>(get_p_limbs_per_radix_size(radix));
     TestTraceContainer trace(
         { {
               { C::execution_sel, 1 },

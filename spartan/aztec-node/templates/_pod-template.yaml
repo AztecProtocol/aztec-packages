@@ -257,6 +257,10 @@ spec:
           value: {{ .Values.node.storage.worldStateMapSize | quote }}
         - name: USE_GCLOUD_LOGGING
           value: {{ .Values.global.useGcloudLogging | quote }}
+        - name: SPONSORED_FPC
+          value: {{ .Values.global.sponsoredFPC | quote }}
+        - name: TEST_ACCOUNTS
+          value: {{ .Values.global.testAccounts | quote }}
         {{- if .Values.global.otelCollectorEndpoint }}
         - name: OTEL_EXCLUDE_METRICS
           value: {{ .Values.node.otelExcludeMetrics | quote }}

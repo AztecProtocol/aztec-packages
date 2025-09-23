@@ -15,8 +15,6 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/tx_context");
-
     const auto constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX = FF(9);
     const auto constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX = FF(10);
     const auto constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX = FF(11);
@@ -32,7 +30,7 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX = FF(371);
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX = FF(372);
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX = FF(373);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX = FF(374);
+    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX = FF(511);
     const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT =
         FF(uint256_t{ 18071747219918308973UL, 16614632998898105071UL, 15723772623334795496UL, 2914032580688149866UL });
     const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE = FF(1);
@@ -204,8 +202,8 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::tx_start_tx)) * static_cast<View>(in.get(C::tx_prev_num_unencrypted_logs));
+        auto tmp = static_cast<View>(in.get(C::tx_start_tx)) *
+                   static_cast<View>(in.get(C::tx_prev_num_unencrypted_log_fields));
         std::get<24>(evals) += (tmp * scaling_factor);
     }
     {
@@ -305,8 +303,8 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // NUM_UNENCRYPTED_LOGS_CONTINUITY
         using View = typename std::tuple_element_t<39, ContainerOverSubrelations>::View;
         auto tmp = CView(tx_NOT_LAST_ROW) * (FF(1) - static_cast<View>(in.get(C::tx_reverted))) *
-                   (static_cast<View>(in.get(C::tx_next_num_unencrypted_logs)) -
-                    static_cast<View>(in.get(C::tx_prev_num_unencrypted_logs_shift)));
+                   (static_cast<View>(in.get(C::tx_next_num_unencrypted_log_fields)) -
+                    static_cast<View>(in.get(C::tx_prev_num_unencrypted_log_fields_shift)));
         std::get<39>(evals) += (tmp * scaling_factor);
     }
     { // NUM_L2_TO_L1_MESSAGES_CONTINUITY
@@ -431,8 +429,8 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         using View = typename std::tuple_element_t<56, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::tx_sel)) *
                    (FF(1) - static_cast<View>(in.get(C::tx_sel_can_emit_unencrypted_log))) *
-                   (static_cast<View>(in.get(C::tx_prev_num_unencrypted_logs)) -
-                    static_cast<View>(in.get(C::tx_next_num_unencrypted_logs)));
+                   (static_cast<View>(in.get(C::tx_prev_num_unencrypted_log_fields)) -
+                    static_cast<View>(in.get(C::tx_next_num_unencrypted_log_fields)));
         std::get<56>(evals) += (tmp * scaling_factor);
     }
     { // L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY
@@ -532,8 +530,8 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY
         using View = typename std::tuple_element_t<70, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::tx_sel)) * static_cast<View>(in.get(C::tx_is_padded)) *
-                   (static_cast<View>(in.get(C::tx_prev_num_unencrypted_logs)) -
-                    static_cast<View>(in.get(C::tx_next_num_unencrypted_logs)));
+                   (static_cast<View>(in.get(C::tx_prev_num_unencrypted_log_fields)) -
+                    static_cast<View>(in.get(C::tx_next_num_unencrypted_log_fields)));
         std::get<70>(evals) += (tmp * scaling_factor);
     }
     { // L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY
@@ -583,8 +581,8 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<77, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::tx_is_cleanup)) *
-                   (CView(constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX) -
-                    static_cast<View>(in.get(C::tx_array_length_unencrypted_logs_pi_offset)));
+                   (CView(constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX) -
+                    static_cast<View>(in.get(C::tx_fields_length_unencrypted_logs_pi_offset)));
         std::get<77>(evals) += (tmp * scaling_factor);
     }
     { // NEXT_CONTEXT_ID_INITIAL_VALUE

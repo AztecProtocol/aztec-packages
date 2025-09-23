@@ -3,7 +3,6 @@ import {
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
@@ -23,7 +22,7 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { PublicLog } from '../logs/public_log.js';
+import { FlatPublicLogs } from '../logs/public_log.js';
 import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { PublicDataWrite } from './public_data_write.js';
 
@@ -44,7 +43,7 @@ export class AvmAccumulatedData {
     /**
      * The public logs emitted from the AVM execution.
      */
-    public publicLogs: Tuple<PublicLog, typeof MAX_PUBLIC_LOGS_PER_TX>,
+    public publicLogs: FlatPublicLogs,
     /**
      * The public data writes made in the AVM execution.
      */
@@ -57,7 +56,7 @@ export class AvmAccumulatedData {
         noteHashes: schemas.Fr.array().min(MAX_NOTE_HASHES_PER_TX).max(MAX_NOTE_HASHES_PER_TX),
         nullifiers: schemas.Fr.array().min(MAX_NULLIFIERS_PER_TX).max(MAX_NULLIFIERS_PER_TX),
         l2ToL1Msgs: ScopedL2ToL1Message.schema.array().min(MAX_L2_TO_L1_MSGS_PER_TX).max(MAX_L2_TO_L1_MSGS_PER_TX),
-        publicLogs: PublicLog.schema.array().min(MAX_PUBLIC_LOGS_PER_TX).max(MAX_PUBLIC_LOGS_PER_TX),
+        publicLogs: FlatPublicLogs.schema,
         publicDataWrites: PublicDataWrite.schema
           .array()
           .min(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
@@ -69,7 +68,7 @@ export class AvmAccumulatedData {
             assertLength(noteHashes, MAX_NOTE_HASHES_PER_TX),
             assertLength(nullifiers, MAX_NULLIFIERS_PER_TX),
             assertLength(l2ToL1Msgs, MAX_L2_TO_L1_MSGS_PER_TX),
-            assertLength(publicLogs, MAX_PUBLIC_LOGS_PER_TX),
+            publicLogs,
             assertLength(publicDataWrites, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX),
           ),
       );
@@ -80,7 +79,7 @@ export class AvmAccumulatedData {
       arraySerializedSizeOfNonEmpty(this.noteHashes) +
       arraySerializedSizeOfNonEmpty(this.nullifiers) +
       arraySerializedSizeOfNonEmpty(this.l2ToL1Msgs) +
-      arraySerializedSizeOfNonEmpty(this.publicLogs) +
+      this.publicLogs.toBuffer().length +
       arraySerializedSizeOfNonEmpty(this.publicDataWrites)
     );
   }
@@ -91,7 +90,7 @@ export class AvmAccumulatedData {
       reader.readArray(MAX_NOTE_HASHES_PER_TX, Fr),
       reader.readArray(MAX_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
-      reader.readArray(MAX_PUBLIC_LOGS_PER_TX, PublicLog),
+      reader.readObject(FlatPublicLogs),
       reader.readArray(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
     );
   }
@@ -116,7 +115,7 @@ export class AvmAccumulatedData {
       reader.readFieldArray(MAX_NOTE_HASHES_PER_TX),
       reader.readFieldArray(MAX_NULLIFIERS_PER_TX),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
-      reader.readArray(MAX_PUBLIC_LOGS_PER_TX, PublicLog),
+      reader.readObject(FlatPublicLogs),
       reader.readArray(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
     );
   }
@@ -144,7 +143,7 @@ export class AvmAccumulatedData {
       makeTuple(MAX_NOTE_HASHES_PER_TX, Fr.zero),
       makeTuple(MAX_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
-      makeTuple(MAX_PUBLIC_LOGS_PER_TX, PublicLog.empty),
+      FlatPublicLogs.empty(),
       makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.empty),
     );
   }
@@ -154,7 +153,7 @@ export class AvmAccumulatedData {
       this.noteHashes.every(x => x.isZero()) &&
       this.nullifiers.every(x => x.isZero()) &&
       this.l2ToL1Msgs.every(x => x.isEmpty()) &&
-      this.publicLogs.every(x => x.isEmpty()) &&
+      this.publicLogs.isEmpty() &&
       this.publicDataWrites.every(x => x.isEmpty())
     );
   }
@@ -175,6 +174,7 @@ export class AvmAccumulatedData {
     .map(h => inspect(h))
     .join(', ')}],
   publicLogs: [${this.publicLogs
+    .toLogs()
     .filter(x => !x.isEmpty())
     .map(h => inspect(h))
     .join(', ')}],
@@ -204,10 +204,6 @@ export class AvmAccumulatedDataArrayLengths {
      */
     public l2ToL1Msgs: number,
     /**
-     * Number of public logs
-     */
-    public publicLogs: number,
-    /**
      * Number of public data writes
      */
     public publicDataWrites: number,
@@ -219,12 +215,11 @@ export class AvmAccumulatedDataArrayLengths {
         noteHashes: z.number(),
         nullifiers: z.number(),
         l2ToL1Msgs: z.number(),
-        publicLogs: z.number(),
         publicDataWrites: z.number(),
       })
       .transform(
-        ({ noteHashes, nullifiers, l2ToL1Msgs, publicLogs, publicDataWrites }) =>
-          new AvmAccumulatedDataArrayLengths(noteHashes, nullifiers, l2ToL1Msgs, publicLogs, publicDataWrites),
+        ({ noteHashes, nullifiers, l2ToL1Msgs, publicDataWrites }) =>
+          new AvmAccumulatedDataArrayLengths(noteHashes, nullifiers, l2ToL1Msgs, publicDataWrites),
       );
   }
 
@@ -235,12 +230,11 @@ export class AvmAccumulatedDataArrayLengths {
       reader.readNumber(),
       reader.readNumber(),
       reader.readNumber(),
-      reader.readNumber(),
     );
   }
 
   toBuffer() {
-    return serializeToBuffer(this.noteHashes, this.nullifiers, this.l2ToL1Msgs, this.publicLogs, this.publicDataWrites);
+    return serializeToBuffer(this.noteHashes, this.nullifiers, this.l2ToL1Msgs, this.publicDataWrites);
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
@@ -250,22 +244,15 @@ export class AvmAccumulatedDataArrayLengths {
       Number(reader.readField()),
       Number(reader.readField()),
       Number(reader.readField()),
-      Number(reader.readField()),
     );
   }
 
   toFields(): Fr[] {
-    return [
-      new Fr(this.noteHashes),
-      new Fr(this.nullifiers),
-      new Fr(this.l2ToL1Msgs),
-      new Fr(this.publicLogs),
-      new Fr(this.publicDataWrites),
-    ];
+    return [new Fr(this.noteHashes), new Fr(this.nullifiers), new Fr(this.l2ToL1Msgs), new Fr(this.publicDataWrites)];
   }
 
   static empty() {
-    return new AvmAccumulatedDataArrayLengths(0, 0, 0, 0, 0);
+    return new AvmAccumulatedDataArrayLengths(0, 0, 0, 0);
   }
 
   [inspect.custom]() {
@@ -273,7 +260,6 @@ export class AvmAccumulatedDataArrayLengths {
   noteHashes: ${this.noteHashes},
   nullifiers: ${this.nullifiers},
   l2ToL1Msgs: ${this.l2ToL1Msgs},
-  publicLogs: ${this.publicLogs},
   publicDataWrites: ${this.publicDataWrites},
 }`;
   }

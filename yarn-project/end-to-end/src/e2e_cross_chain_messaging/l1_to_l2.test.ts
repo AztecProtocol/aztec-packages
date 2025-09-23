@@ -55,7 +55,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     await BatchCall.empty(wallet).send({ from: user1Address }).wait();
     const newBlock = await aztecNode.getBlockNumber();
     log.warn(`Advanced to block ${newBlock}`);
-    if (newBlock !== block + 1) {
+    if (newBlock === block) {
       throw new Error(`Failed to advance block ${block}`);
     }
     return undefined;
@@ -209,7 +209,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
         if (scope === 'private') {
           // On private, we simulate the tx locally and check that we get a missing message error, then we advance to the next block
           await expect(() => consume().simulate({ from: user1Address })).rejects.toThrow(/No L1 to L2 message found/);
-          await advanceBlock();
+          await tryAdvanceBlock();
           await t.ctx.watcher.markAsProven();
         } else {
           // On public, we actually send the tx and check that it reverts due to the missing message.

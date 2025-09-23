@@ -33,14 +33,6 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using emit_unencrypted_log = bb::avm2::emit_unencrypted_log<FF>;
 
-std::vector<MemoryValue> pad_values(std::vector<MemoryValue> values)
-{
-    while (values.size() < PUBLIC_LOG_SIZE_IN_FIELDS) {
-        values.push_back(MemoryValue::from<FF>(FF(0)));
-    }
-    return values;
-}
-
 TEST(EmitUnencryptedLogConstrainingTest, EmptyTrace)
 {
     check_relation<emit_unencrypted_log>(testing::empty_trace());
@@ -51,8 +43,8 @@ TEST(EmitUnencryptedLogConstrainingTest, Positive)
     AztecAddress address = 0xdeadbeef;
     MemoryAddress log_address = 27;
     uint32_t log_size = 2;
-    SideEffectStates side_effect_states = { .numUnencryptedLogs = 0 };
-    SideEffectStates next_side_effect_states = { .numUnencryptedLogs = 1 };
+    SideEffectStates side_effect_states = { .numUnencryptedLogFields = 0 };
+    SideEffectStates next_side_effect_states = { .numUnencryptedLogFields = 2 + PUBLIC_LOG_HEADER_LENGTH };
 
     EmitUnencryptedLogWriteEvent event = {
         .execution_clk = 1,
@@ -60,47 +52,12 @@ TEST(EmitUnencryptedLogConstrainingTest, Positive)
         .space_id = 57,
         .log_address = log_address,
         .log_size = log_size,
-        .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
-        .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
+        .prev_num_unencrypted_log_fields = side_effect_states.numUnencryptedLogFields,
+        .next_num_unencrypted_log_fields = next_side_effect_states.numUnencryptedLogFields,
         .is_static = false,
-        .values = pad_values({ MemoryValue::from<FF>(FF(4)), MemoryValue::from<FF>(FF(5)) }),
-        .error_too_large = false,
+        .values = { MemoryValue::from<FF>(FF(4)), MemoryValue::from<FF>(FF(5)) },
         .error_memory_out_of_bounds = false,
-        .error_too_many_logs = false,
-        .error_tag_mismatch = false,
-    };
-
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
-    });
-
-    EmitUnencryptedLogTraceBuilder trace_builder;
-    trace_builder.process({ event }, trace);
-
-    check_relation<emit_unencrypted_log>(trace);
-}
-
-TEST(EmitUnencryptedLogConstrainingTest, ErrorTooLarge)
-{
-    AztecAddress address = 0xdeadbeef;
-    MemoryAddress log_address = 27;
-    uint32_t log_size = PUBLIC_LOG_SIZE_IN_FIELDS + 1;
-    SideEffectStates side_effect_states = { .numUnencryptedLogs = 1 };
-    SideEffectStates next_side_effect_states = { .numUnencryptedLogs = 1 };
-
-    EmitUnencryptedLogWriteEvent event = {
-        .execution_clk = 1,
-        .contract_address = address,
-        .space_id = 57,
-        .log_address = log_address,
-        .log_size = log_size,
-        .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
-        .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
-        .is_static = false,
-        .values = pad_values({ MemoryValue::from<FF>(FF(4)), MemoryValue::from<FF>(FF(5)) }),
-        .error_too_large = true,
-        .error_memory_out_of_bounds = false,
-        .error_too_many_logs = false,
+        .error_too_many_log_fields = false,
         .error_tag_mismatch = false,
     };
 
@@ -119,8 +76,8 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorMemoryOutOfBounds)
     AztecAddress address = 0xdeadbeef;
     MemoryAddress log_address = AVM_HIGHEST_MEM_ADDRESS;
     uint32_t log_size = 2;
-    SideEffectStates side_effect_states = { .numUnencryptedLogs = 1 };
-    SideEffectStates next_side_effect_states = { .numUnencryptedLogs = 1 };
+    SideEffectStates side_effect_states = { .numUnencryptedLogFields = 1 };
+    SideEffectStates next_side_effect_states = { .numUnencryptedLogFields = 1 };
 
     EmitUnencryptedLogWriteEvent event = {
         .execution_clk = 1,
@@ -128,13 +85,12 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorMemoryOutOfBounds)
         .space_id = 57,
         .log_address = log_address,
         .log_size = log_size,
-        .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
-        .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
+        .prev_num_unencrypted_log_fields = side_effect_states.numUnencryptedLogFields,
+        .next_num_unencrypted_log_fields = next_side_effect_states.numUnencryptedLogFields,
         .is_static = false,
-        .values = pad_values({}),
-        .error_too_large = false,
+        .values = {},
         .error_memory_out_of_bounds = true,
-        .error_too_many_logs = false,
+        .error_too_many_log_fields = false,
         .error_tag_mismatch = false,
     };
 
@@ -148,13 +104,14 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorMemoryOutOfBounds)
     check_relation<emit_unencrypted_log>(trace);
 }
 
-TEST(EmitUnencryptedLogConstrainingTest, ErrorTooManyLogs)
+TEST(EmitUnencryptedLogConstrainingTest, ErrorTooManyLogFields)
 {
     AztecAddress address = 0xdeadbeef;
     MemoryAddress log_address = 27;
     uint32_t log_size = 2;
-    SideEffectStates side_effect_states = { .numUnencryptedLogs = MAX_PUBLIC_LOGS_PER_TX };
-    SideEffectStates next_side_effect_states = { .numUnencryptedLogs = MAX_PUBLIC_LOGS_PER_TX };
+    // Minus three so header = 2 + log_size = 2 doesn't fit
+    SideEffectStates side_effect_states = { .numUnencryptedLogFields = FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH - 3 };
+    SideEffectStates next_side_effect_states = { .numUnencryptedLogFields = FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH - 3 };
 
     EmitUnencryptedLogWriteEvent event = {
         .execution_clk = 1,
@@ -162,13 +119,12 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorTooManyLogs)
         .space_id = 57,
         .log_address = log_address,
         .log_size = log_size,
-        .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
-        .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
+        .prev_num_unencrypted_log_fields = side_effect_states.numUnencryptedLogFields,
+        .next_num_unencrypted_log_fields = next_side_effect_states.numUnencryptedLogFields,
         .is_static = false,
-        .values = pad_values({ MemoryValue::from<FF>(FF(4)), MemoryValue::from<FF>(FF(5)) }),
-        .error_too_large = false,
+        .values = { MemoryValue::from<FF>(FF(4)), MemoryValue::from<FF>(FF(5)) },
         .error_memory_out_of_bounds = false,
-        .error_too_many_logs = true,
+        .error_too_many_log_fields = true,
         .error_tag_mismatch = false,
     };
 
@@ -187,8 +143,8 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorTagMismatch)
     AztecAddress address = 0xdeadbeef;
     MemoryAddress log_address = 27;
     uint32_t log_size = 2;
-    SideEffectStates side_effect_states = { .numUnencryptedLogs = 1 };
-    SideEffectStates next_side_effect_states = { .numUnencryptedLogs = 1 };
+    SideEffectStates side_effect_states = { .numUnencryptedLogFields = 1 };
+    SideEffectStates next_side_effect_states = { .numUnencryptedLogFields = 1 };
 
     EmitUnencryptedLogWriteEvent event = {
         .execution_clk = 1,
@@ -196,13 +152,12 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorTagMismatch)
         .space_id = 57,
         .log_address = log_address,
         .log_size = log_size,
-        .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
-        .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
+        .prev_num_unencrypted_log_fields = side_effect_states.numUnencryptedLogFields,
+        .next_num_unencrypted_log_fields = next_side_effect_states.numUnencryptedLogFields,
         .is_static = false,
-        .values = pad_values({ MemoryValue::from<uint32_t>(4), MemoryValue::from<FF>(FF(5)) }),
-        .error_too_large = false,
+        .values = { MemoryValue::from<uint32_t>(4), MemoryValue::from<FF>(FF(5)) },
         .error_memory_out_of_bounds = false,
-        .error_too_many_logs = false,
+        .error_too_many_log_fields = false,
         .error_tag_mismatch = true,
     };
 
@@ -221,8 +176,8 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorStatic)
     AztecAddress address = 0xdeadbeef;
     MemoryAddress log_address = 27;
     uint32_t log_size = 2;
-    SideEffectStates side_effect_states = { .numUnencryptedLogs = 1 };
-    SideEffectStates next_side_effect_states = { .numUnencryptedLogs = 1 };
+    SideEffectStates side_effect_states = { .numUnencryptedLogFields = 1 };
+    SideEffectStates next_side_effect_states = { .numUnencryptedLogFields = 1 };
 
     EmitUnencryptedLogWriteEvent event = {
         .execution_clk = 1,
@@ -230,13 +185,12 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorStatic)
         .space_id = 57,
         .log_address = log_address,
         .log_size = log_size,
-        .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
-        .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
+        .prev_num_unencrypted_log_fields = side_effect_states.numUnencryptedLogFields,
+        .next_num_unencrypted_log_fields = next_side_effect_states.numUnencryptedLogFields,
         .is_static = true,
-        .values = pad_values({ MemoryValue::from<FF>(FF(4)), MemoryValue::from<FF>(FF(5)) }),
-        .error_too_large = false,
+        .values = { MemoryValue::from<FF>(FF(4)), MemoryValue::from<FF>(FF(5)) },
         .error_memory_out_of_bounds = false,
-        .error_too_many_logs = false,
+        .error_too_many_log_fields = false,
         .error_tag_mismatch = false,
     };
 
@@ -253,19 +207,14 @@ TEST(EmitUnencryptedLogConstrainingTest, Interactions)
     AztecAddress address = 0xdeadbeef;
     MemoryAddress log_address = 27;
     uint32_t log_size = 2;
-    SideEffectStates side_effect_states = { .numUnencryptedLogs = 0 };
-    SideEffectStates next_side_effect_states = { .numUnencryptedLogs = 1 };
+    SideEffectStates side_effect_states = { .numUnencryptedLogFields = 0 };
+    SideEffectStates next_side_effect_states = { .numUnencryptedLogFields = PUBLIC_LOG_HEADER_LENGTH + log_size };
     AvmAccumulatedData accumulated_data = {};
-    accumulated_data.publicLogs[0] = {
+    accumulated_data.publicLogs.add_log({
+        .fields = { FF(4), FF(5) },
         .contractAddress = address,
-        .fields = { 4, 5 },
-        .emittedLength = log_size,
-    };
-    AvmAccumulatedDataArrayLengths array_lengths = { .publicLogs = 1 };
-    auto public_inputs = PublicInputsBuilder()
-                             .set_accumulated_data(accumulated_data)
-                             .set_accumulated_data_array_lengths(array_lengths)
-                             .build();
+    });
+    auto public_inputs = PublicInputsBuilder().set_accumulated_data(accumulated_data).build();
 
     std::vector<MemoryValue> inputs = {
         MemoryValue::from<FF>(FF(4)),
@@ -278,13 +227,12 @@ TEST(EmitUnencryptedLogConstrainingTest, Interactions)
         .space_id = 57,
         .log_address = log_address,
         .log_size = log_size,
-        .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
-        .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
+        .prev_num_unencrypted_log_fields = side_effect_states.numUnencryptedLogFields,
+        .next_num_unencrypted_log_fields = next_side_effect_states.numUnencryptedLogFields,
         .is_static = false,
-        .values = pad_values(inputs),
-        .error_too_large = false,
+        .values = inputs,
         .error_memory_out_of_bounds = false,
-        .error_too_many_logs = false,
+        .error_too_many_log_fields = false,
         .error_tag_mismatch = false,
     };
 
@@ -294,8 +242,8 @@ TEST(EmitUnencryptedLogConstrainingTest, Interactions)
             { C::precomputed_first_row, 1 },
             // GT - check log size
             { C::gt_sel, 1 },
-            { C::gt_input_a, log_size },
-            { C::gt_input_b, PUBLIC_LOG_SIZE_IN_FIELDS },
+            { C::gt_input_a, next_side_effect_states.numUnencryptedLogFields },
+            { C::gt_input_b, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH },
             { C::gt_res, 0 },
         },
         {
@@ -303,11 +251,11 @@ TEST(EmitUnencryptedLogConstrainingTest, Interactions)
             { C::execution_sel, 1 },
             { C::execution_sel_execute_emit_unencrypted_log, 1 },
             { C::execution_context_id, 57 },
-            { C::execution_rop_0_, log_address },
-            { C::execution_register_1_, log_size },
+            { C::execution_rop_1_, log_address },
+            { C::execution_register_0_, log_size },
             { C::execution_contract_address, address },
-            { C::execution_prev_num_unencrypted_logs, side_effect_states.numUnencryptedLogs },
-            { C::execution_num_unencrypted_logs, next_side_effect_states.numUnencryptedLogs },
+            { C::execution_prev_num_unencrypted_log_fields, side_effect_states.numUnencryptedLogFields },
+            { C::execution_num_unencrypted_log_fields, next_side_effect_states.numUnencryptedLogFields },
             { C::execution_is_static, false },
             { C::execution_sel_opcode_error, 0 },
             { C::execution_discard, 0 },
@@ -533,35 +481,16 @@ TEST(EmitUnencryptedLogConstrainingTest, NegativeSelectorShouldWriteToPublicInpu
                               "SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY");
 }
 
-TEST(EmitUnencryptedLogConstrainingTest, NegativeRemainingLogSizeDecrement)
-{
-    TestTraceContainer trace = TestTraceContainer({ {
-                                                        { C::emit_unencrypted_log_sel, 1 },
-                                                        { C::emit_unencrypted_log_remaining_log_size, 1 },
-                                                    },
-                                                    {
-                                                        { C::emit_unencrypted_log_sel, 1 },
-                                                        { C::emit_unencrypted_log_remaining_log_size, 0 },
-                                                        { C::emit_unencrypted_log_end, 1 },
-                                                    } });
-
-    check_relation<emit_unencrypted_log>(trace, emit_unencrypted_log::SR_REMAINING_LOG_SIZE_DECREMENT);
-
-    trace.set(C::emit_unencrypted_log_remaining_log_size, 1, 1);
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<emit_unencrypted_log>(trace, emit_unencrypted_log::SR_REMAINING_LOG_SIZE_DECREMENT),
-        "REMAINING_LOG_SIZE_DECREMENT");
-}
-
 TEST(EmitUnencryptedLogConstrainingTest, NegativeLogOffsetIncrement)
 {
     TestTraceContainer trace = TestTraceContainer({ {
                                                         { C::emit_unencrypted_log_sel, 1 },
+                                                        { C::emit_unencrypted_log_is_write_memory_value, 1 },
                                                         { C::emit_unencrypted_log_log_address, 10 },
                                                     },
                                                     {
                                                         { C::emit_unencrypted_log_sel, 1 },
+                                                        { C::emit_unencrypted_log_is_write_memory_value, 1 },
                                                         { C::emit_unencrypted_log_log_address, 11 },
                                                         { C::emit_unencrypted_log_end, 1 },
                                                     } });
@@ -636,27 +565,6 @@ TEST(EmitUnencryptedLogConstrainingTest, NegativeContractAddressConsistency)
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<emit_unencrypted_log>(trace, emit_unencrypted_log::SR_CONTRACT_ADDRESS_CONSISTENCY),
         "CONTRACT_ADDRESS_CONSISTENCY");
-}
-
-TEST(EmitUnencryptedLogConstrainingTest, NegativeLogSizeConsistency)
-{
-    TestTraceContainer trace = TestTraceContainer({ {
-                                                        { C::emit_unencrypted_log_sel, 1 },
-                                                        { C::emit_unencrypted_log_log_size, 1 },
-                                                    },
-                                                    {
-                                                        { C::emit_unencrypted_log_sel, 1 },
-                                                        { C::emit_unencrypted_log_log_size, 1 },
-                                                        { C::emit_unencrypted_log_end, 1 },
-                                                    } });
-
-    check_relation<emit_unencrypted_log>(trace, emit_unencrypted_log::SR_LOG_SIZE_CONSISTENCY);
-
-    trace.set(C::emit_unencrypted_log_log_size, 1, 2);
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<emit_unencrypted_log>(trace, emit_unencrypted_log::SR_LOG_SIZE_CONSISTENCY),
-        "LOG_SIZE_CONSISTENCY");
 }
 
 } // namespace

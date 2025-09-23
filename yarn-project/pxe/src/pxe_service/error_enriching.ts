@@ -76,6 +76,10 @@ export async function enrichPublicSimulationError(
   const callStack = err.getCallStack();
   const originalFailingFunction = callStack[callStack.length - 1];
 
+  if (!originalFailingFunction) {
+    throw new Error(`Original failing function not found when enriching public simulation, missing callstack`);
+  }
+
   const artifact = await contractDataProvider.getPublicFunctionArtifact(originalFailingFunction.contractAddress);
   if (!artifact) {
     throw new Error(

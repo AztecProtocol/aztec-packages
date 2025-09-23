@@ -2,7 +2,7 @@
 
 #include <gmock/gmock.h>
 
-#include "barretenberg/vm2/simulation/calldata_hashing.hpp"
+#include "barretenberg/vm2/simulation/interfaces/calldata_hashing.hpp"
 
 namespace bb::avm2::simulation {
 

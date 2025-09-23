@@ -15,8 +15,6 @@ void gtImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/gt");
-
     const auto gt_A_LTE_B = (in.get(C::gt_input_b) - in.get(C::gt_input_a));
     const auto gt_A_GT_B = ((in.get(C::gt_input_a) - in.get(C::gt_input_b)) - FF(1));
 

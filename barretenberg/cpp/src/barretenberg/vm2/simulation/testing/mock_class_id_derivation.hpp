@@ -2,7 +2,7 @@
 
 #include <gmock/gmock.h>
 
-#include "barretenberg/vm2/simulation/class_id_derivation.hpp"
+#include "barretenberg/vm2/simulation/interfaces/class_id_derivation.hpp"
 
 namespace bb::avm2::simulation {
 

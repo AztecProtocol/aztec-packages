@@ -7,35 +7,37 @@
 #pragma once
 #include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/protogalaxy/constants.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
-#include "barretenberg/ultra_honk/instances.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
+#include "barretenberg/ultra_honk/verifier_instance.hpp"
 
 namespace bb {
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1437): Change template params back to ProverInstances
-template <IsUltraOrMegaHonk Flavor, size_t NUM_INSTANCES = 2> class ProtogalaxyProver_ {
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1239): clean out broken support for multi-folding
+template <IsUltraOrMegaHonk Flavor> class ProtogalaxyProver_ {
   public:
-    using ProverInstances = ProverInstances_<Flavor, NUM_INSTANCES>;
-    using VerifierInstances = VerifierInstances_<Flavor, NUM_INSTANCES>;
+    static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
+    static constexpr size_t EXTENDED_LENGTH = computed_extended_length<Flavor>();
+    static constexpr size_t BATCHED_EXTENDED_LENGTH = computed_batched_extended_length<Flavor>();
+
+    using ProverInstance = ProverInstance_<Flavor>;
+    using VerifierInstance = VerifierInstance_<Flavor>;
     using FF = typename Flavor::FF;
-    using CombinerQuotient = Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, NUM_INSTANCES>;
+    using CombinerQuotient = Univariate<FF, BATCHED_EXTENDED_LENGTH, NUM_INSTANCES>;
     using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<NUM_INSTANCES>;
     using UnivariateRelationParameters =
-        bb::RelationParameters<Univariate<FF, ProverInstances::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_INSTANCES - 1>>;
-    using UnivariateSubrelationSeparators =
-        std::array<Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
+        bb::RelationParameters<Univariate<FF, EXTENDED_LENGTH, 0, /*skip_count=*/SKIP_COUNT>>;
+    using UnivariateSubrelationSeparators = std::array<Univariate<FF, BATCHED_EXTENDED_LENGTH>, NUM_SUBRELATIONS - 1>;
 
     using Transcript = typename Flavor::Transcript;
-    using ProverInstance = ProverInstances::ProverInstance;
-    using VerifierInstance = VerifierInstances::VerifierInstance;
     using CommitmentKey = typename Flavor::CommitmentKey;
-    using PGInternal = ProtogalaxyProverInternal<ProverInstances>;
+    using PGInternal = ProtogalaxyProverInternal<ProverInstance>;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1239): clean out broken support for multi-folding
-    static_assert(ProverInstances::NUM == 2, "Protogalaxy currently only supports folding one instance at a time.");
-
-    static constexpr size_t NUM_SUBRELATIONS = ProverInstances::NUM_SUBRELATIONS;
+    using ProverInstances = std::array<std::shared_ptr<ProverInstance>, NUM_INSTANCES>;
+    using VerifierInstances = std::array<std::shared_ptr<VerifierInstance>, NUM_INSTANCES>;
 
     ProverInstances prover_insts_to_fold;
     VerifierInstances verifier_insts_to_fold;
@@ -54,22 +56,16 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_INSTANCES = 2> class ProtogalaxyP
     PGInternal pg_internal;
 
     ProtogalaxyProver_() = default;
-    ProtogalaxyProver_(const std::vector<std::shared_ptr<ProverInstance>>& prover_insts,
-                       const std::vector<std::shared_ptr<VerifierInstance>>& verifier_insts,
+    ProtogalaxyProver_(const ProverInstances& prover_insts,
+                       const VerifierInstances& verifier_insts,
                        const std::shared_ptr<Transcript>& transcript,
                        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
-        : prover_insts_to_fold(ProverInstances_(prover_insts))
-        , verifier_insts_to_fold(VerifierInstances_(verifier_insts))
+        : prover_insts_to_fold(prover_insts)
+        , verifier_insts_to_fold(verifier_insts)
         , commitment_key(prover_insts_to_fold[1]->commitment_key)
         , transcript(transcript)
         , pg_internal(trace_usage_tracker)
-    {
-        BB_ASSERT_EQ(
-            prover_insts.size(), NUM_INSTANCES, "Number of prover instance does not match number of instances to fold");
-        BB_ASSERT_EQ(verifier_insts.size(),
-                     NUM_INSTANCES,
-                     "Number of verification instances does not match the number of instances to Fiat-Shamir");
-    }
+    {}
 
     /**
      * @brief For each Prover instance derived from a circuit, prior to folding, we need to complete the computation of
@@ -130,5 +126,17 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_INSTANCES = 2> class ProtogalaxyP
      * accumulator was computed correctly.
      */
     BB_PROFILE FoldingResult<Flavor> prove();
+
+  private:
+    /**
+     * @brief Get the maximum dyadic circuit size among all prover instances
+     * @return The maximum dyadic size
+     */
+    size_t get_max_dyadic_size() const
+    {
+        return std::ranges::max(prover_insts_to_fold | std::views::transform([](const auto& inst) {
+                                    return inst != nullptr ? inst->dyadic_size() : 0;
+                                }));
+    }
 };
 } // namespace bb

@@ -138,11 +138,11 @@ std::vector<std::pair<Column, FF>> insert_state(const TxContextEvent& prev_state
           next_state.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
 
         // Prev sideffect state
-        { Column::tx_prev_num_unencrypted_logs, prev_state.side_effect_states.numUnencryptedLogs },
+        { Column::tx_prev_num_unencrypted_log_fields, prev_state.side_effect_states.numUnencryptedLogFields },
         { Column::tx_prev_num_l2_to_l1_messages, prev_state.side_effect_states.numL2ToL1Messages },
 
         // Next sideffect state
-        { Column::tx_next_num_unencrypted_logs, next_state.side_effect_states.numUnencryptedLogs },
+        { Column::tx_next_num_unencrypted_log_fields, next_state.side_effect_states.numUnencryptedLogFields },
         { Column::tx_next_num_l2_to_l1_messages, next_state.side_effect_states.numL2ToL1Messages },
 
         // Execution context
@@ -155,16 +155,16 @@ std::vector<std::pair<Column, FF>> insert_side_effect_states(const SideEffectSta
 {
     return {
         {
-            Column::tx_prev_num_unencrypted_logs,
-            prev_side_effect_states.numUnencryptedLogs,
+            Column::tx_prev_num_unencrypted_log_fields,
+            prev_side_effect_states.numUnencryptedLogFields,
         },
         {
             Column::tx_prev_num_l2_to_l1_messages,
             prev_side_effect_states.numL2ToL1Messages,
         },
         {
-            Column::tx_next_num_unencrypted_logs,
-            next_side_effect_states.numUnencryptedLogs,
+            Column::tx_next_num_unencrypted_log_fields,
+            next_side_effect_states.numUnencryptedLogFields,
         },
         {
             Column::tx_next_num_l2_to_l1_messages,
@@ -380,8 +380,8 @@ std::vector<std::pair<Column, FF>> handle_cleanup()
         // Public data write counter is handled by the public data check trace due to squashing.
         { Column::tx_array_length_l2_to_l1_messages_pi_offset,
           AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX },
-        { Column::tx_array_length_unencrypted_logs_pi_offset,
-          AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX },
+        { Column::tx_fields_length_unencrypted_logs_pi_offset,
+          AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX },
     };
 }
 

@@ -2,8 +2,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { deriveStorageSlotInMap } from '@aztec/stdlib/hash';
-import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
-import type { Note } from '@aztec/stdlib/note';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { Note, NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 
 /**
  * A class that provides utility functions for interacting with the aztec chain.
@@ -11,9 +11,9 @@ import type { Note } from '@aztec/stdlib/note';
 export class AztecCheatCodes {
   constructor(
     /**
-     * The PXE Service to use for interacting with the chain
+     * The test wallet or pxe to use for getting notes
      */
-    public pxe: PXE,
+    public testWalletOrPxe: { getNotes(filter: NotesFilter): Promise<UniqueNote[]> },
     /**
      * The Aztec Node to use for interacting with the chain
      */
@@ -71,7 +71,7 @@ export class AztecCheatCodes {
    * @returns The notes stored at the given slot
    */
   public async loadPrivate(recipient: AztecAddress, contract: AztecAddress, slot: Fr | bigint): Promise<Note[]> {
-    const extendedNotes = await this.pxe.getNotes({
+    const extendedNotes = await this.testWalletOrPxe.getNotes({
       recipient,
       contractAddress: contract,
       storageSlot: new Fr(slot),

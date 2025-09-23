@@ -37,16 +37,16 @@ class ProtogalaxyRecursiveTests : public testing::Test {
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
-    using RecursiveVerifierInstances = ::bb::stdlib::recursion::honk::RecursiveVerifierInstances_<RecursiveFlavor, 2>;
-    using RecursiveVerifierInstance = RecursiveVerifierInstances::VerifierInstance;
-    using RecursiveVerificationKey = RecursiveVerifierInstances::VerificationKey;
-    using RecursiveVKAndHash = RecursiveVerifierInstances::VKAndHash;
-    using FoldingRecursiveVerifier = ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
+    using RecursiveVerifierInstance = RecursiveVerifierInstance_<RecursiveFlavor>;
+    using RecursiveVerificationKey = RecursiveVerifierInstance::VerificationKey;
+    using RecursiveVKAndHash = RecursiveVerifierInstance::VKAndHash;
+    using RecursiveVerifierInstances = std::array<std::shared_ptr<RecursiveVerifierInstance>, NUM_INSTANCES>;
+    using FoldingRecursiveVerifier = ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstance>;
     using DeciderRecursiveVerifier = DeciderRecursiveVerifier_<RecursiveFlavor>;
     using InnerDeciderProver = DeciderProver_<InnerFlavor>;
     using InnerDeciderVerifier = DeciderVerifier_<InnerFlavor>;
-    using InnerVerifierInstances = VerifierInstances_<InnerFlavor, 2>;
-    using InnerFoldingVerifier = ProtogalaxyVerifier_<InnerVerifierInstances>;
+    using InnerVerifierInstances = std::array<std::shared_ptr<InnerVerifierInstance>, NUM_INSTANCES>;
+    using InnerFoldingVerifier = ProtogalaxyVerifier_<InnerVerifierInstance>;
     using InnerFoldingProver = ProtogalaxyProver_<InnerFlavor>;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }

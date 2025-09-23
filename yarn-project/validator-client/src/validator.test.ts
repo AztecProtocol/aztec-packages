@@ -6,6 +6,7 @@ import { Secp256k1Signer, makeEthSignDigest } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
+import { unfreeze } from '@aztec/foundation/types';
 import { type Hex, type KeyStore, KeystoreManager } from '@aztec/node-keystore';
 import {
   AuthRequest,
@@ -26,7 +27,7 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { makeBlockAttestation, makeBlockProposal, makeL2BlockHeader, mockTx } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { ContentCommitment, type Tx, TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, ContentCommitment, type Tx, TxHash } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -196,14 +197,15 @@ describe('ValidatorClient', () => {
     const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => txHash, txHash }) as Tx;
 
     const enableReexecution = () => {
-      (validatorClient as any).config.validatorReexecute = true;
+      validatorClient.updateConfig({ validatorReexecute: true });
       blockBuilder.buildBlock.mockImplementation(() => Promise.resolve(blockBuildResult));
     };
 
     beforeEach(async () => {
       const emptyInHash = await computeInHashFromL1ToL2Messages([]);
       const contentCommitment = new ContentCommitment(Fr.random(), emptyInHash, Fr.random());
-      proposal = makeBlockProposal({ header: makeL2BlockHeader(1, 100, 100, { contentCommitment }) });
+      const blockHeader = makeL2BlockHeader(1, 100, 100, { contentCommitment });
+      proposal = makeBlockProposal({ header: blockHeader });
       // Set the current time to the start of the slot of the proposal
       const genesisTime = 1n;
       const slotTime = genesisTime + proposal.slotNumber.toBigInt() * BigInt(blockBuilder.getConfig().slotDuration);
@@ -244,7 +246,7 @@ describe('ValidatorClient', () => {
         numMsgs: 0,
         usedTxs: [],
         block: {
-          header: makeL2BlockHeader(),
+          header: blockHeader.clone(),
           body: { txEffects: times(proposal.txHashes.length, () => ({})) },
           archive: new AppendOnlyTreeSnapshot(proposal.archive, proposal.blockNumber),
         } as L2Block,
@@ -275,7 +277,7 @@ describe('ValidatorClient', () => {
       expect(attestations?.length).toBeGreaterThan(0);
     });
 
-    it('should not attest to proposal if roots do not match, and should emit WANT_TO_SLASH_EVENT', async () => {
+    it('should not attest to proposal if roots do not match and should emit WANT_TO_SLASH_EVENT', async () => {
       // Block builder returns a block with a different root
       const emitSpy = jest.spyOn(validatorClient, 'emit');
       enableReexecution();
@@ -295,6 +297,24 @@ describe('ValidatorClient', () => {
           epochOrSlot: expect.any(BigInt),
         },
       ]);
+    });
+
+    it('should not attest to proposal if a random field in the proposal does not match', async () => {
+      // Block builder returns a block with a different nullifier tree root
+      enableReexecution();
+      unfreeze(blockBuildResult.block.header.state.partial).nullifierTree.root = Fr.random();
+
+      // We should not attest to the proposal
+      const attestations = await validatorClient.attestToProposal(proposal, sender);
+      expect(attestations).toBeUndefined();
+    });
+
+    it('should not attest to proposal if the proposed block number is taken', async () => {
+      enableReexecution();
+      blockSource.getBlockHeader.mockResolvedValue({} as BlockHeader);
+      const attestations = await validatorClient.attestToProposal(proposal, sender);
+      expect(attestations).toBeUndefined();
+      expect(blockSource.getBlockHeader).toHaveBeenCalledWith(proposal.blockNumber);
     });
 
     it('should not emit WANT_TO_SLASH_EVENT if slashing is disabled', async () => {

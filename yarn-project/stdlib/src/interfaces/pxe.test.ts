@@ -139,10 +139,7 @@ describe('PXESchema', () => {
   });
 
   it('proveTx', async () => {
-    const result = await context.client.proveTx(
-      await TxExecutionRequest.random(),
-      await PrivateExecutionResult.random(),
-    );
+    const result = await context.client.proveTx(await TxExecutionRequest.random());
     expect(result).toBeInstanceOf(TxProvingResult);
   });
 
@@ -302,11 +299,14 @@ class MockPXE implements PXE {
       }),
     );
   }
-  proveTx(txRequest: TxExecutionRequest, privateExecutionResult: PrivateExecutionResult): Promise<TxProvingResult> {
+  async proveTx(txRequest: TxExecutionRequest): Promise<TxProvingResult> {
     expect(txRequest).toBeInstanceOf(TxExecutionRequest);
-    expect(privateExecutionResult).toBeInstanceOf(PrivateExecutionResult);
     return Promise.resolve(
-      new TxProvingResult(privateExecutionResult, PrivateKernelTailCircuitPublicInputs.empty(), ClientIvcProof.empty()),
+      new TxProvingResult(
+        await PrivateExecutionResult.random(),
+        PrivateKernelTailCircuitPublicInputs.empty(),
+        ClientIvcProof.empty(),
+      ),
     );
   }
   async simulateTx(

@@ -2,7 +2,7 @@ use crate::{
     event::event_interface::EventInterface,
     messages::{
         encoding::{encode_message, MESSAGE_CIPHERTEXT_LEN},
-        encryption::{aes128::AES128, log_encryption::LogEncryption},
+        encryption::{aes128::AES128, message_encryption::MessageEncryption},
         msg_type::PRIVATE_EVENT_MSG_TYPE_ID,
     },
     oracle::random::random,
@@ -37,5 +37,5 @@ where
         serialized_event_with_randomness,
     );
 
-    (AES128::encrypt_log(plaintext, recipient), randomness)
+    (AES128::encrypt(plaintext, recipient), randomness)
 }

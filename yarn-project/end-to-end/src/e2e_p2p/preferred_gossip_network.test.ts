@@ -284,6 +284,7 @@ describe('e2e_p2p_preferred_network', () => {
       .concat(validators.map((_, i) => `Validator ${i + 1}`))
       .concat(noDiscoveryValidators.map((_, i) => `Picky Validator ${i + 1}`))
       .concat(['Default Node']);
+    t.logger.warn(`All nodes initialized: ${identifiers.join(', ')}`);
 
     const validatorsUsingDiscovery = validators.length;
     const totalNumValidators = validators.length + noDiscoveryValidators.length;
@@ -297,7 +298,9 @@ describe('e2e_p2p_preferred_network', () => {
       const peerResult = await waitForNodeToAcquirePeers(allNodes[i], expectedPeerCounts[i], 300, identifiers[i]);
       expect(peerResult).toBeTruthy();
     }
-    t.logger.info('All node/validator peer connections established');
+    t.logger.warn(
+      `All node peer connections established: ${identifiers.map((id, i) => `${id} (${expectedPeerCounts[i]})`).join(', ')}`,
+    );
 
     validators.push(...noDiscoveryValidators);
 

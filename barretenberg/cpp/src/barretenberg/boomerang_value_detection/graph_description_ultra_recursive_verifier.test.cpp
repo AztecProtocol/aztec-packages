@@ -82,7 +82,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
 
         if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
-                IPA<grumpkin<InnerBuilder>>::create_fake_ipa_claim_and_proof(builder);
+                IPA<grumpkin<InnerBuilder>>::create_random_valid_ipa_claim_and_proof(builder);
             stdlib_opening_claim.set_public();
             builder.ipa_proof = ipa_proof;
         }

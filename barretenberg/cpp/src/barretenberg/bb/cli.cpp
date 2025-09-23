@@ -469,6 +469,15 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     /***************************************************************************************************************
+     * Subcommand: avm_simulate
+     ***************************************************************************************************************/
+    CLI::App* avm_simulate_command = app.add_subcommand("avm_simulate", "");
+    avm_simulate_command->group(""); // hide from list of subcommands
+    add_verbose_flag(avm_simulate_command);
+    add_debug_flag(avm_simulate_command);
+    add_avm_inputs_option(avm_simulate_command);
+
+    /***************************************************************************************************************
      * Subcommand: avm_prove
      ***************************************************************************************************************/
     CLI::App* avm_prove_command = app.add_subcommand("avm_prove", "");
@@ -598,13 +607,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
             avm_check_circuit(avm_inputs_path);
         } else if (avm_verify_command->parsed()) {
             return avm_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
+        } else if (avm_simulate_command->parsed()) {
+            avm_simulate(avm_inputs_path);
         }
 #else
-        else if (avm_prove_command->parsed()) {
-            throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
-        } else if (avm_check_circuit_command->parsed()) {
-            throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
-        } else if (avm_verify_command->parsed()) {
+        else if (avm_prove_command->parsed() || avm_check_circuit_command->parsed() || avm_verify_command->parsed() ||
+                 avm_simulate_command->parsed()) {
             throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
         }
 #endif

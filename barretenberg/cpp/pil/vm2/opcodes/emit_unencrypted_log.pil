@@ -10,19 +10,17 @@ include "../constants_gen.pil";
  *
  * The opcode reads log data from memory starting at log_address for log_size fields,
  * and writes the log data to public inputs if all checks pass.
- * The gadget generates a fixed number of rows (PUBLIC_LOG_SIZE_IN_FIELDS)
- * per log emission, with padding rows when the actual log size is smaller.
+ * The gadget generates a dynamic number of rows based on the actual log size.
  *
  * Opcode operands (from execution trace):
- * - rop[0]: log_address (memory offset where log data starts)
- * - register[1]: log_size (number of fields in the log)
+ * - register[0]: log_size (number of fields in the log)
+ * - rop[1]: log_address (memory offset where log data starts)
  *
- * The interaction with the execution trace is only done on the start row. The other PUBLIC_LOG_SIZE_IN_FIELDS - 1 rows are reading the fields of the log and writing to public inputs.
+ * The interaction with the execution trace is only done on the start row. The subsequent rows are used for reading the log fields from memory and writing to public inputs.
  *
  * Validation checks:
- * - Log size must not exceed PUBLIC_LOG_SIZE_IN_FIELDS
  * - Memory addresses must be within bounds (≤ AVM_HIGHEST_MEM_ADDRESS)
- * - Must not exceed maximum logs per transaction (MAX_PUBLIC_LOGS_PER_TX)
+ * - Must not exceed maximum log fields per transaction (FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH)
  * - All log fields must have FF tags
  * - Cannot emit logs in static context
  *
@@ -32,34 +30,39 @@ include "../constants_gen.pil";
  * - Disables memory reads if addressing error occurs
  *
  * Public inputs interaction:
- * - Writes contract_address, log_size, and log data to public inputs
+ * - Writes log_size (number of fields read from memory), contract_address, and log data to public inputs, in that order.
  * - Only writes if no errors occur and discard flag is not set
  * - Updates the count of emitted unencrypted logs
  *
- *
  * Partial trace of the gadget:
- * +-----+-----+----------+------------+----------+------------------+-----------+-----------+-----------+-------+-------+-----+----------------+--------------+----------------+------------+--------------------+-----------------+-------+-----+
- * | sel | clk | space_id | log_addr   | log_size | contract_address | prev_logs | next_logs | is_static | error | start | end | remaining_rows | tag_mismatch | seen_wrong_tag | is_padding | remaining_log_size | should_read_mem | value | tag |
- * +-----+-----+----------+------------+----------+------------------+-----------+-----------+-----------+-------+-------+-----+----------------+--------------+----------------+------------+--------------------+-----------------+-------+-----+
- * | 0   | 0   | 0        | 0          | 0        | 0                | 0         | 0         | 0         | 0     | 0     | 0   | 0              | 0            | 0              | 0          | 0                  | 0               | 0     | 0   |
- * | 1   | 27  | 4        | 27         | 10       | 0xdeadbeef       | 1         | 2         | 0         | 0     | 1     | 0   | 12             | 0            | 0              | 0          | 10                 | 1               | 5     | ff  |
- * | 1   | 27  | 4        | 28         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 11             | 0            | 0              | 0          | 9                  | 1               | 6     | ff  |
- * | 1   | 27  | 4        | 29         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 10             | 0            | 0              | 0          | 8                  | 1               | 7     | ff  |
- * | 1   | 27  | 4        | 30         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 9              | 0            | 0              | 0          | 7                  | 1               | 8     | ff  |
- * | 1   | 27  | 4        | 31         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 8              | 0            | 0              | 0          | 6                  | 1               | 9     | ff  |
- * | 1   | 27  | 4        | 32         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 7              | 0            | 0              | 0          | 5                  | 1               | 8     | ff  |
- * | 1   | 27  | 4        | 33         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 6              | 0            | 0              | 0          | 4                  | 1               | 7     | ff  |
- * | 1   | 27  | 4        | 34         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 5              | 0            | 0              | 0          | 3                  | 1               | 6     | ff  |
- * | 1   | 27  | 4        | 35         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 4              | 0            | 0              | 0          | 2                  | 1               | 5     | ff  |
- * | 1   | 27  | 4        | 36         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 3              | 0            | 0              | 0          | 1                  | 1               | 4     | ff  |
- * | 1   | 27  | 4        | 37         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 2              | 0            | 0              | 1          | 0                  | 0               | 0     | ff  |
- * | 1   | 27  | 4        | 38         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 1              | 0            | 0              | 1          | 0                  | 0               | 0     | ff  |
- * | 1   | 27  | 4        | 39         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 1   | 0              | 0            | 0              | 1          | 0                  | 0               | 0     | ff  |
- * +-----+-----+----------+------------+----------+------------------+-----------+-----------+-----------+-------+-------+-----+----------------+--------------+----------------+------------+--------------------+-----------------+-------+-----+
+ *
+ * +-----+-----+--------+----------+----------+---------------+------------+------------+-----------+-------+-------+-----+----------+------------+---------------+----------+-----------+----------+-------+-----+------------+
+ * | sel | clk | spc_id | log_addr | log_size | contract_addr | prev_log_f | next_log_f | is_static | error | start | end | rem_rows | tag_msmtch | seen_wrng_tag | IS_W_LEN | is_w_addr | is_w_mem | value | tag |  pi_value  |
+ * +-----+-----+--------+----------+----------+---------------+------------+------------+-----------+-------+-------+-----+----------+------------+---------------+----------+-----------+----------+-------+-----+------------+
+ * |   0 |   0 |      0 |        0 | 0        | 0             | 0          | 0          | 0         | 0     |     0 |   0 |        0 |          0 |             0 |        0 |         0 |        0 |     0 | 0   | 0          |
+ * |   1 |  27 |      4 |       27 | 10       | 0xdeadbeef    | 0          | 10         | 0         | 0     |     1 |   0 |       11 |          0 |             0 |        1 |         0 |        0 |     0 | ff  | 10         |
+ * |   1 |  27 |      4 |       27 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |       10 |          0 |             0 |        0 |         1 |        0 |     0 | ff  | 0xdeadbeef |
+ * |   1 |  27 |      4 |       27 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        9 |          0 |             0 |        0 |         0 |        1 |    10 | ff  | 10         |
+ * |   1 |  27 |      4 |       28 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        8 |          0 |             0 |        0 |         0 |        1 |    20 | ff  | 20         |
+ * |   1 |  27 |      4 |       29 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        7 |          0 |             0 |        0 |         0 |        1 |    30 | ff  | 30         |
+ * |   1 |  27 |      4 |       30 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        6 |          0 |             0 |        0 |         0 |        1 |    40 | ff  | 40         |
+ * |   1 |  27 |      4 |       31 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        5 |          0 |             0 |        0 |         0 |        1 |    50 | ff  | 50         |
+ * |   1 |  27 |      4 |       32 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        4 |          0 |             0 |        0 |         0 |        1 |    60 | ff  | 60         |
+ * |   1 |  27 |      4 |       33 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        3 |          0 |             0 |        0 |         0 |        1 |    70 | ff  | 70         |
+ * |   1 |  27 |      4 |       34 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        2 |          0 |             0 |        0 |         0 |        1 |    80 | ff  | 80         |
+ * |   1 |  27 |      4 |       35 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        1 |          0 |             0 |        0 |         0 |        1 |    90 | ff  | 90         |
+ * |   1 |  27 |      4 |       36 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   1 |        0 |          0 |             0 |        0 |         0 |        1 |   100 | ff  | 100        |
+ * |   0 |   0 |      0 |        0 | 0        | 0             | 0          | 0          | 0         | 0     |     0 |   0 |        0 |          0 |             0 |        0 |         0 |        0 |     0 | 0   | 0          |
+ * +-----+-----+--------+----------+----------+---------------+------------+------------+-----------+-------+-------+-----+----------+------------+---------------+----------+-----------+----------+-------+-----+------------+
  * We perform some checks on start and only propagate down relevant columns to constrain the "worker" rows. Worker rows are the ones after start that only perform optional memory
  * read and optional writes to public inputs. Columns not propagated down are marked as "unc" in the table above.
- * Rows with is_padding_row = 1 are rows where the user-provided log has ended and we are just padding to the PUBLIC_LOG_SIZE_IN_FIELDS.
- * All rows interact with public inputs, but memory reads are controlled by a selector that is 1 when it's not padding and there has been no addressing error.
+ * In this trace:
+ * - There are three "types" of rows for one log emission:
+ *    - IS_WRITE_LOG_LENGTH: This one processes the log length. This is the first row.
+ *    - is_write_contract_address: This one processes the contract address. This is the second row.
+ *    - is_write_memory_value: These ones process the log body, the values read from memory. These are the rest of rows.
+ * - Rows interact with public inputs conditionally if there is no error or no discard.
+ * - Rows interact with memory conditionally if there is no addressing error. Otherwise they'll read (given they are is_write_memory_value rows).
  */
 namespace emit_unencrypted_log;
 
@@ -74,8 +77,8 @@ namespace emit_unencrypted_log;
     pol commit log_address;
     pol commit log_size;
     pol commit contract_address;
-    pol commit prev_num_unencrypted_logs;
-    pol commit next_num_unencrypted_logs;
+    pol commit prev_num_unencrypted_log_fields;
+    pol commit next_num_unencrypted_log_fields;
     pol commit is_static;
     pol commit error;
     pol commit discard;
@@ -107,7 +110,7 @@ namespace emit_unencrypted_log;
     end * (1 - sel) = 0;
 
     pol commit remaining_rows;
-    start * ((constants.PUBLIC_LOG_SIZE_IN_FIELDS - 1) - remaining_rows) = 0;
+    start * ((constants.PUBLIC_LOG_HEADER_LENGTH + log_size - 1) - remaining_rows) = 0;
     #[REMAINING_ROWS_DECREMENT]
     NOT_END * ((remaining_rows - 1) - remaining_rows') = 0;
 
@@ -116,21 +119,6 @@ namespace emit_unencrypted_log;
     sel * (remaining_rows * (end * (1 - remaining_rows_inv) + remaining_rows_inv) - 1 + end) = 0;
 
     // =============== ERROR HANDLING ===============
-
-    // Length check
-
-    pol commit error_too_large;
-    error_too_large * (1 - error_too_large) = 0;
-
-    // TODO: Column needed until we support constants in lookups
-    pol commit max_log_size;
-    start * (max_log_size - constants.PUBLIC_LOG_SIZE_IN_FIELDS) = 0;
-
-    #[CHECK_LOG_SIZE_TOO_LARGE]
-    start { log_size, max_log_size, error_too_large }
-    in
-    gt.sel_others { gt.input_a, gt.input_b, gt.res };
-
     // Memory bounds check
 
     pol commit error_out_of_bounds; // Constrained to be boolean by the lookup into gt. (provided that start == 1).
@@ -151,19 +139,28 @@ namespace emit_unencrypted_log;
     #[ERROR_OUT_OF_BOUNDS_CONSISTENCY]
     NOT_END * (error_out_of_bounds' - error_out_of_bounds) = 0;
 
-    // Log count check
+    // Log fields count check
 
-    pol commit error_too_many_logs; // Constrained to be boolean by the lookup into gt. (provided that start == 1).
+    pol commit error_too_many_log_fields; // Constrained to be boolean by the lookup into gt. (provided that start == 1).
+    error_too_many_log_fields * (1 - error_too_many_log_fields) = 0;
 
-    // error_too_many_logs = prev_num_unencrypted_logs == MAX_PUBLIC_LOGS_PER_TX
-    // If we are at max logs, we can't emit any more logs.
-    pol MAX_LOGS_MINUS_EMITTED = constants.MAX_PUBLIC_LOGS_PER_TX - prev_num_unencrypted_logs;
-    pol commit max_logs_minus_emitted_inv;
-    start * (MAX_LOGS_MINUS_EMITTED * (error_too_many_logs * (1 - max_logs_minus_emitted_inv) + max_logs_minus_emitted_inv) - 1 + error_too_many_logs) = 0;
+    pol TOTAL_LOG_FIELDS_SIZE = constants.PUBLIC_LOG_HEADER_LENGTH + log_size;
+    pol commit expected_next_log_fields;
+    start * (prev_num_unencrypted_log_fields + TOTAL_LOG_FIELDS_SIZE - expected_next_log_fields) = 0;
+
+
+    // TODO: Column needed until we support constants in lookups
+    pol commit public_logs_payload_length;
+    start * (public_logs_payload_length - constants.FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH) = 0;
+
+    #[CHECK_LOG_FIELDS_COUNT]
+    start { expected_next_log_fields, public_logs_payload_length, error_too_many_log_fields }
+    in
+    gt.sel { gt.input_a, gt.input_b, gt.res };
 
     // Tag check
 
-    // Tag mismatch is propagated down to be checked on end
+    // Tag mismatch is hinted in the start row and propagated down to be checked on end
     pol commit error_tag_mismatch;
     error_tag_mismatch * (1 - error_tag_mismatch) = 0;
 
@@ -172,55 +169,50 @@ namespace emit_unencrypted_log;
 
     // In order to constrain tag mismatch, we are going to use a helper column seen_wrong_tag, which we'll use to
     // check on end if we've seen 1 or more wrong tags.
-    // We'll use the WRONG_TAG variable, which is a boolean indicating whether the tag is wrong for the current row.
-    // WRONG_TAG will be constrained in the memory section.
+    // We'll use the WRONG_NEXT_TAG variable, which is a boolean indicating whether the tag is wrong for the next row.
+    // WRONG_NEXT_TAG will be constrained in the memory section.
     pol commit seen_wrong_tag;
     seen_wrong_tag * (1 - seen_wrong_tag) = 0;
-    // Initial value of seen_wrong_tag is the first wrong tag flag
-    start * (WRONG_TAG - seen_wrong_tag) = 0;
+    // Initial value of seen_wrong_tag is false
+    start * seen_wrong_tag = 0;
 
     // Conditional assignment:
-    // if next_wrong_tag { next_seen_wrong_tag = 1 }
+    // if WRONG_NEXT_TAG { next_seen_wrong_tag = 1 }
     // else { next_seen-wrong_tag = seen_wrong_tag }
     #[WRONG_TAG_CHECK]
-    NOT_END * ((1 - seen_wrong_tag) * WRONG_TAG' + seen_wrong_tag - seen_wrong_tag') = 0;
+    NOT_END * ((1 - seen_wrong_tag) * WRONG_NEXT_TAG + seen_wrong_tag - seen_wrong_tag') = 0;
 
     // When ending, seen_wrong_tag == error_tag_mismatch
     end * (error_tag_mismatch - seen_wrong_tag) = 0;
 
     // Union error handling
 
-    // error = error_too_large | error_out_of_bounds | error_too_many_logs | error_tag_mismatch | is_static
-    // we split the above computation in 2 to reduce the degree of the full relation (7)
+    // error = error_out_of_bounds | error_too_many_logs | error_tag_mismatch | is_static
+    // we split the above computation in 2 to reduce the degree of the full relation
     pol commit error_too_many_logs_wrong_tag_is_static;
-    start * ((1 - error_too_many_logs) * (1 - error_tag_mismatch) * (1 - is_static) - (1 - error_too_many_logs_wrong_tag_is_static)) = 0;
-    start * ((1 - error_too_large) * (1 - error_out_of_bounds) * (1 - error_too_many_logs_wrong_tag_is_static) - (1 - error)) = 0;
+    start * ((1 - error_too_many_log_fields) * (1 - error_tag_mismatch) * (1 - is_static) - (1 - error_too_many_logs_wrong_tag_is_static)) = 0;
+    start * ((1 - error_out_of_bounds) * (1 - error_too_many_logs_wrong_tag_is_static) - (1 - error)) = 0;
 
-    // We write to public inputs if we don't have an error at all and if discard is off
-    pol commit sel_should_write_to_public_inputs;
-    start * ((1 - error) * (1 - discard) - sel_should_write_to_public_inputs) = 0;
-    #[SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY]
-    NOT_END * (sel_should_write_to_public_inputs' - sel_should_write_to_public_inputs) = 0;
+    // Increase next num logs emitted if error is off. We increase even in the discard case, since discard only implies not writing to public inputs.
+    start * (prev_num_unencrypted_log_fields + (1 - error) * TOTAL_LOG_FIELDS_SIZE - next_num_unencrypted_log_fields) = 0;
 
-    // Increase next num logs emitted if error is off
-    sel * (prev_num_unencrypted_logs + (1 - error) - next_num_unencrypted_logs) = 0;
-
-    // =============== PADDING ROWS ==============
-    pol commit is_padding_row;
-    is_padding_row * (1 - is_padding_row) = 0;
-
-    pol commit remaining_log_size;
-    start * (log_size - remaining_log_size) = 0;
-
-    // Decrement remaining log size until it's 0
-    #[REMAINING_LOG_SIZE_DECREMENT]
-    NOT_END * (1 - is_padding_row) *((remaining_log_size - 1) - remaining_log_size') = 0;
-
-    // is_padding_row = remaining_log_size == 0
-    pol commit remaining_log_size_inv;
-    sel * (remaining_log_size * (is_padding_row * (1 - remaining_log_size_inv) + remaining_log_size_inv) - 1 + is_padding_row) = 0;
+    // =============== SEQUENCE ===============
+    // We write the log length in the start row
+    pol IS_WRITE_LOG_LENGTH = start;
+    // is_write_contract_address will only be on in the row after start. There will always be a row after start, the contract address one.
+    pol commit is_write_contract_address;
+    is_write_contract_address * (1 - is_write_contract_address) = 0;
+    is_write_contract_address' = start;
+    // is_write_memory_value starts off and is turned on after is_write_contract_address
+    pol commit is_write_memory_value;
+    is_write_memory_value * (1 - is_write_memory_value) = 0;
+    start * is_write_memory_value = 0;
+    // if we are not ending, the next is_write_memory_value is equal to current is_write_memory_value or is_write_contract_address
+    // since both can't be on at the same time, we can use add.
+    NOT_END * (is_write_memory_value + is_write_contract_address - is_write_memory_value') = 0;
 
     // =============== MEMORY READ ===============
+    // For simplicity, we always generate all rows necessary to process a log, even in error cases.
     // We have the following error cases:
     //  - error_memory_out_of_bounds: can't read mem
     //  - error_tag_mismatch: we need to read mem
@@ -229,10 +221,10 @@ namespace emit_unencrypted_log;
     // So what we landed with is to always read memory except we can't read memory due to the first case.
     // This should be fine since the user already paid for the memory reads
     pol commit sel_should_read_memory;
-    sel * ((1 - error_out_of_bounds) * (1 - is_padding_row) - sel_should_read_memory) = 0;
+    sel_should_read_memory = is_write_memory_value * (1 - error_out_of_bounds);
 
     #[LOG_ADDRESS_INCREMENT]
-    NOT_END * ((log_address + 1) - log_address') = 0;
+    NOT_END * ((log_address + is_write_memory_value) - log_address') = 0;
 
     pol commit value;
     pol commit tag;
@@ -261,38 +253,44 @@ namespace emit_unencrypted_log;
     // Tag should be zero since that's the FF tag.
     pol commit correct_tag;
     correct_tag * (1 - correct_tag) = 0;
-    pol WRONG_TAG = 1 - correct_tag;
+    pol WRONG_NEXT_TAG = 1 - correct_tag';
 
     pol commit tag_inv;
     sel * (tag * (correct_tag * (1 - tag_inv) + tag_inv) - 1 + correct_tag) = 0;
 
     // =============== WRITE TO PI ===============
+
+    // We write to public inputs if we don't have an error at all and if discard is off.
+    // Remember that we will always generate all rows necessary to process a log, it's just that we'll
+    // gate the writes to public inputs based on the error and discard flags.
+    pol commit sel_should_write_to_public_inputs;
+    start * ((1 - error) * (1 - discard) - sel_should_write_to_public_inputs) = 0;
+    #[SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY]
+    NOT_END * (sel_should_write_to_public_inputs' - sel_should_write_to_public_inputs) = 0;
+
     pol commit public_inputs_index;
 
-    // Public inputs index starts at base index + prev_num_unencrypted_logs * PUBLIC_LOG_SIZE_IN_FIELDS
-    start * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX + prev_num_unencrypted_logs * constants.PUBLIC_LOG_SIZE_IN_FIELDS - public_inputs_index) = 0;
+    start * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX + constants.FLAT_PUBLIC_LOGS_HEADER_LENGTH + prev_num_unencrypted_log_fields - public_inputs_index) = 0;
     // Increment public inputs index until end
     NOT_END * (public_inputs_index + 1 - public_inputs_index') = 0;
 
     #[CONTRACT_ADDRESS_CONSISTENCY]
     NOT_END * (contract_address - contract_address') = 0;
-    #[LOG_SIZE_CONSISTENCY]
-    NOT_END * (log_size - log_size') = 0;
 
-    #[WRITE_LOG_TO_PUBLIC_INPUTS]
+    pol commit public_inputs_value;
+    IS_WRITE_LOG_LENGTH * (log_size - public_inputs_value) = 0;
+    is_write_contract_address * (contract_address - public_inputs_value) = 0;
+    is_write_memory_value * (value - public_inputs_value) = 0;
+
+    #[WRITE_DATA_TO_PUBLIC_INPUTS]
     sel_should_write_to_public_inputs {
         public_inputs_index,
-        contract_address,
-        log_size,
-        value
+        public_inputs_value
     } in
     public_inputs.sel {
         precomputed.clk,
-        public_inputs.cols[0],
-        public_inputs.cols[1],
-        public_inputs.cols[2]
+        public_inputs.cols[0]
     };
-
 
     ////////////////////////////////////////////////////////
     // Dispatch from execution trace to Emit Unencrypted Log
@@ -302,13 +300,13 @@ namespace emit_unencrypted_log;
         precomputed.clk,
         execution.context_id,
         // Message offset
-        execution.rop[0],
+        execution.rop[1],
         // Message size
-        execution.register[1],
+        execution.register[0],
         execution.contract_address,
         // Context
-        execution.prev_num_unencrypted_logs,
-        execution.num_unencrypted_logs,
+        execution.prev_num_unencrypted_log_fields,
+        execution.num_unencrypted_log_fields,
         execution.is_static,
         // Error
         execution.sel_opcode_error,
@@ -320,8 +318,8 @@ namespace emit_unencrypted_log;
         log_address,
         log_size,
         contract_address,
-        prev_num_unencrypted_logs,
-        next_num_unencrypted_logs,
+        prev_num_unencrypted_log_fields,
+        next_num_unencrypted_log_fields,
         is_static,
         error,
         discard

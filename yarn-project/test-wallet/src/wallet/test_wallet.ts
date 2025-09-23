@@ -7,6 +7,7 @@ import {
   type ContractArtifact,
   type ContractFunctionInteractionCallIntent,
   type IntentInnerHash,
+  type PXE,
   SetPublicAuthwitContractInteraction,
   SignerlessAccount,
   type SimulateMethodOptions,
@@ -18,7 +19,9 @@ import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { CompleteAddress, ContractInstanceWithAddress, PartialAddress } from '@aztec/stdlib/contract';
+import type { PXEInfo } from '@aztec/stdlib/interfaces/client';
+import type { NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import type { TxSimulationResult } from '@aztec/stdlib/tx';
 
 /**
@@ -55,6 +58,10 @@ export abstract class BaseTestWallet extends BaseWallet {
 
   disableSimulatedSimulations() {
     this.simulatedSimulations = false;
+  }
+
+  setBaseFeePadding(value?: number) {
+    this.baseFeePadding = value ?? 0.5;
   }
 
   protected async getAccountFromAddress(address: AztecAddress): Promise<Account> {
@@ -163,17 +170,50 @@ export abstract class BaseTestWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     opts: SimulateMethodOptions,
   ): Promise<TxSimulationResult> {
+    if (this.simulatedSimulations && opts.fee?.estimateGas) {
+      throw new Error(
+        'Simulated simulations potentially skews gas measurements, please disable this feature to estimate gas',
+      );
+    }
     if (!this.simulatedSimulations) {
       return super.simulateTx(executionPayload, opts);
     } else {
       const executionOptions = { txNonce: Fr.random(), cancellable: false };
       const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(opts.from);
-      const fee = await this.getFeeOptions(fromAccount, executionPayload, opts.fee, executionOptions);
-      const txRequest = await fromAccount.createTxExecutionRequest(executionPayload, fee, executionOptions);
+      const feeOptions = opts.fee?.estimateGas
+        ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
+        : await this.getDefaultFeeOptions(opts.from, opts.fee);
+      const txRequest = await fromAccount.createTxExecutionRequest(executionPayload, feeOptions, executionOptions);
       const contractOverrides = {
         [opts.from.toString()]: { instance, artifact },
       };
       return this.pxe.simulateTx(txRequest, true /* simulatePublic */, true, true, { contracts: contractOverrides });
     }
+  }
+
+  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
+  registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
+    return this.pxe.registerAccount(secretKey, partialAddress);
+  }
+
+  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
+  getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
+    return this.pxe.getNotes(filter);
+  }
+
+  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
+  // Temporary hack to be able to instantiate TestWalletInternals
+  getPxe(): PXE {
+    return this.pxe;
+  }
+
+  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
+  getPXEInfo(): Promise<PXEInfo> {
+    return this.pxe.getPXEInfo();
+  }
+
+  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
+  getContracts(): Promise<AztecAddress[]> {
+    return this.pxe.getContracts();
   }
 }

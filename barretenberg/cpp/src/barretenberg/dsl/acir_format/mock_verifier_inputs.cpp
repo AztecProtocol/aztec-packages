@@ -13,7 +13,6 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/ultra_honk/instances.hpp"
 #include "proof_surgeon.hpp"
 #include "recursion_constraint.hpp"
 
@@ -194,8 +193,7 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_pg_proof()
     populate_field_elements<fr>(proof, CONST_PG_LOG_N, /*value=*/fr::zero());
 
     // Populate mock combiner quotient coefficients
-    size_t NUM_COEFF_COMBINER_QUOTIENT =
-        ProverInstances_<Flavor>::BATCHED_EXTENDED_LENGTH - ProverInstances_<Flavor>::NUM;
+    size_t NUM_COEFF_COMBINER_QUOTIENT = computed_batched_extended_length<Flavor>() - NUM_INSTANCES;
     populate_field_elements<fr>(proof, NUM_COEFF_COMBINER_QUOTIENT, /*value=*/fr::zero());
 
     return proof;
