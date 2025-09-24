@@ -246,7 +246,7 @@ TEST(AvmSimulationToRadixMemoryTest, TruncationError)
     MemoryStore memory;
     StrictMock<MockExecutionIdManager> execution_id_manager;
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(0));
-    FakeGreaterThan gt;
+    PureGreaterThan gt;
     ToRadix to_radix(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
     const FF value = 1337;
