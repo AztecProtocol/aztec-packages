@@ -204,7 +204,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError(this.className, 'privateNotifySetMinRevertibleSideEffectCounter');
   }
 
-  utilityDebugLog(_message: string, _fields: Fr[]): void {
+  utilityDebugLog(_level: number, _message: string, _fields: Fr[]): void {
     throw new OracleMethodNotAvailableError(this.className, 'utilityDebugLog');
   }
 

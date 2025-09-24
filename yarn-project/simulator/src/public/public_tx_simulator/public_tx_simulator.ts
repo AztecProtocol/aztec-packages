@@ -20,6 +20,7 @@ import {
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { Gas, GasUsed } from '@aztec/stdlib/gas';
+import type { DebugLog } from '@aztec/stdlib/logs';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import {
@@ -54,6 +55,7 @@ export type PublicTxResult = {
   /** Revert reason, if any */
   revertReason?: SimulationError;
   processedPhases: ProcessedPhase[];
+  logs: DebugLog[];
 };
 
 export class PublicTxSimulator {
@@ -198,6 +200,7 @@ export class PublicTxSimulator {
         revertCode,
         revertReason: context.revertReason,
         processedPhases: processedPhases,
+        logs: context.state.getActiveStateManager().getLogs(),
       };
     } finally {
       // Make sure there are no new contracts in the tx-level cache.

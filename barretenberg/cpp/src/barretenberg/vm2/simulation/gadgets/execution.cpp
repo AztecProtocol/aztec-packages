@@ -579,11 +579,11 @@ void Execution::keccak_permutation(ContextInterface& context, MemoryAddress dst_
 }
 
 void Execution::debug_log(ContextInterface& context,
+                          MemoryAddress level_offset,
                           MemoryAddress message_offset,
                           MemoryAddress fields_offset,
                           MemoryAddress fields_size_offset,
-                          uint16_t message_size,
-                          bool is_debug_logging_enabled)
+                          uint16_t message_size)
 {
     BB_BENCH_NAME("Execution::debug_log");
     get_gas_tracker().consume_gas();
@@ -592,7 +592,7 @@ void Execution::debug_log(ContextInterface& context,
     // we will print part of the log. However, for this opcode, we give priority to never failing and
     // never griefing the prover. Some safety checks are done, but if a failure happens, we will just
     // silently continue.
-    if (is_debug_logging_enabled) {
+    if (client_initiated_simulation) {
         try {
             auto& memory = context.get_memory();
 
@@ -607,6 +607,18 @@ void Execution::debug_log(ContextInterface& context,
                     return memory.get(offset);
                 }
             };
+
+            const auto level_value = unconstrained_read(level_offset);
+            const uint8_t level = level_value.as<uint8_t>();
+            // TODO(Alvaro): Here, we should:
+            // 1. Receive when simulating the log level
+            // 2. Check if the level is one of the valid levels
+            // 3. If it is, log to stdout conditionally if the level is enabled
+            // 4. Add a storage entity for the DebugLogs of a tx
+            // 5. Return the DebugLogs as a simulation side effect.
+            // Currently, we are not doing the above since this simulator is only used for proving, and
+            // client_initiated_simulation is always false.
+            (void)level;
 
             // Get the fields size and validate its tag
             const auto fields_size_value = unconstrained_read(fields_size_offset);
@@ -1379,12 +1391,7 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         call_with_operands(&Execution::rd_size, context, resolved_operands);
         break;
     case ExecutionOpCode::DEBUGLOG:
-        debug_log(context,
-                  resolved_operands.at(0).as<MemoryAddress>(),
-                  resolved_operands.at(1).as<MemoryAddress>(),
-                  resolved_operands.at(2).as<MemoryAddress>(),
-                  resolved_operands.at(3).as<uint16_t>(),
-                  debug_logging);
+        call_with_operands(&Execution::debug_log, context, resolved_operands);
         break;
     case ExecutionOpCode::AND:
         call_with_operands(&Execution::and_op, context, resolved_operands);

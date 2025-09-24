@@ -1,3 +1,5 @@
+import { LogLevels } from '@aztec/foundation/log';
+
 import { jest } from '@jest/globals';
 
 import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
@@ -11,6 +13,7 @@ describe('Misc Instructions', () => {
       const buf = Buffer.from([
         Opcode.DEBUGLOG, // opcode
         0x01, // indirect
+        ...Buffer.from('0002', 'hex'), // level
         ...Buffer.from('1234', 'hex'), // messageOffset
         ...Buffer.from('2345', 'hex'), // fieldsOffset
         ...Buffer.from('3456', 'hex'), // fieldsSizeOffset
@@ -18,6 +21,7 @@ describe('Misc Instructions', () => {
       ]);
       const inst = new DebugLog(
         /*indirect=*/ 0x01,
+        /*level=*/ 0x02,
         /*messageOffset=*/ 0x1234,
         /*fieldsOffset=*/ 0x2345,
         /*fieldsSizeOffset=*/ 0x3456,
@@ -32,6 +36,7 @@ describe('Misc Instructions', () => {
       const env = initExecutionEnvironment({ clientInitiatedSimulation: true });
       const context = initContext({ env });
       // Set up memory with message and fields
+      const levelOffset = 5;
       const messageOffset = 10;
       const fieldsOffset = 100;
       const fieldsSizeOffset = 200;
@@ -43,6 +48,9 @@ describe('Misc Instructions', () => {
       for (let i = 0; i < messageSize; i++) {
         context.machineState.memory.set(messageOffset + i, new Uint8(BigInt(message.charCodeAt(i))));
       }
+
+      // Set up a level value
+      context.machineState.memory.set(levelOffset, new Uint8(LogLevels.indexOf('verbose')));
 
       // Set up a field value
       context.machineState.memory.set(fieldsOffset, fieldValue);
@@ -56,6 +64,7 @@ describe('Misc Instructions', () => {
         // Execute debug log instruction
         await new DebugLog(
           /*indirect=*/ 0,
+          /*levelOffset=*/ levelOffset,
           /*messageOffset=*/ messageOffset,
           /*fieldsOffset=*/ fieldsOffset,
           /*fieldsSizeOffset=*/ fieldsSizeOffset,
@@ -91,6 +100,7 @@ describe('Misc Instructions', () => {
         // Execute debug log instruction
         await new DebugLog(
           /*indirect=*/ 0,
+          /*level=*/ 0,
           /*messageOffset=*/ messageOffset,
           /*fieldsOffset=*/ fieldsOffset,
           /*fieldsSizeOffset=*/ fieldsSizeOffset,

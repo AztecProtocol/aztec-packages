@@ -8,7 +8,7 @@ import {
 } from '@aztec/constants';
 import { Schnorr } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import { LogLevels, type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
 import {
@@ -120,8 +120,12 @@ export class TXEOracleTopLevelContext extends TXETypedOracle {
   }
 
   // We instruct users to debug contracts via this oracle, so it makes sense that they'd expect it to also work in tests
-  override utilityDebugLog(message: string, fields: Fr[]): void {
-    this.logger.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
+  override utilityDebugLog(levelNumber: number, message: string, fields: Fr[]): void {
+    if (!LogLevels[levelNumber]) {
+      throw new Error(`Invalid debug log level: ${levelNumber}`);
+    }
+    const level = LogLevels[levelNumber];
+    this.logger[level](`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
   }
 
   // temporary - authwits require this, consider removing it once authwit support improves

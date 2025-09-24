@@ -316,10 +316,16 @@ export class Oracle {
     return Promise.resolve([]);
   }
 
-  utilityDebugLog(message: ACVMField[], _ignoredFieldsSize: ACVMField[], fields: ACVMField[]): Promise<ACVMField[]> {
+  utilityDebugLog(
+    level: ACVMField[],
+    message: ACVMField[],
+    _ignoredFieldsSize: ACVMField[],
+    fields: ACVMField[],
+  ): Promise<ACVMField[]> {
+    const levelFr = Fr.fromString(level[0]);
     const messageStr = message.map(acvmField => String.fromCharCode(Fr.fromString(acvmField).toNumber())).join('');
     const fieldsFr = fields.map(Fr.fromString);
-    this.typedOracle.utilityDebugLog(messageStr, fieldsFr);
+    this.typedOracle.utilityDebugLog(levelFr.toNumber(), messageStr, fieldsFr);
     return Promise.resolve([]);
   }
 

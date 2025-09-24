@@ -359,7 +359,7 @@ const std::unordered_map<WireOpCode, WireInstructionSpec> WIRE_INSTRUCTION_SPEC 
         .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::REVERT_16) } },
     { WireOpCode::DEBUGLOG,
       { .exec_opcode = ExecutionOpCode::DEBUGLOG,
-        .size_in_bytes = 10,
+        .size_in_bytes = 12,
         .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::DEBUGLOG) } },
     { WireOpCode::POSEIDON2PERM,
       { .exec_opcode = ExecutionOpCode::POSEIDON2PERM,
@@ -585,7 +585,7 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
         .gas_cost = { .opcode_gas = AVM_RETURNDATASIZE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
         .register_info = RegisterInfo().add_output(/*dst*/) } },
     { ExecutionOpCode::DEBUGLOG,
-      { .num_addresses = 3,
+      { .num_addresses = 4,
         .gas_cost = { .opcode_gas = AVM_DEBUGLOG_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
         // We don't set the right inputs for debuglog because we make it a noop.
         .register_info = RegisterInfo() } },
