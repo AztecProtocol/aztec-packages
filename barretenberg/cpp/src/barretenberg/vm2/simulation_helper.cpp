@@ -7,6 +7,13 @@
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+
+#include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
+#include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
+#include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
+
+// Events.
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/alu_event.hpp"
@@ -31,6 +38,8 @@
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
 #include "barretenberg/vm2/simulation/events/tx_events.hpp"
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
+
+// Gadgets.
 #include "barretenberg/vm2/simulation/gadgets/addressing.hpp"
 #include "barretenberg/vm2/simulation/gadgets/alu.hpp"
 #include "barretenberg/vm2/simulation/gadgets/bitwise.hpp"
@@ -56,10 +65,8 @@
 #include "barretenberg/vm2/simulation/gadgets/tx_execution.hpp"
 #include "barretenberg/vm2/simulation/gadgets/update_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/written_public_data_slots_tree_check.hpp"
-#include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
-#include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
-#include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
-#include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
+
+// Standalone.
 #include "barretenberg/vm2/simulation/standalone/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/standalone/debug_log.hpp"
 #include "barretenberg/vm2/simulation/standalone/hybrid_execution.hpp"
@@ -67,6 +74,7 @@
 #include "barretenberg/vm2/simulation/standalone/pure_alu.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_bitwise.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_execution_components.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_gt.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_poseidon2.hpp"
