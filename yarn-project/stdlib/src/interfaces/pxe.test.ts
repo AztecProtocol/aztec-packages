@@ -1,8 +1,6 @@
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { randomInt } from '@aztec/foundation/crypto';
 import { memoize } from '@aztec/foundation/decorators';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { SiblingPath } from '@aztec/foundation/trees';
@@ -20,7 +18,6 @@ import { L2Block } from '../block/l2_block.js';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
-  type NodeInfo,
   type ProtocolContractAddresses,
   ProtocolContractsNames,
   getContractClassFromArtifact,
@@ -28,9 +25,6 @@ import {
 import { GasFees } from '../gas/gas_fees.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { PublicKeys } from '../keys/public_keys.js';
-import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
-import { ExtendedPublicLog } from '../logs/extended_public_log.js';
-import type { LogFilter } from '../logs/log_filter.js';
 import { UniqueNote } from '../note/index.js';
 import type { NotesFilter } from '../note/notes_filter.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
@@ -39,7 +33,6 @@ import {
   type IndexedTxEffect,
   PrivateExecutionResult,
   SimulationOverrides,
-  Tx,
   TxHash,
   TxReceipt,
   TxSimulationResult,
@@ -48,7 +41,6 @@ import { TxProfileResult, UtilitySimulationResult } from '../tx/profiling.js';
 import { TxProvingResult } from '../tx/proven_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxExecutionRequest } from '../tx/tx_execution_request.js';
-import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
 import {
   type ContractClassMetadata,
   type ContractMetadata,
@@ -100,10 +92,6 @@ describe('PXESchema', () => {
     expect([...tested].sort()).toEqual(all.sort());
   });
 
-  it('isL1ToL2MessageSynced', async () => {
-    await context.client.isL1ToL2MessageSynced(Fr.random());
-  });
-
   it('registerAccount', async () => {
     const result = await context.client.registerAccount(Fr.random(), Fr.random());
     expect(result).toBeInstanceOf(CompleteAddress);
@@ -151,10 +139,7 @@ describe('PXESchema', () => {
   });
 
   it('proveTx', async () => {
-    const result = await context.client.proveTx(
-      await TxExecutionRequest.random(),
-      await PrivateExecutionResult.random(),
-    );
+    const result = await context.client.proveTx(await TxExecutionRequest.random());
     expect(result).toBeInstanceOf(TxProvingResult);
   });
 
@@ -187,86 +172,14 @@ describe('PXESchema', () => {
     expect(result).toBeInstanceOf(TxSimulationResult);
   });
 
-  it('sendTx', async () => {
-    const result = await context.client.sendTx(Tx.random());
-    expect(result).toBeInstanceOf(TxHash);
-  });
-
-  it('getTxReceipt', async () => {
-    const result = await context.client.getTxReceipt(TxHash.random());
-    expect(result).toBeInstanceOf(TxReceipt);
-  });
-
-  it('getTxEffect', async () => {
-    const { l2BlockHash, l2BlockNumber, data } = (await context.client.getTxEffect(TxHash.random()))!;
-    expect(data).toBeInstanceOf(TxEffect);
-    expect(l2BlockHash).toBeInstanceOf(L2BlockHash);
-    expect(l2BlockNumber).toBe(1);
-  });
-
-  it('getPublicStorageAt', async () => {
-    const result = await context.client.getPublicStorageAt(address, Fr.random());
-    expect(result).toBeInstanceOf(Fr);
-  });
-
   it('getNotes', async () => {
     const result = await context.client.getNotes({ contractAddress: address });
     expect(result).toEqual([expect.any(UniqueNote)]);
   });
 
-  it('getL1ToL2MembershipWitness', async () => {
-    const result = await context.client.getL1ToL2MembershipWitness(address, Fr.random(), Fr.random());
-    expect(result).toEqual([expect.any(BigInt), expect.any(SiblingPath)]);
-  });
-
-  it('getL2ToL1MembershipWitness', async () => {
-    const result = await context.client.getL2ToL1MembershipWitness(42, Fr.random());
-    expect(result).toEqual([expect.any(BigInt), expect.any(SiblingPath)]);
-  });
-
-  it('getBlock', async () => {
-    const result = await context.client.getBlock(1);
-    expect(result).toBeInstanceOf(L2Block);
-  });
-
-  it('getCurrentBaseFees', async () => {
-    const result = await context.client.getCurrentBaseFees();
-    expect(result).toEqual(GasFees.empty());
-  });
-
   it('simulateUtility', async () => {
     const result = await context.client.simulateUtility('function', [], address, [], address, [address]);
     expect(result).toEqual({ result: 10n });
-  });
-
-  it('getPublicLogs', async () => {
-    const result = await context.client.getPublicLogs({ contractAddress: address });
-    expect(result).toEqual({ logs: [expect.any(ExtendedPublicLog)], maxLogsHit: true });
-  });
-
-  it('getContractClassLogs', async () => {
-    const result = await context.client.getContractClassLogs({ contractAddress: address });
-    expect(result).toEqual({ logs: [expect.any(ExtendedContractClassLog)], maxLogsHit: true });
-  });
-
-  it('getBlockNumber', async () => {
-    const result = await context.client.getBlockNumber();
-    expect(result).toBe(1);
-  });
-
-  it('getProvenBlockNumber', async () => {
-    const result = await context.client.getProvenBlockNumber();
-    expect(result).toBe(1);
-  });
-
-  it('getNodeInfo', async () => {
-    const result = await context.client.getNodeInfo();
-    expect(result).toEqual(await handler.getNodeInfo());
-  });
-
-  it('getPXEInfo', async () => {
-    const result = await context.client.getPXEInfo();
-    expect(result).toEqual(await handler.getPXEInfo());
   });
 
   it('getContractMetadata', async () => {
@@ -304,13 +217,12 @@ describe('PXESchema', () => {
     expect(result).toEqual([{ value: 1n }]);
   });
 
-  it('getPublicEvents', async () => {
-    const result = await context.client.getPublicEvents<{ value: bigint }>(
-      { abiType: { kind: 'boolean' }, eventSelector: EventSelector.random(), fieldNames: ['name'] },
-      1,
-      1,
-    );
-    expect(result).toEqual([{ value: 1n }]);
+  it('getPXEInfo', async () => {
+    const result = await context.client.getPXEInfo();
+    expect(result).toEqual({
+      pxeVersion: '1.0',
+      protocolContractAddresses: expect.any(Object),
+    });
   });
 });
 
@@ -321,9 +233,6 @@ class MockPXE implements PXE {
     private instance: ContractInstanceWithAddress,
   ) {}
 
-  isL1ToL2MessageSynced(_l1ToL2Message: Fr): Promise<boolean> {
-    return Promise.resolve(false);
-  }
   registerAccount(secretKey: Fr, partialAddress: Fr): Promise<CompleteAddress> {
     expect(secretKey).toBeInstanceOf(Fr);
     expect(partialAddress).toBeInstanceOf(Fr);
@@ -390,11 +299,14 @@ class MockPXE implements PXE {
       }),
     );
   }
-  proveTx(txRequest: TxExecutionRequest, privateExecutionResult: PrivateExecutionResult): Promise<TxProvingResult> {
+  async proveTx(txRequest: TxExecutionRequest): Promise<TxProvingResult> {
     expect(txRequest).toBeInstanceOf(TxExecutionRequest);
-    expect(privateExecutionResult).toBeInstanceOf(PrivateExecutionResult);
     return Promise.resolve(
-      new TxProvingResult(privateExecutionResult, PrivateKernelTailCircuitPublicInputs.empty(), ClientIvcProof.empty()),
+      new TxProvingResult(
+        await PrivateExecutionResult.random(),
+        PrivateKernelTailCircuitPublicInputs.empty(),
+        ClientIvcProof.empty(),
+      ),
     );
   }
   async simulateTx(
@@ -410,10 +322,6 @@ class MockPXE implements PXE {
       expect(scopes).toEqual([]);
     }
     return new TxSimulationResult(await PrivateExecutionResult.random(), PrivateKernelTailCircuitPublicInputs.empty());
-  }
-  sendTx(tx: Tx): Promise<TxHash> {
-    expect(tx).toBeInstanceOf(Tx);
-    return Promise.resolve(tx.getTxHash());
   }
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     expect(txHash).toBeInstanceOf(TxHash);
@@ -448,11 +356,6 @@ class MockPXE implements PXE {
     expect(secret).toBeInstanceOf(Fr);
     return Promise.resolve([1n, SiblingPath.random(L1_TO_L2_MSG_TREE_HEIGHT)]);
   }
-  getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]> {
-    expect(typeof blockNumber).toEqual('number');
-    expect(l2Tol1Message).toBeInstanceOf(Fr);
-    return Promise.resolve([1n, SiblingPath.random<number>(4)]);
-  }
   getL2ToL1Messages(blockNumber: number): Promise<Fr[][] | undefined> {
     expect(typeof blockNumber).toEqual('number');
     return Promise.resolve([[Fr.random()], [Fr.random(), Fr.random()]]);
@@ -476,36 +379,6 @@ class MockPXE implements PXE {
     expect(scopes).toEqual([this.address]);
     expect(authwits).toEqual([]);
     return Promise.resolve(new UtilitySimulationResult(10n));
-  }
-  async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
-    expect(filter.contractAddress).toEqual(this.address);
-    return { logs: [await ExtendedPublicLog.random()], maxLogsHit: true };
-  }
-  async getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
-    expect(filter.contractAddress).toEqual(this.address);
-    return Promise.resolve({ logs: [await ExtendedContractClassLog.random()], maxLogsHit: true });
-  }
-  getBlockNumber(): Promise<number> {
-    return Promise.resolve(1);
-  }
-  getProvenBlockNumber(): Promise<number> {
-    return Promise.resolve(1);
-  }
-  @memoize
-  async getNodeInfo(): Promise<NodeInfo> {
-    const protocolContracts = await Promise.all(
-      ProtocolContractsNames.map(async name => [name, await AztecAddress.random()]),
-    );
-    return {
-      nodeVersion: '1.0',
-      l1ChainId: 1,
-      rollupVersion: 1,
-      enr: 'enr',
-      l1ContractAddresses: Object.fromEntries(
-        L1ContractsNames.map(name => [name, EthAddress.random()]),
-      ) as L1ContractAddresses,
-      protocolContractAddresses: Object.fromEntries(protocolContracts) as ProtocolContractAddresses,
-    };
   }
   @memoize
   async getPXEInfo(): Promise<PXEInfo> {
@@ -544,11 +417,6 @@ class MockPXE implements PXE {
     expect(from).toBe(1);
     expect(limit).toBe(1);
     expect(_recipients[0]).toBeInstanceOf(AztecAddress);
-    return Promise.resolve([{ value: 1n } as T]);
-  }
-  getPublicEvents<T>(_eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
-    expect(from).toBe(1);
-    expect(limit).toBe(1);
     return Promise.resolve([{ value: 1n } as T]);
   }
 }

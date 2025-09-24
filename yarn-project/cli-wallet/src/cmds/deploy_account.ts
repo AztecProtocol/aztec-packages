@@ -64,6 +64,10 @@ export async function deployAccount(
     skipClassPublication: !registerClass,
     from,
     fee: userFeeOptions,
+    // Do not mix the deployer in the address, since the account
+    // was created (and thus its address was fixed) like this
+    universalDeploy: true,
+    contractAddressSalt: salt,
   };
 
   /*
@@ -80,30 +84,31 @@ export async function deployAccount(
       : deployOpts?.fee;
 
   const deployMethod = await account.getDeployMethod();
+  const { estimatedGas } = await deployMethod.simulate({
+    ...deployOpts,
+    fee: { ...deployOpts.fee, estimateGas: true },
+  });
 
   if (feeOpts.estimateOnly) {
-    const gas = await deployMethod.estimateGas({
-      ...deployOpts,
-      universalDeploy: !deployer,
-      contractAddressSalt: salt,
-    });
     if (json) {
       out.fee = {
         gasLimits: {
-          da: gas.gasLimits.daGas,
-          l2: gas.gasLimits.l2Gas,
+          da: estimatedGas.gasLimits.daGas,
+          l2: estimatedGas.gasLimits.l2Gas,
         },
         teardownGasLimits: {
-          da: gas.teardownGasLimits.daGas,
-          l2: gas.teardownGasLimits,
+          da: estimatedGas.teardownGasLimits.daGas,
+          l2: estimatedGas.teardownGasLimits,
         },
       };
     }
   } else {
     const provenTx = await deployMethod.prove({
       ...deployOpts,
-      universalDeploy: true,
-      contractAddressSalt: salt,
+      fee: {
+        ...deployOpts.fee,
+        gasSettings: estimatedGas,
+      },
     });
     if (verbose) {
       printProfileResult(provenTx.stats!, log);

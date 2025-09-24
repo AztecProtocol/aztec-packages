@@ -1,4 +1,4 @@
-import { BaseAccount, type CompleteAddress, type NodeInfo } from '@aztec/aztec.js';
+import { BaseAccount, type ChainInfo, type CompleteAddress } from '@aztec/aztec.js';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { loadContractArtifact } from '@aztec/stdlib/abi';
 import type { NoirCompiledContract } from '@aztec/stdlib/noir';
@@ -24,17 +24,17 @@ export class StubAccountContract extends StubBaseAccountContract {
 }
 
 /**
- *
+ * Creates a stub account that impersonates the one with the provided originalAddress.
+ * @param originalAddress - The address of the account to stub
+ * @param chainInfo - The chain info that the account is connected to
+ * @returns A stub account that can be used for kernelless simulations
  */
-export function createStubAccount(
-  originalAddress: CompleteAddress,
-  nodeInfo: Pick<NodeInfo, 'l1ChainId' | 'rollupVersion'>,
-) {
+export function createStubAccount(originalAddress: CompleteAddress, chainInfo: ChainInfo) {
   const accountContract = new StubAccountContract();
   const accountInterface = new DefaultAccountInterface(
     accountContract.getAuthWitnessProvider(originalAddress),
     originalAddress,
-    nodeInfo,
+    chainInfo,
   );
   return new BaseAccount(accountInterface);
 }

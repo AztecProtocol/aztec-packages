@@ -1,1 +1,9 @@
-export { type Aliased, BaseWallet, type Wallet, AccountManager, type DeployAccountOptions } from '../wallet/index.js';
+export {
+  type Aliased,
+  type ChainInfo,
+  BaseWallet,
+  type Wallet,
+  AccountManager,
+  type DeployAccountOptions,
+  WalletSchema,
+} from '../wallet/index.js';

@@ -9,6 +9,7 @@ import {
   MNEMONIC,
   PRIVATE_KEY,
   l1ChainIdOption,
+  nodeOption,
   parseAztecAddress,
   parseBigint,
   parseEthereumAddress,
@@ -48,7 +49,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option('--sponsored-fpc', 'Populate genesis state with a testing sponsored FPC contract')
     .option('--accelerated-test-deployments', 'Fire and forget deployment transactions, use in testing only', false)
     .option('--real-verifier', 'Deploy the real verifier', false)
-    .option('--flush-entry-queue', 'Whether to flush the entry queue after adding initial validators', false)
     .option('--create-verification-json [path]', 'Create JSON file for etherscan contract verification', false)
     .action(async options => {
       const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
@@ -69,7 +69,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.createVerificationJson,
         initialValidators,
         options.realVerifier,
-        options.flushEntryQueue,
         log,
         debugLogger,
       );
@@ -509,10 +508,10 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     )
     .argument('[blockNumber]', 'The target block number, defaults to the latest pending block number.', parseBigint)
     .addOption(l1RpcUrlsOption)
-    .addOption(pxeOption)
+    .addOption(nodeOption)
     .action(async (blockNumber, options) => {
       const { assumeProvenThrough } = await import('./assume_proven_through.js');
-      await assumeProvenThrough(blockNumber, options.l1RpcUrls, options.rpcUrl, log);
+      await assumeProvenThrough(blockNumber, options.l1RpcUrls, options.nodeUrl, log);
     });
 
   program

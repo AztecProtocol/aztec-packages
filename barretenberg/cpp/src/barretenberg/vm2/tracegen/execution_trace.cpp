@@ -418,10 +418,10 @@ void ExecutionTraceBuilder::process(
                 { C::execution_retrieved_bytecodes_tree_size,
                   ex_event.after_context_event.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
                 // Context - side effects
-                { C::execution_prev_num_unencrypted_logs,
-                  ex_event.before_context_event.side_effect_states.numUnencryptedLogs },
-                { C::execution_num_unencrypted_logs,
-                  ex_event.after_context_event.side_effect_states.numUnencryptedLogs },
+                { C::execution_prev_num_unencrypted_log_fields,
+                  ex_event.before_context_event.side_effect_states.numUnencryptedLogFields },
+                { C::execution_num_unencrypted_log_fields,
+                  ex_event.after_context_event.side_effect_states.numUnencryptedLogFields },
                 { C::execution_prev_num_l2_to_l1_messages,
                   ex_event.before_context_event.side_effect_states.numL2ToL1Messages },
                 { C::execution_num_l2_to_l1_messages,
@@ -515,7 +515,7 @@ void ExecutionTraceBuilder::process(
             if (*exec_opcode == ExecutionOpCode::TORADIXBE) {
                 uint32_t radix = ex_event.inputs[1].as<uint32_t>();     // Safe since already tag checked
                 uint32_t num_limbs = ex_event.inputs[2].as<uint32_t>(); // Safe since already tag checked
-                uint32_t num_p_limbs = radix > 256 ? 32 : static_cast<uint32_t>(get_p_limbs_per_radix()[radix].size());
+                uint32_t num_p_limbs = radix > 256 ? 32 : static_cast<uint32_t>(get_p_limbs_per_radix_size(radix));
                 trace.set(row,
                           { {
                               // To Radix BE Dynamic Gas
@@ -526,8 +526,6 @@ void ExecutionTraceBuilder::process(
                               { C::execution_sel_use_num_limbs, num_limbs > num_p_limbs ? 1 : 0 },
                               // Don't set dyn gas factor here since already set in process_gas
                           } });
-            } else if (exec_opcode == ExecutionOpCode::EMITUNENCRYPTEDLOG) {
-                trace.set(C::execution_dynamic_da_gas_factor, row, registers[1].as<uint32_t>());
             }
         }
 
@@ -1017,6 +1015,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                   { C::execution_base_address_val, addr_event.base_address.as_ff() },
                   { C::execution_base_address_tag, static_cast<uint8_t>(addr_event.base_address.get_tag()) },
                   { C::execution_base_address_tag_diff_inv, base_address_tag_diff_inv },
+                  { C::execution_sel_some_final_check_failed, some_final_check_failed ? 1 : 0 },
                   { C::execution_sel_base_address_failure, base_address_invalid ? 1 : 0 },
                   { C::execution_num_relative_operands_inv, do_base_check ? FF(num_relative_operands).invert() : 0 },
                   { C::execution_sel_do_base_check, do_base_check ? 1 : 0 },

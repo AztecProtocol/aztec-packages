@@ -108,7 +108,7 @@ describe('Private Execution test suite', () => {
   let executionDataProvider: MockProxy<ExecutionDataProvider>;
   let acirSimulator: ContractFunctionSimulator;
 
-  let header = BlockHeader.empty();
+  let anchorBlockHeader = BlockHeader.empty();
   let logger: Logger;
 
   let defaultContractAddress: AztecAddress;
@@ -208,29 +208,29 @@ describe('Private Execution test suite', () => {
     const newSnap = new AppendOnlyTreeSnapshot(Fr.fromBuffer(tree.getRoot(true)), Number(tree.getNumLeaves(true)));
 
     if (name === 'noteHash' || name === 'l1ToL2Messages' || name === 'publicData') {
-      header = new BlockHeader(
-        header.lastArchive,
-        header.contentCommitment,
+      anchorBlockHeader = new BlockHeader(
+        anchorBlockHeader.lastArchive,
         new StateReference(
-          name === 'l1ToL2Messages' ? newSnap : header.state.l1ToL2MessageTree,
+          name === 'l1ToL2Messages' ? newSnap : anchorBlockHeader.state.l1ToL2MessageTree,
           new PartialStateReference(
-            name === 'noteHash' ? newSnap : header.state.partial.noteHashTree,
-            header.state.partial.nullifierTree,
-            name === 'publicData' ? newSnap : header.state.partial.publicDataTree,
+            name === 'noteHash' ? newSnap : anchorBlockHeader.state.partial.noteHashTree,
+            anchorBlockHeader.state.partial.nullifierTree,
+            name === 'publicData' ? newSnap : anchorBlockHeader.state.partial.publicDataTree,
           ),
         ),
-        header.globalVariables,
-        header.totalFees,
-        header.totalManaUsed,
+        anchorBlockHeader.spongeBlobHash,
+        anchorBlockHeader.globalVariables,
+        anchorBlockHeader.totalFees,
+        anchorBlockHeader.totalManaUsed,
       );
     } else {
-      header = new BlockHeader(
-        header.lastArchive,
-        header.contentCommitment,
-        new StateReference(newSnap, header.state.partial),
-        header.globalVariables,
-        header.totalFees,
-        header.totalManaUsed,
+      anchorBlockHeader = new BlockHeader(
+        anchorBlockHeader.lastArchive,
+        new StateReference(newSnap, anchorBlockHeader.state.partial),
+        anchorBlockHeader.spongeBlobHash,
+        anchorBlockHeader.globalVariables,
+        anchorBlockHeader.totalFees,
+        anchorBlockHeader.totalManaUsed,
       );
     }
 
@@ -290,7 +290,7 @@ describe('Private Execution test suite', () => {
     // We call insertLeaves here with no leaves to populate empty public data tree root --> this is necessary to be
     // able to get ivpk_m during execution
     await insertLeaves([], 'publicData');
-    executionDataProvider.getBlockHeader.mockResolvedValue(header);
+    executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
     executionDataProvider.getCompleteAddress.mockImplementation((address: AztecAddress) => {
       if (address.equals(owner)) {
@@ -442,8 +442,6 @@ describe('Private Execution test suite', () => {
     });
 
     it('should run the destroy_and_create function', async () => {
-      const amountToTransfer = 100n;
-
       const storageSlot = await deriveStorageSlotInMap(StatefulTestContractArtifact.storageLayout['notes'].slot, owner);
       const recipientStorageSlot = await deriveStorageSlotInMap(
         StatefulTestContractArtifact.storageLayout['notes'].slot,
@@ -466,7 +464,7 @@ describe('Private Execution test suite', () => {
 
       await insertLeaves(consumedNotes);
 
-      const args = [recipient, amountToTransfer];
+      const args = [recipient];
       const { entrypoint: result } = await runSimulator({
         args,
         artifact: StatefulTestContractArtifact,
@@ -480,25 +478,22 @@ describe('Private Execution test suite', () => {
       const nullifiers = result.publicInputs.nullifiers;
       expect(nullifiers.claimedLength).toBe(consumedNotes.length);
 
-      expect(result.newNotes).toHaveLength(2);
-      const [changeNote, recipientNote] = result.newNotes;
+      expect(result.newNotes).toHaveLength(1);
+      const [recipientNote] = result.newNotes;
       expect(recipientNote.storageSlot).toEqual(recipientStorageSlot);
+      expect(recipientNote.note.items[0]).toEqual(new Fr(92n));
 
       const noteHashes = result.publicInputs.noteHashes;
-      expect(noteHashes.claimedLength).toBe(2);
-
-      expect(recipientNote.note.items[0]).toEqual(new Fr(amountToTransfer));
-      expect(changeNote.note.items[0]).toEqual(new Fr(40n));
+      expect(noteHashes.claimedLength).toBe(1);
 
       const privateLogs = result.publicInputs.privateLogs;
-      expect(privateLogs.claimedLength).toBe(2);
+      expect(privateLogs.claimedLength).toBe(1);
 
       const readRequests = result.publicInputs.noteHashReadRequests;
       expect(readRequests.claimedLength).toBe(consumedNotes.length);
     });
 
     it('should be able to destroy_and_create with dummy notes', async () => {
-      const amountToTransfer = 100n;
       const balance = 160n;
 
       const storageSlot = await deriveStorageSlotInMap(new Fr(1n), owner);
@@ -516,7 +511,7 @@ describe('Private Execution test suite', () => {
 
       await insertLeaves(consumedNotes);
 
-      const args = [recipient, amountToTransfer];
+      const args = [recipient];
       const { entrypoint: result } = await runSimulator({
         args,
         artifact: StatefulTestContractArtifact,
@@ -528,13 +523,12 @@ describe('Private Execution test suite', () => {
       const nullifiers = result.publicInputs.nullifiers;
       expect(nullifiers.claimedLength).toBe(consumedNotes.length);
 
-      expect(result.newNotes).toHaveLength(2);
-      const [changeNote, recipientNote] = result.newNotes;
-      expect(recipientNote.note.items[0]).toEqual(new Fr(amountToTransfer));
-      expect(changeNote.note.items[0]).toEqual(new Fr(balance - amountToTransfer));
+      // We've inserted just one note for recipient with hardcoded value 92
+      expect(result.newNotes).toHaveLength(1);
+      expect(result.newNotes[0].note.items[0]).toEqual(new Fr(92n));
 
       const privateLogs = result.publicInputs.privateLogs;
-      expect(privateLogs.claimedLength).toBe(2);
+      expect(privateLogs.claimedLength).toBe(1);
     });
   });
 
@@ -682,7 +676,7 @@ describe('Private Execution test suite', () => {
           return Promise.resolve(new MessageLoadOracleInputs(0n, await tree.getSiblingPath(0n, true)));
         });
         if (updateHeader) {
-          executionDataProvider.getBlockHeader.mockResolvedValue(header);
+          executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
         }
       };
 
@@ -732,7 +726,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        executionDataProvider.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
         await expect(
           runSimulator({
@@ -753,7 +747,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        executionDataProvider.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
         await expect(
           runSimulator({
@@ -773,7 +767,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        executionDataProvider.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
         await expect(
           runSimulator({
@@ -793,7 +787,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        executionDataProvider.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
         await expect(
           runSimulator({
@@ -814,7 +808,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        executionDataProvider.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
         await expect(
           runSimulator({
@@ -835,7 +829,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        executionDataProvider.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
         await expect(
           runSimulator({
@@ -1199,14 +1193,14 @@ describe('Private Execution test suite', () => {
 
   describe('Historical header in private context', () => {
     beforeEach(() => {
-      header = makeHeader();
+      anchorBlockHeader = makeHeader();
 
-      executionDataProvider.getBlockHeader.mockClear();
-      executionDataProvider.getBlockHeader.mockResolvedValue(header);
+      executionDataProvider.getAnchorBlockHeader.mockClear();
+      executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
     });
 
     it('Header is correctly set', async () => {
-      const args = [await header.hash()];
+      const args = [await anchorBlockHeader.hash()];
 
       await runSimulator({
         artifact: TestContractArtifact,

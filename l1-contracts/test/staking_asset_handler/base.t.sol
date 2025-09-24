@@ -59,7 +59,8 @@ contract StakingAssetHandlerBase is ZKPassportBase, TestBase {
       domain: CORRECT_DOMAIN,
       scope: CORRECT_SCOPE,
       skipBindCheck: true,
-      skipMerkleCheck: true
+      skipMerkleCheck: true,
+      validatorsToFlush: 48
     });
 
     stakingAssetHandler = new StakingAssetHandler(stakingAssetHandlerArgs);

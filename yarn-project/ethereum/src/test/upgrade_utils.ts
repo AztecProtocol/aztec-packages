@@ -1,4 +1,5 @@
 import type { Logger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import { GovernanceAbi } from '@aztec/l1-artifacts/GovernanceAbi';
 import { TestERC20Abi as StakingAssetAbi } from '@aztec/l1-artifacts/TestERC20Abi';
 
@@ -30,7 +31,7 @@ export async function executeGovernanceProposal(
     });
   };
 
-  const cheatCodes = new EthCheatCodes(rpcUrls, logger);
+  const cheatCodes = new EthCheatCodes(rpcUrls, new DateProvider(), logger);
 
   const timeToActive = proposal.creation + proposal.config.votingDelay;
   logger.info(`Warping to ${timeToActive + 1n}`);

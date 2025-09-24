@@ -5,12 +5,13 @@ import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import type { SequencerConfig, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
-import type { ProposedBlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
+import type { StateReference, Tx } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 import { z } from 'zod';
 
 import type { CommitteeAttestationsAndSigners } from '../block/index.js';
+import type { CheckpointHeader } from '../rollup/checkpoint_header.js';
 
 /**
  * Validator client configuration
@@ -53,13 +54,12 @@ export const ValidatorClientConfigSchema = z.object({
 
 export interface Validator {
   start(): Promise<void>;
-  registerBlockProposalHandler(): void;
   updateConfig(config: Partial<ValidatorClientFullConfig>): void;
 
   // Block validation responsibilities
   createBlockProposal(
     blockNumber: number,
-    header: ProposedBlockHeader,
+    header: CheckpointHeader,
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],

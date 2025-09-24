@@ -100,7 +100,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
 
     const witness = await this.wallet.createAuthWit(this.sender, {
       caller: this.paymentContract,
-      action: {
+      call: {
         name: 'transfer_to_public',
         args: [this.sender.toField(), this.paymentContract.toField(), maxFee, txNonce],
         selector: await FunctionSelector.fromSignature('transfer_to_public((Field),(Field),u128,Field)'),

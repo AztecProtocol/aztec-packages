@@ -1,13 +1,18 @@
-import { Fr, type PXE, ProvenTx, Tx, readFieldCompressedString, sleep } from '@aztec/aztec.js';
+import { type AztecNode, Fr, ProvenTx, Tx, readFieldCompressedString, sleep } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
+import { TestWallet } from '@aztec/test-wallet';
 
 import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
-import { type TestAccounts, deploySponsoredTestAccounts, startCompatiblePXE } from './setup_test_wallets.js';
+import {
+  type TestAccounts,
+  createWalletAndAztecNodeClient,
+  deploySponsoredTestAccounts,
+} from './setup_test_wallets.js';
 import { setupEnvironment, startPortForwardForRPC } from './utils.js';
 
-const config = { ...setupEnvironment(process.env), REAL_VERIFIER: true }; // TODO: remove REAL_VERIFIER: true
+const config = { ...setupEnvironment(process.env) };
 
 describe('sustained 10 TPS test', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
@@ -19,7 +24,9 @@ describe('sustained 10 TPS test', () => {
   const TOTAL_TXS = TEST_DURATION_SECONDS * TARGET_TPS;
 
   let testAccounts: TestAccounts;
-  let pxe: PXE;
+  let wallet: TestWallet;
+  let aztecNode: AztecNode;
+
   let cleanup: undefined | (() => Promise<void>);
   const forwardProcesses: ChildProcess[] = [];
 
@@ -34,11 +41,11 @@ describe('sustained 10 TPS test', () => {
     forwardProcesses.push(aztecRpcProcess);
     const rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
 
-    ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, logger));
+    ({ wallet, aztecNode, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger));
 
     // Setup wallets
     logger.info('deploying test wallets');
-    testAccounts = await deploySponsoredTestAccounts(pxe, MINT_AMOUNT, logger);
+    testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, logger);
     logger.info(`testAccounts ready`);
 
     logger.info(

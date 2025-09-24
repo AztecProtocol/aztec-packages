@@ -3,7 +3,7 @@
 #include <array>
 #include <gmock/gmock.h>
 
-#include "barretenberg/vm2/simulation/gas_tracker.hpp"
+#include "barretenberg/vm2/simulation/interfaces/gas_tracker.hpp"
 
 namespace bb::avm2::simulation {
 

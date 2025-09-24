@@ -20,7 +20,7 @@ mkdir -p ../docs/static/api/
 cp -R docs/build/* ../docs/static/api/
 
 # NOTE(AD): hack - but was blocked and couldn't figure out why we had two examples for something called 'if' with different casing.
-rm ../docs/static/api/if-example.html
+rm -f ../docs/static/api/if-example.html
 
 echo "Doxygen documentation successfully built and copied to Docusaurus!"
 echo "You can now build and serve the Docusaurus site to view the integrated documentation."

@@ -108,13 +108,18 @@ jobs:
           ETHEREUM_CONSENSUS_HOST_API_KEYS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEYS }}
           ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEY_HEADERS }}
           FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
-          LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_INFRA_MNEMONIC }}
+          LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_STAGING_PUBLIC_MNEMONIC }}
           ROLLUP_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_LABS_ROLLUP_PRIVATE_KEY }}
           OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}
           VERIFY_CONTRACTS=true
           ETHERSCAN_API_KEY=${{ secrets.ETHERSCAN_API_KEY }}
           DEPLOY_INTERNAL_BOOTNODE=false
           STORE_SNAPSHOT_URL="${{ secrets.GCS_TESTNET_SNAPSHOT_URL }}/staging-public/"
+          PROVER_FAILED_PROOF_STORE=gs://aztec-develop/staging-public/failed-proofs
+          TEST_ACCOUNTS=false
+          SPONSORED_FPC=true
+          SEQ_MIN_TX_PER_BLOCK=0
+          SEQ_MAX_TX_PER_BLOCK=8
 
           BOT_TRANSFERS_REPLICAS=1
           BOT_TRANSFERS_TX_INTERVAL_SECONDS=250
@@ -123,6 +128,11 @@ jobs:
           BOT_SWAPS_REPLICAS=1
           BOT_SWAPS_FOLLOW_CHAIN=PENDING
           BOT_SWAPS_TX_INTERVAL_SECONDS=350
+
+          RPC_INGRESS_ENABLED=true
+          RPC_INGRESS_HOST=staging.alpha-testnet.aztec-labs.com
+          RPC_INGRESS_STATIC_IP_NAME=staging-public-rpc-ip
+          RPC_INGRESS_SSL_CERT_NAME=staging-public-rpc-cert
 
           FLUSH_ENTRY_QUEUE=false
           EOF
@@ -158,10 +168,14 @@ jobs:
           GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
           GCP_REGION=us-west1-a
           CLUSTER=aztec-gke-private
-          SALT=11757379062
+          SALT=1175732583
           NAMESPACE=${NAMESPACE}
           AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
           TRANSACTIONS_DISABLED=true
+          TEST_ACCOUNTS=false
+          SPONSORED_FPC=false
+          SEQ_MIN_TX_PER_BLOCK=0
+          SEQ_MAX_TX_PER_BLOCK=0
           NETWORK=staging-ignition
 
           ETHEREUM_CHAIN_ID=11155111
@@ -176,7 +190,6 @@ jobs:
           VERIFY_CONTRACTS=true
           ETHERSCAN_API_KEY=${{ secrets.ETHERSCAN_API_KEY }}
           STORE_SNAPSHOT_URL="${{ secrets.GCS_TESTNET_SNAPSHOT_URL }}/staging-ignition/"
-          DEPLOY_INTERNAL_BOOTNODE=false
           BOT_TRANSFERS_REPLICAS=0
           BOT_SWAPS_REPLICAS=0
           DEPLOY_INTERNAL_BOOTNODE=false
@@ -217,6 +230,10 @@ jobs:
           SALT=1757380290
           NAMESPACE=${NAMESPACE}
           AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
+          TEST_ACCOUNTS=false
+          SPONSORED_FPC=true
+          SEQ_MIN_TX_PER_BLOCK=0
+          SEQ_MAX_TX_PER_BLOCK=8
           NETWORK=testnet
 
           ETHEREUM_CHAIN_ID=11155111
@@ -225,7 +242,7 @@ jobs:
           ETHEREUM_CONSENSUS_HOST_API_KEYS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEYS }}
           ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEY_HEADERS }}
           FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
-          LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_INFRA_MNEMONIC }}
+          LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_TESTNET_MNEMONIC }}
           ROLLUP_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_LABS_ROLLUP_PRIVATE_KEY }}
           OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}
           VERIFY_CONTRACTS=true
@@ -236,6 +253,14 @@ jobs:
           BOT_TRANSFERS_REPLICAS=0
           BOT_SWAPS_REPLICAS=0
           FLUSH_ENTRY_QUEUE=false
+
+          DEPLOY_ARCHIVAL_NODE=true
+
+          RPC_INGRESS_ENABLED=true
+          RPC_INGRESS_HOST=rpc.testnet.aztec-labs.com
+          RPC_INGRESS_STATIC_IP_NAME=testnet-rpc-ip
+          RPC_INGRESS_SSL_CERT_NAME=testnet-rpc-cert
+
           EOF
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
 

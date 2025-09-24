@@ -1,6 +1,7 @@
-import { AztecAddress, type AztecNode, type Logger, type Wallet, createLogger } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, type Logger, createLogger } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { jest } from '@jest/globals';
 
@@ -27,7 +28,7 @@ export class TokenContractTest {
   node!: AztecNode;
 
   badAccount!: InvalidAccountContract;
-  wallet!: Wallet;
+  wallet!: TestWallet;
   adminAddress!: AztecAddress;
   account1Address!: AztecAddress;
   account2Address!: AztecAddress;

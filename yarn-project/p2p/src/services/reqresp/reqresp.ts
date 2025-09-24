@@ -26,7 +26,6 @@ import {
 import { BatchConnectionSampler } from './connection-sampler/batch_connection_sampler.js';
 import { ConnectionSampler, RandomSampler } from './connection-sampler/connection_sampler.js';
 import {
-  DEFAULT_SUB_PROTOCOL_HANDLERS,
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
   type ReqRespInterface,
   type ReqRespResponse,
@@ -64,9 +63,8 @@ export class ReqResp implements ReqRespInterface {
   private individualRequestTimeoutMs: number = DEFAULT_INDIVIDUAL_REQUEST_TIMEOUT_MS;
   private dialTimeoutMs: number = DEFAULT_REQRESP_DIAL_TIMEOUT_MS;
 
-  // Warning, if the `start` function is not called as the parent class constructor, then the default sub protocol handlers will be used ( not good )
-  private subProtocolHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS;
-  private subProtocolValidators: ReqRespSubProtocolValidators = DEFAULT_SUB_PROTOCOL_VALIDATORS;
+  private subProtocolHandlers: Partial<ReqRespSubProtocolHandlers> = {};
+  private subProtocolValidators: Partial<ReqRespSubProtocolValidators> = {};
 
   private connectionSampler: ConnectionSampler;
   private rateLimiter: RequestResponseRateLimiter;
@@ -117,11 +115,12 @@ export class ReqResp implements ReqRespInterface {
    * Start the reqresp service
    */
   async start(subProtocolHandlers: ReqRespSubProtocolHandlers, subProtocolValidators: ReqRespSubProtocolValidators) {
-    this.subProtocolHandlers = subProtocolHandlers;
-    this.subProtocolValidators = subProtocolValidators;
+    Object.assign(this.subProtocolHandlers, subProtocolHandlers);
+    Object.assign(this.subProtocolValidators, subProtocolValidators);
 
     // Register all protocol handlers
-    for (const subProtocol of Object.keys(this.subProtocolHandlers)) {
+    for (const subProtocol of Object.keys(subProtocolHandlers)) {
+      this.logger.debug(`Registering handler for sub protocol ${subProtocol}`);
       await this.libp2p.handle(
         subProtocol,
         (data: IncomingStreamData) =>
@@ -140,6 +139,7 @@ export class ReqResp implements ReqRespInterface {
   ): Promise<void> {
     this.subProtocolHandlers[subProtocol] = handler;
     this.subProtocolValidators[subProtocol] = validator;
+    this.logger.debug(`Registering handler for sub protocol ${subProtocol}`);
     await this.libp2p.handle(
       subProtocol,
       (data: IncomingStreamData) =>
@@ -209,7 +209,7 @@ export class ReqResp implements ReqRespInterface {
     maxPeers = Math.max(10, Math.ceil(requests.length / 3)),
     maxRetryAttempts = 3,
   ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
-    const responseValidator = this.subProtocolValidators[subProtocol];
+    const responseValidator = this.subProtocolValidators[subProtocol] ?? DEFAULT_SUB_PROTOCOL_VALIDATORS[subProtocol];
     const responses: InstanceType<SubProtocolMap[SubProtocol]['response']>[] = new Array(requests.length);
     const requestBuffers = requests.map(req => req.toBuffer());
 
@@ -594,7 +594,11 @@ export class ReqResp implements ReqRespInterface {
    *
    * */
   private async processStream(protocol: ReqRespSubProtocol, { stream, connection }: IncomingStreamData): Promise<void> {
-    const handler = this.subProtocolHandlers[protocol]!;
+    const handler = this.subProtocolHandlers[protocol];
+    if (!handler) {
+      throw new Error(`No handler defined for reqresp subprotocol ${protocol}`);
+    }
+
     const snappy = this.snappyTransform;
     const SUCCESS = Uint8Array.of(ReqRespStatus.SUCCESS);
 

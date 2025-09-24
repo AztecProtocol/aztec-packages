@@ -1,15 +1,17 @@
 import { getDeployedTestAccounts } from '@aztec/accounts/testing';
-import { createPXEClient } from '@aztec/aztec.js';
+import { createAztecNodeClient, createPXEClient } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TestWallet } from '@aztec/test-wallet';
 
 const logger = createLogger('example:token');
 
+const nodeUrl = 'http://localhost:8079';
 const url = 'http://localhost:8080';
 
+const node = createAztecNodeClient(nodeUrl);
 const pxe = createPXEClient(url);
-const wallet = new TestWallet(pxe);
+const wallet = new TestWallet(pxe, node);
 
 const ALICE_MINT_BALANCE = 333n;
 const TRANSFER_AMOUNT = 33n;
@@ -20,7 +22,7 @@ const TRANSFER_AMOUNT = 33n;
 async function main() {
   logger.info('Running token contract test on HTTP interface.');
 
-  const accounts = await getDeployedTestAccounts(pxe);
+  const accounts = await getDeployedTestAccounts(wallet);
   const [alice, bob] = await Promise.all(
     accounts.map(async acc => {
       const accountManager = await wallet.createSchnorrAccount(acc.secret, acc.salt);

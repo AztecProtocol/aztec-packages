@@ -1,4 +1,4 @@
-import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
+import { Blob, BlobDeserializationError, SpongeBlob } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import type {
   EpochProofPublicInputArgs,
@@ -15,10 +15,11 @@ import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { Body, CommitteeAttestation, L2Block, PublishedL2Block } from '@aztec/stdlib/block';
+import { Body, CommitteeAttestation, L2Block, L2BlockHeader, PublishedL2Block } from '@aztec/stdlib/block';
 import { Proof } from '@aztec/stdlib/proofs';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, ProposedBlockHeader, StateReference } from '@aztec/stdlib/tx';
+import { GlobalVariables, StateReference } from '@aztec/stdlib/tx';
 
 import {
   type GetContractEventsReturnType,
@@ -39,7 +40,7 @@ export type RetrievedL2Block = {
   l2BlockNumber: number;
   archiveRoot: Fr;
   stateReference: StateReference;
-  header: ProposedBlockHeader;
+  header: CheckpointHeader;
   body: Body;
   l1: L1PublishedData;
   chainId: Fr;
@@ -47,12 +48,12 @@ export type RetrievedL2Block = {
   attestations: CommitteeAttestation[];
 };
 
-export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Block): PublishedL2Block {
+export async function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Block): Promise<PublishedL2Block> {
   const {
     l2BlockNumber,
     archiveRoot,
     stateReference,
-    header: proposedHeader,
+    header: checkpointHeader,
     body,
     l1,
     chainId,
@@ -69,20 +70,29 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
     chainId,
     version,
     blockNumber: l2BlockNumber,
-    slotNumber: proposedHeader.slotNumber,
-    timestamp: proposedHeader.timestamp,
-    coinbase: proposedHeader.coinbase,
-    feeRecipient: proposedHeader.feeRecipient,
-    gasFees: proposedHeader.gasFees,
+    slotNumber: checkpointHeader.slotNumber,
+    timestamp: checkpointHeader.timestamp,
+    coinbase: checkpointHeader.coinbase,
+    feeRecipient: checkpointHeader.feeRecipient,
+    gasFees: checkpointHeader.gasFees,
   });
 
-  const header = BlockHeader.from({
-    lastArchive: new AppendOnlyTreeSnapshot(proposedHeader.lastArchiveRoot, l2BlockNumber),
-    contentCommitment: proposedHeader.contentCommitment,
+  // TODO(#17027)
+  // This works when there's only one block in the checkpoint.
+  // If there's more than one block, we need to build the spongeBlob from the endSpongeBlob of the previous block.
+  const blobFields = body.toBlobFields();
+  const spongeBlob = SpongeBlob.init(blobFields.length);
+  await spongeBlob.absorb(blobFields);
+  const spongeBlobHash = await spongeBlob.squeeze();
+
+  const header = L2BlockHeader.from({
+    lastArchive: new AppendOnlyTreeSnapshot(checkpointHeader.lastArchiveRoot, l2BlockNumber),
+    contentCommitment: checkpointHeader.contentCommitment,
     state: stateReference,
     globalVariables,
     totalFees: body.txEffects.reduce((accum, txEffect) => accum.add(txEffect.transactionFee), Fr.ZERO),
-    totalManaUsed: proposedHeader.totalManaUsed,
+    totalManaUsed: checkpointHeader.totalManaUsed,
+    spongeBlobHash,
   });
 
   const block = new L2Block(archive, header, body);
@@ -337,9 +347,7 @@ async function getBlockFromRollupTx(
     targetCommitteeSize,
   });
 
-  // TODO(md): why is the proposed block header different to the actual block header?
-  // This is likely going to be a footgun
-  const header = ProposedBlockHeader.fromViem(decodedArgs.header);
+  const header = CheckpointHeader.fromViem(decodedArgs.header);
   const blobBodies = await blobSinkClient.getBlobSidecar(blockHash, blobHashes);
   if (blobBodies.length === 0) {
     throw new NoBlobBodiesFoundError(l2BlockNumber);

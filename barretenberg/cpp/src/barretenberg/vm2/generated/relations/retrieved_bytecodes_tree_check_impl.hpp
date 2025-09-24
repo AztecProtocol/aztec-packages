@@ -15,8 +15,6 @@ void retrieved_bytecodes_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelatio
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/retrieved_bytecodes_tree_check");
-
     const auto constants_AVM_RETRIEVED_BYTECODES_TREE_HEIGHT = FF(5);
     const auto retrieved_bytecodes_tree_check_EXISTS =
         (FF(1) - in.get(C::retrieved_bytecodes_tree_check_leaf_not_exists));

@@ -138,7 +138,7 @@ describe('L1Publisher integration', () => {
     const currentSlot = await rollup.getSlotNumber();
     const timestamp = await rollup.getTimestampForSlot(currentSlot + slotsToJump);
     if (timestamp > currentTime) {
-      await ethCheatCodes.warp(Number(timestamp), { resetBlockInterval: true, updateDateProvider: dateProvider });
+      await ethCheatCodes.warp(Number(timestamp), { resetBlockInterval: true });
     }
   };
 
@@ -153,7 +153,8 @@ describe('L1Publisher integration', () => {
       ...deployL1ContractsArgs,
     }));
 
-    ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls);
+    dateProvider = new TestDateProvider();
+    ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls, dateProvider);
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
@@ -167,8 +168,6 @@ describe('L1Publisher integration', () => {
       abi: OutboxAbi,
       client: l1Client,
     });
-
-    dateProvider = new TestDateProvider();
 
     builderDb = await NativeWorldStateService.tmp(EthAddress.fromString(rollupAddress));
     blocks = [];
@@ -247,6 +246,7 @@ describe('L1Publisher integration', () => {
         slashFactoryContract: undefined as unknown as SlashFactoryContract,
         dateProvider,
         metrics: sequencerPublisherMetrics,
+        lastActions: {},
       },
     );
 
@@ -263,9 +263,7 @@ describe('L1Publisher integration', () => {
     baseFee = new GasFees(0, await rollup.getManaBaseFeeAt(ts, true));
 
     // We jump two epochs such that the committee can be setup.
-    await rollupCheatCodes.advanceToEpoch(BigInt(config.lagInEpochs + 1), {
-      updateDateProvider: dateProvider,
-    });
+    await rollupCheatCodes.advanceToEpoch(BigInt(config.lagInEpochs + 1));
     await rollupCheatCodes.setupEpoch();
 
     ({ committee } = await epochCache.getCommittee());
@@ -395,7 +393,7 @@ describe('L1Publisher integration', () => {
         const totalManaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.totalGas.l2Gas)), Fr.ZERO);
         expect(totalManaUsed.toBigInt()).toEqual(block.header.totalManaUsed.toBigInt());
 
-        prevHeader = block.header;
+        prevHeader = block.getBlockHeader();
         blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
 
         const l2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
@@ -465,7 +463,7 @@ describe('L1Publisher integration', () => {
           functionName: 'propose',
           args: [
             {
-              header: block.header.toPropose().toViem(),
+              header: block.getCheckpointHeader().toViem(),
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
               stateReference: block.header.state.toViem(),
               oracleInput: {
@@ -557,7 +555,7 @@ describe('L1Publisher integration', () => {
 
       const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
-      await publisher.validateBlockHeader(block.header.toPropose());
+      await publisher.validateBlockHeader(block.getCheckpointHeader());
 
       const proposerSigner = validators.find(v => v.address.equals(proposer!));
 
@@ -580,7 +578,7 @@ describe('L1Publisher integration', () => {
 
       const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
-      await publisher.validateBlockHeader(block.header.toPropose());
+      await publisher.validateBlockHeader(block.getCheckpointHeader());
 
       await expect(publisher.enqueueProposeL2Block(block, attestationsAndSigners, Signature.empty())).rejects.toThrow(
         /ValidatorSelection__InvalidCommitteeCommitment/,
@@ -641,8 +639,10 @@ describe('L1Publisher integration', () => {
 
       // Same for validation
       logger.warn('Checking validate block header');
-      await expect(publisher.validateBlockHeader(block.header.toPropose())).rejects.toThrow(/Rollup__InvalidArchive/);
-      await publisher.validateBlockHeader(block.header.toPropose(), { forcePendingBlockNumber });
+      await expect(publisher.validateBlockHeader(block.getCheckpointHeader())).rejects.toThrow(
+        /Rollup__InvalidArchive/,
+      );
+      await publisher.validateBlockHeader(block.getCheckpointHeader(), { forcePendingBlockNumber });
 
       // At this point I'm gonna need to propose the correct signature ye? So confused actually here.
       const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);

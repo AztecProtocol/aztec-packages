@@ -1,7 +1,9 @@
 import { retryUntil } from '@aztec/aztec.js';
 import { EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
+import type { DateProvider } from '@aztec/foundation/timer';
 import type { SequencerClient } from '@aztec/sequencer-client';
-import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 
 import { AztecCheatCodes } from './aztec_cheat_codes.js';
 
@@ -18,12 +20,17 @@ export class CheatCodes {
     public rollup: RollupCheatCodes,
   ) {}
 
-  static async create(rpcUrls: string[], pxe: PXE): Promise<CheatCodes> {
-    const ethCheatCodes = new EthCheatCodes(rpcUrls);
-    const aztecCheatCodes = new AztecCheatCodes(pxe);
+  static async create(
+    rpcUrls: string[],
+    testWalletOrPxe: { getNotes(filter: NotesFilter): Promise<UniqueNote[]> },
+    node: AztecNode,
+    dateProvider: DateProvider,
+  ): Promise<CheatCodes> {
+    const ethCheatCodes = new EthCheatCodes(rpcUrls, dateProvider);
+    const aztecCheatCodes = new AztecCheatCodes(testWalletOrPxe, node);
     const rollupCheatCodes = new RollupCheatCodes(
       ethCheatCodes,
-      await pxe.getNodeInfo().then(n => n.l1ContractAddresses),
+      await node.getNodeInfo().then(n => n.l1ContractAddresses),
     );
     return new CheatCodes(ethCheatCodes, aztecCheatCodes, rollupCheatCodes);
   }

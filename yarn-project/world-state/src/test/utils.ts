@@ -64,7 +64,7 @@ export async function mockBlock(
 
   const state = await fork.getStateReference();
   l2Block.header.state = state;
-  await fork.updateArchive(l2Block.header);
+  await fork.updateArchive(l2Block.getBlockHeader());
 
   const archiveState = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
 
@@ -115,7 +115,7 @@ export async function mockEmptyBlock(blockNum: number, fork: MerkleTreeWriteOper
 
   const state = await fork.getStateReference();
   l2Block.header.state = state;
-  await fork.updateArchive(l2Block.header);
+  await fork.updateArchive(l2Block.getBlockHeader());
 
   const archiveState = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
 

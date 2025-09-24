@@ -8,7 +8,6 @@ import {
   BatchCall,
   type ContractMethod,
   type Logger,
-  type PXE,
   type Wallet,
   createAztecNodeClient,
   createLogger,
@@ -57,12 +56,7 @@ import type { P2PClientDeps } from '@aztec/p2p';
 import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
-import {
-  type PXEService,
-  type PXEServiceConfig,
-  createPXEServiceWithSimulator,
-  getPXEServiceConfig,
-} from '@aztec/pxe/server';
+import { type PXEServiceConfig, createPXEServiceWithSimulator, getPXEServiceConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import { MemoryCircuitRecorder, SimulatorRecorderWrapper, WASMSimulator } from '@aztec/simulator/client';
@@ -148,23 +142,23 @@ export const setupL1Contracts = async (
 };
 
 /**
- * Sets up Private eXecution Environment (PXE).
+ * Sets up Private eXecution Environment (PXE) and returns the corresponding test wallet.
  * @param aztecNode - An instance of Aztec Node.
  * @param opts - Partial configuration for the PXE service.
  * @param logger - The logger to be used.
  * @param useLogSuffix - Whether to add a randomly generated suffix to the PXE debug logs.
- * @returns Private eXecution Environment (PXE), logger and teardown function.
+ * @returns A test wallet, logger and teardown function.
  */
-export async function setupPXEService(
+export async function setupPXEServiceAndGetWallet(
   aztecNode: AztecNode,
   opts: Partial<PXEServiceConfig> = {},
   logger = getLogger(),
   useLogSuffix = false,
 ): Promise<{
   /**
-   * The PXE instance.
+   * The wallet instance.
    */
-  pxe: PXEService;
+  wallet: TestWallet;
   /**
    * Logger instance named as the current test.
    */
@@ -195,8 +189,10 @@ export async function setupPXEService(
 
   const teardown = configuredDataDirectory ? () => Promise.resolve() : () => tryRmDir(pxeServiceConfig.dataDirectory!);
 
+  const wallet = new TestWallet(pxe, aztecNode);
+
   return {
-    pxe,
+    wallet,
     logger,
     teardown,
   };
@@ -226,7 +222,7 @@ async function setupWithRemoteEnvironment(
   await waitForPXE(pxeClient, logger);
   logger.verbose('JSON RPC client connected to PXE');
   logger.verbose(`Retrieving contract addresses from ${PXE_URL}`);
-  const { l1ContractAddresses, rollupVersion } = await pxeClient.getNodeInfo();
+  const { l1ContractAddresses, rollupVersion } = await aztecNode.getNodeInfo();
 
   const l1Client = createExtendedL1Client(config.l1RpcUrls, account, foundry);
 
@@ -235,13 +231,13 @@ async function setupWithRemoteEnvironment(
     l1Client,
     rollupVersion,
   };
-  const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls);
-  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxeClient!);
+  const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls, new DateProvider());
+  const wallet = new TestWallet(pxeClient, aztecNode);
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, wallet, aztecNode, new DateProvider());
   const teardown = () => Promise.resolve();
 
   logger.verbose('Populating wallet from already registered accounts...');
-  const initialFundedAccounts = await getDeployedTestAccounts(pxeClient);
-  const wallet = new TestWallet(pxeClient);
+  const initialFundedAccounts = await getDeployedTestAccounts(wallet);
 
   if (initialFundedAccounts.length < numberOfAccounts) {
     throw new Error(`Required ${numberOfAccounts} accounts. Found ${initialFundedAccounts.length}.`);
@@ -260,7 +256,6 @@ async function setupWithRemoteEnvironment(
     aztecNodeAdmin: undefined,
     sequencer: undefined,
     proverNode: undefined,
-    pxe: pxeClient,
     deployL1ContractsValues,
     config,
     initialFundedAccounts,
@@ -337,8 +332,6 @@ export type EndToEndContext = {
   proverNode: ProverNode | undefined;
   /** A client to the sequencer service (undefined if connected to remote environment) */
   sequencer: SequencerClient | undefined;
-  /** The Private eXecution Environment (PXE). */
-  pxe: PXE;
   /** Return values from deployL1Contracts function. */
   deployL1ContractsValues: DeployL1ContractsReturnType;
   /** The Aztec Node configuration. */
@@ -433,7 +426,8 @@ export async function setup(
       setupMetricsLogger(filename);
     }
 
-    const ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls);
+    const dateProvider = new TestDateProvider();
+    const ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls, dateProvider);
 
     if (opts.stateLoad) {
       await ethCheatCodes.loadChainState(opts.stateLoad);
@@ -534,6 +528,7 @@ export async function setup(
     if (enableAutomine) {
       await ethCheatCodes.setAutomine(false);
       await ethCheatCodes.setIntervalMining(config.ethereumSlotDuration);
+      dateProvider.setTime((await ethCheatCodes.timestamp()) * 1000);
     }
 
     if (opts.l2StartTime) {
@@ -542,11 +537,8 @@ export async function setup(
       await ethCheatCodes.warp(opts.l2StartTime, { resetBlockInterval: true });
     }
 
-    const dateProvider = new TestDateProvider();
-    dateProvider.setTime((await ethCheatCodes.timestamp()) * 1000);
-
     const watcher = new AnvilTestWatcher(
-      new EthCheatCodesWithState(config.l1RpcUrls),
+      new EthCheatCodesWithState(config.l1RpcUrls, dateProvider),
       deployL1ContractsValues.l1ContractAddresses.rollupAddress,
       deployL1ContractsValues.l1Client,
       dateProvider,
@@ -573,7 +565,7 @@ export async function setup(
     await blobSink.start();
     config.blobSinkUrl = `http://localhost:${blobSinkPort}`;
 
-    logger.verbose('Creating and synching an aztec node...');
+    logger.verbose('Creating and synching an aztec node', config);
 
     const acvmConfig = await getACVMConfig(logger);
     if (acvmConfig) {
@@ -655,27 +647,24 @@ export async function setup(
     }
 
     logger.verbose('Creating a pxe...');
-    const { pxe, teardown: pxeTeardown } = await setupPXEService(aztecNode!, pxeOpts, logger);
+    const { wallet, teardown: pxeTeardown } = await setupPXEServiceAndGetWallet(aztecNode!, pxeOpts, logger);
 
-    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxe!);
+    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, wallet, aztecNode, dateProvider);
 
     if (
       (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
       (opts.initialValidators && opts.initialValidators.length > 0)
     ) {
       // We need to advance such that the committee is set up.
-      await cheatCodes.rollup.advanceToEpoch((await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochs + 1), {
-        updateDateProvider: dateProvider,
-      });
+      await cheatCodes.rollup.advanceToEpoch((await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochs + 1));
       await cheatCodes.rollup.setupEpoch();
       await cheatCodes.rollup.debugRollup();
     }
-    const wallet = new TestWallet(pxe);
     let accounts: AztecAddress[] = [];
     // Below we continue with what we described in the long comment on line 571.
     if (numberOfAccounts === 0) {
       logger.info('No accounts are being deployed, waiting for an empty block 1 to be mined');
-      while ((await pxe.getBlockNumber()) === 0) {
+      while ((await aztecNode.getBlockNumber()) === 0) {
         await sleep(2000);
       }
     } else {
@@ -736,7 +725,6 @@ export async function setup(
       mockGossipSubNetwork,
       prefilledPublicData,
       proverNode,
-      pxe,
       sequencer: sequencerClient,
       teardown,
       telemetryClient: telemetry,
@@ -788,20 +776,6 @@ export async function ensureAccountContractsPublished(wallet: Wallet, accountsTo
   await batch.send({ from: accountsToDeploy[0] }).wait();
 }
 // docs:end:public_deploy_accounts
-
-/**
- * Sets the timestamp of the next block.
- * @param rpcUrl - rpc url of the blockchain instance to connect to
- * @param timestamp - the timestamp for the next block
- */
-export async function setNextBlockTimestamp(rpcUrl: string, timestamp: number) {
-  const params = `[${timestamp}]`;
-  await fetch(rpcUrl, {
-    body: `{"jsonrpc":"2.0", "method": "evm_setNextBlockTimestamp", "params": ${params}, "id": 1}`,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
 
 /** Returns the job name for the current test. */
 function getJobName() {
@@ -866,7 +840,7 @@ export async function expectMappingDelta<K, V extends number | bigint>(
 }
 
 /**
- * Computes the address of the "canonical" SponosoredFPCContract. This is not a protocol contract
+ * Computes the address of the "canonical" SponsoredFPCContract. This is not a protocol contract
  * but by conventions its address is computed with a salt of 0.
  * @returns The address of the sponsored FPC contract
  */
@@ -879,7 +853,7 @@ export function getSponsoredFPCInstance(): Promise<ContractInstanceWithAddress> 
 }
 
 /**
- * Computes the address of the "canonical" SponosoredFPCContract. This is not a protocol contract
+ * Computes the address of the "canonical" SponsoredFPCContract. This is not a protocol contract
  * but by conventions its address is computed with a salt of 0.
  * @returns The address of the sponsored FPC contract
  */
@@ -891,22 +865,22 @@ export async function getSponsoredFPCAddress() {
 /**
  * Deploy a sponsored FPC contract to a running instance.
  */
-export async function setupSponsoredFPC(pxe: PXE) {
+export async function setupSponsoredFPC(wallet: Wallet) {
   const instance = await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
     salt: new Fr(SPONSORED_FPC_SALT),
   });
 
-  await pxe.registerContract({ instance, artifact: SponsoredFPCContract.artifact });
+  await wallet.registerContract({ instance, artifact: SponsoredFPCContract.artifact });
   getLogger().info(`SponsoredFPC: ${instance.address}`);
   return instance;
 }
 
 /**
  * Registers the SponsoredFPC in this PXE instance
- * @param pxe - The pxe client
+ * @param wallet - The wallet
  */
-export async function registerSponsoredFPC(pxe: PXE | Wallet): Promise<void> {
-  await pxe.registerContract({ instance: await getSponsoredFPCInstance(), artifact: SponsoredFPCContract.artifact });
+export async function registerSponsoredFPC(wallet: Wallet): Promise<void> {
+  await wallet.registerContract({ instance: await getSponsoredFPCInstance(), artifact: SponsoredFPCContract.artifact });
 }
 
 export async function waitForProvenChain(node: AztecNode, targetBlock?: number, timeoutSec = 60, intervalSec = 1) {

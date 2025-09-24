@@ -442,6 +442,10 @@ export class RollupContract {
     return this.rollup.read.getEntryQueueLength();
   }
 
+  getAvailableValidatorFlushes() {
+    return this.rollup.read.getAvailableValidatorFlushes();
+  }
+
   getNextFlushableEpoch() {
     return this.rollup.read.getNextFlushableEpoch();
   }
@@ -711,6 +715,10 @@ export class RollupContract {
 
   getStakingAsset() {
     return this.rollup.read.getStakingAsset();
+  }
+
+  getRewardConfig() {
+    return this.rollup.read.getRewardConfig();
   }
 
   setupEpoch(l1TxUtils: L1TxUtils) {

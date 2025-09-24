@@ -12,8 +12,8 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
-#include "barretenberg/ultra_honk/decider_verification_key.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
+#include "barretenberg/ultra_honk/verifier_instance.hpp"
 
 namespace bb {
 template <typename Flavor> class UltraVerifier_ {
@@ -21,7 +21,7 @@ template <typename Flavor> class UltraVerifier_ {
     using Commitment = typename Flavor::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;
     using Transcript = typename Flavor::Transcript;
-    using DeciderVK = DeciderVerificationKey_<Flavor>;
+    using VerifierInstance = VerifierInstance_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
     using PublicInputs = std::vector<FF>;
     using Proof = typename Transcript::Proof;
@@ -41,7 +41,7 @@ template <typename Flavor> class UltraVerifier_ {
         const std::shared_ptr<VerificationKey>& vk,
         VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(),
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
-        : verification_key(std::make_shared<DeciderVK>(vk))
+        : verifier_instance(std::make_shared<VerifierInstance>(vk))
         , ipa_verification_key(std::move(ipa_verification_key))
         , transcript(transcript)
     {}
@@ -49,7 +49,7 @@ template <typename Flavor> class UltraVerifier_ {
     template <class IO> UltraVerifierOutput verify_proof(const Proof& proof, const Proof& ipa_proof = {});
 
     std::shared_ptr<Transcript> ipa_transcript = std::make_shared<Transcript>();
-    std::shared_ptr<DeciderVK> verification_key;
+    std::shared_ptr<VerifierInstance> verifier_instance;
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key;
     std::shared_ptr<Transcript> transcript;
 };

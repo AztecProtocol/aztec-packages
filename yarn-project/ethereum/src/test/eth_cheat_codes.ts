@@ -3,7 +3,7 @@ import { keccak256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
-import type { TestDateProvider } from '@aztec/foundation/timer';
+import type { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 
 import { type Hex, createPublicClient, fallback, http } from 'viem';
 
@@ -19,6 +19,10 @@ export class EthCheatCodes {
      * The RPC URL to use for interacting with the chain
      */
     public rpcUrls: string[],
+    /**
+     * The date provider to use for time operations
+     */
+    public dateProvider: DateProvider | TestDateProvider,
     /**
      * The logger to use for the eth cheatcodes
      */
@@ -225,12 +229,12 @@ export class EthCheatCodes {
   /**
    * Set the next block timestamp and mines the block.
    * Optionally resets interval mining so the next block is mined in `blockInterval` seconds from now.
-   * Optionally updates a provided date provider to follow L1 time.
+   * Always updates the injected date provider to follow L1 time.
    * @param timestamp - The timestamp to set the next block to
    */
   public async warp(
     timestamp: number | bigint,
-    opts: { silent?: boolean; resetBlockInterval?: boolean; updateDateProvider?: TestDateProvider } = {},
+    opts: { silent?: boolean; resetBlockInterval?: boolean } = {},
   ): Promise<void> {
     let blockInterval: number | null = null;
     try {
@@ -245,8 +249,10 @@ export class EthCheatCodes {
       await this.rpcCall('evm_setNextBlockTimestamp', [Number(timestamp)]);
       // And mine a block so the timestamp goes into effect now
       await this.doMine();
-      // Update the date provider if provided so it follows L1 time
-      opts.updateDateProvider?.setTime(Number(timestamp) * 1000);
+      // Update the injected date provider so it follows L1 time
+      if ('setTime' in this.dateProvider) {
+        this.dateProvider.setTime(Number(timestamp) * 1000);
+      }
     } catch (err) {
       throw new Error(`Error warping: ${err}`);
     } finally {
@@ -277,14 +283,21 @@ export class EthCheatCodes {
    * @param slot - The storage slot
    * @param value - The value to set the storage slot to
    */
-  public async store(contract: EthAddress, slot: bigint, value: bigint): Promise<void> {
+  public async store(
+    contract: EthAddress,
+    slot: bigint,
+    value: bigint,
+    opts: { silent?: boolean } = {},
+  ): Promise<void> {
     // for the rpc call, we need to change value to be a 32 byte hex string.
     try {
       await this.rpcCall('hardhat_setStorageAt', [contract.toString(), toHex(slot), toHex(value, true)]);
     } catch (err) {
       throw new Error(`Error setting storage for contract ${contract} at ${slot}: ${err}`);
     }
-    this.logger.warn(`Set L1 storage for contract ${contract} at ${slot} to ${value}`);
+    if (!opts.silent) {
+      this.logger.warn(`Set L1 storage for contract ${contract} at ${slot} to ${value}`);
+    }
   }
 
   /**
@@ -434,7 +447,7 @@ export class EthCheatCodes {
     return this.rpcCall('trace_transaction', [txHash]);
   }
 
-  public async execWithPausedAnvil(fn: () => Promise<void>): Promise<void> {
+  public async execWithPausedAnvil<T>(fn: () => Promise<T>): Promise<T> {
     const [blockInterval, wasAutoMining] = await Promise.all([this.getIntervalMining(), this.isAutoMining()]);
     try {
       if (blockInterval !== null) {
@@ -445,7 +458,7 @@ export class EthCheatCodes {
         await this.setAutomine(false, { silent: true });
       }
 
-      await fn();
+      return await fn();
     } finally {
       try {
         // restore automine if necessary

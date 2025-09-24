@@ -163,6 +163,18 @@ variable "VALIDATORS_PER_NODE" {
   default     = 12
 }
 
+variable "VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY" {
+  description = "Number of publisher EOAs per validator key"
+  type        = string
+  default     = 1
+}
+
+variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
+  description = "Mnemonic start index for validator publishers"
+  type        = string
+  default     = 5000
+}
+
 variable "VALIDATOR_REPLICAS" {
   description = "The number of validator replicas"
   type        = string
@@ -186,6 +198,28 @@ variable "OTEL_COLLECTOR_ENDPOINT" {
   type        = string
   default     = null
   nullable    = true
+}
+
+variable "SPONSORED_FPC" {
+  description = "Enable sponsored FPC"
+  type        = bool
+}
+
+variable "TEST_ACCOUNTS" {
+  description = "Enable test accounts"
+  type        = bool
+}
+
+variable "SEQ_MIN_TX_PER_BLOCK" {
+  description = "Minimum number of sequencer transactions per block"
+  type        = string
+  default     = "0"
+}
+
+variable "SEQ_MAX_TX_PER_BLOCK" {
+  description = "Maximum number of sequencer transactions per block"
+  type        = string
+  default     = "8"
 }
 
 variable "SENTINEL_ENABLED" {
@@ -289,6 +323,12 @@ variable "EXTERNAL_BOOTNODES" {
   default     = []
 }
 
+variable "DEPLOY_ARCHIVAL_NODE" {
+  description = "Whether to deploy the archival node"
+  type        = bool
+  default     = false
+}
+
 variable "NETWORK" {
   description = "One of the existing network names to use default config for"
   type        = string
@@ -308,7 +348,18 @@ variable "SNAPSHOT_CRON" {
   default     = "0 */12 * * *"
 }
 
-# Bot configuration
+variable "BOT_MNEMONIC" {
+  description = "The bot mnemonic"
+  type        = string
+  default     = "test test test test test test test test test test test junk"
+}
+
+variable "BOT_TRANSFERS_MNEMONIC_START_INDEX" {
+  description = "The prover mnemonic start index"
+  type        = string
+  default     = ""
+}
+
 variable "BOT_TRANSFERS_REPLICAS" {
   description = "Number of transfer bot replicas to deploy (0 to disable)"
   type        = number
@@ -324,7 +375,19 @@ variable "BOT_TRANSFERS_TX_INTERVAL_SECONDS" {
 variable "BOT_TRANSFERS_FOLLOW_CHAIN" {
   description = "Transfers bot follow-chain mode (e.g., NONE)"
   type        = string
-  default     = "NONE"
+  default     = "PENDING"
+}
+
+variable "BOT_TRANSFERS_L2_PRIVATE_KEY" {
+  description = "Private key for the transfers bot (hex string starting with 0x)"
+  nullable    = true
+  default     = null
+}
+
+variable "BOT_SWAPS_MNEMONIC_START_INDEX" {
+  description = "The prover mnemonic start index"
+  type        = string
+  default     = ""
 }
 
 variable "BOT_SWAPS_REPLICAS" {
@@ -345,16 +408,41 @@ variable "BOT_SWAPS_FOLLOW_CHAIN" {
   default     = "PENDING"
 }
 
-variable "BOT_TRANSFERS_PRIVATE_KEY" {
-  description = "Private key for the transfers bot (hex string starting with 0x)"
-  type        = string
-  default     = null
-  nullable    = true
-}
-
-variable "BOT_SWAPS_PRIVATE_KEY" {
+variable "BOT_SWAPS_L2_PRIVATE_KEY" {
   description = "Private key for the AMM swaps bot (hex string starting with 0x)"
   type        = string
-  default     = null
   nullable    = true
+  default     = null
+}
+
+# RPC ingress configuration (GKE-specific)
+variable "RPC_INGRESS_ENABLED" {
+  description = "Enable GKE ingress for RPC nodes"
+  type        = bool
+  default     = false
+}
+
+variable "RPC_INGRESS_HOST" {
+  description = "Hostname for RPC ingress"
+  type        = string
+  default     = ""
+}
+
+variable "RPC_INGRESS_STATIC_IP_NAME" {
+  description = "Name of the GCP static IP resource for the ingress"
+  type        = string
+  default     = ""
+}
+
+variable "RPC_INGRESS_SSL_CERT_NAME" {
+  description = "Name of the GCP managed SSL certificate for the ingress"
+  type        = string
+  default     = ""
+}
+
+variable "PROVER_FAILED_PROOF_STORE" {
+  description = "Optional GCS/URI to store failed proofs from the prover"
+  type        = string
+  nullable    = false
+  default     = ""
 }

@@ -23,5 +23,5 @@ variable "RELEASE_NAME" {
 variable "HOSTS" {
   description = "The public hostname for the ingress"
   type        = list(string)
-  default     = ["telemetry.alpha-testnet.aztec-labs.com", "telemetry.alpha-testnet.aztec.network"]
+  default     = ["telemetry.alpha-testnet.aztec-labs.com"]
 }

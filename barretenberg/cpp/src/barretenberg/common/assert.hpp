@@ -1,7 +1,27 @@
 #pragma once
 
-#include "barretenberg/common/throw_or_abort.hpp"
+#include <cstdint>
 #include <sstream>
+
+namespace bb {
+enum class AssertMode : std::uint8_t { ABORT, WARN };
+AssertMode& get_assert_mode();
+void assert_failure(std::string const& err);
+
+// NOTE do not use in threaded contexts!
+struct AssertGuard {
+    AssertGuard(AssertMode mode)
+        : previous_mode(get_assert_mode())
+    {
+        get_assert_mode() = mode;
+    }
+    ~AssertGuard() { get_assert_mode() = (previous_mode); }
+    AssertMode previous_mode;
+};
+} // namespace bb
+
+// NOTE do not use in threaded contexts!
+#define BB_DISABLE_ASSERTS() bb::AssertGuard __bb_assert_guard(bb::AssertMode::WARN)
 
 // NOLINTBEGIN
 // Compiler should optimize this out in release builds, without triggering unused-variable warnings.
@@ -42,7 +62,7 @@
         if (!(expression)) {                                                                                           \
             info("Assertion failed: (" #expression ")");                                                               \
             __VA_OPT__(info("Reason   : ", __VA_ARGS__);)                                                              \
-            throw_or_abort("");                                                                                        \
+            bb::assert_failure("");                                                                                    \
         }                                                                                                              \
     } while (0)
 
@@ -52,7 +72,7 @@
             std::ostringstream oss;                                                                                    \
             oss << "Assertion failed: (" #expression ")";                                                              \
             __VA_OPT__(oss << " | Reason: " << __VA_ARGS__;)                                                           \
-            throw_or_abort(oss.str());                                                                                 \
+            bb::assert_failure(oss.str());                                                                             \
         }                                                                                                              \
     } while (0)
 
@@ -66,7 +86,7 @@
             oss << "  Actual  : " << _actual << "\n";                                                                  \
             oss << "  Expected: " << _expected;                                                                        \
             __VA_OPT__(oss << "\n  Reason  : " << __VA_ARGS__;)                                                        \
-            throw_or_abort(oss.str());                                                                                 \
+            bb::assert_failure(oss.str());                                                                             \
         }                                                                                                              \
     } while (0)
 
@@ -80,7 +100,7 @@
             oss << "  Actual  : " << _actual << "\n";                                                                  \
             oss << "  Not expected: " << _expected;                                                                    \
             __VA_OPT__(oss << "\n  Reason  : " << __VA_ARGS__;)                                                        \
-            throw_or_abort(oss.str());                                                                                 \
+            bb::assert_failure(oss.str());                                                                             \
         }                                                                                                              \
     } while (0)
 
@@ -94,7 +114,7 @@
             oss << "  Left   : " << _left << "\n";                                                                     \
             oss << "  Right  : " << _right;                                                                            \
             __VA_OPT__(oss << "\n  Reason : " << __VA_ARGS__;)                                                         \
-            throw_or_abort(oss.str());                                                                                 \
+            bb::assert_failure(oss.str());                                                                             \
         }                                                                                                              \
     } while (0)
 
@@ -108,7 +128,7 @@
             oss << "  Left   : " << _left << "\n";                                                                     \
             oss << "  Right  : " << _right;                                                                            \
             __VA_OPT__(oss << "\n  Reason : " << __VA_ARGS__;)                                                         \
-            throw_or_abort(oss.str());                                                                                 \
+            bb::assert_failure(oss.str());                                                                             \
         }                                                                                                              \
     } while (0)
 
@@ -122,7 +142,7 @@
             oss << "  Left   : " << _left << "\n";                                                                     \
             oss << "  Right  : " << _right;                                                                            \
             __VA_OPT__(oss << "\n  Reason : " << __VA_ARGS__;)                                                         \
-            throw_or_abort(oss.str());                                                                                 \
+            bb::assert_failure(oss.str());                                                                             \
         }                                                                                                              \
     } while (0)
 
@@ -136,7 +156,7 @@
             oss << "  Left   : " << _left << "\n";                                                                     \
             oss << "  Right  : " << _right;                                                                            \
             __VA_OPT__(oss << "\n  Reason : " << __VA_ARGS__;)                                                         \
-            throw_or_abort(oss.str());                                                                                 \
+            bb::assert_failure(oss.str());                                                                             \
         }                                                                                                              \
     } while (0)
 #endif // __wasm__
