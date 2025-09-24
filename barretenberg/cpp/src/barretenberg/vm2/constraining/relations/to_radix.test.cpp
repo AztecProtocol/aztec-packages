@@ -447,7 +447,7 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::to_radix_mem_value_inv, value.invert() },
             // Output
             { C::to_radix_mem_output_limb_value, 1 },
-            { C::to_radix_mem_sel_can_decompose, 1 },
+            { C::to_radix_mem_sel_should_decompose, 1 },
             { C::to_radix_mem_sel_should_write_mem, 1 },
             { C::to_radix_mem_limb_index_to_lookup, num_limbs - 1 },
             { C::to_radix_mem_value_found, 1 },
@@ -476,7 +476,7 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::to_radix_mem_num_limbs_minus_one_inv, FF(num_limbs - 2).invert() },
             // Output
             { C::to_radix_mem_output_limb_value, 3 },
-            { C::to_radix_mem_sel_can_decompose, 1 },
+            { C::to_radix_mem_sel_should_decompose, 1 },
             { C::to_radix_mem_sel_should_write_mem, 1 },
             { C::to_radix_mem_limb_index_to_lookup, num_limbs - 2 },
             { C::to_radix_mem_output_tag, static_cast<uint8_t>(MemoryTag::U8) },
@@ -503,7 +503,7 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::to_radix_mem_num_limbs_minus_one_inv, FF(num_limbs - 3).invert() },
             // Output
             { C::to_radix_mem_output_limb_value, 3 },
-            { C::to_radix_mem_sel_can_decompose, 1 },
+            { C::to_radix_mem_sel_should_decompose, 1 },
             { C::to_radix_mem_sel_should_write_mem, 1 },
             { C::to_radix_mem_limb_index_to_lookup, num_limbs - 3 },
             { C::to_radix_mem_output_tag, static_cast<uint8_t>(MemoryTag::U8) },
@@ -524,7 +524,7 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::to_radix_mem_last, 1 },
             // Output
             { C::to_radix_mem_output_limb_value, 7 },
-            { C::to_radix_mem_sel_can_decompose, 1 },
+            { C::to_radix_mem_sel_should_decompose, 1 },
             { C::to_radix_mem_sel_should_write_mem, 1 },
             { C::to_radix_mem_limb_index_to_lookup, num_limbs - 4 },
             { C::to_radix_mem_output_tag, static_cast<uint8_t>(MemoryTag::U8) },
@@ -589,7 +589,7 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
                               "SEL_SHOULD_WRITE_MEM_CONTINUITY");
 
     // Negative test: disable decomposition after the start row:
-    trace.set(Column::to_radix_mem_sel_can_decompose, 2, 0);
+    trace.set(Column::to_radix_mem_sel_should_decompose, 2, 0);
     EXPECT_THROW_WITH_MESSAGE((check_relation<to_radix_mem>(trace, to_radix_mem::SR_SEL_SHOULD_WRITE_MEM_CONTINUITY)),
                               "SEL_SHOULD_WRITE_MEM_CONTINUITY");
 }
@@ -865,7 +865,7 @@ TEST(ToRadixMemoryConstrainingTest, TruncationError)
             { C::to_radix_mem_last, 1 },
             { C::to_radix_mem_num_limbs_minus_one_inv, num_limbs - 1 == 0 ? 0 : FF(num_limbs - 1).invert() },
             // Decomposition
-            { C::to_radix_mem_sel_can_decompose, 1 },
+            { C::to_radix_mem_sel_should_decompose, 1 },
             { C::to_radix_mem_limb_index_to_lookup, num_limbs - 1 },
             { C::to_radix_mem_output_limb_value, 3 },
             { C::to_radix_mem_value_found, 0 },

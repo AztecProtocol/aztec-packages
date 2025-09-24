@@ -187,22 +187,22 @@ namespace to_radix_mem;
 
     pol commit output_limb_value;
     pol commit value_found;
-    pol commit sel_can_decompose;
-    sel_can_decompose * (1 - sel_can_decompose) = 0;
+    pol commit sel_should_decompose;
+    sel_should_decompose * (1 - sel_should_decompose) = 0;
 
-    // On the start row, we define sel_can_decompose as !validation_error && !num_limbs_is_zero
+    // On the start row, we define sel_should_decompose as !validation_error && !num_limbs_is_zero
     // We can't inline input_validation_error because of the degree.
-    start * ((1 - input_validation_error) * (1 - sel_num_limbs_is_zero) - sel_can_decompose) = 0;
+    start * ((1 - input_validation_error) * (1 - sel_num_limbs_is_zero) - sel_should_decompose) = 0;
 
     // On following rows, we propagate input_validation_error.
-    #[SEL_CAN_DECOMPOSE_CONTINUITY]
-    NOT_LAST * (sel_can_decompose' - sel_can_decompose) = 0;
+    #[sel_should_decompose_CONTINUITY]
+    NOT_LAST * (sel_should_decompose' - sel_should_decompose) = 0;
 
     pol commit limb_index_to_lookup; // Need this since we want Big-Endian but the gadget is Little-Endian
-    limb_index_to_lookup = sel_can_decompose * (num_limbs - 1);
+    limb_index_to_lookup = sel_should_decompose * (num_limbs - 1);
 
     #[INPUT_OUTPUT_TO_RADIX]
-    sel_can_decompose { value_to_decompose, limb_index_to_lookup, radix, output_limb_value, value_found }
+    sel_should_decompose { value_to_decompose, limb_index_to_lookup, radix, output_limb_value, value_found }
     in
     to_radix.sel {to_radix.value, to_radix.limb_index, to_radix.radix, to_radix.limb, to_radix.found };
 
@@ -214,7 +214,7 @@ namespace to_radix_mem;
     // A truncation error happens if in the start row, we look up the to_radix gadget and value_found is off.
     // The to radix gadget is little endian, so the first row that we lookup is the last limb. If it's not found in the last limb,
     // it means that the number is truncated with the given number of limbs.
-    sel_truncation_error = start * sel_can_decompose * (1 - value_found);
+    sel_truncation_error = start * sel_should_decompose * (1 - value_found);
 
     /////////////////////////////////////////////////////
     // Error Handling - Consolidated error flag
