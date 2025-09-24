@@ -128,6 +128,8 @@ void ToRadix::to_be_radix(MemoryInterface& memory,
         }
     }
 
+    // We need to reconstruct the value to check for truncation. The alternative would be to change the interface
+    // to return a truncated flag.
     if (reconstruct_from_be(event.limbs, radix) != value) {
         memory_events.emit(std::move(event));
         throw ToRadixException("Error during BE conversion: Truncation error");
