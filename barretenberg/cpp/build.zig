@@ -1,5 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
+const sources = @import("zig-build/sources.zig");
+const deps = @import("zig-build/deps.zig");
 
 const Platform = struct {
     arch: std.Target.Cpu.Arch,
@@ -43,636 +45,6 @@ const wasm_flags = no_avm_flags ++ [_][]const u8{
     "-DBB_NO_EXCEPTIONS",
     "-fno-exceptions",
 };
-
-// Core source files - essential barretenberg functionality
-const core_sources = [_][]const u8{
-    // Numeric foundations
-    "src/barretenberg/numeric/random/engine.cpp",
-    "src/barretenberg/numeric/uintx/uintx.cpp",
-
-    // Polynomials
-    "src/barretenberg/polynomials/polynomial.cpp",
-    "src/barretenberg/polynomials/backing_memory.cpp",
-    "src/barretenberg/polynomials/evaluation_domain.cpp",
-    "src/barretenberg/polynomials/polynomial_arithmetic.cpp",
-
-    // ECC
-    "src/barretenberg/ecc/curves/bn254/c_bind.cpp",
-    "src/barretenberg/ecc/curves/grumpkin/c_bind.cpp",
-    "src/barretenberg/ecc/curves/secp256k1/c_bind.cpp",
-    "src/barretenberg/ecc/scalar_multiplication/scalar_multiplication.cpp",
-    "src/barretenberg/ecc/scalar_multiplication/process_buckets.cpp",
-    "src/barretenberg/ecc/batched_affine_addition/batched_affine_addition.cpp",
-    "src/barretenberg/ecc/fields/field_conversion.cpp",
-
-    // Crypto primitives
-    "src/barretenberg/crypto/aes128/aes128.cpp",
-    "src/barretenberg/crypto/aes128/c_bind.cpp",
-    "src/barretenberg/crypto/blake2s/blake2s.cpp",
-    "src/barretenberg/crypto/blake2s/c_bind.cpp",
-    "src/barretenberg/crypto/blake3s/c_bind.cpp",
-    "src/barretenberg/crypto/blake3s_full/blake3s.cpp",
-    "src/barretenberg/crypto/ecdsa/c_bind.cpp",
-    "src/barretenberg/crypto/keccak/keccak.cpp",
-    "src/barretenberg/crypto/keccak/keccakf1600.cpp",
-    "src/barretenberg/crypto/pedersen_commitment/c_bind.cpp",
-    "src/barretenberg/crypto/pedersen_commitment/pedersen.cpp",
-    "src/barretenberg/crypto/pedersen_hash/c_bind.cpp",
-    "src/barretenberg/crypto/pedersen_hash/pedersen.cpp",
-    "src/barretenberg/crypto/poseidon2/c_bind.cpp",
-    "src/barretenberg/crypto/poseidon2/poseidon2.cpp",
-    "src/barretenberg/crypto/schnorr/c_bind.cpp",
-    "src/barretenberg/crypto/sha256/c_bind.cpp",
-    "src/barretenberg/crypto/sha256/sha256.cpp",
-
-    // Circuit builders
-    "src/barretenberg/stdlib_circuit_builders/circuit_builder_base.cpp",
-    "src/barretenberg/stdlib_circuit_builders/mega_circuit_builder.cpp",
-    "src/barretenberg/stdlib_circuit_builders/ultra_circuit_builder.cpp",
-    "src/barretenberg/stdlib_circuit_builders/rom_ram_logic.cpp",
-    "src/barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.cpp",
-    "src/barretenberg/stdlib_circuit_builders/plookup_tables/non_native_group_generator.cpp",
-    "src/barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.cpp",
-
-    // SRS (basic bindings and memory factories only for WASM)
-    "src/barretenberg/srs/c_bind.cpp",
-    "src/barretenberg/srs/global_crs.cpp",
-    "src/barretenberg/srs/factories/mem_bn254_crs_factory.cpp",
-    "src/barretenberg/srs/factories/mem_grumpkin_crs_factory.cpp",
-    "src/barretenberg/srs/factories/native_crs_factory.cpp",
-    "src/barretenberg/srs/factories/get_bn254_crs.cpp",
-    "src/barretenberg/srs/factories/get_grumpkin_crs.cpp",
-
-    // Common utilities
-    "src/barretenberg/common/c_bind.cpp",
-    "src/barretenberg/common/thread.cpp",
-    "src/barretenberg/common/thread_pool.cpp",
-    "src/barretenberg/common/bb_bench.cpp",
-    "src/barretenberg/common/bbmalloc.cpp",
-    "src/barretenberg/common/debug_log.cpp",
-    "src/barretenberg/common/log.cpp",
-    "src/barretenberg/common/parallel_for_queued.cpp",
-    "src/barretenberg/common/parallel_for_atomic_pool.cpp",
-    "src/barretenberg/common/parallel_for_mutex_pool.cpp",
-    "src/barretenberg/common/parallel_for_spawning.cpp",
-    "src/barretenberg/common/parallel_for_omp.cpp",
-    "src/barretenberg/common/slab_allocator.cpp",
-    "src/barretenberg/common/std_string.cpp",
-    "src/barretenberg/common/utils.cpp",
-    "src/barretenberg/common/msgpack_to_json.cpp",
-    "src/barretenberg/common/tracy_mem/overload_operator_new.cpp",
-
-    // Transcript
-    "src/barretenberg/transcript/origin_tag.cpp",
-    "src/barretenberg/transcript/transcript.cpp",
-
-    // Goblin
-    "src/barretenberg/goblin/goblin.cpp",
-
-    // Translator VM
-    "src/barretenberg/translator_vm/translator_circuit_builder.cpp",
-    "src/barretenberg/translator_vm/translator_prover.cpp",
-    "src/barretenberg/translator_vm/translator_proving_key.cpp",
-    "src/barretenberg/translator_vm/translator_verifier.cpp",
-
-    // Ultra Honk
-    "src/barretenberg/ultra_honk/oink_prover.cpp",
-    "src/barretenberg/ultra_honk/oink_verifier.cpp",
-    "src/barretenberg/ultra_honk/ultra_prover.cpp",
-    "src/barretenberg/ultra_honk/ultra_verifier.cpp",
-    "src/barretenberg/ultra_honk/prover_instance.cpp",
-    "src/barretenberg/ultra_honk/witness_computation.cpp",
-    "src/barretenberg/ultra_honk/decider_prover.cpp",
-    "src/barretenberg/ultra_honk/decider_verifier.cpp",
-    "src/barretenberg/ultra_honk/merge_prover.cpp",
-    "src/barretenberg/ultra_honk/merge_verifier.cpp",
-
-    // Sumcheck
-    "src/barretenberg/sumcheck/sumcheck.cpp",
-
-    // Commitment schemes
-    "src/barretenberg/commitment_schemes/gemini/gemini.cpp",
-    "src/barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.cpp",
-
-    // ECCVM
-    "src/barretenberg/eccvm/eccvm_prover.cpp",
-    "src/barretenberg/eccvm/eccvm_verifier.cpp",
-    "src/barretenberg/eccvm/eccvm_trace_checker.cpp",
-
-    // DSL/ACIR
-    "src/barretenberg/dsl/acir_format/acir_format.cpp",
-    "src/barretenberg/dsl/acir_format/acir_format_mocks.cpp",
-    "src/barretenberg/dsl/acir_format/acir_to_constraint_buf.cpp",
-    "src/barretenberg/dsl/acir_format/aes128_constraint.cpp",
-    "src/barretenberg/dsl/acir_format/avm2_recursion_constraint.cpp",
-    "src/barretenberg/dsl/acir_format/blake2s_constraint.cpp",
-    "src/barretenberg/dsl/acir_format/blake3_constraint.cpp",
-    "src/barretenberg/dsl/acir_format/block_constraint.cpp",
-    "src/barretenberg/dsl/acir_format/civc_recursion_constraints.cpp",
-    "src/barretenberg/dsl/acir_format/ec_operations.cpp",
-    "src/barretenberg/dsl/acir_format/ecdsa_constraints.cpp",
-    "src/barretenberg/dsl/acir_format/honk_recursion_constraint.cpp",
-    "src/barretenberg/dsl/acir_format/keccak_constraint.cpp",
-    "src/barretenberg/dsl/acir_format/logic_constraint.cpp",
-    "src/barretenberg/dsl/acir_format/mock_verifier_inputs.cpp",
-    "src/barretenberg/dsl/acir_format/multi_scalar_mul.cpp",
-    "src/barretenberg/dsl/acir_format/pg_recursion_constraint.cpp",
-    "src/barretenberg/dsl/acir_format/poseidon2_constraint.cpp",
-    "src/barretenberg/dsl/acir_format/recursion_constraint.cpp",
-    "src/barretenberg/dsl/acir_format/round.cpp",
-    "src/barretenberg/dsl/acir_format/sha256_constraint.cpp",
-    "src/barretenberg/dsl/acir_format/witness_constant.cpp",
-    "src/barretenberg/dsl/acir_proofs/c_bind.cpp",
-
-    // BB API
-    "src/barretenberg/bbapi/bbapi_execute.cpp",
-    "src/barretenberg/bbapi/c_bind.cpp",
-    "src/barretenberg/bbapi/bbapi_client_ivc.cpp",
-    "src/barretenberg/bbapi/bbapi_ultra_honk.cpp",
-
-    // Client IVC files
-    "src/barretenberg/client_ivc/client_ivc.cpp",
-    "src/barretenberg/client_ivc/private_execution_steps.cpp",
-
-    // Stdlib - essential circuit building blocks
-    "src/barretenberg/stdlib/primitives/field/field.cpp",
-    "src/barretenberg/stdlib/primitives/field/field_conversion.cpp",
-    "src/barretenberg/stdlib/primitives/bool/bool.cpp",
-    "src/barretenberg/stdlib/primitives/byte_array/byte_array.cpp",
-    "src/barretenberg/stdlib/primitives/bigfield/bigfield_bn254.cpp",
-    "src/barretenberg/stdlib/primitives/bigfield/bigfield_secp256k1.cpp",
-    "src/barretenberg/stdlib/primitives/bigfield/bigfield_secp256r1.cpp",
-    "src/barretenberg/stdlib/primitives/databus/databus.cpp",
-    "src/barretenberg/stdlib/primitives/group/cycle_group.cpp",
-    "src/barretenberg/stdlib/primitives/group/cycle_scalar.cpp",
-    "src/barretenberg/stdlib/primitives/group/straus_lookup_table.cpp",
-    "src/barretenberg/stdlib/primitives/group/straus_scalar_slice.cpp",
-    "src/barretenberg/stdlib/primitives/logic/logic.cpp",
-    "src/barretenberg/stdlib/primitives/memory/ram_table.cpp",
-    "src/barretenberg/stdlib/primitives/memory/twin_rom_table.cpp",
-    "src/barretenberg/stdlib/primitives/memory/dynamic_array.cpp",
-    "src/barretenberg/stdlib/primitives/memory/rom_table.cpp",
-    "src/barretenberg/stdlib/primitives/plookup/plookup.cpp",
-    "src/barretenberg/stdlib/primitives/safe_uint/safe_uint.cpp",
-
-    // Stdlib hash functions
-    "src/barretenberg/stdlib/hash/blake2s/blake2s.cpp",
-    "src/barretenberg/stdlib/hash/blake3s/blake3s.cpp",
-    "src/barretenberg/stdlib/hash/keccak/keccak.cpp",
-    "src/barretenberg/stdlib/hash/pedersen/pedersen.cpp",
-    "src/barretenberg/stdlib/hash/poseidon2/poseidon2.cpp",
-    "src/barretenberg/stdlib/hash/poseidon2/poseidon2_permutation.cpp",
-    "src/barretenberg/stdlib/hash/sha256/sha256.cpp",
-
-    // Stdlib encryption
-    "src/barretenberg/stdlib/encryption/aes128/aes128.cpp",
-    "src/barretenberg/stdlib/encryption/schnorr/schnorr.cpp",
-
-    // Stdlib commitment
-    "src/barretenberg/stdlib/commitment/pedersen/pedersen.cpp",
-
-    // Stdlib transcript
-    "src/barretenberg/stdlib/transcript/transcript.cpp",
-
-    // Stdlib verifiers
-    "src/barretenberg/stdlib/honk_verifier/decider_recursive_verifier.cpp",
-    "src/barretenberg/stdlib/honk_verifier/oink_recursive_verifier.cpp",
-    "src/barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.cpp",
-    "src/barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.cpp",
-    "src/barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.cpp",
-    "src/barretenberg/stdlib/eccvm_verifier/eccvm_recursive_verifier.cpp",
-    "src/barretenberg/stdlib/eccvm_verifier/ecc_bools_relation.cpp",
-    "src/barretenberg/stdlib/eccvm_verifier/ecc_lookup_relation.cpp",
-    "src/barretenberg/stdlib/eccvm_verifier/ecc_msm_relation.cpp",
-    "src/barretenberg/stdlib/eccvm_verifier/ecc_point_table_relation.cpp",
-    "src/barretenberg/stdlib/eccvm_verifier/ecc_set_relation.cpp",
-    "src/barretenberg/stdlib/eccvm_verifier/ecc_transcript_relation.cpp",
-    "src/barretenberg/stdlib/eccvm_verifier/ecc_wnaf_relation.cpp",
-    "src/barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.cpp",
-    "src/barretenberg/stdlib/merge_verifier/merge_recursive_verifier.cpp",
-    "src/barretenberg/stdlib/translator_vm_verifier/translator_recursive_verifier.cpp",
-    "src/barretenberg/stdlib/translator_vm_verifier/translator_decomposition_relation_ultra.cpp",
-    "src/barretenberg/stdlib/translator_vm_verifier/translator_delta_range_constraint_relation.cpp",
-    "src/barretenberg/stdlib/translator_vm_verifier/translator_extra_relations.cpp",
-    "src/barretenberg/stdlib/translator_vm_verifier/translator_non_native_field_relation.cpp",
-    "src/barretenberg/stdlib/translator_vm_verifier/translator_permutation_relation.cpp",
-
-    // Relations (needed for verifiers)
-    "src/barretenberg/relations/ecc_vm/ecc_bools_relation.cpp",
-    "src/barretenberg/relations/ecc_vm/ecc_lookup_relation.cpp",
-    "src/barretenberg/relations/ecc_vm/ecc_msm_relation.cpp",
-    "src/barretenberg/relations/ecc_vm/ecc_point_table_relation.cpp",
-    "src/barretenberg/relations/ecc_vm/ecc_set_relation.cpp",
-    "src/barretenberg/relations/ecc_vm/ecc_transcript_relation.cpp",
-    "src/barretenberg/relations/ecc_vm/ecc_wnaf_relation.cpp",
-    "src/barretenberg/relations/translator_vm/translator_decomposition_relation_2.cpp",
-    "src/barretenberg/relations/translator_vm/translator_delta_range_constraint_relation.cpp",
-    "src/barretenberg/relations/translator_vm/translator_extra_relations.cpp",
-    "src/barretenberg/relations/translator_vm/translator_decomposition_relation_1.cpp",
-    "src/barretenberg/relations/translator_vm/translator_non_native_field_relation.cpp",
-    "src/barretenberg/relations/translator_vm/translator_permutation_relation.cpp",
-
-    // API files
-    "src/barretenberg/api/acir_format_getters.cpp",
-    "src/barretenberg/api/api_ultra_honk.cpp",
-    "src/barretenberg/api/api_client_ivc.cpp",
-    "src/barretenberg/api/prove_tube.cpp",
-    "src/barretenberg/api/api_avm.cpp",
-
-    // CLI functionality
-    "src/barretenberg/bb/cli.cpp",
-
-    // Other essentials
-    "src/barretenberg/trace_to_polynomials/trace_to_polynomials.cpp",
-    // "src/barretenberg/op_queue/ecc_op_queue.cpp",
-    // "src/barretenberg/boomerang_value_detection/graph.cpp",
-    // "src/barretenberg/flavor/flavor.cpp",
-    // "src/barretenberg/honk/utils/testing.cpp",
-    // "src/barretenberg/honk/prover_instance_inspector.cpp",
-    "src/barretenberg/protogalaxy/protogalaxy_prover_mega.cpp",
-    "src/barretenberg/protogalaxy/protogalaxy_verifier.cpp",
-    // "src/barretenberg/ext/starknet/crypto/poseidon/poseidon.cpp",
-};
-
-const test_util_sources = [_][]const u8{
-    "src/barretenberg/honk/relation_checker.cpp",
-    "src/barretenberg/circuit_checker/ultra_circuit_checker.cpp",
-    "src/barretenberg/circuit_checker/translator_circuit_checker.cpp",
-};
-
-const world_state_sources = [_][]const u8{
-    // LMDB library wrapper
-    "src/barretenberg/lmdblib/lmdb_db_transaction.cpp",
-    "src/barretenberg/lmdblib/lmdb_environment.cpp",
-    "src/barretenberg/lmdblib/lmdb_helpers.cpp",
-    "src/barretenberg/lmdblib/lmdb_read_transaction.cpp",
-    "src/barretenberg/lmdblib/lmdb_store.cpp",
-    "src/barretenberg/lmdblib/lmdb_store_base.cpp",
-    "src/barretenberg/lmdblib/lmdb_transaction.cpp",
-    "src/barretenberg/lmdblib/lmdb_write_transaction.cpp",
-    "src/barretenberg/lmdblib/lmdb_cursor.cpp",
-    "src/barretenberg/lmdblib/lmdb_database.cpp",
-    "src/barretenberg/lmdblib/queries.cpp",
-
-    // Merkle trees
-    "src/barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.cpp",
-    "src/barretenberg/crypto/merkle_tree/nullifier_tree/nullifier_tree.cpp",
-
-    // World state
-    "src/barretenberg/world_state/types.cpp",
-    "src/barretenberg/world_state/world_state.cpp",
-};
-// _ = world_state_sources;
-
-// Environment-specific files
-const env_sources = [_][]const u8{
-    "src/barretenberg/env/logstr.cpp",
-    "src/barretenberg/env/hardware_concurrency.cpp",
-    "src/barretenberg/env/throw_or_abort_impl.cpp",
-    "src/barretenberg/env/data_store.cpp",
-};
-
-// AVM sources
-const avm_sources = [_][]const u8{
-    "src/barretenberg/vm2/avm_api.cpp",
-    "src/barretenberg/vm2/common/avm_inputs.cpp",
-    "src/barretenberg/vm2/common/gas.cpp",
-    "src/barretenberg/vm2/common/instruction_spec.cpp",
-    "src/barretenberg/vm2/common/opcodes.cpp",
-    "src/barretenberg/vm2/common/stringify.cpp",
-    "src/barretenberg/vm2/common/tagged_value.cpp",
-    "src/barretenberg/vm2/common/to_radix.cpp",
-    "src/barretenberg/vm2/constraining/check_circuit.cpp",
-    "src/barretenberg/vm2/constraining/flavor.cpp",
-    "src/barretenberg/vm2/constraining/full_row.cpp",
-    "src/barretenberg/vm2/constraining/polynomials.cpp",
-    "src/barretenberg/vm2/constraining/prover.cpp",
-    "src/barretenberg/vm2/constraining/recursion/recursive_verifier.cpp",
-    "src/barretenberg/vm2/constraining/verifier.cpp",
-    "src/barretenberg/vm2/generated/relations/address_derivation.cpp",
-    "src/barretenberg/vm2/generated/relations/addressing.cpp",
-    "src/barretenberg/vm2/generated/relations/alu.cpp",
-    "src/barretenberg/vm2/generated/relations/bc_decomposition.cpp",
-    "src/barretenberg/vm2/generated/relations/bc_hashing.cpp",
-    "src/barretenberg/vm2/generated/relations/bc_retrieval.cpp",
-    "src/barretenberg/vm2/generated/relations/bitwise.cpp",
-    "src/barretenberg/vm2/generated/relations/calldata.cpp",
-    "src/barretenberg/vm2/generated/relations/calldata_hashing.cpp",
-    "src/barretenberg/vm2/generated/relations/class_id_derivation.cpp",
-    "src/barretenberg/vm2/generated/relations/context.cpp",
-    "src/barretenberg/vm2/generated/relations/context_stack.cpp",
-    "src/barretenberg/vm2/generated/relations/contract_instance_retrieval.cpp",
-    "src/barretenberg/vm2/generated/relations/data_copy.cpp",
-    "src/barretenberg/vm2/generated/relations/discard.cpp",
-    "src/barretenberg/vm2/generated/relations/ecc.cpp",
-    "src/barretenberg/vm2/generated/relations/ecc_mem.cpp",
-    "src/barretenberg/vm2/generated/relations/emit_notehash.cpp",
-    "src/barretenberg/vm2/generated/relations/emit_nullifier.cpp",
-    "src/barretenberg/vm2/generated/relations/emit_unencrypted_log.cpp",
-    "src/barretenberg/vm2/generated/relations/execution.cpp",
-    "src/barretenberg/vm2/generated/relations/external_call.cpp",
-    "src/barretenberg/vm2/generated/relations/ff_gt.cpp",
-    "src/barretenberg/vm2/generated/relations/gas.cpp",
-    "src/barretenberg/vm2/generated/relations/get_contract_instance.cpp",
-    "src/barretenberg/vm2/generated/relations/get_env_var.cpp",
-    "src/barretenberg/vm2/generated/relations/gt.cpp",
-    "src/barretenberg/vm2/generated/relations/instr_fetching.cpp",
-    "src/barretenberg/vm2/generated/relations/internal_call.cpp",
-    "src/barretenberg/vm2/generated/relations/internal_call_stack.cpp",
-    "src/barretenberg/vm2/generated/relations/keccak_memory.cpp",
-    "src/barretenberg/vm2/generated/relations/keccakf1600.cpp",
-    "src/barretenberg/vm2/generated/relations/l1_to_l2_message_exists.cpp",
-    "src/barretenberg/vm2/generated/relations/l1_to_l2_message_tree_check.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_address_derivation.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_addressing.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_alu.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_bc_decomposition.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_bc_hashing.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_bc_retrieval.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_bitwise.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_calldata_hashing.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_class_id_derivation.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_context.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_contract_instance_retrieval.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_data_copy.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_ecc_mem.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_emit_notehash.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_emit_nullifier.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_emit_unencrypted_log.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_execution.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_external_call.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_ff_gt.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_gas.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_get_contract_instance.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_get_env_var.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_gt.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_instr_fetching.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_internal_call.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_keccakf1600.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_l1_to_l2_message_exists.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_l1_to_l2_message_tree_check.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_memory.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_merkle_check.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_note_hash_tree_check.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_notehash_exists.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_nullifier_check.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_nullifier_exists.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_poseidon2_hash.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_poseidon2_mem.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_protocol_contract.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_public_data_check.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_range_check.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_retrieved_bytecodes_tree_check.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_scalar_mul.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_send_l2_to_l1_msg.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_sha256.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_sha256_mem.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_sload.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_sstore.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_to_radix.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_to_radix_mem.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_tx.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_tx_context.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_update_check.cpp",
-    "src/barretenberg/vm2/generated/relations/lookups_written_public_data_slots_tree_check.cpp",
-    "src/barretenberg/vm2/generated/relations/memory.cpp",
-    "src/barretenberg/vm2/generated/relations/merkle_check.cpp",
-    "src/barretenberg/vm2/generated/relations/note_hash_tree_check.cpp",
-    "src/barretenberg/vm2/generated/relations/notehash_exists.cpp",
-    "src/barretenberg/vm2/generated/relations/nullifier_check.cpp",
-    "src/barretenberg/vm2/generated/relations/nullifier_exists.cpp",
-    "src/barretenberg/vm2/generated/relations/poseidon2_hash.cpp",
-    "src/barretenberg/vm2/generated/relations/poseidon2_mem.cpp",
-    "src/barretenberg/vm2/generated/relations/protocol_contract.cpp",
-    "src/barretenberg/vm2/generated/relations/public_data_check.cpp",
-    "src/barretenberg/vm2/generated/relations/public_data_squash.cpp",
-    "src/barretenberg/vm2/generated/relations/range_check.cpp",
-    "src/barretenberg/vm2/generated/relations/registers.cpp",
-    "src/barretenberg/vm2/generated/relations/retrieved_bytecodes_tree_check.cpp",
-    "src/barretenberg/vm2/generated/relations/scalar_mul.cpp",
-    "src/barretenberg/vm2/generated/relations/send_l2_to_l1_msg.cpp",
-    "src/barretenberg/vm2/generated/relations/sha256.cpp",
-    "src/barretenberg/vm2/generated/relations/sha256_mem.cpp",
-    "src/barretenberg/vm2/generated/relations/sload.cpp",
-    "src/barretenberg/vm2/generated/relations/sstore.cpp",
-    "src/barretenberg/vm2/generated/relations/to_radix.cpp",
-    "src/barretenberg/vm2/generated/relations/to_radix_mem.cpp",
-    "src/barretenberg/vm2/generated/relations/tx.cpp",
-    "src/barretenberg/vm2/generated/relations/tx_context.cpp",
-    "src/barretenberg/vm2/generated/relations/tx_discard.cpp",
-    "src/barretenberg/vm2/generated/relations/update_check.cpp",
-    "src/barretenberg/vm2/generated/relations/written_public_data_slots_tree_check.cpp",
-    "src/barretenberg/vm2/optimized/relations/poseidon2_perm.cpp",
-    "src/barretenberg/vm2/proving_helper.cpp",
-    "src/barretenberg/vm2/simulation/address_derivation.cpp",
-    "src/barretenberg/vm2/simulation/addressing.cpp",
-    "src/barretenberg/vm2/simulation/alu.cpp",
-    "src/barretenberg/vm2/simulation/bitwise.cpp",
-    "src/barretenberg/vm2/simulation/bytecode_hashing.cpp",
-    "src/barretenberg/vm2/simulation/bytecode_manager.cpp",
-    "src/barretenberg/vm2/simulation/calldata_hashing.cpp",
-    "src/barretenberg/vm2/simulation/class_id_derivation.cpp",
-    "src/barretenberg/vm2/simulation/concrete_dbs.cpp",
-    "src/barretenberg/vm2/simulation/context.cpp",
-    "src/barretenberg/vm2/simulation/context_provider.cpp",
-    "src/barretenberg/vm2/simulation/contract_instance_manager.cpp",
-    "src/barretenberg/vm2/simulation/data_copy.cpp",
-    "src/barretenberg/vm2/simulation/ecc.cpp",
-    "src/barretenberg/vm2/simulation/emit_unencrypted_log.cpp",
-    "src/barretenberg/vm2/simulation/events/memory_event.cpp",
-    "src/barretenberg/vm2/simulation/execution.cpp",
-    "src/barretenberg/vm2/simulation/execution_components.cpp",
-    "src/barretenberg/vm2/simulation/field_gt.cpp",
-    "src/barretenberg/vm2/simulation/gas_tracker.cpp",
-    "src/barretenberg/vm2/simulation/get_contract_instance.cpp",
-    "src/barretenberg/vm2/simulation/gt.cpp",
-    "src/barretenberg/vm2/simulation/internal_call_stack_manager.cpp",
-    "src/barretenberg/vm2/simulation/keccakf1600.cpp",
-    "src/barretenberg/vm2/simulation/l1_to_l2_message_tree_check.cpp",
-    "src/barretenberg/vm2/simulation/lib/contract_crypto.cpp",
-    "src/barretenberg/vm2/simulation/lib/merkle.cpp",
-    "src/barretenberg/vm2/simulation/lib/protocol_contract_tree.cpp",
-    "src/barretenberg/vm2/simulation/lib/raw_data_dbs.cpp",
-    "src/barretenberg/vm2/simulation/lib/retrieved_bytecodes_tree.cpp",
-    "src/barretenberg/vm2/simulation/lib/serialization.cpp",
-    "src/barretenberg/vm2/simulation/lib/sha256_compression.cpp",
-    "src/barretenberg/vm2/simulation/lib/uint_decomposition.cpp",
-    "src/barretenberg/vm2/simulation/lib/written_slots_tree.cpp",
-    "src/barretenberg/vm2/simulation/memory.cpp",
-    "src/barretenberg/vm2/simulation/merkle_check.cpp",
-    "src/barretenberg/vm2/simulation/note_hash_tree_check.cpp",
-    "src/barretenberg/vm2/simulation/nullifier_tree_check.cpp",
-    "src/barretenberg/vm2/simulation/poseidon2.cpp",
-    "src/barretenberg/vm2/simulation/protocol_contracts.cpp",
-    "src/barretenberg/vm2/simulation/public_data_tree_check.cpp",
-    "src/barretenberg/vm2/simulation/range_check.cpp",
-    "src/barretenberg/vm2/simulation/retrieved_bytecodes_tree_check.cpp",
-    "src/barretenberg/vm2/simulation/sha256.cpp",
-    "src/barretenberg/vm2/simulation/siloing.cpp",
-    "src/barretenberg/vm2/simulation/to_radix.cpp",
-    "src/barretenberg/vm2/simulation/tx_execution.cpp",
-    "src/barretenberg/vm2/simulation/update_check.cpp",
-    "src/barretenberg/vm2/simulation/written_public_data_slots_tree_check.cpp",
-    "src/barretenberg/vm2/simulation_helper.cpp",
-    "src/barretenberg/vm2/tooling/debugger.cpp",
-    "src/barretenberg/vm2/tooling/stats.cpp",
-    "src/barretenberg/vm2/tracegen/address_derivation_trace.cpp",
-    "src/barretenberg/vm2/tracegen/alu_trace.cpp",
-    "src/barretenberg/vm2/tracegen/bitwise_trace.cpp",
-    "src/barretenberg/vm2/tracegen/bytecode_trace.cpp",
-    "src/barretenberg/vm2/tracegen/calldata_trace.cpp",
-    "src/barretenberg/vm2/tracegen/class_id_derivation_trace.cpp",
-    "src/barretenberg/vm2/tracegen/context_stack_trace.cpp",
-    "src/barretenberg/vm2/tracegen/contract_instance_retrieval_trace.cpp",
-    "src/barretenberg/vm2/tracegen/data_copy_trace.cpp",
-    "src/barretenberg/vm2/tracegen/ecc_trace.cpp",
-    "src/barretenberg/vm2/tracegen/execution_trace.cpp",
-    "src/barretenberg/vm2/tracegen/field_gt_trace.cpp",
-    "src/barretenberg/vm2/tracegen/gt_trace.cpp",
-    "src/barretenberg/vm2/tracegen/internal_call_stack_trace.cpp",
-    "src/barretenberg/vm2/tracegen/keccakf1600_trace.cpp",
-    "src/barretenberg/vm2/tracegen/l1_to_l2_message_tree_trace.cpp",
-    "src/barretenberg/vm2/tracegen/lib/get_contract_instance_spec.cpp",
-    "src/barretenberg/vm2/tracegen/lib/get_env_var_spec.cpp",
-    "src/barretenberg/vm2/tracegen/lib/instruction_spec.cpp",
-    "src/barretenberg/vm2/tracegen/lib/interaction_def.cpp",
-    "src/barretenberg/vm2/tracegen/lib/phase_spec.cpp",
-    "src/barretenberg/vm2/tracegen/lib/trace_conversion.cpp",
-    "src/barretenberg/vm2/tracegen/memory_trace.cpp",
-    "src/barretenberg/vm2/tracegen/merkle_check_trace.cpp",
-    "src/barretenberg/vm2/tracegen/note_hash_tree_check_trace.cpp",
-    "src/barretenberg/vm2/tracegen/nullifier_tree_check_trace.cpp",
-    "src/barretenberg/vm2/tracegen/opcodes/emit_unencrypted_log_trace.cpp",
-    "src/barretenberg/vm2/tracegen/opcodes/get_contract_instance_trace.cpp",
-    "src/barretenberg/vm2/tracegen/poseidon2_trace.cpp",
-    "src/barretenberg/vm2/tracegen/precomputed_trace.cpp",
-    "src/barretenberg/vm2/tracegen/protocol_contract_trace.cpp",
-    "src/barretenberg/vm2/tracegen/public_data_tree_trace.cpp",
-    "src/barretenberg/vm2/tracegen/public_inputs_trace.cpp",
-    "src/barretenberg/vm2/tracegen/range_check_trace.cpp",
-    "src/barretenberg/vm2/tracegen/retrieved_bytecodes_tree_check.cpp",
-    "src/barretenberg/vm2/tracegen/sha256_trace.cpp",
-    "src/barretenberg/vm2/tracegen/to_radix_trace.cpp",
-    "src/barretenberg/vm2/tracegen/trace_container.cpp",
-    "src/barretenberg/vm2/tracegen/tx_trace.cpp",
-    "src/barretenberg/vm2/tracegen/update_check_trace.cpp",
-    "src/barretenberg/vm2/tracegen/written_public_data_slots_tree_check_trace.cpp",
-    "src/barretenberg/vm2/tracegen_helper.cpp",
-};
-
-// WASI-specific sources (for JS WASM reactor builds).
-const wasi_sources = [_][]const u8{
-    // "src/barretenberg/wasi/wasm_init.cpp",
-    "src/barretenberg/wasi/wasi_stubs.cpp",
-};
-
-// Combine source files based on AVM option.
-// const full_sources = core_sources ++ env_sources;
-// const full_avm_sources = core_sources ++ avm_sources;
-// const full_reactor_sources = core_sources ++ wasi_sources;
-
-fn buildLmdb(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
-    const lmdb_dep = b.dependency("lmdb", .{
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const lmdb_lib = b.addLibrary(.{
-        .name = "lmdb",
-        .linkage = .static,
-        .root_module = b.createModule(.{
-            .target = target,
-            .optimize = optimize,
-        }),
-    });
-
-    lmdb_lib.addCSourceFiles(.{
-        .files = &.{
-            "libraries/liblmdb/mdb.c",
-            "libraries/liblmdb/midl.c",
-        },
-        .root = lmdb_dep.path("."),
-    });
-
-    lmdb_lib.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
-    lmdb_lib.linkLibC();
-
-    return lmdb_lib;
-}
-
-fn buildLibdeflate(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
-    const libdeflate_dep = b.dependency("libdeflate", .{
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const libdeflate_lib = b.addLibrary(.{
-        .name = "deflate",
-        .linkage = .static,
-        .root_module = b.createModule(.{
-            .target = target,
-            .optimize = optimize,
-        }),
-    });
-
-    const libdeflate_sources = [_][]const u8{
-        "lib/utils.c",
-        "lib/deflate_compress.c",
-        "lib/deflate_decompress.c",
-        "lib/gzip_compress.c",
-        "lib/gzip_decompress.c",
-        "lib/zlib_compress.c",
-        "lib/zlib_decompress.c",
-        "lib/adler32.c",
-        "lib/crc32.c",
-        "lib/arm/cpu_features.c",
-        "lib/x86/cpu_features.c",
-    };
-
-    libdeflate_lib.addCSourceFiles(.{
-        .files = &libdeflate_sources,
-        .flags = &[_][]const u8{"-std=c99"},
-        .root = libdeflate_dep.path("."),
-    });
-
-    libdeflate_lib.addIncludePath(libdeflate_dep.path("."));
-    libdeflate_lib.addIncludePath(libdeflate_dep.path("lib"));
-    libdeflate_lib.linkLibC();
-
-    return libdeflate_lib;
-}
-
-fn buildGTest(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
-    const gtest_dep = b.dependency("googletest", .{
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const gtest_lib = b.addLibrary(.{
-        .name = "gtest",
-        .root_module = b.createModule(.{
-            .target = target,
-            .optimize = optimize,
-        }),
-    });
-
-    const gtest_sources = [_][]const u8{
-        "googletest/src/gtest-all.cc",
-        "googletest/src/gtest_main.cc",
-    };
-
-    gtest_lib.addCSourceFiles(.{
-        .files = &gtest_sources,
-        .flags = &[_][]const u8{"-std=c++14"},
-        .root = gtest_dep.path("."),
-    });
-
-    gtest_lib.addIncludePath(gtest_dep.path("googletest/include"));
-    gtest_lib.addIncludePath(gtest_dep.path("googletest"));
-    gtest_lib.linkLibCpp();
-
-    return gtest_lib;
-}
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -729,9 +101,9 @@ fn getBuildStepForTarget(
 
     const flags = if (platform.os == .wasi) &wasm_flags else if (enable_avm) &common_flags else &no_avm_flags;
 
-    const libdeflate_lib = buildLibdeflate(b, target, optimize);
-    const lmdb_lib = buildLmdb(b, target, optimize);
-    const gtest_lib = buildGTest(b, target, optimize);
+    const libdeflate_lib = deps.buildLibdeflate(b, target, optimize);
+    const lmdb_lib = deps.buildLmdb(b, target, optimize);
+    const gtest_lib = deps.buildGTest(b, target, optimize);
 
     const libdeflate_dep = b.dependency("libdeflate", .{});
     const lmdb_dep = b.dependency("lmdb", .{});
@@ -748,14 +120,15 @@ fn getBuildStepForTarget(
         }),
     });
 
-    lib_objects.addCSourceFiles(.{ .files = &core_sources, .flags = flags });
-    lib_objects.addCSourceFiles(.{ .files = &env_sources, .flags = flags });
+    lib_objects.addCSourceFiles(.{ .files = &sources.core_sources, .flags = flags });
+    lib_objects.addCSourceFiles(.{ .files = &sources.env_sources, .flags = flags });
     if (enable_avm) {
-        lib_objects.addCSourceFiles(.{ .files = &avm_sources, .flags = flags });
+        lib_objects.addCSourceFiles(.{ .files = &sources.avm_sources, .flags = flags });
     }
 
     lib_objects.addIncludePath(b.path("src"));
     lib_objects.addIncludePath(b.path("src/tracy_stub"));
+    lib_objects.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
     lib_objects.addIncludePath(msgpack_dep.path("include"));
     lib_objects.addIncludePath(libdeflate_dep.path("."));
     lib_objects.addIncludePath(libdeflate_dep.path("lib"));
@@ -787,7 +160,7 @@ fn getBuildStepForTarget(
             .target = target,
             .optimize = optimize,
             .single_threaded = false,
-            .strip = false,
+            // .strip = false,
         }),
     });
 
@@ -839,8 +212,11 @@ fn getBuildStepForTarget(
         }),
     });
 
-    global_test_objects.addCSourceFiles(.{ .files = &test_util_sources, .flags = flags });
-    global_test_objects.addCSourceFiles(.{ .files = &world_state_sources, .flags = flags });
+    global_test_objects.addCSourceFiles(.{ .files = &sources.test_util_sources, .flags = flags });
+    global_test_objects.addCSourceFiles(.{ .files = &sources.world_state_sources, .flags = flags });
+    if (enable_avm) {
+        global_test_objects.addCSourceFiles(.{ .files = &sources.test_avm_util_sources, .flags = flags });
+    }
 
     global_test_objects.addIncludePath(b.path("src"));
     global_test_objects.addIncludePath(b.path("src/tracy_stub"));
@@ -852,7 +228,12 @@ fn getBuildStepForTarget(
     global_test_objects.addIncludePath(gtest_dep.path("googlemock/include"));
     global_test_objects.linkLibCpp();
 
-    for (test_group_paths) |test_group_path| {
+    for (sources.test_group_paths) |test_group_path| {
+        // Skip VM2 tests if AVM is not enabled.
+        if (!enable_avm and std.mem.endsWith(u8, test_group_path, "/vm2")) {
+            continue;
+        }
+
         // Extract project name from path (e.g., "src/barretenberg/crypto/aes128" -> "crypto_aes128")
         const project_name = getProjectName(test_group_path);
 
@@ -887,7 +268,7 @@ fn getBuildStepForTarget(
             .root_module = b.createModule(.{
                 .target = target,
                 .optimize = optimize,
-                .strip = false,
+                // .strip = false,
             }),
         });
 
@@ -944,7 +325,7 @@ fn addBuildStepForWasmReactor(
         .cpu_features_add = std.Target.wasm.featureSet(&.{ .atomics, .bulk_memory }),
     });
 
-    const libdeflate_lib = buildLibdeflate(b, target, optimize);
+    const libdeflate_lib = deps.buildLibdeflate(b, target, optimize);
     const libdeflate_dep = b.dependency("libdeflate", .{});
     const msgpack_dep = b.dependency("msgpack", .{});
 
@@ -976,8 +357,8 @@ fn addBuildStepForWasmReactor(
     exe.addIncludePath(msgpack_dep.path("include"));
 
     // Sources
-    exe.addCSourceFiles(.{ .files = &core_sources, .flags = &wasm_flags });
-    exe.addCSourceFiles(.{ .files = &wasi_sources, .flags = &wasm_flags });
+    exe.addCSourceFiles(.{ .files = &sources.core_sources, .flags = &wasm_flags });
+    exe.addCSourceFiles(.{ .files = &sources.wasi_sources, .flags = &wasm_flags });
 
     exe.linkLibC();
     exe.linkLibCpp();
@@ -989,157 +370,6 @@ fn addBuildStepForWasmReactor(
     gzip.step.dependOn(&install.step);
     platform_step.dependOn(&gzip.step);
 }
-
-const benchmark_paths = [_][]const u8{
-    // "src/barretenberg/benchmark/append_only_tree_bench",
-    // "src/barretenberg/benchmark/basics_bench",
-    // "src/barretenberg/benchmark/circuit_construction_bench",
-    // "src/barretenberg/benchmark/client_ivc_bench",
-    // "src/barretenberg/benchmark/decrypt_bench",
-    // "src/barretenberg/benchmark/goblin_bench",
-    // "src/barretenberg/benchmark/indexed_tree_bench",
-    // "src/barretenberg/benchmark/ipa_bench",
-    // "src/barretenberg/benchmark/merkle_tree_bench",
-    // "src/barretenberg/benchmark/pippenger_bench",
-    // "src/barretenberg/benchmark/poseidon2_bench",
-    // "src/barretenberg/benchmark/protogalaxy_bench",
-    // "src/barretenberg/benchmark/protogalaxy_rounds_bench",
-    // "src/barretenberg/benchmark/relations_bench",
-    // "src/barretenberg/benchmark/ultra_bench",
-};
-
-// Hardcoded project paths based on CMakeLists.txt locations
-const test_group_paths = [_][]const u8{
-    // "src/barretenberg/acir_formal_proofs",
-    "src/barretenberg/api",
-    "src/barretenberg/bb",
-    "src/barretenberg/bbapi",
-    // "src/barretenberg/boomerang_value_detection",
-    "src/barretenberg/circuit_checker",
-    "src/barretenberg/client_ivc",
-    "src/barretenberg/commitment_schemes",
-    "src/barretenberg/commitment_schemes_recursion",
-    "src/barretenberg/crypto",
-    "src/barretenberg/dsl",
-    "src/barretenberg/ecc",
-    "src/barretenberg/eccvm",
-    "src/barretenberg/ext/starknet",
-    "src/barretenberg/flavor",
-    "src/barretenberg/goblin",
-    "src/barretenberg/honk",
-    // "src/barretenberg/lmdblib",
-    "src/barretenberg/numeric",
-    "src/barretenberg/op_queue",
-    "src/barretenberg/polynomials",
-    "src/barretenberg/protogalaxy",
-    "src/barretenberg/relations",
-    "src/barretenberg/serialize",
-    // "src/barretenberg/smt_verification",
-    "src/barretenberg/srs",
-    "src/barretenberg/stdlib",
-    "src/barretenberg/sumcheck",
-    "src/barretenberg/transcript",
-    "src/barretenberg/translator_vm",
-    "src/barretenberg/ultra_honk",
-    // "src/barretenberg/vm2",
-    "src/barretenberg/world_state",
-};
-
-// fn buildTestsForTarget(
-//     b: *std.Build,
-//     platform: Platform,
-//     optimize: std.builtin.OptimizeMode,
-//     enable_avm: bool,
-//     lib_step: *std.Build.Step,
-// ) *std.Build.Step {
-//     const target = b.resolveTargetQuery(.{
-//         .cpu_arch = platform.arch,
-//         .os_tag = platform.os,
-//     });
-
-//     const libdeflate_lib = buildLibdeflate(b, target, optimize);
-//     const lmdb_lib = buildLmdb(b, target, optimize);
-//     const gtest_lib = buildGTest(b, target, optimize);
-
-//     const flags = if (enable_avm) &common_flags else &no_avm_flags;
-
-//     const platform_tests_step = b.step(b.fmt("{s}-tests", .{platform.name}), b.fmt("Build tests for {s}", .{platform.name}));
-
-//     // Loop over each project and find its test files
-//     for (test_group_paths) |project_path| {
-//         var project_test_files = std.ArrayList([]u8).empty;
-//         defer project_test_files.deinit(b.allocator);
-//         getFilesEndingWith(b, project_path, ".test.cpp", &project_test_files);
-//         if (project_test_files.items.len == 0) continue;
-//         // for (project_test_files.items) |file| {
-//         //     std.debug.print("  found test file: {s}\n", .{file});
-//         // }
-
-//         // Extract project name from path (e.g., "src/barretenberg/crypto/aes128" -> "crypto_aes128")
-//         const project_name = getProjectName(project_path);
-
-//         // const Descriptor = struct {
-//         //     file_suffix: []const u8,
-//         //     bin_suffix: []const u8,
-//         // };
-//         // const descriptors = [_]Descriptor{
-//         //     .{ .file_suffix = ".test.cpp", .bin_suffix = "_tests" },
-//         //     .{ .file_suffix = ".bench.cpp", .bin_suffix = "_bench" },
-//         // };
-
-//         // Create test executable for this project
-//         const test_exe = b.addExecutable(.{
-//             .name = b.fmt("{s}_tests", .{project_name}),
-//             .root_module = b.createModule(.{
-//                 .target = target,
-//                 .optimize = optimize,
-//                 .strip = false,
-//             }),
-//         });
-
-//         test_exe.addCSourceFiles(.{
-//             .files = project_test_files.items,
-//             .flags = flags,
-//         });
-
-//         // Link to the existing barretenberg library from platform directory
-//         const lib_filename = if (target.result.os.tag == .windows) "barretenberg.lib" else "libbarretenberg.a";
-//         const lib_path = b.fmt("zig-out/{s}/{s}", .{ platform.name, lib_filename });
-//         test_exe.addObjectFile(b.path(lib_path));
-
-//         const lmdb_dep = b.dependency("lmdb", .{});
-//         const msgpack_dep = b.dependency("msgpack", .{});
-//         const gtest_dep = b.dependency("googletest", .{});
-
-//         test_exe.linkLibCpp();
-//         test_exe.linkLibrary(lmdb_lib);
-//         test_exe.linkLibrary(gtest_lib);
-//         test_exe.linkLibrary(libdeflate_lib);
-//         test_exe.addIncludePath(b.path("src"));
-//         test_exe.addIncludePath(b.path("src/tracy_stub"));
-//         test_exe.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
-//         test_exe.addIncludePath(msgpack_dep.path("include"));
-//         test_exe.addIncludePath(gtest_dep.path("googletest/include"));
-//         test_exe.addIncludePath(gtest_dep.path("googlemock/include"));
-
-//         // Platform-specific settings
-//         switch (target.result.os.tag) {
-//             .windows => {
-//                 test_exe.linkSystemLibrary("ws2_32");
-//                 test_exe.linkSystemLibrary("advapi32");
-//                 test_exe.linkSystemLibrary("psapi");
-//             },
-//             else => {},
-//         }
-
-//         test_exe.step.dependOn(lib_step); // Ensure library is built first
-
-//         const install_test = b.addInstallArtifact(test_exe, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
-//         platform_tests_step.dependOn(&install_test.step);
-//     }
-
-//     return platform_tests_step;
-// }
 
 fn getFilesEndingWith(b: *std.Build, project_path: []const u8, suffix: []const u8, out: *std.ArrayList([]u8)) void {
     var dir = std.fs.cwd().openDir(project_path, .{ .iterate = true }) catch return;
@@ -1170,22 +400,4 @@ fn getProjectName(project_path: []const u8) []const u8 {
         return result;
     }
     return project_path;
-}
-
-// Convert test file path to a clean test name (e.g., "src/barretenberg/crypto/aes128/aes128.test.cpp" -> "crypto_aes128_aes128_test")
-fn getTestName(test_file_path: []const u8) []const u8 {
-    // Remove "src/barretenberg/" prefix and ".test.cpp" suffix
-    const prefix = "src/barretenberg/";
-    const suffix = ".test.cpp";
-
-    if (std.mem.startsWith(u8, test_file_path, prefix) and std.mem.endsWith(u8, test_file_path, suffix)) {
-        const middle = test_file_path[prefix.len .. test_file_path.len - suffix.len];
-        // Replace slashes and dots with underscores
-        const result = std.heap.page_allocator.dupe(u8, middle) catch return test_file_path;
-        for (result) |*char| {
-            if (char.* == '/' or char.* == '.') char.* = '_';
-        }
-        return std.fmt.allocPrint(std.heap.page_allocator, "{s}_test", .{result}) catch return test_file_path;
-    }
-    return test_file_path;
 }
