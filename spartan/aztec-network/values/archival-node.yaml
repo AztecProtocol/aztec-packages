@@ -45,9 +45,6 @@ fullNode:
     periodSeconds: 60
     failureThreshold: 60
 
-blobSink:
-  enabled: false
-
 bootNode:
   enabled: false
   externalHost: "http://localhost:8080"
@@ -63,9 +60,6 @@ proverAgent:
   enabled: false
 
 proverBroker:
-  enabled: false
-
-pxe:
   enabled: false
 
 bot:
