@@ -29,7 +29,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS{
         INVERSE_SUBRELATION_LENGTH,      // inverse construction sub-relation
         LOOKUP_SUBRELATION_LENGTH,       // log derivative lookup argument sub-relation
-        BOOLEAN_CHECK_SUBRELATION_LENGTH // boolean check sub-relation
+        BOOLEAN_CHECK_SUBRELATION_LENGTH // read_tag boolean check sub-relation
     };
 
     // Note: the required correction for the second sub-relation is technically +1 but the two corrections must agree
@@ -40,7 +40,10 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         2, // read_tag boolean sub-relation check
     };
 
-    static constexpr std::array<bool, 3> SUBRELATION_LINEARLY_INDEPENDENT = { true, false, true };
+    static constexpr std::array<bool, 3>
+        SUBRELATION_LINEARLY_INDEPENDENT = { true /*Inverse subrelation*/,
+                                             false /*Lookup subrelation*/,
+                                             true /*read_tag boolean check subrelation*/ };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -75,7 +78,10 @@ template <typename FF_> class LogDerivLookupRelationImpl {
 
         const auto row_has_write = CoefficientAccumulator(in.lookup_read_tags);
         const auto row_has_read = CoefficientAccumulator(in.q_lookup);
-        // degree                1(1)               1(1)           1              1       = 2(2)
+        // Subrelation capturing row_has_write || row_has_read. When both row_has_write and row_has_read are boolean
+        // this can be expressed as
+        // 1 - (1 - row_has_write) * (1- row_has_read)
+        //  degree                1(1)           1(1)            1                 1     =    2(2)
         return Accumulator(-(row_has_write * row_has_read) + row_has_write + row_has_read);
     }
 
@@ -142,7 +148,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
 
         // The wire values for lookup gates are accumulators structured in such a way that the differences w_i -
         // step_size*w_i_shift result in values present in column i of a corresponding table. See the documentation in
-        // method get_lookup_accumulators() in  for a detailed explanation.
+        // method bb::plookup::get_lookup_accumulators() in  for a detailed explanation.
         // degree                                      1                 1         1       0(1) = 2
         auto derived_table_entry_1 = (negative_column_1_step_size * w_1_shift) + (w_1 + gamma);
         // degree                                        1             1          1 =    2
@@ -154,7 +160,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
 
         // (w_1 + \gamma q_2*w_1_shift) + η(w_2 + q_m*w_2_shift) + η₂(w_3 + q_c*w_3_shift) + η₃q_index.
         // deg 2 or 3
-        // degree                            2              0(1)                        2                  0(1)  = 2 (3)
+        // degree                            2             0(1)                    2                  0(1)  = 2 (3)
         auto result = Accumulator(derived_table_entry_2) * eta + Accumulator(derived_table_entry_3) * eta_two;
         result += Accumulator(derived_table_entry_1 + table_index_entry);
         return result;
