@@ -141,8 +141,9 @@ template <typename Flavor> class SumcheckProverRound {
                 } else {
                     if constexpr (true) { // false) { // std::is_same_v<Flavor, avm2::AvmFlavor>) {
                         // We lazily extend later.
-                        extended_edge = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>(
-                            { multivariate[edge_idx], multivariate[edge_idx + 1] });
+                        extended_edge = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>();
+                        extended_edge.to_extend_with_0 = &multivariate[edge_idx];
+                        extended_edge.to_extend_with_1 = &multivariate[edge_idx + 1];
                     } else {
                         extended_edge = bb::Univariate<FF, 2>({ multivariate[edge_idx], multivariate[edge_idx + 1] })
                                             .template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
