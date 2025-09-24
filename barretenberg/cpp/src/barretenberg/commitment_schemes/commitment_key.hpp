@@ -123,7 +123,6 @@ template <class Curve> class CommitmentKey {
         // First batch, create the commitments vector
         std::vector<Commitment> commitments;
 
-        max_batch_size = 1;
         for (size_t i = 0; i < polynomials.size();) {
             // Note: have to be careful how we compute this to not overlow e.g. max_batch_size + 1 would
             size_t batch_size = std::min(max_batch_size, polynomials.size() - i);
