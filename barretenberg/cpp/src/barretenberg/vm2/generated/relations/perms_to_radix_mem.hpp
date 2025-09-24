@@ -22,7 +22,7 @@ struct perm_to_radix_mem_write_mem_settings_ {
     static constexpr Column INVERSES = Column::perm_to_radix_mem_write_mem_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
         ColumnAndShifts::to_radix_mem_execution_clk, ColumnAndShifts::to_radix_mem_space_id,
-        ColumnAndShifts::to_radix_mem_dst_addr,      ColumnAndShifts::to_radix_mem_output_limb_value,
+        ColumnAndShifts::to_radix_mem_dst_addr,      ColumnAndShifts::to_radix_mem_limb_value,
         ColumnAndShifts::to_radix_mem_output_tag,    ColumnAndShifts::to_radix_mem_sel_should_write_mem
     };
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {

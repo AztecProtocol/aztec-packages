@@ -48,7 +48,8 @@ template <typename FF> class to_radix_mem : public Relation<to_radix_memImpl<FF>
     static constexpr size_t SR_IS_OUTPUT_BITS_IMPLY_RADIX_2 = 15;
     static constexpr size_t SR_ZERO_CHECK_NUM_LIMBS = 17;
     static constexpr size_t SR_ZERO_CHECK_VALUE = 19;
-    static constexpr size_t SR_sel_should_decompose_CONTINUITY = 24;
+    static constexpr size_t SR_SEL_SHOULD_DECOMPOSE_CONTINUITY = 24;
+    static constexpr size_t SR_TRUNCATION_ERROR = 27;
     static constexpr size_t SR_DECR_NUM_LIMBS = 29;
     static constexpr size_t SR_INCR_DST_ADDRESS = 30;
     static constexpr size_t SR_LAST_ROW_ERR_COMPUTATION = 31;
@@ -81,8 +82,10 @@ template <typename FF> class to_radix_mem : public Relation<to_radix_memImpl<FF>
             return "ZERO_CHECK_NUM_LIMBS";
         case SR_ZERO_CHECK_VALUE:
             return "ZERO_CHECK_VALUE";
-        case SR_sel_should_decompose_CONTINUITY:
-            return "sel_should_decompose_CONTINUITY";
+        case SR_SEL_SHOULD_DECOMPOSE_CONTINUITY:
+            return "SEL_SHOULD_DECOMPOSE_CONTINUITY";
+        case SR_TRUNCATION_ERROR:
+            return "TRUNCATION_ERROR";
         case SR_DECR_NUM_LIMBS:
             return "DECR_NUM_LIMBS";
         case SR_INCR_DST_ADDRESS:

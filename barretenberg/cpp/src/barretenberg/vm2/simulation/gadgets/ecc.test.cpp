@@ -78,7 +78,7 @@ TEST(AvmSimulationEccTest, ScalarMul)
         bits[i] = scalar_num.get_bit(i);
     }
 
-    EXPECT_CALL(to_radix, to_le_bits(scalar, 254)).WillOnce(Return(bits));
+    EXPECT_CALL(to_radix, to_le_bits(scalar, 254)).WillOnce(Return(std::make_pair(bits, false)));
 
     FF p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
     FF p_y("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");

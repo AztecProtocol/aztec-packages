@@ -193,7 +193,7 @@ void ToRadixTraceBuilder::process_with_memory(
                           // Decomposition
                           { C::to_radix_mem_sel_should_decompose, 1 },
                           { C::to_radix_mem_limb_index_to_lookup, event.num_limbs - 1 },
-                          { C::to_radix_mem_output_limb_value, event.limbs.at(0).as_ff() },
+                          { C::to_radix_mem_limb_value, event.limbs.at(0).as_ff() },
                           { C::to_radix_mem_value_found, 0 },
                       } });
 
@@ -220,7 +220,7 @@ void ToRadixTraceBuilder::process_with_memory(
                           { C::to_radix_mem_value_to_decompose, event.value },
                           { C::to_radix_mem_limb_index_to_lookup, remaining_limbs - 1 },
                           { C::to_radix_mem_radix, event.radix },
-                          { C::to_radix_mem_output_limb_value, limb_value.as_ff() },
+                          { C::to_radix_mem_limb_value, limb_value.as_ff() },
                           { C::to_radix_mem_value_found, found.at(i) ? 1 : 0 },
                           // Memory write
                           { C::to_radix_mem_sel_should_write_mem, 1 },

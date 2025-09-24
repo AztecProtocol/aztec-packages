@@ -10,7 +10,7 @@ using namespace bb::avm2;
 
 namespace {
 
-void BM_pure_to_radix(State& state)
+void VM_pure_to_radix(State& state)
 {
     PureToRadix pure_to_radix;
 
@@ -24,7 +24,7 @@ void BM_pure_to_radix(State& state)
     }
 }
 
-void BM_pure_to_bits(State& state)
+void VM_pure_to_bits(State& state)
 {
     PureToRadix pure_to_radix;
 
@@ -46,6 +46,7 @@ void VM_pure_to_radix_memory(State& state)
         MemoryStore memory;
         uint32_t num_limbs = static_cast<uint32_t>(state.range(0));
         uint32_t radix = static_cast<uint32_t>(state.range(1));
+        // Compute a random value that fits in the limbs to avoid truncation errors
         uint256_t value = 0;
         for (uint32_t i = 0; i < num_limbs; i++) {
             value = value * radix + static_cast<uint32_t>(rand()) % radix;
@@ -55,8 +56,8 @@ void VM_pure_to_radix_memory(State& state)
     }
 }
 
-BENCHMARK(BM_pure_to_radix)->Ranges({ { 2, 256 }, { 2, 256 } })->Unit(benchmark::kMillisecond);
-BENCHMARK(BM_pure_to_bits)->Ranges({ { 2, 256 } })->Unit(benchmark::kMillisecond);
+BENCHMARK(VM_pure_to_radix)->Ranges({ { 2, 256 }, { 2, 256 } })->Unit(benchmark::kMillisecond);
+BENCHMARK(VM_pure_to_bits)->Ranges({ { 2, 256 } })->Unit(benchmark::kMillisecond);
 BENCHMARK(VM_pure_to_radix_memory)->Ranges({ { 2, 256 }, { 2, 256 } })->Unit(benchmark::kMillisecond);
 
 } // namespace

@@ -193,7 +193,7 @@ void to_radix_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                     static_cast<View>(in.get(C::to_radix_mem_sel_should_decompose)));
         std::get<23>(evals) += (tmp * scaling_factor);
     }
-    { // sel_should_decompose_CONTINUITY
+    { // SEL_SHOULD_DECOMPOSE_CONTINUITY
         using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
         auto tmp =
             CView(to_radix_mem_NOT_LAST) * (static_cast<View>(in.get(C::to_radix_mem_sel_should_decompose_shift)) -
@@ -213,7 +213,7 @@ void to_radix_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    (FF(1) - static_cast<View>(in.get(C::to_radix_mem_sel_truncation_error)));
         std::get<26>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // TRUNCATION_ERROR
         using View = typename std::tuple_element_t<27, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::to_radix_mem_sel_truncation_error)) -
                     static_cast<View>(in.get(C::to_radix_mem_start)) *

@@ -102,7 +102,7 @@ struct lookup_to_radix_mem_input_output_to_radix_settings_ {
         ColumnAndShifts::to_radix_mem_value_to_decompose,
         ColumnAndShifts::to_radix_mem_limb_index_to_lookup,
         ColumnAndShifts::to_radix_mem_radix,
-        ColumnAndShifts::to_radix_mem_output_limb_value,
+        ColumnAndShifts::to_radix_mem_limb_value,
         ColumnAndShifts::to_radix_mem_value_found
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {

@@ -65,9 +65,10 @@ TEST(ToRadixConstrainingTest, ToLeBitsBasicTest)
     StrictMock<MockExecutionIdManager> execution_id_manager;
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
-    auto bits = to_radix_simulator.to_le_bits(FF::one(), 254);
+    auto [bits, truncated] = to_radix_simulator.to_le_bits(FF::one(), 254);
 
     EXPECT_EQ(bits.size(), 254);
+    EXPECT_FALSE(truncated);
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -88,9 +89,10 @@ TEST(ToRadixConstrainingTest, ToLeBitsPMinusOne)
     StrictMock<MockExecutionIdManager> execution_id_manager;
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
-    auto bits = to_radix_simulator.to_le_bits(FF::neg_one(), 254);
+    auto [bits, truncated] = to_radix_simulator.to_le_bits(FF::neg_one(), 254);
 
     EXPECT_EQ(bits.size(), 254);
+    EXPECT_FALSE(truncated);
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -111,9 +113,10 @@ TEST(ToRadixConstrainingTest, ToLeBitsShortest)
     StrictMock<MockExecutionIdManager> execution_id_manager;
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
-    auto bits = to_radix_simulator.to_le_bits(FF::one(), 1);
+    auto [bits, truncated] = to_radix_simulator.to_le_bits(FF::one(), 1);
 
     EXPECT_EQ(bits.size(), 1);
+    EXPECT_FALSE(truncated);
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -134,9 +137,10 @@ TEST(ToRadixConstrainingTest, ToLeBitsPadded)
     StrictMock<MockExecutionIdManager> execution_id_manager;
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
-    auto bits = to_radix_simulator.to_le_bits(FF::one(), 500);
+    auto [bits, truncated] = to_radix_simulator.to_le_bits(FF::one(), 500);
 
     EXPECT_EQ(bits.size(), 500);
+    EXPECT_FALSE(truncated);
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -158,12 +162,13 @@ TEST(ToRadixConstrainingTest, ToLeRadixBasic)
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
     FF value = FF::one();
-    auto bytes = to_radix_simulator.to_le_radix(value, 32, 256);
+    auto [bytes, truncated] = to_radix_simulator.to_le_radix(value, 32, 256);
 
     auto expected_bytes = value.to_buffer();
     // to_buffer is BE
     std::reverse(expected_bytes.begin(), expected_bytes.end());
     EXPECT_EQ(bytes, expected_bytes);
+    EXPECT_FALSE(truncated);
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -185,12 +190,13 @@ TEST(ToRadixConstrainingTest, ToLeRadixPMinusOne)
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
     FF value = FF::neg_one();
-    auto bytes = to_radix_simulator.to_le_radix(value, 32, 256);
+    auto [bytes, truncated] = to_radix_simulator.to_le_radix(value, 32, 256);
 
     auto expected_bytes = value.to_buffer();
     // to_buffer is BE
     std::reverse(expected_bytes.begin(), expected_bytes.end());
     EXPECT_EQ(bytes, expected_bytes);
+    EXPECT_FALSE(truncated);
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -211,10 +217,11 @@ TEST(ToRadixConstrainingTest, ToLeRadixOneByte)
     StrictMock<MockExecutionIdManager> execution_id_manager;
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
-    auto bytes = to_radix_simulator.to_le_radix(FF::one(), 1, 256);
+    auto [bytes, truncated] = to_radix_simulator.to_le_radix(FF::one(), 1, 256);
 
     std::vector<uint8_t> expected_bytes = { 1 };
     EXPECT_EQ(bytes, expected_bytes);
+    EXPECT_FALSE(truncated);
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -236,13 +243,14 @@ TEST(ToRadixConstrainingTest, ToLeRadixPadded)
     ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
 
     FF value = FF::neg_one();
-    auto bytes = to_radix_simulator.to_le_radix(value, 64, 256);
+    auto [bytes, truncated] = to_radix_simulator.to_le_radix(value, 64, 256);
 
     auto expected_bytes = value.to_buffer();
     // to_buffer is BE
     std::reverse(expected_bytes.begin(), expected_bytes.end());
     expected_bytes.resize(64);
     EXPECT_EQ(bytes, expected_bytes);
+    EXPECT_FALSE(truncated);
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -446,7 +454,7 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
             // Output
-            { C::to_radix_mem_output_limb_value, 1 },
+            { C::to_radix_mem_limb_value, 1 },
             { C::to_radix_mem_sel_should_decompose, 1 },
             { C::to_radix_mem_sel_should_write_mem, 1 },
             { C::to_radix_mem_limb_index_to_lookup, num_limbs - 1 },
@@ -475,7 +483,7 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             // num_limbs_minus_one = (num_limbs - 1) - 1)
             { C::to_radix_mem_num_limbs_minus_one_inv, FF(num_limbs - 2).invert() },
             // Output
-            { C::to_radix_mem_output_limb_value, 3 },
+            { C::to_radix_mem_limb_value, 3 },
             { C::to_radix_mem_sel_should_decompose, 1 },
             { C::to_radix_mem_sel_should_write_mem, 1 },
             { C::to_radix_mem_limb_index_to_lookup, num_limbs - 2 },
@@ -502,7 +510,7 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             // num_limbs_minus_one = (num_limbs - 2) - 1)
             { C::to_radix_mem_num_limbs_minus_one_inv, FF(num_limbs - 3).invert() },
             // Output
-            { C::to_radix_mem_output_limb_value, 3 },
+            { C::to_radix_mem_limb_value, 3 },
             { C::to_radix_mem_sel_should_decompose, 1 },
             { C::to_radix_mem_sel_should_write_mem, 1 },
             { C::to_radix_mem_limb_index_to_lookup, num_limbs - 3 },
@@ -523,7 +531,7 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             // Control Flow
             { C::to_radix_mem_last, 1 },
             // Output
-            { C::to_radix_mem_output_limb_value, 7 },
+            { C::to_radix_mem_limb_value, 7 },
             { C::to_radix_mem_sel_should_decompose, 1 },
             { C::to_radix_mem_sel_should_write_mem, 1 },
             { C::to_radix_mem_limb_index_to_lookup, num_limbs - 4 },
@@ -590,8 +598,8 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
 
     // Negative test: disable decomposition after the start row:
     trace.set(Column::to_radix_mem_sel_should_decompose, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE((check_relation<to_radix_mem>(trace, to_radix_mem::SR_SEL_SHOULD_WRITE_MEM_CONTINUITY)),
-                              "SEL_SHOULD_WRITE_MEM_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE((check_relation<to_radix_mem>(trace, to_radix_mem::SR_SEL_SHOULD_DECOMPOSE_CONTINUITY)),
+                              "SEL_SHOULD_DECOMPOSE_CONTINUITY");
 }
 
 TEST(ToRadixMemoryConstrainingTest, DstOutOfRange)
@@ -867,7 +875,7 @@ TEST(ToRadixMemoryConstrainingTest, TruncationError)
             // Decomposition
             { C::to_radix_mem_sel_should_decompose, 1 },
             { C::to_radix_mem_limb_index_to_lookup, num_limbs - 1 },
-            { C::to_radix_mem_output_limb_value, 3 },
+            { C::to_radix_mem_limb_value, 3 },
             { C::to_radix_mem_value_found, 0 },
             // Helpers
             { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
@@ -877,6 +885,17 @@ TEST(ToRadixMemoryConstrainingTest, TruncationError)
     });
     check_relation<to_radix_mem>(trace);
     check_interaction<ToRadixTraceBuilder, lookup_to_radix_mem_check_radix_lt_2_settings>(trace);
+
+    // Negative test: truncation error should be on if found = false on the start row
+    trace.set(C::to_radix_mem_sel_truncation_error, 1, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_TRUNCATION_ERROR),
+                              "TRUNCATION_ERROR");
+    trace.set(C::to_radix_mem_sel_truncation_error, 1, 1);
+
+    // Negative test: truncation error can't be on if found = true on the start row
+    trace.set(C::to_radix_mem_value_found, 1, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_TRUNCATION_ERROR),
+                              "TRUNCATION_ERROR");
 }
 
 TEST(ToRadixMemoryConstrainingTest, ZeroNumLimbsAndZeroValueIsNoop)

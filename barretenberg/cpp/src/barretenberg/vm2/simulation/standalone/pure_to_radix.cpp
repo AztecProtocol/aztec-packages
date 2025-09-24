@@ -11,7 +11,9 @@
 
 namespace bb::avm2::simulation {
 
-std::vector<uint8_t> PureToRadix::to_le_radix(const FF& value, uint32_t num_limbs, uint32_t radix)
+std::pair<std::vector<uint8_t>, /* truncated */ bool> PureToRadix::to_le_radix(const FF& value,
+                                                                               uint32_t num_limbs,
+                                                                               uint32_t radix)
 {
     BB_BENCH_NAME("PureToRadix::to_le_radix");
 
@@ -26,22 +28,21 @@ std::vector<uint8_t> PureToRadix::to_le_radix(const FF& value, uint32_t num_limb
         value_integer = quotient;
     }
 
-    return limbs;
+    return { limbs, value_integer != 0 };
 }
 
-std::vector<bool> PureToRadix::to_le_bits(const FF& value, uint32_t num_limbs)
+std::pair<std::vector<bool>, /* truncated */ bool> PureToRadix::to_le_bits(const FF& value, uint32_t num_limbs)
 {
     BB_BENCH_NAME("PureToRadix::to_le_bits");
 
-    uint256_t value_integer = static_cast<uint256_t>(value);
-    std::vector<bool> limbs;
-    limbs.reserve(num_limbs);
+    const auto& [limbs, truncated] = to_le_radix(value, num_limbs, 2);
+    std::vector<bool> bits(limbs.size());
 
-    for (uint32_t i = 0; i < num_limbs; i++) {
-        limbs.push_back(value_integer.get_bit(i));
-    }
+    std::transform(limbs.begin(), limbs.end(), bits.begin(), [](uint8_t val) {
+        return val != 0; // Convert nonzero values to `true`, zero to `false`
+    });
 
-    return limbs;
+    return { bits, truncated };
 }
 
 void PureToRadix::to_be_radix(MemoryInterface& memory,
@@ -69,24 +70,24 @@ void PureToRadix::to_be_radix(MemoryInterface& memory,
         throw ToRadixException("Invalid parameters for ToRadix");
     }
 
-    uint256_t radix_integer = static_cast<uint256_t>(radix);
-    uint256_t value_integer = static_cast<uint256_t>(value);
-    std::vector<uint8_t> limbs(num_limbs, 0);
-
-    for (uint32_t i = 0; i < num_limbs; i++) {
-        auto [quotient, remainder] = value_integer.divmod(radix_integer);
-        limbs.at(num_limbs - i - 1) = static_cast<uint8_t>(remainder);
-        value_integer = quotient;
-    }
-
-    if (value_integer != 0) {
-        throw ToRadixException("Truncation error");
-    }
-
-    for (uint32_t i = 0; i < num_limbs; i++) {
-        memory.set(dst_addr + i,
-                   is_output_bits ? MemoryValue::from<uint1_t>(static_cast<uint1_t>(limbs.at(i)))
-                                  : MemoryValue::from<uint8_t>(limbs.at(i)));
+    if (is_output_bits) {
+        auto [limbs, truncated] = to_le_bits(value, num_limbs);
+        if (truncated) {
+            throw ToRadixException("Truncation error");
+        }
+        std::reverse(limbs.begin(), limbs.end());
+        for (uint32_t i = 0; i < num_limbs; i++) {
+            memory.set(dst_addr + i, MemoryValue::from<uint1_t>(static_cast<uint1_t>(limbs[i])));
+        }
+    } else {
+        auto [limbs, truncated] = to_le_radix(value, num_limbs, radix);
+        if (truncated) {
+            throw ToRadixException("Truncation error");
+        }
+        std::ranges::reverse(limbs);
+        for (uint32_t i = 0; i < num_limbs; i++) {
+            memory.set(dst_addr + i, MemoryValue::from<uint8_t>(limbs[i]));
+        }
     }
 }
 

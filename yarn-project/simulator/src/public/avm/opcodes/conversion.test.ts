@@ -253,7 +253,7 @@ describe('Conversion Opcodes', () => {
       },
     );
 
-    it('Should throw an error for a number that cant be decomposed in the given number of limbs', async () => {
+    it('Should throw an error for a number that cannot be decomposed in the given number of limbs', async () => {
       const arg = new Field(0b1010n);
       const radix = new Uint32(2); // Bit decomposition
       const indirect = 0;

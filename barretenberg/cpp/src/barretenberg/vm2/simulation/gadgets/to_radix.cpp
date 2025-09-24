@@ -11,20 +11,9 @@
 
 namespace bb::avm2::simulation {
 
-namespace {
-
-FF reconstruct_from_be(const std::vector<MemoryValue>& limbs, uint32_t radix)
-{
-    FF value = FF(0);
-    for (const auto& limb : limbs) {
-        value = value * radix + limb.as_ff();
-    }
-    return value;
-}
-
-} // namespace
-
-std::vector<uint8_t> ToRadix::to_le_radix(const FF& value, uint32_t num_limbs, uint32_t radix)
+std::pair<std::vector<uint8_t>, /* truncated */ bool> ToRadix::to_le_radix(const FF& value,
+                                                                           uint32_t num_limbs,
+                                                                           uint32_t radix)
 {
     std::vector<uint8_t> limbs;
     uint32_t num_p_limbs = static_cast<uint32_t>(get_p_limbs_per_radix_size(radix));
@@ -48,23 +37,24 @@ std::vector<uint8_t> ToRadix::to_le_radix(const FF& value, uint32_t num_limbs, u
         .limbs = limbs,
     });
 
-    if (num_limbs < limbs.size()) {
+    bool truncated = num_limbs < limbs.size();
+    if (truncated) {
         limbs.erase(limbs.begin() + num_limbs, limbs.end());
     }
 
-    return limbs;
+    return { limbs, truncated };
 }
 
-std::vector<bool> ToRadix::to_le_bits(const FF& value, uint32_t num_limbs)
+std::pair<std::vector<bool>, /* truncated */ bool> ToRadix::to_le_bits(const FF& value, uint32_t num_limbs)
 {
-    std::vector<uint8_t> limbs = to_le_radix(value, num_limbs, 2);
+    const auto& [limbs, truncated] = to_le_radix(value, num_limbs, 2);
     std::vector<bool> bits(limbs.size());
 
     std::transform(limbs.begin(), limbs.end(), bits.begin(), [](uint8_t val) {
         return val != 0; // Convert nonzero values to `true`, zero to `false`
     });
 
-    return bits;
+    return { bits, truncated };
 }
 
 void ToRadix::to_be_radix(MemoryInterface& memory,
@@ -113,24 +103,26 @@ void ToRadix::to_be_radix(MemoryInterface& memory,
         throw ToRadixException("Error during BE conversion: Invalid parameters for ToRadix");
     }
 
+    bool truncated = false;
+
     if (num_limbs > 0) {
         event.limbs.reserve(num_limbs);
         if (is_output_bits) {
-            std::vector<bool> output_bits = to_le_bits(value, num_limbs);
-            std::ranges::for_each(output_bits.rbegin(), output_bits.rend(), [&](bool bit) {
+            const auto& [limbs, truncated_decomposition] = to_le_bits(value, num_limbs);
+            truncated = truncated_decomposition;
+            std::ranges::for_each(limbs.rbegin(), limbs.rend(), [&](bool bit) {
                 event.limbs.push_back(MemoryValue::from<uint1_t>(bit));
             });
         } else {
-            std::vector<uint8_t> output_limbs_u8 = to_le_radix(value, num_limbs, radix);
-            std::ranges::for_each(output_limbs_u8.rbegin(), output_limbs_u8.rend(), [&](uint8_t limb) {
+            const auto& [limbs, truncated_decomposition] = to_le_radix(value, num_limbs, radix);
+            truncated = truncated_decomposition;
+            std::ranges::for_each(limbs.rbegin(), limbs.rend(), [&](uint8_t limb) {
                 event.limbs.push_back(MemoryValue::from<uint8_t>(limb));
             });
         }
     }
 
-    // We need to reconstruct the value to check for truncation. The alternative would be to change the interface
-    // to return a truncated flag.
-    if (reconstruct_from_be(event.limbs, radix) != value) {
+    if (truncated) {
         memory_events.emit(std::move(event));
         throw ToRadixException("Error during BE conversion: Truncation error");
     }

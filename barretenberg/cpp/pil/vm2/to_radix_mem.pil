@@ -185,24 +185,26 @@ namespace to_radix_mem;
         * (1 - sel_radix_gt_256_err) * (1 - sel_invalid_bitwise_radix)
         * (1 - sel_invalid_num_limbs_err);
 
-    pol commit output_limb_value;
+    pol commit limb_value;
+    // In the low level to_radix gadget, found will be on when the number has been reconstructed with the current limbs.
+    // Refer to the table in the low level to_radix gadget for a visual example.
     pol commit value_found;
     pol commit sel_should_decompose;
     sel_should_decompose * (1 - sel_should_decompose) = 0;
 
-    // On the start row, we define sel_should_decompose as !validation_error && !num_limbs_is_zero
+    // On the start row, we define sel_should_decompose as !input_validation_error && !num_limbs_is_zero
     // We can't inline input_validation_error because of the degree.
     start * ((1 - input_validation_error) * (1 - sel_num_limbs_is_zero) - sel_should_decompose) = 0;
 
     // On following rows, we propagate input_validation_error.
-    #[sel_should_decompose_CONTINUITY]
+    #[SEL_SHOULD_DECOMPOSE_CONTINUITY]
     NOT_LAST * (sel_should_decompose' - sel_should_decompose) = 0;
 
     pol commit limb_index_to_lookup; // Need this since we want Big-Endian but the gadget is Little-Endian
     limb_index_to_lookup = sel_should_decompose * (num_limbs - 1);
 
     #[INPUT_OUTPUT_TO_RADIX]
-    sel_should_decompose { value_to_decompose, limb_index_to_lookup, radix, output_limb_value, value_found }
+    sel_should_decompose { value_to_decompose, limb_index_to_lookup, radix, limb_value, value_found }
     in
     to_radix.sel {to_radix.value, to_radix.limb_index, to_radix.radix, to_radix.limb, to_radix.found };
 
@@ -212,8 +214,9 @@ namespace to_radix_mem;
     pol commit sel_truncation_error;
     sel_truncation_error * (1 - sel_truncation_error) = 0;
     // A truncation error happens if in the start row, we look up the to_radix gadget and value_found is off.
-    // The to radix gadget is little endian, so the first row that we lookup is the last limb. If it's not found in the last limb,
+    // The to_radix gadget is little endian, so the first row that we lookup is the last limb. If it's not found in the last limb,
     // it means that the number is truncated with the given number of limbs.
+    #[TRUNCATION_ERROR]
     sel_truncation_error = start * sel_should_decompose * (1 - value_found);
 
     /////////////////////////////////////////////////////
@@ -272,7 +275,7 @@ namespace to_radix_mem;
     #[WRITE_MEM]
     sel_should_write_mem {
         execution_clk,           space_id,
-        dst_addr,                output_limb_value,
+        dst_addr,                limb_value,
         /*mem_tag*/ output_tag,  /*rw=1*/ sel_should_write_mem
     } is
     memory.sel_to_radix_write {
