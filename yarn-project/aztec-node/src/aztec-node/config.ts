@@ -10,7 +10,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import {
   type KeyStore,
-  type KeyStoreConfig,
   type ValidatorKeyStore,
   ethPrivateKeySchema,
   keyStoreConfigMappings,
@@ -47,7 +46,6 @@ export type AztecNodeConfig = ArchiverConfig &
   Pick<ProverClientUserConfig, 'bbBinaryPath' | 'bbWorkingDirectory' | 'realProofs'> &
   P2PConfig &
   DataStoreConfig &
-  KeyStoreConfig &
   SentinelConfig &
   SharedNodeConfig &
   GenesisStateConfig &
