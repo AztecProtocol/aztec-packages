@@ -6,7 +6,7 @@ import type { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
+import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import type { Abi, Narrow } from 'abitype';
 import { mkdir, writeFile } from 'fs/promises';
@@ -187,29 +187,39 @@ export const deploySharedContracts = async (
 
   const txHashes: Hex[] = [];
 
-  const feeAssetAddress = await deployer.deploy(FeeAssetArtifact, ['FeeJuice', 'FEE', l1Client.account.address]);
+  const { address: feeAssetAddress } = await deployer.deploy(FeeAssetArtifact, [
+    'FeeJuice',
+    'FEE',
+    l1Client.account.address,
+  ]);
   logger.verbose(`Deployed Fee Asset at ${feeAssetAddress}`);
 
-  const stakingAssetAddress = await deployer.deploy(StakingAssetArtifact, ['Staking', 'STK', l1Client.account.address]);
+  const { address: stakingAssetAddress } = await deployer.deploy(StakingAssetArtifact, [
+    'Staking',
+    'STK',
+    l1Client.account.address,
+  ]);
   logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
 
   const gseConfiguration = getGSEConfiguration(networkName);
 
-  const gseAddress = await deployer.deploy(GSEArtifact, [
-    l1Client.account.address,
-    stakingAssetAddress.toString(),
-    gseConfiguration.activationThreshold,
-    gseConfiguration.ejectionThreshold,
-  ]);
+  const gseAddress = (
+    await deployer.deploy(GSEArtifact, [
+      l1Client.account.address,
+      stakingAssetAddress.toString(),
+      gseConfiguration.activationThreshold,
+      gseConfiguration.ejectionThreshold,
+    ])
+  ).address;
   logger.verbose(`Deployed GSE at ${gseAddress}`);
 
-  const registryAddress = await deployer.deploy(RegistryArtifact, [
+  const { address: registryAddress } = await deployer.deploy(RegistryArtifact, [
     l1Client.account.address,
     feeAssetAddress.toString(),
   ]);
   logger.verbose(`Deployed Registry at ${registryAddress}`);
 
-  const governanceProposerAddress = await deployer.deploy(GovernanceProposerArtifact, [
+  const { address: governanceProposerAddress } = await deployer.deploy(GovernanceProposerArtifact, [
     registryAddress.toString(),
     gseAddress.toString(),
     BigInt(args.governanceProposerQuorum ?? args.governanceProposerRoundSize / 2 + 1),
@@ -219,7 +229,7 @@ export const deploySharedContracts = async (
 
   // @note @LHerskind the assets are expected to be the same at some point, but for better
   // configurability they are different for now.
-  const governanceAddress = await deployer.deploy(GovernanceArtifact, [
+  const { address: governanceAddress } = await deployer.deploy(GovernanceArtifact, [
     stakingAssetAddress.toString(),
     governanceProposerAddress.toString(),
     gseAddress.toString(),
@@ -261,11 +271,13 @@ export const deploySharedContracts = async (
     txHashes.push(txHash);
   }
 
-  const coinIssuerAddress = await deployer.deploy(CoinIssuerArtifact, [
-    feeAssetAddress.toString(),
-    1_000_000n * 10n ** 18n, // @todo  #8084
-    l1Client.account.address,
-  ]);
+  const coinIssuerAddress = (
+    await deployer.deploy(CoinIssuerArtifact, [
+      feeAssetAddress.toString(),
+      1_000_000n * 10n ** 18n, // @todo  #8084
+      l1Client.account.address,
+    ])
+  ).address;
   logger.verbose(`Deployed CoinIssuer at ${coinIssuerAddress}`);
 
   logger.verbose(`Waiting for deployments to complete`);
@@ -283,11 +295,13 @@ export const deploySharedContracts = async (
     /*                          CHEAT CODES START HERE                            */
     /* -------------------------------------------------------------------------- */
 
-    feeAssetHandlerAddress = await deployer.deploy(FeeAssetHandlerArtifact, [
-      l1Client.account.address,
-      feeAssetAddress.toString(),
-      BigInt(1000n * 10n ** 18n),
-    ]);
+    feeAssetHandlerAddress = (
+      await deployer.deploy(FeeAssetHandlerArtifact, [
+        l1Client.account.address,
+        feeAssetAddress.toString(),
+        BigInt(1000n * 10n ** 18n),
+      ])
+    ).address;
     logger.verbose(`Deployed FeeAssetHandler at ${feeAssetHandlerAddress}`);
 
     // Only if we are "fresh" will we be adding as a minter, otherwise above will simply get same address
@@ -329,7 +343,8 @@ export const deploySharedContracts = async (
         skipMerkleCheck: true, // skip merkle check - needed for testing without generating proofs
       } as const;
 
-      stakingAssetHandlerAddress = await deployer.deploy(StakingAssetHandlerArtifact, [stakingAssetHandlerDeployArgs]);
+      stakingAssetHandlerAddress = (await deployer.deploy(StakingAssetHandlerArtifact, [stakingAssetHandlerDeployArgs]))
+        .address;
       logger.verbose(`Deployed StakingAssetHandler at ${stakingAssetHandlerAddress}`);
 
       const { txHash: stakingMinterTxHash } = await deployer.sendTransaction({
@@ -400,7 +415,7 @@ export const deploySharedContracts = async (
 
 const getZkPassportVerifierAddress = async (deployer: L1Deployer, args: DeployL1ContractsArgs): Promise<EthAddress> => {
   if (args.zkPassportArgs?.mockZkPassportVerifier) {
-    return await deployer.deploy(mockVerifiers.mockZkPassportVerifier);
+    return (await deployer.deploy(mockVerifiers.mockZkPassportVerifier)).address;
   }
   return ZK_PASSPORT_VERIFIER_ADDRESS;
 };
@@ -453,7 +468,7 @@ export const deployRollupForUpgrade = async (
 };
 
 export const deploySlashFactory = async (deployer: L1Deployer, rollupAddress: Hex, logger: Logger) => {
-  const slashFactoryAddress = await deployer.deploy(SlashFactoryArtifact, [rollupAddress]);
+  const slashFactoryAddress = (await deployer.deploy(SlashFactoryArtifact, [rollupAddress])).address;
   logger.verbose(`Deployed SlashFactory at ${slashFactoryAddress}`);
   return slashFactoryAddress;
 };
@@ -462,10 +477,12 @@ export const deployUpgradePayload = async (
   deployer: L1Deployer,
   addresses: Pick<L1ContractAddresses, 'registryAddress' | 'rollupAddress'>,
 ) => {
-  const payloadAddress = await deployer.deploy(RegisterNewRollupVersionPayloadArtifact, [
-    addresses.registryAddress.toString(),
-    addresses.rollupAddress.toString(),
-  ]);
+  const payloadAddress = (
+    await deployer.deploy(RegisterNewRollupVersionPayloadArtifact, [
+      addresses.registryAddress.toString(),
+      addresses.rollupAddress.toString(),
+    ])
+  ).address;
 
   return payloadAddress;
 };
@@ -517,10 +534,10 @@ export const deployRollup = async (
   let epochProofVerifier = EthAddress.ZERO;
 
   if (args.realVerifier) {
-    epochProofVerifier = await deployer.deploy(l1ArtifactsVerifiers.honkVerifier);
+    epochProofVerifier = (await deployer.deploy(l1ArtifactsVerifiers.honkVerifier)).address;
     logger.verbose(`Rollup will use the real verifier at ${epochProofVerifier}`);
   } else {
-    epochProofVerifier = await deployer.deploy(mockVerifiers.mockVerifier);
+    epochProofVerifier = (await deployer.deploy(mockVerifiers.mockVerifier)).address;
     logger.verbose(`Rollup will use the mock verifier at ${epochProofVerifier}`);
   }
 
@@ -579,8 +596,10 @@ export const deployRollup = async (
     rollupConfigArgs,
   ] as const;
 
-  const rollupAddress = await deployer.deploy(RollupArtifact, rollupArgs, { gasLimit: 15_000_000n });
-  logger.verbose(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
+  const { address: rollupAddress, existed: rollupExisted } = await deployer.deploy(RollupArtifact, rollupArgs, {
+    gasLimit: 15_000_000n,
+  });
+  logger.verbose(`Deployed Rollup at ${rollupAddress}, already existed: ${rollupExisted}`, rollupConfigArgs);
 
   const rollupContract = new RollupContract(extendedClient, rollupAddress);
 
@@ -605,7 +624,7 @@ export const deployRollup = async (
     txHashes.push(mintTxHash);
   }
 
-  const slashFactoryAddress = await deployer.deploy(SlashFactoryArtifact, [rollupAddress.toString()]);
+  const slashFactoryAddress = (await deployer.deploy(SlashFactoryArtifact, [rollupAddress.toString()])).address;
   logger.verbose(`Deployed SlashFactory at ${slashFactoryAddress}`);
 
   // We need to call a function on the registry to set the various contract addresses.
@@ -667,7 +686,17 @@ export const deployRollup = async (
     logger.verbose(`Not the owner of the gse, skipping rollup addition`);
   }
 
-  if (args.initialValidators && (await gseContract.read.isRollupRegistered([rollupContract.address]))) {
+  const activeAttestorCount = await rollupContract.getActiveAttesterCount();
+  const queuedAttestorCount = await rollupContract.getEntryQueueLength();
+  logger.info(`Rollup has ${activeAttestorCount} active attestors and ${queuedAttestorCount} queued attestors`);
+
+  const shouldAddValidators = activeAttestorCount === 0n && queuedAttestorCount === 0n;
+
+  if (
+    args.initialValidators &&
+    shouldAddValidators &&
+    (await gseContract.read.isRollupRegistered([rollupContract.address]))
+  ) {
     await addMultipleValidators(
       extendedClient,
       deployer,
@@ -879,7 +908,8 @@ export const addMultipleValidators = async (
 
     if (validators.length > 0) {
       const gseContract = new GSEContract(extendedClient, gseAddress);
-      const multiAdder = await deployer.deploy(MultiAdderArtifact, [rollupAddress, deployer.client.account.address]);
+      const multiAdder = (await deployer.deploy(MultiAdderArtifact, [rollupAddress, deployer.client.account.address]))
+        .address;
 
       const makeValidatorTuples = async (validator: Operator) => {
         const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey.getValue());
@@ -993,11 +1023,13 @@ export const cheat_initializeFeeAssetHandler = async (
   feeAssetHandlerAddress: EthAddress;
   txHash: Hex;
 }> => {
-  const feeAssetHandlerAddress = await deployer.deploy(FeeAssetHandlerArtifact, [
-    extendedClient.account.address,
-    feeAssetAddress.toString(),
-    BigInt(1e18),
-  ]);
+  const feeAssetHandlerAddress = (
+    await deployer.deploy(FeeAssetHandlerArtifact, [
+      extendedClient.account.address,
+      feeAssetAddress.toString(),
+      BigInt(1e18),
+    ])
+  ).address;
   logger.verbose(`Deployed FeeAssetHandler at ${feeAssetHandlerAddress}`);
 
   const { txHash } = await deployer.sendTransaction({
@@ -1328,10 +1360,10 @@ export class L1Deployer {
     params: ContractArtifacts<TAbi>,
     args?: ContractConstructorArgs<TAbi>,
     opts: { gasLimit?: bigint } = {},
-  ): Promise<EthAddress> {
+  ): Promise<{ address: EthAddress; existed: boolean }> {
     this.logger.debug(`Deploying ${params.name} contract`, { args });
     try {
-      const { txHash, address, deployedLibraries } = await deployL1Contract(
+      const { txHash, address, deployedLibraries, existed } = await deployL1Contract(
         this.client,
         params.contractAbi,
         params.contractBytecode,
@@ -1369,7 +1401,10 @@ export class L1Deployer {
           libraries: deployedLibraries ?? [],
         });
       }
-      return address;
+      return {
+        address,
+        existed,
+      };
     } catch (error) {
       throw new Error(`Failed to deploy ${params.name}`, { cause: formatViemError(error) });
     }
@@ -1427,7 +1462,12 @@ export async function deployL1Contract(
     gasLimit?: bigint;
     acceleratedTestDeployments?: boolean;
   } = {},
-): Promise<{ address: EthAddress; txHash: Hex | undefined; deployedLibraries?: VerificationLibraryEntry[] }> {
+): Promise<{
+  address: EthAddress;
+  txHash: Hex | undefined;
+  deployedLibraries?: VerificationLibraryEntry[];
+  existed: boolean;
+}> {
   let txHash: Hex | undefined = undefined;
   let resultingAddress: Hex | null | undefined = undefined;
   const deployedLibraries: VerificationLibraryEntry[] = [];
@@ -1529,6 +1569,8 @@ export async function deployL1Contract(
     }
   }
 
+  let existed = false;
+
   if (saltFromOpts) {
     logger?.info(`Deploying contract with salt ${saltFromOpts}`);
     const { address, paddedSalt: salt, calldata } = getExpectedAddress(abi, bytecode, args, saltFromOpts);
@@ -1550,6 +1592,7 @@ export async function deployL1Contract(
       logger?.verbose(`Deployed contract with salt ${salt} to address ${resultingAddress} in tx ${txHash}.`);
     } else {
       logger?.verbose(`Skipping existing deployment of contract with salt ${salt} to address ${resultingAddress}`);
+      existed = true;
     }
   } else {
     const deployData = encodeDeployData({ abi, bytecode, args });
@@ -1569,7 +1612,7 @@ export async function deployL1Contract(
     }
   }
 
-  return { address: EthAddress.fromString(resultingAddress!), txHash, deployedLibraries };
+  return { address: EthAddress.fromString(resultingAddress!), txHash, deployedLibraries, existed };
 }
 
 export function getExpectedAddress(
