@@ -16,7 +16,7 @@ import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { SchnorrAccountContract as SchnorrAccountContractInterface } from '@aztec/noir-contracts.js/SchnorrAccount';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 

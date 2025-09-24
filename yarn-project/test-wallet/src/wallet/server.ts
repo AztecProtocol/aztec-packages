@@ -14,15 +14,15 @@ import {
   type PXEServiceConfig,
   createPXEService,
   getPXEServiceConfig,
-} from '@aztec/pxe/client/bundle';
+} from '@aztec/pxe/server';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { BaseTestWallet } from './test_wallet.js';
 
 /**
- * A TestWallet implementation that loads the account contract artifacts eagerly
- * Note that the only difference from `lazy` and `server` test wallets is that it uses the `createPXEService` function
- * from the `pxe/client/bundle` package.
+ * A TestWallet implementation to be used in server settings (e.g. e2e tests).
+ * Note that the only difference from `lazy` and `bundle` test wallets is that it uses the `createPXEService` function
+ * from the `pxe/server` package.
  */
 export class TestWallet extends BaseTestWallet {
   static async create(

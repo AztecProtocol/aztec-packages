@@ -16,13 +16,12 @@ import { timesAsync, unique } from '@aztec/foundation/collection';
 import { pluralize } from '@aztec/foundation/string';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract, TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
-import { PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe/server';
+import { getPXEServiceConfig, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe/server';
 import { getRoundForOffense } from '@aztec/slasher';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
-import type { NodeContext } from '../fixtures/setup_p2p_test.js';
 import { submitTxsTo } from '../shared/submit-transactions.js';
 
 // submits a set of transactions to the provided Private eXecution Environment (PXE)
@@ -55,33 +54,38 @@ export const submitComplexTxsTo = async (
   return txs;
 };
 
-// creates an instance of the PXE and submit a given number of transactions to it.
-export const createPXEServiceAndSubmitTransactions = async (
+// creates a wallet and submit a given number of transactions through it.
+export const submitTransactions = async (
   logger: Logger,
   node: AztecNodeService,
   numTxs: number,
   fundedAccount: InitialAccountData,
-): Promise<NodeContext> => {
+): Promise<SentTx[]> => {
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
-  const pxeService = await createPXEService(node, rpcConfig, { useLogSuffix: true });
-  const wallet = new TestWallet(pxeService, node);
+  const wallet = await TestWallet.create(
+    node,
+    { ...getPXEServiceConfig(), proverEnabled: false },
+    { useLogSuffix: true },
+  );
   const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
-  const txs = await submitTxsTo(wallet, fundedAccountManager.getAddress(), numTxs, logger);
-  return { txs, pxeService, node };
+  return submitTxsTo(wallet, fundedAccountManager.getAddress(), numTxs, logger);
 };
 
-export async function createPXEServiceAndPrepareTransactions(
+export async function prepareTransactions(
   logger: Logger,
   node: AztecNodeService,
   numTxs: number,
   fundedAccount: InitialAccountData,
-): Promise<{ pxeService: PXEService; txs: ProvenTx[]; node: AztecNodeService }> {
+): Promise<ProvenTx[]> {
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
-  const pxe = await createPXEService(node, rpcConfig, { useLogSuffix: true });
 
-  const wallet = new TestWallet(pxe, node);
+  const wallet = await TestWallet.create(
+    node,
+    { ...getPXEServiceConfig(), proverEnabled: false },
+    { useLogSuffix: true },
+  );
   const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
 
   const testContractInstance = await getContractInstanceFromInstantiationParams(TestContractArtifact, {
@@ -90,14 +94,12 @@ export async function createPXEServiceAndPrepareTransactions(
   await wallet.registerContract(testContractInstance, TestContractArtifact);
   const contract = await TestContract.at(testContractInstance.address, wallet);
 
-  const txs = await timesAsync(numTxs, async () => {
+  return timesAsync(numTxs, async () => {
     const tx = await contract.methods.emit_nullifier(Fr.random()).prove({ from: fundedAccountManager.getAddress() });
     const txHash = tx.getTxHash();
     logger.info(`Tx prepared with hash ${txHash}`);
     return tx;
   });
-
-  return { txs, pxeService: pxe, node };
 }
 
 export function awaitProposalExecution(

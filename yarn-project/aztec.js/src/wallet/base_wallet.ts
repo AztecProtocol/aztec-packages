@@ -57,7 +57,8 @@ export abstract class BaseWallet implements Wallet {
 
   protected baseFeePadding = 0.5;
 
-  constructor(
+  // Protected because we want to force wallets to instantiate their own PXE.
+  protected constructor(
     protected readonly pxe: PXE,
     protected readonly aztecNode: AztecNode,
   ) {}

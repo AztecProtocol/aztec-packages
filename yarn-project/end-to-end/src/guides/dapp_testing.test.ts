@@ -1,43 +1,31 @@
 // docs:start:imports
-import { getDeployedTestAccounts } from '@aztec/accounts/testing';
-import {
-  AztecAddress,
-  type AztecNode,
-  Fr,
-  TxStatus,
-  createAztecNodeClient,
-  createPXEClient,
-  waitForPXE,
-} from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, Fr, TxStatus, createAztecNodeClient, waitForNode } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 // docs:end:imports
 // docs:start:import_contract
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import { TestWallet } from '@aztec/test-wallet';
+import { registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 // docs:end:import_contract
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 
-const {
-  AZTEC_NODE_URL = 'http://localhost:8080',
-  PXE_URL = 'http://localhost:8080',
-  ETHEREUM_HOSTS = 'http://localhost:8545',
-} = process.env;
+const { AZTEC_NODE_URL = 'http://localhost:8080', ETHEREUM_HOSTS = 'http://localhost:8545' } = process.env;
 
 describe('guides/dapp/testing', () => {
   describe('on local sandbox', () => {
+    let aztecNode: AztecNode;
     beforeAll(async () => {
       // docs:start:create_pxe_client
-      const pxe = createPXEClient(PXE_URL);
-      await waitForPXE(pxe);
+      aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
+      await waitForNode(aztecNode);
       // docs:end:create_pxe_client
     });
 
     describe('token contract with initial accounts', () => {
-      let aztecNode: AztecNode;
       let wallet: TestWallet;
       let ownerAddress: AztecAddress;
       let recipientAddress: AztecAddress;
@@ -45,14 +33,8 @@ describe('guides/dapp/testing', () => {
 
       beforeEach(async () => {
         // docs:start:use-existing-wallets
-        const pxe = createPXEClient(PXE_URL);
-        aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
-        wallet = new TestWallet(pxe, aztecNode);
-        const [owner, recipient] = await getDeployedTestAccounts(wallet);
-        await wallet.createSchnorrAccount(owner.secret, owner.salt);
-        await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
-        ownerAddress = owner.address;
-        recipientAddress = recipient.address;
+        wallet = await TestWallet.create(aztecNode);
+        [ownerAddress, recipientAddress] = await registerInitialSandboxAccountsInWallet(wallet);
         token = await TokenContract.deploy(wallet, ownerAddress, 'TokenName', 'TokenSymbol', 18)
           .send({ from: ownerAddress })
           .deployed();
@@ -74,7 +56,6 @@ describe('guides/dapp/testing', () => {
     });
 
     describe('assertions', () => {
-      let aztecNode: AztecNode;
       let wallet: TestWallet;
       let ownerAddress: AztecAddress;
       let recipientAddress: AztecAddress;
@@ -84,14 +65,8 @@ describe('guides/dapp/testing', () => {
       let ownerSlot: Fr;
 
       beforeAll(async () => {
-        const pxe = createPXEClient(PXE_URL);
-        aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
-        wallet = new TestWallet(pxe, aztecNode);
-        const [owner, recipient] = await getDeployedTestAccounts(wallet);
-        await wallet.createSchnorrAccount(owner.secret, owner.salt);
-        await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
-        ownerAddress = owner.address;
-        recipientAddress = recipient.address;
+        wallet = await TestWallet.create(aztecNode);
+        [ownerAddress, recipientAddress] = await registerInitialSandboxAccountsInWallet(wallet);
         testContract = await TestContract.deploy(wallet).send({ from: ownerAddress }).deployed();
         token = await TokenContract.deploy(wallet, ownerAddress, 'TokenName', 'TokenSymbol', 18)
           .send({ from: ownerAddress })

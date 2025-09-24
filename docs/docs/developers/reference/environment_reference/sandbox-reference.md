@@ -71,13 +71,12 @@ SEQ_MIN_TX_PER_BLOCK=1 # Minimum txs to go on a block. (default: 1)
 VALIDATOR_PRIVATE_KEY=0x01234567890abcde01234567890abcde  # Private key of the ethereum account that will be used to perform sequencer duties
 ```
 
-**PXE**
+**Wallet**
 
-Variables like `TEST_ACCOUNTS` & `PXE_PORT` are valid here as described above.
+Variables like `AZTEC_NODE_URL` and `TEST_ACCOUNTS` are valid here as described above.
 
 ```sh
-AZTEC_NODE_URL='http://localhost:8079' # The address of an Aztec Node URL that the PXE will connect to (default: http://localhost:8079)
-PXE_PORT=8080 # The port that the PXE will be listening to (default: 8080)
+AZTEC_NODE_URL='http://localhost:8080' # The address of an Aztec Node URL that the wallet will connect to (default: http://localhost:8080)
 TEST_ACCOUNTS='true' # Option to deploy 3 test account when sandbox starts. (default: true)
 ```
 

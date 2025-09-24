@@ -249,7 +249,6 @@ __metadata:
     "@aztec/bot": "workspace:^"
     "@aztec/builder": "workspace:^"
     "@aztec/cli": "workspace:^"
-    "@aztec/cli-wallet": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -438,7 +437,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/cli-wallet@workspace:^, @aztec/cli-wallet@workspace:cli-wallet":
+"@aztec/cli-wallet@workspace:cli-wallet":
   version: 0.0.0-use.local
   resolution: "@aztec/cli-wallet@workspace:cli-wallet"
   dependencies:
@@ -1492,6 +1491,7 @@ __metadata:
     "@aztec/entrypoints": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
+    "@aztec/pxe": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"

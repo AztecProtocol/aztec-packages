@@ -2,7 +2,7 @@ import { AztecAddress, type AztecNode, Fr, type SimulateMethodOptions, type Wall
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
