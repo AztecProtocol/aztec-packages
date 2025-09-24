@@ -35,7 +35,7 @@ std::pair<std::vector<bool>, /* truncated */ bool> PureToRadix::to_le_bits(const
 {
     BB_BENCH_NAME("PureToRadix::to_le_bits");
 
-    const auto& [limbs, truncated] = to_le_radix(value, num_limbs, 2);
+    const auto [limbs, truncated] = to_le_radix(value, num_limbs, 2);
     std::vector<bool> bits(limbs.size());
 
     std::transform(limbs.begin(), limbs.end(), bits.begin(), [](uint8_t val) {

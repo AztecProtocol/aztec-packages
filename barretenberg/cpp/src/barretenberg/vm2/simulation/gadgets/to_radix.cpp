@@ -47,7 +47,7 @@ std::pair<std::vector<uint8_t>, /* truncated */ bool> ToRadix::to_le_radix(const
 
 std::pair<std::vector<bool>, /* truncated */ bool> ToRadix::to_le_bits(const FF& value, uint32_t num_limbs)
 {
-    const auto& [limbs, truncated] = to_le_radix(value, num_limbs, 2);
+    const auto [limbs, truncated] = to_le_radix(value, num_limbs, 2);
     std::vector<bool> bits(limbs.size());
 
     std::transform(limbs.begin(), limbs.end(), bits.begin(), [](uint8_t val) {
@@ -108,13 +108,13 @@ void ToRadix::to_be_radix(MemoryInterface& memory,
     if (num_limbs > 0) {
         event.limbs.reserve(num_limbs);
         if (is_output_bits) {
-            const auto& [limbs, truncated_decomposition] = to_le_bits(value, num_limbs);
+            const auto [limbs, truncated_decomposition] = to_le_bits(value, num_limbs);
             truncated = truncated_decomposition;
             std::ranges::for_each(limbs.rbegin(), limbs.rend(), [&](bool bit) {
                 event.limbs.push_back(MemoryValue::from<uint1_t>(bit));
             });
         } else {
-            const auto& [limbs, truncated_decomposition] = to_le_radix(value, num_limbs, radix);
+            const auto [limbs, truncated_decomposition] = to_le_radix(value, num_limbs, radix);
             truncated = truncated_decomposition;
             std::ranges::for_each(limbs.rbegin(), limbs.rend(), [&](uint8_t limb) {
                 event.limbs.push_back(MemoryValue::from<uint8_t>(limb));
