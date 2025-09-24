@@ -69,7 +69,7 @@ import {
   type L1TxUtilsConfig,
   createL1TxUtilsFromViemWallet,
   getL1TxUtilsConfigEnvVars,
-} from './l1_tx_utils.js';
+} from './l1_tx_utils/index.js';
 import type { ExtendedViemWalletClient } from './types.js';
 import { formatViemError } from './utils.js';
 import { ZK_PASSPORT_DOMAIN, ZK_PASSPORT_SCOPE, ZK_PASSPORT_VERIFIER_ADDRESS } from './zkPassportVerifierAddress.js';

@@ -14,7 +14,7 @@ import {
 } from 'viem';
 
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
-import { createL1TxUtilsFromViemWallet } from '../l1_tx_utils.js';
+import { createL1TxUtilsFromViemWallet } from '../l1_tx_utils/index.js';
 import { type ExtendedViemWalletClient, type ViemClient, isExtendedClient } from '../types.js';
 
 export type L1GovernanceContractAddresses = Pick<

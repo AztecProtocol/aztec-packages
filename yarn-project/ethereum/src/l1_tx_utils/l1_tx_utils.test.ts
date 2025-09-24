@@ -22,19 +22,19 @@ import {
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { createExtendedL1Client, getPublicClient } from './client.js';
+import { createExtendedL1Client, getPublicClient } from '../client.js';
+import { EthCheatCodes } from '../test/eth_cheat_codes.js';
+import { startAnvil } from '../test/start_anvil.js';
+import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
+import { formatViemError } from '../utils.js';
 import {
   type L1TxRequest,
   ReadOnlyL1TxUtils,
   TxUtilsState,
   createL1TxUtilsFromViemWallet,
   defaultL1TxUtilsConfig,
-} from './l1_tx_utils.js';
+} from './index.js';
 import { L1TxUtilsWithBlobs, createL1TxUtilsWithBlobsFromViemWallet } from './l1_tx_utils_with_blobs.js';
-import { EthCheatCodes } from './test/eth_cheat_codes.js';
-import { startAnvil } from './test/start_anvil.js';
-import type { ExtendedViemWalletClient, ViemClient } from './types.js';
-import { formatViemError } from './utils.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const WEI_CONST = 1_000_000_000n;
