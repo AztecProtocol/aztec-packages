@@ -8,6 +8,7 @@
 
 #include <array>
 #include <barretenberg/common/assert.hpp>
+#include <barretenberg/ecc/curves/bn254/fr.hpp>
 #include <barretenberg/numeric/general/general.hpp>
 #include <cstddef>
 #include <cstdint>
@@ -37,6 +38,12 @@ struct FixedBaseParams {
     static constexpr size_t NUM_TABLES_PER_HI_MULTITABLE = numeric::ceil_div(BITS_PER_HI_SCALAR, BITS_PER_TABLE);
     static constexpr size_t MAX_NUM_TABLES_IN_MULTITABLE =
         std::max(NUM_TABLES_PER_LO_MULTITABLE, NUM_TABLES_PER_HI_MULTITABLE);
+
+    // Step sizes for BasicTable columns in fixed-base scalar multiplication
+    // Column 1 contains the index, so step size varies with table size
+    // Columns 2 and 3 (x, y coordinates) do not utilize the typical accumulator pattern --> step size is 0
+    static inline const bb::fr COLUMN_2_STEP_SIZE = bb::fr(0);
+    static inline const bb::fr COLUMN_3_STEP_SIZE = bb::fr(0);
 
     /**
      * @brief Returns the number of scalar mul bits we are traversing in multitable with the given index.

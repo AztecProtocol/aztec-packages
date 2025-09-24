@@ -227,9 +227,10 @@ BasicTable table::generate_basic_fixed_base_table(BasicTableId id, size_t basic_
     constexpr function_ptr_table get_values_from_key_table = make_function_pointer_table();
     table.get_values_from_key = get_values_from_key_table[multitable_index][table_index];
     ASSERT(table.get_values_from_key != nullptr);
+
     table.column_1_step_size = table_size;
-    table.column_2_step_size = 0;
-    table.column_3_step_size = 0;
+    table.column_2_step_size = COLUMN_2_STEP_SIZE;
+    table.column_3_step_size = COLUMN_3_STEP_SIZE;
 
     return table;
 }
@@ -257,7 +258,7 @@ template <size_t multitable_index, size_t num_bits> MultiTable table::get_fixed_
     };
     constexpr function_ptr_table get_values_from_key_table = make_function_pointer_table();
 
-    MultiTable table(MAX_TABLE_SIZE, 0, 0, NUM_TABLES);
+    MultiTable table(MAX_TABLE_SIZE, COLUMN_2_STEP_SIZE, COLUMN_3_STEP_SIZE, NUM_TABLES);
     table.id = id;
     table.get_table_values.resize(NUM_TABLES);
     table.basic_table_ids.resize(NUM_TABLES);
