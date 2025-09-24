@@ -27,6 +27,7 @@ const common_flags = [_][]const u8{
     "-Wno-missing-field-initializers",
     "-DNO_PAR_ALGOS",
     "-fbracket-depth=1024",
+    "-fconstexpr-steps=1000000000",
 };
 
 const no_avm_flags = common_flags ++ [_][]const u8{
@@ -285,15 +286,18 @@ const core_sources = [_][]const u8{
     "src/barretenberg/trace_to_polynomials/trace_to_polynomials.cpp",
     // "src/barretenberg/op_queue/ecc_op_queue.cpp",
     // "src/barretenberg/boomerang_value_detection/graph.cpp",
-    // "src/barretenberg/circuit_checker/ultra_circuit_checker.cpp",
-    // "src/barretenberg/circuit_checker/translator_circuit_checker.cpp",
     // "src/barretenberg/flavor/flavor.cpp",
     // "src/barretenberg/honk/utils/testing.cpp",
-    // "src/barretenberg/honk/relation_checker.cpp",
     // "src/barretenberg/honk/prover_instance_inspector.cpp",
     "src/barretenberg/protogalaxy/protogalaxy_prover_mega.cpp",
     "src/barretenberg/protogalaxy/protogalaxy_verifier.cpp",
     // "src/barretenberg/ext/starknet/crypto/poseidon/poseidon.cpp",
+};
+
+const test_util_sources = [_][]const u8{
+    "src/barretenberg/honk/relation_checker.cpp",
+    "src/barretenberg/circuit_checker/ultra_circuit_checker.cpp",
+    "src/barretenberg/circuit_checker/translator_circuit_checker.cpp",
 };
 
 const world_state_sources = [_][]const u8{
@@ -563,9 +567,9 @@ const wasi_sources = [_][]const u8{
 };
 
 // Combine source files based on AVM option.
-const full_sources = core_sources ++ env_sources;
-const full_avm_sources = core_sources ++ avm_sources;
-const full_reactor_sources = core_sources ++ wasi_sources;
+// const full_sources = core_sources ++ env_sources;
+// const full_avm_sources = core_sources ++ avm_sources;
+// const full_reactor_sources = core_sources ++ wasi_sources;
 
 fn buildLmdb(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
     const lmdb_dep = b.dependency("lmdb", .{
@@ -686,44 +690,34 @@ pub fn build(b: *std.Build) void {
 
     // Create cross-compilation step
     const cross_step = b.step("cross", "Build for all platforms");
-
-    // Create test and benchmark steps
-    const tests_step = b.step("tests", "Build all test executables");
-    // const benchmarks_step = b.step("benchmarks", "Build all benchmark executables");
+    // const tests_step = b.step("tests", "Build tests for all platforms");
 
     for (platforms) |platform| {
         if (platform.os == .wasi) {
             // We always default to ReleaseSmall for WASM builds with no AVM.
             // Debug builds are so slow they basically hang.
-            const platform_step = buildForTarget(b, platform, optimize, enable_avm);
+            const platform_step = getBuildStepForTarget(b, platform, .ReleaseSmall, false, false);
             // We build the wasm reactor for JS.
-            buildWasmReactor(b, optimize, platform_step);
+            addBuildStepForWasmReactor(b, optimize, platform_step);
             cross_step.dependOn(platform_step);
         } else {
-            const platform_step = buildForTarget(b, platform, optimize, enable_avm);
+            const is_host = std.mem.eql(u8, platform.name, host_platform);
+            const platform_step = getBuildStepForTarget(b, platform, optimize, enable_avm, is_host);
             cross_step.dependOn(platform_step);
-
-            // If this platform matches the host, add to default build.
-            if (std.mem.eql(u8, platform.name, host_platform)) {
-                // Add tests and benchmarks for this platform
-                const platform_tests_step = buildTestsForTarget(b, platform, optimize, enable_avm, platform_step);
-                // const platform_benchmarks_step = buildBenchmarksForTarget(b, platform, optimize, enable_avm, platform_step);
-
-                tests_step.dependOn(platform_tests_step);
-                // benchmarks_step.dependOn(platform_benchmarks_step);
-
-                b.getInstallStep().dependOn(platform_step);
-            }
         }
     }
 }
 
-fn buildForTarget(
+fn getBuildStepForTarget(
     b: *std.Build,
     platform: Platform,
     optimize: std.builtin.OptimizeMode,
     enable_avm: bool,
+    is_host: bool,
 ) *std.Build.Step {
+    const platform_step = b.step(platform.name, b.fmt("Build for {s}", .{platform.name}));
+    const platform_tests_step = b.step(b.fmt("{s}-tests", .{platform.name}), b.fmt("Build tests for {s}", .{platform.name}));
+
     const target = b.resolveTargetQuery(.{
         .cpu_arch = platform.arch,
         .os_tag = platform.os,
@@ -733,16 +727,42 @@ fn buildForTarget(
             std.Target.Cpu.Feature.Set.empty,
     });
 
-    const sources = if (enable_avm) &full_avm_sources else &full_sources;
     const flags = if (platform.os == .wasi) &wasm_flags else if (enable_avm) &common_flags else &no_avm_flags;
 
-    const libdeflate_dep = b.dependency("libdeflate", .{ .target = target, .optimize = optimize });
+    const libdeflate_lib = buildLibdeflate(b, target, optimize);
+    const lmdb_lib = buildLmdb(b, target, optimize);
+    const gtest_lib = buildGTest(b, target, optimize);
+
+    const libdeflate_dep = b.dependency("libdeflate", .{});
+    const lmdb_dep = b.dependency("lmdb", .{});
+    const gtest_dep = b.dependency("googletest", .{});
     const msgpack_dep = b.dependency("msgpack", .{});
 
-    // const lmdb_lib = buildLmdb(b, target, optimize);
-    const libdeflate_lib = buildLibdeflate(b, target, optimize);
+    // ### LIBRARY OBJECTS #############################################################################################
+    // Object files that make up libbarretenberg.a
+    const lib_objects = b.addObject(.{
+        .name = "lib_objects",
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
 
-    // Create library.
+    lib_objects.addCSourceFiles(.{ .files = &core_sources, .flags = flags });
+    lib_objects.addCSourceFiles(.{ .files = &env_sources, .flags = flags });
+    if (enable_avm) {
+        lib_objects.addCSourceFiles(.{ .files = &avm_sources, .flags = flags });
+    }
+
+    lib_objects.addIncludePath(b.path("src"));
+    lib_objects.addIncludePath(b.path("src/tracy_stub"));
+    lib_objects.addIncludePath(msgpack_dep.path("include"));
+    lib_objects.addIncludePath(libdeflate_dep.path("."));
+    lib_objects.addIncludePath(libdeflate_dep.path("lib"));
+    lib_objects.linkLibCpp();
+
+    // ### LIBRARY #####################################################################################################
+    // libbarretenberg.a
     const lib = b.addLibrary(.{
         .name = "barretenberg",
         .linkage = .static,
@@ -753,19 +773,14 @@ fn buildForTarget(
         }),
     });
 
-    lib.addCSourceFiles(.{
-        .files = sources,
-        .flags = flags,
-    });
-
-    lib.addIncludePath(b.path("src"));
-    lib.addIncludePath(b.path("src/tracy_stub"));
-    lib.addIncludePath(msgpack_dep.path("include"));
-    lib.addIncludePath(libdeflate_dep.path("."));
-    lib.addIncludePath(libdeflate_dep.path("lib"));
+    lib.addObject(lib_objects);
     lib.linkLibCpp();
 
-    // Create executable.
+    const install_lib = b.addInstallArtifact(lib, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
+    platform_step.dependOn(&install_lib.step);
+
+    // ### EXECUTABLE ##################################################################################################
+    // bb executable
     const exe = b.addExecutable(.{
         .name = "bb",
         .root_module = b.createModule(.{
@@ -782,18 +797,9 @@ fn buildForTarget(
     });
 
     exe.linkLibrary(lib);
-    // exe.linkLibrary(lmdb_lib);
     exe.linkLibrary(libdeflate_lib);
     exe.linkLibCpp();
     exe.addIncludePath(b.path("src"));
-
-    // Install the library and executable.
-    const install_lib = b.addInstallArtifact(lib, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
-    const install = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
-
-    const platform_step = b.step(platform.name, b.fmt("Build for {s}", .{platform.name}));
-    platform_step.dependOn(&install_lib.step);
-    platform_step.dependOn(&install.step);
 
     // Platform-specific settings.
     switch (target.result.os.tag) {
@@ -818,10 +824,111 @@ fn buildForTarget(
         else => {},
     }
 
+    const install = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
+    platform_step.dependOn(&install.step);
+
+    // ### TEST EXECUTABLES ############################################################################################
+    // We create a test executable for each test group path, from which we collect all nested .test.cpp files.
+    // Start with a global collection of objects that all tests will link to.
+    // Includes world state and test utils.
+    const global_test_objects = b.addObject(.{
+        .name = "test_util_objects",
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+
+    global_test_objects.addCSourceFiles(.{ .files = &test_util_sources, .flags = flags });
+    global_test_objects.addCSourceFiles(.{ .files = &world_state_sources, .flags = flags });
+
+    global_test_objects.addIncludePath(b.path("src"));
+    global_test_objects.addIncludePath(b.path("src/tracy_stub"));
+    global_test_objects.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
+    global_test_objects.addIncludePath(msgpack_dep.path("include"));
+    global_test_objects.addIncludePath(libdeflate_dep.path("."));
+    global_test_objects.addIncludePath(libdeflate_dep.path("lib"));
+    global_test_objects.addIncludePath(gtest_dep.path("googletest/include"));
+    global_test_objects.addIncludePath(gtest_dep.path("googlemock/include"));
+    global_test_objects.linkLibCpp();
+
+    for (test_group_paths) |test_group_path| {
+        // Extract project name from path (e.g., "src/barretenberg/crypto/aes128" -> "crypto_aes128")
+        const project_name = getProjectName(test_group_path);
+
+        // Collect all .test.cpp files in this directory and subdirectories.
+        var test_files = std.ArrayList([]u8).empty;
+        defer test_files.deinit(b.allocator);
+        getFilesEndingWith(b, test_group_path, ".test.cpp", &test_files);
+        if (test_files.items.len == 0) continue;
+
+        const test_objects = b.addObject(.{
+            .name = b.fmt("{s}_test_objects", .{project_name}),
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+            }),
+        });
+
+        test_objects.addCSourceFiles(.{ .files = test_files.items, .flags = flags });
+
+        test_objects.addIncludePath(b.path("src"));
+        test_objects.addIncludePath(b.path("src/tracy_stub"));
+        test_objects.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
+        test_objects.addIncludePath(msgpack_dep.path("include"));
+        test_objects.addIncludePath(libdeflate_dep.path("."));
+        test_objects.addIncludePath(libdeflate_dep.path("lib"));
+        test_objects.addIncludePath(gtest_dep.path("googletest/include"));
+        test_objects.addIncludePath(gtest_dep.path("googlemock/include"));
+        test_objects.linkLibCpp();
+
+        const test_exe = b.addExecutable(.{
+            .name = b.fmt("{s}_tests", .{project_name}),
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+                .strip = false,
+            }),
+        });
+
+        test_exe.addObject(global_test_objects);
+        test_exe.addObject(test_objects);
+
+        test_exe.linkLibCpp();
+        test_exe.linkLibrary(lmdb_lib);
+        test_exe.linkLibrary(gtest_lib);
+        test_exe.linkLibrary(libdeflate_lib);
+        test_exe.linkLibrary(lib);
+        test_exe.addIncludePath(b.path("src"));
+        test_exe.addIncludePath(b.path("src/tracy_stub"));
+        test_exe.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
+        test_exe.addIncludePath(msgpack_dep.path("include"));
+        test_exe.addIncludePath(gtest_dep.path("googletest/include"));
+        test_exe.addIncludePath(gtest_dep.path("googlemock/include"));
+
+        // Platform-specific settings
+        switch (target.result.os.tag) {
+            .windows => {
+                test_exe.linkSystemLibrary("ws2_32");
+                test_exe.linkSystemLibrary("advapi32");
+                test_exe.linkSystemLibrary("psapi");
+            },
+            else => {},
+        }
+
+        const test_install = b.addInstallArtifact(test_exe, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
+        platform_tests_step.dependOn(&test_install.step);
+    }
+
+    // If this platform is the host platform, it should be built by default.
+    if (is_host) {
+        b.getInstallStep().dependOn(platform_step);
+    }
+
     return platform_step;
 }
 
-fn buildWasmReactor(
+fn addBuildStepForWasmReactor(
     b: *std.Build,
     optimize: std.builtin.OptimizeMode,
     platform_step: *std.Build.Step,
@@ -864,10 +971,8 @@ fn buildWasmReactor(
     exe.addIncludePath(msgpack_dep.path("include"));
 
     // Sources
-    exe.addCSourceFiles(.{
-        .files = &full_reactor_sources,
-        .flags = &wasm_flags,
-    });
+    exe.addCSourceFiles(.{ .files = &core_sources, .flags = &wasm_flags });
+    exe.addCSourceFiles(.{ .files = &wasi_sources, .flags = &wasm_flags });
 
     exe.linkLibC();
     exe.linkLibCpp();
@@ -880,13 +985,7 @@ fn buildWasmReactor(
     platform_step.dependOn(&gzip.step);
 }
 
-// Hardcoded project paths based on CMakeLists.txt locations
-const project_paths = [_][]const u8{
-    // "src/barretenberg/acir_formal_proofs",
-    // "src/barretenberg/api",
-    // "src/barretenberg/bb",
-    // "src/barretenberg/bbapi",
-    // "src/barretenberg/benchmark",
+const benchmark_paths = [_][]const u8{
     // "src/barretenberg/benchmark/append_only_tree_bench",
     // "src/barretenberg/benchmark/basics_bench",
     // "src/barretenberg/benchmark/circuit_construction_bench",
@@ -902,152 +1001,157 @@ const project_paths = [_][]const u8{
     // "src/barretenberg/benchmark/protogalaxy_rounds_bench",
     // "src/barretenberg/benchmark/relations_bench",
     // "src/barretenberg/benchmark/ultra_bench",
+};
+
+// Hardcoded project paths based on CMakeLists.txt locations
+const test_group_paths = [_][]const u8{
+    // "src/barretenberg/acir_formal_proofs",
+    "src/barretenberg/api",
+    "src/barretenberg/bb",
+    "src/barretenberg/bbapi",
     // "src/barretenberg/boomerang_value_detection",
-    // "src/barretenberg/circuit_checker",
-    // "src/barretenberg/client_ivc",
-    // "src/barretenberg/commitment_schemes",
-    // "src/barretenberg/commitment_schemes_recursion",
-    // "src/barretenberg/common",
+    "src/barretenberg/circuit_checker",
+    "src/barretenberg/client_ivc",
+    "src/barretenberg/commitment_schemes",
+    "src/barretenberg/commitment_schemes_recursion",
     "src/barretenberg/crypto/aes128",
-    "src/barretenberg/crypto/blake2s",
-    "src/barretenberg/crypto/blake3s",
-    "src/barretenberg/crypto/blake3s_full",
-    "src/barretenberg/crypto/ecdsa",
-    "src/barretenberg/crypto/generators",
-    "src/barretenberg/crypto/hmac",
-    "src/barretenberg/crypto/keccak",
+
+    // Combine. Can't yet cos merkle tree.
+    "src/barretenberg/crypto",
+    // "src/barretenberg/crypto/blake2s",
+    // "src/barretenberg/crypto/blake3s",
+    // "src/barretenberg/crypto/blake3s_full",
+    // "src/barretenberg/crypto/ecdsa",
+    // "src/barretenberg/crypto/generators",
+    // "src/barretenberg/crypto/hmac",
+    // "src/barretenberg/crypto/keccak",
     // "src/barretenberg/crypto/merkle_tree",
-    "src/barretenberg/crypto/pedersen_commitment",
-    "src/barretenberg/crypto/pedersen_hash",
-    "src/barretenberg/crypto/poseidon2",
-    "src/barretenberg/crypto/schnorr",
-    "src/barretenberg/crypto/sha256",
-    // "src/barretenberg/dsl",
-    // "src/barretenberg/ecc",
-    // "src/barretenberg/eccvm",
-    // "src/barretenberg/env",
-    // "src/barretenberg/ext/starknet/crypto",
-    // "src/barretenberg/ext/starknet/transcript",
-    // "src/barretenberg/flavor",
-    // "src/barretenberg/goblin",
-    // "src/barretenberg/grumpkin_srs_gen",
-    // "src/barretenberg/honk",
+    // "src/barretenberg/crypto/pedersen_commitment",
+    // "src/barretenberg/crypto/pedersen_hash",
+    // "src/barretenberg/crypto/poseidon2",
+    // "src/barretenberg/crypto/schnorr",
+    // "src/barretenberg/crypto/sha256",
+
+    "src/barretenberg/dsl",
+    "src/barretenberg/ecc",
+    "src/barretenberg/eccvm",
+    "src/barretenberg/ext/starknet",
+    "src/barretenberg/flavor",
+    "src/barretenberg/goblin",
+    "src/barretenberg/honk",
     // "src/barretenberg/lmdblib",
-    // "src/barretenberg/nodejs_module",
-    // "src/barretenberg/numeric",
-    // "src/barretenberg/op_queue",
-    // "src/barretenberg/polynomials",
-    // "src/barretenberg/protogalaxy",
-    // "src/barretenberg/relations",
-    // "src/barretenberg/serialize",
+    "src/barretenberg/numeric",
+    "src/barretenberg/op_queue",
+    "src/barretenberg/polynomials",
+    "src/barretenberg/protogalaxy",
+    "src/barretenberg/relations",
+    "src/barretenberg/serialize",
     // "src/barretenberg/smt_verification",
-    // "src/barretenberg/solidity_helpers",
-    // "src/barretenberg/srs",
-    // "src/barretenberg/stdlib",
-    // "src/barretenberg/stdlib_circuit_builders",
-    // "src/barretenberg/sumcheck",
-    // "src/barretenberg/trace_to_polynomials",
-    // "src/barretenberg/transcript",
-    // "src/barretenberg/translator_vm",
-    // "src/barretenberg/ultra_honk",
+    "src/barretenberg/srs",
+    "src/barretenberg/stdlib",
+    "src/barretenberg/sumcheck",
+    "src/barretenberg/transcript",
+    "src/barretenberg/translator_vm",
+    "src/barretenberg/ultra_honk",
     // "src/barretenberg/vm2",
-    // "src/barretenberg/wasi",
     // "src/barretenberg/world_state",
 };
 
-fn buildTestsForTarget(
-    b: *std.Build,
-    platform: Platform,
-    optimize: std.builtin.OptimizeMode,
-    enable_avm: bool,
-    lib_step: *std.Build.Step,
-) *std.Build.Step {
-    const target = b.resolveTargetQuery(.{
-        .cpu_arch = platform.arch,
-        .os_tag = platform.os,
-    });
+// fn buildTestsForTarget(
+//     b: *std.Build,
+//     platform: Platform,
+//     optimize: std.builtin.OptimizeMode,
+//     enable_avm: bool,
+//     lib_step: *std.Build.Step,
+// ) *std.Build.Step {
+//     const target = b.resolveTargetQuery(.{
+//         .cpu_arch = platform.arch,
+//         .os_tag = platform.os,
+//     });
 
-    const lmdb_lib = buildLmdb(b, target, optimize);
-    const gtest_lib = buildGTest(b, target, optimize);
+//     const libdeflate_lib = buildLibdeflate(b, target, optimize);
+//     const lmdb_lib = buildLmdb(b, target, optimize);
+//     const gtest_lib = buildGTest(b, target, optimize);
 
-    const flags = if (enable_avm) &common_flags else &no_avm_flags;
+//     const flags = if (enable_avm) &common_flags else &no_avm_flags;
 
-    const platform_tests_step = b.step(b.fmt("{s}-tests", .{platform.name}), b.fmt("Build tests for {s}", .{platform.name}));
+//     const platform_tests_step = b.step(b.fmt("{s}-tests", .{platform.name}), b.fmt("Build tests for {s}", .{platform.name}));
 
-    // Loop over each project and find its test files
-    for (project_paths) |project_path| {
-        var project_test_files = std.ArrayList([]u8).empty;
-        defer project_test_files.deinit(b.allocator);
-        getFilesEndingWith(b, project_path, ".test.cpp", &project_test_files);
-        if (project_test_files.items.len == 0) continue;
-        for (project_test_files.items) |file| {
-            std.debug.print("  found test file: {s}\n", .{file});
-        }
+//     // Loop over each project and find its test files
+//     for (test_group_paths) |project_path| {
+//         var project_test_files = std.ArrayList([]u8).empty;
+//         defer project_test_files.deinit(b.allocator);
+//         getFilesEndingWith(b, project_path, ".test.cpp", &project_test_files);
+//         if (project_test_files.items.len == 0) continue;
+//         // for (project_test_files.items) |file| {
+//         //     std.debug.print("  found test file: {s}\n", .{file});
+//         // }
 
-        // Extract project name from path (e.g., "src/barretenberg/crypto/aes128" -> "crypto_aes128")
-        const project_name = getProjectName(project_path);
+//         // Extract project name from path (e.g., "src/barretenberg/crypto/aes128" -> "crypto_aes128")
+//         const project_name = getProjectName(project_path);
 
-        // const Descriptor = struct {
-        //     file_suffix: []const u8,
-        //     bin_suffix: []const u8,
-        // };
-        // const descriptors = [_]Descriptor{
-        //     .{ .file_suffix = ".test.cpp", .bin_suffix = "_tests" },
-        //     .{ .file_suffix = ".bench.cpp", .bin_suffix = "_bench" },
-        // };
+//         // const Descriptor = struct {
+//         //     file_suffix: []const u8,
+//         //     bin_suffix: []const u8,
+//         // };
+//         // const descriptors = [_]Descriptor{
+//         //     .{ .file_suffix = ".test.cpp", .bin_suffix = "_tests" },
+//         //     .{ .file_suffix = ".bench.cpp", .bin_suffix = "_bench" },
+//         // };
 
-        // Create test executable for this project
-        const test_exe = b.addExecutable(.{
-            .name = b.fmt("{s}_tests", .{project_name}),
-            .root_module = b.createModule(.{
-                .target = target,
-                .optimize = optimize,
-                .strip = false,
-            }),
-        });
+//         // Create test executable for this project
+//         const test_exe = b.addExecutable(.{
+//             .name = b.fmt("{s}_tests", .{project_name}),
+//             .root_module = b.createModule(.{
+//                 .target = target,
+//                 .optimize = optimize,
+//                 .strip = false,
+//             }),
+//         });
 
-        test_exe.addCSourceFiles(.{
-            .files = project_test_files.items,
-            .flags = flags,
-        });
+//         test_exe.addCSourceFiles(.{
+//             .files = project_test_files.items,
+//             .flags = flags,
+//         });
 
-        // Link to the existing barretenberg library from platform directory
-        const lib_filename = if (target.result.os.tag == .windows) "barretenberg.lib" else "libbarretenberg.a";
-        const lib_path = b.fmt("zig-out/{s}/{s}", .{ platform.name, lib_filename });
-        test_exe.addObjectFile(b.path(lib_path));
+//         // Link to the existing barretenberg library from platform directory
+//         const lib_filename = if (target.result.os.tag == .windows) "barretenberg.lib" else "libbarretenberg.a";
+//         const lib_path = b.fmt("zig-out/{s}/{s}", .{ platform.name, lib_filename });
+//         test_exe.addObjectFile(b.path(lib_path));
 
-        // const libdeflate_lib = buildLibdeflate(b, target, optimize);
-        const lmdb_dep = b.dependency("lmdb", .{});
-        const msgpack_dep = b.dependency("msgpack", .{});
-        const gtest_dep = b.dependency("googletest", .{});
+//         const lmdb_dep = b.dependency("lmdb", .{});
+//         const msgpack_dep = b.dependency("msgpack", .{});
+//         const gtest_dep = b.dependency("googletest", .{});
 
-        test_exe.linkLibCpp();
-        test_exe.linkLibrary(lmdb_lib);
-        test_exe.linkLibrary(gtest_lib);
-        // test_exe.linkLibrary(libdeflate_lib);
-        test_exe.addIncludePath(b.path("src"));
-        test_exe.addIncludePath(b.path("src/tracy_stub"));
-        test_exe.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
-        test_exe.addIncludePath(msgpack_dep.path("include"));
-        test_exe.addIncludePath(gtest_dep.path("googletest/include"));
+//         test_exe.linkLibCpp();
+//         test_exe.linkLibrary(lmdb_lib);
+//         test_exe.linkLibrary(gtest_lib);
+//         test_exe.linkLibrary(libdeflate_lib);
+//         test_exe.addIncludePath(b.path("src"));
+//         test_exe.addIncludePath(b.path("src/tracy_stub"));
+//         test_exe.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
+//         test_exe.addIncludePath(msgpack_dep.path("include"));
+//         test_exe.addIncludePath(gtest_dep.path("googletest/include"));
+//         test_exe.addIncludePath(gtest_dep.path("googlemock/include"));
 
-        // Platform-specific settings
-        switch (target.result.os.tag) {
-            .windows => {
-                test_exe.linkSystemLibrary("ws2_32");
-                test_exe.linkSystemLibrary("advapi32");
-                test_exe.linkSystemLibrary("psapi");
-            },
-            else => {},
-        }
+//         // Platform-specific settings
+//         switch (target.result.os.tag) {
+//             .windows => {
+//                 test_exe.linkSystemLibrary("ws2_32");
+//                 test_exe.linkSystemLibrary("advapi32");
+//                 test_exe.linkSystemLibrary("psapi");
+//             },
+//             else => {},
+//         }
 
-        const install_test = b.addInstallArtifact(test_exe, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
-        install_test.step.dependOn(lib_step); // Ensure library is built first
-        platform_tests_step.dependOn(&install_test.step);
-    }
+//         test_exe.step.dependOn(lib_step); // Ensure library is built first
 
-    return platform_tests_step;
-}
+//         const install_test = b.addInstallArtifact(test_exe, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
+//         platform_tests_step.dependOn(&install_test.step);
+//     }
+
+//     return platform_tests_step;
+// }
 
 fn getFilesEndingWith(b: *std.Build, project_path: []const u8, suffix: []const u8, out: *std.ArrayList([]u8)) void {
     var dir = std.fs.cwd().openDir(project_path, .{ .iterate = true }) catch return;

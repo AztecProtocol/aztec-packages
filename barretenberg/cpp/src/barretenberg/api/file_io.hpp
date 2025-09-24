@@ -101,20 +101,4 @@ template <typename Fr> inline std::string field_elements_to_json(const std::vect
     return ss.str();
 }
 
-// Filesystem path overloads for convenience
-inline size_t get_file_size(const std::filesystem::path& filename)
-{
-    return get_file_size(filename.string());
-}
-
-inline std::vector<uint8_t> read_file(const std::filesystem::path& filename, size_t bytes = 0)
-{
-    return read_file(filename.string(), bytes);
-}
-
-inline void write_file(const std::filesystem::path& filename, std::vector<uint8_t> const& data)
-{
-    write_file(filename.string(), data);
-}
-
 } // namespace bb
