@@ -9,9 +9,12 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/univariate_coefficient_basis.hpp"
+#include <atomic>
 #include <span>
 
 namespace bb {
+
+static std::atomic<size_t> extension_events = 0;
 
 /**
  * @brief A view of a univariate, also used to truncate univariates.
@@ -550,6 +553,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         }
 
         result.is_extended = true;
+        extension_events++;
         return result;
     }
 

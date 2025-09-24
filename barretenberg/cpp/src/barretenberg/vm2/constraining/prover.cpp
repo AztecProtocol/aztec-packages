@@ -200,6 +200,8 @@ HonkProof AvmProver::construct_proof()
     // Execute PCS.
     AVM_TRACK_TIME("prove/pcs_rounds", execute_pcs_rounds());
 
+    std::cout << "Extension events: " << bb::extension_events << std::endl;
+
     return export_proof();
 }
 

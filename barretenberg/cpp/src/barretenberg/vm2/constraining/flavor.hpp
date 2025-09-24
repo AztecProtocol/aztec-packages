@@ -333,7 +333,8 @@ class AvmFlavor {
             auto& poly = Base::get(c);
             // We extend it if it's not already extended.
             if (!poly.is_extended) {
-                poly = poly.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+                poly = bb::Univariate<FF, 2>({ poly.value_at(0), poly.value_at(1) })
+                           .template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
             }
             return poly;
         }
@@ -342,7 +343,8 @@ class AvmFlavor {
             auto& poly = const_cast<bb::Univariate<FF, LENGTH, 0, /*skip_count=*/0>&>(Base::get(c));
             // We extend it if it's not already extended.
             if (!poly.is_extended) {
-                poly = poly.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+                poly = bb::Univariate<FF, 2>({ poly.value_at(0), poly.value_at(1) })
+                           .template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
             }
             return poly;
         }

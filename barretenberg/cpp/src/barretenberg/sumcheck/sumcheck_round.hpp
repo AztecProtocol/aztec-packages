@@ -131,10 +131,14 @@ template <typename Flavor> class SumcheckProverRound {
                 extended_edge = bb::Univariate<FF, 2>({ multivariate[edge_idx], multivariate[edge_idx + 1] });
             } else {
                 if (multivariate.end_index() < edge_idx) {
-                    static const auto zero_univariate = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>::zero();
+                    static const auto zero_univariate = []() {
+                        auto univariate = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>::zero();
+                        univariate.is_extended = true;
+                        return univariate;
+                    }();
                     extended_edge = zero_univariate;
                 } else {
-                    if constexpr (std::is_same_v<Flavor, avm2::AvmFlavor>) {
+                    if constexpr (true) { // false) { // std::is_same_v<Flavor, avm2::AvmFlavor>) {
                         // We lazily extend later.
                         extended_edge = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>(
                             { multivariate[edge_idx], multivariate[edge_idx + 1] });
