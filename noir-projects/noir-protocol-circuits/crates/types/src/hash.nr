@@ -13,7 +13,7 @@ use crate::{
         GENERATOR_INDEX__OUTER_NULLIFIER, GENERATOR_INDEX__SILOED_NOTE_HASH,
         GENERATOR_INDEX__UNIQUE_NOTE_HASH, TWO_POW_64,
     },
-    merkle_tree::root::root_from_sibling_path,
+    merkle_tree::root_from_sibling_path,
     messaging::l2_to_l1_message::L2ToL1Message,
     poseidon2::Poseidon2Sponge,
     traits::{FromField, Hash, ToField},

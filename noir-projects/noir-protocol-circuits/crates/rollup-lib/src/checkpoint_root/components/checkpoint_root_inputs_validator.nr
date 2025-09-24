@@ -2,7 +2,7 @@ use crate::{abis::BlockRollupPublicInputs, block_merge::validate_consecutive_blo
 use types::{
     abis::{block_header::BlockHeader, sponge_blob::SpongeBlob},
     constants::{ARCHIVE_HEIGHT, BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
-    merkle_tree::membership::check_membership,
+    merkle_tree::check_membership,
     proof::proof_data::RollupHonkProofData,
     traits::Hash,
 };
@@ -46,15 +46,17 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
 
     fn validate_previous_rollup_proofs_and_vks(self) {
         if !dep::std::runtime::is_unconstrained() {
-            let vk_tree_root = self.previous_rollups[0].public_inputs.constants.vk_tree_root;
-
             for i in 0..NumPreviousRollups {
                 self.previous_rollups[i].verify_proof();
-                self.previous_rollups[i].vk_data.validate_allowed_in_vk_tree(
-                    vk_tree_root,
-                    self.allowed_previous_vk_indices,
-                );
             }
+        }
+
+        let vk_tree_root = self.previous_rollups[0].public_inputs.constants.vk_tree_root;
+        for i in 0..NumPreviousRollups {
+            self.previous_rollups[i].vk_data.validate_allowed_in_vk_tree(
+                vk_tree_root,
+                self.allowed_previous_vk_indices,
+            );
         }
     }
 

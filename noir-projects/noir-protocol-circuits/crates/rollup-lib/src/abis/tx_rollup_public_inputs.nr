@@ -17,10 +17,10 @@ pub struct TxRollupPublicInputs {
     // Constants that applied to all txs in this rollup.
     pub constants: BlockConstantData,
 
-    // State reference immediately before this tx range.
-    pub start_partial_state: PartialStateReference,
-    // State reference after applying this tx range.
-    pub end_partial_state: PartialStateReference,
+    // Tree snapshots immediately before this tx range.
+    pub start_tree_snapshots: PartialStateReference,
+    // Tree snapshots after applying this tx range.
+    pub end_tree_snapshots: PartialStateReference,
 
     // Sponge blob after absorbing tx effects of all txs before this tx range.
     pub start_sponge_blob: SpongeBlob,
@@ -43,8 +43,8 @@ impl Empty for TxRollupPublicInputs {
         TxRollupPublicInputs {
             num_txs: 0,
             constants: BlockConstantData::empty(),
-            start_partial_state: PartialStateReference::empty(),
-            end_partial_state: PartialStateReference::empty(),
+            start_tree_snapshots: PartialStateReference::empty(),
+            end_tree_snapshots: PartialStateReference::empty(),
             start_sponge_blob: SpongeBlob::empty(),
             end_sponge_blob: SpongeBlob::empty(),
             out_hash: 0,

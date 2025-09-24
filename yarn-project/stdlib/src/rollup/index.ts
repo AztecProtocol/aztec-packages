@@ -15,6 +15,6 @@ export * from './public_tx_base_rollup_private_inputs.js';
 export * from './public_tube_private_inputs.js';
 export * from './root_rollup_private_inputs.js';
 export * from './root_rollup_public_inputs.js';
-export * from './state_diff_hints.js';
+export * from './tree_snapshot_diff_hints.js';
 export * from './tx_merge_rollup_private_inputs.js';
 export * from './tx_rollup_public_inputs.js';

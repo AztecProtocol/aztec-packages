@@ -1,7 +1,7 @@
 import {
   MAX_NULLIFIERS_PER_TX,
-  NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
-  NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
+  NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
+  NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
@@ -11,13 +11,17 @@ import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/s
 import { MembershipWitness } from '@aztec/foundation/trees';
 import type { FieldsOf } from '@aztec/foundation/types';
 
-import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '../trees/index.js';
+import { NullifierLeafPreimage } from '../trees/index.js';
 
 /**
  * Hints used while proving state diff validity for the private base rollup.
  */
-export class PrivateBaseStateDiffHints {
+export class TreeSnapshotDiffHints {
   constructor(
+    /**
+     * Sibling path "pointing to" where the new note hash subtree should be inserted into the note hash tree.
+     */
+    public noteHashSubtreeRootSiblingPath: Tuple<Fr, typeof NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH>,
     /**
      * The nullifiers which need to be updated to perform the batch insertion of the new nullifiers.
      * See `StandardIndexedTree.batchInsert` function for more details.
@@ -40,43 +44,28 @@ export class PrivateBaseStateDiffHints {
      */
     public sortedNullifierIndexes: Tuple<number, typeof MAX_NULLIFIERS_PER_TX>,
     /**
-     * Sibling path "pointing to" where the new note hash subtree should be inserted into the note hash tree.
-     */
-    public noteHashSubtreeSiblingPath: Tuple<Fr, typeof NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH>,
-    /**
      * Sibling path "pointing to" where the new nullifiers subtree should be inserted into the nullifier tree.
      */
-    public nullifierSubtreeSiblingPath: Tuple<Fr, typeof NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH>,
-
+    public nullifierSubtreeRootSiblingPath: Tuple<Fr, typeof NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH>,
     /**
-     * Low leaf for the fee write in the public data tree.
+     * Membership witness for the fee payer's balance leaf in the public data tree.
      */
-    public feeWriteLowLeafPreimage: PublicDataTreeLeafPreimage,
-    /**
-     * Membership witness for the low leaf for the fee write in the public data tree.
-     */
-    public feeWriteLowLeafMembershipWitness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
-    /**
-     * Sibling path "pointing to" where the fee write should be inserted into the public data tree.
-     */
-    public feeWriteSiblingPath: Tuple<Fr, typeof PUBLIC_DATA_TREE_HEIGHT>,
+    public feePayerBalanceMembershipWitness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
   ) {}
 
-  static from(fields: FieldsOf<PrivateBaseStateDiffHints>): PrivateBaseStateDiffHints {
-    return new PrivateBaseStateDiffHints(...PrivateBaseStateDiffHints.getFields(fields));
+  static from(fields: FieldsOf<TreeSnapshotDiffHints>): TreeSnapshotDiffHints {
+    return new TreeSnapshotDiffHints(...TreeSnapshotDiffHints.getFields(fields));
   }
 
-  static getFields(fields: FieldsOf<PrivateBaseStateDiffHints>) {
+  static getFields(fields: FieldsOf<TreeSnapshotDiffHints>) {
     return [
+      fields.noteHashSubtreeRootSiblingPath,
       fields.nullifierPredecessorPreimages,
       fields.nullifierPredecessorMembershipWitnesses,
       fields.sortedNullifiers,
       fields.sortedNullifierIndexes,
-      fields.noteHashSubtreeSiblingPath,
-      fields.nullifierSubtreeSiblingPath,
-      fields.feeWriteLowLeafPreimage,
-      fields.feeWriteLowLeafMembershipWitness,
-      fields.feeWriteSiblingPath,
+      fields.nullifierSubtreeRootSiblingPath,
+      fields.feePayerBalanceMembershipWitness,
     ] as const;
   }
 
@@ -85,42 +74,38 @@ export class PrivateBaseStateDiffHints {
    * @returns A buffer of the serialized state diff hints.
    */
   toBuffer(): Buffer {
-    return serializeToBuffer(...PrivateBaseStateDiffHints.getFields(this));
+    return serializeToBuffer(...TreeSnapshotDiffHints.getFields(this));
   }
 
   /**
    * Deserializes the state diff hints from a buffer.
    * @param buffer - A buffer to deserialize from.
-   * @returns A new PrivateBaseStateDiffHints instance.
+   * @returns A new TreeSnapshotDiffHints instance.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): PrivateBaseStateDiffHints {
+  static fromBuffer(buffer: Buffer | BufferReader): TreeSnapshotDiffHints {
     const reader = BufferReader.asReader(buffer);
-    return new PrivateBaseStateDiffHints(
+    return new TreeSnapshotDiffHints(
+      reader.readArray(NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr),
       reader.readArray(MAX_NULLIFIERS_PER_TX, NullifierLeafPreimage),
       reader.readArray(MAX_NULLIFIERS_PER_TX, {
         fromBuffer: buffer => MembershipWitness.fromBuffer(buffer, NULLIFIER_TREE_HEIGHT),
       }),
       reader.readArray(MAX_NULLIFIERS_PER_TX, Fr),
       reader.readNumbers(MAX_NULLIFIERS_PER_TX),
-      reader.readArray(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, Fr),
-      reader.readArray(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, Fr),
-      reader.readObject(PublicDataTreeLeafPreimage),
+      reader.readArray(NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr),
       MembershipWitness.fromBuffer(reader, PUBLIC_DATA_TREE_HEIGHT),
-      reader.readArray(PUBLIC_DATA_TREE_HEIGHT, Fr),
     );
   }
 
   static empty() {
-    return new PrivateBaseStateDiffHints(
+    return new TreeSnapshotDiffHints(
+      makeTuple(NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr.zero),
       makeTuple(MAX_NULLIFIERS_PER_TX, NullifierLeafPreimage.empty),
       makeTuple(MAX_NULLIFIERS_PER_TX, () => MembershipWitness.empty(NULLIFIER_TREE_HEIGHT)),
       makeTuple(MAX_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_NULLIFIERS_PER_TX, () => 0),
-      makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, Fr.zero),
-      makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, Fr.zero),
-      PublicDataTreeLeafPreimage.empty(),
+      makeTuple(NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr.zero),
       MembershipWitness.empty(PUBLIC_DATA_TREE_HEIGHT),
-      makeTuple(PUBLIC_DATA_TREE_HEIGHT, Fr.zero),
     );
   }
 }

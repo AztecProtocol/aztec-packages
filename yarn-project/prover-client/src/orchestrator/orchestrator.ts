@@ -1,7 +1,7 @@
 import { BatchedBlob, BlobAccumulatorPublicInputs, FinalBlobBatchingChallenges, SpongeBlob } from '@aztec/blob-lib';
 import {
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
-  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
@@ -171,9 +171,9 @@ export class ProvingOrchestrator implements EpochProver {
     // Insert all the l1 to l2 messages into the db. And get the states before and after the insertion.
     const {
       lastL1ToL2MessageTreeSnapshot,
-      lastL1ToL2MessageSubtreeSiblingPath,
+      lastL1ToL2MessageSubtreeRootSiblingPath,
       newL1ToL2MessageTreeSnapshot,
-      newL1ToL2MessageSubtreeSiblingPath,
+      newL1ToL2MessageSubtreeRootSiblingPath,
     } = await this.updateL1ToL2MessageTree(l1ToL2Messages, db);
 
     this.provingState.startNewCheckpoint(
@@ -185,9 +185,9 @@ export class ProvingOrchestrator implements EpochProver {
       lastArchiveSiblingPath,
       l1ToL2Messages,
       lastL1ToL2MessageTreeSnapshot,
-      lastL1ToL2MessageSubtreeSiblingPath,
+      lastL1ToL2MessageSubtreeRootSiblingPath,
       newL1ToL2MessageTreeSnapshot,
-      newL1ToL2MessageSubtreeSiblingPath,
+      newL1ToL2MessageSubtreeRootSiblingPath,
     );
   }
 
@@ -612,25 +612,25 @@ export class ProvingOrchestrator implements EpochProver {
     );
 
     const lastL1ToL2MessageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
-    const lastL1ToL2MessageSubtreeSiblingPath = assertLength(
+    const lastL1ToL2MessageSubtreeRootSiblingPath = assertLength(
       await getSubtreeSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, L1_TO_L2_MSG_SUBTREE_HEIGHT, db),
-      L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+      L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
     );
 
     // Update the local trees to include the new l1 to l2 messages
     await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
 
     const newL1ToL2MessageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
-    const newL1ToL2MessageSubtreeSiblingPath = assertLength(
+    const newL1ToL2MessageSubtreeRootSiblingPath = assertLength(
       await getSubtreeSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, L1_TO_L2_MSG_SUBTREE_HEIGHT, db),
-      L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+      L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
     );
 
     return {
       lastL1ToL2MessageTreeSnapshot,
-      lastL1ToL2MessageSubtreeSiblingPath,
+      lastL1ToL2MessageSubtreeRootSiblingPath,
       newL1ToL2MessageTreeSnapshot,
-      newL1ToL2MessageSubtreeSiblingPath,
+      newL1ToL2MessageSubtreeRootSiblingPath,
     };
   }
 
@@ -712,7 +712,7 @@ export class ProvingOrchestrator implements EpochProver {
       ),
       result => {
         logger.debug(`Completed proof for ${rollupType} for tx ${processedTx.hash.toString()}`);
-        validatePartialState(result.inputs.endPartialState, txProvingState.treeSnapshots);
+        validatePartialState(result.inputs.endTreeSnapshots, txProvingState.treeSnapshots);
         const leafLocation = provingState.setBaseRollupProof(txIndex, result);
         if (provingState.totalNumTxs === 1) {
           this.checkAndEnqueueBlockRootRollup(provingState);

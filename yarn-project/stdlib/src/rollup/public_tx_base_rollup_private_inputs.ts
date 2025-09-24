@@ -3,9 +3,10 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
+import { AvmCircuitPublicInputs } from '../avm/avm_circuit_public_inputs.js';
 import { PrivateToPublicKernelCircuitPublicInputs } from '../kernel/private_to_public_kernel_circuit_public_inputs.js';
 import { ProofData, type RollupHonkProofData } from '../proofs/proof_data.js';
-import { AvmProofData } from './avm_proof_data.js';
+import type { AvmProofData } from './avm_proof_data.js';
 import { PublicBaseRollupHints } from './base_rollup_hints.js';
 
 export class PublicTxBaseRollupPrivateInputs {
@@ -27,7 +28,7 @@ export class PublicTxBaseRollupPrivateInputs {
     const reader = BufferReader.asReader(buffer);
     return new PublicTxBaseRollupPrivateInputs(
       ProofData.fromBuffer(reader, PrivateToPublicKernelCircuitPublicInputs),
-      reader.readObject(AvmProofData),
+      ProofData.fromBuffer(reader, AvmCircuitPublicInputs),
       reader.readObject(PublicBaseRollupHints),
     );
   }

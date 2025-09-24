@@ -1,7 +1,7 @@
 import { BatchedBlob, BatchedBlobAccumulator, type FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import type {
   ARCHIVE_HEIGHT,
-  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
 } from '@aztec/constants';
@@ -91,9 +91,9 @@ export class EpochProvingState {
     lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     l1ToL2Messages: Fr[],
     lastL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    lastL1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    lastL1ToL2MessageSubtreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH>,
     newL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    newL1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    newL1ToL2MessageSubtreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH>,
   ): CheckpointProvingState {
     if (checkpointIndex >= this.totalNumCheckpoints) {
       throw new Error(
@@ -111,9 +111,9 @@ export class EpochProvingState {
       lastArchiveSiblingPath,
       l1ToL2Messages,
       lastL1ToL2MessageTreeSnapshot,
-      lastL1ToL2MessageSubtreeSiblingPath,
+      lastL1ToL2MessageSubtreeRootSiblingPath,
       newL1ToL2MessageTreeSnapshot,
-      newL1ToL2MessageSubtreeSiblingPath,
+      newL1ToL2MessageSubtreeRootSiblingPath,
       this,
       this.onCheckpointBlobAccumulatorSet,
     );

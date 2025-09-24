@@ -1,8 +1,7 @@
 pub(crate) mod components;
-pub(crate) mod state_diff_hints;
-mod public_tube;
-mod private_tx_base_rollup_private_inputs;
-mod public_tx_base_rollup_private_inputs;
+pub(crate) mod public_tube;
+pub(crate) mod private_tx_base_rollup_private_inputs;
+pub(crate) mod public_tx_base_rollup_private_inputs;
 mod tests;
 
 pub use crate::abis::TxRollupPublicInputs;

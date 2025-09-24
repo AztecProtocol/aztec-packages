@@ -1,3 +1,4 @@
+mod child_proof_vk_tests;
 mod consecutive_rollups_tests;
 mod failures_tests;
 mod rollup_structure_tests;
@@ -21,11 +22,11 @@ use types::{
         checkpoint_constant_data::CheckpointConstantData, state_reference::StateReference,
     },
     constants::{
-        ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, PARITY_ROOT_VK_INDEX,
+        ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, PARITY_ROOT_VK_INDEX,
         PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX, TX_MERGE_ROLLUP_VK_INDEX,
     },
     hash::accumulate_sha256,
-    merkle_tree::root::root_from_sibling_path,
+    merkle_tree::root_from_sibling_path,
     traits::Hash,
 };
 
@@ -40,7 +41,7 @@ struct TestBuilder {
     parity_root: ParityPublicInputs,
     parity_root_vk_index: u32,
     previous_l1_to_l2: AppendOnlyTreeSnapshot,
-    new_l1_to_l2_message_subtree_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
+    new_l1_to_l2_message_subtree_root_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH],
     new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
     checkpoint_constants: CheckpointConstantData,
 }
@@ -97,7 +98,7 @@ impl TestBuilder {
         let slot_number = fixture_builder.start_slot_number;
         let parity_root = fixture_builder.get_parity_public_inputs(slot_number);
 
-        let (previous_l1_to_l2, new_l1_to_l2_message_subtree_sibling_path, new_l1_to_l2) =
+        let (previous_l1_to_l2, new_l1_to_l2_message_subtree_root_sibling_path, new_l1_to_l2) =
             fixture_builder.build_l1_to_l2_message_subtree_for_insertion(slot_number);
         left_rollup.constants.l1_to_l2_tree_snapshot = new_l1_to_l2;
         right_rollup.constants.l1_to_l2_tree_snapshot = new_l1_to_l2;
@@ -121,7 +122,7 @@ impl TestBuilder {
             parity_root,
             parity_root_vk_index: PARITY_ROOT_VK_INDEX,
             previous_l1_to_l2,
-            new_l1_to_l2_message_subtree_sibling_path,
+            new_l1_to_l2_message_subtree_root_sibling_path,
             new_archive_sibling_path,
             checkpoint_constants,
         }
@@ -162,15 +163,15 @@ impl TestBuilder {
             RollupFixtureBuilder::make_proof_data(self.right_rollup, self.right_rollup_vk_index),
         ];
 
-        let new_l1_to_l2_message_subtree_sibling_path =
-            self.new_l1_to_l2_message_subtree_sibling_path;
+        let new_l1_to_l2_message_subtree_root_sibling_path =
+            self.new_l1_to_l2_message_subtree_root_sibling_path;
         let new_archive_sibling_path = self.new_archive_sibling_path;
 
         if self.num_left_txs == 0 {
             let left = self.left_rollup;
             let previous_state = StateReference {
                 l1_to_l2_message_tree: self.previous_l1_to_l2,
-                partial: self.left_rollup.start_partial_state,
+                partial: self.left_rollup.start_tree_snapshots,
             };
             BlockRootEmptyTxFirstRollupPrivateInputs {
                 parity_root,
@@ -179,7 +180,7 @@ impl TestBuilder {
                 constants: self.checkpoint_constants,
                 start_sponge_blob: left.start_sponge_blob,
                 timestamp: left.constants.global_variables.timestamp,
-                new_l1_to_l2_message_subtree_sibling_path,
+                new_l1_to_l2_message_subtree_root_sibling_path,
                 new_archive_sibling_path,
             }
                 .execute()
@@ -188,7 +189,7 @@ impl TestBuilder {
                 parity_root,
                 previous_rollup: previous_rollups[0],
                 previous_l1_to_l2: self.previous_l1_to_l2,
-                new_l1_to_l2_message_subtree_sibling_path,
+                new_l1_to_l2_message_subtree_root_sibling_path,
                 new_archive_sibling_path,
             }
                 .execute()
@@ -197,7 +198,7 @@ impl TestBuilder {
                 parity_root,
                 previous_rollups,
                 previous_l1_to_l2: self.previous_l1_to_l2,
-                new_l1_to_l2_message_subtree_sibling_path,
+                new_l1_to_l2_message_subtree_root_sibling_path,
                 new_archive_sibling_path,
             }
                 .execute()
@@ -289,8 +290,8 @@ impl TestBuilder {
 
         // --- Partial state ---
 
-        assert_eq(pi.start_state.partial, left.start_partial_state);
-        assert_eq(pi.end_state.partial, right.end_partial_state);
+        assert_eq(pi.start_state.partial, left.start_tree_snapshots);
+        assert_eq(pi.end_state.partial, right.end_tree_snapshots);
         if self.num_left_txs == 0 {
             assert_eq(pi.start_state.partial, pi.end_state.partial);
         } else {
