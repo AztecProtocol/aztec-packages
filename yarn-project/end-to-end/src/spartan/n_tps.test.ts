@@ -12,7 +12,7 @@ import {
 } from './setup_test_wallets.js';
 import { setupEnvironment, startPortForwardForRPC } from './utils.js';
 
-const config = { ...setupEnvironment(process.env), REAL_VERIFIER: true }; // TODO: remove REAL_VERIFIER: true
+const config = { ...setupEnvironment(process.env) };
 
 describe('sustained 10 TPS test', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes

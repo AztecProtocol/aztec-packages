@@ -231,9 +231,9 @@ async function setupWithRemoteEnvironment(
     l1Client,
     rollupVersion,
   };
-  const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls);
+  const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls, new DateProvider());
   const wallet = new TestWallet(pxeClient, aztecNode);
-  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, wallet, aztecNode);
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, wallet, aztecNode, new DateProvider());
   const teardown = () => Promise.resolve();
 
   logger.verbose('Populating wallet from already registered accounts...');
@@ -426,7 +426,8 @@ export async function setup(
       setupMetricsLogger(filename);
     }
 
-    const ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls);
+    const dateProvider = new TestDateProvider();
+    const ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls, dateProvider);
 
     if (opts.stateLoad) {
       await ethCheatCodes.loadChainState(opts.stateLoad);
@@ -527,6 +528,7 @@ export async function setup(
     if (enableAutomine) {
       await ethCheatCodes.setAutomine(false);
       await ethCheatCodes.setIntervalMining(config.ethereumSlotDuration);
+      dateProvider.setTime((await ethCheatCodes.timestamp()) * 1000);
     }
 
     if (opts.l2StartTime) {
@@ -535,11 +537,8 @@ export async function setup(
       await ethCheatCodes.warp(opts.l2StartTime, { resetBlockInterval: true });
     }
 
-    const dateProvider = new TestDateProvider();
-    dateProvider.setTime((await ethCheatCodes.timestamp()) * 1000);
-
     const watcher = new AnvilTestWatcher(
-      new EthCheatCodesWithState(config.l1RpcUrls),
+      new EthCheatCodesWithState(config.l1RpcUrls, dateProvider),
       deployL1ContractsValues.l1ContractAddresses.rollupAddress,
       deployL1ContractsValues.l1Client,
       dateProvider,
@@ -650,16 +649,14 @@ export async function setup(
     logger.verbose('Creating a pxe...');
     const { wallet, teardown: pxeTeardown } = await setupPXEServiceAndGetWallet(aztecNode!, pxeOpts, logger);
 
-    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, wallet, aztecNode);
+    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, wallet, aztecNode, dateProvider);
 
     if (
       (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
       (opts.initialValidators && opts.initialValidators.length > 0)
     ) {
       // We need to advance such that the committee is set up.
-      await cheatCodes.rollup.advanceToEpoch((await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochs + 1), {
-        updateDateProvider: dateProvider,
-      });
+      await cheatCodes.rollup.advanceToEpoch((await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochs + 1));
       await cheatCodes.rollup.setupEpoch();
       await cheatCodes.rollup.debugRollup();
     }
@@ -779,20 +776,6 @@ export async function ensureAccountContractsPublished(wallet: Wallet, accountsTo
   await batch.send({ from: accountsToDeploy[0] }).wait();
 }
 // docs:end:public_deploy_accounts
-
-/**
- * Sets the timestamp of the next block.
- * @param rpcUrl - rpc url of the blockchain instance to connect to
- * @param timestamp - the timestamp for the next block
- */
-export async function setNextBlockTimestamp(rpcUrl: string, timestamp: number) {
-  const params = `[${timestamp}]`;
-  await fetch(rpcUrl, {
-    body: `{"jsonrpc":"2.0", "method": "evm_setNextBlockTimestamp", "params": ${params}, "id": 1}`,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
 
 /** Returns the job name for the current test. */
 function getJobName() {

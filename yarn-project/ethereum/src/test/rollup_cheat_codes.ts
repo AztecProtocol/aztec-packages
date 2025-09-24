@@ -2,7 +2,7 @@ import { RollupContract, type ViemPublicClient } from '@aztec/ethereum';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import type { TestDateProvider } from '@aztec/foundation/timer';
+import type { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import {
@@ -40,8 +40,12 @@ export class RollupCheatCodes {
     });
   }
 
-  static create(rpcUrls: string[], addresses: Pick<L1ContractAddresses, 'rollupAddress'>): RollupCheatCodes {
-    const ethCheatCodes = new EthCheatCodes(rpcUrls);
+  static create(
+    rpcUrls: string[],
+    addresses: Pick<L1ContractAddresses, 'rollupAddress'>,
+    dateProvider: DateProvider,
+  ): RollupCheatCodes {
+    const ethCheatCodes = new EthCheatCodes(rpcUrls, dateProvider);
     return new RollupCheatCodes(ethCheatCodes, addresses);
   }
 
@@ -114,8 +118,6 @@ export class RollupCheatCodes {
   public async advanceToEpoch(
     epoch: bigint | number,
     opts: {
-      /** Optional test date provider to update with the epoch timestamp */
-      updateDateProvider?: TestDateProvider;
       /** Offset in seconds */
       offset?: number;
     } = {},
@@ -133,19 +135,13 @@ export class RollupCheatCodes {
   }
 
   /** Warps time in L1 until the next epoch */
-  public async advanceToNextEpoch(
-    opts: {
-      /** Optional test date provider to update with the epoch timestamp */
-      updateDateProvider?: TestDateProvider;
-    } = {},
-  ) {
+  public async advanceToNextEpoch() {
     const slot = await this.getSlot();
     const { epochDuration, slotDuration } = await this.getConfig();
     const slotsUntilNextEpoch = epochDuration - (slot % epochDuration) + 1n;
     const timeToNextEpoch = slotsUntilNextEpoch * slotDuration;
     const l1Timestamp = BigInt((await this.client.getBlock()).timestamp);
     await this.ethCheatCodes.warp(Number(l1Timestamp + timeToNextEpoch), {
-      ...opts,
       silent: true,
       resetBlockInterval: true,
     });

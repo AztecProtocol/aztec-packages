@@ -196,11 +196,13 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
     ctx->range_constrain_two_limbs(limb_0.get_normalized_witness_index(),
                                    limb_1.get_normalized_witness_index(),
                                    static_cast<size_t>(NUM_LIMB_BITS),
-                                   static_cast<size_t>(NUM_LIMB_BITS));
+                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                   "bigfield::create_from_u512_as_witness: limb 0 or 1 too large");
     ctx->range_constrain_two_limbs(limb_2.get_normalized_witness_index(),
                                    limb_3.get_normalized_witness_index(),
                                    static_cast<size_t>(NUM_LIMB_BITS),
-                                   static_cast<size_t>(num_last_limb_bits));
+                                   static_cast<size_t>(num_last_limb_bits),
+                                   "bigfield::create_from_u512_as_witness: limb 2 or 3 too large");
 
     // Mark the element as coming out of nowhere
     result.set_free_witness_tag();
@@ -1826,13 +1828,15 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
     ctx->range_constrain_two_limbs(binary_basis_limbs[0].element.get_normalized_witness_index(),
                                    binary_basis_limbs[1].element.get_normalized_witness_index(),
                                    static_cast<size_t>(NUM_LIMB_BITS),
-                                   static_cast<size_t>(NUM_LIMB_BITS));
+                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                   "bigfield::assert_less_than: limb 0 or 1 too large");
 
     // Range constrain the last two limbs to NUM_LIMB_BITS and NUM_LAST_LIMB_BITS
     ctx->range_constrain_two_limbs(binary_basis_limbs[2].element.get_normalized_witness_index(),
                                    binary_basis_limbs[3].element.get_normalized_witness_index(),
                                    static_cast<size_t>(NUM_LIMB_BITS),
-                                   static_cast<size_t>(NUM_LAST_LIMB_BITS));
+                                   static_cast<size_t>(NUM_LAST_LIMB_BITS),
+                                   "bigfield::assert_less_than: limb 2 or 3 too large");
 
     // Now we can check that the element is < upper_limit.
     unsafe_assert_less_than(upper_limit);
@@ -1910,11 +1914,13 @@ void bigfield<Builder, T>::unsafe_assert_less_than(const uint256_t& upper_limit)
     get_context()->range_constrain_two_limbs(r0.get_normalized_witness_index(),
                                              r1.get_normalized_witness_index(),
                                              static_cast<size_t>(NUM_LIMB_BITS),
-                                             static_cast<size_t>(NUM_LIMB_BITS));
+                                             static_cast<size_t>(NUM_LIMB_BITS),
+                                             "bigfield::unsafe_assert_less_than: r0 or r1 too large");
     get_context()->range_constrain_two_limbs(r2.get_normalized_witness_index(),
                                              r3.get_normalized_witness_index(),
                                              static_cast<size_t>(NUM_LIMB_BITS),
-                                             static_cast<size_t>(NUM_LIMB_BITS));
+                                             static_cast<size_t>(NUM_LIMB_BITS),
+                                             "bigfield::unsafe_assert_less_than: r2 or r3 too large");
 }
 
 // check elements are equal mod p by proving their integer difference is a multiple of p.
@@ -2305,7 +2311,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         ctx->range_constrain_two_limbs(hi.get_normalized_witness_index(),
                                        lo.get_normalized_witness_index(),
                                        static_cast<size_t>(carry_hi_msb),
-                                       static_cast<size_t>(carry_lo_msb));
+                                       static_cast<size_t>(carry_lo_msb),
+                                       "bigfield::unsafe_evaluate_multiply_add: carries too large");
     } else {
         hi.create_range_constraint(static_cast<size_t>(carry_hi_msb), "bigfield: carry_hi too large");
         lo.create_range_constraint(static_cast<size_t>(carry_lo_msb), "bigfield: carry_lo too large");
@@ -2623,7 +2630,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         ctx->range_constrain_two_limbs(hi.get_normalized_witness_index(),
                                        lo.get_normalized_witness_index(),
                                        static_cast<size_t>(carry_hi_msb),
-                                       static_cast<size_t>(carry_lo_msb));
+                                       static_cast<size_t>(carry_lo_msb),
+                                       "bigfield::unsafe_evaluate_multiply_add: carries too large");
     } else {
         hi.create_range_constraint(static_cast<size_t>(carry_hi_msb), "bigfield: carry_hi too large");
         lo.create_range_constraint(static_cast<size_t>(carry_lo_msb), "bigfield: carry_lo too large");

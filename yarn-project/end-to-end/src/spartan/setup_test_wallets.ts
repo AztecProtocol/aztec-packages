@@ -88,10 +88,11 @@ export async function deploySponsoredTestAccounts(
 
   await registerSponsoredFPC(wallet);
 
+  const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
+  await recipientAccount.deploy({ fee: { paymentMethod } }).wait({ timeout: 2400 });
   await Promise.all(
     fundedAccounts.map(async a => {
-      const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
-      await recipientAccount.deploy({ fee: { paymentMethod } }).wait({ timeout: 2400 }); // increase timeout on purpose in order to account for two empty epochs
+      await a.deploy({ fee: { paymentMethod } }).wait({ timeout: 2400 }); // increase timeout on purpose in order to account for two empty epochs
       logger.info(`Account deployed at ${a.getAddress()}`);
     }),
   );

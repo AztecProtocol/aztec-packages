@@ -201,11 +201,11 @@ export class ClientFlowsBenchmark {
       deployAccounts(2, this.logger),
       async (
         { deployedAccounts: [{ address: adminAddress }, { address: sequencerAddress }] },
-        { wallet, aztecNode, aztecNodeConfig },
+        { wallet, aztecNode, cheatCodes },
       ) => {
         this.adminWallet = wallet;
         this.aztecNode = aztecNode;
-        this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, wallet, aztecNode);
+        this.cheatCodes = cheatCodes;
 
         this.adminAddress = adminAddress;
         this.sequencerAddress = sequencerAddress;
