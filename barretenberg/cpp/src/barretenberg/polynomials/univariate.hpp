@@ -40,6 +40,9 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     static constexpr size_t MONOMIAL_LENGTH = LENGTH > 1 ? 2 : 1;
     using CoefficientAccumulator = UnivariateCoefficientBasis<Fr, MONOMIAL_LENGTH, true>;
 
+    // WIP.
+    bool is_extended = false;
+
     using value_type = Fr; // used to get the type of the elements consistently with std::array
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/714) Try out std::valarray?
@@ -545,6 +548,8 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
                 result.value_at(k) *= Data::full_numerator_values[k];
             }
         }
+
+        result.is_extended = true;
         return result;
     }
 

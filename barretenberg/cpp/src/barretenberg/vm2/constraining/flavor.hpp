@@ -321,7 +321,32 @@ class AvmFlavor {
      * @brief A container for univariates used during Protogalaxy folding and sumcheck.
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
-    template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
+    // template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
+    template <size_t LENGTH>
+    class ProverUnivariates : public AllEntities<bb::Univariate<FF, LENGTH, 0, /*skip_count=*/0>> {
+      public:
+        using Base = AllEntities<bb::Univariate<FF, LENGTH, 0, /*skip_count=*/0>>;
+
+        // We need both const and non-const versions.
+        auto& get(ColumnAndShifts c)
+        {
+            auto& poly = Base::get(c);
+            // We extend it if it's not already extended.
+            if (!poly.is_extended) {
+                poly = poly.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+            }
+            return poly;
+        }
+        const auto& get(ColumnAndShifts c) const
+        {
+            auto& poly = const_cast<bb::Univariate<FF, LENGTH, 0, /*skip_count=*/0>&>(Base::get(c));
+            // We extend it if it's not already extended.
+            if (!poly.is_extended) {
+                poly = poly.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+            }
+            return poly;
+        }
+    };
 
     /**
      * @brief A container for univariates used during Protogalaxy folding and sumcheck with some of the computation

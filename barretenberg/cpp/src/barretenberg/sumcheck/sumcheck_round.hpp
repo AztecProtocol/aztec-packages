@@ -13,6 +13,7 @@
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/relations/utils.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
+#include "barretenberg/vm2/constraining/flavor.hpp"
 #include "zk_sumcheck_data.hpp"
 
 namespace bb {
@@ -133,8 +134,14 @@ template <typename Flavor> class SumcheckProverRound {
                     static const auto zero_univariate = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>::zero();
                     extended_edge = zero_univariate;
                 } else {
-                    extended_edge = bb::Univariate<FF, 2>({ multivariate[edge_idx], multivariate[edge_idx + 1] })
-                                        .template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+                    if constexpr (std::is_same_v<Flavor, avm2::AvmFlavor>) {
+                        // We lazily extend later.
+                        extended_edge = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>(
+                            { multivariate[edge_idx], multivariate[edge_idx + 1] });
+                    } else {
+                        extended_edge = bb::Univariate<FF, 2>({ multivariate[edge_idx], multivariate[edge_idx + 1] })
+                                            .template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+                    }
                 }
             }
         }
