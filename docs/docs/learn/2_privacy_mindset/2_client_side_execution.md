@@ -104,7 +104,7 @@ This multi-layered verification ensures that even though computations happen pri
 
 ## Enter Noir: Making ZK accessible
 
-### Why we need a special language
+### Why we need a Domain Specific Language (DSL)
 
 At this point, you might wonder, "Can't we just use existing programming languages for this?"
 
