@@ -9,7 +9,7 @@ set -euo pipefail
 #
 # Defaults:
 #   - Duration: 40 minutes
-#   - Matcher: alertname =~ ".*" (silence all alerts)
+#   - Matcher: network = "testnet" (overridable via NETWORK_LABEL)
 #   - CreatedBy: deploy-script
 #   - Comment:  Silence all alerts during redeploy
 
@@ -30,6 +30,9 @@ fi
 CREATED_BY=deploy-script
 COMMENT="Silence all alerts during redeploy"
 
+# Target network label (set NETWORK_LABEL to override)
+NETWORK_LABEL=${NETWORK_LABEL:-"testnet"}
+
 STARTS_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 ENDS_AT=$(date -u -d "+${DUR_MIN} minutes" +"%Y-%m-%dT%H:%M:%SZ")
 
@@ -37,9 +40,9 @@ BODY=$(cat <<JSON
 {
   "matchers": [
     {
-      "name": "alertname",
-      "value": ".*",
-      "isRegex": true
+      "name": "network",
+      "value": "${NETWORK_LABEL}",
+      "isRegex": false
     }
   ],
   "startsAt": "${STARTS_AT}",
@@ -59,7 +62,7 @@ RESP=$(curl -s -w "\n%{http_code}" -X POST "${GRAFANA_URL}/api/alertmanager/graf
 HTTP_CODE=$(echo "${RESP}" | tail -n1)
 BODY_JSON=$(echo "${RESP}" | head -n-1)
 
-if [[ "${HTTP_CODE}" != "200" && "${HTTP_CODE}" != "201" ]]; then
+if [[ "${HTTP_CODE}" != "200" && "${HTTP_CODE}" != "201" && "${HTTP_CODE}" != "202" ]]; then
   echo "Error creating silence (HTTP ${HTTP_CODE}): ${BODY_JSON}" >&2
   exit 1
 fi
