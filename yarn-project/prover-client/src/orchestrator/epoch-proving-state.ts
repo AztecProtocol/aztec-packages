@@ -9,13 +9,13 @@ import type { Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { Proof } from '@aztec/stdlib/proofs';
 import {
   CheckpointConstantData,
   CheckpointMergeRollupPrivateInputs,
   CheckpointPaddingRollupPrivateInputs,
   CheckpointRollupPublicInputs,
+  PublicTubePublicInputs,
   RootRollupPrivateInputs,
   type RootRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
@@ -60,12 +60,7 @@ export class EpochProvingState {
   // Map from tx hash to tube proof promise. Used when kickstarting tube proofs before tx processing.
   public readonly cachedTubeProofs = new Map<
     string,
-    Promise<
-      PublicInputsAndRecursiveProof<
-        PrivateToPublicKernelCircuitPublicInputs,
-        typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
-      >
-    >
+    Promise<PublicInputsAndRecursiveProof<PublicTubePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>
   >();
 
   constructor(

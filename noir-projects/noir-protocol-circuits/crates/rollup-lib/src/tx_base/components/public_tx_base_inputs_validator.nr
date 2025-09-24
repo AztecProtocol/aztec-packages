@@ -1,9 +1,8 @@
-use crate::tx_base::components::private_tail_validator;
+use crate::{abis::PublicTubePublicInputs, tx_base::components::private_tail_validator};
 use super::fees::compute_effective_gas_fees;
 use dep::types::{
     abis::{
         avm_circuit_public_inputs::AvmCircuitPublicInputs, block_constant_data::BlockConstantData,
-        kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
     },
     constants::{ARCHIVE_HEIGHT, AVM_VK_INDEX, PUBLIC_TUBE_VK_INDEX},
     proof::proof_data::{AvmV2ProofData, RollupHonkProofData},
@@ -27,7 +26,7 @@ where
 }
 
 pub struct PublicTxBaseInputsValidator {
-    public_tube_proof_data: RollupHonkProofData<PrivateToPublicKernelCircuitPublicInputs>,
+    public_tube_proof_data: RollupHonkProofData<PublicTubePublicInputs>,
     avm_proof_data: AvmV2ProofData<AvmCircuitPublicInputs>,
     constants: BlockConstantData,
     anchor_block_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
@@ -35,7 +34,7 @@ pub struct PublicTxBaseInputsValidator {
 
 impl PublicTxBaseInputsValidator {
     pub fn new(
-        public_tube_proof_data: RollupHonkProofData<PrivateToPublicKernelCircuitPublicInputs>,
+        public_tube_proof_data: RollupHonkProofData<PublicTubePublicInputs>,
         avm_proof_data: AvmV2ProofData<AvmCircuitPublicInputs>,
         constants: BlockConstantData,
         anchor_block_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
@@ -87,7 +86,7 @@ impl PublicTxBaseInputsValidator {
     }
 
     fn validate_private_tail(self) {
-        let private_tail = self.public_tube_proof_data.public_inputs;
+        let private_tail = self.public_tube_proof_data.public_inputs.private_tail;
 
         private_tail_validator::validate_tx_constant_data(
             private_tail.constants,
@@ -106,7 +105,7 @@ impl PublicTxBaseInputsValidator {
     }
 
     fn validate_private_tail_against_avm(self) {
-        let private_tail = self.public_tube_proof_data.public_inputs;
+        let private_tail = self.public_tube_proof_data.public_inputs.private_tail;
         let avm = self.avm_proof_data.public_inputs;
 
         // --- Gas and fees ---

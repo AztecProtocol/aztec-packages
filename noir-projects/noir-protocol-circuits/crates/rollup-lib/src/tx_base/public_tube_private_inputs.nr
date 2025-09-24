@@ -1,3 +1,4 @@
+use crate::abis::PublicTubePublicInputs;
 use dep::types::{
     abis::kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
     constants::HIDING_KERNEL_TO_PUBLIC_VK_INDEX, proof::proof_data::CivcProofData,
@@ -5,6 +6,7 @@ use dep::types::{
 
 pub struct PublicTubePrivateInputs {
     hiding_kernel_proof_data: CivcProofData<PrivateToPublicKernelCircuitPublicInputs>,
+    prover_id: Field,
 }
 
 impl PublicTubePrivateInputs {
@@ -12,7 +14,7 @@ impl PublicTubePrivateInputs {
     /// verification of the avm, to speed up the overall proving time.
     ///
     /// VkIndex: PUBLIC_TUBE_VK_INDEX
-    pub fn execute(self) -> PrivateToPublicKernelCircuitPublicInputs {
+    pub fn execute(self) -> PublicTubePublicInputs {
         if !dep::std::runtime::is_unconstrained() {
             self.hiding_kernel_proof_data.verify_proof();
         }
@@ -25,6 +27,9 @@ impl PublicTubePrivateInputs {
         let vk_tree_root = self.hiding_kernel_proof_data.public_inputs.constants.vk_tree_root;
         self.hiding_kernel_proof_data.vk_data.validate_in_vk_tree(vk_tree_root);
 
-        self.hiding_kernel_proof_data.public_inputs
+        PublicTubePublicInputs {
+            private_tail: self.hiding_kernel_proof_data.public_inputs,
+            prover_id: self.prover_id,
+        }
     }
 }

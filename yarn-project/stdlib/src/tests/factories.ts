@@ -143,6 +143,7 @@ import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { CheckpointRollupPublicInputs, FeeRecipient } from '../rollup/checkpoint_rollup_public_inputs.js';
 import { EpochConstantData } from '../rollup/epoch_constant_data.js';
 import { PrivateTxBaseRollupPrivateInputs } from '../rollup/private_tx_base_rollup_private_inputs.js';
+import { PublicTubePublicInputs } from '../rollup/public_tube_public_inputs.js';
 import { PublicTxBaseRollupPrivateInputs } from '../rollup/public_tx_base_rollup_private_inputs.js';
 import { RootRollupPublicInputs } from '../rollup/root_rollup_public_inputs.js';
 import { TreeSnapshotDiffHints } from '../rollup/tree_snapshot_diff_hints.js';
@@ -413,6 +414,10 @@ export function makePrivateToPublicKernelCircuitPublicInputs(seed = 1) {
     makeAztecAddress(seed + 0x600),
     BigInt(seed + 0x700),
   );
+}
+
+export function makePublicTubePublicInputs(seed = 1) {
+  return new PublicTubePublicInputs(makePrivateToPublicKernelCircuitPublicInputs(seed), fr(seed + 0x1000));
 }
 
 /**
@@ -1068,7 +1073,6 @@ function makePublicBaseRollupHints(seed = 1) {
     lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x1000),
     anchorBlockArchiveSiblingPath: makeSiblingPath(seed + 0x2000, ARCHIVE_HEIGHT),
     contractClassLogsFields: makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLogFields, seed + 0x3000),
-    proverId: fr(seed + 0x4000),
   });
 }
 
@@ -1080,11 +1084,7 @@ export function makePrivateTxBaseRollupPrivateInputs(seed = 0) {
 }
 
 export function makePublicTxBaseRollupPrivateInputs(seed = 0) {
-  const publicTubeProofData = makeProofData(
-    seed,
-    makePrivateToPublicKernelCircuitPublicInputs,
-    RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  );
+  const publicTubeProofData = makeProofData(seed, makePublicTubePublicInputs, RECURSIVE_ROLLUP_HONK_PROOF_LENGTH);
   const avmProofData = makeProofData(seed + 0x100, makeAvmCircuitPublicInputs, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
   const hints = makePublicBaseRollupHints(seed + 0x200);
 

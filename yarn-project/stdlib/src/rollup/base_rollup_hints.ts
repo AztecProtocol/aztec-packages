@@ -127,10 +127,6 @@ export class PublicBaseRollupHints {
      * Preimages to the kernel's contractClassLogsHashes.
      */
     public contractClassLogsFields: Tuple<ContractClassLogFields, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
-    /**
-     * Identifier of the prover.
-     */
-    public proverId: Fr,
   ) {}
 
   static from(fields: FieldsOf<PublicBaseRollupHints>): PublicBaseRollupHints {
@@ -143,7 +139,6 @@ export class PublicBaseRollupHints {
       fields.lastArchive,
       fields.anchorBlockArchiveSiblingPath,
       fields.contractClassLogsFields,
-      fields.proverId,
     ] as const;
   }
 
@@ -170,7 +165,6 @@ export class PublicBaseRollupHints {
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, () => reader.readObject(ContractClassLogFields)),
-      reader.readObject(Fr),
     );
   }
 
@@ -184,7 +178,6 @@ export class PublicBaseRollupHints {
       AppendOnlyTreeSnapshot.empty(),
       makeTuple(ARCHIVE_HEIGHT, Fr.zero),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLogFields.empty),
-      Fr.ZERO,
     );
   }
 }

@@ -3053,7 +3053,6 @@ contract_class_log_fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
 ]
-prover_id = "0x0000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc"
 
   [inputs.public_tube_proof_data]
   proof = [
@@ -3594,76 +3593,79 @@ prover_id = "0x0000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc"
   "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
 
-    [inputs.public_tube_proof_data.public_inputs]
+[inputs.public_tube_proof_data.public_inputs]
+    prover_id = "0x0000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc"
+
+    [inputs.public_tube_proof_data.public_inputs.private_tail]
     include_by_timestamp = "0x0000000000000000000000000000000000000000000000000000000068d50c23"
 
-      [inputs.public_tube_proof_data.public_inputs.constants]
+      [inputs.public_tube_proof_data.public_inputs.private_tail.constants]
       vk_tree_root = "0x3061f4c6f77cec377c4d53a6303ba28213fb8b6dbf99ce08ee01b0d4ff7f2822"
       protocol_contract_tree_root = "0x25eb6a2cec218e13641530a61cdba9c295da333df2526933a2c46b16e206f965"
 
-        [inputs.public_tube_proof_data.public_inputs.constants.anchor_block_header]
+        [inputs.public_tube_proof_data.public_inputs.private_tail.constants.anchor_block_header]
         sponge_blob_hash = "0x1281b431eefb2d1e2689be2346f438b9933f0b167894db41e545a82077a2e814"
         total_fees = "0x000000000000000000000000000000000000000000000000000000005d7ca29c"
         total_mana_used = "0x00000000000000000000000000000000000000000000000000000000000110c9"
 
-          [inputs.public_tube_proof_data.public_inputs.constants.anchor_block_header.last_archive]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.constants.anchor_block_header.last_archive]
           root = "0x14963c1c5c4cbc46916dbda5e53788242afe2d21832a7a7f3c05bf9d3521b41d"
           next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000006"
 
-[inputs.public_tube_proof_data.public_inputs.constants.anchor_block_header.state.l1_to_l2_message_tree]
+[inputs.public_tube_proof_data.public_inputs.private_tail.constants.anchor_block_header.state.l1_to_l2_message_tree]
 root = "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
 next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000060"
 
-[inputs.public_tube_proof_data.public_inputs.constants.anchor_block_header.state.partial.note_hash_tree]
+[inputs.public_tube_proof_data.public_inputs.private_tail.constants.anchor_block_header.state.partial.note_hash_tree]
 root = "0x047ed32a77ca5ca9b9c748994d102a134fb650cb7f7257ea9101a2d4d6f4fefb"
 next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000180"
 
-[inputs.public_tube_proof_data.public_inputs.constants.anchor_block_header.state.partial.nullifier_tree]
+[inputs.public_tube_proof_data.public_inputs.private_tail.constants.anchor_block_header.state.partial.nullifier_tree]
 root = "0x2d327729e3ae75cad3f322df90c5ae4a59f145352e86ce6e25ba384189678763"
 next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000200"
 
-[inputs.public_tube_proof_data.public_inputs.constants.anchor_block_header.state.partial.public_data_tree]
+[inputs.public_tube_proof_data.public_inputs.private_tail.constants.anchor_block_header.state.partial.public_data_tree]
 root = "0x1c8b5b2f3e77e44ad090da75f784a197714ed9724cee8369bd7ccadc8ede2692"
 next_available_leaf_index = "0x000000000000000000000000000000000000000000000000000000000000008a"
 
-          [inputs.public_tube_proof_data.public_inputs.constants.anchor_block_header.global_variables]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.constants.anchor_block_header.global_variables]
           chain_id = "0x0000000000000000000000000000000000000000000000000000000000007a69"
           version = "0x0000000000000000000000000000000000000000000000000000000062386563"
           block_number = "0x0000000000000000000000000000000000000000000000000000000000000006"
           slot_number = "0x0000000000000000000000000000000000000000000000000000000000000008"
           timestamp = "0x0000000000000000000000000000000000000000000000000000000068d3baa3"
 
-            [inputs.public_tube_proof_data.public_inputs.constants.anchor_block_header.global_variables.coinbase]
+            [inputs.public_tube_proof_data.public_inputs.private_tail.constants.anchor_block_header.global_variables.coinbase]
             inner = "0x0000000000000000000000000d20ae6bf00781810b3f001b3013034116223705"
 
-            [inputs.public_tube_proof_data.public_inputs.constants.anchor_block_header.global_variables.fee_recipient]
+            [inputs.public_tube_proof_data.public_inputs.private_tail.constants.anchor_block_header.global_variables.fee_recipient]
             inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-            [inputs.public_tube_proof_data.public_inputs.constants.anchor_block_header.global_variables.gas_fees]
+            [inputs.public_tube_proof_data.public_inputs.private_tail.constants.anchor_block_header.global_variables.gas_fees]
             fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
             fee_per_l2_gas = "0x00000000000000000000000000000000000000000000000000000000000057bc"
 
-        [inputs.public_tube_proof_data.public_inputs.constants.tx_context]
+        [inputs.public_tube_proof_data.public_inputs.private_tail.constants.tx_context]
         chain_id = "0x0000000000000000000000000000000000000000000000000000000000007a69"
         version = "0x0000000000000000000000000000000000000000000000000000000062386563"
 
-[inputs.public_tube_proof_data.public_inputs.constants.tx_context.gas_settings.gas_limits]
+[inputs.public_tube_proof_data.public_inputs.private_tail.constants.tx_context.gas_settings.gas_limits]
 da_gas = "0x0000000000000000000000000000000000000000000000000000000000600000"
 l2_gas = "0x00000000000000000000000000000000000000000000000000000000005b8d80"
 
-[inputs.public_tube_proof_data.public_inputs.constants.tx_context.gas_settings.teardown_gas_limits]
+[inputs.public_tube_proof_data.public_inputs.private_tail.constants.tx_context.gas_settings.teardown_gas_limits]
 da_gas = "0x00000000000000000000000000000000000000000000000000000000000f4240"
 l2_gas = "0x00000000000000000000000000000000000000000000000000000000000f4240"
 
-[inputs.public_tube_proof_data.public_inputs.constants.tx_context.gas_settings.max_fees_per_gas]
+[inputs.public_tube_proof_data.public_inputs.private_tail.constants.tx_context.gas_settings.max_fees_per_gas]
 fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
 fee_per_l2_gas = "0x0000000000000000000000000000000000000000000000000000000000000e1f"
 
-[inputs.public_tube_proof_data.public_inputs.constants.tx_context.gas_settings.max_priority_fees_per_gas]
+[inputs.public_tube_proof_data.public_inputs.private_tail.constants.tx_context.gas_settings.max_priority_fees_per_gas]
 fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
 fee_per_l2_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-      [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data]
+      [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data]
       note_hashes = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -3797,87 +3799,87 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
   "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs]]
-[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.inner]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs]]
+[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.inner]
 content = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-  [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+  [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
   inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs]]
-[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.inner]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs]]
+[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.inner]
 content = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-  [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+  [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
   inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs]]
-[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.inner]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs]]
+[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.inner]
 content = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-  [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+  [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
   inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs]]
-[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.inner]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs]]
+[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.inner]
 content = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-  [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+  [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
   inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs]]
-[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.inner]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs]]
+[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.inner]
 content = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-  [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+  [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
   inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs]]
-[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.inner]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs]]
+[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.inner]
 content = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-  [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+  [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
   inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs]]
-[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.inner]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs]]
+[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.inner]
 content = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-  [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+  [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
   inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs]]
-[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.inner]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs]]
+[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.inner]
 content = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-  [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+  [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
   inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.l2_to_l1_msgs.contract_address]
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -3900,7 +3902,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -3923,7 +3925,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -3946,7 +3948,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -3969,7 +3971,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -3992,7 +3994,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4015,7 +4017,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4038,7 +4040,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4061,7 +4063,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4084,7 +4086,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4107,7 +4109,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4130,7 +4132,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4153,7 +4155,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4176,7 +4178,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4199,7 +4201,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4222,7 +4224,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4245,7 +4247,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4268,7 +4270,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4291,7 +4293,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4314,7 +4316,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4337,7 +4339,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4360,7 +4362,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4383,7 +4385,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4406,7 +4408,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4429,7 +4431,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4452,7 +4454,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4475,7 +4477,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4498,7 +4500,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4521,7 +4523,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4544,7 +4546,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4567,7 +4569,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4590,7 +4592,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4613,335 +4615,335 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.contract_class_logs_hashes]]
-[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.contract_class_logs_hashes.inner]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.contract_class_logs_hashes]]
+[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.contract_class_logs_hashes.inner]
 value = "0x0000000000000000000000000000000000000000000000000000000000000000"
 length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.contract_class_logs_hashes.contract_address]
+[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.contract_class_logs_hashes.contract_address]
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.non_revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-      [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data]
+      [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data]
       note_hashes = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5075,87 +5077,87 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
   "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs]]
-[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.inner]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs]]
+[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.inner]
 content = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-  [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+  [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
   inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.contract_address]
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs]]
-[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.inner]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs]]
+[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.inner]
 content = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-  [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+  [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
   inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.contract_address]
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs]]
-[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.inner]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs]]
+[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.inner]
 content = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-  [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+  [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
   inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.contract_address]
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs]]
-[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.inner]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs]]
+[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.inner]
 content = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-  [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+  [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
   inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.contract_address]
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs]]
-[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.inner]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs]]
+[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.inner]
 content = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-  [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+  [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
   inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.contract_address]
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs]]
-[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.inner]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs]]
+[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.inner]
 content = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-  [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+  [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
   inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.contract_address]
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs]]
-[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.inner]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs]]
+[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.inner]
 content = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-  [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+  [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
   inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.contract_address]
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs]]
-[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.inner]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs]]
+[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.inner]
 content = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-  [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
+  [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.inner.recipient]
   inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.l2_to_l1_msgs.contract_address]
+[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.l2_to_l1_msgs.contract_address]
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5178,7 +5180,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5201,7 +5203,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5224,7 +5226,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5247,7 +5249,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5270,7 +5272,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5293,7 +5295,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5316,7 +5318,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5339,7 +5341,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5362,7 +5364,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5385,7 +5387,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5408,7 +5410,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5431,7 +5433,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5454,7 +5456,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5477,7 +5479,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5500,7 +5502,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5523,7 +5525,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5546,7 +5548,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5569,7 +5571,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5592,7 +5594,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5615,7 +5617,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5638,7 +5640,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5661,7 +5663,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5684,7 +5686,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5707,7 +5709,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5730,7 +5732,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5753,7 +5755,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5776,7 +5778,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5799,7 +5801,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5822,7 +5824,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5845,7 +5847,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5868,7 +5870,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.private_logs]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.private_logs]]
         fields = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5891,349 +5893,349 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.contract_class_logs_hashes]]
-[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.contract_class_logs_hashes.inner]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.contract_class_logs_hashes]]
+[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.contract_class_logs_hashes.inner]
 value = "0x0000000000000000000000000000000000000000000000000000000000000000"
 length = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.contract_class_logs_hashes.contract_address]
+[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.contract_class_logs_hashes.contract_address]
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x228ac0fbb16ece9b0165390497eb987d959eb694abe475572f22d1821832f7ba"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x1632a1a0d2ac19c2faa22fb25bb4102dfc1b02a4a6942c519c0d528d55a83bba"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x1de6fcbba7a526f0895b5d3baf205a3ea2690feb681453fe5424a770a091d0e0"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [[inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests]]
+        [[inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
         is_static_call = false
         calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-          [inputs.public_tube_proof_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
+          [inputs.public_tube_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
           inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-      [inputs.public_tube_proof_data.public_inputs.public_teardown_call_request]
+      [inputs.public_tube_proof_data.public_inputs.private_tail.public_teardown_call_request]
       is_static_call = false
       calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [inputs.public_tube_proof_data.public_inputs.public_teardown_call_request.msg_sender]
+        [inputs.public_tube_proof_data.public_inputs.private_tail.public_teardown_call_request.msg_sender]
         inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        [inputs.public_tube_proof_data.public_inputs.public_teardown_call_request.contract_address]
+        [inputs.public_tube_proof_data.public_inputs.private_tail.public_teardown_call_request.contract_address]
         inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-      [inputs.public_tube_proof_data.public_inputs.gas_used]
+      [inputs.public_tube_proof_data.public_inputs.private_tail.gas_used]
       da_gas = "0x0000000000000000000000000000000000000000000000000000000000000400"
       l2_gas = "0x000000000000000000000000000000000000000000000000000000000000560c"
 
-      [inputs.public_tube_proof_data.public_inputs.fee_payer]
+      [inputs.public_tube_proof_data.public_inputs.private_tail.fee_payer]
       inner = "0x1632a1a0d2ac19c2faa22fb25bb4102dfc1b02a4a6942c519c0d528d55a83bba"
 
     [inputs.public_tube_proof_data.vk_data]
