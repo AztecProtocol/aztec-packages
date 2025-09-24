@@ -658,6 +658,56 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplication)
     }
 }
 
+TEST(UltraCircuitBuilder, NonNativeFieldMultiplicationFails)
+{
+    UltraCircuitBuilder builder = UltraCircuitBuilder();
+
+    fq a = fq::random_element();
+    fq b = fq::random_element();
+    uint256_t modulus = fq::modulus;
+
+    uint1024_t a_big = uint512_t(uint256_t(a));
+    uint1024_t b_big = uint512_t(uint256_t(b));
+    uint1024_t p_big = uint512_t(uint256_t(modulus));
+
+    uint1024_t q_big = (a_big * b_big) / p_big;
+    uint1024_t r_big = (a_big * b_big) % p_big;
+
+    uint256_t q(q_big.lo.lo);
+    uint256_t r(r_big.lo.lo);
+
+    // Intentionally corrupt q and r
+    q += 1;
+    r += 1;
+
+    const auto [lo_1_idx, hi_1_idx] = helper_non_native_multiplication(builder, a, b, q, r, modulus);
+
+    // Check if the lo and hi carry outputs are "large" because q and r are corrupted: lo, hi >= 2^72
+    EXPECT_GE(uint256_t(builder.get_variable(lo_1_idx)).get_msb(), 72);
+    ASSERT_GE(uint256_t(builder.get_variable(hi_1_idx)).get_msb(), 72);
+
+    // The circuit does not fail here because the non-native multiplication gadget does not enforce correctness of the
+    // relation:
+    //
+    // Eq (1): a * b = q * p + r (mod 2^272).
+    //
+    // It only computes the expression:
+    //
+    // Eq (2): a * b - q * p - r = LO + HI * 2^136 (mod 2^272)
+    //
+    // and returns lo := (LO / 2^136) and hi := (HI / 2^136). If indeed equation (1) holds, then the carries lo and hi
+    // will be small (< 2^72). See the README in bigfield for more details.
+    bool result = CircuitChecker::check(builder);
+    EXPECT_EQ(result, true);
+
+    // Hence, when we try to range-constrain the carries lo and hi to be small, the circuit should fail.
+    builder.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70, "range check on carries");
+
+    result = CircuitChecker::check(builder);
+    EXPECT_EQ(result, false);
+    EXPECT_EQ(builder.err(), "range check on carries: lo limb.");
+}
+
 TEST(UltraCircuitBuilder, NonNativeFieldMultiplicationRegression)
 {
     UltraCircuitBuilder builder = UltraCircuitBuilder();
