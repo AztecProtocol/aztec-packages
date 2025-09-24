@@ -20,7 +20,7 @@ void ProtogalaxyRecursiveVerifier_<VerifierInstance>::run_oink_verifier_on_each_
     auto key = insts_to_fold[0];
     auto domain_separator = std::to_string(0);
 
-    // If the first instance to be folded in non-relaxed we need to complete it and generate the gate challenges
+    // If the first instance to be folded is non-relaxed we need to complete it and generate the gate challenges
     if (!key->is_complete) {
         OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
         oink_verifier.verify();
@@ -41,7 +41,7 @@ template <class VerifierInstance>
 std::shared_ptr<VerifierInstance> ProtogalaxyRecursiveVerifier_<VerifierInstance>::verify_folding_proof(
     const stdlib::Proof<Builder>& proof)
 {
-    // The degree of the combiner quotient (K in the paper) is equal to deg(G) - deg(Z), where Z is the vanishing
+    // The degree of the combiner quotient (K in the paper) is equal to deg(G) - deg(Z), where Z is the  vanishing
     // polynomial of the domain 0, .., NUM_INSTANCES-1. Hence, deg(K) = deg(G) - NUM_INSTANCES and we need deg(G) + 1 -
     // NUM_INSTANCES = BATCHED_EXTENDED_LENGTH - NUM_INSTANCES evaluations to represent it
     static constexpr size_t COMBINER_QUOTIENT_LENGTH = BATCHED_EXTENDED_LENGTH - NUM_INSTANCES;
@@ -68,7 +68,7 @@ std::shared_ptr<VerifierInstance> ProtogalaxyRecursiveVerifier_<VerifierInstance
     // Step 7 - Compute evaluation of the perturbator
     const FF perturbator_evaluation = evaluate_perturbator(perturbator_coeffs, perturbator_challenge);
 
-    // Step 11 - Receive coefficients of combiner quotient
+    // Step 11 - Receive evaluations of the combiner quotient
     std::array<FF, COMBINER_QUOTIENT_LENGTH> combiner_quotient_evals;
     for (size_t idx = 0; idx < COMBINER_QUOTIENT_LENGTH; idx++) {
         combiner_quotient_evals[idx] =
@@ -110,11 +110,11 @@ std::shared_ptr<VerifierInstance> ProtogalaxyRecursiveVerifier_<VerifierInstance
      *  [B] = \sum_j c_j [P_{1,j}]
      *  [C] = \sum_j c_j [Q_j]
      * and then verifies:
-     *  [C] = (1 - gamma) * [B] + gamma * [A]
+     *  [C] = (1 - gamma) * [A] + gamma * [B]
      *
      * The cost of this verification is 3 size N MSMs with short scalars and 1 size 2 MSM with full scalars, amounting
      * to 3 * (33 * roundup(N/4) + 31) + 64 = 99 * roundup(N/4) + 157 ~ 25 * N + 157 rows (here we use that an MSM of
-     * size k with full scalars account for 33 * roundup(N/2) + 31 rows, which for k = 2 equals 64 rows)
+     * size k with full scalars accounts for 33 * roundup(N/2) + 31 rows, which for k = 2 equals 64 rows)
      *
      * Note: there are more efficient ways to evaluate this relationship if one solely wants to reduce number of
      * scalar muls, however we must also consider the number of ECCVM operations being executed, as each operation
@@ -128,12 +128,10 @@ std::shared_ptr<VerifierInstance> ProtogalaxyRecursiveVerifier_<VerifierInstance
     std::vector<Commitment> accumulator_commitments;
     std::vector<Commitment> instance_commitments;
     for (const auto& precomputed : get_data_to_fold<FOLDING_DATA::PRECOMPUTED_COMMITMENTS>()) {
-        BB_ASSERT_EQ(precomputed.size(), 2U);
         accumulator_commitments.emplace_back(precomputed[0]);
         instance_commitments.emplace_back(precomputed[1]);
     }
     for (const auto& witness : get_data_to_fold<FOLDING_DATA::WITNESS_COMMITMENTS>()) {
-        BB_ASSERT_EQ(witness.size(), 2U);
         accumulator_commitments.emplace_back(witness[0]);
         instance_commitments.emplace_back(witness[1]);
     }
@@ -142,10 +140,10 @@ std::shared_ptr<VerifierInstance> ProtogalaxyRecursiveVerifier_<VerifierInstance
     std::vector<Commitment> output_commitments;
     for (size_t i = 0; i < accumulator_commitments.size(); ++i) {
         // Out-of-circuit calculation to populate the witness values
-        const auto lhs_scalar = (FF(1) - combiner_challenge).get_value(); // L_0(\gamma)
-        const auto rhs_scalar = combiner_challenge.get_value();           // L_1(\gamma)
-        const auto lhs = accumulator_commitments[i].get_value();          // [P_{0,i}]
-        const auto rhs = instance_commitments[i].get_value();             // [P_{1,i}]
+        const auto lhs_scalar = lagranges[0].get_value();        // L_0(\gamma)
+        const auto rhs_scalar = lagranges[1].get_value();        // L_1(\gamma)
+        const auto lhs = accumulator_commitments[i].get_value(); // [P_{0,i}]
+        const auto rhs = instance_commitments[i].get_value();    // [P_{1,i}]
         const auto output =
             lhs * lhs_scalar + rhs * rhs_scalar; // [Q_i] := L_0(\gamma) * [P_{0,i}] + L_1(\gamma) * [P_{1,i}]
         // Add a new witness whose underlying value for an honest prover is [Q_i]
@@ -164,8 +162,10 @@ std::shared_ptr<VerifierInstance> ProtogalaxyRecursiveVerifier_<VerifierInstance
         batch_mul_transcript.template get_challenges<FF>(args);
     std::vector<FF> scalars(folding_challenges.begin(), folding_challenges.end());
 
-    // MSMs: edge cases are handled in the MSM only when the builder is Ultra. When the builder is mega, edge cases are
-    // handled by the ECCVM Compute [A] = \sum_i c_i [P_{0,i}]
+    // MSMs: note that edge cases are handled in the MSM only when the builder is Ultra. When the builder is mega, edge
+    // cases are handled by the ECCVM
+
+    // Compute [A] = \sum_i c_i [P_{0,i}]
     Commitment accumulator_sum = Commitment::batch_mul(accumulator_commitments,
                                                        scalars,
                                                        /*max_num_bits=*/0,
@@ -182,13 +182,13 @@ std::shared_ptr<VerifierInstance> ProtogalaxyRecursiveVerifier_<VerifierInstance
                                                   scalars,
                                                   /*max_num_bits=*/0,
                                                   /*handle_edge_cases=*/IsUltraBuilder<Builder>);
-    // Compute (1 - gamma) * [B] + gamma * [A]
+    // Compute (1 - gamma) * [A] + gamma * [B]
     Commitment folded_sum = Commitment::batch_mul({ accumulator_sum, instance_sum },
                                                   lagranges,
                                                   /*max_num_bits=*/0,
                                                   /*handle_edge_cases=*/IsUltraBuilder<Builder>);
 
-    // Enforce [C] = (1 - gamma) * [B] + gamma * [A]
+    // Enforce [C] = (1 - gamma) * [A] + gamma * [B]
     output_sum.x.assert_equal(folded_sum.x);
     output_sum.y.assert_equal(folded_sum.y);
     output_sum.is_point_at_infinity().assert_equal(folded_sum.is_point_at_infinity());
@@ -205,11 +205,12 @@ std::shared_ptr<VerifierInstance> ProtogalaxyRecursiveVerifier_<VerifierInstance
     virtual_log_n.fix_witness();
     accumulator->vk_and_hash->vk->log_circuit_size = virtual_log_n;
 
-    // Fold the relation parameters
+    // Fold the batching challenges (alphas)
     for (auto [combination, to_combine] : zip_view(accumulator->alphas, get_data_to_fold<FOLDING_DATA::ALPHAS>())) {
         combination = to_combine[0] + combiner_challenge * (to_combine[1] - to_combine[0]);
     }
 
+    // Fold the relation parameters
     for (auto [combination, to_combine] : zip_view(accumulator->relation_parameters.get_to_fold(),
                                                    get_data_to_fold<FOLDING_DATA::RELATION_PARAMETERS>())) {
         combination = to_combine[0] + combiner_challenge * (to_combine[1] - to_combine[0]);

@@ -55,6 +55,8 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
 
     FF hash_through_transcript(const std::string& domain_separator, Transcript& transcript) const
     {
+        BB_ASSERT_EQ(is_complete, true, "Trying to hash a verifier instance that has not been completed.");
+
         transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_log_circuit_size",
                                                   this->vk->log_circuit_size);
         transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_num_public_inputs",
