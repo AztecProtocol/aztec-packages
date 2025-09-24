@@ -193,6 +193,7 @@ else
   if [[ -z "${ETHEREUM_RPC_URLS:-}" ]]; then
     die "ETHEREUM_RPC_URLS is not set (expected JSON array, e.g. [\"https://...\"])"
   fi
+
   CSV_RPC_URLS=$(echo "${ETHEREUM_RPC_URLS}" | jq -r 'join(",")')
 
   L1_RPC_URLS_JSON="${ETHEREUM_RPC_URLS}"
