@@ -56,7 +56,7 @@ import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestationsAndSigners, L2Block } from '@aztec/stdlib/block';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs';

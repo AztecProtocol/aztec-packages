@@ -7,6 +7,7 @@ import { getPublicClient } from '@aztec/ethereum';
 import { SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
+import { type CliPXEOptions, type PXEServiceConfig, allPxeConfigMappings } from '@aztec/pxe/config';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
 import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
 import {
@@ -14,6 +15,7 @@ import {
   initTelemetryClient,
   telemetryClientConfigMappings,
 } from '@aztec/telemetry-client';
+import { TestWallet } from '@aztec/test-wallet';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { createAztecNode } from '../../sandbox/index.js';
@@ -131,8 +133,9 @@ export async function startNode(
   // Add a txs bot if requested
   if (options.bot) {
     const { addBot } = await import('./start_bot.js');
-    const { startPXEServiceGetWallet } = await import('./start_pxe.js');
-    const { wallet } = await startPXEServiceGetWallet(options, services, userLog, { node });
+
+    const pxeConfig = extractRelevantOptions<PXEServiceConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
+    const wallet = await TestWallet.create(node, pxeConfig);
 
     await addBot(options, signalHandlers, services, wallet, node, telemetry, undefined);
   }

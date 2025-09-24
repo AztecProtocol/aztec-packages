@@ -2,7 +2,7 @@ import { type AztecAddress, Contract, SetPublicAuthwitContractInteraction, type 
 import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
 
-import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
+import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
 
 export async function authorizeAction(
   wallet: Wallet,

@@ -82,5 +82,4 @@ export * from './api/fee.js';
 export * from './api/log.js';
 export * from './api/contract.js';
 export * from './api/utils.js';
-export * from './api/rpc.js';
 export * from './api/wallet.js';

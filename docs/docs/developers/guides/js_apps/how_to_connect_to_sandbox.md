@@ -67,9 +67,11 @@ console.log('Chain ID:', nodeInfo.l1ChainId);
 Now that we have a PXE running, we can create a Wallet:
 
 ```typescript
+import { createAztecNodeClient } from '@aztec/aztec.js';
 import { TestWallet } from '@aztec/test-wallet';
 
-const wallet = new TestWallet(pxe);
+const node = createAztecNodeClient('http://localhost:8080');
+const wallet = await TestWallet.create(node);
 ```
 
 ### Get test accounts

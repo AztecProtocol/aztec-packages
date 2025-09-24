@@ -26,9 +26,9 @@ import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract as BananaCoin, TokenContract } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
-import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import { type PXEServiceConfig, getPXEServiceConfig } from '@aztec/pxe/server';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 import { MNEMONIC } from '../../fixtures/fixtures.js';
 import {
@@ -215,19 +215,16 @@ export class ClientFlowsBenchmark {
         this.coinbase = EthAddress.random();
 
         const userPXEConfig = getPXEServiceConfig();
-        const l1Contracts = await aztecNode.getL1ContractAddresses();
         const userPXEConfigWithContracts = {
           ...userPXEConfig,
           proverEnabled: this.realProofs,
-          l1Contracts,
         } as PXEServiceConfig;
 
-        this.userPXE = await createPXEService(this.aztecNode, userPXEConfigWithContracts, {
+        this.userWallet = await TestWallet.create(this.aztecNode, userPXEConfigWithContracts, {
           loggers: {
             prover: this.proxyLogger.createLogger('pxe:bb:wasm:bundle:proxied'),
           },
         });
-        this.userWallet = new TestWallet(this.userPXE, this.aztecNode);
       },
     );
   }

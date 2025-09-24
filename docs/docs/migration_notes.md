@@ -9,6 +9,42 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+This release includes a major architectural change to the system.
+The PXE JSON RPC Server has been removed, and PXE is now available only as a library to be used by wallets.
+
+## [Aztec.js]
+
+### CLI Wallet commands dropped from `aztec` command
+
+The following commands used to be exposed by both the `aztec` and the `aztec-wallet` commands:
+
+- import-test-accounts
+- create-account
+- deploy-account
+- deploy
+- send
+- simulate
+- profile
+- bridge-fee-juice
+- create-authwit
+- authorize-action
+- get-tx
+- cancel-tx
+- register-sender
+- register-contract
+
+These were dropped from `aztec` and now are exposed only by the `cli-wallet` command exposed by the `@aztec/cli-wallet` package.
+
+### PXE commands dropped from `aztec` command
+
+The following commands were dropped from the `aztec` command:
+
+- `add-contract`: use can be replaced with `register-contract` on our `cli-wallet`
+- `get-contract-data`: debug-only and not considered important enough to need a replacement
+- `get-accounts`: debug-only and can be replaced by loading aliases from `cli-wallet`
+- `get-account`: debug-only and can be replaced by loading aliases from `cli-wallet`
+- `get-pxe-info`: debug-only and not considered important enough to need a replacement
+
 ## [Aztec.nr]
 
 ### Historical block renamed as anchor block

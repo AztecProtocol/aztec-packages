@@ -3,7 +3,6 @@ import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import { setupSponsoredFPC } from '@aztec/cli/cli-utils';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import {
   NULL_KEY,
@@ -20,15 +19,13 @@ import { type LogFn, createLogger } from '@aztec/foundation/log';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
   getConfigEnvVars as getTelemetryClientConfig,
   initTelemetryClient,
 } from '@aztec/telemetry-client';
-import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet';
+import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type HDAccount, type PrivateKeyAccount, createPublicClient, fallback, http as httpViemTransport } from 'viem';
@@ -196,22 +193,26 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
     { telemetry, blobSinkClient, dateProvider },
     { prefilledPublicData },
   );
-  const pxeServiceConfig = { proverEnabled: aztecNodeConfig.realProofs };
-  const pxe = await createAztecPXE(node, pxeServiceConfig);
-  const wallet = new TestWallet(pxe, node);
 
   if (initialAccounts.length) {
+    const pxeServiceConfig = { proverEnabled: aztecNodeConfig.realProofs };
+    const wallet = await TestWallet.create(node, pxeServiceConfig);
+
     userLog('Setting up funded test accounts...');
     const accountManagers = await deployFundedSchnorrAccounts(wallet, initialAccounts);
     const accountsWithSecrets = accountManagers.map((manager, i) => ({
       account: manager,
       secretKey: initialAccounts[i].secret,
     }));
-    const accLogs = await createAccountLogs(accountsWithSecrets, pxe);
+    const accLogs = await createAccountLogs(accountsWithSecrets, wallet);
     userLog(accLogs.join(''));
 
     await setupBananaFPC(initialAccounts, wallet, userLog);
-    await setupSponsoredFPC(pxe, userLog);
+
+    userLog(`SponsoredFPC: ${await getSponsoredFPCAddress()}`);
+
+    // We no longer need the wallet once we've setup the accounts so we stop the underlying PXE job queue
+    await wallet.stop();
   }
 
   const stop = async () => {
@@ -219,7 +220,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
     await watcher?.stop();
   };
 
-  return { node, pxe, stop };
+  return { node, stop };
 }
 
 /**
@@ -240,14 +241,4 @@ export async function createAztecNode(
   };
   const node = await AztecNodeService.createAndSync(aztecNodeConfig, deps, options);
   return node;
-}
-
-/**
- * Create and start a new Aztec PXE HTTP Server
- * @param config - Optional PXE settings.
- */
-export async function createAztecPXE(node: AztecNode, config: Partial<PXEServiceConfig> = {}) {
-  const pxeServiceConfig: PXEServiceConfig = { ...getPXEServiceConfig(), ...config };
-  const pxe = await createPXEService(node, pxeServiceConfig);
-  return pxe;
 }

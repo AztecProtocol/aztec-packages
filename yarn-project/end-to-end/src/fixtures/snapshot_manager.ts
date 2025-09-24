@@ -31,11 +31,11 @@ import { createLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { ProverNode } from '@aztec/prover-node';
-import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import { getPXEServiceConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryConfig, initTelemetryClient } from '@aztec/telemetry-client';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import type { Anvil } from '@viem/anvil';
@@ -446,8 +446,7 @@ async function setupFromFresh(
   pxeConfig.dataDirectory = statePath ?? path.join(directoryToCleanup, randomBytes(8).toString('hex'));
   // Only enable proving if specifically requested.
   pxeConfig.proverEnabled = !!opts.realProofs;
-  const pxe = await createPXEService(aztecNode, pxeConfig);
-  const wallet = new TestWallet(pxe, aztecNode);
+  const wallet = await TestWallet.create(aztecNode, pxeConfig);
   const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, wallet, aztecNode, dateProvider);
 
   if (statePath) {
@@ -575,8 +574,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
   pxeConfig.dataDirectory = statePath;
-  const pxe = await createPXEService(aztecNode, pxeConfig);
-  const wallet = new TestWallet(pxe, aztecNode);
+  const wallet = await TestWallet.create(aztecNode, pxeConfig);
   const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, wallet, aztecNode, dateProvider);
 
   return {

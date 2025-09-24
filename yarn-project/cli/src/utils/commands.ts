@@ -29,19 +29,10 @@ export function addOptions(program: Command, options: Option[]) {
   return program;
 }
 
-export const makePxeOption = (mandatory: boolean) =>
-  new Option('-u, --rpc-url <string>', 'URL of the PXE')
-    .env('PXE_URL')
-    .default(`http://${LOCALHOST}:8080`)
-    .conflicts('remote-pxe')
-    .makeOptionMandatory(mandatory);
-
-export const pxeOption = makePxeOption(true);
-
 export const makeNodeOption = (mandatory: boolean) =>
   new Option('-n, --node-url <string>', 'URL of the Aztec node')
     .env('AZTEC_NODE_URL')
-    .default(`http://${LOCALHOST}:8079`)
+    .default(`http://${LOCALHOST}:8080`)
     .makeOptionMandatory(mandatory);
 
 export const nodeOption = makeNodeOption(true);

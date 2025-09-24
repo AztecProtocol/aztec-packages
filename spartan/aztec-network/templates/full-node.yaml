@@ -198,7 +198,7 @@ spec:
           emptyDir: {}
         - name: contracts-env
           emptyDir: {}
-        - name: pxe-url
+        - name: aztec-node-url
           emptyDir: {}
 ---
 # Headless service for StatefulSet DNS entries

@@ -815,9 +815,6 @@ If two subsystems can contain the same configuration option, only one needs to b
     --bot.nodeAdminUrl <value>                                                                                                    ($AZTEC_NODE_ADMIN_URL)
           The URL to the Aztec node admin API to force-flush txs if configured.
 
-    --bot.pxeUrl <value>                                                                                                          ($BOT_PXE_URL)
-          URL to the PXE for sending txs, or undefined if an in-proc PXE is used.
-
     --bot.l1Mnemonic <value>                                                                                                      ($BOT_L1_MNEMONIC)
           The mnemonic for the account to bridge fee juice from L1.
 

@@ -30,34 +30,16 @@ type PXEConfigWithoutDefaults = Omit<
  * @param useLogSuffix - Whether to add a randomly generated suffix to the PXE debug logs.
  * @returns A Promise that resolves to the started PXEService instance.
  */
-export function createPXEService(
+export async function createPXEService(
   aztecNode: AztecNode,
   config: PXEConfigWithoutDefaults,
   options: PXECreationOptions = { loggers: {} },
 ) {
-  const simulator = new WASMSimulator();
   const recorder = process.env.CIRCUIT_RECORD_DIR
     ? new FileCircuitRecorder(process.env.CIRCUIT_RECORD_DIR)
     : new MemoryCircuitRecorder();
-  const simulatorWithRecorder = new SimulatorRecorderWrapper(simulator, recorder);
-  return createPXEServiceWithSimulator(aztecNode, simulatorWithRecorder, config, options);
-}
+  const simulator = new SimulatorRecorderWrapper(new WASMSimulator(), recorder);
 
-/**
- * Create and start an PXEService instance with the given AztecNode, Simulator and config.
- *
- * @param aztecNode - The AztecNode instance to be used by the server.
- * @param simulator - The Simulator to use
- * @param config - The PXE Service Config to use
- * @param useLogSuffix - Whether to add a randomly generated suffix to the PXE debug logs.
- * @returns A Promise that resolves to the started PXEService instance.
- */
-export async function createPXEServiceWithSimulator(
-  aztecNode: AztecNode,
-  simulator: CircuitSimulator,
-  config: PXEConfigWithoutDefaults,
-  options: PXECreationOptions = { loggers: {} },
-) {
   const logSuffix =
     typeof options.useLogSuffix === 'boolean'
       ? options.useLogSuffix

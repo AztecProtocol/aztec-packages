@@ -35,7 +35,6 @@ The CLI wallet supports several global options that can be used with any command
 - `-V, --version`: Output the version number
 - `-d, --data-dir <string>`: Storage directory for wallet data (default: "~/.aztec/wallet")
 - `-p, --prover <string>`: The type of prover the wallet uses (choices: "wasm", "native", "none", default: "native", env: `PXE_PROVER`)
-- `--remote-pxe`: Connect to an external PXE RPC server instead of the local one (env: `REMOTE_PXE`)
 - `-n, --node-url <string>`: URL of the Aztec node to connect to (default: "http://host.docker.internal:8080", env: `AZTEC_NODE_URL`)
 - `-h, --help`: Display help for command
 
@@ -44,7 +43,6 @@ The CLI wallet supports several global options that can be used with any command
 Many options can be set using environment variables. For example:
 
 - `PXE_PROVER`: Set the prover type
-- `REMOTE_PXE`: Enable remote PXE connection
 - `AZTEC_NODE_URL`: Set the node URL
 - `SECRET_KEY`: Set the secret key for account operations
 
@@ -210,7 +208,7 @@ Generates a secret key and deploys an account contract. Uses a Schnorr single-ke
 - `--skip-initialization`: Skip initializing the account contract. Useful for publicly deploying an existing account.
 - `--public-deploy`: Publishes the account contract instance (and the class, if needed). Needed if the contract contains public functions.
 - `-p, --public-key <string>`: Public key that identifies a private signing key stored outside of the wallet. Used for ECDSA SSH accounts over the secp256r1 curve.
-- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080")
+- `-n, --node-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080")
 - `-sk, --secret-key <string>`: Secret key for account. Uses random by default. (env: `SECRET_KEY`)
 - `-a, --alias <string>`: Alias for the account. Used for easy reference in subsequent commands.
 - `-t, --type <string>`: Type of account to create (choices: "schnorr", "ecdsasecp256r1", "ecdsasecp256r1ssh", "ecdsasecp256k1", default: "schnorr")
@@ -249,7 +247,7 @@ aztec-wallet deploy-account [options]
 #### Options
 
 - `-f, --from <string>`: Alias or address of the account to deploy
-- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `PXE_URL`)
+- `-n, --node-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `AZTEC_NODE_URL`)
 - `--json`: Emit output as json
 - `--no-wait`: Skip waiting for the contract to be deployed. Print the hash of deployment transaction
 - `--register-class`: Register the contract class (useful for when the contract class has not been deployed yet)
@@ -308,7 +306,7 @@ aztec-wallet deploy [options] [artifact]
 - `-k, --public-key <string>`: Optional encryption public key for this address. Set this value only if this contract is expected to receive private notes, which will be encrypted using this public key
 - `-s, --salt <hex string>`: Optional deployment salt as a hex string for generating the deployment address
 - `--universal`: Do not mix the sender address into the deployment
-- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `PXE_URL`)
+- `-n, --node-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `AZTEC_NODE_URL`)
 - `--args [args...]`: Constructor arguments (default: [])
 - `-sk, --secret-key <string>`: The sender's secret key (env: `SECRET_KEY`)
 - `-f, --from <string>`: Alias or address of the account to deploy from
@@ -360,7 +358,7 @@ aztec-wallet register-contract [options] [address] [artifact]
 - `-s, --salt <hex string>`: Optional deployment salt as a hex string for generating the deployment address
   Sends a transaction by calling a function on an Aztec contract.
 - `--args [args...]`: Constructor arguments (default: [])
-- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `PXE_URL`)
+- `-n, --node-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `AZTEC_NODE_URL`)
 - `-f, --from <string>`: Alias or address of the account to simulate from
 - `-a, --alias <string>`: Alias for the contact. Used for easy reference in subsequent commands
 
@@ -384,7 +382,7 @@ aztec-wallet send [options] <functionName>
 
 #### Options
 
-- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `PXE_URL`)
+- `-n, --node-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `AZTEC_NODE_URL`)
 - `--args [args...]`: Function arguments (default: [])
 - `-c, --contract-artifact <fileLocation>`: Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
 - `-ca, --contract-address <address>`: Aztec address of the contract
@@ -437,7 +435,7 @@ aztec-wallet simulate [options] <functionName>
 
 #### Options
 
-- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `PXE_URL`)
+- `-n, --node-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `AZTEC_NODE_URL`)
 - `--args [args...]`: Function arguments (default: [])
 - `-ca, --contract-address <address>`: Aztec address of the contract
 - `-c, --contract-artifact <fileLocation>`: Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
@@ -465,7 +463,7 @@ aztec-wallet profile [options] <functionName>
 
 #### Options
 
-- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `PXE_URL`)
+- `-n, --node-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `AZTEC_NODE_URL`)
 - `--args [args...]`: Function arguments (default: [])
 - `-ca, --contract-address <address>`: Aztec address of the contract
 - `-c, --contract-artifact <fileLocation>`: Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
@@ -495,7 +493,7 @@ aztec-wallet create-authwit [options] <functionName> <caller>
 
 #### Options
 
-- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `PXE_URL`)
+- `-n, --node-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `AZTEC_NODE_URL`)
 - `--args [args...]`: Function arguments (default: [])
 - `-ca, --contract-address <address>`: Aztec address of the contract
 - `-c, --contract-artifact <fileLocation>`: Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
@@ -532,7 +530,7 @@ aztec-wallet authorize-action [options] <functionName> <caller>
 
 #### Options
 
-- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `PXE_URL`)
+- `-n, --node-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `AZTEC_NODE_URL`)
 - `--args [args...]`: Function arguments (default: [])
 - `-ca, --contract-address <address>`: Aztec address of the contract
 - `-c, --contract-artifact <fileLocation>`: Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract
@@ -572,7 +570,7 @@ aztec-wallet bridge-fee-juice [options] <amount> <recipient>
 - `-m, --mnemonic <string>`: The mnemonic to use for deriving the Ethereum address that will mint and bridge (default: "test test test test test test test test test test test junk")
 - `--mint`: Mint the tokens on L1 (default: false)
 - `--l1-private-key <string>`: The private key to the eth account bridging
-- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `PXE_URL`)
+- `-n, --node-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `AZTEC_NODE_URL`)
 - `-c, --l1-chain-id <number>`: Chain ID of the ethereum host (default: 31337, env: `L1_CHAIN_ID`)
 - `--json`: Output the claim in JSON format
 - `--no-wait`: Wait for the bridged funds to be available in L2, polling every 60 seconds
@@ -600,7 +598,7 @@ aztec-wallet get-tx [options] [txHash]
 
 #### Options
 
-- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `PXE_URL`)
+- `-n, --node-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `AZTEC_NODE_URL`)
 - `-p, --page <number>`: The page number to display (default: 1)
 - `-s, --page-size <number>`: The number of transactions to display per page (default: 10)
 
@@ -628,7 +626,6 @@ aztec-wallet cancel-tx [options] <txHash>
 
 #### Options
 
-- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `PXE_URL`)
 - `-sk, --secret-key <string>`: The sender's secret key (env: `SECRET_KEY`)
 - `-f, --from <string>`: Alias or address of the account to simulate from
 - `--payment <options>`: Fee payment method and arguments
@@ -665,7 +662,7 @@ aztec-wallet register-sender [options] [address]
 
 #### Options
 
-- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `PXE_URL`)
+- `-n, --node-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `AZTEC_NODE_URL`)
 - `-f, --from <string>`: Alias or address of the account to simulate from
 - `-a, --alias <string>`: Alias for the sender. Used for easy reference in subsequent commands
 

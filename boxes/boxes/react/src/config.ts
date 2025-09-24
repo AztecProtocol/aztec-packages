@@ -1,7 +1,7 @@
-import { AztecAddress, createAztecNodeClient, Wallet } from '@aztec/aztec.js';
-import { TestWallet } from '@aztec/test-wallet/lazy';
-import { getPXEServiceConfig, createPXEService } from '@aztec/pxe/client/lazy';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { AztecAddress, createAztecNodeClient, Wallet } from '@aztec/aztec.js';
+import { getPXEServiceConfig } from '@aztec/pxe/client/lazy';
+import { TestWallet } from '@aztec/test-wallet/lazy';
 
 export class PrivateEnv {
   private wallet!: Wallet;
@@ -16,13 +16,7 @@ export class PrivateEnv {
     const config = getPXEServiceConfig();
     config.dataDirectory = 'pxe';
     config.proverEnabled = false;
-    const l1Contracts = await aztecNode.getL1ContractAddresses();
-    const configWithContracts = {
-      ...config,
-      l1Contracts,
-    };
-    const pxe = await createPXEService(aztecNode, configWithContracts);
-    const wallet = new TestWallet(pxe, aztecNode);
+    const wallet = await TestWallet.create(aztecNode, config);
 
     const [accountData] = await getInitialTestAccountsData();
     if (!accountData) {
