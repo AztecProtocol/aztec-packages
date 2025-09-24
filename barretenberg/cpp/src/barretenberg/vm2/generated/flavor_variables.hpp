@@ -108,6 +108,7 @@
 #include "relations/lookups_poseidon2_mem.hpp"
 #include "relations/lookups_protocol_contract.hpp"
 #include "relations/lookups_public_data_check.hpp"
+#include "relations/lookups_public_data_squash.hpp"
 #include "relations/lookups_range_check.hpp"
 #include "relations/lookups_retrieved_bytecodes_tree_check.hpp"
 #include "relations/lookups_scalar_mul.hpp"
@@ -140,10 +141,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3056;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3066;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 328;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3517;
+    static constexpr size_t NUM_ALL_ENTITIES = 3527;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -482,6 +483,8 @@ struct AvmFlavorVariables {
         lookup_protocol_contract_leaf_hash_relation<FF_>,
         lookup_protocol_contract_merkle_check_relation<FF_>,
         lookup_protocol_contract_public_input_protocol_contract_root_relation<FF_>,
+        lookup_public_data_check_clk_diff_range_hi_relation<FF_>,
+        lookup_public_data_check_clk_diff_range_lo_relation<FF_>,
         lookup_public_data_check_low_leaf_merkle_check_relation<FF_>,
         lookup_public_data_check_low_leaf_next_slot_validation_relation<FF_>,
         lookup_public_data_check_low_leaf_poseidon2_0_relation<FF_>,
@@ -495,6 +498,9 @@ struct AvmFlavorVariables {
         lookup_public_data_check_updated_low_leaf_poseidon2_1_relation<FF_>,
         lookup_public_data_check_write_public_data_to_public_inputs_relation<FF_>,
         lookup_public_data_check_write_writes_length_to_public_inputs_relation<FF_>,
+        lookup_public_data_squash_clk_diff_range_hi_relation<FF_>,
+        lookup_public_data_squash_clk_diff_range_lo_relation<FF_>,
+        lookup_public_data_squash_leaf_slot_increase_ff_gt_relation<FF_>,
         lookup_range_check_dyn_diff_is_u16_relation<FF_>,
         lookup_range_check_dyn_rng_chk_pow_2_relation<FF_>,
         lookup_range_check_r0_is_u16_relation<FF_>,
