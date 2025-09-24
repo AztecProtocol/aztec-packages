@@ -105,7 +105,7 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
                                typename Flavor::template ProverUnivariates<2>,
                                std::array<Univariate<FF, ExtendedUnivariate::LENGTH, 0, skip_count>, NUM_INSTANCES>>;
         // As a practical measure, get the first prover instance's view to deduce the array type
-        std::array<decltype(instances[0]->polynomials.get_all()), NUM_INSTANCES> views;
+        std::array<std::decay_t<decltype(instances[0]->polynomials.get_all())>, NUM_INSTANCES> views;
         views[0] = instances[0]->polynomials.get_all();
         views[1] = instances[1]->polynomials.get_all();
 

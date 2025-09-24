@@ -126,7 +126,8 @@ template <typename Flavor> class SumcheckProverRound {
                       const ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
                       const size_t edge_idx)
     {
-        for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
+        static thread_local auto zip_v = zip_view(extended_edges.get_all(), multivariates.get_all());
+        for (auto [extended_edge, multivariate] : zip_v) {
             if constexpr (Flavor::USE_SHORT_MONOMIALS) {
                 extended_edge = bb::Univariate<FF, 2>({ multivariate[edge_idx], multivariate[edge_idx + 1] });
             } else {

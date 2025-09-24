@@ -53,7 +53,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
 
     Univariate() = default;
 
-    explicit Univariate(std::array<Fr, LENGTH> evaluations)
+    explicit Univariate(const std::array<Fr, LENGTH>& evaluations)
         : evaluations(evaluations)
     {}
     ~Univariate() = default;
