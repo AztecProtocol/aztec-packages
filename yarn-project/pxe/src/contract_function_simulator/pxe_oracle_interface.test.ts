@@ -1,5 +1,4 @@
-import { PUBLIC_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
-import { padArrayEnd, timesParallel } from '@aztec/foundation/collection';
+import { timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { KeyStore } from '@aztec/key-store';
@@ -758,8 +757,7 @@ describe('PXEOracleInterface', () => {
 
       const log = PublicLog.from({
         contractAddress: logContractAddress,
-        fields: padArrayEnd(logContent, Fr.ZERO, PUBLIC_LOG_SIZE_IN_FIELDS),
-        emittedLength: logContent.length,
+        fields: logContent,
       });
       const scopedLogWithPadding = new TxScopedL2Log(
         TxHash.random(),

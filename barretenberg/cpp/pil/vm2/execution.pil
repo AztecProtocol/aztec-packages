@@ -387,8 +387,8 @@ sel_gas_sstore {
 #[SSTORE_DYN_L2_GAS_IS_ZERO]
 sel_execute_sstore * dynamic_l2_gas_factor = 0;
 
-sel_gas_emit_unencrypted_log * dynamic_l2_gas_factor = 0;
-sel_gas_emit_unencrypted_log * (/*log_size=*/ register[1] - dynamic_da_gas_factor) = 0;
+sel_gas_emit_unencrypted_log * (/*log_size=*/ register[0] - dynamic_l2_gas_factor) = 0;
+sel_gas_emit_unencrypted_log * (/*log_size=*/ register[0] - dynamic_da_gas_factor) = 0;
 
 /**************************************************************************************************
  *  Temporality group 5: Opcode execution
@@ -647,7 +647,7 @@ sel * (1 - sel_execute_emit_nullifier) * (prev_nullifier_tree_size - nullifier_t
 #[NUM_NULLIFIERS_EMITTED_NOT_CHANGED]
 sel * (1 - sel_execute_emit_nullifier) * (prev_num_nullifiers_emitted - num_nullifiers_emitted) = 0;
 #[NUM_UNENCRYPTED_LOGS_NOT_CHANGED]
-sel * (1 - sel_execute_emit_unencrypted_log) * (prev_num_unencrypted_logs - num_unencrypted_logs) = 0;
+sel * (1 - sel_execute_emit_unencrypted_log) * (prev_num_unencrypted_log_fields - num_unencrypted_log_fields) = 0;
 #[NUM_L2_TO_L1_MESSAGES_NOT_CHANGED]
 sel * (1 - sel_execute_send_l2_to_l1_msg) * (prev_num_l2_to_l1_messages - num_l2_to_l1_messages) = 0;
 // Retrieved bytecodes tree state can only change in the first row of a new context

@@ -22,7 +22,7 @@ const TRANSFER_AMOUNT = 33n;
 async function main() {
   logger.info('Running token contract test on HTTP interface.');
 
-  const accounts = await getDeployedTestAccounts(pxe);
+  const accounts = await getDeployedTestAccounts(wallet);
   const [alice, bob] = await Promise.all(
     accounts.map(async acc => {
       const accountManager = await wallet.createSchnorrAccount(acc.secret, acc.salt);

@@ -3,7 +3,6 @@ import {
   type EthAddress,
   FeeJuicePaymentMethodWithClaim,
   Fr,
-  type PXE,
   TxStatus,
   type WaitOpts,
   createAztecNodeClient,
@@ -28,7 +27,7 @@ import { resolve } from 'node:path';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
-import { getLogger, setupPXEService } from '../fixtures/utils.js';
+import { getLogger, setupPXEServiceAndGetWallet } from '../fixtures/utils.js';
 
 const {
   AZTEC_NODE_URL,
@@ -54,7 +53,6 @@ export const getLocalhost = () =>
     .catch(() => 'localhost');
 
 describe('End-to-end tests for devnet', () => {
-  let pxe: PXE;
   let pxeUrl: string; // needed for the CLI
   let node: AztecNode;
   let wallet: TestWallet;
@@ -85,15 +83,15 @@ describe('End-to-end tests for devnet', () => {
       node = createAztecNodeClient(AZTEC_NODE_URL);
       const bbConfig = await getBBConfig(logger);
       const acvmConfig = await getACVMConfig(logger);
-      const svc = await setupPXEService(node, {
+      const svc = await setupPXEServiceAndGetWallet(node, {
         ...bbConfig,
         ...acvmConfig,
         proverEnabled: ['1', 'true'].includes(PXE_PROVER_ENABLED!),
       });
-      pxe = svc.pxe;
+      wallet = svc.wallet;
 
       const nodeInfo = await node.getNodeInfo();
-      const pxeInfo = await pxe.getPXEInfo();
+      const pxeInfo = await wallet.getPXEInfo();
 
       expect(nodeInfo.protocolContractAddresses.classRegistry).toEqual(pxeInfo.protocolContractAddresses.classRegistry);
       expect(nodeInfo.protocolContractAddresses.instanceRegistry).toEqual(
@@ -108,7 +106,7 @@ describe('End-to-end tests for devnet', () => {
       const localhost = await getLocalhost();
       pxeUrl = `http://${localhost}:${port}`;
       // start a server for the CLI to talk to
-      const jsonRpcServer = createNamespacedSafeJsonRpcServer({ pxe: [pxe, PXESchema] });
+      const jsonRpcServer = createNamespacedSafeJsonRpcServer({ pxe: [wallet.getPxe(), PXESchema] });
       const server = await startHttpRpcServer(jsonRpcServer, { port });
 
       teardown = async () => {
@@ -122,15 +120,14 @@ describe('End-to-end tests for devnet', () => {
       };
     } else if (PXE_URL) {
       logger.info(`Using PXE_URL: ${PXE_URL}`);
-      pxe = createPXEClient(PXE_URL);
+      const pxe = createPXEClient(PXE_URL);
       node = createAztecNodeClient(PXE_URL);
       pxeUrl = PXE_URL;
       teardown = () => {};
+      wallet = new TestWallet(pxe, node);
     } else {
       throw new Error('AZTEC_NODE_URL or PXE_URL must be set');
     }
-
-    wallet = new TestWallet(pxe, node);
 
     ({
       l1ChainId,
@@ -292,7 +289,7 @@ describe('End-to-end tests for devnet', () => {
   }
 
   async function advanceChainWithEmptyBlocks(wallet: TestWallet) {
-    const [fundedAccount] = await getDeployedTestAccounts(pxe);
+    const [fundedAccount] = await getDeployedTestAccounts(wallet);
     if (!fundedAccount) {
       throw new Error('A funded wallet is required to create dummy txs.');
     }

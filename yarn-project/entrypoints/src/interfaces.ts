@@ -29,13 +29,13 @@ export interface EntrypointInterface {
   /**
    * Generates an execution request out of set of function calls.
    * @param exec - The execution intents to be run.
-   * @param fee - The fee options for the transaction.
+   * @param feeOptions - The fee options for the transaction.
    * @param options - Transaction nonce and whether the transaction is cancellable.
    * @returns The authenticated transaction execution request.
    */
   createTxExecutionRequest(
     exec: ExecutionPayload,
-    fee: FeeOptions,
+    feeOptions: FeeOptions,
     options: TxExecutionOptions,
   ): Promise<TxExecutionRequest>;
 }
@@ -86,11 +86,13 @@ export type UserFeeOptions = {
   paymentMethod?: FeePaymentMethod;
   /** The gas settings */
   gasSettings?: Partial<FieldsOf<GasSettings>>;
-  /** Percentage to pad the base fee by, if empty, defaults to 0.5 */
-  baseFeePadding?: number;
-  /** Whether to run an initial simulation of the tx with high gas limit to figure out actual gas settings. */
+};
+// docs:end:user_fee_options
+
+/**  Fee options that can be set for simulation *only* */
+export type SimulationUserFeeOptions = UserFeeOptions & {
+  /** Whether to modify the fee settings of the simulation with high gas limit to figure out actual gas settings. */
   estimateGas?: boolean;
   /** Percentage to pad the estimated gas limits by, if empty, defaults to 0.1. Only relevant if estimateGas is set. */
   estimatedGasPadding?: number;
 };
-// docs:end:user_fee_options

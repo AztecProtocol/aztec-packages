@@ -27,7 +27,6 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
   MAX_PROTOCOL_CONTRACTS,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_PUBLIC_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
@@ -38,7 +37,6 @@ import {
   NUM_MSGS_PER_BASE_PARITY,
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_DATA_TREE_HEIGHT,
-  PUBLIC_LOG_SIZE_IN_FIELDS,
   RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
@@ -124,7 +122,7 @@ import {
 import { PublicKeys, computeAddress } from '../keys/index.js';
 import { ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
-import { PublicLog } from '../logs/public_log.js';
+import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
 import { CountedL2ToL1Message, L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
 import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
@@ -210,8 +208,7 @@ function makePrivateLogData(seed: number) {
 function makePublicLog(seed: number) {
   return new PublicLog(
     makeAztecAddress(seed),
-    makeTuple(PUBLIC_LOG_SIZE_IN_FIELDS, fr, seed + 1),
-    PUBLIC_LOG_SIZE_IN_FIELDS,
+    new Array(10).fill(null).map((_, i) => new Fr(seed + i)),
   );
 }
 
@@ -351,13 +348,13 @@ function makeAvmAccumulatedData(seed = 1) {
     makeTuple(MAX_NOTE_HASHES_PER_TX, fr, seed),
     makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x100),
     makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x200),
-    makeTuple(MAX_PUBLIC_LOGS_PER_TX, makePublicLog, seed + 0x300),
+    FlatPublicLogs.fromLogs(new Array(20).fill(null).map((_, i) => makePublicLog(seed + i * 256))),
     makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataWrite, seed + 0x400),
   );
 }
 
 function makeAvmAccumulatedDataArrayLengths(seed = 1) {
-  return new AvmAccumulatedDataArrayLengths(seed, seed + 1, seed + 2, seed + 3, seed + 4);
+  return new AvmAccumulatedDataArrayLengths(seed, seed + 1, seed + 2, seed + 3);
 }
 
 export function makeGas(seed = 1) {

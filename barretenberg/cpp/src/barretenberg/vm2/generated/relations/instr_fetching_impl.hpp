@@ -15,8 +15,6 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/instr_fetching");
-
     const auto constants_AVM_PC_SIZE_IN_BITS = FF(32);
     const auto instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR = in.get(C::instr_fetching_pc_out_of_range) +
                                                                in.get(C::instr_fetching_opcode_out_of_range) +

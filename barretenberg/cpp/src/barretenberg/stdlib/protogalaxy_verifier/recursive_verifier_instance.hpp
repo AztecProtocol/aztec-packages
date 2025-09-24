@@ -15,8 +15,9 @@ namespace bb::stdlib::recursion::honk {
 /**
  * @brief The stdlib counterpart of VerifierInstance, used in recursive folding verification.
  */
-template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
+template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
   public:
+    using Flavor = Flavor_;
     using FF = typename Flavor::FF;
     using NativeFF = typename Flavor::Curve::ScalarFieldNative;
     using Commitment = typename Flavor::Commitment;

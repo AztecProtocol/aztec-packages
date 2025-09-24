@@ -137,6 +137,6 @@ export class StateReference {
   }
 
   public equals(other: this): boolean {
-    return this.l1ToL2MessageTree.root.equals(other.l1ToL2MessageTree.root) && this.partial.equals(other.partial);
+    return this.l1ToL2MessageTree.equals(other.l1ToL2MessageTree) && this.partial.equals(other.partial);
   }
 }

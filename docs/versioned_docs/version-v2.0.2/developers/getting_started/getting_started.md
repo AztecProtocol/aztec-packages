@@ -218,7 +218,7 @@ As setup, first import `easy_private_state` by adding it to your `[dependencies]
 ```
 [dependencies]
 aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v2.0.2", directory = "noir-projects/aztec-nr/aztec" }
-easy_private_state = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v2.0.2", directory = "noir-projects/aztec-nr/easy-easy_private-state" }
+easy_private_state = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v2.0.2", directory = "noir-projects/aztec-nr/easy-private-state" }
 ```
 
 Then import `EasyPrivateUint` at the top of your contract:
@@ -258,8 +258,8 @@ Create a function to mint private tokens:
 
 ```noir
 #[private]
-fn mint_private(to: AztecAddress, amount: u128) {
-    storage.private_balances.at(to).add(value, to);
+fn mint_private(to: AztecAddress, amount: u64) {
+    storage.private_balances.at(to).add(amount, to);
 }
 ```
 
@@ -280,7 +280,7 @@ Transferring private tokens requires three steps:
 #### Step 1: Spend sender's notes
 
 ```noir
-fn transfer_private(to: AztecAddress, amount: u128) {
+fn transfer_private(to: AztecAddress, amount: u64) {
     let sender = context.msg_sender();
 
     storage.private_balances.at(sender).sub(amount, sender);
@@ -292,6 +292,7 @@ This code fetches all notes of the sender and verifies they sum to at least the 
 
 ```noir
     storage.private_balances.at(to).add(amount, to);
+}
 ```
 
 This mirrors the `mint` example above.
@@ -299,14 +300,14 @@ This mirrors the `mint` example above.
 Your full function should look like this:
 
 ```noir
-    #[private]
-    fn transfer_private(to: AztecAddress, amount: u128) {
-        let sender = context.msg_sender();
+#[private]
+fn transfer_private(to: AztecAddress, amount: u64) {
+    let sender = context.msg_sender();
 
-        storage.private_balances.at(sender).sub(amount, sender);
+    storage.private_balances.at(sender).sub(amount, sender);
 
-        storage.private_balances.at(to).add(amount, to);
-    }
+    storage.private_balances.at(to).add(amount, to);
+}
 ```
 
 ### View private balances
@@ -315,8 +316,8 @@ Add a utility function to check private balances locally:
 
 ```noir
 #[utility]
-unconstrained fn view_private_balance(owner: AztecAddress) -> BoundedVec<UintNote, MAX_NOTES_PER_PAGE> {
-    storage.user_private_state.at(key: owner).view_notes(NoteViewerOptions::new())
+unconstrained fn view_private_balance(owner: AztecAddress) -> Field {
+    storage.private_balances.at(owner).get_value()
 }
 ```
 
@@ -354,25 +355,22 @@ To enforce ownership checks in private functions, you can enqueue a public funct
 ```noir
 #[public]
 #[internal]
-fn assert_is_owner(maybe_owner: AztecAddress) {
+fn _assert_is_owner(maybe_owner: AztecAddress) {
     assert_eq(maybe_owner, storage.owner.read());
 }
 ```
 
-The `#[internal]` macro restricts this function to internal calls only.
+The `#[internal]` macro restricts this function to internal calls only. By convention, internal functions are prefixed with a '_'.
 
 Now update the private mint to enqueue this check:
 
 ```noir
 #[private]
-fn mint_private(to: AztecAddress, amount: u128) {
+fn mint_private(to: AztecAddress, amount: u64) {
     // Enqueue public validation
-    GettingStarted::at(context.this_address())._assert_is_owner(context.msg_sender()).enqueue(&mut context);
+    StarterToken::at(context.this_address())._assert_is_owner(context.msg_sender()).enqueue(&mut context);
 
-    // Proceed with minting
-    storage.private_balances.at(to)
-        .insert(UintNote::new(value, to));
-        .emit(encode_and_encrypt_note(&mut context, to));
+    storage.private_balances.at(to).add(amount, to);
 }
 ```
 
@@ -387,8 +385,8 @@ Navigate to `contract/src/external_call_contract.nr` to see an example. The call
 
 ```noir
 #[private]
-fn call_mint_on_other_contract(contract_address: AztecAddress, to: AztecAddress, amount: u128) {
-  GettingStarted::at(contract_address).mint_private(to, amount).call(&mut context);
+fn call_mint_on_other_contract(contract_address: AztecAddress, to: AztecAddress, amount: u64) {
+    StarterToken::at(contract_address).mint_private(to, amount).call(&mut context);
 }
 ```
 
@@ -399,6 +397,11 @@ Note that if `mint_private` returned a value, it could be accessed by calling `.
 Compile your contract:
 ```bash
 aztec-nargo compile
+```
+
+Postprocess your contract:
+```bash
+aztec-postprocess-contract
 ```
 
 Generate TypeScript bindings:
@@ -443,6 +446,7 @@ Define the wallets or accounts you'll use. This example uses prefunded test wall
 ```typescript
 const wallets = await getInitialTestAccountsWallets(pxe);
 const deployerWallet = wallets[0];
+const deployerAddress = deployerWallet.getAddress();
 ```
 
 You obtain test wallets and assign the first as the deployer.
@@ -452,9 +456,11 @@ Note: "Wallets" here aren't the same as general-purpose wallets. We will dive de
 Deploy your contract:
 
 ```typescript
-const gettingStartedContract = await GettingStartedContract
+const starterTokenContract = await StarterTokenContract
   .deploy(deployerWallet)
-  .send().wait();
+  .send({
+    from: deployerAddress
+  }).wait();
 ```
 
 4. To run this code against your sandbox, open a new terminal window, ensure Docker is running, and execute `aztec start --sandbox`.

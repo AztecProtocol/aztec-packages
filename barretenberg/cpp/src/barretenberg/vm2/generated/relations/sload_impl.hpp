@@ -15,8 +15,6 @@ void sloadImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/sload");
-
     const auto constants_MEM_TAG_FF = FF(0);
 
     { // SLOAD_FF_OUTPUT_TAG

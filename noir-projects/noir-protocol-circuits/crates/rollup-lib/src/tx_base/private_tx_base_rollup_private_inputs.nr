@@ -17,12 +17,11 @@ use dep::types::{
         contract_class_log::ContractClassLog,
         kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs, log::Log,
         partial_state_reference::PartialStateReference, public_data_write::PublicDataWrite,
-        public_log::PublicLog, sponge_blob::SpongeBlob,
+        public_logs::PublicLogs, sponge_blob::SpongeBlob,
     },
     constants::{
         ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX,
-        MAX_PUBLIC_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        NOTE_HASH_SUBTREE_HEIGHT,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
     },
     data::{hash::compute_public_data_tree_value, public_data_hint::PublicDataHint},
     hash::silo_l2_to_l1_message,
@@ -123,7 +122,7 @@ impl PrivateTxBaseRollupPrivateInputs {
             l2_to_l1_msgs: siloed_l2_to_l1_msgs,
             public_data_writes: all_public_data_update_requests,
             private_logs: kernel_public_inputs.end.private_logs,
-            public_logs: [PublicLog::empty(); MAX_PUBLIC_LOGS_PER_TX],
+            public_logs: PublicLogs::empty(),
             contract_class_logs,
         };
         let end_sponge_blob = append_tx_effects_for_blob(tx_effect, self.start_sponge_blob);

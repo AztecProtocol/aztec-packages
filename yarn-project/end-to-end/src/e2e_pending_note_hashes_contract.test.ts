@@ -1,4 +1,4 @@
-import { type AztecAddress, type AztecNode, Fr, type Logger, type PXE, type Wallet } from '@aztec/aztec.js';
+import { type AztecAddress, type AztecNode, Fr, type Logger } from '@aztec/aztec.js';
 import {
   MAX_NOTE_HASHES_PER_CALL,
   MAX_NOTE_HASHES_PER_TX,
@@ -6,14 +6,14 @@ import {
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
 } from '@aztec/constants';
 import { PendingNoteHashesContract } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_pending_note_hashes_contract', () => {
   let aztecNode: AztecNode;
-  let wallet: Wallet;
+  let wallet: TestWallet;
   let owner: AztecAddress;
-  let pxe: PXE;
   let logger: Logger;
   let teardown: () => Promise<void>;
   let contract: PendingNoteHashesContract;
@@ -24,7 +24,6 @@ describe('e2e_pending_note_hashes_contract', () => {
       aztecNode,
       wallet,
       logger,
-      pxe,
       accounts: [owner],
     } = await setup(1));
   });
@@ -302,7 +301,7 @@ describe('e2e_pending_note_hashes_contract', () => {
     // Then emit another note log with the same counter as the one above, but with value 5
     const txReceipt = await deployedContract.methods.test_emit_bad_note_log(owner, sender).send({ from: owner }).wait();
 
-    const notes = await pxe.getNotes({ txHash: txReceipt.txHash, contractAddress: deployedContract.address });
+    const notes = await wallet.getNotes({ txHash: txReceipt.txHash, contractAddress: deployedContract.address });
 
     expect(notes.length).toBe(1);
   });

@@ -200,6 +200,28 @@ variable "OTEL_COLLECTOR_ENDPOINT" {
   nullable    = true
 }
 
+variable "SPONSORED_FPC" {
+  description = "Enable sponsored FPC"
+  type        = bool
+}
+
+variable "TEST_ACCOUNTS" {
+  description = "Enable test accounts"
+  type        = bool
+}
+
+variable "SEQ_MIN_TX_PER_BLOCK" {
+  description = "Minimum number of sequencer transactions per block"
+  type        = string
+  default     = "0"
+}
+
+variable "SEQ_MAX_TX_PER_BLOCK" {
+  description = "Maximum number of sequencer transactions per block"
+  type        = string
+  default     = "8"
+}
+
 variable "SENTINEL_ENABLED" {
   description = "Whether to enable sentinel"
   type        = string

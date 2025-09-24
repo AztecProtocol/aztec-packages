@@ -11,7 +11,7 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
-#include "barretenberg/vm2/simulation/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/gadgets/keccakf1600.hpp"
 #include "barretenberg/vm2/tracegen/lib/get_contract_instance_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/get_env_var_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
@@ -308,7 +308,7 @@ void PrecomputedTraceBuilder::process_to_radix_safe_limbs(TraceContainer& trace)
 {
     using C = Column;
 
-    auto p_limbs_per_radix = get_p_limbs_per_radix();
+    const auto& p_limbs_per_radix = get_p_limbs_per_radix();
 
     trace.reserve_column(C::precomputed_sel_to_radix_p_limb_counts, p_limbs_per_radix.size());
     trace.reserve_column(C::precomputed_to_radix_safe_limbs, p_limbs_per_radix.size());
@@ -327,7 +327,7 @@ void PrecomputedTraceBuilder::process_to_radix_p_decompositions(TraceContainer& 
 {
     using C = Column;
 
-    auto p_limbs_per_radix = get_p_limbs_per_radix();
+    const auto& p_limbs_per_radix = get_p_limbs_per_radix();
 
     uint32_t row = 0;
     for (size_t i = 0; i < p_limbs_per_radix.size(); ++i) {
