@@ -117,7 +117,9 @@ node:
     # -- Period seconds
     periodSeconds: 30
     # -- Failure threshold
-    failureThreshold: 3
+    # 10 minutes default but this might not be enough if the node has to download a lot of blocks.
+    failureThreshold: 20 
+
   resources: {}
 
   proverRealProofs: true
@@ -185,7 +187,7 @@ service:
 
   p2p:
     enabled: true
-    nodePortEnabled: true
+    nodePortEnabled: false
     port: 40400
     announcePort: 40400
 

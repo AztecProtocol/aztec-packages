@@ -1,12 +1,15 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { type AztecNode, Fr } from '@aztec/aztec.js';
+import { AccountManager, type AztecNode, Fr } from '@aztec/aztec.js';
 import type { CheatCodes } from '@aztec/aztec/testing';
-import { AmmBot, Bot, type BotConfig, SupportedTokenContracts, getBotDefaultConfig } from '@aztec/bot';
+import { AmmBot, Bot, type BotConfig, BotStore, SupportedTokenContracts, getBotDefaultConfig } from '@aztec/bot';
 import { AVM_MAX_PROCESSABLE_L2_GAS, MAX_PROCESSABLE_DA_GAS_PER_BLOCK } from '@aztec/constants';
 import { SecretValue } from '@aztec/foundation/config';
 import { bufferToHex } from '@aztec/foundation/string';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { TestWallet } from '@aztec/test-wallet';
+
+import { jest } from '@jest/globals';
 
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 
@@ -42,7 +45,7 @@ describe('e2e_bot', () => {
         followChain: 'PENDING',
         ammTxs: false,
       };
-      bot = await Bot.create(config, wallet, aztecNode);
+      bot = await Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
     });
 
     it('sends token transfers from the bot', async () => {
@@ -66,7 +69,7 @@ describe('e2e_bot', () => {
 
     it('reuses the same account and token contract', async () => {
       const { defaultAccountAddress, token, recipient } = bot;
-      const bot2 = await Bot.create(config, wallet, aztecNode);
+      const bot2 = await Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
       expect(bot2.defaultAccountAddress.toString()).toEqual(defaultAccountAddress.toString());
       expect(bot2.token.address.toString()).toEqual(token.address.toString());
       expect(bot2.recipient.toString()).toEqual(recipient.toString());
@@ -77,6 +80,8 @@ describe('e2e_bot', () => {
         { ...config, contract: SupportedTokenContracts.PrivateTokenContract },
         wallet,
         aztecNode,
+        undefined,
+        new BotStore(await openTmpStore('bot')),
       );
       const { recipient: recipientBefore } = await easyBot.getBalances();
 
@@ -84,6 +89,93 @@ describe('e2e_bot', () => {
       const { recipient: recipientAfter } = await easyBot.getBalances();
       expect(recipientAfter.privateBalance - recipientBefore.privateBalance).toEqual(1n);
       expect(recipientAfter.publicBalance - recipientBefore.publicBalance).toEqual(0n);
+    });
+  });
+
+  describe('bridge resume', () => {
+    let store: BotStore;
+
+    beforeAll(async () => {
+      store = new BotStore(await openTmpStore('bot'));
+    });
+
+    afterAll(async () => {
+      await store.close();
+    });
+
+    it('reuses prior bridge claims', async () => {
+      using saveSpy = jest.spyOn(store, 'saveBridgeClaim');
+      const config: BotConfig = {
+        ...getBotDefaultConfig(),
+
+        followChain: 'PENDING',
+        ammTxs: false,
+
+        // this bot has a well defined private key and salt
+        senderPrivateKey: new SecretValue(Fr.fromString('0xcafe')),
+        senderSalt: Fr.random(),
+
+        l1RpcUrls,
+        feePaymentMethod: 'fee_juice',
+        // TODO: this should be taken from the `setup` call above
+        l1Mnemonic: new SecretValue('test test test test test test test test test test test junk'),
+        flushSetupTransactions: true,
+      };
+
+      {
+        using deploy = jest.spyOn(AccountManager.prototype, 'deploy');
+
+        deploy.mockImplementation(() => {
+          throw new Error('test error');
+        });
+
+        await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store)).rejects.toThrow('test error');
+        expect(deploy).toHaveBeenCalledOnce();
+        expect(saveSpy).toHaveBeenCalledOnce();
+      }
+
+      {
+        saveSpy.mockClear();
+        await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store)).resolves.toBeDefined();
+        expect(saveSpy).not.toHaveBeenCalled();
+      }
+    });
+
+    it('does not reuse prior bridge claims if recipient address changes', async () => {
+      using saveSpy = jest.spyOn(store, 'saveBridgeClaim');
+      const config: BotConfig = {
+        ...getBotDefaultConfig(),
+
+        followChain: 'PENDING',
+        ammTxs: false,
+
+        // this bot has a well defined private key and salt
+        senderPrivateKey: new SecretValue(Fr.fromString('0xcafe')),
+        senderSalt: Fr.random(),
+
+        l1RpcUrls,
+        feePaymentMethod: 'fee_juice',
+        // TODO: this should be taken from the `setup` call above
+        l1Mnemonic: new SecretValue('test test test test test test test test test test test junk'),
+        flushSetupTransactions: true,
+      };
+
+      {
+        using deploy = jest.spyOn(AccountManager.prototype, 'deploy');
+        deploy.mockImplementation(() => {
+          throw new Error('test error');
+        });
+        await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store)).rejects.toThrow('test error');
+        expect(saveSpy).toHaveBeenCalledOnce();
+      }
+      {
+        saveSpy.mockClear();
+
+        // same private key, but different salt derives a different L2 address
+        config.senderSalt = config.senderSalt!.add(Fr.ONE);
+        await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store)).resolves.toBeDefined();
+        expect(saveSpy).toHaveBeenCalledOnce();
+      }
     });
   });
 
@@ -95,7 +187,7 @@ describe('e2e_bot', () => {
         followChain: 'PENDING',
         ammTxs: true,
       };
-      bot = await AmmBot.create(config, wallet, aztecNode, undefined);
+      bot = await AmmBot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
     });
 
     it('swaps tokens from the bot', async () => {
@@ -135,7 +227,7 @@ describe('e2e_bot', () => {
     // in end-to-end/src/e2e_cross_chain_messaging/l1_to_l2.test.ts for context on this test.
     it('creates bot after inbox drift', async () => {
       await cheatCodes.rollup.advanceInboxInProgress(10);
-      await Bot.create(config, wallet, aztecNode, aztecNodeAdmin);
+      await Bot.create(config, wallet, aztecNode, aztecNodeAdmin, new BotStore(await openTmpStore('bot')));
     }, 300_000);
   });
 });
