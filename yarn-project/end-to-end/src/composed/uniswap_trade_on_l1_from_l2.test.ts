@@ -14,7 +14,6 @@ const testSetup = async (): Promise<UniswapSetupContext> => {
   const {
     aztecNode,
     teardown: teardown_,
-    pxe,
     deployL1ContractsValues,
     wallet,
     accounts: [ownerAddress, sponsorAddress],
@@ -28,7 +27,6 @@ const testSetup = async (): Promise<UniswapSetupContext> => {
 
   return {
     aztecNode,
-    pxe,
     logger,
     l1Client,
     wallet,

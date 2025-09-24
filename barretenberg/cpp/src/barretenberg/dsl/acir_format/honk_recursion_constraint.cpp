@@ -141,7 +141,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     }
 
     // Recursively verify the proof
-    auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
+    auto vkey = std::make_shared<RecursiveVerificationKey>(key_fields);
     auto vk_and_hash = std::make_shared<RecursiveVKAndHash>(vkey, vk_hash);
     RecursiveVerifier verifier(&builder, vk_and_hash);
     UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.template verify_proof<IO>(proof_fields);

@@ -45,6 +45,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     element();
     element(const typename NativeGroup::affine_element& input);
     element(const Fq& x, const Fq& y);
+    element(const Fq& x, const Fq& y, const bool_ct& is_infinity);
 
     element(const element& other);
     element(element&& other) noexcept;
@@ -221,8 +222,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     element normalize() const
     {
         element result(*this);
-        result.x.assert_is_in_field();
-        result.y.assert_is_in_field();
+        result.x.reduce_mod_target_modulus();
+        result.y.reduce_mod_target_modulus();
         return result;
     }
     element scalar_mul(const Fr& scalar, const size_t max_num_bits = 0) const;

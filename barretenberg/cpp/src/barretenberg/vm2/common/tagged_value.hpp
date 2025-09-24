@@ -121,6 +121,31 @@ class TaggedValue {
                                  std::to_string(static_cast<uint32_t>(tag_for_type<T>())) + " but got " + to_string());
     }
 
+    // This method try to do the smallest conversion possible.
+    // In particular, it tries to avoid going through FF.
+    // Note: truncation will happen if the value is out of bounds for the target type.
+    template <typename T> T to() const
+    {
+        switch (get_tag()) {
+        case ValueTag::U8:
+            return static_cast<T>(std::get<uint8_t>(value));
+        case ValueTag::U16:
+            return static_cast<T>(std::get<uint16_t>(value));
+        case ValueTag::U32:
+            return static_cast<T>(std::get<uint32_t>(value));
+        case ValueTag::U64:
+            return static_cast<T>(std::get<uint64_t>(value));
+        case ValueTag::U128:
+            return static_cast<T>(std::get<uint128_t>(value));
+        case ValueTag::U1:
+            return static_cast<T>(std::get<uint1_t>(value));
+        case ValueTag::FF:
+            return static_cast<T>(std::get<FF>(value));
+        }
+
+        __builtin_unreachable();
+    }
+
     std::size_t hash() const noexcept { return std::hash<FF>{}(as_ff()); }
 
   private:

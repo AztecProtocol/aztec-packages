@@ -683,7 +683,7 @@ template <typename Builder> void field_t<Builder>::assert_is_zero(std::string co
         return;
     }
 
-    if (get_value() != bb::fr::zero()) {
+    if ((get_value() != bb::fr::zero()) && !context->failed()) {
         context->failure(msg);
     }
     // Aim of a new `poly` gate: constrain this.v * this.mul + this.add == 0
@@ -714,7 +714,7 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
         return;
     }
 
-    if (get_value() == bb::fr::zero()) {
+    if ((get_value() == bb::fr::zero()) && !context->failed()) {
         context->failure(msg);
     }
 
@@ -1085,7 +1085,8 @@ void field_t<Builder>::evaluate_linear_identity(
         return;
     }
 
-    if (a.get_value() + b.get_value() + c.get_value() + d.get_value() != bb::fr::zero()) {
+    const bool identity_holds = (a.get_value() + b.get_value() + c.get_value() + d.get_value()).is_zero();
+    if (!identity_holds && !ctx->failed()) {
         ctx->failure(msg);
     }
 
@@ -1120,7 +1121,8 @@ void field_t<Builder>::evaluate_polynomial_identity(
 
     Builder* ctx = validate_context(a.context, b.context, c.context, d.context);
 
-    if ((a.get_value() * b.get_value() + c.get_value() + d.get_value()) != bb::fr::zero()) {
+    const bool identity_holds = ((a.get_value() * b.get_value()) + c.get_value() + d.get_value()).is_zero();
+    if (!identity_holds && !ctx->failed()) {
         ctx->failure(msg);
     }
 
@@ -1271,10 +1273,13 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
  * @brief Splits the field element into (lo, hi), where:
  * - lo contains bits [0, lsb_index)
  * - hi contains bits [lsb_index, num_bits)
+ * @details Max bits is specified as an argument, and must be <= grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH (to ensure no
+ * modular wrap).
+ *
  */
 template <typename Builder>
-std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::split_at(const size_t lsb_index,
-                                                                         const size_t num_bits) const
+std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::no_wrap_split_at(const size_t lsb_index,
+                                                                                 const size_t num_bits) const
 {
     ASSERT(lsb_index < num_bits);
     ASSERT(num_bits <= grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH);

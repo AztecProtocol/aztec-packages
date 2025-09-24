@@ -16,15 +16,27 @@ pub fn derive_ecdh_shared_secret(secret: Scalar, public_key: Point) -> Point {
     shared_secret
 }
 
-/// Computes a standard ecdh shared secret using the address public key of the given address:
-/// [ephemeral_secret] * recipient_address_public_key = shared_secret.
-/// The intention is that the _creator_ of a shared secret would call this function,
-/// given the address of their intended recipient.
+/// Computes a standard ECDH shared secret using the public key corresponding to an AztecAddress:
+///
+/// # Formula
+/// `[ephemeral_secret] * recipient_address_public_key = shared_secret`
+///
+/// # Usage
+/// The intention is that the _creator_ of a shared secret calls this function,
+/// providing the address of their intended recipient.
+///
+/// # Note
+/// The function returns `Option<Point>` because the recipient address might be invalid
+/// (i.e., not correspond to a point on the curve). Callers must handle the `None` case.
+/// This is unlike `derive_ecdh_shared_secret`, which always returns a `Point` because it
+/// operates on guaranteed-valid inputs.
 pub fn derive_ecdh_shared_secret_using_aztec_address(
     ephemeral_secret: Scalar,
     recipient_address: AztecAddress,
-) -> Point {
-    derive_ecdh_shared_secret(ephemeral_secret, recipient_address.to_address_point().inner)
+) -> Option<Point> {
+    recipient_address.to_address_point().map(|addr_point| {
+        derive_ecdh_shared_secret(ephemeral_secret, addr_point.inner)
+    })
 }
 
 #[test]
@@ -80,12 +92,12 @@ unconstrained fn test_shared_secret_computation_from_address_in_both_directions(
     // If needed, we negate the pk's so that they yield valid address points.
     // (We could also have negated the secrets, but there's no negate method for
     // EmbeddedCurvesScalar).
-    pk_a = if (AztecAddress::from_field(pk_a.x).to_address_point().inner == pk_a) {
+    pk_a = if (AztecAddress::from_field(pk_a.x).to_address_point().unwrap().inner == pk_a) {
         pk_a
     } else {
         pk_a.neg()
     };
-    pk_b = if (address_b.to_address_point().inner == pk_b) {
+    pk_b = if (address_b.to_address_point().unwrap().inner == pk_b) {
         pk_b
     } else {
         pk_b.neg()
@@ -94,5 +106,5 @@ unconstrained fn test_shared_secret_computation_from_address_in_both_directions(
     let shared_secret = derive_ecdh_shared_secret_using_aztec_address(secret_a, address_b);
     let shared_secret_alt = derive_ecdh_shared_secret(secret_b, pk_a);
 
-    assert_eq(shared_secret, shared_secret_alt);
+    assert_eq(shared_secret.unwrap(), shared_secret_alt);
 }

@@ -15,7 +15,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import type { SiblingPath } from '@aztec/foundation/trees';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
-import type { L2Block } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import { DatabaseVersion, DatabaseVersionManager } from '@aztec/stdlib/database-version';
 import type { MerkleTreeLeafType, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
@@ -828,6 +828,80 @@ describe('NativeWorldState', () => {
         } else {
           await expect(blockForks[i].getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n)).rejects.toThrow('Fork not found');
         }
+      }
+    });
+  });
+
+  describe('Invalid Blocks', () => {
+    let ws: NativeWorldStateService;
+    let rollupAddress!: EthAddress;
+
+    beforeEach(async () => {
+      rollupAddress = EthAddress.random();
+      ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+    });
+
+    afterEach(async () => {
+      await ws.close();
+    });
+
+    it('handles invalid blocks', async () => {
+      const fork = await ws.fork();
+
+      // Insert a few blocks
+      for (let i = 0; i < 4; i++) {
+        const blockNumber = i + 1;
+        const provenBlock = blockNumber - 2;
+        const { block, messages } = await mockBlock(blockNumber, 1, fork);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
+
+        expect(status.summary.unfinalizedBlockNumber).toBe(BigInt(blockNumber));
+        expect(status.summary.oldestHistoricalBlock).toBe(1n);
+
+        if (provenBlock > 0) {
+          const provenStatus = await ws.setFinalized(BigInt(provenBlock));
+          expect(provenStatus.unfinalizedBlockNumber).toBe(BigInt(blockNumber));
+          expect(provenStatus.finalizedBlockNumber).toBe(BigInt(provenBlock));
+          expect(provenStatus.oldestHistoricalBlock).toBe(1n);
+        } else {
+          expect(status.summary.finalizedBlockNumber).toBe(0n);
+        }
+      }
+
+      // Now build an invalid block, see that it is rejected and that we can then insert the correct block
+      {
+        const { block: block, messages } = await mockBlock(5, 1, fork);
+        const invalidBlock = L2Block.fromBuffer(block.toBuffer());
+        invalidBlock.header.state.partial.nullifierTree.root = Fr.random();
+
+        await expect(ws.handleL2BlockAndMessages(invalidBlock, messages)).rejects.toThrow(
+          "Can't synch block: block state does not match world state",
+        );
+
+        // Accepts the correct block
+        await expect(ws.handleL2BlockAndMessages(block, messages)).resolves.toBeDefined();
+
+        const summary = await ws.getStatusSummary();
+        expect(summary.unfinalizedBlockNumber).toBe(5n);
+        expect(summary.finalizedBlockNumber).toBe(2n);
+        expect(summary.oldestHistoricalBlock).toBe(1n);
+      }
+
+      // Now we push another invalid block, see that it is rejected and check we can unwind to the last proven block
+      {
+        const { block: block, messages } = await mockBlock(6, 1, fork);
+        const invalidBlock = L2Block.fromBuffer(block.toBuffer());
+        invalidBlock.header.state.partial.nullifierTree.root = Fr.random();
+
+        await expect(ws.handleL2BlockAndMessages(invalidBlock, messages)).rejects.toThrow(
+          "Can't synch block: block state does not match world state",
+        );
+
+        // Now we want to unwind to the last proven block
+        const unwindStatus = await ws.unwindBlocks(2n);
+        expect(unwindStatus.summary.unfinalizedBlockNumber).toBe(2n);
+        expect(unwindStatus.summary.finalizedBlockNumber).toBe(2n);
+        expect(unwindStatus.summary.oldestHistoricalBlock).toBe(1n);
       }
     });
   });

@@ -35,7 +35,7 @@ export async function send(
     authWitnesses,
   };
 
-  const gasLimits = await call.estimateGas(sendOptions);
+  const { estimatedGas } = await call.simulate({ ...sendOptions, fee: { ...sendOptions.fee, estimateGas: true } });
 
   if (feeOpts.estimateOnly) {
     return;
@@ -68,7 +68,7 @@ export async function send(
   }
   const gasSettings = GasSettings.from({
     ...provenTx.data.constants.txContext.gasSettings,
-    ...gasLimits,
+    ...estimatedGas,
   });
   return {
     txHash,

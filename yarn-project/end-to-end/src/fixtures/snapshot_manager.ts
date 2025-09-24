@@ -31,7 +31,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { ProverNode } from '@aztec/prover-node';
-import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryConfig, initTelemetryClient } from '@aztec/telemetry-client';
@@ -68,7 +68,6 @@ export type SubsystemsContext = {
   bbConfig: any;
   aztecNode: AztecNodeService;
   aztecNodeConfig: AztecNodeConfig;
-  pxe: PXEService;
   wallet: TestWallet;
   deployL1ContractsValues: DeployL1ContractsReturnType;
   proverNode?: ProverNode;
@@ -205,7 +204,7 @@ class SnapshotManager implements ISnapshotManager {
     await restore(snapshotData, context);
 
     // Save the snapshot data.
-    const ethCheatCodes = new EthCheatCodesWithState(context.aztecNodeConfig.l1RpcUrls);
+    const ethCheatCodes = new EthCheatCodesWithState(context.aztecNodeConfig.l1RpcUrls, context.dateProvider);
     const anvilStateFile = `${this.livePath}/anvil.dat`;
     await ethCheatCodes.dumpChainState(anvilStateFile);
     writeFileSync(`${this.livePath}/${name}.json`, JSON.stringify(snapshotData || {}, resolver));
@@ -352,7 +351,9 @@ async function setupFromFresh(
   const res = await startAnvil({ l1BlockTime: opts.ethereumSlotDuration });
   const anvil = res.anvil;
   aztecNodeConfig.l1RpcUrls = [res.rpcUrl];
-  const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
+
+  const dateProvider = new TestDateProvider();
+  const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls, dateProvider);
 
   // Deploy our L1 contracts.
   logger.verbose('Deploying L1 contracts...');
@@ -381,10 +382,8 @@ async function setupFromFresh(
   aztecNodeConfig.rollupVersion = deployL1ContractsValues.rollupVersion;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
 
-  const dateProvider = new TestDateProvider();
-
   const watcher = new AnvilTestWatcher(
-    new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls),
+    new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls, dateProvider),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     deployL1ContractsValues.l1Client,
     dateProvider,
@@ -449,7 +448,7 @@ async function setupFromFresh(
   pxeConfig.proverEnabled = !!opts.realProofs;
   const pxe = await createPXEService(aztecNode, pxeConfig);
   const wallet = new TestWallet(pxe, aztecNode);
-  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe, aztecNode);
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, wallet, aztecNode, dateProvider);
 
   if (statePath) {
     writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig, resolver));
@@ -460,7 +459,6 @@ async function setupFromFresh(
     aztecNodeConfig,
     anvil,
     aztecNode,
-    pxe,
     wallet,
     sequencer: aztecNode.getSequencer()!,
     acvmConfig,
@@ -506,7 +504,9 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   aztecNodeConfig.l1RpcUrls = [rpcUrl];
   // Load anvil state.
   const anvilStateFile = `${statePath}/anvil.dat`;
-  const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
+
+  const dateProvider = new TestDateProvider();
+  const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls, dateProvider);
   await ethCheatCodes.loadChainState(anvilStateFile);
 
   // TODO: Encapsulate this in a NativeAcvm impl.
@@ -525,9 +525,8 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   logger.verbose('Creating ETH clients...');
   const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, mnemonicToAccount(MNEMONIC));
 
-  const dateProvider = new TestDateProvider();
   const watcher = new AnvilTestWatcher(
-    new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls),
+    ethCheatCodes,
     aztecNodeConfig.l1Contracts.rollupAddress,
     l1Client,
     dateProvider,
@@ -578,13 +577,12 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   pxeConfig.dataDirectory = statePath;
   const pxe = await createPXEService(aztecNode, pxeConfig);
   const wallet = new TestWallet(pxe, aztecNode);
-  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe, aztecNode);
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, wallet, aztecNode, dateProvider);
 
   return {
     aztecNodeConfig,
     anvil,
     aztecNode,
-    pxe,
     wallet,
     sequencer: aztecNode.getSequencer()!,
     acvmConfig,

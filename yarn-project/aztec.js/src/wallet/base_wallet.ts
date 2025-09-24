@@ -4,7 +4,7 @@ import {
   GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
   GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
 } from '@aztec/constants';
-import type { FeeOptions, TxExecutionOptions, UserFeeOptions } from '@aztec/entrypoints/interfaces';
+import type { FeeOptions, SimulationUserFeeOptions, UserFeeOptions } from '@aztec/entrypoints/interfaces';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -40,7 +40,6 @@ import type {
 import { inspect } from 'util';
 
 import type { Account } from '../account/account.js';
-import { getGasLimits } from '../contract/get_gas_limits.js';
 import type {
   ProfileMethodOptions,
   SendMethodOptions,
@@ -55,6 +54,8 @@ import type { Aliased, ChainInfo, ContractInstanceAndArtifact, Wallet } from './
  */
 export abstract class BaseWallet implements Wallet {
   protected log = createLogger('aztecjs:base_wallet');
+
+  protected baseFeePadding = 0.5;
 
   constructor(
     protected readonly pxe: PXE,
@@ -78,12 +79,11 @@ export abstract class BaseWallet implements Wallet {
   protected async createTxExecutionRequestFromPayloadAndFee(
     executionPayload: ExecutionPayload,
     from: AztecAddress,
-    userFee?: UserFeeOptions,
+    feeOptions: FeeOptions,
   ): Promise<TxExecutionRequest> {
     const executionOptions = { txNonce: Fr.random(), cancellable: false };
     const fromAccount = await this.getAccountFromAddress(from);
-    const fee = await this.getFeeOptions(fromAccount, executionPayload, userFee, executionOptions);
-    return await fromAccount.createTxExecutionRequest(executionPayload, fee, executionOptions);
+    return fromAccount.createTxExecutionRequest(executionPayload, feeOptions, executionOptions);
   }
 
   public async createAuthWit(
@@ -94,90 +94,50 @@ export abstract class BaseWallet implements Wallet {
     return account.createAuthWit(messageHashOrIntent);
   }
 
-  // docs:start:estimateGas
   /**
-   * Estimates gas for a given tx request and returns gas limits for it.
-   * @param executionPayload - The execution payload to calculate the gas for
-   * @param opts - Options.
-   * @returns Gas limits.
+   * Returns default values for the transaction fee options
+   * if they were omitted by the user.
+   * @param address - The account building the transaction, usually the one paying the fee
+   * @param userFeeOptions - User-provided fee options, which might be incomplete
+   * @returns - Populated fee options that can be used to create a transaction execution request
    */
-  public async estimateGas(
-    executionPayload: ExecutionPayload,
-    opts: Omit<SendMethodOptions, 'estimateGas'>,
-  ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
-    // docs:end:estimateGas
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, {
-      ...opts.fee,
-      estimateGas: true,
-    });
-    return {
-      gasLimits: txRequest.txContext.gasSettings.gasLimits,
-      teardownGasLimits: txRequest.txContext.gasSettings.teardownGasLimits,
-    };
-  }
-
-  /**
-   * Returns default fee options based on the user opts without running a simulation for gas estimation.
-   * @param account - The account requesting the fee options
-   * @param fee - User-provided fee options.
-   */
-  private async getDefaultFeeOptions(account: Account, fee: UserFeeOptions | undefined): Promise<FeeOptions> {
+  protected async getDefaultFeeOptions(
+    address: AztecAddress,
+    userFeeOptions: UserFeeOptions | SimulationUserFeeOptions | undefined,
+  ): Promise<FeeOptions> {
     const maxFeesPerGas =
-      fee?.gasSettings?.maxFeesPerGas ??
-      (await this.aztecNode.getCurrentBaseFees()).mul(1 + (fee?.baseFeePadding ?? 0.5));
-    const paymentMethod = fee?.paymentMethod ?? new FeeJuicePaymentMethod(account.getAddress());
-    const gasSettings: GasSettings = GasSettings.default({ ...fee?.gasSettings, maxFeesPerGas });
+      userFeeOptions?.gasSettings?.maxFeesPerGas ??
+      (await this.aztecNode.getCurrentBaseFees()).mul(1 + this.baseFeePadding);
+    const paymentMethod = userFeeOptions?.paymentMethod ?? new FeeJuicePaymentMethod(address);
+    const gasSettings: GasSettings = GasSettings.default({ ...userFeeOptions?.gasSettings, maxFeesPerGas });
     this.log.debug(`Using L2 gas settings`, gasSettings);
     return { gasSettings, paymentMethod };
   }
 
-  // docs:start:getFeeOptions
   /**
-   * Return fee options based on the user opts, estimating tx gas if needed.
-   * @param account - The account requesting the fee options
-   * @param executionPayload - Execution payload to get the fee for
-   * @param fee - User-provided fee options.
-   * @param options - Additional options for the transaction. They must faithfully represent the tx to get accurate fee estimates
-   * @returns Fee options for the actual transaction.
+   * Returns unreasonably high gas limits in order to execute a simulation
+   * with the goal of estimating its gas cost. It will otherwise try to respect
+   * the user-specified fee options, filling the gaps with default values as needed.
+   * @param address - The address of the account requesting the fee options
+   * @param userFeeOptions - User-provided fee options to use as a basis for the fully populated `FeeOptions` type.
    */
-  protected async getFeeOptions(
-    account: Account,
-    executionPayload: ExecutionPayload,
-    fee: UserFeeOptions = {},
-    options: TxExecutionOptions,
-  ): Promise<FeeOptions> {
-    // docs:end:getFeeOptions
-    const defaultFeeOptions = await this.getDefaultFeeOptions(account, fee);
+  protected async getFeeOptionsForGasEstimation(
+    address: AztecAddress,
+    userFeeOptions: SimulationUserFeeOptions | undefined,
+  ) {
+    const defaultFeeOptions = await this.getDefaultFeeOptions(address, userFeeOptions);
     const paymentMethod = defaultFeeOptions.paymentMethod;
     const maxFeesPerGas = defaultFeeOptions.gasSettings.maxFeesPerGas;
     const maxPriorityFeesPerGas = defaultFeeOptions.gasSettings.maxPriorityFeesPerGas;
-
-    let gasSettings = defaultFeeOptions.gasSettings;
-    if (fee?.estimateGas) {
-      // Use unrealistically high gas limits for estimation to avoid running out of gas.
-      // They will be tuned down after the simulation.
-      const gasSettingsForEstimation = new GasSettings(
-        new Gas(GAS_ESTIMATION_DA_GAS_LIMIT, GAS_ESTIMATION_L2_GAS_LIMIT),
-        new Gas(GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT, GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT),
-        maxFeesPerGas,
-        maxPriorityFeesPerGas,
-      );
-      const feeForEstimation: FeeOptions = { paymentMethod, gasSettings: gasSettingsForEstimation };
-      const txRequest = await account.createTxExecutionRequest(executionPayload, feeForEstimation, options);
-      const simulationResult = await this.pxe.simulateTx(
-        txRequest,
-        true /*simulatePublic*/,
-        undefined /* skipTxValidation */,
-        true /* skipFeeEnforcement */,
-      );
-      const { gasLimits, teardownGasLimits } = getGasLimits(simulationResult, fee?.estimatedGasPadding);
-      gasSettings = GasSettings.from({ maxFeesPerGas, maxPriorityFeesPerGas, gasLimits, teardownGasLimits });
-      this.log.verbose(
-        `Estimated gas limits for tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
-      );
-    }
-
-    return { gasSettings, paymentMethod };
+    // Use unrealistically high gas limits for estimation to avoid running out of gas.
+    // They will be tuned down after the simulation.
+    const gasSettingsForEstimation = new GasSettings(
+      new Gas(GAS_ESTIMATION_DA_GAS_LIMIT, GAS_ESTIMATION_L2_GAS_LIMIT),
+      new Gas(GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT, GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT),
+      maxFeesPerGas,
+      maxPriorityFeesPerGas,
+    );
+    return { paymentMethod, gasSettings: gasSettingsForEstimation };
   }
 
   registerSender(address: AztecAddress, _alias: string = ''): Promise<AztecAddress> {
@@ -188,21 +148,15 @@ export abstract class BaseWallet implements Wallet {
     instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
     artifact?: ContractArtifact,
   ): Promise<ContractInstanceWithAddress> {
-    /**
-     * Determes if the provided instance data is already a contract instance with an address.
-     */
+    /** Determines if the provided instance data is already a contract instance with an address. */
     function isInstanceWithAddress(instanceData: any): instanceData is ContractInstanceWithAddress {
       return (instanceData as ContractInstanceWithAddress).address !== undefined;
     }
-    /**
-     * Determes if the provided instance data is contract instantiation data.
-     */
+    /** Determines if the provided instance data is contract instantiation data */
     function isContractInstantiationData(instanceData: any): instanceData is ContractInstantiationData {
       return (instanceData as ContractInstantiationData).salt !== undefined;
     }
-    /**
-     * Determes if the provided instance data is already a contract.
-     */
+    /** Determines if the provided instance data is already a contract */
     function isContractInstanceAndArtifact(instanceData: any): instanceData is ContractInstanceAndArtifact {
       return (
         (instanceData as ContractInstanceAndArtifact).instance !== undefined &&
@@ -242,7 +196,10 @@ export abstract class BaseWallet implements Wallet {
   }
 
   async simulateTx(executionPayload: ExecutionPayload, opts: SimulateMethodOptions): Promise<TxSimulationResult> {
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, opts.fee);
+    const feeOptions = opts.fee?.estimateGas
+      ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
+      : await this.getDefaultFeeOptions(opts.from, opts.fee);
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     return this.pxe.simulateTx(
       txRequest,
       true /* simulatePublic */,
@@ -252,12 +209,14 @@ export abstract class BaseWallet implements Wallet {
   }
 
   async profileTx(executionPayload: ExecutionPayload, opts: ProfileMethodOptions): Promise<TxProfileResult> {
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, opts.fee);
+    const fee = await this.getDefaultFeeOptions(opts.from, opts.fee);
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, fee);
     return this.pxe.profileTx(txRequest, opts.profileMode, opts.skipProofGeneration ?? true);
   }
 
   async proveTx(exec: ExecutionPayload, opts: SendMethodOptions): Promise<TxProvingResult> {
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(exec, opts.from, opts.fee);
+    const fee = await this.getDefaultFeeOptions(opts.from, opts.fee);
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(exec, opts.from, fee);
     return this.pxe.proveTx(txRequest);
   }
 

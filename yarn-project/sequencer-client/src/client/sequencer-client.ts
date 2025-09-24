@@ -84,7 +84,7 @@ export class SequencerClient {
       telemetry: telemetryClient,
     } = deps;
     const { l1RpcUrls: rpcUrls, l1ChainId: chainId } = config;
-    const log = createLogger('sequencer-client');
+    const log = createLogger('sequencer');
     const publicClient = getPublicClient(config);
     const l1TxUtils = deps.l1TxUtils;
     const l1Metrics = new L1Metrics(
@@ -92,7 +92,7 @@ export class SequencerClient {
       publicClient,
       l1TxUtils.map(x => x.getSenderAddress()),
     );
-    const publisherManager = new PublisherManager(l1TxUtils);
+    const publisherManager = new PublisherManager(l1TxUtils, config);
     const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
     const [l1GenesisTime, slotDuration] = await Promise.all([
       rollupContract.getL1GenesisTime(),
@@ -133,6 +133,7 @@ export class SequencerClient {
         dateProvider: deps.dateProvider,
         publisherManager,
         nodeKeyStore: NodeKeystoreAdapter.fromKeyStoreManager(deps.nodeKeyStore),
+        logger: log,
       });
     const globalsBuilder = new GlobalVariableBuilder(config);
 
@@ -178,6 +179,7 @@ export class SequencerClient {
       rollupContract,
       { ...config, maxL1TxInclusionTimeIntoSlot, maxL2BlockGas: sequencerManaLimit },
       telemetryClient,
+      log,
     );
 
     await sequencer.init();
