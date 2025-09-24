@@ -130,11 +130,11 @@ TEST_F(FixedBaseTableTest, OffsetGeneratorComputation)
     std::set<affine_element> unique_gens(offset_gens.begin(), offset_gens.end());
     EXPECT_EQ(unique_gens.size(), offset_gens.size());
 
-    // Verify offset generators match what's computed from generate_generator_offset
-    auto lhs_lo_offset = table::generate_generator_offset<table::BITS_PER_LO_SCALAR>(table::lhs_base_point_lo());
-    auto lhs_hi_offset = table::generate_generator_offset<table::BITS_PER_HI_SCALAR>(table::lhs_base_point_hi());
-    auto rhs_lo_offset = table::generate_generator_offset<table::BITS_PER_LO_SCALAR>(table::rhs_base_point_lo());
-    auto rhs_hi_offset = table::generate_generator_offset<table::BITS_PER_HI_SCALAR>(table::rhs_base_point_hi());
+    // Verify offset generators match what's computed from compute_generator_offset
+    auto lhs_lo_offset = table::compute_generator_offset<table::BITS_PER_LO_SCALAR>(table::lhs_base_point_lo());
+    auto lhs_hi_offset = table::compute_generator_offset<table::BITS_PER_HI_SCALAR>(table::lhs_base_point_hi());
+    auto rhs_lo_offset = table::compute_generator_offset<table::BITS_PER_LO_SCALAR>(table::rhs_base_point_lo());
+    auto rhs_hi_offset = table::compute_generator_offset<table::BITS_PER_HI_SCALAR>(table::rhs_base_point_hi());
 
     EXPECT_EQ(offset_gens[0], lhs_lo_offset);
     EXPECT_EQ(offset_gens[1], lhs_hi_offset);
