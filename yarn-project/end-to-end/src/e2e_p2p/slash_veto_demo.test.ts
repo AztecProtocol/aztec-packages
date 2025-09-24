@@ -158,7 +158,7 @@ describe('veto slash', () => {
     const vetoer = deployerClient.account.address;
     const governance = EthAddress.random().toString(); // We don't need a real governance address for this test
     debugLogger.info(`\n\ndeploying slasher with vetoer: ${vetoer}\n\n`);
-    const slasher = await deployer.deploy(SlasherArtifact, [vetoer, governance, 3600n]);
+    const slasher = (await deployer.deploy(SlasherArtifact, [vetoer, governance, 3600n])).address;
     await deployer.waitForDeployments();
 
     let proposer: EthAddress;
@@ -172,7 +172,7 @@ describe('veto slash', () => {
         BigInt(EXECUTION_DELAY_IN_ROUNDS),
       ] as const;
       debugLogger.info(`\n\ndeploying empire slasher proposer with args: ${tryJsonStringify(proposerArgs)}\n\n`);
-      proposer = await deployer.deploy(EmpireSlashingProposerArtifact, proposerArgs);
+      proposer = (await deployer.deploy(EmpireSlashingProposerArtifact, proposerArgs)).address;
     } else if (slasherType === 'tally') {
       const proposerArgs = [
         rollup.address, // instance
@@ -187,7 +187,7 @@ describe('veto slash', () => {
         BigInt(SLASH_OFFSET_IN_ROUNDS),
       ] as const;
       debugLogger.info(`\n\ndeploying tally slasher proposer with args: ${tryJsonStringify(proposerArgs)}\n\n`);
-      proposer = await deployer.deploy(TallySlashingProposerArtifact, proposerArgs);
+      proposer = (await deployer.deploy(TallySlashingProposerArtifact, proposerArgs)).address;
     } else {
       throw new Error(`Unknown slasher type: ${slasherType}`);
     }
