@@ -8,17 +8,14 @@
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
-#include "barretenberg/numeric/bitop/rotate.hpp"
-#include "barretenberg/numeric/bitop/sparse_form.hpp"
 namespace bb::plookup::fixed_base {
 
 /**
  * @brief Given a base_point [P] and an offset_generator [G], compute a lookup table of MAX_TABLE_SIZE that contains the
- * following terms:
- *
- * { [G] + 0.[P] , [G] + 1.[P], ..., [G] + (MAX_TABLE_SIZE - 1).[P] }
+ * terms: { [G] + 0.[P] , [G] + 1.[P], ..., [G] + (MAX_TABLE_SIZE - 1).[P] }
  *
  * @param base_point
  * @param offset_generator
@@ -27,28 +24,29 @@ namespace bb::plookup::fixed_base {
 table::single_lookup_table table::generate_single_lookup_table(const affine_element& base_point,
                                                                const affine_element& offset_generator)
 {
-    std::vector<element> table_raw(MAX_TABLE_SIZE);
 
+    // Construct the raw table in projective coordinates, then batch normalize
+    std::vector<element> table_raw(MAX_TABLE_SIZE);
     element accumulator = offset_generator;
-    for (size_t i = 0; i < MAX_TABLE_SIZE; ++i) {
-        table_raw[i] = accumulator;
+    for (element& raw_entry : table_raw) {
+        raw_entry = accumulator;
         accumulator += base_point;
     }
     element::batch_normalize(&table_raw[0], MAX_TABLE_SIZE);
-    single_lookup_table table(MAX_TABLE_SIZE);
-    for (size_t i = 0; i < table_raw.size(); ++i) {
-        table[i] = affine_element{ table_raw[i].x, table_raw[i].y };
+
+    // Construct the final table in affine coordinates
+    single_lookup_table table;
+    table.reserve(MAX_TABLE_SIZE);
+    for (const element& raw_entry : table_raw) {
+        table.emplace_back(raw_entry.x, raw_entry.y);
     }
     return table;
 }
 
 /**
  * @brief For a given base point [P], compute the lookup tables required to traverse a `num_bits` sized lookup
- *
- * i.e. call `generate_single_lookup_table` for the following base points:
- *
- * { [P], [P] * (1 << BITS_PER_TABLE), [P] * (1 << BITS_PER_TABLE * 2), ..., [P] * (1 << BITS_PER_TABLE * (NUM_TABLES -
- * 1)) }
+ * @details Calls `generate_single_lookup_table` for the following base points:
+ *          { [P] * 2^(BITS_PER_TABLE * i) : i = 0, 1, ..., NUM_TABLES - 1 }
  *
  * @tparam num_bits
  * @param input
@@ -56,7 +54,7 @@ table::single_lookup_table table::generate_single_lookup_table(const affine_elem
  */
 template <size_t num_bits> table::fixed_base_scalar_mul_tables table::generate_tables(const affine_element& input)
 {
-    constexpr size_t NUM_TABLES = get_num_tables_per_multi_table<num_bits>();
+    constexpr size_t NUM_TABLES = numeric::ceil_div(num_bits, BITS_PER_TABLE);
 
     fixed_base_scalar_mul_tables result;
     result.reserve(NUM_TABLES);
@@ -76,9 +74,8 @@ template <size_t num_bits> table::fixed_base_scalar_mul_tables table::generate_t
 }
 
 /**
- * @brief For a fixed-base lookup of size `num_table_bits` and an input base point `input`,
- *        return the total contrbution in the scalar multiplication output from the offset generators in the lookup
- * tables.
+ * @brief For a fixed-base lookup of size `num_table_bits` and an input base point `input`, return the total
+ * contribution in the scalar multiplication output from the offset generators in the lookup tables.
  *
  * @note We need the base point as an input parameter because we derive the offset generator using our hash-to-curve
  * algorithm, where the base point is used as the domain separator. Ensures generator points cannot collide with base
@@ -90,7 +87,7 @@ template <size_t num_bits> table::fixed_base_scalar_mul_tables table::generate_t
 template <size_t num_table_bits>
 grumpkin::g1::affine_element table::generate_generator_offset(const grumpkin::g1::affine_element& input)
 {
-    constexpr size_t NUM_TABLES = get_num_tables_per_multi_table<num_table_bits>();
+    constexpr size_t NUM_TABLES = numeric::ceil_div(num_table_bits, BITS_PER_TABLE);
 
     std::vector<uint8_t> input_buf;
     write(input_buf, input);
@@ -103,7 +100,7 @@ grumpkin::g1::affine_element table::generate_generator_offset(const grumpkin::g1
 }
 
 /**
- * @brief Given a point, do we have a precomputed lookup table for this point?
+ * @brief Returns true iff provided point is one of the two for which we have a precomputed lookup table
  *
  * @param input
  * @return true
@@ -115,34 +112,35 @@ bool table::lookup_table_exists_for_point(const affine_element& input)
 }
 
 /**
- * @brief Given a point, return (if it exists) the 2 MultiTableId's that correspond to the LO_SCALAR, HI_SCALAR
- * MultiTables
+ * @brief Given a point that is one of the two for which we have a precomputed lookup table, return the IDs
+ * corresponding to the LO_SCALAR, HI_SCALAR MultiTables used to compute a fixed-base scalar mul with this point.
  *
  * @param input
  * @return std::array<MultiTableId, 2>
  */
 std::array<MultiTableId, 2> table::get_lookup_table_ids_for_point(const grumpkin::g1::affine_element& input)
 {
+    BB_ASSERT_EQ(lookup_table_exists_for_point(input), true, "No fixed-base table exists for input point");
     if (input == lhs_generator_point()) {
         return { { FIXED_BASE_LEFT_LO, FIXED_BASE_LEFT_HI } };
     }
     if (input == rhs_generator_point()) {
         return { { FIXED_BASE_RIGHT_LO, FIXED_BASE_RIGHT_HI } };
     }
-    ASSERT(false && "No fixed-base table for input point");
     return {};
 }
 
 /**
  * @brief Given a table id, return the offset generator term that will be present in the final scalar mul output.
  *
- * Return value is std::optional in case the table_id is not a fixed-base table.
- *
  * @param table_id
  * @return affine_element
  */
 grumpkin::g1::affine_element table::get_generator_offset_for_table_id(const MultiTableId table_id)
 {
+    BB_ASSERT_EQ(table_id == FIXED_BASE_LEFT_LO || table_id == FIXED_BASE_LEFT_HI || table_id == FIXED_BASE_RIGHT_LO ||
+                     table_id == FIXED_BASE_RIGHT_HI,
+                 true);
     if (table_id == FIXED_BASE_LEFT_LO) {
         return fixed_base_table_offset_generators()[0];
     }
@@ -155,7 +153,6 @@ grumpkin::g1::affine_element table::get_generator_offset_for_table_id(const Mult
     if (table_id == FIXED_BASE_RIGHT_HI) {
         return fixed_base_table_offset_generators()[3];
     }
-    ASSERT(false && "Invalid fixed-base table ID");
     return {};
 }
 
@@ -237,7 +234,7 @@ BasicTable table::generate_basic_fixed_base_table(BasicTableId id, size_t basic_
 template <size_t multitable_index, size_t num_bits> MultiTable table::get_fixed_base_table(const MultiTableId id)
 {
     static_assert(num_bits == BITS_PER_LO_SCALAR || num_bits == BITS_PER_HI_SCALAR);
-    constexpr size_t NUM_TABLES = get_num_tables_per_multi_table<num_bits>();
+    constexpr size_t NUM_TABLES = numeric::ceil_div(num_bits, BITS_PER_TABLE);
     constexpr std::array<BasicTableId, NUM_FIXED_BASE_MULTI_TABLES> basic_table_ids{
         FIXED_BASE_0_0,
         FIXED_BASE_1_0,
@@ -279,7 +276,7 @@ template MultiTable table::get_fixed_base_table<2, table::BITS_PER_LO_SCALAR>(Mu
 template MultiTable table::get_fixed_base_table<3, table::BITS_PER_HI_SCALAR>(MultiTableId);
 
 /**
- * NOTE: Without putting these computed lookup tables behind statics there is a timing issue
+ * @note: Without putting these computed lookup tables behind statics there is a timing issue
  * when compiling for the WASM target.
  * hypothesis: because it's 32-bit it has different static init order and this helps?
  */
@@ -295,7 +292,7 @@ const table::all_multi_tables& table::fixed_base_tables()
 }
 
 /**
- * NOTE: Without putting these computed lookup tables behind statics there is a timing issue
+ * @note: Without putting these computed lookup tables behind statics there is a timing issue
  * when compiling for the WASM target.
  * hypothesis: because it's 32-bit it has different static init order and this helps?
  */

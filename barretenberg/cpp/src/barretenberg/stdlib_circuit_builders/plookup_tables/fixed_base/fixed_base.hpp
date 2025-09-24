@@ -36,8 +36,8 @@ class table : public FixedBaseParams {
         return crypto::generator_data<curve::Grumpkin>::precomputed_generators[1];
     }
 
-    inline static single_lookup_table generate_single_lookup_table(const affine_element& base_point,
-                                                                   const affine_element& offset_generator);
+    static single_lookup_table generate_single_lookup_table(const affine_element& base_point,
+                                                            const affine_element& offset_generator);
     template <size_t num_bits> static fixed_base_scalar_mul_tables generate_tables(const affine_element& input);
 
     template <size_t num_table_bits> static affine_element generate_generator_offset(const affine_element& input);
