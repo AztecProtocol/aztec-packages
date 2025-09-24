@@ -1,5 +1,6 @@
 #include "scalar_multiplication.hpp"
 #include "barretenberg/api/file_io.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/curves/types.hpp"
@@ -356,6 +357,7 @@ TYPED_TEST(ScalarMultiplicationTest, PippengerLowMemory)
 
 TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMul)
 {
+    BB_BENCH_NAME("BatchMultiScalarMul");
     SCALAR_MULTIPLICATION_TYPE_ALIASES
     using AffineElement = typename Curve::AffineElement;
 
@@ -477,6 +479,90 @@ TYPED_TEST(ScalarMultiplicationTest, MSMEmptyPolynomial)
     AffineElement result = scalar_multiplication::MSM<Curve>::msm(input_points, scalar_span);
 
     EXPECT_EQ(result, Curve::Group::affine_point_at_infinity);
+}
+
+// Helper function to generate scalars with specified sparsity
+template <typename ScalarField>
+std::vector<ScalarField> generate_sparse_scalars(size_t num_scalars, double sparsity_rate, auto& rng)
+{
+    std::vector<ScalarField> scalars(num_scalars);
+    for (size_t i = 0; i < num_scalars; ++i) {
+        // Generate random value to determine if this scalar should be zero
+        double rand_val = static_cast<double>(rng.get_random_uint32()) / static_cast<double>(UINT32_MAX);
+        if (rand_val < sparsity_rate) {
+            scalars[i] = 0;
+        } else {
+            scalars[i] = ScalarField::random_element(&rng);
+        }
+    }
+    return scalars;
+}
+
+// Test different MSM strategies with detailed benchmarking
+// NOTE this requres BB_BENCH=1 to be set before the test command
+TYPED_TEST(ScalarMultiplicationTest, BenchBatchMsm)
+{
+#ifndef __wasm__
+    if (!bb::detail::use_bb_bench) {
+#else
+    {
+#endif
+        std::cout
+            << "Skipping BatchMultiScalarMulStrategyComparison as BB_BENCH=1 is not passed (OR we are in wasm).\n";
+        return;
+    }
+    SCALAR_MULTIPLICATION_TYPE_ALIASES
+
+    using AffineElement = typename Curve::AffineElement;
+
+    const size_t num_msms = 3;
+    const size_t msm_max_size = 1 << 17;
+    const double max_sparsity = 0.1;
+
+    // Generate test data with varying sparsity
+    std::vector<std::span<const AffineElement>> all_points;
+    std::vector<std::span<ScalarField>> all_scalars;
+    std::vector<AffineElement> all_commitments;
+    std::vector<std::vector<ScalarField>> scalar_storage;
+
+    for (size_t i = 0; i < num_msms; ++i) {
+        // Generate random sizes and density of 0s
+        const size_t size = engine.get_random_uint64() % msm_max_size;
+        const double sparsity = engine.get_random_uint8() / 255.0 * max_sparsity;
+        auto scalars = generate_sparse_scalars<ScalarField>(size, sparsity, engine);
+        scalar_storage.push_back(std::move(scalars));
+
+        std::span<const AffineElement> points(&TestFixture::generators[i], size);
+        all_points.push_back(points);
+        all_scalars.push_back(scalar_storage.back());
+        all_commitments.push_back(TestFixture::naive_msm(all_scalars.back(), all_points.back()));
+    }
+    auto func = [&]<bb::detail::OperationLabel thread_prefix>(size_t num_threads) {
+        set_hardware_concurrency(num_threads);
+        // Strategy 1: Individual MSMs
+        {
+            BB_BENCH_NAME((bb::detail::concat<thread_prefix, "IndividualMSMs">()));
+            for (size_t i = 0; i < num_msms; ++i) {
+                std::vector<std::span<const AffineElement>> single_points = { all_points[i] };
+                std::vector<std::span<ScalarField>> single_scalars = { all_scalars[i] };
+                auto result = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(single_points, single_scalars);
+                EXPECT_EQ(result[0], all_commitments[i]);
+            }
+        }
+        // Strategy 2: Batch
+        {
+            BB_BENCH_NAME((bb::detail::concat<thread_prefix, "BatchMSMs">()));
+            auto result = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(all_points, all_scalars);
+            EXPECT_EQ(result, all_commitments);
+        }
+    };
+    // call lambda with template param
+    func.template operator()<"1 thread ">(1);
+    func.template operator()<"2 threads ">(2);
+    func.template operator()<"4 threads ">(4);
+    func.template operator()<"8 threads ">(8);
+    func.template operator()<"16 threads ">(16);
+    func.template operator()<"32 threads ">(32);
 }
 
 TEST(ScalarMultiplication, SmallInputsExplicit)

@@ -81,26 +81,27 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
     BB_BENCH_NAME("OinkProver::execute_wire_commitments_round");
     // Commit to the first three wire polynomials
     // We only commit to the fourth wire polynomial after adding memory recordss
-    {
-        auto commit_type = (prover_instance->get_is_structured()) ? CommitmentKey::CommitType::Structured
-                                                                  : CommitmentKey::CommitType::Default;
+    auto batch = prover_instance->commitment_key.start_batch();
+    // Commit to the first three wire polynomials
+    // We only commit to the fourth wire polynomial after adding memory records
 
-        commit_to_witness_polynomial(prover_instance->polynomials.w_l, commitment_labels.w_l, commit_type);
-        commit_to_witness_polynomial(prover_instance->polynomials.w_r, commitment_labels.w_r, commit_type);
-        commit_to_witness_polynomial(prover_instance->polynomials.w_o, commitment_labels.w_o, commit_type);
-    }
+    batch.add_to_batch(prover_instance->polynomials.w_l, commitment_labels.w_l, /*mask?*/ Flavor::HasZK);
+    batch.add_to_batch(prover_instance->polynomials.w_r, commitment_labels.w_r, /*mask?*/ Flavor::HasZK);
+    batch.add_to_batch(prover_instance->polynomials.w_o, commitment_labels.w_o, /*mask?*/ Flavor::HasZK);
 
     if constexpr (IsMegaFlavor<Flavor>) {
 
         // Commit to Goblin ECC op wires.
-        // To avoid possible issues with the current work on the merge protocol, they are not
-        // masked in MegaZKFlavor
+        // Note even with zk, we do not mask here. The masking for these is done differently.
+        // It is necessary that "random" ops are added to the op_queue, which is then used to populate these ecc op
+        // wires. This is more holistic and obviates the need to extend with random values.
+        bool mask_ecc_op_polys = false; // Flavor::HasZK
+
         for (auto [polynomial, label] :
              zip_view(prover_instance->polynomials.get_ecc_op_wires(), commitment_labels.get_ecc_op_wires())) {
             {
                 BB_BENCH_NAME("COMMIT::ecc_op_wires");
-                transcript->send_to_verifier(domain_separator + label,
-                                             prover_instance->commitment_key.commit(polynomial));
+                batch.add_to_batch(polynomial, domain_separator + label, mask_ecc_op_polys);
             };
         }
 
@@ -109,10 +110,11 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
              zip_view(prover_instance->polynomials.get_databus_entities(), commitment_labels.get_databus_entities())) {
             {
                 BB_BENCH_NAME("COMMIT::databus");
-                commit_to_witness_polynomial(polynomial, label);
+                batch.add_to_batch(polynomial, label, /*mask?*/ Flavor::HasZK);
             }
         }
     }
+    batch.commit_and_send_to_verifier(transcript);
 }
 
 /**
@@ -137,23 +139,14 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list
                                                                      eta_three);
 
     // Commit to lookup argument polynomials and the finalized (i.e. with memory records) fourth wire polynomial
-    {
-        BB_BENCH_NAME("COMMIT::lookup_counts_tags");
-        commit_to_witness_polynomial(prover_instance->polynomials.lookup_read_counts,
-                                     commitment_labels.lookup_read_counts,
-                                     CommitmentKey::CommitType::Sparse);
-
-        commit_to_witness_polynomial(prover_instance->polynomials.lookup_read_tags,
-                                     commitment_labels.lookup_read_tags,
-                                     CommitmentKey::CommitType::Sparse);
-    }
-    {
-        BB_BENCH_NAME("COMMIT::wires");
-        auto commit_type = (prover_instance->get_is_structured()) ? CommitmentKey::CommitType::Structured
-                                                                  : CommitmentKey::CommitType::Default;
-        commit_to_witness_polynomial(
-            prover_instance->polynomials.w_4, domain_separator + commitment_labels.w_4, commit_type);
-    }
+    auto batch = prover_instance->commitment_key.start_batch();
+    batch.add_to_batch(
+        prover_instance->polynomials.lookup_read_counts, commitment_labels.lookup_read_counts, /*mask?*/ Flavor::HasZK);
+    batch.add_to_batch(
+        prover_instance->polynomials.lookup_read_tags, commitment_labels.lookup_read_tags, /*mask?*/ Flavor::HasZK);
+    batch.add_to_batch(
+        prover_instance->polynomials.w_4, domain_separator + commitment_labels.w_4, /*mask?*/ Flavor::HasZK);
+    batch.commit_and_send_to_verifier(transcript);
 }
 
 /**
@@ -171,23 +164,19 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
     WitnessComputation<Flavor>::compute_logderivative_inverses(
         prover_instance->polynomials, prover_instance->dyadic_size(), prover_instance->relation_parameters);
 
-    {
-        BB_BENCH_NAME("COMMIT::lookup_inverses");
-        commit_to_witness_polynomial(prover_instance->polynomials.lookup_inverses,
-                                     commitment_labels.lookup_inverses,
-                                     CommitmentKey::CommitType::Sparse);
-    }
+    auto batch = prover_instance->commitment_key.start_batch();
+    batch.add_to_batch(prover_instance->polynomials.lookup_inverses,
+                       commitment_labels.lookup_inverses,
+                       /*mask?*/ Flavor::HasZK);
 
     // If Mega, commit to the databus inverse polynomials and send
     if constexpr (IsMegaFlavor<Flavor>) {
         for (auto [polynomial, label] :
              zip_view(prover_instance->polynomials.get_databus_inverses(), commitment_labels.get_databus_inverses())) {
-            {
-                BB_BENCH_NAME("COMMIT::databus_inverses");
-                commit_to_witness_polynomial(polynomial, label, CommitmentKey::CommitType::Sparse);
-            }
+            batch.add_to_batch(polynomial, label, /*mask?*/ Flavor::HasZK);
         };
     }
+    batch.commit_and_send_to_verifier(transcript);
 }
 
 /**
