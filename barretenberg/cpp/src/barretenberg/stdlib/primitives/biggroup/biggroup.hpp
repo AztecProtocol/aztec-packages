@@ -227,7 +227,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         }
 
         // Get the builder context
-        Builder* ctx = get_context(other) ? get_context(other) : predicate.get_context();
+        Builder* ctx = validate_context<Builder>(get_context(), other.get_context(), predicate.get_context());
         BB_ASSERT_NEQ(ctx, nullptr, "biggroup::conditional_select must have a context");
 
         element result(*this);

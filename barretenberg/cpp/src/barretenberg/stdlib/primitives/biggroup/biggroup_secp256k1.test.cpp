@@ -155,6 +155,13 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
         ASSERT((fr(scalar_s1) * fr(scalar_u2) + fr(scalar_u1)).is_zero());
         ASSERT((g1::one * fr(scalar_u1) + (g1::one * fr(scalar_s1)) * fr(scalar_u2)).is_point_at_infinity());
 
+        // Check that the wnaf skews of the lo and hi parts of u2 are as expected
+        fr u2_lo;
+        fr u2_hi;
+        fr::split_into_endomorphism_scalars(fr(scalar_u2).from_montgomery_form(), u2_lo, u2_hi);
+        ASSERT(uint256_t(u2_lo).get_bit(0) == 0); // u2_lo skew is 1 (even)
+        ASSERT(uint256_t(u2_hi).get_bit(0) == 1); // u2_hi skew is 0 (odd)
+
         Builder builder = Builder();
         element_ct P_a = element_ct::from_witness(&builder, g1::one * fr(scalar_s1));
         scalar_ct u1 = scalar_ct::from_witness(&builder, fr(scalar_u1));
