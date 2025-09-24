@@ -690,7 +690,6 @@ pub fn build(b: *std.Build) void {
 
     // Create cross-compilation step
     const cross_step = b.step("cross", "Build for all platforms");
-    // const tests_step = b.step("tests", "Build tests for all platforms");
 
     for (platforms) |platform| {
         if (platform.os == .wasi) {
@@ -717,6 +716,7 @@ fn getBuildStepForTarget(
 ) *std.Build.Step {
     const platform_step = b.step(platform.name, b.fmt("Build for {s}", .{platform.name}));
     const platform_tests_step = b.step(b.fmt("{s}-tests", .{platform.name}), b.fmt("Build tests for {s}", .{platform.name}));
+    const tests_step = if (is_host) b.step("tests", "Build tests for host platform") else null;
 
     const target = b.resolveTargetQuery(.{
         .cpu_arch = platform.arch,
@@ -918,6 +918,11 @@ fn getBuildStepForTarget(
 
         const test_install = b.addInstallArtifact(test_exe, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
         platform_tests_step.dependOn(&test_install.step);
+
+        // If this platform is the host platform, add to the "tests" step.
+        if (tests_step) |step| {
+            step.dependOn(&test_install.step);
+        }
     }
 
     // If this platform is the host platform, it should be built by default.
@@ -1014,24 +1019,7 @@ const test_group_paths = [_][]const u8{
     "src/barretenberg/client_ivc",
     "src/barretenberg/commitment_schemes",
     "src/barretenberg/commitment_schemes_recursion",
-
-    // Combine. Can't yet cos merkle tree.
     "src/barretenberg/crypto",
-    // "src/barretenberg/crypto/aes128",
-    // "src/barretenberg/crypto/blake2s",
-    // "src/barretenberg/crypto/blake3s",
-    // "src/barretenberg/crypto/blake3s_full",
-    // "src/barretenberg/crypto/ecdsa",
-    // "src/barretenberg/crypto/generators",
-    // "src/barretenberg/crypto/hmac",
-    // "src/barretenberg/crypto/keccak",
-    // "src/barretenberg/crypto/merkle_tree",
-    // "src/barretenberg/crypto/pedersen_commitment",
-    // "src/barretenberg/crypto/pedersen_hash",
-    // "src/barretenberg/crypto/poseidon2",
-    // "src/barretenberg/crypto/schnorr",
-    // "src/barretenberg/crypto/sha256",
-
     "src/barretenberg/dsl",
     "src/barretenberg/ecc",
     "src/barretenberg/eccvm",
@@ -1054,7 +1042,7 @@ const test_group_paths = [_][]const u8{
     "src/barretenberg/translator_vm",
     "src/barretenberg/ultra_honk",
     // "src/barretenberg/vm2",
-    // "src/barretenberg/world_state",
+    "src/barretenberg/world_state",
 };
 
 // fn buildTestsForTarget(
