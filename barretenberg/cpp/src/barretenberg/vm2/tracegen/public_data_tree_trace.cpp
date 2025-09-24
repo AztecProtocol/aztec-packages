@@ -1,7 +1,9 @@
 #include "barretenberg/vm2/tracegen/public_data_tree_trace.hpp"
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_public_data_check.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_public_data_squash.hpp"
 #include "barretenberg/vm2/generated/relations/perms_public_data_check.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/tracegen/lib/discard_reconstruction.hpp"
@@ -98,8 +100,8 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
                       { C::public_data_check_updated_low_leaf_next_index, updated_low_leaf.nextIndex },
                       { C::public_data_check_updated_low_leaf_next_slot, updated_low_leaf.nextKey },
                       { C::public_data_check_low_leaf_index, event.low_leaf_index },
-                      { C::public_data_check_clk_diff, clk_diff },
-                      { C::public_data_check_constant_32, 32 },
+                      { C::public_data_check_clk_diff_lo, static_cast<uint16_t>(clk_diff) },
+                      { C::public_data_check_clk_diff_hi, clk_diff >> 16 },
                       { C::public_data_check_leaf_slot, event.leaf_slot },
                       { C::public_data_check_siloing_separator, GENERATOR_INDEX__PUBLIC_LEAF_INDEX },
                       { C::public_data_check_leaf_not_exists, !exists },
@@ -113,7 +115,7 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
                       { C::public_data_check_should_insert, should_insert },
                       { C::public_data_check_new_leaf_hash, new_leaf_hash },
                       { C::public_data_check_write_idx, write_idx },
-                      { C::public_data_check_nondiscaded_write, nondiscarded_write },
+                      { C::public_data_check_non_discarded_write, nondiscarded_write },
                       { C::public_data_check_should_write_to_public_inputs, should_write_to_public_inputs },
                       { C::public_data_check_final_value, final_value },
                       { C::public_data_check_public_data_writes_length, public_data_writes_length },
@@ -132,8 +134,6 @@ void process_squashing_trace(const std::vector<PublicDataTreeReadWriteEvent>& no
                              const std::unordered_map<FF, FF>& last_value_per_slot,
                              TraceContainer& trace)
 {
-    using C = Column;
-
     using C = Column;
 
     // This is a shifted trace, so we start at 1
@@ -174,8 +174,8 @@ void process_squashing_trace(const std::vector<PublicDataTreeReadWriteEvent>& no
                       { C::public_data_squash_write_to_public_inputs, should_write_to_public_inputs },
                       { C::public_data_squash_leaf_slot_increase, leaf_slot_increase },
                       { C::public_data_squash_check_clock, check_clock },
-                      { C::public_data_squash_clk_diff, clk_diff },
-                      { C::public_data_squash_constant_32, 32 },
+                      { C::public_data_squash_clk_diff_lo, static_cast<uint16_t>(clk_diff) },
+                      { C::public_data_squash_clk_diff_hi, clk_diff >> 16 },
                       { C::public_data_squash_final_value, final_value },
                   } });
         row++;
@@ -188,7 +188,6 @@ void PublicDataTreeTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::PublicDataTreeCheckEvent>::Container& events,
     TraceContainer& trace)
 {
-
     std::vector<EventWithDiscard> events_with_metadata;
     std::unordered_map<FF, uint32_t> first_write_per_slot;
     std::unordered_map<FF, FF> last_value_per_slot;
@@ -205,11 +204,11 @@ void PublicDataTreeTraceBuilder::process(
     });
 
     // Sort by clk in ascending order (reads will have clk=0)
-    std::sort(events_with_metadata.begin(),
-              events_with_metadata.end(),
-              [](const EventWithDiscard& a, const EventWithDiscard& b) {
-                  return a.event.execution_id < b.event.execution_id;
-              });
+    std::ranges::sort(events_with_metadata.begin(),
+                      events_with_metadata.end(),
+                      [](const EventWithDiscard& a, const EventWithDiscard& b) {
+                          return a.event.execution_id < b.event.execution_id;
+                      });
 
     process_public_data_tree_check_trace(events_with_metadata, first_write_per_slot, last_value_per_slot, trace);
 
@@ -223,14 +222,14 @@ void PublicDataTreeTraceBuilder::process(
     }
 
     // Sort by slot, and then by clk
-    std::sort(nondiscarded_writes.begin(),
-              nondiscarded_writes.end(),
-              [](const PublicDataTreeReadWriteEvent& a, const PublicDataTreeReadWriteEvent& b) {
-                  if (a.leaf_slot == b.leaf_slot) {
-                      return a.execution_id < b.execution_id;
-                  }
-                  return static_cast<uint256_t>(a.leaf_slot) < static_cast<uint256_t>(b.leaf_slot);
-              });
+    std::ranges::sort(nondiscarded_writes.begin(),
+                      nondiscarded_writes.end(),
+                      [](const PublicDataTreeReadWriteEvent& a, const PublicDataTreeReadWriteEvent& b) {
+                          if (a.leaf_slot == b.leaf_slot) {
+                              return a.execution_id < b.execution_id;
+                          }
+                          return static_cast<uint256_t>(a.leaf_slot) < static_cast<uint256_t>(b.leaf_slot);
+                      });
 
     process_squashing_trace(nondiscarded_writes, first_write_per_slot, last_value_per_slot, trace);
 }
@@ -252,10 +251,11 @@ const InteractionDefinition PublicDataTreeTraceBuilder::interactions =
         .add<perm_public_data_check_squashing_settings, InteractionType::Permutation>()
         .add<lookup_public_data_check_write_writes_length_to_public_inputs_settings,
              InteractionType::LookupIntoIndexedByClk>()
-        //      TODO: Disabled sorting lookups
-        //      .add<lookup_public_data_squash_leaf_slot_increase_ff_gt_settings, InteractionType::LookupGeneric>()
-        //      .add<lookup_public_data_squash_clk_diff_range_settings, InteractionType::LookupGeneric>()
-        //      .add<lookup_public_data_check_clk_diff_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_public_data_squash_leaf_slot_increase_ff_gt_settings, InteractionType::LookupGeneric>()
+        .add<lookup_public_data_squash_clk_diff_range_lo_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_public_data_squash_clk_diff_range_hi_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_public_data_check_clk_diff_range_lo_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_public_data_check_clk_diff_range_hi_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_public_data_check_write_public_data_to_public_inputs_settings,
              InteractionType::LookupIntoIndexedByClk>();
 

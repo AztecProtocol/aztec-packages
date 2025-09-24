@@ -186,7 +186,15 @@ std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi()
     AvmProvingInputs inputs = AvmProvingInputs::from(data);
 
     AvmSimulationHelper simulation_helper;
-    auto events = simulation_helper.simulate_for_witgen(inputs.hints);
+
+    assert(inputs.publicInputs.accumulatedDataArrayLengths.publicDataWrites <=
+           inputs.publicInputs.accumulatedData.publicDataWrites.size());
+    const auto* public_data_writes_start = inputs.publicInputs.accumulatedData.publicDataWrites.begin();
+    std::vector<PublicDataWrite> public_data_writes(
+        public_data_writes_start,
+        public_data_writes_start + inputs.publicInputs.accumulatedDataArrayLengths.publicDataWrites);
+
+    auto events = simulation_helper.simulate_for_witgen(inputs.hints, public_data_writes);
 
     AvmTraceGenHelper trace_gen_helper;
     auto trace = trace_gen_helper.generate_trace(std::move(events), inputs.publicInputs);
