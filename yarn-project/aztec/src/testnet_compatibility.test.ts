@@ -12,14 +12,6 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 describe('Testnet compatibility', () => {
   it('has expected VK tree root', () => {
     const expectedRoots = [Fr.fromHexString('0x0c7576d33473911a15b9b490f1d9ba378355e17b956d974bf89d604b6b1b0b0f')];
-
-    if (process.env.ACCEPT_DISABLED_AVM_VK_TREE_ROOT === '1') {
-      expectedRoots.push(
-        //  Accept the VK tree root when the AVM is disabled (the AVM is only enabled on ARM release builds because of build times).
-        Fr.fromHexString('0x06bd48482dcad6f1ea4d4b6a3c1956509dc1250d10be755fa5f6d68dbf6c5899'),
-      );
-    }
-
     expect(expectedRoots).toContainEqual(getVKTreeRoot());
   });
   it('has expected Protocol Contracts tree root', () => {
