@@ -33,7 +33,7 @@ namespace bb {
  *
  * @details A ProverInstance is the equivalent of \f$\omega\f$ in the Protogalaxy paper.
  *
- * Our arithmetisation works as follows. The Flavor defines \f$fM\f$ (Flavor::NUM_ALL_ENTITIES) and a series of
+ * Our arithmetisation works as follows. The Flavor defines \f$ M\f$ (Flavor::NUM_ALL_ENTITIES) and a series of
  * relations
  * \f$R_1, \dots, R_n\f$ (Flavor::Relations_). Each relation is made up by a series of subrelations: \f$R_i =
  * (R_{i,1}, \dots, R_{i,r_i})\f$.

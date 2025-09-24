@@ -19,7 +19,7 @@ namespace bb {
  * notation used in ProverInstance_, a prover instance is \f$\omega = (p_1, \dots, p_M, \theta_1, \dots, \theta_6,
  * \alpha_{1,1}, \dots, \alpha_{n,r_n})\f$ where the \f$p_i\f$'s are the prover polynomials, the \f$\theta_i\f$'s are
  * the relation parameters, and the \f$\alpha_{i,j}\f$'s are the subrelation batching parameters. Then, \f$\phi\f$ is
- * given by \f$\omega = ([p_1], \dots, [p_M], \alpha_{1,1}, \dots, \alpha_{n,r_n}, \theta_1, \dots, \theta_6)\f$m where
+ * given by \f$\omega = ([p_1], \dots, [p_M], \theta_1, \dots, \theta_6, \alpha_{1,1}, \dots, \alpha_{n,r_n})\f$m where
  * [p_i] denotes the commitment to the i-th prover polynomial.
  */
 template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
