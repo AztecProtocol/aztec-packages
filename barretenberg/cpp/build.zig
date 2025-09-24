@@ -1014,10 +1014,10 @@ const test_group_paths = [_][]const u8{
     "src/barretenberg/client_ivc",
     "src/barretenberg/commitment_schemes",
     "src/barretenberg/commitment_schemes_recursion",
-    "src/barretenberg/crypto/aes128",
 
     // Combine. Can't yet cos merkle tree.
     "src/barretenberg/crypto",
+    // "src/barretenberg/crypto/aes128",
     // "src/barretenberg/crypto/blake2s",
     // "src/barretenberg/crypto/blake3s",
     // "src/barretenberg/crypto/blake3s_full",

@@ -31,7 +31,8 @@ struct blake3_test_vector {
  *
  * Link: https://github.com/BLAKE3-team/BLAKE3/blob/master/test_vectors/test_vectors.json
  */
-blake3_test_vector full_test_vector[] = {
+namespace {
+blake3_test_vector full_test_vector_data[] = {
     { 0,
       {
           0xAF, 0x13, 0x49, 0xB9, 0xF5, 0xF9, 0xA1, 0xA6, 0xA0, 0x40, 0x4D, 0xEA, 0x36, 0xDC, 0xC9, 0x49,
@@ -856,6 +857,7 @@ test_vector test_vectors[] = {
           0x31, 0xEC, 0x87, 0xE8, 0xE2, 0x19, 0x2E, 0x80, 0x24, 0x12, 0x53, 0xB2, 0xA9, 0x4D, 0xB0, 0x11,
       } },
 };
+} // namespace
 
 std::vector<uint8_t> test_input(size_t input_len)
 {
@@ -868,7 +870,7 @@ std::vector<uint8_t> test_input(size_t input_len)
 
 TEST(misc_blake3s_full, test_vectors)
 {
-    for (auto v : test_vectors) {
+    for (const auto& v : test_vectors) {
         std::vector<uint8_t> input(v.input.begin(), v.input.end());
         EXPECT_EQ(blake3_full::blake3s(input), v.output);
     }
@@ -881,7 +883,7 @@ TEST(misc_blake3s_full, test_full_vectors)
 
     char context[] = "BLAKE3 2019-12-27 16:29:52 test vectors context";
 
-    for (auto v : full_test_vector) {
+    for (const auto& v : full_test_vector_data) {
         std::vector<uint8_t> input = test_input(v.input_len);
 
         // Test normal hash

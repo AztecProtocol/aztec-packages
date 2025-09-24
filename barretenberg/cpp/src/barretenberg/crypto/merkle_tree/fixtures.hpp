@@ -19,10 +19,10 @@
 namespace bb::crypto::merkle_tree {
 
 const uint32_t NUM_VALUES = 1024;
-inline auto& engine = numeric::get_debug_randomness();
-inline auto& random_engine = numeric::get_randomness();
+// inline auto& engine = numeric::get_debug_randomness();
 
-static auto create_values = [](uint32_t num_values = NUM_VALUES) {
+auto create_values = [](uint32_t num_values = NUM_VALUES) {
+    auto& random_engine = numeric::get_randomness();
     std::vector<fr> values(num_values);
     for (uint32_t i = 0; i < num_values; ++i) {
         values[i] = fr(random_engine.get_random_uint256());
@@ -35,6 +35,7 @@ static std::vector<fr> VALUES = create_values();
 inline std::string random_string()
 {
     std::stringstream ss;
+    auto& random_engine = numeric::get_randomness();
     ss << random_engine.get_random_uint32();
     return ss.str();
 }

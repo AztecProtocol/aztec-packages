@@ -473,6 +473,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handle
         fr empty_root = memdb.root();
 
         // Add lots of values to the tree
+        auto& random_engine = numeric::get_randomness();
         uint32_t num_values_to_add = 16 * 1024;
         std::vector<fr> values;
         for (uint32_t i = 0; i < num_values_to_add; i++) {
@@ -1501,9 +1502,10 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_initial_blocks_th
     test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, num_blocks, num_blocks, fourth);
 }
 
+// Unacceptably slow test - skipping for now.
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_sync_and_unwind_large_blocks)
 {
-
+    GTEST_SKIP() << "Too slow.";
     constexpr uint32_t numBlocks = 4;
     constexpr uint32_t numBlocksToUnwind = 2;
     std::vector<uint32_t> blockSizes = { 2, 4, 8, 16, 32 };

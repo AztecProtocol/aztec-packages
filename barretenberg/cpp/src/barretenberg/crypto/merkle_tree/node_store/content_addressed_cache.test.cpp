@@ -22,6 +22,7 @@ class ContentAddressedCacheTest : public testing::Test {
 
 uint64_t get_index(uint64_t max_index = 0)
 {
+    auto& random_engine = numeric::get_randomness();
     uint64_t result = random_engine.get_random_uint64();
     return max_index == 0 ? 0 : result % max_index;
 }
