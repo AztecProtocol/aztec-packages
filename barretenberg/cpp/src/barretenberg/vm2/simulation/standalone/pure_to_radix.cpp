@@ -64,7 +64,7 @@ void PureToRadix::to_be_radix(MemoryInterface& memory,
     // Error handling - check that if is_output_bits is true, the radix has to be 2
     bool invalid_bitwise_radix = is_output_bits && (radix != 2);
     // Error handling - if num_limbs is zero, value needs to be zero
-    bool invalid_num_limbs = (num_limbs == 0) && (!value.is_zero());
+    bool invalid_num_limbs = (num_limbs == 0) && !value.is_zero();
 
     if (dst_out_of_range || radix_is_lt_2 || radix_is_gt_256 || invalid_bitwise_radix || invalid_num_limbs) {
         throw ToRadixException("Invalid parameters for ToRadix");
