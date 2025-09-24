@@ -649,17 +649,9 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplication)
 
         const auto [lo_1_idx, hi_1_idx] = helper_non_native_multiplication(builder, a, b, q, r, modulus);
 
-        // Range check the carry (output) lo and hi limbs
-        const bool is_low_70_bits = uint256_t(builder.get_variable(lo_1_idx)).get_msb() < 70;
-        const bool is_high_70_bits = uint256_t(builder.get_variable(hi_1_idx)).get_msb() < 70;
-        if (is_low_70_bits && is_high_70_bits) {
-            // Uses more efficient NNF range check if both limbs are < 2^70
-            builder.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70);
-        } else {
-            // Fallback to default range checks
-            builder.decompose_into_default_range(lo_1_idx, 72);
-            builder.decompose_into_default_range(hi_1_idx, 72);
-        }
+        // Check if the lo and hi carry outputs are "small": lo, hi < 2^72
+        EXPECT_LT(uint256_t(builder.get_variable(lo_1_idx)).get_msb(), 72);
+        ASSERT_LT(uint256_t(builder.get_variable(hi_1_idx)).get_msb(), 72);
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
@@ -695,21 +687,13 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplicationRegression)
     const auto [lo_1_idx, hi_1_idx] =
         helper_non_native_multiplication(builder, a_u256, b_u256, q_u256, r_u256, modulus);
 
-    // Range check the carry (output) lo and hi limbs
-    const bool is_high_70_bits = uint256_t(builder.get_variable(hi_1_idx)).get_msb() < 70;
-    ASSERT(is_high_70_bits == false); // Regression should hit this case
+    // Range check the carry (output) lo and hi limbs (2^70 <= hi < 2^72, lo < 2^72)
+    EXPECT_EQ(uint256_t(builder.get_variable(hi_1_idx)).get_msb(), 70);
+    EXPECT_LT(uint256_t(builder.get_variable(hi_1_idx)).get_msb(), 72);
+    EXPECT_LT(uint256_t(builder.get_variable(lo_1_idx)).get_msb(), 72);
 
-    // Decompose into default range: these should work even if the limbs are > 2^70
-    builder.decompose_into_default_range(lo_1_idx, 72);
-    builder.decompose_into_default_range(hi_1_idx, 72);
     bool result_a = CircuitChecker::check(builder);
     EXPECT_EQ(result_a, true);
-
-    // Using NNF range check should fail here
-    builder.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70);
-    bool result_b = CircuitChecker::check(builder);
-    EXPECT_EQ(result_b, false);
-    EXPECT_EQ(builder.err(), "range_constrain_two_limbs: hi limb.");
 }
 
 /**
@@ -736,17 +720,9 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplicationSortCheck)
 
     const auto [lo_1_idx, hi_1_idx] = helper_non_native_multiplication(builder, a, b, q, r, modulus);
 
-    // Range check the carry (output) lo and hi limbs
-    const bool is_low_70_bits = uint256_t(builder.get_variable(lo_1_idx)).get_msb() < 70;
-    const bool is_high_70_bits = uint256_t(builder.get_variable(hi_1_idx)).get_msb() < 70;
-    if (is_low_70_bits && is_high_70_bits) {
-        // Uses more efficient NNF range check if both limbs are < 2^70
-        builder.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70);
-    } else {
-        // Fallback to default range checks
-        builder.decompose_into_default_range(lo_1_idx, 72);
-        builder.decompose_into_default_range(hi_1_idx, 72);
-    }
+    // Check if the lo and hi carry outputs are "small": lo, hi < 2^72
+    EXPECT_LT(uint256_t(builder.get_variable(lo_1_idx)).get_msb(), 72);
+    ASSERT_LT(uint256_t(builder.get_variable(hi_1_idx)).get_msb(), 72);
 
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
@@ -760,6 +736,86 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplicationSortCheck)
         EXPECT_EQ(builder.blocks.nnf.q_lookup_type()[i], 0);
         EXPECT_EQ(builder.blocks.nnf.q_poseidon2_external()[i], 0);
         EXPECT_EQ(builder.blocks.nnf.q_poseidon2_internal()[i], 0);
+    }
+}
+
+TEST(UltraCircuitBuilder, RangeConstraintTwoLimbs)
+{
+    // Create a lambda function that generates a random fr element within a given bit size
+    auto random_fr_within_bits = [](size_t num_bits) {
+        uint256_t mask = (uint256_t(1) << num_bits) - 1;
+        return fr(uint256_t(fr::random_element()) & mask);
+    };
+
+    UltraCircuitBuilder builder = UltraCircuitBuilder();
+
+    // Create two variables that fit within 70 bits
+    auto a_idx = builder.add_variable(random_fr_within_bits(70));
+    auto b_idx = builder.add_variable(random_fr_within_bits(70));
+    builder.range_constrain_two_limbs(a_idx, b_idx, 70, 70);
+
+    // Create two variables that fit in 68 bits (default range)
+    auto c_idx = builder.add_variable(random_fr_within_bits(68));
+    auto d_idx = builder.add_variable(random_fr_within_bits(68));
+    builder.range_constrain_two_limbs(c_idx, d_idx);
+
+    // Create two variables that fit in 68 and 70 bits respectively
+    auto e_idx = builder.add_variable(random_fr_within_bits(68));
+    auto f_idx = builder.add_variable(random_fr_within_bits(70));
+    builder.range_constrain_two_limbs(e_idx, f_idx, 68, 70);
+
+    bool result = CircuitChecker::check(builder);
+    EXPECT_EQ(result, true);
+}
+
+TEST(UltraCircuitBuilder, RangeConstraintTwoLimbsFails)
+{
+    // Create a lambda function that generates a random fr element within a given bit size
+    auto random_fr_within_bits = [](size_t num_bits) {
+        uint256_t mask = (uint256_t(1) << num_bits) - 1;
+        return fr(uint256_t(fr::random_element()) & mask);
+    };
+
+    {
+        // Both limbs exceed the specified bit sizes
+        UltraCircuitBuilder builder = UltraCircuitBuilder();
+
+        uint256_t a_value = uint256_t(random_fr_within_bits(71));
+        a_value |= (uint256_t(1) << 70); // set the 71st bit to ensure it exceeds 70 bits
+        auto a_idx = builder.add_variable(fr(a_value));
+        uint256_t b_value = uint256_t(random_fr_within_bits(71));
+        b_value |= (uint256_t(1) << 70); // set the 71st bit to ensure it exceeds 70 bits
+        auto b_idx = builder.add_variable(fr(b_value));
+
+        builder.range_constrain_two_limbs(a_idx, b_idx, 70, 70, "range check failed");
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, false);
+        EXPECT_EQ(builder.err(), "range check failed: lo limb."); // lo limb fails first
+    }
+    {
+        // Second limb exceeds the specified bit size
+        UltraCircuitBuilder builder = UltraCircuitBuilder();
+        auto a_idx = builder.add_variable(random_fr_within_bits(70));
+
+        uint256_t b_value = uint256_t(random_fr_within_bits(71));
+        b_value |= (uint256_t(1) << 70); // set the 71st bit to ensure it exceeds 70 bits
+        auto b_idx = builder.add_variable(fr(b_value));
+
+        builder.range_constrain_two_limbs(a_idx, b_idx, 70, 70, "range check failed");
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, false);
+        EXPECT_EQ(builder.err(), "range check failed: hi limb."); // hi limb fails
+    }
+    {
+        // Bit sizes more than 70 are not allowed
+#ifndef NDEBUG
+        UltraCircuitBuilder builder = UltraCircuitBuilder();
+        auto a_idx = builder.add_variable(random_fr_within_bits(70));
+        auto b_idx = builder.add_variable(random_fr_within_bits(70));
+        EXPECT_THROW_OR_ABORT(builder.range_constrain_two_limbs(a_idx, b_idx, 71, 70), "lo bits > 70 not allowed");
+#endif
     }
 }
 

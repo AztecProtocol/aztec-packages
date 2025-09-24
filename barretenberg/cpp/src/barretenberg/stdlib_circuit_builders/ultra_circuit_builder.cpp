@@ -1629,8 +1629,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
 {
     // Validate limbs are <= 70 bits. If limbs are larger we require more witnesses and cannot use our limb accumulation
     // custom gate
-    BB_ASSERT_LTE(lo_limb_bits, 14U * 5U);
-    BB_ASSERT_LTE(hi_limb_bits, 14U * 5U);
+    BB_ASSERT_LTE(lo_limb_bits, 14U * 5U, "lo bits > 70 not allowed");
+    BB_ASSERT_LTE(hi_limb_bits, 14U * 5U, "hi bits > 70 not allowed");
 
     // If the value is larger than the range, we log the error in builder
     const bool is_lo_out_of_range = (uint256_t(this->get_variable_reference(lo_idx)) >= (uint256_t(1) << lo_limb_bits));
