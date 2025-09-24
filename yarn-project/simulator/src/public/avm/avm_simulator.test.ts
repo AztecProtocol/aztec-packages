@@ -545,17 +545,39 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
   });
 
-  // TODO(#16099): Re-enable this test
-  // it('conversions', async () => {
-  //   const calldata: Fr[] = [new Fr(0b1011101010100)];
-  //   const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+  describe('conversions', () => {
+    it('to le bytes', async () => {
+      const calldata: Fr[] = [new Fr(0x11223344556677)];
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
-  //   const bytecode = getAvmTestContractBytecode('to_radix_le');
-  //   const results = await new AvmSimulator(context).executeBytecode(bytecode);
+      const bytecode = getAvmTestContractBytecode('to_le_bytes');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
-  //   expect(results.reverted).toBe(false);
-  //   expect(results.output.map(f => f.toNumber().toString()).join('')).toEqual('0010101011');
-  // });
+      expect(results.reverted).toBe(false);
+      expect(
+        results.output
+          .reverse()
+          .map(f => f.toNumber().toString(16).padStart(2, '0'))
+          .join(''),
+      ).toEqual('00000011223344556677');
+    });
+
+    it('to le bits', async () => {
+      const calldata: Fr[] = [new Fr(0b1011101010100)];
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+      const bytecode = getAvmTestContractBytecode('to_le_bits');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(false);
+      expect(
+        results.output
+          .reverse()
+          .map(f => f.toNumber().toString())
+          .join(''),
+      ).toEqual('0001011101010100');
+    });
+  });
 
   describe('Side effects, world state, nested calls', () => {
     const address = AztecAddress.fromNumber(1);
