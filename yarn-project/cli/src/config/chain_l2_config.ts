@@ -63,7 +63,7 @@ const DefaultSlashConfig = {
   slashProposeInvalidAttestationsPenalty: DefaultL1ContractsConfig.slashAmountLarge,
   slashAttestDescendantOfInvalidPenalty: DefaultL1ContractsConfig.slashAmountLarge,
   slashUnknownPenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashBroadcastedInvalidBlockPenalty: DefaultL1ContractsConfig.slashAmountMedium,
+  slashBroadcastedInvalidBlockPenalty: 0n, // DefaultL1ContractsConfig.slashAmountSmall // Disabled until further testing
   slashMaxPayloadSize: 50,
   slashGracePeriodL2Slots: 32 * 2, // Two epochs from genesis
   slashOffenseExpirationRounds: 8,
@@ -142,7 +142,7 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   slashProposeInvalidAttestationsPenalty: 50_000n * 10n ** 18n,
   slashAttestDescendantOfInvalidPenalty: 50_000n * 10n ** 18n,
   slashUnknownPenalty: 2_000n * 10n ** 18n,
-  slashBroadcastedInvalidBlockPenalty: 10_000n * 10n ** 18n,
+  slashBroadcastedInvalidBlockPenalty: 0n, // 10_000n * 10n ** 18n, Disabled for now until further testing
   slashMaxPayloadSize: 50,
   slashGracePeriodL2Slots: 32 * 4, // One round from genesis
   slashOffenseExpirationRounds: 8,
