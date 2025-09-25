@@ -154,3 +154,28 @@ fn with_left_unbalanced_merge_and_right_balanced_merge() {
     )
         .execute_with_mock_and_fail();
 }
+
+// --- Single block ---
+
+#[test]
+fn with_single_block_root() {
+    let builder = TestBuilder::new_single_block(BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX);
+    let (pi, mock) = builder.execute_with_mock();
+    builder.assert_expected_public_inputs(pi);
+    builder.assert_mock_called(mock);
+}
+
+#[test(should_fail_with = "Vk index not in allowed list")]
+fn with_single_non_first_block_root() {
+    let builder = TestBuilder::new_single_block(BLOCK_ROOT_ROLLUP_VK_INDEX);
+    builder.execute_with_mock_and_fail();
+}
+
+#[test(should_fail_with = "Vk index not in allowed list")]
+fn with_single_block_merge() {
+    let mut builder = TestBuilder::new_single_block(BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX);
+
+    builder.left_rollup_vk_index = BLOCK_MERGE_ROLLUP_VK_INDEX;
+
+    builder.execute_with_mock_and_fail();
+}

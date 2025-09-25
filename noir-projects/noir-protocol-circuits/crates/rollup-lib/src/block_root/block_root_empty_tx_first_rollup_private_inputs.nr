@@ -9,7 +9,7 @@ use types::{
         checkpoint_constant_data::CheckpointConstantData, sponge_blob::SpongeBlob,
         state_reference::StateReference,
     },
-    constants::{ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH},
+    constants::{ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH},
     proof::proof_data::UltraHonkProofData,
 };
 
@@ -29,7 +29,7 @@ pub struct BlockRootEmptyTxFirstRollupPrivateInputs {
     pub(crate) timestamp: u64,
 
     // Hint for inserting the new l1 to l2 message subtree.
-    pub(crate) new_l1_to_l2_message_subtree_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
+    pub(crate) new_l1_to_l2_message_subtree_root_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH],
     // Hint for inserting the new block hash to the last archive.
     pub(crate) new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
 }
@@ -48,7 +48,7 @@ impl BlockRootEmptyTxFirstRollupPrivateInputs {
         )
             .with_new_l1_to_l2_messages(
                 self.parity_root.public_inputs,
-                self.new_l1_to_l2_message_subtree_sibling_path,
+                self.new_l1_to_l2_message_subtree_root_sibling_path,
             )
             .finish(self.new_archive_sibling_path)
     }

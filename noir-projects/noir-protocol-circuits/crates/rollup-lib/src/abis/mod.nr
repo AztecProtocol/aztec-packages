@@ -8,5 +8,5 @@ mod tx_effect;
 pub use block_rollup_public_inputs::BlockRollupPublicInputs;
 pub use checkpoint_rollup_public_inputs::CheckpointRollupPublicInputs;
 pub use root_rollup_public_inputs::RootRollupPublicInputs;
+pub use tx_effect::TxEffect;
 pub use tx_rollup_public_inputs::TxRollupPublicInputs;
-pub(crate) use tx_effect::TxEffect;

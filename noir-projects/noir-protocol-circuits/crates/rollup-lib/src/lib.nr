@@ -8,5 +8,3 @@ pub mod block_merge;
 pub mod checkpoint_root;
 pub mod checkpoint_merge;
 pub mod root;
-
-pub(crate) mod components;

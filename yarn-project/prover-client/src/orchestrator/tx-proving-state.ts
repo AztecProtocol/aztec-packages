@@ -10,7 +10,6 @@ import type { ProofAndVerificationKey, PublicInputsAndRecursiveProof } from '@az
 import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { ProofData } from '@aztec/stdlib/proofs';
 import {
-  AvmProofData,
   type BaseRollupHints,
   PrivateBaseRollupHints,
   PrivateTxBaseRollupPrivateInputs,
@@ -115,7 +114,7 @@ export class TxProvingState {
 
     const publicTubeProofData = toProofData(this.publicTube);
 
-    const avmProofData = new AvmProofData(
+    const avmProofData = new ProofData(
       this.processedTx.avmProvingRequest.inputs.publicInputs,
       this.avm.proof,
       this.#getVkData(this.avm!.verificationKey, AVM_VK_INDEX),
@@ -125,6 +124,8 @@ export class TxProvingState {
   }
 
   #getVkData(verificationKey: VerificationKeyData, vkIndex: number) {
+    // TODO(#17162): Add avm vk hash to the tree and call `getVkData('AVM')` instead.
+    // Below will return a path to an empty leaf.
     const vkPath = getVKSiblingPath(vkIndex);
     return new VkData(verificationKey, vkIndex, vkPath);
   }

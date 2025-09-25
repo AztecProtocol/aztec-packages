@@ -4,15 +4,14 @@ import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
-import { MembershipWitness } from '@aztec/foundation/trees';
 import type { FieldsOf } from '@aztec/foundation/types';
 
-import { PublicDataHint } from '../avm/public_data_hint.js';
 import { ContractClassLogFields } from '../logs/index.js';
-import { AppendOnlyTreeSnapshot } from '../trees/index.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
+import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
 import { BlockConstantData } from './block_constant_data.js';
-import { PrivateBaseStateDiffHints } from './state_diff_hints.js';
+import { TreeSnapshotDiffHints } from './tree_snapshot_diff_hints.js';
 
 export type BaseRollupHints = PrivateBaseRollupHints | PublicBaseRollupHints;
 
@@ -29,15 +28,15 @@ export class PrivateBaseRollupHints {
     /**
      * Hints used while proving state diff validity.
      */
-    public stateDiffHints: PrivateBaseStateDiffHints,
+    public treeSnapshotDiffHints: TreeSnapshotDiffHints,
     /**
-     * Public data read hint for accessing the balance of the fee payer.
+     * Public data tree leaf preimage for accessing the balance of the fee payer.
      */
-    public feePayerFeeJuiceBalanceReadHint: PublicDataHint,
+    public feePayerBalanceLeafPreimage: PublicDataTreeLeafPreimage,
     /**
      * Membership witnesses of blocks referred by each of the 2 kernels.
      */
-    public archiveRootMembershipWitness: MembershipWitness<typeof ARCHIVE_HEIGHT>,
+    public anchorBlockArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     /**
      * Preimages to the kernel's contractClassLogsHashes.
      */
@@ -56,9 +55,9 @@ export class PrivateBaseRollupHints {
     return [
       fields.start,
       fields.startSpongeBlob,
-      fields.stateDiffHints,
-      fields.feePayerFeeJuiceBalanceReadHint,
-      fields.archiveRootMembershipWitness,
+      fields.treeSnapshotDiffHints,
+      fields.feePayerBalanceLeafPreimage,
+      fields.anchorBlockArchiveSiblingPath,
       fields.contractClassLogsFields,
       fields.constants,
     ] as const;
@@ -85,9 +84,9 @@ export class PrivateBaseRollupHints {
     return new PrivateBaseRollupHints(
       reader.readObject(PartialStateReference),
       reader.readObject(SpongeBlob),
-      reader.readObject(PrivateBaseStateDiffHints),
-      reader.readObject(PublicDataHint),
-      MembershipWitness.fromBuffer(reader, ARCHIVE_HEIGHT),
+      reader.readObject(TreeSnapshotDiffHints),
+      reader.readObject(PublicDataTreeLeafPreimage),
+      reader.readArray(ARCHIVE_HEIGHT, Fr),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, () => reader.readObject(ContractClassLogFields)),
       reader.readObject(BlockConstantData),
     );
@@ -101,9 +100,9 @@ export class PrivateBaseRollupHints {
     return new PrivateBaseRollupHints(
       PartialStateReference.empty(),
       SpongeBlob.empty(),
-      PrivateBaseStateDiffHints.empty(),
-      PublicDataHint.empty(),
-      MembershipWitness.empty(ARCHIVE_HEIGHT),
+      TreeSnapshotDiffHints.empty(),
+      PublicDataTreeLeafPreimage.empty(),
+      makeTuple(ARCHIVE_HEIGHT, Fr.zero),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLogFields.empty),
       BlockConstantData.empty(),
     );
@@ -123,7 +122,7 @@ export class PublicBaseRollupHints {
     /**
      * Membership witnesses of blocks referred by each of the 2 kernels.
      */
-    public archiveRootMembershipWitness: MembershipWitness<typeof ARCHIVE_HEIGHT>,
+    public anchorBlockArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     /**
      * Preimages to the kernel's contractClassLogsHashes.
      */
@@ -142,7 +141,7 @@ export class PublicBaseRollupHints {
     return [
       fields.startSpongeBlob,
       fields.lastArchive,
-      fields.archiveRootMembershipWitness,
+      fields.anchorBlockArchiveSiblingPath,
       fields.contractClassLogsFields,
       fields.proverId,
     ] as const;
@@ -169,7 +168,7 @@ export class PublicBaseRollupHints {
     return new PublicBaseRollupHints(
       reader.readObject(SpongeBlob),
       reader.readObject(AppendOnlyTreeSnapshot),
-      MembershipWitness.fromBuffer(reader, ARCHIVE_HEIGHT),
+      reader.readArray(ARCHIVE_HEIGHT, Fr),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, () => reader.readObject(ContractClassLogFields)),
       reader.readObject(Fr),
     );
@@ -183,7 +182,7 @@ export class PublicBaseRollupHints {
     return new PublicBaseRollupHints(
       SpongeBlob.empty(),
       AppendOnlyTreeSnapshot.empty(),
-      MembershipWitness.empty(ARCHIVE_HEIGHT),
+      makeTuple(ARCHIVE_HEIGHT, Fr.zero),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLogFields.empty),
       Fr.ZERO,
     );

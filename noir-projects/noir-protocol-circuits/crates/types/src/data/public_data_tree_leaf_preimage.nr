@@ -1,6 +1,6 @@
 use crate::{
     data::public_data_tree_leaf::PublicDataTreeLeaf,
-    merkle_tree::leaf_preimage::{IndexedTreeLeafPreimage, LeafPreimage},
+    merkle_tree::{IndexedTreeLeafPreimage, LeafPreimage},
     traits::{Empty, Hash},
 };
 

@@ -32,7 +32,7 @@ fn validate_proof__vk_hash_mismatch_fails() {
     let mut builder = PreviousKernelValidatorBuilder::new_with_vk(PRIVATE_KERNEL_INNER_INDEX);
 
     // Tweak the vk hash.
-    builder.previous_kernel.client_ivc_vk.hash += 1;
+    builder.previous_kernel.vk.hash += 1;
 
     builder.verify_proof([
         PRIVATE_KERNEL_INIT_INDEX,
