@@ -165,6 +165,14 @@ spec:
               value: "{{ .Values.aztec.sponsoredFPC }}"
             - name: SYNC_SNAPSHOTS_URL
               value: "{{ .Values.snapshots.syncUrl }}"
+            {{- if .Values.snapshots.s3AccessKeyId }}
+            - name: AWS_ACCESS_KEY_ID
+              value: "{{ .Values.snapshots.s3AccessKeyId }}"
+            {{- end }}
+            {{- if .Values.snapshots.s3SecretAccessKey }}
+            - name: AWS_SECRET_ACCESS_KEY
+              value: "{{ .Values.snapshots.s3SecretAccessKey }}"
+            {{- end }}
             - name: SENTINEL_ENABLED
               value: "{{ .Values.fullNode.sentinelEnabled }}"
             {{- if .Values.blobSink.enabled }}
