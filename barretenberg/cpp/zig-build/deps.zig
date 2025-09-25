@@ -107,3 +107,88 @@ pub fn buildGTest(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std
 
     return gtest_lib;
 }
+
+// The libcxx bundled in zig, when compiled, is done so without filesystem support.
+// The relevant files have been copied from the zig installation to src/libcxx.
+// If we want to build bb for wasm32-wasi target, we need to build this filesystem library as well.
+pub fn buildWasmCxxFs(b: *std.Build) *std.Build.Step.Compile {
+    const target = b.resolveTargetQuery(.{
+        .cpu_arch = .wasm32,
+        .os_tag = .wasi,
+        .cpu_features_add = std.Target.wasm.featureSet(&.{ .atomics, .bulk_memory }),
+    });
+
+    const lib = b.addLibrary(.{
+        .name = "cxxfs",
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = .ReleaseFast,
+        }),
+        .linkage = .static,
+    });
+
+    lib.linkLibC();
+
+    // Filesystem sources copied locally.
+    const base = "./src/libcxx";
+    lib.addCSourceFiles(.{
+        .files = &.{
+            b.pathJoin(&.{ base, "filesystem/directory_entry.cpp" }),
+            b.pathJoin(&.{ base, "filesystem/directory_iterator.cpp" }),
+            b.pathJoin(&.{ base, "filesystem/filesystem_clock.cpp" }),
+            b.pathJoin(&.{ base, "filesystem/filesystem_error.cpp" }),
+            b.pathJoin(&.{ base, "filesystem/operations.cpp" }),
+            b.pathJoin(&.{ base, "filesystem/path.cpp" }),
+            b.pathJoin(&.{ base, "ios.instantiations.cpp" }),
+        },
+        .flags = &.{
+            // libc++ config
+            "-DNDEBUG",
+            "-D_LIBCPP_ABI_VERSION=1",
+            "-D_LIBCPP_ABI_NAMESPACE=__1",
+            "-D_LIBCPP_HAS_NO_THREADS",
+            "-D_LIBCPP_HAS_NO_MUSL_LIBC",
+            "-D_LIBCPP_HAS_NO_STD_MODULES",
+            "-D_LIBCPP_PSTL_BACKEND_SERIAL",
+            "-D_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS",
+            "-D_LIBCXXABI_DISABLE_VISIBILITY_ANNOTATIONS",
+            "-D_LIBCPP_HAS_MONOTONIC_CLOCK",
+            "-D_LIBCPP_HAS_TERMINAL",
+            "-D_LIBCPP_HAS_UNICODE",
+            "-D_LIBCPP_HAS_WIDE_CHARACTERS",
+            "-D_LIBCPP_HAS_FILESYSTEM",
+            "-D_LIBCPP_HAS_LOCALIZATION",
+            "-D_LIBCPP_ENABLE_CXX17_REMOVED_UNEXPECTED_FUNCTIONS",
+            // fix missing default in __config
+            "-D_LIBCPP_HARDENING_MODE_DEFAULT=_LIBCPP_HARDENING_MODE_FAST",
+
+            // building the library
+            "-D_LIBCPP_BUILDING_LIBRARY",
+            "-DLIBCXX_BUILDING_LIBCXXABI",
+            "-D_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER",
+
+            // C++ flags
+            "-fno-exceptions",
+            "-fvisibility=hidden",
+            "-fvisibility-inlines-hidden",
+            "-faligned-allocation",
+            "-nostdinc++",
+            "-std=c++23",
+            "-Wno-user-defined-literals",
+            "-Wno-covered-switch-default",
+            "-Wno-suggest-override",
+
+            // libc++ headers & internals from the Zig installation
+            "-I",
+            "/mnt/user-data/charlie/.zvm/0.15.1/lib/libcxx/include",
+            "-I",
+            "/mnt/user-data/charlie/.zvm/0.15.1/lib/libcxxabi/include",
+            "-I",
+            "/mnt/user-data/charlie/.zvm/0.15.1/lib/libcxx/src",
+            "-I",
+            "/mnt/user-data/charlie/.zvm/0.15.1/lib/libcxx/libc",
+        },
+    });
+
+    return lib;
+}

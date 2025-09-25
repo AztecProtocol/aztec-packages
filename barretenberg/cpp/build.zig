@@ -53,8 +53,8 @@ pub fn build(b: *std.Build) void {
     // Add AVM option
     const enable_avm = b.option(bool, "avm", "Enable Aztec Virtual Machine support") orelse false;
 
-    // Determine current host platform for default build
-    const host_platform = std.fmt.allocPrint(
+    // Determine requested platform for default build.
+    const req_platform = std.fmt.allocPrint(
         b.allocator,
         "{s}-{s}",
         .{ @tagName(target.result.cpu.arch), @tagName(target.result.os.tag) },
@@ -64,16 +64,16 @@ pub fn build(b: *std.Build) void {
     const cross_step = b.step("cross", "Build for all platforms");
 
     for (platforms) |platform| {
+        const is_req = std.mem.eql(u8, platform.name, req_platform);
         if (platform.os == .wasi) {
             // We always default to ReleaseSmall for WASM builds with no AVM.
             // Debug builds are so slow they basically hang.
-            const platform_step = getBuildStepForTarget(b, platform, .ReleaseSmall, false, false);
+            const platform_step = getBuildStepForTarget(b, platform, .ReleaseSmall, false, is_req);
             // We build the wasm reactor for JS.
             addBuildStepForWasmReactor(b, .ReleaseSmall, platform_step);
             cross_step.dependOn(platform_step);
         } else {
-            const is_host = std.mem.eql(u8, platform.name, host_platform);
-            const platform_step = getBuildStepForTarget(b, platform, optimize, enable_avm, is_host);
+            const platform_step = getBuildStepForTarget(b, platform, optimize, enable_avm, is_req);
             cross_step.dependOn(platform_step);
         }
     }
@@ -86,8 +86,6 @@ fn getBuildStepForTarget(
     enable_avm: bool,
     is_host: bool,
 ) *std.Build.Step {
-    const tests_step = if (is_host) b.step("tests", "Build all tests") else null;
-
     const target = b.resolveTargetQuery(.{
         .cpu_arch = platform.arch,
         .os_tag = platform.os,
@@ -103,13 +101,7 @@ fn getBuildStepForTarget(
     const lmdb_lib = deps.buildLmdb(b, target, optimize);
     const gtest_lib = deps.buildGTest(b, target, optimize);
 
-    const libdeflate_dep = b.dependency("libdeflate", .{});
-    const lmdb_dep = b.dependency("lmdb", .{});
-    const gtest_dep = b.dependency("googletest", .{});
-    const msgpack_dep = b.dependency("msgpack", .{});
-
-    // ### LIBRARY #####################################################################################################
-    // libbarretenberg.a
+    // ### BARRETENBERG LIB ############################################################################################
     const lib = b.addLibrary(.{
         .name = "barretenberg",
         .linkage = .static,
@@ -126,13 +118,7 @@ fn getBuildStepForTarget(
         lib.addCSourceFiles(.{ .files = &sources.avm_sources, .flags = flags });
     }
 
-    lib.addIncludePath(b.path("src"));
-    lib.addIncludePath(b.path("src/tracy_stub"));
-    lib.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
-    lib.addIncludePath(msgpack_dep.path("include"));
-    lib.addIncludePath(libdeflate_dep.path("."));
-    lib.addIncludePath(libdeflate_dep.path("lib"));
-    lib.linkLibCpp();
+    addDefaultIncludesAndLinks(b, lib);
 
     const install_lib = b.addInstallArtifact(lib, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
 
@@ -140,8 +126,7 @@ fn getBuildStepForTarget(
         b.getInstallStep().dependOn(&install_lib.step);
     }
 
-    // ### EXECUTABLE ##################################################################################################
-    // bb executable
+    // ### BB EXECUTABLE ###############################################################################################
     const exe = b.addExecutable(.{
         .name = "bb",
         .root_module = b.createModule(.{
@@ -170,7 +155,8 @@ fn getBuildStepForTarget(
             exe.linkSystemLibrary("psapi"); // For process info
         },
         .wasi => {
-            exe.addObjectFile(b.path("zig-out/lib/libcxxfs.a"));
+            const libcxxfs = deps.buildWasmCxxFs(b);
+            exe.linkLibrary(libcxxfs);
 
             exe.libc_file = b.path("wasi-libc-posix.txt");
             exe.wasi_exec_model = .command;
@@ -192,10 +178,17 @@ fn getBuildStepForTarget(
         b.getInstallStep().dependOn(&install.step);
     }
 
+    // Early out of wasm target, as we can't build tests for wasm.
+    if (platform.os == .wasi) {
+        return &exe.step;
+    }
+
     // ### TEST EXECUTABLES ############################################################################################
     // We create a test executable for each test group path, from which we collect all nested .test.cpp files.
     // Start with a global lib of objects that all tests will link to.
     // Includes world state and test utils.
+    const tests_step = if (is_host) b.step("tests", "Build all tests") else null;
+
     const test_lib = b.addLibrary(.{
         .name = "test_util_lib",
         .root_module = b.createModule(.{
@@ -210,15 +203,7 @@ fn getBuildStepForTarget(
         test_lib.addCSourceFiles(.{ .files = &sources.test_avm_util_sources, .flags = flags });
     }
 
-    test_lib.addIncludePath(b.path("src"));
-    test_lib.addIncludePath(b.path("src/tracy_stub"));
-    test_lib.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
-    test_lib.addIncludePath(msgpack_dep.path("include"));
-    test_lib.addIncludePath(libdeflate_dep.path("."));
-    test_lib.addIncludePath(libdeflate_dep.path("lib"));
-    test_lib.addIncludePath(gtest_dep.path("googletest/include"));
-    test_lib.addIncludePath(gtest_dep.path("googlemock/include"));
-    test_lib.linkLibCpp();
+    addTestIncludesAndLinks(b, test_lib);
 
     for (sources.test_group_paths) |test_group_path| {
         // Skip VM2 tests if AVM is not enabled.
@@ -265,15 +250,7 @@ fn getBuildStepForTarget(
 
             test_object.addCSourceFile(.{ .file = b.path(test_file), .flags = flags });
 
-            test_object.addIncludePath(b.path("src"));
-            test_object.addIncludePath(b.path("src/tracy_stub"));
-            test_object.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
-            test_object.addIncludePath(msgpack_dep.path("include"));
-            test_object.addIncludePath(libdeflate_dep.path("."));
-            test_object.addIncludePath(libdeflate_dep.path("lib"));
-            test_object.addIncludePath(gtest_dep.path("googletest/include"));
-            test_object.addIncludePath(gtest_dep.path("googlemock/include"));
-            test_object.linkLibCpp();
+            addTestIncludesAndLinks(b, test_object);
 
             test_exe.addObject(test_object);
         }
@@ -363,7 +340,29 @@ fn addBuildStepForWasmReactor(
     // Add step to gzip the output wasm file to the same file with .gz extension.
     const gzip = b.addSystemCommand(&.{ "gzip", "-k", "-f", b.getInstallPath(.{ .custom = "wasm32-wasi" }, "barretenberg.wasm") });
     gzip.step.dependOn(&install.step);
-    platform_step.dependOn(&gzip.step);
+    // platform_step.dependOn(&gzip.step);
+
+    exe.step.dependOn(platform_step);
+}
+
+fn addDefaultIncludesAndLinks(b: *std.Build, lib: *std.Build.Step.Compile) void {
+    const lmdb_dep = b.dependency("lmdb", .{});
+    const libdeflate_dep = b.dependency("libdeflate", .{});
+    const msgpack_dep = b.dependency("msgpack", .{});
+    lib.addIncludePath(b.path("src"));
+    lib.addIncludePath(b.path("src/tracy_stub"));
+    lib.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
+    lib.addIncludePath(msgpack_dep.path("include"));
+    lib.addIncludePath(libdeflate_dep.path("."));
+    lib.addIncludePath(libdeflate_dep.path("lib"));
+    lib.linkLibCpp();
+}
+
+fn addTestIncludesAndLinks(b: *std.Build, lib: *std.Build.Step.Compile) void {
+    addDefaultIncludesAndLinks(b, lib);
+    const gtest_dep = b.dependency("googletest", .{});
+    lib.addIncludePath(gtest_dep.path("googletest/include"));
+    lib.addIncludePath(gtest_dep.path("googlemock/include"));
 }
 
 fn getFilesEndingWith(b: *std.Build, project_path: []const u8, suffix: []const u8, out: *std.ArrayList([]u8)) void {
