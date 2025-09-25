@@ -1,5 +1,7 @@
 #include "barretenberg/vm2/constraining/prover.hpp"
 
+#include <cstdlib>
+
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
@@ -12,15 +14,12 @@
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/constraining/polynomials.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
-#include <cstdlib>
 
 namespace bb::avm2 {
 
-// TODO(AD): @facundo - tune this value
-// The number of polynomials to compute MSMs for at once. it could be computed heuristically based on a max memory size
-// (maybe that would be the env var?)
+// Maximum number of polynomials to batch commit at once.
 const size_t AVM_MAX_MSM_BATCH_SIZE =
-    getenv("AVM_MAX_MSM_BATCH_SIZE") != nullptr ? std::stoul(getenv("AVM_MAX_MSM_BATCH_SIZE")) : 4;
+    getenv("AVM_MAX_MSM_BATCH_SIZE") != nullptr ? std::stoul(getenv("AVM_MAX_MSM_BATCH_SIZE")) : 32;
 
 using Flavor = AvmFlavor;
 using FF = Flavor::FF;
