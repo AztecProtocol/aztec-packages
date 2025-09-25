@@ -244,26 +244,26 @@ fn getBuildStepForTarget(
         if (test_files.items.len == 0) continue;
 
         // To ensure we build all the test files in parallel with e.g. barretenberg.lib,
-        // we independently compile all the object files first
-        // const test_objects = b.addObject(.{
-        //     .name = b.fmt("{s}_test_objects", .{project_name}),
-        //     .root_module = b.createModule(.{
-        //         .target = target,
-        //         .optimize = optimize,
-        //     }),
-        // });
+        // we compile all the test files into a single fused object first.
+        const test_objects = b.addObject(.{
+            .name = b.fmt("{s}_test_object", .{project_name}),
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+            }),
+        });
 
-        // test_objects.addCSourceFiles(.{ .files = test_files.items, .flags = flags });
+        test_objects.addCSourceFiles(.{ .files = test_files.items, .flags = flags });
 
-        // test_objects.addIncludePath(b.path("src"));
-        // test_objects.addIncludePath(b.path("src/tracy_stub"));
-        // test_objects.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
-        // test_objects.addIncludePath(msgpack_dep.path("include"));
-        // test_objects.addIncludePath(libdeflate_dep.path("."));
-        // test_objects.addIncludePath(libdeflate_dep.path("lib"));
-        // test_objects.addIncludePath(gtest_dep.path("googletest/include"));
-        // test_objects.addIncludePath(gtest_dep.path("googlemock/include"));
-        // test_objects.linkLibCpp();
+        test_objects.addIncludePath(b.path("src"));
+        test_objects.addIncludePath(b.path("src/tracy_stub"));
+        test_objects.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
+        test_objects.addIncludePath(msgpack_dep.path("include"));
+        test_objects.addIncludePath(libdeflate_dep.path("."));
+        test_objects.addIncludePath(libdeflate_dep.path("lib"));
+        test_objects.addIncludePath(gtest_dep.path("googletest/include"));
+        test_objects.addIncludePath(gtest_dep.path("googlemock/include"));
+        test_objects.linkLibCpp();
 
         const test_exe = b.addExecutable(.{
             .name = b.fmt("{s}_tests", .{project_name}),
@@ -274,16 +274,7 @@ fn getBuildStepForTarget(
             }),
         });
 
-        test_exe.addCSourceFiles(.{ .files = test_files.items, .flags = flags });
-
-        test_exe.addIncludePath(b.path("src"));
-        test_exe.addIncludePath(b.path("src/tracy_stub"));
-        test_exe.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
-        test_exe.addIncludePath(msgpack_dep.path("include"));
-        test_exe.addIncludePath(libdeflate_dep.path("."));
-        test_exe.addIncludePath(libdeflate_dep.path("lib"));
-        test_exe.addIncludePath(gtest_dep.path("googletest/include"));
-        test_exe.addIncludePath(gtest_dep.path("googlemock/include"));
+        test_exe.addObject(test_objects);
         test_exe.linkLibrary(lmdb_lib);
         test_exe.linkLibrary(gtest_lib);
         test_exe.linkLibrary(libdeflate_lib);
