@@ -181,6 +181,12 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_honk_proof(
     return proof;
 }
 
+/**
+ * @brief Create a verifiable honk proof for a circuit with a single big add gate. Adds random public inputs to match
+ * num_public_inputs provided
+ *
+ * @param inner_public_inputs_size Number of public inputs coming from the ACIR constraints
+ */
 template <typename Flavor>
 std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construct_honk_proof_for_simple_circuit(
     size_t num_inner_public_inputs)
