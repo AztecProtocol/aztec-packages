@@ -98,6 +98,11 @@ const sidebar = {
         "learn/dev_env_setup/aztec_boilerplate",
       ],
     },
+    {
+      type: "category",
+      label: "5: Smart Contract Development",
+      items: ["learn/contract_development/contract_structure"],
+    },
   ],
 
   nodesSidebar: [
