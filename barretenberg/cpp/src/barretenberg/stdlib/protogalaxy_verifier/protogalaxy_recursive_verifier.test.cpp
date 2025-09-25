@@ -2,12 +2,14 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/test.hpp"
+#include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -62,51 +64,45 @@ class ProtogalaxyRecursiveTests : public testing::Test {
      */
     static void create_function_circuit(InnerBuilder& builder, size_t log_num_gates = 10)
     {
-        using fr_ct = typename InnerCurve::ScalarField;
-        using fq_ct = stdlib::bigfield<InnerBuilder, typename InnerCurve::BaseFieldNative::Params>;
-        using public_witness_ct = typename InnerCurve::public_witness_ct;
-        using witness_ct = typename InnerCurve::witness_ct;
+        using Fr = typename InnerCurve::ScalarField;
+        using Fq = stdlib::bigfield<InnerBuilder, typename InnerCurve::BaseFieldNative::Params>;
         using byte_array_ct = typename InnerCurve::byte_array_ct;
-        using fr = typename InnerCurve::ScalarFieldNative;
+        using FrNative = typename InnerCurve::ScalarFieldNative;
 
         // Create 2^log_n many add gates based on input log num gates
-        const size_t num_gates = 1 << log_num_gates;
-        for (size_t i = 0; i < num_gates; ++i) {
-            fr a = fr::random_element(&engine);
-            uint32_t a_idx = builder.add_variable(a);
+        MockCircuits::add_arithmetic_gates(builder, 1 << log_num_gates);
 
-            fr b = fr::random_element(&engine);
-            fr c = fr::random_element(&engine);
-            fr d = a + b + c;
-            uint32_t b_idx = builder.add_variable(b);
-            uint32_t c_idx = builder.add_variable(c);
-            uint32_t d_idx = builder.add_variable(d);
+        // Create ecc gates
+        GoblinMockCircuits::add_some_ecc_op_gates(builder);
 
-            builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
-        }
-
-        // Define some additional non-trivial but arbitrary circuit logic
-        fr_ct a(public_witness_ct(&builder, fr::random_element(&engine)));
-        fr_ct b(public_witness_ct(&builder, fr::random_element(&engine)));
-        fr_ct c(public_witness_ct(&builder, fr::random_element(&engine)));
+        // Arbitrary non-trivial arithmetic logic
+        Fr a = Fr::from_witness(&builder, FrNative::random_element(&engine));
+        Fr b = Fr::from_witness(&builder, FrNative::random_element(&engine));
+        Fr c = Fr::from_witness(&builder, FrNative::random_element(&engine));
 
         for (size_t i = 0; i < 32; ++i) {
             a = (a * b) + b + a;
             a = a.madd(b, c);
         }
-        pedersen_hash<InnerBuilder>::hash({ a, b });
+
+        // Pedersen hash
+        [[maybe_unused]] auto ped_hash = pedersen_hash<InnerBuilder>::hash({ a, b });
+
+        // Blake hash
         byte_array_ct to_hash(&builder, "nonsense test data");
-        stdlib::Blake3s<InnerBuilder>::hash(to_hash);
+        [[maybe_unused]] auto blake_hash = stdlib::Blake3s<InnerBuilder>::hash(to_hash);
 
-        fr bigfield_data = fr::random_element(&engine);
-        fr bigfield_data_a{ bigfield_data.data[0], bigfield_data.data[1], 0, 0 };
-        fr bigfield_data_b{ bigfield_data.data[2], bigfield_data.data[3], 0, 0 };
+        // Bigfield arithmetic
+        FrNative bigfield_data = FrNative::random_element(&engine);
+        FrNative bigfield_data_a{ bigfield_data.data[0], bigfield_data.data[1], 0, 0 };
+        FrNative bigfield_data_b{ bigfield_data.data[2], bigfield_data.data[3], 0, 0 };
 
-        fq_ct big_a(fr_ct(witness_ct(&builder, bigfield_data_a.to_montgomery_form())), fr_ct(witness_ct(&builder, 0)));
-        fq_ct big_b(fr_ct(witness_ct(&builder, bigfield_data_b.to_montgomery_form())), fr_ct(witness_ct(&builder, 0)));
+        Fq big_a(Fr::from_witness(&builder, bigfield_data_a.to_montgomery_form()), Fr::from_witness(&builder, 0));
+        Fq big_b(Fr::from_witness(&builder, bigfield_data_b.to_montgomery_form()), Fr::from_witness(&builder, 0));
 
-        big_a* big_b;
+        [[maybe_unused]] Fq result = big_a * big_b;
 
+        // Add default IO
         stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(builder);
     };
 
@@ -154,30 +150,30 @@ class ProtogalaxyRecursiveTests : public testing::Test {
      * evaluating in Polynomial class.
      *
      */
-    static void test_new_evaluate()
+    static void test_evaluate_perturbator()
     {
         OuterBuilder builder;
-        using fr_ct = typename bn254<OuterBuilder>::ScalarField;
-        using fr = typename bn254<OuterBuilder>::ScalarFieldNative;
+        using Fr = typename bn254<OuterBuilder>::ScalarField;
+        using FrNative = typename bn254<OuterBuilder>::ScalarFieldNative;
 
-        std::vector<fr> coeffs;
-        std::vector<fr_ct> coeffs_ct;
+        std::vector<FrNative> native_coeffs;
+        std::vector<Fr> coeffs;
         for (size_t idx = 0; idx < 8; idx++) {
             auto el = fr::random_element(&engine);
-            coeffs.emplace_back(el);
-            coeffs_ct.emplace_back(fr_ct(&builder, el));
+            native_coeffs.emplace_back(el);
+            coeffs.emplace_back(Fr(&builder, el));
         }
-        Polynomial<fr> poly(coeffs);
-        fr point = fr::random_element(&engine);
-        fr_ct point_ct(fr_ct(&builder, point));
-        auto res1 = poly.evaluate(point);
+        Polynomial<FrNative> poly(native_coeffs);
+        FrNative native_point = FrNative::random_element(&engine);
+        Fr point = Fr::from_witness(&builder, native_point);
+        auto res1 = poly.evaluate(native_point);
 
-        auto res2 = evaluate_perturbator(coeffs_ct, point_ct);
+        auto res2 = evaluate_perturbator(coeffs, point);
         EXPECT_EQ(res1, res2.get_value());
     };
 
     /**
-     * @brief Tests that a valid recursive fold  works as expected.
+     * @brief Tests that a valid recursive fold works as expected.
      *
      */
     static void test_recursive_folding(const size_t num_verifiers = 1)
@@ -532,9 +528,9 @@ TEST_F(ProtogalaxyRecursiveTests, InnerCircuit)
     ProtogalaxyRecursiveTests::test_circuit();
 }
 
-TEST_F(ProtogalaxyRecursiveTests, NewEvaluate)
+TEST_F(ProtogalaxyRecursiveTests, EvaluatePerturbator)
 {
-    ProtogalaxyRecursiveTests::test_new_evaluate();
+    ProtogalaxyRecursiveTests::test_evaluate_perturbator();
 }
 
 TEST_F(ProtogalaxyRecursiveTests, RecursiveFoldingTest)
