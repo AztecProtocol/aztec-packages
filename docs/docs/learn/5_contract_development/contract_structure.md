@@ -5,8 +5,6 @@ sidebar_position: 1
 tags: [contracts, noir, development, smart contracts]
 ---
 
-<!-- TODO: Review and update -->
-
 Welcome to the world of Aztec smart contract development! In this section, you'll learn how Aztec contracts are structured and organized. Think of this as learning the grammar of a new language - once you understand the basic structure, everything else will start to click into place.
 
 ## What You'll Learn
@@ -28,6 +26,7 @@ Let's dive in!
 Every Aztec smart contract starts with the `contract` keyword. This is similar to how Solidity contracts use `contract` or Rust programs use `mod`, but with some Aztec-specific magic happening behind the scenes.
 
 ```rust
+#[aztec]
 contract MyFirstContract {
     // Your contract code goes here
 }
@@ -40,6 +39,7 @@ Notice the naming convention - we use `PascalCase` for contract names. This isn'
 Here's what a typical Aztec contract looks like:
 
 ```rust
+#[aztec]
 contract TodoList {
     // 1. Imports - bringing in dependencies
     use aztec::{
@@ -48,17 +48,18 @@ contract TodoList {
 
     // 2. Storage - defining persistent state
     #[storage]
-    struct Storage {
-        todos: Map<Field, TodoItem>,
-        owner: PublicMutable<Address>,
+    struct Storage<Context> {
+        todos: Map<Field, PrivateSet<TodoItem, Context>, Context>,
+        owner: PublicMutable<AztecAddress, Context>,
     }
 
-    // 3. Custom Types - defining your own structs
+    // 3. Custom Types - defining your own private state types
     #[note]
     struct TodoItem {
         title: Field,
         completed: bool,
         owner: AztecAddress,
+        randomness: Field,
     }
 
     // 4. Functions - the contract's behavior
@@ -89,15 +90,16 @@ Here's where Aztec gets interesting! Unlike Ethereum where all storage is public
 
 ```rust
 #[storage]
-struct Storage {
+struct Storage<Context> {
     // Public state - visible to everyone
-    total_supply: PublicMutable<Field>,
+    total_supply: PublicMutable<Field, Context>,
 
     // Private state - only visible to authorized parties
-    balances: Map<AztecAddress, PrivateSet<TokenNote>>,
+    balances: Map<AztecAddress, PrivateSet<TokenNote, Context>, Context>,
 
     // Shared state - can be read publicly but written privately
-    admin: PublicMutable<AztecAddress>,
+    // This is an advanced feature that we'll cover in a future section
+    admin: DelayedPublicMutable<AztecAddress, DELAY, Context>,
 }
 ```
 
@@ -116,15 +118,18 @@ Aztec provides several storage primitives:
 - **PublicMutable**: Public state that can be modified
 - **PublicImmutable**: Public state that's set once and never changes
 - **PrivateSet**: A collection of private notes
+- **PrivateMutable**: Private state that can be modified
+- **PrivateImmutable**: Private state that's set once and never changes
+- **DelayedPublicMutable**: Public state that can be read in private and modified in public with a delay, so there are guarantees that the value will not change before a certain time
 - **Map**: Key-value mappings (can be public or private)
 
 We'll explore these in detail in the next section, but for now, just know that you have options!
 
-## 3. Functions: Where the Magic Happens
+## 3. Functions
 
 ### Function Types and Attributes
 
-Aztec functions come in different flavors, each with its own superpower. Let's explore them:
+Aztec functions come in different flavors, each with its own features. Let's explore them:
 
 ### Private Functions (`#[private]`)
 
@@ -132,18 +137,14 @@ Private functions are the heart of Aztec's privacy model. They execute on the us
 
 ```rust
 #[private]
-fn transfer_privately(to: AztecAddress, amount: Field) {
-    // This runs on YOUR device
+fn increment_counter(to: AztecAddress) {
+    // This runs on the user's device
     // The network only sees a proof that it happened correctly
-    let sender_balance = storage.balances.at(context.msg_sender());
-    sender_balance.subtract(amount);
-
-    let recipient_balance = storage.balances.at(to);
-    recipient_balance.add(amount);
+    storage.counters.at(to).add(1, to);
 }
 ```
 
-Why is this powerful? Your balance changes, transaction amounts, and even who you're sending to remain private. The network only knows that a valid transaction occurred!
+Why is this powerful? The counter changes, and even who you're sending to remain private. The network only knows that a valid transaction occurred!
 
 ### Public Functions (`#[public]`)
 
@@ -173,7 +174,7 @@ fn get_total_supply() -> Field {
 }
 ```
 
-The `#[view]` attribute guarantees this function won't modify any state - perfect for queries!
+The `#[view]` attribute guarantees this function won't modify any state - perfect for queries from other contracts!
 
 ### Utility Functions (`#[utility]`)
 
@@ -199,9 +200,6 @@ Every contract needs setup. Initializer functions are like constructors:
 fn constructor(initial_supply: Field, admin: AztecAddress) {
     storage.total_supply.write(initial_supply);
     storage.admin.write(admin);
-
-    // This ensures the constructor can only be called once
-    mark_as_initialized(&mut context);
 }
 ```
 
@@ -209,7 +207,7 @@ Key points about initializers:
 
 - A contract can have multiple initializer functions defined
 - Only ONE should be called during the contract's lifetime
-- Other functions can't be called until initialization is complete
+- Other functions can't be called until initialization is complete, unless they are marked with `#[noinitcheck]`
 
 ### Internal Functions (`#[internal]`)
 
@@ -217,13 +215,14 @@ Sometimes you want a function that only your contract can call:
 
 ```rust
 #[internal]
+#[private]
 fn update_admin(new_admin: AztecAddress) {
     // Only callable by the contract itself
     storage.admin.write(new_admin);
 }
 ```
 
-This is useful when you want private functions to trigger public state changes indirectly.
+This essentially asserts that the `msg_sender` is the contract itself, so this is useful when you want private functions to trigger state changes indirectly.
 
 ## 4. Custom Types: Building Your Data Structures
 
@@ -231,12 +230,14 @@ This is useful when you want private functions to trigger public state changes i
 
 Notes are fundamental to Aztec's privacy model. Think of them as private pieces of data that only specific people can see:
 
+For example, if you want to store a value in private state, you can use the `ValueNote` type (from the `Aztec.nr` package):
+
 ```rust
 #[note]
-struct TokenNote {
-    amount: Field,
+pub struct ValueNote {
+    value: Field,
     owner: AztecAddress,
-    randomness: Field,  // Ensures each note is unique
+    randomness: Field,
 }
 ```
 
@@ -250,7 +251,7 @@ Don't worry if this seems abstract now - we'll dive deep into notes in the priva
 
 ## Understanding the Execution Context
 
-Every function in Aztec has access to a `context` object. This is like having a GPS and a Swiss Army knife combined:
+Every function in Aztec has access to a `context` object.
 
 ```rust
 #[private]
@@ -273,7 +274,7 @@ The context provides:
 - **Chain information** - Which network are we on?
 - **Transaction details** - Gas prices, limits
 
-The context differs between private and public functions, but the API is unified - making it easy to work with both!
+The context differs between private and public functions, but the API is unified - making it easy to work with both! Note that there is different information in the context for private and public functions.
 
 ## Project Organization
 
@@ -301,7 +302,8 @@ Pro tips:
 ### Pattern 1: Access Control
 
 ```rust
-#[private]
+#[public]
+#[internal]
 fn admin_only_action() {
     let admin = storage.admin.read();
     assert(context.msg_sender() == admin, "Not authorized");
@@ -341,39 +343,11 @@ Now that you understand contract structure, let's practice:
 3. **Define a custom note type** for your use case
 4. **Write an initializer** that sets up initial state
 
-Here's a starter template:
-
-```rust
-contract MyLearningContract {
-    use aztec::prelude::*;
-
-    #[storage]
-    struct Storage {
-        // Add your storage here
-    }
-
-    #[initializer]
-    fn constructor() {
-        // Initialize your contract
-    }
-
-    // Add your functions here
-}
-```
-
 ## Common Pitfalls and How to Avoid Them
 
-### Pitfall 1: Forgetting Function Visibility
-
-If you don't specify `#[internal]`, your function is callable by anyone! Always think about who should be able to call each function.
-
-### Pitfall 2: Mixing Private and Public State Incorrectly
+### Mixing Private and Public State Incorrectly
 
 Remember: Private functions can't directly modify public state. They need to enqueue public function calls.
-
-### Pitfall 3: Not Initializing Storage
-
-Always include an initializer function, even if it's empty. Other functions won't work until the contract is initialized!
 
 ## Key Takeaways
 
