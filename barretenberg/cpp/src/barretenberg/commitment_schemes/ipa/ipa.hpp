@@ -596,12 +596,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     static bool full_verify_recursive(const VK& vk, const OpeningClaim<Curve>& opening_claim, auto& transcript)
         requires Curve::is_stdlib_type
     {
-        const bool test_flag = true;
-        if (test_flag) {
+        const bool refactor = true;
+        if (refactor) {
             auto accumulated_claim = reduce_verify_internal_recursive(opening_claim, transcript);
             auto round_challenges_inv = accumulated_claim.u_challenges_inv;
-            auto claimed_G_zero = accumulated_claim.comm;
-            // Step 5.
+            auto claimed_G_zero = transcript->template receive_from_prover<Commitment>("IPA:G_0");
+
             // Construct vector s, whose rth entry is ∏ (u_i)^{-1 * r_i}, where (r_i) is the binary expansion of r. This
             // is required to _compute_ G_zero (rather than just passively receive G_zero from the Prover). We implement
             // a linear-time algorithm to optimally compute this vector
