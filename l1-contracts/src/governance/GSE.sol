@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {Bn254LibWrapper} from "@aztec/governance/Bn254LibWrapper.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
@@ -10,7 +11,7 @@ import {
   DepositDelegationLib, DepositAndDelegationAccounting
 } from "@aztec/governance/libraries/DepositDelegationLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
@@ -38,6 +39,7 @@ interface IGSECore {
   event Deposit(address indexed instance, address indexed attester, address withdrawer);
 
   function setGovernance(Governance _governance) external;
+  function setProofOfPossessionGasLimit(uint64 _proofOfPossessionGasLimit) external;
   function addRollup(address _rollup) external;
   function deposit(
     address _attester,
@@ -172,6 +174,9 @@ contract GSECore is IGSECore, Ownable {
    */
   address public constant BONUS_INSTANCE_ADDRESS = address(uint160(uint256(keccak256("bonus-instance"))));
 
+  // External wrapper of the BN254 library to more easily allow gas limits.
+  Bn254LibWrapper internal immutable BN254_LIB_WRAPPER = new Bn254LibWrapper();
+
   // The amount of ASSET needed to add an attester to the set
   uint256 public immutable ACTIVATION_THRESHOLD;
 
@@ -208,6 +213,18 @@ contract GSECore is IGSECore, Ownable {
   DepositAndDelegationAccounting internal delegation;
   Governance internal governance;
 
+  // Gas limit for proof of possession validation.
+  //
+  // Must exceed the happy path gas consumption to ensure deposits succeed.
+  // Acts as a cap on unhappy path gas usage to prevent excessive consumption.
+  //
+  // - Happy path average: 140K gas
+  // - Buffer: 60K gas (~40% margin)
+  //
+  // WARNING: If set below happy path requirements, all deposits will fail.
+  // Governance can adjust this value via proposal.
+  uint64 public proofOfPossessionGasLimit = 200_000;
+
   /**
    * @dev enforces that the caller is a registered rollup.
    */
@@ -238,6 +255,10 @@ contract GSECore is IGSECore, Ownable {
   function setGovernance(Governance _governance) external override(IGSECore) onlyOwner {
     require(address(governance) == address(0), Errors.GSE__GovernanceAlreadySet());
     governance = _governance;
+  }
+
+  function setProofOfPossessionGasLimit(uint64 _proofOfPossessionGasLimit) external override(IGSECore) onlyOwner {
+    proofOfPossessionGasLimit = _proofOfPossessionGasLimit;
   }
 
   /**
@@ -618,8 +639,12 @@ contract GSECore is IGSECore, Ownable {
     require((!ownedPKs[hashedIncomingPoint]), Errors.GSE__ProofOfPossessionAlreadySeen(hashedIncomingPoint));
     ownedPKs[hashedIncomingPoint] = true;
 
+    // We validate the proof of possession using an external contract to limit gas potentially "sacrificed"
+    // in case of failure.
     require(
-      BN254Lib.proofOfPossession(_publicKeyInG1, _publicKeyInG2, _proofOfPossession),
+      BN254_LIB_WRAPPER.proofOfPossession{gas: proofOfPossessionGasLimit}(
+        _publicKeyInG1, _publicKeyInG2, _proofOfPossession
+      ),
       Errors.GSE__InvalidProofOfPossession()
     );
   }
@@ -652,7 +677,7 @@ contract GSE is IGSE, GSECore {
    * @return The registration digest of the public key. Sign and submit as a proof of possession.
    */
   function getRegistrationDigest(G1Point memory _publicKey) external view override(IGSE) returns (G1Point memory) {
-    return BN254Lib.g1ToDigestPoint(_publicKey);
+    return BN254_LIB_WRAPPER.g1ToDigestPoint(_publicKey);
   }
 
   function getConfig(address _attester) external view override(IGSE) returns (AttesterConfig memory) {
