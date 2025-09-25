@@ -203,7 +203,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   SEQUENCER: [
     {
       flag: '--sequencer',
-      description: 'Starts Aztec Sequencer with options',
+      description: 'Starts an Aztec Sequencer node with options',
       defaultValue: undefined,
       env: undefined,
     },

@@ -376,16 +376,16 @@ If two subsystems can contain the same configuration option, only one needs to b
           How many L2 slots an epoch lasts (maximum AZTEC_MAX_EPOCH_DURATION).
 
     --archiver.aztecTargetCommitteeSize <value>                    (default: 48)                                                 ($AZTEC_TARGET_COMMITTEE_SIZE)
-          The target validator committee size.
+          The target sequencer committee size.
 
     --archiver.aztecProofSubmissionEpochs <value>                  (default: 1)                                                  ($AZTEC_PROOF_SUBMISSION_EPOCHS)
           The number of epochs after an epoch ends that proofs are still accepted.
 
     --archiver.activationThreshold <value>                               (default: 100000000000000000000)                              ($AZTEC_ACTIVATION_THRESHOLD)
-          The deposit amount for a validator
+          The deposit amount for a sequencer.
 
     --archiver.ejectionThreshold <value>                                (default: 50000000000000000000)                               ($AZTEC_EJECTION_THRESHOLD)
-          The minimum stake for a validator.
+          The minimum stake for a sequencer.
 
     --archiver.slashingQuorum <value>                              (default: 101)                                                ($AZTEC_SLASHING_QUORUM)
           The slashing quorum
@@ -406,7 +406,7 @@ If two subsystems can contain the same configuration option, only one needs to b
           The proving cost per mana
 
     --archiver.exitDelaySeconds <value>                            (default: 172800)                                             ($AZTEC_EXIT_DELAY_SECONDS)
-          The delay before a validator can exit the set
+          The delay before a sequencer can exit the set
 
     --archiver.gasLimitBufferPercentage <value>                    (default: 20)                                                 ($L1_GAS_LIMIT_BUFFER_PERCENTAGE)
           How much to increase calculated gas limit by (percentage)
@@ -447,13 +447,13 @@ If two subsystems can contain the same configuration option, only one needs to b
   SEQUENCER
 
     --sequencer
-          Starts Aztec Sequencer with options
+          Starts an Aztec Sequencer node with options
 
     --sequencer.validatorPrivateKeys <value>                       (default: [Redacted])                                         ($VALIDATOR_PRIVATE_KEYS)
-          List of private keys of the validators participating in attestation duties
+          The attesting sequencers that are operated by this sequencer node
 
     --sequencer.disableValidator <value>                                                                                          ($VALIDATOR_DISABLED)
-          Do not run the validator
+          Disable sequencer attesting
 
     --sequencer.attestationPollingIntervalMs <value>               (default: 200)                                                ($VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS)
           Interval between polling for new attestations

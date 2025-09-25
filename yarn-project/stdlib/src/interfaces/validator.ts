@@ -23,7 +23,7 @@ export interface ValidatorClientConfig {
   /** The addresses of the validators to use with remote signers */
   validatorAddresses?: EthAddress[];
 
-  /** Do not run the validator */
+  /** Disable sequencer attesting */
   disableValidator: boolean;
 
   /** Temporarily disable these specific validator addresses */

@@ -209,9 +209,9 @@ aztec start --port 8081 --pxe --pxe.nodeUrl=$BOOTNODE --pxe.proverEnabled true -
 - `--archiver.ethereum-slot-duration <value>`: How many seconds an L1 slot lasts (default: 12).
 - `--archiver.aztec-slot-duration <value>`: How many seconds an L2 slots lasts (must be multiple of ethereum slot duration) (default: 24).
 - `--archiver.aztec-epoch-duration <value>`: How many L2 slots an epoch lasts (maximum AZTEC_MAX_EPOCH_DURATION) (default: 16).
-- `--archiver.aztec-target-committee-size <value>`: The target validator committee size (default: 48).
+- `--archiver.aztec-target-committee-size <value>`: The target sequencer committee size (default: 48).
 - `--archiver.aztec-proof-submission-window <value>`: The number of L2 slots that a proof for an epoch can be submitted in, starting from the beginning of the epoch (default: 31).
-- `--archiver.minimum-stake <value>`: The minimum stake for a validator (default: 100000000000000000000).
+- `--archiver.minimum-stake <value>`: The minimum stake for a sequencer (default: 100000000000000000000).
 - `--archiver.slashing-quorum <value>`: The slashing quorum (default: 6).
 - `--archiver.slashing-round-size <value>`: The slashing round size (default: 10).
 - `--archiver.governance-proposer-quorum <value>`: The governance proposing quorum (default: 51).
@@ -241,8 +241,8 @@ aztec start --port 8081 --pxe --pxe.nodeUrl=$BOOTNODE --pxe.proverEnabled true -
 - `-p2p, --p2p-bootstrap [options]`: Starts the P2P Bootstrap node with specified options.
 - `-t, --txe [options]`: Starts the TXE (Test eXecution Environment) with specified options.
 - `--faucet [options]`: Starts the Aztec faucet service with specified options.
-- `--sequencer.validator-private-key <value>`: The private key of the validator participating in attestation duties.
-- `--sequencer.disable-validator <value>`: Do not run the validator.
+- `--sequencer.validator-private-key <value>`: The private key that the sequencer uses to participate in attestation duties.
+- `--sequencer.disable-validator <value>`: Disable sequencer attesting.
 - `--sequencer.attestation-polling-interval-ms <value>`: Interval between polling for new attestations (default: 200).
 - `--sequencer.validator-reexecute <value>`: Re-execute transactions before attesting (default: true).
 - `--sequencer.transaction-polling-interval-ms <value>`: The number of ms to wait between polling for pending txs (default: 500).
@@ -580,7 +580,7 @@ Options:
 
 - `--l1-rpc-urls <string>`: List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://host.docker.internal:8545"], env: ETHEREUM_HOSTS)
 - `-pk, --private-key <string>`: The private key to use for deployment
-- `--validators <string>`: Comma separated list of validators
+- `--validators <string>`: Comma separated list of attestors
 - `-m, --mnemonic <string>`: The mnemonic to use in deployment (default: "test test test test test test test test test test test junk")
 - `-i, --mnemonic-index <number>`: The index of the mnemonic to use in deployment (default: 0)
 - `-c, --l1-chain-id <number>`: Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
@@ -621,7 +621,7 @@ Options:
 - `-r, --registry-address <string>`: The address of the registry contract
 - `--l1-rpc-urls <string>`: List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://host.docker.internal:8545"], env: ETHEREUM_HOSTS)
 - `-pk, --private-key <string>`: The private key to use for deployment
-- `--validators <string>`: Comma separated list of validators
+- `--validators <string>`: Comma separated list of attestors
 - `-m, --mnemonic <string>`: The mnemonic to use in deployment (default: "test test test test test test test test test test test junk")
 - `-i, --mnemonic-index <number>`: The index of the mnemonic to use in deployment (default: 0)
 - `-c, --l1-chain-id <number>`: Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
