@@ -412,8 +412,10 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
                                                                           const std::optional<AffineElement> hint) const
 {
     // This method should not be called on known points at infinity
-    ASSERT(!this->is_constant_point_at_infinity(), "_unconditional_add_or_subtract called with lhs at infinity");
-    ASSERT(!other.is_constant_point_at_infinity(), "_unconditional_add_or_subtract called with rhs at infinity");
+    ASSERT(!this->is_constant_point_at_infinity(),
+           "cycle_group::_unconditional_add_or_subtract called on constant point at infinity");
+    ASSERT(!other.is_constant_point_at_infinity(),
+           "cycle_group::_unconditional_add_or_subtract called on constant point at infinity");
 
     auto context = get_context(other);
 
@@ -451,8 +453,6 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
     cycle_group result;
     if (lhs_constant && rhs_constant) {
         result = cycle_group(x3, y3, /*is_infinity=*/false);
-        // Merge the origin tags from both inputs
-        result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     } else {
         // Both points are witnesses - create result witness and construct ECC add constraint
         result = cycle_group(witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false);
@@ -466,10 +466,10 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
             .y3 = result.y.get_witness_index(),
             .sign_coefficient = is_addition ? 1 : -1,
         });
-
-        // Merge the origin tags from both inputs
-        result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     }
+
+    // Merge the origin tags from both inputs
+    result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
 
     return result;
 }
@@ -650,7 +650,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     if ((y1.is_constant() && y2.is_constant()) || x_diff.is_constant()) {
         lambda = (-y2 - y1).divide_no_zero_check(x_diff);
     } else {
-        // Note: branch saves one gate vs just using divide_no_zero_check because we avoid computing y2 - y1 in circuit
+        // Note: branch saves one gate vs using divide_no_zero_check because we avoid computing (-y2 - y1) in circuit
         lambda = field_t::from_witness(context, (-y2.get_value() - y1.get_value()) / x_diff.get_value());
         // We need to manually propagate the origin tag
         lambda.set_origin_tag(OriginTag(x_diff.get_origin_tag(), y1.get_origin_tag(), y2.get_origin_tag()));
@@ -665,6 +665,9 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     const cycle_group dbl_result = dbl();
 
     // If the subtraction amounts to a doubling then the result is the doubling result, else the subtraction result.
+    // AUDITTODO: The assumption here is that is y1 != y2 implies y1 == -y2. This is only true if the points are
+    // guaranteed to be on the curve. Ideally we can ensure that on-curve checks are applied to all cycle_group
+    // elements, otherwise we may need to be more precise with these predicates.
     const bool_t double_predicate = (x_coordinates_match && !y_coordinates_match);
     auto result_x = field_t::conditional_assign(double_predicate, dbl_result.x, sub_result.x);
     auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, sub_result.y);
