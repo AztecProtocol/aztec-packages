@@ -126,16 +126,18 @@ template <typename Flavor> class SumcheckProverRound {
                       const ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
                       const size_t edge_idx)
     {
+        BB_BENCH_NAME("extend_edges");
         for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
             if constexpr (Flavor::USE_SHORT_MONOMIALS) {
                 BB_BENCH_NAME("Reconstruct univariate when USE_SHORT_MONOMIALS");
                 extended_edge = bb::Univariate<FF, 2>({ multivariate[edge_idx], multivariate[edge_idx + 1] });
             } else {
                 if (multivariate.end_index() < edge_idx) {
+                    BB_BENCH_NAME("Zero univariate");
                     static const auto zero_univariate = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>::zero();
                     extended_edge = zero_univariate;
                 } else {
-                    BB_BENCH_NAME("Reconstruct univariate");
+                    BB_BENCH_NAME("Construct univariate + extend_to");
                     bb::Univariate<FF, 2> univariate({ multivariate[edge_idx], multivariate[edge_idx + 1] });
                     {
                         BB_BENCH_NAME("extend_to");
@@ -276,10 +278,7 @@ template <typename Flavor> class SumcheckProverRound {
                 size_t start = (chunk_idx * chunk_size) + (thread_idx * chunk_thread_portion_size);
                 size_t end = (chunk_idx * chunk_size) + ((thread_idx + 1) * chunk_thread_portion_size);
                 for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
-                    {
-                        BB_BENCH_NAME("extend_edges in compute_univariate_with_chunking");
-                        extend_edges(extended_edges, polynomials, edge_idx);
-                    }
+                    extend_edges(extended_edges, polynomials, edge_idx);
                     // Compute the \f$ \ell \f$-th edge's univariate contribution,
                     // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for
                     // \f$ \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$
