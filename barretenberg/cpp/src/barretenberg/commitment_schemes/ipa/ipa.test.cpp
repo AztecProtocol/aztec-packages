@@ -41,80 +41,128 @@ class IPATest : public CommitmentTest<Curve> {
         ck = create_commitment_key<CK>(n);
         vk = create_verifier_commitment_key<VK>();
     }
+
+    struct ResultOfProveVerify {
+        bool result;
+        std::shared_ptr<NativeTranscript> prover_transcript;
+        std::shared_ptr<NativeTranscript> verifier_transcript;
+    };
+
+    static ResultOfProveVerify run_native_prove_verify(const Polynomial& poly, const Fr x)
+    {
+        Commitment commitment = ck.commit(poly);
+        auto eval = poly.evaluate(x);
+        const OpeningPair<Curve> opening_pair = { x, eval };
+        const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
+
+        // initialize empty prover transcript
+        auto prover_transcript = std::make_shared<NativeTranscript>();
+        PCS::compute_opening_proof(ck, { poly, opening_pair }, prover_transcript);
+
+        // initialize verifier transcript from proof data
+        auto verifier_transcript = std::make_shared<NativeTranscript>();
+        verifier_transcript->load_proof(prover_transcript->export_proof());
+        // the native reduce_verify does a _complete_ IPA proof and returns whether or not the checks pass.
+        bool result = PCS::reduce_verify(vk, opening_claim, verifier_transcript);
+        return { result, prover_transcript, verifier_transcript };
+    }
 };
 } // namespace
 
 #define IPA_TEST
 #include "ipa.hpp"
 
+// Commit Tests: below are several tests to make sure commitment is correct.
+//
+// Commit to a polynomial that is non-zero but has many zero coefficients
 TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
 {
-    constexpr size_t n = 4;
+    constexpr size_t n = 16;
     Polynomial p(n);
     for (size_t i = 0; i < n - 1; i++) {
         p.at(i) = Fr::zero();
     }
-    p.at(3) = Fr::one();
+    p.at(3) = this->random_element();
     GroupElement commitment = ck.commit(p);
     auto srs_elements = ck.srs->get_monomial_points();
     GroupElement expected = srs_elements[0] * p[0];
-    // The SRS stored in the commitment key is the result after applying the pippenger point table so the
-    // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
-    // G_vec_local should use only the original SRS thus we extract only the even indices.
     for (size_t i = 1; i < n; i += 1) {
         expected += srs_elements[i] * p[i];
     }
     EXPECT_EQ(expected.normalize(), commitment.normalize());
 }
-
-// This test checks that we can correctly open a zero polynomial. Since we often have point at infinity troubles, it
-// detects those.
-TEST_F(IPATest, OpenZeroPolynomial)
+// Commit to zero poly
+TEST_F(IPATest, CommitToZeroPoly)
 {
     Polynomial poly(n);
-    // Commit to a zero polynomial
     Commitment commitment = ck.commit(poly);
     EXPECT_TRUE(commitment.is_point_at_infinity());
 
-    auto [x, eval] = this->random_eval(poly);
+    auto x = this->random_element();
+    auto eval = poly.evaluate(x);
     EXPECT_EQ(eval, Fr::zero());
-    const OpeningPair<Curve> opening_pair = { x, eval };
-    const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
+}
+// Commit to a random poly
+TEST_F(IPATest, Commit)
+{
+    auto poly = Polynomial::random(n);
+    const GroupElement commitment = ck.commit(poly);
+    auto srs_elements = ck.srs->get_monomial_points();
+    GroupElement expected = srs_elements[0] * poly[0];
+    for (size_t i = 1; i < n; ++i) {
+        expected += srs_elements[i] * poly[i];
+    }
+    EXPECT_EQ(expected.normalize(), commitment.normalize());
+}
 
-    // initialize empty prover transcript
-    auto prover_transcript = std::make_shared<NativeTranscript>();
-    PCS::compute_opening_proof(ck, { poly, opening_pair }, prover_transcript);
-
-    // initialize verifier transcript from proof data
-    auto verifier_transcript = std::make_shared<NativeTranscript>();
-    verifier_transcript->load_proof(prover_transcript->export_proof());
-
-    bool result = PCS::reduce_verify(vk, opening_claim, verifier_transcript);
+// Opening tests, i.e., check completeness for prove-and-verify.
+//
+// poly is zero, point is random
+TEST_F(IPATest, OpenZeroPolynomial)
+{
+    Polynomial poly(n);
+    auto x = this->random_element();
+    bool result = run_native_prove_verify(poly, x).result;
     EXPECT_TRUE(result);
 }
 
-// This test makes sure that even if the whole vector \vec{b} generated from the x, at which we open the polynomial,
-// is zero, IPA behaves
+TEST_F(IPATest, OpenManyZerosPolynomial)
+{
+    // polynomial with zero odd coefficients and random even coefficients
+    Polynomial poly_even(n);
+    // polynomial with zero even coefficients and random odd coefficients
+    Polynomial poly_odd(n);
+    for (size_t i = 0; i < n / 2; ++i) {
+        poly_even.at(2 * i) = this->random_element();
+        poly_odd.at(2 * i + 1) = this->random_element();
+    }
+    auto x = this->random_element();
+    bool result_even = run_native_prove_verify(poly_even, x).result;
+    bool result_odd = run_native_prove_verify(poly_odd, x).result;
+    EXPECT_TRUE(result_even && result_odd);
+}
+
+// poly is random, point is zero
 TEST_F(IPATest, OpenAtZero)
 {
     // generate a random polynomial, degree needs to be a power of two
     auto poly = Polynomial::random(n);
     const Fr x = Fr::zero();
-    const Fr eval = poly.evaluate(x);
-    const Commitment commitment = ck.commit(poly);
-    const OpeningPair<Curve> opening_pair = { x, eval };
-    const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
-
-    // initialize empty prover transcript
-    auto prover_transcript = std::make_shared<NativeTranscript>();
-    PCS::compute_opening_proof(ck, { poly, opening_pair }, prover_transcript);
-
-    // initialize verifier transcript from proof data
-    auto verifier_transcript = std::make_shared<NativeTranscript>();
-    verifier_transcript->load_proof(prover_transcript->export_proof());
-
-    bool result = PCS::reduce_verify(vk, opening_claim, verifier_transcript);
+    bool result = run_native_prove_verify(poly, x).result;
     EXPECT_TRUE(result);
+}
+
+// poly and point are random
+TEST_F(IPATest, Open)
+{
+    // generate a random polynomial, degree needs to be a power of two
+    auto poly = Polynomial::random(n);
+    auto x = this->random_element();
+    auto result_of_prove_verify = run_native_prove_verify(poly, x);
+    EXPECT_TRUE(result_of_prove_verify.result);
+
+    EXPECT_EQ(result_of_prove_verify.prover_transcript->get_manifest(),
+              result_of_prove_verify.verifier_transcript->get_manifest());
 }
 
 namespace bb {
@@ -203,44 +251,6 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
 }
 #endif
 } // namespace bb
-
-TEST_F(IPATest, Commit)
-{
-    auto poly = Polynomial::random(n);
-    const GroupElement commitment = ck.commit(poly);
-    auto srs_elements = ck.srs->get_monomial_points();
-    GroupElement expected = srs_elements[0] * poly[0];
-    // The SRS stored in the commitment key is the result after applying the pippenger point table so the
-    // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
-    // G_vec_local should use only the original SRS thus we extract only the even indices.
-    for (size_t i = 1; i < n; i += 1) {
-        expected += srs_elements[i] * poly[i];
-    }
-    EXPECT_EQ(expected.normalize(), commitment.normalize());
-}
-
-TEST_F(IPATest, Open)
-{
-    // generate a random polynomial, degree needs to be a power of two
-    auto poly = Polynomial::random(n);
-    auto [x, eval] = this->random_eval(poly);
-    auto commitment = ck.commit(poly);
-    const OpeningPair<Curve> opening_pair = { x, eval };
-    const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
-
-    // initialize empty prover transcript
-    auto prover_transcript = std::make_shared<NativeTranscript>();
-    PCS::compute_opening_proof(ck, { poly, opening_pair }, prover_transcript);
-
-    // initialize verifier transcript from proof data
-    auto verifier_transcript = std::make_shared<NativeTranscript>();
-    verifier_transcript->load_proof(prover_transcript->export_proof());
-
-    auto result = PCS::reduce_verify(vk, opening_claim, verifier_transcript);
-    EXPECT_TRUE(result);
-
-    EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
-}
 
 TEST_F(IPATest, GeminiShplonkIPAWithShift)
 {
