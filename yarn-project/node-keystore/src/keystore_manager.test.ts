@@ -6,13 +6,14 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { mkdirSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { KeystoreError, KeystoreManager } from '../src/keystore_manager.js';
+import { RemoteSigner } from '../src/signer.js';
 import type { KeyStore } from '../src/types.js';
 
 describe('KeystoreManager', () => {
@@ -1091,6 +1092,218 @@ describe('KeystoreManager', () => {
       const signerAddr = manager.createAttesterSigners(0)[0].address; // derived local signer
       const cfg = manager.getEffectiveRemoteSignerConfig(0, signerAddr);
       expect(cfg).toBeUndefined();
+    });
+  });
+
+  describe('validateSigners', () => {
+    it('should not validate when there are no remote signers', async () => {
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
+
+      const manager = new KeystoreManager(keystore);
+      await expect(manager.validateSigners()).resolves.not.toThrow();
+    });
+
+    it('should validate remote signers for validators', async () => {
+      const testAddress = EthAddress.random();
+      const testUrl = 'http://test-signer:9000';
+
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: { address: testAddress, remoteSignerUrl: testUrl },
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
+
+      using _ = jest.spyOn(RemoteSigner, 'validateAccess').mockImplementation(() => Promise.resolve());
+
+      const manager = new KeystoreManager(keystore);
+      await expect(manager.validateSigners()).resolves.not.toThrow();
+    });
+
+    it('should batch validate multiple addresses for the same remote signer URL', async () => {
+      const testUrl = 'http://test-signer:9000';
+      const address1 = EthAddress.random();
+      const address2 = EthAddress.random();
+      const address3 = EthAddress.random();
+
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: [
+              { address: address1, remoteSignerUrl: testUrl },
+              { address: address2, remoteSignerUrl: testUrl },
+            ],
+            publisher: { address: address3, remoteSignerUrl: testUrl },
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
+
+      using validateAccessSpy = jest.spyOn(RemoteSigner, 'validateAccess').mockImplementation(() => Promise.resolve());
+
+      const manager = new KeystoreManager(keystore);
+      await expect(manager.validateSigners()).resolves.not.toThrow();
+
+      // Should batch all three addresses into one call
+      expect(validateAccessSpy).toHaveBeenCalledTimes(1);
+      expect(validateAccessSpy).toHaveBeenCalledWith(
+        testUrl,
+        expect.arrayContaining([address1.toString(), address2.toString(), address3.toString()]),
+      );
+    });
+
+    it('should validate remote signers from default config', async () => {
+      const defaultUrl = 'http://default-signer:9000';
+      const address = EthAddress.random();
+
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        remoteSigner: defaultUrl,
+        validators: [
+          {
+            attester: address, // Just address, uses default remote signer
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
+
+      using validateAccessSpy = jest.spyOn(RemoteSigner, 'validateAccess');
+      validateAccessSpy.mockResolvedValueOnce(undefined);
+
+      const manager = new KeystoreManager(keystore);
+      await expect(manager.validateSigners()).resolves.not.toThrow();
+
+      expect(validateAccessSpy).toHaveBeenCalledWith(defaultUrl, [address.toString()]);
+    });
+
+    it('should validate slasher remote signers', async () => {
+      const testUrl = 'http://slasher-signer:9000';
+      const slasherAddress = EthAddress.random();
+
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        slasher: { address: slasherAddress, remoteSignerUrl: testUrl },
+      };
+
+      using validateAccessSpy = jest.spyOn(RemoteSigner, 'validateAccess');
+      validateAccessSpy.mockResolvedValueOnce(undefined);
+
+      const manager = new KeystoreManager(keystore);
+      await expect(manager.validateSigners()).resolves.not.toThrow();
+
+      expect(validateAccessSpy).toHaveBeenCalledWith(testUrl, [slasherAddress.toString()]);
+    });
+
+    it('should validate prover remote signers', async () => {
+      const testUrl = 'http://prover-signer:9000';
+      const publisherAddress = EthAddress.random();
+      const proverId = EthAddress.random();
+
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        remoteSigner: testUrl,
+        prover: {
+          id: proverId,
+          publisher: [publisherAddress],
+        },
+      };
+
+      using validateAccessSpy = jest.spyOn(RemoteSigner, 'validateAccess');
+      validateAccessSpy.mockResolvedValueOnce(undefined);
+
+      const manager = new KeystoreManager(keystore);
+      await expect(manager.validateSigners()).resolves.not.toThrow();
+
+      expect(validateAccessSpy).toHaveBeenCalledWith(testUrl, [publisherAddress.toString()]);
+    });
+
+    it('should handle validation errors', async () => {
+      const testUrl = 'http://test-signer:9000';
+      const address = EthAddress.random();
+
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: { address, remoteSignerUrl: testUrl },
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
+
+      using validateAccessSpy = jest.spyOn(RemoteSigner, 'validateAccess');
+      validateAccessSpy.mockRejectedValueOnce(new Error('Connection refused'));
+
+      const manager = new KeystoreManager(keystore);
+      await expect(manager.validateSigners()).rejects.toThrow('Connection refused');
+    });
+
+    it('should skip validation for mnemonic and JSON V3 configs', async () => {
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: { mnemonic: 'test test test test test test test test test test test junk' } as any,
+            feeRecipient: await AztecAddress.random(),
+          },
+          {
+            attester: { path: '/some/path.json', password: 'test' } as any,
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
+
+      using validateAccessSpy = jest.spyOn(RemoteSigner, 'validateAccess');
+
+      const manager = new KeystoreManager(keystore);
+      await expect(manager.validateSigners()).resolves.not.toThrow();
+
+      // Should not call validateAccess for mnemonic or JSON configs
+      expect(validateAccessSpy).not.toHaveBeenCalled();
+    });
+
+    it('should validate multiple remote signer URLs separately', async () => {
+      const url1 = 'http://signer1:9000';
+      const url2 = 'http://signer2:9000';
+      const address1 = EthAddress.random();
+      const address2 = EthAddress.random();
+
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: { address: address1, remoteSignerUrl: url1 },
+            feeRecipient: await AztecAddress.random(),
+          },
+          {
+            attester: { address: address2, remoteSignerUrl: url2 },
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
+
+      using validateAccessSpy = jest.spyOn(RemoteSigner, 'validateAccess');
+      validateAccessSpy.mockResolvedValue(undefined);
+
+      const manager = new KeystoreManager(keystore);
+      await expect(manager.validateSigners()).resolves.not.toThrow();
+
+      // Should call validateAccess twice, once for each URL
+      expect(validateAccessSpy).toHaveBeenCalledTimes(2);
+      expect(validateAccessSpy).toHaveBeenCalledWith(url1, [address1.toString()]);
+      expect(validateAccessSpy).toHaveBeenCalledWith(url2, [address2.toString()]);
     });
   });
 });
