@@ -101,8 +101,7 @@ TYPED_TEST(StrausLookupTableTest, TestWithProvidedHints)
     const size_t table_bits = 3;
 
     // Compute hints explicitly
-    auto hints_elements =
-        straus_lookup_table::compute_straus_lookup_table_hints(base_point_native, offset_gen_native, table_bits);
+    auto hints_elements = straus_lookup_table::compute_native_table(base_point_native, offset_gen_native, table_bits);
 
     std::vector<AffineElement> hints_affine;
     // Skip the first element (point_table[0]) and convert the rest to affine

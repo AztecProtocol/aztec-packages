@@ -17,7 +17,7 @@ template <class Builder> class StrausScalarSliceTest : public ::testing::Test {
     using field_t = stdlib::field_t<Builder>;
     using witness_t = stdlib::witness_t<Builder>;
     using cycle_scalar = stdlib::cycle_scalar<Builder>;
-    using straus_scalar_slice = stdlib::straus_scalar_slice<Builder>;
+    using straus_scalar_slices = stdlib::straus_scalar_slices<Builder>;
     using Curve = typename Builder::EmbeddedCurve;
     using ScalarField = typename Curve::ScalarField;
 };
@@ -36,7 +36,7 @@ TYPED_TEST(StrausScalarSliceTest, TestSliceReadAndReconstruction)
 {
     using Builder = TypeParam;
     using cycle_scalar = typename TestFixture::cycle_scalar;
-    using straus_scalar_slice = typename TestFixture::straus_scalar_slice;
+    using straus_scalar_slices = typename TestFixture::straus_scalar_slices;
     using ScalarField = typename TestFixture::ScalarField;
 
     Builder builder;
@@ -45,7 +45,7 @@ TYPED_TEST(StrausScalarSliceTest, TestSliceReadAndReconstruction)
     auto scalar = cycle_scalar::from_witness(&builder, scalar_val);
 
     const size_t table_bits = 4;
-    straus_scalar_slice slices(&builder, scalar, table_bits);
+    straus_scalar_slices slices(&builder, scalar, table_bits);
 
     // Read all slices and verify reconstruction
     uint256_t reconstructed = 0;
@@ -70,7 +70,7 @@ TYPED_TEST(StrausScalarSliceTest, TestDifferentTableBitSizes)
 {
     using Builder = TypeParam;
     using cycle_scalar = typename TestFixture::cycle_scalar;
-    using straus_scalar_slice = typename TestFixture::straus_scalar_slice;
+    using straus_scalar_slices = typename TestFixture::straus_scalar_slices;
     using ScalarField = typename TestFixture::ScalarField;
 
     Builder builder;
@@ -82,7 +82,7 @@ TYPED_TEST(StrausScalarSliceTest, TestDifferentTableBitSizes)
     std::vector<size_t> table_bit_sizes = { 1, 2, 3, 4, 5, 8 };
 
     for (size_t table_bits : table_bit_sizes) {
-        straus_scalar_slice slices(&builder, scalar, table_bits);
+        straus_scalar_slices slices(&builder, scalar, table_bits);
 
         // Verify each slice is within the correct range
         uint64_t max_slice_val = (1ULL << table_bits) - 1;
@@ -102,7 +102,7 @@ TYPED_TEST(StrausScalarSliceTest, TestBinaryDecomposition)
 {
     using Builder = TypeParam;
     using cycle_scalar = typename TestFixture::cycle_scalar;
-    using straus_scalar_slice = typename TestFixture::straus_scalar_slice;
+    using straus_scalar_slices = typename TestFixture::straus_scalar_slices;
     using ScalarField = typename TestFixture::ScalarField;
 
     Builder builder;
@@ -111,7 +111,7 @@ TYPED_TEST(StrausScalarSliceTest, TestBinaryDecomposition)
     auto scalar = cycle_scalar::from_witness(&builder, scalar_val);
 
     const size_t table_bits = 1; // Binary decomposition
-    straus_scalar_slice slices(&builder, scalar, table_bits);
+    straus_scalar_slices slices(&builder, scalar, table_bits);
 
     // Each slice should be 0 or 1
     for (size_t i = 0; i < slices.slices.size(); i++) {
