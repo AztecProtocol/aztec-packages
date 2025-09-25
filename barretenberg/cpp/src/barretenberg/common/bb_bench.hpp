@@ -152,17 +152,34 @@ struct TimeStatsEntry {
 template <OperationLabel Op> struct ThreadBenchStats {
   public:
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+#ifdef _WIN32
+    static std::shared_ptr<TimeStatsEntry>& stats()
+    {
+        static thread_local std::shared_ptr<TimeStatsEntry> local_stats;
+        return local_stats;
+    }
+#else
     static inline thread_local std::shared_ptr<TimeStatsEntry> stats;
+#endif
 
     static void init_entry(TimeStatsEntry& entry);
     // returns null if use_bb_bench not enabled
     static std::shared_ptr<TimeStatsEntry> ensure_stats()
     {
+#ifdef _WIN32
+        auto& local_stats = stats();
+        if (bb::detail::use_bb_bench && BB_UNLIKELY(local_stats == nullptr)) {
+            local_stats = std::make_shared<TimeStatsEntry>();
+            GLOBAL_BENCH_STATS.add_entry(Op.value, local_stats);
+        }
+        return local_stats;
+#else
         if (bb::detail::use_bb_bench && BB_UNLIKELY(stats == nullptr)) {
             stats = std::make_shared<TimeStatsEntry>();
             GLOBAL_BENCH_STATS.add_entry(Op.value, stats);
         }
         return stats;
+#endif
     }
 };
 

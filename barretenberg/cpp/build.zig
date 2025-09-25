@@ -238,7 +238,7 @@ fn getBuildStepForTarget(
         });
 
         // To ensure we build all the test files in parallel with e.g. barretenberg.lib,
-        // we compile all the test files into a single objects first.
+        // we compile all the test files into separate objects first.
         for (test_files.items) |test_file| {
             const test_object = b.addObject(.{
                 .name = std.fs.path.basename(test_file),
