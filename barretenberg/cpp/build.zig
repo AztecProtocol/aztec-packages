@@ -69,7 +69,7 @@ pub fn build(b: *std.Build) void {
             // Debug builds are so slow they basically hang.
             const platform_step = getBuildStepForTarget(b, platform, .ReleaseSmall, false, false);
             // We build the wasm reactor for JS.
-            addBuildStepForWasmReactor(b, optimize, platform_step);
+            addBuildStepForWasmReactor(b, .ReleaseSmall, platform_step);
             cross_step.dependOn(platform_step);
         } else {
             const is_host = std.mem.eql(u8, platform.name, host_platform);
@@ -86,9 +86,7 @@ fn getBuildStepForTarget(
     enable_avm: bool,
     is_host: bool,
 ) *std.Build.Step {
-    const platform_step = b.step(platform.name, b.fmt("Build for {s}", .{platform.name}));
-    const platform_tests_step = b.step(b.fmt("{s}-tests", .{platform.name}), b.fmt("Build tests for {s}", .{platform.name}));
-    const tests_step = if (is_host) b.step("tests", "Build tests for host platform") else null;
+    const tests_step = if (is_host) b.step("tests", "Build all tests") else null;
 
     const target = b.resolveTargetQuery(.{
         .cpu_arch = platform.arch,
@@ -110,30 +108,6 @@ fn getBuildStepForTarget(
     const gtest_dep = b.dependency("googletest", .{});
     const msgpack_dep = b.dependency("msgpack", .{});
 
-    // ### LIBRARY OBJECTS #############################################################################################
-    // Object files that make up libbarretenberg.a
-    const lib_objects = b.addObject(.{
-        .name = "lib_objects",
-        .root_module = b.createModule(.{
-            .target = target,
-            .optimize = optimize,
-        }),
-    });
-
-    lib_objects.addCSourceFiles(.{ .files = &sources.core_sources, .flags = flags });
-    lib_objects.addCSourceFiles(.{ .files = &sources.env_sources, .flags = flags });
-    if (enable_avm) {
-        lib_objects.addCSourceFiles(.{ .files = &sources.avm_sources, .flags = flags });
-    }
-
-    lib_objects.addIncludePath(b.path("src"));
-    lib_objects.addIncludePath(b.path("src/tracy_stub"));
-    lib_objects.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
-    lib_objects.addIncludePath(msgpack_dep.path("include"));
-    lib_objects.addIncludePath(libdeflate_dep.path("."));
-    lib_objects.addIncludePath(libdeflate_dep.path("lib"));
-    lib_objects.linkLibCpp();
-
     // ### LIBRARY #####################################################################################################
     // libbarretenberg.a
     const lib = b.addLibrary(.{
@@ -146,11 +120,25 @@ fn getBuildStepForTarget(
         }),
     });
 
-    lib.addObject(lib_objects);
+    lib.addCSourceFiles(.{ .files = &sources.core_sources, .flags = flags });
+    lib.addCSourceFiles(.{ .files = &sources.env_sources, .flags = flags });
+    if (enable_avm) {
+        lib.addCSourceFiles(.{ .files = &sources.avm_sources, .flags = flags });
+    }
+
+    lib.addIncludePath(b.path("src"));
+    lib.addIncludePath(b.path("src/tracy_stub"));
+    lib.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
+    lib.addIncludePath(msgpack_dep.path("include"));
+    lib.addIncludePath(libdeflate_dep.path("."));
+    lib.addIncludePath(libdeflate_dep.path("lib"));
     lib.linkLibCpp();
 
     const install_lib = b.addInstallArtifact(lib, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
-    platform_step.dependOn(&install_lib.step);
+
+    if (is_host) {
+        b.getInstallStep().dependOn(&install_lib.step);
+    }
 
     // ### EXECUTABLE ##################################################################################################
     // bb executable
@@ -198,35 +186,39 @@ fn getBuildStepForTarget(
     }
 
     const install = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
-    platform_step.dependOn(&install.step);
+
+    // If this platform is the host platform, it should be built by default.
+    if (is_host) {
+        b.getInstallStep().dependOn(&install.step);
+    }
 
     // ### TEST EXECUTABLES ############################################################################################
     // We create a test executable for each test group path, from which we collect all nested .test.cpp files.
-    // Start with a global collection of objects that all tests will link to.
+    // Start with a global lib of objects that all tests will link to.
     // Includes world state and test utils.
-    const global_test_objects = b.addObject(.{
-        .name = "test_util_objects",
+    const test_lib = b.addLibrary(.{
+        .name = "test_util_lib",
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
         }),
     });
 
-    global_test_objects.addCSourceFiles(.{ .files = &sources.test_util_sources, .flags = flags });
-    global_test_objects.addCSourceFiles(.{ .files = &sources.world_state_sources, .flags = flags });
+    test_lib.addCSourceFiles(.{ .files = &sources.test_util_sources, .flags = flags });
+    test_lib.addCSourceFiles(.{ .files = &sources.world_state_sources, .flags = flags });
     if (enable_avm) {
-        global_test_objects.addCSourceFiles(.{ .files = &sources.test_avm_util_sources, .flags = flags });
+        test_lib.addCSourceFiles(.{ .files = &sources.test_avm_util_sources, .flags = flags });
     }
 
-    global_test_objects.addIncludePath(b.path("src"));
-    global_test_objects.addIncludePath(b.path("src/tracy_stub"));
-    global_test_objects.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
-    global_test_objects.addIncludePath(msgpack_dep.path("include"));
-    global_test_objects.addIncludePath(libdeflate_dep.path("."));
-    global_test_objects.addIncludePath(libdeflate_dep.path("lib"));
-    global_test_objects.addIncludePath(gtest_dep.path("googletest/include"));
-    global_test_objects.addIncludePath(gtest_dep.path("googlemock/include"));
-    global_test_objects.linkLibCpp();
+    test_lib.addIncludePath(b.path("src"));
+    test_lib.addIncludePath(b.path("src/tracy_stub"));
+    test_lib.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
+    test_lib.addIncludePath(msgpack_dep.path("include"));
+    test_lib.addIncludePath(libdeflate_dep.path("."));
+    test_lib.addIncludePath(libdeflate_dep.path("lib"));
+    test_lib.addIncludePath(gtest_dep.path("googletest/include"));
+    test_lib.addIncludePath(gtest_dep.path("googlemock/include"));
+    test_lib.linkLibCpp();
 
     for (sources.test_group_paths) |test_group_path| {
         // Skip VM2 tests if AVM is not enabled.
@@ -237,31 +229,41 @@ fn getBuildStepForTarget(
         // Extract project name from path (e.g., "src/barretenberg/crypto/aes128" -> "crypto_aes128")
         const project_name = getProjectName(test_group_path);
 
+        const specific_test_step = if (is_host) b.step(b.fmt(
+            "{s}_tests",
+            .{project_name},
+        ), b.fmt(
+            "Build {s}_tests",
+            .{project_name},
+        )) else null;
+
         // Collect all .test.cpp files in this directory and subdirectories.
         var test_files = std.ArrayList([]u8).empty;
         defer test_files.deinit(b.allocator);
         getFilesEndingWith(b, test_group_path, ".test.cpp", &test_files);
         if (test_files.items.len == 0) continue;
 
-        const test_objects = b.addObject(.{
-            .name = b.fmt("{s}_test_objects", .{project_name}),
-            .root_module = b.createModule(.{
-                .target = target,
-                .optimize = optimize,
-            }),
-        });
+        // To ensure we build all the test files in parallel with e.g. barretenberg.lib,
+        // we independently compile all the object files first
+        // const test_objects = b.addObject(.{
+        //     .name = b.fmt("{s}_test_objects", .{project_name}),
+        //     .root_module = b.createModule(.{
+        //         .target = target,
+        //         .optimize = optimize,
+        //     }),
+        // });
 
-        test_objects.addCSourceFiles(.{ .files = test_files.items, .flags = flags });
+        // test_objects.addCSourceFiles(.{ .files = test_files.items, .flags = flags });
 
-        test_objects.addIncludePath(b.path("src"));
-        test_objects.addIncludePath(b.path("src/tracy_stub"));
-        test_objects.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
-        test_objects.addIncludePath(msgpack_dep.path("include"));
-        test_objects.addIncludePath(libdeflate_dep.path("."));
-        test_objects.addIncludePath(libdeflate_dep.path("lib"));
-        test_objects.addIncludePath(gtest_dep.path("googletest/include"));
-        test_objects.addIncludePath(gtest_dep.path("googlemock/include"));
-        test_objects.linkLibCpp();
+        // test_objects.addIncludePath(b.path("src"));
+        // test_objects.addIncludePath(b.path("src/tracy_stub"));
+        // test_objects.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
+        // test_objects.addIncludePath(msgpack_dep.path("include"));
+        // test_objects.addIncludePath(libdeflate_dep.path("."));
+        // test_objects.addIncludePath(libdeflate_dep.path("lib"));
+        // test_objects.addIncludePath(gtest_dep.path("googletest/include"));
+        // test_objects.addIncludePath(gtest_dep.path("googlemock/include"));
+        // test_objects.linkLibCpp();
 
         const test_exe = b.addExecutable(.{
             .name = b.fmt("{s}_tests", .{project_name}),
@@ -272,20 +274,22 @@ fn getBuildStepForTarget(
             }),
         });
 
-        test_exe.addObject(global_test_objects);
-        test_exe.addObject(test_objects);
+        test_exe.addCSourceFiles(.{ .files = test_files.items, .flags = flags });
 
-        test_exe.linkLibCpp();
-        test_exe.linkLibrary(lmdb_lib);
-        test_exe.linkLibrary(gtest_lib);
-        test_exe.linkLibrary(libdeflate_lib);
-        test_exe.linkLibrary(lib);
         test_exe.addIncludePath(b.path("src"));
         test_exe.addIncludePath(b.path("src/tracy_stub"));
         test_exe.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
         test_exe.addIncludePath(msgpack_dep.path("include"));
+        test_exe.addIncludePath(libdeflate_dep.path("."));
+        test_exe.addIncludePath(libdeflate_dep.path("lib"));
         test_exe.addIncludePath(gtest_dep.path("googletest/include"));
         test_exe.addIncludePath(gtest_dep.path("googlemock/include"));
+        test_exe.linkLibrary(lmdb_lib);
+        test_exe.linkLibrary(gtest_lib);
+        test_exe.linkLibrary(libdeflate_lib);
+        test_exe.linkLibrary(test_lib);
+        test_exe.linkLibrary(lib);
+        test_exe.linkLibCpp();
 
         // Platform-specific settings
         switch (target.result.os.tag) {
@@ -298,7 +302,9 @@ fn getBuildStepForTarget(
         }
 
         const test_install = b.addInstallArtifact(test_exe, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
-        platform_tests_step.dependOn(&test_install.step);
+        if (specific_test_step) |step| {
+            step.dependOn(&test_install.step);
+        }
 
         // If this platform is the host platform, add to the "tests" step.
         if (tests_step) |step| {
@@ -306,12 +312,7 @@ fn getBuildStepForTarget(
         }
     }
 
-    // If this platform is the host platform, it should be built by default.
-    if (is_host) {
-        b.getInstallStep().dependOn(platform_step);
-    }
-
-    return platform_step;
+    return &exe.step;
 }
 
 fn addBuildStepForWasmReactor(
