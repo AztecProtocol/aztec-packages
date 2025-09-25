@@ -5,15 +5,12 @@ import { DateProvider } from '@aztec/foundation/timer';
 
 import { type Hex, type TransactionSerializable, formatGwei } from 'viem';
 
-import type { EthSigner } from './eth-signer/eth-signer.js';
-import {
-  type GasPrice,
-  L1TxUtils,
-  type L1TxUtilsConfig,
-  type SigningCallback,
-  createViemSigner,
-} from './l1_tx_utils.js';
-import type { ExtendedViemWalletClient, ViemClient } from './types.js';
+import type { EthSigner } from '../eth-signer/eth-signer.js';
+import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
+import type { L1TxUtilsConfig } from './config.js';
+import { L1TxUtils } from './l1_tx_utils.js';
+import { createViemSigner } from './signer.js';
+import type { GasPrice, SigningCallback } from './types.js';
 
 export class L1TxUtilsWithBlobs extends L1TxUtils {
   /**
@@ -24,7 +21,7 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
    * @param attempts - The number of attempts to cancel the transaction
    * @returns The hash of the cancellation transaction
    */
-  override async attemptTxCancellation(
+  protected override async attemptTxCancellation(
     currentTxHash: Hex,
     nonce: number,
     allVersions: Set<Hex>,
