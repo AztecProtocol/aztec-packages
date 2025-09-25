@@ -57,7 +57,7 @@ jobs:
 
       - name: Create Mac Build Environment
         run: |
-          brew install cmake ninja llvm@18
+          brew install cmake ninja llvm@20
           echo "BREW_PREFIX=$(brew --prefix)" >> $GITHUB_ENV
 
       - name: Replace version string in main.cpp
