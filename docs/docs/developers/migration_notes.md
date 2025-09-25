@@ -12,6 +12,10 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 This release includes a major architectural change to the system.
 The PXE JSON RPC Server has been removed, and PXE is now available only as a library to be used by wallets.
 
+## [Aztec node]
+
+Network config. The node now pulls default configuration from the public repository [AztecProtocol/networks](https://github.com/AztecProtocol/networks) after it applies the configuration it takes from the running environment and the configuration values baked into the source code. See associated [Design document](https://github.com/AztecProtocol/engineering-designs/blob/15415a62a7c8e901acb8e523625e91fc6f71dce4/docs/network-config/dd.md)
+
 ## [Aztec.js]
 
 ### Removing Aztec cheatcodes
