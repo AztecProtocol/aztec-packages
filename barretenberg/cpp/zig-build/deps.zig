@@ -108,6 +108,70 @@ pub fn buildGTest(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std
     return gtest_lib;
 }
 
+pub fn buildGoogleBenchmark(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
+    const gbench_dep = b.dependency("googlebenchmark", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const gbench_lib = b.addLibrary(.{
+        .name = "gbench",
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+
+    const gbench_sources = [_][]const u8{
+        "src/benchmark.cc",
+        "src/benchmark_api_internal.cc",
+        "src/benchmark_main.cc",
+        "src/benchmark_name.cc",
+        "src/benchmark_register.cc",
+        "src/benchmark_runner.cc",
+        "src/check.cc",
+        "src/colorprint.cc",
+        "src/commandlineflags.cc",
+        "src/complexity.cc",
+        "src/console_reporter.cc",
+        "src/counter.cc",
+        "src/csv_reporter.cc",
+        "src/json_reporter.cc",
+        "src/perf_counters.cc",
+        "src/reporter.cc",
+        "src/statistics.cc",
+        "src/string_util.cc",
+        "src/sysinfo.cc",
+        "src/timers.cc",
+    };
+
+    gbench_lib.addCSourceFiles(.{
+        .files = &gbench_sources,
+        .flags = &[_][]const u8{"-std=c++14"},
+        .root = gbench_dep.path("."),
+    });
+
+    gbench_lib.addIncludePath(gbench_dep.path("include"));
+    gbench_lib.linkLibCpp();
+
+    // Platform-specific settings
+    switch (target.result.os.tag) {
+        .windows => {
+            gbench_lib.linkSystemLibrary("shlwapi");
+        },
+        .linux => {
+            gbench_lib.linkSystemLibrary("rt");
+            gbench_lib.linkSystemLibrary("pthread");
+        },
+        .macos => {
+            // No additional libraries needed for macOS
+        },
+        else => {},
+    }
+
+    return gbench_lib;
+}
+
 // The libcxx bundled in zig, when compiled, is done so without filesystem support.
 // The relevant files have been copied from the zig installation to src/libcxx.
 // If we want to build bb for wasm32-wasi target, we need to build this filesystem library as well.

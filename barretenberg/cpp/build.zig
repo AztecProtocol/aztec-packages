@@ -89,10 +89,11 @@ fn getBuildStepForTarget(
     const target = b.resolveTargetQuery(.{
         .cpu_arch = platform.arch,
         .os_tag = platform.os,
-        .cpu_features_add = if (platform.os == .wasi)
-            std.Target.wasm.featureSet(&.{ .atomics, .bulk_memory })
-        else
-            std.Target.Cpu.Feature.Set.empty,
+        .cpu_model = switch (platform.arch) {
+            .x86_64 => std.Target.Query.CpuModel{ .explicit = &std.Target.x86.cpu.skylake },
+            .wasm32 => std.Target.Query.CpuModel{ .explicit = &std.Target.wasm.cpu.bleeding_edge },
+            else => .baseline,
+        },
     });
 
     const flags = if (platform.os == .wasi) &wasm_flags else if (enable_avm) &common_flags else &no_avm_flags;
@@ -100,6 +101,7 @@ fn getBuildStepForTarget(
     const libdeflate_lib = deps.buildLibdeflate(b, target, optimize);
     const lmdb_lib = deps.buildLmdb(b, target, optimize);
     const gtest_lib = deps.buildGTest(b, target, optimize);
+    const gbench_lib = deps.buildGoogleBenchmark(b, target, optimize);
 
     // ### BARRETENBERG LIB ############################################################################################
     const lib = b.addLibrary(.{
@@ -183,12 +185,13 @@ fn getBuildStepForTarget(
         return &exe.step;
     }
 
+    const tests_step = if (is_host) b.step("tests", "Build all tests") else null;
+    const benchmarks_step = if (is_host) b.step("benchmarks", "Build all benchmarks") else null;
+
     // ### TEST EXECUTABLES ############################################################################################
     // We create a test executable for each test group path, from which we collect all nested .test.cpp files.
     // Start with a global lib of objects that all tests will link to.
     // Includes world state and test utils.
-    const tests_step = if (is_host) b.step("tests", "Build all tests") else null;
-
     const test_lib = b.addLibrary(.{
         .name = "test_util_lib",
         .root_module = b.createModule(.{
@@ -280,6 +283,67 @@ fn getBuildStepForTarget(
         // If this platform is the host platform, add to the "tests" step.
         if (tests_step) |step| {
             step.dependOn(&test_install.step);
+        }
+    }
+
+    // ### BENCHMARK EXECUTABLES #######################################################################################
+    // Create one benchmark executable per .bench.cpp file
+    for (sources.benchmark_files) |bench_file| {
+        const bench_basename = std.fs.path.basename(bench_file);
+        const bench_exe_name = if (std.mem.endsWith(u8, bench_basename, ".bench.cpp"))
+            b.fmt("{s}_bench", .{bench_basename[0 .. bench_basename.len - 10]}) // Remove ".bench.cpp" (10 chars)
+        else
+            bench_basename;
+
+        const specific_benchmark_step = if (is_host) b.step(bench_exe_name, b.fmt("Build {s}", .{bench_exe_name})) else null;
+
+        const bench_exe = b.addExecutable(.{
+            .name = bench_exe_name,
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+            }),
+        });
+
+        const bench_object = b.addObject(.{
+            .name = bench_basename,
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+            }),
+        });
+
+        bench_object.addCSourceFile(.{ .file = b.path(bench_file), .flags = flags });
+        addTestIncludesAndLinks(b, bench_object);
+        // Add benchmark-specific includes
+        const gbench_dep = b.dependency("googlebenchmark", .{});
+        bench_object.addIncludePath(gbench_dep.path("include"));
+
+        bench_exe.addObject(bench_object);
+        bench_exe.linkLibrary(lmdb_lib);
+        bench_exe.linkLibrary(gbench_lib);
+        bench_exe.linkLibrary(libdeflate_lib);
+        bench_exe.linkLibrary(test_lib);
+        bench_exe.linkLibrary(lib);
+        bench_exe.linkLibCpp();
+
+        // Platform-specific settings
+        switch (target.result.os.tag) {
+            .windows => {
+                bench_exe.linkSystemLibrary("ws2_32");
+                bench_exe.linkSystemLibrary("advapi32");
+                bench_exe.linkSystemLibrary("psapi");
+            },
+            else => {},
+        }
+
+        const bench_install = b.addInstallArtifact(bench_exe, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
+        if (specific_benchmark_step) |step| {
+            step.dependOn(&bench_install.step);
+        }
+
+        if (benchmarks_step) |step| {
+            step.dependOn(&bench_install.step);
         }
     }
 

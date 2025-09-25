@@ -25,5 +25,9 @@
             .url = "https://github.com/google/googletest/archive/refs/tags/v1.15.2.tar.gz",
             .hash = "122001093b5794ecf5a5b53887622c75d633af2b0c3402a266ce45c6aa4d179c53ba",
         },
+        .googlebenchmark = .{
+            .url = "https://github.com/google/benchmark/archive/refs/tags/v1.8.4.tar.gz",
+            .hash = "122008461ea35204b2726abe21020406e4a332f3d681f708b990ef0a8fe068cdbfe3",
+        },
     },
 }

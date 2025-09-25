@@ -10,6 +10,7 @@
 #include <benchmark/benchmark.h>
 #include <filesystem>
 #include <memory>
+#include <random>
 #include <vector>
 
 using namespace benchmark;
@@ -22,6 +23,7 @@ using Pedersen = ContentAddressedIndexedTree<StoreType, PedersenHashPolicy>;
 
 const size_t TREE_DEPTH = 40;
 const size_t MAX_BATCH_SIZE = 64;
+auto& random_engine = numeric::get_randomness();
 
 template <typename TreeType> void add_values(TreeType& tree, const std::vector<NullifierLeafValue>& values)
 {

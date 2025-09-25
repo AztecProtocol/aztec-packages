@@ -26,6 +26,7 @@ using Poseidon2 = ContentAddressedAppendOnlyTree<StoreType, Poseidon2HashPolicy>
 
 const size_t TREE_DEPTH = 32;
 const size_t MAX_BATCH_SIZE = 64;
+auto& random_engine = numeric::get_randomness();
 
 template <typename TreeType> void perform_batch_insert(TreeType& tree, const std::vector<fr>& values)
 {
