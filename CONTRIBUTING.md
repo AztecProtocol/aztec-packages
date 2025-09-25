@@ -32,3 +32,25 @@ If you're looking for a good place to start, look for issues labeled ["good firs
 - I have reviewed my diff in github, line by line and removed unexpected formatting changes, testing logs, or commented-out code.
 - Every change is related to the PR description.
 - I have [linked](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue) this pull request to relevant issues (if any exist).
+
+## Breaking changes
+
+A "breaking change" of a system is one that disrupts compatibility with the previous version, so users of the system need to change in response.
+
+For example:
+
+- modifying environment/config variables
+- modifying how the CLI works
+- changing a function on a widely used library
+- adding new requirements to use a particular service
+- changing the side effects of a function call
+
+We use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) at least for the title of pull requests.
+
+When your PR includes a breaking change, please use a `!` in the title, like `feat!`, `chore!`, or `fix!`, then make use of the description.
+
+## Migration notes
+
+If your pull request is likely to affect end users (node operators or developers), you must add a section to `docs/docs/migration_notes.md` as part of your pull request.
+
+This is likely to be the case for `feat`s and breaking changes.
