@@ -14,9 +14,9 @@ template <typename FF_> class to_radix_memImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 30> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 5, 3, 5, 3, 5, 3, 6, 4, 4, 4, 4, 7, 4, 3, 3
-    };
+    static constexpr std::array<size_t, 37> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 3, 3, 3,
+                                                                            3, 3, 5, 3, 5, 3, 5, 3, 6, 3, 4, 4, 3,
+                                                                            3, 4, 4, 4, 4, 4, 4, 7, 4, 4, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -48,11 +48,14 @@ template <typename FF> class to_radix_mem : public Relation<to_radix_memImpl<FF>
     static constexpr size_t SR_IS_OUTPUT_BITS_IMPLY_RADIX_2 = 15;
     static constexpr size_t SR_ZERO_CHECK_NUM_LIMBS = 17;
     static constexpr size_t SR_ZERO_CHECK_VALUE = 19;
-    static constexpr size_t SR_DECR_NUM_LIMBS = 22;
-    static constexpr size_t SR_INCR_DST_ADDRESS = 23;
-    static constexpr size_t SR_LAST_ROW_ERR_COMPUTATION = 24;
-    static constexpr size_t SR_LAST_ROW_NUM_LIMBS_ZERO = 25;
-    static constexpr size_t SR_LAST_ROW_VALID_COMPUTATION = 26;
+    static constexpr size_t SR_SEL_SHOULD_DECOMPOSE_CONTINUITY = 24;
+    static constexpr size_t SR_TRUNCATION_ERROR = 27;
+    static constexpr size_t SR_DECR_NUM_LIMBS = 29;
+    static constexpr size_t SR_INCR_DST_ADDRESS = 30;
+    static constexpr size_t SR_LAST_ROW_ERR_COMPUTATION = 31;
+    static constexpr size_t SR_LAST_ROW_NUM_LIMBS_ZERO = 32;
+    static constexpr size_t SR_LAST_ROW_VALID_COMPUTATION = 33;
+    static constexpr size_t SR_SEL_SHOULD_WRITE_MEM_CONTINUITY = 35;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -79,6 +82,10 @@ template <typename FF> class to_radix_mem : public Relation<to_radix_memImpl<FF>
             return "ZERO_CHECK_NUM_LIMBS";
         case SR_ZERO_CHECK_VALUE:
             return "ZERO_CHECK_VALUE";
+        case SR_SEL_SHOULD_DECOMPOSE_CONTINUITY:
+            return "SEL_SHOULD_DECOMPOSE_CONTINUITY";
+        case SR_TRUNCATION_ERROR:
+            return "TRUNCATION_ERROR";
         case SR_DECR_NUM_LIMBS:
             return "DECR_NUM_LIMBS";
         case SR_INCR_DST_ADDRESS:
@@ -89,6 +96,8 @@ template <typename FF> class to_radix_mem : public Relation<to_radix_memImpl<FF>
             return "LAST_ROW_NUM_LIMBS_ZERO";
         case SR_LAST_ROW_VALID_COMPUTATION:
             return "LAST_ROW_VALID_COMPUTATION";
+        case SR_SEL_SHOULD_WRITE_MEM_CONTINUITY:
+            return "SEL_SHOULD_WRITE_MEM_CONTINUITY";
         }
         return std::to_string(index);
     }

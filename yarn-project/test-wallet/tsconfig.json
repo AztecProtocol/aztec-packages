@@ -22,6 +22,9 @@
       "path": "../noir-contracts.js"
     },
     {
+      "path": "../pxe"
+    },
+    {
       "path": "../stdlib"
     }
   ],

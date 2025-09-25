@@ -1,4 +1,3 @@
-import { getDeployedTestAccounts } from '@aztec/accounts/testing';
 import {
   type EthAddress,
   FeeJuicePaymentMethodWithClaim,
@@ -6,20 +5,18 @@ import {
   TxStatus,
   type WaitOpts,
   createAztecNodeClient,
-  createPXEClient,
   fileURLToPath,
   retryUntil,
 } from '@aztec/aztec.js';
-import { createNamespacedSafeJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import type { Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import { type AztecNode, PXESchema } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { TestWallet } from '@aztec/test-wallet';
+import { registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
-import getPort from 'get-port';
 import { exec } from 'node:child_process';
 import { lookup } from 'node:dns/promises';
 import { tmpdir } from 'node:os';
@@ -31,7 +28,6 @@ import { getLogger, setupPXEServiceAndGetWallet } from '../fixtures/utils.js';
 
 const {
   AZTEC_NODE_URL,
-  PXE_URL,
   FAUCET_URL,
   AZTEC_CLI = `node ${resolve(fileURLToPath(import.meta.url), '../../../../aztec/dest/bin/index.js')}`,
   ETHEREUM_HOSTS,
@@ -53,7 +49,6 @@ export const getLocalhost = () =>
     .catch(() => 'localhost');
 
 describe('End-to-end tests for devnet', () => {
-  let pxeUrl: string; // needed for the CLI
   let node: AztecNode;
   let wallet: TestWallet;
   let logger: Logger;
@@ -76,58 +71,40 @@ describe('End-to-end tests for devnet', () => {
       throw new Error('FAUCET_URL must be set');
     }
 
+    if (!AZTEC_NODE_URL) {
+      throw new Error('AZTEC_NODE_URL must be set');
+    }
+
     logger.info(`Using AZTEC_CLI: ${AZTEC_CLI}`);
 
-    if (AZTEC_NODE_URL) {
-      logger.info(`Using AZTEC_NODE_URL: ${AZTEC_NODE_URL}`);
-      node = createAztecNodeClient(AZTEC_NODE_URL);
-      const bbConfig = await getBBConfig(logger);
-      const acvmConfig = await getACVMConfig(logger);
-      const svc = await setupPXEServiceAndGetWallet(node, {
-        ...bbConfig,
-        ...acvmConfig,
-        proverEnabled: ['1', 'true'].includes(PXE_PROVER_ENABLED!),
-      });
-      wallet = svc.wallet;
+    logger.info(`Using AZTEC_NODE_URL: ${AZTEC_NODE_URL}`);
+    node = createAztecNodeClient(AZTEC_NODE_URL);
+    const bbConfig = await getBBConfig(logger);
+    const acvmConfig = await getACVMConfig(logger);
+    const svc = await setupPXEServiceAndGetWallet(node, {
+      ...bbConfig,
+      ...acvmConfig,
+      proverEnabled: ['1', 'true'].includes(PXE_PROVER_ENABLED!),
+    });
+    wallet = svc.wallet;
 
-      const nodeInfo = await node.getNodeInfo();
-      const pxeInfo = await wallet.getPXEInfo();
+    const nodeInfo = await node.getNodeInfo();
+    const pxeInfo = await wallet.getPXEInfo();
 
-      expect(nodeInfo.protocolContractAddresses.classRegistry).toEqual(pxeInfo.protocolContractAddresses.classRegistry);
-      expect(nodeInfo.protocolContractAddresses.instanceRegistry).toEqual(
-        pxeInfo.protocolContractAddresses.instanceRegistry,
-      );
-      expect(nodeInfo.protocolContractAddresses.feeJuice).toEqual(pxeInfo.protocolContractAddresses.feeJuice);
-      expect(nodeInfo.protocolContractAddresses.multiCallEntrypoint).toEqual(
-        pxeInfo.protocolContractAddresses.multiCallEntrypoint,
-      );
+    expect(nodeInfo.protocolContractAddresses.classRegistry).toEqual(pxeInfo.protocolContractAddresses.classRegistry);
+    expect(nodeInfo.protocolContractAddresses.instanceRegistry).toEqual(
+      pxeInfo.protocolContractAddresses.instanceRegistry,
+    );
+    expect(nodeInfo.protocolContractAddresses.feeJuice).toEqual(pxeInfo.protocolContractAddresses.feeJuice);
+    expect(nodeInfo.protocolContractAddresses.multiCallEntrypoint).toEqual(
+      pxeInfo.protocolContractAddresses.multiCallEntrypoint,
+    );
 
-      const port = await getPort();
-      const localhost = await getLocalhost();
-      pxeUrl = `http://${localhost}:${port}`;
-      // start a server for the CLI to talk to
-      const jsonRpcServer = createNamespacedSafeJsonRpcServer({ pxe: [wallet.getPxe(), PXESchema] });
-      const server = await startHttpRpcServer(jsonRpcServer, { port });
-
-      teardown = async () => {
-        const { promise, resolve, reject } = promiseWithResolvers<void>();
-        server.close(e => (e ? reject(e) : resolve()));
-        await promise;
-
-        await svc.teardown();
-        await bbConfig?.cleanup();
-        await acvmConfig?.cleanup();
-      };
-    } else if (PXE_URL) {
-      logger.info(`Using PXE_URL: ${PXE_URL}`);
-      const pxe = createPXEClient(PXE_URL);
-      node = createAztecNodeClient(PXE_URL);
-      pxeUrl = PXE_URL;
-      teardown = () => {};
-      wallet = new TestWallet(pxe, node);
-    } else {
-      throw new Error('AZTEC_NODE_URL or PXE_URL must be set');
-    }
+    teardown = async () => {
+      await svc.teardown();
+      await bbConfig?.cleanup();
+      await acvmConfig?.cleanup();
+    };
 
     ({
       l1ChainId,
@@ -164,7 +141,6 @@ describe('End-to-end tests for devnet', () => {
       'l1-rpc-urls': ETHEREUM_HOSTS!,
       'l1-chain-id': l1ChainId.toString(),
       'l1-private-key': l1Account.privateKey,
-      'rpc-url': pxeUrl,
       mint: true,
     });
 
@@ -289,20 +265,15 @@ describe('End-to-end tests for devnet', () => {
   }
 
   async function advanceChainWithEmptyBlocks(wallet: TestWallet) {
-    const [fundedAccount] = await getDeployedTestAccounts(wallet);
-    if (!fundedAccount) {
-      throw new Error('A funded wallet is required to create dummy txs.');
-    }
-
-    await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
+    const [fundedAccountAddress] = await registerInitialSandboxAccountsInWallet(wallet);
 
     const test = await TestContract.deploy(wallet)
-      .send({ from: fundedAccount.address, universalDeploy: true, skipClassPublication: true })
+      .send({ from: fundedAccountAddress, universalDeploy: true, skipClassPublication: true })
       .deployed();
 
     // start at 1 because deploying the contract has already mined a block
     for (let i = 1; i < MIN_BLOCKS_FOR_BRIDGING; i++) {
-      await test.methods.get_this_address().send({ from: fundedAccount.address }).wait(waitOpts);
+      await test.methods.get_this_address().send({ from: fundedAccountAddress }).wait(waitOpts);
     }
   }
 });

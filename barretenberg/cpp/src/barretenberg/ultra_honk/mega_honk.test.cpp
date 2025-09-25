@@ -170,8 +170,6 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
 
     // In MegaZKFlavor, we mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i for
     // i=1,2,3. This mechanism does not work with structured polynomials yet.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
-    // ECCVM/Translator/MegaZK
     if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
         GTEST_SKIP() << "Skipping 'BasicStructured' test for MegaZKFlavor.";
     }
@@ -209,8 +207,6 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
 
     // In MegaZKFlavor, we mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i for
     // i=1,2,3. This mechanism does not work with structured polynomials yet.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
-    // ECCVM/Translator/MegaZK
     if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
         GTEST_SKIP() << "Skipping 'DynamicVirtualSizeIncrease' test for MegaZKFlavor.";
     }
@@ -474,8 +470,6 @@ TYPED_TEST(MegaHonkTests, PolySwap)
     using Flavor = TypeParam;
     // In MegaZKFlavor, we mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i, for
     // i=1,2,3. This mechanism does not work with structured polynomials yet.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
-    // ECCVM/Translator/MegaZK
     if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
         GTEST_SKIP() << "Skipping 'PolySwap' test for MegaZKFlavor.";
     }

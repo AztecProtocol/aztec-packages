@@ -1,6 +1,8 @@
-import { type BotConfig, BotRunner, botConfigMappings, getBotRunnerApiHandler } from '@aztec/bot';
+import { type BotConfig, BotRunner, BotStore, botConfigMappings, getBotRunnerApiHandler } from '@aztec/bot';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
+import { createStore, openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { type CliPXEOptions, type PXEServiceConfig, allPxeConfigMappings } from '@aztec/pxe/config';
 import { type AztecNode, type AztecNodeAdmin, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 import {
@@ -35,15 +37,14 @@ export async function startBot(
 
   const aztecNode = createAztecNodeClient(config.nodeUrl, getVersions(), fetch);
 
-  // Start a PXE client and get a wallet that is used by the bot if required
-  const { startPXEServiceGetWallet } = await import('./start_pxe.js');
-  const { wallet } = await startPXEServiceGetWallet(options, services, userLog, { node: aztecNode });
+  const pxeConfig = extractRelevantOptions<PXEServiceConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
+  const wallet = await TestWallet.create(aztecNode, pxeConfig);
 
   const telemetry = initTelemetryClient(getTelemetryClientConfig());
   await addBot(options, signalHandlers, services, wallet, aztecNode, telemetry, undefined);
 }
 
-export function addBot(
+export async function addBot(
   options: any,
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
@@ -54,7 +55,14 @@ export function addBot(
 ) {
   const config = extractRelevantOptions<BotConfig>(options, botConfigMappings, 'bot');
 
-  const botRunner = new BotRunner(config, wallet, aztecNode, telemetry, aztecNodeAdmin);
+  const db = await (config.dataDirectory
+    ? createStore('bot', BotStore.SCHEMA_VERSION, config)
+    : openTmpStore('bot', true, config.dataStoreMapSizeKB));
+
+  const store = new BotStore(db);
+  await store.cleanupOldClaims();
+
+  const botRunner = new BotRunner(config, wallet, aztecNode, telemetry, aztecNodeAdmin, store);
   if (!config.noStart) {
     void botRunner.start(); // Do not block since bot setup takes time
   }

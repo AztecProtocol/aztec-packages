@@ -4,7 +4,7 @@ import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';

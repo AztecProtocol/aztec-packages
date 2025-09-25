@@ -1,5 +1,6 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
-import type { WaitOpts } from '@aztec/aztec.js';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
+import type { AztecAddress, WaitOpts } from '@aztec/aztec.js';
 
 import type { BaseTestWallet } from './wallet/test_wallet.js';
 
@@ -25,4 +26,18 @@ export async function deployFundedSchnorrAccounts(
     accountManagers.push(accountManager);
   }
   return accountManagers;
+}
+
+/**
+ * Registers the initial sandbox accounts in the wallet.
+ * @param wallet - Test wallet to use to register the accounts.
+ * @returns Addresses of the registered accounts.
+ */
+export async function registerInitialSandboxAccountsInWallet(wallet: BaseTestWallet): Promise<AztecAddress[]> {
+  const testAccounts = await getInitialTestAccountsData();
+  return Promise.all(
+    testAccounts.map(async account => {
+      return (await wallet.createSchnorrAccount(account.secret, account.salt, account.signingKey)).getAddress();
+    }),
+  );
 }

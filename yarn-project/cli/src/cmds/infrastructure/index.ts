@@ -2,27 +2,18 @@ import type { LogFn } from '@aztec/foundation/log';
 
 import type { Command } from 'commander';
 
-import { ETHEREUM_HOSTS, l1ChainIdOption, nodeOption, parseOptionalInteger, pxeOption } from '../../utils/commands.js';
+import { ETHEREUM_HOSTS, l1ChainIdOption, nodeOption, parseOptionalInteger } from '../../utils/commands.js';
 
 export function injectCommands(program: Command, log: LogFn) {
   program
     .command('setup-protocol-contracts')
     .description('Bootstrap the blockchain by initializing all the protocol contracts')
-    .addOption(pxeOption)
     .addOption(nodeOption)
     .option('--testAccounts', 'Deploy funded test accounts.')
-    .option('--sponsoredFPC', 'Deploy a sponsored FPC.')
     .option('--json', 'Output the contract addresses in JSON format')
     .action(async options => {
       const { setupL2Contracts } = await import('./setup_l2_contract.js');
-      await setupL2Contracts(
-        options.rpcUrl,
-        options.nodeUrl,
-        options.testAccounts,
-        options.sponsoredFPC,
-        options.json,
-        log,
-      );
+      await setupL2Contracts(options.nodeUrl, options.testAccounts, options.json, log);
     });
 
   program

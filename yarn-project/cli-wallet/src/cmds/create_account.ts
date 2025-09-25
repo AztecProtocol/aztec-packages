@@ -3,9 +3,9 @@ import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 
+import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
 import { CLIFeeArgs } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
-import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
 import { type AccountType, CLIWallet } from '../utils/wallet.js';
 
 export async function createAccount(

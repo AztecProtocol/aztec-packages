@@ -116,8 +116,6 @@ AppendOnlyTreeSnapshot PublicDataTreeCheck::write(const FF& slot,
     uint32_t execution_id =
         is_protocol_write ? std::numeric_limits<uint32_t>::max() : execution_id_manager.get_execution_id();
 
-    // TODO(Alvaro): Figure out a good way to handle sorting range checks
-
     events.emit(PublicDataTreeReadWriteEvent{
         .contract_address = contract_address,
         .slot = slot,
@@ -151,6 +149,23 @@ void PublicDataTreeCheck::on_checkpoint_committed()
 void PublicDataTreeCheck::on_checkpoint_reverted()
 {
     events.emit(CheckPointEventType::REVERT_CHECKPOINT);
+}
+
+// Leaf slot needs to be casted as uint256_t to compare.
+// Sorting over pointers instead of structs would be faster but probably negligible for such a small vector.
+void PublicDataTreeCheck::generate_ff_gt_events_for_squashing(std::vector<PublicDataWrite>& public_data_writes)
+{
+    std::ranges::sort(public_data_writes, [](const PublicDataWrite& a, const PublicDataWrite& b) {
+        return static_cast<uint256_t>(a.leafSlot) < static_cast<uint256_t>(b.leafSlot);
+    });
+
+    const size_t public_data_writes_length = public_data_writes.size();
+
+    if (public_data_writes_length > 1) {
+        for (size_t i = 0; i < public_data_writes_length - 1; i++) {
+            field_gt.ff_gt(public_data_writes.at(i + 1).leafSlot, public_data_writes.at(i).leafSlot);
+        }
+    }
 }
 
 } // namespace bb::avm2::simulation

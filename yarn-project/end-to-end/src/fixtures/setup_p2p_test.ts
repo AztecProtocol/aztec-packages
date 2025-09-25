@@ -2,13 +2,11 @@
  * Test fixtures and utilities to set up and run a test using multiple validators
  */
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import type { SentTx } from '@aztec/aztec.js';
 import { SecretValue } from '@aztec/foundation/config';
 import { addLogNameHandler, removeLogNameHandler } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { ProverNodeConfig, ProverNodeDeps } from '@aztec/prover-node';
-import type { PXEService } from '@aztec/pxe/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 
 import getPort from 'get-port';
@@ -22,12 +20,6 @@ import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 // index 1, and prover node with index 2, so all of our loops here need to start from 3
 // to avoid running validators with the same key
 export const ATTESTER_PRIVATE_KEYS_START_INDEX = 3;
-
-export interface NodeContext {
-  node: AztecNodeService;
-  pxeService: PXEService;
-  txs: SentTx[];
-}
 
 export function generatePrivateKeys(startIndex: number, numberOfKeys: number): `0x${string}`[] {
   const privateKeys: `0x${string}`[] = [];

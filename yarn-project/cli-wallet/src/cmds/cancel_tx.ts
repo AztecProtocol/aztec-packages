@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 
-import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
+import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
 import type { CLIWallet } from '../utils/wallet.js';
 
 export async function cancelTx(

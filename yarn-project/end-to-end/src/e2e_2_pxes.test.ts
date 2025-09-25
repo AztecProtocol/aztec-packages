@@ -4,7 +4,7 @@ import { type AztecAddress, type AztecNode, Fr, type Logger, sleep } from '@azte
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 // docs:end:import_aztecjs
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 import { expect, jest } from '@jest/globals';
 

@@ -422,7 +422,6 @@ case "$cmd" in
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=0
-    export ACCEPT_DISABLED_AVM_VK_TREE_ROOT=1
     build
     test
     ;;
@@ -430,7 +429,6 @@ case "$cmd" in
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
-    export ACCEPT_DISABLED_AVM_VK_TREE_ROOT=1
     build
     test
     bench

@@ -6,7 +6,7 @@ import {
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
 } from '@aztec/constants';
 import { PendingNoteHashesContract } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { setup } from './fixtures/utils.js';
 

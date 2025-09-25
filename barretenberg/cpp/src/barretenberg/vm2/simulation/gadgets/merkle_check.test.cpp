@@ -95,9 +95,9 @@ TEST(MerkleCheckSimulationTest, NegativeBadFinalIndex)
     FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
 
     EXPECT_THROW_WITH_MESSAGE(merkle_check.assert_membership(leaf_value, leaf_index, sibling_path, root),
-                              "Merkle check's final node index must be 0 or 1");
+                              "Merkle check's final node index must be 0");
     EXPECT_THROW_WITH_MESSAGE(merkle_check.write(leaf_value, 334, leaf_index, sibling_path, root),
-                              "Merkle check's final node index must be 0 or 1");
+                              "Merkle check's final node index must be 0");
 }
 
 TEST(MerkleCheckSimulationTest, NegativeWrongRoot)

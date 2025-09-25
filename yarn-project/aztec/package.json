@@ -39,7 +39,6 @@
     "@aztec/bot": "workspace:^",
     "@aztec/builder": "workspace:^",
     "@aztec/cli": "workspace:^",
-    "@aztec/cli-wallet": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/entrypoints": "workspace:^",
     "@aztec/ethereum": "workspace:^",

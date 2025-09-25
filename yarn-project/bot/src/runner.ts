@@ -10,6 +10,7 @@ import type { BaseBot } from './base_bot.js';
 import { Bot } from './bot.js';
 import type { BotConfig } from './config.js';
 import type { BotInfo, BotRunnerApi } from './interface.js';
+import { BotStore } from './store/index.js';
 
 export class BotRunner implements BotRunnerApi, Traceable {
   private log = createLogger('bot');
@@ -25,7 +26,8 @@ export class BotRunner implements BotRunnerApi, Traceable {
     private readonly wallet: TestWallet,
     private readonly aztecNode: AztecNode,
     private readonly telemetry: TelemetryClient,
-    private readonly aztecNodeAdmin?: AztecNodeAdmin,
+    private readonly aztecNodeAdmin: AztecNodeAdmin | undefined,
+    private readonly store: BotStore,
   ) {
     this.tracer = telemetry.getTracer('Bot');
 
@@ -66,6 +68,7 @@ export class BotRunner implements BotRunnerApi, Traceable {
       this.log.verbose(`Stopping bot`);
       await this.runningPromise.stop();
     }
+    await this.store.close();
     this.log.info(`Stopped bot`);
   }
 
@@ -143,8 +146,8 @@ export class BotRunner implements BotRunnerApi, Traceable {
   async #createBot() {
     try {
       this.bot = this.config.ammTxs
-        ? AmmBot.create(this.config, this.wallet, this.aztecNode, this.aztecNodeAdmin)
-        : Bot.create(this.config, this.wallet, this.aztecNode);
+        ? AmmBot.create(this.config, this.wallet, this.aztecNode, this.aztecNodeAdmin, this.store)
+        : Bot.create(this.config, this.wallet, this.aztecNode, this.aztecNodeAdmin, this.store);
       await this.bot;
     } catch (err) {
       this.log.error(`Error setting up bot: ${err}`);

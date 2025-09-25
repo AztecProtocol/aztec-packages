@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./lazy": "./dest/lazy.js"
+    "./lazy": "./dest/lazy.js",
+    "./server": "./dest/server.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -66,6 +67,7 @@
     "@aztec/entrypoints": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
+    "@aztec/pxe": "workspace:^",
     "@aztec/stdlib": "workspace:^"
   },
   "devDependencies": {

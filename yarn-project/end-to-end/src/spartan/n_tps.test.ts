@@ -1,6 +1,6 @@
 import { type AztecNode, Fr, ProvenTx, Tx, readFieldCompressedString, sleep } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
