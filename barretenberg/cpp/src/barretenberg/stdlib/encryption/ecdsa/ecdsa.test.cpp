@@ -39,7 +39,6 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         InvalidR,
         InvalidS,
         HighS,
-        OutOfBoundsS, // To be removed
         OutOfBoundsHash,
         ZeroR,
         ZeroS,
@@ -58,6 +57,11 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
 
         ecdsa_signature signature =
             ecdsa_construct_signature<Sha256Hasher, FqNative, FrNative, G1Native>(message_string, account);
+
+        if (random_signature) {
+            // Logging in case of random signature
+            info("The private key used generate this signature is: ", private_key);
+        }
 
         return { account, signature };
     }
@@ -127,12 +131,6 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             FrNative::serialize_to_buffer(s, &signature.s[0]);
             break;
         }
-        case TamperingMode::OutOfBoundsS: {
-            // Construct valid signature by declaring s = 1, k = 1, and working out H(m) := 1 - r * private_key
-            FqNative::serialize_to_buffer(G1Native::one.x, &signature.r[0]);
-            FqNative::serialize_to_buffer(FqNative(FrNative::modulus + 1), &signature.s[0]);
-            break;
-        }
         case TamperingMode::HighS: {
             // Invalidate the signature by changing s to -s.
             FrNative s = FrNative::serialize_from_buffer(&signature.s[0]);
@@ -141,19 +139,22 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             FrNative::serialize_to_buffer(s, &signature.s[0]);
             break;
         }
-        case TamperingMode::OutOfBoundsHash:
+        case TamperingMode::OutOfBoundsHash: {
             // Invalidate the circuit by passing a message whose hash is bigger than n
             // (the message will be hard-coded in the circuit at a later point)
             signature = generate_signature_out_of_bounds_hash();
             break;
-        case TamperingMode::ZeroR:
+        }
+        case TamperingMode::ZeroR: {
             // Invalidate signature by setting r to 0
             signature.r = std::array<uint8_t, 32>{};
             break;
-        case TamperingMode::ZeroS:
+        }
+        case TamperingMode::ZeroS: {
             // Invalidate signature by setting s to 0
             signature.s = std::array<uint8_t, 32>{};
             break;
+        }
         case TamperingMode::Infinity: {
             // Invalidate the signature by making making u1 * G + u2 * P return the point at infinity
 
@@ -171,33 +172,29 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
 
             // Verify that the result is the point at infinity
             auto P = G1Native::one * fr_hash + account.public_key * r;
-            ASSERT(P.is_point_at_infinity());
+            BB_ASSERT_EQ(P.is_point_at_infinity(), true);
 
             break;
         }
-        case TamperingMode::InvalidPubKey:
+        case TamperingMode::InvalidPubKey: {
             // Invalidate the signature by passing a public key which is not on the curve
             account.public_key.x = account.public_key.y;
+            BB_ASSERT_EQ(account.public_key.on_curve(), false);
             break;
+        }
         case TamperingMode::None:
             break;
         }
 
         // Natively verify that the tampering was successfull
-        bool is_signature_valid = false;
-        try {
-            is_signature_valid = ecdsa_verify_signature<Sha256Hasher, FqNative, FrNative, G1Native>(
-                message_string, account.public_key, signature);
-        } catch (const std::exception& e) {
-            if (mode == TamperingMode::HighS || mode == TamperingMode::Infinity) {
-                // If either s >= (n+1)/2 or the result of the scalar multiplication is the point at infinity, then the
-                // verification function raises an error, we treat it as an invalid signature
-                is_signature_valid = false;
-            } else {
-                // Unexpected error, rethrow
-                throw;
-            }
+        bool is_signature_valid = ecdsa_verify_signature<Sha256Hasher, FqNative, FrNative, G1Native>(
+            message_string, account.public_key, signature);
+        if (mode == TamperingMode::HighS || mode == TamperingMode::Infinity) {
+            // If either s >= (n+1)/2 or the result of the scalar multiplication is the point at infinity, then the
+            // verification function raises an error, we treat it as an invalid signature
+            is_signature_valid = false;
         }
+
         bool expected = mode == TamperingMode::None;
         BB_ASSERT_EQ(is_signature_valid,
                      expected,
@@ -259,7 +256,7 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         stdlib::byte_array<Builder> message(&builder, message_bytes);
         stdlib::byte_array<Builder> hashed_message;
 
-        if (mode == TamperingMode::OutOfBoundsHash || mode == TamperingMode::OutOfBoundsS) {
+        if (mode == TamperingMode::OutOfBoundsHash) {
             // In this case the message is already hashed, so we mock the hashing constraints for consistency but
             // hard-code the message
             [[maybe_unused]] stdlib::byte_array<Builder> _ =
@@ -268,13 +265,9 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             // Hard-coded witness
             std::array<uint8_t, 32> hashed_message_witness;
 
-            if (mode == TamperingMode::OutOfBoundsHash) {
-                FqNative fr_hash = FqNative(FrNative::modulus + 1);
-                FqNative::serialize_to_buffer(fr_hash, &hashed_message_witness[0]);
-            } else {
-                FrNative fr_hash = FrNative::one() - private_key * FrNative(G1Native::one.x);
-                FrNative::serialize_to_buffer(fr_hash, &hashed_message_witness[0]);
-            }
+            // The hashed message is FrNative::modulus + 1
+            FqNative fr_hash = FqNative(FrNative::modulus + 1);
+            FqNative::serialize_to_buffer(fr_hash, &hashed_message_witness[0]);
 
             hashed_message = stdlib::byte_array<Builder>(
                 &builder, std::vector<uint8_t>(hashed_message_witness.begin(), hashed_message_witness.end()));
@@ -354,6 +347,11 @@ using Curves = testing::Types<stdlib::secp256k1<UltraCircuitBuilder>,
 
 TYPED_TEST_SUITE(EcdsaTests, Curves);
 
+TYPED_TEST(EcdsaTests, VerifyRandomSignature)
+{
+    TestFixture::test_verify_signature(/*random_signature=*/true, TestFixture::TamperingMode::None);
+}
+
 TYPED_TEST(EcdsaTests, VerifySignature)
 {
     TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::None);
@@ -396,11 +394,6 @@ TYPED_TEST(EcdsaTests, OutOfBoundsHash)
 {
     TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::OutOfBoundsHash);
 }
-
-// TYPED_TEST(EcdsaTests, OutOfBoundsS)
-// {
-//     TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::OutOfBoundsS);
-// }
 
 TYPED_TEST(EcdsaTests, Infinity)
 {

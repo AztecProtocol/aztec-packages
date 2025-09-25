@@ -154,9 +154,7 @@ bool ecdsa_verify_signature(const std::string& message,
     }
 
     // Check that the s value is less than |Fr| / 2
-    if (s_uint >= (mod + 1) / 2) {
-        throw_or_abort("s value is not less than curve order by 2");
-    }
+    BB_ASSERT_LT(s_uint, (mod + 1) / 2, "s value is not less than curve order by 2");
 
     Fr r = Fr(r_uint);
     Fr s = Fr(s_uint);

@@ -58,7 +58,7 @@ const std::vector<WycherproofSecp256k1> secp256k1_tests{
         .s = WycherproofSecp256k1::Fr("0x783266e90f43dafe5cd9b3b0be86de22f9de83677d0f50713a468ec72fcf5d57"),
         .is_valid_signature = true,
         .is_circuit_satisfied = true,
-        .comment = "Arithmetic error",
+        .comment = "Arithmetic error, r component is small",
     },
     // Point duplication tests
     WycherproofSecp256k1{
@@ -69,7 +69,7 @@ const std::vector<WycherproofSecp256k1> secp256k1_tests{
         .s = WycherproofSecp256k1::Fr("0x2492492492492492492492492492492463cfd66a190a6008891e0d81d49a0952"),
         .is_valid_signature = false,
         .is_circuit_satisfied = true,
-        .comment = "Point duplication",
+        .comment = "Point duplication, public key shares x-coordinates with generator",
     },
     // Edge case public key tests
     WycherproofSecp256k1{
@@ -80,12 +80,12 @@ const std::vector<WycherproofSecp256k1> secp256k1_tests{
         .s = WycherproofSecp256k1::Fr("0x53b9fa74803ede0fc4441bf683d56c564d3e274e09ccf47390badd1471c05fb7"),
         .is_valid_signature = true,
         .is_circuit_satisfied = true,
-        .comment = "Edge case public key",
+        .comment = "Edge case public key, y coordinate is small",
     },
 };
 
 /**
- * @brief Test for Secp256k1 ECDSA signatures taken from the Wycherproof project
+ * @brief Test for Secp256r1 ECDSA signatures taken from the Wycherproof project
  *
  */
 const std::vector<WycherproofSecp256r1> secp256r1_tests{
@@ -110,7 +110,7 @@ const std::vector<WycherproofSecp256r1> secp256r1_tests{
         .is_valid_signature = false,
         .is_circuit_satisfied =
             false, // When the public key is equal to ±G, the circuit fails because of the generation of lookup tables
-        .comment = "Point duplication",
+        .comment = "Point duplication, public key shares x-coordinates with generator",
     },
     // Edge case public key test
     WycherproofSecp256r1{
@@ -121,7 +121,7 @@ const std::vector<WycherproofSecp256r1> secp256r1_tests{
         .s = WycherproofSecp256r1::Fr("0x500dcba1c69a8fbd43fa4f57f743ce124ca8b91a1f325f3fac6181175df55737"),
         .is_valid_signature = true,
         .is_circuit_satisfied = true,
-        .comment = "Edge case public key",
+        .comment = "Edge case public key, x-coordinate has many trailing zeros",
     },
 };
 } // namespace bb::stdlib
