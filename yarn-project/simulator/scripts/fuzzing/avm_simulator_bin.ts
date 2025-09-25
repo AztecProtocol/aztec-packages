@@ -1,7 +1,5 @@
-// @ts-ignore-next-line
-var {createInstrumenter} = require('istanbul-lib-instrument');
-// @ts-ignore-next-line
-var {hookRequire} = require('istanbul-lib-hook');
+var { createInstrumenter } = require('istanbul-lib-instrument');
+var { hookRequire } = require('istanbul-lib-hook');
 var { gzipSync } = require('zlib');
 const INSTRUMENTER = createInstrumenter({ compact: true });
 
