@@ -108,7 +108,12 @@ import {
   getTelemetryClient,
   trackSpan,
 } from '@aztec/telemetry-client';
-import { NodeKeystoreAdapter, ValidatorClient, createValidatorClient } from '@aztec/validator-client';
+import {
+  NodeKeystoreAdapter,
+  ValidatorClient,
+  createBlockProposalHandler,
+  createValidatorClient,
+} from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { createPublicClient, fallback, http } from 'viem';
@@ -334,6 +339,21 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       if (!options.dontStartSequencer) {
         await validatorClient.registerHandlers();
       }
+    }
+
+    // If there's no validator client but alwaysReexecuteBlockProposals is enabled,
+    // create a BlockProposalHandler to reexecute block proposals for monitoring
+    if (!validatorClient && config.alwaysReexecuteBlockProposals) {
+      log.info('Setting up block proposal reexecution for monitoring');
+      createBlockProposalHandler(config, {
+        blockBuilder,
+        epochCache,
+        blockSource: archiver,
+        l1ToL2MessageSource: archiver,
+        p2pClient,
+        dateProvider,
+        telemetry,
+      }).registerForReexecution(p2pClient);
     }
 
     // Start world state and wait for it to sync to the archiver.

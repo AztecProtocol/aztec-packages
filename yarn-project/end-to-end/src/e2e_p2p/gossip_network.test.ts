@@ -1,5 +1,5 @@
 import type { Archiver } from '@aztec/archiver';
-import type { AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { SentTx, retryUntil, sleep } from '@aztec/aztec.js';
 import type { ProverNode } from '@aztec/prover-node';
 import type { SequencerClient } from '@aztec/sequencer-client';
@@ -12,7 +12,12 @@ import os from 'os';
 import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
-import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNodes, createProverNode } from '../fixtures/setup_p2p_test.js';
+import {
+  ATTESTER_PRIVATE_KEYS_START_INDEX,
+  createNodes,
+  createNonValidatorNode,
+  createProverNode,
+} from '../fixtures/setup_p2p_test.js';
 import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { submitTransactions } from './shared.js';
@@ -42,6 +47,7 @@ describe('e2e_p2p_network', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
   let proverNode: ProverNode;
+  let monitoringNode: AztecNodeService;
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -66,6 +72,9 @@ describe('e2e_p2p_network', () => {
 
   afterEach(async () => {
     await tryStop(proverNode);
+    fs.rmSync(`${DATA_DIR}-prover`, { recursive: true, force: true, maxRetries: 3 });
+    await tryStop(monitoringNode);
+    fs.rmSync(`${DATA_DIR}-monitor`, { recursive: true, force: true, maxRetries: 3 });
     await t.stopNodes(nodes);
     await t.teardown();
     for (let i = 0; i < NUM_VALIDATORS; i++) {
@@ -93,7 +102,7 @@ describe('e2e_p2p_network', () => {
     // should be set so that the only way for rollups to be built
     // is if the txs are successfully gossiped around the nodes.
     const txsSentViaDifferentNodes: SentTx[][] = [];
-    t.logger.info('Creating nodes');
+    t.logger.info('Creating validator nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
@@ -107,6 +116,7 @@ describe('e2e_p2p_network', () => {
     );
 
     // create a prover node that uses p2p only (not rpc) to gather txs to test prover tx collection
+    t.logger.warn(`Creating prover node`);
     proverNode = await createProverNode(
       t.ctx.aztecNodeConfig,
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
@@ -118,6 +128,18 @@ describe('e2e_p2p_network', () => {
       shouldCollectMetrics(),
     );
     await proverNode.start();
+
+    t.logger.warn(`Creating non validator node`);
+    const monitoringNodeConfig: AztecNodeConfig = { ...t.ctx.aztecNodeConfig, alwaysReexecuteBlockProposals: true };
+    monitoringNode = await createNonValidatorNode(
+      monitoringNodeConfig,
+      t.ctx.dateProvider,
+      BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 2,
+      t.bootstrapNodeEnr,
+      t.prefilledPublicData,
+      `${DATA_DIR}-monitor`,
+      shouldCollectMetrics(),
+    );
 
     // wait a bit for peers to discover each other
     await sleep(8000);

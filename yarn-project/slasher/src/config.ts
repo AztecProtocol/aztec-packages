@@ -83,7 +83,7 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
   },
   slashBroadcastedInvalidBlockPenalty: {
     env: 'SLASH_INVALID_BLOCK_PENALTY',
-    description: 'Penalty amount for slashing a validator for an invalid block.',
+    description: 'Penalty amount for slashing a validator for an invalid block proposed via p2p.',
     ...bigintConfigHelper(DefaultSlasherConfig.slashBroadcastedInvalidBlockPenalty),
   },
   slashInactivityTargetPercentage: {
