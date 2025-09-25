@@ -219,6 +219,35 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         return result;
     }
 
+    /**
+     * @brief Selects `this` if predicate is false, `other` if predicate is true.
+     *
+     * @param other
+     * @param predicate
+     * @return element
+     */
+    element conditional_select(const element& other, const bool_ct& predicate) const
+    {
+        // If predicate is constant, we can select out of circuit
+        if (predicate.is_constant()) {
+            auto result = predicate.get_value() ? other : *this;
+            result.set_origin_tag(
+                OriginTag(predicate.get_origin_tag(), other.get_origin_tag(), this->get_origin_tag()));
+            return result;
+        }
+
+        // Get the builder context
+        Builder* ctx = validate_context<Builder>(get_context(), other.get_context(), predicate.get_context());
+        BB_ASSERT_NEQ(ctx, nullptr, "biggroup::conditional_select must have a context");
+
+        element result(*this);
+        result.x = result.x.conditional_select(other.x, predicate);
+        result.y = result.y.conditional_select(other.y, predicate);
+        result._is_infinity =
+            bool_ct::conditional_assign(predicate, other.is_point_at_infinity(), result.is_point_at_infinity());
+        return result;
+    }
+
     element normalize() const
     {
         element result(*this);
