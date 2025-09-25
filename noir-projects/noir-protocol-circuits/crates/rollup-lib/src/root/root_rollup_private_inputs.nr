@@ -34,22 +34,21 @@ impl RootRollupPrivateInputs {
     pub fn execute(self) -> RootRollupPublicInputs {
         // Verify the previous rollup proofs
         if !dep::std::runtime::is_unconstrained() {
-            let vk_tree_root = self.previous_rollups[0].public_inputs.constants.vk_tree_root;
-
             self.previous_rollups[0].verify_proof_in_root();
-            // The vk validation below ensures that the left rollup can never be a padding block root rollup,
-            // because `CHECKPOINT_PADDING_ROLLUP_VK_INDEX` is not included in `ALLOWED_LEFT_ROLLUP_VK_INDICES`.
-            self.previous_rollups[0].vk_data.validate_allowed_in_vk_tree(
-                vk_tree_root,
-                ALLOWED_LEFT_ROLLUP_VK_INDICES,
-            );
-
             self.previous_rollups[1].verify_proof_in_root();
-            self.previous_rollups[1].vk_data.validate_allowed_in_vk_tree(
-                vk_tree_root,
-                ALLOWED_RIGHT_ROLLUP_VK_INDICES,
-            );
         }
+
+        let vk_tree_root = self.previous_rollups[0].public_inputs.constants.vk_tree_root;
+        // The vk validation below ensures that the left rollup can never be a padding block root rollup,
+        // because `CHECKPOINT_PADDING_ROLLUP_VK_INDEX` is not included in `ALLOWED_LEFT_ROLLUP_VK_INDICES`.
+        self.previous_rollups[0].vk_data.validate_allowed_in_vk_tree(
+            vk_tree_root,
+            ALLOWED_LEFT_ROLLUP_VK_INDICES,
+        );
+        self.previous_rollups[1].vk_data.validate_allowed_in_vk_tree(
+            vk_tree_root,
+            ALLOWED_RIGHT_ROLLUP_VK_INDICES,
+        );
 
         let left = self.previous_rollups[0].public_inputs;
         let right = self.previous_rollups[1].public_inputs;

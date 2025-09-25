@@ -31,7 +31,7 @@ unconstrained fn full_flow() {
     // ORDER CREATION
     let transfer_call_interface =
         token0.transfer_to_public(maker, orderbook_address, BID_AMOUNT, CREATE_ORDER_AUTHWIT_NONCE);
-    add_private_authwit_from_call_interface(maker, orderbook_address, transfer_call_interface);
+    add_private_authwit_from_call_interface(env, maker, orderbook_address, transfer_call_interface);
 
     let order_id = env.call_private(
         maker,
@@ -68,6 +68,7 @@ unconstrained fn full_flow() {
         FULFILL_ORDER_AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
+        env,
         taker,
         orderbook_address,
         fulfill_transfer_call_interface,

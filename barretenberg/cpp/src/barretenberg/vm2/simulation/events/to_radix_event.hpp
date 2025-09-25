@@ -18,6 +18,7 @@ struct ToRadixEvent {
 struct ToRadixMemoryEvent {
     uint32_t execution_clk;
     uint32_t space_id;
+    uint32_t num_limbs;
     MemoryAddress dst_addr;
 
     FF value;

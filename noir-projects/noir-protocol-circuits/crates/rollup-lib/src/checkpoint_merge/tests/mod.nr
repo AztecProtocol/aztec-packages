@@ -1,3 +1,4 @@
+mod child_proof_vk_tests;
 mod consecutive_checkpoint_rollups_tests;
 mod rollup_structure_tests;
 
@@ -27,8 +28,8 @@ struct TestBuilder {
 impl TestBuilder {
     pub fn default() -> Self {
         Self::new(
-            CHECKPOINT_ROOT_ROLLUP_VK_INDEX,
-            1,
+            CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+            2,
             CHECKPOINT_ROOT_ROLLUP_VK_INDEX,
             1,
         )

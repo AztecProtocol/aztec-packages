@@ -12,17 +12,17 @@ use types::{
 };
 
 #[derive(Eq)]
-pub(crate) struct TxEffect {
-    pub(crate) tx_hash: Field,
-    pub(crate) revert_code: u8,
-    pub(crate) transaction_fee: Field,
-    pub(crate) note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
-    pub(crate) nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
-    pub(crate) l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX],
-    pub(crate) public_data_writes: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    pub(crate) private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],
-    pub(crate) public_logs: PublicLogs,
-    pub(crate) contract_class_logs: [ContractClassLog; MAX_CONTRACT_CLASS_LOGS_PER_TX],
+pub struct TxEffect {
+    pub tx_hash: Field,
+    pub revert_code: u8,
+    pub transaction_fee: Field,
+    pub note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
+    pub nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
+    pub l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX],
+    pub public_data_writes: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    pub private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],
+    pub public_logs: PublicLogs,
+    pub contract_class_logs: [ContractClassLog; MAX_CONTRACT_CLASS_LOGS_PER_TX],
 }
 
 impl Empty for TxEffect {

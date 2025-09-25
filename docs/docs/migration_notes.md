@@ -47,6 +47,19 @@ The following commands were dropped from the `aztec` command:
 
 ## [Aztec.nr]
 
+### Authwit Test Helper now takes `env`
+
+The `add_private_authwit_from_call_interface` test helper available in `test::helpers::authwit` now takes a `TestEnvironment` parameter, mirroring `add_public_authwit_from_call_interface`. This adds some unfortunate verbosity, but there are bigger plans to improve authwit usage in Noir tests in the near future.
+
+```diff
+add_private_authwit_from_call_interface(
++   env,
+    on_behalf_of,
+    caller,
+    call_interface,
+);
+```
+
 ### Historical block renamed as anchor block
 
 A historical block term has been used as a term that denotes the block against which a private part of a tx has been executed.

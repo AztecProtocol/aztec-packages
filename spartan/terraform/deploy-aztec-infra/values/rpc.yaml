@@ -1,6 +1,8 @@
 node:
   env:
     OTEL_SERVICE_NAME: "node"
+    AWS_ACCESS_KEY_ID: ""
+    AWS_SECRET_ACCESS_KEY: ""
 
   preStartScript: |
     if [ -n "${BOOT_NODE_HOST:-}" ] && [ -z "${NETWORK:-}" ]; then

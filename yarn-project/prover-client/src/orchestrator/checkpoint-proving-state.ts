@@ -8,7 +8,7 @@ import {
   type ARCHIVE_HEIGHT,
   BLOBS_PER_BLOCK,
   FIELDS_PER_BLOB,
-  type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  type L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUM_MSGS_PER_BASE_PARITY,
 } from '@aztec/constants';
@@ -60,10 +60,16 @@ export class CheckpointProvingState {
     private readonly l1ToL2Messages: Fr[],
     // The snapshot and sibling path before the new l1 to l2 message subtree is inserted.
     private readonly lastL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    private readonly lastL1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    private readonly lastL1ToL2MessageSubtreeRootSiblingPath: Tuple<
+      Fr,
+      typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH
+    >,
     // The snapshot and sibling path after the new l1 to l2 message subtree is inserted.
     private readonly newL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    private readonly newL1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    private readonly newL1ToL2MessageSubtreeRootSiblingPath: Tuple<
+      Fr,
+      typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH
+    >,
     public parentEpoch: EpochProvingState,
     private onBlobAccumulatorSet: (checkpoint: CheckpointProvingState) => void,
   ) {
@@ -92,8 +98,8 @@ export class CheckpointProvingState {
     // happen in the first block.
     const lastL1ToL2MessageTreeSnapshot =
       index === 0 ? this.lastL1ToL2MessageTreeSnapshot : this.newL1ToL2MessageTreeSnapshot;
-    const lastL1ToL2MessageSubtreeSiblingPath =
-      index === 0 ? this.lastL1ToL2MessageSubtreeSiblingPath : this.newL1ToL2MessageSubtreeSiblingPath;
+    const lastL1ToL2MessageSubtreeRootSiblingPath =
+      index === 0 ? this.lastL1ToL2MessageSubtreeRootSiblingPath : this.newL1ToL2MessageSubtreeRootSiblingPath;
 
     const startSpongeBlob =
       index === 0 ? SpongeBlob.init(this.totalNumBlobFields) : this.blocks[index - 1]?.getEndSpongeBlob();
@@ -112,7 +118,7 @@ export class CheckpointProvingState {
       lastArchiveTreeSnapshot,
       lastArchiveSiblingPath,
       lastL1ToL2MessageTreeSnapshot,
-      lastL1ToL2MessageSubtreeSiblingPath,
+      lastL1ToL2MessageSubtreeRootSiblingPath,
       this.newL1ToL2MessageTreeSnapshot,
       this.headerOfLastBlockInPreviousCheckpoint,
       startSpongeBlob,

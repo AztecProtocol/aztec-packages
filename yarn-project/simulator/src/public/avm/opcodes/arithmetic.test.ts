@@ -439,5 +439,133 @@ describe('Arithmetic Instructions', () => {
       const actual = context.machineState.memory.get(2);
       expect(actual).toEqual(expected);
     });
+
+    it('Should handle huge shift amounts without error (returns 0)', async () => {
+      const a = new Uint32((1n << 32n) - 1n);
+      const hugeShift = new Uint32(1n << 31n); // Very large shift amount
+
+      context.machineState.memory.set(0, a);
+      context.machineState.memory.set(1, hugeShift);
+
+      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+
+      const expected = new Uint32(0n);
+      const actual = context.machineState.memory.get(2);
+      expect(actual).toEqual(expected);
+    });
+
+    it('Should handle maximum possible shift amount for each type', async () => {
+      // Test Uint8
+      const a8 = new Uint8((1n << 8n) - 1n);
+      const maxShift8 = new Uint8((1n << 8n) - 1n); // Max value for Uint8
+      context.machineState.memory.set(0, a8);
+      context.machineState.memory.set(1, maxShift8);
+      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      expect(context.machineState.memory.get(2)).toEqual(new Uint8(0n));
+
+      // Test Uint16
+      const a16 = new Uint16((1n << 16n) - 1n);
+      const maxShift16 = new Uint16((1n << 16n) - 1n); // Max value for Uint16
+      context.machineState.memory.set(10, a16);
+      context.machineState.memory.set(11, maxShift16);
+      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 10, /*bOffset=*/ 11, /*dstOffset=*/ 12).execute(context);
+      expect(context.machineState.memory.get(12)).toEqual(new Uint16(0n));
+
+      // Test Uint32
+      const a32 = new Uint32((1n << 32n) - 1n);
+      const maxShift32 = new Uint32((1n << 32n) - 1n); // Max value for Uint32
+      context.machineState.memory.set(20, a32);
+      context.machineState.memory.set(21, maxShift32);
+      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 20, /*bOffset=*/ 21, /*dstOffset=*/ 22).execute(context);
+      expect(context.machineState.memory.get(22)).toEqual(new Uint32(0n));
+    });
+  });
+
+  describe('SHR huge shift amounts', () => {
+    it('Should handle huge shift amounts without error (returns 0)', async () => {
+      const a = new Uint32((1n << 32n) - 1n);
+      const hugeShift = new Uint32(1n << 31n); // Very large shift amount
+
+      context.machineState.memory.set(0, a);
+      context.machineState.memory.set(1, hugeShift);
+
+      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+
+      const expected = new Uint32(0n);
+      const actual = context.machineState.memory.get(2);
+      expect(actual).toEqual(expected);
+    });
+
+    it('Should handle maximum possible shift amount for each type', async () => {
+      // Test Uint8
+      const a8 = new Uint8((1n << 8n) - 1n);
+      const maxShift8 = new Uint8((1n << 8n) - 1n); // Max value for Uint8
+      context.machineState.memory.set(0, a8);
+      context.machineState.memory.set(1, maxShift8);
+      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+      expect(context.machineState.memory.get(2)).toEqual(new Uint8(0n));
+
+      // Test Uint16
+      const a16 = new Uint16((1n << 16n) - 1n);
+      const maxShift16 = new Uint16((1n << 16n) - 1n); // Max value for Uint16
+      context.machineState.memory.set(10, a16);
+      context.machineState.memory.set(11, maxShift16);
+      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 10, /*bOffset=*/ 11, /*dstOffset=*/ 12).execute(context);
+      expect(context.machineState.memory.get(12)).toEqual(new Uint16(0n));
+
+      // Test Uint32
+      const a32 = new Uint32((1n << 32n) - 1n);
+      const maxShift32 = new Uint32((1n << 32n) - 1n); // Max value for Uint32
+      context.machineState.memory.set(20, a32);
+      context.machineState.memory.set(21, maxShift32);
+      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 20, /*bOffset=*/ 21, /*dstOffset=*/ 22).execute(context);
+      expect(context.machineState.memory.get(22)).toEqual(new Uint32(0n));
+
+      // Test Uint64
+      const a64 = new Uint64((1n << 64n) - 1n);
+      const maxShift64 = new Uint64((1n << 64n) - 1n); // Max value for Uint64
+      context.machineState.memory.set(30, a64);
+      context.machineState.memory.set(31, maxShift64);
+      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 30, /*bOffset=*/ 31, /*dstOffset=*/ 32).execute(context);
+      expect(context.machineState.memory.get(32)).toEqual(new Uint64(0n));
+
+      // Test Uint128
+      const a128 = new Uint128((1n << 128n) - 1n);
+      const maxShift128 = new Uint128((1n << 128n) - 1n); // Max value for Uint128
+      context.machineState.memory.set(40, a128);
+      context.machineState.memory.set(41, maxShift128);
+      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 40, /*bOffset=*/ 41, /*dstOffset=*/ 42).execute(context);
+      expect(context.machineState.memory.get(42)).toEqual(new Uint128(0n));
+    });
+
+    it('Should handle shift amount exactly at bit size boundary', async () => {
+      // Test shifting by exact bit size should return 0
+      const a32 = new Uint32((1n << 32n) - 1n);
+      const exactBitSize = new Uint32(32n); // Exact bit size of Uint32
+
+      context.machineState.memory.set(0, a32);
+      context.machineState.memory.set(1, exactBitSize);
+
+      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+
+      const expected = new Uint32(0n);
+      const actual = context.machineState.memory.get(2);
+      expect(actual).toEqual(expected);
+    });
+
+    it('Should handle shift amount just below bit size boundary', async () => {
+      // Test shifting by bit size - 1 should leave 1 bit
+      const a32 = new Uint32((1n << 32n) - 1n);
+      const justBelowBitSize = new Uint32(31n); // One less than bit size
+
+      context.machineState.memory.set(0, a32);
+      context.machineState.memory.set(1, justBelowBitSize);
+
+      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+
+      const expected = new Uint32(1n); // Only the MSB remains
+      const actual = context.machineState.memory.get(2);
+      expect(actual).toEqual(expected);
+    });
   });
 });

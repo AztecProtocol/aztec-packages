@@ -19,274 +19,85 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy-staging-networks:
+  determine-semver:
     if: |
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
       (github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    env:
-      NETWORK_ENV_FILE: /tmp/network.env
-      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+    outputs:
+      semver: ${{ steps.semver.outputs.value }}
+      major_version: ${{ steps.semver.outputs.major_version }}
+      should_deploy: ${{ steps.semver.outputs.should_deploy }}
+      branch: ${{ steps.branch.outputs.value }}
     steps:
-      #############
-      # Prepare Env
-      #############
-      - name: Checkout (workflow_run)
-        if: github.event_name == 'workflow_run'
+      - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Checkout (workflow_dispatch)
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: refs/tags/v${{ inputs.semver }}
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Determine semver from tag
-        if: github.event_name == 'workflow_run'
+
+      - name: Determine branch
+        id: branch
         run: |
-          git fetch --tags --force
-          tag=$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | head -n1)
-          if ! echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+'; then
-            echo "No semver tag found for head_sha: ${{ github.event.workflow_run.head_sha }}. Skipping."
-            exit 0
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ github.ref }}" ]]; then
+            echo "value=${{ github.ref }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "value=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "value=${{ github.event.workflow_run.head_branch || github.ref_name }}" >> $GITHUB_OUTPUT
           fi
-          semver="${tag#v}"
+
+      - name: Determine semver
+        id: semver
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            git fetch --tags --force
+            tag=$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | head -n1)
+            if ! echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+'; then
+              echo "No semver tag found for head_sha: ${{ github.event.workflow_run.head_sha }}. Skipping."
+              echo "should_deploy=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            semver="${tag#v}"
+          else
+            semver="${{ inputs.semver }}"
+          fi
+
           major_version="${semver%%.*}"
-          echo "SEMVER=$semver" >> $GITHUB_ENV
-          echo "MAJOR_VERSION=$major_version" >> $GITHUB_ENV
-      - name: Set semver from input
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          semver="${{ inputs.semver }}"
-          major_version="${semver%%.*}"
-          echo "SEMVER=$semver" >> $GITHUB_ENV
-          echo "MAJOR_VERSION=$major_version" >> $GITHUB_ENV
-      - name: Setup
-        if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
-        run: |
-          # Ensure we can SSH into the spot instances we request.
-          mkdir -p ~/.ssh
-          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
-          chmod 600 ~/.ssh/build_instance_key
-          sudo apt install -y --no-install-recommends redis-tools parallel
+          echo "value=$semver" >> $GITHUB_OUTPUT
+          echo "major_version=$major_version" >> $GITHUB_OUTPUT
+          echo "should_deploy=true" >> $GITHUB_OUTPUT
 
-      - name: Store the GCP key in a file
-        if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
-        env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-        run: |
-          set +x
-          umask 077
-          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
-          jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
+  deploy-staging-public:
+    needs: determine-semver
+    if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2'
+    uses: ./.github/workflows/deploy-staging-network.yml
+    with:
+      network: staging-public
+      semver: ${{ needs.determine-semver.outputs.semver }}
+      ref: ${{ github.ref }}
+    secrets: inherit
 
-      #############
-      # Deploy staging-public network
-      # We don't need to deploy rollup contracts for this network
-      # because they're already deployed.
-      #############
-      - name: Write staging-public network env file
-        if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
-        run: |
-          NAMESPACE=staging-public
-          cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
-          CREATE_ETH_DEVNET=false
-          GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
-          GCP_REGION=us-west1-a
-          CLUSTER=aztec-gke-private
-          SALT=1757376707
-          NETWORK=staging-public
-          NAMESPACE=${NAMESPACE}
-          AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
-          ETHEREUM_CHAIN_ID=11155111
-          ETHEREUM_RPC_URLS=${{ secrets.SEPOLIA_RPC_URLS }}
-          ETHEREUM_CONSENSUS_HOST_URLS=${{ secrets.SEPOLIA_CONSENSUS_HOST_URLS }}
-          ETHEREUM_CONSENSUS_HOST_API_KEYS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEYS }}
-          ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEY_HEADERS }}
-          FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
-          LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_STAGING_PUBLIC_MNEMONIC }}
-          ROLLUP_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_LABS_ROLLUP_PRIVATE_KEY }}
-          OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}
-          VERIFY_CONTRACTS=true
-          ETHERSCAN_API_KEY=${{ secrets.ETHERSCAN_API_KEY }}
-          DEPLOY_INTERNAL_BOOTNODE=false
-          STORE_SNAPSHOT_URL="${{ secrets.GCS_TESTNET_SNAPSHOT_URL }}/staging-public/"
-          PROVER_FAILED_PROOF_STORE=gs://aztec-develop/staging-public/failed-proofs
-          TEST_ACCOUNTS=false
-          SPONSORED_FPC=true
-          SEQ_MIN_TX_PER_BLOCK=0
-          SEQ_MAX_TX_PER_BLOCK=8
+  deploy-staging-ignition:
+    # Depends on staging-public until we are confident in concurrent deployments
+    needs: [determine-semver, deploy-staging-public]
+    if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2'
+    uses: ./.github/workflows/deploy-staging-network.yml
+    with:
+      network: staging-ignition
+      semver: ${{ needs.determine-semver.outputs.semver }}
+      ref: ${{ github.ref }}
+    secrets: inherit
 
-          BOT_TRANSFERS_REPLICAS=1
-          BOT_TRANSFERS_TX_INTERVAL_SECONDS=250
-          BOT_TRANSFERS_FOLLOW_CHAIN=PENDING
-
-          BOT_SWAPS_REPLICAS=1
-          BOT_SWAPS_FOLLOW_CHAIN=PENDING
-          BOT_SWAPS_TX_INTERVAL_SECONDS=350
-
-          RPC_INGRESS_ENABLED=true
-          RPC_INGRESS_HOST=staging.alpha-testnet.aztec-labs.com
-          RPC_INGRESS_STATIC_IP_NAME=staging-public-rpc-ip
-          RPC_INGRESS_SSL_CERT_NAME=staging-public-rpc-cert
-
-          FLUSH_ENTRY_QUEUE=false
-          EOF
-          echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
-
-      - name: Run
-        if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          RUN_ID: ${{ github.run_id }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          # Pass the base64 encoded strings, and where they should be decoded to
-          NETWORK_ENV_FILE: ${{ env.NETWORK_ENV_FILE }}
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
-          NAMESPACE: ${{ env.NAMESPACE }}
-          REF_NAME: "v${{ env.SEMVER }}"
-        run: |
-          # the network env file and gcp credentials file are mounted into the ec2 instance
-          # see ci3/bootstrap_ec2
-          exec ./ci.sh network-deploy
-
-      #############
-      # Deploy staging-ignition network
-      #############
-      - name: Write staging-ignition network env file
-        if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
-        run: |
-          NAMESPACE=staging-ignition
-          cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
-          CREATE_ETH_DEVNET=false
-          GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
-          GCP_REGION=us-west1-a
-          CLUSTER=aztec-gke-private
-          SALT=1175732583
-          NAMESPACE=${NAMESPACE}
-          AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
-          TRANSACTIONS_DISABLED=true
-          TEST_ACCOUNTS=false
-          SPONSORED_FPC=false
-          SEQ_MIN_TX_PER_BLOCK=0
-          SEQ_MAX_TX_PER_BLOCK=0
-          NETWORK=staging-ignition
-
-          ETHEREUM_CHAIN_ID=11155111
-          ETHEREUM_RPC_URLS=${{ secrets.SEPOLIA_RPC_URLS }}
-          ETHEREUM_CONSENSUS_HOST_URLS=${{ secrets.SEPOLIA_CONSENSUS_HOST_URLS }}
-          ETHEREUM_CONSENSUS_HOST_API_KEYS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEYS }}
-          ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEY_HEADERS }}
-          FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
-          LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_STAGING_IGNITION_MNEMONIC }}
-          ROLLUP_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_LABS_ROLLUP_PRIVATE_KEY }}
-          OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}
-          VERIFY_CONTRACTS=true
-          ETHERSCAN_API_KEY=${{ secrets.ETHERSCAN_API_KEY }}
-          STORE_SNAPSHOT_URL="${{ secrets.GCS_TESTNET_SNAPSHOT_URL }}/staging-ignition/"
-          BOT_TRANSFERS_REPLICAS=0
-          BOT_SWAPS_REPLICAS=0
-          DEPLOY_INTERNAL_BOOTNODE=false
-          FLUSH_ENTRY_QUEUE=false
-          EOF
-          echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
-
-      - name: Run
-        if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          RUN_ID: ${{ github.run_id }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          # Pass the base64 encoded strings, and where they should be decoded to
-          NETWORK_ENV_FILE: ${{ env.NETWORK_ENV_FILE }}
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
-          NAMESPACE: ${{ env.NAMESPACE }}
-          REF_NAME: "v${{ env.SEMVER }}"
-        run: |
-          # the network env file and gcp credentials file are mounted into the ec2 instance
-          # see ci3/bootstrap_ec2
-          exec ./ci.sh network-deploy
-
-      #############
-      # Deploy testnet if we are not a pre-release (i.e. semver does not contain a hyphen)
-      #############
-      - name: Write testnet network env file
-        if: env.SEMVER != '' && env.MAJOR_VERSION == '2' && !contains(env.SEMVER, '-')
-        run: |
-          NAMESPACE="testnet"
-          cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
-          CREATE_ETH_DEVNET=false
-          GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
-          GCP_REGION=us-west1-a
-          CLUSTER=aztec-gke-public
-          SALT=1757380290
-          NAMESPACE=${NAMESPACE}
-          AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
-          TEST_ACCOUNTS=false
-          SPONSORED_FPC=true
-          SEQ_MIN_TX_PER_BLOCK=0
-          SEQ_MAX_TX_PER_BLOCK=8
-          NETWORK=testnet
-
-          ETHEREUM_CHAIN_ID=11155111
-          ETHEREUM_RPC_URLS=${{ secrets.SEPOLIA_RPC_URLS }}
-          ETHEREUM_CONSENSUS_HOST_URLS=${{ secrets.SEPOLIA_CONSENSUS_HOST_URLS }}
-          ETHEREUM_CONSENSUS_HOST_API_KEYS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEYS }}
-          ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEY_HEADERS }}
-          FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
-          LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_TESTNET_MNEMONIC }}
-          ROLLUP_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_LABS_ROLLUP_PRIVATE_KEY }}
-          OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}
-          VERIFY_CONTRACTS=true
-          ETHERSCAN_API_KEY=${{ secrets.ETHERSCAN_API_KEY }}
-
-          STORE_SNAPSHOT_URL="${{ secrets.GCS_TESTNET_SNAPSHOT_URL }}/testnet/"
-          DEPLOY_INTERNAL_BOOTNODE=false
-          BOT_TRANSFERS_REPLICAS=0
-          BOT_SWAPS_REPLICAS=0
-          FLUSH_ENTRY_QUEUE=false
-
-          DEPLOY_ARCHIVAL_NODE=true
-
-          RPC_INGRESS_ENABLED=true
-          RPC_INGRESS_HOST=rpc.testnet.aztec-labs.com
-          RPC_INGRESS_STATIC_IP_NAME=testnet-rpc-ip
-          RPC_INGRESS_SSL_CERT_NAME=testnet-rpc-cert
-
-          EOF
-          echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
-
-      - name: Run
-        if: env.SEMVER != '' && env.MAJOR_VERSION == '2' && !contains(env.SEMVER, '-')
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          RUN_ID: ${{ github.run_id }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          # Pass the base64 encoded strings, and where they should be decoded to
-          NETWORK_ENV_FILE: ${{ env.NETWORK_ENV_FILE }}
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
-          NAMESPACE: ${{ env.NAMESPACE }}
-          REF_NAME: "v${{ env.SEMVER }}"
-        run: |
-          # the network env file and gcp credentials file are mounted into the ec2 instance
-          # see ci3/bootstrap_ec2
-          exec ./ci.sh network-deploy
-
-      - name: Update Monitoring App
-        if: env.SEMVER != '' && env.MAJOR_VERSION == '2' && !contains(env.SEMVER, '-')
-        env:
-          MONITORING_NAMESPACE: testnet-block-height-monitor
-          NAMESPACE: ${{ env.NAMESPACE }}
-        run: |
-          echo "Checking if monitoring app needs to be updated for testnet deployment..."
-          ./spartan/metrics/testnet-monitor/scripts/update-monitoring.sh ${{ env.NAMESPACE }} ${{ env.MONITORING_NAMESPACE }}
+  deploy-testnet:
+    # Depends on staging-ignition until we are confident in concurrent deployments
+    needs: [determine-semver, deploy-staging-ignition]
+    # Only deploy testnet if we are not a pre-release (i.e. semver does not contain a hyphen)
+    if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2' && !contains(needs.determine-semver.outputs.semver, '-')
+    uses: ./.github/workflows/deploy-staging-network.yml
+    with:
+      network: testnet
+      semver: ${{ needs.determine-semver.outputs.semver }}
+      ref: ${{ github.ref }}
+    secrets: inherit

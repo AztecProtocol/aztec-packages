@@ -1,11 +1,16 @@
 import { type ContractInstanceWithAddress, Fr, Point } from '@aztec/aztec.js';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
-import { packAsRetrievedNote } from '@aztec/pxe/simulator';
+import {
+  type IMiscOracle,
+  type IPrivateExecutionOracle,
+  type IUtilityExecutionOracle,
+  packAsRetrievedNote,
+} from '@aztec/pxe/simulator';
 import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
-import type { TXETypedOracle } from './oracle/txe_typed_oracle.js';
+import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import type { TXESessionStateHandler } from './txe_session.js';
 import {
   type ForeignCallArray,
@@ -23,6 +28,12 @@ import {
   toSingle,
 } from './util/encoding.js';
 
+export class UnavailableOracleError extends Error {
+  constructor(oracleName: string) {
+    super(`${oracleName} oracles not available with the current handler`);
+  }
+}
+
 export class RPCTranslator {
   /**
    * Create a new instance of `RPCTranslator` that will translate all TXE RPC calls to and from the foreign
@@ -35,8 +46,53 @@ export class RPCTranslator {
    */
   constructor(
     private stateHandler: TXESessionStateHandler,
-    private oracleHandler: TXETypedOracle,
+    private oracleHandler:
+      | IMiscOracle
+      | IUtilityExecutionOracle
+      | IPrivateExecutionOracle
+      | IAvmExecutionOracle
+      | ITxeExecutionOracle,
   ) {}
+
+  private handlerAsMisc(): IMiscOracle {
+    if (!('isMisc' in this.oracleHandler)) {
+      throw new UnavailableOracleError('Misc');
+    }
+
+    return this.oracleHandler;
+  }
+
+  private handlerAsUtility(): IUtilityExecutionOracle {
+    if (!('isUtility' in this.oracleHandler)) {
+      throw new UnavailableOracleError('Utility');
+    }
+
+    return this.oracleHandler;
+  }
+
+  private handlerAsPrivate(): IPrivateExecutionOracle {
+    if (!('isPrivate' in this.oracleHandler)) {
+      throw new UnavailableOracleError('Private');
+    }
+
+    return this.oracleHandler;
+  }
+
+  private handlerAsAvm(): IAvmExecutionOracle {
+    if (!('isAvm' in this.oracleHandler)) {
+      throw new UnavailableOracleError('Avm');
+    }
+
+    return this.oracleHandler;
+  }
+
+  private handlerAsTxe(): ITxeExecutionOracle {
+    if (!('isTxe' in this.oracleHandler)) {
+      throw new UnavailableOracleError('Txe');
+    }
+
+    return this.oracleHandler;
+  }
 
   // TXE session state transition functions - these get handled by the state handler
 
@@ -96,13 +152,13 @@ export class RPCTranslator {
   // TXE-specific oracles
 
   async txeGetNextBlockNumber() {
-    const nextBlockNumber = await this.oracleHandler.txeGetNextBlockNumber();
+    const nextBlockNumber = await this.handlerAsTxe().txeGetNextBlockNumber();
 
     return toForeignCallResult([toSingle(nextBlockNumber)]);
   }
 
   async txeGetNextBlockTimestamp() {
-    const nextBlockTimestamp = await this.oracleHandler.txeGetNextBlockTimestamp();
+    const nextBlockTimestamp = await this.handlerAsTxe().txeGetNextBlockTimestamp();
 
     return toForeignCallResult([toSingle(nextBlockTimestamp)]);
   }
@@ -110,7 +166,7 @@ export class RPCTranslator {
   async txeAdvanceBlocksBy(foreignBlocks: ForeignCallSingle) {
     const blocks = fromSingle(foreignBlocks).toNumber();
 
-    await this.oracleHandler.txeAdvanceBlocksBy(blocks);
+    await this.handlerAsTxe().txeAdvanceBlocksBy(blocks);
 
     return toForeignCallResult([]);
   }
@@ -118,7 +174,7 @@ export class RPCTranslator {
   txeAdvanceTimestampBy(foreignDuration: ForeignCallSingle) {
     const duration = fromSingle(foreignDuration).toBigInt();
 
-    this.oracleHandler.txeAdvanceTimestampBy(duration);
+    this.handlerAsTxe().txeAdvanceTimestampBy(duration);
 
     return toForeignCallResult([]);
   }
@@ -126,7 +182,7 @@ export class RPCTranslator {
   async txeDeploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, foreignSecret: ForeignCallSingle) {
     const secret = fromSingle(foreignSecret);
 
-    await this.oracleHandler.txeDeploy(artifact, instance, secret);
+    await this.handlerAsTxe().txeDeploy(artifact, instance, secret);
 
     return toForeignCallResult([
       toArray([
@@ -142,7 +198,7 @@ export class RPCTranslator {
   async txeCreateAccount(foreignSecret: ForeignCallSingle) {
     const secret = fromSingle(foreignSecret);
 
-    const completeAddress = await this.oracleHandler.txeCreateAccount(secret);
+    const completeAddress = await this.handlerAsTxe().txeCreateAccount(secret);
 
     return toForeignCallResult([
       toSingle(completeAddress.address),
@@ -157,7 +213,7 @@ export class RPCTranslator {
   ) {
     const secret = fromSingle(foreignSecret);
 
-    const completeAddress = await this.oracleHandler.txeAddAccount(artifact, instance, secret);
+    const completeAddress = await this.handlerAsTxe().txeAddAccount(artifact, instance, secret);
 
     return toForeignCallResult([
       toSingle(completeAddress.address),
@@ -169,7 +225,7 @@ export class RPCTranslator {
     const address = addressFromSingle(foreignAddress);
     const messageHash = fromSingle(foreignMessageHash);
 
-    await this.oracleHandler.txeAddAuthWitness(address, messageHash);
+    await this.handlerAsTxe().txeAddAuthWitness(address, messageHash);
 
     return toForeignCallResult([]);
   }
@@ -179,25 +235,25 @@ export class RPCTranslator {
   utilityAssertCompatibleOracleVersion(foreignVersion: ForeignCallSingle) {
     const version = fromSingle(foreignVersion).toNumber();
 
-    this.oracleHandler.utilityAssertCompatibleOracleVersion(version);
+    this.handlerAsMisc().utilityAssertCompatibleOracleVersion(version);
 
     return toForeignCallResult([]);
   }
 
   utilityGetRandomField() {
-    const randomField = this.oracleHandler.utilityGetRandomField();
+    const randomField = this.handlerAsMisc().utilityGetRandomField();
 
     return toForeignCallResult([toSingle(randomField)]);
   }
 
   async txeGetLastBlockTimestamp() {
-    const timestamp = await this.oracleHandler.txeGetLastBlockTimestamp();
+    const timestamp = await this.handlerAsTxe().txeGetLastBlockTimestamp();
 
     return toForeignCallResult([toSingle(new Fr(timestamp))]);
   }
 
   async txeGetLastTxEffects() {
-    const { txHash, noteHashes, nullifiers } = await this.oracleHandler.txeGetLastTxEffects();
+    const { txHash, noteHashes, nullifiers } = await this.handlerAsTxe().txeGetLastTxEffects();
 
     return toForeignCallResult([
       toSingle(txHash.hash),
@@ -215,7 +271,7 @@ export class RPCTranslator {
     const values = fromArray(foreignValues);
     const hash = fromSingle(foreignHash);
 
-    this.oracleHandler.privateStoreInExecutionCache(values, hash);
+    this.handlerAsPrivate().privateStoreInExecutionCache(values, hash);
 
     return toForeignCallResult([]);
   }
@@ -223,7 +279,7 @@ export class RPCTranslator {
   async privateLoadFromExecutionCache(foreignHash: ForeignCallSingle) {
     const hash = fromSingle(foreignHash);
 
-    const returns = await this.oracleHandler.privateLoadFromExecutionCache(hash);
+    const returns = await this.handlerAsPrivate().privateLoadFromExecutionCache(hash);
 
     return toForeignCallResult([toArray(returns)]);
   }
@@ -239,7 +295,7 @@ export class RPCTranslator {
       .join('');
     const fields = fromArray(foreignFields);
 
-    this.oracleHandler.utilityDebugLog(message, fields);
+    this.handlerAsMisc().utilityDebugLog(message, fields);
 
     return toForeignCallResult([]);
   }
@@ -255,7 +311,7 @@ export class RPCTranslator {
     const blockNumber = fromSingle(foreignBlockNumber).toNumber();
     const numberOfElements = fromSingle(foreignNumberOfElements).toNumber();
 
-    const values = await this.oracleHandler.utilityStorageRead(
+    const values = await this.handlerAsUtility().utilityStorageRead(
       contractAddress,
       startStorageSlot,
       blockNumber,
@@ -269,7 +325,7 @@ export class RPCTranslator {
     const blockNumber = fromSingle(foreignBlockNumber).toNumber();
     const leafSlot = fromSingle(foreignLeafSlot);
 
-    const witness = await this.oracleHandler.utilityGetPublicDataWitness(blockNumber, leafSlot);
+    const witness = await this.handlerAsUtility().utilityGetPublicDataWitness(blockNumber, leafSlot);
 
     if (!witness) {
       throw new Error(`Public data witness not found for slot ${leafSlot} at block ${blockNumber}.`);
@@ -312,7 +368,7 @@ export class RPCTranslator {
     const maxNotes = fromSingle(foreignMaxNotes).toNumber();
     const packedRetrievedNoteLength = fromSingle(foreignPackedRetrievedNoteLength).toNumber();
 
-    const noteDatas = await this.oracleHandler.utilityGetNotes(
+    const noteDatas = await this.handlerAsUtility().utilityGetNotes(
       storageSlot,
       numSelects,
       selectByIndexes,
@@ -359,7 +415,7 @@ export class RPCTranslator {
     const noteHash = fromSingle(foreignNoteHash);
     const counter = fromSingle(foreignCounter).toNumber();
 
-    this.oracleHandler.privateNotifyCreatedNote(storageSlot, noteTypeId, note, noteHash, counter);
+    this.handlerAsPrivate().privateNotifyCreatedNote(storageSlot, noteTypeId, note, noteHash, counter);
 
     return toForeignCallResult([]);
   }
@@ -373,7 +429,7 @@ export class RPCTranslator {
     const noteHash = fromSingle(foreignNoteHash);
     const counter = fromSingle(foreignCounter).toNumber();
 
-    await this.oracleHandler.privateNotifyNullifiedNote(innerNullifier, noteHash, counter);
+    await this.handlerAsPrivate().privateNotifyNullifiedNote(innerNullifier, noteHash, counter);
 
     return toForeignCallResult([]);
   }
@@ -381,7 +437,7 @@ export class RPCTranslator {
   async privateNotifyCreatedNullifier(foreignInnerNullifier: ForeignCallSingle) {
     const innerNullifier = fromSingle(foreignInnerNullifier);
 
-    await this.oracleHandler.privateNotifyCreatedNullifier(innerNullifier);
+    await this.handlerAsPrivate().privateNotifyCreatedNullifier(innerNullifier);
 
     return toForeignCallResult([]);
   }
@@ -389,7 +445,7 @@ export class RPCTranslator {
   async utilityCheckNullifierExists(foreignInnerNullifier: ForeignCallSingle) {
     const innerNullifier = fromSingle(foreignInnerNullifier);
 
-    const exists = await this.oracleHandler.utilityCheckNullifierExists(innerNullifier);
+    const exists = await this.handlerAsUtility().utilityCheckNullifierExists(innerNullifier);
 
     return toForeignCallResult([toSingle(new Fr(exists))]);
   }
@@ -397,7 +453,7 @@ export class RPCTranslator {
   async utilityGetContractInstance(foreignAddress: ForeignCallSingle) {
     const address = addressFromSingle(foreignAddress);
 
-    const instance = await this.oracleHandler.utilityGetContractInstance(address);
+    const instance = await this.handlerAsUtility().utilityGetContractInstance(address);
 
     return toForeignCallResult(
       [
@@ -413,7 +469,7 @@ export class RPCTranslator {
   async utilityGetPublicKeysAndPartialAddress(foreignAddress: ForeignCallSingle) {
     const address = addressFromSingle(foreignAddress);
 
-    const { publicKeys, partialAddress } = await this.oracleHandler.utilityGetPublicKeysAndPartialAddress(address);
+    const { publicKeys, partialAddress } = await this.handlerAsUtility().utilityGetPublicKeysAndPartialAddress(address);
 
     return toForeignCallResult([toArray([...publicKeys.toFields(), partialAddress])]);
   }
@@ -421,7 +477,7 @@ export class RPCTranslator {
   async utilityGetKeyValidationRequest(foreignPkMHash: ForeignCallSingle) {
     const pkMHash = fromSingle(foreignPkMHash);
 
-    const keyValidationRequest = await this.oracleHandler.utilityGetKeyValidationRequest(pkMHash);
+    const keyValidationRequest = await this.handlerAsUtility().utilityGetKeyValidationRequest(pkMHash);
 
     return toForeignCallResult(keyValidationRequest.toFields().map(toSingle));
   }
@@ -445,7 +501,7 @@ export class RPCTranslator {
     const blockNumber = fromSingle(foreignBlockNumber).toNumber();
     const nullifier = fromSingle(foreignNullifier);
 
-    const witness = await this.oracleHandler.utilityGetNullifierMembershipWitness(blockNumber, nullifier);
+    const witness = await this.handlerAsUtility().utilityGetNullifierMembershipWitness(blockNumber, nullifier);
 
     if (!witness) {
       throw new Error(`Nullifier membership witness not found at block ${blockNumber}.`);
@@ -456,7 +512,7 @@ export class RPCTranslator {
   async utilityGetAuthWitness(foreignMessageHash: ForeignCallSingle) {
     const messageHash = fromSingle(foreignMessageHash);
 
-    const authWitness = await this.oracleHandler.utilityGetAuthWitness(messageHash);
+    const authWitness = await this.handlerAsUtility().utilityGetAuthWitness(messageHash);
 
     if (!authWitness) {
       throw new Error(`Auth witness not found for message hash ${messageHash}.`);
@@ -487,7 +543,7 @@ export class RPCTranslator {
   }
 
   async utilityGetUtilityContext() {
-    const context = await this.oracleHandler.utilityGetUtilityContext();
+    const context = await this.handlerAsUtility().utilityGetUtilityContext();
 
     return toForeignCallResult(context.toNoirRepresentation());
   }
@@ -495,7 +551,7 @@ export class RPCTranslator {
   async utilityGetBlockHeader(foreignBlockNumber: ForeignCallSingle) {
     const blockNumber = fromSingle(foreignBlockNumber).toNumber();
 
-    const header = await this.oracleHandler.utilityGetBlockHeader(blockNumber);
+    const header = await this.handlerAsUtility().utilityGetBlockHeader(blockNumber);
 
     if (!header) {
       throw new Error(`Block header not found for block ${blockNumber}.`);
@@ -512,7 +568,7 @@ export class RPCTranslator {
     const treeId = fromSingle(foreignTreeId).toNumber();
     const leafValue = fromSingle(foreignLeafValue);
 
-    const witness = await this.oracleHandler.utilityGetMembershipWitness(blockNumber, treeId, leafValue);
+    const witness = await this.handlerAsUtility().utilityGetMembershipWitness(blockNumber, treeId, leafValue);
 
     if (!witness) {
       throw new Error(
@@ -529,7 +585,7 @@ export class RPCTranslator {
     const blockNumber = fromSingle(foreignBlockNumber).toNumber();
     const nullifier = fromSingle(foreignNullifier);
 
-    const witness = await this.oracleHandler.utilityGetLowNullifierMembershipWitness(blockNumber, nullifier);
+    const witness = await this.handlerAsUtility().utilityGetLowNullifierMembershipWitness(blockNumber, nullifier);
 
     if (!witness) {
       throw new Error(`Low nullifier witness not found for nullifier ${nullifier} at block ${blockNumber}.`);
@@ -541,7 +597,7 @@ export class RPCTranslator {
     const sender = AztecAddress.fromField(fromSingle(foreignSender));
     const recipient = AztecAddress.fromField(fromSingle(foreignRecipient));
 
-    const secret = await this.oracleHandler.utilityGetIndexedTaggingSecretAsSender(sender, recipient);
+    const secret = await this.handlerAsUtility().utilityGetIndexedTaggingSecretAsSender(sender, recipient);
 
     return toForeignCallResult(secret.toFields().map(toSingle));
   }
@@ -549,7 +605,7 @@ export class RPCTranslator {
   async utilityFetchTaggedLogs(foreignPendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
     const pendingTaggedLogArrayBaseSlot = fromSingle(foreignPendingTaggedLogArrayBaseSlot);
 
-    await this.oracleHandler.utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot);
+    await this.handlerAsUtility().utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot);
 
     return toForeignCallResult([]);
   }
@@ -563,7 +619,7 @@ export class RPCTranslator {
     const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
     const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
 
-    await this.oracleHandler.utilityValidateEnqueuedNotesAndEvents(
+    await this.handlerAsUtility().utilityValidateEnqueuedNotesAndEvents(
       contractAddress,
       noteValidationRequestsArrayBaseSlot,
       eventValidationRequestsArrayBaseSlot,
@@ -581,7 +637,7 @@ export class RPCTranslator {
     const logRetrievalRequestsArrayBaseSlot = fromSingle(foreignLogRetrievalRequestsArrayBaseSlot);
     const logRetrievalResponsesArrayBaseSlot = fromSingle(foreignLogRetrievalResponsesArrayBaseSlot);
 
-    await this.oracleHandler.utilityBulkRetrieveLogs(
+    await this.handlerAsUtility().utilityBulkRetrieveLogs(
       contractAddress,
       logRetrievalRequestsArrayBaseSlot,
       logRetrievalResponsesArrayBaseSlot,
@@ -599,7 +655,7 @@ export class RPCTranslator {
     const slot = fromSingle(foreignSlot);
     const capsule = fromArray(foreignCapsule);
 
-    await this.oracleHandler.utilityStoreCapsule(contractAddress, slot, capsule);
+    await this.handlerAsUtility().utilityStoreCapsule(contractAddress, slot, capsule);
 
     return toForeignCallResult([]);
   }
@@ -613,7 +669,7 @@ export class RPCTranslator {
     const slot = fromSingle(foreignSlot);
     const tSize = fromSingle(foreignTSize).toNumber();
 
-    const values = await this.oracleHandler.utilityLoadCapsule(contractAddress, slot);
+    const values = await this.handlerAsUtility().utilityLoadCapsule(contractAddress, slot);
 
     // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
     // with two fields: `some` (a boolean) and `value` (a field array in this case).
@@ -630,7 +686,7 @@ export class RPCTranslator {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const slot = fromSingle(foreignSlot);
 
-    await this.oracleHandler.utilityDeleteCapsule(contractAddress, slot);
+    await this.handlerAsUtility().utilityDeleteCapsule(contractAddress, slot);
 
     return toForeignCallResult([]);
   }
@@ -646,7 +702,7 @@ export class RPCTranslator {
     const dstSlot = fromSingle(foreignDstSlot);
     const numEntries = fromSingle(foreignNumEntries).toNumber();
 
-    await this.oracleHandler.utilityCopyCapsule(contractAddress, srcSlot, dstSlot, numEntries);
+    await this.handlerAsUtility().utilityCopyCapsule(contractAddress, srcSlot, dstSlot, numEntries);
 
     return toForeignCallResult([]);
   }
@@ -665,7 +721,7 @@ export class RPCTranslator {
     const iv = fromUintArray(foreignIv, 8);
     const symKey = fromUintArray(foreignSymKey, 8);
 
-    const plaintextBuffer = await this.oracleHandler.utilityAes128Decrypt(ciphertext, iv, symKey);
+    const plaintextBuffer = await this.handlerAsUtility().utilityAes128Decrypt(ciphertext, iv, symKey);
 
     return toForeignCallResult(
       arrayToBoundedVec(bufferToU8Array(plaintextBuffer), foreignCiphertextBVecStorage.length),
@@ -685,7 +741,7 @@ export class RPCTranslator {
       fromSingle(foreignEphPKField2),
     ]);
 
-    const secret = await this.oracleHandler.utilityGetSharedSecret(address, ephPK);
+    const secret = await this.handlerAsUtility().utilityGetSharedSecret(address, ephPK);
 
     return toForeignCallResult(secret.toFields().map(toSingle));
   }
@@ -704,7 +760,7 @@ export class RPCTranslator {
   async avmOpcodeStorageRead(foreignSlot: ForeignCallSingle) {
     const slot = fromSingle(foreignSlot);
 
-    const value = (await this.oracleHandler.avmOpcodeStorageRead(slot)).value;
+    const value = (await this.handlerAsAvm().avmOpcodeStorageRead(slot)).value;
 
     return toForeignCallResult([toSingle(new Fr(value))]);
   }
@@ -713,7 +769,7 @@ export class RPCTranslator {
     const slot = fromSingle(foreignSlot);
     const value = fromSingle(foreignValue);
 
-    await this.oracleHandler.avmOpcodeStorageWrite(slot, value);
+    await this.handlerAsAvm().avmOpcodeStorageWrite(slot, value);
 
     return toForeignCallResult([]);
   }
@@ -721,7 +777,7 @@ export class RPCTranslator {
   async avmOpcodeGetContractInstanceDeployer(foreignAddress: ForeignCallSingle) {
     const address = addressFromSingle(foreignAddress);
 
-    const instance = await this.oracleHandler.utilityGetContractInstance(address);
+    const instance = await this.handlerAsUtility().utilityGetContractInstance(address);
 
     return toForeignCallResult([
       toSingle(instance.deployer),
@@ -733,7 +789,7 @@ export class RPCTranslator {
   async avmOpcodeGetContractInstanceClassId(foreignAddress: ForeignCallSingle) {
     const address = addressFromSingle(foreignAddress);
 
-    const instance = await this.oracleHandler.utilityGetContractInstance(address);
+    const instance = await this.handlerAsUtility().utilityGetContractInstance(address);
 
     return toForeignCallResult([
       toSingle(instance.currentContractClassId),
@@ -745,7 +801,7 @@ export class RPCTranslator {
   async avmOpcodeGetContractInstanceInitializationHash(foreignAddress: ForeignCallSingle) {
     const address = addressFromSingle(foreignAddress);
 
-    const instance = await this.oracleHandler.utilityGetContractInstance(address);
+    const instance = await this.handlerAsUtility().utilityGetContractInstance(address);
 
     return toForeignCallResult([
       toSingle(instance.initializationHash),
@@ -754,8 +810,8 @@ export class RPCTranslator {
     ]);
   }
 
-  avmOpcodeSender() {
-    const sender = this.oracleHandler.getMsgSender();
+  async avmOpcodeSender() {
+    const sender = await this.handlerAsAvm().avmOpcodeSender();
 
     return toForeignCallResult([toSingle(sender)]);
   }
@@ -763,7 +819,7 @@ export class RPCTranslator {
   async avmOpcodeEmitNullifier(foreignNullifier: ForeignCallSingle) {
     const nullifier = fromSingle(foreignNullifier);
 
-    await this.oracleHandler.avmOpcodeEmitNullifier(nullifier);
+    await this.handlerAsAvm().avmOpcodeEmitNullifier(nullifier);
 
     return toForeignCallResult([]);
   }
@@ -771,7 +827,7 @@ export class RPCTranslator {
   async avmOpcodeEmitNoteHash(foreignNoteHash: ForeignCallSingle) {
     const noteHash = fromSingle(foreignNoteHash);
 
-    await this.oracleHandler.avmOpcodeEmitNoteHash(noteHash);
+    await this.handlerAsAvm().avmOpcodeEmitNoteHash(noteHash);
 
     return toForeignCallResult([]);
   }
@@ -780,43 +836,43 @@ export class RPCTranslator {
     const innerNullifier = fromSingle(foreignInnerNullifier);
     const targetAddress = AztecAddress.fromField(fromSingle(foreignTargetAddress));
 
-    const exists = await this.oracleHandler.avmOpcodeNullifierExists(innerNullifier, targetAddress);
+    const exists = await this.handlerAsAvm().avmOpcodeNullifierExists(innerNullifier, targetAddress);
 
     return toForeignCallResult([toSingle(new Fr(exists))]);
   }
 
   async avmOpcodeAddress() {
-    const contractAddress = await this.oracleHandler.avmOpcodeAddress();
+    const contractAddress = await this.handlerAsAvm().avmOpcodeAddress();
 
     return toForeignCallResult([toSingle(contractAddress.toField())]);
   }
 
   async avmOpcodeBlockNumber() {
-    const blockNumber = await this.oracleHandler.avmOpcodeBlockNumber();
+    const blockNumber = await this.handlerAsAvm().avmOpcodeBlockNumber();
 
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
   }
 
   async avmOpcodeTimestamp() {
-    const timestamp = await this.oracleHandler.avmOpcodeTimestamp();
+    const timestamp = await this.handlerAsAvm().avmOpcodeTimestamp();
 
     return toForeignCallResult([toSingle(new Fr(timestamp))]);
   }
 
   async avmOpcodeIsStaticCall() {
-    const isStaticCall = await this.oracleHandler.avmOpcodeIsStaticCall();
+    const isStaticCall = await this.handlerAsAvm().avmOpcodeIsStaticCall();
 
     return toForeignCallResult([toSingle(new Fr(isStaticCall ? 1 : 0))]);
   }
 
   async avmOpcodeChainId() {
-    const chainId = await this.oracleHandler.avmOpcodeChainId();
+    const chainId = await this.handlerAsAvm().avmOpcodeChainId();
 
     return toForeignCallResult([toSingle(chainId)]);
   }
 
   async avmOpcodeVersion() {
-    const version = await this.oracleHandler.avmOpcodeVersion();
+    const version = await this.handlerAsAvm().avmOpcodeVersion();
 
     return toForeignCallResult([toSingle(version)]);
   }
@@ -879,7 +935,7 @@ export class RPCTranslator {
     const argsHash = fromSingle(foreignArgsHash);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
 
-    const returnValues = await this.oracleHandler.txePrivateCallNewFlow(
+    const returnValues = await this.handlerAsTxe().txePrivateCallNewFlow(
       from,
       targetContractAddress,
       functionSelector,
@@ -901,7 +957,7 @@ export class RPCTranslator {
     const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
     const args = fromArray(foreignArgs);
 
-    const returnValues = await this.oracleHandler.txeSimulateUtilityFunction(
+    const returnValues = await this.handlerAsTxe().txeSimulateUtilityFunction(
       targetContractAddress,
       functionSelector,
       args,
@@ -922,13 +978,13 @@ export class RPCTranslator {
     const calldata = fromArray(foreignCalldata);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
 
-    const returnValues = await this.oracleHandler.txePublicCallNewFlow(from, address, calldata, isStaticCall);
+    const returnValues = await this.handlerAsTxe().txePublicCallNewFlow(from, address, calldata, isStaticCall);
 
     return toForeignCallResult([toArray(returnValues)]);
   }
 
   async privateGetSenderForTags() {
-    const sender = await this.oracleHandler.privateGetSenderForTags();
+    const sender = await this.handlerAsPrivate().privateGetSenderForTags();
 
     // Return a Noir Option struct with `some` and `value` fields
     if (sender === undefined) {
@@ -943,7 +999,7 @@ export class RPCTranslator {
   async privateSetSenderForTags(foreignSenderForTags: ForeignCallSingle) {
     const senderForTags = AztecAddress.fromField(fromSingle(foreignSenderForTags));
 
-    await this.oracleHandler.privateSetSenderForTags(senderForTags);
+    await this.handlerAsPrivate().privateSetSenderForTags(senderForTags);
 
     return toForeignCallResult([]);
   }

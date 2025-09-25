@@ -7,6 +7,9 @@ snapshot:
   uploadLocation: null
   frequency: "0 0 * * *" # daily uploads at midnight
   aztecNodeAdminUrl: null
+  s3AccessKeyId:
+  s3SecretAccessKey:
+  s3SessionToken:
 
 image:
   repository: curlimages/curl

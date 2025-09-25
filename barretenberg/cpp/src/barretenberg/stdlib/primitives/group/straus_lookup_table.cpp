@@ -24,10 +24,8 @@ namespace bb::stdlib {
  * @return std::vector<typename straus_lookup_table<Builder>::Element>
  */
 template <typename Builder>
-std::vector<typename straus_lookup_table<Builder>::Element> straus_lookup_table<
-    Builder>::compute_straus_lookup_table_hints(const Element& base_point,
-                                                const Element& offset_generator,
-                                                size_t table_bits)
+std::vector<typename straus_lookup_table<Builder>::Element> straus_lookup_table<Builder>::compute_native_table(
+    const Element& base_point, const Element& offset_generator, size_t table_bits)
 {
     const size_t table_size = 1UL << table_bits;
     std::vector<Element> hints;

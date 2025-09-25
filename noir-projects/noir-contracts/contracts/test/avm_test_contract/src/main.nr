@@ -238,11 +238,15 @@ pub contract AvmTest {
         x / y
     }
 
-    // TODO(#16099): Re-enable this test
-    // #[public]
-    // fn to_radix_le(input: Field) -> [u8; 10] {
-    //     input.to_le_radix(/*base=*/ 2)
-    // }
+    #[public]
+    fn to_le_bytes(input: Field) -> [u8; 10] {
+        input.to_le_bytes()
+    }
+
+    #[public]
+    fn to_le_bits(input: Field) -> [u1; 16] {
+        input.to_le_bits()
+    }
 
     // Helper functions to demonstrate an internal call stack in error messages
     #[contract_library_method]
@@ -778,6 +782,12 @@ pub contract AvmTest {
         let _ = nested_static_call_to_add(1, 2);
         dep::aztec::oracle::debug_log::debug_log("nested_call_to_protocol_contract");
         let _ = call_fee_juice();
+        dep::aztec::oracle::debug_log::debug_log("to_le_bytes");
+        let first_byte = to_le_bytes(args_field[0])[0];
+        assert(first_byte != 0);
+        dep::aztec::oracle::debug_log::debug_log("to_le_bits");
+        let first_bit = to_le_bits(args_field[0])[0];
+        assert(first_bit != 0);
         //let _ = nested_call_to_nothing_recovers();
     }
 }

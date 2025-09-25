@@ -19,13 +19,13 @@ enum ProposalState {
   Expired
 }
 
-struct ProposeConfiguration {
+struct ProposeWithLockConfiguration {
   Timestamp lockDelay;
   uint256 lockAmount;
 }
 
 struct Configuration {
-  ProposeConfiguration proposeConfig;
+  ProposeWithLockConfiguration proposeConfig;
   Timestamp votingDelay;
   Timestamp votingDuration;
   Timestamp executionDelay;
@@ -88,9 +88,9 @@ interface IGovernance {
   function finalizeWithdraw(uint256 _withdrawalId) external;
   function propose(IPayload _proposal) external returns (uint256);
   function proposeWithLock(IPayload _proposal, address _to) external returns (uint256);
-  function vote(uint256 _proposalId, uint256 _amount, bool _support) external returns (bool);
-  function execute(uint256 _proposalId) external returns (bool);
-  function dropProposal(uint256 _proposalId) external returns (bool);
+  function vote(uint256 _proposalId, uint256 _amount, bool _support) external;
+  function execute(uint256 _proposalId) external;
+  function dropProposal(uint256 _proposalId) external;
 
   function isPermittedInGovernance(address _caller) external view returns (bool);
   function isAllBeneficiariesAllowed() external view returns (bool);

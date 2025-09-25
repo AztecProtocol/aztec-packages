@@ -28,7 +28,7 @@ EmbeddedCurvePoint Ecc::scalar_mul(const EmbeddedCurvePoint& point, const FF& sc
     assert(point.on_curve() && "Point must be on the curve for scalar multiplication");
 
     auto intermediate_states = std::vector<ScalarMulIntermediateState>(254);
-    auto bits = to_radix.to_le_bits(scalar, 254);
+    auto bits = to_radix.to_le_bits(scalar, 254).first;
 
     // First iteration does conditional assignment instead of addition
     EmbeddedCurvePoint temp = point;
