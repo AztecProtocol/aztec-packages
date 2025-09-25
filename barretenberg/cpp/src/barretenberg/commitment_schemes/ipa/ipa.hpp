@@ -447,11 +447,6 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      * @return VerifierAccumulatorRunningTruthValue, i.e., the u_inv challenges, the claimed Pederson commitment to the
      * challenge polynomial derived from the u_inv challenges, and a boolean recording whether the last accumulation
      * step failed or passed.
-     *
-     * @note Please note that there is substantial code duplication between this method and
-     * `full_verify_recursive`; the only difference is in the computation of G_zero and the _constraint_ that
-     * this matches with what the Prover sends. We have decided to keep this duplication in the interest of performance.
-     * This means that if this method is changed, then `full_verify_recursive` should also be changed.
      */
     static VerifierAccumulatorRunningTruthValue reduce_verify_internal_recursive(
         const OpeningClaim<Curve>& opening_claim, auto& transcript)
