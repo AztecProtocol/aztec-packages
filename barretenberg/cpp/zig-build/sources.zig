@@ -553,7 +553,7 @@ pub const test_group_paths = [_][]const u8{
     "src/barretenberg/flavor",
     "src/barretenberg/goblin",
     "src/barretenberg/honk",
-    // "src/barretenberg/lmdblib",
+    "src/barretenberg/lmdblib",
     "src/barretenberg/numeric",
     "src/barretenberg/op_queue",
     "src/barretenberg/polynomials",

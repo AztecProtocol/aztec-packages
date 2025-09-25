@@ -8,6 +8,7 @@
 #include <memory>
 #include <sstream>
 #include <stdexcept>
+#include <thread>
 #include <vector>
 
 #include "barretenberg/common/serialize.hpp"
