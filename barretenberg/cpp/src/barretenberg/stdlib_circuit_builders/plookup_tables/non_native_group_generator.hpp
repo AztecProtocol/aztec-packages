@@ -19,7 +19,17 @@ template <typename G1> class ecc_generator_table {
     using element = typename G1::element;
     /**
      * Store arrays of precomputed 8-bit lookup tables for generator point coordinates (and their endomorphism
-     *equivalents)
+     * equivalents):
+     * - xlo_table: (x0, x1) = low limbs of x-coordinate
+     * - xhi_table: (x2, x3) = high limbs of x-coordinate
+     * - ylo_table: (y0, y1) = low limbs of y-coordinate
+     * - yhi_table: (y2, y3) = high limbs of y-coordinate
+     * - xyprime_table: (xp, yp) = x-coordinate and y-coordinate in prime basis (i.e., x % p, y % p)
+     * - endo_xlo_table: (x0', x1') = low limbs of endomorphism-mapped x-coordinate (x' = x * beta)
+     * - endo_xhi_table: (x2', x3') = high limbs of endomorphism-mapped x-coordinate (x' = x * beta)
+     * - endo_xyprime_table: (x'p, yp) = endomorphism-mapped x and y-coord in prime basis (i.e., x' % p, y % p)
+     *
+     * Each table has 256 rows and 2 columns.
      **/
     inline static std::array<std::pair<fr, fr>, 256> generator_endo_xlo_table;
     inline static std::array<std::pair<fr, fr>, 256> generator_endo_xhi_table;
@@ -33,8 +43,6 @@ template <typename G1> class ecc_generator_table {
 
     static void init_generator_tables();
 
-    static size_t convert_position_to_shifted_naf(const size_t position);
-    static size_t convert_shifted_naf_to_position(const size_t shifted_naf);
     static std::array<fr, 2> get_xlo_endo_values(const std::array<uint64_t, 2> key);
     static std::array<fr, 2> get_xhi_endo_values(const std::array<uint64_t, 2> key);
     static std::array<fr, 2> get_xlo_values(const std::array<uint64_t, 2> key);
