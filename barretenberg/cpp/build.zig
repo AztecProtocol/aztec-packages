@@ -239,9 +239,9 @@ fn getBuildStepForTarget(
 
         // To ensure we build all the test files in parallel with e.g. barretenberg.lib,
         // we compile all the test files into a single objects first.
-        for (test_files.items, 0..) |test_file, i| {
+        for (test_files.items) |test_file| {
             const test_object = b.addObject(.{
-                .name = b.fmt("{s}_object_{d}", .{ project_name, i }),
+                .name = std.fs.path.basename(test_file),
                 .root_module = b.createModule(.{
                     .target = target,
                     .optimize = optimize,
