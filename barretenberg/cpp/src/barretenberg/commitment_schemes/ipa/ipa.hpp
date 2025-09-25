@@ -557,7 +557,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     }
 
     /**
-     * @brief Recursively verify the correctness of a proof
+     * @brief Recursively _partially_ verify the correctness of an IPA proof.
      *
      * @param vk Verification_key containing srs
      * @param opening_claim Contains the commitment C and opening pair \f$(\beta, f(\beta))\f$
