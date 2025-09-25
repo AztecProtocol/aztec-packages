@@ -165,7 +165,7 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
     if (scalar.binary_basis_limbs[0].maximum_value > BigScalarField::DEFAULT_MAXIMUM_LIMB) {
         const uint256_t limb0_value = limb0.get_value();
         const uint256_t limb0_lo_value = limb0_value.slice(0, BigScalarField::NUM_LIMB_BITS);
-        const uint256_t limb0_hi_value = limb0_value.slice(BigScalarField::NUM_LIMB_BITS, limb0_value.get_msb() + 1);
+        const uint256_t limb0_hi_value = limb0_value >> BigScalarField::NUM_LIMB_BITS;
         field_t limb0_lo = field_t::from_witness(ctx, limb0_lo_value);
         field_t limb0_hi = field_t::from_witness(ctx, limb0_hi_value);
 
@@ -191,7 +191,7 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
     const size_t hi_bits_in_limb_1 = (static_cast<size_t>(limb1_max.get_msb()) + 1) - lo_bits_in_limb_1;
     const uint256_t limb_1 = limb1.get_value();
     const uint256_t limb_1_lo_value = limb_1.slice(0, lo_bits_in_limb_1);
-    const uint256_t limb_1_hi_value = limb_1.slice(lo_bits_in_limb_1, limb_1.get_msb() + 1);
+    const uint256_t limb_1_hi_value = limb_1 >> lo_bits_in_limb_1;
 
     // Step 3b: instantiate both slices as witnesses and validate their sum equals limb1
     field_t limb_1_lo = field_t::from_witness(ctx, limb_1_lo_value);
