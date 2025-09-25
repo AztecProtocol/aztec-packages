@@ -249,6 +249,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return result;
     }
 
+    /**
+     * @brief Selects `this` if predicate is false, `other` if predicate is true.
+     *
+     * @param other
+     * @param predicate
+     * @return goblin_element
+     */
     goblin_element conditional_select(const goblin_element& other, const bool_ct& predicate) const
     {
         goblin_element result(*this);
