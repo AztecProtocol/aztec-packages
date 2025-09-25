@@ -259,3 +259,102 @@ TYPED_TEST(CycleScalarTest, TestScalarFieldValidationFailureBetweenModuli)
         EXPECT_TRUE(builder.failed());
     }
 }
+
+/**
+ * @brief Test BigScalarField constructor with edge case values
+ *
+ */
+TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
+{
+    using cycle_scalar = typename TestFixture::cycle_scalar;
+    using ScalarField = typename TestFixture::ScalarField;
+    using BigScalarField = typename cycle_scalar::BigScalarField;
+
+    TypeParam builder;
+
+    // Test case 1: BigScalarField with zero value
+    {
+        BigScalarField zero_scalar = BigScalarField::from_witness(&builder, uint256_t(0));
+        cycle_scalar scalar(zero_scalar);
+
+        EXPECT_EQ(scalar.get_value(), ScalarField(0));
+        EXPECT_EQ(scalar.lo.get_value(), 0);
+        EXPECT_EQ(scalar.hi.get_value(), 0);
+    }
+
+    // Test case 2: BigScalarField with only first limb set (value < 2^68)
+    {
+        uint256_t small_value = uint256_t(0x12345678);
+        BigScalarField small_scalar = BigScalarField::from_witness(&builder, small_value);
+        cycle_scalar scalar(small_scalar);
+
+        EXPECT_EQ(scalar.get_value(), ScalarField(small_value));
+        EXPECT_EQ(scalar.lo.get_value(), small_value);
+        EXPECT_EQ(scalar.hi.get_value(), 0);
+    }
+
+    // Test case 3: BigScalarField with value exactly at first limb boundary (2^68)
+    {
+        uint256_t limb_boundary = uint256_t(1) << 68;
+        BigScalarField boundary_scalar = BigScalarField::from_witness(&builder, limb_boundary);
+        cycle_scalar scalar(boundary_scalar);
+
+        EXPECT_EQ(scalar.get_value(), ScalarField(limb_boundary));
+    }
+
+    // Test case 4: BigScalarField with value that puts zero in limb1
+    // Value in range [2^68, 2^68 + 2^67] will have limb0 full and limb1 = 0
+    {
+        uint256_t limb0_full = (uint256_t(1) << 68) - 1; // Max value for limb0
+        BigScalarField limb0_full_scalar = BigScalarField::from_witness(&builder, limb0_full);
+        cycle_scalar scalar(limb0_full_scalar);
+
+        EXPECT_EQ(scalar.get_value(), ScalarField(limb0_full));
+    }
+
+    // Test case 5: BigScalarField with value exactly 2^136 (limb0=0, limb1=0, limb2=1)
+    {
+        uint256_t val_136 = uint256_t(1) << 136; // limb0=0, limb1=0, limb2=1
+        BigScalarField val_136_scalar = BigScalarField::from_witness(&builder, val_136);
+        cycle_scalar scalar(val_136_scalar);
+
+        EXPECT_EQ(scalar.get_value(), ScalarField(val_136));
+    }
+
+    // Test case 6: BigScalarField with value that genuinely has limb1 = 0
+    // Value = 2^136 + small_value (so limb0=small, limb1=0, limb2=1)
+    {
+        uint256_t special_value = (uint256_t(1) << 136) + 0x42;
+        BigScalarField special_scalar = BigScalarField::from_witness(&builder, special_value);
+        cycle_scalar scalar(special_scalar);
+
+        EXPECT_EQ(scalar.get_value(), ScalarField(special_value));
+    }
+
+    // Test case 7: BigScalarField where limb0 exceeds NUM_LIMB_BITS after addition
+    // This triggers the overflow handling path in the constructor
+    {
+        // Create two BigScalarFields that when added will cause limb0.maximum_value > DEFAULT_MAXIMUM_LIMB
+        uint256_t val1 = (uint256_t(1) << 67) - 1; // Almost full first limb
+        uint256_t val2 = (uint256_t(1) << 67) - 1; // Another almost full first limb
+
+        BigScalarField scalar1 = BigScalarField::from_witness(&builder, val1);
+        BigScalarField scalar2 = BigScalarField::from_witness(&builder, val2);
+
+        // Add them together - this will make limb0.maximum_value = 2 * ((2^67) - 1) > 2^68 - 1
+        BigScalarField sum = scalar1 + scalar2;
+
+        // Verify that limb0's maximum_value exceeds the default maximum
+        EXPECT_GT(sum.binary_basis_limbs[0].maximum_value, BigScalarField::DEFAULT_MAXIMUM_LIMB);
+
+        // Now construct a cycle_scalar from this sum - this should trigger the overflow handling
+        cycle_scalar scalar(sum);
+
+        // Verify the result is correct
+        uint256_t expected = val1 + val2;
+        EXPECT_EQ(scalar.get_value(), ScalarField(expected));
+    }
+
+    // Verify the circuit is valid
+    EXPECT_FALSE(builder.failed());
+}
