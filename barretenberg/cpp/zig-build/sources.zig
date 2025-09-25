@@ -592,8 +592,8 @@ pub const benchmark_files = [_][]const u8{
     "src/barretenberg/benchmark/ultra_bench/ultra_honk_rounds.bench.cpp",
     "src/barretenberg/commitment_schemes/commit.bench.cpp",
     "src/barretenberg/ecc/curves/bn254/fr.bench.cpp",
-    "src/barretenberg/ecc/curves/bn254/fr_straight.bench.cpp", // Has compilation errors - missing asm functions
+    "src/barretenberg/ecc/curves/bn254/fr_straight.bench.cpp",
     "src/barretenberg/numeric/bitop/bitop.bench.cpp",
     "src/barretenberg/vm2/constraining/benchmark/relations_acc.bench.cpp",
-    // "src/barretenberg/vm2/simulation/lib/written_slots_tree.bench.cpp", // Has linking errors - missing AVM symbols
+    "src/barretenberg/vm2/simulation/lib/written_slots_tree.bench.cpp",
 };

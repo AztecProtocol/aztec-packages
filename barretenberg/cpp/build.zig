@@ -289,6 +289,11 @@ fn getBuildStepForTarget(
     // ### BENCHMARK EXECUTABLES #######################################################################################
     // Create one benchmark executable per .bench.cpp file
     for (sources.benchmark_files) |bench_file| {
+        // Skip VM2 benchmarks if AVM is not enabled.
+        if (!enable_avm and std.mem.containsAtLeast(u8, bench_file, 1, "/vm2/")) {
+            continue;
+        }
+
         const bench_basename = std.fs.path.basename(bench_file);
         const bench_exe_name = if (std.mem.endsWith(u8, bench_basename, ".bench.cpp"))
             b.fmt("{s}_bench", .{bench_basename[0 .. bench_basename.len - 10]}) // Remove ".bench.cpp" (10 chars)
