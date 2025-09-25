@@ -251,9 +251,7 @@ describe('SequencerPublisher', () => {
     // Expect the blob sink server to receive the blobs
     await runBlobSinkServer(expectedBlobs);
 
-    expect(
-      await publisher.enqueueProposeL2Block(l2Block, CommitteeAttestationsAndSigners.empty(), Signature.empty()),
-    ).toEqual(true);
+    expect(await publisher.enqueueProposeL2Block(l2Block)).toEqual(true);
 
     const { govPayload, voteSig } = mockGovernancePayload();
 

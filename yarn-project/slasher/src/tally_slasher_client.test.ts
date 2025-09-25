@@ -159,6 +159,7 @@ describe('TallySlasherClient', () => {
     // Setup rollup and slasher contract mocks
     rollup.getSlasherContract.mockResolvedValue(slasherContract);
     slasherContract.isPayloadVetoed.mockResolvedValue(false);
+    slasherContract.isSlashingEnabled.mockResolvedValue(true);
 
     // Mock event listeners to return unwatch functions
     tallySlashingProposer.listenToVoteCast.mockReturnValue(() => {});
