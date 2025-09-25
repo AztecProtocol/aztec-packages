@@ -108,8 +108,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
     const auto& add_1 = endoP1_table[u1_hi_wnaf.least_significant_wnaf_fragment];
     const auto& add_2 = endoP2_table[u2_hi_wnaf.least_significant_wnaf_fragment];
     const auto& add_3 = P1_table[u1_lo_wnaf.least_significant_wnaf_fragment];
-    accumulator = element::chain_add_end(
-        element::chain_add(add_3, element::chain_add(add_2, element::chain_add_start(accumulator, add_1))));
+    accumulator += add_1;
+    accumulator += add_2;
+    accumulator += add_3;
 
     /**
      * Handle wNAF skew.

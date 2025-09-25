@@ -11,6 +11,7 @@
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
+#include "gtest/gtest.h"
 #include <vector>
 
 using namespace bb;
@@ -173,6 +174,61 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
+
+    static void test_secp256k1_ecdsa_mul_stagger_regression()
+    {
+        // This test uses the same idea as the skew handling regression test above.
+        // However, in this test, we use scalars to ensure that we are correctly handling the stagger offsets before
+        // adding the skew points. The scalars s1, u1, u2 are chosen such that:
+        // Public key: P = (s1 * G)
+        //
+        // u1 * G + u2 * (s1 * G) = ø
+        //
+        // where ø is the point at infinity. For this set of scalars, we have all the skews as 0.
+        // This means that we will reach the point at infinity while adding the stagger fragments of the scalars.
+        // Since we compute the wnaf with stagger offsets:
+        //
+        // compute_secp256k1_endo_wnaf<8, 2, 3>(u1);
+        // compute_secp256k1_endo_wnaf<4, 0, 1>(u2);
+        //
+        // we have the following stagger offsets:
+        // u1_low stagger bits:   2  <== add_3 = 2G
+        // u1_high stagger bits:  3  <== add_1 = 3λG
+        // u2_low stagger bits:   0
+        // u2_high stagger bits:  1  <== add_2 = λG
+        //
+        // Hence we add these terms to the accumulator using addition chain:
+        // acc += (((add_1) + add_2) + add_3).
+        //
+        // After adding add_2, the x-coordinate of the accumulator is equal to the x-coordinate of add_3.
+        // Using incomplete addition formulae, we catch a circuit error as the addition is not valid if the
+        // x-coordinates are equal. To avoid this, we use the complete addition formulae to add add_1, add_2, add_3
+        // to the accumulator. The increases the circuit size for secp256k1_ecdsa_mul by 730 gates but we accept that
+        // for now to ensure correctness.
+        //
+        const uint256_t scalar_g1("0x9d496650d261d31af6aa4cf41e435ed739d0fe2c34728a21a0df5c66a3504ccd");
+        const uint256_t scalar_u1("0xf3d9f52f0f55d3da6f902aa842aa604005633f3d165bc800f3a3aa661b18df5f");
+        const uint256_t scalar_u2("0x1323b0342b1a56a076cbf5e3899156fbf3f439f2c3b0d5a95b9ef74622447f2e");
+
+        // Check the assumptions
+        ASSERT(scalar_g1 < fr::modulus);
+        ASSERT(scalar_u1 < fr::modulus);
+        ASSERT(scalar_u2 < fr::modulus);
+        ASSERT((fr(scalar_g1) * fr(scalar_u2) + fr(scalar_u1)).is_zero());
+        ASSERT((g1::one * fr(scalar_u1) + (g1::one * fr(scalar_g1)) * fr(scalar_u2)).is_point_at_infinity());
+
+        // Create the circuit
+        Builder builder = Builder();
+        element_ct P_a = element_ct::from_witness(&builder, g1::one * fr(scalar_g1));
+        scalar_ct u1 = scalar_ct::from_witness(&builder, fr(scalar_u1));
+        scalar_ct u2 = scalar_ct::from_witness(&builder, fr(scalar_u2));
+        auto output = element_ct::secp256k1_ecdsa_mul(P_a, u1, u2);
+
+        // Check that the output is the point at infinity
+        EXPECT_EQ(output.is_point_at_infinity().get_value(), true);
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
 };
 
 // Then define the test types
@@ -198,4 +254,8 @@ TYPED_TEST(stdlibBiggroupSecp256k1, EcdsaMulSecp256k1)
 TYPED_TEST(stdlibBiggroupSecp256k1, EcdsaMulSecp256k1SkewHandlingRegression)
 {
     TestFixture::test_secp256k1_ecdsa_mul_skew_handling_regression();
+}
+TYPED_TEST(stdlibBiggroupSecp256k1, EcdsaMulSecp256k1StaggerRegression)
+{
+    TestFixture::test_secp256k1_ecdsa_mul_stagger_regression();
 }
