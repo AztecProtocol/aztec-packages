@@ -25,10 +25,10 @@ import {
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import { getPXEServiceConfig } from '@aztec/pxe/server';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { computeL2ToL1MembershipWitness, getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { jest } from '@jest/globals';
@@ -237,12 +237,11 @@ describe('e2e_p2p_add_rollup', () => {
     ) => {
       // Bridge assets into the rollup, and consume the message.
       // We are doing some of the things that are in the crosschain harness, but we don't actually want the full thing
-      const pxeService = await createPXEService(
+      const wallet = await TestWallet.create(
         node,
         { ...getPXEServiceConfig(), proverEnabled: false },
         { useLogSuffix: true },
       );
-      const wallet = new TestWallet(pxeService);
       const aliceAccountManager = await wallet.createSchnorrAccount(aliceAccount.secret, aliceAccount.salt);
       await aliceAccountManager.deploy().wait();
 
@@ -317,7 +316,7 @@ describe('e2e_p2p_add_rollup', () => {
         const leafId = getL2ToL1MessageLeafId(l2ToL1MessageResult!);
 
         // We need to mark things as proven
-        const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses);
+        const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses, t.ctx.dateProvider);
         await cheatcodes.markAsProven();
 
         // Then we want to go and comsume it!

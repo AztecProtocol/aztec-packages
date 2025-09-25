@@ -3,9 +3,9 @@ import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
 import { GasSettings } from '@aztec/stdlib/gas';
 
+import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
 import { CLIFeeArgs } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
-import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
 
 export async function send(
   wallet: Wallet,
@@ -35,7 +35,7 @@ export async function send(
     authWitnesses,
   };
 
-  const gasLimits = await call.estimateGas(sendOptions);
+  const { estimatedGas } = await call.simulate({ ...sendOptions, fee: { ...sendOptions.fee, estimateGas: true } });
 
   if (feeOpts.estimateOnly) {
     return;
@@ -68,7 +68,7 @@ export async function send(
   }
   const gasSettings = GasSettings.from({
     ...provenTx.data.constants.txContext.gasSettings,
-    ...gasLimits,
+    ...estimatedGas,
   });
   return {
     txHash,

@@ -64,7 +64,7 @@ export async function writeJson(
         },
         totalManaUsed: block.header.totalManaUsed.toNumber(),
       },
-      headerHash: asHex(block.header.toPropose().hash()),
+      headerHash: asHex(block.getCheckpointHeader().hash()),
       numTxs: block.body.txEffects.length,
     },
   };

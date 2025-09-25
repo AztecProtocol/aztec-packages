@@ -14,7 +14,6 @@
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test": "playwright test"
   },
-  "prettier": "@aztec/foundation/prettier",
   "dependencies": {
     "@aztec/accounts": "link:../yarn-project/accounts",
     "@aztec/aztec.js": "link:../yarn-project/aztec.js",
@@ -51,6 +50,7 @@
     "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react-swc": "^3.7.2",
     "eslint": "^9.26.0",
+    "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.18",
     "globals": "^15.14.0",

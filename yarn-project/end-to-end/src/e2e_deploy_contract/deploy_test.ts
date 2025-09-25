@@ -5,7 +5,6 @@ import {
   type ContractBase,
   Fr,
   type Logger,
-  type PXE,
   type PublicKeys,
   type Wallet,
   createLogger,
@@ -13,6 +12,7 @@ import {
 } from '@aztec/aztec.js';
 import type { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { type ISnapshotManager, createSnapshotManager, deployAccounts } from '../fixtures/snapshot_manager.js';
 
@@ -21,8 +21,7 @@ const { E2E_DATA_PATH: dataPath } = process.env;
 export class DeployTest {
   private snapshotManager: ISnapshotManager;
   public logger: Logger;
-  public pxe!: PXE;
-  public wallet!: Wallet;
+  public wallet!: TestWallet;
   public defaultAccountAddress!: AztecAddress;
   public aztecNode!: AztecNode;
   public aztecNodeAdmin!: AztecNodeAdmin;
@@ -35,7 +34,7 @@ export class DeployTest {
   async setup() {
     await this.applyInitialAccountSnapshot();
     const context = await this.snapshotManager.setup();
-    ({ pxe: this.pxe, aztecNode: this.aztecNode, wallet: this.wallet } = context);
+    ({ aztecNode: this.aztecNode, wallet: this.wallet } = context);
     this.aztecNodeAdmin = context.aztecNode;
     return this;
   }
@@ -66,16 +65,16 @@ export class DeployTest {
     const instance = await getContractInstanceFromInstantiationParams(contractArtifact.artifact, {
       constructorArgs: initArgs ?? [],
       constructorArtifact: constructorName,
-      salt,
+      salt: salt ?? Fr.random(),
       publicKeys,
       deployer,
     });
-    await wallet.registerContract({ artifact: contractArtifact.artifact, instance });
+    await wallet.registerContract(instance, contractArtifact.artifact);
     return contractArtifact.at(instance.address, wallet);
   }
 
   async registerRandomAccount(): Promise<AztecAddress> {
-    const completeAddress = await this.pxe.registerAccount(Fr.random(), Fr.random());
+    const completeAddress = await this.wallet.registerAccount(Fr.random(), Fr.random());
     return completeAddress.address;
   }
 }

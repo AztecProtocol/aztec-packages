@@ -38,7 +38,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
      *
      * Now we have two variables referred to as `n` in the code:
      *  1. ComposerBase::n => refers to the size of the witness of a given program,
-     *  2. proving_key::n => the next power of two ≥ total witness size.
+     *  2. prover_instance::n => the next power of two ≥ total witness size.
      *
      * In this case, we have composer.num_gates = n_computation before we execute the following two functions.
      * After these functions are executed, the composer's `n` is incremented to include the ROM
@@ -227,9 +227,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
                                                           read_data[plookup::ColumnIdx::C2],
                                                           read_data[plookup::ColumnIdx::C3] };
     for (const auto& column : parse_read_data) {
-        for (const auto& index : column) {
-            update_used_witnesses(index);
-        }
+        update_used_witnesses(column);
+        update_finalize_witnesses(column);
     }
 
     // mock a poseidon external gate, with all zeros as input
@@ -1020,10 +1019,9 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_new_range_constraint(const uin
                                                                        const uint64_t target_range,
                                                                        std::string const msg)
 {
-    if (uint256_t(this->get_variable(variable_index)).data[0] > target_range) {
-        if (!this->failed()) {
-            this->failure(msg);
-        }
+    const bool is_out_of_range = (uint256_t(this->get_variable(variable_index)).data[0] > target_range);
+    if (is_out_of_range && !this->failed()) {
+        this->failure(msg);
     }
     if (range_lists.count(target_range) == 0) {
         range_lists.insert({ target_range, create_range_list(target_range) });
@@ -1626,12 +1624,23 @@ template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint32_t lo_idx,
                                                                      const uint32_t hi_idx,
                                                                      const size_t lo_limb_bits,
-                                                                     const size_t hi_limb_bits)
+                                                                     const size_t hi_limb_bits,
+                                                                     std::string const& msg)
 {
     // Validate limbs are <= 70 bits. If limbs are larger we require more witnesses and cannot use our limb accumulation
     // custom gate
     BB_ASSERT_LTE(lo_limb_bits, 14U * 5U);
     BB_ASSERT_LTE(hi_limb_bits, 14U * 5U);
+
+    // If the value is larger than the range, we log the error in builder
+    const bool is_lo_out_of_range = (uint256_t(this->get_variable_reference(lo_idx)) >= (uint256_t(1) << lo_limb_bits));
+    if (is_lo_out_of_range && !this->failed()) {
+        this->failure(msg + ": lo limb.");
+    }
+    const bool is_hi_out_of_range = (uint256_t(this->get_variable_reference(hi_idx)) >= (uint256_t(1) << hi_limb_bits));
+    if (is_hi_out_of_range && !this->failed()) {
+        this->failure(msg + ": hi limb.");
+    }
 
     // Sometimes we try to use limbs that are too large. It's easier to catch this issue here
     const auto get_sublimbs = [&](const uint32_t& limb_idx, const std::array<uint64_t, 5>& sublimb_masks) {
@@ -1683,10 +1692,10 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
 
     for (size_t i = 0; i < 5; i++) {
         if (lo_masks[i] != 0) {
-            create_new_range_constraint(lo_sublimbs[i], lo_masks[i]);
+            create_new_range_constraint(lo_sublimbs[i], lo_masks[i], "ultra_circuit_builder: sublimb of low too large");
         }
         if (hi_masks[i] != 0) {
-            create_new_range_constraint(hi_sublimbs[i], hi_masks[i]);
+            create_new_range_constraint(hi_sublimbs[i], hi_masks[i], "ultra_circuit_builder: sublimb of hi too large");
         }
     }
 };
@@ -1718,7 +1727,8 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::decompose_non_nati
     BB_ASSERT_GT(num_limb_bits, DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     const size_t lo_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
     const size_t hi_bits = num_limb_bits - DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-    range_constrain_two_limbs(low_idx, hi_idx, lo_bits, hi_bits);
+    range_constrain_two_limbs(
+        low_idx, hi_idx, lo_bits, hi_bits, "decompose_non_native_field_double_width_limb: limbs too large");
 
     return std::array<uint32_t, 2>{ low_idx, hi_idx };
 }
@@ -1923,7 +1933,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::po
 }
 
 /**
- * @brief Called in `compute_proving_key` when finalizing circuit.
+ * @brief Called in `compute_prover_instance` when finalizing circuit.
  * Iterates over the cached_non_native_field_multiplication objects,
  * removes duplicates, and instantiates the remainder as constraints`
  */

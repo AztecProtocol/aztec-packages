@@ -12,6 +12,7 @@ import { TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 import { expect, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import type { P2PConfig } from '../config.js';
 import { InMemoryAttestationPool, type P2PService } from '../index.js';
 import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
@@ -57,8 +58,8 @@ describe('P2P Client', () => {
     client = createClient();
   });
 
-  const createClient = () =>
-    new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, txCollection);
+  const createClient = (config: Partial<P2PConfig> = {}) =>
+    new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, txCollection, config);
 
   const advanceToProvenBlock = async (blockNumber: number) => {
     blockSource.setProvenBlockNumber(blockNumber);
@@ -147,10 +148,11 @@ describe('P2P Client', () => {
     expect(txPool.deleteTxs).not.toHaveBeenCalled();
 
     await advanceToFinalizedBlock(5);
-    expect(txPool.deleteTxs).toHaveBeenCalledTimes(5);
+    expect(txPool.deleteTxs).toHaveBeenCalledTimes(1);
+    txPool.deleteTxs.mockClear();
 
     await advanceToFinalizedBlock(8);
-    expect(txPool.deleteTxs).toHaveBeenCalledTimes(8);
+    expect(txPool.deleteTxs).toHaveBeenCalledTimes(1);
     await client.stop();
   });
 
@@ -277,6 +279,34 @@ describe('P2P Client', () => {
   });
 
   describe('Chain prunes', () => {
+    it('deletes transactions mined in pruned blocks when flag is enabled', async () => {
+      client = createClient({ txPoolDeleteTxsAfterReorg: true });
+      blockSource.setProvenBlockNumber(0);
+      await client.start();
+
+      // Create two transactions:
+      // 1. A transaction mined in block 95 (which will be pruned)
+      // 2. A transaction mined in block 90 (which will remain)
+      const txMinedInPrunedBlock = await mockTx();
+      const txMinedInKeptBlock = await mockTx();
+
+      // Mock the mined transactions
+      txPool.getMinedTxHashes.mockResolvedValue([
+        [txMinedInPrunedBlock.getTxHash(), 95],
+        [txMinedInKeptBlock.getTxHash(), 90],
+      ]);
+
+      txPool.getAllTxs.mockResolvedValue([txMinedInPrunedBlock, txMinedInKeptBlock]);
+
+      // Prune the chain back to block 90
+      blockSource.removeBlocks(10);
+      await client.sync();
+
+      // Verify only the transaction mined in the pruned block is deleted
+      expect(txPool.deleteTxs).toHaveBeenCalledWith([txMinedInPrunedBlock.getTxHash()]);
+      await client.stop();
+    });
+
     it('moves the tips on a chain reorg', async () => {
       blockSource.setProvenBlockNumber(0);
       await client.start();
@@ -320,10 +350,10 @@ describe('P2P Client', () => {
       // then prune the chain back to block 90
       // only one tx should be deleted
       const goodTx = await mockTx();
-      goodTx.data.constants.historicalHeader.globalVariables.blockNumber = 90;
+      goodTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = 90;
 
       const badTx = await mockTx();
-      badTx.data.constants.historicalHeader.globalVariables.blockNumber = 95;
+      badTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = 95;
 
       txPool.getAllTxs.mockResolvedValue([goodTx, badTx]);
 
@@ -342,13 +372,13 @@ describe('P2P Client', () => {
       // then prune the chain back to block 90
       // only one tx should be deleted
       const goodButOldTx = await mockTx();
-      goodButOldTx.data.constants.historicalHeader.globalVariables.blockNumber = 89;
+      goodButOldTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = 89;
 
       const goodTx = await mockTx();
-      goodTx.data.constants.historicalHeader.globalVariables.blockNumber = 90;
+      goodTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = 90;
 
       const badTx = await mockTx();
-      badTx.data.constants.historicalHeader.globalVariables.blockNumber = 95;
+      badTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = 95;
 
       txPool.getAllTxs.mockResolvedValue([goodButOldTx, goodTx, badTx]);
       txPool.getMinedTxHashes.mockResolvedValue([

@@ -5,7 +5,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Note } from '@aztec/stdlib/note';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import type { NoteData } from '../../contract_function_simulator/oracle/typed_oracle.js';
+import type { NoteData } from '../../contract_function_simulator/oracle/interfaces.js';
 
 /**
  * A Note Data Access Object, representing a note that was committed to the note hash tree, holding all of the

@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 
-import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
+import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
 import type { CLIWallet } from '../utils/wallet.js';
 
 export async function cancelTx(
@@ -32,7 +32,7 @@ export async function cancelTx(
     prevTxGasSettings.maxPriorityFeesPerGas.feePerL2Gas + increasedFees.feePerL2Gas,
   );
 
-  const fee: FeeOptions = {
+  const feeOptions: FeeOptions = {
     paymentMethod,
     gasSettings: GasSettings.from({
       ...prevTxGasSettings,
@@ -41,7 +41,7 @@ export async function cancelTx(
     }),
   };
 
-  const txProvingResult = await wallet.proveCancellationTx(from, txNonce, fee);
+  const txProvingResult = await wallet.proveCancellationTx(from, txNonce, feeOptions);
   const sentTx = new SentTx(wallet, async () => {
     const tx = await txProvingResult.toTx();
     return wallet.sendTx(tx);

@@ -26,9 +26,9 @@ import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract as BananaCoin, TokenContract } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
-import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import { type PXEServiceConfig, getPXEServiceConfig } from '@aztec/pxe/server';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 import { MNEMONIC } from '../../fixtures/fixtures.js';
 import {
@@ -57,7 +57,6 @@ export class ClientFlowsBenchmark {
   private snapshotManager: ISnapshotManager;
 
   public logger: Logger;
-  private pxe!: PXE;
   public aztecNode!: AztecNode;
   public cheatCodes!: CheatCodes;
   public context!: SubsystemsContext;
@@ -202,12 +201,11 @@ export class ClientFlowsBenchmark {
       deployAccounts(2, this.logger),
       async (
         { deployedAccounts: [{ address: adminAddress }, { address: sequencerAddress }] },
-        { wallet, pxe, aztecNode, aztecNodeConfig },
+        { wallet, aztecNode, cheatCodes },
       ) => {
-        this.pxe = pxe;
         this.adminWallet = wallet;
         this.aztecNode = aztecNode;
-        this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe);
+        this.cheatCodes = cheatCodes;
 
         this.adminAddress = adminAddress;
         this.sequencerAddress = sequencerAddress;
@@ -217,19 +215,16 @@ export class ClientFlowsBenchmark {
         this.coinbase = EthAddress.random();
 
         const userPXEConfig = getPXEServiceConfig();
-        const l1Contracts = await aztecNode.getL1ContractAddresses();
         const userPXEConfigWithContracts = {
           ...userPXEConfig,
           proverEnabled: this.realProofs,
-          l1Contracts,
         } as PXEServiceConfig;
 
-        this.userPXE = await createPXEService(this.aztecNode, userPXEConfigWithContracts, {
+        this.userWallet = await TestWallet.create(this.aztecNode, userPXEConfigWithContracts, {
           loggers: {
             prover: this.proxyLogger.createLogger('pxe:bb:wasm:bundle:proxied'),
           },
         });
-        this.userWallet = new TestWallet(this.userPXE);
       },
     );
   }
@@ -246,7 +241,6 @@ export class ClientFlowsBenchmark {
         this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
           aztecNode: context.aztecNode,
           aztecNodeAdmin: context.aztecNode,
-          pxeService: context.pxe,
           l1Client: context.deployL1ContractsValues.l1Client,
           wallet: this.adminWallet,
           logger: this.logger,
@@ -292,7 +286,7 @@ export class ClientFlowsBenchmark {
       'fpc_setup',
       async context => {
         const feeJuiceContract = this.feeJuiceBridgeTestHarness.feeJuice;
-        expect((await context.pxe.getContractMetadata(feeJuiceContract.address)).isContractPublished).toBe(true);
+        expect((await context.wallet.getContractMetadata(feeJuiceContract.address)).isContractPublished).toBe(true);
 
         const bananaCoin = this.bananaCoin;
         const bananaFPC = await FPCContract.deploy(this.adminWallet, bananaCoin.address, this.adminAddress)
@@ -315,7 +309,7 @@ export class ClientFlowsBenchmark {
     await this.snapshotManager.snapshot(
       'deploy_sponsored_fpc',
       async () => {
-        const sponsoredFPC = await setupSponsoredFPC(this.pxe);
+        const sponsoredFPC = await setupSponsoredFPC(this.adminWallet);
         this.logger.info(`SponsoredFPC at ${sponsoredFPC.address}`);
         return { sponsoredFPCAddress: sponsoredFPC.address };
       },
@@ -337,7 +331,6 @@ export class ClientFlowsBenchmark {
     this.logger.verbose(`Setting up cross chain harness...`);
     const crossChainTestHarness = await CrossChainTestHarness.new(
       this.aztecNode,
-      this.pxe,
       l1Client,
       this.adminWallet,
       owner,

@@ -1,15 +1,14 @@
-import { getDeployedTestAccounts } from '@aztec/accounts/testing';
-import { createPXEClient } from '@aztec/aztec.js';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { createAztecNodeClient } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 const logger = createLogger('example:token');
 
-const url = 'http://localhost:8080';
+const nodeUrl = 'http://localhost:8080';
 
-const pxe = createPXEClient(url);
-const wallet = new TestWallet(pxe);
+const node = createAztecNodeClient(nodeUrl);
 
 const ALICE_MINT_BALANCE = 333n;
 const TRANSFER_AMOUNT = 33n;
@@ -20,13 +19,15 @@ const TRANSFER_AMOUNT = 33n;
 async function main() {
   logger.info('Running token contract test on HTTP interface.');
 
-  const accounts = await getDeployedTestAccounts(pxe);
-  const [alice, bob] = await Promise.all(
-    accounts.map(async acc => {
-      const accountManager = await wallet.createSchnorrAccount(acc.secret, acc.salt);
-      return accountManager.getAddress();
-    }),
-  );
+  const wallet = await TestWallet.create(node);
+
+  // During sandbox setup we deploy a few accounts. Below we add them to our wallet.
+  const [aliceInitialAccountData, bobInitialAccountData] = await getInitialTestAccountsData();
+  await wallet.createSchnorrAccount(aliceInitialAccountData.secret, aliceInitialAccountData.salt);
+  await wallet.createSchnorrAccount(bobInitialAccountData.secret, bobInitialAccountData.salt);
+
+  const alice = aliceInitialAccountData.address;
+  const bob = bobInitialAccountData.address;
 
   logger.info(`Fetched Alice and Bob accounts: ${alice.toString()}, ${bob.toString()}`);
 

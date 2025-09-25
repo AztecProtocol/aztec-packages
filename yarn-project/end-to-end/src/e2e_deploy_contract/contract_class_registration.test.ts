@@ -7,7 +7,6 @@ import {
   type FieldsOf,
   Fr,
   type Logger,
-  type PXE,
   type TxReceipt,
   TxStatus,
   type Wallet,
@@ -33,7 +32,6 @@ import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
 describe('e2e_deploy_contract contract class registration', () => {
   const t = new DeployTest('contract class');
 
-  let pxe: PXE;
   let logger: Logger;
   let wallet: Wallet;
   let defaultAccountAddress: AztecAddress;
@@ -44,7 +42,7 @@ describe('e2e_deploy_contract contract class registration', () => {
   let publicationTxReceipt: FieldsOf<TxReceipt>;
 
   beforeAll(async () => {
-    ({ pxe, logger, wallet, aztecNode, defaultAccountAddress } = await t.setup());
+    ({ logger, wallet, aztecNode, defaultAccountAddress } = await t.setup());
     artifact = StatefulTestContract.artifact;
     publicationTxReceipt = await publishContractClass(wallet, artifact).then(c =>
       c.send({ from: defaultAccountAddress }).wait(),
@@ -97,7 +95,7 @@ describe('e2e_deploy_contract contract class registration', () => {
       const tx = await (await broadcastPrivateFunction(wallet, artifact, selector))
         .send({ from: defaultAccountAddress })
         .wait();
-      const logs = await pxe.getContractClassLogs({ txHash: tx.txHash });
+      const logs = await aztecNode.getContractClassLogs({ txHash: tx.txHash });
       const logData = logs.logs[0].log.toBuffer();
 
       // To actually trigger this write:
@@ -117,7 +115,7 @@ describe('e2e_deploy_contract contract class registration', () => {
       const tx = await (await broadcastUtilityFunction(wallet, artifact, selector))
         .send({ from: defaultAccountAddress })
         .wait();
-      const logs = await pxe.getContractClassLogs({ txHash: tx.txHash });
+      const logs = await aztecNode.getContractClassLogs({ txHash: tx.txHash });
       const logData = logs.logs[0].log.toBuffer();
 
       // To actually trigger this write:

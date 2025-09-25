@@ -15,8 +15,6 @@ void keccakf1600Impl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/keccakf1600");
-
     const auto constants_MEM_TAG_U64 = FF(5);
     const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
     const auto constants_AVM_BITWISE_AND_OP_ID = FF(0);

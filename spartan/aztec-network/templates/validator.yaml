@@ -275,7 +275,7 @@ spec:
             defaultMode: 0755
         - name: contracts-env
           emptyDir: {}
-        - name: pxe-url
+        - name: aztec-node-url
           emptyDir: {}
         - name: config
           emptyDir: {}

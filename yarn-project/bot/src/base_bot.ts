@@ -1,6 +1,7 @@
 import {
-  AuthWitness,
   AztecAddress,
+  BatchCall,
+  ContractFunctionInteraction,
   FeeJuicePaymentMethod,
   type SendMethodOptions,
   SentTx,
@@ -11,7 +12,7 @@ import {
   waitForProven,
 } from '@aztec/aztec.js';
 import { Gas } from '@aztec/stdlib/gas';
-import type { PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { BotConfig } from './config.js';
 
@@ -22,7 +23,7 @@ export abstract class BaseBot {
   protected successes: number = 0;
 
   protected constructor(
-    public readonly pxe: PXE,
+    public readonly node: AztecNode,
     public readonly wallet: Wallet,
     public readonly defaultAccountAddress: AztecAddress,
     public config: BotConfig,
@@ -51,7 +52,7 @@ export abstract class BaseBot {
       timeout: txMinedWaitSeconds,
     });
     if (followChain === 'PROVEN') {
-      await waitForProven(this.pxe, receipt, { provenTimeout: txMinedWaitSeconds });
+      await waitForProven(this.node, receipt, { provenTimeout: txMinedWaitSeconds });
     }
     this.successes++;
     this.log.info(
@@ -71,24 +72,24 @@ export abstract class BaseBot {
     return Promise.resolve();
   }
 
-  protected getSendMethodOpts(...authWitnesses: AuthWitness[]): SendMethodOptions {
+  protected async getSendMethodOpts(interaction: ContractFunctionInteraction | BatchCall): Promise<SendMethodOptions> {
     const { l2GasLimit, daGasLimit } = this.config;
     const paymentMethod = new FeeJuicePaymentMethod(this.defaultAccountAddress);
 
-    let gasSettings, estimateGas;
+    let gasSettings;
     if (l2GasLimit !== undefined && l2GasLimit > 0 && daGasLimit !== undefined && daGasLimit > 0) {
       gasSettings = { gasLimits: Gas.from({ l2Gas: l2GasLimit, daGas: daGasLimit }) };
-      estimateGas = false;
       this.log.verbose(`Using gas limits ${l2GasLimit} L2 gas ${daGasLimit} DA gas`);
     } else {
-      estimateGas = true;
       this.log.verbose(`Estimating gas for transaction`);
+      ({ estimatedGas: gasSettings } = await interaction.simulate({
+        fee: { paymentMethod, estimateGas: true },
+        from: this.defaultAccountAddress,
+      }));
     }
-    const baseFeePadding = 2; // Send 3x the current base fee
     return {
       from: this.defaultAccountAddress,
-      fee: { estimateGas, paymentMethod, gasSettings, baseFeePadding },
-      authWitnesses,
+      fee: { paymentMethod, gasSettings },
     };
   }
 }

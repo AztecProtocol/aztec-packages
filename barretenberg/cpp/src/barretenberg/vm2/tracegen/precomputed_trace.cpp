@@ -9,10 +9,9 @@
 #include "barretenberg/vm2/common/gas.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/common/protocol_contract_data.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
-#include "barretenberg/vm2/simulation/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/gadgets/keccakf1600.hpp"
 #include "barretenberg/vm2/tracegen/lib/get_contract_instance_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/get_env_var_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
@@ -309,7 +308,7 @@ void PrecomputedTraceBuilder::process_to_radix_safe_limbs(TraceContainer& trace)
 {
     using C = Column;
 
-    auto p_limbs_per_radix = get_p_limbs_per_radix();
+    const auto& p_limbs_per_radix = get_p_limbs_per_radix();
 
     trace.reserve_column(C::precomputed_sel_to_radix_p_limb_counts, p_limbs_per_radix.size());
     trace.reserve_column(C::precomputed_to_radix_safe_limbs, p_limbs_per_radix.size());
@@ -328,7 +327,7 @@ void PrecomputedTraceBuilder::process_to_radix_p_decompositions(TraceContainer& 
 {
     using C = Column;
 
-    auto p_limbs_per_radix = get_p_limbs_per_radix();
+    const auto& p_limbs_per_radix = get_p_limbs_per_radix();
 
     uint32_t row = 0;
     for (size_t i = 0; i < p_limbs_per_radix.size(); ++i) {
@@ -625,20 +624,6 @@ void PrecomputedTraceBuilder::process_get_contract_instance_table(TraceContainer
                       { C::precomputed_is_deployer, spec.is_deployer ? 1 : 0 },
                       { C::precomputed_is_class_id, spec.is_class_id ? 1 : 0 },
                       { C::precomputed_is_init_hash, spec.is_init_hash ? 1 : 0 },
-                  } });
-    }
-}
-
-void PrecomputedTraceBuilder::process_protocol_contract_addresses(TraceContainer& trace)
-{
-    using C = Column;
-
-    for (const auto& [canonical_addr, derived_addr] : derived_addresses) {
-        // The canonical address is the row value (which is the execution clk)
-        trace.set(static_cast<uint32_t>(canonical_addr),
-                  { {
-                      { C::precomputed_sel_protocol_contract, 1 },
-                      { C::precomputed_protocol_contract_derived_address, derived_addr },
                   } });
     }
 }

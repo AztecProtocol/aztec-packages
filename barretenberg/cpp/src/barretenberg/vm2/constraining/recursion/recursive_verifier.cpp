@@ -113,11 +113,21 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
 
-    // Add public inputs to transcript
+    // TODO(https://github.com/AztecProtocol/aztec-packages/pull/17045): make the protocols secure at some point
+    // // Add public inputs to transcript
+    // for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
+    //     for (size_t j = 0; j < public_inputs[i].size(); j++) {
+    //         transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
+    //                                        public_inputs[i][j]);
+    //     }
+    // }
+
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
         for (size_t j = 0; j < public_inputs[i].size(); j++) {
-            transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
-                                           public_inputs[i][j]);
+            // TODO(https://github.com/AztecProtocol/aztec-packages/pull/17045): make the protocols secure at some point
+            // transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
+            //                               public_inputs[i][j]);
+            public_inputs[i][j].unset_free_witness_tag();
         }
     }
     // Get commitments to VM wires
@@ -164,8 +174,8 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     // public_input_evaluation.assert_equal(claimed_evaluations[i]
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
         FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], output.challenge);
-        vinfo("public_input_evaluation failed, public inputs col ", i);
-        pi_validation.must_imply(public_input_evaluation == claimed_evaluations[i], "public_input_evaluation failed");
+        pi_validation.must_imply(public_input_evaluation == claimed_evaluations[i],
+                                 format("public_input_evaluation failed at column ", i));
     }
 
     // Execute Shplemini rounds.
@@ -177,6 +187,11 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
         padding_indicator_array, claim_batcher, output.challenge, Commitment::one(&builder), transcript);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+
+    if (builder.failed()) {
+        info("AVM Recursive verifier builder failed with error: ", builder.err());
+    }
+
     return pairing_points;
 }
 

@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, Fr, type Logger, type Wallet, getDecodedPublicEvents } from '@aztec/aztec.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
 import type { Tuple } from '@aztec/foundation/serialize';
@@ -15,10 +15,12 @@ describe('Logs', () => {
   jest.setTimeout(TIMEOUT);
 
   let wallet: Wallet;
+  let aztecNode: AztecNode;
 
   let account1Address: AztecAddress;
   let account2Address: AztecAddress;
 
+  let log: Logger;
   let teardown: () => Promise<void>;
 
   beforeAll(async () => {
@@ -26,10 +28,14 @@ describe('Logs', () => {
       teardown,
       wallet,
       accounts: [account1Address, account2Address],
+      aztecNode,
+      logger: log,
     } = await setup(2));
 
-    await ensureAccountContractsPublished(wallet, [account1Address, account1Address]);
+    log.warn(`Setup complete, checking account contracts published`);
+    await ensureAccountContractsPublished(wallet, [account1Address, account2Address]);
 
+    log.warn(`Deploying test contract`);
     testLogContract = await TestLogContract.deploy(wallet).send({ from: account1Address }).deployed();
   });
 
@@ -119,13 +125,15 @@ describe('Logs', () => {
         .send({ from: account1Address })
         .wait();
 
-      const collectedEvent0s = await wallet.getPublicEvents<ExampleEvent0>(
+      const collectedEvent0s = await getDecodedPublicEvents<ExampleEvent0>(
+        aztecNode,
         TestLogContract.events.ExampleEvent0,
         firstTx.blockNumber!,
         lastTx.blockNumber! - firstTx.blockNumber! + 1,
       );
 
-      const collectedEvent1s = await wallet.getPublicEvents<ExampleEvent1>(
+      const collectedEvent1s = await getDecodedPublicEvents<ExampleEvent1>(
+        aztecNode,
         TestLogContract.events.ExampleEvent1,
         firstTx.blockNumber!,
         lastTx.blockNumber! - firstTx.blockNumber! + 1,

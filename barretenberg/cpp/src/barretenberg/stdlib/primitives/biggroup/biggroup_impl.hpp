@@ -37,6 +37,13 @@ element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in)
 {}
 
 template <typename C, class Fq, class Fr, class G>
+element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in, const bool_ct& is_infinity)
+    : x(x_in)
+    , y(y_in)
+    , _is_infinity(is_infinity)
+{}
+
+template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>::element(const element& other)
     : x(other.x)
     , y(other.y)
@@ -133,9 +140,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
 /**
  * @brief Enforce x and y coordinates of a point to be (0,0) in the case of point at infinity
  *
- * @details We need to have a standard witness in Noir and the point at infinity can have non-zero random coefficients
- * when we get it as output from our optimized algorithms. This function returns a (0,0) point, if it is a point at
- * infinity
+ * @details We need to have a standard witness in Noir and the point at infinity can have non-zero random
+ * coefficients when we get it as output from our optimized algorithms. This function returns a (0,0) point, if
+ * it is a point at infinity
  */
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::get_standard_form() const
@@ -172,9 +179,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
     const Fq add_lambda_denominator = other.x - x;
     const Fq dbl_lambda_denominator = y + y;
     Fq lambda_denominator = Fq::conditional_assign(double_predicate, dbl_lambda_denominator, add_lambda_denominator);
-    // If either inputs are points at infinity, we set lambda_denominator to be 1. This ensures we never trigger a
-    // divide by zero error.
-    // (if either inputs are points at infinity we will not use the result of this computation)
+    // If either inputs are points at infinity, we set lambda_denominator to be 1. This ensures we never trigger
+    // a divide by zero error. (if either inputs are points at infinity we will not use the result of this
+    // computation)
     Fq safe_edgecase_denominator = Fq(1);
     lambda_denominator =
         Fq::conditional_assign(has_infinity_input || infinity_predicate, safe_edgecase_denominator, lambda_denominator);
@@ -243,8 +250,8 @@ template <typename C, class Fq, class Fr, class G>
 std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditional_add_sub(const element& other) const
 {
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/971): This will fail when the two elements are the
-    // same even in the case of a valid circuit
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/971): This will fail when the two elements are
+    // the same even in the case of a valid circuit
     other.x.assert_is_not_equal(x);
 
     const Fq denominator = other.x - x;
@@ -266,12 +273,13 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
     Fq two_x = x + x;
     if constexpr (G::has_a) {
         Fq a(get_context(), uint256_t(G::curve_a));
-        Fq neg_lambda = Fq::msub_div({ x }, { (two_x + x) }, (y + y), { a });
+        Fq neg_lambda = Fq::msub_div({ x }, { (two_x + x) }, (y + y), { a }, /*enable_divisor_nz_check*/ false);
         Fq x_3 = neg_lambda.sqradd({ -(two_x) });
         Fq y_3 = neg_lambda.madd(x_3 - x, { -y });
         return element(x_3, y_3);
     }
-    Fq neg_lambda = Fq::msub_div({ x }, { (two_x + x) }, (y + y), {});
+    // TODO(): handle y = 0 case.
+    Fq neg_lambda = Fq::msub_div({ x }, { (two_x + x) }, (y + y), {}, /*enable_divisor_nz_check*/ false);
     Fq x_3 = neg_lambda.sqradd({ -(two_x) });
     Fq y_3 = neg_lambda.madd(x_3 - x, { -y });
     element result = element(x_3, y_3);
@@ -282,8 +290,8 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
 /**
  * Evaluate a chain addition!
  *
- * When adding a set of points P_1 + ... + P_N, we do not need to compute the y-coordinate of intermediate addition
- *terms.
+ * When adding a set of points P_1 + ... + P_N, we do not need to compute the y-coordinate of intermediate
+ *addition terms.
  *
  * i.e. we substitute `acc.y` with `acc.y = acc.lambda_prev * (acc.x1_prev - acc.x) - acc.y1_prev`
  *
@@ -343,7 +351,12 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
      * Requires only 2 non-native field reductions
      **/
     auto& x2 = acc.x3_prev;
-    const auto lambda = Fq::msub_div({ acc.lambda_prev }, { (x2 - acc.x1_prev) }, (x2 - p1.x), { acc.y1_prev, p1.y });
+    const auto lambda =
+        Fq::msub_div({ acc.lambda_prev },
+                     { (x2 - acc.x1_prev) },
+                     (x2 - p1.x),
+                     { acc.y1_prev, p1.y },
+                     /*enable_divisor_nz_check*/ false); // divisor is non-zero as x2 != p1.x is enforced
     const auto x3 = lambda.sqradd({ -x2, -p1.x });
 
     chain_add_accumulator output;
@@ -435,16 +448,16 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const element& ot
  *
  * We substitute `to_add.y` with `lambda_prev * (to_add.x1_prev - to_add.x) - to_add.y1_prev`
  *
- * Here, `x1_prev, y1_prev, lambda_prev` are the values of `x1, y1, lambda` for the addition operation that PRODUCED
- *to_add
+ * Here, `x1_prev, y1_prev, lambda_prev` are the values of `x1, y1, lambda` for the addition operation that
+ *PRODUCED to_add
  *
  * The reason why this saves us gates, is because the montgomery ladder does not multiply to_add.y by any values
  * i.e. to_add.y is only used in addition operations
  *
  * This allows us to substitute to_add.y with the above relation without requiring additional field reductions
  *
- * e.g. the term (lambda * (x3 - x1) + to_add.y) remains "quadratic" if we replace to_add.y with the above quadratic
- *relation
+ * e.g. the term (lambda * (x3 - x1) + to_add.y) remains "quadratic" if we replace to_add.y with the above
+ *quadratic relation
  *
  **/
 template <typename C, class Fq, class Fr, class G>
@@ -464,8 +477,11 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const chain_add_a
     // => lambda = - (lambda_prev * (x2 - x1_prev) + y1_prev + y1) / (x2 - x1)
 
     auto& x2 = to_add.x3_prev;
-    const auto lambda =
-        Fq::msub_div({ to_add.lambda_prev }, { (x2 - to_add.x1_prev) }, (x2 - x), { to_add.y1_prev, y });
+    const auto lambda = Fq::msub_div({ to_add.lambda_prev },
+                                     { (x2 - to_add.x1_prev) },
+                                     (x2 - x),
+                                     { to_add.y1_prev, y },
+                                     /*enable_divisor_nz_check*/ false); // divisor is non-zero as x2 != x is enforced
     const auto x3 = lambda.sqradd({ -x2, -x });
 
     const Fq minus_lambda_2 = lambda + Fq::div_without_denominator_check({ y + y }, (x3 - x));
@@ -498,10 +514,11 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::quadruple_and_add(const std::vector
     Fq minus_lambda_dbl;
     if constexpr (G::has_a) {
         Fq a(get_context(), uint256_t(G::curve_a));
-        minus_lambda_dbl = Fq::msub_div({ x }, { (two_x + x) }, (y + y), { a });
+        minus_lambda_dbl = Fq::msub_div({ x }, { (two_x + x) }, (y + y), { a }, /*enable_divisor_nz_check*/ false);
         x_1 = minus_lambda_dbl.sqradd({ -(two_x) });
     } else {
-        minus_lambda_dbl = Fq::msub_div({ x }, { (two_x + x) }, (y + y), {});
+        // TODO(): handle y = 0 case.
+        minus_lambda_dbl = Fq::msub_div({ x }, { (two_x + x) }, (y + y), {}, /*enable_divisor_nz_check*/ false);
         x_1 = minus_lambda_dbl.sqradd({ -(two_x) });
     }
 
@@ -510,12 +527,22 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::quadruple_and_add(const std::vector
 
     const Fq x_minus_x_1 = x - x_1;
 
-    const Fq lambda_1 = Fq::msub_div({ minus_lambda_dbl }, { x_minus_x_1 }, (x_1 - to_add[0].x), { to_add[0].y, y });
+    const Fq lambda_1 =
+        Fq::msub_div({ minus_lambda_dbl },
+                     { x_minus_x_1 },
+                     (x_1 - to_add[0].x),
+                     { to_add[0].y, y },
+                     /*enable_divisor_nz_check*/ false); // divisor is non-zero as x1 != to_add[0].x is enforced
 
     const Fq x_3 = lambda_1.sqradd({ -to_add[0].x, -x_1 });
 
+    // TODO(): analyse if (x3 - x1) can be zero.
     const Fq half_minus_lambda_2_minus_lambda_1 =
-        Fq::msub_div({ minus_lambda_dbl }, { x_minus_x_1 }, (x_3 - x_1), { y });
+        Fq::msub_div({ minus_lambda_dbl },
+                     { x_minus_x_1 },
+                     (x_3 - x_1),
+                     { y },
+                     /*enable_divisor_nz_check*/ false); // divisor is non-zero as x3 != x1 is enforced
 
     const Fq minus_lambda_2_minus_lambda_1 = half_minus_lambda_2_minus_lambda_1 + half_minus_lambda_2_minus_lambda_1;
     const Fq minus_lambda_2 = minus_lambda_2_minus_lambda_1 + lambda_1;
@@ -530,8 +557,12 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::quadruple_and_add(const std::vector
     }
     to_add[1].x.assert_is_not_equal(to_add[0].x);
 
-    Fq minus_lambda_3 = Fq::msub_div(
-        { minus_lambda_dbl, minus_lambda_2 }, { x_minus_x_1, x_4_sub_x_1 }, (x_4 - to_add[1].x), { y, -(to_add[1].y) });
+    // TODO(): analyse if (x4 - x1) can be zero.
+    Fq minus_lambda_3 = Fq::msub_div({ minus_lambda_dbl, minus_lambda_2 },
+                                     { x_minus_x_1, x_4_sub_x_1 },
+                                     (x_4 - to_add[1].x),
+                                     { y, -(to_add[1].y) },
+                                     /*enable_divisor_nz_check*/ false);
 
     // X5 = L3.L3 - X4 - XB
     const Fq x_5 = minus_lambda_3.sqradd({ -x_4, -to_add[1].x });
@@ -550,10 +581,13 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::quadruple_and_add(const std::vector
         to_add[i].x.assert_is_not_equal(to_add[i - 1].x);
         // Lambda = Yprev - Yadd[i] / Xprev - Xadd[i]
         //        = -Lprev.(Xprev - Xadd[i-1]) - Yadd[i - 1] - Yadd[i] / Xprev - Xadd[i]
-        const Fq minus_lambda = Fq::msub_div({ minus_lambda_prev },
-                                             { to_add[i - 1].x - x_prev },
-                                             (to_add[i].x - x_prev),
-                                             { to_add[i - 1].y, to_add[i].y });
+        const Fq minus_lambda =
+            Fq::msub_div({ minus_lambda_prev },
+                         { to_add[i - 1].x - x_prev },
+                         (to_add[i].x - x_prev),
+                         { to_add[i - 1].y, to_add[i].y },
+                         /*enable_divisor_nz_check*/ false); // divisor is non-zero as x_prev != to_add[i].x is enforced
+
         // X = Lambda * Lambda - Xprev - Xadd[i]
         const Fq x_out = minus_lambda.sqradd({ -x_prev, -to_add[i].x });
 
@@ -633,24 +667,34 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
         if (!add[i].is_element || i > 0) {
             bool flip_lambda1_denominator = !negate_add_y;
             Fq denominator = flip_lambda1_denominator ? previous_x - add[i].x3_prev : add[i].x3_prev - previous_x;
-            lambda1 = Fq::msub_div(lambda1_left, lambda1_right, denominator, lambda1_add);
+            lambda1 = Fq::msub_div(
+                lambda1_left,
+                lambda1_right,
+                denominator,
+                lambda1_add,
+                /*enable_divisor_nz_check*/ false); // divisor is non-zero as previous_x != add[i].x3_prev is enforced
         } else {
             lambda1 = Fq::div_without_denominator_check({ add[i].y3_prev - y }, (add[i].x3_prev - x));
         }
 
         Fq x_3 = lambda1.madd(lambda1, { -add[i].x3_prev, -previous_x });
 
-        // We can avoid computing y_4, instead substituting the expression `minus_lambda_2 * (x_4 - x) - y` where
-        // needed. This is cheaper, because we can evaluate two field multiplications (or a field multiplication + a
-        // field division) with only one non-native field reduction. E.g. evaluating (a * b) + (c * d) = e mod p only
-        // requires 1 quotient and remainder, which is the major cost of a non-native field multiplication
+        // We can avoid computing y_4, instead substituting the expression `minus_lambda_2 * (x_4 - x) - y`
+        // where needed. This is cheaper, because we can evaluate two field multiplications (or a field
+        // multiplication + a field division) with only one non-native field reduction. E.g. evaluating (a * b)
+        // + (c * d) = e mod p only requires 1 quotient and remainder, which is the major cost of a non-native
+        // field multiplication
         Fq lambda2;
         if (i == 0) {
             lambda2 = Fq::div_without_denominator_check({ y + y }, (previous_x - x_3)) - lambda1;
         } else {
             Fq l2_denominator = previous_y.is_negative ? previous_x - x_3 : x_3 - previous_x;
-            Fq partial_lambda2 =
-                Fq::msub_div(previous_y.mul_left, previous_y.mul_right, l2_denominator, previous_y.add);
+            // TODO(): analyse if l2_denominator can be zero.
+            Fq partial_lambda2 = Fq::msub_div(previous_y.mul_left,
+                                              previous_y.mul_right,
+                                              l2_denominator,
+                                              previous_y.add,
+                                              /*enable_divisor_nz_check*/ false);
             partial_lambda2 = partial_lambda2 + partial_lambda2;
             lambda2 = partial_lambda2 - lambda1;
         }
@@ -670,10 +714,11 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
             y_4.is_negative = !previous_y.is_negative;
             y_4.mul_left.emplace_back(lambda2);
             y_4.mul_right.emplace_back(previous_y.is_negative ? previous_x - x_4 : x_4 - previous_x);
-            // append terms in previous_y to y_4. We want to make sure the terms above are added into the start of y_4.
-            // This is to ensure they are cached correctly when
+            // append terms in previous_y to y_4. We want to make sure the terms above are added into the start
+            // of y_4. This is to ensure they are cached correctly when
             // `builder::evaluate_partial_non_native_field_multiplication` is called.
-            // (the 1st mul_left, mul_right elements will trigger builder::evaluate_non_native_field_multiplication
+            // (the 1st mul_left, mul_right elements will trigger
+            // builder::evaluate_non_native_field_multiplication
             //  when Fq::mult_madd is called - this term cannot be cached so we want to make sure it is unique)
             std::copy(previous_y.mul_left.begin(), previous_y.mul_left.end(), std::back_inserter(y_4.mul_left));
             std::copy(previous_y.mul_right.begin(), previous_y.mul_right.end(), std::back_inserter(y_4.mul_right));
@@ -710,15 +755,15 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
  * Instead of handling the edge case (which is expensive!) we instead FORBID it from happening by
  * requiring x2 != x1 (other.x.assert_is_not_equal(x) will be present in all group operation methods)
  *
- * This means it is essential we ensure an honest prover will NEVER run into this edge case, or our circuit will lack
- * completeness!
+ * This means it is essential we ensure an honest prover will NEVER run into this edge case, or our circuit will
+ * lack completeness!
  *
  * To ensure an honest prover will not fall foul of this edge case when performing a SCALAR MULTIPLICATION,
  * we init the accumulator with an `offset_generator` point.
  * This point is a generator point that is not equal to the regular generator point for this curve.
  *
- * When adding points into the accumulator, the probability that an honest prover will find a collision is now ~ 1 in
- * 2^128
+ * When adding points into the accumulator, the probability that an honest prover will find a collision is now ~
+ * 1 in 2^128
  *
  * We init `accumulator = generator` and then perform an n-bit scalar mul.
  * The output accumulator will contain a term `2^{n-1} * generator` that we need to subtract off.
@@ -743,8 +788,8 @@ std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::c
 /**
  * @brief Generic batch multiplication that works for all elliptic curve types.
  *
- * @details Implementation is identical to `bn254_endo_batch_mul` but WITHOUT the endomorphism transforms OR support for
- * short scalars See `bn254_endo_batch_mul` for description of algorithm.
+ * @details Implementation is identical to `bn254_endo_batch_mul` but WITHOUT the endomorphism transforms OR
+ * support for short scalars See `bn254_endo_batch_mul` for description of algorithm.
  *
  * @tparam C The circuit builder type.
  * @tparam Fq The field of definition of the points in `_points`.
@@ -771,12 +816,11 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     }
     for (size_t i = 0; i < scalars.size(); i++) {
         // If batch_mul actually performs batch multiplication on the points and scalars, subprocedures can do
-        // operations like addition or subtraction of points, which can trigger OriginTag security mechanisms even
-        // though the final result satisfies the security logic
-        // For example result = submitted_in_round_0 *challenge_from_round_0 +submitted_in_round_1 *
-        // challenge_in_round_1 will trigger it, because the addition of submitted_in_round_0 to submitted_in_round_1 is
-        // dangerous by itself. To avoid this, we remove the tags, merge them separately and set the result
-        // appropriately
+        // operations like addition or subtraction of points, which can trigger OriginTag security mechanisms
+        // even though the final result satisfies the security logic For example result = submitted_in_round_0
+        // *challenge_from_round_0 +submitted_in_round_1 * challenge_in_round_1 will trigger it, because the
+        // addition of submitted_in_round_0 to submitted_in_round_1 is dangerous by itself. To avoid this, we
+        // remove the tags, merge them separately and set the result appropriately
         points[i].set_origin_tag(empty_tag);
         scalars[i].set_origin_tag(empty_tag);
     }
@@ -865,12 +909,12 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar, const 
      *
      * We want to construct a circuit that evaluates scalar multiplications of curve E. Where q > r and p > r.
      *
-     * i.e. we need to perform arithmetic in one prime field, using prime field arithmetic in a completely different
-     *prime field.
+     * i.e. we need to perform arithmetic in one prime field, using prime field arithmetic in a completely
+     *different prime field.
      *
      * To do *this*, we need to emulate a binary (or in our case quaternary) number system in Fr, so that we can
-     * use the binary/quaternary basis to emulate arithmetic in Fq. Which is very messy. See bigfield.hpp for the
-     * specifics.
+     * use the binary/quaternary basis to emulate arithmetic in Fq. Which is very messy. See bigfield.hpp for
+     *the specifics.
      *
      **/
     OriginTag tag{};

@@ -194,8 +194,11 @@ export class EpochsTestContext {
     const proverNode = await withLogNameSuffix(suffix, () =>
       createAndSyncProverNode(
         proverNodePrivateKey,
-        { ...this.context.config, proverId: EthAddress.fromNumber(parseInt(suffix, 10)) },
-        { dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')) },
+        { ...this.context.config },
+        {
+          dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
+          proverId: EthAddress.fromNumber(parseInt(suffix, 10)),
+        },
         this.context.aztecNode,
         undefined,
         { dateProvider: this.context.dateProvider },
@@ -352,7 +355,7 @@ export class EpochsTestContext {
       publicKeys: undefined,
       deployer: undefined,
     });
-    await wallet.registerContract({ artifact: SpamContract.artifact, instance });
+    await wallet.registerContract(instance, SpamContract.artifact);
     return SpamContract.at(instance.address, wallet);
   }
 

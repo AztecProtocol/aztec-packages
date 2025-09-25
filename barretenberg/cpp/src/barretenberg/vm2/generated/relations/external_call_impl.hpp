@@ -15,8 +15,6 @@ void external_callImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/external_call");
-
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_l2_gas_left)) -

@@ -463,7 +463,7 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
         Fr offset = Fr(lo_offset, field_t<C>(bb::fr(negative_hi)) + wnaf_entries[wnaf_entries.size() - 1], true);
         Fr reconstructed = Fr(lo_accumulators, hi_accumulators, true);
         reconstructed = (reconstructed + reconstructed) - offset;
-        reconstructed.assert_is_in_field();
+        reconstructed.reduce_mod_target_modulus();
         reconstructed.assert_equal(scalar);
     }
 

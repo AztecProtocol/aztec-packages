@@ -73,6 +73,8 @@ export async function createProverNode(
     }
   }
 
+  await keyStoreManager?.validateSigners();
+
   // Extract the prover signers from the key store and verify that we have one.
   const proverSigners = keyStoreManager?.createProverSigners();
 
@@ -143,7 +145,7 @@ export async function createProverNode(
     deps.publisherFactory ??
     new ProverPublisherFactory(config, {
       rollupContract,
-      publisherManager: new PublisherManager(l1TxUtils),
+      publisherManager: new PublisherManager(l1TxUtils, config),
       telemetry,
     });
 

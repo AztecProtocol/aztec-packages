@@ -6,7 +6,7 @@
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/pg_recursion_constraint.hpp"
-#include "barretenberg/honk/proving_key_inspector.hpp"
+#include "barretenberg/honk/prover_instance_inspector.hpp"
 
 #include <filesystem>
 #include <gtest/gtest.h>
@@ -21,13 +21,11 @@ class AcirIntegrationTest : public ::testing::Test {
         std::filesystem::path filePath = bytecodePath;
         if (filePath.extension() == ".json") {
             // Try reading json files as if they are a Nargo build artifact
-            std::string command = "jq -r '.bytecode' \"" + bytecodePath + "\" | base64 -d | gunzip -c";
-            return exec_pipe(command);
+            return exec_pipe_with_stdin(bytecodePath, "jq -r '.bytecode' - | base64 -d | gunzip -c");
         }
 
         // For other extensions, assume file is a raw ACIR program
-        std::string command = "gunzip -c \"" + bytecodePath + "\"";
-        return exec_pipe(command);
+        return exec_pipe_with_stdin(bytecodePath, "gunzip -c -");
     }
 
     // Function to check if a file exists
@@ -61,15 +59,15 @@ class AcirIntegrationTest : public ::testing::Test {
         using Verifier = UltraVerifier_<Flavor>;
         using VerificationKey = Flavor::VerificationKey;
 
-        auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
-        Prover prover{ proving_key, verification_key };
+        auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
+        auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+        Prover prover{ prover_instance, verification_key };
 #ifdef LOG_SIZES
         builder.blocks.summarize();
         info("num gates          = ", builder.get_estimated_num_finalized_gates());
         info("total circuit size = ", builder.get_estimated_total_circuit_size());
-        info("circuit size       = ", prover.proving_key->dyadic_size());
-        info("log circuit size   = ", prover.proving_key->log_dyadic_size());
+        info("circuit size       = ", prover.prover_instance->dyadic_size());
+        info("log circuit size   = ", prover.prover_instance->log_dyadic_size());
 #endif
         auto proof = prover.construct_proof();
 
@@ -545,7 +543,7 @@ TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
             };
 
             auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-            recomputed_vk_hash = proving_key_inspector::compute_vk_hash<MegaFlavor>(circuit);
+            recomputed_vk_hash = prover_instance_inspector::compute_vk_hash<MegaFlavor>(circuit);
         }
 
         // Compute the verification key using the genuine witness
@@ -558,7 +556,7 @@ TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
             };
 
             auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-            computed_vk_hash = proving_key_inspector::compute_vk_hash<MegaFlavor>(circuit);
+            computed_vk_hash = prover_instance_inspector::compute_vk_hash<MegaFlavor>(circuit);
         }
 
         // Check that the hashes computed from the dummy witness VK and the genuine witness VK are equal

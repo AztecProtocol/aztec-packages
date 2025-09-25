@@ -3,7 +3,7 @@
 #include <gmock/gmock.h>
 
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/simulation/merkle_check.hpp"
+#include "barretenberg/vm2/simulation/interfaces/merkle_check.hpp"
 
 namespace bb::avm2::simulation {
 

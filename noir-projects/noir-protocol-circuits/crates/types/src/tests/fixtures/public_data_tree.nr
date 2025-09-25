@@ -1,13 +1,13 @@
 use crate::{
     constants::PUBLIC_DATA_TREE_HEIGHT,
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-    tests::merkle_tree_utils::NonEmptyMerkleTree, traits::Hash,
+    tests::merkle_tree_utils::SingleSubtreeMerkleTree, traits::Hash,
 };
 
-pub fn empty_public_data_tree<let LEAVES_COUNT: u32, let SUBTREE_HEIGHT: u32>(
+pub fn empty_public_data_tree<let SubtreeWidth: u32, let SubtreeHeight: u32>(
     prefill_count: u32,
-    ) -> NonEmptyMerkleTree<LEAVES_COUNT, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT - SUBTREE_HEIGHT, SUBTREE_HEIGHT> {
-    let mut leaves = [0; LEAVES_COUNT];
+) -> SingleSubtreeMerkleTree<SubtreeWidth, SubtreeHeight, PUBLIC_DATA_TREE_HEIGHT> {
+    let mut leaves = [0; SubtreeWidth];
     for i in 0..(prefill_count - 1) {
         let leaf = PublicDataTreeLeafPreimage {
             slot: i as Field,
@@ -26,10 +26,5 @@ pub fn empty_public_data_tree<let LEAVES_COUNT: u32, let SUBTREE_HEIGHT: u32>(
     };
     leaves[prefill_count - 1] = last_leaf.hash();
 
-    NonEmptyMerkleTree::new(
-        leaves,
-        [0; PUBLIC_DATA_TREE_HEIGHT],
-        [0; PUBLIC_DATA_TREE_HEIGHT - SUBTREE_HEIGHT],
-        [0; SUBTREE_HEIGHT],
-    )
+    SingleSubtreeMerkleTree::new(leaves)
 }

@@ -7,13 +7,15 @@ import { getPublicClient } from '@aztec/ethereum';
 import { SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
-import { AztecNodeAdminApiSchema, AztecNodeApiSchema, type PXE } from '@aztec/stdlib/interfaces/client';
+import { type CliPXEOptions, type PXEServiceConfig, allPxeConfigMappings } from '@aztec/pxe/config';
+import { AztecNodeAdminApiSchema, AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
 import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
 import {
   type TelemetryClientConfig,
   initTelemetryClient,
   telemetryClientConfigMappings,
 } from '@aztec/telemetry-client';
+import { TestWallet } from '@aztec/test-wallet';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { createAztecNode } from '../../sandbox/index.js';
@@ -128,17 +130,14 @@ export async function startNode(
   // Add node stop function to signal handlers
   signalHandlers.push(node.stop.bind(node));
 
-  // Add a PXE client that connects to this node if requested
-  let pxe: PXE | undefined;
-  if (options.pxe) {
-    const { addPXE } = await import('./start_pxe.js');
-    ({ pxe } = await addPXE(options, signalHandlers, services, userLog, { node }));
-  }
-
   // Add a txs bot if requested
   if (options.bot) {
     const { addBot } = await import('./start_bot.js');
-    await addBot(options, signalHandlers, services, { pxe, node, telemetry });
+
+    const pxeConfig = extractRelevantOptions<PXEServiceConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
+    const wallet = await TestWallet.create(node, pxeConfig);
+
+    await addBot(options, signalHandlers, services, wallet, node, telemetry, undefined);
   }
 
   if (nodeConfig.autoUpdate !== 'disabled' && nodeConfig.autoUpdateUrl) {

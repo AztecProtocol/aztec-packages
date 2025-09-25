@@ -1,4 +1,4 @@
-import { BatchedBlobAccumulator, Blob, type SpongeBlob } from '@aztec/blob-lib';
+import { BatchedBlob, BatchedBlobAccumulator, Blob, SpongeBlob } from '@aztec/blob-lib';
 import {
   ARCHIVE_HEIGHT,
   CIVC_PROOF_LENGTH,
@@ -6,9 +6,9 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NOTE_HASH_SUBTREE_HEIGHT,
-  NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
+  NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_HEIGHT,
-  NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
+  NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PUBLIC_DATA_TREE_HEIGHT,
@@ -20,23 +20,19 @@ import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import { type Bufferable, type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { MembershipWitness, MerkleTreeCalculator, computeUnbalancedMerkleTreeRoot } from '@aztec/foundation/trees';
 import { getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
-import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
-import { PublicDataHint } from '@aztec/stdlib/avm';
-import { Body } from '@aztec/stdlib/block';
+import { Body, L2BlockHeader, getBlockBlobFields } from '@aztec/stdlib/block';
 import type { MerkleTreeWriteOperations, PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import { ContractClassLogFields } from '@aztec/stdlib/logs';
-import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import { Proof, ProofData, RecursiveProof } from '@aztec/stdlib/proofs';
 import {
-  type BaseOrMergeRollupPublicInputs,
   BlockConstantData,
-  type BlockRootOrBlockMergePublicInputs,
+  BlockRollupPublicInputs,
   PrivateBaseRollupHints,
-  PrivateBaseStateDiffHints,
   PublicBaseRollupHints,
   PublicTubePrivateInputs,
+  TreeSnapshotDiffHints,
 } from '@aztec/stdlib/rollup';
 import {
   AppendOnlyTreeSnapshot,
@@ -49,12 +45,11 @@ import {
 import {
   BlockHeader,
   ContentCommitment,
-  type GlobalVariables,
+  GlobalVariables,
   PartialStateReference,
   type ProcessedTx,
   StateReference,
   Tx,
-  TxEffect,
 } from '@aztec/stdlib/tx';
 import { VkData } from '@aztec/stdlib/vks';
 import { Attributes, type Span, runInSpan } from '@aztec/telemetry-client';
@@ -76,38 +71,30 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
   async (
     span: Span,
     tx: ProcessedTx,
-    globalVariables: GlobalVariables,
+    lastArchive: AppendOnlyTreeSnapshot,
     newL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    db: MerkleTreeWriteOperations,
     startSpongeBlob: SpongeBlob,
+    proverId: Fr,
+    db: MerkleTreeWriteOperations,
   ) => {
     span.setAttribute(Attributes.TX_HASH, tx.hash.toString());
     // Get trees info before any changes hit
-    const lastArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
     const start = new PartialStateReference(
       await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE, db),
       await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE, db),
       await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE, db),
     );
-    // Get the subtree sibling paths for the circuit
-    const noteHashSubtreeSiblingPathArray = await getSubtreeSiblingPath(
-      MerkleTreeId.NOTE_HASH_TREE,
-      NOTE_HASH_SUBTREE_HEIGHT,
-      db,
-    );
 
-    const noteHashSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, i =>
-      i < noteHashSubtreeSiblingPathArray.length ? noteHashSubtreeSiblingPathArray[i] : Fr.ZERO,
+    // Get the note hash subtree root sibling path for insertion.
+    const noteHashSubtreeRootSiblingPath = assertLength(
+      await getSubtreeSiblingPath(MerkleTreeId.NOTE_HASH_TREE, NOTE_HASH_SUBTREE_HEIGHT, db),
+      NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
     );
 
     // Update the note hash trees with the new items being inserted to get the new roots
     // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
     const noteHashes = padArrayEnd(tx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX);
     await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashes);
-
-    // Create data hint for reading fee payer initial balance in Fee Juice
-    const leafSlot = await computeFeePayerBalanceLeafSlot(tx.data.feePayer);
-    const feePayerFeeJuiceBalanceReadHint = await getPublicDataHint(db, leafSlot.toBigInt());
 
     // The read witnesses for a given TX should be generated before the writes of the same TX are applied.
     // All reads that refer to writes in the same tx are transient and can be simplified out.
@@ -116,8 +103,8 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
     // Update the nullifier tree, capturing the low nullifier info for each individual operation
     const {
       lowLeavesWitnessData: nullifierWitnessLeaves,
-      newSubtreeSiblingPath: nullifiersSubtreeSiblingPath,
-      sortedNewLeaves: sortednullifiers,
+      newSubtreeSiblingPath: nullifiersSubtreeRootSiblingPath,
+      sortedNewLeaves: sortedNullifiers,
       sortedNewLeavesIndexes,
     } = await db.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
@@ -129,21 +116,10 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
       throw new Error(`Could not craft nullifier batch insertion proofs`);
     }
 
-    // Extract witness objects from returned data
-    const nullifierPredecessorMembershipWitnessesWithoutPadding: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>[] =
-      nullifierWitnessLeaves.map(l =>
-        MembershipWitness.fromBufferArray(l.index, assertLength(l.siblingPath.toBufferArray(), NULLIFIER_TREE_HEIGHT)),
-      );
-
-    const nullifierSubtreeSiblingPathArray = nullifiersSubtreeSiblingPath.toFields();
-
-    const nullifierSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, i =>
-      i < nullifierSubtreeSiblingPathArray.length ? nullifierSubtreeSiblingPathArray[i] : Fr.ZERO,
-    );
-
-    // Append new data to startSpongeBlob
-    const inputSpongeBlob = startSpongeBlob.clone();
-    await startSpongeBlob.absorb(tx.txEffect.toBlobFields());
+    const blockHash = await tx.data.constants.anchorBlockHeader.hash();
+    const anchorBlockArchiveSiblingPath = (
+      await getMembershipWitnessFor(blockHash, MerkleTreeId.ARCHIVE, ARCHIVE_HEIGHT, db)
+    ).siblingPath;
 
     const contractClassLogsFields = makeTuple(
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
@@ -151,19 +127,12 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
     );
 
     if (tx.avmProvingRequest) {
-      const blockHash = await tx.data.constants.historicalHeader.hash();
-      const archiveRootMembershipWitness = await getMembershipWitnessFor(
-        blockHash,
-        MerkleTreeId.ARCHIVE,
-        ARCHIVE_HEIGHT,
-        db,
-      );
-
       return PublicBaseRollupHints.from({
-        startSpongeBlob: inputSpongeBlob,
+        startSpongeBlob,
         lastArchive,
-        archiveRootMembershipWitness,
+        anchorBlockArchiveSiblingPath,
         contractClassLogsFields,
+        proverId,
       });
     } else {
       if (
@@ -174,83 +143,68 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
         throw new Error(`More than one public data write in a private only tx`);
       }
 
-      const feeWriteLowLeafPreimage =
-        txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages[0] || PublicDataTreeLeafPreimage.empty();
-      const feeWriteLowLeafMembershipWitness =
-        txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses[0] ||
-        MembershipWitness.empty<typeof PUBLIC_DATA_TREE_HEIGHT>(PUBLIC_DATA_TREE_HEIGHT);
-      const feeWriteSiblingPath =
-        txPublicDataUpdateRequestInfo.publicDataWritesSiblingPaths[0] ||
-        makeTuple(PUBLIC_DATA_TREE_HEIGHT, () => Fr.ZERO);
+      // Get hints for reading fee payer's balance in the public data tree.
+      const feePayerBalanceMembershipWitness = txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses[0];
+      const feePayerBalanceLeafPreimage = txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages[0];
+      const leafSlot = await computeFeePayerBalanceLeafSlot(tx.data.feePayer);
+      if (!feePayerBalanceMembershipWitness || !leafSlot.equals(feePayerBalanceLeafPreimage?.leaf.slot)) {
+        throw new Error(`Cannot find the public data tree leaf for the fee payer's balance`);
+      }
 
-      const stateDiffHints = PrivateBaseStateDiffHints.from({
-        nullifierPredecessorPreimages: makeTuple(MAX_NULLIFIERS_PER_TX, i =>
-          i < nullifierWitnessLeaves.length
-            ? (nullifierWitnessLeaves[i].leafPreimage as NullifierLeafPreimage)
-            : NullifierLeafPreimage.empty(),
+      // Extract witness objects from returned data
+      const nullifierPredecessorMembershipWitnessesWithoutPadding: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>[] =
+        nullifierWitnessLeaves.map(l =>
+          MembershipWitness.fromBufferArray(
+            l.index,
+            assertLength(l.siblingPath.toBufferArray(), NULLIFIER_TREE_HEIGHT),
+          ),
+        );
+
+      const treeSnapshotDiffHints = TreeSnapshotDiffHints.from({
+        noteHashSubtreeRootSiblingPath,
+        nullifierPredecessorPreimages: padArrayEnd(
+          nullifierWitnessLeaves.map(l => l.leafPreimage as NullifierLeafPreimage),
+          NullifierLeafPreimage.empty(),
+          MAX_NULLIFIERS_PER_TX,
         ),
         nullifierPredecessorMembershipWitnesses: makeTuple(MAX_NULLIFIERS_PER_TX, i =>
           i < nullifierPredecessorMembershipWitnessesWithoutPadding.length
             ? nullifierPredecessorMembershipWitnessesWithoutPadding[i]
             : makeEmptyMembershipWitness(NULLIFIER_TREE_HEIGHT),
         ),
-        sortedNullifiers: makeTuple(MAX_NULLIFIERS_PER_TX, i => Fr.fromBuffer(sortednullifiers[i])),
-        sortedNullifierIndexes: makeTuple(MAX_NULLIFIERS_PER_TX, i => sortedNewLeavesIndexes[i]),
-        noteHashSubtreeSiblingPath,
-        nullifierSubtreeSiblingPath,
-        feeWriteLowLeafPreimage,
-        feeWriteLowLeafMembershipWitness,
-        feeWriteSiblingPath,
+        sortedNullifiers: assertLength(
+          sortedNullifiers.map(n => Fr.fromBuffer(n)),
+          MAX_NULLIFIERS_PER_TX,
+        ),
+        sortedNullifierIndexes: assertLength(sortedNewLeavesIndexes, MAX_NULLIFIERS_PER_TX),
+        nullifierSubtreeRootSiblingPath: assertLength(
+          nullifiersSubtreeRootSiblingPath.toFields(),
+          NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
+        ),
+        feePayerBalanceMembershipWitness,
       });
-
-      const blockHash = await tx.data.constants.historicalHeader.hash();
-      const archiveRootMembershipWitness = await getMembershipWitnessFor(
-        blockHash,
-        MerkleTreeId.ARCHIVE,
-        ARCHIVE_HEIGHT,
-        db,
-      );
 
       const constants = BlockConstantData.from({
         lastArchive,
-        newL1ToL2: newL1ToL2MessageTreeSnapshot,
-        vkTreeRoot: getVKTreeRoot(),
-        protocolContractTreeRoot,
-        globalVariables,
+        l1ToL2TreeSnapshot: newL1ToL2MessageTreeSnapshot,
+        vkTreeRoot: tx.data.constants.vkTreeRoot,
+        protocolContractTreeRoot: tx.data.constants.protocolContractTreeRoot,
+        globalVariables: tx.globalVariables,
+        proverId,
       });
 
       return PrivateBaseRollupHints.from({
         start,
-        startSpongeBlob: inputSpongeBlob,
-        stateDiffHints,
-        feePayerFeeJuiceBalanceReadHint,
-        archiveRootMembershipWitness,
+        startSpongeBlob,
+        treeSnapshotDiffHints,
+        feePayerBalanceLeafPreimage,
+        anchorBlockArchiveSiblingPath,
         contractClassLogsFields,
         constants,
       });
     }
   },
 );
-
-export async function getPublicDataHint(db: MerkleTreeWriteOperations, leafSlot: bigint) {
-  const { index } = (await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot)) ?? {};
-  if (index === undefined) {
-    throw new Error(`Cannot find the previous value index for public data ${leafSlot}.`);
-  }
-
-  const siblingPath = await db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, index);
-  const membershipWitness = new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, index, siblingPath.toTuple());
-
-  const leafPreimage = (await db.getLeafPreimage(MerkleTreeId.PUBLIC_DATA_TREE, index)) as PublicDataTreeLeafPreimage;
-  if (!leafPreimage) {
-    throw new Error(`Cannot find the leaf preimage for public data tree at index ${index}.`);
-  }
-
-  const exists = leafPreimage.leaf.slot.toBigInt() === leafSlot;
-  const value = exists ? leafPreimage.leaf.value : Fr.ZERO;
-
-  return new PublicDataHint(new Fr(leafSlot), value, membershipWitness, leafPreimage);
-}
 
 export function getCivcProofFromTx(tx: Tx | ProcessedTx) {
   const proofFields = tx.clientIvcProof.proof;
@@ -269,11 +223,13 @@ export function getPublicTubePrivateInputsFromTx(tx: Tx | ProcessedTx) {
   return new PublicTubePrivateInputs(proofData);
 }
 
+// Build "hints" as the private inputs for the checkpoint root rollup circuit.
+// The `blobCommitments` will be accumulated and checked in the root rollup against the `finalBlobChallenges`.
+// The `blobsHash` will be validated on L1 against the blob fields.
 export const buildBlobHints = runInSpan(
   'BlockBuilderHelpers',
   'buildBlobHints',
-  async (_span: Span, txEffects: TxEffect[]) => {
-    const blobFields = txEffects.flatMap(tx => tx.toBlobFields());
+  async (_span: Span, blobFields: Fr[]) => {
     const blobs = await Blob.getBlobsPerBlock(blobFields);
     // TODO(#13430): The blobsHash is confusingly similar to blobCommitmentsHash, calculated from below blobCommitments:
     // - blobsHash := sha256([blobhash_0, ..., blobhash_m]) = a hash of all blob hashes in a block with m+1 blobs inserted into the header, exists so a user can cross check blobs.
@@ -282,15 +238,26 @@ export const buildBlobHints = runInSpan(
     // We may be able to combine these values e.g. blobCommitmentsHash := sha256( ...sha256(sha256(blobshash_0), blobshash_1) ... blobshash_l) for an epoch with l+1 blocks.
     const blobCommitments = blobs.map(b => BLS12Point.decompress(b.commitment));
     const blobsHash = new Fr(getBlobsHashFromBlobs(blobs));
-    return { blobFields, blobCommitments, blobs, blobsHash };
+    return { blobCommitments, blobs, blobsHash };
   },
 );
+
+// Build the data required to prove the txs in an epoch. Currently only used in tests.
+export const buildBlobDataFromTxs = async (txsPerCheckpoint: ProcessedTx[][]) => {
+  const blobFields = txsPerCheckpoint.map(txs => getBlockBlobFields(txs.map(tx => tx.txEffect)));
+  const finalBlobChallenges = await buildFinalBlobChallenges(blobFields);
+  return { blobFieldsLengths: blobFields.map(fields => fields.length), finalBlobChallenges };
+};
+
+export const buildFinalBlobChallenges = async (blobFieldsPerCheckpoint: Fr[][]) => {
+  const blobs = await Promise.all(blobFieldsPerCheckpoint.map(blobFields => Blob.getBlobsPerBlock(blobFields)));
+  return await BatchedBlob.precomputeBatchedBlobChallenges(blobs.flat());
+};
 
 export const accumulateBlobs = runInSpan(
   'BlockBuilderHelpers',
   'accumulateBlobs',
-  async (_span: Span, txs: ProcessedTx[], startBlobAccumulator: BatchedBlobAccumulator) => {
-    const blobFields = txs.flatMap(tx => tx.txEffect.toBlobFields());
+  async (_span: Span, blobFields: Fr[], startBlobAccumulator: BatchedBlobAccumulator) => {
     const blobs = await Blob.getBlobsPerBlock(blobFields);
     const endBlobAccumulator = startBlobAccumulator.accumulateBlobs(blobs);
     return endBlobAccumulator;
@@ -300,36 +267,28 @@ export const accumulateBlobs = runInSpan(
 export const buildHeaderFromCircuitOutputs = runInSpan(
   'BlockBuilderHelpers',
   'buildHeaderFromCircuitOutputs',
-  (
-    _span,
-    previousRollupData: BaseOrMergeRollupPublicInputs[],
-    parityPublicInputs: ParityPublicInputs,
-    rootRollupOutputs: BlockRootOrBlockMergePublicInputs,
-    blobsHash: Fr,
-    endState: StateReference,
-  ) => {
-    if (previousRollupData.length > 2) {
-      throw new Error(`There can't be more than 2 previous rollups. Received ${previousRollupData.length}.`);
-    }
+  async (_span, blockRootRollupOutput: BlockRollupPublicInputs) => {
+    const constants = blockRootRollupOutput.constants;
+    const globalVariables = GlobalVariables.from({
+      chainId: constants.chainId,
+      version: constants.version,
+      blockNumber: blockRootRollupOutput.previousArchive.nextAvailableLeafIndex,
+      timestamp: blockRootRollupOutput.endTimestamp,
+      slotNumber: constants.slotNumber,
+      coinbase: constants.coinbase,
+      feeRecipient: constants.feeRecipient,
+      gasFees: constants.gasFees,
+    });
 
-    const outHash =
-      previousRollupData.length === 0
-        ? Fr.ZERO
-        : previousRollupData.length === 1
-          ? previousRollupData[0].outHash
-          : sha256ToField([previousRollupData[0].outHash, previousRollupData[1].outHash]);
-    const contentCommitment = new ContentCommitment(blobsHash, parityPublicInputs.shaRoot, outHash);
-
-    const accumulatedFees = previousRollupData.reduce((sum, d) => sum.add(d.accumulatedFees), Fr.ZERO);
-    const accumulatedManaUsed = previousRollupData.reduce((sum, d) => sum.add(d.accumulatedManaUsed), Fr.ZERO);
+    const spongeBlobHash = await blockRootRollupOutput.endSpongeBlob.clone().squeeze();
 
     return new BlockHeader(
-      rootRollupOutputs.previousArchive,
-      contentCommitment,
-      endState,
-      rootRollupOutputs.endGlobalVariables,
-      accumulatedFees,
-      accumulatedManaUsed,
+      blockRootRollupOutput.previousArchive,
+      blockRootRollupOutput.endState,
+      spongeBlobHash,
+      globalVariables,
+      blockRootRollupOutput.accumulatedFees,
+      blockRootRollupOutput.accumulatedManaUsed,
     );
   },
 );
@@ -343,6 +302,7 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     globalVariables: GlobalVariables,
     l1ToL2Messages: Fr[],
     db: MerkleTreeReadOperations,
+    startSpongeBlob?: SpongeBlob,
   ) => {
     span.setAttribute(Attributes.BLOCK_NUMBER, globalVariables.blockNumber);
     const stateReference = new StateReference(
@@ -363,16 +323,64 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     const outHash = txOutHashes.length === 0 ? Fr.ZERO : new Fr(computeUnbalancedMerkleTreeRoot(txOutHashes));
 
     const parityShaRoot = await computeInHashFromL1ToL2Messages(l1ToL2Messages);
-    const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobsPerBlock(body.toBlobFields()));
+    const blobFields = body.toBlobFields();
+    const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobsPerBlock(blobFields));
 
     const contentCommitment = new ContentCommitment(blobsHash, parityShaRoot, outHash);
 
     const fees = txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
     const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
 
-    const header = new BlockHeader(previousArchive, contentCommitment, stateReference, globalVariables, fees, manaUsed);
+    const endSpongeBlob = startSpongeBlob?.clone() ?? SpongeBlob.init(blobFields.length);
+    await endSpongeBlob.absorb(blobFields);
+    const spongeBlobHash = await endSpongeBlob.squeeze();
+
+    const header = new L2BlockHeader(
+      previousArchive,
+      contentCommitment,
+      stateReference,
+      globalVariables,
+      fees,
+      manaUsed,
+      spongeBlobHash,
+    );
 
     return { header, body };
+  },
+);
+
+export const buildBlockHeaderFromTxs = runInSpan(
+  'BlockBuilderHelpers',
+  'buildBlockHeaderFromTxs',
+  async (
+    span,
+    txs: ProcessedTx[],
+    globalVariables: GlobalVariables,
+    startSpongeBlob: SpongeBlob,
+    db: MerkleTreeReadOperations,
+  ) => {
+    span.setAttribute(Attributes.BLOCK_NUMBER, globalVariables.blockNumber);
+    const stateReference = new StateReference(
+      await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db),
+      new PartialStateReference(
+        await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE, db),
+        await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE, db),
+        await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE, db),
+      ),
+    );
+
+    const previousArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
+
+    const blobFields = getBlockBlobFields(txs.map(tx => tx.txEffect));
+    const endSpongeBlob = startSpongeBlob.clone();
+    await endSpongeBlob.absorb(blobFields);
+    const spongeBlobHash = await endSpongeBlob.squeeze();
+
+    const txEffects = txs.map(tx => tx.txEffect);
+    const fees = txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
+    const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
+
+    return new BlockHeader(previousArchive, stateReference, spongeBlobHash, globalVariables, fees, manaUsed);
   },
 );
 
@@ -397,40 +405,6 @@ export async function getEmptyBlockBlobsHash(): Promise<Fr> {
   const blobHash = (await Blob.getBlobsPerBlock([])).map(b => b.getEthVersionedBlobHash());
   return sha256ToField(blobHash);
 }
-
-// Validate that the roots of all local trees match the output of the root circuit simulation
-// TODO: does this get called?
-export async function validateBlockRootOutput(
-  blockRootOutput: BlockRootOrBlockMergePublicInputs,
-  blockHeader: BlockHeader,
-  db: MerkleTreeReadOperations,
-) {
-  await Promise.all([
-    validateState(blockHeader.state, db),
-    validateSimulatedTree(await getTreeSnapshot(MerkleTreeId.ARCHIVE, db), blockRootOutput.newArchive, 'Archive'),
-  ]);
-}
-
-export const validateState = runInSpan(
-  'BlockBuilderHelpers',
-  'validateState',
-  async (_span, state: StateReference, db: MerkleTreeReadOperations) => {
-    const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
-      async (id: MerkleTreeId) => {
-        return { key: id, value: await getTreeSnapshot(id, db) };
-      },
-    );
-    const snapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot> = new Map(
-      (await Promise.all(promises)).map(obj => [obj.key, obj.value]),
-    );
-    validatePartialState(state.partial, snapshots);
-    validateSimulatedTree(
-      await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db),
-      state.l1ToL2MessageTree,
-      'L1ToL2MessageTree',
-    );
-  },
-);
 
 export async function getLastSiblingPath<TID extends MerkleTreeId>(treeId: TID, db: MerkleTreeReadOperations) {
   const { size } = await db.getTreeInfo(treeId);
@@ -564,7 +538,7 @@ function validateSimulatedTree(
 }
 
 export function validateTx(tx: ProcessedTx) {
-  const txHeader = tx.data.constants.historicalHeader;
+  const txHeader = tx.data.constants.anchorBlockHeader;
   if (txHeader.state.l1ToL2MessageTree.isEmpty()) {
     throw new Error(`Empty L1 to L2 messages tree in tx: ${toFriendlyJSON(tx)}`);
   }

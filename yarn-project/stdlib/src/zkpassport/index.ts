@@ -10,7 +10,7 @@ export type ViemZkPassportProofParams = {
   publicInputs: `0x${string}`[];
   committedInputs: `0x${string}`;
   committedInputCounts: bigint[];
-  validityPeriodInDays: bigint;
+  validityPeriodInSeconds: bigint;
   domain: string;
   scope: string;
   devMode: boolean;
@@ -26,7 +26,7 @@ export class ZkPassportProofParams {
     public publicInputs: Fr[],
     public committedInputs: Buffer,
     public committedInputCounts: bigint[],
-    public validityPeriodInDays: bigint,
+    public validityPeriodInSeconds: bigint,
     public domain: string,
     public scope: string,
   ) {}
@@ -43,7 +43,7 @@ export class ZkPassportProofParams {
       this.committedInputs,
       this.committedInputCounts.length,
       this.committedInputCounts,
-      this.validityPeriodInDays,
+      this.validityPeriodInSeconds,
       this.domain,
       this.scope,
     ]);
@@ -64,7 +64,7 @@ export class ZkPassportProofParams {
       publicInputs,
       committedInputs,
       committedInputCounts,
-      BigInt(100),
+      BigInt(100 * 60 * 60 * 24),
       'sequencer.alpha-testnet.aztec.network',
       'personhood',
     );
@@ -93,7 +93,7 @@ export class ZkPassportProofParams {
       params.publicInputs.map(input => Fr.fromString(input)),
       Buffer.from(withoutHexPrefix(params.committedInputs), 'hex'),
       params.committedInputCounts,
-      params.validityPeriodInDays,
+      params.validityPeriodInSeconds,
       params.domain,
       params.scope,
     );
@@ -107,7 +107,7 @@ export class ZkPassportProofParams {
       publicInputs: this.publicInputs.map(input => input.toString()),
       committedInputs: `0x${this.committedInputs.toString('hex')}`,
       committedInputCounts: this.committedInputCounts,
-      validityPeriodInDays: this.validityPeriodInDays,
+      validityPeriodInSeconds: this.validityPeriodInSeconds,
       domain: this.domain,
       scope: this.scope,
     };

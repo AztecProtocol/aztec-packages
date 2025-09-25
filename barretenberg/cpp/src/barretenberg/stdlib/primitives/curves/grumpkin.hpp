@@ -42,7 +42,7 @@ template <typename CircuitBuilder> struct grumpkin {
     static constexpr size_t SUBGROUP_SIZE = 87;
     // To find the generator below, we factored r - 1 into primes, where r is the modulus of the Grumkin scalar field,
     // sampled a random field element, raised it to (r-1)/(3*29), and ensured that the resulting element is
-    // not generating a smaller subgroup. To avoid inversion in the recursive verifier, we also store its inverse.
+    // not generating a saller subgroup. To avoid inversion in the recursive verifier, we also store its inverse.
     static constexpr bb::fq subgroup_generator =
         bb::fq("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b");
     static constexpr bb::fq subgroup_generator_inverse =

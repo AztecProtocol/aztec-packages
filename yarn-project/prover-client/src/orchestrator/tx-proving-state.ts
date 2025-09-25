@@ -10,12 +10,11 @@ import type { ProofAndVerificationKey, PublicInputsAndRecursiveProof } from '@az
 import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { ProofData } from '@aztec/stdlib/proofs';
 import {
-  AvmProofData,
   type BaseRollupHints,
   PrivateBaseRollupHints,
-  PrivateBaseRollupInputs,
+  PrivateTxBaseRollupPrivateInputs,
   PublicBaseRollupHints,
-  PublicBaseRollupInputs,
+  PublicTxBaseRollupPrivateInputs,
 } from '@aztec/stdlib/rollup';
 import type { CircuitName } from '@aztec/stdlib/stats';
 import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
@@ -61,12 +60,12 @@ export class TxProvingState {
   public getBaseRollupTypeAndInputs() {
     if (this.requireAvmProof) {
       return {
-        rollupType: 'public-base-rollup' satisfies CircuitName,
+        rollupType: 'rollup-tx-base-public' satisfies CircuitName,
         inputs: this.#getPublicBaseInputs(),
       };
     } else {
       return {
-        rollupType: 'private-base-rollup' satisfies CircuitName,
+        rollupType: 'rollup-tx-base-private' satisfies CircuitName,
         inputs: this.#getPrivateBaseInputs(),
       };
     }
@@ -96,7 +95,7 @@ export class TxProvingState {
       getVkData('HidingKernelToRollup'),
     );
 
-    return new PrivateBaseRollupInputs(privateTailProofData, this.baseRollupHints);
+    return new PrivateTxBaseRollupPrivateInputs(privateTailProofData, this.baseRollupHints);
   }
 
   #getPublicBaseInputs() {
@@ -115,16 +114,18 @@ export class TxProvingState {
 
     const publicTubeProofData = toProofData(this.publicTube);
 
-    const avmProofData = new AvmProofData(
+    const avmProofData = new ProofData(
       this.processedTx.avmProvingRequest.inputs.publicInputs,
       this.avm.proof,
       this.#getVkData(this.avm!.verificationKey, AVM_VK_INDEX),
     );
 
-    return new PublicBaseRollupInputs(publicTubeProofData, avmProofData, this.baseRollupHints);
+    return new PublicTxBaseRollupPrivateInputs(publicTubeProofData, avmProofData, this.baseRollupHints);
   }
 
   #getVkData(verificationKey: VerificationKeyData, vkIndex: number) {
+    // TODO(#17162): Add avm vk hash to the tree and call `getVkData('AVM')` instead.
+    // Below will return a path to an empty leaf.
     const vkPath = getVKSiblingPath(vkIndex);
     return new VkData(verificationKey, vkIndex, vkPath);
   }

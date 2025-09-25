@@ -52,7 +52,7 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       {
         docs: {
-          path: "processed-docs",
+          path: process.env.ENV === "dev" ? "docs" : "processed-docs",
           sidebarPath: "./sidebars.js",
           editUrl: (params) => {
             return (
@@ -68,14 +68,17 @@ const config = {
           // There should be 2 versions, nightly and stable
           // The stable version is second in the list
           lastVersion: versions[1],
-          ...(process.env.ENV === "dev" && {
-            versions: {
+          versions: {
+            [versions[0]]: {
+              ...(versions[0].includes("nightly") && { path: "nightly" }),
+            },
+            ...(process.env.ENV === "dev" && {
               current: {
                 label: "dev",
                 path: "dev",
               },
-            },
-          }),
+            }),
+          },
           remarkPlugins: [math],
           rehypePlugins: [
             [
@@ -297,7 +300,7 @@ const config = {
                 to: "/",
               },
               {
-                label: "Developer Getting Started Guide",
+                label: "Developer Getting Started",
                 to: "/developers/getting_started",
               },
               {

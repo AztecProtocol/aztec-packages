@@ -26,6 +26,12 @@ import {
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { TxProvingResult, TxSimulationResult } from '@aztec/stdlib/tx';
+import {
+  FeeOptions,
+  SimulationUserFeeOptions,
+  UserFeeOptions,
+} from '@aztec/entrypoints/interfaces';
+import { GasSettings } from '@aztec/stdlib/gas';
 
 const PROVER_ENABLED = true;
 
@@ -43,10 +49,9 @@ export class EmbeddedWallet extends BaseWallet {
   ): Promise<Account> {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
-      const { l1ChainId: chainId, rollupVersion } =
-        await this.pxe.getNodeInfo();
+      const { chainId, version } = await this.getChainInfo();
       account = new SignerlessAccount(
-        new DefaultMultiCallEntrypoint(chainId, rollupVersion)
+        new DefaultMultiCallEntrypoint(chainId.toNumber(), version.toNumber())
       );
     } else {
       account = this.accounts.get(address?.toString() ?? '');
@@ -59,9 +64,48 @@ export class EmbeddedWallet extends BaseWallet {
     return account;
   }
 
+  /**
+   * Returns default values for the transaction fee options
+   * if they were omitted by the user.
+   * This wallet will use the sponsoredFPC payment method
+   * unless otherwise stated, which is why the address parameter
+   * (who is paying the fee) is unused
+   * @param _address - Unused
+   * @param userFeeOptions - User-provided fee options, which might be incomplete
+   * @returns - Populated fee options that can be used to create a transaction execution request
+   */
+  override async getDefaultFeeOptions(
+    _address: AztecAddress,
+    userFeeOptions: UserFeeOptions | undefined
+  ): Promise<FeeOptions> {
+    const maxFeesPerGas =
+      userFeeOptions?.gasSettings?.maxFeesPerGas ??
+      (await this.aztecNode.getCurrentBaseFees()).mul(1 + this.baseFeePadding);
+    const sponsoredFPCContract =
+      await EmbeddedWallet.#getSponsoredPFCContract();
+    const paymentMethod =
+      userFeeOptions?.paymentMethod ??
+      new SponsoredFeePaymentMethod(sponsoredFPCContract.instance.address);
+    const gasSettings: GasSettings = GasSettings.default({
+      ...userFeeOptions?.gasSettings,
+      maxFeesPerGas,
+    });
+    this.log.debug(`Using L2 gas settings`, gasSettings);
+    return { gasSettings, paymentMethod };
+  }
+
+  getAccounts() {
+    return Promise.resolve(
+      Array.from(this.accounts.values()).map((acc) => ({
+        alias: '',
+        item: acc.getAddress(),
+      }))
+    );
+  }
+
   static async initialize(nodeUrl: string) {
     // Create Aztec Node Client
-    const aztecNode = await createAztecNodeClient(nodeUrl);
+    const aztecNode = createAztecNodeClient(nodeUrl);
 
     // Create PXE Service
     const config = getPXEServiceConfig();
@@ -75,9 +119,9 @@ export class EmbeddedWallet extends BaseWallet {
     await pxe.registerContract(await EmbeddedWallet.#getSponsoredPFCContract());
 
     // Log the Node Info
-    const nodeInfo = await pxe.getNodeInfo();
+    const nodeInfo = await aztecNode.getNodeInfo();
     logger.info('PXE Connected to node', nodeInfo);
-    return new EmbeddedWallet(pxe);
+    return new EmbeddedWallet(pxe, aztecNode);
   }
 
   // Internal method to use the Sponsored FPC Contract for fee payment
@@ -220,7 +264,7 @@ export class EmbeddedWallet extends BaseWallet {
   }
 
   private async getFakeAccountDataFor(address: AztecAddress) {
-    const nodeInfo = await this.pxe.getNodeInfo();
+    const chainInfo = await this.getChainInfo();
     const originalAccount = await this.getAccountFromAddress(address);
     const originalAddress = await originalAccount.getCompleteAddress();
     const { contractInstance } = await this.pxe.getContractMetadata(
@@ -231,11 +275,11 @@ export class EmbeddedWallet extends BaseWallet {
         `No contract instance found for address: ${originalAddress.address}`
       );
     }
-    const stubAccount = createStubAccount(originalAddress, nodeInfo);
+    const stubAccount = createStubAccount(originalAddress, chainInfo);
     const StubAccountContractArtifact = await getStubAccountContractArtifact();
     const instance = await getContractInstanceFromInstantiationParams(
       StubAccountContractArtifact,
-      {}
+      { salt: Fr.random() }
     );
     return {
       account: stubAccount,
@@ -248,30 +292,18 @@ export class EmbeddedWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     opts: SimulateMethodOptions
   ): Promise<TxSimulationResult> {
-    if (!opts.fee) {
-      const sponsoredPFCContract =
-        await EmbeddedWallet.#getSponsoredPFCContract();
-      opts.fee = {
-        paymentMethod: new SponsoredFeePaymentMethod(
-          sponsoredPFCContract.instance.address
-        ),
-      };
-    }
     const executionOptions = { txNonce: Fr.random(), cancellable: false };
     const {
       account: fromAccount,
       instance,
       artifact,
     } = await this.getFakeAccountDataFor(opts.from);
-    const fee = await this.getFeeOptions(
-      fromAccount,
-      executionPayload,
-      opts.fee,
-      executionOptions
-    );
+    const feeOptions = opts.fee?.estimateGas
+      ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
+      : await this.getDefaultFeeOptions(opts.from, opts.fee);
     const txRequest = await fromAccount.createTxExecutionRequest(
       executionPayload,
-      fee,
+      feeOptions,
       executionOptions
     );
     const contractOverrides = {
@@ -284,26 +316,5 @@ export class EmbeddedWallet extends BaseWallet {
       true,
       { contracts: contractOverrides }
     );
-  }
-
-  async proveTx(
-    exec: ExecutionPayload,
-    opts: SimulateMethodOptions
-  ): Promise<TxProvingResult> {
-    if (!opts.fee) {
-      const sponsoredPFCContract =
-        await EmbeddedWallet.#getSponsoredPFCContract();
-      opts.fee = {
-        paymentMethod: new SponsoredFeePaymentMethod(
-          sponsoredPFCContract.instance.address
-        ),
-      };
-    }
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(
-      exec,
-      opts.from,
-      opts.fee
-    );
-    return this.pxe.proveTx(txRequest);
   }
 }

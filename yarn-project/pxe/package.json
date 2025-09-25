@@ -7,8 +7,7 @@
     "./client/lazy": "./dest/entrypoints/client/lazy/index.js",
     "./client/bundle": "./dest/entrypoints/client/bundle/index.js",
     "./simulator": "./dest/contract_function_simulator/index.js",
-    "./config": "./dest/config/index.js",
-    "./testing": "./dest/test/pxe_test_suite.js"
+    "./config": "./dest/config/index.js"
   },
   "bin": "./dest/bin/index.js",
   "scripts": {
@@ -16,7 +15,6 @@
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo ./src/config/package_info.ts",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
-    "start": "LOG_LEVEL=${LOG_LEVEL:-debug} && node ./dest/bin/index.js",
     "generate": "node ./scripts/generate_package_info.js",
     "check_oracle_version": "node ./dest/bin/check_oracle_version.js"
   },

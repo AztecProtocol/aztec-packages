@@ -5,7 +5,7 @@
  *
  * @packageDocumentation
  */
-import { Fr, type PXE } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { getSchnorrAccountContractAddress } from '../schnorr/index.js';
@@ -18,11 +18,11 @@ import {
 } from './configuration.js';
 
 export {
-  type InitialAccountData,
   INITIAL_TEST_ACCOUNT_SALTS,
   INITIAL_TEST_ENCRYPTION_KEYS,
   INITIAL_TEST_SECRET_KEYS,
   INITIAL_TEST_SIGNING_KEYS,
+  type InitialAccountData,
 } from './configuration.js';
 
 /**
@@ -41,17 +41,6 @@ export function getInitialTestAccountsData(): Promise<InitialAccountData[]> {
       ),
     })),
   );
-}
-
-/**
- * Queries a PXE for it's registered accounts.
- * @param pxe - PXE instance.
- * @returns A set of key data for each of the initial accounts.
- */
-export async function getDeployedTestAccounts(pxe: PXE): Promise<InitialAccountData[]> {
-  const registeredAccounts = await pxe.getRegisteredAccounts();
-  const testAccounts = await getInitialTestAccountsData();
-  return testAccounts.filter(t => registeredAccounts.some(r => r.address.equals(t.address)));
 }
 
 /**

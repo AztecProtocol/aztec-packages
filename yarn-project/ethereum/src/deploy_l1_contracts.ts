@@ -5,12 +5,12 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
+import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import type { Abi, Narrow } from 'abitype';
 import { mkdir, writeFile } from 'fs/promises';
+import chunk from 'lodash.chunk';
 import {
   type Chain,
   type ContractConstructorArgs,
@@ -69,14 +69,12 @@ import {
   type L1TxUtilsConfig,
   createL1TxUtilsFromViemWallet,
   getL1TxUtilsConfigEnvVars,
-} from './l1_tx_utils.js';
+} from './l1_tx_utils/index.js';
 import type { ExtendedViemWalletClient } from './types.js';
 import { formatViemError } from './utils.js';
 import { ZK_PASSPORT_DOMAIN, ZK_PASSPORT_SCOPE, ZK_PASSPORT_VERIFIER_ADDRESS } from './zkPassportVerifierAddress.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
-
-const networkName = getActiveNetworkName();
 
 export type Operator = {
   attester: EthAddress;
@@ -183,31 +181,43 @@ export const deploySharedContracts = async (
   args: DeployL1ContractsArgs,
   logger: Logger,
 ) => {
+  const networkName = getActiveNetworkName();
+
   logger.info(`Deploying shared contracts for network configuration: ${networkName}`);
 
   const txHashes: Hex[] = [];
 
-  const feeAssetAddress = await deployer.deploy(FeeAssetArtifact, ['FeeJuice', 'FEE', l1Client.account.address]);
+  const { address: feeAssetAddress } = await deployer.deploy(FeeAssetArtifact, [
+    'FeeJuice',
+    'FEE',
+    l1Client.account.address,
+  ]);
   logger.verbose(`Deployed Fee Asset at ${feeAssetAddress}`);
 
-  const stakingAssetAddress = await deployer.deploy(StakingAssetArtifact, ['Staking', 'STK', l1Client.account.address]);
+  const { address: stakingAssetAddress } = await deployer.deploy(StakingAssetArtifact, [
+    'Staking',
+    'STK',
+    l1Client.account.address,
+  ]);
   logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
 
-  const gseAddress = await deployer.deploy(GSEArtifact, [
-    l1Client.account.address,
-    stakingAssetAddress.toString(),
-    args.activationThreshold,
-    args.ejectionThreshold,
-  ]);
+  const gseAddress = (
+    await deployer.deploy(GSEArtifact, [
+      l1Client.account.address,
+      stakingAssetAddress.toString(),
+      args.activationThreshold,
+      args.ejectionThreshold,
+    ])
+  ).address;
   logger.verbose(`Deployed GSE at ${gseAddress}`);
 
-  const registryAddress = await deployer.deploy(RegistryArtifact, [
+  const { address: registryAddress } = await deployer.deploy(RegistryArtifact, [
     l1Client.account.address,
     feeAssetAddress.toString(),
   ]);
   logger.verbose(`Deployed Registry at ${registryAddress}`);
 
-  const governanceProposerAddress = await deployer.deploy(GovernanceProposerArtifact, [
+  const { address: governanceProposerAddress } = await deployer.deploy(GovernanceProposerArtifact, [
     registryAddress.toString(),
     gseAddress.toString(),
     BigInt(args.governanceProposerQuorum ?? args.governanceProposerRoundSize / 2 + 1),
@@ -217,7 +227,7 @@ export const deploySharedContracts = async (
 
   // @note @LHerskind the assets are expected to be the same at some point, but for better
   // configurability they are different for now.
-  const governanceAddress = await deployer.deploy(GovernanceArtifact, [
+  const { address: governanceAddress } = await deployer.deploy(GovernanceArtifact, [
     stakingAssetAddress.toString(),
     governanceProposerAddress.toString(),
     gseAddress.toString(),
@@ -259,11 +269,13 @@ export const deploySharedContracts = async (
     txHashes.push(txHash);
   }
 
-  const coinIssuerAddress = await deployer.deploy(CoinIssuerArtifact, [
-    feeAssetAddress.toString(),
-    1_000_000n * 10n ** 18n, // @todo  #8084
-    l1Client.account.address,
-  ]);
+  const coinIssuerAddress = (
+    await deployer.deploy(CoinIssuerArtifact, [
+      feeAssetAddress.toString(),
+      (25_000_000_000n * 10n ** 18n) / (60n * 60n * 24n * 365n),
+      l1Client.account.address,
+    ])
+  ).address;
   logger.verbose(`Deployed CoinIssuer at ${coinIssuerAddress}`);
 
   logger.verbose(`Waiting for deployments to complete`);
@@ -281,11 +293,13 @@ export const deploySharedContracts = async (
     /*                          CHEAT CODES START HERE                            */
     /* -------------------------------------------------------------------------- */
 
-    feeAssetHandlerAddress = await deployer.deploy(FeeAssetHandlerArtifact, [
-      l1Client.account.address,
-      feeAssetAddress.toString(),
-      BigInt(1000n * 10n ** 18n),
-    ]);
+    feeAssetHandlerAddress = (
+      await deployer.deploy(FeeAssetHandlerArtifact, [
+        l1Client.account.address,
+        feeAssetAddress.toString(),
+        BigInt(1000n * 10n ** 18n),
+      ])
+    ).address;
     logger.verbose(`Deployed FeeAssetHandler at ${feeAssetHandlerAddress}`);
 
     // Only if we are "fresh" will we be adding as a minter, otherwise above will simply get same address
@@ -314,6 +328,7 @@ export const deploySharedContracts = async (
         stakingAsset: stakingAssetAddress.toString(),
         registry: registryAddress.toString(),
         withdrawer: AMIN.toString(),
+        validatorsToFlush: 16n,
         mintInterval: BigInt(60 * 60 * 24),
         depositsPerMint: BigInt(10),
         depositMerkleRoot: '0x0000000000000000000000000000000000000000000000000000000000000000',
@@ -327,7 +342,8 @@ export const deploySharedContracts = async (
         skipMerkleCheck: true, // skip merkle check - needed for testing without generating proofs
       } as const;
 
-      stakingAssetHandlerAddress = await deployer.deploy(StakingAssetHandlerArtifact, [stakingAssetHandlerDeployArgs]);
+      stakingAssetHandlerAddress = (await deployer.deploy(StakingAssetHandlerArtifact, [stakingAssetHandlerDeployArgs]))
+        .address;
       logger.verbose(`Deployed StakingAssetHandler at ${stakingAssetHandlerAddress}`);
 
       const { txHash: stakingMinterTxHash } = await deployer.sendTransaction({
@@ -398,7 +414,7 @@ export const deploySharedContracts = async (
 
 const getZkPassportVerifierAddress = async (deployer: L1Deployer, args: DeployL1ContractsArgs): Promise<EthAddress> => {
   if (args.zkPassportArgs?.mockZkPassportVerifier) {
-    return await deployer.deploy(mockVerifiers.mockZkPassportVerifier);
+    return (await deployer.deploy(mockVerifiers.mockZkPassportVerifier)).address;
   }
   return ZK_PASSPORT_VERIFIER_ADDRESS;
 };
@@ -431,7 +447,6 @@ export const deployRollupForUpgrade = async (
   registryAddress: EthAddress,
   logger: Logger,
   txUtilsConfig: L1TxUtilsConfig,
-  flushEntryQueue: boolean = true,
 ) => {
   const deployer = new L1Deployer(
     extendedClient,
@@ -444,14 +459,7 @@ export const deployRollupForUpgrade = async (
 
   const addresses = await RegistryContract.collectAddresses(extendedClient, registryAddress, 'canonical');
 
-  const { rollup, slashFactoryAddress } = await deployRollup(
-    extendedClient,
-    deployer,
-    args,
-    addresses,
-    flushEntryQueue,
-    logger,
-  );
+  const { rollup, slashFactoryAddress } = await deployRollup(extendedClient, deployer, args, addresses, logger);
 
   await deployer.waitForDeployments();
 
@@ -459,7 +467,7 @@ export const deployRollupForUpgrade = async (
 };
 
 export const deploySlashFactory = async (deployer: L1Deployer, rollupAddress: Hex, logger: Logger) => {
-  const slashFactoryAddress = await deployer.deploy(SlashFactoryArtifact, [rollupAddress]);
+  const slashFactoryAddress = (await deployer.deploy(SlashFactoryArtifact, [rollupAddress])).address;
   logger.verbose(`Deployed SlashFactory at ${slashFactoryAddress}`);
   return slashFactoryAddress;
 };
@@ -468,10 +476,12 @@ export const deployUpgradePayload = async (
   deployer: L1Deployer,
   addresses: Pick<L1ContractAddresses, 'registryAddress' | 'rollupAddress'>,
 ) => {
-  const payloadAddress = await deployer.deploy(RegisterNewRollupVersionPayloadArtifact, [
-    addresses.registryAddress.toString(),
-    addresses.rollupAddress.toString(),
-  ]);
+  const payloadAddress = (
+    await deployer.deploy(RegisterNewRollupVersionPayloadArtifact, [
+      addresses.registryAddress.toString(),
+      addresses.rollupAddress.toString(),
+    ])
+  ).address;
 
   return payloadAddress;
 };
@@ -510,12 +520,12 @@ export const deployRollup = async (
     | 'gseAddress'
     | 'governanceAddress'
   >,
-  flushEntryQueue: boolean,
   logger: Logger,
 ) => {
   if (!addresses.gseAddress) {
     throw new Error('GSE address is required when deploying');
   }
+  const networkName = getActiveNetworkName();
 
   logger.info(`Deploying rollup using network configuration: ${networkName}`);
 
@@ -524,10 +534,10 @@ export const deployRollup = async (
   let epochProofVerifier = EthAddress.ZERO;
 
   if (args.realVerifier) {
-    epochProofVerifier = await deployer.deploy(l1ArtifactsVerifiers.honkVerifier);
+    epochProofVerifier = (await deployer.deploy(l1ArtifactsVerifiers.honkVerifier)).address;
     logger.verbose(`Rollup will use the real verifier at ${epochProofVerifier}`);
   } else {
-    epochProofVerifier = await deployer.deploy(mockVerifiers.mockVerifier);
+    epochProofVerifier = (await deployer.deploy(mockVerifiers.mockVerifier)).address;
     logger.verbose(`Rollup will use the mock verifier at ${epochProofVerifier}`);
   }
 
@@ -551,7 +561,7 @@ export const deployRollup = async (
     provingCostPerMana: args.provingCostPerMana,
     rewardConfig: rewardConfig,
     version: 0,
-    rewardBoostConfig: getRewardBoostConfig(networkName),
+    rewardBoostConfig: getRewardBoostConfig(),
     stakingQueueConfig: getEntryQueueConfig(networkName),
     exitDelaySeconds: BigInt(args.exitDelaySeconds),
     slasherFlavor: slasherFlavorToSolidityEnum(args.slasherFlavor),
@@ -589,8 +599,10 @@ export const deployRollup = async (
     rollupConfigArgs,
   ] as const;
 
-  const rollupAddress = await deployer.deploy(RollupArtifact, rollupArgs, { gasLimit: 15_000_000n });
-  logger.verbose(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
+  const { address: rollupAddress, existed: rollupExisted } = await deployer.deploy(RollupArtifact, rollupArgs, {
+    gasLimit: 15_000_000n,
+  });
+  logger.verbose(`Deployed Rollup at ${rollupAddress}, already existed: ${rollupExisted}`, rollupConfigArgs);
 
   const rollupContract = new RollupContract(extendedClient, rollupAddress);
 
@@ -615,7 +627,7 @@ export const deployRollup = async (
     txHashes.push(mintTxHash);
   }
 
-  const slashFactoryAddress = await deployer.deploy(SlashFactoryArtifact, [rollupAddress.toString()]);
+  const slashFactoryAddress = (await deployer.deploy(SlashFactoryArtifact, [rollupAddress.toString()])).address;
   logger.verbose(`Deployed SlashFactory at ${slashFactoryAddress}`);
 
   // We need to call a function on the registry to set the various contract addresses.
@@ -677,7 +689,17 @@ export const deployRollup = async (
     logger.verbose(`Not the owner of the gse, skipping rollup addition`);
   }
 
-  if (args.initialValidators && (await gseContract.read.isRollupRegistered([rollupContract.address]))) {
+  const activeAttestorCount = await rollupContract.getActiveAttesterCount();
+  const queuedAttestorCount = await rollupContract.getEntryQueueLength();
+  logger.info(`Rollup has ${activeAttestorCount} active attestors and ${queuedAttestorCount} queued attestors`);
+
+  const shouldAddValidators = activeAttestorCount === 0n && queuedAttestorCount === 0n;
+
+  if (
+    args.initialValidators &&
+    shouldAddValidators &&
+    (await gseContract.read.isRollupRegistered([rollupContract.address]))
+  ) {
     await addMultipleValidators(
       extendedClient,
       deployer,
@@ -686,7 +708,6 @@ export const deployRollup = async (
       addresses.stakingAssetAddress.toString(),
       args.initialValidators,
       args.acceleratedTestDeployments,
-      flushEntryQueue,
       logger,
     );
   }
@@ -863,7 +884,6 @@ export const addMultipleValidators = async (
   stakingAssetAddress: Hex,
   validators: Operator[],
   acceleratedTestDeployments: boolean | undefined,
-  flushEntryQueue: boolean,
   logger: Logger,
 ) => {
   const rollup = new RollupContract(extendedClient, rollupAddress);
@@ -889,130 +909,112 @@ export const addMultipleValidators = async (
       validators = enrichedValidators.filter(v => v.status === 0).map(v => v.operator);
     }
 
-    if (validators.length > 0) {
-      const gseContract = new GSEContract(extendedClient, gseAddress);
-      const multiAdder = await deployer.deploy(MultiAdderArtifact, [rollupAddress, deployer.client.account.address]);
+    if (validators.length === 0) {
+      logger.warn('No validators to add. Skipping.');
+      return;
+    }
 
-      const makeValidatorTuples = async (validator: Operator) => {
-        const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey.getValue());
-        return {
-          attester: getAddress(validator.attester.toString()),
-          withdrawer: getAddress(validator.withdrawer.toString()),
-          ...registrationTuple,
-        };
+    const gseContract = new GSEContract(extendedClient, gseAddress);
+    const multiAdder = (await deployer.deploy(MultiAdderArtifact, [rollupAddress, deployer.client.account.address]))
+      .address;
+
+    const makeValidatorTuples = async (validator: Operator) => {
+      const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey.getValue());
+      return {
+        attester: getAddress(validator.attester.toString()),
+        withdrawer: getAddress(validator.withdrawer.toString()),
+        ...registrationTuple,
       };
+    };
 
-      const validatorsTuples = await Promise.all(validators.map(makeValidatorTuples));
+    const validatorsTuples = await Promise.all(validators.map(makeValidatorTuples));
 
-      // Mint tokens, approve them, use cheat code to initialize validator set without setting up the epoch.
-      const stakeNeeded = activationThreshold * BigInt(validators.length);
+    // Mint tokens, approve them, use cheat code to initialize validator set without setting up the epoch.
+    const stakeNeeded = activationThreshold * BigInt(validators.length);
 
-      await deployer.l1TxUtils.sendAndMonitorTransaction({
-        to: stakingAssetAddress,
-        data: encodeFunctionData({
-          abi: StakingAssetArtifact.contractAbi,
-          functionName: 'mint',
-          args: [multiAdder.toString(), stakeNeeded],
-        }),
-      });
+    await deployer.l1TxUtils.sendAndMonitorTransaction({
+      to: stakingAssetAddress,
+      data: encodeFunctionData({
+        abi: StakingAssetArtifact.contractAbi,
+        functionName: 'mint',
+        args: [multiAdder.toString(), stakeNeeded],
+      }),
+    });
 
-      const entryQueueLengthBefore = await rollup.getEntryQueueLength();
-      const validatorCountBefore = await rollup.getActiveAttesterCount();
+    const entryQueueLengthBefore = await rollup.getEntryQueueLength();
+    const validatorCountBefore = await rollup.getActiveAttesterCount();
 
-      logger.info(`Adding ${validators.length} validators to the rollup`);
+    logger.info(`Adding ${validators.length} validators to the rollup`);
 
-      // Adding to the queue and flushing need to be done in two transactions
-      // if we are adding many validators.
-      if (validatorsTuples.length > 10) {
-        await deployer.l1TxUtils.sendAndMonitorTransaction(
-          {
-            to: multiAdder.toString(),
-            data: encodeFunctionData({
-              abi: MultiAdderArtifact.contractAbi,
-              functionName: 'addValidators',
-              args: [validatorsTuples, /* skip flushing */ true],
-            }),
-          },
-          {
-            gasLimit: 40_000_000n,
-          },
-        );
+    const chunkSize = 16;
 
-        let queueLength = await rollup.getEntryQueueLength();
-        while (flushEntryQueue && queueLength > 0n) {
-          logger.info(`Flushing entry queue with ${queueLength} entries`);
-
-          try {
-            await deployer.l1TxUtils.sendAndMonitorTransaction(
-              {
-                to: rollupAddress,
-                data: encodeFunctionData({
-                  abi: RollupArtifact.contractAbi,
-                  functionName: 'flushEntryQueue',
-                  args: [],
-                }),
-              },
-              {
-                gasLimit: 20_000_000n,
-              },
-            );
-          } catch (err) {
-            logger.warn('Failed to flush queue', { err });
-          }
-
-          queueLength = await rollup.getEntryQueueLength();
-          // check if we drained the queue enough here so we can avoid sleep
-          if (queueLength === 0n) {
-            break;
-          }
-
-          logger.info(`Waiting for next flushable epoch to flush remaining ${queueLength} entries`);
-          await retryUntil(
-            async () => {
-              const [currentEpoch, flushableEpoch] = await Promise.all([
-                rollup.getCurrentEpochNumber(),
-                rollup.getNextFlushableEpoch(),
-              ]);
-              logger.debug(`Next flushable epoch is ${flushableEpoch} (current epoch is ${currentEpoch})`);
-              return currentEpoch >= flushableEpoch;
-            },
-            'wait for next flushable epoch',
-            3600,
-            12,
-          );
-        }
-      } else {
-        await deployer.l1TxUtils.sendAndMonitorTransaction(
-          {
-            to: multiAdder.toString(),
-            data: encodeFunctionData({
-              abi: MultiAdderArtifact.contractAbi,
-              functionName: 'addValidators',
-              args: [validatorsTuples, /* skip flushing */ !flushEntryQueue],
-            }),
-          },
-          {
-            gasLimit: 45_000_000n,
-          },
-        );
-      }
-
-      const entryQueueLengthAfter = await rollup.getEntryQueueLength();
-      const validatorCountAfter = await rollup.getActiveAttesterCount();
-
-      if (
-        entryQueueLengthAfter + validatorCountAfter <
-        entryQueueLengthBefore + validatorCountBefore + BigInt(validators.length)
-      ) {
-        throw new Error(
-          `Failed to add ${validators.length} validators. Active validators: ${validatorCountBefore} -> ${validatorCountAfter}. Queue: ${entryQueueLengthBefore} -> ${entryQueueLengthAfter}`,
-        );
-      }
-
-      logger.info(
-        `Added ${validators.length} validators. Active validators: ${validatorCountBefore} -> ${validatorCountAfter}. Queue: ${entryQueueLengthBefore} -> ${entryQueueLengthAfter}`,
+    // We will add `chunkSize` validators to the queue until we have covered all of our validators.
+    // The `chunkSize` needs to be small enough to fit inside a single tx, therefore 16.
+    for (const c of chunk(validatorsTuples, chunkSize)) {
+      await deployer.l1TxUtils.sendAndMonitorTransaction(
+        {
+          to: multiAdder.toString(),
+          data: encodeFunctionData({
+            abi: MultiAdderArtifact.contractAbi,
+            functionName: 'addValidators',
+            args: [c, BigInt(0)],
+          }),
+        },
+        {
+          gasLimit: 16_000_000n,
+        },
       );
     }
+
+    // After adding to the queue, we will now try to flush from it.
+    // We are explicitly doing this as a second step instead of as part of adding to benefit
+    // from the accounting used to speed the process up.
+    // As the queue computes the amount of possible flushes in an epoch when told to flush,
+    // waiting until we have added all we want allows us to benefit in the case were we added
+    // enough to pass the bootstrap set size without needing to wait another epoch.
+    // This is useful when we are testing as it speeds up the tests slightly.
+    while (true) {
+      // If the queue is empty, we can break
+      if ((await rollup.getEntryQueueLength()) == 0n) {
+        break;
+      }
+
+      // If there are no available validator flushes, no need to even try
+      if ((await rollup.getAvailableValidatorFlushes()) == 0n) {
+        break;
+      }
+
+      // Note that we are flushing at most `chunkSize` at each call
+      await deployer.l1TxUtils.sendAndMonitorTransaction(
+        {
+          to: rollup.address,
+          data: encodeFunctionData({
+            abi: RollupArtifact.contractAbi,
+            functionName: 'flushEntryQueue',
+            args: [BigInt(chunkSize)],
+          }),
+        },
+        {
+          gasLimit: 16_000_000n,
+        },
+      );
+    }
+
+    const entryQueueLengthAfter = await rollup.getEntryQueueLength();
+    const validatorCountAfter = await rollup.getActiveAttesterCount();
+
+    if (
+      entryQueueLengthAfter + validatorCountAfter <
+      entryQueueLengthBefore + validatorCountBefore + BigInt(validators.length)
+    ) {
+      throw new Error(
+        `Failed to add ${validators.length} validators. Active validators: ${validatorCountBefore} -> ${validatorCountAfter}. Queue: ${entryQueueLengthBefore} -> ${entryQueueLengthAfter}. A likely issue is the bootstrap size.`,
+      );
+    }
+
+    logger.info(
+      `Added ${validators.length} validators. Active validators: ${validatorCountBefore} -> ${validatorCountAfter}. Queue: ${entryQueueLengthBefore} -> ${entryQueueLengthAfter}`,
+    );
   }
 };
 
@@ -1035,11 +1037,13 @@ export const cheat_initializeFeeAssetHandler = async (
   feeAssetHandlerAddress: EthAddress;
   txHash: Hex;
 }> => {
-  const feeAssetHandlerAddress = await deployer.deploy(FeeAssetHandlerArtifact, [
-    extendedClient.account.address,
-    feeAssetAddress.toString(),
-    BigInt(1e18),
-  ]);
+  const feeAssetHandlerAddress = (
+    await deployer.deploy(FeeAssetHandlerArtifact, [
+      extendedClient.account.address,
+      feeAssetAddress.toString(),
+      BigInt(1e18),
+    ])
+  ).address;
   logger.verbose(`Deployed FeeAssetHandler at ${feeAssetHandlerAddress}`);
 
   const { txHash } = await deployer.sendTransaction({
@@ -1071,7 +1075,6 @@ export const deployL1Contracts = async (
   args: DeployL1ContractsArgs,
   txUtilsConfig: L1TxUtilsConfig = getL1TxUtilsConfigEnvVars(),
   createVerificationJson: string | false = false,
-  flushEntryQueue: boolean = true,
 ): Promise<DeployL1ContractsReturnType> => {
   logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
   validateConfig(args);
@@ -1138,7 +1141,6 @@ export const deployL1Contracts = async (
       stakingAssetAddress,
       governanceAddress,
     },
-    flushEntryQueue,
     logger,
   );
 
@@ -1294,6 +1296,7 @@ export const deployL1Contracts = async (
       // Ensure the verification output directory exists
       await mkdir(createVerificationJson, { recursive: true });
       const verificationOutputPath = `${createVerificationJson}/l1-verify-${chain.id}-${formattedDate.slice(0, 6)}-${formattedDate.slice(6)}.json`;
+      const networkName = getActiveNetworkName();
       const verificationData = {
         chainId: chain.id,
         network: networkName,
@@ -1372,10 +1375,10 @@ export class L1Deployer {
     params: ContractArtifacts<TAbi>,
     args?: ContractConstructorArgs<TAbi>,
     opts: { gasLimit?: bigint } = {},
-  ): Promise<EthAddress> {
+  ): Promise<{ address: EthAddress; existed: boolean }> {
     this.logger.debug(`Deploying ${params.name} contract`, { args });
     try {
-      const { txHash, address, deployedLibraries } = await deployL1Contract(
+      const { txHash, address, deployedLibraries, existed } = await deployL1Contract(
         this.client,
         params.contractAbi,
         params.contractBytecode,
@@ -1413,7 +1416,10 @@ export class L1Deployer {
           libraries: deployedLibraries ?? [],
         });
       }
-      return address;
+      return {
+        address,
+        existed,
+      };
     } catch (error) {
       throw new Error(`Failed to deploy ${params.name}`, { cause: formatViemError(error) });
     }
@@ -1471,7 +1477,12 @@ export async function deployL1Contract(
     gasLimit?: bigint;
     acceleratedTestDeployments?: boolean;
   } = {},
-): Promise<{ address: EthAddress; txHash: Hex | undefined; deployedLibraries?: VerificationLibraryEntry[] }> {
+): Promise<{
+  address: EthAddress;
+  txHash: Hex | undefined;
+  deployedLibraries?: VerificationLibraryEntry[];
+  existed: boolean;
+}> {
   let txHash: Hex | undefined = undefined;
   let resultingAddress: Hex | null | undefined = undefined;
   const deployedLibraries: VerificationLibraryEntry[] = [];
@@ -1573,6 +1584,8 @@ export async function deployL1Contract(
     }
   }
 
+  let existed = false;
+
   if (saltFromOpts) {
     logger?.info(`Deploying contract with salt ${saltFromOpts}`);
     const { address, paddedSalt: salt, calldata } = getExpectedAddress(abi, bytecode, args, saltFromOpts);
@@ -1594,6 +1607,7 @@ export async function deployL1Contract(
       logger?.verbose(`Deployed contract with salt ${salt} to address ${resultingAddress} in tx ${txHash}.`);
     } else {
       logger?.verbose(`Skipping existing deployment of contract with salt ${salt} to address ${resultingAddress}`);
+      existed = true;
     }
   } else {
     const deployData = encodeDeployData({ abi, bytecode, args });
@@ -1613,7 +1627,7 @@ export async function deployL1Contract(
     }
   }
 
-  return { address: EthAddress.fromString(resultingAddress!), txHash, deployedLibraries };
+  return { address: EthAddress.fromString(resultingAddress!), txHash, deployedLibraries, existed };
 }
 
 export function getExpectedAddress(

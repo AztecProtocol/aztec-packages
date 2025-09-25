@@ -1,5 +1,6 @@
 use dep::types::{
     abis::{
+        avm_circuit_public_inputs::AvmCircuitPublicInputs,
         log_hash::LogHash,
         note_hash::{NoteHash, ScopedNoteHash},
         nullifier::{Nullifier, ScopedNullifier},
@@ -33,4 +34,5 @@ fn main(
     _scoped_key_validation_request: ScopedKeyValidationRequestAndGenerator,
     _l2_to_l1_message: L2ToL1Message,
     _counted: Counted<u32>,
+    _avm_circuit_public_inputs: AvmCircuitPublicInputs,
 ) {}

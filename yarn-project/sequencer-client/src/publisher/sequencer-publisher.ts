@@ -29,15 +29,16 @@ import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import type { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
 import { CommitteeAttestation, CommitteeAttestationsAndSigners, type ValidateBlockResult } from '@aztec/stdlib/block';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
+import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
-import { type ProposedBlockHeader, StateReference } from '@aztec/stdlib/tx';
+import { StateReference } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
@@ -49,7 +50,7 @@ import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 /** Arguments to the process method of the rollup contract */
 type L1ProcessArgs = {
   /** The L2 block header. */
-  header: ProposedBlockHeader;
+  header: CheckpointHeader;
   /** A root of the archive tree after the L2 block is applied. */
   archive: Buffer;
   /** State reference after the L2 block is applied. */
@@ -62,11 +63,6 @@ type L1ProcessArgs = {
   attestationsAndSignersSignature: Signature;
 };
 
-export enum SignalType {
-  GOVERNANCE,
-  SLASHING,
-}
-
 export const Actions = [
   'invalidate-by-invalid-attestation',
   'invalidate-by-insufficient-attestations',
@@ -78,7 +74,10 @@ export const Actions = [
   'vote-offenses',
   'execute-slash',
 ] as const;
+
 export type Action = (typeof Actions)[number];
+
+type GovernanceSignalAction = Extract<Action, 'governance-signal' | 'empire-slashing-signal'>;
 
 // Sorting for actions such that invalidations go before proposals, and proposals go before votes
 export const compareActions = (a: Action, b: Action) => Actions.indexOf(a) - Actions.indexOf(b);
@@ -111,12 +110,9 @@ export class SequencerPublisher {
   protected governanceLog = createLogger('sequencer:publisher:governance');
   protected slashingLog = createLogger('sequencer:publisher:slashing');
 
-  private myLastSignals: Record<SignalType, bigint> = {
-    [SignalType.GOVERNANCE]: 0n,
-    [SignalType.SLASHING]: 0n,
-  };
+  protected lastActions: Partial<Record<Action, bigint>> = {};
 
-  protected log = createLogger('sequencer:publisher');
+  protected log: Logger;
   protected ethereumSlotDuration: bigint;
 
   private blobSinkClient: BlobSinkClientInterface;
@@ -152,10 +148,14 @@ export class SequencerPublisher {
       epochCache: EpochCache;
       dateProvider: DateProvider;
       metrics: SequencerPublisherMetrics;
+      lastActions: Partial<Record<Action, bigint>>;
+      log?: Logger;
     },
   ) {
+    this.log = deps.log ?? createLogger('sequencer:publisher');
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.epochCache = deps.epochCache;
+    this.lastActions = deps.lastActions;
 
     this.blobSinkClient =
       deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('sequencer:blob-sink:client') });
@@ -338,10 +338,7 @@ export class SequencerPublisher {
    *          It will throw if the block header is invalid.
    * @param header - The block header to validate
    */
-  public async validateBlockHeader(
-    header: ProposedBlockHeader,
-    opts?: { forcePendingBlockNumber: number | undefined },
-  ) {
+  public async validateBlockHeader(header: CheckpointHeader, opts?: { forcePendingBlockNumber: number | undefined }) {
     const flags = { ignoreDA: true, ignoreSignatures: true };
 
     const args = [
@@ -506,7 +503,7 @@ export class SequencerPublisher {
 
     const args = [
       {
-        header: block.header.toPropose().toViem(),
+        header: block.getCheckpointHeader().toViem(),
         archive: toHex(block.archive.root.toBuffer()),
         stateReference: block.header.state.toViem(),
         oracleInput: {
@@ -526,13 +523,14 @@ export class SequencerPublisher {
   private async enqueueCastSignalHelper(
     slotNumber: bigint,
     timestamp: bigint,
-    signalType: SignalType,
+    signalType: GovernanceSignalAction,
     payload: EthAddress,
     base: IEmpireBase,
     signerAddress: EthAddress,
     signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
-    if (this.myLastSignals[signalType] >= slotNumber) {
+    if (this.lastActions[signalType] && this.lastActions[signalType] === slotNumber) {
+      this.log.debug(`Skipping duplicate vote cast signal ${signalType} for slot ${slotNumber}`);
       return false;
     }
     if (payload.equals(EthAddress.ZERO)) {
@@ -549,10 +547,9 @@ export class SequencerPublisher {
       return false;
     }
 
-    const cachedLastVote = this.myLastSignals[signalType];
-    this.myLastSignals[signalType] = slotNumber;
-
-    const action = signalType === SignalType.GOVERNANCE ? 'governance-signal' : 'empire-slashing-signal';
+    const cachedLastVote = this.lastActions[signalType];
+    this.lastActions[signalType] = slotNumber;
+    const action = signalType;
 
     const request = await base.createSignalRequestWithSignature(
       payload.toString(),
@@ -595,7 +592,7 @@ export class SequencerPublisher {
             `Signaling in [${action}] for ${payload} at slot ${slotNumber} in round ${round} failed`,
             logData,
           );
-          this.myLastSignals[signalType] = cachedLastVote;
+          this.lastActions[signalType] = cachedLastVote;
           return false;
         } else {
           this.log.info(
@@ -625,7 +622,7 @@ export class SequencerPublisher {
     return this.enqueueCastSignalHelper(
       slotNumber,
       timestamp,
-      SignalType.GOVERNANCE,
+      'governance-signal',
       governancePayload,
       this.govProposerContract,
       signerAddress,
@@ -659,7 +656,7 @@ export class SequencerPublisher {
           await this.enqueueCastSignalHelper(
             slotNumber,
             timestamp,
-            SignalType.SLASHING,
+            'empire-slashing-signal',
             action.payload,
             this.slashingProposerContract,
             signerAddress,
@@ -768,11 +765,11 @@ export class SequencerPublisher {
     attestationsAndSignersSignature: Signature,
     opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: number } = {},
   ): Promise<boolean> {
-    const proposedBlockHeader = block.header.toPropose();
+    const checkpointHeader = block.getCheckpointHeader();
 
     const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
     const proposeTxArgs = {
-      header: proposedBlockHeader,
+      header: checkpointHeader,
       archive: block.archive.root.toBuffer(),
       stateReference: block.header.state,
       body: block.body.toBuffer(),
@@ -836,16 +833,24 @@ export class SequencerPublisher {
   }
 
   private async simulateAndEnqueueRequest(
-    action: RequestWithExpiry['action'],
+    action: Action,
     request: L1TxRequest,
     checkSuccess: (receipt: TransactionReceipt) => boolean | undefined,
     slotNumber: bigint,
     timestamp: bigint,
   ) {
     const logData = { slotNumber, timestamp, gasLimit: undefined as bigint | undefined };
-    let gasUsed: bigint;
+    if (this.lastActions[action] && this.lastActions[action] === slotNumber) {
+      this.log.debug(`Skipping duplicate action ${action} for slot ${slotNumber}`);
+      return false;
+    }
 
-    this.log.debug(`Simulating ${action}`, logData);
+    const cachedLastActionSlot = this.lastActions[action];
+    this.lastActions[action] = slotNumber;
+
+    this.log.debug(`Simulating ${action} for slot ${slotNumber}`, logData);
+
+    let gasUsed: bigint;
     try {
       ({ gasUsed } = await this.l1TxUtils.simulate(request, { time: timestamp }, [], ErrorsAbi)); // TODO(palla/slash): Check the timestamp logic
       this.log.verbose(`Simulation for ${action} succeeded`, { ...logData, request, gasUsed });
@@ -869,6 +874,7 @@ export class SequencerPublisher {
         const success = result && result.receipt && result.receipt.status === 'success' && checkSuccess(result.receipt);
         if (!success) {
           this.log.warn(`Action ${action} at ${slotNumber} failed`, { ...result, ...logData });
+          this.lastActions[action] = cachedLastActionSlot;
         } else {
           this.log.info(`Action ${action} at ${slotNumber} succeeded`, { ...result, ...logData });
         }

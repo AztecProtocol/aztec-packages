@@ -28,6 +28,7 @@ struct PublicInputs {
     ///////////////////////////////////
     // Inputs
     GlobalVariables globalVariables;
+    FF protocolContractTreeRoot;
     TreeSnapshots startTreeSnapshots;
     Gas startGasUsed;
     GasSettings gasSettings;
@@ -86,6 +87,7 @@ struct PublicInputs {
     bool operator==(const PublicInputs& other) const = default;
 
     MSGPACK_FIELDS(globalVariables,
+                   protocolContractTreeRoot,
                    startTreeSnapshots,
                    startGasUsed,
                    gasSettings,
@@ -157,6 +159,15 @@ struct BytecodeCommitmentHint {
     bool operator==(const BytecodeCommitmentHint& other) const = default;
 
     MSGPACK_FIELDS(classId, commitment);
+};
+
+struct ProtocolContractAddressHint {
+    AztecAddress canonicalAddress;
+    AztecAddress derivedAddress;
+
+    bool operator==(const ProtocolContractAddressHint& other) const = default;
+
+    MSGPACK_FIELDS(canonicalAddress, derivedAddress);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -328,6 +339,8 @@ struct Tx {
 struct ExecutionHints {
     GlobalVariables globalVariables;
     Tx tx;
+    // Protocol Contract Hints
+    std::vector<ProtocolContractAddressHint> protocolContractDerivedAddresses;
     // Contracts.
     std::vector<ContractInstanceHint> contractInstances;
     std::vector<ContractClassHint> contractClasses;
@@ -352,6 +365,7 @@ struct ExecutionHints {
 
     MSGPACK_FIELDS(globalVariables,
                    tx,
+                   protocolContractDerivedAddresses,
                    contractInstances,
                    contractClasses,
                    bytecodeCommitments,

@@ -9,6 +9,8 @@ import path, { dirname, join } from 'path';
 
 import publicIncludeMetrics from '../../public_include_metric_prefixes.json' with { type: 'json' };
 
+const SNAPSHOT_URL = 'https://pub-f4a8c34d4bb7441ebf8f48d904512180.r2.dev/snapshots';
+
 export type L2ChainConfig = L1ContractsConfig &
   Omit<SlasherConfig, 'slashValidatorsNever' | 'slashValidatorsAlways'> & {
     l1ChainId: number;
@@ -63,26 +65,27 @@ const DefaultSlashConfig = {
   slashProposeInvalidAttestationsPenalty: DefaultL1ContractsConfig.slashAmountLarge,
   slashAttestDescendantOfInvalidPenalty: DefaultL1ContractsConfig.slashAmountLarge,
   slashUnknownPenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashBroadcastedInvalidBlockPenalty: DefaultL1ContractsConfig.slashAmountMedium,
+  slashBroadcastedInvalidBlockPenalty: 0n, // DefaultL1ContractsConfig.slashAmountSmall // Disabled until further testing
   slashMaxPayloadSize: 50,
   slashGracePeriodL2Slots: 32 * 2, // Two epochs from genesis
   slashOffenseExpirationRounds: 8,
   sentinelEnabled: true,
+  slashExecuteRoundsLookBack: 4,
 } satisfies Partial<L2ChainConfig>;
 
 export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   l1ChainId: 11155111,
-  testAccounts: true,
+  testAccounts: false,
   sponsoredFPC: false,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '0xf299347e765cfb27f913bde8e4983fd0f195676f',
-  slashFactoryAddress: '',
-  feeAssetHandlerAddress: '',
+  registryAddress: '0x5f85fa0f40bc4b5ccd53c9f34258aa55d25cdde8',
+  slashFactoryAddress: '0x257db2ca1471b7f76f414d2997404bfbe916c8c9',
+  feeAssetHandlerAddress: '0x67d645b0a3e053605ea861d7e8909be6669812c4',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
-  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/staging-ignition/',
+  snapshotsUrl: `${SNAPSHOT_URL}/staging-ignition/`,
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-ignition.json',
   maxTxPoolSize: 100_000_000, // 100MB
@@ -90,23 +93,65 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
 
-  ...DefaultL1ContractsConfig,
-  ...DefaultSlashConfig,
-
   /** How many seconds an L1 slot lasts. */
   ethereumSlotDuration: 12,
   /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
-  aztecSlotDuration: 36,
+  aztecSlotDuration: 72,
   /** How many L2 slots an epoch lasts. */
   aztecEpochDuration: 32,
   /** The target validator committee size. */
-  aztecTargetCommitteeSize: 48,
+  aztecTargetCommitteeSize: 24,
+  /** The number of epochs to lag behind the current epoch for validator selection. */
+  lagInEpochs: 2,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
+  /** How many sequencers must agree with a slash for it to be executed. */
+  slashingQuorum: 65,
+
+  slashingRoundSizeInEpochs: 4,
+  slashingLifetimeInRounds: 40,
+  slashingExecutionDelayInRounds: 28,
+  slashAmountSmall: 2_000n * 10n ** 18n,
+  slashAmountMedium: 10_000n * 10n ** 18n,
+  slashAmountLarge: 50_000n * 10n ** 18n,
+  slashingOffsetInRounds: 2,
+  slasherFlavor: 'tally',
+  slashingVetoer: EthAddress.ZERO, // TODO TMNT-329
+
   /** The mana target for the rollup */
   manaTarget: 0n,
+
+  exitDelaySeconds: 5 * 24 * 60 * 60,
+
   /** The proving cost per mana */
   provingCostPerMana: 0n,
+  localEjectionThreshold: 196_000n * 10n ** 18n,
+
+  ejectionThreshold: 100_000n * 10n ** 18n,
+  activationThreshold: 200_000n * 10n ** 18n,
+
+  governanceProposerRoundSize: 300, // TODO TMNT-322
+  governanceProposerQuorum: 151, // TODO TMNT-322
+
+  // Node slashing config
+  // TODO TMNT-330
+  slashMinPenaltyPercentage: 0.5,
+  slashMaxPenaltyPercentage: 2.0,
+  slashInactivityTargetPercentage: 0.7,
+  slashInactivityConsecutiveEpochThreshold: 2,
+  slashInactivityPenalty: 2_000n * 10n ** 18n,
+  slashPrunePenalty: 0n, // 2_000n * 10n ** 18n, We disable slashing for prune offenses right now
+  slashDataWithholdingPenalty: 0n, // 2_000n * 10n ** 18n, We disable slashing for data withholding offenses right now
+  slashProposeInvalidAttestationsPenalty: 50_000n * 10n ** 18n,
+  slashAttestDescendantOfInvalidPenalty: 50_000n * 10n ** 18n,
+  slashUnknownPenalty: 2_000n * 10n ** 18n,
+  slashBroadcastedInvalidBlockPenalty: 0n, // 10_000n * 10n ** 18n, Disabled for now until further testing
+  slashMaxPayloadSize: 50,
+  slashGracePeriodL2Slots: 32 * 4, // One round from genesis
+  slashOffenseExpirationRounds: 8,
+  sentinelEnabled: true,
+  slashingDisableDuration: 5 * 24 * 60 * 60,
+  slashExecuteRoundsLookBack: 4,
 };
 
 export const stagingPublicL2ChainConfig: L2ChainConfig = {
@@ -121,7 +166,7 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
-  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/staging-public/',
+  snapshotsUrl: `${SNAPSHOT_URL}/staging-public/`,
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-public.json',
   publicIncludeMetrics,
@@ -174,7 +219,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
-  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/testnet/',
+  snapshotsUrl: `${SNAPSHOT_URL}/testnet/`,
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/testnet.json',
   maxTxPoolSize: 100_000_000, // 100MB
@@ -213,6 +258,8 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
 
   ...DefaultSlashConfig,
+  slashPrunePenalty: 0n,
+  slashDataWithholdingPenalty: 0n,
 };
 
 const BOOTNODE_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour;

@@ -10,8 +10,8 @@ import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, NodeStats } from '@aztec/stdlib/tx';
 
+import type { NoteData } from './oracle/interfaces.js';
 import type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
-import type { NoteData } from './oracle/typed_oracle.js';
 
 /**
  * Error thrown when a contract is not found in the database.
@@ -145,10 +145,12 @@ export interface ExecutionDataProvider {
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
 
   /**
-   * Retrieve the latest block header synchronized by the execution data provider.
-   * @returns The BlockHeader object.
+   * Retrieve the latest block header synchronized by the execution data provider. This block header is referred
+   * to as the anchor block header in Aztec terminology and it defines the state that is used during private function
+   * execution.
+   * @returns The anchor block header.
    */
-  getBlockHeader(): Promise<BlockHeader>;
+  getAnchorBlockHeader(): Promise<BlockHeader>;
 
   /**
    * Fetches the index and sibling path of a leaf at a given block from a given tree.

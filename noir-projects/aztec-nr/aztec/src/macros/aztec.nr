@@ -208,7 +208,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             ///
             /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteHashAndNullifier` type,
             /// and so it can be used to call functions from that module such as `discover_new_messages`, 
-            /// `do_process_log` and `attempt_note_discovery`.
+            /// `do_process_message` and `attempt_note_discovery`.
             ///
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
@@ -276,7 +276,7 @@ comptime fn generate_process_message() -> Quoted {
             message_ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
             message_context: aztec::messages::processing::message_context::MessageContext,
         ) {
-            aztec::messages::discovery::process_message::do_process_message(
+            aztec::messages::discovery::process_message::process_message_ciphertext(
                 context.this_address(),
                 _compute_note_hash_and_nullifier,
                 message_ciphertext,

@@ -44,5 +44,5 @@ namespace context_stack;
     pol commit written_public_data_slots_tree_size;
 
     // Side effects state
-    pol commit num_unencrypted_logs;
+    pol commit num_unencrypted_log_fields;
     pol commit num_l2_to_l1_messages;

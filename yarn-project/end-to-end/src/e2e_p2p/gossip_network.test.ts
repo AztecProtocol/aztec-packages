@@ -1,6 +1,6 @@
 import type { Archiver } from '@aztec/archiver';
-import type { AztecNodeService } from '@aztec/aztec-node';
-import { retryUntil, sleep } from '@aztec/aztec.js';
+import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { SentTx, retryUntil, sleep } from '@aztec/aztec.js';
 import type { ProverNode } from '@aztec/prover-node';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
@@ -14,13 +14,13 @@ import path from 'path';
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import {
   ATTESTER_PRIVATE_KEYS_START_INDEX,
-  type NodeContext,
   createNodes,
+  createNonValidatorNode,
   createProverNode,
 } from '../fixtures/setup_p2p_test.js';
 import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
-import { createPXEServiceAndSubmitTransactions } from './shared.js';
+import { submitTransactions } from './shared.js';
 
 const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 
@@ -47,6 +47,7 @@ describe('e2e_p2p_network', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
   let proverNode: ProverNode;
+  let monitoringNode: AztecNodeService;
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -71,6 +72,9 @@ describe('e2e_p2p_network', () => {
 
   afterEach(async () => {
     await tryStop(proverNode);
+    fs.rmSync(`${DATA_DIR}-prover`, { recursive: true, force: true, maxRetries: 3 });
+    await tryStop(monitoringNode);
+    fs.rmSync(`${DATA_DIR}-monitor`, { recursive: true, force: true, maxRetries: 3 });
     await t.stopNodes(nodes);
     await t.teardown();
     for (let i = 0; i < NUM_VALIDATORS; i++) {
@@ -97,8 +101,8 @@ describe('e2e_p2p_network', () => {
     // the number of txs per node and the number of txs per rollup
     // should be set so that the only way for rollups to be built
     // is if the txs are successfully gossiped around the nodes.
-    const contexts: NodeContext[] = [];
-    t.logger.info('Creating nodes');
+    const txsSentViaDifferentNodes: SentTx[][] = [];
+    t.logger.info('Creating validator nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
@@ -112,6 +116,7 @@ describe('e2e_p2p_network', () => {
     );
 
     // create a prover node that uses p2p only (not rpc) to gather txs to test prover tx collection
+    t.logger.warn(`Creating prover node`);
     proverNode = await createProverNode(
       t.ctx.aztecNodeConfig,
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
@@ -124,6 +129,18 @@ describe('e2e_p2p_network', () => {
     );
     await proverNode.start();
 
+    t.logger.warn(`Creating non validator node`);
+    const monitoringNodeConfig: AztecNodeConfig = { ...t.ctx.aztecNodeConfig, alwaysReexecuteBlockProposals: true };
+    monitoringNode = await createNonValidatorNode(
+      monitoringNodeConfig,
+      t.ctx.dateProvider,
+      BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 2,
+      t.bootstrapNodeEnr,
+      t.prefilledPublicData,
+      `${DATA_DIR}-monitor`,
+      shouldCollectMetrics(),
+    );
+
     // wait a bit for peers to discover each other
     await sleep(8000);
 
@@ -134,15 +151,15 @@ describe('e2e_p2p_network', () => {
 
     t.logger.info('Submitting transactions');
     for (const node of nodes) {
-      const context = await createPXEServiceAndSubmitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
-      contexts.push(context);
+      const context = await submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
+      txsSentViaDifferentNodes.push(context);
     }
 
     t.logger.info('Waiting for transactions to be mined');
     // now ensure that all txs were successfully mined
     await Promise.all(
-      contexts.flatMap((context, i) =>
-        context.txs.map(async (tx, j) => {
+      txsSentViaDifferentNodes.flatMap((txs, i) =>
+        txs.map(async (tx, j) => {
           t.logger.info(`Waiting for tx ${i}-${j}: ${(await tx.getTxHash()).toString()} to be mined`);
           return tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
         }),
@@ -151,7 +168,7 @@ describe('e2e_p2p_network', () => {
     t.logger.info('All transactions mined');
 
     // Gather signers from attestations downloaded from L1
-    const blockNumber = await contexts[0].txs[0].getReceipt().then(r => r.blockNumber!);
+    const blockNumber = await txsSentViaDifferentNodes[0][0].getReceipt().then(r => r.blockNumber!);
     const dataStore = ((nodes[0] as AztecNodeService).getBlockSource() as Archiver).dataStore;
     const [block] = await dataStore.getPublishedBlocks(blockNumber, blockNumber);
     const payload = ConsensusPayload.fromBlock(block.block);

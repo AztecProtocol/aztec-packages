@@ -909,7 +909,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         return {output_claim, prover_transcript->export_proof()};
     }
 
-    static std::pair<OpeningClaim<Curve>, HonkProof> create_fake_ipa_claim_and_proof(UltraCircuitBuilder& builder)
+    static std::pair<OpeningClaim<Curve>, HonkProof> create_random_valid_ipa_claim_and_proof(UltraCircuitBuilder& builder)
     requires Curve::is_stdlib_type {
         using NativeCurve = curve::Grumpkin;
         using Builder = typename Curve::Builder;

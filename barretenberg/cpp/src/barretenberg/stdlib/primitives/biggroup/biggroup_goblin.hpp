@@ -56,6 +56,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         , y(y)
         , _is_infinity(false)
     {}
+    goblin_element(const Fq& x, const Fq& y, const bool_ct is_infinity)
+        : x(x)
+        , y(y)
+        , _is_infinity(is_infinity)
+    {}
     goblin_element(const goblin_element& other) = default;
     goblin_element(goblin_element&& other) noexcept = default;
     goblin_element& operator=(const goblin_element& other) = default;
@@ -175,12 +180,21 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
             y_lo.assert_equal(other.y.limbs[0]);
             y_hi.assert_equal(other.y.limbs[1]);
         }
+        // if function queue_ecc_add_accum is used, op_tuple creates as a result of construct_and_populate_ultra_ops
+        // function. In case of queue_ecc_add_accum, scalar is zero, (z_1, z_2) = (scalar, 0) = (0, 0) and they just put
+        // in the wires.
+        builder->update_used_witnesses({ op_tuple.z_1, op_tuple.z_2 });
 
         ecc_op_tuple op_tuple2 = builder->queue_ecc_add_accum(result_value);
         auto x_lo = Fr::from_witness_index(builder, op_tuple2.x_lo);
         auto x_hi = Fr::from_witness_index(builder, op_tuple2.x_hi);
         auto y_lo = Fr::from_witness_index(builder, op_tuple2.y_lo);
         auto y_hi = Fr::from_witness_index(builder, op_tuple2.y_hi);
+
+        // if function queue_ecc_add_accum is used, op_tuple creates as a result of construct_and_populate_ultra_ops
+        // function. In case of queue_ecc_add_accum, scalar is zero, (z_1, z_2) = (scalar, 0) = (0, 0) and they just put
+        // in the wires.
+        builder->update_used_witnesses({ op_tuple2.z_1, op_tuple2.z_2 });
 
         Fq result_x(x_lo, x_hi);
         Fq result_y(y_lo, y_hi);

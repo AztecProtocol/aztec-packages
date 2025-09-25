@@ -14,17 +14,17 @@ unconstrained fn get_block_header_at_internal(block_number: u32) -> BlockHeader 
 }
 
 pub fn get_block_header_at(block_number: u32, context: PrivateContext) -> BlockHeader {
-    let historical_header = context.historical_header;
-    let historical_block_number = historical_header.global_variables.block_number;
+    let anchor_block_header = context.anchor_block_header;
+    let anchor_block_number = anchor_block_header.global_variables.block_number;
 
-    if (block_number == historical_block_number) {
+    if (block_number == anchor_block_number) {
         // If the block number we want to prove against is the same as the block number in the historical header we
         // skip the inclusion proofs and just return the historical header from context.
-        historical_header
+        anchor_block_header
     } else {
         // 1) Get block number corresponding to the last_archive root in the header
         // Note: We subtract 1 because the last_archive root is the root of the archive after applying the previous block
-        let last_archive_block_number = historical_block_number - 1;
+        let last_archive_block_number = anchor_block_number - 1;
 
         // 2) Check that the last archive block number is more than or equal to the block number we want to prove against
         // We could not perform the proof otherwise because the last archive root from the header would not "contain"
@@ -44,7 +44,7 @@ pub fn get_block_header_at(block_number: u32, context: PrivateContext) -> BlockH
             header,
             block_number,
             last_archive_block_number,
-            historical_header.last_archive.root,
+            anchor_block_header.last_archive.root,
         );
 
         // 5) Return the block header
@@ -95,7 +95,7 @@ mod test {
 
         // We get our current header for the last archive values.
         env.private_context(|context| {
-            let current_header = context.historical_header;
+            let current_header = context.anchor_block_header;
 
             let target_block_number = current_header.global_variables.block_number - 2;
             let bad_header = get_block_header_at_internal(target_block_number);

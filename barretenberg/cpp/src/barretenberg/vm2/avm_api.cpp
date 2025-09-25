@@ -10,12 +10,27 @@ namespace bb::avm2 {
 
 using namespace bb::avm2::simulation;
 
+namespace {
+
+std::vector<PublicDataWrite> get_public_data_writes(const PublicInputs& inputs)
+{
+    assert(inputs.accumulatedDataArrayLengths.publicDataWrites <= inputs.accumulatedData.publicDataWrites.size());
+    const auto* public_data_writes_start = inputs.accumulatedData.publicDataWrites.begin();
+    return std::vector<PublicDataWrite>(public_data_writes_start,
+                                        public_data_writes_start + inputs.accumulatedDataArrayLengths.publicDataWrites);
+}
+
+} // namespace
+
 std::pair<AvmAPI::AvmProof, AvmAPI::AvmVerificationKey> AvmAPI::prove(const AvmAPI::ProvingInputs& inputs)
 {
     // Simulate.
     info("Simulating...");
-    AvmSimulationHelper simulation_helper(inputs.hints);
-    auto events = AVM_TRACK_TIME_V("simulation/all", simulation_helper.simulate());
+    AvmSimulationHelper simulation_helper;
+
+    auto events = AVM_TRACK_TIME_V(
+        "simulation/all",
+        simulation_helper.simulate_for_witgen(inputs.hints, get_public_data_writes(inputs.publicInputs)));
 
     // Generate trace.
     info("Generating trace...");
@@ -36,8 +51,11 @@ bool AvmAPI::check_circuit(const AvmAPI::ProvingInputs& inputs)
 {
     // Simulate.
     info("Simulating...");
-    AvmSimulationHelper simulation_helper(inputs.hints);
-    auto events = AVM_TRACK_TIME_V("simulation/all", simulation_helper.simulate());
+    AvmSimulationHelper simulation_helper;
+
+    auto events = AVM_TRACK_TIME_V(
+        "simulation/all",
+        simulation_helper.simulate_for_witgen(inputs.hints, get_public_data_writes(inputs.publicInputs)));
 
     // Generate trace.
     // In contrast to proving, we do this step by step since it's usually more useful to debug
@@ -66,6 +84,13 @@ bool AvmAPI::verify(const AvmProof& proof, const PublicInputs& pi, const AvmVeri
     info("Verifying...");
     AvmProvingHelper proving_helper;
     return AVM_TRACK_TIME_V("verifing/all", proving_helper.verify(proof, pi, vk_data));
+}
+
+void AvmAPI::simulate(const ExecutionHints& hints)
+{
+    info("Simulating...");
+    AvmSimulationHelper simulation_helper;
+    AVM_TRACK_TIME("simulation/all", simulation_helper.simulate_fast(hints));
 }
 
 } // namespace bb::avm2

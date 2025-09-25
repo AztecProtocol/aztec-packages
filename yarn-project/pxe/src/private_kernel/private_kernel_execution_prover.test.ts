@@ -81,7 +81,7 @@ describe('Private Kernel Sequencer', () => {
 
   const simulateProofOutput = (newNoteIndices: number[]) => {
     const publicInputs = PrivateKernelCircuitPublicInputs.empty();
-    publicInputs.constants.historicalHeader.globalVariables.timestamp = blockTimestamp;
+    publicInputs.constants.anchorBlockHeader.globalVariables.timestamp = blockTimestamp;
     publicInputs.includeByTimestamp = includeByTimestamp;
     publicInputs.end.noteHashes = new ClaimedLengthArray(
       padArrayEnd(

@@ -24,7 +24,7 @@ The .md files in the `docs/` directory are the docs. See the [Docusaurus website
 
 Aztec Docs are versioned. Every version known is literally a copy of the website, and is in `versioned_docs` (sidebars are in `versioned_sidebars`). Seems silly but it's not, it allows you to hot-fix previous versions.
 
-When you look at the published docs site, you will see three versions in the version dropdown: `Next`, `alpha-testnet`, and the latest sandbox release e.g. `v0.86.0`. Updating the files in the `docs` folder will update the next version (which is not currently published, but will be when the next release is cut), updating the files in `versioned_docs/version-v0.87.8` folder will update the `0.87.8` version. Note that you cannot use the macros (`#include_aztec_version` and `#include_code`) in the `versioned_docs` folder, since those docs have already been processed and built. Instead, just drop the code snippets, version numbers or links directly in the docs as you'd like them to be rendered.
+When you look at the published docs site, you will see three versions in the version dropdown: `Next`, `testnet`, and the latest sandbox release e.g. `v0.86.0`. Updating the files in the `docs` folder will update the next version (which is not currently published, but will be when the next release is cut), updating the files in `versioned_docs/version-v0.87.8` folder will update the `0.87.8` version. Note that you cannot use the macros (`#include_aztec_version` and `#include_code`) in the `versioned_docs` folder, since those docs have already been processed and built. Instead, just drop the code snippets, version numbers or links directly in the docs as you'd like them to be rendered.
 
 The way docs builds work is the following:
 
@@ -183,6 +183,30 @@ This value may be different from the `#include_aztec_version` macro, since the t
 The protocol specs pages are outdated, but it may still be useful to view them in some cases.
 
 To view the protocol specs, you can run `yarn dev`. When viewing the protocol specs locally, versioning is disabled, so you can view the protocol specs in the browser. It would error otherwise because the protocol specs pages are not included in the pages in `versioned_docs` and `versioned_sidebars`.
+
+## Adding Migration Notes
+
+When making breaking changes to Aztec, add migration notes to help users upgrade. Migration notes are organized by version and component in `docs/migration_notes.md`.
+
+### Structure
+
+- **Latest changes**: Add new items at the top under `## TBD` or `## [Component]` sections
+- **Version releases**: When cutting a release, move TBD items under the new version header (e.g., `## 2.0.2`)
+- **Component sections**: Group related changes under headers like `## [Aztec.nr]`, `## [Aztec.js]`, etc.
+
+### Format
+
+Each migration item should include:
+
+1. **Clear title**: Descriptive `### Title` explaining what changed
+2. **Motivation** (optional): Why the change was made
+3. **Key points**: Numbered list of important changes
+4. **Example migration**: Before/after code using `diff` blocks:
+
+```diff
+- old_code()
++ new_code()
+```
 
 ## Contributing
 

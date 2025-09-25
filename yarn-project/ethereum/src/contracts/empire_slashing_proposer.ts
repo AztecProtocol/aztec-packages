@@ -14,7 +14,7 @@ import {
   getContract,
 } from 'viem';
 
-import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
+import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ViemClient } from '../types.js';
 import { FormattedViemError, tryExtractEvent } from '../utils.js';
 import { type IEmpireBase, encodeSignal, encodeSignalWithSignature, signSignalWithSig } from './empire_base.js';

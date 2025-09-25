@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {Bn254LibWrapper} from "@aztec/governance/Bn254LibWrapper.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
@@ -10,7 +11,7 @@ import {
   DepositDelegationLib, DepositAndDelegationAccounting
 } from "@aztec/governance/libraries/DepositDelegationLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
@@ -38,6 +39,7 @@ interface IGSECore {
   event Deposit(address indexed instance, address indexed attester, address withdrawer);
 
   function setGovernance(Governance _governance) external;
+  function setProofOfPossessionGasLimit(uint64 _proofOfPossessionGasLimit) external;
   function addRollup(address _rollup) external;
   function deposit(
     address _attester,
@@ -172,6 +174,9 @@ contract GSECore is IGSECore, Ownable {
    */
   address public constant BONUS_INSTANCE_ADDRESS = address(uint160(uint256(keccak256("bonus-instance"))));
 
+  // External wrapper of the BN254 library to more easily allow gas limits.
+  Bn254LibWrapper internal immutable BN254_LIB_WRAPPER = new Bn254LibWrapper();
+
   // The amount of ASSET needed to add an attester to the set
   uint256 public immutable ACTIVATION_THRESHOLD;
 
@@ -208,6 +213,18 @@ contract GSECore is IGSECore, Ownable {
   DepositAndDelegationAccounting internal delegation;
   Governance internal governance;
 
+  // Gas limit for proof of possession validation.
+  //
+  // Must exceed the happy path gas consumption to ensure deposits succeed.
+  // Acts as a cap on unhappy path gas usage to prevent excessive consumption.
+  //
+  // - Happy path average: 140K gas
+  // - Buffer: 60K gas (~40% margin)
+  //
+  // WARNING: If set below happy path requirements, all deposits will fail.
+  // Governance can adjust this value via proposal.
+  uint64 public proofOfPossessionGasLimit = 200_000;
+
   /**
    * @dev enforces that the caller is a registered rollup.
    */
@@ -240,6 +257,10 @@ contract GSECore is IGSECore, Ownable {
     governance = _governance;
   }
 
+  function setProofOfPossessionGasLimit(uint64 _proofOfPossessionGasLimit) external override(IGSECore) onlyOwner {
+    proofOfPossessionGasLimit = _proofOfPossessionGasLimit;
+  }
+
   /**
    * @notice  Adds another rollup to the instances, which is the new latest rollup.
    *          Only callable by the owner (usually governance) and only when the rollup is not already in the set
@@ -249,6 +270,9 @@ contract GSECore is IGSECore, Ownable {
    * @dev The GSE only supports adding rollups, not removing them. If a rollup becomes compromised, governance can
    * simply add a new rollup and the bonus instance mechanism ensures a smooth transition by allowing the new rollup
    * to immediately inherit attesters.
+   *
+   * @dev Beware that multiple calls to `addRollup` at the same `block.timestamp` will override each other and only
+   * the last will be in the `rollups`.
    *
    * @param _rollup - The address of the rollup to add
    */
@@ -268,26 +292,29 @@ contract GSECore is IGSECore, Ownable {
    *
    * @dev if _moveWithLatestRollup is true, then msg.sender must be the latest rollup.
    *
-   * @dev The same attester may deposit on multiple *instances*, so long as
-   * the latest-rollup-instance-attesters-form-set invariant described above BONUS_INSTANCE_ADDRESS holds.
+   * @dev An attester configuration is registered globally to avoid BLS troubles when moving stake.
    *
-   * E.g. Suppose the registered rollups are A, then B, then C, so C's effective attesters are
+   * Suppose the registered rollups are A, then B, then C, so C's effective attesters are
    * those associated with C and the bonus address.
    *
-   * Alice may come along now and deposit on A, and B, with _moveWithLatestRollup=false in both cases.
+   * Alice may come along now and deposit on A or B, with _moveWithLatestRollup=false in either case.
    *
    * For depositing into C, she can deposit *either* with _moveWithLatestRollup = true OR false.
    * If she deposits with _moveWithLatestRollup = false, then she is associated with C's address.
    * If she deposits with _moveWithLatestRollup = true, then she is associated with the bonus address.
    *
    * Suppose she deposits with _moveWithLatestRollup = true, and a new rollup D is added to the rollups.
-   *
-   * Now she cannot deposit through D AT ALL, since she is already in D's effective attesters.
-   * But she CAN go back and deposit directly into C, with _moveWithLatestRollup = false.
+   * Then her stake moves to D, and she is in the effective attesters of D.
    *
    * @param _attester     - The attester address on behalf of which the deposit is made.
-   * @param _withdrawer   - Address which can initiate a withdraw for the `_attester`
-   * @param _moveWithLatestRollup  - Whether to deposit into the specific instance, or the bonus instance
+   * @param _withdrawer   - Address which the user wish to use to initiate a withdraw for the `_attester` and
+   *                        to update delegation with. The withdrawals are enforced by the rollup to which it is
+   *                        controlled, so it is practically a value for the rollup to use, meaning dishonest rollup
+   *                        can reject withdrawal attempts.
+   * @param _publicKeyInG1 - BLS public key for the attester in G1
+   * @param _publicKeyInG2 - BLS public key for the attester in G2
+   * @param _proofOfPossession - A proof of possessions for the private key corresponding _publicKey in G1 and G2
+   * @param _moveWithLatestRollup - Whether to deposit into the specific instance, or the bonus instance
    */
   function deposit(
     address _attester,
@@ -612,8 +639,12 @@ contract GSECore is IGSECore, Ownable {
     require((!ownedPKs[hashedIncomingPoint]), Errors.GSE__ProofOfPossessionAlreadySeen(hashedIncomingPoint));
     ownedPKs[hashedIncomingPoint] = true;
 
+    // We validate the proof of possession using an external contract to limit gas potentially "sacrificed"
+    // in case of failure.
     require(
-      BN254Lib.proofOfPossession(_publicKeyInG1, _publicKeyInG2, _proofOfPossession),
+      BN254_LIB_WRAPPER.proofOfPossession{gas: proofOfPossessionGasLimit}(
+        _publicKeyInG1, _publicKeyInG2, _proofOfPossession
+      ),
       Errors.GSE__InvalidProofOfPossession()
     );
   }
@@ -646,7 +677,7 @@ contract GSE is IGSE, GSECore {
    * @return The registration digest of the public key. Sign and submit as a proof of possession.
    */
   function getRegistrationDigest(G1Point memory _publicKey) external view override(IGSE) returns (G1Point memory) {
-    return BN254Lib.g1ToDigestPoint(_publicKey);
+    return BN254_LIB_WRAPPER.g1ToDigestPoint(_publicKey);
   }
 
   function getConfig(address _attester) external view override(IGSE) returns (AttesterConfig memory) {
@@ -828,26 +859,5 @@ contract GSE is IGSE, GSECore {
     }
 
     return attesters;
-  }
-
-  function _getInstanceStoreWithAttester(address _instance, address _attester)
-    internal
-    view
-    returns (InstanceAttesterRegistry storage, bool, address)
-  {
-    InstanceAttesterRegistry storage store = instances[_instance];
-    bool attesterExists = store.attesters.contains(_attester);
-    address instanceAddress = _instance;
-
-    if (
-      !attesterExists && getLatestRollup() == _instance
-        && instances[BONUS_INSTANCE_ADDRESS].attesters.contains(_attester)
-    ) {
-      store = instances[BONUS_INSTANCE_ADDRESS];
-      attesterExists = true;
-      instanceAddress = BONUS_INSTANCE_ADDRESS;
-    }
-
-    return (store, attesterExists, instanceAddress);
   }
 }

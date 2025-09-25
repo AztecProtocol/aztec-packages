@@ -12,7 +12,7 @@ This tutorial is compatible with the Aztec version `#include_aztec_version`. Ins
 
 ## Prerequisites
 
-- You have followed the [quickstart](../../getting_started/getting_started_on_sandbox.md)
+- You have followed the [quickstart](../../getting_started/getting_started.md)
 - Running Aztec Sandbox
 - Installed [Noir LSP](../../guides/local_env/installing_noir_lsp.md) (optional)
 
@@ -70,20 +70,17 @@ pub contract Counter {
 
 #include_code imports /noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr rust
 
-- `use aztec::macros::{functions::{initializer, private, utility}, storage::storage};`
+- `use aztec::macros::{functions::{initializer, private, utility}, storage::storage},`
   Imports the macros needed to define function types (`initializer`, `private`, and `utility`) and the `storage` macro for declaring contract storage structures.
 
-- `use aztec::prelude::{AztecAddress, Map};`
-  Brings in `AztecAddress` (used to identify accounts/contracts) and `Map` (used for creating state mappings, like our counters).
+- `protocol_types::{address::AztecAddress, traits::ToField},`
+  Brings in `AztecAddress` (used to identify accounts/contracts) and traits for converting values to and from field elements, necessary for serialization and formatting inside Aztec.
 
-- `use aztec::protocol_types::traits::{FromField, ToField};`
-  Provides traits for converting values to and from field elements, necessary for serialization and formatting inside Aztec.
+- `state_vars::Map,`
+  Brings in `Map`, used for creating state mappings, like our counters.
 
 - `use easy_private_state::EasyPrivateUint;`
   Imports a wrapper to manage private integer-like state variables (ie our counter), abstracting away notes.
-
-- `use value_note::{balance_utils, value_note::ValueNote};`
-  Brings in `ValueNote`, which represents a private value stored as a note, and `balance_utils`, which makes working with notes feel like working with simple balances.
 
 ## Declare storage
 
@@ -110,10 +107,6 @@ Now let’s implement the `increment` function we defined in the first step.
 #include_code increment /noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr rust
 
 The `increment` function works very similarly to the `constructor`, but instead directly adds 1 to the counter rather than passing in an initial count parameter.
-
-## Prevent double spending
-
-Because our counters are private, the network can't directly verify if a note was spent or not, which could lead to double-spending. To solve this, we use a nullifier - a unique identifier generated from each spent note and its nullifier key. You can learn more about nullifiers and private state in the [Learn section](../../../aztec/index.md#private-and-public-state).
 
 ## Getting a counter
 
@@ -164,7 +157,7 @@ SERVE=1 aztec flamegraph target/counter-Counter.json increment
 
 Note the total gate count at the bottom of the image. The image is interactive; you can hover over different parts of the graph to see the full function name of the execution step and its gate count. This tool also provides insight into the low-level operations that are performed in the private function. Don't worry about the details of the internals of the function right now, just be aware that the more complex the function, the more gates it will use and try out the flamegraph tool on your own functions.
 
-Read more about [profiling transactions with the flamegraph tool](../../guides/smart_contracts/advanced/profiling_transactions.md).
+Read more about [profiling transactions with the flamegraph tool](../../guides/smart_contracts/advanced/how_to_profile_transactions.md).
 
 For more information about writing efficient private functions, see [this page](https://noir-lang.org/docs/explainers/explainer-writing-noir) of the Noir documentation.
 

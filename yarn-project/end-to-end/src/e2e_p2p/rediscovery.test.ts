@@ -1,14 +1,14 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { sleep } from '@aztec/aztec.js';
+import { SentTx, sleep } from '@aztec/aztec.js';
 
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
-import { type NodeContext, createNode, createNodes } from '../fixtures/setup_p2p_test.js';
+import { createNode, createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
-import { createPXEServiceAndSubmitTransactions } from './shared.js';
+import { submitTransactions } from './shared.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_VALIDATORS = 4;
@@ -48,7 +48,7 @@ describe('e2e_p2p_rediscovery', () => {
   });
 
   it('should re-discover stored peers without bootstrap node', async () => {
-    const contexts: NodeContext[] = [];
+    const txsSentViaDifferentNodes: SentTx[][] = [];
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
@@ -100,14 +100,14 @@ describe('e2e_p2p_rediscovery', () => {
     await sleep(2000);
 
     for (const node of newNodes) {
-      const context = await createPXEServiceAndSubmitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
-      contexts.push(context);
+      const txs = await submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
+      txsSentViaDifferentNodes.push(txs);
     }
 
     // now ensure that all txs were successfully mined
     await Promise.all(
-      contexts.flatMap((context, i) =>
-        context.txs.map(async (tx, j) => {
+      txsSentViaDifferentNodes.flatMap((txs, i) =>
+        txs.map(async (tx, j) => {
           const txHash = await tx.getTxHash();
           t.logger.info(`Waiting for tx ${i}-${j} ${txHash} to be mined`, { txHash });
           return tx

@@ -1,7 +1,6 @@
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type L2Block, type L2BlockId, PublishedL2Block } from '@aztec/stdlib/block';
-import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import { jestExpect as expect } from '@jest/expect';
 
@@ -16,7 +15,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
 
   const makeBlock = (number: number): PublishedL2Block =>
     PublishedL2Block.fromFields({
-      block: { number, header: { hash: () => Promise.resolve(new Fr(number)) } as BlockHeader } as L2Block,
+      block: { number, hash: () => Promise.resolve(new Fr(number)) } as L2Block,
       l1: { blockNumber: BigInt(number), blockHash: `0x${number}`, timestamp: BigInt(number) },
       attestations: [],
     });

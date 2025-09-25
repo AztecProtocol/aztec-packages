@@ -9,7 +9,7 @@ import {Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {RewardBoostConfig, IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
-import {Configuration, ProposeConfiguration} from "@aztec/governance/interfaces/IGovernance.sol";
+import {Configuration, ProposeWithLockConfiguration} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 
@@ -38,6 +38,7 @@ library TestConstants {
   uint256 internal constant AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE = 480;
   uint256 internal constant AZTEC_EXIT_DELAY_SECONDS = 2 * 24 * 60 * 60; // 2 days
   EthValue internal constant AZTEC_PROVING_COST_PER_MANA = EthValue.wrap(100);
+  uint256 internal constant AZTEC_COIN_ISSUER_RATE = uint256(25_000_000_000e18) / uint256(60 * 60 * 24 * 365);
 
   uint256 internal constant ACTIVATION_THRESHOLD = 100e18;
   uint256 internal constant EJECTION_THRESHOLD = 50e18;
@@ -49,7 +50,7 @@ library TestConstants {
 
   function getGovernanceConfiguration() internal pure returns (Configuration memory) {
     return Configuration({
-      proposeConfig: ProposeConfiguration({lockDelay: Timestamp.wrap(60 * 60 * 24 * 30), lockAmount: 1e24}),
+      proposeConfig: ProposeWithLockConfiguration({lockDelay: Timestamp.wrap(60 * 60 * 24 * 30), lockAmount: 1e24}),
       votingDelay: Timestamp.wrap(60),
       votingDuration: Timestamp.wrap(60 * 60),
       executionDelay: Timestamp.wrap(60),

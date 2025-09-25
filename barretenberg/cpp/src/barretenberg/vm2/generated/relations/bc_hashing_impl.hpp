@@ -15,8 +15,6 @@ void bc_hashingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/bc_hashing");
-
     const auto constants_GENERATOR_INDEX__PUBLIC_BYTECODE = FF(60);
     const auto bc_hashing_LATCH_CONDITION = in.get(C::bc_hashing_latch) + in.get(C::precomputed_first_row);
     const auto bc_hashing_START = in.get(C::bc_hashing_sel) * (FF(1) - in.get(C::bc_hashing_sel_not_start));

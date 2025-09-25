@@ -11,7 +11,7 @@ import path from 'path';
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
-import { createPXEServiceAndPrepareTransactions } from './shared.js';
+import { prepareTransactions } from './shared.js';
 
 // TODO: DELETE THIS FILE
 // This is a temporary copy of reqresp.test.ts with status handshake disabled
@@ -93,8 +93,8 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
     await t.setupAccount();
 
     t.logger.info('Preparing transactions to send');
-    const contexts = await timesAsync(2, () =>
-      createPXEServiceAndPrepareTransactions(t.logger, t.ctx.aztecNode, NUM_TXS_PER_NODE, t.fundedAccount),
+    const txss = await timesAsync(2, () =>
+      prepareTransactions(t.logger, t.ctx.aztecNode, NUM_TXS_PER_NODE, t.fundedAccount),
     );
 
     t.logger.info('Removing initial node');
@@ -125,8 +125,8 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
     // We send the tx to the proposer nodes directly, ignoring the pxe and node in each context
     // We cannot just call tx.send since they were created using a pxe wired to the first node which is now stopped
     t.logger.info('Sending transactions through proposer nodes');
-    const sentTxs = contexts.map((c, i) =>
-      c.txs.map(tx => {
+    const sentTxs = txss.map((txs, i) =>
+      txs.map(tx => {
         const node = nodes[proposerIndexes[i]];
         void node.sendTx(tx).catch(err => t.logger.error(`Error sending tx: ${err}`));
         return new SentTx(node, () => Promise.resolve(tx.getTxHash()));

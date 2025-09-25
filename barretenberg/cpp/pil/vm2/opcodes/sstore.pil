@@ -76,15 +76,17 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         register[0], // value
         contract_address,
         register[1], // slot
+        discard,
         prev_public_data_tree_root,
         prev_public_data_tree_size,
         public_data_tree_root,
         public_data_tree_size,
         precomputed.clk
-    } in public_data_check.sel {
+    } in public_data_check.write {
         public_data_check.value,
         public_data_check.address,
         public_data_check.slot,
+        public_data_check.discard,
         public_data_check.root,
         public_data_check.tree_size_before_write,
         public_data_check.write_root,
