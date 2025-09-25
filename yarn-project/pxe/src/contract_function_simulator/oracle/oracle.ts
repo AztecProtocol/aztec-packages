@@ -563,7 +563,7 @@ export class Oracle {
   }
 
   async utilityEmitOffchainEffect(data: ACVMField[]) {
-    await this.handlerAsUtility().utilityEmitOffchainEffect(data.map(Fr.fromString));
+    await this.handlerAsPrivate().utilityEmitOffchainEffect(data.map(Fr.fromString));
     return [];
   }
 
