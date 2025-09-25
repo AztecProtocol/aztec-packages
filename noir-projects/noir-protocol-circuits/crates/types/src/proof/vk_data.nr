@@ -1,5 +1,5 @@
 use crate::{
-    constants::VK_TREE_HEIGHT, merkle_tree::membership::check_membership, traits::Empty,
+    constants::VK_TREE_HEIGHT, merkle_tree::check_membership, traits::Empty,
     utils::arrays::find_first_index,
 };
 use super::verification_key::VerificationKey;
@@ -18,12 +18,13 @@ impl<let VK_LENGTH: u32> VkData<VK_LENGTH> {
         allowed_indices: [u32; N],
     ) {
         // Safety: `index_hint` is validated against the `allowed_indices` array below.
-        // If an incorrect hint is provided, the proof will fail, affecting only the prover.
+        // If an incorrect hint is provided, the validation will fail, affecting only the prover.
         let index_hint =
             unsafe { find_first_index(allowed_indices, |index: u32| index == self.leaf_index) };
-        assert(index_hint != N, "Vk index not found in allowed list");
+        assert(index_hint != N, "Vk index not in allowed list");
         // If `index_hint` exceeds `N`, the code below will trigger an index-out-of-bounds error. Such a case would
-        // require the hint to be intentionally manipulated, so we don't care the error message isn't more explicit.
+        // require the return value of the unconstrained `find_first_index` to be intentionally manipulated, so we don't
+        // care the error message isn't more explicit.
         assert_eq(allowed_indices[index_hint], self.leaf_index, "Invalid vk index");
 
         self.validate_in_vk_tree(vk_tree_root);

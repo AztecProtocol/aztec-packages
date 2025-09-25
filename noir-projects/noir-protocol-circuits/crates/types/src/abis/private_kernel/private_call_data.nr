@@ -9,7 +9,7 @@ use crate::{
         PUBLIC_DATA_TREE_HEIGHT,
     },
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-    merkle_tree::membership::MembershipWitness,
+    merkle_tree::MembershipWitness,
     proof::verification_key::ClientIVCVerificationKey,
     public_keys::PublicKeys,
 };

@@ -9,7 +9,7 @@ import {Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {RewardBoostConfig, IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
-import {Configuration, ProposeConfiguration} from "@aztec/governance/interfaces/IGovernance.sol";
+import {Configuration, ProposeWithLockConfiguration} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 
@@ -50,7 +50,7 @@ library TestConstants {
 
   function getGovernanceConfiguration() internal pure returns (Configuration memory) {
     return Configuration({
-      proposeConfig: ProposeConfiguration({lockDelay: Timestamp.wrap(60 * 60 * 24 * 30), lockAmount: 1e24}),
+      proposeConfig: ProposeWithLockConfiguration({lockDelay: Timestamp.wrap(60 * 60 * 24 * 30), lockAmount: 1e24}),
       votingDelay: Timestamp.wrap(60),
       votingDuration: Timestamp.wrap(60 * 60),
       executionDelay: Timestamp.wrap(60),

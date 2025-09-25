@@ -1,6 +1,6 @@
 export {
   createSandbox,
-  getDeployedBananaCoinAddress,
-  getDeployedBananaFPCAddress,
-  getDeployedSponsoredFPCAddress,
+  registerDeployedBananaCoinInWalletAndGetAddress,
+  registerDeployedBananaFPCInWalletAndGetAddress,
+  registerDeployedSponsoredFPCInWalletAndGetAddress,
 } from './sandbox/index.js';

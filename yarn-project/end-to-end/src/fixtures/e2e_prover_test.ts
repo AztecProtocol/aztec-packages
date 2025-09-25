@@ -17,7 +17,7 @@ import { FeeAssetHandlerAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type Hex, getContract } from 'viem';

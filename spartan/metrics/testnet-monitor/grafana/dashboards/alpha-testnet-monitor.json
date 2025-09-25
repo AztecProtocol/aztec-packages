@@ -105,8 +105,8 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "rollup_pending_block_number",
-          "legendFormat": "Pending block height",
+          "expr": "rollup_pending_block_number{network=\"$network\"}",
+          "legendFormat": "Pending block height ($network)",
           "range": true,
           "refId": "A"
         },
@@ -117,7 +117,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rollup_proven_block_number",
+          "expr": "rollup_proven_block_number{network=\"$network\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -214,8 +214,8 @@
       "pluginVersion": "12.1.0-89781",
       "targets": [
         {
-          "expr": "rollup_pending_block_number",
-          "legendFormat": "{{job}}",
+          "expr": "rollup_pending_block_number{network=\"$network\"}",
+          "legendFormat": "{{network}}",
           "refId": "A"
         }
       ],
@@ -305,8 +305,8 @@
       "pluginVersion": "12.1.0-89781",
       "targets": [
         {
-          "expr": "rollup_proven_block_number",
-          "legendFormat": "{{job}}",
+          "expr": "rollup_proven_block_number{network=\"$network\"}",
+          "legendFormat": "{{network}}",
           "refId": "A"
         }
       ],

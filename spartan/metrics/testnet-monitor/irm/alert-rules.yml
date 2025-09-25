@@ -18,7 +18,7 @@ groups:
               disableTextWrap: false
               editorMode: code
               exemplar: false
-              expr: rollup_pending_block_number
+              expr: rollup_pending_block_number{network=~"$network"}
               fullMetaSearch: false
               includeNullMetadata: true
               instant: true
@@ -39,7 +39,7 @@ groups:
                 type: prometheus
                 uid: grafanacloud-prom
               editorMode: code
-              expr: rollup_pending_block_number offset 1m
+              expr: rollup_pending_block_number{network=~"$network"} offset 1m
               instant: true
               intervalMs: 1000
               legendFormat: __auto
@@ -75,7 +75,7 @@ groups:
         dashboardUid: alpha-testnet-monitor
         panelId: 3
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
         annotations:
           __dashboardUid__: alpha-testnet-monitor
           __panelId__: "3"
@@ -84,6 +84,7 @@ groups:
           summary: Testnet pending block height was reduced
         labels:
           alertname: ReOrg
+          network: "$network"
         isPaused: false
         notification_settings:
           receiver: Testnet On-Call IRM
@@ -103,7 +104,7 @@ groups:
             datasourceUid: grafanacloud-prom
             model:
               editorMode: code
-              expr: sum without (instance) (changes(rollup_pending_block_number[40m]))
+              expr: sum without (instance) (changes(rollup_pending_block_number{network=~"$network"}[40m]))
               instant: true
               intervalMs: 1000
               legendFormat: __auto
@@ -120,7 +121,7 @@ groups:
                 type: prometheus
                 uid: grafanacloud-prom
               editorMode: code
-              expr: sum without (instance)  (rollup_pending_block_number)
+              expr: sum without (instance)  (rollup_pending_block_number{network=~"$network"})
               instant: true
               intervalMs: 1000
               legendFormat: __auto
@@ -155,7 +156,7 @@ groups:
         dashboardUid: alpha-testnet-monitor
         panelId: 3
         noDataState: NoData
-        execErrState: Error
+        execErrState: KeepLast
         annotations:
           __dashboardUid__: alpha-testnet-monitor
           __panelId__: "3"
@@ -163,6 +164,7 @@ groups:
           summary: Alpha Testnet pending block number hasn't increased for 2 epochs (40 minutes)
         labels:
           alertname: NoNewBlocks
+          network: "$network"
         isPaused: false
         notification_settings:
           receiver: Testnet On-Call IRM

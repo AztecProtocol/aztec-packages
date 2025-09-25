@@ -1,25 +1,21 @@
 import type { Fr } from '@aztec/foundation/fields';
-import type { ApiSchemaFor, ZodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-import { type AbiType, AbiTypeSchema, type ContractArtifact, ContractArtifactSchema } from '../abi/abi.js';
+import { type AbiType, AbiTypeSchema, type ContractArtifact } from '../abi/abi.js';
 import type { EventSelector } from '../abi/event_selector.js';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
 import type { AztecAddress } from '../aztec-address/index.js';
 import {
   CompleteAddress,
   type ContractClassWithId,
-  ContractClassWithIdSchema,
   type ContractInstanceWithAddress,
-  ContractInstanceWithAddressSchema,
   type PartialAddress,
   type ProtocolContractAddresses,
-  ProtocolContractAddressesSchema,
 } from '../contract/index.js';
 import { UniqueNote } from '../note/extended_note.js';
-import { type NotesFilter, NotesFilterSchema } from '../note/notes_filter.js';
-import { AbiDecodedSchema, optional, schemas } from '../schemas/schemas.js';
+import type { NotesFilter } from '../note/notes_filter.js';
+import { schemas } from '../schemas/schemas.js';
 import { SimulationOverrides, TxExecutionRequest, TxSimulationResult } from '../tx/index.js';
 import { TxProfileResult, UtilitySimulationResult } from '../tx/profiling.js';
 import { TxProvingResult } from '../tx/proven_tx.js';
@@ -241,6 +237,11 @@ export interface PXE {
     numBlocks: number,
     recipients: AztecAddress[],
   ): Promise<T[]>;
+
+  /**
+   * Stops the PXE's job queue.
+   */
+  stop(): Promise<void>;
 }
 // docs:end:pxe-interface
 
@@ -281,76 +282,3 @@ export interface ContractClassMetadata {
   isContractClassPubliclyRegistered: boolean;
   artifact?: ContractArtifact | undefined;
 }
-
-export const ContractMetadataSchema = z.object({
-  contractInstance: z.union([ContractInstanceWithAddressSchema, z.undefined()]),
-  isContractInitialized: z.boolean(),
-  isContractPublished: z.boolean(),
-}) satisfies ZodFor<ContractMetadata>;
-
-export const ContractClassMetadataSchema = z.object({
-  contractClass: z.union([ContractClassWithIdSchema, z.undefined()]),
-  isContractClassPubliclyRegistered: z.boolean(),
-  artifact: z.union([ContractArtifactSchema, z.undefined()]),
-}) satisfies ZodFor<ContractClassMetadata>;
-
-const PXEInfoSchema = z.object({
-  pxeVersion: z.string(),
-  protocolContractAddresses: ProtocolContractAddressesSchema,
-}) satisfies ZodFor<PXEInfo>;
-
-export const PXESchema: ApiSchemaFor<PXE> = {
-  registerAccount: z.function().args(schemas.Fr, schemas.Fr).returns(CompleteAddress.schema),
-  getRegisteredAccounts: z.function().returns(z.array(CompleteAddress.schema)),
-  registerSender: z.function().args(schemas.AztecAddress).returns(schemas.AztecAddress),
-  getSenders: z.function().returns(z.array(schemas.AztecAddress)),
-  removeSender: z.function().args(schemas.AztecAddress).returns(z.void()),
-  registerContractClass: z.function().args(ContractArtifactSchema).returns(z.void()),
-  registerContract: z
-    .function()
-    .args(z.object({ instance: ContractInstanceWithAddressSchema, artifact: z.optional(ContractArtifactSchema) }))
-    .returns(z.void()),
-  updateContract: z.function().args(schemas.AztecAddress, ContractArtifactSchema).returns(z.void()),
-  getContracts: z.function().returns(z.array(schemas.AztecAddress)),
-  proveTx: z.function().args(TxExecutionRequest.schema).returns(TxProvingResult.schema),
-  profileTx: z
-    .function()
-    .args(
-      TxExecutionRequest.schema,
-      z.union([z.literal('gates'), z.literal('full'), z.literal('execution-steps')]),
-      optional(z.boolean()),
-      optional(schemas.AztecAddress),
-    )
-    .returns(TxProfileResult.schema),
-  simulateTx: z
-    .function()
-    .args(
-      TxExecutionRequest.schema,
-      z.boolean(),
-      optional(z.boolean()),
-      optional(z.boolean()),
-      optional(SimulationOverrides.schema),
-      optional(z.array(schemas.AztecAddress)),
-    )
-    .returns(TxSimulationResult.schema),
-  getNotes: z.function().args(NotesFilterSchema).returns(z.array(UniqueNote.schema)),
-
-  simulateUtility: z
-    .function()
-    .args(
-      z.string(),
-      z.array(z.any()),
-      schemas.AztecAddress,
-      optional(z.array(AuthWitness.schema)),
-      optional(schemas.AztecAddress),
-      optional(z.array(schemas.AztecAddress)),
-    )
-    .returns(UtilitySimulationResult.schema),
-  getPXEInfo: z.function().returns(PXEInfoSchema),
-  getContractMetadata: z.function().args(schemas.AztecAddress).returns(ContractMetadataSchema),
-  getContractClassMetadata: z.function().args(schemas.Fr, optional(z.boolean())).returns(ContractClassMetadataSchema),
-  getPrivateEvents: z
-    .function()
-    .args(schemas.AztecAddress, EventMetadataDefinitionSchema, z.number(), z.number(), z.array(schemas.AztecAddress))
-    .returns(z.array(AbiDecodedSchema)),
-};

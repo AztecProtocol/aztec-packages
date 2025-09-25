@@ -9,7 +9,7 @@ import {
   FIXED_DA_GAS,
   FIXED_L2_GAS,
   GeneratorIndex,
-  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_CALL,
   MAX_ENQUEUED_CALLS_PER_TX,
@@ -29,8 +29,8 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
-  NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
+  NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
+  NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
@@ -75,7 +75,6 @@ import {
   AvmTxHint,
   RevertCode,
 } from '../avm/index.js';
-import { PublicDataHint } from '../avm/public_data_hint.js';
 import { PublicDataRead } from '../avm/public_data_read.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { AztecAddress } from '../aztec-address/index.js';
@@ -131,7 +130,6 @@ import { ProofData } from '../proofs/index.js';
 import { Proof } from '../proofs/proof.js';
 import { ProvingRequestType } from '../proofs/proving_request_type.js';
 import { makeRecursiveProof } from '../proofs/recursive_proof.js';
-import { AvmProofData } from '../rollup/avm_proof_data.js';
 import { PrivateBaseRollupHints, PublicBaseRollupHints } from '../rollup/base_rollup_hints.js';
 import { BlockConstantData } from '../rollup/block_constant_data.js';
 import { BlockMergeRollupPrivateInputs } from '../rollup/block_merge_rollup_private_inputs.js';
@@ -147,7 +145,7 @@ import { EpochConstantData } from '../rollup/epoch_constant_data.js';
 import { PrivateTxBaseRollupPrivateInputs } from '../rollup/private_tx_base_rollup_private_inputs.js';
 import { PublicTxBaseRollupPrivateInputs } from '../rollup/public_tx_base_rollup_private_inputs.js';
 import { RootRollupPublicInputs } from '../rollup/root_rollup_public_inputs.js';
-import { PrivateBaseStateDiffHints } from '../rollup/state_diff_hints.js';
+import { TreeSnapshotDiffHints } from '../rollup/tree_snapshot_diff_hints.js';
 import { TxMergeRollupPrivateInputs } from '../rollup/tx_merge_rollup_private_inputs.js';
 import { TxRollupPublicInputs } from '../rollup/tx_rollup_public_inputs.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
@@ -919,7 +917,7 @@ export function makeBlockRootFirstRollupPrivateInputs(seed = 0) {
     makeProofData(seed, makeParityPublicInputs),
     [makeProofData(seed + 0x1000, makeTxRollupPublicInputs), makeProofData(seed + 0x2000, makeTxRollupPublicInputs)],
     makeAppendOnlyTreeSnapshot(seed + 0x3000),
-    makeSiblingPath(seed + 0x4000, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH),
+    makeSiblingPath(seed + 0x4000, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH),
     makeSiblingPath(seed + 0x5000, ARCHIVE_HEIGHT),
   );
 }
@@ -980,11 +978,11 @@ export function makePublicDataTreeLeafPreimage(seed = 0): PublicDataTreeLeafPrei
 }
 
 /**
- * Creates an instance of PrivateBaseStateDiffHints with arbitrary values based on the provided seed.
+ * Creates an instance of TreeSnapshotDiffHints with arbitrary values based on the provided seed.
  * @param seed - The seed to use for generating the hints.
- * @returns A PrivateBaseStateDiffHints object.
+ * @returns A TreeSnapshotDiffHints object.
  */
-export function makePrivateBaseStateDiffHints(seed = 1): PrivateBaseStateDiffHints {
+export function makeTreeSnapshotDiffHints(seed = 1): TreeSnapshotDiffHints {
   const nullifierPredecessorPreimages = makeTuple(
     MAX_NULLIFIERS_PER_TX,
     x => makeNullifierLeafPreimage(x),
@@ -1001,24 +999,20 @@ export function makePrivateBaseStateDiffHints(seed = 1): PrivateBaseStateDiffHin
 
   const sortedNullifierIndexes = makeTuple(MAX_NULLIFIERS_PER_TX, i => i, seed + 0x4000);
 
-  const noteHashSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x5000);
+  const noteHashSubtreeRootSiblingPath = makeTuple(NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH, fr, seed + 0x5000);
 
-  const nullifierSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x6000);
+  const nullifierSubtreeRootSiblingPath = makeTuple(NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH, fr, seed + 0x6000);
 
-  const feeWriteLowLeafPreimage = makePublicDataTreeLeafPreimage(seed + 0x7000);
-  const feeWriteLowLeafMembershipWitness = makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, seed + 0x8000);
-  const feeWriteSiblingPath = makeTuple(PUBLIC_DATA_TREE_HEIGHT, fr, seed + 0x9000);
+  const feePayerBalanceMembershipWitness = makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, seed + 0x8000);
 
-  return new PrivateBaseStateDiffHints(
+  return new TreeSnapshotDiffHints(
+    noteHashSubtreeRootSiblingPath,
     nullifierPredecessorPreimages,
     nullifierPredecessorMembershipWitnesses,
     sortedNullifiers,
     sortedNullifierIndexes,
-    noteHashSubtreeSiblingPath,
-    nullifierSubtreeSiblingPath,
-    feeWriteLowLeafPreimage,
-    feeWriteLowLeafMembershipWitness,
-    feeWriteSiblingPath,
+    nullifierSubtreeRootSiblingPath,
+    feePayerBalanceMembershipWitness,
   );
 }
 
@@ -1047,22 +1041,22 @@ function makePrivateBaseRollupHints(seed = 1) {
 
   const startSpongeBlob = makeSpongeBlob(seed + 0x200);
 
-  const stateDiffHints = makePrivateBaseStateDiffHints(seed + 0x600);
+  const treeSnapshotDiffHints = makeTreeSnapshotDiffHints(seed + 0x600);
 
-  const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
+  const anchorBlockArchiveSiblingPath = makeSiblingPath(seed + 0x9000, ARCHIVE_HEIGHT);
 
   const contractClassLogsFields = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLogFields, seed + 0x800);
 
   const constants = makeBlockConstantData(0x100);
 
-  const feePayerFeeJuiceBalanceReadHint = PublicDataHint.empty();
+  const feePayerBalanceLeafPreimage = PublicDataTreeLeafPreimage.empty();
 
   return PrivateBaseRollupHints.from({
     start,
     startSpongeBlob,
-    stateDiffHints,
-    feePayerFeeJuiceBalanceReadHint,
-    archiveRootMembershipWitness,
+    treeSnapshotDiffHints,
+    feePayerBalanceLeafPreimage,
+    anchorBlockArchiveSiblingPath,
     contractClassLogsFields,
     constants,
   });
@@ -1072,7 +1066,7 @@ function makePublicBaseRollupHints(seed = 1) {
   return PublicBaseRollupHints.from({
     startSpongeBlob: makeSpongeBlob(seed),
     lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x1000),
-    archiveRootMembershipWitness: makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x2000),
+    anchorBlockArchiveSiblingPath: makeSiblingPath(seed + 0x2000, ARCHIVE_HEIGHT),
     contractClassLogsFields: makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLogFields, seed + 0x3000),
     proverId: fr(seed + 0x4000),
   });
@@ -1085,21 +1079,13 @@ export function makePrivateTxBaseRollupPrivateInputs(seed = 0) {
   });
 }
 
-function makeAvmProofData(seed = 1) {
-  return new AvmProofData(
-    makeAvmCircuitPublicInputs(seed),
-    makeRecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, seed + 0x100),
-    makeVkData(seed + 0x200),
-  );
-}
-
 export function makePublicTxBaseRollupPrivateInputs(seed = 0) {
   const publicTubeProofData = makeProofData(
     seed,
     makePrivateToPublicKernelCircuitPublicInputs,
     RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   );
-  const avmProofData = makeAvmProofData(seed + 0x100);
+  const avmProofData = makeProofData(seed + 0x100, makeAvmCircuitPublicInputs, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
   const hints = makePublicBaseRollupHints(seed + 0x200);
 
   return PublicTxBaseRollupPrivateInputs.from({
@@ -1629,6 +1615,7 @@ export async function makeBloatedProcessedTx({
     // Create avm output.
     const avmOutput = AvmCircuitPublicInputs.empty();
     // Assign data from hints.
+    avmOutput.protocolContractTreeRoot = protocolContractTreeRoot;
     avmOutput.startTreeSnapshots.l1ToL2MessageTree = newL1ToL2Snapshot;
     avmOutput.endTreeSnapshots.l1ToL2MessageTree = newL1ToL2Snapshot;
     // Assign data from private.
@@ -1671,6 +1658,7 @@ export async function makeBloatedProcessedTx({
       i => new PublicDataWrite(new Fr(i), new Fr(i + 10)),
       seed + 0x2000,
     );
+    avmOutput.accumulatedDataArrayLengths = avmOutput.accumulatedData.getArrayLengths();
     avmOutput.gasSettings = gasSettings;
 
     const avmCircuitInputs = await makeAvmCircuitInputs(seed + 0x3000, { publicInputs: avmOutput });

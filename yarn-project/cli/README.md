@@ -37,17 +37,7 @@ These options are:
 
 - `SECRET_KEY` -> `-sk, --secret-key` for all commands that require an Aztec secret key.
 - `PUBLIC_KEY` -> `-k, --public-key` for all commands that require a public key.
-- `PXE_URL` -> `-u, --rpc-url` for commands that require a PXE
 - `ETHEREUM_HOSTS` -> `-u, --rpc-urls` or `--l1-rpc-urls` for `deploy-l1-contracts`.
-
-So if for example you are running your Private eXecution Environment (PXE) remotely you can do:
-
-```shell
-export PXE_URL=http://external.site/rpc:8080
-aztec-cli deploy my_contract.json
-```
-
-And this will send the request to `http://external.site/rpc:8080`.
 
 **NOTE**: Entering an option value will override the environment variable.
 

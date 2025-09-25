@@ -12,7 +12,7 @@ import { foundry } from 'viem/chains';
 import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';
 import { deployL1Contracts } from '../deploy_l1_contracts.js';
-import { createL1TxUtilsFromViemWallet } from '../l1_tx_utils.js';
+import { createL1TxUtilsFromViemWallet } from '../l1_tx_utils/index.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { FeeAssetHandlerContract } from './fee_asset_handler.js';
