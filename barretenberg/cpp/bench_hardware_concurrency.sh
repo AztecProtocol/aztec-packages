@@ -19,7 +19,8 @@ else
     CONCURRENCY_VALUES=("$@")
 fi
 
-DISABLE_AZTEC_VM=1 barretenberg/cpp/bootstrap.sh
+# Set DENOISE to 0 by default if not already set
+DENOISE=${DENOISE:-0}
 
 echo "Testing HARDWARE_CONCURRENCY values: ${CONCURRENCY_VALUES[@]}"
 
@@ -29,7 +30,16 @@ for concurrency in "${CONCURRENCY_VALUES[@]}"; do
     echo "---------------------------------------------"
 
     # Run the command with specified concurrency
-    DENOISE=$DENOISE BB_BENCH=1 HARDWARE_CONCURRENCY=$concurrency denoise "$BASE_CMD"
+    bench_file="/tmp/bench_concurrency_${concurrency}.json"
+    DENOISE=$DENOISE BB_BENCH=1 HARDWARE_CONCURRENCY=$concurrency denoise "$BASE_CMD --bench_out $bench_file"
+
+    # Display the benchmark JSON output
+    if [ -f "$bench_file" ]; then
+        echo ""
+        echo "Benchmark results:"
+        cat "$bench_file"
+    fi
+
     echo "============================================="
 done
 
