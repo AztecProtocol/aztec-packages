@@ -99,7 +99,18 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     using Commitment = typename Curve::AffineElement;
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
+
+    // records the `u_challenges_inv` and the Pederson commitment to the `h` -polynomial, a.k.a. the challenge
+    // polynomial, given as ∏_{i ∈ [k]} (1 + u_{len-i}^{-1}.X^{2^{i-1}}).
     using VerifierAccumulator = stdlib::recursion::honk::IpaAccumulator<Curve>;
+
+    // records both a `VerifierAccumulator` and also whether the "running state" of the IPA verifier is true.
+    // this is relevant when we run the partial verifier, a.k.a. `reduce_verify_internal_recursive`, which itself is
+    // necesary for our batching.
+    struct VerifierAccumulatorRunningTruthValue {
+        VerifierAccumulator verifier_accumulator;
+        bool running_truth_value;
+    };
 
     // Compute the length of the vector of coefficients of a polynomial being opened.
     static constexpr size_t poly_length = 1UL << log_poly_length;
@@ -433,15 +444,17 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      * @param vk
      * @param opening_claim
      * @param transcript
-     * @return VerifierAccumulator
+     * @return VerifierAccumulatorRunningTruthValue, i.e., the u_inv challenges, the claimed Pederson commitment to the
+     * challenge polynomial derived from the u_inv challenges, and a boolean recording whether the last accumulation
+     * step failed or passed.
      *
      * @note Please note that there is substantial code duplication between this method and
      * `full_verify_recursive`; the only difference is in the computation of G_zero and the _constraint_ that
      * this matches with what the Prover sends. We have decided to keep this duplication in the interest of performance.
      * This means that if this method is changed, then `full_verify_recursive` should also be changed.
      */
-    static VerifierAccumulator reduce_verify_internal_recursive(const OpeningClaim<Curve>& opening_claim,
-                                                                auto& transcript)
+    static VerifierAccumulatorRunningTruthValue reduce_verify_internal_recursive(
+        const OpeningClaim<Curve>& opening_claim, auto& transcript)
         requires Curve::is_stdlib_type
     {
         // Step 1.
@@ -483,20 +496,8 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         }
 
         // Step 4.
-        // Compute b_zero where b_zero can be computed using the polynomial:
-        //  g(X) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}.X^{2^{i-1}}).
-        //  b_zero = g(challenge) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}. (challenge)^{2^{i-1}})
+        // Compute b_zero succinctly
         Fr b_zero = evaluate_challenge_poly(round_challenges_inv, opening_claim.opening_pair.challenge);
-        // Fr b_zero = Fr(1);
-        // Fr challenge = opening_claim.opening_pair.challenge;
-        // for (size_t i = 0; i < log_poly_length; i++) {
-        //     Fr monomial = round_challenges_inv[log_poly_length - 1 - i] * challenge;
-        //     b_zero *= Fr(1) + monomial;
-        //     if (i != log_poly_length - 1) // this if statement is fine because the number of iterations is constant
-        //     {
-        //         challenge = challenge.sqr();
-        //     }
-        // }
 
         // Step 5.
         // Receive G_zero from the prover
@@ -519,7 +520,11 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // the below is the only constraint.
         ipa_relation.assert_equal(neg_commitment);
 
-        return { round_challenges_inv, G_zero };
+        VerifierAccumulator verifier_accumulator = { round_challenges_inv, G_zero };
+        VerifierAccumulatorRunningTruthValue verifier_accumulator_running_truth_value = {
+            verifier_accumulator, ipa_relation.get_value() == -opening_claim.commitment.get_value()
+        };
+        return verifier_accumulator_running_truth_value;
     }
 
     /**
@@ -571,7 +576,10 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     static VerifierAccumulator reduce_verify(const OpeningClaim<Curve>& opening_claim, const auto& transcript)
         requires(Curve::is_stdlib_type)
     {
-        return reduce_verify_internal_recursive(opening_claim, transcript);
+        // The output of `reduce_verify_internal_recursive` consists of a `VerifierAccumulator` and a boolean, recording
+        // the truth value of the last verifier-compatibility check. This simply forgets the boolean and returns the
+        // `VerifierAccumulator`.
+        return reduce_verify_internal_recursive(opening_claim, transcript).verifier_accumulator;
     }
 
     /**
@@ -588,113 +596,22 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      * @param transcript
      * @return VerifierAccumulator
      *
-     * @note Please note that there is substantial code duplication between this method and
-     * `reduce_verify_internal_recursive`; the only difference is in the computation of G_zero and the _constraint_ that
-     * this matches with what the Prover sends. We have decided to keep this duplication in the interest of performance.
-     * This means that if `reduce_verify_internal_recursive` is changed, then this method should also be changed.
+     * @note This methods calls `reduce_verify_internal_recursive` and additionally, computes G_zero, and addsthe
+     * _constraint_ that this matches with what the Prover sends.
      */
     static bool full_verify_recursive(const VK& vk, const OpeningClaim<Curve>& opening_claim, auto& transcript)
         requires Curve::is_stdlib_type
     {
-        const bool refactor = true;
-        if (refactor) {
-            auto accumulated_claim = reduce_verify_internal_recursive(opening_claim, transcript);
-            auto round_challenges_inv = accumulated_claim.u_challenges_inv;
-            auto claimed_G_zero = transcript->template receive_from_prover<Commitment>("IPA:G_0");
+        auto verifier_accumulator_with_running_truth_value =
+            reduce_verify_internal_recursive(opening_claim, transcript);
+        auto round_challenges_inv = verifier_accumulator_with_running_truth_value.verifier_accumulator.u_challenges_inv;
+        // auto claimed_G_zero = transcript->template receive_from_prover<Commitment>("IPA:G_0");
+        auto claimed_G_zero = verifier_accumulator_with_running_truth_value.verifier_accumulator.comm;
 
-            // Construct vector s, whose rth entry is ∏ (u_i)^{-1 * r_i}, where (r_i) is the binary expansion of r. This
-            // is required to _compute_ G_zero (rather than just passively receive G_zero from the Prover). We implement
-            // a linear-time algorithm to optimally compute this vector
-            //
-            // Note: currently requires an extra vector of size
-            // `poly_length / 2` to cache temporaries
-            //       this might able to be optimized if we care enough, but the size of this poly shouldn't be large
-            //       relative to the builder polynomial sizes
-            std::vector<Fr> s_vec_temporaries(poly_length / 2);
-            std::vector<Fr> s_vec(poly_length);
-
-            Fr* previous_round_s = &s_vec_temporaries[0];
-            Fr* current_round_s = &s_vec[0];
-            // if number of rounds is even we need to swap these so that s_vec always contains the result
-            if constexpr ((log_poly_length & 1) == 0) {
-                std::swap(previous_round_s, current_round_s);
-            }
-            previous_round_s[0] = Fr(1);
-            for (size_t i = 0; i < log_poly_length; ++i) {
-                const size_t round_size = 1 << (i + 1);
-                const Fr round_challenge = round_challenges_inv[i];
-                for (size_t j = 0; j < round_size / 2; ++j) {
-                    current_round_s[j * 2] = previous_round_s[j];
-                    current_round_s[j * 2 + 1] = previous_round_s[j] * round_challenge;
-                }
-                std::swap(current_round_s, previous_round_s);
-            }
-
-            // Compute G_zero
-            // In the native verifier, this uses pippenger. Here we were batch_mul.
-            const std::vector<Commitment> srs_elements = vk.get_monomial_points();
-            Commitment computed_G_zero = Commitment::batch_mul(srs_elements, s_vec);
-            // check the computed G_zero and the claimed G_zero are the same. this is the difference between
-            // `reduce_verify_internal_native` and the current method.
-            claimed_G_zero.assert_equal(computed_G_zero);
-            BB_ASSERT_EQ(
-                computed_G_zero.get_value(), claimed_G_zero.get_value(), "G_zero doesn't match received G_zero.");
-        }
-        // Step 1.
-        // Add the commitment, challenge, and evaluation to the hash buffer.
-        transcript->add_to_hash_buffer("IPA:commitment", opening_claim.commitment);
-        transcript->add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
-        transcript->add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
-
-        // Step 2.
-        // Receive generator challenge u and compute auxiliary generator
-        const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
-        typename Curve::Builder* builder = generator_challenge.get_context();
-
-        static constexpr size_t pippenger_size = 2 * log_poly_length + 2;
-        std::vector<Fr> round_challenges(log_poly_length);
-        std::vector<Fr> round_challenges_inv(log_poly_length);
-        std::vector<Commitment> msm_elements(pippenger_size);
-        std::vector<Fr> msm_scalars(pippenger_size);
-
-        // Step 3.
-        // Receive all L_i and R_i and prepare for MSM
-        for (size_t i = 0; i < log_poly_length; i++) {
-
-            std::string index = std::to_string(log_poly_length - i - 1);
-            auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
-            auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
-            round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
-            round_challenges_inv[i] = round_challenges[i].invert();
-
-            msm_elements[2 * i] = element_L;
-            msm_elements[2 * i + 1] = element_R;
-            msm_scalars[2 * i] = round_challenges_inv[i];
-            msm_scalars[2 * i + 1] = round_challenges[i];
-        }
-
-        //  Step 4.
-        // Compute b_zero where b_zero can be computed using the polynomial:
-        //  g(X) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}.X^{2^{i-1}}).
-        //  b_zero = g(challenge) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}. (challenge)^{2^{i-1}})
-        Fr b_zero = evaluate_challenge_poly(round_challenges_inv, opening_claim.opening_pair.challenge);
-        // Fr b_zero = Fr(1);
-        // Fr challenge = opening_claim.opening_pair.challenge;
-        // for (size_t i = 0; i < log_poly_length; i++) {
-
-        //     Fr monomial = round_challenges_inv[log_poly_length - 1 - i] * challenge;
-        //     b_zero *= Fr(1) + monomial;
-        //     if (i != log_poly_length - 1) // this if statement is fine because the number of iterations is constant
-        //     {
-        //         challenge = challenge.sqr();
-        //     }
-        // }
-
-        // Step 5.
-        // Construct vector s, whose rth entry is ∏ (u_i)^{-1 * r_i}, where (r_i) is the binary expansion of r. This is
-        // required to _compute_ G_zero (rather than just passively receive G_zero from the Prover). We implement a
-        // linear-time algorithm to optimally compute this vector
+        // Construct vector s, whose rth entry is ∏ (u_i)^{-1 * r_i}, where (r_i) is the binary expansion of r. This
+        // is required to _compute_ G_zero (rather than just passively receive G_zero from the Prover).
         //
+        // We implement a linear-time algorithm to optimally compute this vector
         // Note: currently requires an extra vector of size
         // `poly_length / 2` to cache temporaries
         //       this might able to be optimized if we care enough, but the size of this poly shouldn't be large
@@ -718,33 +635,17 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             }
             std::swap(current_round_s, previous_round_s);
         }
-        // Receive G_zero from the prover
-        Commitment transcript_G_zero = transcript->template receive_from_prover<Commitment>("IPA:G_0");
+
         // Compute G_zero
         // In the native verifier, this uses pippenger. Here we were batch_mul.
         const std::vector<Commitment> srs_elements = vk.get_monomial_points();
-        Commitment G_zero = Commitment::batch_mul(srs_elements, s_vec);
-        // check the computed G_zero and the claimed G_zero are the same. this is the difference between
-        // `reduce_verify_internal_native` and the current method.
-        transcript_G_zero.assert_equal(G_zero);
-        BB_ASSERT_EQ(G_zero.get_value(), transcript_G_zero.get_value(), "G_zero doesn't match received G_zero.");
+        Commitment computed_G_zero = Commitment::batch_mul(srs_elements, s_vec);
+        // check the computed G_zero and the claimed G_zero are the same.
+        claimed_G_zero.assert_equal(computed_G_zero);
+        BB_ASSERT_EQ(computed_G_zero.get_value(), claimed_G_zero.get_value(), "G_zero doesn't match received G_zero.");
 
-        // Step 6.
-        // Receive a_zero from the prover
-        const auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
-
-        // Step 7.
-        // Compute R = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j - G₀ * a₀ - (f(\beta) - a₀ * b₀) ⋅ U
-        // If everything is correct, then this should be -C.
-        msm_elements.emplace_back(-G_zero);
-        msm_elements.emplace_back(-Commitment::one(builder));
-        msm_scalars.emplace_back(a_zero);
-        msm_scalars.emplace_back(generator_challenge * a_zero.madd(b_zero, { -opening_claim.opening_pair.evaluation }));
-        GroupElement ipa_relation = GroupElement::batch_mul(msm_elements, msm_scalars);
-        auto neg_commitment = -opening_claim.commitment;
-        ipa_relation.assert_equal(neg_commitment);
-
-        return (ipa_relation.get_value() == -opening_claim.commitment.get_value());
+        bool running_truth_value = verifier_accumulator_with_running_truth_value.running_truth_value;
+        return running_truth_value;
     }
 
     /**
@@ -807,7 +708,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         requires(Curve::is_stdlib_type)
     {
         const auto opening_claim = reduce_batch_opening_claim(batch_opening_claim);
-        return reduce_verify_internal_recursive(opening_claim, transcript);
+        return reduce_verify_internal_recursive(opening_claim, transcript).verifier_accumulator;
     }
 
     /**
@@ -860,7 +761,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
     /**
      * @brief Constructs challenge_poly(X) = ∏_{i ∈ [k]} (1 + u_{len-i}^{-1}.X^{2^{i-1}}), with coefficients in
-     * \f$\mathbb{F}_q\f$. The coefficients of this are alternatively known as s_vec.
+     * \f$\mathbb{F}_q\f$. The coefficients of this are alternatively known as `s_vec`.
      *
      * @param u_challenges_inv
      * @return Polynomial<bb::fq>
@@ -870,7 +771,6 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         // Construct vector s in linear time.
         std::vector<bb::fq> s_vec(poly_length, bb::fq::one());
-
         std::vector<bb::fq> s_vec_temporaries(poly_length / 2);
 
         bb::fq* previous_round_s = &s_vec_temporaries[0];
@@ -963,7 +863,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         output_claim.opening_pair.evaluation =
             evaluate_and_accumulate_challenge_polys(pair_1.u_challenges_inv, pair_2.u_challenges_inv, r, alpha);
 
-        // Step 4: Compute the new challenge polynomial
+        // Step 4: Compute the new challenge polynomial natively
         std::vector<bb::fq> native_u_challenges_inv_1;
         std::vector<bb::fq> native_u_challenges_inv_2;
         for (Fr u_inv_i : pair_1.u_challenges_inv) {
