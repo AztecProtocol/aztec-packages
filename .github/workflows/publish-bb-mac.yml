@@ -57,14 +57,14 @@ jobs:
 
       - name: Create Mac Build Environment
         run: |
-          brew install cmake ninja llvm@20
-          echo "BREW_PREFIX=(brew --prefix)" >> (brew --prefix)" >> GITHUB_ENV
+          brew install cmake ninja llvm@18
+          echo "BREW_PREFIX=$(brew --prefix)" >> $GITHUB_ENV
 
       - name: Replace version string in main.cpp
         working-directory: barretenberg/cpp
         run: |
           version_string=${{ inputs.ref_name || inputs.tag || github.ref_name }}
-          version_string=(echo(echo version_string | sed "s/\//_/")
+          version_string=$(echo $version_string | sed "s/\//_/")
           sed -i.bak "s/00000000\.00000000\.00000000/$version_string/g" src/barretenberg/bb/cli.cpp
 
       - name: Compile Barretenberg
