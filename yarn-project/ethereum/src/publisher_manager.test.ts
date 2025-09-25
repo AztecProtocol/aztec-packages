@@ -3,7 +3,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { L1TxUtils, TxUtilsState } from './l1_tx_utils.js';
+import { L1TxUtils, TxUtilsState } from './l1_tx_utils/index.js';
 import { PublisherManager } from './publisher_manager.js';
 
 describe('PublisherManager', () => {

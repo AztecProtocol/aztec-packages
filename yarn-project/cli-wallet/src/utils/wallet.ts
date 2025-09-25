@@ -10,6 +10,7 @@ import {
   BaseWallet,
   SignerlessAccount,
   type SimulateMethodOptions,
+  UniqueNote,
   getContractInstanceFromInstantiationParams,
   getGasLimits,
 } from '@aztec/aztec.js';
@@ -18,9 +19,12 @@ import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
+import type { PXEServiceConfig } from '@aztec/pxe/config';
+import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, PXE, PXEInfo } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
+import type { NotesFilter } from '@aztec/stdlib/note';
 import type { TxExecutionRequest, TxProvingResult, TxSimulationResult } from '@aztec/stdlib/tx';
 
 import type { WalletDB } from '../storage/wallet_db.js';
@@ -38,6 +42,17 @@ export class CLIWallet extends BaseWallet {
     private db?: WalletDB,
   ) {
     super(pxe, node);
+  }
+
+  static async create(
+    node: AztecNode,
+    log: LogFn,
+    db?: WalletDB,
+    overridePXEServiceConfig?: Partial<PXEServiceConfig>,
+  ): Promise<CLIWallet> {
+    const pxeConfig = Object.assign(getPXEServiceConfig(), overridePXEServiceConfig);
+    const pxe = await createPXEService(node, pxeConfig);
+    return new CLIWallet(pxe, node, log, db);
   }
 
   override async getAccounts(): Promise<Aliased<AztecAddress>[]> {
@@ -207,5 +222,24 @@ export class CLIWallet extends BaseWallet {
     const limits = getGasLimits(simulationResults, opts.fee?.estimatedGasPadding);
     printGasEstimates(fee, limits, this.userLog);
     return simulationResults;
+  }
+
+  // Recently added when having the wallet instantiate PXE as PXE is now hidden. This forced me to expose this when
+  // refactoring `checkTx` cli-wallet command.
+  getContracts(): Promise<AztecAddress[]> {
+    return this.pxe.getContracts();
+  }
+
+  // Recently added when having the wallet instantiate PXE as PXE is now hidden. This forced me to expose this when
+  // refactoring `checkTx` cli-wallet command.
+  getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
+    return this.pxe.getNotes(filter);
+  }
+
+  // Recently added when having the wallet instantiate PXE as PXE is now hidden. This forced me to expose this when
+  // refactoring `bridge_fee_juice` cli-wallet command.
+  // TODO: This should most likely just be refactored to getProtocolContractAddresses.
+  getPXEInfo(): Promise<PXEInfo> {
+    return this.pxe.getPXEInfo();
   }
 }

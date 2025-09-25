@@ -32,11 +32,14 @@ export interface ValidatorClientConfig {
   /** Interval between polling for new attestations from peers */
   attestationPollingIntervalMs: number;
 
-  /** Re-execute transactions before attesting */
+  /** Whether to re-execute transactions in a block proposal before attesting */
   validatorReexecute: boolean;
 
   /** Will re-execute until this many milliseconds are left in the slot */
   validatorReexecuteDeadlineMs: number;
+
+  /** Whether to always reexecute block proposals, even for non-validator nodes or when out of the currnet committee */
+  alwaysReexecuteBlockProposals?: boolean;
 }
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &
@@ -50,6 +53,7 @@ export const ValidatorClientConfigSchema = z.object({
   attestationPollingIntervalMs: z.number().min(0),
   validatorReexecute: z.boolean(),
   validatorReexecuteDeadlineMs: z.number().min(0),
+  alwaysReexecuteBlockProposals: z.boolean().optional(),
 }) satisfies ZodFor<Omit<ValidatorClientConfig, 'validatorPrivateKeys'>>;
 
 export interface Validator {

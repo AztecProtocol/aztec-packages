@@ -9,7 +9,6 @@ SCRIPT_NAME=$(basename "$0" .sh)
 exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log" >&2)
 
 export BOOTNODE_URL=${BOOTNODE_URL:-http://127.0.0.1:8080}
-export PXE_URL=${PXE_URL:-http://127.0.0.1:8079}
 export ETHEREUM_HOSTS=${ETHEREUM_HOSTS:-http://127.0.0.1:8545}
 
 REPO=$(git rev-parse --show-toplevel)
@@ -17,12 +16,6 @@ REPO=$(git rev-parse --show-toplevel)
 # Wait for the Aztec Node to be ready
 echo "Waiting for Aztec Node..."
 until curl -s $BOOTNODE_URL/status >/dev/null; do
-  sleep 1
-done
-echo "Waiting for PXE service..."
-until curl -s -X POST -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"pxe_getNodeInfo","params":[],"id":67}' \
-  $PXE_URL | grep -q '"enr:-'; do
   sleep 1
 done
 echo "Waiting for l2 contracts to be deployed..."

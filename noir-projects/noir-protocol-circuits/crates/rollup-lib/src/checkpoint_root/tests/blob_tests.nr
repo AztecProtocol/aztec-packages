@@ -87,9 +87,9 @@ fn overfilled_blob_fields() {
 
 #[test(should_fail_with = "Mismatched expected and actual number of blob fields")]
 fn absorbed_too_many_fields() {
-    let mut builder = TestBuilder::default();
+    let mut builder = TestBuilder::default_single_block();
 
-    builder.right_rollup.end_sponge_blob.expected_fields -= 1;
+    builder.left_rollup.end_sponge_blob.expected_fields -= 1;
 
     builder.execute_with_mock_and_fail();
 }

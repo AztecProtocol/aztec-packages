@@ -6,7 +6,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 

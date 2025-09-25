@@ -20,7 +20,7 @@ import { InboxAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-art
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract, parseEther, toFunctionSelector } from 'viem';

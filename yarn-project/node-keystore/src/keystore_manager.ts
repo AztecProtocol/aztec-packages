@@ -59,6 +59,82 @@ export class KeystoreManager {
   }
 
   /**
+   * Validates all remote signers in the keystore are accessible and have the required addresses.
+   * Should be called after construction if validation is needed.
+   */
+  async validateSigners(): Promise<void> {
+    // Collect all remote signers with their addresses grouped by URL
+    const remoteSignersByUrl = new Map<string, Set<string>>();
+
+    // Helper to extract remote signer URL from config
+    const getUrl = (config: EthRemoteSignerConfig): string => {
+      return typeof config === 'string' ? config : config.remoteSignerUrl;
+    };
+
+    // Helper to collect remote signers from accounts
+    const collectRemoteSigners = (accounts: EthAccounts, defaultRemoteSigner?: EthRemoteSignerConfig): void => {
+      const processAccount = (account: EthAccount): void => {
+        if (typeof account === 'object' && !('path' in account) && !('mnemonic' in (account as any))) {
+          // This is a remote signer account
+          const remoteSigner = account as EthRemoteSignerAccount;
+          const address = 'address' in remoteSigner ? remoteSigner.address : remoteSigner;
+
+          let url: string;
+          if ('remoteSignerUrl' in remoteSigner && remoteSigner.remoteSignerUrl) {
+            url = remoteSigner.remoteSignerUrl;
+          } else if (defaultRemoteSigner) {
+            url = getUrl(defaultRemoteSigner);
+          } else {
+            return; // No remote signer URL available
+          }
+
+          if (!remoteSignersByUrl.has(url)) {
+            remoteSignersByUrl.set(url, new Set());
+          }
+          remoteSignersByUrl.get(url)!.add(address.toString());
+        }
+      };
+
+      if (Array.isArray(accounts)) {
+        accounts.forEach(account => collectRemoteSigners(account, defaultRemoteSigner));
+      } else if (typeof accounts === 'object' && 'mnemonic' in accounts) {
+        // Skip mnemonic configs
+      } else {
+        processAccount(accounts as EthAccount);
+      }
+    };
+
+    // Collect from validators
+    const validatorCount = this.getValidatorCount();
+    for (let i = 0; i < validatorCount; i++) {
+      const validator = this.getValidator(i);
+      const remoteSigner = validator.remoteSigner || this.keystore.remoteSigner;
+
+      collectRemoteSigners(validator.attester, remoteSigner);
+      if (validator.publisher) {
+        collectRemoteSigners(validator.publisher, remoteSigner);
+      }
+    }
+
+    // Collect from slasher
+    if (this.keystore.slasher) {
+      collectRemoteSigners(this.keystore.slasher, this.keystore.remoteSigner);
+    }
+
+    // Collect from prover
+    if (this.keystore.prover && typeof this.keystore.prover === 'object' && 'publisher' in this.keystore.prover) {
+      collectRemoteSigners(this.keystore.prover.publisher, this.keystore.remoteSigner);
+    }
+
+    // Validate each remote signer URL with all its addresses
+    for (const [url, addresses] of remoteSignersByUrl.entries()) {
+      if (addresses.size > 0) {
+        await RemoteSigner.validateAccess(url, Array.from(addresses));
+      }
+    }
+  }
+
+  /**
    * Validates that attester addresses are unique across all validators
    * Only checks simple private key attesters, not JSON-V3 or mnemonic attesters,
    * these are validated when decrypting the JSON-V3 keystore files

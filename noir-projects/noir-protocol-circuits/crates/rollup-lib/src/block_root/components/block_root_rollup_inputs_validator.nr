@@ -16,14 +16,17 @@ pub fn validate_previous_rollups<let NumPreviousRollups: u32, let NumVkIndices: 
     allowed_previous_vk_indices: [u32; NumVkIndices],
 ) {
     if !dep::std::runtime::is_unconstrained() {
-        let vk_tree_root = previous_rollups[0].public_inputs.constants.vk_tree_root;
         for i in 0..NumPreviousRollups {
             previous_rollups[i].verify_proof();
-            previous_rollups[i].vk_data.validate_allowed_in_vk_tree(
-                vk_tree_root,
-                allowed_previous_vk_indices,
-            );
         }
+    }
+
+    let vk_tree_root = previous_rollups[0].public_inputs.constants.vk_tree_root;
+    for i in 0..NumPreviousRollups {
+        previous_rollups[i].vk_data.validate_allowed_in_vk_tree(
+            vk_tree_root,
+            allowed_previous_vk_indices,
+        );
     }
 
     // If there is more than one previous rollup, validate that they are consecutive.
@@ -68,21 +71,17 @@ pub fn validate_l1_to_l2_tree_snapshot_in_constants(
 pub fn validate_parity_root(data: UltraHonkProofData<ParityPublicInputs>, vk_tree_root: Field) {
     if !dep::std::runtime::is_unconstrained() {
         data.verify_proof();
-
-        assert_eq(
-            data.vk_data.leaf_index,
-            PARITY_ROOT_VK_INDEX,
-            "Incorrect vk index for parity root",
-        );
-
-        // Check that the `vk_tree_root` in the public inputs matches the one in the rollup's constants, as it was used
-        // to verify the vk of the base parity proofs.
-        assert_eq(
-            data.public_inputs.vk_tree_root,
-            vk_tree_root,
-            "The vk tree root of the parity root does not match the rollup's vk tree root",
-        );
-
-        data.vk_data.validate_in_vk_tree(vk_tree_root);
     }
+
+    assert_eq(data.vk_data.leaf_index, PARITY_ROOT_VK_INDEX, "Incorrect vk index for parity root");
+
+    // Check that the `vk_tree_root` in the public inputs matches the one in the rollup's constants, as it was used
+    // to verify the vk of the base parity proofs.
+    assert_eq(
+        data.public_inputs.vk_tree_root,
+        vk_tree_root,
+        "The vk tree root of the parity root does not match the rollup's vk tree root",
+    );
+
+    data.vk_data.validate_in_vk_tree(vk_tree_root);
 }

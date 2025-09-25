@@ -13,7 +13,6 @@ import {
   parseAztecAddress,
   parseBigint,
   parseEthereumAddress,
-  pxeOption,
 } from '../../utils/commands.js';
 
 export { addL1Validator } from './update_l1_validators.js';
@@ -518,10 +517,10 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .command('advance-epoch')
     .description('Use L1 cheat codes to warp time until the next epoch.')
     .addOption(l1RpcUrlsOption)
-    .addOption(pxeOption)
+    .addOption(nodeOption)
     .action(async options => {
       const { advanceEpoch } = await import('./advance_epoch.js');
-      await advanceEpoch(options.l1RpcUrls, options.rpcUrl, log);
+      await advanceEpoch(options.l1RpcUrls, options.nodeUrl, log);
     });
 
   program

@@ -72,9 +72,10 @@ export class ValidatorMetrics {
     this.attestationsCount.add(num);
   }
 
-  public incFailedAttestations(num: number, reason: string) {
+  public incFailedAttestations(num: number, reason: string, inCommittee: boolean) {
     this.failedAttestationsCount.add(num, {
       [Attributes.ERROR_TYPE]: reason,
+      [Attributes.VALIDATOR_STATUS]: inCommittee ? 'in-committee' : 'none',
     });
   }
 }

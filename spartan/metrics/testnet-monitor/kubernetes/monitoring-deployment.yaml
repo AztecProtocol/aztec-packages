@@ -15,7 +15,7 @@ spec:
         app: testnet-monitor
     spec:
       containers:
-        - name: testnet-monitor
+        - name: aztec-chain-monitor
           image: aztecprotocol/aztec-block-height-monitor:latest
           imagePullPolicy: Always
           ports:
@@ -29,6 +29,8 @@ spec:
                   name: testnet-monitor-secrets
                   key: infura-sepolia-url
             - name: ROLLUP_CONTRACT_ADDRESS
+              value: ""
+            - name: NETWORK
               value: ""
             - name: GRAFANA_CLOUD_PASSWORD
               valueFrom:

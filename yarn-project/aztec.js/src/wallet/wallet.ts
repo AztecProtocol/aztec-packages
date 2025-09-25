@@ -10,19 +10,20 @@ import {
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  ContractClassWithIdSchema,
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
   type ContractInstantiationData,
 } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
 import {
-  ContractClassMetadataSchema,
-  ContractMetadataSchema,
+  type ContractClassMetadata,
+  type ContractMetadata,
   EventMetadataDefinitionSchema,
   type PXE,
 } from '@aztec/stdlib/interfaces/client';
 import { PublicKeys } from '@aztec/stdlib/keys';
-import { AbiDecodedSchema, type ApiSchemaFor, optional, schemas } from '@aztec/stdlib/schemas';
+import { AbiDecodedSchema, type ApiSchemaFor, type ZodFor, optional, schemas } from '@aztec/stdlib/schemas';
 import {
   Capsule,
   HashedValues,
@@ -181,6 +182,18 @@ const MessageHashOrIntentSchema = z.union([
     call: FunctionCallSchema,
   }),
 ]);
+
+const ContractMetadataSchema = z.object({
+  contractInstance: z.union([ContractInstanceWithAddressSchema, z.undefined()]),
+  isContractInitialized: z.boolean(),
+  isContractPublished: z.boolean(),
+}) satisfies ZodFor<ContractMetadata>;
+
+const ContractClassMetadataSchema = z.object({
+  contractClass: z.union([ContractClassWithIdSchema, z.undefined()]),
+  isContractClassPubliclyRegistered: z.boolean(),
+  artifact: z.union([ContractArtifactSchema, z.undefined()]),
+}) satisfies ZodFor<ContractClassMetadata>;
 
 export const WalletSchema: ApiSchemaFor<Wallet> = {
   getChainInfo: z

@@ -7,7 +7,7 @@ import {
   Proposal,
   ProposalState,
   Configuration,
-  ProposeConfiguration,
+  ProposeWithLockConfiguration,
   Withdrawal
 } from "@aztec/governance/interfaces/IGovernance.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
@@ -417,7 +417,7 @@ contract Governance is IGovernance {
    * @return The id of the proposal
    */
   function proposeWithLock(IPayload _proposal, address _to) external override(IGovernance) returns (uint256) {
-    ProposeConfiguration memory proposeConfig = configuration.getProposeConfig();
+    ProposeWithLockConfiguration memory proposeConfig = configuration.getProposeConfig();
     _initiateWithdraw(msg.sender, _to, proposeConfig.lockAmount, proposeConfig.lockDelay);
     return _propose(_proposal, address(this));
   }
@@ -439,7 +439,7 @@ contract Governance is IGovernance {
    * @param _amount The amount of power to vote with, which must be less than the available power.
    * @param _support The support of the vote.
    */
-  function vote(uint256 _proposalId, uint256 _amount, bool _support) external override(IGovernance) returns (bool) {
+  function vote(uint256 _proposalId, uint256 _amount, bool _support) external override(IGovernance) {
     ProposalState state = getProposalState(_proposalId);
     require(state == ProposalState.Active, Errors.Governance__ProposalNotActive());
 
@@ -463,8 +463,6 @@ contract Governance is IGovernance {
     }
 
     emit VoteCast(_proposalId, msg.sender, _support, _amount);
-
-    return true;
   }
 
   /**
@@ -479,7 +477,7 @@ contract Governance is IGovernance {
    *
    * @param _proposalId The id of the proposal to execute.
    */
-  function execute(uint256 _proposalId) external override(IGovernance) returns (bool) {
+  function execute(uint256 _proposalId) external override(IGovernance) {
     ProposalState state = getProposalState(_proposalId);
     require(state == ProposalState.Executable, Errors.Governance__ProposalNotExecutable());
 
@@ -497,8 +495,6 @@ contract Governance is IGovernance {
     }
 
     emit ProposalExecuted(_proposalId);
-
-    return true;
   }
 
   /**
@@ -508,7 +504,7 @@ contract Governance is IGovernance {
    *
    * @param _proposalId The id of the proposal to mark as `Dropped`.
    */
-  function dropProposal(uint256 _proposalId) external override(IGovernance) returns (bool) {
+  function dropProposal(uint256 _proposalId) external override(IGovernance) {
     CompressedProposal storage self = proposals[_proposalId];
     require(self.cachedState != ProposalState.Dropped, Errors.Governance__ProposalAlreadyDropped());
     require(getProposalState(_proposalId) == ProposalState.Droppable, Errors.Governance__ProposalCannotBeDropped());
@@ -516,7 +512,6 @@ contract Governance is IGovernance {
     self.cachedState = ProposalState.Dropped;
 
     emit ProposalDropped(_proposalId);
-    return true;
   }
 
   /**

@@ -1,4 +1,3 @@
-pub mod avm_proof;
 pub mod traits;
 pub mod verification_key;
 pub mod vk_data;

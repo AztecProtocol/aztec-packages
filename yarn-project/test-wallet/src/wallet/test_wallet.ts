@@ -216,4 +216,8 @@ export abstract class BaseTestWallet extends BaseWallet {
   getContracts(): Promise<AztecAddress[]> {
     return this.pxe.getContracts();
   }
+
+  stop(): Promise<void> {
+    return this.pxe.stop();
+  }
 }

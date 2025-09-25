@@ -3,6 +3,7 @@ mod previous_kernel_validator_hints;
 use dep::types::{
     abis::{private_kernel_data::PrivateKernelData, side_effect::{Ordered, OrderedValue}},
     address::AztecAddress,
+    constants::{CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, PRIVATE_LOG_SIZE_IN_FIELDS},
     traits::Empty,
 };
 
@@ -71,6 +72,7 @@ impl PreviousKernelValidator {
         self.validate_empty_private_call_stack();
         self.validate_empty_validation_requests();
         self.validate_dense_trimmed_arrays();
+        self.validate_log_lengths();
         self.validate_siloed_values();
         self.validate_no_transient_data();
     }
@@ -82,8 +84,10 @@ impl PreviousKernelValidator {
 
         self.previous_kernel.public_inputs.end.l2_to_l1_msgs.assert_dense_trimmed();
 
+        // TODO(#13915): Check lengths instead of the entire array.
         self.previous_kernel.public_inputs.end.private_logs.assert_dense_trimmed();
 
+        // TODO(#13915): Check lengths instead of the entire array.
         self.previous_kernel.public_inputs.end.contract_class_logs_hashes.assert_dense_trimmed();
 
         // Private call stack is separately validated to be empty.
@@ -187,6 +191,25 @@ impl PreviousKernelValidator {
             .validation_requests
             .scoped_key_validation_requests_and_generators
             .assert_empty("Non empty key validation requests");
+    }
+
+    fn validate_log_lengths(self) {
+        let private_logs = self.previous_kernel.public_inputs.end.private_logs.array;
+        for private_log in private_logs {
+            assert(
+                private_log.inner.log.length <= PRIVATE_LOG_SIZE_IN_FIELDS,
+                "Private log length exceeds max",
+            );
+        }
+
+        let contract_class_logs =
+            self.previous_kernel.public_inputs.end.contract_class_logs_hashes.array;
+        for contract_class_log in contract_class_logs {
+            assert(
+                contract_class_log.inner.inner.length <= CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+                "Contract class log length exceeds max",
+            );
+        }
     }
 
     // Ensure that the data has been properly siloed in the reset circuit.

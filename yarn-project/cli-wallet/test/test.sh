@@ -15,10 +15,6 @@ while [[ $# -gt 0 ]]; do
       FILTER="$2"
       shift 2
       ;;
-    -r|--remote-pxe)
-      REMOTE_PXE="1"
-      shift
-      ;;
     -*|--*)
       echo "Unknown option $1"
       exit 1
@@ -37,11 +33,6 @@ export PXE_PROVER="none"
 
 rm -rf $WALLET_DATA_DIRECTORY
 mkdir -p $WALLET_DATA_DIRECTORY
-
-if [ "${REMOTE_PXE:-}" = "1" ]; then
-  echo "Using remote PXE"
-  export REMOTE_PXE="1"
-fi
 
 if [ "${USE_DOCKER:-}" = "1" ]; then
     echo "Using docker"

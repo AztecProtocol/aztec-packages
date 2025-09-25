@@ -72,11 +72,11 @@ use crate::{
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX,
-        AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-        AVM_VK_INDEX, FLAT_PUBLIC_LOGS_HEADER_LENGTH, MAX_ENQUEUED_CALLS_PER_TX, PROOF_TYPE_AVM,
+        AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX, FLAT_PUBLIC_LOGS_HEADER_LENGTH,
+        MAX_ENQUEUED_CALLS_PER_TX,
     },
     messaging::l2_to_l1_message::L2ToL1Message,
-    proof::{avm_proof::AvmProof, traits::Verifiable, vk_data::VkData},
+    proof::traits::SerializeToColumns,
     traits::{Deserialize, Empty, FromField, Serialize, ToField},
 };
 
@@ -486,8 +486,10 @@ impl AvmCircuitPublicInputs {
         // return
         cols
     }
+}
 
-    pub fn to_columns_flat(self) -> [Field; AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH] {
+impl SerializeToColumns<AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH> for AvmCircuitPublicInputs {
+    fn serialize_to_columns(self) -> [Field; AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH] {
         let mut flat = [0; AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH];
 
         let cols = self.to_columns();
@@ -498,35 +500,6 @@ impl AvmCircuitPublicInputs {
         }
 
         flat
-    }
-}
-
-pub struct AvmProofData {
-    pub public_inputs: AvmCircuitPublicInputs,
-    pub proof: AvmProof,
-    pub vk_data: VkData<AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED>,
-}
-
-impl Verifiable for AvmProofData {
-    /// Verifies the proof against the verification key and public inputs.
-    /// The vk hash is also checked in the backend to match the key.
-    fn verify(self) {
-        std::verify_proof_with_type(
-            self.vk_data.vk.key,
-            self.proof.fields,
-            self.public_inputs.to_columns_flat(),
-            self.vk_data.vk.hash,
-            PROOF_TYPE_AVM,
-        );
-    }
-}
-
-impl AvmProofData {
-    /// Validates that the vk hash exists in the vk tree at the expected index.
-    pub fn validate_vk_in_vk_tree(self, vk_tree_root: Field) {
-        assert_eq(self.vk_data.leaf_index, AVM_VK_INDEX);
-        // Note: The hash of the verification key is checked in `verify_proof_with_type` against the given vk hash.
-        self.vk_data.validate_in_vk_tree(vk_tree_root);
     }
 }
 
@@ -543,7 +516,7 @@ fn serialization_of_empty_avm_circuit_public_inputs() {
 #[test]
 fn flat_columns_of_empty_avm_circuit_public_inputs() {
     let item = AvmCircuitPublicInputs::empty();
-    let flat = item.to_columns_flat();
+    let flat = item.serialize_to_columns();
     // some assertion just to make sure it isn't optimized away
     assert(flat.len() == AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH);
 }
@@ -593,7 +566,7 @@ fn flat_columns_of_avm_circuit_public_inputs() {
     item.reverted = true;
 
     // Serialize to columns
-    let flat = item.to_columns_flat();
+    let flat = item.serialize_to_columns();
 
     // Verify length
     // Define column offsets

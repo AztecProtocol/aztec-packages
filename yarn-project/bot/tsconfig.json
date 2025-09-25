@@ -22,6 +22,9 @@
       "path": "../foundation"
     },
     {
+      "path": "../kv-store"
+    },
+    {
       "path": "../noir-contracts.js"
     },
     {

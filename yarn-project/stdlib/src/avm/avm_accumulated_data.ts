@@ -22,6 +22,7 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { inspect } from 'util';
 import { z } from 'zod';
 
+import { countAccumulatedItems } from '../kernel/utils/index.js';
 import { FlatPublicLogs } from '../logs/public_log.js';
 import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { PublicDataWrite } from './public_data_write.js';
@@ -183,6 +184,15 @@ export class AvmAccumulatedData {
     .map(h => inspect(h))
     .join(', ')}],
 }`;
+  }
+
+  getArrayLengths() {
+    return new AvmAccumulatedDataArrayLengths(
+      countAccumulatedItems(this.noteHashes),
+      countAccumulatedItems(this.nullifiers),
+      countAccumulatedItems(this.l2ToL1Msgs),
+      countAccumulatedItems(this.publicDataWrites),
+    );
   }
 }
 

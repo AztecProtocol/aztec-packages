@@ -10,7 +10,6 @@ import {
   type WaitOpts,
   type Wallet,
   createAztecNodeClient,
-  createCompatibleClient,
   retryUntil,
   waitForProven,
 } from '@aztec/aztec.js';
@@ -44,7 +43,6 @@ const provenWaitOpts: WaitForProvenOpts = {
 };
 
 export async function bootstrapNetwork(
-  pxeUrl: string,
   nodeUrl: string,
   l1Urls: string[],
   l1ChainId: string,
@@ -55,9 +53,8 @@ export async function bootstrapNetwork(
   log: LogFn,
   debugLog: Logger,
 ) {
-  const pxe = await createCompatibleClient(pxeUrl, debugLog);
   const node = createAztecNodeClient(nodeUrl);
-  const wallet = new TestWallet(pxe, node);
+  const wallet = await TestWallet.create(node);
 
   // We assume here that the initial test accounts were prefunded with deploy-l1-contracts, and deployed with setup-l2-contracts
   // so all we need to do is register them to our pxe.

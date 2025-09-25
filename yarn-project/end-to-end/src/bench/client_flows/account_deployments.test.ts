@@ -1,7 +1,7 @@
 import { EcdsaRAccountContractArtifact } from '@aztec/accounts/ecdsa';
 import { AztecAddress, type DeployOptions, Fr, type Wallet, publishContractClass } from '@aztec/aztec.js';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 

@@ -184,6 +184,30 @@ The protocol specs pages are outdated, but it may still be useful to view them i
 
 To view the protocol specs, you can run `yarn dev`. When viewing the protocol specs locally, versioning is disabled, so you can view the protocol specs in the browser. It would error otherwise because the protocol specs pages are not included in the pages in `versioned_docs` and `versioned_sidebars`.
 
+## Adding Migration Notes
+
+When making breaking changes to Aztec, add migration notes to help users upgrade. Migration notes are organized by version and component in `docs/migration_notes.md`.
+
+### Structure
+
+- **Latest changes**: Add new items at the top under `## TBD` or `## [Component]` sections
+- **Version releases**: When cutting a release, move TBD items under the new version header (e.g., `## 2.0.2`)
+- **Component sections**: Group related changes under headers like `## [Aztec.nr]`, `## [Aztec.js]`, etc.
+
+### Format
+
+Each migration item should include:
+
+1. **Clear title**: Descriptive `### Title` explaining what changed
+2. **Motivation** (optional): Why the change was made
+3. **Key points**: Numbered list of important changes
+4. **Example migration**: Before/after code using `diff` blocks:
+
+```diff
+- old_code()
++ new_code()
+```
+
 ## Contributing
 
 We welcome contributions from the community. Please review our [contribution guidelines](CONTRIBUTING.md) for more information.

@@ -12,7 +12,7 @@ import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
 import type { SequencerClient } from '@aztec/sequencer-client';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 

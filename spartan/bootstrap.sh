@@ -12,21 +12,58 @@ function build {
   denoise ./spartan/scripts/check_env_vars.sh
 }
 
+function resolve_env_file_path {
+  local env_file_input="$1"
+  if [[ "$env_file_input" = /* ]]; then
+    echo "$env_file_input"
+  else
+    echo "environments/$env_file_input.env"
+  fi
+}
+
+function source_env_basic {
+  local env_file="$1"
+  local actual_env_file=$(resolve_env_file_path "$env_file")
+
+  if [[ -f "$actual_env_file" ]]; then
+    echo "Loading basic environment variables from $actual_env_file"
+    set -a
+    # shellcheck disable=SC1090
+    source "$actual_env_file"
+    set +a
+  else
+    echo "Env file not found: $actual_env_file" >&2
+    exit 1
+  fi
+}
+
 function source_network_env {
   local env_file
   # Check if the argument is an absolute path
   if [[ "$1" = /* ]]; then
     env_file="$1"
   else
-    env_file="environments/$1"
+    env_file="environments/$1.env"
   fi
   # Optionally source an env file passed as first argument
   if [[ -n "${env_file:-}" ]]; then
     if [[ -f "$env_file" ]]; then
+
+      # Standard behavior for files without GCP secrets
       set -a
       # shellcheck disable=SC1090
       source "$env_file"
       set +a
+
+      # Check if we need to process GCP secrets and if we have gcloud auth
+      if grep -q "REPLACE_WITH_GCP_SECRET" "$env_file" && command -v gcloud &> /dev/null; then
+        echo "Environment file contains GCP secret placeholders. Processing secrets..."
+
+        # Process GCP secrets
+        source ./scripts/setup_gcp_secrets.sh "$env_file"
+
+        echo "Successfully loaded environment with GCP secrets"
+      fi
     else
       echo "Env file not found: $env_file" >&2
       exit 1
@@ -159,15 +196,30 @@ case "$cmd" in
     env_file="$1"
     amount="$2"
 
-    source_network_env $env_file
+    # First pass: source environment for basic variables like CLUSTER (skip GCP secret processing)
+    source_env_basic "$env_file"
+
+    # Perform GCP auth (needs CLUSTER and other basic vars)
+    gcp_auth
+
+    # Second pass: source environment with GCP secret processing
+    source_network_env "$env_file"
+
     ensure_eth_balances "$amount"
     ;;
   "network_deploy")
     shift
     env_file="$1"
-    source_network_env $env_file
 
+    # First pass: source environment for basic variables like CLUSTER (skip GCP secret processing)
+    source_env_basic "$env_file"
+
+    # Perform GCP auth (needs CLUSTER and other basic vars)
     gcp_auth
+
+    # Second pass: source environment with GCP secret processing
+    source_network_env "$env_file"
+
     ./scripts/deploy_network.sh
     echo "Deployed network"
 

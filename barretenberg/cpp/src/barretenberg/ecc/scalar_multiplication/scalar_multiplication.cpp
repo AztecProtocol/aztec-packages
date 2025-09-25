@@ -115,7 +115,7 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
  */
 template <typename Curve>
 std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
-    std::vector<std::span<ScalarField>>& scalars, std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept
+    std::span<std::span<ScalarField>> scalars, std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept
 {
 
     const size_t num_msms = scalars.size();
@@ -599,9 +599,10 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
         }
 
         // We do some branchless programming here to minimize instruction pipeline flushes
-        // TODO(@zac-williamson, cc @ludamad) check these ternary operators are not branching!
-        // We are iterating through our points and can come across the following scenarios:
-        // 1: The next 2 points in `point_schedule` belong to the *same* bucket
+        // TODO(@zac-williamson, cc @ludamad) check these ternary operators are not branching! -> (ludamad: they don't,
+        // but its not clear that the conditional move is fundamentally less expensive)
+        // We are iterating through our points and
+        // can come across the following scenarios: 1: The next 2 points in `point_schedule` belong to the *same* bucket
         //    (happy path - can put both points into affine_addition_scratch_space)
         // 2: The next 2 points have different bucket destinations AND point_schedule[point_it].bucket contains a point
         //    (happyish path - we can put points[lhs_schedule] and buckets[lhs_bucket] into
@@ -761,8 +762,8 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
  */
 template <typename Curve>
 std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
-    std::vector<std::span<const typename Curve::AffineElement>>& points,
-    std::vector<std::span<ScalarField>>& scalars,
+    std::span<std::span<const typename Curve::AffineElement>> points,
+    std::span<std::span<ScalarField>> scalars,
     bool handle_edge_cases) noexcept
 {
     BB_ASSERT_EQ(points.size(), scalars.size());

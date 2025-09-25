@@ -1,41 +1,28 @@
 use dep::types::{
     abis::{gas::Gas, gas_fees::GasFees, gas_settings::GasSettings},
     address::AztecAddress,
-    constants::FEE_JUICE_ADDRESS,
-    data::hash::compute_public_data_tree_index,
+    constants::{FEE_JUICE_ADDRESS, FEE_JUICE_BALANCES_SLOT},
+    data::hash::compute_public_data_leaf_slot,
     storage::map::derive_storage_slot_in_map,
 };
 use std::cmp::min;
 
-pub(crate) fn compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer: AztecAddress) -> Field {
-    let balances_slot_in_fee_juice_contract = 1;
+pub fn compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer: AztecAddress) -> Field {
     let fee_payer_balance_slot_in_fee_juice_contract =
-        derive_storage_slot_in_map(balances_slot_in_fee_juice_contract, fee_payer);
-    compute_public_data_tree_index(
+        derive_storage_slot_in_map(FEE_JUICE_BALANCES_SLOT as Field, fee_payer);
+    compute_public_data_leaf_slot(
         FEE_JUICE_ADDRESS,
         fee_payer_balance_slot_in_fee_juice_contract,
     )
 }
 
-pub fn validate_max_fees_per_gas(max_fees_per_gas: GasFees, gas_fees: GasFees) {
-    assert(
-        max_fees_per_gas.fee_per_da_gas >= gas_fees.fee_per_da_gas,
-        "da gas is higher than the maximum specified by the tx",
-    );
-    assert(
-        max_fees_per_gas.fee_per_l2_gas >= gas_fees.fee_per_l2_gas,
-        "l2 gas is higher than the maximum specified by the tx",
-    );
-}
-
-// Computes the effective gas fees from the current gas fees and taking as much
-// priority gas fees as the max_fees_per_gas allows.
+/// Computes the effective gas fees from the current gas fees and taking as much priority gas fees as the
+/// `max_fees_per_gas` allows.
 pub fn compute_effective_gas_fees(gas_fees: GasFees, gas_settings: GasSettings) -> GasFees {
     let max_priority_fees = gas_settings.max_priority_fees_per_gas;
+    // `max_fees` are checked in `private_tail_validator` to ensure that they are greater than or equal to `gas_fees`.
     let max_fees = gas_settings.max_fees_per_gas;
 
-    // max_fees are guaranteed to be greater than or equal to gas_fees, which is checked in validate_max_fees_per_gas
-    // called from validate_tx_constant_data.nr.
     let priority_fees = GasFees::new(
         min(
             max_priority_fees.fee_per_da_gas,
@@ -47,12 +34,10 @@ pub fn compute_effective_gas_fees(gas_fees: GasFees, gas_settings: GasSettings) 
         ),
     );
 
-    let effective_gas_fees = GasFees::new(
+    GasFees::new(
         gas_fees.fee_per_da_gas + priority_fees.fee_per_da_gas,
         gas_fees.fee_per_l2_gas + priority_fees.fee_per_l2_gas,
-    );
-
-    effective_gas_fees
+    )
 }
 
 pub fn compute_transaction_fee(
@@ -61,7 +46,6 @@ pub fn compute_transaction_fee(
     gas_used: Gas,
 ) -> Field {
     let effective_fees = compute_effective_gas_fees(gas_fees, gas_settings);
-
     gas_used.compute_fee(effective_fees)
 }
 

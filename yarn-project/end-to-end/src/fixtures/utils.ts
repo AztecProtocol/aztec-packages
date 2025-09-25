@@ -1,5 +1,5 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
-import { type InitialAccountData, generateSchnorrAccounts, getDeployedTestAccounts } from '@aztec/accounts/testing';
+import { type InitialAccountData, generateSchnorrAccounts, getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
@@ -11,10 +11,8 @@ import {
   type Wallet,
   createAztecNodeClient,
   createLogger,
-  createPXEClient,
-  makeFetch,
   sleep,
-  waitForPXE,
+  waitForNode,
 } from '@aztec/aztec.js';
 import { publishContractClass, publishInstance } from '@aztec/aztec.js/deployment';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
@@ -56,11 +54,9 @@ import type { P2PClientDeps } from '@aztec/p2p';
 import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
-import { type PXEServiceConfig, createPXEServiceWithSimulator, getPXEServiceConfig } from '@aztec/pxe/server';
+import { type PXEServiceConfig, getPXEServiceConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import { MemoryCircuitRecorder, SimulatorRecorderWrapper, WASMSimulator } from '@aztec/simulator/client';
-import { FileCircuitRecorder } from '@aztec/simulator/testing';
 import {
   type ContractInstanceWithAddress,
   getContractClassFromArtifact,
@@ -77,7 +73,7 @@ import {
   initTelemetryClient,
 } from '@aztec/telemetry-client';
 import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
-import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet';
+import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import type { Anvil } from '@viem/anvil';
@@ -97,8 +93,8 @@ import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 export { startAnvil };
 
-const { PXE_URL = '' } = process.env;
-const getAztecUrl = () => PXE_URL;
+const { AZTEC_NODE_URL = '' } = process.env;
+const getAztecUrl = () => AZTEC_NODE_URL;
 
 let telemetry: TelemetryClient | undefined = undefined;
 function getTelemetryClient(partialConfig: Partial<TelemetryClientConfig> & { benchmark?: boolean } = {}) {
@@ -178,18 +174,11 @@ export async function setupPXEServiceAndGetWallet(
     pxeServiceConfig.dataDirectory = path.join(tmpdir(), randomBytes(8).toString('hex'));
   }
 
-  const simulator = new WASMSimulator();
-  const recorder = process.env.CIRCUIT_RECORD_DIR
-    ? new FileCircuitRecorder(process.env.CIRCUIT_RECORD_DIR)
-    : new MemoryCircuitRecorder();
-  const simulatorWithRecorder = new SimulatorRecorderWrapper(simulator, recorder);
-  const pxe = await createPXEServiceWithSimulator(aztecNode, simulatorWithRecorder, pxeServiceConfig, {
-    useLogSuffix,
-  });
-
   const teardown = configuredDataDirectory ? () => Promise.resolve() : () => tryRmDir(pxeServiceConfig.dataDirectory!);
 
-  const wallet = new TestWallet(pxe, aztecNode);
+  const wallet = await TestWallet.create(aztecNode, pxeServiceConfig, {
+    useLogSuffix,
+  });
 
   return {
     wallet,
@@ -217,11 +206,9 @@ async function setupWithRemoteEnvironment(
   const aztecNodeUrl = getAztecUrl();
   logger.verbose(`Creating Aztec Node client to remote host ${aztecNodeUrl}`);
   const aztecNode = createAztecNodeClient(aztecNodeUrl);
-  logger.verbose(`Creating PXE client to remote host ${PXE_URL}`);
-  const pxeClient = createPXEClient(PXE_URL, {}, makeFetch([1, 2, 3], true));
-  await waitForPXE(pxeClient, logger);
-  logger.verbose('JSON RPC client connected to PXE');
-  logger.verbose(`Retrieving contract addresses from ${PXE_URL}`);
+  await waitForNode(aztecNode, logger);
+  logger.verbose('JSON RPC client connected to Aztec Node');
+  logger.verbose(`Retrieving contract addresses from ${aztecNodeUrl}`);
   const { l1ContractAddresses, rollupVersion } = await aztecNode.getNodeInfo();
 
   const l1Client = createExtendedL1Client(config.l1RpcUrls, account, foundry);
@@ -232,12 +219,12 @@ async function setupWithRemoteEnvironment(
     rollupVersion,
   };
   const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls, new DateProvider());
-  const wallet = new TestWallet(pxeClient, aztecNode);
+  const wallet = await TestWallet.create(aztecNode);
   const cheatCodes = await CheatCodes.create(config.l1RpcUrls, wallet, aztecNode, new DateProvider());
   const teardown = () => Promise.resolve();
 
   logger.verbose('Populating wallet from already registered accounts...');
-  const initialFundedAccounts = await getDeployedTestAccounts(wallet);
+  const initialFundedAccounts = await getInitialTestAccountsData();
 
   if (initialFundedAccounts.length < numberOfAccounts) {
     throw new Error(`Required ${numberOfAccounts} accounts. Found ${initialFundedAccounts.length}.`);
@@ -404,9 +391,9 @@ export async function setup(
       if (!isAnvilTestChain(chain.id)) {
         throw new Error(`No ETHEREUM_HOSTS set but non anvil chain requested`);
       }
-      if (PXE_URL) {
+      if (AZTEC_NODE_URL) {
         throw new Error(
-          `PXE_URL provided but no ETHEREUM_HOSTS set. Refusing to run, please set both variables so tests can deploy L1 contracts to the same Anvil instance`,
+          `AZTEC_NODE_URL provided but no ETHEREUM_HOSTS set. Refusing to run, please set both variables so tests can deploy L1 contracts to the same Anvil instance`,
         );
       }
 
@@ -459,7 +446,7 @@ export async function setup(
 
     config.coinbase = EthAddress.fromString(publisherHdAccount.address);
 
-    if (PXE_URL) {
+    if (AZTEC_NODE_URL) {
       // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
       return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts);
     }
