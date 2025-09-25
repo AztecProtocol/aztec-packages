@@ -1,6 +1,6 @@
 use crate::{
     hash::poseidon2_hash,
-    merkle_tree::leaf_preimage::{IndexedTreeLeafPreimage, LeafPreimage},
+    merkle_tree::{IndexedTreeLeafPreimage, LeafPreimage},
     traits::Empty,
 };
 
@@ -39,8 +39,7 @@ impl IndexedTreeLeafPreimage<Field> for ProtocolContractLeafPreimage {
     }
 
     fn points_to_infinity(self) -> bool {
-        // Unimplemented, not required
-        false
+        self.next_address == 0
     }
 
     fn update_pointers(self, _next_key: Field, _next_index: u32) -> Self {

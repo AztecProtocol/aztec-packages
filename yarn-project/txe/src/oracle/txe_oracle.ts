@@ -1,25 +1,38 @@
+import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Aes128 } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import { PXEOracleInterface } from '@aztec/pxe/server';
-import { ExecutionNoteCache, HashedValuesCache, type NoteData, UtilityContext, pickNotes } from '@aztec/pxe/simulator';
-import type { NoteSelector } from '@aztec/stdlib/abi';
+import {
+  ExecutionNoteCache,
+  HashedValuesCache,
+  type IPrivateExecutionOracle,
+  type IUtilityExecutionOracle,
+  MessageLoadOracleInputs,
+  type NoteData,
+  UtilityContext,
+  pickNotes,
+} from '@aztec/pxe/simulator';
+import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Body, L2Block } from '@aztec/stdlib/block';
 import type { ContractInstance } from '@aztec/stdlib/contract';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
+import { ContractClassLog, IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/stdlib/testing';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { insertTxEffectIntoWorldTrees, makeTXEBlockHeader } from '../utils/block_creation.js';
-import { TXETypedOracle } from './txe_typed_oracle.js';
 
-export class TXE extends TXETypedOracle {
+export class TXE implements IUtilityExecutionOracle, IPrivateExecutionOracle {
+  isMisc = true as const;
+  isUtility = true as const;
+  isPrivate = true as const;
+
   private logger: Logger;
 
   private executionCache = new HashedValuesCache();
@@ -35,8 +48,6 @@ export class TXE extends TXETypedOracle {
     private nextBlockGlobalVariables: GlobalVariables,
     private txRequestHash: Fr,
   ) {
-    super('TXEOraclePrivateUtilityContext');
-
     this.logger = createLogger('txe:oracle');
     this.logger.debug('Entering Private/Utility context');
 
@@ -81,13 +92,11 @@ export class TXE extends TXETypedOracle {
     }
   }
 
-  // TypedOracle
-
-  override utilityGetRandomField() {
+  utilityGetRandomField() {
     return Fr.random();
   }
 
-  override utilityGetUtilityContext() {
+  utilityGetUtilityContext() {
     return Promise.resolve(
       UtilityContext.from({
         blockNumber: this.anchorBlockGlobalVariables.blockNumber,
@@ -99,11 +108,11 @@ export class TXE extends TXETypedOracle {
     );
   }
 
-  override privateStoreInExecutionCache(values: Fr[], hash: Fr) {
+  privateStoreInExecutionCache(values: Fr[], hash: Fr) {
     return this.executionCache.store(values, hash);
   }
 
-  override privateLoadFromExecutionCache(hash: Fr) {
+  privateLoadFromExecutionCache(hash: Fr) {
     const preimage = this.executionCache.getPreimage(hash);
     if (!preimage) {
       throw new Error(`Preimage for hash ${hash.toString()} not found in cache`);
@@ -111,49 +120,45 @@ export class TXE extends TXETypedOracle {
     return Promise.resolve(preimage);
   }
 
-  override utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
+  utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
     return this.pxeOracleInterface.getKeyValidationRequest(pkMHash, this.contractAddress);
   }
 
-  override utilityGetContractInstance(address: AztecAddress): Promise<ContractInstance> {
+  utilityGetContractInstance(address: AztecAddress): Promise<ContractInstance> {
     return this.pxeOracleInterface.getContractInstance(address);
   }
 
-  override utilityGetMembershipWitness(
-    blockNumber: number,
-    treeId: MerkleTreeId,
-    leafValue: Fr,
-  ): Promise<Fr[] | undefined> {
+  utilityGetMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[] | undefined> {
     return this.pxeOracleInterface.getMembershipWitness(blockNumber, treeId, leafValue);
   }
 
-  override utilityGetNullifierMembershipWitness(
+  utilityGetNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     return this.pxeOracleInterface.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
-  override utilityGetPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+  utilityGetPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
     return this.pxeOracleInterface.getPublicDataWitness(blockNumber, leafSlot);
   }
 
-  override utilityGetLowNullifierMembershipWitness(
+  utilityGetLowNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     return this.pxeOracleInterface.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 
-  override async utilityGetBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
+  async utilityGetBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
     return (await this.pxeOracleInterface.getBlock(blockNumber))?.header.toBlockHeader();
   }
 
-  override utilityGetPublicKeysAndPartialAddress(account: AztecAddress) {
+  utilityGetPublicKeysAndPartialAddress(account: AztecAddress) {
     return this.pxeOracleInterface.getCompleteAddress(account);
   }
 
-  override async utilityGetNotes(
+  async utilityGetNotes(
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],
@@ -206,13 +211,7 @@ export class TXE extends TXETypedOracle {
     return notes;
   }
 
-  override privateNotifyCreatedNote(
-    storageSlot: Fr,
-    _noteTypeId: NoteSelector,
-    noteItems: Fr[],
-    noteHash: Fr,
-    counter: number,
-  ) {
+  privateNotifyCreatedNote(storageSlot: Fr, _noteTypeId: NoteSelector, noteItems: Fr[], noteHash: Fr, counter: number) {
     const note = new Note(noteItems);
     this.noteCache.addNewNote(
       {
@@ -227,23 +226,23 @@ export class TXE extends TXETypedOracle {
     );
   }
 
-  override async privateNotifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, _counter: number) {
+  async privateNotifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, _counter: number) {
     await this.checkNullifiersNotInTree(this.contractAddress, [innerNullifier]);
     await this.noteCache.nullifyNote(this.contractAddress, innerNullifier, noteHash);
   }
 
-  override async privateNotifyCreatedNullifier(innerNullifier: Fr): Promise<void> {
+  async privateNotifyCreatedNullifier(innerNullifier: Fr): Promise<void> {
     await this.checkNullifiersNotInTree(this.contractAddress, [innerNullifier]);
     await this.noteCache.nullifierCreated(this.contractAddress, innerNullifier);
   }
 
-  override async utilityCheckNullifierExists(innerNullifier: Fr): Promise<boolean> {
+  async utilityCheckNullifierExists(innerNullifier: Fr): Promise<boolean> {
     const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
     const index = await this.pxeOracleInterface.getNullifierIndex(nullifier);
     return index !== undefined;
   }
 
-  override async utilityStorageRead(
+  async utilityStorageRead(
     contractAddress: AztecAddress,
     startStorageSlot: Fr,
     blockNumber: number,
@@ -258,25 +257,22 @@ export class TXE extends TXETypedOracle {
     return values;
   }
 
-  override utilityDebugLog(message: string, fields: Fr[]): void {
+  utilityDebugLog(message: string, fields: Fr[]): void {
     this.logger.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
   }
 
-  override async privateIncrementAppTaggingSecretIndexAsSender(
-    sender: AztecAddress,
-    recipient: AztecAddress,
-  ): Promise<void> {
+  async privateIncrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {
     await this.pxeOracleInterface.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
   }
 
-  override async utilityGetIndexedTaggingSecretAsSender(
+  async utilityGetIndexedTaggingSecretAsSender(
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret> {
     return await this.pxeOracleInterface.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
-  override async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
+  async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
     await this.pxeOracleInterface.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot);
 
     await this.pxeOracleInterface.removeNullifiedNotes(this.contractAddress);
@@ -284,7 +280,7 @@ export class TXE extends TXETypedOracle {
     return Promise.resolve();
   }
 
-  public override async utilityValidateEnqueuedNotesAndEvents(
+  public async utilityValidateEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
@@ -296,7 +292,7 @@ export class TXE extends TXETypedOracle {
     );
   }
 
-  override async utilityBulkRetrieveLogs(
+  async utilityBulkRetrieveLogs(
     contractAddress: AztecAddress,
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
@@ -308,7 +304,7 @@ export class TXE extends TXETypedOracle {
     );
   }
 
-  override utilityStoreCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
+  utilityStoreCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -316,7 +312,7 @@ export class TXE extends TXETypedOracle {
     return this.pxeOracleInterface.storeCapsule(this.contractAddress, slot, capsule);
   }
 
-  override utilityLoadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+  utilityLoadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -324,7 +320,7 @@ export class TXE extends TXETypedOracle {
     return this.pxeOracleInterface.loadCapsule(this.contractAddress, slot);
   }
 
-  override utilityDeleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+  utilityDeleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -332,12 +328,7 @@ export class TXE extends TXETypedOracle {
     return this.pxeOracleInterface.deleteCapsule(this.contractAddress, slot);
   }
 
-  override utilityCopyCapsule(
-    contractAddress: AztecAddress,
-    srcSlot: Fr,
-    dstSlot: Fr,
-    numEntries: number,
-  ): Promise<void> {
+  utilityCopyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -345,20 +336,20 @@ export class TXE extends TXETypedOracle {
     return this.pxeOracleInterface.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries);
   }
 
-  override utilityAes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
+  utilityAes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
     const aes128 = new Aes128();
     return aes128.decryptBufferCBC(ciphertext, iv, symKey);
   }
 
-  override utilityGetSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
+  utilityGetSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
     return this.pxeOracleInterface.getSharedSecret(address, ephPk);
   }
 
-  override privateGetSenderForTags(): Promise<AztecAddress | undefined> {
+  privateGetSenderForTags(): Promise<AztecAddress | undefined> {
     return Promise.resolve(this.senderForTags);
   }
 
-  override privateSetSenderForTags(senderForTags: AztecAddress): Promise<void> {
+  privateSetSenderForTags(senderForTags: AztecAddress): Promise<void> {
     this.senderForTags = senderForTags;
     return Promise.resolve();
   }
@@ -415,5 +406,57 @@ export class TXE extends TXETypedOracle {
     txEffect.txHash = new TxHash(new Fr(this.nextBlockGlobalVariables.blockNumber));
 
     return txEffect;
+  }
+
+  // TODO: this class will soon be replaced with the real UtilityExecutionOracle and PrivateExecutionOracle classes. The
+  // functions below are not currently used in Noir tests, and in most cases they're caught beforehand by the RPC
+  // translator - we just have a temporary empty implementation until we finalize the migration.
+
+  utilityAssertCompatibleOracleVersion(_version: number): void {
+    throw new Error('Method not implemented.');
+  }
+  utilityGetAuthWitness(_messageHash: Fr): Promise<Fr[] | undefined> {
+    throw new Error('Method not implemented.');
+  }
+  utilityGetL1ToL2MembershipWitness(
+    _contractAddress: AztecAddress,
+    _messageHash: Fr,
+    _secret: Fr,
+  ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
+    throw new Error('Method not implemented.');
+  }
+  utilityEmitOffchainEffect(_data: Fr[]): Promise<void> {
+    throw new Error('Method not implemented.');
+  }
+  privateNotifyCreatedContractClassLog(_log: ContractClassLog, _counter: number): void {
+    throw new Error('Method not implemented.');
+  }
+  privateCallPrivateFunction(
+    _targetContractAddress: AztecAddress,
+    _functionSelector: FunctionSelector,
+    _argsHash: Fr,
+    _sideEffectCounter: number,
+    _isStaticCall: boolean,
+  ): Promise<{ endSideEffectCounter: Fr; returnsHash: Fr }> {
+    throw new Error('Method not implemented.');
+  }
+  privateNotifyEnqueuedPublicFunctionCall(
+    _targetContractAddress: AztecAddress,
+    _calldataHash: Fr,
+    _sideEffectCounter: number,
+    _isStaticCall: boolean,
+  ): Promise<void> {
+    throw new Error('Method not implemented.');
+  }
+  privateNotifySetPublicTeardownFunctionCall(
+    _targetContractAddress: AztecAddress,
+    _calldataHash: Fr,
+    _sideEffectCounter: number,
+    _isStaticCall: boolean,
+  ): Promise<void> {
+    throw new Error('Method not implemented.');
+  }
+  privateNotifySetMinRevertibleSideEffectCounter(_minRevertibleSideEffectCounter: number): Promise<void> {
+    throw new Error('Method not implemented.');
   }
 }

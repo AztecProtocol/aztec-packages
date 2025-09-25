@@ -15,7 +15,7 @@ contract DropProposalTest is GovernanceBase {
     _stateDroppable("empty", _governanceProposer);
     assertEq(governance.getProposal(proposalId).cachedState, ProposalState.Pending);
     assertEq(governance.getProposalState(proposalId), ProposalState.Droppable);
-    assertTrue(governance.dropProposal(proposalId));
+    governance.dropProposal(proposalId);
     assertEq(governance.getProposal(proposalId).cachedState, ProposalState.Dropped);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ProposalAlreadyDropped.selector));
@@ -28,7 +28,7 @@ contract DropProposalTest is GovernanceBase {
   {
     // it revert
     _stateExecutable("empty", _voter, _totalPower, _votesCast, _yeas);
-    assertTrue(governance.execute(proposalId));
+    governance.execute(proposalId);
     assertEq(governance.getProposal(proposalId).cachedState, ProposalState.Executed);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ProposalCannotBeDropped.selector));
@@ -90,7 +90,7 @@ contract DropProposalTest is GovernanceBase {
   {
     // it revert
     _stateExecutable("empty", _voter, _totalPower, _votesCast, _yeas);
-    assertTrue(governance.execute(proposalId));
+    governance.execute(proposalId);
     assertEq(governance.getProposalState(proposalId), ProposalState.Executed);
   }
 
@@ -111,7 +111,7 @@ contract DropProposalTest is GovernanceBase {
     _stateDroppable("empty", _governanceProposer);
     assertEq(governance.getProposal(proposalId).cachedState, ProposalState.Pending);
     assertEq(governance.getProposalState(proposalId), ProposalState.Droppable);
-    assertTrue(governance.dropProposal(proposalId));
+    governance.dropProposal(proposalId);
     assertEq(governance.getProposal(proposalId).cachedState, ProposalState.Dropped);
     assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
   }

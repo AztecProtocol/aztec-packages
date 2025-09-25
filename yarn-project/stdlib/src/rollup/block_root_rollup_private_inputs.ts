@@ -1,5 +1,5 @@
 import { SpongeBlob } from '@aztec/blob-lib/types';
-import { ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH } from '@aztec/constants';
+import { ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -28,9 +28,9 @@ export class BlockRootFirstRollupPrivateInputs {
      */
     public previousL1ToL2: AppendOnlyTreeSnapshot,
     /**
-     * Hint for inserting the new l1 to l2 message subtree into `previousL1ToL2`.
+     * Hint for inserting the new l1 to l2 message subtree root into `previousL1ToL2`.
      */
-    public newL1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    public newL1ToL2MessageSubtreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH>,
     /**
      * Hint for inserting the new block hash to the last archive.
      */
@@ -46,7 +46,7 @@ export class BlockRootFirstRollupPrivateInputs {
       fields.l1ToL2Roots,
       fields.previousRollups,
       fields.previousL1ToL2,
-      fields.newL1ToL2MessageSubtreeSiblingPath,
+      fields.newL1ToL2MessageSubtreeRootSiblingPath,
       fields.newArchiveSiblingPath,
     ] as const;
   }
@@ -61,7 +61,7 @@ export class BlockRootFirstRollupPrivateInputs {
       ProofData.fromBuffer(reader, ParityPublicInputs),
       [ProofData.fromBuffer(reader, TxRollupPublicInputs), ProofData.fromBuffer(reader, TxRollupPublicInputs)],
       AppendOnlyTreeSnapshot.fromBuffer(reader),
-      reader.readArray(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, Fr),
+      reader.readArray(L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
   }
@@ -90,9 +90,9 @@ export class BlockRootSingleTxFirstRollupPrivateInputs {
      */
     public previousL1ToL2: AppendOnlyTreeSnapshot,
     /**
-     * Hint for inserting the new l1 to l2 message subtree.
+     * Hint for inserting the new l1 to l2 message subtree root.
      */
-    public newL1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    public newL1ToL2MessageSubtreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH>,
     /**
      * Hint for inserting the new block hash to the last archive.
      */
@@ -110,7 +110,7 @@ export class BlockRootSingleTxFirstRollupPrivateInputs {
       fields.l1ToL2Roots,
       fields.previousRollup,
       fields.previousL1ToL2,
-      fields.newL1ToL2MessageSubtreeSiblingPath,
+      fields.newL1ToL2MessageSubtreeRootSiblingPath,
       fields.newArchiveSiblingPath,
     ] as const;
   }
@@ -125,7 +125,7 @@ export class BlockRootSingleTxFirstRollupPrivateInputs {
       ProofData.fromBuffer(reader, ParityPublicInputs),
       ProofData.fromBuffer(reader, TxRollupPublicInputs),
       AppendOnlyTreeSnapshot.fromBuffer(reader),
-      reader.readArray(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, Fr),
+      reader.readArray(L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
   }
@@ -167,9 +167,9 @@ export class BlockRootEmptyTxFirstRollupPrivateInputs {
      */
     public timestamp: UInt64,
     /**
-     * Hint for inserting the new l1 to l2 message subtree.
+     * Hint for inserting the new l1 to l2 message subtree root.
      */
-    public newL1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    public newL1ToL2MessageSubtreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH>,
     /**
      * Hint for inserting the new block hash to the last archive.
      */
@@ -188,7 +188,7 @@ export class BlockRootEmptyTxFirstRollupPrivateInputs {
       fields.constants,
       fields.startSpongeBlob,
       fields.timestamp,
-      fields.newL1ToL2MessageSubtreeSiblingPath,
+      fields.newL1ToL2MessageSubtreeRootSiblingPath,
       fields.newArchiveSiblingPath,
     ] as const;
   }
@@ -201,7 +201,7 @@ export class BlockRootEmptyTxFirstRollupPrivateInputs {
       this.constants,
       this.startSpongeBlob,
       bigintToUInt64BE(this.timestamp),
-      this.newL1ToL2MessageSubtreeSiblingPath,
+      this.newL1ToL2MessageSubtreeRootSiblingPath,
       this.newArchiveSiblingPath,
     ]);
   }
@@ -215,7 +215,7 @@ export class BlockRootEmptyTxFirstRollupPrivateInputs {
       CheckpointConstantData.fromBuffer(reader),
       SpongeBlob.fromBuffer(reader),
       reader.readUInt64(),
-      reader.readArray(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, Fr),
+      reader.readArray(L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
   }

@@ -1,13 +1,6 @@
 use super::TestBuilder;
 use dep::types::address::EthAddress;
 
-#[test]
-fn correct_default_inputs() {
-    let builder = TestBuilder::default();
-    let pi = builder.execute();
-    builder.assert_expected_public_inputs(pi);
-}
-
 #[test(should_fail_with = "Mismatched constants in tx rollups")]
 fn mismatch_last_archive_root() {
     let mut builder = TestBuilder::default();
@@ -155,8 +148,8 @@ fn non_consecutive_note_hash_tree_roots() {
     let mut builder = TestBuilder::default();
 
     // Change the start note_hash_tree root of the right rollup to be the same as the start note_hash_tree root of the left rollup.
-    builder.right_rollup.start_partial_state.note_hash_tree.root =
-        builder.left_rollup.start_partial_state.note_hash_tree.root;
+    builder.right_rollup.start_tree_snapshots.note_hash_tree.root =
+        builder.left_rollup.start_tree_snapshots.note_hash_tree.root;
 
     builder.execute_and_fail();
 }
@@ -166,8 +159,8 @@ fn non_consecutive_nullifier_tree_roots() {
     let mut builder = TestBuilder::default();
 
     // Change the start nullifier_tree root of the right rollup to be the same as the start nullifier_tree root of the left rollup.
-    builder.right_rollup.start_partial_state.nullifier_tree.root =
-        builder.left_rollup.start_partial_state.nullifier_tree.root;
+    builder.right_rollup.start_tree_snapshots.nullifier_tree.root =
+        builder.left_rollup.start_tree_snapshots.nullifier_tree.root;
 
     builder.execute_and_fail();
 }
@@ -177,8 +170,8 @@ fn non_consecutive_public_data_tree_roots() {
     let mut builder = TestBuilder::default();
 
     // Change the start public_data_tree root of the right rollup to be the same as the start public_data_tree root of the left rollup.
-    builder.right_rollup.start_partial_state.public_data_tree.root =
-        builder.left_rollup.start_partial_state.public_data_tree.root;
+    builder.right_rollup.start_tree_snapshots.public_data_tree.root =
+        builder.left_rollup.start_tree_snapshots.public_data_tree.root;
 
     builder.execute_and_fail();
 }

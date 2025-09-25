@@ -236,8 +236,8 @@ library BN254Lib {
       mstore(add(freeMem, 0x60), xx)
       // (N + 1) / 4 = 0xc19139cb84c680a6e14116da060561765e05aa45a1c72a34f082305b61f3f52
       mstore(add(freeMem, 0x80), 0xc19139cb84c680a6e14116da060561765e05aa45a1c72a34f082305b61f3f52)
-      // N = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
-      mstore(add(freeMem, 0xA0), 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+      // N = BASE_FIELD_ORDER
+      mstore(add(freeMem, 0xA0), BASE_FIELD_ORDER)
       callSuccess := staticcall(sub(gas(), 2000), 5, freeMem, 0xC0, freeMem, 0x20)
       x := mload(freeMem)
       hasRoot := eq(xx, mulmod(x, x, BASE_FIELD_ORDER))

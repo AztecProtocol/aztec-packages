@@ -123,7 +123,7 @@ export function getProverNodeAgentConfigFromEnv(): ProverAgentConfig & BBConfig 
   };
 }
 
-function createKeyStoreFromWeb3Signer(config: ProverNodeConfig) {
+function createKeyStoreFromWeb3Signer(config: ProverNodeConfig): KeyStore | undefined {
   // If we don't have a valid prover Id then we can't build a valid key store with remote signers
   if (config.proverId === undefined) {
     return undefined;
@@ -149,7 +149,7 @@ function createKeyStoreFromWeb3Signer(config: ProverNodeConfig) {
   return keyStore;
 }
 
-function createKeyStoreFromPublisherKeys(config: ProverNodeConfig) {
+function createKeyStoreFromPublisherKeys(config: ProverNodeConfig): KeyStore | undefined {
   // Extract the publisher keys from the provided config.
   const publisherKeys = config.publisherPrivateKeys
     ? config.publisherPrivateKeys.map(k => ethPrivateKeySchema.parse(k.getValue()))
@@ -179,7 +179,7 @@ function createKeyStoreFromPublisherKeys(config: ProverNodeConfig) {
   return keyStore;
 }
 
-export function createKeyStoreForProver(config: ProverNodeConfig) {
+export function createKeyStoreForProver(config: ProverNodeConfig): KeyStore | undefined {
   if (config.web3SignerUrl !== undefined && config.web3SignerUrl.length > 0) {
     return createKeyStoreFromWeb3Signer(config);
   }

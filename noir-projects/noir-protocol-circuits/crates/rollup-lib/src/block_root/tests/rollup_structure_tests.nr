@@ -20,7 +20,7 @@ fn first_with_one_base() {
     builder.assert_expected_public_inputs(pi);
 }
 
-#[test(should_fail_with = "Vk index not found in allowed list")]
+#[test(should_fail_with = "Vk index not in allowed list")]
 fn first_with_one_merge() {
     TestBuilder::new_single_rollup(TX_MERGE_ROLLUP_VK_INDEX, 2, IS_FIRST_BLOCK_ROOT)
         .execute_and_fail();
@@ -34,7 +34,7 @@ fn non_first_with_one_base() {
     builder.assert_expected_public_inputs(pi);
 }
 
-#[test(should_fail_with = "Vk index not found in allowed list")]
+#[test(should_fail_with = "Vk index not in allowed list")]
 fn non_first_with_one_merge() {
     TestBuilder::new_single_rollup(TX_MERGE_ROLLUP_VK_INDEX, 2, !IS_FIRST_BLOCK_ROOT)
         .execute_and_fail();

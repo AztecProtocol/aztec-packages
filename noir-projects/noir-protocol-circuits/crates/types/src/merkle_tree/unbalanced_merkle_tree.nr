@@ -138,10 +138,8 @@ pub fn compute_unbalanced_merkle_root<let N: u32, let MAX_SUBTREES: u32>(
 }
 
 pub mod tests {
-    use crate::{
-        hash::accumulate_sha256,
-        merkle_tree::{merkle_tree::MerkleTree, unbalanced_merkle_tree::UnbalancedMerkleTree},
-    };
+    use crate::{hash::accumulate_sha256, merkle_tree::merkle_tree::MerkleTree};
+    use super::UnbalancedMerkleTree;
 
     fn compute_balanced_tree_root<let N: u32>(leaves: [Field; N]) -> Field {
         let tree = MerkleTree::new_sha(leaves);

@@ -22,7 +22,7 @@ fn first_non_consecutive_note_hash_next_available_index() {
     let mut builder = TestBuilder::default(IS_FIRST_BLOCK_ROOT, HAS_SINGLE_TX);
 
     // Tweak the next_available_leaf_index in the note hash tree snapshot of the right rollup.
-    builder.right_rollup.start_partial_state.note_hash_tree.next_available_leaf_index += 1;
+    builder.right_rollup.start_tree_snapshots.note_hash_tree.next_available_leaf_index += 1;
 
     builder.execute_and_fail();
 }
@@ -42,7 +42,7 @@ fn non_first_non_consecutive_note_hash_next_available_index() {
     let mut builder = TestBuilder::default(!IS_FIRST_BLOCK_ROOT, HAS_SINGLE_TX);
 
     // Tweak the next_available_leaf_index in the note hash tree snapshot of the right rollup.
-    builder.right_rollup.start_partial_state.note_hash_tree.next_available_leaf_index += 1;
+    builder.right_rollup.start_tree_snapshots.note_hash_tree.next_available_leaf_index += 1;
 
     builder.execute_and_fail();
 }

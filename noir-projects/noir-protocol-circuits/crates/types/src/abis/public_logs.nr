@@ -15,6 +15,7 @@ impl PublicLogs {
         Self { payload, length }
     }
 
+    /// Public logs are added in the avm. This function is only for tests.
     pub fn add_log<let N: u32>(&mut self, contract_address: AztecAddress, log: Log<N>) {
         // Header
         self.payload[self.length] = log.length as Field;
