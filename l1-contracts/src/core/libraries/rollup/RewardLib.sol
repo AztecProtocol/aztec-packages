@@ -177,10 +177,10 @@ library RewardLib {
           }
         }
 
-        uint256 sequencerShare = BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);
-        v.sequencerBlockReward = sequencerShare / added;
+        uint256 sequenceBlockRewards = BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);
+        v.sequencerBlockReward = sequenceBlockRewards / added;
 
-        $er.rewards += (blockRewardsAvailable - sequencerShare).toUint128();
+        $er.rewards += (blockRewardsAvailable - sequenceBlockRewards).toUint128();
       }
 
       bool isTxsEnabled = FeeLib.isTxsEnabled();

@@ -12,7 +12,7 @@ import {Epoch, Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Status, AttesterView, IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {GSE, IGSECore} from "@aztec/governance/GSE.sol";
-import {StakingQueueLib} from "@aztec/core/libraries/StakingQueue.sol";
+import {StakingQueueLib, DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
 import {StakingQueueConfig, StakingQueueConfigLib} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
@@ -204,6 +204,14 @@ contract FlushEntryQueueTest is StakingBase {
     });
 
     assertEq(stakingAsset.balanceOf(address(staking)), balance + ACTIVATION_THRESHOLD, "invalid balance");
+
+    DepositArgs memory validator = staking.getEntryQueueAt(staking.getEntryQueueLength() - 1);
+    assertEq(validator.attester, _attester, "invalid attester");
+    assertEq(validator.withdrawer, _withdrawer, "invalid withdrawer");
+    assertTrue(BN254Lib.isZero(validator.publicKeyInG1), "invalid public key in G1");
+    assertTrue(BN254Lib.isZero(validator.publicKeyInG2), "invalid public key in G2");
+    assertTrue(BN254Lib.isZero(validator.proofOfPossession), "invalid proof of possession");
+    assertEq(validator.moveWithLatestRollup, _moveWithLatestRollup, "invalid move with latest rollup");
   }
 
   function _help_flushEntryQueue(uint256 _numValidators, uint256 _expectedFlushSize) internal {

@@ -28,6 +28,7 @@ import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ChainTipsLib, CompressedChainTips} from "./libraries/compressed-data/Tips.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
 import {RewardLib, RewardConfig} from "./libraries/rollup/RewardLib.sol";
+import {DepositArgs} from "./libraries/StakingQueue.sol";
 import {
   RollupCore,
   GenesisState,
@@ -529,6 +530,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function getIsBootstrapped() external view override(IStaking) returns (bool) {
     return StakingLib.getStorage().isBootstrapped;
+  }
+
+  function getEntryQueueAt(uint256 _index) external view override(IStaking) returns (DepositArgs memory) {
+    return StakingLib.getEntryQueueAt(_index);
   }
 
   function getBurnAddress() external pure override(IRollup) returns (address) {
