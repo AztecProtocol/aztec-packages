@@ -50,12 +50,22 @@ TEST_F(MSMTests, TestMSM)
                          .value = fr(0),
                          .is_constant = true,
                      } },
-
         .out_point_x = 1,
         .out_point_y = 2,
         .out_point_is_infinite = 3,
     };
 
+    WitnessVector witness{
+        fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
+        fr("0x0bff8247aa94b08d1c680d7a3e10831bd8c8cf2ea2c756b0d1d89acdcad877ad"),
+        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"),
+        fr(0),
+    };
+    // Create a predicate witness or constant which takes the index of the last witness in the array
+    auto predicate = WitnessOrConstant<fr>::from_index(static_cast<uint32_t>(witness.size()));
+    witness.push_back(fr(0));
+    // Set the predicate in the msm_constrain
+    msm_constrain.predicate = predicate;
     AcirFormat constraint_system{
         .varnum = 9,
         .num_acir_opcodes = 1,
@@ -64,13 +74,6 @@ TEST_F(MSMTests, TestMSM)
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
-
-    WitnessVector witness{
-        fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
-        fr("0x0bff8247aa94b08d1c680d7a3e10831bd8c8cf2ea2c756b0d1d89acdcad877ad"),
-        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"),
-        fr(0),
-    };
 
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit(program);
