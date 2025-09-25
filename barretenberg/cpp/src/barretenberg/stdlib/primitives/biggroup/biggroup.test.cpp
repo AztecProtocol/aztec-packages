@@ -349,15 +349,18 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
             affine_element input_a(element::random_element());
-            bool negate = (engine.get_random_uint32() % 2) == 1;
-            bool_ct negate_ct = bool_ct(witness_ct(&builder, negate ? 1 : 0));
             element_ct a = element_ct::from_witness(&builder, input_a);
             a.set_origin_tag(submitted_value_origin_tag);
+
+            // decide randomly whether to negate or not
+            bool negate = (engine.get_random_uint32() % 2) == 1;
+            bool_ct negate_ct = bool_ct(witness_ct(&builder, negate ? 1 : 0));
+            negate_ct.set_origin_tag(challenge_origin_tag);
 
             element_ct c = a.conditional_negate(negate_ct);
 
             // Check the resulting tag is preserved
-            EXPECT_EQ(c.get_origin_tag(), submitted_value_origin_tag);
+            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
             affine_element c_expected = negate ? affine_element(-element(input_a)) : input_a;
             EXPECT_EQ(c.get_value(), c_expected);
@@ -378,14 +381,15 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element_ct a = element_ct::from_witness(&builder, input_a);
             element_ct b = element_ct::from_witness(&builder, input_b);
 
-            // Set different tags in a and b
+            // Set different tags in a and b and the predicate
             a.set_origin_tag(submitted_value_origin_tag);
             b.set_origin_tag(challenge_origin_tag);
+            select_a_ct.set_origin_tag(next_challenge_tag);
 
             element_ct c = a.conditional_select(b, select_a_ct);
 
             // Check that the resulting tag is the union of inputs' tags
-            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+            EXPECT_EQ(c.get_origin_tag(), first_second_third_merged_tag);
 
             affine_element c_expected = select_a ? input_b : input_a;
             EXPECT_EQ(c.get_value(), c_expected);

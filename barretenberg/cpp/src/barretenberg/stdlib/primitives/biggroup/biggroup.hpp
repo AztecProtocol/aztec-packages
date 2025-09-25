@@ -219,11 +219,21 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         return result;
     }
 
+    /**
+     * @brief Selects `this` if predicate is false, `other` if predicate is true.
+     *
+     * @param other
+     * @param predicate
+     * @return element
+     */
     element conditional_select(const element& other, const bool_ct& predicate) const
     {
         // If predicate is constant, we can select out of circuit
         if (predicate.is_constant()) {
-            return predicate.get_value() ? other : *this;
+            auto result = predicate.get_value() ? other : *this;
+            result.set_origin_tag(
+                OriginTag(predicate.get_origin_tag(), other.get_origin_tag(), this->get_origin_tag()));
+            return result;
         }
 
         // Get the builder context
