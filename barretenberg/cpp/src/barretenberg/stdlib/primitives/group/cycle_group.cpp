@@ -856,7 +856,6 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     // Execute Straus algorithm in-circuit using the precomputed hints.
     // If unconditional_add == false, accumulate x-coordinate differences to batch-validate no collisions.
-    // WORKTODO: convert this to range loop over table/slices
     field_t coordinate_check_product = 1;
     for (size_t i = 0; i < num_rounds; ++i) {
         // Double the accumulator ROM_TABLE_BITS times (except in first round)

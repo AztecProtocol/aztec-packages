@@ -63,12 +63,13 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
     // We want to support the case where input points are points at infinity.
     // If base point is at infinity, we want every point in the table to just be `generator_point`.
     // We achieve this via the following:
-    // 1: We create a "work_point" that is base_point if not at infinity, otherwise is just "one"
+    // 1: We create a "work_point" that is base_point if not at infinity, else it is set (arbitrarily) to "one"
     // 2: When computing the point table, we use "work_point" in additions instead of the "base_point" (to prevent
     //    x-coordinate collisions in honest case) 3: When assigning to the point table, we conditionally assign either
     //    the output of the point addition (if not at infinity) or the generator point (if at infinity)
-    // 3: Conditionally (re)assign each entry in the table to be equal to the offset generator (if base_point at
-    // infinity) so that the final table is genuninely correct in all cases.
+    // 3: If point at infinity, conditionally (re)assign each entry in the table to be equal to the offset
+    //    generator so that the final table is genuninely correct in all cases. (Otherwise, the table is unchanged
+    //    from step 2)
     cycle_group<Builder> fallback_point(Group::affine_one);
     field_t modded_x = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.x, base_point.x);
     field_t modded_y = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y, base_point.y);

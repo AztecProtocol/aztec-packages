@@ -8,9 +8,9 @@ namespace bb::stdlib::test_utils {
 /**
  * @brief Utility function for gate count checking and circuit verification
  *
- * This function finalizes the circuit, checks the gate count against an expected value,
- * and runs the circuit checker. The expected gate count should be provided WITHOUT
- * the fixed number of gates that result from default constants added in the builder:
+ * This function finalizes the circuit, checks the gate count against an expected value, and runs the circuit checker.
+ * The expected gate count should be provided WITHOUT the fixed number of gates that result from default constants added
+ * in the builder:
  * - 1 base gate for UltraCircuitBuilder (fixed constant 0)
  * - 4 base gates for MegaCircuitBuilder (fixed constants 0, 3, 4, 8 for ecc op codes)
  *

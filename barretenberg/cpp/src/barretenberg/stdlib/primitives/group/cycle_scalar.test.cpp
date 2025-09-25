@@ -114,6 +114,56 @@ TYPED_TEST(CycleScalarTest, TestCreateFromBn254Scalar)
 }
 
 /**
+ * @brief Test cycle_scalar construction from BigScalarField
+ */
+TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructor)
+{
+    using cycle_scalar = typename TestFixture::cycle_scalar;
+    using ScalarField = typename TestFixture::ScalarField;
+    using BigScalarField = typename cycle_scalar::BigScalarField;
+
+    // Test with a witness BigScalarField
+    {
+        TypeParam builder;
+
+        auto value = ScalarField::random_element(&engine);
+        auto big_scalar = BigScalarField::from_witness(&builder, value);
+        cycle_scalar scalar(big_scalar);
+
+        EXPECT_EQ(scalar.get_value(), value);
+        EXPECT_FALSE(scalar.is_constant());
+
+        // Verify lo/hi decomposition matches
+        uint256_t lo_val = uint256_t(scalar.lo.get_value());
+        uint256_t hi_val = uint256_t(scalar.hi.get_value());
+        uint256_t reconstructed = lo_val + (hi_val << cycle_scalar::LO_BITS);
+        EXPECT_EQ(ScalarField(reconstructed), value);
+
+        check_circuit_and_gate_count(builder, 3498);
+    }
+
+    // Test with constant BigScalarField
+    {
+        TypeParam builder;
+
+        uint256_t value(0x123456789ABCDEF);
+        BigScalarField big_scalar(&builder, value);
+        cycle_scalar scalar(big_scalar);
+
+        EXPECT_EQ(scalar.get_value(), ScalarField(value));
+        EXPECT_TRUE(scalar.is_constant());
+
+        // Verify lo/hi decomposition matches
+        uint256_t lo_val = uint256_t(scalar.lo.get_value());
+        uint256_t hi_val = uint256_t(scalar.hi.get_value());
+        uint256_t reconstructed = lo_val + (hi_val << cycle_scalar::LO_BITS);
+        EXPECT_EQ(ScalarField(reconstructed), value);
+
+        check_circuit_and_gate_count(builder, 0);
+    }
+}
+
+/**
  * @brief Test scalar field validation
  */
 TYPED_TEST(CycleScalarTest, TestScalarFieldValidation)
@@ -207,55 +257,5 @@ TYPED_TEST(CycleScalarTest, TestScalarFieldValidationFailureBetweenModuli)
 
         // The builder should have failed
         EXPECT_TRUE(builder.failed());
-    }
-}
-
-/**
- * @brief Test cycle_scalar construction from BigScalarField
- */
-TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructor)
-{
-    using cycle_scalar = typename TestFixture::cycle_scalar;
-    using ScalarField = typename TestFixture::ScalarField;
-    using BigScalarField = typename cycle_scalar::BigScalarField;
-
-    // Test with a witness BigScalarField
-    {
-        TypeParam builder;
-
-        auto value = ScalarField::random_element(&engine);
-        auto big_scalar = BigScalarField::from_witness(&builder, value);
-        cycle_scalar scalar(big_scalar);
-
-        EXPECT_EQ(scalar.get_value(), value);
-        EXPECT_FALSE(scalar.is_constant());
-
-        // Verify lo/hi decomposition matches
-        uint256_t lo_val = uint256_t(scalar.lo.get_value());
-        uint256_t hi_val = uint256_t(scalar.hi.get_value());
-        uint256_t reconstructed = lo_val + (hi_val << cycle_scalar::LO_BITS);
-        EXPECT_EQ(ScalarField(reconstructed), value);
-
-        check_circuit_and_gate_count(builder, 3498);
-    }
-
-    // Test with constant BigScalarField
-    {
-        TypeParam builder;
-
-        uint256_t value(0x123456789ABCDEF);
-        BigScalarField big_scalar(&builder, value);
-        cycle_scalar scalar(big_scalar);
-
-        EXPECT_EQ(scalar.get_value(), ScalarField(value));
-        EXPECT_TRUE(scalar.is_constant());
-
-        // Verify lo/hi decomposition matches
-        uint256_t lo_val = uint256_t(scalar.lo.get_value());
-        uint256_t hi_val = uint256_t(scalar.hi.get_value());
-        uint256_t reconstructed = lo_val + (hi_val << cycle_scalar::LO_BITS);
-        EXPECT_EQ(ScalarField(reconstructed), value);
-
-        check_circuit_and_gate_count(builder, 0);
     }
 }

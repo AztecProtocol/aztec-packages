@@ -18,6 +18,12 @@ cycle_scalar<Builder>::cycle_scalar(const field_t& _lo, const field_t& _hi)
     , hi(_hi)
 {}
 
+/**
+ * @brief Construct a circuit-constant cycle scalar from a value in the Grumpkin scalar field
+ *
+ * @tparam Builder
+ * @param in
+ */
 template <typename Builder> cycle_scalar<Builder>::cycle_scalar(const ScalarField& in)
 {
     const uint256_t value(in);
@@ -26,6 +32,15 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(const ScalarFiel
     hi = hi_v;
 }
 
+/**
+ * @brief Construct a cycle scalar from a witness value in the Grumpkin scalar field
+ * @note Sets the free witness tag on the two limbs since they are not constrained in any way
+ *
+ * @tparam Builder
+ * @param context
+ * @param value
+ * @return cycle_scalar<Builder>
+ */
 template <typename Builder>
 cycle_scalar<Builder> cycle_scalar<Builder>::from_witness(Builder* context, const ScalarField& value)
 {
@@ -42,7 +57,7 @@ cycle_scalar<Builder> cycle_scalar<Builder>::from_witness(Builder* context, cons
  * @brief Construct a cycle scalar from a uint256_t witness bitstring
  * @details Used when we want to multiply a group element by a string of bits of known size, e.g. for Schnorr
  * signatures.
- * @note this constructor method will make our scalar multiplication methods not perform primality tests.
+ * @note This constructor method will make our scalar multiplication methods not perform primality tests.
  *
  * @tparam Builder
  * @param context
@@ -85,9 +100,8 @@ template <typename Builder> cycle_scalar<Builder> cycle_scalar<Builder>::create_
 }
 
 /**
- * @brief Construct a new cycle scalar from a bigfield _value, over the same ScalarField Field.
- * @details If input is a witness, we add constraints to ensure the conversion is correct by constructing the two cycle
- * scalar limbs from the four limbs of a bigfield:
+ * @brief Construct a new cycle scalar from a bigfield object
+ * @details Construct the two cycle scalar limbs from the four limbs of a bigfield as follows:
  *
  *  BigScalarField (four 68-bit limbs):
  *  +----------+----------+----------+----------+
@@ -106,7 +120,7 @@ template <typename Builder> cycle_scalar<Builder> cycle_scalar<Builder>::create_
  * @tparam Builder
  * @param scalar
  */
-template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& scalar)
+template <typename Builder> cycle_scalar<Builder>::cycle_scalar(const BigScalarField& scalar)
 {
     auto* ctx = get_context() ? get_context() : scalar.get_context();
 
@@ -148,10 +162,9 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
     // BigScalarField::NUM_LIMB_BITS) range check
 
     // To convert into a cycle_scalar, we need to convert 4*68 bit limbs into two limbs with sizes LO_BITS and HI_BITS.
-    // we also need to ensure that the number of bits in cycle_scalar is < LO_BITS + HI_BITS
-    // note: we do not need to validate that the scalar is within the field modulus
-    // because performing a scalar multiplication implicitly performs a modular reduction (ecc group is
-    // multiplicative modulo BigField::modulus)
+    // We also need to ensure that the number of bits in cycle_scalar is < LO_BITS + HI_BITS
+    // Note: we do not need to validate that the scalar is within the field modulus because performing a scalar
+    // multiplication implicitly performs a modular reduction (ecc group is multiplicative modulo BigField::modulus)
 
     uint256_t limb1_max = scalar.binary_basis_limbs[1].maximum_value;
 
@@ -177,18 +190,17 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
         limb0 = limb0_lo;
     }
 
-    // Sanity check that limb[1] is the limb that contributes both to *this.lo and *this.hi
+    // Sanity check that limb1 is the limb that contributes both to *this.lo and *this.hi
     BB_ASSERT_GT(BigScalarField::NUM_LIMB_BITS * 2, LO_BITS);
     BB_ASSERT_LT(BigScalarField::NUM_LIMB_BITS, LO_BITS);
 
-    // limb1 is the tricky one as it contributes to both *this.lo and *this.hi so we need to slice it into two.
-    // By this point, we know that limb1 fits in the range `1 << BigScalarField::NUM_LIMB_BITS to  (1 <<
-    // BigScalarField::NUM_LIMB_BITS) + limb1_max.get_maximum_value().
+    // limb1 contributes to both *this.lo and *this.hi. We know that limb1 fits in the range:
+    // 1 << NUM_LIMB_BITS to (1 << NUM_LIMB_BITS) + limb1_max.get_maximum_value().
     // Step 1: compute the max bit sizes of both slices
     const size_t lo_bits_in_limb_1 = LO_BITS - BigScalarField::NUM_LIMB_BITS;
     const size_t hi_bits_in_limb_1 = (static_cast<size_t>(limb1_max.get_msb()) + 1) - lo_bits_in_limb_1;
 
-    // Step 2: compute the witness values of both slices
+    // Step 2: compute the values of both slices
     const uint256_t limb_1 = limb1.get_value();
     const uint256_t limb_1_hi_multiplicand = (uint256_t(1) << lo_bits_in_limb_1);
     const uint256_t limb_1_hi_value = limb_1 >> lo_bits_in_limb_1;

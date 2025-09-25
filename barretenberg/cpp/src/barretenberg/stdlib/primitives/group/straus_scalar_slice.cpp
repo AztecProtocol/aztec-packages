@@ -14,7 +14,8 @@ namespace bb::stdlib {
 
 /**
  * @brief Construct straus_scalar_slices from an input cycle_scalar and specified table_bits
- *
+ * @details Performs an in-circuit decomposition of the input cycle_scalar into bit-slices of size `table_bits`. Range
+ * cons
  *
  *
  * @tparam Builder
@@ -72,10 +73,9 @@ straus_scalar_slices<Builder>::straus_scalar_slices(Builder* context,
         return { stdlib_slices, native_slices };
     };
 
-    const size_t lo_bits =
-        scalar.num_bits() > cycle_scalar<Builder>::LO_BITS ? cycle_scalar<Builder>::LO_BITS : scalar.num_bits();
-    const size_t hi_bits =
-        scalar.num_bits() > cycle_scalar<Builder>::LO_BITS ? scalar.num_bits() - cycle_scalar<Builder>::LO_BITS : 0;
+    constexpr size_t LO_BITS = cycle_scalar<Builder>::LO_BITS;
+    const size_t lo_bits = scalar.num_bits() > LO_BITS ? LO_BITS : scalar.num_bits();
+    const size_t hi_bits = scalar.num_bits() > LO_BITS ? scalar.num_bits() - LO_BITS : 0;
     auto hi_slices = compute_scalar_slices(scalar.hi, hi_bits);
     auto lo_slices = compute_scalar_slices(scalar.lo, lo_bits);
 

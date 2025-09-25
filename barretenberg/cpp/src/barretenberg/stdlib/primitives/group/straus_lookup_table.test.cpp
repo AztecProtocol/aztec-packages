@@ -53,11 +53,12 @@ TYPED_TEST(StrausLookupTableTest, TestTableRead)
     auto base_point = cycle_group::from_witness(&builder, base_point_native);
     auto offset_gen = cycle_group::from_witness(&builder, offset_gen_native);
 
-    const size_t table_bits = 2;
+    const size_t table_bits = 4;
     straus_lookup_table table(&builder, base_point, offset_gen, table_bits);
 
-    // Read various indices from the table
-    for (size_t i = 0; i < (1ULL << table_bits); i++) {
+    // Read from the table at each index and verify the result vs expected value
+    const size_t table_size = (1ULL << table_bits);
+    for (size_t i = 0; i < table_size; i++) {
         auto index = field_t::from_witness(&builder, i);
         auto result = table.read(index);
 
@@ -67,14 +68,12 @@ TYPED_TEST(StrausLookupTableTest, TestTableRead)
     }
 
     // Gate count difference explanation:
-    // Mega pre-adds constants {0, 3, 4, 8} for ECC op codes during construction.
-    // When setting ROM elements at index 3, Mega doesn't need to add a gate for the constant,
-    // saving 1 gate compared to Ultra which must call put_constant_variable(3).
-    // Ultra: 60 gates, Mega: 59 gates (both excluding their respective base gates)
+    // Mega pre-adds constants {0, 3, 4, 8} for ECC op codes during construction. When setting ROM elements at indices
+    // {3, 4, 8}, Mega doesn't need to add a corresponding gate for the constant value, whereas Ultra does.
     if constexpr (std::is_same_v<TypeParam, bb::UltraCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 60);
+        check_circuit_and_gate_count(builder, 216);
     } else {
-        check_circuit_and_gate_count(builder, 59);
+        check_circuit_and_gate_count(builder, 213);
     }
 }
 
@@ -114,16 +113,15 @@ TYPED_TEST(StrausLookupTableTest, TestWithProvidedHints)
     straus_lookup_table table(&builder, base_point, offset_gen, table_bits, hints_affine);
 
     // Verify reading works correctly
-    auto index = field_t::from_witness(&builder, 5);
+    auto index_val = 5;
+    auto index = field_t::from_witness(&builder, index_val);
     auto result = table.read(index);
 
-    AffineElement expected = AffineElement(offset_gen_native + (base_point_native * 5));
+    AffineElement expected = AffineElement(offset_gen_native + (base_point_native * index_val));
     EXPECT_EQ(result.get_value(), expected);
 
     // Gate count difference explanation:
-    // ROM with 8 elements (indices 0-7). Mega pre-adds constants {0, 3, 4, 8} for ECC op codes.
-    // This saves gates when setting ROM elements at indices 3 and 4 (no put_constant_variable needed).
-    // Ultra: 98 gates, Mega: 96 gates (2 gates saved for the two pre-added constants)
+    // Same as TestTableRead - ROM with 8 elements (indices 0-7).
     if constexpr (std::is_same_v<TypeParam, bb::UltraCircuitBuilder>) {
         check_circuit_and_gate_count(builder, 98);
     } else {
@@ -164,8 +162,6 @@ TYPED_TEST(StrausLookupTableTest, TestInfinityBasePoint)
 
     // Gate count difference explanation:
     // Same as TestTableRead - ROM with 4 elements (indices 0-3).
-    // Mega saves 1 gate at index 3 since constant 3 is pre-added for ECC operations.
-    // Ultra: 60 gates, Mega: 59 gates (both excluding their respective base gates)
     if constexpr (std::is_same_v<TypeParam, bb::UltraCircuitBuilder>) {
         check_circuit_and_gate_count(builder, 60);
     } else {
