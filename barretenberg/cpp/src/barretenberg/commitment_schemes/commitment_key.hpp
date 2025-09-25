@@ -123,7 +123,6 @@ template <class Curve> class CommitmentKey {
         // First batch, create the commitments vector
         std::vector<Commitment> commitments;
 
-        max_batch_size = 1;
         for (size_t i = 0; i < polynomials.size();) {
             // Note: have to be careful how we compute this to not overlow e.g. max_batch_size + 1 would
             size_t batch_size = std::min(max_batch_size, polynomials.size() - i);
@@ -131,8 +130,6 @@ template <class Curve> class CommitmentKey {
 
             // Prepare spans for batch MSM
             std::vector<std::span<const G1>> points_spans;
-            // Note, we need to const_cast unfortunately as pippenger takes non-const spans
-            // as it converts back and forth from montgomery form
             std::vector<std::span<Fr>> scalar_spans;
 
             for (auto& polynomial : polynomials.subspan(i, batch_end - i)) {
