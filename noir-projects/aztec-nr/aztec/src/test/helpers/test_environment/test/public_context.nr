@@ -118,6 +118,25 @@ unconstrained fn read_private_nullifier() {
     });
 }
 
+#[test(should_fail_with = "Duplicate key")]
+unconstrained fn rejects_duplicate_transient_nullifiers() {
+    let env = TestEnvironment::new();
+
+    env.public_context(|context| {
+        context.push_nullifier(1);
+        context.push_nullifier(1);
+    });
+}
+
+#[test(should_fail_with = "already present")]
+unconstrained fn rejects_duplicate_settled_nullifiers() {
+    let env = TestEnvironment::new();
+
+    env.public_context(|context| { context.push_nullifier(1); });
+
+    env.public_context(|context| { context.push_nullifier(1); });
+}
+
 #[test(should_fail_with = "Contract calls are forbidden")]
 unconstrained fn public_calls_fails() {
     let env = TestEnvironment::new();

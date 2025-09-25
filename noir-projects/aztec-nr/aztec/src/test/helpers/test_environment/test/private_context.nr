@@ -51,6 +51,25 @@ unconstrained fn opts_sets_contract_address_and_anchor_block_number() {
     );
 }
 
+#[test(should_fail_with = "Duplicate siloed nullifier")]
+unconstrained fn rejects_duplicate_transient_nullifiers() {
+    let env = TestEnvironment::new();
+
+    env.private_context(|context| {
+        context.push_nullifier(1);
+        context.push_nullifier(1);
+    });
+}
+
+#[test(should_fail_with = "already present")]
+unconstrained fn rejects_duplicate_settled_nullifiers() {
+    let env = TestEnvironment::new();
+
+    env.private_context(|context| { context.push_nullifier(1); });
+
+    env.private_context(|context| { context.push_nullifier(1); });
+}
+
 #[test(should_fail_with = "Contract calls are forbidden")]
 unconstrained fn private_calls_fails() {
     let env = TestEnvironment::new();
