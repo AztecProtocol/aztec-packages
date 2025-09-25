@@ -46,7 +46,7 @@ namespace bb {
  * Each column of the DataBus requires its own pair of subrelations. The column being read is selected via a unique
  * product, i.e. a lookup from bus column j is selected via q_busread * q_j (j = 1,2,...).
  *
- * To not compute the inverse terms packed in I_i for indexes that not included in the sum we introduce we introduce a
+ * To not compute the inverse terms packed in I_i for indexes that not included in the sum we introduce a
  * witness called inverse_exists, which is zero when either read_count_i is nonzero (a boolean called read_tag) or we
  * have a read gate. This is represented by setting inveser_exists = 1- (1- read_tag)*(1- is_read_gate). Since read_gate
  * is only dependent on selector values, we can assume that the verifier can check that it is boolean. However, if
@@ -314,8 +314,8 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
     /**
      * @brief Accumulate the subrelation contributions for reads from a single databus column
-     * @details Two subrelations are required per bus column, one to establish correctness of the precomputed inverses
-     * and one to establish the validity of the read.
+     * @details Three subrelations are required per bus column, one to establish correctness of the precomputed
+     * inverses, one to establish the validity of the read, and one to ensure read_tags is a boolean value
      *
      * @param accumulator
      * @param in
