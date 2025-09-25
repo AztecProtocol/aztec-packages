@@ -224,7 +224,7 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
     if constexpr (HasIPAAccumulator<Flavor>) {
         // Create a fake ipa claim and proof
         auto [stdlib_opening_claim, ipa_proof] =
-            IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_fake_ipa_claim_and_proof(builder);
+            IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_random_valid_ipa_claim_and_proof(builder);
         stdlib_opening_claim.set_public();
         builder.ipa_proof = ipa_proof;
     }
