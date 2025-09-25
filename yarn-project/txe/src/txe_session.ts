@@ -11,7 +11,9 @@ import {
   PrivateEventDataProvider,
   TaggingDataProvider,
 } from '@aztec/pxe/server';
+import type { IPrivateExecutionOracle, IUtilityExecutionOracle } from '@aztec/pxe/simulator';
 import { FunctionSelector } from '@aztec/stdlib/abi';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasSettings } from '@aztec/stdlib/gas';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
@@ -19,10 +21,10 @@ import { makeGlobalVariables } from '@aztec/stdlib/testing';
 import { CallContext, GlobalVariables, TxContext } from '@aztec/stdlib/tx';
 import type { UInt32 } from '@aztec/stdlib/types';
 
+import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { TXE } from './oracle/txe_oracle.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
-import type { TXETypedOracle } from './oracle/txe_typed_oracle.js';
 import { RPCTranslator } from './rpc_translator.js';
 import { TXEStateMachine } from './state_machine/index.js';
 import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
@@ -82,11 +84,16 @@ const DEFAULT_ADDRESS = AztecAddress.fromNumber(42);
  */
 export class TXESession implements TXESessionStateHandler {
   private state = SessionState.TOP_LEVEL;
+  private authwits: Map<string, AuthWitness> = new Map();
 
   constructor(
     private logger: Logger,
     private stateMachine: TXEStateMachine,
-    private oracleHandler: TXETypedOracle,
+    private oracleHandler:
+      | IUtilityExecutionOracle
+      | IPrivateExecutionOracle
+      | IAvmExecutionOracle
+      | ITxeExecutionOracle,
     private contractDataProvider: TXEContractDataProvider,
     private keyStore: KeyStore,
     private addressDataProvider: AddressDataProvider,
@@ -143,6 +150,7 @@ export class TXESession implements TXESessionStateHandler {
       nextBlockTimestamp,
       version,
       chainId,
+      new Map(),
     );
     await topLevelOracleHandler.txeAdvanceBlocksBy(1);
 
@@ -168,7 +176,19 @@ export class TXESession implements TXESessionStateHandler {
    * @returns The oracle return values.
    */
   processFunction(functionName: TXEOracleFunctionName, inputs: ForeignCallArgs): Promise<ForeignCallResult> {
-    return (new RPCTranslator(this, this.oracleHandler) as any)[functionName](...inputs);
+    try {
+      return (new RPCTranslator(this, this.oracleHandler) as any)[functionName](...inputs);
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(
+          `Execution error while processing function ${functionName} in state ${SessionState[this.state]}: ${error.message}`,
+        );
+      } else {
+        throw new Error(
+          `Unknown execution error while processing function ${functionName} in state ${SessionState[this.state]}`,
+        );
+      }
+    }
   }
 
   async setTopLevelContext() {
@@ -194,6 +214,7 @@ export class TXESession implements TXESessionStateHandler {
       this.nextBlockTimestamp,
       this.version,
       this.chainId,
+      this.authwits,
     );
 
     this.state = SessionState.TOP_LEVEL;
@@ -295,7 +316,11 @@ export class TXESession implements TXESessionStateHandler {
     // others, it will create empty blocks (via `txeAdvanceBlocksBy` and `deploy`), create blocks with transactions via
     // `txePrivateCallNewFlow` and `txePublicCallNewFlow`, add accounts to PXE via `txeAddAccount`, etc. This is a
     // slight inconsistency in the working model of this class, but is not too bad.
-    this.nextBlockTimestamp = (this.oracleHandler as TXEOracleTopLevelContext).close();
+    // TODO: it's quite unfortunate that we need to capture the authwits created to later pass them again when the top
+    // level context is re-created. This is because authwits create a temporary utility context that'd otherwise reset
+    // the authwits if not persisted, so we'd not be able to pass more than one per execution.
+    // Ideally authwits would be passed alongside a contract call instead of pre-seeded.
+    [this.nextBlockTimestamp, this.authwits] = (this.oracleHandler as TXEOracleTopLevelContext).close();
   }
 
   private async exitPublicContext() {
