@@ -130,8 +130,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
 
         // when computing the wNAF we have already validated that positive_skew and negative_skew cannot both be true
         bool_ct skew_combined = positive_skew_bool ^ negative_skew_bool;
-        result.x = accumulator.x.conditional_select(result.x, skew_combined);
-        result.y = accumulator.y.conditional_select(result.y, skew_combined);
+        result = accumulator.conditional_select(result, skew_combined);
         return result;
     };
 
