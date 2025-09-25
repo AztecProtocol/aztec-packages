@@ -2,13 +2,12 @@ import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import type { Command } from 'commander';
 
-import { ETHEREUM_HOSTS, l1ChainIdOption, nodeOption, parseEthereumAddress, pxeOption } from '../../utils/commands.js';
+import { ETHEREUM_HOSTS, l1ChainIdOption, nodeOption, parseEthereumAddress } from '../../utils/commands.js';
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
   program
     .command('bootstrap-network')
     .description('Bootstrap a new network')
-    .addOption(pxeOption)
     .addOption(nodeOption)
     .addOption(l1ChainIdOption)
     .requiredOption<string[]>(
@@ -33,7 +32,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .action(async options => {
       const { bootstrapNetwork } = await import('./bootstrap_network.js');
       await bootstrapNetwork(
-        options[pxeOption.attributeName()],
         options[nodeOption.attributeName()],
         options.l1RpcUrls,
         options[l1ChainIdOption.attributeName()],

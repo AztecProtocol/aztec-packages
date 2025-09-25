@@ -4,7 +4,7 @@ import { type AztecAddress, FeeJuicePaymentMethod, FeeJuicePaymentMethodWithClai
 import type { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import type { GasSettings } from '@aztec/stdlib/gas';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { FeesTest } from './fees_test.js';
 

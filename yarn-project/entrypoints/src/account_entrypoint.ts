@@ -22,7 +22,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
 
   async createTxExecutionRequest(
     exec: ExecutionPayload,
-    fee: FeeOptions,
+    feeOptions: FeeOptions,
     options: TxExecutionOptions,
   ): Promise<TxExecutionRequest> {
     // Initial request with calls, authWitnesses and capsules
@@ -32,11 +32,11 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     // Encode the calls for the app
     const appEncodedCalls = await EncodedCallsForEntrypoint.fromAppExecution(calls, txNonce);
     // Get the execution payload for the fee, it includes the calls and potentially authWitnesses
-    const { calls: feeCalls, authWitnesses: feeAuthwitnesses } = await fee.paymentMethod.getExecutionPayload(
-      fee.gasSettings,
+    const { calls: feeCalls, authWitnesses: feeAuthwitnesses } = await feeOptions.paymentMethod.getExecutionPayload(
+      feeOptions.gasSettings,
     );
     // Encode the calls for the fee
-    const feePayer = await fee.paymentMethod.getFeePayer();
+    const feePayer = await feeOptions.paymentMethod.getFeePayer();
     const isFeePayer = feePayer.equals(this.address);
     const feeEncodedCalls = await EncodedCallsForEntrypoint.fromFeeCalls(feeCalls, isFeePayer);
 
@@ -56,7 +56,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
       firstCallArgsHash: entrypointHashedArgs.hash,
       origin: this.address,
       functionSelector: await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
-      txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
+      txContext: new TxContext(this.chainId, this.version, feeOptions.gasSettings),
       argsOfCalls: [
         ...appEncodedCalls.hashedArguments,
         ...feeEncodedCalls.hashedArguments,

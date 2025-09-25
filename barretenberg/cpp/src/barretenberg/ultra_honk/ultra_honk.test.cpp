@@ -44,7 +44,7 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
         AggregationState::add_default_to_public_inputs(builder);
         if constexpr (HasIPAAccumulator<Flavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
-                IPA<stdlib::grumpkin<UltraCircuitBuilder>>::create_fake_ipa_claim_and_proof(builder);
+                IPA<stdlib::grumpkin<UltraCircuitBuilder>>::create_random_valid_ipa_claim_and_proof(builder);
             stdlib_opening_claim.set_public();
             builder.ipa_proof = ipa_proof;
         }
@@ -876,7 +876,18 @@ TYPED_TEST(UltraHonkTests, NonNativeFieldMultiplication)
         a_indices, b_indices, q_indices, r_indices, modulus_limbs,
     };
     const auto [lo_1_idx, hi_1_idx] = circuit_builder.evaluate_non_native_field_multiplication(inputs);
-    circuit_builder.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70);
+
+    // Range constrain the lo and hi carry outputs
+    const bool is_low_70_bits = uint256_t(circuit_builder.get_variable(lo_1_idx)).get_msb() < 70;
+    const bool is_high_70_bits = uint256_t(circuit_builder.get_variable(hi_1_idx)).get_msb() < 70;
+    if (is_low_70_bits && is_high_70_bits) {
+        // Uses more efficient NNF range check if both limbs are < 2^70
+        circuit_builder.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70);
+    } else {
+        // Fallback to default range checks
+        circuit_builder.decompose_into_default_range(lo_1_idx, 72);
+        circuit_builder.decompose_into_default_range(hi_1_idx, 72);
+    }
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 

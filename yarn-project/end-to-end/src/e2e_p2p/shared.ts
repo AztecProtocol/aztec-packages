@@ -14,16 +14,14 @@ import type { RollupCheatCodes } from '@aztec/aztec/testing';
 import type { EmpireSlashingProposerContract, RollupContract, TallySlashingProposerContract } from '@aztec/ethereum';
 import { timesAsync, unique } from '@aztec/foundation/collection';
 import { pluralize } from '@aztec/foundation/string';
-import type { TestDateProvider } from '@aztec/foundation/timer';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract, TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
-import { PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe/server';
+import { getPXEServiceConfig, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe/server';
 import { getRoundForOffense } from '@aztec/slasher';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
-import type { NodeContext } from '../fixtures/setup_p2p_test.js';
 import { submitTxsTo } from '../shared/submit-transactions.js';
 
 // submits a set of transactions to the provided Private eXecution Environment (PXE)
@@ -56,33 +54,38 @@ export const submitComplexTxsTo = async (
   return txs;
 };
 
-// creates an instance of the PXE and submit a given number of transactions to it.
-export const createPXEServiceAndSubmitTransactions = async (
+// creates a wallet and submit a given number of transactions through it.
+export const submitTransactions = async (
   logger: Logger,
   node: AztecNodeService,
   numTxs: number,
   fundedAccount: InitialAccountData,
-): Promise<NodeContext> => {
+): Promise<SentTx[]> => {
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
-  const pxeService = await createPXEService(node, rpcConfig, { useLogSuffix: true });
-  const wallet = new TestWallet(pxeService, node);
+  const wallet = await TestWallet.create(
+    node,
+    { ...getPXEServiceConfig(), proverEnabled: false },
+    { useLogSuffix: true },
+  );
   const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
-  const txs = await submitTxsTo(wallet, fundedAccountManager.getAddress(), numTxs, logger);
-  return { txs, pxeService, node };
+  return submitTxsTo(wallet, fundedAccountManager.getAddress(), numTxs, logger);
 };
 
-export async function createPXEServiceAndPrepareTransactions(
+export async function prepareTransactions(
   logger: Logger,
   node: AztecNodeService,
   numTxs: number,
   fundedAccount: InitialAccountData,
-): Promise<{ pxeService: PXEService; txs: ProvenTx[]; node: AztecNodeService }> {
+): Promise<ProvenTx[]> {
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
-  const pxe = await createPXEService(node, rpcConfig, { useLogSuffix: true });
 
-  const wallet = new TestWallet(pxe, node);
+  const wallet = await TestWallet.create(
+    node,
+    { ...getPXEServiceConfig(), proverEnabled: false },
+    { useLogSuffix: true },
+  );
   const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
 
   const testContractInstance = await getContractInstanceFromInstantiationParams(TestContractArtifact, {
@@ -91,14 +94,12 @@ export async function createPXEServiceAndPrepareTransactions(
   await wallet.registerContract(testContractInstance, TestContractArtifact);
   const contract = await TestContract.at(testContractInstance.address, wallet);
 
-  const txs = await timesAsync(numTxs, async () => {
+  return timesAsync(numTxs, async () => {
     const tx = await contract.methods.emit_nullifier(Fr.random()).prove({ from: fundedAccountManager.getAddress() });
     const txHash = tx.getTxHash();
     logger.info(`Tx prepared with hash ${txHash}`);
     return tx;
   });
-
-  return { txs, pxeService: pxe, node };
 }
 
 export function awaitProposalExecution(
@@ -180,7 +181,7 @@ export async function awaitOffenseDetected({
   );
   logger.info(
     `Hit ${offenses.length} offenses on rounds ${unique(offenses.map(o => getRoundForOffense(o, { slashingRoundSize, epochDuration })))}`,
-    offenses,
+    { offenses },
   );
   return offenses;
 }
@@ -197,8 +198,9 @@ export async function awaitCommitteeKicked({
   slashingProposer,
   slashingRoundSize,
   aztecSlotDuration,
+  aztecEpochDuration,
   logger,
-  dateProvider,
+  offenseEpoch,
 }: {
   rollup: RollupContract;
   cheatCodes: RollupCheatCodes;
@@ -207,21 +209,22 @@ export async function awaitCommitteeKicked({
   slashingProposer: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
   slashingRoundSize: number;
   aztecSlotDuration: number;
-  dateProvider: TestDateProvider;
+  aztecEpochDuration: number;
   logger: Logger;
+  offenseEpoch: number;
 }) {
   if (!slashingProposer) {
     throw new Error('No slashing proposer configured. Cannot test slashing.');
   }
 
-  logger.info(`Advancing epochs so we start slashing`);
   await cheatCodes.debugRollup();
-  await cheatCodes.advanceToEpoch((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochs()) + 1n, {
-    updateDateProvider: dateProvider,
-  });
 
-  // Await for the slash payload to be created if empire (no payload is created on tally until execution time)
   if (slashingProposer.type === 'empire') {
+    // Await for the slash payload to be created if empire (no payload is created on tally until execution time)
+    const targetEpoch = (await cheatCodes.getEpoch()) + (await rollup.getLagInEpochs()) + 1n;
+    logger.info(`Advancing to epoch ${targetEpoch} so we start slashing`);
+    await cheatCodes.advanceToEpoch(targetEpoch);
+
     const slashPayloadEvents = await retryUntil(
       async () => {
         const events = await slashFactory.getSlashPayloadCreatedEvents();
@@ -236,6 +239,15 @@ export async function awaitCommitteeKicked({
     expect(unique(slashPayloadEvents[0].slashes.map(slash => slash.validator.toString()))).toHaveLength(
       committee.length,
     );
+  } else {
+    // Use the slash offset to ensure we are in the right epoch for tally
+    const slashOffsetInRounds = await slashingProposer.getSlashOffsetInRounds();
+    const slashingRoundSizeInEpochs = slashingRoundSize / aztecEpochDuration;
+    const slashingOffsetInEpochs = Number(slashOffsetInRounds) * slashingRoundSizeInEpochs;
+    const firstEpochInOffenseRound = offenseEpoch - (offenseEpoch % slashingRoundSizeInEpochs);
+    const targetEpoch = firstEpochInOffenseRound + slashingOffsetInEpochs;
+    logger.info(`Advancing to epoch ${targetEpoch} so we start slashing`);
+    await cheatCodes.advanceToEpoch(targetEpoch, { offset: -aztecSlotDuration / 2 });
   }
 
   const attestersPre = await rollup.getAttesters();
@@ -246,7 +258,7 @@ export async function awaitCommitteeKicked({
     expect(attesterInfo.status).toEqual(1); // Validating
   }
 
-  const timeout = slashingRoundSize * 2 * aztecSlotDuration;
+  const timeout = slashingRoundSize * 2 * aztecSlotDuration + 30;
   logger.info(`Waiting for slash to be executed (timeout ${timeout}s)`);
   await awaitProposalExecution(slashingProposer, timeout, logger);
 
@@ -265,9 +277,7 @@ export async function awaitCommitteeKicked({
 
   logger.info(`Advancing to check current committee`);
   await cheatCodes.debugRollup();
-  await cheatCodes.advanceToEpoch((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochs()) + 1n, {
-    updateDateProvider: dateProvider,
-  });
+  await cheatCodes.advanceToEpoch((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochs()) + 1n);
   await cheatCodes.debugRollup();
 
   const committeeNextEpoch = await rollup.getCurrentEpochCommittee();

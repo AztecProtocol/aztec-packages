@@ -43,26 +43,11 @@ bot:
       # be sure to set it to a persistent volume
       export CIRCUIT_RECORD_DIR=""
 
-      # a crude way to avoid a race condition that could arise if more than one bot is started:
-      # the bots need to register contract classes, if they all start at the same time (or close to it) then multiple of them might try to register the same class leading to failed txs due to duplicate nullifiers
-      # instead lets allow the first bot to start immediately giving it the responsibility to register the classes
-      # every other bot after that will sleep at least a slot before starting up
-      if [[ "$BOT_ACCOUNT_SALT" != "1" ]]; then
-        sleep_duration=$(({{ .Values.aztec.slotDuration }} + ($RANDOM % 10)))
-        echo "Sleeping for $sleep_duration seconds"
-        sleep $sleep_duration
-      fi
-
     startCmd:
       - --bot
       - --pxe
 
-    hostNetwork: true
-
-    # give the bot 5 minutes to start
-    startupProbe:
-      periodSeconds: 30
-      failureThreshold: 10
+    hostNetwork: false
 
   service:
     p2p:

@@ -23,15 +23,15 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
     using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
-    using RecursiveVerifierInstances = RecursiveVerifierInstance_<Flavor>;
-    using NativeVerifierInstances = bb::VerifierInstance_<NativeFlavor>;
+    using RecursiveVerifierInstance = RecursiveVerifierInstance_<Flavor>;
+    using NativeVerifierInstance = bb::VerifierInstance_<NativeFlavor>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using StdlibProof = bb::stdlib::Proof<Builder>;
 
   public:
-    explicit DeciderRecursiveVerifier_(Builder* builder, std::shared_ptr<NativeVerifierInstances> accumulator)
+    explicit DeciderRecursiveVerifier_(Builder* builder, std::shared_ptr<NativeVerifierInstance> accumulator)
         : builder(builder)
-        , accumulator(std::make_shared<RecursiveVerifierInstances>(builder, accumulator)) {};
+        , accumulator(std::make_shared<RecursiveVerifierInstance>(builder, accumulator)) {};
 
     /**
      * @brief Construct a decider recursive verifier directly from a stdlib accumulator, returned by a prior iteration
@@ -43,7 +43,7 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
      * @param accumulator
      */
     explicit DeciderRecursiveVerifier_(Builder* builder,
-                                       std::shared_ptr<RecursiveVerifierInstances> accumulator,
+                                       std::shared_ptr<RecursiveVerifierInstance> accumulator,
                                        const std::shared_ptr<Transcript>& transcript)
         : builder(builder)
         , transcript(transcript)
@@ -51,8 +51,8 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
         if (this->builder == accumulator->builder) {
             this->accumulator = std::move(accumulator);
         } else {
-            this->accumulator = std::make_shared<RecursiveVerifierInstances>(
-                this->builder, std::make_shared<NativeVerifierInstances>(accumulator->get_value()));
+            this->accumulator = std::make_shared<RecursiveVerifierInstance>(
+                this->builder, std::make_shared<NativeVerifierInstance>(accumulator->get_value()));
         }
     }
 
@@ -61,7 +61,7 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
 
     VerifierCommitmentKey pcs_verification_key;
     Builder* builder;
-    std::shared_ptr<RecursiveVerifierInstances> accumulator;
+    std::shared_ptr<RecursiveVerifierInstance> accumulator;
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 };
 

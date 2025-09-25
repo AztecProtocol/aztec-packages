@@ -80,6 +80,8 @@ struct CompressedRoundAccounting {
  * - QUORUM_SIZE: Minimum signals needed for submission
  * - ROUND_SIZE: Slots per round
  * - Constraint: QUORUM_SIZE > ROUND_SIZE/2 and QUORUM_SIZE ≤ ROUND_SIZE
+ * Note that it it possible to have QUORUM_SIZE = 1 for ROUND_SIZE = 1, which effectively give all the
+ * power to the first signal.
  *
  * @dev SIGNALING METHODS:
  * 1. Direct signal: Current signaler calls `signal()`

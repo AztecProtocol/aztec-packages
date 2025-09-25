@@ -50,6 +50,7 @@ include "public_data_squash.pil";
  *   value,
  *   address,
  *   slot,
+ *   discard,
  *   prev_public_data_tree_root,
  *   next_public_data_tree_root,
  *   prev_public_data_tree_size,
@@ -59,6 +60,7 @@ include "public_data_squash.pil";
  *   public_data_check.value,
  *   public_data_check.address,
  *   public_data_check.slot,
+ *   public_data_check.discard,
  *   public_data_check.root,
  *   public_data_check.write_root,
  *   public_data_check.tree_size_before_write,
@@ -114,17 +116,20 @@ namespace public_data_check;
 
     // ========= SORTING =========
     // If not the last row, clock must not decrease
-    pol commit clk_diff;
-    clk_diff = not_end * (clk' - clk);
+    pol CLK_DIFF = not_end * (clk' - clk);
 
-    // TODO: Commited because lookups don't support constants
-    pol commit constant_32;
-    sel * (32 - constant_32) = 0;
+    pol commit clk_diff_lo;
+    pol commit clk_diff_hi;
+    #[CLK_DIFF_DECOMP]
+    CLK_DIFF = clk_diff_lo + 2**16 * clk_diff_hi;
 
-    // Disabled sorting lookups for now
-    // #[CLK_DIFF_RANGE]
-    // not_end { clk_diff, constant_32 }
-    // in range_check.sel { range_check.value, range_check.rng_chk_bits };
+    #[CLK_DIFF_RANGE_LO]
+    not_end { clk_diff_lo }
+    in precomputed.sel_range_16 { precomputed.clk };
+
+    #[CLK_DIFF_RANGE_HI]
+    not_end { clk_diff_hi }
+    in precomputed.sel_range_16 { precomputed.clk };
 
     // We enforce reads, which have unconstrained clk, to have clk = 0
     // So they have to be at the start of the trace
@@ -256,16 +261,16 @@ namespace public_data_check;
     (1 - sel) * sel' * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX - write_idx') = 0;
 
     // If a write with discard = 0, we permute to the public data squash trace to get write to public inputs
-    pol commit nondiscaded_write;
-    nondiscaded_write = write * (1 - discard);
+    pol commit non_discarded_write;
+    non_discarded_write = write * (1 - discard);
     pol commit should_write_to_public_inputs;
     // If this is a read or a discarded write, write to public inputs must be zero
-    (1 - nondiscaded_write) * should_write_to_public_inputs = 0;
+    (1 - non_discarded_write) * should_write_to_public_inputs = 0;
 
     pol commit final_value;
 
     #[SQUASHING]
-    nondiscaded_write {
+    non_discarded_write {
         leaf_slot,
         clk,
         should_write_to_public_inputs,
@@ -294,9 +299,6 @@ namespace public_data_check;
         public_inputs.cols[0],
         public_inputs.cols[1]
     };
-
-    // TODO: On end, lookup the length of public data writes in public inputs.
-    // Consider not doing it here if we implement the solution for accurate write counting during execution.
 
     // ========= ASSERT FINAL LENGTH =========
     // Every transaction we prove must have at least one public data write, the fee one.

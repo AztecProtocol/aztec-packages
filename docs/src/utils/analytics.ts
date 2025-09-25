@@ -151,6 +151,32 @@ class AnalyticsManager {
   }
 
   /**
+   * Generic event tracking method
+   */
+  trackEvent(category: string, action: string, name?: string, value?: number): void {
+    if (this.config.enableConsoleLogging) {
+      console.log(`📊 Event: ${category} > ${action}`, { name, value });
+    }
+
+    if (this.isMatomoAvailable()) {
+      try {
+        window._paq!.push([
+          'trackEvent',
+          category,
+          action,
+          name || undefined,
+          value || undefined
+        ]);
+      } catch (error) {
+        console.warn('Matomo event tracking failed:', error);
+        this.trackFallback('generic_event', { category, action, name, value });
+      }
+    } else {
+      this.trackFallback('generic_event', { category, action, name, value });
+    }
+  }
+
+  /**
    * Fallback tracking when main analytics is unavailable
    */
   private trackFallback(event: string, data: any): void {
@@ -189,6 +215,8 @@ class AnalyticsManager {
           this.trackNPSResponse(storedEvent.data);
         } else if (storedEvent.event === 'nps_widget_event') {
           this.trackNPSWidgetEvent(storedEvent.data.action, storedEvent.data.metadata);
+        } else if (storedEvent.event === 'generic_event') {
+          this.trackEvent(storedEvent.data.category, storedEvent.data.action, storedEvent.data.name, storedEvent.data.value);
         }
       });
 

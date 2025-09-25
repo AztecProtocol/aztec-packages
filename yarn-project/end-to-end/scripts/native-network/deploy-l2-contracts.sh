@@ -11,15 +11,6 @@ exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname 
 
 set -eu
 
-# Wait for PXE service to be ready
-echo "Waiting for PXE service..."
-until curl -s -X POST -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"pxe_getNodeInfo","params":[],"id":67}' \
-  http://127.0.0.1:8079 | grep -q '"enr:-'; do
-  sleep 1
-done
-echo "Done waiting."
-
 # Get the chain ID from the Ethereum node
 export ETHEREUM_HOSTS=${ETHEREUM_HOSTS:-"http://127.0.0.1:8545"}
 source "$REPO"/yarn-project/end-to-end/scripts/native-network/utils/get-chain-id.sh
@@ -30,7 +21,6 @@ ARGS="--skipProofWait --testAccounts"
 
 # Deploy L2 contracts
 export AZTEC_NODE_URL="http://127.0.0.1:8080"
-export PXE_URL="http://127.0.0.1:8079"
 node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js setup-protocol-contracts $ARGS
 echo "Deployed L2 contracts"
 # Use file just as done signal

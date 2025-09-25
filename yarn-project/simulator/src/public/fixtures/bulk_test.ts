@@ -91,14 +91,14 @@ export async function megaBulkTest(
   // for it to use as "expected" values when testing contract instance retrieval.
   const expectContractInstance = avmTestContract;
   const argsField0 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const argsField1 = [2, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const argsField2 = [3, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const argsField3 = [4, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const argsField4 = [5, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const argsField5 = [6, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const argsField6 = [7, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const argsField7 = [8, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const argsField8 = [9, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
+  const argsField1 = [3, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
+  const argsField2 = [5, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
+  const argsField3 = [7, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
+  const argsField4 = [9, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
+  const argsField5 = [11, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
+  const argsField6 = [13, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
+  const argsField7 = [15, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
+  const argsField8 = [17, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
   const argsU8 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
   const genArgs = (argsField: Fr[]) => [
     argsField,

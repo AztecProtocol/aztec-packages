@@ -11,7 +11,6 @@ import {
   parseOptionalInteger,
   parseOptionalLogId,
   parseOptionalTxHash,
-  pxeOption,
 } from '../../utils/commands.js';
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
@@ -19,11 +18,10 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .command('get-block')
     .description('Gets info for a given block or latest.')
     .argument('[blockNumber]', 'Block height', parseOptionalInteger)
-    .addOption(pxeOption)
     .addOption(nodeOption)
     .action(async (blockNumber, options) => {
       const { getBlock } = await import('./get_block.js');
-      await getBlock(options.rpcUrl, options.nodeUrl, blockNumber, debugLogger, log);
+      await getBlock(options.nodeUrl, blockNumber, log);
     });
 
   program

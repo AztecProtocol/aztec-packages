@@ -33,7 +33,6 @@ using C = Column;
 using instr_fetching = instr_fetching<FF>;
 
 using simulation::BytecodeDecompositionEvent;
-using simulation::BytecodeId;
 using simulation::InstrDeserializationError;
 using simulation::Instruction;
 using simulation::InstructionFetchingEvent;

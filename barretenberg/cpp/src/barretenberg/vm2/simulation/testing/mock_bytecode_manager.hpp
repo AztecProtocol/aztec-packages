@@ -7,7 +7,7 @@
 
 #include <gmock/gmock.h>
 
-#include "barretenberg/vm2/simulation/bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/interfaces/bytecode_manager.hpp"
 
 namespace bb::avm2::simulation {
 

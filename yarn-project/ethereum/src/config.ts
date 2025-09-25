@@ -232,11 +232,11 @@ const TestnetEntryQueueConfig = {
 };
 
 const StagingIgnitionEntryQueueConfig = {
-  bootstrapValidatorSetSize: 1250n,
-  bootstrapFlushSize: 8n,
+  bootstrapValidatorSetSize: 24n,
+  bootstrapFlushSize: 24n,
   normalFlushSizeMin: 1n,
   normalFlushSizeQuotient: 2048n,
-  maxQueueFlushSize: 8n,
+  maxQueueFlushSize: 24n,
 };
 
 export const getEntryQueueConfig = (networkName: NetworkNames) => {

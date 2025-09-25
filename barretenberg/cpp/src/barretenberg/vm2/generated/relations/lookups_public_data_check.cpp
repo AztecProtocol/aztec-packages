@@ -25,6 +25,8 @@
 
 namespace bb::avm2 {
 
+INSTANTIATE_LOOKUP(lookup_public_data_check_clk_diff_range_lo_relation);
+INSTANTIATE_LOOKUP(lookup_public_data_check_clk_diff_range_hi_relation);
 INSTANTIATE_LOOKUP(lookup_public_data_check_silo_poseidon2_relation);
 INSTANTIATE_LOOKUP(lookup_public_data_check_low_leaf_slot_validation_relation);
 INSTANTIATE_LOOKUP(lookup_public_data_check_low_leaf_next_slot_validation_relation);

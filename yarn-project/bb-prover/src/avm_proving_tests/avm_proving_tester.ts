@@ -89,8 +89,9 @@ class InterceptingLogger implements Logger {
 }
 
 export class AvmProvingTester extends PublicTxSimulationTester {
+  private bbWorkingDirectory: string = '';
+
   constructor(
-    private bbWorkingDirectory: string,
     private checkCircuitOnly: boolean,
     contractDataSource: SimpleContractDataSource,
     merkleTrees: MerkleTreeWriteOperations,
@@ -101,21 +102,15 @@ export class AvmProvingTester extends PublicTxSimulationTester {
   }
 
   static async new(checkCircuitOnly: boolean = false, globals?: GlobalVariables, metrics?: TestExecutorMetrics) {
-    const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
-
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    return new AvmProvingTester(
-      bbWorkingDirectory,
-      checkCircuitOnly,
-      contractDataSource,
-      merkleTrees,
-      globals,
-      metrics,
-    );
+    return new AvmProvingTester(checkCircuitOnly, contractDataSource, merkleTrees, globals, metrics);
   }
 
   async prove(avmCircuitInputs: AvmCircuitInputs, txLabel: string = 'unlabeledTx'): Promise<BBResult> {
+    // We use a new working directory for each proof.
+    this.bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
+
     const interceptingLogger = new InterceptingLogger(this.logger);
 
     // Then we prove.

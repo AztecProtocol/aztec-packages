@@ -1,17 +1,19 @@
 import express, { Request, Response } from "express";
 import { createPublicClient, http } from "viem";
-import { sepolia } from "viem/chains";
 import client from "prom-client";
 
-const { ROLLUP_CONTRACT_ADDRESS, ETHEREUM_HOST } = process.env;
+const { ROLLUP_CONTRACT_ADDRESS, ETHEREUM_HOST, NETWORK } = process.env;
 
-if (!ROLLUP_CONTRACT_ADDRESS || !ETHEREUM_HOST) {
+if (!ROLLUP_CONTRACT_ADDRESS || !ETHEREUM_HOST || !NETWORK) {
   console.error(
-    "ROLLUP_CONTRACT_ADDRESS and ETHEREUM_HOST are required. Provided: ",
+    "ROLLUP_CONTRACT_ADDRESS, ETHEREUM_HOST and NETWORK are required. Provided: ",
     ROLLUP_CONTRACT_ADDRESS,
-    ETHEREUM_HOST
+    ETHEREUM_HOST,
+    NETWORK
   );
-  throw new Error("ROLLUP_CONTRACT_ADDRESS and ETHEREUM_HOST are required");
+  throw new Error(
+    "ROLLUP_CONTRACT_ADDRESS, ETHEREUM_HOST and NETWORK are required"
+  );
 }
 
 if (!ROLLUP_CONTRACT_ADDRESS.startsWith("0x")) {
@@ -21,7 +23,6 @@ if (!ROLLUP_CONTRACT_ADDRESS.startsWith("0x")) {
 const transport = http(ETHEREUM_HOST);
 
 const publicClient = createPublicClient({
-  chain: sepolia,
   transport,
 });
 
@@ -53,6 +54,9 @@ const ROLLUP_ABI = [
     stateMutability: "view",
   },
 ] as const;
+
+// Add a default label to all metrics (including process metrics)
+client.register.setDefaultLabels({ network: NETWORK as string });
 
 const provenBlockNumberGauge = new client.Gauge({
   name: "rollup_proven_block_number",

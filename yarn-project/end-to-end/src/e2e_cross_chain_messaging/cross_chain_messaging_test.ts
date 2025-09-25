@@ -12,7 +12,7 @@ import { InboxAbi, OutboxAbi, TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { getContract } from 'viem';
 
@@ -71,7 +71,7 @@ export class CrossChainMessagingTest {
     this.aztecNode = this.ctx.aztecNode;
     this.wallet = this.ctx.wallet;
     this.aztecNodeConfig = this.ctx.aztecNodeConfig;
-    this.cheatCodes = await CheatCodes.create(this.aztecNodeConfig.l1RpcUrls, this.wallet, this.aztecNode);
+    this.cheatCodes = this.ctx.cheatCodes;
     this.deployL1ContractsValues = this.ctx.deployL1ContractsValues;
     this.aztecNodeAdmin = this.ctx.aztecNode;
   }

@@ -8,6 +8,7 @@ import type { TestWallet } from '@aztec/test-wallet';
 import { BaseBot } from './base_bot.js';
 import type { BotConfig } from './config.js';
 import { BotFactory } from './factory.js';
+import type { BotStore } from './store/index.js';
 
 const TRANSFER_BASE_AMOUNT = 1_000;
 const TRANSFER_VARIANCE = 200;
@@ -32,10 +33,12 @@ export class AmmBot extends BaseBot {
     wallet: TestWallet,
     aztecNode: AztecNode,
     aztecNodeAdmin: AztecNodeAdmin | undefined,
+    store: BotStore,
   ): Promise<AmmBot> {
     const { defaultAccountAddress, token0, token1, amm } = await new BotFactory(
       config,
       wallet,
+      store,
       aztecNode,
       aztecNodeAdmin,
     ).setupAmm();
@@ -73,15 +76,13 @@ export class AmmBot extends BaseBot {
       )
       .simulate({ from: this.defaultAccountAddress });
 
-    const swapExactTokensInteraction = amm.methods.swap_exact_tokens_for_tokens(
-      tokenIn.address,
-      tokenOut.address,
-      amountIn,
-      amountOutMin,
-      authwitNonce,
-    );
+    const swapExactTokensInteraction = amm.methods
+      .swap_exact_tokens_for_tokens(tokenIn.address, tokenOut.address, amountIn, amountOutMin, authwitNonce)
+      .with({
+        authWitnesses: [swapAuthwit],
+      });
 
-    const opts = this.getSendMethodOpts(swapAuthwit);
+    const opts = await this.getSendMethodOpts(swapExactTokensInteraction);
 
     this.log.verbose(`Proving transaction`, logCtx);
     const tx = await swapExactTokensInteraction.prove(opts);

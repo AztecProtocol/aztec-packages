@@ -8,6 +8,7 @@ import type { TestWallet } from '@aztec/test-wallet';
 import { BaseBot } from './base_bot.js';
 import type { BotConfig } from './config.js';
 import { BotFactory } from './factory.js';
+import type { BotStore } from './store/index.js';
 import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils.js';
 
 const TRANSFER_AMOUNT = 1;
@@ -28,11 +29,13 @@ export class Bot extends BaseBot {
     config: BotConfig,
     wallet: TestWallet,
     aztecNode: AztecNode,
-    aztecNodeAdmin?: AztecNodeAdmin,
+    aztecNodeAdmin: AztecNodeAdmin | undefined,
+    store: BotStore,
   ): Promise<Bot> {
     const { defaultAccountAddress, token, recipient } = await new BotFactory(
       config,
       wallet,
+      store,
       aztecNode,
       aztecNodeAdmin,
     ).setup();
@@ -64,8 +67,8 @@ export class Bot extends BaseBot {
           token.methods.transfer(TRANSFER_AMOUNT, this.defaultAccountAddress, recipient),
         );
 
-    const opts = this.getSendMethodOpts();
     const batch = new BatchCall(wallet, calls);
+    const opts = await this.getSendMethodOpts(batch);
 
     this.log.verbose(`Simulating transaction with ${calls.length}`, logCtx);
     await batch.simulate({ from: this.defaultAccountAddress });

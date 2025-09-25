@@ -24,7 +24,10 @@ export class StubAccountContract extends StubBaseAccountContract {
 }
 
 /**
- *
+ * Creates a stub account that impersonates the one with the provided originalAddress.
+ * @param originalAddress - The address of the account to stub
+ * @param chainInfo - The chain info that the account is connected to
+ * @returns A stub account that can be used for kernelless simulations
  */
 export function createStubAccount(originalAddress: CompleteAddress, chainInfo: ChainInfo) {
   const accountContract = new StubAccountContract();

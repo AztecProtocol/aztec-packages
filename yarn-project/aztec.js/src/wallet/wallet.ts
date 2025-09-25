@@ -10,19 +10,20 @@ import {
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  ContractClassWithIdSchema,
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
   type ContractInstantiationData,
 } from '@aztec/stdlib/contract';
-import { Gas, GasSettings } from '@aztec/stdlib/gas';
+import { Gas } from '@aztec/stdlib/gas';
 import {
-  ContractClassMetadataSchema,
-  ContractMetadataSchema,
+  type ContractClassMetadata,
+  type ContractMetadata,
   EventMetadataDefinitionSchema,
   type PXE,
 } from '@aztec/stdlib/interfaces/client';
 import { PublicKeys } from '@aztec/stdlib/keys';
-import { AbiDecodedSchema, type ApiSchemaFor, optional, schemas } from '@aztec/stdlib/schemas';
+import { AbiDecodedSchema, type ApiSchemaFor, type ZodFor, optional, schemas } from '@aztec/stdlib/schemas';
 import {
   Capsule,
   HashedValues,
@@ -85,10 +86,6 @@ export type Wallet = Pick<PXE, 'getContractClassMetadata' | 'getContractMetadata
     instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
     artifact?: ContractArtifact,
   ): Promise<ContractInstanceWithAddress>;
-  estimateGas(
-    exec: ExecutionPayload,
-    opts: Omit<SendMethodOptions, 'estimateGas'>,
-  ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>>;
   simulateTx(exec: ExecutionPayload, opts: SimulateMethodOptions): Promise<TxSimulationResult>;
   simulateUtility(
     functionName: string,
@@ -140,9 +137,11 @@ const UserFeeOptionsSchema = z.object({
       maxPriorityFeePerGas: optional(z.object({ feePerDaGas: schemas.BigInt, feePerL2Gas: schemas.BigInt })),
     }),
   ),
-  baseFeePadding: optional(z.number()),
+});
+
+const SimulationUserFeeOptionSchema = UserFeeOptionsSchema.extend({
+  estimatedGasPadding: optional(z.number()),
   estimateGas: optional(z.boolean()),
-  estimateGasPadding: optional(z.number()),
 });
 
 const SendMethodOptionsSchema = z.object({
@@ -152,18 +151,11 @@ const SendMethodOptionsSchema = z.object({
   fee: optional(UserFeeOptionsSchema),
 });
 
-const EstimateGasOptionSchema = z.object({
-  from: schemas.AztecAddress,
-  authWitnesses: optional(z.array(AuthWitness.schema)),
-  capsules: optional(z.array(Capsule.schema)),
-  fee: optional(UserFeeOptionsSchema.omit({ estimateGas: true })),
-});
-
 const SimulateMethodOptionsSchema = z.object({
   from: schemas.AztecAddress,
   authWitnesses: optional(z.array(AuthWitness.schema)),
   capsules: optional(z.array(Capsule.schema)),
-  fee: optional(UserFeeOptionsSchema),
+  fee: optional(SimulationUserFeeOptionSchema),
   skipTxValidation: optional(z.boolean()),
   skipFeeEnforcement: optional(z.boolean()),
   includeMetadata: optional(z.boolean()),
@@ -191,6 +183,18 @@ const MessageHashOrIntentSchema = z.union([
   }),
 ]);
 
+const ContractMetadataSchema = z.object({
+  contractInstance: z.union([ContractInstanceWithAddressSchema, z.undefined()]),
+  isContractInitialized: z.boolean(),
+  isContractPublished: z.boolean(),
+}) satisfies ZodFor<ContractMetadata>;
+
+const ContractClassMetadataSchema = z.object({
+  contractClass: z.union([ContractClassWithIdSchema, z.undefined()]),
+  isContractClassPubliclyRegistered: z.boolean(),
+  artifact: z.union([ContractArtifactSchema, z.undefined()]),
+}) satisfies ZodFor<ContractClassMetadata>;
+
 export const WalletSchema: ApiSchemaFor<Wallet> = {
   getChainInfo: z
     .function()
@@ -217,10 +221,6 @@ export const WalletSchema: ApiSchemaFor<Wallet> = {
     .function()
     .args(InstanceDataSchema, optional(ContractArtifactSchema))
     .returns(ContractInstanceWithAddressSchema),
-  estimateGas: z
-    .function()
-    .args(ExecutionPayloadSchema, EstimateGasOptionSchema)
-    .returns(z.object({ gasLimits: Gas.schema, teardownGasLimits: Gas.schema })),
   simulateTx: z.function().args(ExecutionPayloadSchema, SimulateMethodOptionsSchema).returns(TxSimulationResult.schema),
   simulateUtility: z
     .function()

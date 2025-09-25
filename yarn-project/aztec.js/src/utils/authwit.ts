@@ -6,11 +6,12 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeVarArgsHash } from '@aztec/stdlib/hash';
 import type { TxProfileResult } from '@aztec/stdlib/tx';
 
-import { ContractFunctionInteraction, type SimulationReturn } from '../contract/contract_function_interaction.js';
+import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import type {
   ProfileMethodOptions,
   SendMethodOptions,
   SimulateMethodOptions,
+  SimulationReturn,
 } from '../contract/interaction_options.js';
 import type { SentTx } from '../contract/sent_tx.js';
 import type { ChainInfo, Wallet } from '../wallet/index.js';

@@ -4,7 +4,7 @@ import { RollupContract } from '@aztec/ethereum';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import type { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
@@ -37,7 +37,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
       crossChainTestHarness!.l1ContractAddresses.rollupAddress,
     );
 
-    cheatCodes = await CheatCodes.create(t.aztecNodeConfig.l1RpcUrls, t.wallet, t.aztecNode);
+    cheatCodes = t.ctx.cheatCodes;
   }, 300_000);
 
   afterEach(async () => {

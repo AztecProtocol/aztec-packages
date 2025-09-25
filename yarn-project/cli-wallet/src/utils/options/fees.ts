@@ -253,7 +253,6 @@ export class CLIFeeArgs {
     return {
       paymentMethod: await this.paymentMethod(wallet, sender),
       gasSettings: this.gasSettings,
-      estimateGas: this.estimateGas,
     };
   }
 

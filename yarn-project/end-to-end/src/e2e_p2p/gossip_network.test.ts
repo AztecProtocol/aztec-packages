@@ -1,6 +1,6 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { retryUntil, sleep } from '@aztec/aztec.js';
+import { SentTx, retryUntil, sleep } from '@aztec/aztec.js';
 import type { ProverNode } from '@aztec/prover-node';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
@@ -12,15 +12,10 @@ import os from 'os';
 import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
-import {
-  ATTESTER_PRIVATE_KEYS_START_INDEX,
-  type NodeContext,
-  createNodes,
-  createProverNode,
-} from '../fixtures/setup_p2p_test.js';
+import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNodes, createProverNode } from '../fixtures/setup_p2p_test.js';
 import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
-import { createPXEServiceAndSubmitTransactions } from './shared.js';
+import { submitTransactions } from './shared.js';
 
 const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 
@@ -97,7 +92,7 @@ describe('e2e_p2p_network', () => {
     // the number of txs per node and the number of txs per rollup
     // should be set so that the only way for rollups to be built
     // is if the txs are successfully gossiped around the nodes.
-    const contexts: NodeContext[] = [];
+    const txsSentViaDifferentNodes: SentTx[][] = [];
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
@@ -134,15 +129,15 @@ describe('e2e_p2p_network', () => {
 
     t.logger.info('Submitting transactions');
     for (const node of nodes) {
-      const context = await createPXEServiceAndSubmitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
-      contexts.push(context);
+      const context = await submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
+      txsSentViaDifferentNodes.push(context);
     }
 
     t.logger.info('Waiting for transactions to be mined');
     // now ensure that all txs were successfully mined
     await Promise.all(
-      contexts.flatMap((context, i) =>
-        context.txs.map(async (tx, j) => {
+      txsSentViaDifferentNodes.flatMap((txs, i) =>
+        txs.map(async (tx, j) => {
           t.logger.info(`Waiting for tx ${i}-${j}: ${(await tx.getTxHash()).toString()} to be mined`);
           return tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
         }),
@@ -151,7 +146,7 @@ describe('e2e_p2p_network', () => {
     t.logger.info('All transactions mined');
 
     // Gather signers from attestations downloaded from L1
-    const blockNumber = await contexts[0].txs[0].getReceipt().then(r => r.blockNumber!);
+    const blockNumber = await txsSentViaDifferentNodes[0][0].getReceipt().then(r => r.blockNumber!);
     const dataStore = ((nodes[0] as AztecNodeService).getBlockSource() as Archiver).dataStore;
     const [block] = await dataStore.getPublishedBlocks(blockNumber, blockNumber);
     const payload = ConsensusPayload.fromBlock(block.block);

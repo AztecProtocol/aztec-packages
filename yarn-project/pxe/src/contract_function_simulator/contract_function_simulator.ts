@@ -1,4 +1,14 @@
 import {
+  AVM_EMITNOTEHASH_BASE_L2_GAS,
+  AVM_EMITNULLIFIER_BASE_L2_GAS,
+  AVM_SENDL2TOL1MSG_BASE_L2_GAS,
+  DA_BYTES_PER_FIELD,
+  DA_GAS_PER_BYTE,
+  FIXED_AVM_STARTUP_L2_GAS,
+  FIXED_DA_GAS,
+  FIXED_L2_GAS,
+  L2_GAS_PER_CONTRACT_CLASS_LOG,
+  L2_GAS_PER_PRIVATE_LOG,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
@@ -6,7 +16,7 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
 } from '@aztec/constants';
-import { padArrayEnd } from '@aztec/foundation/collection';
+import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -49,6 +59,7 @@ import {
   TxConstantData,
   TxExecutionRequest,
   collectNested,
+  getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
 
 import type { ContractDataProvider } from '../storage/index.js';
@@ -367,21 +378,26 @@ export async function generateSimulatedProvingResult(
   const hasPublicCalls = privateExecutionResult.publicFunctionCalldata.length !== 0;
   let inputsForRollup;
   let inputsForPublic;
+  let gasUsed;
 
   const sortByCounter = <T>(a: OrderedSideEffect<T>, b: OrderedSideEffect<T>) => a.counter - b.counter;
   const getEffect = <T>(orderedSideEffect: OrderedSideEffect<T>) => orderedSideEffect.sideEffect;
 
-  const sortedNullifiers = nullifiers.sort(sortByCounter).map(getEffect);
+  const isPrivateOnlyTx = privateExecutionResult.publicFunctionCalldata.length === 0;
+  const minRevertibleSideEffectCounter = getFinalMinRevertibleSideEffectCounter(privateExecutionResult);
 
-  // If the tx generated no nullifiers, the nonce generator (txRequest hash)
-  // is injected as the first nullifier as per protocol rules.
-  if (sortedNullifiers.length === 0) {
-    sortedNullifiers.push(nonceGenerator);
+  const [nonRevertibleNullifiers, revertibleNullifiers] = splitOrderedSideEffects(
+    nullifiers.sort(sortByCounter),
+    minRevertibleSideEffectCounter,
+  );
+  if (nonRevertibleNullifiers.length > 0 && !nonRevertibleNullifiers[0].equals(nonceGenerator)) {
+    throw new Error('The first non revertible nullifier should be equal to the nonce generator. This is a bug!');
+  } else {
+    nonRevertibleNullifiers.unshift(nonceGenerator);
   }
 
-  // Private only
-  if (privateExecutionResult.publicFunctionCalldata.length === 0) {
-    // In case the tx only contains private functions, we must make the note hashes unique by using the
+  if (isPrivateOnlyTx) {
+    // We must make the note hashes unique by using the
     // nonce generator and their index in the tx.
     const uniqueNoteHashes = await Promise.all(
       siloedNoteHashes.sort(sortByCounter).map(async (orderedSideEffect, i) => {
@@ -393,7 +409,7 @@ export async function generateSimulatedProvingResult(
     );
     const accumulatedDataForRollup = new PrivateToRollupAccumulatedData(
       padArrayEnd(uniqueNoteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
-      padArrayEnd(sortedNullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
+      padArrayEnd(nonRevertibleNullifiers.concat(revertibleNullifiers), Fr.ZERO, MAX_NULLIFIERS_PER_TX),
       padArrayEnd(
         l2ToL1Messages.sort(sortByCounter).map(getEffect),
         ScopedL2ToL1Message.empty(),
@@ -406,39 +422,51 @@ export async function generateSimulatedProvingResult(
         MAX_CONTRACT_CLASS_LOGS_PER_TX,
       ),
     );
-
+    gasUsed = meterGasUsed(accumulatedDataForRollup);
     inputsForRollup = new PartialPrivateTailPublicInputsForRollup(accumulatedDataForRollup);
   } else {
-    const nonRevertibleData = PrivateToPublicAccumulatedData.empty();
+    const [nonRevertibleNoteHashes, revertibleNoteHashes] = splitOrderedSideEffects(
+      siloedNoteHashes.sort(sortByCounter),
+      minRevertibleSideEffectCounter,
+    );
+    const [nonRevertibleL2ToL1Messages, revertibleL2ToL1Messages] = splitOrderedSideEffects(
+      l2ToL1Messages.sort(sortByCounter),
+      minRevertibleSideEffectCounter,
+    );
+    const [nonRevertibleTaggedPrivateLogs, revertibleTaggedPrivateLogs] = splitOrderedSideEffects(
+      taggedPrivateLogs,
+      minRevertibleSideEffectCounter,
+    );
+    const [nonRevertibleContractClassLogHashes, revertibleContractClassLogHashes] = splitOrderedSideEffects(
+      contractClassLogsHashes.sort(sortByCounter),
+      minRevertibleSideEffectCounter,
+    );
+    const [nonRevertiblePublicCallRequests, revertiblePublicCallRequests] = splitOrderedSideEffects(
+      publicCallRequests.sort(sortByCounter),
+      minRevertibleSideEffectCounter,
+    );
 
-    // The nullifier array contains the nonce generator in position 0
-    // Here we remove it from the revertible data and
-    // add it as the first non-revertible nullifier (we can't have dupes!)
-    // This is because public processor will use that first non-revertible nullifier
-    // as the nonce generator for the note hashes in the revertible part of the tx.
-    const [firstNullifier] = sortedNullifiers.splice(0, 1);
-    nonRevertibleData.nullifiers[0] = firstNullifier;
+    const nonRevertibleData = new PrivateToPublicAccumulatedData(
+      padArrayEnd(nonRevertibleNoteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+      padArrayEnd(nonRevertibleNullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
+      padArrayEnd(nonRevertibleL2ToL1Messages, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
+      padArrayEnd(nonRevertibleTaggedPrivateLogs, PrivateLog.empty(), MAX_PRIVATE_LOGS_PER_TX),
+      padArrayEnd(nonRevertibleContractClassLogHashes, ScopedLogHash.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX),
+      padArrayEnd(nonRevertiblePublicCallRequests, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
+    );
 
     const revertibleData = new PrivateToPublicAccumulatedData(
-      padArrayEnd(siloedNoteHashes.sort(sortByCounter).map(getEffect), Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
-      padArrayEnd(sortedNullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
-      padArrayEnd(
-        l2ToL1Messages.sort(sortByCounter).map(getEffect),
-        ScopedL2ToL1Message.empty(),
-        MAX_L2_TO_L1_MSGS_PER_TX,
-      ),
-      padArrayEnd(taggedPrivateLogs.sort(sortByCounter).map(getEffect), PrivateLog.empty(), MAX_PRIVATE_LOGS_PER_TX),
-      padArrayEnd(
-        contractClassLogsHashes.sort(sortByCounter).map(getEffect),
-        ScopedLogHash.empty(),
-        MAX_CONTRACT_CLASS_LOGS_PER_TX,
-      ),
-      padArrayEnd(
-        publicCallRequests.sort(sortByCounter).map(getEffect),
-        PublicCallRequest.empty(),
-        MAX_ENQUEUED_CALLS_PER_TX,
-      ),
+      padArrayEnd(revertibleNoteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+      padArrayEnd(revertibleNullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
+      padArrayEnd(revertibleL2ToL1Messages, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
+      padArrayEnd(revertibleTaggedPrivateLogs, PrivateLog.empty(), MAX_PRIVATE_LOGS_PER_TX),
+      padArrayEnd(revertibleContractClassLogHashes, ScopedLogHash.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX),
+      padArrayEnd(revertiblePublicCallRequests, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
     );
+    gasUsed = meterGasUsed(revertibleData).add(meterGasUsed(nonRevertibleData));
+    if (publicTeardownCallRequest) {
+      gasUsed.add(privateExecutionResult.entrypoint.publicInputs.txContext.gasSettings.teardownGasLimits);
+    }
 
     inputsForPublic = new PartialPrivateTailPublicInputsForPublic(
       nonRevertibleData,
@@ -449,7 +477,7 @@ export async function generateSimulatedProvingResult(
 
   const publicInputs = new PrivateKernelTailCircuitPublicInputs(
     constantData,
-    /*gasUsed=*/ new Gas(0, 0),
+    /*gasUsed=*/ gasUsed.add(Gas.from({ l2Gas: FIXED_L2_GAS, daGas: FIXED_DA_GAS })),
     /*feePayer=*/ AztecAddress.zero(),
     /*includeByTimestamp=*/ 0n,
     hasPublicCalls ? inputsForPublic : undefined,
@@ -461,4 +489,57 @@ export async function generateSimulatedProvingResult(
     clientIvcProof: ClientIvcProof.empty(),
     executionSteps: executionSteps,
   };
+}
+
+function splitOrderedSideEffects<T>(effects: OrderedSideEffect<T>[], minRevertibleSideEffectCounter: number) {
+  const revertibleSideEffects: T[] = [];
+  const nonRevertibleSideEffects: T[] = [];
+  effects.forEach(effect => {
+    if (effect.counter < minRevertibleSideEffectCounter) {
+      nonRevertibleSideEffects.push(effect.sideEffect);
+    } else {
+      revertibleSideEffects.push(effect.sideEffect);
+    }
+  });
+  return [nonRevertibleSideEffects, revertibleSideEffects];
+}
+
+function meterGasUsed(data: PrivateToRollupAccumulatedData | PrivateToPublicAccumulatedData) {
+  let meteredDAFields = 0;
+  let meteredL2Gas = 0;
+
+  const numNoteHashes = arrayNonEmptyLength(data.noteHashes, hash => hash.isEmpty());
+  meteredDAFields += numNoteHashes;
+  meteredL2Gas += numNoteHashes * AVM_EMITNOTEHASH_BASE_L2_GAS;
+
+  const numNullifiers = arrayNonEmptyLength(data.nullifiers, nullifier => nullifier.isEmpty());
+  meteredDAFields += numNullifiers;
+  meteredL2Gas += numNullifiers * AVM_EMITNULLIFIER_BASE_L2_GAS;
+
+  const numL2toL1Messages = arrayNonEmptyLength(data.l2ToL1Msgs, msg => msg.isEmpty());
+  meteredDAFields += numL2toL1Messages;
+  meteredL2Gas += numL2toL1Messages * AVM_SENDL2TOL1MSG_BASE_L2_GAS;
+
+  const numPrivatelogs = arrayNonEmptyLength(data.privateLogs, log => log.isEmpty());
+  // Every private log emits its length as an additional field
+  meteredDAFields += data.privateLogs.reduce((acc, log) => (!log.isEmpty() ? acc + log.emittedLength + 1 : acc), 0);
+  meteredL2Gas += numPrivatelogs * L2_GAS_PER_PRIVATE_LOG;
+
+  const numContractClassLogs = arrayNonEmptyLength(data.contractClassLogsHashes, log => log.isEmpty());
+  // Every contract class log emits its length and contract address as additional fields
+  meteredDAFields += data.contractClassLogsHashes.reduce(
+    (acc, log) => (!log.isEmpty() ? acc + log.logHash.length + 2 : acc),
+    0,
+  );
+  meteredL2Gas += numContractClassLogs * L2_GAS_PER_CONTRACT_CLASS_LOG;
+
+  const meteredDAGas = meteredDAFields * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+
+  if ((data as PrivateToPublicAccumulatedData).publicCallRequests) {
+    const dataForPublic = data as PrivateToPublicAccumulatedData;
+
+    const numPublicCallRequests = arrayNonEmptyLength(dataForPublic.publicCallRequests, req => req.isEmpty());
+    meteredL2Gas += numPublicCallRequests * FIXED_AVM_STARTUP_L2_GAS;
+  }
+  return Gas.from({ l2Gas: meteredL2Gas, daGas: meteredDAGas });
 }
