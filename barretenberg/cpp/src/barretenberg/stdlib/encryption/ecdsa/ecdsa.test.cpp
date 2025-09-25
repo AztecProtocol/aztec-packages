@@ -369,6 +369,8 @@ TYPED_TEST(EcdsaTests, InvalidS)
 
 TYPED_TEST(EcdsaTests, HighS)
 {
+    // Disable asserts because native ecdsa verification raises an error if s >= (n+1)/2
+    BB_DISABLE_ASSERTS();
     TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::HighS);
 }
 
