@@ -7,7 +7,7 @@ pub contract BobToken {
     // docs:end:start
     use aztec::{
         macros::{functions::{initializer, private, public, utility, internal}, storage::storage},
-        protocol_types::{address::AztecAddress, traits::ToField},
+        protocol_types::address::AztecAddress,
         state_vars::Map,
         state_vars::public_mutable::PublicMutable,
     };

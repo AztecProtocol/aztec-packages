@@ -7,7 +7,7 @@ pub contract Counter {
     // docs:start:imports
     use aztec::{
         macros::{functions::{initializer, private, utility}, storage::storage},
-        oracle::debug_log::debug_log_format, protocol_types::address::AztecAddress,
+        oracle::debug_log::debug_log_format, protocol_types::{address::AztecAddress, traits::ToField},
         state_vars::Map,
     };
     use easy_private_state::EasyPrivateUint;
