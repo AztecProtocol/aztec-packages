@@ -50,12 +50,12 @@ TYPED_TEST(StrausScalarSliceTest, TestSliceReadAndReconstruction)
     // Read all slices and verify reconstruction
     uint64_t max_slice_val = (1ULL << table_bits) - 1;
     uint256_t reconstructed = 0;
-    for (size_t i = 0; i < slices.slices.size(); i++) {
-        auto slice = slices[i];
-        auto slice_native = slices.slices_native[i];
+    size_t i = 0;
+    for (const auto [slice, slice_native] : zip_view(slices.slices, slices.slices_native)) {
         EXPECT_EQ(slice.get_value(), slice_native);
         EXPECT_LE(slice_native, max_slice_val);
         reconstructed += static_cast<uint256_t>(slice_native) << (i * table_bits);
+        i++;
     }
 
     EXPECT_EQ(ScalarField(reconstructed), scalar_val);
