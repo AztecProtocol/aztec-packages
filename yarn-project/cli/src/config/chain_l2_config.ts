@@ -5,10 +5,11 @@ import type { SharedNodeConfig } from '@aztec/node-lib/config';
 import type { P2PConfig } from '@aztec/p2p/config';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
-import { mkdir, readFile, stat, writeFile } from 'fs/promises';
-import path, { dirname, join } from 'path';
+import path, { join } from 'path';
 
 import publicIncludeMetrics from '../../public_include_metric_prefixes.json' with { type: 'json' };
+import { cachedFetch } from './cached_fetch.js';
+import { enrichEthAddressVar, enrichVar } from './enrich_env.js';
 
 export type L2ChainConfig = L1ContractsConfig &
   Pick<P2PConfig, 'txPoolDeleteTxsAfterReorg'> &
@@ -255,37 +256,13 @@ export const testnetL2ChainConfig: L2ChainConfig = {
 const BOOTNODE_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour;
 
 export async function getBootnodes(networkName: NetworkNames, cacheDir?: string) {
-  const cacheFile = cacheDir ? join(cacheDir, networkName, 'bootnodes.json') : undefined;
-  try {
-    if (cacheFile) {
-      const info = await stat(cacheFile);
-      if (info.mtimeMs + BOOTNODE_CACHE_DURATION_MS > Date.now()) {
-        return JSON.parse(await readFile(cacheFile, 'utf-8'))['bootnodes'];
-      }
-    }
-  } catch {
-    // no-op. Get the remote-file
-  }
-
   const url = `http://static.aztec.network/${networkName}/bootnodes.json`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch basic contract addresses from ${url}. Check you are using a correct network name.`,
-    );
-  }
-  const json = await response.json();
+  const data = await cachedFetch(url, {
+    cacheDurationMs: BOOTNODE_CACHE_DURATION_MS,
+    cacheFile: cacheDir ? join(cacheDir, networkName, 'bootnodes.json') : undefined,
+  });
 
-  try {
-    if (cacheFile) {
-      await mkdir(dirname(cacheFile), { recursive: true });
-      await writeFile(cacheFile, JSON.stringify(json), 'utf-8');
-    }
-  } catch {
-    // no-op
-  }
-
-  return json['bootnodes'];
+  return data?.bootnodes;
 }
 
 export async function getL2ChainConfig(
@@ -309,23 +286,6 @@ export async function getL2ChainConfig(
     config.p2pBootstrapNodes = await getBootnodes(networkName, cacheDir);
   }
   return config;
-}
-
-function enrichVar(envVar: EnvVar, value: string | undefined) {
-  // Don't override
-  if (process.env[envVar] || value === undefined) {
-    return;
-  }
-  process.env[envVar] = value;
-}
-
-function enrichEthAddressVar(envVar: EnvVar, value: string) {
-  // EthAddress doesn't like being given empty strings
-  if (value === '') {
-    enrichVar(envVar, EthAddress.ZERO.toString());
-    return;
-  }
-  enrichVar(envVar, value);
 }
 
 function getDefaultDataDir(networkName: NetworkNames): string {

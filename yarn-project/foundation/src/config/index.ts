@@ -5,6 +5,8 @@ import { SecretValue } from './secret_value.js';
 
 export { SecretValue, getActiveNetworkName };
 export type { EnvVar, NetworkNames };
+export type { NetworkConfig, NetworkConfigMap } from './network_config.js';
+export { NetworkConfigMapSchema, NetworkConfigSchema } from './network_config.js';
 
 export interface ConfigMapping {
   env?: EnvVar;
