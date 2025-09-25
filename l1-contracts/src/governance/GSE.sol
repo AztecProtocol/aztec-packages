@@ -835,25 +835,4 @@ contract GSE is IGSE, GSECore {
 
     return attesters;
   }
-
-  function _getInstanceStoreWithAttester(address _instance, address _attester)
-    internal
-    view
-    returns (InstanceAttesterRegistry storage, bool, address)
-  {
-    InstanceAttesterRegistry storage store = instances[_instance];
-    bool attesterExists = store.attesters.contains(_attester);
-    address instanceAddress = _instance;
-
-    if (
-      !attesterExists && getLatestRollup() == _instance
-        && instances[BONUS_INSTANCE_ADDRESS].attesters.contains(_attester)
-    ) {
-      store = instances[BONUS_INSTANCE_ADDRESS];
-      attesterExists = true;
-      instanceAddress = BONUS_INSTANCE_ADDRESS;
-    }
-
-    return (store, attesterExists, instanceAddress);
-  }
 }

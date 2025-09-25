@@ -1,6 +1,4 @@
 VoteTabulationTest
-├── when minimum config eq 0
-│   └── it return (Invalid, MinimumEqZero)
 └── when minimum gt 0
     ├── when total power lt minimum
     │   └── it return (Rejected, TotalPowerLtMinimum)
