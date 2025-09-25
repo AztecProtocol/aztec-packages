@@ -271,26 +271,29 @@ contract GSECore is IGSECore, Ownable {
    *
    * @dev if _moveWithLatestRollup is true, then msg.sender must be the latest rollup.
    *
-   * @dev The same attester may deposit on multiple *instances*, so long as
-   * the latest-rollup-instance-attesters-form-set invariant described above BONUS_INSTANCE_ADDRESS holds.
+   * @dev An attester configuration is registered globally to avoid BLS troubles when moving stake.
    *
-   * E.g. Suppose the registered rollups are A, then B, then C, so C's effective attesters are
+   * Suppose the registered rollups are A, then B, then C, so C's effective attesters are
    * those associated with C and the bonus address.
    *
-   * Alice may come along now and deposit on A, and B, with _moveWithLatestRollup=false in both cases.
+   * Alice may come along now and deposit on A or B, with _moveWithLatestRollup=false in either case.
    *
    * For depositing into C, she can deposit *either* with _moveWithLatestRollup = true OR false.
    * If she deposits with _moveWithLatestRollup = false, then she is associated with C's address.
    * If she deposits with _moveWithLatestRollup = true, then she is associated with the bonus address.
    *
    * Suppose she deposits with _moveWithLatestRollup = true, and a new rollup D is added to the rollups.
-   *
-   * Now she cannot deposit through D AT ALL, since she is already in D's effective attesters.
-   * But she CAN go back and deposit directly into C, with _moveWithLatestRollup = false.
+   * Then her stake moves to D, and she is in the effective attesters of D.
    *
    * @param _attester     - The attester address on behalf of which the deposit is made.
-   * @param _withdrawer   - Address which can initiate a withdraw for the `_attester`
-   * @param _moveWithLatestRollup  - Whether to deposit into the specific instance, or the bonus instance
+   * @param _withdrawer   - Address which the user wish to use to initiate a withdraw for the `_attester` and
+   *                        to update delegation with. The withdrawals are enforced by the rollup to which it is
+   *                        controlled, so it is practically a value for the rollup to use, meaning dishonest rollup
+   *                        can reject withdrawal attempts.
+   * @param _publicKeyInG1 - BLS public key for the attester in G1
+   * @param _publicKeyInG2 - BLS public key for the attester in G2
+   * @param _proofOfPossession - A proof of possessions for the private key corresponding _publicKey in G1 and G2
+   * @param _moveWithLatestRollup - Whether to deposit into the specific instance, or the bonus instance
    */
   function deposit(
     address _attester,
