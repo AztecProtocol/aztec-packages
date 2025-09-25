@@ -21,15 +21,10 @@
 
 namespace bb::stdlib {
 
-template <typename Builder>
-concept IsUltraArithmetic = (Builder::CIRCUIT_TYPE == CircuitType::ULTRA);
-
 /**
- * @brief cycle_group represents a group Element of the proving system's embedded curve
- *        i.e. a curve with a cofactor 1 defined over a field equal to the circuit's native field Builder::FF
- *
- *        (todo @zac-williamson) once the pedersen refactor project is finished, this class will supercede
- * `stdlib::group`
+ * @brief cycle_group represents a group Element of the proving system's embedded curve, i.e. a curve with a cofactor 1
+ * defined over a field equal to the circuit's native field Builder::FF
+ * @details In barretenberg, cycle group is used to represent the Grumpkin curve defined over the bn254 scalar field.
  *
  * @tparam Builder
  */
@@ -49,10 +44,12 @@ template <typename Builder> class cycle_group {
     using BigScalarField = stdlib::bigfield<Builder, bb::fq::Params>;
     using cycle_scalar = ::bb::stdlib::cycle_scalar<Builder>;
     using straus_lookup_table = ::bb::stdlib::straus_lookup_table<Builder>;
-    using straus_scalar_slice = ::bb::stdlib::straus_scalar_slice<Builder>;
+    using straus_scalar_slices = ::bb::stdlib::straus_scalar_slices<Builder>;
 
-    static constexpr size_t TABLE_BITS = 4;
+    // Bit-size for scalars represented in the ROM lookup tables used in the variable-base MSM algorithm
+    static constexpr size_t ROM_TABLE_BITS = 4;
     static constexpr size_t NUM_BITS_FULL_FIELD_SIZE = bb::fq::modulus.get_msb() + 1;
+    // Domain separator for generating offset generator points in the variable-base MSM algorithm
     static constexpr std::string_view OFFSET_GENERATOR_DOMAIN_SEPARATOR = "cycle_group_offset_generator";
 
     // Since the cycle_group base field is the circuit's native field, it can be stored using two public inputs.
@@ -74,20 +71,26 @@ template <typename Builder> class cycle_group {
     cycle_group(const bb::fr& _x, const bb::fr& _y, bool _is_infinity);
     cycle_group(const AffineElement& _in);
     static cycle_group one(Builder* _context);
+    static cycle_group constant_infinity(Builder* _context = nullptr);
     static cycle_group from_witness(Builder* _context, const AffineElement& _in);
     static cycle_group from_constant_witness(Builder* _context, const AffineElement& _in);
     Builder* get_context(const cycle_group& other) const;
     Builder* get_context() const { return context; }
     AffineElement get_value() const;
-    [[nodiscard]] bool is_constant() const { return _is_constant; }
+    [[nodiscard]] bool is_constant() const { return x.is_constant() && y.is_constant() && _is_infinity.is_constant(); }
     bool_t is_point_at_infinity() const { return _is_infinity; }
+    [[nodiscard]] bool is_constant_point_at_infinity() const
+    {
+        return _is_infinity.is_constant() && _is_infinity.get_value();
+    }
+#ifdef FUZZING
     void set_point_at_infinity(const bool_t& is_infinity);
+#endif
     void standardize();
     bool is_standard() const { return this->_is_standard; };
     cycle_group get_standard_form();
     void validate_on_curve() const;
-    cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const
-        requires IsUltraArithmetic<Builder>;
+    cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group unconditional_add(const cycle_group& other,
                                   const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group unconditional_subtract(const cycle_group& other,
@@ -207,7 +210,6 @@ template <typename Builder> class cycle_group {
 
   private:
     bool_t _is_infinity;
-    bool _is_constant;
     // The point is considered to be `standard` or in `standard form` when:
     // - It's not a point at infinity, and the coordinates belong to the curve
     // - It's a point at infinity and both of the coordinates are set to be 0. (0, 0)
