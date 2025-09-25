@@ -13,7 +13,7 @@ namespace bb {
 /**
  * @brief The VerifierInstance encapsulates all the necessary information for a Mega Honk Verifier to verify a
  * proof (sumcheck + Shplemini). In the context of folding, this is returned by the Protogalaxy verifier with non-zero
- * target sum and gate challenges.
+ * target sum.
  *
  * @details This is \f$\phi\f$ in the Protogalaxy paper. It is the committed version of a ProverInstance_. With the
  * notation used in ProverInstance_, a prover instance is \f$\omega = (p_1, \dots, p_M, \theta_1, \dots, \theta_6,
