@@ -58,6 +58,12 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Will re-execute until this many milliseconds are left in the slot',
     ...numberConfigHelper(6000),
   },
+  alwaysReexecuteBlockProposals: {
+    env: 'ALWAYS_REEXECUTE_BLOCK_PROPOSALS',
+    description:
+      'Whether to always reexecute block proposals, even for non-validator nodes (useful for monitoring network status).',
+    ...booleanConfigHelper(false),
+  },
 };
 
 /**
