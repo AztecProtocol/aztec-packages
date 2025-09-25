@@ -29,6 +29,7 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashOffenseExpirationRounds: 4,
   slashMaxPayloadSize: 50,
   slashGracePeriodL2Slots: 0,
+  slashExecuteRoundsLookBack: 4,
   slashSelfAllowed: false,
 };
 
@@ -143,6 +144,11 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
     description: 'Number of L2 slots to wait before considering a slashing offense expired.',
     env: 'SLASH_GRACE_PERIOD_L2_SLOTS',
     ...numberConfigHelper(DefaultSlasherConfig.slashGracePeriodL2Slots),
+  },
+  slashExecuteRoundsLookBack: {
+    env: 'SLASH_EXECUTE_ROUNDS_LOOK_BACK',
+    description: 'How many rounds to look back when searching for a round to execute.',
+    ...numberConfigHelper(DefaultSlasherConfig.slashExecuteRoundsLookBack),
   },
   slashSelfAllowed: {
     description: 'Whether to allow slashes to own validators',
