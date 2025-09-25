@@ -16,6 +16,45 @@
 
 namespace bb {
 
+/**
+ * @brief Log-derivative lookup argument relation for establishing lookup reads from tables with 3 or fewer columns
+ * @details
+ * lookup argument seeks to prove lookups from a column by establishing the following sum:
+ *
+ * \sum_{i=0}^{n-1} q_{logderiv_lookup}_i * (1 / write_term_i) + read_count_i * (1 / read_term_i) = 0
+ *
+ * where write_term = table_col_1 + \gamma + table_col_2 * \eta_1 + table_col_3 * \eta_2 + table_index * \eta_3
+ * and read_term = derived_table_entry_1 + \gamma + derived_table_entry_2 * \eta_1 + derived_table_entry_3 * \eta_2
+ * + table_index * \eta_3, with derived_table_entry_i = w_i - col_step_size_i\cdot w_i_shift. (The table entries
+ * must be 'derived' from wire values in this way since the stored witnesses are actually successive accumulators,
+ * the differences of which are equal to entries in a table. This is an efficiency trick to avoid using additional
+ * gates to reconstruct full size values from the limbs contained in tables See the documentation in method
+ * bb::plookup::get_lookup_accumulators()).
+ *
+ * In practice, we must rephrase this expression in terms of polynomials, one of which is a polynomial I containing
+ * (indirectly) the rational functions in the above expression: I_i =  1/[(read_term_i) * (write_term_i)]. This leads to
+ * two subrelations. The first demonstrates that the inverse polynomial I is correctly formed. The second is the primary
+ * lookup identity, where the rational functions are replaced by the use of the inverse polynomial I. These two
+ * subrelations can be expressed as follows:
+ *
+ *  (1) I_i * (read_term_i) * (write_term_i) - 1 = 0
+ *
+ *  (2) \sum_{i=0}^{n-1} [q_{logderiv_lookup} * I_i * write_term_i + read_count_i * I_i * read_term_i] = 0
+ *
+ * To not compute the inverse terms packed in I_i for indexes that not included in the sum we introduce a
+ * witness called inverse_exists, which is zero when either read_count_i is nonzero (a boolean called read_tag) or we
+ * have a read gate. This is represented by setting inveser_exists = 1- (1- read_tag)*(1- is_read_gate). Since
+ * is_read_gate is only dependent on selector values, we can assume that the verifier can check that it is boolean.
+ * However, if read_tag (which is a derived witness), is not constrained to be boolean, one can set the inverse_exists
+ * to 0, even when is_read_gate is 1, because inverse_exists is a linear function of read_tag then. Thus we have a third
+ * subrelation, that ensures that read_tag is a boolean value.
+ * (3) read_tag * read_tag - read_tag = 0
+ * Note: that subrelation (2) is "linearly dependent" in the sense that it establishes that a sum
+ * across all rows of the exectution trace is zero, rather than that some expression holds independently at each row.
+ * Accordingly, this subrelation is not multiplied by a scaling factor at each accumulation step.
+ *
+ */
+
 template <typename FF_> class LogDerivLookupRelationImpl {
   public:
     using FF = FF_;
@@ -206,52 +245,13 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     };
 
     /**
-     * @brief Log-derivative style lookup argument for conventional lookups form tables with 3 or fewer columns
-     * @details The identity to be checked is of the form
-     *
-     * \sum{i=0}^{n-1} \frac{read_counts_i}{write_term_i} - \frac{q_lookup}{read_term_i} = 0
-     *
-     * where write_term = table_col_1 + \gamma + table_col_2 * \eta_1 + table_col_3 * \eta_2 + table_index * \eta_3
-     * and read_term = derived_table_entry_1 + \gamma + derived_table_entry_2 * \eta_1 + derived_table_entry_3 * \eta_2
-     * + table_index * \eta_3, with derived_table_entry_i = w_i - col_step_size_i\cdot w_i_shift. (The table entries
-     * must be 'derived' from wire values in this way since the stored witnesses are actually successive accumulators,
-     * the differences of which are equal to entries in a table. This is an efficiency trick to avoid using additional
-     * gates to reconstruct full size values from the limbs contained in tables).
-     *
-     * In practice this identity is expressed in terms of polynomials by defining a polynomial of inverses I_i =
-     * \frac{1}{read_term_i\cdot write_term_i} then rewriting the above identity as
-     *
-     * (1) \sum{i=0}^{n-1} (read_counts_i\cdot I_i\cdot read_term_i) - (q_lookup\cdot I_i\cdot write_term_i) = 0
-     *
-     * This requires a second subrelation to check that polynomial I was computed correctly. For all i, it must hold
-     * that
-     *
-     * (2) I_i\cdot read_term_i\cdot write_term_i - 1 = 0
-     *
-     * Note that (1) is 'linearly dependent' in the sense that it holds only as a sum across the entire execution trace.
-     * (2) on the other hand holds independently at every row. Finally, note that to avoid unnecessary computation, we
-     * only compute I_i at indices where the relation is 'active', i.e. on rows which either contain a lookup gate or
-     * table data that has been read. For inactive rows i, we set I_i = 0. We can thus rewrite (2) as
-     *
-     * (2) I_i\cdot read_term_i\cdot write_term_i - is_active_i
-     *
-     * where is_active = q_lookup + read_tags - q_lookup\cdot read_tags
-     *
-     * and read_tags is a polynomial taking boolean values indicating whether the table entry at the corresponding row
-     * has been read or not.
-     * the last (third) subrelation consists of checking that the read_tag is a boolean value
-     * we argue that this is enough for the soundness of the relation.
-     * note that read_tags is not constrained to be related to the readcounts values.
-     * however, if the read_tags are assured to be 0 or 1, the only thing a cheating prover could do is to skip over
-     * an inversion when are not supposed to skip over it.
-     * we argue that this does not give the prover any advantage, as it would only mean an element from the lookup table
-     * is removed. this means that if a proof verifies, we still have that the provers set is a subset of the lookup
-     * table, as the only freedome the prover has is to make the lookup table smaller.
-     * the boolean check is still necessary, as otherwise has_inverse, is a leanier function of read_tags, and the
-     * the prover can set it to zero (by picking a non-binary value for read_tags) even when we have a read gate in the
-     * row.
-     * @note This relation utilizes functionality in the log-derivative library to compute the polynomial of inverses
-     *
+     * @brief Accumulate the subrelation contributions for reads from a lookup table
+     * @details Three subrelations are required per bus column, first to establish correctness of the precomputed
+     * inverses, second to establish the validity of the read, third establishes that read_tags is a boolean value.
+     * @param accumulator transformed to `evals + C(in(X)...)*scaling_factor`
+     * @param in an std::array containing the fully extended Accumulator edges.
+     * @param params contains beta, gamma, and public_input_delta, ....
+     * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     static void accumulate(ContainerOverSubrelations& accumulator,
