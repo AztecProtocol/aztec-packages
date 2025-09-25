@@ -100,8 +100,9 @@ template <typename Builder> cycle_scalar<Builder> cycle_scalar<Builder>::create_
 }
 
 /**
- * @brief Construct a new cycle scalar from a bigfield object
- * @details Construct the two cycle scalar limbs from the four limbs of a bigfield as follows:
+ * @brief Construct a new cycle scalar from a bigfield scalar
+ * @details Construct the two cycle scalar limbs from the four limbs of a bigfield as in the diagram below. Range
+ * constraints are applied as necessary to ensure the conversion is unique:
  *
  *  BigScalarField (four 68-bit limbs):
  *  +----------+----------+----------+----------+
@@ -118,9 +119,9 @@ template <typename Builder> cycle_scalar<Builder> cycle_scalar<Builder>::create_
  *  +---------------|---------------------------+
  *
  * @tparam Builder
- * @param scalar
+ * @param scalar Note: passed by non-const reference since we may call self_reduce on it
  */
-template <typename Builder> cycle_scalar<Builder>::cycle_scalar(const BigScalarField& scalar)
+template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& scalar)
 {
     auto* ctx = get_context() ? get_context() : scalar.get_context();
 
@@ -171,11 +172,11 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(const BigScalarF
     // Ensure that limb0 only contains at most NUM_LIMB_BITS. If it exceeds this value, slice off the excess and add it
     // into limb1
     if (scalar.binary_basis_limbs[0].maximum_value > BigScalarField::DEFAULT_MAXIMUM_LIMB) {
-        const uint256_t limb = limb0.get_value();
-        const uint256_t lo_v = limb.slice(0, BigScalarField::NUM_LIMB_BITS);
-        const uint256_t hi_v = limb >> BigScalarField::NUM_LIMB_BITS;
-        field_t limb0_lo = field_t::from_witness(ctx, lo_v);
-        field_t limb0_hi = field_t::from_witness(ctx, hi_v);
+        const uint256_t limb0_value = limb0.get_value();
+        const uint256_t limb0_lo_value = limb0_value.slice(0, BigScalarField::NUM_LIMB_BITS);
+        const uint256_t limb0_hi_value = limb0_value.slice(BigScalarField::NUM_LIMB_BITS, limb0_value.get_msb() + 1);
+        field_t limb0_lo = field_t::from_witness(ctx, limb0_lo_value);
+        field_t limb0_hi = field_t::from_witness(ctx, limb0_hi_value);
 
         // Constrain the limb0 decomposition to be well formed
         uint256_t limb0_hi_max = (scalar.binary_basis_limbs[0].maximum_value >> BigScalarField::NUM_LIMB_BITS);
@@ -202,9 +203,9 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(const BigScalarF
 
     // Step 2: compute the values of both slices
     const uint256_t limb_1 = limb1.get_value();
-    const uint256_t limb_1_hi_multiplicand = (uint256_t(1) << lo_bits_in_limb_1);
-    const uint256_t limb_1_hi_value = limb_1 >> lo_bits_in_limb_1;
-    const uint256_t limb_1_lo_value = limb_1 - (limb_1_hi_value << lo_bits_in_limb_1);
+    const uint256_t limb_1_hi_shift = (uint256_t(1) << lo_bits_in_limb_1);
+    const uint256_t limb_1_lo_value = limb_1.slice(0, lo_bits_in_limb_1);
+    const uint256_t limb_1_hi_value = limb_1.slice(lo_bits_in_limb_1, limb_1.get_msb() + 1);
 
     // Step 3: instantiate both slices as witnesses and validate their sum equals limb1
     field_t limb_1_lo = field_t::from_witness(ctx, limb_1_lo_value);
@@ -213,22 +214,17 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(const BigScalarF
     // We need to propagate the origin tag to the chunks of limb1
     limb_1_lo.set_origin_tag(limb1.get_origin_tag());
     limb_1_hi.set_origin_tag(limb1.get_origin_tag());
-    limb1.assert_equal((limb_1_hi * limb_1_hi_multiplicand) + limb_1_lo);
+    limb1.assert_equal((limb_1_hi * limb_1_hi_shift) + limb_1_lo);
 
     // Step 4: apply range constraints to validate both slices represent the expected contributions to *this.lo and
     // *this.hi
     limb_1_lo.create_range_constraint(lo_bits_in_limb_1);
     limb_1_hi.create_range_constraint(hi_bits_in_limb_1);
 
-    // Construct *this.lo out of:
-    // a. `limb0` (the first NUM_LIMB_BITS bits of scalar)
-    // b. `limb_1_lo` (the first LO_BITS - NUM_LIMB_BITS) of limb1
+    // Construct *this.lo out of limb0 and limb1_lo
     lo = limb0 + (limb_1_lo * BigScalarField::shift_1);
 
-    // Construct *this.hi out of:
-    // a. `limb_1_hi` (the remaining bits of limb1)
-    // b. `limb2` (the third NUM_LIMB_BITS bits of scalar)
-    // c. `limb3` (the fourth NUM_LIMB_BITS or
+    // Construct *this.hi out of limb1_hi, limb2 and limb3
     const uint256_t limb_2_shift = uint256_t(1) << ((2 * BigScalarField::NUM_LIMB_BITS) - LO_BITS);
     const uint256_t limb_3_shift = uint256_t(1) << ((3 * BigScalarField::NUM_LIMB_BITS) - LO_BITS);
     hi = limb_1_hi.add_two(limb2 * limb_2_shift, limb3 * limb_3_shift);

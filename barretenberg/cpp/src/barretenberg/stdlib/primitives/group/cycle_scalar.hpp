@@ -79,7 +79,7 @@ template <typename Builder> class cycle_scalar {
     static cycle_scalar from_witness(Builder* context, const ScalarField& value);
     static cycle_scalar from_u256_witness(Builder* context, const uint256_t& bitstring);
     static cycle_scalar create_from_bn254_scalar(const field_t& _in);
-    explicit cycle_scalar(const BigScalarField& scalar);
+    explicit cycle_scalar(BigScalarField& scalar);
 
     [[nodiscard]] bool is_constant() const;
     ScalarField get_value() const;
