@@ -38,6 +38,8 @@ snapshots:
   uploadLocation:
   syncUrl:
   frequency:
+  s3AccessKeyId:
+  s3SecretAccessKey:
 
 images:
   aztec:
