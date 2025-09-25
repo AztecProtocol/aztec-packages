@@ -72,9 +72,7 @@ describe('e2e_p2p_network', () => {
 
   afterEach(async () => {
     await tryStop(proverNode);
-    fs.rmSync(`${DATA_DIR}-prover`, { recursive: true, force: true, maxRetries: 3 });
     await tryStop(monitoringNode);
-    fs.rmSync(`${DATA_DIR}-monitor`, { recursive: true, force: true, maxRetries: 3 });
     await t.stopNodes(nodes);
     await t.teardown();
     for (let i = 0; i < NUM_VALIDATORS; i++) {
