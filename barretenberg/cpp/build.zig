@@ -243,28 +243,6 @@ fn getBuildStepForTarget(
         getFilesEndingWith(b, test_group_path, ".test.cpp", &test_files);
         if (test_files.items.len == 0) continue;
 
-        // To ensure we build all the test files in parallel with e.g. barretenberg.lib,
-        // we compile all the test files into a single fused object first.
-        const test_objects = b.addObject(.{
-            .name = b.fmt("{s}_test_object", .{project_name}),
-            .root_module = b.createModule(.{
-                .target = target,
-                .optimize = optimize,
-            }),
-        });
-
-        test_objects.addCSourceFiles(.{ .files = test_files.items, .flags = flags });
-
-        test_objects.addIncludePath(b.path("src"));
-        test_objects.addIncludePath(b.path("src/tracy_stub"));
-        test_objects.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
-        test_objects.addIncludePath(msgpack_dep.path("include"));
-        test_objects.addIncludePath(libdeflate_dep.path("."));
-        test_objects.addIncludePath(libdeflate_dep.path("lib"));
-        test_objects.addIncludePath(gtest_dep.path("googletest/include"));
-        test_objects.addIncludePath(gtest_dep.path("googlemock/include"));
-        test_objects.linkLibCpp();
-
         const test_exe = b.addExecutable(.{
             .name = b.fmt("{s}_tests", .{project_name}),
             .root_module = b.createModule(.{
@@ -274,7 +252,32 @@ fn getBuildStepForTarget(
             }),
         });
 
-        test_exe.addObject(test_objects);
+        // To ensure we build all the test files in parallel with e.g. barretenberg.lib,
+        // we compile all the test files into a single objects first.
+        for (test_files.items, 0..) |test_file, i| {
+            const test_object = b.addObject(.{
+                .name = b.fmt("{s}_object_{d}", .{ project_name, i }),
+                .root_module = b.createModule(.{
+                    .target = target,
+                    .optimize = optimize,
+                }),
+            });
+
+            test_object.addCSourceFile(.{ .file = b.path(test_file), .flags = flags });
+
+            test_object.addIncludePath(b.path("src"));
+            test_object.addIncludePath(b.path("src/tracy_stub"));
+            test_object.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
+            test_object.addIncludePath(msgpack_dep.path("include"));
+            test_object.addIncludePath(libdeflate_dep.path("."));
+            test_object.addIncludePath(libdeflate_dep.path("lib"));
+            test_object.addIncludePath(gtest_dep.path("googletest/include"));
+            test_object.addIncludePath(gtest_dep.path("googlemock/include"));
+            test_object.linkLibCpp();
+
+            test_exe.addObject(test_object);
+        }
+
         test_exe.linkLibrary(lmdb_lib);
         test_exe.linkLibrary(gtest_lib);
         test_exe.linkLibrary(libdeflate_lib);

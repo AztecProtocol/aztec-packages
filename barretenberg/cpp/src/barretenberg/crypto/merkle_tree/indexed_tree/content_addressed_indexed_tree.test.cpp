@@ -70,7 +70,7 @@ std::unique_ptr<TreeType> create_tree(const std::string& rootDirectory,
     std::filesystem::path directory = rootDirectory;
     directory.append(name);
     std::filesystem::create_directories(directory);
-    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(directory, name, mapSize, maxReaders);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(directory.string(), name, mapSize, maxReaders);
     std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
     return std::make_unique<TreeType>(std::move(store), workers, batchSize);
 }
