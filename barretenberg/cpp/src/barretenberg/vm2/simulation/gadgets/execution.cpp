@@ -588,66 +588,13 @@ void Execution::debug_log(ContextInterface& context,
     BB_BENCH_NAME("Execution::debug_log");
     get_gas_tracker().consume_gas();
 
-    // DebugLog is a no-op on the prover side. If it was compiled with assertions and ran in debug mode,
-    // we will print part of the log. However, for this opcode, we give priority to never failing and
-    // never griefing the prover. Some safety checks are done, but if a failure happens, we will just
-    // silently continue.
-    if (client_initiated_simulation) {
-        try {
-            auto& memory = context.get_memory();
-
-            // This is a workaround. Do not copy or use in other places.
-            auto unconstrained_read = [&memory](MemoryAddress offset) {
-                Memory* memory_ptr = dynamic_cast<Memory*>(&memory);
-                if (memory_ptr) {
-                    // This means that we are using the event generating memory.
-                    return memory_ptr->unconstrained_get(offset);
-                } else {
-                    // This assumes that any other type will not generate events.
-                    return memory.get(offset);
-                }
-            };
-
-            const auto level_value = unconstrained_read(level_offset);
-            const uint8_t level = level_value.as<uint8_t>();
-            // TODO(Alvaro): Here, we should:
-            // 1. Receive when simulating the log level
-            // 2. Check if the level is one of the valid levels
-            // 3. If it is, log to stdout conditionally if the level is enabled
-            // 4. Add a storage entity for the DebugLogs of a tx
-            // 5. Return the DebugLogs as a simulation side effect.
-            // Currently, we are not doing the above since this simulator is only used for proving, and
-            // client_initiated_simulation is always false.
-            (void)level;
-
-            // Get the fields size and validate its tag
-            const auto fields_size_value = unconstrained_read(fields_size_offset);
-            const uint32_t fields_size = fields_size_value.as<uint32_t>();
-
-            // Read message and fields from memory
-            std::string message_as_str;
-            uint16_t truncated_message_size = std::min<uint16_t>(message_size, 100);
-            for (uint32_t i = 0; i < truncated_message_size; ++i) {
-                const auto message_field = unconstrained_read(message_offset + i);
-                message_as_str += static_cast<char>(static_cast<uint8_t>(message_field.as_ff()));
-            }
-            message_as_str += ": [";
-
-            // Read fields
-            for (uint32_t i = 0; i < fields_size; ++i) {
-                const auto field = unconstrained_read(fields_offset + i);
-                message_as_str += field_to_string(field);
-                if (i < fields_size - 1) {
-                    message_as_str += ", ";
-                }
-            }
-            message_as_str += "]";
-
-            debug("DEBUGLOG: ", message_as_str);
-        } catch (const std::exception& e) {
-            debug("DEBUGLOG: Error: ", e.what());
-        }
-    }
+    debug_log_component.debug_log(context.get_memory(),
+                                  context.get_address(),
+                                  level_offset,
+                                  message_offset,
+                                  message_size,
+                                  fields_offset,
+                                  fields_size_offset);
 }
 
 void Execution::success_copy(ContextInterface& context, MemoryAddress dst_addr)

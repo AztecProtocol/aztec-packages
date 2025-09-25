@@ -54,6 +54,16 @@ export class DebugLog extends Instruction {
       memory.checkTag(TypeTag.UINT32, fieldsSizeOffset);
       const fieldsSize = memory.get(fieldsSizeOffset).toNumber();
 
+      const memoryReads = 1 /* level */ + 1 /* fieldsSize */ + this.messageSize /* message */ + fieldsSize; /* fields */
+      if (
+        context.persistableState.getDebugLogMemoryReads() + memoryReads >
+        context.environment.maxDebugLogMemoryReads
+      ) {
+        // Regular error on purpose: this is not a recoverable error.
+        throw new Error('Max debug log memory reads exceeded');
+      }
+      context.persistableState.writeDebugLogMemoryReads(memoryReads);
+
       const rawMessage = memory.getSlice(messageOffset, this.messageSize);
       const fields = memory.getSlice(fieldsOffset, fieldsSize);
 
@@ -64,7 +74,8 @@ export class DebugLog extends Instruction {
       const messageAsStr = rawMessage.map(field => String.fromCharCode(field.toNumber())).join('');
 
       if (!LogLevels[levelNumber]) {
-        throw new InstructionExecutionError(`Invalid debug log level: ${levelNumber}`);
+        // Regular error on purpose: this is not a recoverable error.
+        throw new Error(`Invalid debug log level: ${levelNumber}`);
       }
 
       const level = LogLevels[levelNumber];

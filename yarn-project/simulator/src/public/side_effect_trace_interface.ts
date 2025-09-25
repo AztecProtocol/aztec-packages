@@ -22,5 +22,7 @@ export interface PublicSideEffectTraceInterface {
   tracePublicLog(contractAddress: AztecAddress, log: Fr[]): void;
   traceDebugLog(contractAddress: AztecAddress, level: LogLevel, message: string, fields: Fr[]): void;
   getDebugLogs(): DebugLog[];
+  getDebugLogMemoryReads(): number;
+  traceDebugLogMemoryReads(memoryReads: number): void;
   traceGetContractClass(contractClassId: Fr, exists: boolean): void;
 }

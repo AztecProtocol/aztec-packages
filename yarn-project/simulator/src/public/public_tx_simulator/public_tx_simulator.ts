@@ -68,6 +68,7 @@ export class PublicTxSimulator {
     private doMerkleOperations: boolean = false,
     private skipFeeEnforcement: boolean = false,
     private clientInitiatedSimulation: boolean = false,
+    private maxDebugLogMemoryReads?: number,
   ) {
     this.log = createLogger(`simulator:public_tx_simulator`);
   }
@@ -334,6 +335,7 @@ export class PublicTxSimulator {
       calldata,
       allocatedGas,
       this.clientInitiatedSimulation,
+      this.maxDebugLogMemoryReads,
     );
     const avmCallResult = await simulator.execute();
     return avmCallResult.finalize();

@@ -24,8 +24,17 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator {
     skipFeeEnforcement: boolean = false,
     clientInitiatedSimulation: boolean = false,
     protected readonly metrics: ExecutorMetricsInterface,
+    maxDebugLogMemoryReads?: number,
   ) {
-    super(merkleTree, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement, clientInitiatedSimulation);
+    super(
+      merkleTree,
+      contractsDB,
+      globalVariables,
+      doMerkleOperations,
+      skipFeeEnforcement,
+      clientInitiatedSimulation,
+      maxDebugLogMemoryReads,
+    );
   }
 
   public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {

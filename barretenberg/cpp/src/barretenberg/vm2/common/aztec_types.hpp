@@ -339,4 +339,55 @@ struct SideEffectStates {
     bool operator==(const SideEffectStates& other) const = default;
 };
 
+enum class DebugLogLevel {
+    SILENT = 0,
+    FATAL = 1,
+    ERROR = 2,
+    WARN = 3,
+    INFO = 4,
+    VERBOSE = 5,
+    DEBUG = 6,
+    TRACE = 7,
+    LAST = TRACE
+};
+
+inline bool is_valid_debug_log_level(uint8_t v)
+{
+    return v <= static_cast<uint8_t>(DebugLogLevel::LAST);
+}
+
+inline std::string debug_log_level_to_string(DebugLogLevel lvl)
+{
+    switch (lvl) {
+    case DebugLogLevel::SILENT:
+        return "silent";
+    case DebugLogLevel::FATAL:
+        return "fatal";
+    case DebugLogLevel::ERROR:
+        return "error";
+    case DebugLogLevel::WARN:
+        return "warn";
+    case DebugLogLevel::INFO:
+        return "info";
+    case DebugLogLevel::VERBOSE:
+        return "verbose";
+    case DebugLogLevel::DEBUG:
+        return "debug";
+    case DebugLogLevel::TRACE:
+        return "trace";
+    default:
+        return "unknown";
+    }
+}
+
+struct DebugLog {
+    AztecAddress contractAddress;
+    std::string level;
+    std::string message;
+    std::vector<FF> fields;
+
+    bool operator==(const DebugLog& other) const = default;
+    MSGPACK_FIELDS(contractAddress, level, message, fields);
+};
+
 } // namespace bb::avm2

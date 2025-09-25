@@ -1085,6 +1085,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         newGlobalVariables,
         skipFeeEnforcement,
         /*clientInitiatedSimulation*/ true,
+        this.config.rpcSimulatePublicMaxDebugLogMemoryReads,
       );
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx

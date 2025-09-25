@@ -323,6 +323,14 @@ export class PublicPersistableStateManager {
     this.trace.traceDebugLog(contractAddress, level, message, fields);
   }
 
+  public writeDebugLogMemoryReads(memoryReads: number) {
+    this.trace.traceDebugLogMemoryReads(memoryReads);
+  }
+
+  public getDebugLogMemoryReads() {
+    return this.trace.getDebugLogMemoryReads();
+  }
+
   public getLogs() {
     return this.trace.getDebugLogs();
   }

@@ -29,6 +29,7 @@
 #include "barretenberg/vm2/simulation/gadgets/memory.hpp"
 #include "barretenberg/vm2/simulation/gadgets/sha256.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
 #include "barretenberg/vm2/simulation/interfaces/execution.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
@@ -70,6 +71,7 @@ class Execution : public ExecutionInterface {
               GreaterThanInterface& greater_than,
               GetContractInstanceInterface& get_contract_instance_component,
               EmitUnencryptedLogInterface& emit_unencrypted_log_component,
+              DebugLoggerInterface& debug_log_component,
               HighLevelMerkleDBInterface& merkle_db)
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
@@ -86,6 +88,7 @@ class Execution : public ExecutionInterface {
         , greater_than(greater_than)
         , get_contract_instance_component(get_contract_instance_component)
         , emit_unencrypted_log_component(emit_unencrypted_log_component)
+        , debug_log_component(debug_log_component)
         , merkle_db(merkle_db)
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
@@ -189,11 +192,6 @@ class Execution : public ExecutionInterface {
     void shr(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr);
     void shl(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr);
 
-    void set_client_initiated_simulation(bool client_initiated_simulation)
-    {
-        this->client_initiated_simulation = client_initiated_simulation;
-    }
-
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
     virtual GasTrackerInterface& get_gas_tracker() { return *gas_tracker; }
@@ -236,6 +234,7 @@ class Execution : public ExecutionInterface {
     GreaterThanInterface& greater_than;
     GetContractInstanceInterface& get_contract_instance_component;
     EmitUnencryptedLogInterface& emit_unencrypted_log_component;
+    DebugLoggerInterface& debug_log_component;
     HighLevelMerkleDBInterface& merkle_db;
 
     EventEmitterInterface<ExecutionEvent>& events;
@@ -247,8 +246,6 @@ class Execution : public ExecutionInterface {
     std::vector<TaggedValue> inputs;
     TaggedValue output;
     std::unique_ptr<GasTrackerInterface> gas_tracker;
-
-    bool client_initiated_simulation = false;
 };
 
 } // namespace bb::avm2::simulation

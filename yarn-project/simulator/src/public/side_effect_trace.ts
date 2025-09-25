@@ -67,7 +67,6 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
   private nullifiers: Nullifier[] = [];
   private l2ToL1Messages: ScopedL2ToL1Message[] = [];
   private publicLogs: PublicLog[] = [];
-
   /** Make sure a forked trace is never merged twice. */
   private alreadyMergedIntoParent = false;
 
@@ -82,6 +81,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     private uniqueClassIds: UniqueClassIds = new UniqueClassIds(),
     private writtenPublicDataSlots: Set<string> = new Set(),
     private debugLogs: DebugLog[] = [],
+    private debugLogMemoryReads: number = 0,
   ) {
     this.sideEffectCounter = startSideEffectCounter;
   }
@@ -101,6 +101,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
       this.uniqueClassIds.fork(),
       new Set(this.writtenPublicDataSlots),
       this.debugLogs.slice(),
+      this.debugLogMemoryReads,
     );
   }
 
@@ -115,6 +116,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     this.sideEffectCounter = forkedTrace.sideEffectCounter;
     this.uniqueClassIds.acceptAndMerge(forkedTrace.uniqueClassIds);
     this.debugLogs = forkedTrace.debugLogs;
+    this.debugLogMemoryReads = forkedTrace.debugLogMemoryReads;
 
     if (!reverted) {
       this.publicDataWrites.push(...forkedTrace.publicDataWrites);
@@ -247,6 +249,14 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
 
   public getDebugLogs() {
     return this.debugLogs;
+  }
+
+  public getDebugLogMemoryReads() {
+    return this.debugLogMemoryReads;
+  }
+
+  public traceDebugLogMemoryReads(memoryReads: number) {
+    this.debugLogMemoryReads += memoryReads;
   }
 
   public traceGetContractClass(contractClassId: Fr, exists: boolean) {

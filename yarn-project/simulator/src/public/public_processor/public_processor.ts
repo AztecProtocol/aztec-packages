@@ -66,6 +66,7 @@ export class PublicProcessorFactory {
     globalVariables: GlobalVariables,
     skipFeeEnforcement: boolean,
     clientInitiatedSimulation: boolean = false,
+    maxDebugLogMemoryReads?: number,
   ): PublicProcessor {
     const contractsDB = new PublicContractsDB(this.contractDataSource);
 
@@ -77,6 +78,7 @@ export class PublicProcessorFactory {
       /*doMerkleOperations=*/ true,
       skipFeeEnforcement,
       clientInitiatedSimulation,
+      maxDebugLogMemoryReads,
     );
 
     return new PublicProcessor(
@@ -96,6 +98,7 @@ export class PublicProcessorFactory {
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
     clientInitiatedSimulation: boolean,
+    maxDebugLogMemoryReads?: number,
   ): PublicTxSimulator {
     return new TelemetryPublicTxSimulator(
       merkleTree,
@@ -105,6 +108,7 @@ export class PublicProcessorFactory {
       skipFeeEnforcement,
       clientInitiatedSimulation,
       this.telemetryClient,
+      maxDebugLogMemoryReads,
     );
   }
 }
