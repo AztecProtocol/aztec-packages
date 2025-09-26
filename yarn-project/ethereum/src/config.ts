@@ -26,15 +26,15 @@ export type L1ContractsConfig = {
   aztecSlotDuration: number;
   /** How many L2 slots an epoch lasts. */
   aztecEpochDuration: number;
-  /** The target validator committee size. */
+  /** The target sequencer committee size. */
   aztecTargetCommitteeSize: number;
   /** The number of epochs to lag behind the current epoch for validator selection. */
   lagInEpochs: number;
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: number;
-  /** The deposit amount for a validator */
+  /** The deposit amount for a sequencer. */
   activationThreshold: bigint;
-  /** The minimum stake for a validator. */
+  /** The minimum stake for a sequencer. */
   ejectionThreshold: bigint;
   /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
   localEjectionThreshold: bigint;
@@ -272,7 +272,7 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
   },
   aztecTargetCommitteeSize: {
     env: 'AZTEC_TARGET_COMMITTEE_SIZE',
-    description: 'The target validator committee size.',
+    description: 'The target sequencer committee size.',
     ...numberConfigHelper(DefaultL1ContractsConfig.aztecTargetCommitteeSize),
   },
   lagInEpochs: {
@@ -287,12 +287,12 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
   },
   activationThreshold: {
     env: 'AZTEC_ACTIVATION_THRESHOLD',
-    description: 'The deposit amount for a validator',
+    description: 'The deposit amount for a sequencer.',
     ...bigintConfigHelper(DefaultL1ContractsConfig.activationThreshold),
   },
   ejectionThreshold: {
     env: 'AZTEC_EJECTION_THRESHOLD',
-    description: 'The minimum stake for a validator.',
+    description: 'The minimum stake for a sequencer.',
     ...bigintConfigHelper(DefaultL1ContractsConfig.ejectionThreshold),
   },
   localEjectionThreshold: {
@@ -380,7 +380,7 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
   },
   exitDelaySeconds: {
     env: 'AZTEC_EXIT_DELAY_SECONDS',
-    description: 'The delay before a validator can exit the set',
+    description: 'The delay before a sequencer can exit the set',
     ...numberConfigHelper(DefaultL1ContractsConfig.exitDelaySeconds),
   },
   ...l1TxUtilsConfigMappings,

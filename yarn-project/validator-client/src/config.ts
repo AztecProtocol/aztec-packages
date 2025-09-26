@@ -13,7 +13,7 @@ export type { ValidatorClientConfig };
 export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = {
   validatorPrivateKeys: {
     env: 'VALIDATOR_PRIVATE_KEYS',
-    description: 'List of private keys of the validators participating in attestation duties',
+    description: 'The attesting sequencers that are operated by this sequencer node',
     ...secretValueConfigHelper<`0x${string}`[]>(val =>
       val ? val.split(',').map<`0x${string}`>(key => `0x${key.replace('0x', '')}`) : [],
     ),
@@ -31,7 +31,7 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
   },
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
-    description: 'Do not run the validator',
+    description: 'Disable sequencer attesting',
     ...booleanConfigHelper(false),
   },
   disabledValidators: {

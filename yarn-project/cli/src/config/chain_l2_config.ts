@@ -99,7 +99,7 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   aztecSlotDuration: 72,
   /** How many L2 slots an epoch lasts. */
   aztecEpochDuration: 32,
-  /** The target validator committee size. */
+  /** The target sequencer committee size. */
   aztecTargetCommitteeSize: 24,
   /** The number of epochs to lag behind the current epoch for validator selection. */
   lagInEpochs: 2,
@@ -181,7 +181,7 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   aztecSlotDuration: 36,
   /** How many L2 slots an epoch lasts. */
   aztecEpochDuration: 32,
-  /** The target validator committee size. */
+  /** The target sequencer committee size. */
   aztecTargetCommitteeSize: 48,
   /** The number of epochs to lag behind the current epoch for validator selection. */
   lagInEpochs: DefaultL1ContractsConfig.lagInEpochs,
@@ -189,9 +189,9 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
-  /** The deposit amount for a validator */
+  /** The deposit amount for a sequencer. */
   activationThreshold: DefaultL1ContractsConfig.activationThreshold,
-  /** The minimum stake for a validator. */
+  /** The minimum stake for a sequencer. */
   ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
   /** The slashing round size */
   slashingRoundSizeInEpochs: DefaultL1ContractsConfig.slashingRoundSizeInEpochs,
@@ -234,15 +234,15 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   aztecSlotDuration: 36,
   /** How many L2 slots an epoch lasts. */
   aztecEpochDuration: 32,
-  /** The target validator committee size. */
+  /** The target sequencer committee size. */
   aztecTargetCommitteeSize: 48,
   /** The number of epochs to lag behind the current epoch for validator selection. */
   lagInEpochs: 2,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
-  /** The deposit amount for a validator */
+  /** The deposit amount for a sequencer. */
   activationThreshold: DefaultL1ContractsConfig.activationThreshold,
-  /** The minimum stake for a validator. */
+  /** The minimum stake for a sequencer. */
   ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
   /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
   localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,

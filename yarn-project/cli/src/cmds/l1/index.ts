@@ -34,7 +34,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .description('Deploys all necessary Ethereum contracts for Aztec.')
     .addOption(l1RpcUrlsOption)
     .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
-    .option('--validators <string>', 'Comma separated list of validators')
+    .option('--validators <string>', 'Comma separated list of attestors')
     .option(
       '-m, --mnemonic <string>',
       'The mnemonic to use in deployment',
@@ -79,7 +79,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .requiredOption('-r, --registry-address <string>', 'The address of the registry contract', parseEthereumAddress)
     .addOption(l1RpcUrlsOption)
     .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
-    .option('--validators <string>', 'Comma separated list of validators')
+    .option('--validators <string>', 'Comma separated list of attestors')
     .option(
       '-m, --mnemonic <string>',
       'The mnemonic to use in deployment',
