@@ -1,7 +1,33 @@
 include "precomputed.pil";
 include "calldata_hashing.pil";
 
-// Calldata is largely going to be constrained by calldata hashing
+// ###########
+// Calldata
+// ###########
+//
+// This circuit fills the calldata column with one field per row. We constrain that the index
+// increments by one each row until we begin a new calldata instance, where the context_id must
+// increase and latch must indicate the final row.
+//
+// The size and hash of the calldata is constrained by calldata_hashing.pil. These values should be
+// looked up via calldata_hashing.pil's latch.
+//
+// e.g. calldata: [0x111, 0x222, 0x333, 0x444]
+// calldata.pil:
+//  index |  value | context_id | latch |
+// -------+--------+------------+-------+
+//    1   |  0x111 |     1      |   0   |
+//    2   |  0x222 |     1      |   0   |
+//    3   |  0x333 |     1      |   0   |
+//    4   |  0x444 |     1      |   1   |
+//
+// e.g. cd_hash_0 = H([sep, 0x111, 0x222, 0x333, 0x444])
+// calldata_hashing.pil:
+//   index_0_ |  index_1_ | index_2_ | context_id | input_0_ | input_1_ | input_2_ | output_hash | latch | start | rounds_rem | padding | calldata_size |
+// -----------+-----------+----------+------------+----------+----------+----------+-------------+-------+-------+------------+---------+---------------+
+//     0      |     1     |     2    |      1     |    sep   |   0x111  |   0x222  |  cd_hash_0  |   0   |   1   |     2      |    0    |       4       |
+//     3      |     4     |     5    |      1     |   0x444  |     0    |     0    |  cd_hash_0  |   1   |   0   |     1      |    2    |       4       |
+
 namespace calldata;
 
     #[skippable_if]
@@ -10,10 +36,16 @@ namespace calldata;
     pol commit sel;
     pol commit value;
     pol commit context_id;
-    // TODO: Index starts at one
-    pol commit index; // 1 - indexed
+    // Index starts at one:
+    pol commit index;
     // Designates end of calldata for that context_id
     pol commit latch;
+    latch * (1 - latch) = 0;
+
+    // latch == 1 ==> sel == 1
+    #[SEL_TOGGLED_AT_LATCH]
+    latch * (1 - sel) = 0;
+
     pol FIRST_OR_LAST_CALLDATA = precomputed.first_row + latch;
     // Index increments until latch
     sel * (1 - FIRST_OR_LAST_CALLDATA) * (index' - index - 1) = 0;
@@ -25,6 +57,12 @@ namespace calldata;
 
     // Context id does not change until we latch
     #[CONTEXT_ID_CONTINUITY]
-    (1 - precomputed.first_row) * sel * (1 - latch) * (context_id - context_id') = 0;
-    
-    // TODO: does this trace need to enforce that a context_id only appears for a single calldata?
+    (1 - FIRST_OR_LAST_CALLDATA) * (context_id - context_id') = 0;
+
+    // We ensure that context_id is always different and increasing at each latch:
+    pol commit diff_context_id;
+    diff_context_id = latch * sel' * (context_id' - context_id - 1);
+
+    #[RANGE_CHECK_CONTEXT_ID_DIFF]
+    latch { diff_context_id } in precomputed.sel_range_16 { precomputed.clk };
+

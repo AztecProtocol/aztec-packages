@@ -25,24 +25,6 @@
 
 namespace bb::avm2 {
 
-INSTANTIATE_LOOKUP(lookup_tx_read_phase_table_relation);
-INSTANTIATE_LOOKUP(lookup_tx_phase_jump_on_revert_relation);
-INSTANTIATE_LOOKUP(lookup_tx_read_phase_length_relation);
-INSTANTIATE_LOOKUP(lookup_tx_read_calldata_hash_relation);
-INSTANTIATE_LOOKUP(lookup_tx_read_public_call_request_phase_relation);
-INSTANTIATE_LOOKUP(lookup_tx_dispatch_exec_start_relation);
-INSTANTIATE_LOOKUP(lookup_tx_dispatch_exec_end_relation);
-INSTANTIATE_LOOKUP(lookup_tx_read_tree_insert_value_relation);
-INSTANTIATE_LOOKUP(lookup_tx_note_hash_append_relation);
-INSTANTIATE_LOOKUP(lookup_tx_nullifier_append_relation);
-INSTANTIATE_LOOKUP(lookup_tx_read_l2_l1_msg_relation);
-INSTANTIATE_LOOKUP(lookup_tx_write_l2_l1_msg_relation);
-INSTANTIATE_LOOKUP(lookup_tx_read_effective_fee_public_inputs_relation);
-INSTANTIATE_LOOKUP(lookup_tx_read_fee_payer_public_inputs_relation);
-INSTANTIATE_LOOKUP(lookup_tx_balance_slot_poseidon2_relation);
-INSTANTIATE_LOOKUP(lookup_tx_balance_read_relation);
-INSTANTIATE_LOOKUP(lookup_tx_balance_validation_relation);
-INSTANTIATE_LOOKUP(lookup_tx_balance_update_relation);
-INSTANTIATE_LOOKUP(lookup_tx_write_fee_public_inputs_relation);
+INSTANTIATE_LOOKUP(lookup_calldata_range_check_context_id_diff_relation);
 
 } // namespace bb::avm2
