@@ -13,7 +13,13 @@ import {
   performTransfers,
   startCompatiblePXE,
 } from './setup_test_wallets.js';
-import { applyProverFailure, setupEnvironment, startPortForwardForEthereum, startPortForwardForRPC } from './utils.js';
+import {
+  applyProverFailure,
+  getGitProjectRoot,
+  setupEnvironment,
+  startPortForwardForEthereum,
+  startPortForwardForRPC,
+} from './utils.js';
 
 const config = { ...setupEnvironment(process.env) };
 const debugLogger = createLogger('e2e:spartan-test:reorg');
@@ -43,6 +49,7 @@ describe('reorg test', () => {
   let ETHEREUM_HOSTS: string[];
   const forwardProcesses: ChildProcess[] = [];
   let rpcUrl: string;
+  let spartanDir: string;
 
   let testAccounts: TestAccounts;
   let pxe: PXE;
@@ -62,6 +69,7 @@ describe('reorg test', () => {
 
     rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
     ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
+    spartanDir = `${getGitProjectRoot()}/spartan`;
 
     node = createAztecNodeClient(rpcUrl);
     ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, debugLogger));
@@ -89,7 +97,7 @@ describe('reorg test', () => {
     // kill the provers
     const stdout = await applyProverFailure({
       namespace: config.NAMESPACE,
-      spartanDir: `/workspaces/aztec-packages/spartan`,
+      spartanDir,
       durationSeconds: Number(epochDuration * slotDuration) * 2,
       logger: debugLogger,
     });

@@ -1,0 +1,7 @@
+{
+  "rollupAddress": "0x33a5853b8ac09b8fb298ffd73488035be262a25d",
+  "initialFundedAccounts": [],
+  "initialValidators": [],
+  "genesisArchiveRoot": "0x2a5d53da0a767a07c6e731af7ac9dad7f3bf4f19feea9ad7d177711f19a34cbe",
+  "slashFactoryAddress": "0x1a3f1a3616b69613369b6f49714d2f12d759393d"
+}

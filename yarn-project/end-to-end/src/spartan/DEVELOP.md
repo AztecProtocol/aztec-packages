@@ -60,6 +60,11 @@ The export is important there. The `AZTEC_DOCKER_IMAGE` env var is used as both:
 - the container that runs the rollup contract deployment
 - the containers for the aztec infrastructure (validators, provers, etc)
 
+# Deploy Metrics
+```bash
+./spartan/bootstrap.sh metrics-kind
+```
+
 # Deploy stuff
 
 ```bash
