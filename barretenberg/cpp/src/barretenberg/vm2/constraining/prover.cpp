@@ -59,11 +59,12 @@ void AvmProver::execute_preamble_round()
  */
 void AvmProver::execute_public_inputs_round()
 {
+    using C = ColumnAndShifts;
     // We take the starting values of the public inputs polynomials to add to the transcript
-    const auto public_inputs_cols = std::vector({ &prover_polynomials.public_inputs_cols_0_,
-                                                  &prover_polynomials.public_inputs_cols_1_,
-                                                  &prover_polynomials.public_inputs_cols_2_,
-                                                  &prover_polynomials.public_inputs_cols_3_ });
+    const auto public_inputs_cols = std::vector({ &prover_polynomials.get(C::public_inputs_cols_0_),
+                                                  &prover_polynomials.get(C::public_inputs_cols_1_),
+                                                  &prover_polynomials.get(C::public_inputs_cols_2_),
+                                                  &prover_polynomials.get(C::public_inputs_cols_3_) });
     for (size_t i = 0; i < public_inputs_cols.size(); ++i) {
         for (size_t j = 0; j < AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH; ++j) {
             // The public inputs are added to the hash buffer, but do not increase the size of the proof

@@ -39,6 +39,36 @@ enum class ColumnAndShifts {
 
 constexpr auto NUM_COLUMNS_WITH_SHIFTS = 3561;
 constexpr auto NUM_COLUMNS_WITHOUT_SHIFTS = 3225;
+constexpr auto NUM_PRECOMPUTED_ENTITIES = 133;
+constexpr auto NUM_WIRE_ENTITIES = 2620;
+constexpr auto NUM_DERIVED_ENTITIES = 472;
+constexpr auto NUM_SHIFTED_ENTITIES = 336;
+constexpr auto NUM_ALL_ENTITIES = 3561;
+
+/*
+ * Layout for all entities is:
+ *
+ * precomputed | wire | derived | shifted
+ *             \________________/
+ *                  witness
+ * \____________________________/
+ *           unshifted
+ * The following end indices are exclusive.
+ * That is, a section is [start_idx, end_idx).
+ */
+constexpr auto PRECOMPUTED_START_IDX = 0;
+constexpr auto PRECOMPUTED_END_IDX = NUM_PRECOMPUTED_ENTITIES;
+constexpr auto WIRE_START_IDX = PRECOMPUTED_END_IDX;
+constexpr auto WIRE_END_IDX = WIRE_START_IDX + NUM_WIRE_ENTITIES;
+constexpr auto DERIVED_START_IDX = WIRE_END_IDX;
+constexpr auto DERIVED_END_IDX = DERIVED_START_IDX + NUM_DERIVED_ENTITIES;
+constexpr auto SHIFTED_START_IDX = DERIVED_END_IDX;
+constexpr auto SHIFTED_END_IDX = SHIFTED_START_IDX + NUM_SHIFTED_ENTITIES;
+constexpr auto WITNESS_START_IDX = WIRE_START_IDX;
+constexpr auto WITNESS_END_IDX = DERIVED_END_IDX;
+constexpr auto UNSHIFTED_START_IDX = PRECOMPUTED_START_IDX;
+constexpr auto UNSHIFTED_END_IDX = DERIVED_END_IDX;
+
 constexpr auto TO_BE_SHIFTED_COLUMNS_ARRAY = []() { return std::array{ AVM2_TO_BE_SHIFTED_COLUMNS }; }();
 constexpr auto SHIFTED_COLUMNS_ARRAY = []() { return std::array{ AVM2_SHIFTED_COLUMNS }; }();
 static_assert(TO_BE_SHIFTED_COLUMNS_ARRAY.size() == SHIFTED_COLUMNS_ARRAY.size());
