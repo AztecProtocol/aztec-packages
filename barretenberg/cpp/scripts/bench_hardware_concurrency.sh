@@ -3,6 +3,18 @@
 # Script to benchmark bb prove with different HARDWARE_CONCURRENCY values
 # Usage: ./bench_hardware_concurrency.sh [concurrency_values...]
 # Example: ./bench_hardware_concurrency.sh 1 2 4 8 16 32
+#
+# To run on a remote machine with ci.sh shell-new:
+#   ./ci.sh shell-new "./ci3/cache_download bb-client-ivc-captures-ba1369853ed8670e.tar.gz ; \
+#                      mv example-app-ivc-inputs-out yarn-project/end-to-end 2>/dev/null ; \
+#                      DENOISE=1 DISABLE_AZTEC_VM=1 ./barretenberg/cpp/bootstrap.sh build_native ; \
+#                      DENOISE=1 ./barretenberg/cpp/scripts/bench_hardware_concurrency.sh"
+#
+# To save the output to a file:
+#   ./ci.sh shell-new "..." > cpu_scaling_report.md
+#
+# To run with specific CPU counts:
+#   ./ci.sh shell-new "... ./barretenberg/cpp/scripts/bench_hardware_concurrency.sh 1 2 4 8"
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 
@@ -39,7 +51,7 @@ run_benchmark() {
     fi
 
     # Run the command with specified concurrency
-    local cmd="BB_BENCH=1 HARDWARE_CONCURRENCY=$concurrency $REPO_ROOT/barretenberg/cpp/build-no-avm/bin/bb prove --scheme client_ivc --output_path /tmp --ivc_inputs_path $input_path --bench_out $bench_file"
+    local cmd="BB_BENCH=1 HARDWARE_CONCURRENCY=$concurrency $REPO_ROOT/barretenberg/cpp/build/bin/bb prove --scheme client_ivc --output_path /tmp --ivc_inputs_path $input_path --bench_out $bench_file"
 
     if [ "$DENOISE" = "1" ]; then
         DENOISE=1 denoise "$cmd" >&2
