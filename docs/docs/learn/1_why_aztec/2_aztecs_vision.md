@@ -410,6 +410,4 @@ Don't worry if you can't answer all of these yet - they'll become clearer as we 
 ## Further Resources
 
 - [Aztec Network Website](https://aztec.network/)
-- [Privacy-Preserving Smart Contracts](../aztec/concepts/smart-contracts)
-- [Understanding Zero-Knowledge Proofs](../aztec/concepts/zero-knowledge)
 - [Join the Aztec Community](https://discord.gg/aztec)

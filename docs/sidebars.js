@@ -12,15 +12,15 @@ const sidebar = {
     },
     {
       type: "doc",
+      id: "developers/index",
+    },
+    {
+      type: "doc",
       id: "developers/getting_started_on_sandbox",
     },
     {
       type: "doc",
       id: "developers/getting_started_on_testnet",
-    },
-    {
-      type: "doc",
-      id: "learn/index",
     },
     {
       type: "link",
@@ -92,9 +92,18 @@ const sidebar = {
       label: "4: Development Environment Setup",
       items: [
         "learn/dev_env_setup/intro",
-        "developers/getting_started_on_sandbox",
-        "developers/docs/guides/local_env/sandbox",
-        "developers/docs/guides/local_env/installing_noir_lsp",
+        {
+          type: "ref",
+          id: "developers/getting_started_on_sandbox",
+        },
+        {
+          type: "ref",
+          id: "developers/docs/guides/local_env/sandbox",
+        },
+        {
+          type: "ref",
+          id: "developers/docs/guides/local_env/installing_noir_lsp",
+        },
         "learn/dev_env_setup/aztec_boilerplate",
       ],
     },

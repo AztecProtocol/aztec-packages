@@ -101,9 +101,9 @@ Before beginning, ensure you have:
 
 ### Next Steps
 
-Ready to begin? Start with [Module 1: Foundations](/learn/module-1-foundations) where you'll explore Aztec's architecture and run your first private transaction in the Aztec Sandbox.
+Ready to begin? Start with [Module 1: Foundations](../learn/1_why_aztec/1_privacy_problem.md) where you'll explore Aztec's architecture and run your first private transaction in the Aztec Sandbox.
 
-For immediate hands-on experience, visit the [Developer Getting Started Guide](/developers/getting_started) to set up your environment and deploy your first contract.
+For immediate hands-on experience, visit the [Developer Getting Started Guide](../developers/getting_started_on_sandbox.md) to set up your environment and deploy your first contract.
 
 ## Journey Support
 

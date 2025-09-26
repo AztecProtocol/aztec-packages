@@ -64,7 +64,8 @@ const config = {
           include: ["**/*.{md,mdx}"],
           exclude: ["protocol-specs/**"],
           // Don't show latest since nightlies are published
-          includeCurrentVersion: process.env.ENV === "dev",
+          // TODO: switch to false when ready to merge
+          includeCurrentVersion: true,
           // There should be 2 versions, nightly and stable
           // The stable version is second in the list
           lastVersion: versions[1],
@@ -72,12 +73,17 @@ const config = {
             [versions[0]]: {
               ...(versions[0].includes("nightly") && { path: "nightly" }),
             },
-            ...(process.env.ENV === "dev" && {
-              current: {
-                label: "dev",
-                path: "dev",
-              },
-            }),
+            // TODO: uncomment when ready to merge
+            // ...(process.env.ENV === "dev" && {
+            //   current: {
+            //     label: "dev",
+            //     path: "dev",
+            //   },
+            // }),
+            current: {
+              label: "dev",
+              path: "dev",
+            },
           },
           remarkPlugins: [math],
           rehypePlugins: [
@@ -179,6 +185,12 @@ const config = {
             position: "left",
             dropdownActiveClassDisabled: true,
           },
+          // {
+          //   type: "docSidebar",
+          //   sidebarId: "learnSidebar",
+          //   position: "left",
+          //   label: "Learn",
+          // },
           {
             type: "docSidebar",
             sidebarId: "sidebar",
