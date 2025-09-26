@@ -24,11 +24,11 @@ docker run -ti --rm -v "$PWD":/cpp -v/opt/wasi-sdk:/opt/wasi-sdk -w /cpp -e HOST
 Install zig and become host user:
 
 ```
-apt update
-apt install -y curl xz-utils
-mkdir -p /opt/zig
-curl -sL https://ziglang.org/download/0.15.1/zig-x86_64-linux-0.15.1.tar.xz | tar -xJ -C /opt/zig --strip-components=1
-ln -s /opt/zig/zig /usr/local/bin/zig
+apt update && apt install -y curl xz-utils
+ARCH=$(uname -m)
+ZIG_VERSION=$(cat .zigversion)
+curl -sL https://ziglang.org/download/$ZIG_VERSION/zig-$ARCH-linux-$ZIG_VERSION.tar.xz | tar -xJ -C /opt
+ln -s /opt/zig-$ARCH-linux-$ZIG_VERSION/zig /usr/local/bin/zig
 
 groupadd -g "$HOST_GID" hostuser
 useradd -m -u "$HOST_UID" -g "$HOST_GID" hostuser
@@ -48,6 +48,8 @@ Build bb binary and library for all platforms:
 ```
 zig build cross --release=small --summary all
 ```
+
+**WARNING: On mainframe if you get resource usage failures, try adding `-j64`**
 
 This will print a nice summary of the build graph described in build.zig with timings and memory usage.
 You will get an output folder zig-out with the following structure:
@@ -107,6 +109,29 @@ If you want a debug build, just exclude the --release:
 zig build
 ```
 
+## Testing
+
+To build all the tests:
+
+```
+zig build tests
+```
+
+You'll get test binaries in the relevant platform dir. e.g. `zig-out/x86_64-linux/honk_tests`.
+You can build individual tests:
+
+```
+zig build crypto_tests
+```
+
+## Benchmarks
+
+To build all the benchmarks:
+
+```
+zig build benchmarks
+```
+
 ## The Build System
 
 Files:
@@ -118,3 +143,9 @@ Files:
 If you create a new cpp file, you'll need to add it to it's appropriate collection in `sources.zig`.
 
 Zig builds use a cache in `.zig-cache`. You can delete this (and `zig-out`) to do completely fresh builds.
+
+There are different release types:
+
+- `small` - Optimize for small artifacts. No runtime safety features.
+- `fast` - Optimize for fast artifacts. No runtime safety features.
+- `safe` - Optimize, but leave in runtime safety features.

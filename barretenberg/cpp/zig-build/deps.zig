@@ -193,6 +193,18 @@ pub fn buildWasmCxxFs(b: *std.Build) *std.Build.Step.Compile {
 
     lib.linkLibC();
 
+    // Hack within the hack. We need to get path to zig installation to include libc++ headers.
+    var cp = std.process.Child.init(&[_][]const u8{ "which", "zig" }, b.allocator);
+    cp.stdout_behavior = .Pipe;
+    cp.stderr_behavior = .Pipe;
+    cp.spawn() catch unreachable;
+    const stdout = cp.stdout.?.readToEndAlloc(b.allocator, 256) catch unreachable;
+    _ = cp.wait() catch unreachable;
+    const zig_path = std.mem.trimRight(u8, stdout, "\r\n");
+    const zig_real = std.fs.realpathAlloc(b.allocator, zig_path) catch unreachable;
+    const base_zig = std.fs.path.dirname(zig_real);
+    const include_path = std.fs.path.join(b.allocator, &.{ base_zig.?, "lib/libcxx/include" }) catch unreachable;
+
     // Filesystem sources copied locally.
     const base = "./src/libcxx";
     lib.addCSourceFiles(.{
@@ -242,15 +254,8 @@ pub fn buildWasmCxxFs(b: *std.Build) *std.Build.Step.Compile {
             "-Wno-covered-switch-default",
             "-Wno-suggest-override",
 
-            // libc++ headers & internals from the Zig installation
             "-I",
-            "/mnt/user-data/charlie/.zvm/0.15.1/lib/libcxx/include",
-            "-I",
-            "/mnt/user-data/charlie/.zvm/0.15.1/lib/libcxxabi/include",
-            "-I",
-            "/mnt/user-data/charlie/.zvm/0.15.1/lib/libcxx/src",
-            "-I",
-            "/mnt/user-data/charlie/.zvm/0.15.1/lib/libcxx/libc",
+            include_path,
         },
     });
 
