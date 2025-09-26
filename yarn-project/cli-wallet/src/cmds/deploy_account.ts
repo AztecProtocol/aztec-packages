@@ -2,9 +2,9 @@ import { AztecAddress, type DeployOptions, ProtocolContractAddress } from '@azte
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 
+import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
 import type { CLIFeeArgs } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
-import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
 import type { CLIWallet } from '../utils/wallet.js';
 
 export async function deployAccount(

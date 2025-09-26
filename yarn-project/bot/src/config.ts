@@ -6,10 +6,12 @@ import {
   getDefaultConfig,
   numberConfigHelper,
   optionalNumberConfigHelper,
+  pickConfigMappings,
   secretFrConfigHelper,
   secretStringConfigHelper,
 } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ZodFor, schemas } from '@aztec/stdlib/schemas';
@@ -30,8 +32,6 @@ export type BotConfig = {
   nodeUrl: string | undefined;
   /** The URL to the Aztec node admin API to force-flush txs if configured. */
   nodeAdminUrl: string | undefined;
-  /** URL to the PXE for sending txs, or undefined if an in-proc PXE is used. */
-  pxeUrl: string | undefined;
   /** Url of the ethereum host. */
   l1RpcUrls: string[] | undefined;
   /** The mnemonic for the account to bridge fee juice from L1. */
@@ -78,13 +78,12 @@ export type BotConfig = {
   stopWhenUnhealthy: boolean;
   /** Deploy an AMM contract and do swaps instead of transfers */
   ammTxs: boolean;
-};
+} & Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'>;
 
 export const BotConfigSchema = z
   .object({
     nodeUrl: z.string().optional(),
     nodeAdminUrl: z.string().optional(),
-    pxeUrl: z.string().optional(),
     l1RpcUrls: z.array(z.string()).optional(),
     l1Mnemonic: schemas.SecretValue(z.string()).optional(),
     l1PrivateKey: schemas.SecretValue(z.string()).optional(),
@@ -108,11 +107,12 @@ export const BotConfigSchema = z
     maxConsecutiveErrors: z.number().int().nonnegative(),
     stopWhenUnhealthy: z.boolean(),
     ammTxs: z.boolean().default(false),
+    dataDirectory: z.string().optional(),
+    dataStoreMapSizeKB: z.number().optional(),
   })
   .transform(config => ({
     nodeUrl: undefined,
     nodeAdminUrl: undefined,
-    pxeUrl: undefined,
     l1RpcUrls: undefined,
     senderSalt: undefined,
     l2GasLimit: undefined,
@@ -120,6 +120,8 @@ export const BotConfigSchema = z
     l1Mnemonic: undefined,
     l1PrivateKey: undefined,
     senderPrivateKey: undefined,
+    dataDirectory: undefined,
+    dataStoreMapSizeKB: 1_024 * 1_024,
     ...config,
   })) satisfies ZodFor<BotConfig>;
 
@@ -131,10 +133,6 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   nodeAdminUrl: {
     env: 'AZTEC_NODE_ADMIN_URL',
     description: 'The URL to the Aztec node admin API to force-flush txs if configured.',
-  },
-  pxeUrl: {
-    env: 'BOT_PXE_URL',
-    description: 'URL to the PXE for sending txs, or undefined if an in-proc PXE is used.',
   },
   l1RpcUrls: {
     env: 'ETHEREUM_HOSTS',
@@ -270,6 +268,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     description: 'Deploy an AMM and send swaps to it',
     ...booleanConfigHelper(false),
   },
+  ...pickConfigMappings(dataConfigMappings, ['dataStoreMapSizeKB', 'dataDirectory']),
 };
 
 export function getBotConfigFromEnv(): BotConfig {

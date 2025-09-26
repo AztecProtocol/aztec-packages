@@ -555,21 +555,27 @@ using lookup_tx_balance_validation_relation = lookup_relation_base<FF_, lookup_t
 struct lookup_tx_balance_update_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_BALANCE_UPDATE";
     static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 9;
     static constexpr Column SRC_SELECTOR = Column::tx_is_collect_fee;
     static constexpr Column DST_SELECTOR = Column::public_data_check_write;
     static constexpr Column COUNTS = Column::lookup_tx_balance_update_counts;
     static constexpr Column INVERSES = Column::lookup_tx_balance_update_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::tx_fee_payer_new_balance,      ColumnAndShifts::tx_fee_juice_contract_address,
-        ColumnAndShifts::tx_fee_juice_balance_slot,     ColumnAndShifts::tx_prev_public_data_tree_root,
-        ColumnAndShifts::tx_next_public_data_tree_root, ColumnAndShifts::tx_prev_public_data_tree_size,
-        ColumnAndShifts::tx_next_public_data_tree_size, ColumnAndShifts::tx_uint32_max
+        ColumnAndShifts::tx_fee_payer_new_balance,
+        ColumnAndShifts::tx_fee_juice_contract_address,
+        ColumnAndShifts::tx_fee_juice_balance_slot,
+        ColumnAndShifts::tx_discard,
+        ColumnAndShifts::tx_prev_public_data_tree_root,
+        ColumnAndShifts::tx_next_public_data_tree_root,
+        ColumnAndShifts::tx_prev_public_data_tree_size,
+        ColumnAndShifts::tx_next_public_data_tree_size,
+        ColumnAndShifts::tx_uint32_max
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::public_data_check_value,
         ColumnAndShifts::public_data_check_address,
         ColumnAndShifts::public_data_check_slot,
+        ColumnAndShifts::public_data_check_discard,
         ColumnAndShifts::public_data_check_root,
         ColumnAndShifts::public_data_check_write_root,
         ColumnAndShifts::public_data_check_tree_size_before_write,

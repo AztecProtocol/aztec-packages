@@ -45,7 +45,7 @@ The minimum hardware specifications for each of the components is listed below.
 
 Minimum specifications:
 
-- 2 core / 4 vCPU
+- 2 core / 4 vCPU (released in 2015 or later)
 - 16 GB RAM
 - 1 TB NVMe SSD
 - 25 Mbps network connection
@@ -54,7 +54,7 @@ Minimum specifications:
 
 Minimum specifications:
 
-- 2 core / 4 vCPU
+- 2 core / 4 vCPU (released in 2015 or later)
 - 16 GB RAM
 - 10 GB SSD
 
@@ -62,7 +62,7 @@ Minimum specifications:
 
 Minimum specifications:
 
-- 32 core / 64 vCPU
+- 32 core / 64 vCPU (released in 2015 or later)
 - 128 GB RAM
 - 10 GB SSD
 

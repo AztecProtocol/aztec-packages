@@ -11,8 +11,14 @@ class MockToRadix : public ToRadixInterface {
     MockToRadix();
     ~MockToRadix() override;
 
-    MOCK_METHOD((std::vector<uint8_t>), to_le_radix, (const FF& value, uint32_t num_limbs, uint32_t radix), (override));
-    MOCK_METHOD((std::vector<bool>), to_le_bits, (const FF& value, uint32_t num_limbs), (override));
+    MOCK_METHOD((std::pair<std::vector<uint8_t>, /* truncated */ bool>),
+                to_le_radix,
+                (const FF& value, uint32_t num_limbs, uint32_t radix),
+                (override));
+    MOCK_METHOD((std::pair<std::vector<bool>, /* truncated */ bool>),
+                to_le_bits,
+                (const FF& value, uint32_t num_limbs),
+                (override));
     MOCK_METHOD(void,
                 to_be_radix,
                 (MemoryInterface & memory,

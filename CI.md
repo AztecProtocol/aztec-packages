@@ -287,6 +287,7 @@ PRs targeting `next` must be squashed to a single commit unless labeled with `ci
 CI3 has granular caching, but as well it includes an additional layer of caching based on git content. When CI completes successfully, it stores a success marker keyed by the hash of the repository's file tree. On subsequent runs, if the exact same content is detected (same tree hash), CI will skip execution entirely.
 
 This is particularly useful when:
+
 - You squash commits using `ci-squash-and-merge` - the resulting single commit has the same content, so CI won't re-run
 - You rebase without changes - if the final content is identical, CI is skipped
 - Multiple PRs have identical changes - only the first needs to run CI
@@ -377,30 +378,6 @@ It's useful to understand a bit about our build image. As a reminder, we have a 
 The images can be built and pushed to dockerhub using the `build-images/bootstrap.sh` script.
 
 It also provides the ability to update our AWS AMI's which have the above build/devbox images embedded within them so we don't have to keep pulling them.
-
-## Release Image
-
-Aztec is released as a _single_ mono-container. That is, everything we need to ship should end up in `aztecprotocol/aztec` and published to Dockerhub with version tags.
-
-The release image is created from a bootstrap, by the `release-image/Dockerfile`. The `Dockerfile.dockerignore` file ensures that only what's needed is copied into the container. We perform a multi-stage build to first strip back to production dependencies, and copy them into a final slim image.
-
-**It is _extremely_ important we keep this image as lightweight as possible. Do NOT significantly expand the size of this image without very good reason.**
-
-## Releases
-
-Release please is used and will automatically tag the commit e.g. `v1.2.3`. The project will subsequently be released under that version.
-
-You can also trigger pre and post releases using extended semver notation such as `v1.2.3-nightly.20250101` or `v1.2.3-devnet.0`. This are made simply by tagging the appropriate master commit.
-
-Releases can be performed directly from the terminal if necessary. However at present this will require `NPM_TOKEN` which is a secret restricted to a few people. In future we may provide a "staging organization" for less secure unofficial releases.
-
-One can also side-step Release Please automation by updating the version number in the root `.release-please-manifest.json`, committing, tagging the repository with e.g. `v1.2.3`, checking out the tag, and running:
-
-```
-./bootstrap.sh release
-```
-
-This is all that CI does when it wants to perform an official release.
 
 ## Q&A
 

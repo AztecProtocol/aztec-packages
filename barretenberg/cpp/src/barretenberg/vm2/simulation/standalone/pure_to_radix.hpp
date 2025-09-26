@@ -11,8 +11,10 @@ class PureToRadix : public ToRadixInterface {
     PureToRadix() = default;
     ~PureToRadix() override = default;
 
-    std::vector<uint8_t> to_le_radix(const FF& value, uint32_t num_limbs, uint32_t radix) override;
-    std::vector<bool> to_le_bits(const FF& value, uint32_t num_limbs) override;
+    std::pair<std::vector<uint8_t>, /* truncated */ bool> to_le_radix(const FF& value,
+                                                                      uint32_t num_limbs,
+                                                                      uint32_t radix) override;
+    std::pair<std::vector<bool>, /* truncated */ bool> to_le_bits(const FF& value, uint32_t num_limbs) override;
     void to_be_radix(MemoryInterface& memory,
                      const FF& value,
                      uint32_t radix,

@@ -9,6 +9,8 @@ import path, { dirname, join } from 'path';
 
 import publicIncludeMetrics from '../../public_include_metric_prefixes.json' with { type: 'json' };
 
+const SNAPSHOT_URL = 'https://pub-f4a8c34d4bb7441ebf8f48d904512180.r2.dev/snapshots';
+
 export type L2ChainConfig = L1ContractsConfig &
   Omit<SlasherConfig, 'slashValidatorsNever' | 'slashValidatorsAlways'> & {
     l1ChainId: number;
@@ -63,11 +65,12 @@ const DefaultSlashConfig = {
   slashProposeInvalidAttestationsPenalty: DefaultL1ContractsConfig.slashAmountLarge,
   slashAttestDescendantOfInvalidPenalty: DefaultL1ContractsConfig.slashAmountLarge,
   slashUnknownPenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashBroadcastedInvalidBlockPenalty: DefaultL1ContractsConfig.slashAmountMedium,
+  slashBroadcastedInvalidBlockPenalty: 0n, // DefaultL1ContractsConfig.slashAmountSmall // Disabled until further testing
   slashMaxPayloadSize: 50,
   slashGracePeriodL2Slots: 32 * 2, // Two epochs from genesis
   slashOffenseExpirationRounds: 8,
   sentinelEnabled: true,
+  slashExecuteRoundsLookBack: 4,
 } satisfies Partial<L2ChainConfig>;
 
 export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
@@ -76,13 +79,13 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: false,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '0xa2ed20f46dc58e5af6035ec61d463ac85a6d52d3',
-  slashFactoryAddress: '0x2c03d596f4b5f0c1d0d2dbf92a5964dfc658763c',
-  feeAssetHandlerAddress: '0x48be40187f2932bd14cd4d111fba26646da96c36',
+  registryAddress: '0x5f85fa0f40bc4b5ccd53c9f34258aa55d25cdde8',
+  slashFactoryAddress: '0x257db2ca1471b7f76f414d2997404bfbe916c8c9',
+  feeAssetHandlerAddress: '0x67d645b0a3e053605ea861d7e8909be6669812c4',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
-  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/staging-ignition/',
+  snapshotsUrl: `${SNAPSHOT_URL}/staging-ignition/`,
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-ignition.json',
   maxTxPoolSize: 100_000_000, // 100MB
@@ -142,12 +145,13 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   slashProposeInvalidAttestationsPenalty: 50_000n * 10n ** 18n,
   slashAttestDescendantOfInvalidPenalty: 50_000n * 10n ** 18n,
   slashUnknownPenalty: 2_000n * 10n ** 18n,
-  slashBroadcastedInvalidBlockPenalty: 10_000n * 10n ** 18n,
+  slashBroadcastedInvalidBlockPenalty: 0n, // 10_000n * 10n ** 18n, Disabled for now until further testing
   slashMaxPayloadSize: 50,
   slashGracePeriodL2Slots: 32 * 4, // One round from genesis
   slashOffenseExpirationRounds: 8,
   sentinelEnabled: true,
   slashingDisableDuration: 5 * 24 * 60 * 60,
+  slashExecuteRoundsLookBack: 4,
 };
 
 export const stagingPublicL2ChainConfig: L2ChainConfig = {
@@ -162,7 +166,7 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
-  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/staging-public/',
+  snapshotsUrl: `${SNAPSHOT_URL}/staging-public/`,
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-public.json',
   publicIncludeMetrics,
@@ -215,7 +219,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
-  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/testnet/',
+  snapshotsUrl: `${SNAPSHOT_URL}/testnet/`,
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/testnet.json',
   maxTxPoolSize: 100_000_000, // 100MB

@@ -11,7 +11,7 @@ import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { DeployTest } from './deploy_test.js';
 

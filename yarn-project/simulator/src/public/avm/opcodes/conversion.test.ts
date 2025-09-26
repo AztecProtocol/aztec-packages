@@ -40,7 +40,7 @@ describe('Conversion Opcodes', () => {
     });
 
     it('Should decompose correctly to bytes - direct', async () => {
-      const arg = new Field(0b1011101010100n);
+      const arg = new Field(0b1101010100n);
       const radix = new Uint32(2); // Bit decomposition
       const indirect = 0;
       const srcOffset = 0;
@@ -65,14 +65,14 @@ describe('Conversion Opcodes', () => {
       // The expected result is the first 10 bits of the input
       // Reverse before slice because still only care about the first `numLimb` bytes.
       // Then reverse back since we want big endian (as the original string is).
-      const expectedResults = '1011101010100'.split('').reverse().slice(0, numLimbs.toNumber()).reverse().map(Number);
+      const expectedResults = '1101010100'.split('').reverse().slice(0, numLimbs.toNumber()).reverse().map(Number);
       for (let i = 0; i < numLimbs.toNumber(); i++) {
         expect(resultBuffer.readUInt8(i)).toEqual(expectedResults[i]);
       }
     });
 
     it('Should decompose correctly to bits - direct', async () => {
-      const arg = new Field(0b1011101010100n);
+      const arg = new Field(0b1101010100n);
       const radix = new Uint32(2); // Bit decomposition
       const indirect = 0;
       const srcOffset = 0;
@@ -97,7 +97,37 @@ describe('Conversion Opcodes', () => {
       // The expected result is the first 10 bits of the input
       // Reverse before slice because still only care about the first `numLimb` bytes.
       // Then reverse back since we want big endian (as the original string is).
-      const expectedResults = '1011101010100'.split('').reverse().slice(0, numLimbs.toNumber()).reverse().map(Number);
+      const expectedResults = '1101010100'.split('').reverse().slice(0, numLimbs.toNumber()).reverse().map(Number);
+      for (let i = 0; i < numLimbs.toNumber(); i++) {
+        expect(resultBuffer.readUInt8(i)).toEqual(expectedResults[i]);
+      }
+    });
+
+    it('Should decompose correctly to bytes with padding - direct', async () => {
+      const arg = new Field(0b1010n);
+      const radix = new Uint32(2); // Bit decomposition
+      const indirect = 0;
+      const srcOffset = 0;
+      const dstOffset = 20;
+      const radixOffset = 1;
+      const numLimbs = new Uint32(10); // More bits than the number has
+      const numLimbsOffset = 100;
+      const outputBits = new Uint1(1); // true, output as bits
+      const outputBitsOffset = 200;
+      context.machineState.memory.set(srcOffset, arg);
+      context.machineState.memory.set(radixOffset, radix);
+      context.machineState.memory.set(numLimbsOffset, numLimbs);
+      context.machineState.memory.set(outputBitsOffset, outputBits);
+
+      await new ToRadixBE(indirect, srcOffset, radixOffset, numLimbsOffset, outputBitsOffset, dstOffset).execute(
+        context,
+      );
+
+      const resultBuffer: Buffer = Buffer.concat(
+        context.machineState.memory.getSliceAs<Uint1>(dstOffset, numLimbs.toNumber()).map(byte => byte.toBuffer()),
+      );
+
+      const expectedResults = '1010'.padStart(numLimbs.toNumber(), '0').split('').map(Number);
       for (let i = 0; i < numLimbs.toNumber(); i++) {
         expect(resultBuffer.readUInt8(i)).toEqual(expectedResults[i]);
       }
@@ -222,6 +252,28 @@ describe('Conversion Opcodes', () => {
         ).rejects.toThrow(InvalidToRadixInputsError);
       },
     );
+
+    it('Should throw an error for a number that cannot be decomposed in the given number of limbs', async () => {
+      const arg = new Field(0b1010n);
+      const radix = new Uint32(2); // Bit decomposition
+      const indirect = 0;
+      const srcOffset = 0;
+      const radixOffset = 1;
+      const numLimbs = new Uint32(3); // Less bits than the number has
+      const numLimbsOffset = 100;
+      const outputBits = new Uint1(1); // true, output as bits
+      const outputBitsOffset = 200;
+      context.machineState.memory.set(srcOffset, arg);
+      context.machineState.memory.set(radixOffset, radix);
+      context.machineState.memory.set(numLimbsOffset, numLimbs);
+      context.machineState.memory.set(outputBitsOffset, outputBits);
+
+      await expect(
+        new ToRadixBE(indirect, srcOffset, radixOffset, numLimbsOffset, outputBitsOffset, 20 /*dstOffset*/).execute(
+          context,
+        ),
+      ).rejects.toThrow(new InvalidToRadixInputsError('Field failed to decompose in 3 limbs.'));
+    });
 
     it('Should charge dynamic gas', async () => {
       const arg = new Field(27);

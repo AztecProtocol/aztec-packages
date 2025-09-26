@@ -61,7 +61,7 @@ mod tests {
         constants::NULLIFIER_TREE_HEIGHT,
         hash::compute_siloed_nullifier,
         merkle_tree::MembershipWitness,
-        tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::assert_array_eq},
+        tests::{merkle_tree_utils::SingleSubtreeMerkleTree, utils::assert_array_eq},
         traits::{Empty, FromField, Hash},
     };
     use types::utils::arrays::ClaimedLengthArray;
@@ -151,15 +151,11 @@ mod tests {
     }
 
     impl<let ReadRequestLen: u32, let PendingValueLen: u32, let PendingReadHintsLen: u32, let SettledReadHintsLen: u32> TestBuilder<ReadRequestLen, PendingValueLen, PendingReadHintsLen, SettledReadHintsLen> {
-        fn build_tree(
-            self,
-        ) -> NonEmptyMerkleTree<2, NULLIFIER_TREE_HEIGHT, NULLIFIER_TREE_HEIGHT - 1, 1> {
-            NonEmptyMerkleTree::new(
-                [self.leaf_preimages[0].hash(), self.leaf_preimages[1].hash()],
-                [0; NULLIFIER_TREE_HEIGHT],
-                [0; NULLIFIER_TREE_HEIGHT - 1],
-                [0; 1],
-            )
+        fn build_tree(self) -> SingleSubtreeMerkleTree<2, 1, NULLIFIER_TREE_HEIGHT> {
+            SingleSubtreeMerkleTree::new([
+                self.leaf_preimages[0].hash(),
+                self.leaf_preimages[1].hash(),
+            ])
         }
 
         fn get_settled_read_hints(self) -> ([NullifierSettledReadHint; 2], Field) {

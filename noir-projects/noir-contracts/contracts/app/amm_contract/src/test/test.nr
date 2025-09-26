@@ -26,7 +26,7 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity() {
     let initial_amount1 = 2000 as u128;
 
     add_liquidity(
-        &mut env,
+        env,
         amm_address,
         token0_address,
         token1_address,
@@ -52,7 +52,7 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity() {
     let amount1_max = expected_amount_1_in + expected_refund_amount1;
 
     add_liquidity(
-        &mut env,
+        env,
         amm_address,
         token0_address,
         token1_address,
@@ -96,7 +96,7 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity() {
     let amount1_min = 800 as u128;
 
     remove_liquidity(
-        &mut env,
+        env,
         amm_address,
         liquidity_token_address,
         liquidity_provider_1,
@@ -144,7 +144,7 @@ unconstrained fn swap_exact_tokens_for_tokens() {
     let liquidity_amount1 = 20000 as u128;
 
     add_liquidity(
-        &mut env,
+        env,
         amm_address,
         token0_address,
         token1_address,
@@ -164,6 +164,7 @@ unconstrained fn swap_exact_tokens_for_tokens() {
 
     // Create authwit for transferring tokens to AMM
     add_private_authwit_from_call_interface(
+        env,
         swapper,
         amm_address,
         token0.transfer_to_public(swapper, amm_address, amount_in, AUTHWIT_NONCE),
@@ -203,7 +204,7 @@ unconstrained fn swap_tokens_for_exact_tokens() {
     let liquidity_amount1 = 20000 as u128;
 
     add_liquidity(
-        &mut env,
+        env,
         amm_address,
         token0_address,
         token1_address,
@@ -228,7 +229,7 @@ unconstrained fn swap_tokens_for_exact_tokens() {
         amount_in_max,
         AUTHWIT_NONCE,
     );
-    add_private_authwit_from_call_interface(swapper, amm_address, transfer_call_interface);
+    add_private_authwit_from_call_interface(env, swapper, amm_address, transfer_call_interface);
 
     env.call_private(
         swapper,
@@ -482,7 +483,7 @@ unconstrained fn add_liquidity_insufficient_liquidity_minted() {
     let initial_amount1 = 200000000 as u128;
 
     add_liquidity(
-        &mut env,
+        env,
         amm_address,
         token0_address,
         token1_address,
@@ -499,7 +500,7 @@ unconstrained fn add_liquidity_insufficient_liquidity_minted() {
     let tiny_amount1 = 2 as u128;
 
     add_liquidity(
-        &mut env,
+        env,
         amm_address,
         token0_address,
         token1_address,
@@ -524,7 +525,7 @@ unconstrained fn remove_liquidity_insufficient_amount0() {
     let amount1 = 2000 as u128;
 
     add_liquidity(
-        &mut env,
+        env,
         amm_address,
         token0_address,
         token1_address,
@@ -542,7 +543,7 @@ unconstrained fn remove_liquidity_insufficient_amount0() {
     let amount1_min = 800 as u128;
 
     remove_liquidity(
-        &mut env,
+        env,
         amm_address,
         liquidity_token_address,
         liquidity_provider,
@@ -564,7 +565,7 @@ unconstrained fn remove_liquidity_insufficient_amount1() {
     let amount1 = 2000 as u128;
 
     add_liquidity(
-        &mut env,
+        env,
         amm_address,
         token0_address,
         token1_address,
@@ -582,7 +583,7 @@ unconstrained fn remove_liquidity_insufficient_amount1() {
     let amount1_min = 20000 as u128; // Unrealistically high minimum
 
     remove_liquidity(
-        &mut env,
+        env,
         amm_address,
         liquidity_token_address,
         liquidity_provider,

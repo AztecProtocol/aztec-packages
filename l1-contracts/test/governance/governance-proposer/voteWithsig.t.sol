@@ -27,13 +27,6 @@ contract SignalWithSigTest is GovernanceProposerBase {
     validatorSelection = new Fakerollup();
   }
 
-  // Skipping this test since the it matches the for now skipped check in `EmpireBase::signal`
-  function skip__test_WhenProposalHoldNoCode() external {
-    // it revert
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__PayloadHaveNoCode.selector, proposal));
-    governanceProposer.signalWithSig(proposal, signature);
-  }
-
   modifier whenProposalHoldCode() {
     proposal = IPayload(address(this));
     signature = createSignature(privateKey, proposal);

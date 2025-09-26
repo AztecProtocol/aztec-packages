@@ -10,7 +10,7 @@ import {
 } from '@aztec/aztec.js';
 import { SchnorrHardcodedAccountContractArtifact } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 import { setup } from '../fixtures/utils.js';
 
@@ -75,7 +75,7 @@ describe('guides/writing_an_account_contract', () => {
       await account.deploy({ deployAccount: fundedAccount }).wait();
     } else {
       // The contract has no constructor. Deployment is not required.
-      // Register it in the PXE Service to start using it.
+      // Register it in the PXE to start using it.
       await account.register();
     }
 

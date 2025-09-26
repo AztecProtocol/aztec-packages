@@ -11,6 +11,50 @@
 
 namespace bb::avm2 {
 
+/////////////////// lookup_public_data_check_clk_diff_range_lo ///////////////////
+
+struct lookup_public_data_check_clk_diff_range_lo_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_PUBLIC_DATA_CHECK_CLK_DIFF_RANGE_LO";
+    static constexpr std::string_view RELATION_NAME = "public_data_check";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
+    static constexpr Column SRC_SELECTOR = Column::public_data_check_not_end;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr Column COUNTS = Column::lookup_public_data_check_clk_diff_range_lo_counts;
+    static constexpr Column INVERSES = Column::lookup_public_data_check_clk_diff_range_lo_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::public_data_check_clk_diff_lo
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
+};
+
+using lookup_public_data_check_clk_diff_range_lo_settings =
+    lookup_settings<lookup_public_data_check_clk_diff_range_lo_settings_>;
+template <typename FF_>
+using lookup_public_data_check_clk_diff_range_lo_relation =
+    lookup_relation_base<FF_, lookup_public_data_check_clk_diff_range_lo_settings>;
+
+/////////////////// lookup_public_data_check_clk_diff_range_hi ///////////////////
+
+struct lookup_public_data_check_clk_diff_range_hi_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_PUBLIC_DATA_CHECK_CLK_DIFF_RANGE_HI";
+    static constexpr std::string_view RELATION_NAME = "public_data_check";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
+    static constexpr Column SRC_SELECTOR = Column::public_data_check_not_end;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr Column COUNTS = Column::lookup_public_data_check_clk_diff_range_hi_counts;
+    static constexpr Column INVERSES = Column::lookup_public_data_check_clk_diff_range_hi_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::public_data_check_clk_diff_hi
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
+};
+
+using lookup_public_data_check_clk_diff_range_hi_settings =
+    lookup_settings<lookup_public_data_check_clk_diff_range_hi_settings_>;
+template <typename FF_>
+using lookup_public_data_check_clk_diff_range_hi_relation =
+    lookup_relation_base<FF_, lookup_public_data_check_clk_diff_range_hi_settings>;
+
 /////////////////// lookup_public_data_check_silo_poseidon2 ///////////////////
 
 struct lookup_public_data_check_silo_poseidon2_settings_ {

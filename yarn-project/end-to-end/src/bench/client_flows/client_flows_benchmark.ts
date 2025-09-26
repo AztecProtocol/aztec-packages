@@ -5,7 +5,6 @@ import {
   FeeJuicePaymentMethodWithClaim,
   type FeePaymentMethod,
   type Logger,
-  type PXE,
   PrivateFeePaymentMethod,
   SponsoredFeePaymentMethod,
   type Wallet,
@@ -26,9 +25,9 @@ import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract as BananaCoin, TokenContract } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
-import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 import { MNEMONIC } from '../../fixtures/fixtures.js';
 import {
@@ -87,7 +86,6 @@ export class ClientFlowsBenchmark {
 
   // PXE and Wallet used by the benchmarking user. It can be set up with client-side proving enabled
   public userWallet!: TestWallet;
-  private userPXE!: PXE;
 
   public realProofs = ['true', '1'].includes(process.env.REAL_PROOFS ?? '');
 
@@ -214,20 +212,17 @@ export class ClientFlowsBenchmark {
         this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.adminWallet);
         this.coinbase = EthAddress.random();
 
-        const userPXEConfig = getPXEServiceConfig();
-        const l1Contracts = await aztecNode.getL1ContractAddresses();
+        const userPXEConfig = getPXEConfig();
         const userPXEConfigWithContracts = {
           ...userPXEConfig,
           proverEnabled: this.realProofs,
-          l1Contracts,
-        } as PXEServiceConfig;
+        } as PXEConfig;
 
-        this.userPXE = await createPXEService(this.aztecNode, userPXEConfigWithContracts, {
+        this.userWallet = await TestWallet.create(this.aztecNode, userPXEConfigWithContracts, {
           loggers: {
             prover: this.proxyLogger.createLogger('pxe:bb:wasm:bundle:proxied'),
           },
         });
-        this.userWallet = new TestWallet(this.userPXE, this.aztecNode);
       },
     );
   }

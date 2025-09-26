@@ -4,25 +4,23 @@ import {
   AbiTypeSchema,
   type ContractArtifact,
   ContractArtifactSchema,
+  type EventMetadataDefinition,
   FunctionAbiSchema,
   FunctionType,
 } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type ContractClassMetadata,
+  ContractClassWithIdSchema,
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
   type ContractInstantiationData,
+  type ContractMetadata,
 } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
-import {
-  ContractClassMetadataSchema,
-  ContractMetadataSchema,
-  EventMetadataDefinitionSchema,
-  type PXE,
-} from '@aztec/stdlib/interfaces/client';
 import { PublicKeys } from '@aztec/stdlib/keys';
-import { AbiDecodedSchema, type ApiSchemaFor, optional, schemas } from '@aztec/stdlib/schemas';
+import { AbiDecodedSchema, type ApiSchemaFor, type ZodFor, optional, schemas } from '@aztec/stdlib/schemas';
 import {
   Capsule,
   HashedValues,
@@ -75,7 +73,16 @@ export type ChainInfo = {
 /**
  * The wallet interface.
  */
-export type Wallet = Pick<PXE, 'getContractClassMetadata' | 'getContractMetadata' | 'getPrivateEvents'> & {
+export type Wallet = {
+  getContractClassMetadata(id: Fr, includeArtifact?: boolean): Promise<ContractClassMetadata>;
+  getContractMetadata(address: AztecAddress): Promise<ContractMetadata>;
+  getPrivateEvents<T>(
+    contractAddress: AztecAddress,
+    eventMetadata: EventMetadataDefinition,
+    from: number,
+    numBlocks: number,
+    recipients: AztecAddress[],
+  ): Promise<T[]>;
   getChainInfo(): Promise<ChainInfo>;
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
   registerSender(address: AztecAddress, alias?: string): Promise<AztecAddress>;
@@ -181,6 +188,24 @@ const MessageHashOrIntentSchema = z.union([
     call: FunctionCallSchema,
   }),
 ]);
+
+const ContractMetadataSchema = z.object({
+  contractInstance: z.union([ContractInstanceWithAddressSchema, z.undefined()]),
+  isContractInitialized: z.boolean(),
+  isContractPublished: z.boolean(),
+}) satisfies ZodFor<ContractMetadata>;
+
+const ContractClassMetadataSchema = z.object({
+  contractClass: z.union([ContractClassWithIdSchema, z.undefined()]),
+  isContractClassPubliclyRegistered: z.boolean(),
+  artifact: z.union([ContractArtifactSchema, z.undefined()]),
+}) satisfies ZodFor<ContractClassMetadata>;
+
+export const EventMetadataDefinitionSchema = z.object({
+  eventSelector: schemas.EventSelector,
+  abiType: AbiTypeSchema,
+  fieldNames: z.array(z.string()),
+});
 
 export const WalletSchema: ApiSchemaFor<Wallet> = {
   getChainInfo: z
