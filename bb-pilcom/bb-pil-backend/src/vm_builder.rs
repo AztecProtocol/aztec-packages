@@ -157,20 +157,6 @@ fn get_all_col_names<F: FieldElement>(
             .map(|name| sanitize_name(name.as_str()))
             .collect_vec(),
     );
-    let committed = sort_cols(
-        &analyzed
-            .committed_polys_in_source_order()
-            .iter()
-            .flat_map(|(sym, _)| expand_symbol(sym))
-            .map(|name| sanitize_name(name.as_str()))
-            .collect_vec(),
-    );
-    let public = analyzed
-        .public_polys_in_source_order()
-        .iter()
-        .flat_map(|(sym, _)| expand_symbol(sym))
-        .map(|name| sanitize_name(name.as_str()))
-        .collect_vec();
     let to_be_shifted = sort_cols(
         &get_shifted_polys(
             analyzed
@@ -183,6 +169,23 @@ fn get_all_col_names<F: FieldElement>(
         .map(|name| sanitize_name(name.as_str()))
         .collect_vec(),
     );
+    let committed = sort_cols(
+        &analyzed
+            .committed_polys_in_source_order()
+            .iter()
+            .flat_map(|(sym, _)| expand_symbol(sym))
+            .map(|name| sanitize_name(name.as_str()))
+            // We want to put the columns to be shifted last.
+            // Note: afaik sorted_by_key is stable.
+            .sorted_by_key(|name| !to_be_shifted.contains(name))
+            .collect_vec(),
+    );
+    let public = analyzed
+        .public_polys_in_source_order()
+        .iter()
+        .flat_map(|(sym, _)| expand_symbol(sym))
+        .map(|name| sanitize_name(name.as_str()))
+        .collect_vec();
     let shifted = to_be_shifted
         .iter()
         .map(|name| format!("{}_shift", name))

@@ -48,6 +48,7 @@ constexpr auto NUM_ALL_ENTITIES = 3561;
 constexpr auto NUM_WIRE_ENTITIES = 2603;
 constexpr auto NUM_DERIVED_ENTITIES = 467;
 constexpr auto NUM_WITNESS_ENTITIES = NUM_WIRE_ENTITIES + NUM_DERIVED_ENTITIES;
+constexpr auto NUM_WIRES_TO_BE_SHIFTED = 330;
 constexpr auto NUM_SHIFTED_ENTITIES = 330;
 constexpr auto NUM_UNSHIFTED_ENTITIES = NUM_COLUMNS_WITHOUT_SHIFTS;
 constexpr auto NUM_ALL_ENTITIES = 3533;
@@ -56,11 +57,11 @@ constexpr auto NUM_ALL_ENTITIES = 3533;
 /*
  * Layout for all entities is:
  *
- * precomputed | wire | derived | shifted
- *             \________________/
- *                  witness
- * \____________________________/
- *           unshifted
+ * precomputed | wire(not shifted) : wire(to be shifted) | derived | shifted
+ *             \___________________________________________________/
+ *                              witness
+ * \_______________________________________________________________/
+ *                             unshifted
  * The following end indices are exclusive.
  * That is, a section is [start_idx, end_idx).
  */
@@ -68,6 +69,8 @@ constexpr auto PRECOMPUTED_START_IDX = 0;
 constexpr auto PRECOMPUTED_END_IDX = NUM_PRECOMPUTED_ENTITIES;
 constexpr auto WIRE_START_IDX = PRECOMPUTED_END_IDX;
 constexpr auto WIRE_END_IDX = WIRE_START_IDX + NUM_WIRE_ENTITIES;
+constexpr auto WIRES_TO_BE_SHIFTED_START_IDX = WIRE_END_IDX - NUM_WIRES_TO_BE_SHIFTED;
+constexpr auto WIRES_TO_BE_SHIFTED_END_IDX = WIRE_END_IDX;
 constexpr auto DERIVED_START_IDX = WIRE_END_IDX;
 constexpr auto DERIVED_END_IDX = DERIVED_START_IDX + NUM_DERIVED_ENTITIES;
 constexpr auto SHIFTED_START_IDX = DERIVED_END_IDX;

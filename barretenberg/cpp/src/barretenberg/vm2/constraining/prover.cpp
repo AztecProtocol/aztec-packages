@@ -162,8 +162,9 @@ void AvmProver::execute_pcs_rounds()
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
     PolynomialBatcher polynomial_batcher(key->circuit_size);
-    polynomial_batcher.set_unshifted(prover_polynomials.get_unshifted());
-    polynomial_batcher.set_to_be_shifted_by_one(prover_polynomials.get_to_be_shifted());
+    polynomial_batcher.set_unshifted(RefVector<Polynomial>::from_span(prover_polynomials.get_unshifted()));
+    polynomial_batcher.set_to_be_shifted_by_one(
+        RefVector<Polynomial>::from_span(prover_polynomials.get_to_be_shifted()));
 
     const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(
         key->circuit_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);

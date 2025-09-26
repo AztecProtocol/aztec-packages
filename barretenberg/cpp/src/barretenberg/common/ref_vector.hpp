@@ -50,12 +50,14 @@ template <typename T> class RefVector {
         }
     }
 
-    RefVector(const std::span<T>& span)
-        : storage(span.size())
+    // Note: making this a constructor gives problems in prover_instance.cpp.
+    static RefVector from_span(const std::span<T>& span)
     {
+        RefVector ret;
         for (std::size_t i = 0; i < span.size(); ++i) {
-            storage[i] = &span[i];
+            ret.push_back(span[i]);
         }
+        return ret;
     }
 
     T& operator[](std::size_t idx) const
