@@ -10,66 +10,60 @@ impl TestBuilder {
 
     pub fn new_with_one_blob_and_validate_fixtures(validate_fixtures: bool) -> Self {
         // The below values are generated from block_building_helpers.test.ts.
-        let blob_fields_0 = [
-            0x000000000000000000000000000000000074785f737461727400000500010000,
+        let blob_fields_from_ts = [
+            0x00000074785f7374617274000000010000000000000000000000000000000004,
             0x000000000000000000000000000000000000000000000000000000000000002a,
-            0x0002000000000000000000000000000000000000000000000000000000000000,
-            0x0000000000000000000000000000000000000000000000000000000004000001,
+            0x000000000000000000000000000000000000000000000000000000000000002a,
             0x0000000000000000000000000000000000000000000000000000000000000123,
-        ];
-        let blob_fields_1 = [
-            0x000000000000000000000000000000000074785f737461727400000700010000,
+            0x00000074785f7374617274000100010000000000000000000000000000000005,
             0x000000000000000000000000000000000000000000000000000000000000002b,
-            0x0002000000000000000000000000000000000000000000000000000000000000,
-            0x0000000000000000000000000000000000000000000000000000000003000001,
+            0x000000000000000000000000000000000000000000000000000000000000003b,
             0x0000000000000000000000000000000000000000000000000000000000006789,
-            0x0000000000000000000000000000000000000000000000000000000004000001,
             0x0000000000000000000000000000000000000000000000000000000000000045,
+            0x000000000000000000000000000000000000000000626c6f636b5f656e640002,
         ];
-        let expected_blob_commitment_fields_fixture = [
-            0x008c32fe581c8fdba12c0d7597911dead2d937d68525bae655508412bb53bb98,
-            0x0000000000000000000000000000006aaa0680f21270e7d8de4e19da5164f95c,
+        let blob_commitment_limbs_x_from_ts = [
+            0xd7076f471e8dcf04760b9cbe20af06,
+            0x7f98239e7b801bb8f4702dc823b873,
+            0x699979538c822fec25abc302ed41d7,
+            0x03967e,
         ];
-        let expected_challenge_z_fixture =
-            0x1f92b871671f27a378d23f1cef10fbd8f0d90dd7172da9e3c3fc1aa745a072c3;
-
-        // Blob commitment with value:
-        // x: 0x0c32fe581c8fdba12c0d7597911dead2d937d68525bae655508412bb53bb986aaa0680f21270e7d8de4e19da5164f95c,
-        // y: 0x07896936b96e9af0ecd6ef882c14dcc6e8d075ea61d11ae9df4bfab87396547b5e01b8a35d9a720733acdd92421f24e9,
-        let injected_blob_commitment = BatchingBlobCommitment::from_limbs(
-            [
-                0x0680f21270e7d8de4e19da5164f95c,
-                0xd68525bae655508412bb53bb986aaa,
-                0x581c8fdba12c0d7597911dead2d937,
-                0x0c32fe,
-            ],
-            [
-                0x01b8a35d9a720733acdd92421f24e9,
-                0x75ea61d11ae9df4bfab87396547b5e,
-                0x36b96e9af0ecd6ef882c14dcc6e8d0,
-                0x078969,
-            ],
+        let blob_commitment_limbs_y_from_ts = [
+            0xb09910247cca033d8c4ae4747d0c4d,
+            0x75b78fca650facfb8e04517bcf9d5e,
+            0x5f5131c7c18168ff40d47c7704eb06,
+            0x0079d9,
+        ];
+        let blob_commitment = BatchingBlobCommitment::from_limbs(
+            blob_commitment_limbs_x_from_ts,
+            blob_commitment_limbs_y_from_ts,
         );
+        let blob_commitment_fields_from_ts = [
+            0x0083967e699979538c822fec25abc302ed41d77f98239e7b801bb8f4702dc823,
+            0x000000000000000000000000000000b873d7076f471e8dcf04760b9cbe20af06,
+        ];
+        let challenge_z_from_ts =
+            0x2f46cba1320559052e1b547aff62d8dec5703b2925f9126cfea89742607f51bd;
 
-        let mut builder = Self::default_with_blob_fields(blob_fields_0.concat(blob_fields_1));
+        let mut builder = Self::default_with_blob_fields(blob_fields_from_ts);
 
         if (validate_fixtures) {
-            let injected_blob_commitment_fields = injected_blob_commitment.to_compressed_fields();
+            let blob_commitment_fields = blob_commitment.to_compressed_fields();
             // Check that the hard-coded limbs generate the same blob commitment fields from ts.
-            assert_eq(injected_blob_commitment_fields, expected_blob_commitment_fields_fixture);
+            assert_eq(blob_commitment_fields, blob_commitment_fields_from_ts);
 
             let mut end_sponge_blob = builder.right_rollup.end_sponge_blob;
             let challenge_z = poseidon2_hash([
                 end_sponge_blob.squeeze(),
-                injected_blob_commitment_fields[0],
-                injected_blob_commitment_fields[1],
+                blob_commitment_fields[0],
+                blob_commitment_fields[1],
             ]);
-            assert_eq(challenge_z, expected_challenge_z_fixture);
+            assert_eq(challenge_z, challenge_z_from_ts);
         }
 
-        builder.hints.blob_commitments[0] = injected_blob_commitment.point;
+        builder.hints.blob_commitments[0] = blob_commitment.point;
         builder.hints.start_blob_accumulator = BlobAccumulatorPublicInputs::empty();
-        builder.hints.final_blob_challenges.z = expected_challenge_z_fixture;
+        builder.hints.final_blob_challenges.z = challenge_z_from_ts;
 
         builder
     }
@@ -236,6 +230,7 @@ fn correct_end_blob_accumulator_with_full_blobs() {
     builder.assert_expected_public_inputs(public_inputs);
 
     let end_blob_accumulator = public_inputs.end_blob_accumulator;
+    // Assume there's only one checkpoint in the epoch and validate that the `z_acc` matches what's computed in ts.
     assert_eq(end_blob_accumulator.z_acc, builder.hints.final_blob_challenges.z);
     assert_eq(end_blob_accumulator.y_acc.get_limbs(), expected_y_limbs);
     assert_eq(end_blob_accumulator.c_acc, expected_c);

@@ -22,7 +22,6 @@ use crate::{
             PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
             PrivateToRollupKernelCircuitPublicInputs,
         },
-        log::Log,
         log_hash::LogHash,
         note_hash::{NoteHash, ScopedNoteHash},
         nullifier::{Nullifier, ScopedNullifier},
@@ -49,10 +48,10 @@ use crate::{
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-        DEFAULT_UPDATE_DELAY, FUNCTION_TREE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX,
-        MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE, MAX_INCLUDE_BY_TIMESTAMP_DURATION,
-        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        DEFAULT_UPDATE_DELAY, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH, FUNCTION_TREE_HEIGHT,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
+        MAX_INCLUDE_BY_TIMESTAMP_DURATION, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_U32_VALUE, MEGA_VK_LENGTH_IN_FIELDS,
@@ -80,15 +79,12 @@ use crate::{
     proof::{verification_key::{MegaVerificationKey, VerificationKey}, vk_data::VkData},
     public_keys::PublicKeys,
     storage::map::derive_storage_slot_in_map,
-    tests::{
-        fixtures::{
-            self,
-            contract_functions::ContractFunction,
-            contracts::ContractData,
-            public_data_tree::empty_public_data_tree,
-            vk_tree::{get_vk_data, vk_tree_root},
-        },
-        utils::{make_fixture, pad_end},
+    tests::fixtures::{
+        self,
+        contract_functions::ContractFunction,
+        contracts::ContractData,
+        public_data_tree::empty_public_data_tree,
+        vk_tree::{get_vk_data, vk_tree_root},
     },
     traits::{Deserialize, Empty, FromField, Hash, Packable, ToField},
     utils::arrays::ClaimedLengthArray,
@@ -1055,6 +1051,12 @@ impl FixtureBuilder {
         self.append_private_logs_for_note(num_logs, 0 /* note_hash_counter */);
     }
 
+    pub fn append_private_logs_with_length<let LogFieldsLen: u32>(&mut self, num_logs: u32) {
+        for _i in 0..num_logs {
+            self.append_private_logs_with_lengths([LogFieldsLen]);
+        }
+    }
+
     pub fn append_private_logs_with_lengths<let NumLogs: u32>(&mut self, lengths: [u32; NumLogs]) {
         let index_offset = self.private_logs.len();
         for i in 0..lengths.len() {
@@ -1125,22 +1127,9 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_public_log<let LogFieldsLen: u32>(&mut self, fields: [Field; LogFieldsLen]) {
-        let log = Log { fields, length: LogFieldsLen };
-        self.public_logs.add_log(self.contract_address, log);
-    }
-
-    pub fn append_public_logs(&mut self, num_logs: u32) {
-        // 10 here is just arbitrary length. Use `append_public_logs_with_length` for custom lengths.
-        self.append_public_logs_with_length::<10>(num_logs);
-    }
-
-    pub fn append_public_logs_with_length<let LogFieldsLen: u32>(&mut self, num_logs: u32) {
-        let index_offset = self.public_logs.length;
-        for i in 0..num_logs {
-            let fields = self.mock_public_log_fields_with_length::<LogFieldsLen>(index_offset + i);
-            self.add_public_log(fields);
-        }
+    pub fn add_public_logs(&mut self, length: u32) {
+        let payload = self.mock_public_log_fields_with_length(length);
+        self.public_logs = PublicLogs::new(payload, length);
     }
 
     pub fn add_contract_class_log_hash(&mut self, hash: Field, length: u32) {
@@ -1155,14 +1144,23 @@ impl FixtureBuilder {
     }
 
     pub fn append_contract_class_logs_with_length<let LogFieldsLen: u32>(&mut self, num_logs: u32) {
-        let index_offset = self.contract_class_log_fields.len();
-        for i in 0..num_logs {
-            let padded_log_fields =
-                self.mock_contract_class_log_fields::<LogFieldsLen>(index_offset + i);
-            self.contract_class_log_fields.push(padded_log_fields);
+        for _i in 0..num_logs {
+            self.append_contract_class_logs_with_lengths([LogFieldsLen]);
+        }
+    }
 
-            let log_hash = compute_contract_class_log_hash(padded_log_fields);
-            self.add_contract_class_log_hash(log_hash, LogFieldsLen);
+    pub fn append_contract_class_logs_with_lengths<let NumLogs: u32>(
+        &mut self,
+        lengths: [u32; NumLogs],
+    ) {
+        let index_offset = self.private_logs.len();
+        for i in 0..lengths.len() {
+            let length = lengths[i];
+            let fields = self.mock_contract_class_log_fields_with_length(index_offset + i, length);
+            self.contract_class_log_fields.push(fields);
+
+            let log_hash = compute_contract_class_log_hash(fields);
+            self.add_contract_class_log_hash(log_hash, length);
         }
     }
 
@@ -1355,25 +1353,34 @@ impl FixtureBuilder {
         fields
     }
 
-    fn mock_public_log_fields_with_length<let LogFieldsLen: u32>(
+    fn mock_public_log_fields_with_length(
         self,
-        index: u32,
-    ) -> [Field; LogFieldsLen] {
-        let value_offset = 199199 + self.value_offset + (index * LogFieldsLen) as Field;
-        make_fixture(value_offset)
+        length: u32,
+    ) -> [Field; FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH] {
+        let value_offset = 199199 + self.value_offset;
+        let mut fields = [0; FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH];
+        for i in 0..FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH {
+            if i < length {
+                fields[i] = value_offset + i as Field;
+            }
+        }
+        fields
     }
 
-    fn mock_contract_class_log_fields<let LogFieldsLen: u32>(
+    fn mock_contract_class_log_fields_with_length(
         self,
         index: u32,
+        length: u32,
     ) -> [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS] {
-        let seed = (index + 1) as Field * 438 + 95337 + self.value_offset;
-        if LogFieldsLen >= CONTRACT_CLASS_LOG_SIZE_IN_FIELDS {
-            make_fixture(seed)
-        } else {
-            let log_fields: [Field; LogFieldsLen] = make_fixture(seed);
-            pad_end(log_fields)
+        let value_offset =
+            95337 + self.value_offset + (index * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS) as Field;
+        let mut fields = [0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS];
+        for i in 0..CONTRACT_CLASS_LOG_SIZE_IN_FIELDS {
+            if i < length {
+                fields[i] = value_offset + i as Field;
+            }
         }
+        fields
     }
 
     fn mock_private_call_request(self, index: u32) -> PrivateCallRequest {

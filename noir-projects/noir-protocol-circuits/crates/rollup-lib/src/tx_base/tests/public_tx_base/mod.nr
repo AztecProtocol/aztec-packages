@@ -18,8 +18,9 @@ use dep::types::{
     },
     constants::{
         ARCHIVE_HEIGHT, AVM_VK_INDEX, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-        MAX_CONTRACT_CLASS_LOGS_PER_TX, PUBLIC_TUBE_VK_INDEX,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, PUBLIC_TUBE_VK_INDEX,
     },
+    hash::silo_l2_to_l1_message,
     tests::fixture_builder::FixtureBuilder,
 };
 
@@ -92,6 +93,14 @@ impl TestBuilder {
             contract_class_log_fields,
             prover_id: rollup_fixture_builder.prover_id,
         }
+    }
+
+    pub fn get_siloed_l2_to_l1_msgs(self) -> [Field; MAX_L2_TO_L1_MSGS_PER_TX] {
+        self.avm.accumulated_data.l2_to_l1_msgs.map(|msg| silo_l2_to_l1_message(
+            msg,
+            self.avm.global_variables.version,
+            self.avm.global_variables.chain_id,
+        ))
     }
 
     pub fn update_private_tail_accumulated_data(&mut self, fixture_builder: FixtureBuilder) {
