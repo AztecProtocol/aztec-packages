@@ -63,7 +63,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private contractClassLogs: CountedContractClassLog[] = [];
   private offchainEffects: { data: Fr[] }[] = [];
   private nestedExecutionResults: PrivateCallExecutionResult[] = [];
-  private senderForTags?: AztecAddress;
 
   constructor(
     private readonly argsHash: Fr,
@@ -77,15 +76,18 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     private readonly executionCache: HashedValuesCache,
     private readonly noteCache: ExecutionNoteCache,
     executionDataProvider: ExecutionDataProvider,
-    private simulator: CircuitSimulator,
-    private totalPublicCalldataCount: number,
+    private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
     scopes?: AztecAddress[],
-    senderForTags?: AztecAddress,
+    private senderForTags?: AztecAddress,
+    private simulator?: CircuitSimulator,
   ) {
     super(callContext.contractAddress, authWitnesses, capsules, executionDataProvider, log, scopes);
-    this.senderForTags = senderForTags;
+  }
+
+  public getPrivateContextInputs(): PrivateContextInputs {
+    return new PrivateContextInputs(this.callContext, this.anchorBlockHeader, this.txContext, this.sideEffectCounter);
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -104,13 +106,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       throw new Error(`Invalid arguments size: expected ${argumentsSize}, got ${args?.length}`);
     }
 
-    const privateContextInputs = new PrivateContextInputs(
-      this.callContext,
-      this.anchorBlockHeader,
-      this.txContext,
-      this.sideEffectCounter,
-    );
-    const privateContextInputsAsFields = privateContextInputs.toFields();
+    const privateContextInputsAsFields = this.getPrivateContextInputs().toFields();
     if (privateContextInputsAsFields.length !== PRIVATE_CONTEXT_INPUTS_LENGTH) {
       throw new Error('Invalid private context inputs size');
     }
@@ -408,6 +404,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     sideEffectCounter: number,
     isStaticCall: boolean,
   ) {
+    if (!this.simulator) {
+      // In practice it is only when creating inline private contexts in a Noir test using TXE that we create an
+      // instance of this class without a simulator.
+      throw new Error('No simulator provided, cannot perform a nested private call');
+    }
+
     const simulatorSetupTimer = new Timer();
     this.log.debug(
       `Calling private function ${targetContractAddress}:${functionSelector} from ${this.callContext.contractAddress}`,
@@ -436,12 +438,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.executionCache,
       this.noteCache,
       this.executionDataProvider,
-      this.simulator,
       this.totalPublicCalldataCount,
       sideEffectCounter,
       this.log,
       this.scopes,
       this.senderForTags,
+      this.simulator,
     );
 
     const setupTime = simulatorSetupTimer.ms();
