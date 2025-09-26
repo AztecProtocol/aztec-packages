@@ -22,7 +22,6 @@ import {
   type ServerCircuitProver,
   makeProvingJobId,
 } from '@aztec/stdlib/interfaces/server';
-import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import type {
@@ -40,6 +39,7 @@ import type {
   CheckpointRootSingleBlockRollupPrivateInputs,
   PrivateTxBaseRollupPrivateInputs,
   PublicTubePrivateInputs,
+  PublicTubePublicInputs,
   PublicTxBaseRollupPrivateInputs,
   RootRollupPrivateInputs,
   RootRollupPublicInputs,
@@ -449,12 +449,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     inputs: PublicTubePrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<
-      PrivateToPublicKernelCircuitPublicInputs,
-      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
-    >
-  > {
+  ): Promise<PublicInputsAndRecursiveProof<PublicTubePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
     return this.enqueueJob(
       this.generateId(ProvingRequestType.PUBLIC_TUBE, inputs, epochNumber),
       ProvingRequestType.PUBLIC_TUBE,

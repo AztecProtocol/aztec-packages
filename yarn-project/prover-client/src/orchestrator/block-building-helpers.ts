@@ -132,7 +132,6 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
         lastArchive,
         anchorBlockArchiveSiblingPath,
         contractClassLogsFields,
-        proverId,
       });
     } else {
       if (
@@ -214,13 +213,13 @@ export function getCivcProofFromTx(tx: Tx | ProcessedTx) {
   return new RecursiveProof(proofFieldsWithoutPublicInputs, binaryProof, true, CIVC_PROOF_LENGTH);
 }
 
-export function getPublicTubePrivateInputsFromTx(tx: Tx | ProcessedTx) {
+export function getPublicTubePrivateInputsFromTx(tx: Tx | ProcessedTx, proverId: Fr) {
   const proofData = new ProofData(
     tx.data.toPrivateToPublicKernelCircuitPublicInputs(),
     getCivcProofFromTx(tx),
     getVkData('HidingKernelToPublic'),
   );
-  return new PublicTubePrivateInputs(proofData);
+  return new PublicTubePrivateInputs(proofData, proverId);
 }
 
 // Build "hints" as the private inputs for the checkpoint root rollup circuit.

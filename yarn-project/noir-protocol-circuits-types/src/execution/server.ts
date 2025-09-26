@@ -1,7 +1,6 @@
 import { pushTestData } from '@aztec/foundation/testing';
 import type { WitnessMap } from '@aztec/noir-acvm_js';
 import { abiDecode, abiEncode } from '@aztec/noir-noirc_abi';
-import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
 import type {
   BlockMergeRollupPrivateInputs,
@@ -18,6 +17,7 @@ import type {
   CheckpointRootSingleBlockRollupPrivateInputs,
   PrivateTxBaseRollupPrivateInputs,
   PublicTubePrivateInputs,
+  PublicTubePublicInputs,
   PublicTxBaseRollupPrivateInputs,
   RootRollupPrivateInputs,
   RootRollupPublicInputs,
@@ -42,9 +42,9 @@ import {
   mapParityBasePrivateInputsToNoir,
   mapParityPublicInputsFromNoir,
   mapParityRootPrivateInputsToNoir,
-  mapPrivateToPublicKernelCircuitPublicInputsFromNoir,
   mapPrivateTxBaseRollupPrivateInputsToNoir,
   mapPublicTubePrivateInputsToNoir,
+  mapPublicTubePublicInputsFromNoir,
   mapPublicTxBaseRollupPrivateInputsToNoir,
   mapRootRollupPrivateInputsToNoir,
   mapRootRollupPublicInputsFromNoir,
@@ -258,12 +258,9 @@ export function convertRootRollupPrivateInputsToWitnessMap(inputs: RootRollupPri
   return convertPrivateInputsToWitnessMap('RootRollupArtifact', mapRootRollupPrivateInputsToNoir(inputs));
 }
 
-export function convertPublicTubeOutputsFromWitnessMap(
-  outputs: WitnessMap,
-  simulated = false,
-): PrivateToPublicKernelCircuitPublicInputs {
+export function convertPublicTubeOutputsFromWitnessMap(outputs: WitnessMap, simulated = false): PublicTubePublicInputs {
   const publicInputs = convertOutputsFromWitnessMap<TubePublicReturnType>('PublicTube', outputs, simulated);
-  return mapPrivateToPublicKernelCircuitPublicInputsFromNoir(publicInputs);
+  return mapPublicTubePublicInputsFromNoir(publicInputs);
 }
 
 export function convertPrivateTxBaseRollupOutputsFromWitnessMap(

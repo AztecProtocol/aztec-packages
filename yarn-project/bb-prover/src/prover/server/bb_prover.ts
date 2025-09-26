@@ -61,7 +61,6 @@ import {
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/stdlib/interfaces/server';
-import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
 import { Proof, RecursiveProof, makeRecursiveProofFromBinary } from '@aztec/stdlib/proofs';
 import {
@@ -79,6 +78,7 @@ import {
   CheckpointRootSingleBlockRollupPrivateInputs,
   type PrivateTxBaseRollupPrivateInputs,
   PublicTubePrivateInputs,
+  PublicTubePublicInputs,
   PublicTxBaseRollupPrivateInputs,
   type RootRollupPrivateInputs,
   type RootRollupPublicInputs,
@@ -204,12 +204,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
   public async getPublicTubeProof(
     inputs: PublicTubePrivateInputs,
-  ): Promise<
-    PublicInputsAndRecursiveProof<
-      PrivateToPublicKernelCircuitPublicInputs,
-      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
-    >
-  > {
+  ): Promise<PublicInputsAndRecursiveProof<PublicTubePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
     const artifactName = 'PublicTube';
 
     const { circuitOutput, proof } = await this.createRecursiveProof(

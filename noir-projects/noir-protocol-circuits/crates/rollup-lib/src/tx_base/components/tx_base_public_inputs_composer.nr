@@ -1,5 +1,5 @@
 use crate::{
-    abis::{TxEffect, TxRollupPublicInputs},
+    abis::{PublicTubePublicInputs, TxEffect, TxRollupPublicInputs},
     tx_base::components::{
         private_tx_effect_builder,
         public_tx_effect_builder,
@@ -10,14 +10,9 @@ use crate::{
 use dep::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        avm_circuit_public_inputs::AvmCircuitPublicInputs,
-        block_constant_data::BlockConstantData,
-        gas::Gas,
-        kernel_circuit_public_inputs::{
-            PrivateToPublicKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
-        },
-        partial_state_reference::PartialStateReference,
-        sponge_blob::SpongeBlob,
+        avm_circuit_public_inputs::AvmCircuitPublicInputs, block_constant_data::BlockConstantData,
+        gas::Gas, kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
+        partial_state_reference::PartialStateReference, sponge_blob::SpongeBlob,
     },
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX,
@@ -75,14 +70,15 @@ impl TxBasePublicInputsComposer {
         }
     }
 
-    pub fn new_from_private_to_public(
-        private_to_public: PrivateToPublicKernelCircuitPublicInputs,
+    pub fn new_from_public_tube_and_avm(
+        public_tube: PublicTubePublicInputs,
         avm: AvmCircuitPublicInputs,
         last_archive: AppendOnlyTreeSnapshot,
         contract_class_log_fields: [[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]; MAX_CONTRACT_CLASS_LOGS_PER_TX],
         start_sponge_blob: SpongeBlob,
-        prover_id: Field,
     ) -> Self {
+        let private_to_public = public_tube.private_tail;
+
         // Note: Some values below are copied from `avm` rather than `private_to_public` and this must remain unchanged.
         // The constants are checked in `private_tail_validator` to ensure they match the values in `private_to_public`.
         let constants = BlockConstantData {
@@ -91,7 +87,7 @@ impl TxBasePublicInputsComposer {
             global_variables: avm.global_variables,
             vk_tree_root: private_to_public.constants.vk_tree_root,
             protocol_contract_tree_root: avm.protocol_contract_tree_root,
-            prover_id,
+            prover_id: public_tube.prover_id,
         };
 
         let (tx_effect, tx_effect_array_lengths) = public_tx_effect_builder::build_tx_effect(

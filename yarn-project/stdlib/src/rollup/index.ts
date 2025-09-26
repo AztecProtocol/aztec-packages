@@ -13,6 +13,7 @@ export * from './epoch_constant_data.js';
 export * from './private_tx_base_rollup_private_inputs.js';
 export * from './public_tx_base_rollup_private_inputs.js';
 export * from './public_tube_private_inputs.js';
+export * from './public_tube_public_inputs.js';
 export * from './root_rollup_private_inputs.js';
 export * from './root_rollup_public_inputs.js';
 export * from './tree_snapshot_diff_hints.js';

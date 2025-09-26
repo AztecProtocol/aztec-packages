@@ -50,6 +50,7 @@ import {
   FeeRecipient,
   type PrivateTxBaseRollupPrivateInputs,
   PublicTubePrivateInputs,
+  PublicTubePublicInputs,
   type PublicTxBaseRollupPrivateInputs,
   RootRollupPrivateInputs,
   RootRollupPublicInputs,
@@ -98,6 +99,7 @@ import type {
   ProofData as ProofDataNoir,
   PublicLogs as PublicLogsNoir,
   PublicTubePrivateInputs as PublicTubePrivateInputsNoir,
+  PublicTubePublicInputs as PublicTubePublicInputsNoir,
   PublicTxBaseRollupPrivateInputs as PublicTxBaseRollupPrivateInputsNoir,
   RootRollupPrivateInputs as RootRollupPrivateInputsNoir,
   RootRollupPublicInputs as RootRollupPublicInputsNoir,
@@ -703,6 +705,21 @@ export function mapPublicTubePrivateInputsToNoir(inputs: PublicTubePrivateInputs
       inputs.hidingKernelProofData,
       mapPrivateToPublicKernelCircuitPublicInputsToNoir,
     ),
+    prover_id: mapFieldToNoir(inputs.proverId),
+  };
+}
+
+export function mapPublicTubePublicInputsFromNoir(inputs: PublicTubePublicInputsNoir) {
+  return new PublicTubePublicInputs(
+    mapPrivateToPublicKernelCircuitPublicInputsFromNoir(inputs.private_tail),
+    mapFieldFromNoir(inputs.prover_id),
+  );
+}
+
+export function mapPublicTubePublicInputsToNoir(inputs: PublicTubePublicInputs): PublicTubePublicInputsNoir {
+  return {
+    private_tail: mapPrivateToPublicKernelCircuitPublicInputsToNoir(inputs.privateTail),
+    prover_id: mapFieldToNoir(inputs.proverId),
   };
 }
 
@@ -730,10 +747,7 @@ export function mapPublicTxBaseRollupPrivateInputsToNoir(
   inputs: PublicTxBaseRollupPrivateInputs,
 ): PublicTxBaseRollupPrivateInputsNoir {
   return {
-    public_tube_proof_data: mapProofDataToNoir(
-      inputs.publicTubeProofData,
-      mapPrivateToPublicKernelCircuitPublicInputsToNoir,
-    ),
+    public_tube_proof_data: mapProofDataToNoir(inputs.publicTubeProofData, mapPublicTubePublicInputsToNoir),
     avm_proof_data: mapProofDataToNoir(inputs.avmProofData, mapAvmCircuitPublicInputsToNoir),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
     last_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.hints.lastArchive),
@@ -741,7 +755,6 @@ export function mapPublicTxBaseRollupPrivateInputsToNoir(
     contract_class_log_fields: mapTuple(inputs.hints.contractClassLogsFields, p =>
       mapFieldArrayToNoir(p.fields, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS),
     ),
-    prover_id: mapFieldToNoir(inputs.hints.proverId),
   };
 }
 

@@ -3,17 +3,18 @@ import {
   AVM_VK_INDEX,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
 } from '@aztec/constants';
+import type { Fr } from '@aztec/foundation/fields';
 import { getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import type { ProofAndVerificationKey, PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { ProofData } from '@aztec/stdlib/proofs';
 import {
   type BaseRollupHints,
   PrivateBaseRollupHints,
   PrivateTxBaseRollupPrivateInputs,
   PublicBaseRollupHints,
+  PublicTubePublicInputs,
   PublicTxBaseRollupPrivateInputs,
 } from '@aztec/stdlib/rollup';
 import type { CircuitName } from '@aztec/stdlib/stats';
@@ -30,7 +31,7 @@ import { getCivcProofFromTx, getPublicTubePrivateInputsFromTx, toProofData } fro
  */
 export class TxProvingState {
   private publicTube?: PublicInputsAndRecursiveProof<
-    PrivateToPublicKernelCircuitPublicInputs,
+    PublicTubePublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
   private avm?: ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>;
@@ -39,6 +40,7 @@ export class TxProvingState {
     public readonly processedTx: ProcessedTx,
     private readonly baseRollupHints: BaseRollupHints,
     public readonly treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
+    private readonly proverId: Fr,
   ) {}
 
   get requireAvmProof() {
@@ -54,7 +56,7 @@ export class TxProvingState {
   }
 
   public getPublicTubePrivateInputs() {
-    return getPublicTubePrivateInputsFromTx(this.processedTx);
+    return getPublicTubePrivateInputsFromTx(this.processedTx, this.proverId);
   }
 
   public getBaseRollupTypeAndInputs() {
@@ -73,7 +75,7 @@ export class TxProvingState {
 
   public setPublicTubeProof(
     publicTubeProofAndVk: PublicInputsAndRecursiveProof<
-      PrivateToPublicKernelCircuitPublicInputs,
+      PublicTubePublicInputs,
       typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
     >,
   ) {

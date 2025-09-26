@@ -10,7 +10,6 @@ import { z } from 'zod';
 
 import { AvmCircuitInputs } from '../avm/avm.js';
 import { AvmProvingRequestSchema } from '../avm/avm_proving_request.js';
-import { PrivateToPublicKernelCircuitPublicInputs } from '../kernel/private_to_public_kernel_circuit_public_inputs.js';
 import { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
 import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
 import { ParityRootPrivateInputs } from '../parity/parity_root_private_inputs.js';
@@ -32,8 +31,9 @@ import {
   CheckpointRootRollupPrivateInputs,
   CheckpointRootSingleBlockRollupPrivateInputs,
 } from '../rollup/checkpoint_root_rollup_private_inputs.js';
-import { PublicTubePrivateInputs } from '../rollup/index.js';
 import { PrivateTxBaseRollupPrivateInputs } from '../rollup/private_tx_base_rollup_private_inputs.js';
+import { PublicTubePrivateInputs } from '../rollup/public_tube_private_inputs.js';
+import { PublicTubePublicInputs } from '../rollup/public_tube_public_inputs.js';
 import { PublicTxBaseRollupPrivateInputs } from '../rollup/public_tx_base_rollup_private_inputs.js';
 import { RootRollupPrivateInputs } from '../rollup/root_rollup_private_inputs.js';
 import { RootRollupPublicInputs } from '../rollup/root_rollup_public_inputs.js';
@@ -214,7 +214,7 @@ export const ProvingJobResult = z.discriminatedUnion('type', [
   z.object({
     type: z.literal(ProvingRequestType.PUBLIC_TUBE),
     result: schemaForPublicInputsAndRecursiveProof(
-      PrivateToPublicKernelCircuitPublicInputs.schema,
+      PublicTubePublicInputs.schema,
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
     ),
   }),
@@ -326,7 +326,7 @@ export type ProvingJobResult = z.infer<typeof ProvingJobResult>;
 export type ProvingJobResultsMap = {
   [ProvingRequestType.PUBLIC_VM]: ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>;
   [ProvingRequestType.PUBLIC_TUBE]: PublicInputsAndRecursiveProof<
-    PrivateToPublicKernelCircuitPublicInputs,
+    PublicTubePublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
   [ProvingRequestType.PRIVATE_TX_BASE_ROLLUP]: PublicInputsAndRecursiveProof<
