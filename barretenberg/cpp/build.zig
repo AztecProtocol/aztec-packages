@@ -132,6 +132,7 @@ fn getBuildStepForTarget(
     const exe = b.addExecutable(.{
         .name = "bb",
         .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
             .target = target,
             .optimize = optimize,
             .single_threaded = false,
@@ -139,10 +140,12 @@ fn getBuildStepForTarget(
         }),
     });
 
-    exe.addCSourceFiles(.{
-        .files = &.{"src/barretenberg/bb/main.cpp"},
-        .flags = flags,
-    });
+    // Link avm-transpiler static library (musl-built, no glibc dependencies)
+    if (platform.os != .wasi) { // Skip for WASM builds
+        exe.addObjectFile(b.path("../../avm-transpiler/target/x86_64-unknown-linux-musl/release/libavm_transpiler.a"));
+        exe.addIncludePath(b.path("../../avm-transpiler/include"));
+        // No system libraries needed for musl build - it's fully static
+    }
 
     exe.linkLibrary(lib);
     exe.linkLibrary(libdeflate_lib);

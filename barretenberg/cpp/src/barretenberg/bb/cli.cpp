@@ -709,3 +709,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
     return 0;
 }
 } // namespace bb
+
+// C wrapper for Zig FFI
+extern "C" {
+int bb_parse_and_run_cli_command_c(int argc, char* argv[])
+{
+    return bb::parse_and_run_cli_command(argc, argv);
+}
+}
