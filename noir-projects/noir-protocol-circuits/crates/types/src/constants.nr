@@ -1059,15 +1059,6 @@ pub global AVM_SSTORE_DYN_DA_GAS: u32 = 2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE
 // BLOB PREFIXES
 // Used when decoding blobs of tightly packed effects
 pub global TX_START_PREFIX: Field = 0x74785f7374617274; // = "tx_start".to_field() in nr
-pub global REVERT_CODE_PREFIX: u8 = 1;
-pub global TX_FEE_PREFIX: u8 = 2;
-pub global NOTES_PREFIX: u8 = 3;
-pub global NULLIFIERS_PREFIX: u8 = 4;
-pub global L2_L1_MSGS_PREFIX: u8 = 5;
-pub global PUBLIC_DATA_UPDATE_REQUESTS_PREFIX: u8 = 6;
-pub global PRIVATE_LOGS_PREFIX: u8 = 7;
-pub global PUBLIC_LOGS_PREFIX: u8 = 8;
-pub global CONTRACT_CLASS_LOGS_PREFIX: u8 = 9;
 pub global BLOCK_END_PREFIX: Field = 0x626c6f636b5f656e64; // = "block_end".to_field() in nr
 
 // Constants related to proof type of a recursive proof verification.

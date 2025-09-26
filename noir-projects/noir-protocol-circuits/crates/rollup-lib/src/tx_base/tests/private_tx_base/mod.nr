@@ -12,7 +12,6 @@ use crate::{
         components::{
             fees::{compute_fee_payer_fee_juice_balance_leaf_slot, compute_transaction_fee},
             TreeSnapshotDiffHints,
-            tx_blob_data::TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
         },
         private_tx_base_rollup_private_inputs::PrivateTxBaseRollupPrivateInputs,
     },
@@ -28,11 +27,12 @@ use dep::types::{
     address::AztecAddress,
     constants::{
         ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, HIDING_KERNEL_TO_ROLLUP_VK_INDEX,
-        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
-        NOTE_HASH_SUBTREE_HEIGHT, NOTE_HASH_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT,
-        NULLIFIER_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIERS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT, NOTE_HASH_TREE_HEIGHT,
+        NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT,
     },
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
+    hash::silo_l2_to_l1_message,
     merkle_tree::{LeafPreimage, MembershipWitness},
     tests::{
         fixture_builder::FixtureBuilder, merkle_tree_utils::SingleSubtreeMerkleTree, utils::pad_end,
@@ -68,6 +68,8 @@ impl TestBuilder {
     pub fn new() -> Self {
         let rollup_fixture_builder = RollupFixtureBuilder::new();
         let block_number = rollup_fixture_builder.start_block_number;
+
+        let start_sponge_blob = rollup_fixture_builder.get_sponge_blob(block_number);
 
         let mut constants = rollup_fixture_builder.get_block_constant_data(block_number);
 
@@ -132,8 +134,6 @@ impl TestBuilder {
             NullifierLeafPreimage { nullifier: 33, next_nullifier: 44, next_index: 1 },
         ];
 
-        let start_sponge_blob = SpongeBlob::new(TX_EFFECTS_BLOB_HASH_INPUT_FIELDS);
-
         let mut builder = TestBuilder {
             private_tail,
             hiding_kernel_vk_index: HIDING_KERNEL_TO_ROLLUP_VK_INDEX,
@@ -167,6 +167,14 @@ impl TestBuilder {
             self.private_tail.constants.tx_context.gas_settings,
             self.private_tail.gas_used,
         )
+    }
+
+    pub fn get_siloed_l2_to_l1_msgs(self) -> [Field; MAX_L2_TO_L1_MSGS_PER_TX] {
+        self.private_tail.end.l2_to_l1_msgs.map(|msg| silo_l2_to_l1_message(
+            msg,
+            self.constants.global_variables.version,
+            self.constants.global_variables.chain_id,
+        ))
     }
 
     pub fn update_private_tail_accumulated_data(&mut self, fixture_builder: FixtureBuilder) {
