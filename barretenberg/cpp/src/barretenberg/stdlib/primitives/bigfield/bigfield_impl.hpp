@@ -1814,7 +1814,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::sanity_check(
 // non-negative at the end of subtraction, we know the subtraction result is positive as integers and a<p
 template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_in_field(std::string const& msg) const
 {
-    assert_less_than(modulus, msg);
+    assert_less_than(modulus, msg == "bigfield::assert_is_in_field" ? "bigfield::assert_less_than" : msg);
 }
 
 // Asserts that the element is < upper_limit. We first range constrain the limbs and then calls
@@ -1822,27 +1822,27 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_in_
 template <typename Builder, typename T>
 void bigfield<Builder, T>::assert_less_than(const uint256_t& upper_limit, std::string const& msg) const
 {
+    bool is_default_msg = msg == "bigfield::assert_less_than";
+
     // Range constrain the binary basis limbs of the element to respective limb sizes.
     // This is required because the comparison is done using subtractions, which can result in overflows.
     // Range constrain the first two limbs each to NUM_LIMB_BITS
     auto ctx = get_context();
-    ctx->range_constrain_two_limbs(
-        binary_basis_limbs[0].element.get_normalized_witness_index(),
-        binary_basis_limbs[1].element.get_normalized_witness_index(),
-        static_cast<size_t>(NUM_LIMB_BITS),
-        static_cast<size_t>(NUM_LIMB_BITS),
-        msg == "bigfield::assert_less_than" ? "bigfield::assert_less_than: limb 0 or 1 too large" : msg);
+    ctx->range_constrain_two_limbs(binary_basis_limbs[0].element.get_normalized_witness_index(),
+                                   binary_basis_limbs[1].element.get_normalized_witness_index(),
+                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                   is_default_msg ? "bigfield::assert_less_than: limb 0 or 1 too large" : msg);
 
     // Range constrain the last two limbs to NUM_LIMB_BITS and NUM_LAST_LIMB_BITS
-    ctx->range_constrain_two_limbs(
-        binary_basis_limbs[2].element.get_normalized_witness_index(),
-        binary_basis_limbs[3].element.get_normalized_witness_index(),
-        static_cast<size_t>(NUM_LIMB_BITS),
-        static_cast<size_t>(NUM_LAST_LIMB_BITS),
-        msg == "bigfield::assert_less_than" ? "bigfield::assert_less_than: limb 2 or 3 too large" : msg);
+    ctx->range_constrain_two_limbs(binary_basis_limbs[2].element.get_normalized_witness_index(),
+                                   binary_basis_limbs[3].element.get_normalized_witness_index(),
+                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                   static_cast<size_t>(NUM_LAST_LIMB_BITS),
+                                   is_default_msg ? "bigfield::assert_less_than: limb 2 or 3 too large" : msg);
 
     // Now we can check that the element is < upper_limit.
-    unsafe_assert_less_than(upper_limit, msg);
+    unsafe_assert_less_than(upper_limit, is_default_msg ? "bigfield::unsafe_assert_less_than" : msg);
 }
 
 // Reduces the element mod p. This is a strict reduction mod p, so the output is guaranteed to be < p.
