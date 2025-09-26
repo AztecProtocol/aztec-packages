@@ -2,6 +2,7 @@
 #pragma once
 
 #include "barretenberg/ecc/fields/field.hpp"
+#include "barretenberg/honk/types/public_inputs_type.hpp"
 
 namespace bb::starknet::stark252 {
 
