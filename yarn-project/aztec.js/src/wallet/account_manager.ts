@@ -142,7 +142,7 @@ export class AccountManager {
    * @returns A Wallet instance.
    */
   public async register(): Promise<AccountWithSecretKey> {
-    await this.pxe.registerContract({
+    await this.wallet.registerContract({
       artifact: await this.accountContract.getContractArtifact(),
       instance: this.getInstance(),
     });

@@ -590,24 +590,6 @@ Options:
 - `--sponsored-fpc`: Populate genesis state with a testing sponsored FPC contract
 - `--accelerated-test-deployments`: Fire and forget deployment transactions, use in testing only (default: false)
 
-### deploy-l1-verifier
-
-Deploys the rollup verifier contract.
-
-```bash
-aztec deploy-l1-verifier [options]
-```
-
-Options:
-
-- `--l1-rpc-urls <string>`: List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://host.docker.internal:8545"], env: ETHEREUM_HOSTS)
-- `-c, --l1-chain-id <number>`: Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
-- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: PXE_URL)
-- `--rollup-address <string>`: The address of the rollup contract (env: ROLLUP_CONTRACT_ADDRESS)
-- `--l1-private-key <string>`: The L1 private key to use for deployment
-- `-m, --mnemonic <string>`: The mnemonic to use in deployment (default: "test test test test test test test test test test test junk")
-- `--verifier <verifier>`: Either mock or real (default: "real")
-
 ### deploy-new-rollup
 
 Deploys a new rollup contract and adds it to the registry (if you are the owner).
@@ -817,7 +799,7 @@ Options:
 - `-ca, --contract-address <address>`: Aztec address of the contract.
 - `--message-hash <messageHash>`: The L1 to L2 message hash.
 - `--secret <secret>`: The secret used to claim the L1 to L2 message
-- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: PXE_URL)
+- `-n, --node-url <string>`: URL of Aztec Node (default: "http://host.docker.internal:8080", env: AZTEC_NODE_URL)
 
 ## P2P Network Commands
 
@@ -893,11 +875,9 @@ aztec setup-protocol-contracts [options]
 
 Options:
 
-- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: PXE_URL)
+- `-n, --node-url <string>`: URL of Aztec Node (default: "http://host.docker.internal:8080", env: AZTEC_NODE_URL)
 - `--testAccounts`: Deploy funded test accounts.
-- `--sponsoredFPC`: Deploy a sponsored FPC.
 - `--json`: Output the contract addresses in JSON format
-- `--skipProofWait`: Don't wait for proofs to land.
 
 ### sequencers
 
@@ -917,7 +897,7 @@ Options:
 - `--l1-rpc-urls <string>`: List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://host.docker.internal:8545"])
 - `-m, --mnemonic <string>`: The mnemonic for the sender of the tx (default: "test test test test test test test test test test test junk")
 - `--block-number <number>`: Block number to query next sequencer for
-- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: PXE_URL)
+- `-n, --node-url <string>`: URL of Aztec Node (default: "http://host.docker.internal:8080", env: AZTEC_NODE_URL)
 - `-c, --l1-chain-id <number>`: Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
 
 ### preload-crs
