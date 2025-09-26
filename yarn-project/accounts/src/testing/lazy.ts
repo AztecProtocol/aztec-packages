@@ -1,8 +1,6 @@
 /**
  * The `@aztec/accounts/testing/lazy` export provides utility methods for testing, in particular in a Sandbox environment.
  *
- * Use {@link getInitialTestAccountsWallets} to obtain a list of wallets for the Sandbox pre-seeded accounts.
- *
  * @packageDocumentation
  */
 import { Fr } from '@aztec/aztec.js';
