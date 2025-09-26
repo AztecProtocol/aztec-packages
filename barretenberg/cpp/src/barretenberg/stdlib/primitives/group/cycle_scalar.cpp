@@ -166,7 +166,7 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
 
         // Split limb0 into lo (NUM_LIMB_BITS) and hi (remaining bits) slices. Note that no_wrap_split_at enforces range
         // constraints of NUM_LIMB_BITS and (limb0_max_bits - NUM_LIMB_BITS) respectively on the slices.
-        const uint64_t limb0_max_bits = limb0_max.get_msb() + 1;
+        const auto limb0_max_bits = static_cast<size_t>(limb0_max.get_msb() + 1);
         auto [limb0_lo, limb0_hi] = limb0.no_wrap_split_at(NUM_LIMB_BITS, limb0_max_bits);
 
         // Move the high bits from limb0 into limb1
@@ -182,7 +182,7 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
 
     // Step 3: limb1 contributes to both *this.lo and *this.hi. Compute the values of the two limb1 slices
     const size_t lo_bits_in_limb_1 = LO_BITS - NUM_LIMB_BITS;
-    const uint64_t limb1_max_bits = limb1_max.get_msb() + 1;
+    const auto limb1_max_bits = static_cast<size_t>(limb1_max.get_msb() + 1);
     auto [limb1_lo, limb1_hi] = limb1.no_wrap_split_at(lo_bits_in_limb_1, limb1_max_bits);
 
     // Propagate the origin tag to the chunks of limb1
