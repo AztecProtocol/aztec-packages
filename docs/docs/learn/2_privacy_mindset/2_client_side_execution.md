@@ -34,6 +34,8 @@ Zero-knowledge proofs work similarly but with math. They allow you to prove stat
 - "I'm authorized to update this record" (without revealing your identity)
 - "This computation was done correctly" (without revealing the inputs)
 
+It's worth noting that in Aztec, we often talk about two types of proofs: **validity proofs** that show a computation was done correctly (these don't necessarily hide information), and **zero-knowledge proofs** that prove something while also hiding private information. In practice, Aztec combines both - you get validity (proving your transaction follows the rules) AND privacy (hiding your sensitive data)!
+
 In technical terms, a zero-knowledge proof is a cryptographic method where one party (the prover) can prove to another party (the verifier) that a statement is true, without revealing any information beyond the validity of the statement itself.
 
 ### The power of verifiable computation
@@ -174,12 +176,13 @@ Each layer verifies the proofs from the previous layer, creating a tree structur
 
 ### Why this matters
 
-Recursive proofs give us two superpowers:
+Recursive proofs give us three superpowers:
 
 1. **Compression**: Thousands of transactions can be compressed into a single, small proof that Ethereum can verify quickly
 2. **Privacy preservation**: Each layer can hide information from the layer above while still proving correctness
+3. **Cost efficiency**: By aggregating many proofs into one, users share the L1 verification cost - instead of each person paying to verify their own proof on Ethereum, everyone splits the cost of verifying one combined proof!
 
-With recursion, Ethereum just verifies one proof that mathematically guarantees all the transactions are valid. It's elegant, efficient, and kind of magical!
+With recursion, Ethereum just verifies one proof that mathematically guarantees all the transactions are valid. It's elegant, efficient, and kind of magical! This aggregation is what makes private transactions on Aztec economically viable - you get privacy without breaking the bank.
 
 ## Application circuits vs. protocol circuits
 
@@ -203,12 +206,13 @@ These circuits are the engine that makes Aztec work:
 
 - **Created by**: The Aztec protocol core developers
 - **Purpose**: Enforce protocol rules and maintain system integrity
-- **Types**: Kernel circuits, rollup circuits, and merge circuits
+- **Types**: Kernel circuits, rollup circuits, merge circuits, and base circuits
 - **Examples**:
-  - **Private kernel circuit**: Verifies your private function executed correctly
-  - **Public kernel circuit**: Processes public function calls
-  - **Rollup circuits**: Aggregate multiple transactions into blocks
-  - **Root rollup circuit**: Produces the final proof submitted to Ethereum
+  - **Private kernel circuit**: Verifies your private function executed correctly and enforces protocol rules
+  - **Public kernel circuit**: Processes public function calls and manages state updates
+  - **Base rollup circuit**: Processes a batch of transactions and produces the first layer of aggregation
+  - **Merge rollup circuit**: Combines multiple base rollup proofs into larger aggregations
+  - **Root rollup circuit**: Produces the final proof submitted to Ethereum, representing potentially thousands of transactions
 
 You don't write these circuits, but they work behind the scenes to ensure your application circuits integrate properly with the rest of the network. Think of them as the operating system that your applications run on.
 
@@ -232,8 +236,8 @@ Let's trace through what happens when you make a private token transfer:
 
 2. **Your PXE springs into action**:
 
-   - Retrieves your private balance note
-   - Executes the transfer function locally
+   - Retrieves your private balance note from your local database
+   - Executes the transfer function locally with your private inputs
    - Generates a ZK proof using the contract's proving key
    - Creates new encrypted notes for Alice
 
@@ -242,12 +246,20 @@ Let's trace through what happens when you make a private token transfer:
    - Your application circuit proof is wrapped by kernel circuits
    - The wrapped proof is sent to the network
    - Sequencers verify it using the verification key
-   - Multiple proofs are aggregated into a block
+   - Multiple transactions are batched together
 
-4. **Final settlement**:
-   - The block proof is submitted to Ethereum
-   - Ethereum verifies the proof (taking just milliseconds!)
-   - The state update is finalized
+4. **Aggregation magic**:
+
+   - The base rollup circuit processes your transaction batch
+   - Merge circuits combine multiple base rollup proofs
+   - Layer by layer, proofs are recursively aggregated
+   - Finally, the root rollup circuit creates one proof representing thousands of transactions
+
+5. **Final settlement**:
+   - The single aggregated proof is submitted to Ethereum
+   - Ethereum verifies this one proof
+   - All transactions in the batch are finalized together
+   - You share the L1 cost with everyone else in the batch
 
 Throughout this entire process, your balance, Alice's address, and the amount remain completely private. The network only sees encrypted data and a proof that says "this transaction is valid."
 
