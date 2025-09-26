@@ -5,9 +5,11 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/test_utils.hpp"
 #include "pedersen.hpp"
 
 using namespace bb;
+using bb::stdlib::test_utils::check_circuit_and_gate_count;
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
@@ -19,27 +21,6 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
     using witness_ct = typename _curve::witness_ct;
     using public_witness_ct = typename _curve::public_witness_ct;
     using pedersen_commitment = typename stdlib::pedersen_commitment<Builder>;
-
-    // Utility function for circuit checking and gate count pinning
-    static void check_circuit_and_gates(Builder& builder, uint32_t expected_gates_without_base)
-    {
-        if (!builder.circuit_finalized) {
-            builder.finalize_circuit(/*ensure_nonzero=*/false);
-        }
-
-        // Add base gates: Ultra adds 1, Mega adds 4
-        uint32_t base_gates = 1; // Default for Ultra
-        if constexpr (std::is_same_v<Builder, bb::MegaCircuitBuilder>) {
-            base_gates = 4; // Mega
-        }
-        uint32_t expected_gates = expected_gates_without_base + base_gates;
-
-        uint32_t actual_gates = static_cast<uint32_t>(builder.get_num_finalized_gates());
-        EXPECT_EQ(actual_gates, expected_gates)
-            << "Gate count changed! Expected: " << expected_gates << " (" << expected_gates_without_base << " + "
-            << base_gates << " base), Actual: " << actual_gates;
-        EXPECT_TRUE(CircuitChecker::check(builder));
-    }
 
     // Helper to verify pedersen commitment against native implementation
     static void verify_commitment(Builder& builder [[maybe_unused]],
@@ -85,7 +66,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
 
         verify_commitment(builder, inputs);
 
-        check_circuit_and_gates(builder, 2912);
+        check_circuit_and_gate_count(builder, 2912);
     }
 
     static void test_mixed_witnesses_and_constants()
@@ -106,9 +87,9 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
 
         // Gate count different for Mega because it adds constants for ECC op codes that get reused in ROM table access
         if constexpr (std::is_same_v<Builder, bb::MegaCircuitBuilder>) {
-            check_circuit_and_gates(builder, 3994);
+            check_circuit_and_gate_count(builder, 3994);
         } else {
-            check_circuit_and_gates(builder, 3997);
+            check_circuit_and_gate_count(builder, 3997);
         }
     }
 
@@ -125,7 +106,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
         EXPECT_EQ(result.x.get_value(), fr::zero());
         EXPECT_EQ(result.y.get_value(), fr::zero());
 
-        check_circuit_and_gates(builder, 0);
+        check_circuit_and_gate_count(builder, 0);
     }
 
     static void test_single_input()
@@ -135,7 +116,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
         std::vector<stdlib::field_t<Builder>> circuit_inputs = { witness_ct(&builder, input) };
 
         verify_commitment(builder, circuit_inputs);
-        check_circuit_and_gates(builder, 2838);
+        check_circuit_and_gate_count(builder, 2838);
 
         // Expect table size to be 14340 for single input
         // i.e. 254 bit scalars handled via 28 9-bit tables (size 2^9) plus one 2-bit table (size 2^2)
@@ -154,7 +135,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
         }
 
         verify_commitment(builder, circuit_inputs);
-        check_circuit_and_gates(builder, 2910);
+        check_circuit_and_gate_count(builder, 2910);
 
         // Expect table size to be 28680 = 2*14340 for two inputs
         // Each input uses one Multitable of size 14340
@@ -175,9 +156,9 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
 
         // Gate count different for Mega because it adds constants for ECC op codes that get reused in ROM table access
         if constexpr (std::is_same_v<Builder, bb::MegaCircuitBuilder>) {
-            check_circuit_and_gates(builder, 3485);
+            check_circuit_and_gate_count(builder, 3485);
         } else {
-            check_circuit_and_gates(builder, 3488);
+            check_circuit_and_gate_count(builder, 3488);
         }
 
         // Lookup tables size is same as 2 inputs since only the first 2 inputs use lookup tables
@@ -197,9 +178,9 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
 
         // Gate count different for Mega because it adds constants for ECC op codes that get reused in ROM table access
         if constexpr (std::is_same_v<Builder, bb::MegaCircuitBuilder>) {
-            check_circuit_and_gates(builder, 12156);
+            check_circuit_and_gate_count(builder, 12156);
         } else {
-            check_circuit_and_gates(builder, 12159);
+            check_circuit_and_gate_count(builder, 12159);
         }
     }
 
@@ -243,7 +224,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
         }
 
         verify_commitment(builder, circuit_inputs);
-        check_circuit_and_gates(builder, 0);
+        check_circuit_and_gate_count(builder, 0);
     }
 
     static void test_special_field_element()
