@@ -2,7 +2,7 @@ import { Fr, ProtocolContractAddress, computeSecretHash, createAztecNodeClient, 
 import { LOCALHOST } from '@aztec/cli/cli-utils';
 import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
 import { openStoreAt } from '@aztec/kv-store/lmdb-v2';
-import type { PXEServiceConfig } from '@aztec/pxe/config';
+import type { PXEConfig } from '@aztec/pxe/config';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
 import { Argument, Command, Option } from 'commander';
@@ -102,7 +102,7 @@ async function main() {
       const bbWorkingDirectory = dataDir + '/bb';
       mkdirSync(bbWorkingDirectory, { recursive: true });
 
-      const overridePXEConfig: Partial<PXEServiceConfig> = {
+      const overridePXEConfig: Partial<PXEConfig> = {
         proverEnabled,
         bbBinaryPath: prover === 'native' ? bbBinaryPath : undefined,
         bbWorkingDirectory: prover === 'native' ? bbWorkingDirectory : undefined,

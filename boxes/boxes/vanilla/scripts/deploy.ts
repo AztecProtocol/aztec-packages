@@ -12,7 +12,7 @@ import { type AztecNode } from '@aztec/aztec.js/interfaces';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { createStore } from '@aztec/kv-store/lmdb';
 import { SponsoredFPCContractArtifact } from '@aztec/noir-contracts.js/SponsoredFPC';
-import { getPXEServiceConfig } from '@aztec/pxe/server';
+import { getPXEConfig } from '@aztec/pxe/server';
 import { getDefaultInitializer } from '@aztec/stdlib/abi';
 import { TestWallet } from '@aztec/test-wallet/server';
 import fs from 'fs';
@@ -34,7 +34,7 @@ async function setupWallet(aztecNode: AztecNode) {
     dataStoreMapSizeKB: 1e6,
   });
 
-  const config = getPXEServiceConfig();
+  const config = getPXEConfig();
   config.dataDirectory = 'pxe';
   config.proverEnabled = PROVER_ENABLED;
 

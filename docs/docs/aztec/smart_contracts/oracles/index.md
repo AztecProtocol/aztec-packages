@@ -33,4 +33,4 @@ Oracles introduce **non-determinism** into a circuit, and thus are `unconstraine
 
 Find a full list [on GitHub](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/aztec-nr/aztec/src/oracle).
 
-Please note that it is **not** possible to write a custom oracle for your dapp. Oracles are implemented in the PXE, so all users of your dapp would have to use a PXE service with your custom oracle included. If you want to inject some arbitrary data that does not have a dedicated oracle, you can use [capsules](../../../developers/guides/smart_contracts/advanced/how_to_use_capsules.md).
+Please note that it is **not** possible to write a custom oracle for your dapp. Oracles are implemented in the PXE, so all users of your dapp would have to use a PXE with your custom oracle included. If you want to inject some arbitrary data that does not have a dedicated oracle, you can use [capsules](../../../developers/guides/smart_contracts/advanced/how_to_use_capsules.md).

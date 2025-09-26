@@ -21,9 +21,3 @@ In code, this translates to a wallet implementing an **AccountInterface** interf
 The account interface is used for creating an _execution request_ out of one or more _function calls_ requested by a dapp, as well as creating an _auth witness_ for a given message hash. Account contracts are expected to handle multiple function calls per transaction, since dapps may choose to batch multiple actions into a single request to the wallet.
 
 #include_code account-interface yarn-project/aztec.js/src/account/interface.ts typescript
-
-## PXE interface
-
-A wallet exposes the PXE interface to dapps by running a PXE instance. The PXE requires a keystore and a database implementation for storing keys, private state, and recipient encryption public keys.
-
-#include_code pxe-interface /yarn-project/stdlib/src/interfaces/pxe.ts typescript

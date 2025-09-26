@@ -2,7 +2,7 @@ import { type BotConfig, BotRunner, BotStore, botConfigMappings, getBotRunnerApi
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
 import { createStore, openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { type CliPXEOptions, type PXEServiceConfig, allPxeConfigMappings } from '@aztec/pxe/config';
+import { type CliPXEOptions, type PXEConfig, allPxeConfigMappings } from '@aztec/pxe/config';
 import { type AztecNode, type AztecNodeAdmin, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 import {
@@ -37,7 +37,7 @@ export async function startBot(
 
   const aztecNode = createAztecNodeClient(config.nodeUrl, getVersions(), fetch);
 
-  const pxeConfig = extractRelevantOptions<PXEServiceConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
+  const pxeConfig = extractRelevantOptions<PXEConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
   const wallet = await TestWallet.create(aztecNode, pxeConfig);
 
   const telemetry = initTelemetryClient(getTelemetryClientConfig());

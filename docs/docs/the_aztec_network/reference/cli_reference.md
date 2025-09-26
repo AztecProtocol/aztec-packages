@@ -45,9 +45,6 @@ If two subsystems can contain the same configuration option, only one needs to b
     --sandbox
           Starts Aztec Sandbox
 
-    --sandbox.noPXE                                                                                                               ($NO_PXE)
-          Do not expose PXE service on sandbox start
-
   API
 
     --port <value>                                                 (default: 8080)                                               ($AZTEC_PORT)

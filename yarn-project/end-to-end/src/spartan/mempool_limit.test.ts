@@ -6,7 +6,7 @@
 // import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
 // import { createLogger } from '@aztec/foundation/log';
 // import { TokenContract } from '@aztec/noir-contracts.js/Token';
-// import { createPXEService } from '@aztec/pxe/server';
+// import { createPXE } from '@aztec/pxe/server';
 // import {
 //   type AztecNode,
 //   type AztecNodeAdmin,
@@ -89,7 +89,7 @@
 //     // set a large pool size so that deploy txs fit
 //     await nodeAdmin.setConfig({ maxTxPoolSize: 1e9 });
 
-//     const pxe = await createPXEService(node, pxeOptions);
+//     const pxe = await createPXE(node, pxeOptions);
 
 //     await registerSponsoredFPC(pxe);
 //     fee = {

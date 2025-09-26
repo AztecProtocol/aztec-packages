@@ -54,7 +54,7 @@ import type { P2PClientDeps } from '@aztec/p2p';
 import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
-import { type PXEServiceConfig, getPXEServiceConfig } from '@aztec/pxe/server';
+import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import {
@@ -140,14 +140,14 @@ export const setupL1Contracts = async (
 /**
  * Sets up Private eXecution Environment (PXE) and returns the corresponding test wallet.
  * @param aztecNode - An instance of Aztec Node.
- * @param opts - Partial configuration for the PXE service.
+ * @param opts - Partial configuration for the PXE.
  * @param logger - The logger to be used.
  * @param useLogSuffix - Whether to add a randomly generated suffix to the PXE debug logs.
  * @returns A test wallet, logger and teardown function.
  */
-export async function setupPXEServiceAndGetWallet(
+export async function setupPXEAndGetWallet(
   aztecNode: AztecNode,
-  opts: Partial<PXEServiceConfig> = {},
+  opts: Partial<PXEConfig> = {},
   logger = getLogger(),
   useLogSuffix = false,
 ): Promise<{
@@ -164,19 +164,19 @@ export async function setupPXEServiceAndGetWallet(
    */
   teardown: () => Promise<void>;
 }> {
-  const pxeServiceConfig = { ...getPXEServiceConfig(), ...opts };
+  const PXEConfig = { ...getPXEConfig(), ...opts };
   // For tests we only want proving enabled if specifically requested
-  pxeServiceConfig.proverEnabled = !!opts.proverEnabled;
+  PXEConfig.proverEnabled = !!opts.proverEnabled;
 
   // If no data directory provided, create a temp directory and clean up afterwards
-  const configuredDataDirectory = pxeServiceConfig.dataDirectory;
+  const configuredDataDirectory = PXEConfig.dataDirectory;
   if (!configuredDataDirectory) {
-    pxeServiceConfig.dataDirectory = path.join(tmpdir(), randomBytes(8).toString('hex'));
+    PXEConfig.dataDirectory = path.join(tmpdir(), randomBytes(8).toString('hex'));
   }
 
-  const teardown = configuredDataDirectory ? () => Promise.resolve() : () => tryRmDir(pxeServiceConfig.dataDirectory!);
+  const teardown = configuredDataDirectory ? () => Promise.resolve() : () => tryRmDir(PXEConfig.dataDirectory!);
 
-  const wallet = await TestWallet.create(aztecNode, pxeServiceConfig, {
+  const wallet = await TestWallet.create(aztecNode, PXEConfig, {
     useLogSuffix,
   });
 
@@ -360,7 +360,7 @@ export type EndToEndContext = {
 export async function setup(
   numberOfAccounts = 1,
   opts: SetupOptions = {},
-  pxeOpts: Partial<PXEServiceConfig> = {},
+  pxeOpts: Partial<PXEConfig> = {},
   chain: Chain = foundry,
 ): Promise<EndToEndContext> {
   let anvil: Anvil | undefined;
@@ -634,7 +634,7 @@ export async function setup(
     }
 
     logger.verbose('Creating a pxe...');
-    const { wallet, teardown: pxeTeardown } = await setupPXEServiceAndGetWallet(aztecNode!, pxeOpts, logger);
+    const { wallet, teardown: pxeTeardown } = await setupPXEAndGetWallet(aztecNode!, pxeOpts, logger);
 
     const cheatCodes = await CheatCodes.create(config.l1RpcUrls, wallet, aztecNode, dateProvider);
 

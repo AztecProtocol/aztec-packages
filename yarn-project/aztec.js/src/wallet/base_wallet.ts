@@ -8,24 +8,20 @@ import type { FeeOptions, SimulationUserFeeOptions, UserFeeOptions } from '@azte
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import type { ContractArtifact } from '@aztec/stdlib/abi';
+import type { ContractArtifact, EventMetadataDefinition } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type ContractClassMetadata,
   type ContractInstanceWithAddress,
   type ContractInstantiationData,
+  type ContractMetadata,
   getContractClassFromArtifact,
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
-import type {
-  AztecNode,
-  ContractClassMetadata,
-  ContractMetadata,
-  EventMetadataDefinition,
-  PXE,
-} from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type {
   Tx,
   TxExecutionRequest,
@@ -59,7 +55,9 @@ export abstract class BaseWallet implements Wallet {
 
   // Protected because we want to force wallets to instantiate their own PXE.
   protected constructor(
-    protected readonly pxe: PXE,
+    // TODO: We cannot type here pxe because we cannot import that package as that would result in a circular
+    // dependency. This will eventually get resolved by the introduction of @aztec/wallet-sdk package.
+    protected readonly pxe: any,
     protected readonly aztecNode: AztecNode,
   ) {}
 
@@ -68,7 +66,7 @@ export abstract class BaseWallet implements Wallet {
   abstract getAccounts(): Promise<Aliased<AztecAddress>[]>;
 
   async getSenders(): Promise<Aliased<AztecAddress>[]> {
-    const senders = await this.pxe.getSenders();
+    const senders: AztecAddress[] = await this.pxe.getSenders();
     return senders.map(sender => ({ item: sender, alias: '' }));
   }
 

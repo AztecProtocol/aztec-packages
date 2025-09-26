@@ -98,8 +98,6 @@ export type SandboxConfig = AztecNodeConfig & {
   l1Mnemonic: string;
   /** Salt used to deploy L1 contracts.*/
   deployAztecContractsSalt: string;
-  /** Whether to expose PXE service on sandbox start.*/
-  noPXE: boolean;
   /** Whether to deploy test accounts on sandbox start.*/
   testAccounts: boolean;
 };
@@ -195,8 +193,8 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   );
 
   if (initialAccounts.length) {
-    const pxeServiceConfig = { proverEnabled: aztecNodeConfig.realProofs };
-    const wallet = await TestWallet.create(node, pxeServiceConfig);
+    const PXEConfig = { proverEnabled: aztecNodeConfig.realProofs };
+    const wallet = await TestWallet.create(node, PXEConfig);
 
     userLog('Setting up funded test accounts...');
     const accountManagers = await deployFundedSchnorrAccounts(wallet, initialAccounts);

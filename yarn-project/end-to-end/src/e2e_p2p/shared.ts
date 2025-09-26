@@ -16,7 +16,7 @@ import { timesAsync, unique } from '@aztec/foundation/collection';
 import { pluralize } from '@aztec/foundation/string';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract, TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
-import { getPXEServiceConfig, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe/server';
+import { getPXEConfig, getPXEConfig as getRpcConfig } from '@aztec/pxe/server';
 import { getRoundForOffense } from '@aztec/slasher';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
@@ -63,11 +63,7 @@ export const submitTransactions = async (
 ): Promise<SentTx[]> => {
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
-  const wallet = await TestWallet.create(
-    node,
-    { ...getPXEServiceConfig(), proverEnabled: false },
-    { useLogSuffix: true },
-  );
+  const wallet = await TestWallet.create(node, { ...getPXEConfig(), proverEnabled: false }, { useLogSuffix: true });
   const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
   return submitTxsTo(wallet, fundedAccountManager.getAddress(), numTxs, logger);
 };
@@ -81,11 +77,7 @@ export async function prepareTransactions(
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
 
-  const wallet = await TestWallet.create(
-    node,
-    { ...getPXEServiceConfig(), proverEnabled: false },
-    { useLogSuffix: true },
-  );
+  const wallet = await TestWallet.create(node, { ...getPXEConfig(), proverEnabled: false }, { useLogSuffix: true });
   const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
 
   const testContractInstance = await getContractInstanceFromInstantiationParams(TestContractArtifact, {

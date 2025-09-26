@@ -116,12 +116,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       env: undefined,
     },
     {
-      flag: '--sandbox.noPXE',
-      description: 'Do not expose PXE service on sandbox start',
-      env: 'NO_PXE',
-      ...booleanConfigHelper(),
-    },
-    {
       flag: '--sandbox.l1Mnemonic <value>',
       description: 'Mnemonic for L1 accounts. Will be used ',
       defaultValue: DefaultMnemonic,

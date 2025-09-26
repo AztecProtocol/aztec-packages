@@ -1,1 +1,1 @@
-export type { PXE, AztecNode } from '@aztec/stdlib/interfaces/client';
+export type { AztecNode } from '@aztec/stdlib/interfaces/client';

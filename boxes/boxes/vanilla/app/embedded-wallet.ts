@@ -16,8 +16,8 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { EcdsaRAccountContract } from '@aztec/accounts/ecdsa/lazy';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr/lazy';
 
-import { getPXEServiceConfig } from '@aztec/pxe/config';
-import { createPXEService } from '@aztec/pxe/client/lazy';
+import { getPXEConfig } from '@aztec/pxe/config';
+import { createPXE } from '@aztec/pxe/client/lazy';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
 import {
   getStubAccountContractArtifact,
@@ -107,11 +107,11 @@ export class EmbeddedWallet extends BaseWallet {
     // Create Aztec Node Client
     const aztecNode = createAztecNodeClient(nodeUrl);
 
-    // Create PXE Service
-    const config = getPXEServiceConfig();
+    // Create PXE
+    const config = getPXEConfig();
     config.l1Contracts = await aztecNode.getL1ContractAddresses();
     config.proverEnabled = PROVER_ENABLED;
-    const pxe = await createPXEService(aztecNode, config, {
+    const pxe = await createPXE(aztecNode, config, {
       useLogSuffix: true,
     });
 

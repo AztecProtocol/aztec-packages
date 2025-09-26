@@ -7,7 +7,6 @@ import {
   type ContractArtifact,
   type ContractFunctionInteractionCallIntent,
   type IntentInnerHash,
-  type PXE,
   SetPublicAuthwitContractInteraction,
   SignerlessAccount,
   type SimulateMethodOptions,
@@ -17,6 +16,7 @@ import {
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fq, Fr } from '@aztec/foundation/fields';
+import type { PXE } from '@aztec/pxe/client/lazy';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstanceWithAddress, PartialAddress } from '@aztec/stdlib/contract';

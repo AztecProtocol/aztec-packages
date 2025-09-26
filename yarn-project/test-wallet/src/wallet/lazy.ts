@@ -9,32 +9,27 @@ import {
   Fr,
   getContractInstanceFromInstantiationParams,
 } from '@aztec/aztec.js';
-import {
-  type PXECreationOptions,
-  type PXEServiceConfig,
-  createPXEService,
-  getPXEServiceConfig,
-} from '@aztec/pxe/client/lazy';
+import { type PXEConfig, type PXECreationOptions, createPXE, getPXEConfig } from '@aztec/pxe/client/lazy';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { BaseTestWallet } from './test_wallet.js';
 
 /**
  * A TestWallet implementation that loads the account contract artifacts lazily
- * Note that the only difference from `server` and `bundle` test wallets is that it uses the `createPXEService` function
+ * Note that the only difference from `server` and `bundle` test wallets is that it uses the `createPXE` function
  * from the `pxe/client/lazy` package.
  */
 export class TestWallet extends BaseTestWallet {
   static async create(
     node: AztecNode,
-    overridePXEServiceConfig?: Partial<PXEServiceConfig>,
+    overridePXEConfig?: Partial<PXEConfig>,
     options: PXECreationOptions = { loggers: {} },
   ): Promise<TestWallet> {
-    const pxeConfig = Object.assign(getPXEServiceConfig(), {
-      proverEnabled: overridePXEServiceConfig?.proverEnabled ?? false,
-      ...overridePXEServiceConfig,
+    const pxeConfig = Object.assign(getPXEConfig(), {
+      proverEnabled: overridePXEConfig?.proverEnabled ?? false,
+      ...overridePXEConfig,
     });
-    const pxe = await createPXEService(node, pxeConfig, options);
+    const pxe = await createPXE(node, pxeConfig, options);
     return new TestWallet(pxe, node);
   }
 
