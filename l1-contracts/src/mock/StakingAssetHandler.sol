@@ -7,7 +7,7 @@ import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {MerkleProof} from "@oz/utils/cryptography/MerkleProof.sol";
-import {ZKPassportVerifier, ProofVerificationParams, ProofType, BoundData} from "@zkpassport/ZKPassportVerifier.sol";
+import {ZKPassportVerifier, ProofVerificationParams, BoundData} from "@zkpassport/ZKPassportVerifier.sol";
 
 /**
  * @title StakingAssetHandler
