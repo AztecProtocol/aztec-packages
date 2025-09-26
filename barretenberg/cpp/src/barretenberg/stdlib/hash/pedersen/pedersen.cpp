@@ -14,7 +14,9 @@ using namespace bb;
 /**
  * @brief Computes a pedersen hash of the provided inputs
  * @details The pedersen hash is computed as the x-coordinate of the point: P = \sum_i inputs[i] * G_i + len * H, where
- * G_i and H are generator points of the Grumpkin curve and len is the number of inputs.
+ * G_i and H are generator points of the Grumpkin curve and len is the number of inputs. The len * H term is included to
+ * avoid the trivial collision that otherwise results from negating all inputs. See crypto::pedersen_hash for more
+ * details.
  * @note: The inputs are elements of the bn254 scalar field but are interpreted as scalars in the Grumpkin scalar field
  * (represented by cycle_scalar).
  *
