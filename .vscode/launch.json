@@ -44,13 +44,14 @@
       ],
     },
     {
-      // Debug databus_composite_calldata acir test
-      "name": "Debug databus_composite_calldata acir test",
+      // Debug acir test
+      "name": "Debug acir test",
       "type": "lldb",
       "request": "launch",
       "program": "${workspaceFolder}/barretenberg/cpp/build-debug-fast-no-avm/bin/bb",
       "args": ["prove", "--scheme", "ultra_honk", "--output_path", ".", "-b", "$./target/witness.gz"],
-      "cwd": "${workspaceFolder}/barretenberg/acir_tests/acir_tests/databus_composite_calldata",
+      // replace __test_name__ with the intended test
+      "cwd": "${workspaceFolder}/barretenberg/acir_tests/acir_tests/__test__name__",
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
       ],
