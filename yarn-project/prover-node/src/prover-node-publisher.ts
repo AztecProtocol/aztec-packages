@@ -99,6 +99,7 @@ export class ProverNodePublisher {
   }): Promise<boolean> {
     const { epochNumber, fromBlock, toBlock } = args;
     const ctx = { epochNumber, fromBlock, toBlock };
+
     if (!this.interrupted) {
       const timer = new Timer();
       // Validate epoch proof range and hashes are correct before submitting

@@ -1,7 +1,12 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
 import type { ACVMConfig, BBConfig } from '@aztec/bb-prover/config';
 import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethereum';
-import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  getConfigFromMappings,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type KeyStore, type KeyStoreConfig, ethPrivateKeySchema, keyStoreConfigMappings } from '@aztec/node-keystore';
 import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib/config';
@@ -39,6 +44,7 @@ export type SpecificProverNodeConfig = {
   proverNodeMaxParallelBlocksPerEpoch: number;
   proverNodeFailedEpochStore: string | undefined;
   proverNodeEpochProvingDelayMs: number | undefined;
+  proverNodeDisableProofPublish?: boolean;
   txGatheringTimeoutMs: number;
   txGatheringIntervalMs: number;
   txGatheringBatchSize: number;
@@ -89,6 +95,11 @@ const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeCon
     env: 'PROVER_NODE_TX_GATHERING_TIMEOUT_MS',
     description: 'How long to wait for tx data to be available before giving up',
     ...numberConfigHelper(120_000),
+  },
+  proverNodeDisableProofPublish: {
+    env: 'PROVER_NODE_DISABLE_PROOF_PUBLISH',
+    description: 'Whether the prover node skips publishing proofs to L1',
+    ...booleanConfigHelper(false),
   },
 };
 
