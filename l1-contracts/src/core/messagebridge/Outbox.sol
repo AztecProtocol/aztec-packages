@@ -46,6 +46,7 @@ contract Outbox is IOutbox {
    */
   function insert(uint256 _l2BlockNumber, bytes32 _root) external override(IOutbox) {
     require(msg.sender == address(ROLLUP), Errors.Outbox__Unauthorized());
+    require(_l2BlockNumber > ROLLUP.getProvenBlockNumber(), Errors.Outbox__BlockAlreadyProven(_l2BlockNumber));
 
     roots[_l2BlockNumber].root = _root;
 
@@ -72,6 +73,7 @@ contract Outbox is IOutbox {
     bytes32[] calldata _path
   ) external override(IOutbox) {
     require(_path.length < 256, Errors.Outbox__PathTooLong());
+    require(_leafIndex < (1 << _path.length), Errors.Outbox__LeafIndexOutOfBounds(_leafIndex, _path.length));
     require(_l2BlockNumber <= ROLLUP.getProvenBlockNumber(), Errors.Outbox__BlockNotProven(_l2BlockNumber));
     require(_message.sender.version == VERSION, Errors.Outbox__VersionMismatch(_message.sender.version, VERSION));
 

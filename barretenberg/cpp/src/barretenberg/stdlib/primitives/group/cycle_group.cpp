@@ -867,7 +867,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         }
         // Add the contribution from each point's scalar slice for this round
         for (size_t j = 0; j < num_points; ++j) {
-            const field_t scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
+            const field_t scalar_slice = scalar_slices[j][num_rounds - i - 1];
             BB_ASSERT_EQ(scalar_slice.get_value(), scalar_slices[j].slices_native[num_rounds - i - 1]); // Sanity check
             const cycle_group point = point_tables[j].read(scalar_slice);
             if (!unconditional_add) {

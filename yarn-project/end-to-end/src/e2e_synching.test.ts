@@ -65,7 +65,7 @@ import { getContract } from 'viem';
 
 import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
-import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEServiceAndGetWallet } from './fixtures/utils.js';
+import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEAndGetWallet } from './fixtures/utils.js';
 
 const SALT = 420;
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
@@ -539,7 +539,7 @@ describe('e2e_synching', () => {
             const aztecNode = await AztecNodeService.createAndSync(opts.config!);
             const sequencer = aztecNode.getSequencer();
 
-            const { wallet } = await setupPXEServiceAndGetWallet(aztecNode!);
+            const { wallet } = await setupPXEAndGetWallet(aztecNode!);
             variant.setWallet(wallet);
             const defaultAccountAddress = (await variant.deployAccounts(opts.initialFundedAccounts!.slice(0, 1)))[0];
 
@@ -681,7 +681,7 @@ describe('e2e_synching', () => {
           expect(await aztecNode.getBlockNumber()).toBeLessThan(blockBeforePrune);
 
           // We need to start the pxe after the re-org for now, because it won't handle it otherwise
-          const { wallet } = await setupPXEServiceAndGetWallet(aztecNode!);
+          const { wallet } = await setupPXEAndGetWallet(aztecNode!);
           variant.setWallet(wallet);
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
@@ -739,7 +739,7 @@ describe('e2e_synching', () => {
           const aztecNode = await AztecNodeService.createAndSync(opts.config!);
           const sequencer = aztecNode.getSequencer();
 
-          const { wallet: newWallet } = await setupPXEServiceAndGetWallet(aztecNode!);
+          const { wallet: newWallet } = await setupPXEAndGetWallet(aztecNode!);
           variant.setWallet(newWallet);
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());

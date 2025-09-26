@@ -7,68 +7,13 @@ hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootst
 
 dump_fail "flock scripts/logs/install_deps.lock retry scripts/install_deps.sh >&2"
 
+source ./scripts/source_env_basic.sh
+source ./scripts/source_network_env.sh
+source ./scripts/gcp_auth.sh
+
 function build {
   denoise "helm lint ./aztec-network/"
   denoise ./spartan/scripts/check_env_vars.sh
-}
-
-function resolve_env_file_path {
-  local env_file_input="$1"
-  if [[ "$env_file_input" = /* ]]; then
-    echo "$env_file_input"
-  else
-    echo "environments/$env_file_input.env"
-  fi
-}
-
-function source_env_basic {
-  local env_file="$1"
-  local actual_env_file=$(resolve_env_file_path "$env_file")
-
-  if [[ -f "$actual_env_file" ]]; then
-    echo "Loading basic environment variables from $actual_env_file"
-    set -a
-    # shellcheck disable=SC1090
-    source "$actual_env_file"
-    set +a
-  else
-    echo "Env file not found: $actual_env_file" >&2
-    exit 1
-  fi
-}
-
-function source_network_env {
-  local env_file
-  # Check if the argument is an absolute path
-  if [[ "$1" = /* ]]; then
-    env_file="$1"
-  else
-    env_file="environments/$1.env"
-  fi
-  # Optionally source an env file passed as first argument
-  if [[ -n "${env_file:-}" ]]; then
-    if [[ -f "$env_file" ]]; then
-
-      # Standard behavior for files without GCP secrets
-      set -a
-      # shellcheck disable=SC1090
-      source "$env_file"
-      set +a
-
-      # Check if we need to process GCP secrets and if we have gcloud auth
-      if grep -q "REPLACE_WITH_GCP_SECRET" "$env_file" && command -v gcloud &> /dev/null; then
-        echo "Environment file contains GCP secret placeholders. Processing secrets..."
-
-        # Process GCP secrets
-        source ./scripts/setup_gcp_secrets.sh "$env_file"
-
-        echo "Successfully loaded environment with GCP secrets"
-      fi
-    else
-      echo "Env file not found: $env_file" >&2
-      exit 1
-    fi
-  fi
 }
 
 function network_shaping {
@@ -147,17 +92,6 @@ function stop_env {
   fi
 }
 
-function gcp_auth {
-  # if the GCP_PROJECT_ID is set, activate the service account
-  if [[ -n "${GCP_PROJECT_ID:-}" && "${CLUSTER}" != "kind" ]]; then
-    echo "Activating service account"
-    if [ "$CI" -eq 1 ]; then
-      gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
-    fi
-    gcloud config set project "$GCP_PROJECT_ID"
-    gcloud container clusters get-credentials ${CLUSTER} --region=${GCP_REGION} --project=${GCP_PROJECT_ID}
-  fi
-}
 
 function test {
   echo_header "spartan test (deprecated)"
@@ -211,17 +145,8 @@ case "$cmd" in
     shift
     env_file="$1"
 
-    # First pass: source environment for basic variables like CLUSTER (skip GCP secret processing)
-    source_env_basic "$env_file"
-
-    # Perform GCP auth (needs CLUSTER and other basic vars)
-    gcp_auth
-
-    # Second pass: source environment with GCP secret processing
-    source_network_env "$env_file"
-
-    ./scripts/deploy_network.sh
-    echo "Deployed network"
+    # Run the network deploy script
+    ./scripts/network_deploy.sh "$env_file"
 
     if [[ "${RUN_TESTS:-}" == "true" ]]; then
       echo "Running tests"

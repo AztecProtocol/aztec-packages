@@ -24,7 +24,6 @@ import type {
   PublicInputsAndRecursiveProof,
   ServerCircuitProver,
 } from '@aztec/stdlib/interfaces/server';
-import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { Proof } from '@aztec/stdlib/proofs';
 import {
   type BaseRollupHints,
@@ -36,6 +35,7 @@ import {
   CheckpointRootSingleBlockRollupPrivateInputs,
   PrivateTxBaseRollupPrivateInputs,
   PublicTubePrivateInputs,
+  PublicTubePublicInputs,
   RootRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
 import type { CircuitName } from '@aztec/stdlib/stats';
@@ -324,7 +324,7 @@ export class ProvingOrchestrator implements EpochProver {
 
         await spongeBlobState.absorb(tx.txEffect.toBlobFields());
 
-        const txProvingState = new TxProvingState(tx, hints, treeSnapshots);
+        const txProvingState = new TxProvingState(tx, hints, treeSnapshots, this.proverId.toField());
         const txIndex = provingState.addNewTx(txProvingState);
         if (txProvingState.requireAvmProof) {
           this.getOrEnqueueTube(provingState, txIndex);
@@ -361,13 +361,10 @@ export class ProvingOrchestrator implements EpochProver {
     const publicTxs = txs.filter(tx => tx.data.forPublic);
     for (const tx of publicTxs) {
       const txHash = tx.getTxHash().toString();
-      const privateInputs = getPublicTubePrivateInputsFromTx(tx);
+      const privateInputs = getPublicTubePrivateInputsFromTx(tx, this.proverId.toField());
       const tubeProof =
         promiseWithResolvers<
-          PublicInputsAndRecursiveProof<
-            PrivateToPublicKernelCircuitPublicInputs,
-            typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
-          >
+          PublicInputsAndRecursiveProof<PublicTubePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
         >();
       logger.debug(`Starting tube circuit for tx ${txHash}`);
       this.doEnqueueTube(txHash, privateInputs, proof => {
@@ -735,10 +732,7 @@ export class ProvingOrchestrator implements EpochProver {
     const txHash = txProvingState.processedTx.hash.toString();
     NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
     const handleResult = (
-      result: PublicInputsAndRecursiveProof<
-        PrivateToPublicKernelCircuitPublicInputs,
-        typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
-      >,
+      result: PublicInputsAndRecursiveProof<PublicTubePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
     ) => {
       logger.debug(`Got tube proof for tx index: ${txIndex}`, { txHash });
       txProvingState.setPublicTubeProof(result);
@@ -760,10 +754,7 @@ export class ProvingOrchestrator implements EpochProver {
     txHash: string,
     inputs: PublicTubePrivateInputs,
     handler: (
-      result: PublicInputsAndRecursiveProof<
-        PrivateToPublicKernelCircuitPublicInputs,
-        typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
-      >,
+      result: PublicInputsAndRecursiveProof<PublicTubePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
     ) => void,
     provingState: EpochProvingState | BlockProvingState = this.provingState!,
   ) {

@@ -13,6 +13,10 @@ on:
         description: 'Semver version (e.g., 2.3.4)'
         required: true
         type: string
+      ref:
+        description: 'Git ref to checkout'
+        required: false
+        type: string
   workflow_dispatch:
     inputs:
       network:
@@ -41,10 +45,9 @@ jobs:
       - name: Determine checkout ref
         id: checkout-ref
         run: |
-          if [[ -n "${{ github.ref }}" ]]; then
-            echo "ref=${{ github.ref }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "ref=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          # Use inputs.ref if provided (workflow_call), otherwise use github.ref
+          if [[ -n "${{ inputs.ref }}" ]]; then
+            echo "ref=${{ inputs.ref }}" >> $GITHUB_OUTPUT
           else
             echo "ref=${{ github.ref }}" >> $GITHUB_OUTPUT
           fi
@@ -55,6 +58,7 @@ jobs:
           ref: ${{ steps.checkout-ref.outputs.ref }}
           fetch-depth: 0
           persist-credentials: false
+          submodules: recursive  # Initialize git submodules for l1-contracts dependencies
 
       - name: Validate inputs
         run: |
@@ -92,6 +96,20 @@ jobs:
         run: |
           gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
 
+      - name: Setup gcloud and install GKE auth plugin
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: 'gke-gcloud-auth-plugin'
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@633666f66e0061ca3b725c73b2ec20cd13a8fdd1
+        with:
+          terraform_version: "1.7.5"
+          terraform_wrapper: false  # Disable the wrapper that adds debug output, this messes with reading terraform output
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
       - name: Deploy network
         if: env.MAJOR_VERSION == '2'
         env:
@@ -110,7 +128,8 @@ jobs:
           echo "Using branch/ref: ${{ steps.checkout-ref.outputs.ref }}"
 
           cd spartan
-          ./bootstrap.sh network_deploy "${{ inputs.network }}"
+          ./scripts/install_deps.sh
+          ./scripts/network_deploy.sh "${{ inputs.network }}"
 
       - name: Update testnet monitoring (testnet only)
         if: env.MAJOR_VERSION == '2' && inputs.network == 'testnet' && !contains(inputs.semver, '-')

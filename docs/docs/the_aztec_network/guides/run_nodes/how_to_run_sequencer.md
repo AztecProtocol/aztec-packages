@@ -42,7 +42,7 @@ The archiver component complements this process by maintaining historical chain 
 
 Minimum hardware requirements:
 
-- 2 core / 4 vCPU
+- 2 core / 4 vCPU (released in 2015 or later)
 - 16 GB RAM
 - 1TB NVMe SSD
 - 25 Mbps network connection
