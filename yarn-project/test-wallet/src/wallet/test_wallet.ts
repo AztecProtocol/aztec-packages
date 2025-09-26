@@ -20,7 +20,6 @@ import { Fq, Fr } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstanceWithAddress, PartialAddress } from '@aztec/stdlib/contract';
-import type { PXEInfo } from '@aztec/stdlib/interfaces/client';
 import type { NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import type { TxSimulationResult } from '@aztec/stdlib/tx';
 
@@ -50,12 +49,29 @@ export interface AccountData {
 export abstract class BaseTestWallet extends BaseWallet {
   protected accounts: Map<string, Account> = new Map();
 
+  /**
+   * Toggle for running "simulated simulations" when calling simulateTx.
+   *
+   * Terminology:
+   * - "simulation": run private circuits normally and then run the kernel in a simulated (brillig) mode on ACVM.
+   *   No kernel witnesses are generated, but protocol rules are checked.
+   * - "simulated simulation": skip running kernels in ACVM altogether and emulate their behavior in TypeScript
+   *   (akin to generateSimulatedProvingResult). We mutate public inputs like the kernels would and can swap in
+   *   fake/private bytecode or accounts for tests. This is much faster but is not usable in situations where we
+   *   need kernel witnesses.
+   *
+   * When this flag is true, simulateTx constructs a request using a fake account (and accepts contract overrides
+   * on the input) and the PXE emulates kernel effects without generating kernel witnesses. When false, simulateTx
+   * defers to the standard simulation path.
+   */
   private simulatedSimulations = false;
 
+  /** Enable the "simulated simulation" path for simulateTx. */
   enableSimulatedSimulations() {
     this.simulatedSimulations = true;
   }
 
+  /** Disable the "simulated simulation" path for simulateTx. */
   disableSimulatedSimulations() {
     this.simulatedSimulations = false;
   }
@@ -202,19 +218,10 @@ export abstract class BaseTestWallet extends BaseWallet {
   }
 
   // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
-  // Temporary hack to be able to instantiate TestWalletInternals
+  // Note: This is only used by account manager to because there we call registerAccount. This can be dropped once we
+  // allow Wallet.registerContract accepts secretKey and partialAddress on the input.
   getPxe(): PXE {
     return this.pxe;
-  }
-
-  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
-  getPXEInfo(): Promise<PXEInfo> {
-    return this.pxe.getPXEInfo();
-  }
-
-  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
-  getContracts(): Promise<AztecAddress[]> {
-    return this.pxe.getContracts();
   }
 
   stop(): Promise<void> {

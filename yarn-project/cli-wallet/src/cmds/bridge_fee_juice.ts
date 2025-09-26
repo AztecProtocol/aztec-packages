@@ -6,12 +6,9 @@ import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 
-import type { CLIWallet } from '../utils/wallet.js';
-
 export async function bridgeL1FeeJuice(
   amount: bigint,
   recipient: AztecAddress,
-  wallet: CLIWallet,
   node: AztecNode,
   l1RpcUrls: string[],
   chainId: number,
@@ -30,7 +27,7 @@ export async function bridgeL1FeeJuice(
 
   const {
     protocolContractAddresses: { feeJuice: feeJuiceAddress },
-  } = await wallet.getPXEInfo();
+  } = await node.getNodeInfo();
 
   // Setup portal manager
   const portal = await L1FeeJuicePortalManager.new(node, client, debugLogger);

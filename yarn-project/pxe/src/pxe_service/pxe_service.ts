@@ -5,11 +5,7 @@ import { Timer } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
-import {
-  ProtocolContractAddress,
-  type ProtocolContractsProvider,
-  protocolContractNames,
-} from '@aztec/protocol-contracts';
+import { type ProtocolContractsProvider, protocolContractNames } from '@aztec/protocol-contracts';
 import type { CircuitSimulator } from '@aztec/simulator/client';
 import {
   type ContractArtifact,
@@ -32,13 +28,7 @@ import {
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { siloNullifier } from '@aztec/stdlib/hash';
-import type {
-  AztecNode,
-  EventMetadataDefinition,
-  PXE,
-  PXEInfo,
-  PrivateKernelProver,
-} from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, EventMetadataDefinition, PXE, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import type {
   PrivateExecutionStep,
   PrivateKernelExecutionProofOutput,
@@ -65,7 +55,6 @@ import {
 import { inspect } from 'util';
 
 import type { PXEServiceConfig } from '../config/index.js';
-import { getPackageInfo } from '../config/package_info.js';
 import {
   ContractFunctionSimulator,
   generateSimulatedProvingResult,
@@ -105,7 +94,6 @@ export class PXEService implements PXE {
     private addressDataProvider: AddressDataProvider,
     private privateEventDataProvider: PrivateEventDataProvider,
     private simulator: CircuitSimulator,
-    private packageVersion: string,
     private proverEnabled: boolean,
     private proofCreator: PrivateKernelProver,
     private protocolContractsProvider: ProtocolContractsProvider,
@@ -134,7 +122,6 @@ export class PXEService implements PXE {
         ? createLogger(loggerOrSuffix ? `pxe:service:${loggerOrSuffix}` : `pxe:service`)
         : loggerOrSuffix;
 
-    const packageVersion = getPackageInfo().version;
     const proverEnabled = !!config.proverEnabled;
     const addressDataProvider = new AddressDataProvider(store);
     const privateEventDataProvider = new PrivateEventDataProvider(store);
@@ -169,7 +156,6 @@ export class PXEService implements PXE {
       addressDataProvider,
       privateEventDataProvider,
       simulator,
-      packageVersion,
       proverEnabled,
       proofCreator,
       protocolContractsProvider,
@@ -931,18 +917,6 @@ export class PXEService implements PXE {
           `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
         );
       }
-    });
-  }
-
-  public getPXEInfo(): Promise<PXEInfo> {
-    return Promise.resolve({
-      pxeVersion: this.packageVersion,
-      protocolContractAddresses: {
-        classRegistry: ProtocolContractAddress.ContractClassRegistry,
-        feeJuice: ProtocolContractAddress.FeeJuice,
-        instanceRegistry: ProtocolContractAddress.ContractInstanceRegistry,
-        multiCallEntrypoint: ProtocolContractAddress.MultiCallEntrypoint,
-      },
     });
   }
 

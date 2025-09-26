@@ -88,18 +88,6 @@ describe('End-to-end tests for devnet', () => {
     });
     wallet = svc.wallet;
 
-    const nodeInfo = await node.getNodeInfo();
-    const pxeInfo = await wallet.getPXEInfo();
-
-    expect(nodeInfo.protocolContractAddresses.classRegistry).toEqual(pxeInfo.protocolContractAddresses.classRegistry);
-    expect(nodeInfo.protocolContractAddresses.instanceRegistry).toEqual(
-      pxeInfo.protocolContractAddresses.instanceRegistry,
-    );
-    expect(nodeInfo.protocolContractAddresses.feeJuice).toEqual(pxeInfo.protocolContractAddresses.feeJuice);
-    expect(nodeInfo.protocolContractAddresses.multiCallEntrypoint).toEqual(
-      pxeInfo.protocolContractAddresses.multiCallEntrypoint,
-    );
-
     teardown = async () => {
       await svc.teardown();
       await bbConfig?.cleanup();

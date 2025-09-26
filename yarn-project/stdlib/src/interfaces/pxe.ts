@@ -11,7 +11,6 @@ import {
   type ContractClassWithId,
   type ContractInstanceWithAddress,
   type PartialAddress,
-  type ProtocolContractAddresses,
 } from '../contract/index.js';
 import { UniqueNote } from '../note/extended_note.js';
 import type { NotesFilter } from '../note/notes_filter.js';
@@ -188,11 +187,6 @@ export interface PXE {
   ): Promise<UtilitySimulationResult>;
 
   /**
-   * Returns information about this PXE.
-   */
-  getPXEInfo(): Promise<PXEInfo>;
-
-  /**
    * Returns the contract metadata given an address.
    * The metadata consists of its contract instance, which includes the contract class identifier,
    * initialization hash, deployment salt, and public keys hash; whether the contract instance has been initialized;
@@ -261,14 +255,6 @@ export const EventMetadataDefinitionSchema = z.object({
 export enum EventType {
   Encrypted = 'Encrypted',
   Unencrypted = 'Unencrypted',
-}
-
-/** Provides basic information about the running PXE. */
-export interface PXEInfo {
-  /** Version as tracked in the aztec-packages repository. */
-  pxeVersion: string;
-  /** Protocol contract addresses */
-  protocolContractAddresses: ProtocolContractAddresses;
 }
 
 export interface ContractMetadata {
