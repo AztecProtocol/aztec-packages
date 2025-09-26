@@ -1812,15 +1812,18 @@ template <typename Builder, typename T> void bigfield<Builder, T>::sanity_check(
 // Including the effect of carries the operation inside each limb is in the range [-2^b-1,2^{b+1}]
 // Assuming this values are all distinct mod r, which happens e.g. if r/2>2^{b+1}, then if all limb values are
 // non-negative at the end of subtraction, we know the subtraction result is positive as integers and a<p
-template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_in_field() const
+template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_in_field(std::string const& msg) const
 {
-    assert_less_than(modulus);
+    assert_less_than(modulus, msg == "bigfield::assert_is_in_field" ? "bigfield::assert_less_than" : msg);
 }
 
 // Asserts that the element is < upper_limit. We first range constrain the limbs and then calls
 // unsafe_assert_less_than(upper_limit).
-template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_than(const uint256_t& upper_limit) const
+template <typename Builder, typename T>
+void bigfield<Builder, T>::assert_less_than(const uint256_t& upper_limit, std::string const& msg) const
 {
+    bool is_default_msg = msg == "bigfield::assert_less_than";
+
     // Range constrain the binary basis limbs of the element to respective limb sizes.
     // This is required because the comparison is done using subtractions, which can result in overflows.
     // Range constrain the first two limbs each to NUM_LIMB_BITS
@@ -1829,17 +1832,17 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
                                    binary_basis_limbs[1].element.get_normalized_witness_index(),
                                    static_cast<size_t>(NUM_LIMB_BITS),
                                    static_cast<size_t>(NUM_LIMB_BITS),
-                                   "bigfield::assert_less_than: limb 0 or 1 too large");
+                                   is_default_msg ? "bigfield::assert_less_than: limb 0 or 1 too large" : msg);
 
     // Range constrain the last two limbs to NUM_LIMB_BITS and NUM_LAST_LIMB_BITS
     ctx->range_constrain_two_limbs(binary_basis_limbs[2].element.get_normalized_witness_index(),
                                    binary_basis_limbs[3].element.get_normalized_witness_index(),
                                    static_cast<size_t>(NUM_LIMB_BITS),
                                    static_cast<size_t>(NUM_LAST_LIMB_BITS),
-                                   "bigfield::assert_less_than: limb 2 or 3 too large");
+                                   is_default_msg ? "bigfield::assert_less_than: limb 2 or 3 too large" : msg);
 
     // Now we can check that the element is < upper_limit.
-    unsafe_assert_less_than(upper_limit);
+    unsafe_assert_less_than(upper_limit, is_default_msg ? "bigfield::unsafe_assert_less_than" : msg);
 }
 
 // Reduces the element mod p. This is a strict reduction mod p, so the output is guaranteed to be < p.
@@ -1857,7 +1860,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::reduce_mod_ta
 // Asserts that the element is < upper_limit. We mark this as unsafe because it assumes that the element is already
 // range constrained to < 2^s where s = ceil(log2(p)).
 template <typename Builder, typename T>
-void bigfield<Builder, T>::unsafe_assert_less_than(const uint256_t& upper_limit) const
+void bigfield<Builder, T>::unsafe_assert_less_than(const uint256_t& upper_limit, std::string const& msg) const
 {
     // Warning: this assumes we have run circuit construction at least once in debug mode where large non reduced
     // constants are NOT allowed via ASSERT
@@ -1911,16 +1914,18 @@ void bigfield<Builder, T>::unsafe_assert_less_than(const uint256_t& upper_limit)
     field_t<Builder> r3 = upper_limit_3 - binary_basis_limbs[3].element - static_cast<field_t<Builder>>(borrow_2);
 
     // We need to range constrain the r0,r1,r2,r3 values to ensure they are "small enough".
-    get_context()->range_constrain_two_limbs(r0.get_normalized_witness_index(),
-                                             r1.get_normalized_witness_index(),
-                                             static_cast<size_t>(NUM_LIMB_BITS),
-                                             static_cast<size_t>(NUM_LIMB_BITS),
-                                             "bigfield::unsafe_assert_less_than: r0 or r1 too large");
-    get_context()->range_constrain_two_limbs(r2.get_normalized_witness_index(),
-                                             r3.get_normalized_witness_index(),
-                                             static_cast<size_t>(NUM_LIMB_BITS),
-                                             static_cast<size_t>(NUM_LIMB_BITS),
-                                             "bigfield::unsafe_assert_less_than: r2 or r3 too large");
+    get_context()->range_constrain_two_limbs(
+        r0.get_normalized_witness_index(),
+        r1.get_normalized_witness_index(),
+        static_cast<size_t>(NUM_LIMB_BITS),
+        static_cast<size_t>(NUM_LIMB_BITS),
+        msg == "bigfield::unsafe_assert_less_than" ? "bigfield::unsafe_assert_less_than: r0 or r1 too large" : msg);
+    get_context()->range_constrain_two_limbs(
+        r2.get_normalized_witness_index(),
+        r3.get_normalized_witness_index(),
+        static_cast<size_t>(NUM_LIMB_BITS),
+        static_cast<size_t>(NUM_LIMB_BITS),
+        msg == "bigfield::unsafe_assert_less_than" ? "bigfield::unsafe_assert_less_than: r2 or r3 too large" : msg);
 }
 
 // check elements are equal mod p by proving their integer difference is a multiple of p.
@@ -1997,7 +2002,8 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
 // Suppose a-b = 0 mod p. Then a-b = k*p for k in a range [-R,L] for largest L and R such that L*p>= a, R*p>=b.
 // And also a-b = k*p mod r for such k. Thus we can verify a-b is non-zero mod p by taking the product of such values
 // (a-b-kp) and showing it's non-zero mod r
-template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_not_equal(const bigfield& other) const
+template <typename Builder, typename T>
+void bigfield<Builder, T>::assert_is_not_equal(const bigfield& other, std::string const& msg) const
 {
     // Why would we use this for 2 constants? Turns out, in biggroup
     const auto get_overload_count = [target_modulus = modulus_u512](const uint512_t& maximum_value) {
@@ -2032,7 +2038,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_not
         diff = diff * (base_diff + prime_basis_accumulator);
         prime_basis_accumulator += prime_basis;
     }
-    diff.assert_is_not_zero("bigfield: prime limb diff is zero, but expected non-zero");
+    diff.assert_is_not_zero(msg);
 }
 
 // We reduce an element's mod 2^t representation (t=4*NUM_LIMB_BITS) to size 2^s for smallest s with 2^s>p
