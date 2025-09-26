@@ -64,7 +64,8 @@ const config = {
           include: ["**/*.{md,mdx}"],
           exclude: ["protocol-specs/**"],
           // Don't show latest since nightlies are published
-          includeCurrentVersion: process.env.ENV === "dev",
+          // TODO: switch to false when ready to merge
+          includeCurrentVersion: true,
           // There should be 2 versions, nightly and stable
           // The stable version is second in the list
           lastVersion: versions[1],
@@ -72,12 +73,17 @@ const config = {
             [versions[0]]: {
               ...(versions[0].includes("nightly") && { path: "nightly" }),
             },
-            ...(process.env.ENV === "dev" && {
-              current: {
-                label: "dev",
-                path: "dev",
-              },
-            }),
+            // TODO: uncomment when ready to merge
+            // ...(process.env.ENV === "dev" && {
+            //   current: {
+            //     label: "dev",
+            //     path: "dev",
+            //   },
+            // }),
+            current: {
+              label: "dev",
+              path: "dev",
+            },
           },
           remarkPlugins: [math],
           rehypePlugins: [
@@ -136,7 +142,7 @@ const config = {
     // ["./src/plugins/plugin-embed-code", {}],
   ],
   customFields: {
-    ENV: process.env.ENV,
+    MATOMO_ENV: process.env.ENV,
   },
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
@@ -179,6 +185,12 @@ const config = {
             position: "left",
             dropdownActiveClassDisabled: true,
           },
+          // {
+          //   type: "docSidebar",
+          //   sidebarId: "learnSidebar",
+          //   position: "left",
+          //   label: "Learn",
+          // },
           {
             type: "docSidebar",
             sidebarId: "sidebar",
@@ -192,7 +204,7 @@ const config = {
             label: "Run a node",
           },
           {
-            to: "/developers/getting_started_on_sandbox",
+            to: "/developers/getting_started/getting_started_on_sandbox",
             label: "Install Sandbox",
             position: "right",
           },
@@ -245,7 +257,7 @@ const config = {
                 className: "dropdown-subtitle",
               },
               {
-                to: "/developers/migration_notes",
+                to: "/migration_notes",
                 label: "Migration Notes",
                 className: "no-external-icon",
               },
