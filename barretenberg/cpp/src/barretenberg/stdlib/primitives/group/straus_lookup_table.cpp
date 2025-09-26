@@ -63,11 +63,13 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
     // We want to support the case where input points are points at infinity.
     // If base point is at infinity, we want every point in the table to just be `generator_point`.
     // We achieve this via the following:
-    // 1: We create a "work_point" that is base_point if not at infinity, otherwise is just 1
+    // 1: We create a "work_point" that is base_point if not at infinity, else it is set (arbitrarily) to "one"
     // 2: When computing the point table, we use "work_point" in additions instead of the "base_point" (to prevent
     //    x-coordinate collisions in honest case) 3: When assigning to the point table, we conditionally assign either
     //    the output of the point addition (if not at infinity) or the generator point (if at infinity)
-    // Note: if `base_point.is_point_at_infinity()` is constant, these conditional assigns produce zero gate overhead
+    // 3: If point at infinity, conditionally (re)assign each entry in the table to be equal to the offset
+    //    generator so that the final table is genuninely correct in all cases. (Otherwise, the table is unchanged
+    //    from step 2)
     cycle_group<Builder> fallback_point(Group::affine_one);
     field_t modded_x = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.x, base_point.x);
     field_t modded_y = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y, base_point.y);
@@ -77,8 +79,11 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
     // lost here since native addition with the point at infinity is nearly free).
     const bool hints_available = hints.has_value() && !base_point.is_point_at_infinity().get_value();
     auto get_hint = [&](size_t i) -> std::optional<AffineElement> {
+        if (!hints_available) {
+            return std::nullopt;
+        }
         BB_ASSERT_LT(i, hints.value().size(), "Invalid hint index");
-        return hints_available ? std::optional<AffineElement>(hints.value()[i]) : std::nullopt;
+        return std::optional<AffineElement>(hints.value()[i]);
     };
 
     if (base_point.is_constant() && !base_point.is_point_at_infinity().get_value()) {
@@ -111,8 +116,10 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
         }
     }
 
+    // Construct a ROM array containing the point table
     rom_id = context->create_ROM_array(table_size);
     for (size_t i = 0; i < table_size; ++i) {
+        // Convert any constant points to witnesses constrained to equal the constant value for use in ROM array
         if (point_table[i].is_constant()) {
             const auto element = point_table[i].get_value();
             point_table[i] = cycle_group<Builder>::from_constant_witness(_context, element);
@@ -125,6 +132,8 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
 
 /**
  * @brief Given an `_index` witness, return `straus_lookup_table[index]`
+ * @details Performs a ROM read which costs one gate. If `_index` is constant, we convert it to a witness constrained to
+ * equal the constant value.
  *
  * @tparam Builder
  * @param _index
@@ -133,8 +142,9 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
 template <typename Builder> cycle_group<Builder> straus_lookup_table<Builder>::read(const field_t& _index)
 {
     field_t index(_index);
+    // A ROM array index must be a witness; we convert constants to a witness constrained to equal the constant value
     if (index.is_constant()) {
-        index = witness_t<Builder>(_context, _index.get_value());
+        index = field_t::from_witness(_context, _index.get_value());
         index.assert_equal(_index.get_value());
     }
     auto [x_idx, y_idx] = _context->read_ROM_array_pair(rom_id, index.get_witness_index());
@@ -143,6 +153,8 @@ template <typename Builder> cycle_group<Builder> straus_lookup_table<Builder>::r
     // Merge tag of table with tag of index
     x.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
     y.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
+
+    // The result is known to not be the point at infinity due to the use of offset generators in the table
     return cycle_group<Builder>(x, y, /*is_infinity=*/false);
 }
 
