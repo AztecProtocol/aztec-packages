@@ -15,7 +15,7 @@ export class DebugLog extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8, // Opcode
     OperandType.UINT8, // Indirect
-    OperandType.UINT16, // level
+    OperandType.UINT16, // level memory address
     OperandType.UINT16, // message memory address
     OperandType.UINT16, // fields memory address
     OperandType.UINT16, // fields size address
@@ -24,7 +24,7 @@ export class DebugLog extends Instruction {
 
   constructor(
     private indirect: number,
-    private level: number,
+    private levelOffset: number,
     private messageOffset: number,
     private fieldsOffset: number,
     private fieldsSizeOffset: number,
@@ -41,7 +41,7 @@ export class DebugLog extends Instruction {
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
     );
 
-    const operands = [this.level, this.messageOffset, this.fieldsOffset, this.fieldsSizeOffset];
+    const operands = [this.levelOffset, this.messageOffset, this.fieldsOffset, this.fieldsSizeOffset];
     const [levelOffset, messageOffset, fieldsOffset, fieldsSizeOffset] = addressing.resolve(operands, memory);
 
     // DebugLog is a no-op except when doing client-initiated simulation.
@@ -59,7 +59,9 @@ export class DebugLog extends Instruction {
         context.environment.maxDebugLogMemoryReads
       ) {
         // Regular error on purpose: this is not a recoverable error.
-        throw new Error('Max debug log memory reads exceeded');
+        throw new Error(
+          `Max debug log memory reads exceeded: ${context.persistableState.getDebugLogMemoryReads() + memoryReads} > ${context.environment.maxDebugLogMemoryReads}`,
+        );
       }
       context.persistableState.writeDebugLogMemoryReads(memoryReads);
 

@@ -36,7 +36,6 @@ void DebugLogger::debug_log(MemoryInterface& memory,
                             MemoryAddress fields_offset,
                             MemoryAddress fields_size_offset)
 {
-
     // This is a workaround. Do not copy or use in other places.
     auto unconstrained_read = [&memory](MemoryAddress offset) {
         Memory* memory_ptr = dynamic_cast<Memory*>(&memory);
@@ -62,7 +61,9 @@ void DebugLogger::debug_log(MemoryInterface& memory,
 
     if (memory_reads + total_memory_reads > max_memory_reads) {
         // Unrecoverable error
-        throw std::runtime_error("Max debug log memory reads exceeded");
+        throw std::runtime_error(
+            "Max debug log memory reads exceeded: " + std::to_string(memory_reads + total_memory_reads) + " > " +
+            std::to_string(max_memory_reads));
     }
 
     // Read message and fields from memory

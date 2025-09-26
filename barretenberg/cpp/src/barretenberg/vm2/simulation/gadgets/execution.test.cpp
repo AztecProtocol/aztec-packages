@@ -1,6 +1,5 @@
 #include "barretenberg/vm2/simulation/gadgets/execution.hpp"
 
-#include "gmock/gmock.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
