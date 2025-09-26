@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <optional>
 
 #include "barretenberg/common/std_string.hpp"
 
@@ -42,7 +41,9 @@ constexpr auto NUM_COLUMNS_WITHOUT_SHIFTS = {{len all_cols}};
 constexpr auto NUM_PRECOMPUTED_ENTITIES = {{len fixed}};
 constexpr auto NUM_WIRE_ENTITIES = {{len witness_without_inverses}};
 constexpr auto NUM_DERIVED_ENTITIES = {{len inverses}};
+constexpr auto NUM_WITNESS_ENTITIES = NUM_WIRE_ENTITIES + NUM_DERIVED_ENTITIES;
 constexpr auto NUM_SHIFTED_ENTITIES = {{len shifted}};
+constexpr auto NUM_UNSHIFTED_ENTITIES = NUM_COLUMNS_WITHOUT_SHIFTS;
 constexpr auto NUM_ALL_ENTITIES = {{len all_cols_and_shifts}};
 
 /*

@@ -139,52 +139,64 @@ class AvmFlavor {
         std::span<const DataType> get_all() const { return entities; }
         std::span<const std::string> get_labels() const { return COLUMN_NAMES; }
 
-        std::span<DataType> get_precomputed() { return get_all().subspan(PRECOMPUTED_START_IDX, PRECOMPUTED_END_IDX); }
+        std::span<DataType> get_precomputed()
+        {
+            return get_all().subspan(PRECOMPUTED_START_IDX, NUM_PRECOMPUTED_ENTITIES);
+        }
         std::span<const DataType> get_precomputed() const
         {
-            return get_all().subspan(PRECOMPUTED_START_IDX, PRECOMPUTED_END_IDX);
+            return get_all().subspan(PRECOMPUTED_START_IDX, NUM_PRECOMPUTED_ENTITIES);
         }
         std::span<const std::string> get_precomputed_labels() const
         {
-            return get_labels().subspan(PRECOMPUTED_START_IDX, PRECOMPUTED_END_IDX);
+            return get_labels().subspan(PRECOMPUTED_START_IDX, NUM_PRECOMPUTED_ENTITIES);
         }
 
-        std::span<DataType> get_wires() { return get_all().subspan(WIRE_START_IDX, WIRE_END_IDX); }
-        std::span<const DataType> get_wires() const { return get_all().subspan(WIRE_START_IDX, WIRE_END_IDX); }
+        std::span<DataType> get_wires() { return get_all().subspan(WIRE_START_IDX, NUM_WIRE_ENTITIES); }
+        std::span<const DataType> get_wires() const { return get_all().subspan(WIRE_START_IDX, NUM_WIRE_ENTITIES); }
         std::span<const std::string> get_wires_labels() const
         {
-            return get_labels().subspan(WIRE_START_IDX, WIRE_END_IDX);
+            return get_labels().subspan(WIRE_START_IDX, NUM_WIRE_ENTITIES);
         }
 
-        std::span<DataType> get_derived() { return get_all().subspan(DERIVED_START_IDX, DERIVED_END_IDX); }
-        std::span<const DataType> get_derived() const { return get_all().subspan(DERIVED_START_IDX, DERIVED_END_IDX); }
+        std::span<DataType> get_derived() { return get_all().subspan(DERIVED_START_IDX, NUM_DERIVED_ENTITIES); }
+        std::span<const DataType> get_derived() const
+        {
+            return get_all().subspan(DERIVED_START_IDX, NUM_DERIVED_ENTITIES);
+        }
         std::span<const std::string> get_derived_labels() const
         {
-            return get_labels().subspan(DERIVED_START_IDX, DERIVED_END_IDX);
+            return get_labels().subspan(DERIVED_START_IDX, NUM_DERIVED_ENTITIES);
         }
 
-        std::span<DataType> get_shifted() { return get_all().subspan(SHIFTED_START_IDX, SHIFTED_END_IDX); }
-        std::span<const DataType> get_shifted() const { return get_all().subspan(SHIFTED_START_IDX, SHIFTED_END_IDX); }
+        std::span<DataType> get_shifted() { return get_all().subspan(SHIFTED_START_IDX, NUM_SHIFTED_ENTITIES); }
+        std::span<const DataType> get_shifted() const
+        {
+            return get_all().subspan(SHIFTED_START_IDX, NUM_SHIFTED_ENTITIES);
+        }
         std::span<const std::string> get_shifted_labels() const
         {
-            return get_labels().subspan(SHIFTED_START_IDX, SHIFTED_END_IDX);
+            return get_labels().subspan(SHIFTED_START_IDX, NUM_SHIFTED_ENTITIES);
         }
 
-        std::span<DataType> get_witness() { return get_all().subspan(WITNESS_START_IDX, WITNESS_END_IDX); }
-        std::span<const DataType> get_witness() const { return get_all().subspan(WITNESS_START_IDX, WITNESS_END_IDX); }
+        std::span<DataType> get_witness() { return get_all().subspan(WITNESS_START_IDX, NUM_WITNESS_ENTITIES); }
+        std::span<const DataType> get_witness() const
+        {
+            return get_all().subspan(WITNESS_START_IDX, NUM_WITNESS_ENTITIES);
+        }
         std::span<const std::string> get_witness_labels() const
         {
-            return get_labels().subspan(WITNESS_START_IDX, WITNESS_END_IDX);
+            return get_labels().subspan(WITNESS_START_IDX, NUM_WITNESS_ENTITIES);
         }
 
-        std::span<DataType> get_unshifted() { return get_all().subspan(UNSHIFTED_START_IDX, UNSHIFTED_END_IDX); }
+        std::span<DataType> get_unshifted() { return get_all().subspan(UNSHIFTED_START_IDX, NUM_UNSHIFTED_ENTITIES); }
         std::span<const DataType> get_unshifted() const
         {
-            return get_all().subspan(UNSHIFTED_START_IDX, UNSHIFTED_END_IDX);
+            return get_all().subspan(UNSHIFTED_START_IDX, NUM_UNSHIFTED_ENTITIES);
         }
         std::span<const std::string> get_unshifted_labels() const
         {
-            return get_labels().subspan(UNSHIFTED_START_IDX, UNSHIFTED_END_IDX);
+            return get_labels().subspan(UNSHIFTED_START_IDX, NUM_UNSHIFTED_ENTITIES);
         }
 
         // TODO(fcarreiro): Sadly these can't be a span unless we rearrange the columns.
@@ -249,16 +261,22 @@ class AvmFlavor {
     };
 
     class ProvingKey : public AllEntities<Polynomial> {
-      public:
-        using FF = typename Polynomial::FF;
+      private:
         // Obscure get_all since it would be incorrect.
         using AllEntities<Polynomial>::get_all;
         using AllEntities<Polynomial>::get_labels;
+
+      public:
+        using FF = typename Polynomial::FF;
 
         static constexpr size_t circuit_size = MAX_AVM_TRACE_SIZE; // Fixed size
         static constexpr size_t log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
 
         ProvingKey();
+
+        std::span<Polynomial> get_all() { return AllEntities<Polynomial>::get_unshifted(); }
+        std::span<const Polynomial> get_all() const { return AllEntities<Polynomial>::get_unshifted(); }
+        std::span<const std::string> get_labels() const { return AllEntities<Polynomial>::get_unshifted_labels(); }
 
         // std::span<Polynomial> get_selectors() { return AllEntities<Polynomial>::get_precomputed(); }
         // std::span<const Polynomial> get_selectors() const { return AllEntities<Polynomial>::get_precomputed(); }

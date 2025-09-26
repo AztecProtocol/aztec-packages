@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <optional>
 
 #include "barretenberg/common/std_string.hpp"
 
@@ -40,10 +39,19 @@ enum class ColumnAndShifts {
 constexpr auto NUM_COLUMNS_WITH_SHIFTS = 3561;
 constexpr auto NUM_COLUMNS_WITHOUT_SHIFTS = 3225;
 constexpr auto NUM_PRECOMPUTED_ENTITIES = 133;
+<<<<<<< HEAD
 constexpr auto NUM_WIRE_ENTITIES = 2620;
 constexpr auto NUM_DERIVED_ENTITIES = 472;
 constexpr auto NUM_SHIFTED_ENTITIES = 336;
 constexpr auto NUM_ALL_ENTITIES = 3561;
+=======
+constexpr auto NUM_WIRE_ENTITIES = 2603;
+constexpr auto NUM_DERIVED_ENTITIES = 467;
+constexpr auto NUM_WITNESS_ENTITIES = NUM_WIRE_ENTITIES + NUM_DERIVED_ENTITIES;
+constexpr auto NUM_SHIFTED_ENTITIES = 330;
+constexpr auto NUM_UNSHIFTED_ENTITIES = NUM_COLUMNS_WITHOUT_SHIFTS;
+constexpr auto NUM_ALL_ENTITIES = 3533;
+>>>>>>> 4417996b05 (fixes)
 
 /*
  * Layout for all entities is:
