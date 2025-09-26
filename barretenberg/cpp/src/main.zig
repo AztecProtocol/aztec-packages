@@ -44,19 +44,19 @@ pub fn main() !u8 {
 
 fn processAztecCommand(allocator: std.mem.Allocator, args: [][:0]u8) u8 {
     if (args.len == 0) {
-        print("Usage: bb aztec-process [artifact_path ...]\n", .{});
-        // print("If no paths provided, searches for artifacts in target/ directories\n", .{});
+        print("Usage: bb aztec-process <input_artifact> [output_artifact]\n", .{});
+        print("If output_artifact not provided, will overwrite input_artifact\n", .{});
         return 1;
     }
 
-    // Process each artifact
-    for (args) |artifact_path| {
-        if (processArtifact(allocator, artifact_path)) {
-            print("Successfully processed: {s}\n", .{artifact_path});
-        } else {
-            print("Error processing: {s}\n", .{artifact_path});
-            return 1;
-        }
+    const input_artifact = args[0];
+    const output_artifact = if (args.len > 1) args[1] else input_artifact;
+
+    if (processArtifact(allocator, input_artifact, output_artifact)) {
+        print("Successfully processed: {s} -> {s}\n", .{ input_artifact, output_artifact });
+    } else {
+        print("Error processing: {s}\n", .{input_artifact});
+        return 1;
     }
 
     print("Contract postprocessing complete!\n", .{});
@@ -81,17 +81,30 @@ fn findArtifacts(allocator: std.mem.Allocator, artifacts: *std.ArrayList([]const
     }
 }
 
-fn processArtifact(allocator: std.mem.Allocator, artifact_path: []const u8) bool {
+fn processArtifact(allocator: std.mem.Allocator, input_path: []const u8, output_path: []const u8) bool {
     // Step 1: Transpile the artifact
-    const artifact_cstr = allocator.dupeZ(u8, artifact_path) catch return false;
-    defer allocator.free(artifact_cstr);
+    const input_cstr = allocator.dupeZ(u8, input_path) catch return false;
+    defer allocator.free(input_cstr);
 
-    var result = avm_transpile_file(artifact_cstr.ptr, artifact_cstr.ptr);
+    const output_cstr = allocator.dupeZ(u8, output_path) catch return false;
+    defer allocator.free(output_cstr);
+
+    var result = avm_transpile_file(input_cstr.ptr, output_cstr.ptr);
     defer avm_free_result(&result);
 
     if (result.success == 0) {
         if (result.error_message) |msg| {
-            if (!std.mem.eql(u8, "Contract already transpiled", msg[0..std.mem.len(msg)])) {
+            const msg_len = std.mem.len(msg);
+            if (msg_len > 0 and std.mem.eql(u8, "Contract already transpiled", msg[0..msg_len])) {
+                // Contract already transpiled, copy input to output if different
+                if (!std.mem.eql(u8, input_path, output_path)) {
+                    std.fs.cwd().copyFile(input_path, std.fs.cwd(), output_path, .{}) catch {
+                        print("Error: Could not copy {s} to {s}\n", .{ input_path, output_path });
+                        return false;
+                    };
+                    print("Copied already transpiled artifact: {s} -> {s}\n", .{ input_path, output_path });
+                }
+            } else if (msg_len > 0) {
                 print("Transpilation failed: {s}\n", .{msg});
                 return false;
             }
@@ -101,15 +114,22 @@ fn processArtifact(allocator: std.mem.Allocator, artifact_path: []const u8) bool
         }
     }
 
-    print("Transpiled: {s}\n", .{artifact_path});
+    print("Transpiled: {s} -> {s}\n", .{ input_path, output_path });
 
-    // Step 2: Generate verification keys
-    return generateVerificationKeys(allocator, artifact_path);
+    // Verify output file exists before proceeding
+    std.fs.cwd().access(output_path, .{}) catch {
+        print("Error: Output artifact file not found: {s}\n", .{output_path});
+        return false;
+    };
+
+    // Step 2: Generate verification keys (using the output artifact)
+    return generateVerificationKeys(allocator, output_path);
 }
 
 fn generateVerificationKeys(allocator: std.mem.Allocator, artifact_path: []const u8) bool {
     const artifact_name = std.fs.path.basename(artifact_path);
-    const cache_dir_path = std.fmt.allocPrint(allocator, "{s}/cache", .{std.fs.path.dirname(artifact_path).?}) catch return false;
+    const artifact_dir = std.fs.path.dirname(artifact_path) orelse ".";
+    const cache_dir_path = std.fmt.allocPrint(allocator, "{s}/cache", .{artifact_dir}) catch return false;
     defer allocator.free(cache_dir_path);
 
     // Create cache directory
@@ -120,8 +140,9 @@ fn generateVerificationKeys(allocator: std.mem.Allocator, artifact_path: []const
     print("Generating verification keys for functions in {s}. Cache directory: {s}\n", .{ artifact_name, cache_dir_path });
 
     // Read and parse the artifact JSON to get private functions
-    const artifact_content = std.fs.cwd().readFileAlloc(allocator, artifact_path, 1024 * 1024) catch {
-        print("Error: Could not read artifact file\n", .{});
+    print("Reading artifact file: {s}\n", .{artifact_path});
+    const artifact_content = std.fs.cwd().readFileAlloc(allocator, artifact_path, 100 * 1024 * 1024) catch |err| {
+        print("Error: Could not read artifact file {s}: {}\n", .{ artifact_path, err });
         return false;
     };
     defer allocator.free(artifact_content);
@@ -231,7 +252,7 @@ fn computeSha256(allocator: std.mem.Allocator, input: []const u8) ![]const u8 {
 }
 
 fn updateArtifactWithCachedVK(allocator: std.mem.Allocator, artifact_path: []const u8, fn_index: usize, vk_cache_path: []const u8) bool {
-    const vk_data = std.fs.cwd().readFileAlloc(allocator, vk_cache_path, 1024 * 1024) catch {
+    const vk_data = std.fs.cwd().readFileAlloc(allocator, vk_cache_path, 100 * 1024 * 1024) catch {
         print("Error reading cached VK file\n", .{});
         return false;
     };
@@ -244,27 +265,54 @@ fn generateAndCacheVK(allocator: std.mem.Allocator, artifact_path: []const u8, f
     const fn_name = function.object.get("name").?.string;
     print("Generating verification key for function {s}\n", .{fn_name});
 
-    // Get the bytecode from the function object
+    // Extract bytecode from the function (like get_bytecode does)
     const bytecode_obj = function.object.get("bytecode");
     if (bytecode_obj == null) {
         print("Error: No bytecode found in function\n", .{});
         return false;
     }
 
-    // Convert bytecode array to bytes
-    const bytecode_array = bytecode_obj.?.array;
-    const bytecode = allocator.alloc(u8, bytecode_array.items.len) catch return false;
-    defer allocator.free(bytecode);
+    // Get base64 encoded bytecode string
+    const bytecode_b64 = switch (bytecode_obj.?) {
+        .string => |str| str,
+        else => {
+            print("Error: Bytecode must be a base64 string\n", .{});
+            return false;
+        },
+    };
 
-    for (bytecode_array.items, 0..) |item, i| {
-        bytecode[i] = @intCast(item.integer);
-    }
+    // Decode base64
+    const decoder = std.base64.standard.Decoder;
+    const decoded_size = decoder.calcSizeForSlice(bytecode_b64) catch {
+        print("Error: Invalid base64 bytecode\n", .{});
+        return false;
+    };
+    const decoded_compressed = allocator.alloc(u8, decoded_size) catch return false;
+    defer allocator.free(decoded_compressed);
 
-    // Call the C function to generate VK
+    decoder.decode(decoded_compressed, bytecode_b64) catch {
+        print("Error: Failed to decode base64 bytecode\n", .{});
+        return false;
+    };
+
+    // Decompress gzip using std.compress.flate (Zig 0.15.1 API)
+    var r = std.io.Reader.fixed(decoded_compressed);
+    var decompress_buffer: [std.compress.flate.max_window_len]u8 = undefined;
+    var decompress = std.compress.flate.Decompress.init(&r, .gzip, &decompress_buffer);
+
+    // Read decompressed data
+    const decompressed_bytecode = decompress.reader.readAlloc(allocator, 10 * 1024 * 1024) catch {
+        print("Error: Failed to decompress bytecode\n", .{});
+        return false;
+    };
+    defer allocator.free(decompressed_bytecode);
+
+    print("Decompressed bytecode: {d} bytes\n", .{decompressed_bytecode.len});
+
     var vk_data: [*]u8 = undefined;
     var vk_len: usize = 0;
 
-    const result = bbapi_compute_standalone_vk(bytecode.ptr, bytecode.len, &vk_data, &vk_len);
+    const result = bbapi_compute_standalone_vk(decompressed_bytecode.ptr, decompressed_bytecode.len, &vk_data, &vk_len);
     if (result != 0) {
         print("Error: Failed to generate VK using bbapi\n", .{});
         return false;
@@ -292,7 +340,7 @@ fn generateAndCacheVK(allocator: std.mem.Allocator, artifact_path: []const u8, f
 }
 
 fn updateArtifactWithVK(allocator: std.mem.Allocator, artifact_path: []const u8, fn_index: usize, vk: []const u8) bool {
-    const artifact_content = std.fs.cwd().readFileAlloc(allocator, artifact_path, 1024 * 1024) catch return false;
+    const artifact_content = std.fs.cwd().readFileAlloc(allocator, artifact_path, 100 * 1024 * 1024) catch return false;
     defer allocator.free(artifact_content);
 
     var parsed = std.json.parseFromSlice(std.json.Value, allocator, artifact_content, .{}) catch return false;
