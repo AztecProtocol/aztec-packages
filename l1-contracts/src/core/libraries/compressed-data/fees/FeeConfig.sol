@@ -58,7 +58,7 @@ library FeeConfigLib {
   }
 
   function getCongestionUpdateFraction(CompressedFeeConfig _compressedFeeConfig) internal pure returns (uint256) {
-    return (CompressedFeeConfig.unwrap(_compressedFeeConfig) >> 64) & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+    return (CompressedFeeConfig.unwrap(_compressedFeeConfig) >> 64) & MASK_128_BITS;
   }
 
   function getProvingCostPerMana(CompressedFeeConfig _compressedFeeConfig) internal pure returns (EthValue) {

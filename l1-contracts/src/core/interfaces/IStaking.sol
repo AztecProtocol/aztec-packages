@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {Exit, Status, AttesterView} from "@aztec/core/libraries/rollup/StakingLib.sol";
+import {DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
 import {AttesterConfig, GSE} from "@aztec/governance/GSE.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {Timestamp, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
@@ -72,6 +73,7 @@ interface IStaking is IStakingCore {
   function getStatus(address _attester) external view returns (Status);
   function getNextFlushableEpoch() external view returns (Epoch);
   function getEntryQueueLength() external view returns (uint256);
+  function getEntryQueueAt(uint256 _index) external view returns (DepositArgs memory);
   function getAvailableValidatorFlushes() external view returns (uint256);
   function getIsBootstrapped() external view returns (bool);
 }

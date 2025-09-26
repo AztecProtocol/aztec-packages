@@ -72,11 +72,7 @@ library StakingQueueLib {
     len = self.last - self.first;
   }
 
-  function getFirst(StakingQueue storage self) internal view returns (uint256) {
-    return self.first;
-  }
-
-  function getLast(StakingQueue storage self) internal view returns (uint256) {
-    return self.last;
+  function at(StakingQueue storage self, uint256 index) internal view returns (DepositArgs memory validator) {
+    validator = self.validators[self.first + index];
   }
 }
