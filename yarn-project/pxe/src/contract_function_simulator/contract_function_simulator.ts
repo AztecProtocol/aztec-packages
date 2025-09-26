@@ -144,12 +144,12 @@ export class ContractFunctionSimulator {
       HashedValuesCache.create(request.argsOfCalls),
       noteCache,
       this.executionDataProvider,
-      this.simulator,
       0, // totalPublicArgsCount
       startSideEffectCounter,
       undefined, // log
       scopes,
       senderForTags,
+      this.simulator,
     );
 
     const setupTime = simulatorSetupTimer.ms();
