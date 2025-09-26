@@ -26,6 +26,9 @@ export type TxSenderConfig = L1ReaderConfig & {
    * Publisher addresses to be used with a remote signer
    */
   publisherAddresses?: EthAddress[];
+
+  /** Whether this publisher is enabled */
+  publisherEnabled?: boolean;
 };
 
 /**
@@ -48,13 +51,18 @@ export const getTxSenderConfigMappings: (
     description: 'The private keys to be used by the publisher.',
     parseEnv: (val: string) => val.split(',').map(key => new SecretValue(`0x${key.replace('0x', '')}`)),
     defaultValue: [],
-    fallback: scope === 'PROVER' ? ['PROVER_PUBLISHER_PRIVATE_KEY'] : ['SEQ_PUBLISHER_PRIVATE_KEY'],
+    fallback: [scope === 'PROVER' ? `PROVER_PUBLISHER_PRIVATE_KEY` : `SEQ_PUBLISHER_PRIVATE_KEY`],
   },
   publisherAddresses: {
     env: scope === 'PROVER' ? `PROVER_PUBLISHER_ADDRESSES` : `SEQ_PUBLISHER_ADDRESSES`,
     description: 'The addresses of the publishers to use with remote signers',
     parseEnv: (val: string) => val.split(',').map(address => EthAddress.fromString(address)),
     defaultValue: [],
+  },
+  publisherEnabled: {
+    env: scope === 'PROVER' ? `PROVER_PUBLISHER_ENABLED` : `SEQ_PUBLISHER_ENABLED`,
+    description: 'Whether this L1 publisher is enabled',
+    ...booleanConfigHelper(true),
   },
 });
 

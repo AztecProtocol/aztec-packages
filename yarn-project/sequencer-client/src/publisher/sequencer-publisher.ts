@@ -102,6 +102,7 @@ interface RequestWithExpiry {
 }
 
 export class SequencerPublisher {
+  private enabled: boolean;
   private interrupted = false;
   private metrics: SequencerPublisherMetrics;
   public epochCache: EpochCache;
@@ -151,6 +152,7 @@ export class SequencerPublisher {
       log?: Logger;
     },
   ) {
+    this.enabled = config.publisherEnabled ?? true;
     this.log = deps.log ?? createLogger('sequencer:publisher');
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.epochCache = deps.epochCache;
@@ -200,6 +202,14 @@ export class SequencerPublisher {
    * - undefined if no valid requests are found OR the tx failed to send.
    */
   public async sendRequests() {
+    if (!this.enabled) {
+      this.log.warn(`Sending L1 txs is disabled`, {
+        requestsDiscarded: this.requests.map(r => r.action),
+      });
+      this.requests = [];
+      return undefined;
+    }
+
     const requestsToProcess = [...this.requests];
     this.requests = [];
     if (this.interrupted) {
