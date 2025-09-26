@@ -204,18 +204,21 @@ pub fn buildWasmCxxFs(b: *std.Build) *std.Build.Step.Compile {
     const zig_real = std.fs.realpathAlloc(b.allocator, zig_path) catch unreachable;
     const base_zig = std.fs.path.dirname(zig_real);
     const include_path = std.fs.path.join(b.allocator, &.{ base_zig.?, "lib/libcxx/include" }) catch unreachable;
+    const src_path_abs = std.fs.path.join(b.allocator, &.{ base_zig.?, "lib/libcxx/src" }) catch unreachable;
+    const cwd = std.process.getCwdAlloc(b.allocator) catch unreachable;
+    const src_path = std.fs.path.relative(b.allocator, cwd, src_path_abs) catch unreachable;
 
     // Filesystem sources copied locally.
-    const base = "./src/libcxx";
+    // const base = "./src/libcxx";
     lib.addCSourceFiles(.{
         .files = &.{
-            b.pathJoin(&.{ base, "filesystem/directory_entry.cpp" }),
-            b.pathJoin(&.{ base, "filesystem/directory_iterator.cpp" }),
-            b.pathJoin(&.{ base, "filesystem/filesystem_clock.cpp" }),
-            b.pathJoin(&.{ base, "filesystem/filesystem_error.cpp" }),
-            b.pathJoin(&.{ base, "filesystem/operations.cpp" }),
-            b.pathJoin(&.{ base, "filesystem/path.cpp" }),
-            b.pathJoin(&.{ base, "ios.instantiations.cpp" }),
+            b.pathJoin(&.{ src_path, "filesystem/directory_entry.cpp" }),
+            b.pathJoin(&.{ src_path, "filesystem/directory_iterator.cpp" }),
+            b.pathJoin(&.{ src_path, "filesystem/filesystem_clock.cpp" }),
+            b.pathJoin(&.{ src_path, "filesystem/filesystem_error.cpp" }),
+            b.pathJoin(&.{ src_path, "filesystem/operations.cpp" }),
+            b.pathJoin(&.{ src_path, "filesystem/path.cpp" }),
+            b.pathJoin(&.{ src_path, "ios.instantiations.cpp" }),
         },
         .flags = &.{
             // libc++ config

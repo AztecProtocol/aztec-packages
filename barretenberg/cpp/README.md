@@ -95,8 +95,8 @@ If you want to enable avm in the bb binary:
 zig build -Davm=true --release=small
 ```
 
-If you want to build the bb binary for wasm plus the reactor wasm for JS.
-Note that wasm is _always build with --release=small, even if unspecified_.
+You can just build the bb binary for wasm plus the reactor wasm for JS.
+Note that wasm is _always built with --release=small, even if unspecified_.
 Otherwise it's too huge:
 
 ```
