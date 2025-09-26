@@ -37,7 +37,6 @@ import {
   Slot,
   Epoch,
   Timestamp,
-  Errors,
   CommitteeAttestations,
   RollupOperationsExtLib,
   ValidatorOperationsExtLib,
@@ -321,19 +320,9 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getBlock(uint256 _blockNumber) external view override(IRollup) returns (BlockLog memory) {
-    RollupStore storage rollupStore = STFLib.getStorage();
-    uint256 pendingBlockNumber = rollupStore.tips.getPendingBlockNumber();
-    require(_blockNumber <= pendingBlockNumber, Errors.Rollup__InvalidBlockNumber(pendingBlockNumber, _blockNumber));
-
-    // If the block is outside of the temp stored, will return default values (0)
-    // for all that would have been in temp.
-    TempBlockLog memory tempBlockLog;
-    if (!STFLib.isTempStale(_blockNumber)) {
-      tempBlockLog = STFLib.getTempBlockLog(_blockNumber);
-    }
-
+    TempBlockLog memory tempBlockLog = STFLib.getTempBlockLog(_blockNumber);
     return BlockLog({
-      archive: rollupStore.archives[_blockNumber],
+      archive: STFLib.getStorage().archives[_blockNumber],
       headerHash: tempBlockLog.headerHash,
       blobCommitmentsHash: tempBlockLog.blobCommitmentsHash,
       attestationsHash: tempBlockLog.attestationsHash,

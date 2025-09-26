@@ -196,7 +196,7 @@ contract GSECore is IGSECore, Ownable {
   // Global attester information
   mapping(address attester => AttesterConfig config) internal configOf;
   // Mapping from the hashed public key in G1 of BN254 to the keys are registered.
-  mapping(bytes32 hashedPK1 => bool isRegistered) internal ownedPKs;
+  mapping(bytes32 hashedPK1 => bool isRegistered) public ownedPKs;
 
   /**
    * Contains state for:

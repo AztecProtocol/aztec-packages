@@ -4,10 +4,33 @@ pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
 import {ChainTips, CompressedChainTips, ChainTipsLib} from "@aztec/core/libraries/compressed-data/Tips.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+
+contract TipsWrapper {
+  using ChainTipsLib for CompressedChainTips;
+
+  function updatePendingBlockNumber(CompressedChainTips _compressedChainTips, uint256 _pendingBlockNumber)
+    public
+    pure
+    returns (CompressedChainTips)
+  {
+    return _compressedChainTips.updatePendingBlockNumber(_pendingBlockNumber);
+  }
+
+  function updateProvenBlockNumber(CompressedChainTips _compressedChainTips, uint256 _provenBlockNumber)
+    public
+    pure
+    returns (CompressedChainTips)
+  {
+    return _compressedChainTips.updateProvenBlockNumber(_provenBlockNumber);
+  }
+}
 
 contract TipsTest is Test {
   using ChainTipsLib for CompressedChainTips;
   using ChainTipsLib for ChainTips;
+
+  TipsWrapper public tipsWrapper = new TipsWrapper();
 
   function test_compress_uncompress(uint128 _pendingBlockNumber, uint128 _provenBlockNumber) public pure {
     ChainTips memory chainTips =
@@ -37,6 +60,15 @@ contract TipsTest is Test {
     );
   }
 
+  function test_updatePendingBlockNumberOversized(uint256 _pendingBlockNumber, uint128 _provenBlockNumber) public {
+    ChainTips memory a = ChainTips({pendingBlockNumber: 0, provenBlockNumber: _provenBlockNumber});
+    uint256 pendingBlockNumber = bound(_pendingBlockNumber, uint256(type(uint128).max) + 1, type(uint256).max);
+
+    CompressedChainTips b = a.compress();
+    vm.expectRevert(abi.encodeWithSelector(SafeCast.SafeCastOverflowedUintDowncast.selector, 128, pendingBlockNumber));
+    tipsWrapper.updatePendingBlockNumber(b, pendingBlockNumber);
+  }
+
   function test_updateProvenBlockNumber(uint128 _pendingBlockNumber, uint128 _provenBlockNumber) public pure {
     uint256 provenBlockNumber = bound(_provenBlockNumber, 0, type(uint128).max - 1);
     ChainTips memory a = ChainTips({pendingBlockNumber: _pendingBlockNumber, provenBlockNumber: provenBlockNumber});
@@ -49,5 +81,14 @@ contract TipsTest is Test {
     assertEq(
       c.getProvenBlockNumber(), b.getProvenBlockNumber() + 1, "c.getProvenBlockNumber != b.getProvenBlockNumber + 1"
     );
+  }
+
+  function test_updateProvenBlockNumberOversized(uint128 _pendingBlockNumber, uint256 _provenBlockNumber) public {
+    ChainTips memory a = ChainTips({pendingBlockNumber: _pendingBlockNumber, provenBlockNumber: 0});
+    uint256 provenBlockNumber = bound(_provenBlockNumber, uint256(type(uint128).max) + 1, type(uint256).max);
+
+    CompressedChainTips b = a.compress();
+    vm.expectRevert(abi.encodeWithSelector(SafeCast.SafeCastOverflowedUintDowncast.selector, 128, provenBlockNumber));
+    tipsWrapper.updateProvenBlockNumber(b, provenBlockNumber);
   }
 }
