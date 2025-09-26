@@ -126,31 +126,6 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
-    static void test_hash_byte_array()
-    {
-        const size_t num_input_bytes = 351;
-
-        Builder builder;
-
-        std::vector<uint8_t> input;
-        input.reserve(num_input_bytes);
-        for (size_t i = 0; i < num_input_bytes; ++i) {
-            input.push_back(engine.get_random_uint8());
-        }
-
-        fr expected = crypto::pedersen_hash::hash_buffer(input);
-
-        byte_array_ct circuit_input(&builder, input);
-        auto result = pedersen_hash::hash_buffer(circuit_input);
-
-        EXPECT_EQ(result.get_value(), expected);
-
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
-
-        bool proof_result = CircuitChecker::check(builder);
-        EXPECT_EQ(proof_result, true);
-    }
-
     static void test_multi_hash()
     {
         Builder builder;
@@ -289,11 +264,6 @@ TYPED_TEST(StdlibPedersen, EdgeCases)
 HEAVY_TYPED_TEST(StdlibPedersen, Large)
 {
     TestFixture::test_pedersen_large();
-};
-
-TYPED_TEST(StdlibPedersen, HashByteArray)
-{
-    TestFixture::test_hash_byte_array();
 };
 
 TYPED_TEST(StdlibPedersen, MultiHash)

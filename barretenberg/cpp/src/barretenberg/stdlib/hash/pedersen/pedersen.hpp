@@ -31,7 +31,6 @@ template <typename Builder> class pedersen_hash {
 
   public:
     static field_ct hash(const std::vector<field_ct>& in, GeneratorContext context = {});
-    static field_ct hash_buffer(const stdlib::byte_array<Builder>& input, GeneratorContext context = {});
 };
 
 } // namespace bb::stdlib
