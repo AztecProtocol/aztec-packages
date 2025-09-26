@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "HOST=0.0.0.0 ENV=dev yarn preprocess && ENV=dev docusaurus start --host ${HOST:-localhost}",
+    "dev:netlify": "yarn netlify dev",
     "build": "yarn clean && yarn spellcheck && yarn preprocess && yarn preprocess:move && docusaurus build",
     "clean": "./scripts/clean.sh",
     "serve": "docusaurus serve",
@@ -36,7 +37,7 @@
     "cspell": "^8.19.4",
     "docusaurus-plugin-llms": "^0.2.0",
     "dotenv": "^16.6.1",
-    "netlify-cli": "^17.38.1"
+    "netlify-cli": "^23.7.3"
   },
   "cspell": {
     "import": [
