@@ -16,20 +16,16 @@ namespace bb::stdlib {
 template <typename Builder> class cycle_group;
 
 /**
- * @brief cycle_scalar represents a member of the cycle curve SCALAR FIELD.
- *        This is NOT the native circuit field type.
- *        i.e. for a BN254 circuit, cycle_group will be Grumpkin and cycle_scalar will be Grumpkin::ScalarField
- *        (BN254 native field is BN254::ScalarField == Grumpkin::BaseField)
+ * @brief Represents a member of the Grumpkin curve scalar field (i.e. BN254 base field).
+ * @details The primary use for this class is scalar multiplication of points on the Grumpkin curve. It largely exists
+ * to abstract away the details of performing these operations with values of different origins, which may or may not
+ * originate from the Grumpkin scalar field, e.g. u256 values or BN254 scalars. In these cases we convert scalar
+ * multiplication inputs into cycle_scalars to enable scalar multiplication to be complete. E.g. multiplication of
+ * Grumpkin points by BN254 scalars does not produce a cyclic group as BN254::ScalarField < Grumpkin::ScalarField.
  *
- * @details We convert scalar multiplication inputs into cycle_scalars to enable scalar multiplication to be
- * *complete* i.e. Grumpkin points multiplied by BN254 scalars does not produce a cyclic group
- * as BN254::ScalarField < Grumpkin::ScalarField
- * This complexity *should* not leak outside the cycle_group / cycle_scalar implementations, as cycle_scalar
- * performs all required conversions if the input scalars are stdlib::field_t elements
- *
- * @note We opted to create a new class to represent `cycle_scalar` instead of using `bigfield`,
- * as `bigfield` is inefficient in this context. All required range checks for `cycle_scalar` can be obtained for
- * free from the `batch_mul` algorithm, making the range checks performed by `bigfield` largely redundant.
+ * @note The reason for not using `bigfield` to represent cycle scalars is that `bigfield` is inefficient in this
+ * context. All required range checks for `cycle_scalar` can be obtained for free from the `batch_mul` algorithm, making
+ * the range checks performed by `bigfield` largely redundant.
  */
 template <typename Builder> class cycle_scalar {
   public:
@@ -42,8 +38,8 @@ template <typename Builder> class cycle_scalar {
     static constexpr size_t LO_BITS = field_t::native::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
     static constexpr size_t HI_BITS = NUM_BITS - LO_BITS;
 
-    field_t lo;
-    field_t hi;
+    field_t lo; // LO_BITS of the scalar
+    field_t hi; // Remaining HI_BITS of the scalar
 
   private:
     size_t _num_bits = NUM_BITS;
@@ -58,7 +54,7 @@ template <typename Builder> class cycle_scalar {
      * @param value The value to decompose
      * @return std::pair<uint256_t, uint256_t> (lo, hi) where lo is LO_BITS and hi is the remaining bits
      */
-    static std::pair<uint256_t, uint256_t> decompose_into_lo_hi(const uint256_t& value)
+    static std::pair<uint256_t, uint256_t> decompose_into_lo_hi_u256(const uint256_t& value)
     {
         return { value.slice(0, LO_BITS), value.slice(LO_BITS, NUM_BITS) };
     }
@@ -83,6 +79,8 @@ template <typename Builder> class cycle_scalar {
     static cycle_scalar from_witness(Builder* context, const ScalarField& value);
     static cycle_scalar from_u256_witness(Builder* context, const uint256_t& bitstring);
     static cycle_scalar create_from_bn254_scalar(const field_t& _in);
+    explicit cycle_scalar(BigScalarField& scalar);
+
     [[nodiscard]] bool is_constant() const;
     ScalarField get_value() const;
     Builder* get_context() const { return lo.get_context() != nullptr ? lo.get_context() : hi.get_context(); }
@@ -98,7 +96,6 @@ template <typename Builder> class cycle_scalar {
      * @details Checks against either bn254 scalar field or grumpkin scalar field based on internal flags
      */
     void validate_scalar_is_in_field() const;
-    explicit cycle_scalar(BigScalarField&);
 
     /**
      * @brief Get the origin tag of the cycle_scalar (a merge of the lo and hi tags)
