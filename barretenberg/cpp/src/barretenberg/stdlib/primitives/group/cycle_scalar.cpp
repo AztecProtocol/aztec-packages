@@ -134,7 +134,7 @@ template <typename Builder> cycle_scalar<Builder> cycle_scalar<Builder>::create_
  */
 template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& scalar)
 {
-    auto* ctx = get_context() ? get_context() : scalar.get_context();
+    constexpr uint64_t NUM_LIMB_BITS = BigScalarField::NUM_LIMB_BITS;
 
     if (scalar.is_constant()) {
         const uint256_t value((scalar.get_value() % uint512_t(ScalarField::modulus)).lo);
@@ -147,9 +147,8 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
         return;
     }
 
-    // Step 1: Ensure the bigfield scalar fits into LO_BITS + HI_BITS by reducing if necessary.
-    // Note: we can tolerate the scalar being > ScalarField::modulus, because performing a scalar mul implicitly
-    // performs a modular reduction.
+    // Step 1: Ensure the bigfield scalar fits into LO_BITS + HI_BITS by reducing if necessary. Note: we can tolerate
+    // the scalar being > ScalarField::modulus, because performing a scalar mul implicitly performs a modular reduction.
     if (scalar.get_maximum_value() >= (uint512_t(1) << (LO_BITS + HI_BITS))) {
         scalar.self_reduce();
     }
@@ -162,61 +161,43 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
     uint256_t limb1_max = scalar.binary_basis_limbs[1].maximum_value;
 
     // Step 2: Ensure that limb0 only contains at most NUM_LIMB_BITS. If not, slice off the excess and add it into limb1
-    if (scalar.binary_basis_limbs[0].maximum_value > BigScalarField::DEFAULT_MAXIMUM_LIMB) {
-        const uint256_t limb0_value = limb0.get_value();
-        const uint256_t limb0_lo_value = limb0_value.slice(0, BigScalarField::NUM_LIMB_BITS);
-        const uint256_t limb0_hi_value = limb0_value >> BigScalarField::NUM_LIMB_BITS;
-        field_t limb0_lo = field_t::from_witness(ctx, limb0_lo_value);
-        field_t limb0_hi = field_t::from_witness(ctx, limb0_hi_value);
+    uint256_t limb0_max = scalar.binary_basis_limbs[0].maximum_value;
+    if (limb0_max > BigScalarField::DEFAULT_MAXIMUM_LIMB) {
 
-        // Constrain the limb0 decomposition to be well formed
-        uint256_t limb0_hi_max = (scalar.binary_basis_limbs[0].maximum_value >> BigScalarField::NUM_LIMB_BITS);
-        const uint64_t limb0_hi_bits = limb0_hi_max.get_msb() + 1;
-        limb0_lo.create_range_constraint(BigScalarField::NUM_LIMB_BITS);
-        limb0_hi.create_range_constraint(static_cast<size_t>(limb0_hi_bits));
-        limb0.assert_equal(limb0_lo + (limb0_hi * BigScalarField::shift_1));
+        // Split limb0 into lo (NUM_LIMB_BITS) and hi (remaining bits) slices. Note that no_wrap_split_at enforces range
+        // constraints of NUM_LIMB_BITS and (limb0_max_bits - NUM_LIMB_BITS) respectively on the slices.
+        const uint64_t limb0_max_bits = limb0_max.get_msb() + 1;
+        auto [limb0_lo, limb0_hi] = limb0.no_wrap_split_at(NUM_LIMB_BITS, limb0_max_bits);
 
-        // Move the excess bits from limb0 into limb1
-        limb1 += limb0_hi;
-        limb1_max += limb0_hi_max;
+        // Move the high bits from limb0 into limb1
         limb0 = limb0_lo;
+        limb1 += limb0_hi;
+        uint256_t limb0_hi_max = limb0_max >> NUM_LIMB_BITS;
+        limb1_max += limb0_hi_max;
     }
 
     // Sanity check that limb1 is the limb that contributes both to *this.lo and *this.hi
-    BB_ASSERT_GT(BigScalarField::NUM_LIMB_BITS * 2, LO_BITS);
-    BB_ASSERT_LT(BigScalarField::NUM_LIMB_BITS, LO_BITS);
+    BB_ASSERT_GT(NUM_LIMB_BITS * 2, LO_BITS);
+    BB_ASSERT_LT(NUM_LIMB_BITS, LO_BITS);
 
-    // Step 3a: limb1 contributes to both *this.lo and *this.hi. Compute the values of the two limb1 slices
-    const size_t lo_bits_in_limb_1 = LO_BITS - BigScalarField::NUM_LIMB_BITS;
-    const size_t hi_bits_in_limb_1 = (static_cast<size_t>(limb1_max.get_msb()) + 1) - lo_bits_in_limb_1;
-    const uint256_t limb_1 = limb1.get_value();
-    const uint256_t limb_1_lo_value = limb_1.slice(0, lo_bits_in_limb_1);
-    const uint256_t limb_1_hi_value = limb_1 >> lo_bits_in_limb_1;
+    // Step 3: limb1 contributes to both *this.lo and *this.hi. Compute the values of the two limb1 slices
+    const size_t lo_bits_in_limb_1 = LO_BITS - NUM_LIMB_BITS;
+    const uint64_t limb1_max_bits = limb1_max.get_msb() + 1;
+    auto [limb1_lo, limb1_hi] = limb1.no_wrap_split_at(lo_bits_in_limb_1, limb1_max_bits);
 
-    // Step 3b: instantiate both slices as witnesses and validate their sum equals limb1
-    field_t limb_1_lo = field_t::from_witness(ctx, limb_1_lo_value);
-    field_t limb_1_hi = field_t::from_witness(ctx, limb_1_hi_value);
-
-    // We need to propagate the origin tag to the chunks of limb1
-    limb_1_lo.set_origin_tag(limb1.get_origin_tag());
-    limb_1_hi.set_origin_tag(limb1.get_origin_tag());
-    const uint256_t limb_1_hi_shift = (uint256_t(1) << lo_bits_in_limb_1);
-    limb1.assert_equal((limb_1_hi * limb_1_hi_shift) + limb_1_lo);
-
-    // Step 3c: apply range constraints to validate both slices represent the expected contributions to *this.lo and
-    // *this.hi
-    limb_1_lo.create_range_constraint(lo_bits_in_limb_1);
-    limb_1_hi.create_range_constraint(hi_bits_in_limb_1);
+    // Propagate the origin tag to the chunks of limb1
+    limb1_lo.set_origin_tag(limb1.get_origin_tag());
+    limb1_hi.set_origin_tag(limb1.get_origin_tag());
 
     // Step 4: Construct *this.lo out of limb0 and limb1_lo
-    lo = limb0 + (limb_1_lo * BigScalarField::shift_1);
+    lo = limb0 + (limb1_lo * BigScalarField::shift_1);
 
     // Step 5: Construct *this.hi out of limb1_hi, limb2 and limb3
-    const uint256_t limb_2_shift = uint256_t(1) << ((2 * BigScalarField::NUM_LIMB_BITS) - LO_BITS);
-    const uint256_t limb_3_shift = uint256_t(1) << ((3 * BigScalarField::NUM_LIMB_BITS) - LO_BITS);
-    hi = limb_1_hi.add_two(limb2 * limb_2_shift, limb3 * limb_3_shift);
+    const uint256_t limb_2_shift = uint256_t(1) << ((2 * NUM_LIMB_BITS) - LO_BITS);
+    const uint256_t limb_3_shift = uint256_t(1) << ((3 * NUM_LIMB_BITS) - LO_BITS);
+    hi = limb1_hi.add_two(limb2 * limb_2_shift, limb3 * limb_3_shift);
 
-    // We need to manually propagate the origin tag
+    // Manually propagate the origin tag of the scalar to the lo/hi limbs
     lo.set_origin_tag(scalar.get_origin_tag());
     hi.set_origin_tag(scalar.get_origin_tag());
 };

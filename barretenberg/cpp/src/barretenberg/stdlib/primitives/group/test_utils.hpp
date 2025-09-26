@@ -35,6 +35,9 @@ template <typename Builder> void check_circuit_and_gate_count(Builder& builder, 
     EXPECT_EQ(actual_gates, expected_gates)
         << "Gate count changed! Expected: " << expected_gates << " (" << expected_gates_without_base << " + "
         << base_gates << " base), Actual: " << actual_gates;
+
+    // Ensure no failure flags and run the circuit checker
+    EXPECT_FALSE(builder.failed());
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
