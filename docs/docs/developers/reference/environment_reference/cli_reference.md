@@ -69,7 +69,6 @@ Options:
 #### Sandbox Options
 
 - `-sb, --sandbox`: Starts the Aztec Sandbox.
-- `--sandbox.noPXE [value]`: Do not expose PXE service on sandbox start. (default: false)
 
 #### Network Options
 

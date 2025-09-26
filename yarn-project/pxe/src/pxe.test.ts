@@ -8,7 +8,7 @@ import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/prov
 import { WASMSimulator } from '@aztec/simulator/client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
-import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import {
   randomContractArtifact,
   randomContractInstanceWithAddress,
@@ -17,10 +17,10 @@ import {
 
 import { mock } from 'jest-mock-extended';
 
-import type { PXEServiceConfig } from '../config/index.js';
-import { PXEService } from '../pxe_service/pxe_service.js';
+import type { PXEConfig } from './config/index.js';
+import { PXE } from './pxe.js';
 
-describe('PXEService', () => {
+describe('PXE', () => {
   let pxe: PXE;
 
   beforeAll(async () => {
@@ -29,7 +29,7 @@ describe('PXEService', () => {
     const simulator = new WASMSimulator();
     const kernelProver = new BBWASMBundlePrivateKernelProver(simulator);
     const protocolContractsProvider = new BundledProtocolContractsProvider();
-    const config: PXEServiceConfig = {
+    const config: PXEConfig = {
       l2BlockBatchSize: 50,
       dataDirectory: undefined,
       dataStoreMapSizeKB: 1024 * 1024,
@@ -38,7 +38,7 @@ describe('PXEService', () => {
       rollupVersion: 1,
     };
 
-    // Mock getNodeInfo which is called during PXE service creation
+    // Mock getNodeInfo which is called during PXE creation
     const mockedContracts: L1ContractAddresses = {
       rollupAddress: EthAddress.random(),
       registryAddress: EthAddress.random(),
@@ -67,7 +67,7 @@ describe('PXEService', () => {
       },
     });
 
-    pxe = await PXEService.create(node, kvStore, kernelProver, simulator, protocolContractsProvider, config);
+    pxe = await PXE.create(node, kvStore, kernelProver, simulator, protocolContractsProvider, config);
   }, 120_000);
 
   it('registers an account and returns it as an account only and not as a recipient', async () => {

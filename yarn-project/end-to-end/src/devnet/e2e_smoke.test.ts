@@ -24,7 +24,7 @@ import { resolve } from 'node:path';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
-import { getLogger, setupPXEServiceAndGetWallet } from '../fixtures/utils.js';
+import { getLogger, setupPXEAndGetWallet } from '../fixtures/utils.js';
 
 const {
   AZTEC_NODE_URL,
@@ -81,7 +81,7 @@ describe('End-to-end tests for devnet', () => {
     node = createAztecNodeClient(AZTEC_NODE_URL);
     const bbConfig = await getBBConfig(logger);
     const acvmConfig = await getACVMConfig(logger);
-    const svc = await setupPXEServiceAndGetWallet(node, {
+    const svc = await setupPXEAndGetWallet(node, {
       ...bbConfig,
       ...acvmConfig,
       proverEnabled: ['1', 'true'].includes(PXE_PROVER_ENABLED!),

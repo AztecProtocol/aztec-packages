@@ -155,26 +155,26 @@ You can connect to testnet directly from your app using AztecJS:
 In the browser:
 
 ```javascript
-import { createPXEService } from "@aztec/pxe/client/lazy";
+import { createPXE } from "@aztec/pxe/client/lazy";
 ```
 
 In Node.js:
 
 ```javascript
-import { createPXEService } from "@aztec/pxe/server";
+import { createPXE } from "@aztec/pxe/server";
 ```
 
 Then initialize with testnet configuration:
 
 ```javascript
 import { createAztecNodeClient } from "@aztec/aztec.js";
-import { getPXEServiceConfig } from "@aztec/pxe/server";
+import { getPXEConfig } from "@aztec/pxe/server";
 import { createStore } from "@aztec/kv-store/lmdb";
 
 const NODE_URL = "https://aztec-testnet-fullnode.zkv.xyz";
 const node = createAztecNodeClient(NODE_URL);
 const l1Contracts = await node.getL1ContractAddresses();
-const config = getPXEServiceConfig();
+const config = getPXEConfig();
 const fullConfig = { ...config, l1Contracts };
 
 const store = await createStore("pxe1", {
@@ -182,7 +182,7 @@ const store = await createStore("pxe1", {
   dataStoreMapSizeKB: 1e6,
 });
 
-const pxe = await createPXEService(node, fullConfig, { store });
+const pxe = await createPXE(node, fullConfig, { store });
 ```
 
 ### 3. Handle Fees on Testnet

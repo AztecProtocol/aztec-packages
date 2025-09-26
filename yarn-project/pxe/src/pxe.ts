@@ -9,6 +9,7 @@ import { type ProtocolContractsProvider, protocolContractNames } from '@aztec/pr
 import type { CircuitSimulator } from '@aztec/simulator/client';
 import {
   type ContractArtifact,
+  type EventMetadataDefinition,
   FunctionCall,
   FunctionSelector,
   FunctionType,
@@ -28,7 +29,7 @@ import {
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { siloNullifier } from '@aztec/stdlib/hash';
-import type { AztecNode, EventMetadataDefinition, PXE, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import type {
   PrivateExecutionStep,
   PrivateKernelExecutionProofOutput,
@@ -54,34 +55,35 @@ import {
 
 import { inspect } from 'util';
 
-import type { PXEServiceConfig } from '../config/index.js';
+import type { PXEConfig } from './config/index.js';
 import {
   ContractFunctionSimulator,
   generateSimulatedProvingResult,
-} from '../contract_function_simulator/contract_function_simulator.js';
-import { readCurrentClassId } from '../contract_function_simulator/oracle/private_execution.js';
-import { ProxiedContractDataProviderFactory } from '../contract_function_simulator/proxied_contract_data_source.js';
-import { ProxiedNodeFactory } from '../contract_function_simulator/proxied_node.js';
-import { PXEOracleInterface } from '../contract_function_simulator/pxe_oracle_interface.js';
+} from './contract_function_simulator/contract_function_simulator.js';
+import { readCurrentClassId } from './contract_function_simulator/oracle/private_execution.js';
+import { ProxiedContractDataProviderFactory } from './contract_function_simulator/proxied_contract_data_source.js';
+import { ProxiedNodeFactory } from './contract_function_simulator/proxied_node.js';
+import { PXEOracleInterface } from './contract_function_simulator/pxe_oracle_interface.js';
+import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 import {
   PrivateKernelExecutionProver,
   type PrivateKernelExecutionProverConfig,
-} from '../private_kernel/private_kernel_execution_prover.js';
-import { PrivateKernelOracleImpl } from '../private_kernel/private_kernel_oracle_impl.js';
-import { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
-import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
-import { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
-import { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
-import { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
-import { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
-import { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
-import { Synchronizer } from '../synchronizer/index.js';
-import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
+} from './private_kernel/private_kernel_execution_prover.js';
+import { PrivateKernelOracleImpl } from './private_kernel/private_kernel_oracle_impl.js';
+import { AddressDataProvider } from './storage/address_data_provider/address_data_provider.js';
+import { CapsuleDataProvider } from './storage/capsule_data_provider/capsule_data_provider.js';
+import { ContractDataProvider } from './storage/contract_data_provider/contract_data_provider.js';
+import { NoteDataProvider } from './storage/note_data_provider/note_data_provider.js';
+import { PrivateEventDataProvider } from './storage/private_event_data_provider/private_event_data_provider.js';
+import { SyncDataProvider } from './storage/sync_data_provider/sync_data_provider.js';
+import { TaggingDataProvider } from './storage/tagging_data_provider/tagging_data_provider.js';
+import { Synchronizer } from './synchronizer/index.js';
 
 /**
- * A Private eXecution Environment (PXE) implementation.
+ * Private eXecution Environment (PXE) is a library used by wallets to simulate private phase of transactions and to
+ * manage private state of users.
  */
-export class PXEService implements PXE {
+export class PXE {
   private constructor(
     private node: AztecNode,
     private synchronizer: Synchronizer,
@@ -102,11 +104,11 @@ export class PXEService implements PXE {
   ) {}
 
   /**
-   * Creates an instance of a PXE Service by instantiating all the necessary data providers and services.
+   * Creates an instance of a PXE by instantiating all the necessary data providers and services.
    * Also triggers the registration of the protocol contracts and makes sure the provided node
    * can be contacted.
    *
-   * @returns A promise that resolves PXE service is ready to be used.
+   * @returns A promise that resolves PXE is ready to be used.
    */
   public static async create(
     node: AztecNode,
@@ -114,7 +116,7 @@ export class PXEService implements PXE {
     proofCreator: PrivateKernelProver,
     simulator: CircuitSimulator,
     protocolContractsProvider: ProtocolContractsProvider,
-    config: PXEServiceConfig,
+    config: PXEConfig,
     loggerOrSuffix?: string | Logger,
   ) {
     const log =
@@ -144,7 +146,7 @@ export class PXEService implements PXE {
 
     const jobQueue = new SerialQueue();
 
-    const pxeService = new PXEService(
+    const pxe = new PXE(
       node,
       synchronizer,
       keyStore,
@@ -163,12 +165,12 @@ export class PXEService implements PXE {
       jobQueue,
     );
 
-    pxeService.jobQueue.start();
+    pxe.jobQueue.start();
 
-    await pxeService.#registerProtocolContracts();
+    await pxe.#registerProtocolContracts();
     const info = await node.getNodeInfo();
     log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.rollupVersion}`);
-    return pxeService;
+    return pxe;
   }
 
   // Internal methods
@@ -249,7 +251,7 @@ export class PXEService implements PXE {
     const contract = await this.contractDataProvider.getContract(to);
     if (!contract) {
       throw new Error(
-        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/developers/reference/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
+        `Unknown contract ${to}: add it to PXE by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/developers/reference/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
       );
     }
 
@@ -400,6 +402,20 @@ export class PXEService implements PXE {
     return this.contractDataProvider.getContractInstance(address);
   }
 
+  /**
+   * Returns the contract class metadata given a contract class id.
+   * The metadata consists of its contract class, whether it has been publicly registered, and its artifact.
+   * @remark - it queries the node to check whether the contract class with the given id has been publicly registered.
+   * @param id - Identifier of the class.
+   * @param includeArtifact - Identifier of the class.
+   * @returns - It returns the contract class metadata, with the artifact field being optional, and will only be returned if true is passed in
+   * for `includeArtifact`
+   * TODO(@spalladino): The PXE actually holds artifacts and not classes, what should we return? Also,
+   * should the pxe query the node for contract public info, and merge it with its own definitions?
+   * TODO(@spalladino): This method is strictly needed to decide whether to publicly register a class or not
+   * during a public deployment. We probably want a nicer and more general API for this, but it'll have to
+   * do for the time being.
+   */
   public async getContractClassMetadata(
     id: Fr,
     includeArtifact: boolean = false,
@@ -420,6 +436,17 @@ export class PXEService implements PXE {
     };
   }
 
+  /**
+   * Returns the contract metadata given an address.
+   * The metadata consists of its contract instance, which includes the contract class identifier,
+   * initialization hash, deployment salt, and public keys hash; whether the contract instance has been initialized;
+   * and whether the contract instance with the given address has been publicly deployed.
+   * @remark - it queries the node to check whether the contract instance has been initialized / publicly deployed through a node.
+   * This query is not dependent on the PXE.
+   * @param address - The address that the contract instance resides at.
+   * @returns - It returns the contract metadata
+   * TODO(@spalladino): Should we return the public keys in plain as well here?
+   */
   public async getContractMetadata(address: AztecAddress): Promise<{
     contractInstance: ContractInstanceWithAddress | undefined;
     isContractInitialized: boolean;
@@ -438,6 +465,16 @@ export class PXEService implements PXE {
     };
   }
 
+  /**
+   * Registers a user account in PXE given its master encryption private key.
+   * Once a new account is registered, the PXE will trial-decrypt all published notes on
+   * the chain and store those that correspond to the registered account. Will do nothing if the
+   * account is already registered.
+   *
+   * @param secretKey - Secret key of the corresponding user master public key.
+   * @param partialAddress - The partial address of the account contract corresponding to the account being registered.
+   * @returns The complete address of the account.
+   */
   public async registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     const accounts = await this.keyStore.getAccounts();
     const accountCompleteAddress = await this.keyStore.addAccount(secretKey, partialAddress);
@@ -454,6 +491,15 @@ export class PXEService implements PXE {
     return accountCompleteAddress;
   }
 
+  /**
+   * Registers a user contact in PXE.
+   *
+   * Once a new contact is registered, the PXE will be able to receive notes tagged from this contact.
+   * Will do nothing if the account is already registered.
+   *
+   * @param address - Address of the user to add to the address book
+   * @returns The address address of the account.
+   */
   public async registerSender(address: AztecAddress): Promise<AztecAddress> {
     const accounts = await this.keyStore.getAccounts();
     if (accounts.includes(address)) {
@@ -472,10 +518,17 @@ export class PXEService implements PXE {
     return address;
   }
 
+  /**
+   * Retrieves the addresses stored as senders on this PXE.
+   * @returns An array of the senders on this PXE.
+   */
   public getSenders(): Promise<AztecAddress[]> {
     return this.taggingDataProvider.getSenderAddresses();
   }
 
+  /**
+   * Removes a sender in the address book.
+   */
   public async removeSender(address: AztecAddress): Promise<void> {
     const wasRemoved = await this.taggingDataProvider.removeSenderAddress(address);
 
@@ -486,6 +539,10 @@ export class PXEService implements PXE {
     }
   }
 
+  /**
+   * Retrieves the user accounts registered on this PXE.
+   * @returns An array of the accounts registered on this PXE.
+   */
   public async getRegisteredAccounts(): Promise<CompleteAddress[]> {
     // Get complete addresses of both the recipients and the accounts
     const completeAddresses = await this.addressDataProvider.getCompleteAddresses();
@@ -496,12 +553,25 @@ export class PXEService implements PXE {
     );
   }
 
+  /**
+   * Registers a contract class in the PXE without registering any associated contract instance with it.
+   *
+   * @param artifact - The build artifact for the contract class.
+   */
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
     const { id: contractClassId } = await getContractClassFromArtifact(artifact);
     await this.contractDataProvider.addContractArtifact(contractClassId, artifact);
     this.log.info(`Added contract class ${artifact.name} with id ${contractClassId}`);
   }
 
+  /**
+   * Adds deployed contracts to the PXE. Deployed contract information is used to access the
+   * contract code when simulating local transactions. This is automatically called by aztec.js when
+   * deploying a contract. Dapps that wish to interact with contracts already deployed should register
+   * these contracts in their users' PXE through this method.
+   *
+   * @param contract - A contract instance to register, with an optional artifact which can be omitted if the contract class has already been registered.
+   */
   public async registerContract(contract: { instance: ContractInstanceWithAddress; artifact?: ContractArtifact }) {
     const { instance } = contract;
     let { artifact } = contract;
@@ -541,6 +611,15 @@ export class PXEService implements PXE {
     );
   }
 
+  /**
+   * Updates a deployed contract in the PXE. This is used to update the contract artifact when
+   * an update has happened, so the new code can be used in the simulation of local transactions.
+   * This is called by aztec.js when instantiating a contract in a given address with a mismatching artifact.
+   * @param contractAddress - The address of the contract to update.
+   * @param artifact - The updated artifact for the contract.
+   * @throws If the artifact's contract class is not found in the PXE or if the contract class is different from
+   * the current one (current one from the point of view of the node to which the PXE is connected).
+   */
   public updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void> {
     // We disable concurrently updating contracts to avoid concurrently syncing with the node, or changing a contract's
     // class while we're simulating it.
@@ -578,10 +657,19 @@ export class PXEService implements PXE {
     });
   }
 
+  /**
+   * Retrieves the addresses of contracts added to this PXE.
+   * @returns An array of contracts addresses registered on this PXE.
+   */
   public getContracts(): Promise<AztecAddress[]> {
     return this.contractDataProvider.getContractsAddresses();
   }
 
+  /**
+   * Gets notes registered in this PXE based on the provided filter.
+   * @param filter - The filter to apply to the notes.
+   * @returns The requested notes.
+   */
   public async getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
     // We need to manually trigger private state sync to have a guarantee that all the events are available.
     await this.simulateUtility('sync_private_state', [], filter.contractAddress);
@@ -606,6 +694,15 @@ export class PXEService implements PXE {
     return Promise.all(extendedNotes);
   }
 
+  /**
+   * Proves the private portion of a simulated transaction, ready to send to the network
+   * (where validators prove the public portion).
+   *
+   * @param txRequest - An authenticated tx request ready for proving
+   * @returns A result containing the proof and public inputs of the tail circuit.
+   * @throws If contract code not found, or public simulation reverts.
+   * Also throws if simulatePublic is true and public simulation reverts.
+   */
   public proveTx(txRequest: TxExecutionRequest): Promise<TxProvingResult> {
     let privateExecutionResult: PrivateExecutionResult;
     // We disable proving concurrently mostly out of caution, since it accesses some of our stores. Proving is so
@@ -658,6 +755,15 @@ export class PXEService implements PXE {
     });
   }
 
+  /**
+   * Profiles a transaction, reporting gate counts (unless disabled) and returns an execution trace.
+   *
+   * @param txRequest - An authenticated tx request ready for simulation
+   * @param msgSender - (Optional) The message sender to use for the simulation.
+   * @param skipTxValidation - (Optional) If false, this function throws if the transaction is unable to be included in a block at the current state.
+   * @returns A trace of the program execution with gate counts.
+   * @throws If the code for the functions executed in this transaction have not been made available via `addContracts`.
+   */
   public profileTx(
     txRequest: TxExecutionRequest,
     profileMode: 'full' | 'execution-steps' | 'gates',
@@ -730,7 +836,29 @@ export class PXEService implements PXE {
     });
   }
 
-  // TODO(#7456) Prevent msgSender being defined here for the first call
+  /**
+   * Simulates a transaction based on the provided preauthenticated execution request.
+   * This will run a local simulation of private execution (and optionally of public as well), run the
+   * kernel circuits to ensure adherence to protocol rules (without generating a proof), and return the
+   * simulation results .
+   *
+   *
+   * Note that this is used with `ContractFunctionInteraction::simulateTx` to bypass certain checks.
+   * In that case, the transaction returned is only potentially ready to be sent to the network for execution.
+   *
+   *
+   * @param txRequest - An authenticated tx request ready for simulation
+   * @param simulatePublic - Whether to simulate the public part of the transaction.
+   * @param skipTxValidation - (Optional) If false, this function throws if the transaction is unable to be included in a block at the current state.
+   * @param skipFeeEnforcement - (Optional) If false, fees are enforced.
+   * @param overrides - (Optional) State overrides for the simulation, such as msgSender, contract instances and artifacts.
+   * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
+   * @returns A simulated transaction result object that includes public and private return values.
+   * @throws If the code for the functions executed in this transaction have not been made available via `addContracts`.
+   * Also throws if simulatePublic is true and public simulation reverts.
+   *
+   * TODO(#7456) Prevent msgSender being defined here for the first call
+   */
   public simulateTx(
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
@@ -867,6 +995,18 @@ export class PXEService implements PXE {
     });
   }
 
+  /**
+   * Simulate the execution of a contract utility function.
+   *
+   * @param functionName - The name of the utility contract function to be called.
+   * @param args - The arguments to be provided to the function.
+   * @param to - The address of the contract to be called.
+   * @param authwits - (Optional) The authentication witnesses required for the function call.
+   * @param from - (Optional) The msg sender to set for the call.
+   * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will
+   * default to all.
+   * @returns The result of the utility function call, structured based on the function ABI.
+   */
   public simulateUtility(
     functionName: string,
     args: any[],
@@ -920,6 +1060,15 @@ export class PXEService implements PXE {
     });
   }
 
+  /**
+   * Returns the private events given search parameters.
+   * @param contractAddress - The address of the contract to get events from.
+   * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
+   * @param from - The block number to search from.
+   * @param numBlocks - The amount of blocks to search.
+   * @param recipients - The addresses that decrypted the logs.
+   * @returns - The deserialized events.
+   */
   public async getPrivateEvents<T>(
     contractAddress: AztecAddress,
     eventMetadataDef: EventMetadataDefinition,
@@ -953,6 +1102,9 @@ export class PXEService implements PXE {
     return await this.taggingDataProvider.resetNoteSyncData();
   }
 
+  /**
+   * Stops the PXE's job queue.
+   */
   public stop(): Promise<void> {
     return this.jobQueue.end();
   }

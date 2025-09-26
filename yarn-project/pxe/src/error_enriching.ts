@@ -4,7 +4,7 @@ import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/stdlib/errors';
 
-import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
+import type { ContractDataProvider } from './storage/contract_data_provider/contract_data_provider.js';
 
 /**
  * Adds contract and function names to a simulation error, if they

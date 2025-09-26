@@ -7,7 +7,7 @@ import { getPublicClient } from '@aztec/ethereum';
 import { SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
-import { type CliPXEOptions, type PXEServiceConfig, allPxeConfigMappings } from '@aztec/pxe/config';
+import { type CliPXEOptions, type PXEConfig, allPxeConfigMappings } from '@aztec/pxe/config';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
 import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
 import {
@@ -134,7 +134,7 @@ export async function startNode(
   if (options.bot) {
     const { addBot } = await import('./start_bot.js');
 
-    const pxeConfig = extractRelevantOptions<PXEServiceConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
+    const pxeConfig = extractRelevantOptions<PXEConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
     const wallet = await TestWallet.create(node, pxeConfig);
 
     await addBot(options, signalHandlers, services, wallet, node, telemetry, undefined);

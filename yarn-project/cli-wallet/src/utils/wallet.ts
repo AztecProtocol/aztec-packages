@@ -19,10 +19,11 @@ import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
-import type { PXEServiceConfig } from '@aztec/pxe/config';
-import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import type { PXEConfig } from '@aztec/pxe/config';
+import type { PXE } from '@aztec/pxe/server';
+import { createPXE, getPXEConfig } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import type { NotesFilter } from '@aztec/stdlib/note';
 import type { TxExecutionRequest, TxProvingResult, TxSimulationResult } from '@aztec/stdlib/tx';
@@ -48,10 +49,10 @@ export class CLIWallet extends BaseWallet {
     node: AztecNode,
     log: LogFn,
     db?: WalletDB,
-    overridePXEServiceConfig?: Partial<PXEServiceConfig>,
+    overridePXEConfig?: Partial<PXEConfig>,
   ): Promise<CLIWallet> {
-    const pxeConfig = Object.assign(getPXEServiceConfig(), overridePXEServiceConfig);
-    const pxe = await createPXEService(node, pxeConfig);
+    const pxeConfig = Object.assign(getPXEConfig(), overridePXEConfig);
+    const pxe = await createPXE(node, pxeConfig);
     return new CLIWallet(pxe, node, log, db);
   }
 

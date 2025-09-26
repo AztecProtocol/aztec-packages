@@ -38,9 +38,9 @@ Although the sandbox comes with its own PXE, it's useful to create one specifica
 
 ```typescript
 import { createStore } from '@aztec/kv-store/lmdb';
-import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import { createPXE, getPXEConfig } from '@aztec/pxe/server';
 
-const config = getPXEServiceConfig()
+const config = getPXEConfig()
 const fullConfig = { ...config, l1Contracts }
 fullConfig.proverEnabled = false; // you'll want to set this to "true" once you're ready to connect to the testnet
 
@@ -48,7 +48,7 @@ const store = await createStore('pxe', {
     dataDirectory: 'store',
     dataStoreMapSizeKB: 1e6,
 });
-const pxe = await createPXEService(node, fullConfig, {store});
+const pxe = await createPXE(node, fullConfig, {store});
 await waitForPXE(pxe);
 ```
 
