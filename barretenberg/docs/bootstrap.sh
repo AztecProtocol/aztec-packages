@@ -12,8 +12,6 @@ hash=$(
       awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
 )
 
-echo "hash=$hash"
-
 if semver check $REF_NAME; then
   # Ensure that released versions don't use cache from non-released versions (they will have incorrect links to master)
   hash+=$REF_NAME
