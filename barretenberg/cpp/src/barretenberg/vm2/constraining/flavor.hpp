@@ -40,14 +40,13 @@ class AvmFlavor {
     using CommitmentKey = AvmFlavorSettings::CommitmentKey;
     using VerifierCommitmentKey = AvmFlavorSettings::VerifierCommitmentKey;
 
+    // To help BB check if a flavor is AVM, even without including this flavor.
+    static constexpr bool IS_AVM = true;
     // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
-
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
-
-    // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
-    // and Shplemini
+    // Padding in Sumcheck and Shplemini
     static constexpr bool USE_PADDING = true;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = AvmFlavorVariables::NUM_PRECOMPUTED_ENTITIES;
@@ -304,37 +303,54 @@ class AvmFlavor {
         ~ProverPolynomials() = default;
 
         ProverPolynomials(ProvingKey& proving_key);
+        // For partially evaluated multivariates.
+        // TODO(fcarreiro): Reconsider its place.
+        ProverPolynomials(const ProverPolynomials& full_polynomials, size_t circuit_size);
 
         // Only const-access is allowed here. That's all that the logderivative library requires.
         // https://github.com/AztecProtocol/aztec-packages/blob/e50d8e0/barretenberg/cpp/src/barretenberg/honk/proof_system/logderivative_library.hpp#L44.
         PolynomialEntitiesAtFixedRow<ProverPolynomials> get_row(size_t row_idx) const { return { row_idx, *this }; }
     };
 
-    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
+    using PartiallyEvaluatedMultivariates = ProverPolynomials;
+
+    /**
+     * @brief A container for univariates used during sumcheck.
+     * @details During sumcheck, the prover evaluates the relations on these univariates.
+     */
+    class LazilyExtendedProverUnivariates {
       public:
-        PartiallyEvaluatedMultivariates() = default;
-        PartiallyEvaluatedMultivariates(const size_t circuit_size);
-        PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size);
+        using data_type = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>;
+
+        LazilyExtendedProverUnivariates(const ProverPolynomials& multivariates)
+            : multivariates(multivariates)
+        {}
+
+        void set_current_edge(size_t edge_idx)
+        {
+            current_edge = edge_idx;
+            // If the current edge changed, we need to clear all the cached univariates.
+            dirty = true;
+        }
+        const data_type& get(ColumnAndShifts c) const;
+
+      private:
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/17288): Make AllEntities
+        // use an array like this and then use AllEntities for this class.
+        using ptr_type = std::unique_ptr<data_type>;
+        mutable std::array<ptr_type, NUM_ALL_ENTITIES> univariates;
+        size_t current_edge = 0;
+        mutable bool dirty = false;
+        const ProverPolynomials& multivariates;
     };
-
-    /**
-     * @brief A container for univariates used during Protogalaxy folding and sumcheck.
-     * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
-     */
-    template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
-
-    /**
-     * @brief A container for univariates used during Protogalaxy folding and sumcheck with some of the computation
-     * optimistically ignored
-     * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
-     */
-    template <size_t LENGTH, size_t SKIP_COUNT>
-    using ProverUnivariatesWithOptimisticSkipping = AllEntities<bb::Univariate<FF, LENGTH, 0, SKIP_COUNT>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
      */
-    using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
+    using ExtendedEdges = LazilyExtendedProverUnivariates;
+    // TODO(fcarreiro): This is only required because of the Flavor::USE_SHORT_MONOMIALS conditional in
+    // SumcheckProverRound. The conditional should be improved to not require this.
+    template <size_t LENGTH> using ProverUnivariates = int;
 
     /**
      * @brief A container for the witness commitments.

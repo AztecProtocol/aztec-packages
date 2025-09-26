@@ -17,10 +17,9 @@
 
 namespace bb {
 
-// Whether a Flavor specifies the max number of rows per thread in a chunk for univariate computation.
-// Used for the AVM.
+// To know if a flavor is AVM, without including the flavor.
 template <typename Flavor>
-concept specifiesUnivariateChunks = std::convertible_to<decltype(Flavor::MAX_CHUNK_THREAD_PORTION_SIZE), size_t>;
+concept isAvmFlavor = std::convertible_to<decltype(Flavor::IS_AVM), bool>;
 
 /*! \brief Imlementation of the Sumcheck prover round.
     \class SumcheckProverRound
@@ -139,6 +138,7 @@ template <typename Flavor> class SumcheckProverRound {
             }
         }
     }
+
     /**
      * @brief Return the evaluations of the univariate round polynomials. Toggles between chunked computation
      * (designed with the AVM in mind) and a version which intelligently allows from row-skipped functionality
@@ -149,43 +149,28 @@ template <typename Flavor> class SumcheckProverRound {
                                                const bb::GateSeparatorPolynomial<FF>& gate_separators,
                                                const SubrelationSeparators& alphas)
     {
-        if constexpr (specifiesUnivariateChunks<Flavor>) {
-            return compute_univariate_with_chunking(polynomials, relation_parameters, gate_separators, alphas);
+        if constexpr (isAvmFlavor<Flavor>) {
+            return compute_univariate_avm(polynomials, relation_parameters, gate_separators, alphas);
+        } else {
+            return compute_univariate_with_row_skipping(polynomials, relation_parameters, gate_separators, alphas);
         }
-        return compute_univariate_with_row_skipping(polynomials, relation_parameters, gate_separators, alphas);
     }
+
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1484): should we more intelligently incorporate the two
     // `compute_univariate` types of functions?
     /**
-     * @brief Return the evaluations of the univariate round polynomials \f$ \tilde{S}_{i} (X_{i}) \f$
-     at \f$ X_{i } = 0,\ldots, D \f$. Most likely, \f$ D \f$ is around  \f$ 12 \f$. At the
-     * end, reset all
-     * univariate accumulators to be zero.
-     * @details First, the vector of \ref pow_challenges "pow challenges" is computed.
-     * Then, multi-threading is being set up.
-     * Compute the evaluations of partially evaluated Honk polynomials \f$ P_j\left(u_0,\ldots, u_{i-1}, X_{i} , \vec
-     \ell \right) \f$
-     * for \f$ X_{i} = 2, \ldots, D \f$ using \ref extend_edges "extend edges" method.
-     * This method invokes more general \ref bb::Univariate::extend_to "extend_to" method that in this case
-     reduces to a very simple expression \f{align}{ P_j\left( u_0,\ldots, u_{i-1}, k, \vec \ell \right)  = P_j\left(
-     u_0,\ldots, u_{i-1}, k-1, \vec \ell \right) + P_j\left( u_0,\ldots, u_{i-1}, 1, \vec \ell \right) - P_j\left(
-     u_0,\ldots, u_{i-1}, 0, \vec \ell \right) \f},
-     * where \f$ k=2,\ldots, D \f$.
-     * For a given \f$ \vec \ell \in \{0,1\}^{d -1 -i} \f$,
-     * we invoke \ref accumulate_relation_univariates "accumulate relation univariates" to compute the contributions of
-     \f$ P_1\left(u_0,\ldots, u_{i-1}, k, \vec \ell \right) \f$,
-     ..., \f$ P_N\left(u_0,\ldots, u_{i-1}, k, \vec \ell \right) \f$ to every sub-relation.
-     * Finally, the accumulators for individual relations' contributions are summed with appropriate factors using
-     method \ref extend_and_batch_univariates "extend and batch univariates".
+     * @brief A version of `compute_univariate` that is better optimized for the AVM.
+     * @details Main changes are:
+     * - Use a different threading strategy ("chunking").
+     * - Use lazy extension of edges.
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    SumcheckRoundUnivariate compute_univariate_with_chunking(
-        ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
-        const bb::RelationParameters<FF>& relation_parameters,
-        const bb::GateSeparatorPolynomial<FF>& gate_separators,
-        const SubrelationSeparators& alphas)
+    SumcheckRoundUnivariate compute_univariate_avm(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+                                                   const bb::RelationParameters<FF>& relation_parameters,
+                                                   const bb::GateSeparatorPolynomial<FF>& gate_separators,
+                                                   const SubrelationSeparators& alphas)
     {
-        BB_BENCH_NAME("compute_univariate_with_chunking");
+        BB_BENCH_NAME("compute_univariate_avm");
 
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
@@ -220,41 +205,34 @@ template <typename Flavor> class SumcheckProverRound {
         // to the "standard" method where thread_0 processes all the low indices and the last thread processes
         // all the high indices.
         //
-        // This "chunk mechanism" is only enabled for the AVM at the time being and is guarded
-        // by a compile time routine (specifiesUnivariateChunks<Flavor>) checking whether the constant
         // MAX_CHUNK_THREAD_PORTION_SIZE is defined in the flavor.
-        // This constant defines the maximum value for chunk_thread_portion_size. Whenever the round_size
-        // is large enough, we set chunk_thread_portion_size = MAX_CHUNK_THREAD_PORTION_SIZE. When it is
-        // not possible we use a smaller value but must be at least 2 as mentioned above. If chunk_thread_portion_size
-        // is not at least 2, we fallback to using a single chunk.
-        // Note that chunk_size and num_of_chunks are not constant but are derived by round_size, num_threads and
-        // the chunk_thread_portion_size which needs to satisfy:
-        // 1) 2 <= chunk_thread_portion_size <= MAX_CHUNK_THREAD_PORTION_SIZE
-        // 2) chunk_thread_portion_size * num_threads <= round_size
-        // For the non-AVM flavors, we use a single chunk.
+        // The MAX_CHUNK_THREAD_PORTION_SIZE defines the maximum value for chunk_thread_portion_size. Whenever the
+        // round_size is large enough, we set chunk_thread_portion_size = MAX_CHUNK_THREAD_PORTION_SIZE. When it is not
+        // possible we use a smaller value but must be at least 2 as mentioned above. If chunk_thread_portion_size is
+        // not at least 2, we fallback to using a single chunk. Note that chunk_size and num_of_chunks are not constant
+        // but are derived by round_size, num_threads and the chunk_thread_portion_size which needs to satisfy: 1) 2 <=
+        // chunk_thread_portion_size <= MAX_CHUNK_THREAD_PORTION_SIZE 2) chunk_thread_portion_size * num_threads <=
+        // round_size For the non-AVM flavors, we use a single chunk.
 
         // Non AVM flavors
         size_t num_of_chunks = 1;
         size_t chunk_thread_portion_size = round_size / num_threads;
 
-        // AVM flavor (guarded by defined constant MAX_CHUNK_THREAD_PORTION_SIZE in flavor)
-        if constexpr (specifiesUnivariateChunks<Flavor>) {
-            // This constant is assumed to be a power of 2 greater or equal to 2.
-            static_assert(Flavor::MAX_CHUNK_THREAD_PORTION_SIZE >= 2);
-            static_assert((Flavor::MAX_CHUNK_THREAD_PORTION_SIZE & (Flavor::MAX_CHUNK_THREAD_PORTION_SIZE - 1)) == 0);
+        // This constant is assumed to be a power of 2 greater or equal to 2.
+        static_assert(Flavor::MAX_CHUNK_THREAD_PORTION_SIZE >= 2);
+        static_assert((Flavor::MAX_CHUNK_THREAD_PORTION_SIZE & (Flavor::MAX_CHUNK_THREAD_PORTION_SIZE - 1)) == 0);
 
-            // When the number of edges is so small that the chunk portion size per thread is lower than 2,
-            // we fall back to a single chunk, i.e., we keep the "non-AVM" values.
-            if (round_size / num_threads >= 2) {
-                chunk_thread_portion_size = std::min(round_size / num_threads, Flavor::MAX_CHUNK_THREAD_PORTION_SIZE);
-                num_of_chunks = round_size / (chunk_thread_portion_size * num_threads);
-                // We show that chunk_thread_portion_size satisfies 1) and 2) defined above.
-                // From "std::min()": chunk_thread_portion_size <= round_size/num_threads implying 2)
-                // From static_assert above, and "if condition", we know that both values in "std::min()"
-                // are >= 2 and therefore: chunk_thread_portion_size >= 2
-                // Finally, "std::min()" guarantees that: chunk_thread_portion_size <= MAX_CHUNK_THREAD_PORTION_SIZE
-                // which completes 1).
-            }
+        // When the number of edges is so small that the chunk portion size per thread is lower than 2,
+        // we fall back to a single chunk, i.e., we keep the "non-AVM" values.
+        if (round_size / num_threads >= 2) {
+            chunk_thread_portion_size = std::min(round_size / num_threads, Flavor::MAX_CHUNK_THREAD_PORTION_SIZE);
+            num_of_chunks = round_size / (chunk_thread_portion_size * num_threads);
+            // We show that chunk_thread_portion_size satisfies 1) and 2) defined above.
+            // From "std::min()": chunk_thread_portion_size <= round_size/num_threads implying 2)
+            // From static_assert above, and "if condition", we know that both values in "std::min()"
+            // are >= 2 and therefore: chunk_thread_portion_size >= 2
+            // Finally, "std::min()" guarantees that: chunk_thread_portion_size <= MAX_CHUNK_THREAD_PORTION_SIZE
+            // which completes 1).
         }
 
         size_t chunk_size = round_size / num_of_chunks;
@@ -265,19 +243,20 @@ template <typename Flavor> class SumcheckProverRound {
         // Accumulate the contribution from each sub-relation accross each edge of the hyper-cube
         parallel_for(num_threads, [&](size_t thread_idx) {
             // Construct extended univariates containers; one per thread
-            ExtendedEdges extended_edges;
+            ExtendedEdges lazy_extended_edges(polynomials);
+
             for (size_t chunk_idx = 0; chunk_idx < num_of_chunks; chunk_idx++) {
                 size_t start = (chunk_idx * chunk_size) + (thread_idx * chunk_thread_portion_size);
                 size_t end = (chunk_idx * chunk_size) + ((thread_idx + 1) * chunk_thread_portion_size);
                 for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
-                    extend_edges(extended_edges, polynomials, edge_idx);
+                    lazy_extended_edges.set_current_edge(edge_idx);
                     // Compute the \f$ \ell \f$-th edge's univariate contribution,
                     // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for
                     // \f$ \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$
                     // (\ell_{i+1},\ldots, \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is
                     // \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot \beta_{d-1}^{\ell_{d-1}}\f$.
                     accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
-                                                    extended_edges,
+                                                    lazy_extended_edges,
                                                     relation_parameters,
                                                     gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
                 }
@@ -399,8 +378,25 @@ template <typename Flavor> class SumcheckProverRound {
     }
 
     /**
-     * @brief Version of `compute_univariate` that allows for row-skipping, as a prover-side optimization.
+     * @brief Return the evaluations of the univariate round polynomials \f$ \tilde{S}_{i} (X_{i}) \f$
+     at \f$ X_{i } = 0,\ldots, D \f$. Most likely, \f$ D \f$ is around  \f$ 12 \f$. At the end, reset all
+     * univariate accumulators to be zero.
      *
+     * @details First, the vector of \ref pow_challenges "pow challenges" is computed.
+     * Then, multi-threading is being set up.
+     * Compute the evaluations of partially evaluated Honk polynomials
+     * \f$ P_j\left(u_0,\ldots, u_{i-1}, X_{i} , \vec \ell \right) \f$
+     * for \f$ X_{i} = 2, \ldots, D \f$ using \ref extend_edges "extend edges" method.
+     * This method invokes more general \ref bb::Univariate::extend_to "extend_to" method that in this case
+     * reduces to a very simple expression \f{align}{ P_j\left( u_0,\ldots, u_{i-1}, k, \vec \ell \right)  = P_j\left(
+     * u_0,\ldots, u_{i-1}, k-1, \vec \ell \right) + P_j\left( u_0,\ldots, u_{i-1}, 1, \vec \ell \right) - P_j\left(
+     * u_0,\ldots, u_{i-1}, 0, \vec \ell \right) \f}, where \f$ k=2,\ldots, D \f$.
+     * For a given \f$ \vec \ell \in \{0,1\}^{d -1 -i} \f$,
+     * we invoke \ref accumulate_relation_univariates "accumulate relation univariates" to compute the contributions of
+     * \f$ P_1\left(u_0,\ldots, u_{i-1}, k, \vec \ell \right) \f$, ..., \f$
+     * P_N\left(u_0,\ldots, u_{i-1}, k, \vec \ell \right) \f$ to every sub-relation.
+     * Finally, the accumulators for individual relations' contributions are summed with appropriate factors using
+     * method \ref extend_and_batch_univariates "extend and batch univariates".
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     SumcheckRoundUnivariate compute_univariate_with_row_skipping(
@@ -536,7 +532,6 @@ template <typename Flavor> class SumcheckProverRound {
     {
         // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
         SumcheckTupleOfTuplesOfUnivariates univariate_accumulator{};
-        ExtendedEdges extended_edges;
 
         // For a given prover polynomial P_i(X_0, ..., X_{d-1}) extended by zero, i.e. multiplied by
         //      \tau(X_d, ..., X_{virtual_log_n - 1}) =  \prod (1 - X_k)
@@ -545,7 +540,19 @@ template <typename Flavor> class SumcheckProverRound {
         const size_t virtual_contribution_edge_idx = 0;
 
         // Perform the usual sumcheck accumulation, but for a single edge.
-        extend_edges(extended_edges, polynomials, virtual_contribution_edge_idx);
+        // Note: we use a combination of `auto`, constexpr and a lambda to construct different types.
+        auto extended_edges = [&]() {
+            if constexpr (isAvmFlavor<Flavor>) {
+                auto lazy_extended_edges = ExtendedEdges(polynomials);
+                lazy_extended_edges.set_current_edge(virtual_contribution_edge_idx);
+                return lazy_extended_edges;
+            } else {
+                ExtendedEdges extended_edges;
+                extend_edges(extended_edges, polynomials, virtual_contribution_edge_idx);
+                return extended_edges;
+            }
+        }();
+
         // The tail of G(X) = \prod_{k} (1 + X_k(\beta_k - 1) ) evaluated at the edge (0, ..., 0).
         const FF gate_separator_tail{ 1 };
         accumulate_relation_univariates(
