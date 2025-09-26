@@ -22,9 +22,10 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
     using witness_ct = typename _curve::witness_ct;
     using public_witness_ct = typename _curve::public_witness_ct;
     using pedersen_hash = typename stdlib::pedersen_hash<Builder>;
+    using cycle_group = typename stdlib::cycle_group<Builder>;
 
   public:
-    static void test_pedersen()
+    static void test_pedersen_two()
     {
 
         Builder builder;
@@ -230,6 +231,154 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
             check_circuit_and_gate_count(builder, 3994);
         }
     }
+
+    static void test_empty_input()
+    {
+        Builder builder;
+        std::vector<fr> empty_inputs_native;
+        std::vector<fr_ct> empty_inputs;
+
+        [[maybe_unused]] auto native_result = crypto::pedersen_hash::hash(empty_inputs_native);
+        auto stdlib_result = pedersen_hash::hash(empty_inputs);
+
+        EXPECT_EQ(stdlib_result.get_value(), fr::zero());
+
+        // NOTE: Empty input handling differs between native and stdlib implementations because the representation of
+        // the point at infinity differs
+        // EXPECT_NE(stdlib_result.get_value(), native_result); // They are different!
+
+        check_circuit_and_gate_count(builder, 0); // Empty input returns 0
+    }
+
+    static void test_single_input()
+    {
+        Builder builder;
+
+        fr value = fr::random_element();
+        fr_ct witness = witness_ct(&builder, value);
+
+        auto result = pedersen_hash::hash({ witness });
+        auto expected = crypto::pedersen_hash::hash({ value });
+
+        EXPECT_EQ(result.get_value(), expected);
+
+        check_circuit_and_gate_count(builder, 2823);
+    }
+
+    static void test_large_inputs()
+    {
+        Builder builder;
+        std::vector<fr> native_inputs;
+        std::vector<fr_ct> witness_inputs;
+
+        constexpr size_t size = 200;
+        for (size_t i = 0; i < size; ++i) {
+            native_inputs.push_back(fr::random_element());
+            witness_inputs.push_back(witness_ct(&builder, native_inputs.back()));
+        }
+
+        auto result = pedersen_hash::hash(witness_inputs);
+        auto expected = crypto::pedersen_hash::hash(native_inputs);
+
+        EXPECT_EQ(result.get_value(), expected);
+
+        check_circuit_and_gate_count(builder, 62376);
+    }
+
+    static void test_generator_contexts()
+    {
+        using GeneratorContext = typename crypto::GeneratorContext<typename cycle_group::Curve>;
+
+        Builder builder;
+
+        std::vector<fr> inputs;
+        std::vector<fr_ct> witness_inputs;
+
+        for (size_t i = 0; i < 5; ++i) {
+            inputs.push_back(fr::random_element());
+            witness_inputs.push_back(witness_ct(&builder, inputs.back()));
+        }
+
+        // Test 1: Implicit conversion from size_t to GeneratorContext
+        // When passing a size_t, it becomes GeneratorContext(offset) with default domain separator
+        for (size_t hash_idx : { size_t(0), size_t(1), size_t(10), size_t(100), size_t(1000) }) {
+            // This implicitly creates GeneratorContext(hash_idx)
+            GeneratorContext ctx{ hash_idx }; // For native comparison
+            auto result = pedersen_hash::hash(witness_inputs, ctx);
+            auto expected = crypto::pedersen_hash::hash(inputs, ctx);
+
+            EXPECT_EQ(result.get_value(), expected);
+        }
+
+        // Test 2: Verify that different offsets produce different results
+        auto result_offset_0 = pedersen_hash::hash(witness_inputs, 0);
+        auto result_offset_1 = pedersen_hash::hash(witness_inputs, 1);
+        EXPECT_NE(result_offset_0.get_value(), result_offset_1.get_value());
+
+        // Test 3: Explicit GeneratorContext with custom domain separators
+        // Different domain separators should produce different generators and thus different hashes
+        GeneratorContext ctx_domain_a(0, "domain_a");
+        GeneratorContext ctx_domain_b(0, "domain_b");
+        GeneratorContext ctx_default(0); // Uses default domain separator
+
+        auto result_domain_a = pedersen_hash::hash(witness_inputs, ctx_domain_a);
+        auto result_domain_b = pedersen_hash::hash(witness_inputs, ctx_domain_b);
+        auto result_default = pedersen_hash::hash(witness_inputs, ctx_default);
+
+        // Verify native implementation matches
+        auto expected_domain_a = crypto::pedersen_hash::hash(inputs, ctx_domain_a);
+        auto expected_domain_b = crypto::pedersen_hash::hash(inputs, ctx_domain_b);
+        auto expected_default = crypto::pedersen_hash::hash(inputs, ctx_default);
+
+        EXPECT_EQ(result_domain_a.get_value(), expected_domain_a);
+        EXPECT_EQ(result_domain_b.get_value(), expected_domain_b);
+        EXPECT_EQ(result_default.get_value(), expected_default);
+
+        // Different domain separators should produce different results
+        EXPECT_NE(result_domain_a.get_value(), result_domain_b.get_value());
+        EXPECT_NE(result_domain_a.get_value(), result_default.get_value());
+        EXPECT_NE(result_domain_b.get_value(), result_default.get_value());
+
+        // Test 4: Same domain separator with different offsets
+        GeneratorContext ctx_offset_10(10, "domain_test");
+        GeneratorContext ctx_offset_20(20, "domain_test");
+
+        auto result_offset_10 = pedersen_hash::hash(witness_inputs, ctx_offset_10);
+        auto result_offset_20 = pedersen_hash::hash(witness_inputs, ctx_offset_20);
+
+        // Different offsets with same domain should produce different results
+        EXPECT_NE(result_offset_10.get_value(), result_offset_20.get_value());
+
+        check_circuit_and_gate_count(builder, 21845);
+    }
+
+    static void test_determinism()
+    {
+        Builder builder;
+
+        std::vector<fr> inputs;
+        std::vector<fr_ct> witness_inputs;
+
+        for (size_t i = 0; i < 5; ++i) {
+            inputs.push_back(fr::random_element());
+            witness_inputs.push_back(witness_ct(&builder, inputs.back()));
+        }
+
+        // Hash the same inputs multiple times
+        auto result1 = pedersen_hash::hash(witness_inputs);
+        auto result2 = pedersen_hash::hash(witness_inputs);
+        auto result3 = pedersen_hash::hash(witness_inputs);
+
+        // All should produce the same result
+        EXPECT_EQ(result1.get_value(), result2.get_value());
+        EXPECT_EQ(result2.get_value(), result3.get_value());
+
+        // Also verify against native implementation
+        auto expected = crypto::pedersen_hash::hash(inputs);
+        EXPECT_EQ(result1.get_value(), expected);
+
+        check_circuit_and_gate_count(builder, 6645);
+    }
 };
 
 using CircuitTypes = testing::Types<bb::UltraCircuitBuilder, bb::MegaCircuitBuilder>;
@@ -270,7 +419,7 @@ TYPED_TEST(StdlibPedersen, TestHash)
 
 TYPED_TEST(StdlibPedersen, Small)
 {
-    TestFixture::test_pedersen();
+    TestFixture::test_pedersen_two();
 };
 
 TYPED_TEST(StdlibPedersen, EdgeCases)
@@ -296,4 +445,29 @@ TYPED_TEST(StdlibPedersen, HashEight)
 TYPED_TEST(StdlibPedersen, HashConstants)
 {
     TestFixture::test_hash_constants();
+};
+
+TYPED_TEST(StdlibPedersen, EmptyInput)
+{
+    TestFixture::test_empty_input();
+};
+
+TYPED_TEST(StdlibPedersen, SingleInput)
+{
+    TestFixture::test_single_input();
+};
+
+TYPED_TEST(StdlibPedersen, LargeInputs)
+{
+    TestFixture::test_large_inputs();
+};
+
+TYPED_TEST(StdlibPedersen, GeneratorContexts)
+{
+    TestFixture::test_generator_contexts();
+};
+
+TYPED_TEST(StdlibPedersen, Determinism)
+{
+    TestFixture::test_determinism();
 };
