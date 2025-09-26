@@ -27,7 +27,7 @@ describe('AVM check-circuit – unhappy paths 3', () => {
       await tester.simProveVerify(
         sender,
         /*setupCalls=*/ [],
-        /*appCalls=*/ [{ address: avmTestContractInstance.address, fnName: 'divide_by_zero', args: [] }],
+        /*appCalls=*/ [{ address: avmTestContractInstance.address, fnName: 'divide_by_zero', args: [0] }],
         /*teardownCall=*/ undefined,
         /*expectRevert=*/ true,
       );
@@ -40,7 +40,7 @@ describe('AVM check-circuit – unhappy paths 3', () => {
       await tester.simProveVerify(
         sender,
         /*setupCalls=*/ [],
-        /*appCalls=*/ [{ address: avmTestContractInstance.address, fnName: 'divide_by_zero', args: [] }],
+        /*appCalls=*/ [{ address: avmTestContractInstance.address, fnName: 'divide_by_zero', args: [0] }],
         /*teardownCall=*/ {
           address: avmTestContractInstance.address,
           fnName: 'add_args_return',
@@ -60,7 +60,7 @@ describe('AVM check-circuit – unhappy paths 3', () => {
         /*appCalls=*/ [
           { address: avmTestContractInstance.address, fnName: 'add_args_return', args: [new Fr(1), new Fr(2)] },
         ],
-        /*teardownCall=*/ { address: avmTestContractInstance.address, fnName: 'divide_by_zero', args: [] },
+        /*teardownCall=*/ { address: avmTestContractInstance.address, fnName: 'divide_by_zero', args: [0] },
         /*expectRevert=*/ true,
       );
     },
