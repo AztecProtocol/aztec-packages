@@ -18,11 +18,6 @@ proverNode:
     requests:
       memory: "5Gi"
 
-pxe:
-  resources:
-    requests:
-      memory: "4Gi"
-
 bot:
   gke:
     spotEnabled: true
@@ -39,9 +34,6 @@ proverBroker:
   resources:
     requests:
       memory: "5Gi"
-
-blobSink:
-  resources:
 
 ethereum:
   execution:

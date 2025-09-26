@@ -14,13 +14,7 @@ network:
   public: true
   p2pBootstrapNodesAsFullPeers: false
 
-blobSink:
-  enabled: true
-
 bot:
-  enabled: false
-
-pxe:
   enabled: false
 
 bootNode:

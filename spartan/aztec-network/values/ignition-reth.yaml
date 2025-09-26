@@ -7,9 +7,6 @@ aztec:
 bot:
   enabled: false
 
-pxe:
-  enabled: false
-
 validator:
   replicas: 3
   sequencer:

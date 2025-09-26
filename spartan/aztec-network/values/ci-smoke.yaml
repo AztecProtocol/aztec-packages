@@ -20,11 +20,6 @@ proverNode:
     requests:
       cpu: "200m"
 
-pxe:
-  resources:
-    requests:
-      cpu: "200m"
-
 bot:
   enabled: false
 

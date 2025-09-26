@@ -8,9 +8,6 @@ validator:
   validator:
     disabled: false
 
-pxe:
-  enabled: true
-
 bootNode:
   enabled: false
 
