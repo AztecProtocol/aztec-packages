@@ -1,9 +1,11 @@
 import { LogLevels } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
+import { mock } from 'jest-mock-extended';
 
+import type { PublicSideEffectTraceInterface } from '../../side_effect_trace_interface.js';
 import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
-import { initContext, initExecutionEnvironment } from '../fixtures/initializers.js';
+import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/initializers.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { DebugLog } from './misc.js';
 
@@ -33,8 +35,10 @@ describe('Misc Instructions', () => {
     });
 
     it('Should execute DebugLog in client-initiated simulation mode', async () => {
+      const trace = mock<PublicSideEffectTraceInterface>();
       const env = initExecutionEnvironment({ clientInitiatedSimulation: true });
-      const context = initContext({ env });
+      const context = initContext({ env, persistableState: initPersistableStateManager({ trace }) });
+
       // Set up memory with message and fields
       const levelOffset = 5;
       const messageOffset = 10;
@@ -73,6 +77,10 @@ describe('Misc Instructions', () => {
 
         // Check that logger.verbose was called with formatted message
         expect(mockVerbose).toHaveBeenCalledWith(`Hello ${fieldValue.toFr()}!`);
+        expect(trace.traceDebugLogMemoryReads).toHaveBeenCalledWith(1 + 1 + 10 + 1);
+        expect(trace.traceDebugLog).toHaveBeenCalledWith(context.environment.address, 'verbose', message, [
+          fieldValue.toFr(),
+        ]);
       } finally {
         // Restore the mock
         mockIsVerbose.mockRestore();
@@ -113,6 +121,76 @@ describe('Misc Instructions', () => {
         // Restore the mock
         mockVerbose.mockRestore();
       }
+    });
+
+    it('Should fail when max debug log memory reads is exceeded', async () => {
+      const trace = mock<PublicSideEffectTraceInterface>();
+      const env = initExecutionEnvironment({ clientInitiatedSimulation: true, maxDebugLogMemoryReads: 1000 });
+      const context = initContext({ env, persistableState: initPersistableStateManager({ trace }) });
+
+      const levelOffset = 5;
+      const messageOffset = 10;
+      const fieldsOffset = 100;
+      const fieldsSizeOffset = 200;
+      const fieldValue = new Field(0x42n);
+
+      const message = 'Hello {0}!';
+      const messageSize = message.length;
+      for (let i = 0; i < messageSize; i++) {
+        context.machineState.memory.set(messageOffset + i, new Uint8(BigInt(message.charCodeAt(i))));
+      }
+
+      context.machineState.memory.set(levelOffset, new Uint8(LogLevels.indexOf('verbose')));
+      context.machineState.memory.set(fieldsOffset, fieldValue);
+      context.machineState.memory.set(fieldsSizeOffset, new Uint32(1n)); // One field value
+
+      trace.getDebugLogMemoryReads.mockReturnValue(999);
+
+      // Execute debug log instruction
+      await expect(
+        new DebugLog(
+          /*indirect=*/ 0,
+          /*levelOffset=*/ levelOffset,
+          /*messageOffset=*/ messageOffset,
+          /*fieldsOffset=*/ fieldsOffset,
+          /*fieldsSizeOffset=*/ fieldsSizeOffset,
+          /*messageSize=*/ messageSize,
+        ).execute(context),
+      ).rejects.toThrow('Max debug log memory reads exceeded');
+    });
+
+    it('Should fail with invalid level', async () => {
+      const env = initExecutionEnvironment({ clientInitiatedSimulation: true });
+      const context = initContext({ env });
+
+      const levelOffset = 5;
+      const messageOffset = 10;
+      const fieldsOffset = 100;
+      const fieldsSizeOffset = 200;
+      const fieldValue = new Field(0x42n);
+
+      const message = 'Hello {0}!';
+      const messageSize = message.length;
+      for (let i = 0; i < messageSize; i++) {
+        context.machineState.memory.set(messageOffset + i, new Uint8(BigInt(message.charCodeAt(i))));
+      }
+
+      // Invalid level
+      context.machineState.memory.set(levelOffset, new Uint8(42));
+      context.machineState.memory.set(fieldsOffset, fieldValue);
+      context.machineState.memory.set(fieldsSizeOffset, new Uint32(1n)); // One field value
+
+      // Execute debug log instruction
+      await expect(
+        new DebugLog(
+          /*indirect=*/ 0,
+          /*levelOffset=*/ levelOffset,
+          /*messageOffset=*/ messageOffset,
+          /*fieldsOffset=*/ fieldsOffset,
+          /*fieldsSizeOffset=*/ fieldsSizeOffset,
+          /*messageSize=*/ messageSize,
+        ).execute(context),
+      ).rejects.toThrow('Invalid debug log level: 42');
     });
   });
 });
