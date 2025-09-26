@@ -9,6 +9,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
+import {MerkleLibHelper} from "../merkle/helpers/MerkleLibHelper.sol";
 
 contract FakeRollup {
   uint256 public getProvenBlockNumber = 0;
@@ -28,7 +29,7 @@ contract Tmnt205Test is Test {
 
   FakeRollup internal rollup;
   Outbox internal outbox;
-
+  MerkleLibHelper internal merkleLibHelper = new MerkleLibHelper();
   DataStructures.L2ToL1Msg[] internal $msgs;
   bytes32[] internal $txOutHashes;
 
@@ -92,7 +93,15 @@ contract Tmnt205Test is Test {
     bytes32[] memory a_path = new bytes32[](2);
     a_path[0] = $txOutHashes[1];
     a_path[1] = $txOutHashes[2];
+
+    bytes32 messageHash = a_message.sha256ToField();
+
+    // The merkle lib itself should throw as index is out of bounds.
     vm.expectRevert(Errors.MerkleLib__InvalidIndexForPathLength.selector);
+    merkleLibHelper.verifyMembership(a_path, messageHash, a_leafIndex, $root);
+
+    // The outbox should revert earlier to that due to the index beyond boundary
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__LeafIndexOutOfBounds.selector, a_leafIndex, a_path.length));
     outbox.consume(a_message, BLOCK_NUMBER, a_leafIndex, a_path);
 
     // Real message

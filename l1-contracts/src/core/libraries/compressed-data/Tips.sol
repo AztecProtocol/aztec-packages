@@ -32,7 +32,7 @@ library ChainTipsLib {
     returns (CompressedChainTips)
   {
     uint256 value = CompressedChainTips.unwrap(_compressedChainTips) & ~PENDING_BLOCK_NUMBER_MASK;
-    return CompressedChainTips.wrap(value | (_pendingBlockNumber << 128));
+    return CompressedChainTips.wrap(value | (uint256(_pendingBlockNumber.toUint128()) << 128));
   }
 
   function updateProvenBlockNumber(CompressedChainTips _compressedChainTips, uint256 _provenBlockNumber)
@@ -41,7 +41,7 @@ library ChainTipsLib {
     returns (CompressedChainTips)
   {
     uint256 value = CompressedChainTips.unwrap(_compressedChainTips) & ~PROVEN_BLOCK_NUMBER_MASK;
-    return CompressedChainTips.wrap(value | _provenBlockNumber);
+    return CompressedChainTips.wrap(value | _provenBlockNumber.toUint128());
   }
 
   function compress(ChainTips memory _chainTips) internal pure returns (CompressedChainTips) {

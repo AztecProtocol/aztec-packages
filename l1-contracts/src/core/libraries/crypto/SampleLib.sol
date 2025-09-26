@@ -98,8 +98,8 @@ library SampleLib {
    * @return shuffledIndex - The shuffled index
    */
   function computeSampleIndex(uint256 _index, uint256 _indexCount, uint256 _seed) internal pure returns (uint256) {
-    // Cannot modulo by 0
-    if (_indexCount == 0) {
+    // Cannot modulo by 0 and if 1, then only acceptable value is 0
+    if (_indexCount <= 1) {
       return 0;
     }
 
