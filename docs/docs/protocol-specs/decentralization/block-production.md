@@ -231,7 +231,7 @@ Network --> Contract: updates state to reflect finality
 Anyone ->> Network: confirms on their own node or block explorer
 ```
 
-<!--![image](./images/Aztec-Block-Production-2.png)-->
+![image](/img/protocol-specs/decentralization/Aztec-Block-Production-2.png)
 
 ```mermaid
 journey
