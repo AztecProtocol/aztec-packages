@@ -551,13 +551,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     await this.executionDataProvider.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
   }
 
-  public override async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
-    await this.executionDataProvider.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
-
-    await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);
-  }
-
-  public override utilityEmitOffchainEffect(data: Fr[]): Promise<void> {
+  public utilityEmitOffchainEffect(data: Fr[]): Promise<void> {
     this.offchainEffects.push({ data });
     return Promise.resolve();
   }

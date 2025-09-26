@@ -365,8 +365,4 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   public utilityGetSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
     return this.executionDataProvider.getSharedSecret(address, ephPk);
   }
-
-  public utilityEmitOffchainEffect(_data: Fr[]): Promise<void> {
-    return Promise.reject(new Error('Cannot emit offchain effects from a utility function'));
-  }
 }
