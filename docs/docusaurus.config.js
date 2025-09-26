@@ -180,15 +180,8 @@ const config = {
             dropdownActiveClassDisabled: true,
           },
           {
-            type: "doc",
-            docId: "aztec/index",
-            position: "left",
-            label: "Learn",
-          },
-
-          {
             type: "docSidebar",
-            sidebarId: "buildSidebar",
+            sidebarId: "sidebar",
             position: "left",
             label: "Build",
           },
@@ -199,7 +192,7 @@ const config = {
             label: "Run a node",
           },
           {
-            to: "/developers/getting_started/getting_started_on_sandbox",
+            to: "/developers/getting_started_on_sandbox",
             label: "Install Sandbox",
             position: "right",
           },
@@ -252,7 +245,7 @@ const config = {
                 className: "dropdown-subtitle",
               },
               {
-                to: "/migration_notes",
+                to: "/developers/migration_notes",
                 label: "Migration Notes",
                 className: "no-external-icon",
               },
