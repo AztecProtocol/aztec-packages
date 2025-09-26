@@ -29,7 +29,6 @@ class IPATest : public CommitmentTest<Curve> {
     static CK ck;
     static VK vk;
 
-    // For edge cases
     static constexpr size_t log_n = 7;
 
     using PCS = IPA<curve::Grumpkin, log_n>;
@@ -165,6 +164,24 @@ TEST_F(IPATest, Open)
               result_of_prove_verify.verifier_transcript->get_manifest());
 }
 
+// poly and point are random, condition on the fact that the evaluation is zero.
+TEST_F(IPATest, OpeningValueZero)
+{
+    // generate random polynomial
+    auto poly = Polynomial::random(n);
+    auto x = this->random_element();
+    auto initial_evaluation = poly.evaluate(x);
+    auto change_in_linear_coefficient = initial_evaluation / x;
+    // change linear coefficient so that poly(x) == 0.
+    poly.at(1) -= change_in_linear_coefficient;
+
+    EXPECT_EQ(poly.evaluate(x), Fr::zero());
+    bool result = run_native_prove_verify(poly, x).result;
+    EXPECT_TRUE(result);
+}
+
+// Tests that "artificially" mutate the Transcript. This uses the type `MockTranscript`.
+
 namespace bb {
 #if !defined(__wasm__)
 // This test ensures that IPA throws or aborts when a challenge is zero, since it breaks the logic of the argument
@@ -252,7 +269,10 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
 #endif
 } // namespace bb
 
-TEST_F(IPATest, GeminiShplonkIPAWithShift)
+// Tests of batched MLPCS, where IPA is the final univariate commitment scheme.
+
+// Gemini + Shplonk + IPA. Two random polynomials, no shifts.
+TEST_F(IPATest, GeminiShplonkIPAWithoutShift)
 {
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
@@ -288,14 +308,15 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
 
     EXPECT_EQ(result, true);
 }
+// Shplemini + IPA. Four polynomials, one of which is shifted.
 TEST_F(IPATest, ShpleminiIPAWithShift)
 {
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
     auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
     MockClaimGenerator mock_claims(n,
-                                   /*num_polynomials*/ 2,
-                                   /*num_to_be_shifted*/ 0,
+                                   /*num_polynomials*/ 4,
+                                   /*num_to_be_shifted*/ 1,
                                    /*num_to_be_right_shifted_by_k*/ 0,
                                    mle_opening_point,
                                    ck);
@@ -327,10 +348,7 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
 
     EXPECT_EQ(result, true);
 }
-/**
- * @brief Test the behaviour of the method ShpleminiVerifier::remove_shifted_commitments
- *
- */
+// Test `ShpleminiVerifier::remove_shifted_commitments`. Four polynomials, two of which are shifted.
 TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
 {
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
