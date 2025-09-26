@@ -29,18 +29,31 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
     using StdlibProof = bb::stdlib::Proof<Builder>;
 
     using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
+
+    /**
+     * @brief  Given a builder, polynomial, and challenge point, return the transcript and opening claim _in circuit_.
+     *
+     * @details Given a `poly` and `x`, first generates a native proof (and verifiers), then loads the proof into a
+     * StdLib transcript.
+     *
+     * @tparam log_poly_length
+     * @param builder
+     * @param poly
+     * @param x
+     * @return std::pair<std::shared_ptr<StdlibTranscript>, OpeningClaim<Curve>>
+     *
+     * @note assumes that the size of `poly` is exactly `1 << log_poly_length`.
+     */
     template <size_t log_poly_length>
-    std::pair<std::shared_ptr<StdlibTranscript>, OpeningClaim<Curve>> create_ipa_claim(Builder& builder)
+    std::pair<std::shared_ptr<StdlibTranscript>, OpeningClaim<Curve>> create_ipa_claim(Builder& builder,
+                                                                                       Polynomial& poly,
+                                                                                       Fr x)
     {
         using NativeIPA = IPA<NativeCurve, log_poly_length>;
-        static constexpr size_t poly_length = 1UL << log_poly_length;
-
-        // First generate an ipa proof
-        auto poly = Polynomial::random(poly_length);
-        // Commit to a zero polynomial
+        EXPECT_EQ(1UL << log_poly_length, poly.size());
         Commitment commitment = this->commit(poly);
+        auto eval = poly.evaluate(x);
 
-        auto [x, eval] = this->random_eval(poly);
         const OpeningPair<NativeCurve> opening_pair = { x, eval };
         const OpeningClaim<NativeCurve> opening_claim{ opening_pair, commitment };
 
@@ -54,7 +67,7 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         // initialize verifier transcript from proof data
         auto verifier_transcript = std::make_shared<NativeTranscript>();
         verifier_transcript->load_proof(proof);
-
+        // run the native proof
         auto result = NativeIPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
         EXPECT_TRUE(result);
 
@@ -69,17 +82,57 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         recursive_verifier_transcript->load_proof(StdlibProof(builder, proof));
         return { recursive_verifier_transcript, stdlib_opening_claim };
     }
-    template <size_t log_poly_length> Builder build_ipa_recursive_verifier_circuit()
+    /**
+     * @brief Given a `poly` and a challenge `x`, return the recursive verifier circuit.
+     *
+     * @tparam log_poly_length
+     * @param poly
+     * @param x
+     * @return Builder
+     */
+    template <size_t log_poly_length> Builder build_ipa_recursive_verifier_circuit(Polynomial& poly, Fr x)
     {
         using RecursiveIPA = IPA<Curve, log_poly_length>;
 
         Builder builder;
-        auto [stdlib_transcript, stdlib_claim] = create_ipa_claim<log_poly_length>(builder);
+        auto [stdlib_transcript, stdlib_claim] = create_ipa_claim<log_poly_length>(builder, poly, x);
 
         RecursiveIPA::reduce_verify(stdlib_claim, stdlib_transcript);
         stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
         return builder;
+    }
+    // flag to determine what type of polynomial to generate
+    enum class PolyType { Random, ManyZeros, Sparse, Zero };
+
+    template <size_t log_poly_length>
+    std::tuple<Polynomial, Fr> generate_random_poly_and_challenge(PolyType poly_type = PolyType::Random)
+    {
+
+        static constexpr size_t poly_length = 1UL << log_poly_length;
+        Polynomial poly(poly_length);
+        switch (poly_type) {
+        case PolyType::Random:
+            poly = Polynomial::random(poly_length);
+            break;
+        case PolyType::ManyZeros:
+            poly = Polynomial::random(poly_length);
+            for (size_t i = 0; i < poly_length / 2; ++i) {
+                poly.at(i) = Fr::zero();
+            }
+        case PolyType::Sparse:
+            poly = Polynomial(poly_length);
+            // set a few coefficients to be non-zero
+            for (size_t i = 0; i < std::min<size_t>(100, poly_length / 2); ++i) {
+                size_t idx = static_cast<size_t>(this->engine->get_random_uint64() % poly_length);
+                poly.at(idx) = this->random_element();
+            }
+            break;
+        case PolyType::Zero:
+            break;
+        }
+        auto x = this->random_element();
+        return { poly, x };
     }
 
     /**
@@ -87,9 +140,9 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
      * @details Creates an IPA claim and then runs the recursive IPA verification and checks that the circuit is valid.
      * @param POLY_LENGTH
      */
-    template <size_t poly_length> void test_recursive_ipa()
+    template <size_t log_poly_length> void test_recursive_ipa(Polynomial& poly, Fr x)
     {
-        Builder builder(build_ipa_recursive_verifier_circuit<poly_length>());
+        Builder builder(build_ipa_recursive_verifier_circuit<log_poly_length>(poly, x));
         info("IPA Recursive Verifier num finalized gates = ", builder.get_num_finalized_gates());
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
@@ -100,18 +153,17 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
      * accumulated claim and checks that it verifies.
      * @param POLY_LENGTH
      */
-    template <size_t poly_length> void test_accumulation()
+    template <size_t log_poly_length> void test_accumulation(Polynomial& poly1, Polynomial& poly2, Fr x1, Fr x2)
     {
-        using NativeIPA = IPA<NativeCurve, poly_length>;
-        using RecursiveIPA = IPA<Curve, poly_length>;
+        using NativeIPA = IPA<NativeCurve, log_poly_length>;
+        using RecursiveIPA = IPA<Curve, log_poly_length>;
 
         // We create a circuit that does two IPA verifications. However, we don't do the full verifications and instead
         // accumulate the claims into one claim. This accumulation is done in circuit. Create two accumulators, which
         // contain the commitment and an opening claim.
         Builder builder;
-
-        auto [transcript_1, claim_1] = create_ipa_claim<poly_length>(builder);
-        auto [transcript_2, claim_2] = create_ipa_claim<poly_length>(builder);
+        auto [transcript_1, claim_1] = create_ipa_claim<log_poly_length>(builder, poly1, x1);
+        auto [transcript_2, claim_2] = create_ipa_claim<log_poly_length>(builder, poly2, x2);
 
         // Creates two IPA accumulators and accumulators from the two claims. Also constructs the accumulated h
         // polynomial.
@@ -146,53 +198,83 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
  * @brief Tests IPA recursion with polynomial of length 4
  * @details More details in test_recursive_ipa
  */
-TEST_F(IPARecursiveTests, RecursiveSmall)
+TEST_F(IPARecursiveTests, RecursiveSmallSparse)
 {
     static constexpr size_t log_poly_length = 2;
-    test_recursive_ipa<log_poly_length>();
+    auto [poly, x] = generate_random_poly_and_challenge<log_poly_length>(PolyType::ManyZeros);
+    test_recursive_ipa<log_poly_length>(poly, x);
 }
 
 /**
  * @brief Tests IPA recursion with polynomial of length 1024
  * @details More details in test_recursive_ipa
  */
-TEST_F(IPARecursiveTests, RecursiveMedium)
+TEST_F(IPARecursiveTests, RecursiveMediumManyZeros)
 {
     static constexpr size_t log_poly_length = 10;
-    test_recursive_ipa<log_poly_length>();
+    auto [poly, x] = generate_random_poly_and_challenge<log_poly_length>(PolyType::Sparse);
+    test_recursive_ipa<log_poly_length>(poly, x);
+}
+
+TEST_F(IPARecursiveTests, RecursiveMediumZeroPoly)
+{
+    static constexpr size_t log_poly_length = 10;
+    auto [poly, x] = generate_random_poly_and_challenge<log_poly_length>(PolyType::Zero);
+    test_recursive_ipa<log_poly_length>(poly, x);
+}
+
+TEST_F(IPARecursiveTests, RecursiveMediumZeroChallenge)
+{
+    static constexpr size_t log_poly_length = 10;
+    auto [poly, x] = generate_random_poly_and_challenge<log_poly_length>(PolyType::Random);
+    test_recursive_ipa<log_poly_length>(poly, Fr::zero());
+}
+
+TEST_F(IPARecursiveTests, RecursiveMediumZeroEvaluation)
+{
+    static constexpr size_t log_poly_length = 10;
+    auto [poly, x] = generate_random_poly_and_challenge<log_poly_length>(PolyType::Random);
+    auto initial_evaluation = poly.evaluate(x);
+    poly.at(1) -= initial_evaluation / x;
+    test_recursive_ipa<log_poly_length>(poly, x);
 }
 
 /**
  * @brief Tests IPA recursion with polynomial of length 1<<CONST_ECCVM_LOG_N
  * @details More details in test_recursive_ipa
  */
-TEST_F(IPARecursiveTests, RecursiveLarge)
+TEST_F(IPARecursiveTests, RecursiveLargeRandom)
 {
     static constexpr size_t log_poly_length = CONST_ECCVM_LOG_N;
-    test_recursive_ipa<log_poly_length>();
+    auto [poly, x] = generate_random_poly_and_challenge<log_poly_length>(PolyType::Random);
+    test_recursive_ipa<log_poly_length>(poly, x);
 }
 
 /**
  * @brief Test accumulation with polynomials of length 4
  * @details More details in test_accumulation
  */
-TEST_F(IPARecursiveTests, AccumulateSmall)
+TEST_F(IPARecursiveTests, AccumulateSmallRandom)
 {
     static constexpr size_t log_poly_length = 2;
-    test_accumulation<log_poly_length>();
+    auto [poly1, x1] = generate_random_poly_and_challenge<log_poly_length>();
+    auto [poly2, x2] = generate_random_poly_and_challenge<log_poly_length>();
+    test_accumulation<log_poly_length>(poly1, poly2, x1, x2);
 }
 
 /**
  * @brief Test accumulation with polynomials of length 1024
  * @details More details in test_accumulation
  */
-TEST_F(IPARecursiveTests, AccumulateMedium)
+TEST_F(IPARecursiveTests, AccumulateMediumRandom)
 {
     static constexpr size_t log_poly_length = 10;
-    test_accumulation<log_poly_length>();
+    auto [poly1, x1] = generate_random_poly_and_challenge<log_poly_length>();
+    auto [poly2, x2] = generate_random_poly_and_challenge<log_poly_length>();
+    test_accumulation<log_poly_length>(poly1, poly2, x1, x2);
 }
 
-TEST_F(IPARecursiveTests, FullRecursiveVerifier)
+TEST_F(IPARecursiveTests, FullRecursiveVerifierRandom)
 {
 
     static constexpr size_t log_poly_length = 10;
@@ -200,7 +282,8 @@ TEST_F(IPARecursiveTests, FullRecursiveVerifier)
     using RecursiveIPA = IPA<Curve, log_poly_length>;
     //
     Builder builder;
-    auto [stdlib_transcript, stdlib_claim] = create_ipa_claim<log_poly_length>(builder);
+    auto [poly, x] = generate_random_poly_and_challenge<log_poly_length>();
+    auto [stdlib_transcript, stdlib_claim] = create_ipa_claim<log_poly_length>(builder, poly, x);
 
     VerifierCommitmentKey<Curve> stdlib_pcs_vkey(&builder, poly_length, this->vk());
     auto result = RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, stdlib_claim, stdlib_transcript);
@@ -223,8 +306,11 @@ TEST_F(IPARecursiveTests, AccumulationAndFullRecursiveVerifier)
     // contain the commitment and an opening claim.
     Builder builder;
 
-    auto [transcript_1, claim_1] = create_ipa_claim<log_poly_length>(builder);
-    auto [transcript_2, claim_2] = create_ipa_claim<log_poly_length>(builder);
+    auto [poly1, x1] = generate_random_poly_and_challenge<log_poly_length>();
+    auto [poly2, x2] = generate_random_poly_and_challenge<log_poly_length>();
+
+    auto [transcript_1, claim_1] = create_ipa_claim<log_poly_length>(builder, poly1, x1);
+    auto [transcript_2, claim_2] = create_ipa_claim<log_poly_length>(builder, poly2, x2);
 
     // Creates two IPA accumulators and accumulators from the two claims. Also constructs the accumulated h
     // polynomial.
