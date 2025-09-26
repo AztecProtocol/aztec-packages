@@ -30,10 +30,10 @@ contract StakingAssetHandlerScript is Test {
   bytes32 public constant DEPOSIT_MERKLE_ROOT = bytes32(0);
 
   ZKPassportVerifier internal constant zkPassportVerifier =
-    ZKPassportVerifier(0xBec82dec0747C9170D760D5aba9cc44929B17C05);
+    ZKPassportVerifier(0xf7480fd0A9289c062C52532f11D31e0b7A30ABe3);
 
-  TestERC20 public constant stakingAsset = TestERC20(0xad6618B0f91d3fe156eF4CbEb08844C32954f089);
-  IRegistry public constant registry = IRegistry(0x2e48aDdcA360dA61e4d6C21ff2B1961Af56eB83b);
+  TestERC20 public constant stakingAsset = TestERC20(0x6732CEDafCBF85Afa9B5C83f0385967840BBCe47);
+  IRegistry public constant registry = IRegistry(0xc2F24280F5c7F4897370dFDEb30f79Ded14f1c81);
 
   function setUp() public {}
 
@@ -50,7 +50,7 @@ contract StakingAssetHandlerScript is Test {
       registry: registry,
       withdrawer: amin,
       mintInterval: 60 * 60 * 24,
-      depositsPerMint: 10,
+      depositsPerMint: 1000,
       depositMerkleRoot: DEPOSIT_MERKLE_ROOT,
       zkPassportVerifier: zkPassportVerifier,
       unhinged: isUnhinged,
