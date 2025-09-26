@@ -4,10 +4,12 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/test_utils.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "pedersen.hpp"
 
 using namespace bb;
+using bb::stdlib::test_utils::check_circuit_and_gate_count;
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
@@ -46,13 +48,10 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
 
         fr_ct out = pedersen_hash::hash({ left, right });
 
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
-
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
-
         fr hash_native = crypto::pedersen_hash::hash({ left.get_value(), right.get_value() });
         EXPECT_EQ(out.get_value(), hash_native);
+
+        check_circuit_and_gate_count(builder, 2897);
     }
 
     static void test_pedersen_edge_cases()
@@ -77,11 +76,6 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
         fr_ct out_with_zero = pedersen_hash::hash({ out_1_with_zero, out_2 });
         fr_ct out_with_r = pedersen_hash::hash({ out_1_with_r, out_2 });
 
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
-
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
-
         EXPECT_EQ(bool(out_1_with_zero.get_value() == out_1_with_r.get_value()), true);
 
         fr hash_native_1_with_zero = crypto::pedersen_hash::hash({ zero.get_value(), one.get_value() });
@@ -96,6 +90,8 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
         EXPECT_EQ(out_with_zero.get_value(), hash_native_with_zero);
         EXPECT_EQ(out_with_r.get_value(), hash_native_with_r);
         EXPECT_EQ(hash_native_with_zero, hash_native_with_r);
+
+        check_circuit_and_gate_count(builder, 3482);
     }
 
     static void test_pedersen_large()
@@ -120,10 +116,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
 
         builder.set_public_input(left.witness_index);
 
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
-
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        check_circuit_and_gate_count(builder, 40379);
     }
 
     static void test_multi_hash()
@@ -171,10 +164,13 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
             EXPECT_EQ(result.get_value(), expected);
         }
 
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
-
-        bool proof_result = CircuitChecker::check(builder);
-        EXPECT_EQ(proof_result, true);
+        // Note: gate count delta is an illusion due to extra constants added by default in the Mega builder which then
+        // get resused as ROM indices in the underlying batch mul algorithm (only applies for num_inputs > 2).
+        if constexpr (std::is_same_v<Builder, bb::UltraCircuitBuilder>) {
+            check_circuit_and_gate_count(builder, 9724);
+        } else {
+            check_circuit_and_gate_count(builder, 9721);
+        }
     }
 
     static void test_hash_eight()
@@ -195,6 +191,14 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
         auto result = pedersen_hash::hash(witness_inputs, hash_idx);
 
         EXPECT_EQ(result.get_value(), expected);
+
+        // Note: gate count delta is an illusion due to extra constants added by default in the Mega builder which then
+        // get resused as ROM indices in the underlying batch mul algorithm (only applies for num_inputs > 2).
+        if constexpr (std::is_same_v<Builder, bb::UltraCircuitBuilder>) {
+            check_circuit_and_gate_count(builder, 5417);
+        } else {
+            check_circuit_and_gate_count(builder, 5414);
+        }
     }
 
     static void test_hash_constants()
@@ -217,10 +221,18 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
         auto result = pedersen_hash::hash(witness_inputs);
 
         EXPECT_EQ(result.get_value(), expected);
+
+        // Note: gate count delta is an illusion due to extra constants added by default in the Mega builder which then
+        // get resused as ROM indices in the underlying batch mul algorithm (only applies for num_inputs > 2).
+        if constexpr (std::is_same_v<Builder, bb::UltraCircuitBuilder>) {
+            check_circuit_and_gate_count(builder, 3997);
+        } else {
+            check_circuit_and_gate_count(builder, 3994);
+        }
     }
 };
 
-using CircuitTypes = testing::Types<bb::UltraCircuitBuilder>;
+using CircuitTypes = testing::Types<bb::UltraCircuitBuilder, bb::MegaCircuitBuilder>;
 
 TYPED_TEST_SUITE(StdlibPedersen, CircuitTypes);
 
@@ -247,8 +259,13 @@ TYPED_TEST(StdlibPedersen, TestHash)
 
     EXPECT_EQ(result.get_value(), expected);
 
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
+    // Note: gate count delta is an illusion due to extra constants added by default in the Mega builder which then
+    // get resused as ROM indices in the underlying batch mul algorithm (only applies for num_inputs > 2).
+    if constexpr (std::is_same_v<Builder, bb::UltraCircuitBuilder>) {
+        check_circuit_and_gate_count(builder, 5565);
+    } else {
+        check_circuit_and_gate_count(builder, 5562);
+    }
 }
 
 TYPED_TEST(StdlibPedersen, Small)
