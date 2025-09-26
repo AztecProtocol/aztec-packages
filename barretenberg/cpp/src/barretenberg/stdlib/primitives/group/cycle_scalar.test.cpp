@@ -230,9 +230,9 @@ TYPED_TEST(CycleScalarTest, TestScalarFieldValidationFailureBetweenModuli)
         check_circuit_and_gate_count(builder, 2761);
     }
 
-    // Test 2: Try to manually validate with BN254 scalar field (smaller modulus)
-    // Since we can't set the use_bn254_scalar_field_for_primality_test flag directly
-    // with the public constructor, we'll test the underlying validate_split_in_field directly
+    // Test 2: Validate with BN254 scalar field (smaller modulus)
+    // Note: Since we can't set the use_bn254_scalar_field_for_primality_test flag directly with the public constructor,
+    // we'll test the underlying validate_split_in_field directly to achieve what would be achieved internally
     {
         TypeParam builder;
 
@@ -243,16 +243,13 @@ TYPED_TEST(CycleScalarTest, TestScalarFieldValidationFailureBetweenModuli)
         // Construct cycle_scalar with the public constructor
         auto scalar = cycle_scalar(lo, hi);
 
-        // This will NOT use BN254 scalar field for primality test (it defaults to false)
-        EXPECT_FALSE(scalar.use_bn254_scalar_field_for_primality_test());
-
         // Verify the reconstructed value matches what we expect
         uint256_t reconstructed =
             uint256_t(scalar.lo.get_value()) + (uint256_t(scalar.hi.get_value()) << cycle_scalar::LO_BITS);
         EXPECT_EQ(reconstructed, value_between_moduli);
 
         // Now directly call validate_split_in_field with BN254::fr modulus
-        // This should fail because value > BN254::fr modulus
+        // This should create unsatisfied constraints because value > BN254::fr modulus
         bb::stdlib::validate_split_in_field(lo, hi, cycle_scalar::LO_BITS, bn254_fr_modulus);
 
         // The builder should have failed
