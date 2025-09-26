@@ -29,6 +29,7 @@ template <class Curve> struct WycherproofTest {
     bool is_valid_signature;
     bool is_circuit_satisfied;
     std::string comment;
+    std::string failure_msg;
 };
 
 using WycherproofSecp256k1 = WycherproofTest<bb::curve::SECP256K1>;
@@ -49,6 +50,8 @@ const std::vector<WycherproofSecp256k1> secp256k1_tests{
         .is_valid_signature = true,
         .is_circuit_satisfied = false,
         .comment = "Arithmetic error, s is larger than (n+1)/2",
+        .failure_msg =
+            "ECDSA input validation: the s component of the signature is bigger than Fr::modulus - s.: hi limb.",
     },
     WycherproofSecp256k1{
         .x = WycherproofSecp256k1::Fq("0xd6ef20be66c893f741a9bf90d9b74675d1c2a31296397acb3ef174fd0b300c65"),
@@ -59,6 +62,7 @@ const std::vector<WycherproofSecp256k1> secp256k1_tests{
         .is_valid_signature = true,
         .is_circuit_satisfied = true,
         .comment = "Arithmetic error, r component is small",
+        .failure_msg = "",
     },
     // Point duplication tests
     WycherproofSecp256k1{
@@ -70,6 +74,7 @@ const std::vector<WycherproofSecp256k1> secp256k1_tests{
         .is_valid_signature = false,
         .is_circuit_satisfied = true,
         .comment = "Point duplication, public key shares x-coordinates with generator",
+        .failure_msg = "",
     },
     // Edge case public key tests
     WycherproofSecp256k1{
@@ -81,6 +86,7 @@ const std::vector<WycherproofSecp256k1> secp256k1_tests{
         .is_valid_signature = true,
         .is_circuit_satisfied = true,
         .comment = "Edge case public key, y coordinate is small",
+        .failure_msg = "",
     },
 };
 
@@ -99,6 +105,7 @@ const std::vector<WycherproofSecp256r1> secp256r1_tests{
         .is_valid_signature = true,
         .is_circuit_satisfied = true,
         .comment = "Arithmetic error",
+        .failure_msg = "",
     },
     // Point duplication test
     WycherproofSecp256r1{
@@ -111,6 +118,7 @@ const std::vector<WycherproofSecp256r1> secp256r1_tests{
         .is_circuit_satisfied =
             false, // When the public key is equal to ±G, the circuit fails because of the generation of lookup tables
         .comment = "Point duplication, public key shares x-coordinates with generator",
+        .failure_msg = "ECDSA input validation: the public key is equal to plus or minus the generator point.",
     },
     // Edge case public key test
     WycherproofSecp256r1{
@@ -122,6 +130,7 @@ const std::vector<WycherproofSecp256r1> secp256r1_tests{
         .is_valid_signature = true,
         .is_circuit_satisfied = true,
         .comment = "Edge case public key, x-coordinate has many trailing zeros",
+        .failure_msg = "",
     },
 };
 } // namespace bb::stdlib

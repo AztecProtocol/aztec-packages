@@ -138,7 +138,7 @@ bool ecdsa_verify_signature(const std::string& message,
     uint256_t r_uint;
     uint256_t s_uint;
     uint256_t mod = uint256_t(Fr::modulus);
-    if (!public_key.on_curve()) {
+    if ((!public_key.on_curve()) || (public_key.is_point_at_infinity())) {
         return false;
     }
     const auto* r_buf = &sig.r[0];
