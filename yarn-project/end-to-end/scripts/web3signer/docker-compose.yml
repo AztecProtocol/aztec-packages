@@ -1,18 +1,6 @@
-configs:
-  test_private_key:
-    content: |
-      type: file-raw
-      keyType: SECP256K1
-      privateKey: 0x1111111111111111111111111111111111111111111111111111111111111111
-
 services:
   web3signer:
     image: consensys/web3signer:25.6.0
-    ports:
-      - "9000:9000"
-    configs:
-      - source: test_private_key
-        target: /keys/test_private_key.yaml
     command:
       - --http-listen-port=9000
       - --http-host-allowlist=*
@@ -20,6 +8,8 @@ services:
       - --logging=ALL
       - eth1
       - --chain-id=31337
+    volumes:
+      - web3signer_keys:/keys
 
   end-to-end:
     image: aztecprotocol/build:3.0
@@ -29,6 +19,7 @@ services:
     volumes:
       - ../../../../:/root/aztec-packages
       - ${HOME}/.bb-crs:/root/.bb-crs
+      - web3signer_keys:/keys
     tmpfs:
       - /tmp:rw,size=1g
       - /tmp-jest:rw,size=512m
@@ -38,6 +29,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-verbose}
       L1_CHAIN_ID: 31337
       WEB3_SIGNER_URL: http://web3signer:9000
+      WEB3_SIGNER_TEST_KEYSTORE_DIR: /keys
       FORCE_COLOR: ${FORCE_COLOR:-1}
       # Allow git usage despite different ownership. Relevant for script tests.
       GIT_CONFIG_GLOBAL: /root/aztec-packages/build-images/src/home/.gitconfig
@@ -60,8 +52,6 @@ services:
     # There's a lot of doubling of $'s to escape dockers string interpolation.
     entrypoint: >
       bash -c '
-        export TEST_PRIVATE_KEY=$(yq .privateKey /keys/test_private_key.yaml)
-
         while ! nc -z web3signer 9000; do sleep 1; done;
         setsid ./scripts/test_simple.sh ${TEST:-./src/e2e_deploy_contract.test.ts} &
         pid=$$!
@@ -72,7 +62,7 @@ services:
       '
     depends_on:
       - web3signer
-    configs:
-      # mount in the test as well in order to compare remote against local signer
-      - source: test_private_key
-        target: /keys/test_private_key.yaml
+
+volumes:
+  # a shared volume so that tests can load up arbitrary private keys into web3signer
+  web3signer_keys: {}

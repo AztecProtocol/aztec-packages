@@ -60,8 +60,8 @@ mod tests {
         address::AztecAddress,
         constants::NOTE_HASH_TREE_HEIGHT,
         hash::compute_siloed_note_hash,
-        merkle_tree::{leaf_preimage::LeafPreimage, MembershipWitness},
-        tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::assert_array_eq},
+        merkle_tree::{LeafPreimage, MembershipWitness},
+        tests::{merkle_tree_utils::SingleSubtreeMerkleTree, utils::assert_array_eq},
         traits::{Empty, FromField},
     };
     use types::utils::arrays::ClaimedLengthArray;
@@ -146,15 +146,11 @@ mod tests {
     }
 
     impl<let ReadRequestLen: u32, let PendingValueLen: u32, let PendingReadHintsLen: u32, let SettledReadHintsLen: u32> TestBuilder<ReadRequestLen, PendingValueLen, PendingReadHintsLen, SettledReadHintsLen> {
-        fn build_tree(
-            self,
-        ) -> NonEmptyMerkleTree<2, NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT - 1, 1> {
-            NonEmptyMerkleTree::new(
-                [self.leaf_preimages[0].as_leaf(), self.leaf_preimages[1].as_leaf()],
-                [0; NOTE_HASH_TREE_HEIGHT],
-                [0; NOTE_HASH_TREE_HEIGHT - 1],
-                [0; 1],
-            )
+        fn build_tree(self) -> SingleSubtreeMerkleTree<2, 1, NOTE_HASH_TREE_HEIGHT> {
+            SingleSubtreeMerkleTree::new([
+                self.leaf_preimages[0].as_leaf(),
+                self.leaf_preimages[1].as_leaf(),
+            ])
         }
 
         pub fn get_settled_read_hints(self) -> ([NoteHashSettledReadHint; 2], Field) {

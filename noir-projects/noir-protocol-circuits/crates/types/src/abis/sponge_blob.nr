@@ -5,38 +5,44 @@ use crate::{
     traits::{Deserialize, Empty, Serialize},
 };
 
-// A Poseidon2 sponge used to accumulate data that will be added to blob(s)
-// (More accurately called BlobSponge, but that's not as fun)
-
-// Each base rollup circuit has a start and end SpongeBlob instance, like a PartialStateReference.
-// Tx data is accumulated by calling absorb() on each field, and incrementing the number of fields.
-// To save gates, we do not check after every absorb whether we have filled a blob (we do this in block root).
-
-// Each merge rollup circuit checks that the left rollup input's end SpongeBlob == the right rollup input's start SpongeBlob.
-
-// Finally, the block_root is given the list of all fields to be included in the blob.
-// We hash these ^ and check that the hash matches the one given by the block_root's right input's end SpongeBlob.squeeze().
-// The hash is used as part of the blob challenge, as we've proven it encompasses all elts of the blob(s).
-
-// Init is given by input len * 2^64 (see noir/noir-repo/noir_stdlib/src/hash/poseidon2.nr -> hash_internal)
-
+/// A Poseidon2 sponge used to accumulate data that will be added to blob(s).
+/// (More accurately called BlobSponge, but that's not as fun).
+///
+/// The journey of a SpongeBlob:
+///
+/// Tx base: each tx absorbs its effects into the given "start" SpongeBlob and outputs it as the "end" SpongeBlob.
+/// Tx merge or block root checks that the start SpongeBlob of a tx matches the end SpongeBlob of the previous tx.
+///
+/// Block root: the end SpongeBlob of the last tx absorbs a special block end marker indicating the number of txs in
+/// the block. The block header commits to the value squeezed from this SpongeBlob. This updated SpongeBlob is then
+/// output as the end SpongeBlob of the block root. In block merge or checkpoint root, the start SpongeBlob is checked
+/// against the end SpongeBlob of the previous block.
+///
+/// Checkpoint root: receives all fields as private inputs and checks that hashing them matches the final hash squeezed
+/// from the end SpongeBlob of the last block, after confirming that and the number of fields absorbed matches the value
+/// the SpongeBlob was initialized with. It also checks that the start SpongeBlob of the first tx in the block does not
+/// have any fields absorbed.
+///
+/// The final hash is used as part of the blob challenge, proving that all fields of the blob(s) are included.
 #[derive(Deserialize, Eq, Serialize)]
 pub struct SpongeBlob {
     pub sponge: Poseidon2Sponge,
-    pub fields: u32,
-    pub expected_fields: u32, // The hinted number of tx effects this will absorb
+    pub fields: u32, // The number of fields absorbed so far. TODO: rename to `num_absorbed_fields`.
+    pub expected_fields: u32, // The hinted number of fields this sponge will absorb. TODO: rename to `num_expected_fields`.
 }
 
 impl SpongeBlob {
-    pub fn new(expected_fields_hint: u32) -> Self {
+    pub fn new(expected_fields: u32) -> Self {
+        // New sponge is initialized with `expected_fields` * 2^64.
+        // (see noir/noir-repo/noir_stdlib/src/hash/poseidon2.nr -> hash_internal)
         Self {
-            sponge: Poseidon2Sponge::new((expected_fields_hint as Field) * TWO_POW_64),
+            sponge: Poseidon2Sponge::new((expected_fields as Field) * TWO_POW_64),
             fields: 0,
-            expected_fields: expected_fields_hint,
+            expected_fields,
         }
     }
 
-    // Add fields to the sponge
+    /// Add `in_len` fields to the sponge.
     pub fn absorb<let N: u32>(&mut self, input: [Field; N], in_len: u32) {
         // We skip the 0 check below, as most use cases (e.g. base rollup) constrain that the input array
         // is constructed from i=0->in_len from an empty array, so no need to check.
@@ -44,10 +50,9 @@ impl SpongeBlob {
         self.fields += in_len;
     }
 
-    // Finalize the sponge and output poseidon2 hash of all fields absorbed
+    /// Finalize the sponge and output poseidon2 hash of all fields absorbed.
     pub fn squeeze(&mut self) -> Field {
         // If the blob sponge is not 'full', we append 1 to match Poseidon2::hash_internal()
-        // NB: There is currently no use case in which we don't 'fill' a blob sponge, but adding for completeness
         if self.fields != self.expected_fields {
             self.sponge.absorb(1);
         }

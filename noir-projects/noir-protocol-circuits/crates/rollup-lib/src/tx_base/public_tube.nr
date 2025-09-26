@@ -13,17 +13,17 @@ impl PublicTubePrivateInputs {
     ///
     /// VkIndex: PUBLIC_TUBE_VK_INDEX
     pub fn execute(self) -> PrivateToPublicKernelCircuitPublicInputs {
+        if !dep::std::runtime::is_unconstrained() {
+            self.hiding_kernel_proof_data.verify_proof();
+        }
+
         assert_eq(
             self.hiding_kernel_proof_data.vk_data.leaf_index,
             HIDING_KERNEL_TO_PUBLIC_VK_INDEX,
         );
 
-        if !dep::std::runtime::is_unconstrained() {
-            self.hiding_kernel_proof_data.verify_proof();
-
-            let vk_tree_root = self.hiding_kernel_proof_data.public_inputs.constants.vk_tree_root;
-            self.hiding_kernel_proof_data.vk_data.validate_in_vk_tree(vk_tree_root);
-        }
+        let vk_tree_root = self.hiding_kernel_proof_data.public_inputs.constants.vk_tree_root;
+        self.hiding_kernel_proof_data.vk_data.validate_in_vk_tree(vk_tree_root);
 
         self.hiding_kernel_proof_data.public_inputs
     }

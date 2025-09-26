@@ -41,8 +41,10 @@ declare -A SECRET_MAPPINGS=(
     ["ROLLUP_DEPLOYMENT_PRIVATE_KEY"]="sepolia-labs-rollup-private-key"
     ["OTEL_COLLECTOR_ENDPOINT"]="otel-collector-url"
     ["ETHERSCAN_API_KEY"]="etherscan-api-key"
-    ["STORE_SNAPSHOT_URL"]="gcs-testnet-snapshot-url"
     ["LABS_INFRA_MNEMONIC"]="sepolia-labs-${NETWORK}-mnemonic"
+    ["STORE_SNAPSHOT_URL"]="r2-account-id"
+    ["R2_ACCESS_KEY_ID"]="r2-access-key-id"
+    ["R2_SECRET_ACCESS_KEY"]="r2-secret-access-key"
 )
 
 # Replace placeholders with actual secrets

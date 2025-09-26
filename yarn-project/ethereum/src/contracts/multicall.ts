@@ -4,7 +4,7 @@ import type { Logger } from '@aztec/foundation/log';
 
 import { type EncodeFunctionDataParameters, type Hex, encodeFunctionData, multicall3Abi } from 'viem';
 
-import type { L1BlobInputs, L1GasConfig, L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
+import type { L1BlobInputs, L1GasConfig, L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { FormattedViemError, formatViemError } from '../utils.js';
 import { RollupContract } from './rollup.js';

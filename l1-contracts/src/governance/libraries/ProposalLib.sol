@@ -14,7 +14,6 @@ enum VoteTabulationReturn {
 }
 
 enum VoteTabulationInfo {
-  MinimumEqZero,
   TotalPowerLtMinimum,
   VotesNeededEqZero,
   VotesNeededGtTotalPower,

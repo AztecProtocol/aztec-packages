@@ -2,8 +2,8 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 
-import { type L1TxUtilsConfig, createViemSigner } from '../l1_tx_utils.js';
-import { L1TxUtilsWithBlobs } from '../l1_tx_utils_with_blobs.js';
+import { type L1TxUtilsConfig, createViemSigner } from '../l1_tx_utils/index.js';
+import { L1TxUtilsWithBlobs } from '../l1_tx_utils/l1_tx_utils_with_blobs.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { type Delayer, withDelayer } from './tx_delayer.js';
 

@@ -1,7 +1,7 @@
 import type { SpongeBlob } from '@aztec/blob-lib';
 import {
   type ARCHIVE_HEIGHT,
-  type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  type L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NESTED_RECURSIVE_PROOF_LENGTH,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
@@ -69,7 +69,10 @@ export class BlockProvingState {
     public readonly lastArchiveTreeSnapshot: AppendOnlyTreeSnapshot,
     private readonly lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     private readonly lastL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    private readonly lastL1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    private readonly lastL1ToL2MessageSubtreeRootSiblingPath: Tuple<
+      Fr,
+      typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH
+    >,
     public readonly newL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     private readonly headerOfLastBlockInPreviousCheckpoint: BlockHeader,
     private readonly startSpongeBlob: SpongeBlob,
@@ -295,7 +298,7 @@ export class BlockProvingState {
           this.constants,
           this.startSpongeBlob,
           this.timestamp,
-          this.lastL1ToL2MessageSubtreeSiblingPath,
+          this.lastL1ToL2MessageSubtreeRootSiblingPath,
           this.lastArchiveSiblingPath,
         ),
       };
@@ -306,7 +309,7 @@ export class BlockProvingState {
           l1ToL2Roots,
           leftRollup,
           this.lastL1ToL2MessageTreeSnapshot,
-          this.lastL1ToL2MessageSubtreeSiblingPath,
+          this.lastL1ToL2MessageSubtreeRootSiblingPath,
           this.lastArchiveSiblingPath,
         ),
       };
@@ -317,7 +320,7 @@ export class BlockProvingState {
           l1ToL2Roots,
           [leftRollup, rightRollup],
           this.lastL1ToL2MessageTreeSnapshot,
-          this.lastL1ToL2MessageSubtreeSiblingPath,
+          this.lastL1ToL2MessageSubtreeRootSiblingPath,
           this.lastArchiveSiblingPath,
         ),
       };

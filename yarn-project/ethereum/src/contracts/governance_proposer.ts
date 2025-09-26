@@ -11,7 +11,7 @@ import {
   getContract,
 } from 'viem';
 
-import type { GasPrice, L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
+import type { GasPrice, L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ViemClient } from '../types.js';
 import { type IEmpireBase, encodeSignal, encodeSignalWithSignature, signSignalWithSig } from './empire_base.js';
 import { extractProposalIdFromLogs } from './governance.js';

@@ -17,15 +17,15 @@ template <typename Builder> class cycle_group;
 template <typename Builder> class cycle_scalar;
 
 /**
- * @brief straus_scalar_slice decomposes an input scalar into `table_bits` bit-slices.
+ * @brief straus_scalar_slices decomposes an input scalar into `table_bits` bit-slices.
  * Used in `batch_mul`, which ses the Straus multiscalar multiplication algorithm.
  *
  */
-template <typename Builder> class straus_scalar_slice {
+template <typename Builder> class straus_scalar_slices {
   public:
     using field_t = stdlib::field_t<Builder>;
 
-    straus_scalar_slice(Builder* context, const cycle_scalar<Builder>& scalars, size_t table_bits);
+    straus_scalar_slices(Builder* context, const cycle_scalar<Builder>& scalars, size_t table_bits);
     field_t read(size_t index);
     size_t _table_bits;
     std::vector<field_t> slices;

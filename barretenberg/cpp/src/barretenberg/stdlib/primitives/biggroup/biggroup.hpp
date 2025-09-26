@@ -17,6 +17,7 @@
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup_goblin.hpp"
+#include <cstddef>
 
 namespace bb::stdlib::element_default {
 
@@ -50,6 +51,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     element(const element& other);
     element(element&& other) noexcept;
 
+    ~element() = default;
+
+    /**
+     * @brief Construct a dummy element (the group generator) and return its limbs as fr constants
+     *
+     * @return std::array<fr, PUBLIC_INPUTS_SIZE>
+     */
     static std::array<fr, PUBLIC_INPUTS_SIZE> construct_dummy()
     {
         const typename NativeGroup::affine_element& native_val = NativeGroup::affine_element::one();
@@ -65,6 +73,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         BB_ASSERT_EQ(idx, PUBLIC_INPUTS_SIZE);
         return limb_vals;
     }
+
     /**
      * @brief Set the witness indices for the x and y coordinates to public
      *
@@ -93,6 +102,14 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         return { Fq::reconstruct_from_public(x_limbs), Fq::reconstruct_from_public(y_limbs) };
     }
 
+    /**
+     * @brief Create a biggroup witness from a native group element, allocating new witnesses as necessary
+     *
+     * @param ctx
+     * @param input
+     * @return element
+     * @warning Use this carefully, as its creating free witnesses.
+     */
     static element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
         element out;
@@ -115,6 +132,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         return out;
     }
 
+    /**
+     * @brief Check that the point is on the curve
+     */
     void validate_on_curve() const
     {
         Fq b(get_context(), uint256_t(NativeGroup::curve_b));
@@ -144,7 +164,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     }
 
     /**
-     * Fix a witness. The value of the witness is constrained with a selector
+     * @brief Fix a witness. The value of the witness is constrained with a selector
      **/
     void fix_witness()
     {
@@ -156,6 +176,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         unset_free_witness_tag();
     }
 
+    /**
+     * @brief Creates a constant group generator.
+     */
     static element one(Builder* ctx)
     {
         uint256_t x = uint256_t(NativeGroup::one.x);
@@ -179,6 +202,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     element& operator=(const element& other);
     element& operator=(element&& other) noexcept;
 
+    /**
+     * @brief Serialize the element to a byte array in form: (yhi || ylo || xhi || xlo).
+     *
+     * @return byte_array<Builder>
+     */
     byte_array<Builder> to_byte_array() const
     {
         byte_array<Builder> result(get_context());
@@ -208,14 +236,43 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         *this = *this - other;
         return *this;
     }
-    std::array<element, 2> checked_unconditional_add_sub(const element&) const;
+    std::array<element, 2> checked_unconditional_add_sub(const element& other) const;
 
-    element operator*(const Fr& other) const;
+    element operator*(const Fr& scalar) const;
 
     element conditional_negate(const bool_ct& predicate) const
     {
         element result(*this);
         result.y = result.y.conditional_negate(predicate);
+        return result;
+    }
+
+    /**
+     * @brief Selects `this` if predicate is false, `other` if predicate is true.
+     *
+     * @param other
+     * @param predicate
+     * @return element
+     */
+    element conditional_select(const element& other, const bool_ct& predicate) const
+    {
+        // If predicate is constant, we can select out of circuit
+        if (predicate.is_constant()) {
+            auto result = predicate.get_value() ? other : *this;
+            result.set_origin_tag(
+                OriginTag(predicate.get_origin_tag(), other.get_origin_tag(), this->get_origin_tag()));
+            return result;
+        }
+
+        // Get the builder context
+        Builder* ctx = validate_context<Builder>(get_context(), other.get_context(), predicate.get_context());
+        BB_ASSERT_NEQ(ctx, nullptr, "biggroup::conditional_select must have a context");
+
+        element result(*this);
+        result.x = result.x.conditional_select(other.x, predicate);
+        result.y = result.y.conditional_select(other.y, predicate);
+        result._is_infinity =
+            bool_ct::conditional_assign(predicate, other.is_point_at_infinity(), result.is_point_at_infinity());
         return result;
     }
 
@@ -249,17 +306,17 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         Fq y3_prev;
         bool is_element = false;
 
-        chain_add_accumulator() {};
+        chain_add_accumulator() = default;
         explicit chain_add_accumulator(const element& input)
-        {
-            x3_prev = input.x;
-            y3_prev = input.y;
-            is_element = true;
-        }
+            : x3_prev(input.x)
+            , y3_prev(input.y)
+            , is_element(true)
+        {}
         chain_add_accumulator(const chain_add_accumulator& other) = default;
-        chain_add_accumulator(chain_add_accumulator&& other) = default;
+        chain_add_accumulator(chain_add_accumulator&& other) noexcept = default;
         chain_add_accumulator& operator=(const chain_add_accumulator& other) = default;
-        chain_add_accumulator& operator=(chain_add_accumulator&& other) = default;
+        chain_add_accumulator& operator=(chain_add_accumulator&& other) noexcept = default;
+        ~chain_add_accumulator() = default;
     };
 
     /**
@@ -270,7 +327,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static chain_add_accumulator chain_add(const element& p1, const chain_add_accumulator& accumulator);
     static element chain_add_end(const chain_add_accumulator& accumulator);
     element montgomery_ladder(const element& other) const;
-    element montgomery_ladder(const chain_add_accumulator& accumulator);
+    element montgomery_ladder(const chain_add_accumulator& to_add);
     element multiple_montgomery_ladder(const std::vector<chain_add_accumulator>& to_add) const;
     element quadruple_and_add(const std::vector<element>& to_add) const;
 
@@ -419,139 +476,95 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     bool_ct _is_infinity;
 
     template <size_t num_elements>
-    static std::array<twin_rom_table<Builder>, 5> create_group_element_rom_tables(
-        const std::array<element, num_elements>& elements, std::array<uint256_t, 8>& limb_max);
+    static std::array<twin_rom_table<Builder>, Fq::NUM_LIMBS + 1> create_group_element_rom_tables(
+        const std::array<element, num_elements>& rom_data, std::array<uint256_t, Fq::NUM_LIMBS * 2>& limb_max);
 
     template <size_t num_elements>
-    static element read_group_element_rom_tables(const std::array<twin_rom_table<Builder>, 5>& tables,
+    static element read_group_element_rom_tables(const std::array<twin_rom_table<Builder>, Fq::NUM_LIMBS + 1>& tables,
                                                  const field_t<Builder>& index,
-                                                 const std::array<uint256_t, 8>& limb_max);
+                                                 const std::array<uint256_t, Fq::NUM_LIMBS * 2>& limb_max);
 
     static std::pair<element, element> compute_offset_generators(const size_t num_rounds);
     static typename NativeGroup::affine_element compute_table_offset_generator();
 
+    /**
+     * @brief Four-bit variable-base table for scalar multiplication
+     * @details We store precomputed multiples of a group element in ROM tables. These precomputed multiples of the
+     * group element are used for scalar multiplication using 4-bit wNAF window.
+     */
     struct four_bit_table_plookup {
-        four_bit_table_plookup() {};
+        four_bit_table_plookup() = default;
         four_bit_table_plookup(const element& input);
 
         four_bit_table_plookup(const four_bit_table_plookup& other) = default;
         four_bit_table_plookup& operator=(const four_bit_table_plookup& other) = default;
+        four_bit_table_plookup(four_bit_table_plookup&& other) noexcept = default;
+        four_bit_table_plookup& operator=(four_bit_table_plookup&& other) noexcept = default;
+        ~four_bit_table_plookup() = default;
 
         element operator[](const field_t<Builder>& index) const;
         element operator[](const size_t idx) const { return element_table[idx]; }
         std::array<element, 16> element_table;
-        std::array<twin_rom_table<Builder>, 5> coordinates;
-        std::array<uint256_t, 8> limb_max; // tracks the maximum limb size represented in each element_table entry
+
+        // Each coordinate is an Fq element, which has 4 binary basis limbs and 1 prime basis limb
+        std::array<twin_rom_table<Builder>, Fq::NUM_LIMBS + 1> coordinates;
+        std::array<uint256_t, Fq::NUM_LIMBS * 2> limb_max; // tracks the maximum size of each binary basis limb
     };
 
+    /**
+     * @brief Eight-bit fixed base table for scalar multiplication
+     * @details This lookup table is used for fixed-base scalar multiplication using 8-bit windows.
+     * It stores precomputed multiples of the generator of bn254 / secp256k1 / secp256r1 depending on
+     * which curve operations are used in the circuit.
+     */
     struct eight_bit_fixed_base_table {
         enum CurveType { BN254, SECP256K1, SECP256R1 };
         eight_bit_fixed_base_table(const CurveType input_curve_type, bool use_endo)
             : curve_type(input_curve_type)
-            , use_endomorphism(use_endo) {};
+            , use_endomorphism(use_endo)
+        {}
 
         eight_bit_fixed_base_table(const eight_bit_fixed_base_table& other) = default;
         eight_bit_fixed_base_table& operator=(const eight_bit_fixed_base_table& other) = default;
+        eight_bit_fixed_base_table(eight_bit_fixed_base_table&& other) noexcept = default;
+        eight_bit_fixed_base_table& operator=(eight_bit_fixed_base_table&& other) noexcept = default;
+        ~eight_bit_fixed_base_table() = default;
 
         element operator[](const field_t<Builder>& index) const;
 
-        element operator[](const size_t idx) const;
+        element operator[](const size_t index) const;
 
         CurveType curve_type;
         bool use_endomorphism;
     };
 
     static std::pair<four_bit_table_plookup, four_bit_table_plookup> create_endo_pair_four_bit_table_plookup(
-        const element& input)
-    {
-        four_bit_table_plookup P1;
-        four_bit_table_plookup endoP1;
-        element d2 = input.dbl();
-
-        P1.element_table[8] = input;
-        for (size_t i = 9; i < 16; ++i) {
-            P1.element_table[i] = P1.element_table[i - 1] + d2;
-        }
-        for (size_t i = 0; i < 8; ++i) {
-            P1.element_table[i] = (-P1.element_table[15 - i]);
-        }
-        for (size_t i = 0; i < 16; ++i) {
-            endoP1.element_table[i].y = P1.element_table[15 - i].y;
-        }
-        uint256_t beta_val = bb::field<typename Fq::TParams>::cube_root_of_unity();
-        Fq beta(bb::fr(beta_val.slice(0, 136)), bb::fr(beta_val.slice(136, 256)), false);
-        for (size_t i = 0; i < 8; ++i) {
-            endoP1.element_table[i].x = P1.element_table[i].x * beta;
-            endoP1.element_table[15 - i].x = endoP1.element_table[i].x;
-        }
-        P1.coordinates = create_group_element_rom_tables<16>(P1.element_table, P1.limb_max);
-        endoP1.coordinates = create_group_element_rom_tables<16>(endoP1.element_table, endoP1.limb_max);
-        auto result = std::make_pair(four_bit_table_plookup(P1), four_bit_table_plookup(endoP1));
-        return result;
-    }
+        const element& input);
 
     /**
-     * Creates a lookup table for a set of 2, 3 or 4 points
-     *
-     * The lookup table computes linear combinations of all of the points
-     *
-     * e.g. for 3 points A, B, C, the table represents the following values:
-     *
-     * 0 0 0 ->  C+B+A
-     * 0 0 1 ->  C+B-A
-     * 0 1 0 ->  C-B+A
-     * 0 1 1 ->  C-B-A
-     * 1 0 0 -> -C+B+A
-     * 1 0 1 -> -C+B-A
-     * 1 1 0 -> -C-B+A
-     * 1 1 1 -> -C-B-A
-     *
-     * The table KEY is 3 1-bit NAF entries that correspond to scalar multipliers for
-     * base points A, B, C
-     **/
-    template <size_t length> struct lookup_table_base {
-        static constexpr size_t table_size = (1ULL << (length - 1));
-        lookup_table_base(const std::array<element, length>& inputs);
-        lookup_table_base(const lookup_table_base& other) = default;
-        lookup_table_base& operator=(const lookup_table_base& other) = default;
-
-        element get(const std::array<bool_ct, length>& bits) const;
-
-        element operator[](const size_t idx) const { return element_table[idx]; }
-
-        std::array<field_t<Builder>, table_size> x_b0_table;
-        std::array<field_t<Builder>, table_size> x_b1_table;
-        std::array<field_t<Builder>, table_size> x_b2_table;
-        std::array<field_t<Builder>, table_size> x_b3_table;
-
-        std::array<field_t<Builder>, table_size> y_b0_table;
-        std::array<field_t<Builder>, table_size> y_b1_table;
-        std::array<field_t<Builder>, table_size> y_b2_table;
-        std::array<field_t<Builder>, table_size> y_b3_table;
-        element twin0;
-        element twin1;
-        std::array<element, table_size> element_table;
-    };
-
-    /**
-     * The Plookup version of the above lookup table
-     *
-     * Uses ROM tables to efficiently access lookup table
+     * @brief Generic lookup table that uses ROM tables internally to access group elements.
+     * @details Can access elements in the table using bit-decomposed index.
      **/
     template <size_t length> struct lookup_table_plookup {
         static constexpr size_t table_size = (1ULL << (length));
-        lookup_table_plookup() {}
+        lookup_table_plookup() = default;
         lookup_table_plookup(const std::array<element, length>& inputs);
         lookup_table_plookup(const lookup_table_plookup& other) = default;
         lookup_table_plookup& operator=(const lookup_table_plookup& other) = default;
+        lookup_table_plookup(lookup_table_plookup&& other) noexcept = default;
+        lookup_table_plookup& operator=(lookup_table_plookup&& other) noexcept = default;
+        ~lookup_table_plookup() = default;
 
         element get(const std::array<bool_ct, length>& bits) const;
 
         element operator[](const size_t idx) const { return element_table[idx]; }
 
         std::array<element, table_size> element_table;
-        std::array<twin_rom_table<Builder>, 5> coordinates;
-        std::array<uint256_t, 8> limb_max;
+
+        // Each coordinate is an Fq element, which has 4 binary basis limbs and 1 prime basis limb
+        // ROM tables: (idx, x0, x1), (idx, x2, x3), (idx, y0, y1), (idx, y2, y3), (idx, xp, yp)
+        std::array<twin_rom_table<Builder>, Fq::NUM_LIMBS + 1> coordinates;
+        std::array<uint256_t, Fq::NUM_LIMBS * 2> limb_max;
     };
 
     using twin_lookup_table = lookup_table_plookup<2>;
@@ -579,90 +592,86 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         }
 
         endo_table.coordinates = create_group_element_rom_tables<16>(endo_table.element_table, endo_table.limb_max);
-        return std::make_pair<quad_lookup_table, quad_lookup_table>((quad_lookup_table)base_table,
-                                                                    (quad_lookup_table)endo_table);
+        return std::make_pair<quad_lookup_table, quad_lookup_table>(base_table, endo_table);
     }
 
     /**
-     * Creates a pair of 5-bit lookup tables, the former corresponding to 5 input points,
-     * the latter corresponding to the endomorphism equivalent of the 5 input points (e.g. x -> \beta * x, y -> -y)
-     **/
-    static std::pair<lookup_table_plookup<5>, lookup_table_plookup<5>> create_endo_pair_five_lookup_table(
-        const std::array<element, 5>& inputs)
-    {
-        lookup_table_plookup<5> base_table(inputs);
-        lookup_table_plookup<5> endo_table;
-        uint256_t beta_val = bb::field<typename Fq::TParams>::cube_root_of_unity();
-        Fq beta(bb::fr(beta_val.slice(0, 136)), bb::fr(beta_val.slice(136, 256)), false);
-        for (size_t i = 0; i < 16; ++i) {
-            endo_table.element_table[i + 16].x = base_table[15 - i].x * beta;
-            endo_table.element_table[i + 16].y = base_table[15 - i].y;
-
-            endo_table.element_table[15 - i] = (-endo_table.element_table[i + 16]);
-        }
-
-        endo_table.coordinates = create_group_element_rom_tables<32>(endo_table.element_table, endo_table.limb_max);
-
-        return std::make_pair<lookup_table_plookup<5>, lookup_table_plookup<5>>((lookup_table_plookup<5>)base_table,
-                                                                                (lookup_table_plookup<5>)endo_table);
-    }
-
-    /**
-     * Helper class to split a set of points into lookup table subsets
+     * Helper struct to split a set of points into lookup table subsets
      *
-     * Ultra version
      **/
     struct batch_lookup_table_plookup {
         batch_lookup_table_plookup(const std::vector<element>& points)
+            : num_points(points.size())
+            , num_fives(num_points / 5)
         {
-            num_points = points.size();
-            num_fives = num_points / 5;
-            num_sixes = 0;
             // size-6 table is expensive and only benefits us if creating them reduces the number of total tables
             if (num_points == 1) {
                 num_fives = 0;
                 num_sixes = 0;
             } else if (num_fives * 5 == (num_points - 1)) {
+                // last 6 points to be added as one 6-table
                 num_fives -= 1;
                 num_sixes = 1;
             } else if (num_fives * 5 == (num_points - 2) && num_fives >= 2) {
+                // last 12 points to be added as two 6-tables
                 num_fives -= 2;
                 num_sixes = 2;
             } else if (num_fives * 5 == (num_points - 3) && num_fives >= 3) {
+                // last 18 points to be added as three 6-tables
                 num_fives -= 3;
                 num_sixes = 3;
             }
 
-            has_quad = ((num_fives * 5 + num_sixes * 6) < num_points - 3) && (num_points >= 4);
+            // Calculate remaining points after allocating fives and sixes tables
+            size_t remaining_points = num_points - (num_fives * 5 + num_sixes * 6);
 
-            has_triple = ((num_fives * 5 + num_sixes * 6 + (size_t)has_quad * 4) < num_points - 2) && (num_points >= 3);
+            // Allocate one quad table if required (and update remaining points)
+            has_quad = (remaining_points >= 4) && (num_points >= 4);
+            if (has_quad) {
+                remaining_points -= 4;
+            }
 
-            has_twin =
-                ((num_fives * 5 + num_sixes * 6 + (size_t)has_quad * 4 + (size_t)has_triple * 3) < num_points - 1) &&
-                (num_points >= 2);
+            // Allocate one triple table if required (and update remaining points)
+            has_triple = (remaining_points >= 3) && (num_points >= 3);
+            if (has_triple) {
+                remaining_points -= 3;
+            }
 
-            has_singleton = num_points != ((num_fives * 5 + num_sixes * 6) + ((size_t)has_quad * 4) +
-                                           ((size_t)has_triple * 3) + ((size_t)has_twin * 2));
+            // Allocate one twin table if required (and update remaining points)
+            has_twin = (remaining_points >= 2) && (num_points >= 2);
+            if (has_twin) {
+                remaining_points -= 2;
+            }
+
+            // If there is anything remaining, allocate a singleton
+            has_singleton = (remaining_points != 0) && (num_points >= 1);
+
+            // Sanity check
+            BB_ASSERT_EQ(num_points,
+                         num_sixes * 6 + num_fives * 5 + static_cast<size_t>(has_quad) * 4 +
+                             static_cast<size_t>(has_triple) * 3 + static_cast<size_t>(has_twin) * 2 +
+                             static_cast<size_t>(has_singleton) * 1,
+                         "point allocation mismatch");
 
             size_t offset = 0;
             for (size_t i = 0; i < num_sixes; ++i) {
                 six_tables.push_back(lookup_table_plookup<6>({
-                    points[offset + 6 * i],
-                    points[offset + 6 * i + 1],
-                    points[offset + 6 * i + 2],
-                    points[offset + 6 * i + 3],
-                    points[offset + 6 * i + 4],
-                    points[offset + 6 * i + 5],
+                    points[offset + (6 * i)],
+                    points[offset + (6 * i) + 1],
+                    points[offset + (6 * i) + 2],
+                    points[offset + (6 * i) + 3],
+                    points[offset + (6 * i) + 4],
+                    points[offset + (6 * i) + 5],
                 }));
             }
             offset += 6 * num_sixes;
             for (size_t i = 0; i < num_fives; ++i) {
                 five_tables.push_back(lookup_table_plookup<5>({
-                    points[offset + 5 * i],
-                    points[offset + 5 * i + 1],
-                    points[offset + 5 * i + 2],
-                    points[offset + 5 * i + 3],
-                    points[offset + 5 * i + 4],
+                    points[offset + (5 * i)],
+                    points[offset + (5 * i) + 1],
+                    points[offset + (5 * i) + 2],
+                    points[offset + (5 * i) + 3],
+                    points[offset + (5 * i) + 4],
                 }));
             }
             offset += 5 * num_fives;
@@ -671,7 +680,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
                 quad_tables.push_back(
                     quad_lookup_table({ points[offset], points[offset + 1], points[offset + 2], points[offset + 3] }));
             }
-
             if (has_triple) {
                 triple_tables.push_back(
                     triple_lookup_table({ points[offset], points[offset + 1], points[offset + 2] }));
@@ -679,7 +687,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             if (has_twin) {
                 twin_tables.push_back(twin_lookup_table({ points[offset], points[offset + 1] }));
             }
-
             if (has_singleton) {
                 singletons.push_back(points[points.size() - 1]);
             }
@@ -750,19 +757,19 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             std::vector<element> round_accumulator;
             for (size_t j = 0; j < num_sixes; ++j) {
                 round_accumulator.push_back(six_tables[j].get({ naf_entries[6 * j],
-                                                                naf_entries[6 * j + 1],
-                                                                naf_entries[6 * j + 2],
-                                                                naf_entries[6 * j + 3],
-                                                                naf_entries[6 * j + 4],
-                                                                naf_entries[6 * j + 5] }));
+                                                                naf_entries[(6 * j) + 1],
+                                                                naf_entries[(6 * j) + 2],
+                                                                naf_entries[(6 * j) + 3],
+                                                                naf_entries[(6 * j) + 4],
+                                                                naf_entries[(6 * j) + 5] }));
             }
             size_t offset = num_sixes * 6;
             for (size_t j = 0; j < num_fives; ++j) {
-                round_accumulator.push_back(five_tables[j].get({ naf_entries[offset + j * 5],
-                                                                 naf_entries[offset + j * 5 + 1],
-                                                                 naf_entries[offset + j * 5 + 2],
-                                                                 naf_entries[offset + j * 5 + 3],
-                                                                 naf_entries[offset + j * 5 + 4] }));
+                round_accumulator.push_back(five_tables[j].get({ naf_entries[offset + (j * 5)],
+                                                                 naf_entries[offset + (j * 5) + 1],
+                                                                 naf_entries[offset + (j * 5) + 2],
+                                                                 naf_entries[offset + (j * 5) + 3],
+                                                                 naf_entries[offset + (j * 5) + 4] }));
             }
             offset += num_fives * 5;
             if (has_quad) {
@@ -786,14 +793,18 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             element::chain_add_accumulator accumulator;
             if (round_accumulator.size() == 1) {
                 return element::chain_add_accumulator(round_accumulator[0]);
-            } else if (round_accumulator.size() == 2) {
-                return element::chain_add_start(round_accumulator[0], round_accumulator[1]);
-            } else {
-                accumulator = element::chain_add_start(round_accumulator[0], round_accumulator[1]);
-                for (size_t j = 2; j < round_accumulator.size(); ++j) {
-                    accumulator = element::chain_add(round_accumulator[j], accumulator);
-                }
             }
+
+            if (round_accumulator.size() == 2) {
+                return element::chain_add_start(round_accumulator[0], round_accumulator[1]);
+            }
+
+            // Use chain add for at least 3 elements
+            accumulator = element::chain_add_start(round_accumulator[0], round_accumulator[1]);
+            for (size_t j = 2; j < round_accumulator.size(); ++j) {
+                accumulator = element::chain_add(round_accumulator[j], accumulator);
+            }
+
             return (accumulator);
         }
 
@@ -801,21 +812,21 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         {
             std::vector<element> round_accumulator;
             for (size_t j = 0; j < num_sixes; ++j) {
-                round_accumulator.push_back(six_tables[j].get({ naf_entries[6 * j],
-                                                                naf_entries[6 * j + 1],
-                                                                naf_entries[6 * j + 2],
-                                                                naf_entries[6 * j + 3],
-                                                                naf_entries[6 * j + 4],
-                                                                naf_entries[6 * j + 5] }));
+                round_accumulator.push_back(six_tables[j].get({ naf_entries[(6 * j)],
+                                                                naf_entries[(6 * j) + 1],
+                                                                naf_entries[(6 * j) + 2],
+                                                                naf_entries[(6 * j) + 3],
+                                                                naf_entries[(6 * j) + 4],
+                                                                naf_entries[(6 * j) + 5] }));
             }
             size_t offset = num_sixes * 6;
 
             for (size_t j = 0; j < num_fives; ++j) {
-                round_accumulator.push_back(five_tables[j].get({ naf_entries[offset + 5 * j],
-                                                                 naf_entries[offset + 5 * j + 1],
-                                                                 naf_entries[offset + 5 * j + 2],
-                                                                 naf_entries[offset + 5 * j + 3],
-                                                                 naf_entries[offset + 5 * j + 4] }));
+                round_accumulator.push_back(five_tables[j].get({ naf_entries[offset + (5 * j)],
+                                                                 naf_entries[offset + (5 * j) + 1],
+                                                                 naf_entries[offset + (5 * j) + 2],
+                                                                 naf_entries[offset + (5 * j) + 3],
+                                                                 naf_entries[offset + (5 * j) + 4] }));
             }
 
             offset += num_fives * 5;
@@ -824,7 +835,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
                 round_accumulator.push_back(quad_tables[0].get(
                     naf_entries[offset], naf_entries[offset + 1], naf_entries[offset + 2], naf_entries[offset + 3]));
             }
-
             if (has_triple) {
                 round_accumulator.push_back(
                     triple_tables[0].get(naf_entries[offset], naf_entries[offset + 1], naf_entries[offset + 2]));
@@ -840,14 +850,18 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             element::chain_add_accumulator accumulator;
             if (round_accumulator.size() == 1) {
                 return result;
-            } else if (round_accumulator.size() == 2) {
-                return result + round_accumulator[1];
-            } else {
-                accumulator = element::chain_add_start(round_accumulator[0], round_accumulator[1]);
-                for (size_t j = 2; j < round_accumulator.size(); ++j) {
-                    accumulator = element::chain_add(round_accumulator[j], accumulator);
-                }
             }
+
+            if (round_accumulator.size() == 2) {
+                return result + round_accumulator[1];
+            }
+
+            // For 3 or more elements, use chain addition
+            accumulator = element::chain_add_start(round_accumulator[0], round_accumulator[1]);
+            for (size_t j = 2; j < round_accumulator.size(); ++j) {
+                accumulator = element::chain_add(round_accumulator[j], accumulator);
+            }
+
             return element::chain_add_end(accumulator);
         }
 
@@ -859,175 +873,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         std::vector<element> singletons;
         size_t num_points;
 
-        size_t num_sixes;
+        size_t num_sixes = 0;
         size_t num_fives;
         bool has_quad;
-        bool has_triple;
-        bool has_twin;
-        bool has_singleton;
-    };
-
-    /**
-     * Helper class to split a set of points into lookup table subsets
-     *
-     **/
-    struct batch_lookup_table_base {
-        batch_lookup_table_base(const std::vector<element>& points)
-        {
-            num_points = points.size();
-            num_quads = num_points / 4;
-
-            has_triple = ((num_quads * 4) < num_points - 2) && (num_points >= 3);
-
-            has_twin = ((num_quads * 4 + (size_t)has_triple * 3) < num_points - 1) && (num_points >= 2);
-
-            has_singleton = num_points != (num_quads * 4 + ((size_t)has_triple * 3) + ((size_t)has_twin * 2));
-
-            for (size_t i = 0; i < num_quads; ++i) {
-                quad_tables.push_back(
-                    quad_lookup_table({ points[4 * i], points[4 * i + 1], points[4 * i + 2], points[4 * i + 3] }));
-            }
-
-            if (has_triple) {
-                triple_tables.push_back(triple_lookup_table(
-                    { points[4 * num_quads], points[4 * num_quads + 1], points[4 * num_quads + 2] }));
-            }
-            if (has_twin) {
-                twin_tables.push_back(twin_lookup_table({ points[4 * num_quads], points[4 * num_quads + 1] }));
-            }
-
-            if (has_singleton) {
-                singletons.push_back(points[points.size() - 1]);
-            }
-        }
-
-        element get_initial_entry() const
-        {
-            std::vector<element> add_accumulator;
-            for (size_t i = 0; i < num_quads; ++i) {
-                add_accumulator.push_back(quad_tables[i][0]);
-            }
-            if (has_twin) {
-                add_accumulator.push_back(twin_tables[0][0]);
-            }
-            if (has_triple) {
-                add_accumulator.push_back(triple_tables[0][0]);
-            }
-            if (has_singleton) {
-                add_accumulator.push_back(singletons[0]);
-            }
-
-            element accumulator = add_accumulator[0];
-            for (size_t i = 1; i < add_accumulator.size(); ++i) {
-                accumulator = accumulator + add_accumulator[i];
-            }
-            return accumulator;
-        }
-
-        chain_add_accumulator get_chain_initial_entry() const
-        {
-            std::vector<element> add_accumulator;
-            for (size_t i = 0; i < num_quads; ++i) {
-                add_accumulator.push_back(quad_tables[i][0]);
-            }
-            if (has_twin) {
-                add_accumulator.push_back(twin_tables[0][0]);
-            }
-            if (has_triple) {
-                add_accumulator.push_back(triple_tables[0][0]);
-            }
-            if (has_singleton) {
-                add_accumulator.push_back(singletons[0]);
-            }
-            if (add_accumulator.size() >= 2) {
-                chain_add_accumulator output = element::chain_add_start(add_accumulator[0], add_accumulator[1]);
-                for (size_t i = 2; i < add_accumulator.size(); ++i) {
-                    output = element::chain_add(add_accumulator[i], output);
-                }
-                return output;
-            }
-            return chain_add_accumulator(add_accumulator[0]);
-        }
-
-        element::chain_add_accumulator get_chain_add_accumulator(std::vector<bool_ct>& naf_entries) const
-        {
-            std::vector<element> round_accumulator;
-            for (size_t j = 0; j < num_quads; ++j) {
-                round_accumulator.push_back(quad_tables[j].get(std::array<bool_ct, 4>{
-                    naf_entries[4 * j], naf_entries[4 * j + 1], naf_entries[4 * j + 2], naf_entries[4 * j + 3] }));
-            }
-
-            if (has_triple) {
-                round_accumulator.push_back(triple_tables[0].get(std::array<bool_ct, 3>{
-                    naf_entries[num_quads * 4], naf_entries[num_quads * 4 + 1], naf_entries[num_quads * 4 + 2] }));
-            }
-            if (has_twin) {
-                round_accumulator.push_back(twin_tables[0].get(
-                    std::array<bool_ct, 2>{ naf_entries[num_quads * 4], naf_entries[num_quads * 4 + 1] }));
-            }
-            if (has_singleton) {
-                round_accumulator.push_back(singletons[0].conditional_negate(naf_entries[num_points - 1]));
-            }
-
-            element::chain_add_accumulator accumulator;
-            if (round_accumulator.size() == 1) {
-                accumulator.x3_prev = round_accumulator[0].x;
-                accumulator.y3_prev = round_accumulator[0].y;
-                accumulator.is_element = true;
-                return accumulator;
-            } else if (round_accumulator.size() == 2) {
-                return element::chain_add_start(round_accumulator[0], round_accumulator[1]);
-            } else {
-                accumulator = element::chain_add_start(round_accumulator[0], round_accumulator[1]);
-                for (size_t j = 2; j < round_accumulator.size(); ++j) {
-                    accumulator = element::chain_add(round_accumulator[j], accumulator);
-                }
-            }
-            return (accumulator);
-        }
-
-        element get(std::vector<bool_ct>& naf_entries) const
-        {
-            std::vector<element> round_accumulator;
-            for (size_t j = 0; j < num_quads; ++j) {
-                round_accumulator.push_back(quad_tables[j].get(
-                    { naf_entries[4 * j], naf_entries[4 * j + 1], naf_entries[4 * j + 2], naf_entries[4 * j + 3] }));
-            }
-
-            if (has_triple) {
-                round_accumulator.push_back(triple_tables[0].get(std::array<bool_ct, 3>{
-                    naf_entries[num_quads * 4], naf_entries[num_quads * 4 + 1], naf_entries[num_quads * 4 + 2] }));
-            }
-            if (has_twin) {
-                round_accumulator.push_back(
-                    twin_tables[0].get({ naf_entries[num_quads * 4], naf_entries[num_quads * 4 + 1] }));
-            }
-            if (has_singleton) {
-                round_accumulator.push_back(singletons[0].conditional_negate(naf_entries[num_points - 1]));
-            }
-
-            element result = round_accumulator[0];
-            element::chain_add_accumulator accumulator;
-            if (round_accumulator.size() == 1) {
-                return result;
-            } else if (round_accumulator.size() == 2) {
-                return result + round_accumulator[1];
-            } else {
-                accumulator = element::chain_add_start(round_accumulator[0], round_accumulator[1]);
-                for (size_t j = 2; j < round_accumulator.size(); ++j) {
-                    accumulator = element::chain_add(round_accumulator[j], accumulator);
-                }
-            }
-            return element::chain_add_end(accumulator);
-        }
-
-        std::vector<quad_lookup_table> quad_tables;
-        std::vector<triple_lookup_table> triple_tables;
-        std::vector<twin_lookup_table> twin_tables;
-        std::vector<element> singletons;
-        size_t num_points;
-
-        size_t num_quads;
         bool has_triple;
         bool has_twin;
         bool has_singleton;

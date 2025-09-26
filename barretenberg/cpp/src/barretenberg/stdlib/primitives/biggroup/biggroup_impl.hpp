@@ -276,6 +276,7 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
         Fq neg_lambda = Fq::msub_div({ x }, { (two_x + x) }, (y + y), { a }, /*enable_divisor_nz_check*/ false);
         Fq x_3 = neg_lambda.sqradd({ -(two_x) });
         Fq y_3 = neg_lambda.madd(x_3 - x, { -y });
+        // TODO(suyash): do we handle the point at infinity case here?
         return element(x_3, y_3);
     }
     // TODO(): handle y = 0 case.

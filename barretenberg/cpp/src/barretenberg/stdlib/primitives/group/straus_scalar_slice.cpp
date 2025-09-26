@@ -13,12 +13,9 @@
 namespace bb::stdlib {
 
 /**
- * @brief Construct a new straus scalar slice::straus scalar slice object
+ * @brief Construct straus_scalar_slices from an input cycle_scalar and specified table_bits
  *
- * @details As part of slicing algorithm, we also perform a primality test on the input scalar.
  *
- * TODO(@zac-williamson) make the primality test configurable.
- * We may want to validate the input < BN254::Fr OR input < Grumpkin::Fr depending on context!
  *
  * @tparam Builder
  * @param context
@@ -26,9 +23,9 @@ namespace bb::stdlib {
  * @param table_bits
  */
 template <typename Builder>
-straus_scalar_slice<Builder>::straus_scalar_slice(Builder* context,
-                                                  const cycle_scalar<Builder>& scalar,
-                                                  const size_t table_bits)
+straus_scalar_slices<Builder>::straus_scalar_slices(Builder* context,
+                                                    const cycle_scalar<Builder>& scalar,
+                                                    const size_t table_bits)
     : _table_bits(table_bits)
 {
     // convert an input cycle_scalar object into a vector of slices, each containing `table_bits` bits.
@@ -102,13 +99,13 @@ straus_scalar_slice<Builder>::straus_scalar_slice(Builder* context,
  * @param index
  * @return field_t<Builder>
  */
-template <typename Builder> field_t<Builder> straus_scalar_slice<Builder>::read(size_t index)
+template <typename Builder> field_t<Builder> straus_scalar_slices<Builder>::read(size_t index)
 {
     BB_ASSERT_LT(index, slices.size(), "Straus scalar slice index out of bounds!");
     return slices[index];
 }
 
-template class straus_scalar_slice<bb::UltraCircuitBuilder>;
-template class straus_scalar_slice<bb::MegaCircuitBuilder>;
+template class straus_scalar_slices<bb::UltraCircuitBuilder>;
+template class straus_scalar_slices<bb::MegaCircuitBuilder>;
 
 } // namespace bb::stdlib
