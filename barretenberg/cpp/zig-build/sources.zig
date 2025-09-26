@@ -560,7 +560,7 @@ pub const test_group_paths = [_][]const u8{
     "src/barretenberg/protogalaxy",
     "src/barretenberg/relations",
     "src/barretenberg/serialize",
-    // "src/barretenberg/smt_verification",
+    // "src/barretenberg/smt_verification", // Needs cvc5
     "src/barretenberg/srs",
     "src/barretenberg/stdlib",
     "src/barretenberg/sumcheck",

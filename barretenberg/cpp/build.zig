@@ -174,15 +174,16 @@ fn getBuildStepForTarget(
     }
 
     const install = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
+    install.step.dependOn(&install_lib.step);
 
     // If this platform is the host platform, it should be built by default.
     if (is_host) {
         b.getInstallStep().dependOn(&install.step);
     }
 
-    // Early out of wasm target, as we can't build tests for wasm.
+    // Early out if wasm target, as we can't build tests for wasm.
     if (platform.os == .wasi) {
-        return &exe.step;
+        return &install.step;
     }
 
     const tests_step = if (is_host) b.step("tests", "Build all tests") else null;
@@ -352,7 +353,7 @@ fn getBuildStepForTarget(
         }
     }
 
-    return &exe.step;
+    return &install.step;
 }
 
 fn addBuildStepForWasmReactor(
@@ -409,9 +410,7 @@ fn addBuildStepForWasmReactor(
     // Add step to gzip the output wasm file to the same file with .gz extension.
     const gzip = b.addSystemCommand(&.{ "gzip", "-k", "-f", b.getInstallPath(.{ .custom = "wasm32-wasi" }, "barretenberg.wasm") });
     gzip.step.dependOn(&install.step);
-    // platform_step.dependOn(&gzip.step);
-
-    exe.step.dependOn(platform_step);
+    platform_step.dependOn(&gzip.step);
 }
 
 fn addDefaultIncludesAndLinks(b: *std.Build, lib: *std.Build.Step.Compile) void {
