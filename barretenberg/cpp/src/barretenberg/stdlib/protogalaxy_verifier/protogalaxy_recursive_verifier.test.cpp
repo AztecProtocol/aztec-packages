@@ -62,7 +62,9 @@ class ProtogalaxyRecursiveTests : public testing::Test {
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/744): make testing utility with functionality shared
      * amongst test files
      */
-    static void create_function_circuit(InnerBuilder& builder, size_t log_num_gates = 10)
+    static void create_function_circuit(InnerBuilder& builder,
+                                        size_t log_num_gates = 9,
+                                        size_t log_num_gates_with_public_inputs = 9)
     {
         using Fr = typename InnerCurve::ScalarField;
         using Fq = stdlib::bigfield<InnerBuilder, typename InnerCurve::BaseFieldNative::Params>;
@@ -71,6 +73,15 @@ class ProtogalaxyRecursiveTests : public testing::Test {
 
         // Create 2^log_n many add gates based on input log num gates
         MockCircuits::add_arithmetic_gates(builder, 1 << log_num_gates);
+
+        // Create 2^log_n many add gates with public inputs based on input log num gates
+        MockCircuits::add_arithmetic_gates_with_public_inputs(builder, 1 << log_num_gates_with_public_inputs);
+
+        // Create lookup gates
+        MockCircuits::add_lookup_gates(builder);
+
+        // Create RAM gates
+        MockCircuits::add_RAM_gates(builder);
 
         // Create ecc gates
         GoblinMockCircuits::add_some_ecc_op_gates(builder);
@@ -112,7 +123,6 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         InnerBuilder builder1;
         create_function_circuit(builder1);
         InnerBuilder builder2;
-        builder2.add_public_variable(FF(1));
         create_function_circuit(builder2);
 
         auto prover_inst_1 = std::make_shared<InnerProverInstance>(builder1);
@@ -206,18 +216,17 @@ class ProtogalaxyRecursiveTests : public testing::Test {
 
         auto recursive_transcript = std::make_shared<typename FoldingRecursiveVerifier::Transcript>();
         auto verifier = FoldingRecursiveVerifier{
-            &folding_circuit, recursive_verifier_inst_1, { recursive_vk_and_hash_2 }, recursive_transcript
+            &folding_circuit, recursive_verifier_inst_1, recursive_vk_and_hash_2, recursive_transcript
         };
         std::shared_ptr<RecursiveVerifierInstance> accumulator;
         for (size_t idx = 0; idx < num_verifiers; idx++) {
             verifier.transcript->enable_manifest();
             accumulator = verifier.verify_folding_proof(stdlib_proof);
-            if (idx < num_verifiers - 1) { // else the transcript is null in the test below
-                auto recursive_vk_and_hash = std::make_shared<RecursiveVKAndHash>(folding_circuit, verifier_inst_1->vk);
-                verifier = FoldingRecursiveVerifier{
-                    &folding_circuit, accumulator, { recursive_vk_and_hash }, recursive_transcript
-                };
-            }
+            // if (idx < num_verifiers - 1) { // else the transcript is null in the test below
+            auto recursive_vk_and_hash = std::make_shared<RecursiveVKAndHash>(folding_circuit, verifier_inst_1->vk);
+            verifier =
+                FoldingRecursiveVerifier{ &folding_circuit, accumulator, recursive_vk_and_hash, recursive_transcript };
+            // }
         }
         info("Folding Recursive Verifier: num gates unfinalized = ", folding_circuit.num_gates);
         EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
@@ -230,11 +239,11 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         std::shared_ptr<InnerVerifierInstance> native_accumulator;
         for (size_t idx = 0; idx < num_verifiers; idx++) {
             native_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.proof);
-            if (idx < num_verifiers - 1) { // else the transcript is null in the test below
-                native_folding_verifier =
-                    InnerFoldingVerifier{ { native_accumulator, verifier_inst_1 }, native_transcript };
-                native_folding_verifier.transcript->enable_manifest();
-            }
+            // if (idx < num_verifiers - 1) { // else the transcript is null in the test below
+            native_folding_verifier =
+                InnerFoldingVerifier{ { native_accumulator, verifier_inst_1 }, native_transcript };
+            native_folding_verifier.transcript->enable_manifest();
+            // }
         }
 
         // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
