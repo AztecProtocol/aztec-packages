@@ -375,13 +375,14 @@ inline std::string debug_log_level_to_string(DebugLogLevel lvl)
         return "debug";
     case DebugLogLevel::TRACE:
         return "trace";
-    default:
-        return "unknown";
     }
 }
 
 struct DebugLog {
     AztecAddress contractAddress;
+    // Level is a string since on the TS side is a union type of strings
+    // We could make it a number but we'd need to/from validation and conversion on the TS side.
+    // Consider doing that if it becomes a performance problem.
     std::string level;
     std::string message;
     std::vector<FF> fields;
