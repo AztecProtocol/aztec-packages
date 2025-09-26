@@ -84,7 +84,7 @@ Noir is a zero-knowledge domain specific language used for writing smart contrac
 ### Start coding
 
 <div>
- <Card  link='/developers/getting_started'>
+ <Card  link='/developers/getting_started_on_sandbox'>
     <CardHeader>
       <h3>Developer Getting Started Guide</h3>
     </CardHeader>

@@ -68,7 +68,6 @@ const config = {
           includeCurrentVersion: true,
           // There should be 2 versions, nightly and stable
           // The stable version is second in the list
-          lastVersion: versions[1],
           versions: {
             [versions[0]]: {
               ...(versions[0].includes("nightly") && { path: "nightly" }),
@@ -204,7 +203,7 @@ const config = {
             label: "Run a node",
           },
           {
-            to: "/developers/getting_started/getting_started_on_sandbox",
+            to: "/developers/getting_started_on_sandbox",
             label: "Install Sandbox",
             position: "right",
           },
@@ -257,7 +256,7 @@ const config = {
                 className: "dropdown-subtitle",
               },
               {
-                to: "/migration_notes",
+                to: "/developers/migration_notes",
                 label: "Migration Notes",
                 className: "no-external-icon",
               },
