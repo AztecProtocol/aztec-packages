@@ -16,6 +16,7 @@ import type { ContractClassPublicWithCommitment, ContractInstanceWithAddress } f
 import { SerializableContractInstance } from '@aztec/stdlib/contract';
 import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '@aztec/stdlib/delayed-public-mutable';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
+import type { DebugLog } from '@aztec/stdlib/logs';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TreeSnapshots } from '@aztec/stdlib/tx';
@@ -331,7 +332,7 @@ export class PublicPersistableStateManager {
     return this.trace.getDebugLogMemoryReads();
   }
 
-  public getLogs() {
+  public getLogs(): DebugLog[] {
     return this.trace.getDebugLogs();
   }
 

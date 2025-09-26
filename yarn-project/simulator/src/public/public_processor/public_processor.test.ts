@@ -59,6 +59,7 @@ describe('public_processor', () => {
       },
       revertCode: RevertCode.OK,
       processedPhases: [],
+      logs: [],
     };
 
     merkleTree.getPreviousValueIndex.mockResolvedValue({

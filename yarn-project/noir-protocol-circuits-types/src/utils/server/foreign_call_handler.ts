@@ -18,7 +18,7 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
   const log = createLogger('noir-protocol-circuits:oracle');
 
   if (name === 'utilityDebugLog') {
-    assert(args.length === 3, 'expected 4 arguments for debugLog: level, msg, fields_length, fields');
+    assert(args.length === 4, 'expected 4 arguments for debugLog: level, msg, fields_length, fields');
     const [levelInput, msgRaw, _ignoredFieldsSize, fields] = args;
     const levelNumber = Fr.fromString(levelInput[0]).toNumber();
     if (!LogLevels[levelNumber]) {

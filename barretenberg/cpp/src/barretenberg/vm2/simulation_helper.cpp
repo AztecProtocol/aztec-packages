@@ -233,10 +233,6 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
                         debug_log_component,
                         merkle_db);
 
-    // TODO(Alvaro): When this simulator is able to perform user requested simulation only runs, this should be set
-    // true.
-    // execution.set_client_initiated_simulation(true);
-
     TxExecution tx_execution(execution,
                              context_provider,
                              merkle_db,
