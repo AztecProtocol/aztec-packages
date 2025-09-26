@@ -38,7 +38,9 @@ Let's create a simple yarn + aztec.nr project:
 
 ```bash
 yarn init
-yarn add @aztec/aztec.js@#include_aztec_version @aztec/accounts@#include_aztec_version
+# This is to ensure yarn uses node_modules instead of pnp for dependency installation
+yarn config set nodeLinker node-modules
+yarn add @aztec/aztec.js@#include_aztec_version @aztec/accounts@#include_aztec_version @aztec/test-wallet@#include_aztec_version @aztec/kv-store@#include_aztec_version
 aztec-nargo init --contract
 ```
 
@@ -73,8 +75,7 @@ Since we're here, let's import more specific stuff from this library:
 pub contract BobToken {
     use aztec::{
         macros::{functions::{initializer, private, public, utility, internal}, storage::storage},
-        protocol_types::{address::AztecAddress, traits::ToField},
-        state_vars::Map,
+        protocol_types::address::AztecAddress, state_vars::Map,
         state_vars::public_mutable::PublicMutable,
     };
 }
@@ -238,37 +239,49 @@ Then we will use the `giggleWallet` to deploy our contract, mint 100 BOB to Alic
 
 ```typescript
 import { BobTokenContract } from './artifacts/BobToken.js';
-import { createPXEClient, waitForPXE, Wallet } from '@aztec/aztec.js';
-import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
+import { AztecAddress, createAztecNodeClient } from '@aztec/aztec.js';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { TestWallet } from '@aztec/test-wallet/server';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 
 async function main() {
     // Connect to sandbox
-    const pxe = createPXEClient('http://localhost:8080');
-    await waitForPXE(pxe);
+    const node = createAztecNodeClient('http://localhost:8080');
 
-    // Get test accounts
-    const wallets = await getInitialTestAccountsWallets(pxe);
-    const giggleWallet = wallets[0];  // Giggle's admin wallet
-    const aliceWallet = wallets[1];   // Employee Alice
-    const bobClinicWallet = wallets[2];  // Bob's Psychology Clinic
+    const store = await openTmpStore();
+
+    const wallet = await TestWallet.create(node, undefined, {
+        store,
+    });
+
+    const [giggleWalletData, aliceWalletData, bobClinicWalletData] = await getInitialTestAccountsData();
+    const giggleAccount = await wallet.createSchnorrAccount(giggleWalletData.secret, giggleWalletData.salt);
+    const aliceAccount = await wallet.createSchnorrAccount(aliceWalletData.secret, aliceWalletData.salt);
+    const bobClinicAccount = await wallet.createSchnorrAccount(bobClinicWalletData.secret, bobClinicWalletData.salt);
+
+    const giggleAddress = giggleAccount.getAddress();
+    const aliceAddress = aliceAccount.getAddress();
+    const bobClinicAddress = bobClinicAccount.getAddress();
 
     const bobToken = await BobTokenContract
-        .deploy(giggleWallet)
-        .send({ from: giggleWallet.address })
+        .deploy(
+            wallet,
+        )
+        .send({ from: giggleAddress })
         .deployed();
 
-    await bobToken.withWallet(giggleWallet).methods
-        .mint_public(aliceWallet.address, 100n)
-        .send({ from: giggleWallet.address })
+    await bobToken.methods
+        .mint_public(aliceAddress, 100n)
+        .send({ from: giggleAddress })
         .wait();
 
-    await bobToken.withWallet(aliceWallet).methods
-        .transfer_public(bobClinicWallet.address, 10n)
-        .send({ from: aliceWallet.address })
+    await bobToken.methods
+        .transfer_public(bobClinicAddress, 10n)
+        .send({ from: aliceAddress })
         .wait();
 }
 
-main();
+main().catch(console.error);
 ```
 
 Run your test:
@@ -508,6 +521,16 @@ fn _credit_public_balance(owner: AztecAddress, amount: u64) {
 }
 ```
 
+Now you've made changes to your contract, you need to recompile your contract.
+
+Here are the steps from above, for reference:
+
+```bash
+aztec-nargo compile
+aztec-postprocess-contract
+aztec codegen target --outdir artifacts
+```
+
 ## Testing the Complete Privacy System
 
 Now that you've implemented all the privacy features, let's update our test script to showcase the full privacy flow:
@@ -518,20 +541,20 @@ Let's stop being lazy and add a nice little "log" function that just spits out e
 
 ```typescript
 // at the top of your file
-async function getBalances(contract: BobTokenContract, wallets: Wallet[]) {
+async function getBalances(contract: BobTokenContract, aliceAddress: AztecAddress, bobAddress: AztecAddress) {
     Promise.all([
-        contract.withWallet(wallets[1]).methods
-            .public_balance_of(wallets[1].address)
-            .simulate({ from: wallets[1].address }),
-        contract.withWallet(wallets[1]).methods
-            .private_balance_of(wallets[1].address)
-            .simulate({ from: wallets[1].address }),
-        contract.withWallet(wallets[2]).methods
-            .public_balance_of(wallets[2].address)
-            .simulate({ from: wallets[2].address }),
-        contract.withWallet(wallets[2]).methods
-            .private_balance_of(wallets[2].address)
-            .simulate({ from: wallets[2].address })
+        contract.methods
+            .public_balance_of(aliceAddress)
+            .simulate({ from: aliceAddress }),
+        contract.methods
+            .private_balance_of(aliceAddress)
+            .simulate({ from: aliceAddress }),
+        contract.methods
+            .public_balance_of(bobAddress)
+            .simulate({ from: bobAddress }),
+        contract.methods
+            .private_balance_of(bobAddress)
+            .simulate({ from: bobAddress })
     ]).then(([alicePublicBalance, alicePrivateBalance, bobPublicBalance, bobPrivateBalance]) => {
         console.log(`📊 Alice has ${alicePublicBalance} public BOB tokens and ${alicePrivateBalance} private BOB tokens`);
         console.log(`📊 Bob's Clinic has ${bobPublicBalance} public BOB tokens and ${bobPrivateBalance} private BOB tokens`);
@@ -546,46 +569,41 @@ Now let's add some more stuff to our `index.ts`:
 ```typescript
 async function main() {
     // ...etc
-    await bobToken.withWallet(giggleWallet).methods
-        .mint_public(aliceWallet.address, 100n)
-        .send({ from: giggleWallet.address })
+    await bobToken.methods
+        .mint_public(aliceAddress, 100n)
+        .send({ from: giggleAddress })
         .wait();
-    await getBalances(bobToken, wallets);
+    await getBalances(bobToken, aliceAddress, bobClinicAddress);
 
-
-    await bobToken.withWallet(aliceWallet).methods
-        .transfer_public(bobClinicWallet.address, 10n)
-        .send({ from: aliceWallet.address })
+    await bobToken.methods
+        .transfer_public(bobClinicAddress, 10n)
+        .send({ from: aliceAddress })
         .wait();
-    await getBalances(bobToken, wallets);
+    await getBalances(bobToken, aliceAddress, bobClinicAddress);
 
-
-    await bobToken.withWallet(aliceWallet).methods
+    await bobToken.methods
         .public_to_private(90n)
-        .send({ from: aliceWallet.address })
+        .send({ from: aliceAddress })
         .wait();
-    await getBalances(bobToken, wallets);
+    await getBalances(bobToken, aliceAddress, bobClinicAddress);
 
-
-    await bobToken.withWallet(aliceWallet).methods
-        .transfer_private(bobClinicWallet.address, 50n)
-        .send({ from: aliceWallet.address })
+    await bobToken.methods
+        .transfer_private(bobClinicAddress, 50n)
+        .send({ from: aliceAddress })
         .wait();
-    await getBalances(bobToken, wallets);
+    await getBalances(bobToken, aliceAddress, bobClinicAddress);
 
-
-    await bobToken.withWallet(aliceWallet).methods
+    await bobToken.methods
         .private_to_public(10n)
-        .send({ from: aliceWallet.address })
+        .send({ from: aliceAddress })
         .wait();
-    await getBalances(bobToken, wallets);
+    await getBalances(bobToken, aliceAddress, bobClinicAddress);
 
-
-    await bobToken.withWallet(giggleWallet).methods
-        .mint_private(aliceWallet.address, 100n)
-        .send({ from: giggleWallet.address })
+    await bobToken.methods
+        .mint_private(aliceAddress, 100n)
+        .send({ from: giggleAddress })
         .wait();
-    await getBalances(bobToken, wallets);
+    await getBalances(bobToken, aliceAddress, bobClinicAddress);
 }
 
 main().catch(console.error);
