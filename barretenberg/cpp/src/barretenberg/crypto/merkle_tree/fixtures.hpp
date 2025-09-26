@@ -19,7 +19,6 @@
 namespace bb::crypto::merkle_tree {
 
 const uint32_t NUM_VALUES = 1024;
-// inline auto& engine = numeric::get_debug_randomness();
 
 auto create_values = [](uint32_t num_values = NUM_VALUES) {
     auto& random_engine = numeric::get_randomness();

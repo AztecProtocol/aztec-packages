@@ -173,7 +173,6 @@ pub fn buildGoogleBenchmark(b: *std.Build, target: std.Build.ResolvedTarget, opt
 }
 
 // The libcxx bundled in zig, when compiled, is done so without filesystem support.
-// The relevant files have been copied from the zig installation to src/libcxx.
 // If we want to build bb for wasm32-wasi target, we need to build this filesystem library as well.
 pub fn buildWasmCxxFs(b: *std.Build) *std.Build.Step.Compile {
     const target = b.resolveTargetQuery(.{
@@ -209,7 +208,6 @@ pub fn buildWasmCxxFs(b: *std.Build) *std.Build.Step.Compile {
     const src_path = std.fs.path.relative(b.allocator, cwd, src_path_abs) catch unreachable;
 
     // Filesystem sources copied locally.
-    // const base = "./src/libcxx";
     lib.addCSourceFiles(.{
         .files = &.{
             b.pathJoin(&.{ src_path, "filesystem/directory_entry.cpp" }),

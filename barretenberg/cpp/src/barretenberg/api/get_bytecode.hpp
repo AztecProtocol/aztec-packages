@@ -27,7 +27,7 @@ inline std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
     return gunzip(bytecodePath);
 }
 
-// Filesystem path overload for convenience
+// Filesystem path overload for convenience.
 inline std::vector<uint8_t> get_bytecode(const std::filesystem::path& bytecodePath)
 {
     return get_bytecode(bytecodePath.string());

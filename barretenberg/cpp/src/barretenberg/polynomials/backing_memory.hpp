@@ -11,14 +11,12 @@
 #if !defined(__wasm__) && !defined(_WIN32)
 #include "unistd.h"
 #include <fcntl.h>
+#include <sys/mman.h>
 #endif
 #include <atomic>
 #include <cstring>
 #include <filesystem>
 #include <memory>
-#if !defined(__wasm__) && !defined(_WIN32)
-#include <sys/mman.h>
-#endif
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern bool slow_low_memory;

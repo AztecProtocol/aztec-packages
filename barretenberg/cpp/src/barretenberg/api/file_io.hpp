@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <fcntl.h>
+#include <filesystem>
 #include <fstream>
 #include <ios>
 #include <iostream>
@@ -101,8 +102,7 @@ template <typename Fr> inline std::string field_elements_to_json(const std::vect
     return ss.str();
 }
 
-#ifdef _WIN32
-// Filesystem path overloads for convenience
+// Filesystem path overloads for convenience.
 inline size_t get_file_size(const std::filesystem::path& filename)
 {
     return get_file_size(filename.string());
@@ -117,6 +117,5 @@ inline void write_file(const std::filesystem::path& filename, std::vector<uint8_
 {
     write_file(filename.string(), data);
 }
-#endif
 
 } // namespace bb
