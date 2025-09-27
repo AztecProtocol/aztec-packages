@@ -26,6 +26,45 @@ unconstrained fn at_sets_contract_address() {
 }
 
 #[test]
+unconstrained fn uses_next_block_number() {
+    let env = TestEnvironment::new();
+
+    let pending = env.next_block_number();
+
+    env.public_context(|context| { assert_eq(pending, context.block_number()); });
+}
+
+#[test]
+unconstrained fn advances_block_number() {
+    let env = TestEnvironment::new();
+
+    let first_block_number = env.public_context(|context| context.block_number());
+    let second_block_number = env.public_context(|context| context.block_number());
+
+    assert_eq(second_block_number, first_block_number + 1);
+}
+
+#[test]
+unconstrained fn does_not_advance_the_timestamp() {
+    let env = TestEnvironment::new();
+
+    let first_timestamp = env.public_context(|context| context.timestamp());
+    let second_timestamp = env.public_context(|context| context.timestamp());
+
+    assert_eq(second_timestamp, first_timestamp);
+}
+
+#[test]
+unconstrained fn repeats_contract_address() {
+    let env = TestEnvironment::new();
+
+    let first_address = env.public_context(|context| context.this_address());
+    let second_address = env.public_context(|context| context.this_address());
+
+    assert_eq(first_address, second_address);
+}
+
+#[test]
 unconstrained fn default_storage_value() {
     let env = TestEnvironment::new();
 
@@ -138,7 +177,7 @@ unconstrained fn rejects_duplicate_settled_nullifiers() {
 }
 
 #[test(should_fail_with = "Contract calls are forbidden")]
-unconstrained fn public_calls_fails() {
+unconstrained fn public_call_fails() {
     let env = TestEnvironment::new();
 
     env.public_context(|context| {
