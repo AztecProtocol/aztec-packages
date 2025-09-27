@@ -175,10 +175,6 @@ fn generateVKsForFunctions(
         const vk_data = try generateCachedVK(allocator, cache_dir_path, bytecode);
         defer allocator.free(vk_data);
 
-        // Add VK data to the parsed JSON
-        // const vk_string = try allocator.dupe(u8, vk_data);
-        // defer allocator.free(vk_string);
-
         // Encode to base64 for JSON storage
         const encoder = std.base64.standard.Encoder;
         const encoded_size = encoder.calcSize(vk_data.len);
@@ -210,7 +206,7 @@ fn generateCachedVK(
     // Check if VK already exists in cache
     if (std.fs.cwd().access(vk_cache_path, .{})) {
         print("Using cached verification key\n", .{});
-        return try std.fs.cwd().readFileAlloc(allocator, vk_cache_path, 10 * 1024 * 1024);
+        return try std.fs.cwd().readFileAlloc(allocator, vk_cache_path, 4 * 1024);
     } else |_| {
         const raw_vk = try generateVK(allocator, bytecode);
         // Cache the raw VK bytes and return.
