@@ -133,15 +133,23 @@ fn generateVerificationKeys(allocator: std.mem.Allocator, artifact_path: []const
     try std.fs.cwd().writeFile(.{ .sub_path = artifact_path, .data = arr.items });
 }
 
-fn generateVKsForFunctions(
-    allocator: std.mem.Allocator,
+const SharedVKWork = struct {
+    next_job: std.atomic.Value(usize) = std.atomic.Value(usize).init(0),
+    total_jobs: usize,
+    functions: []std.json.Value,
     cache_dir_path: []const u8,
-    parsed_json: *std.json.Value,
-    functions: std.json.Array,
-) !void {
-    const parsed_functions = parsed_json.object.getPtr("functions").?;
+    allocator: std.mem.Allocator,
+    parsed_functions: *std.json.Array,
+    results: []?[]const u8, // Array to store VK results by function index
+    errors: std.atomic.Value(bool) = std.atomic.Value(bool).init(false),
+};
 
-    for (functions.items, 0..) |function, fn_index| {
+fn vkWorker(shared: *SharedVKWork) void {
+    while (true) {
+        const fn_index = shared.next_job.fetchAdd(1, .seq_cst);
+        if (fn_index >= shared.total_jobs) break;
+
+        const function = shared.functions[fn_index];
         const func_obj = function.object;
 
         // Check if this is a private function (not public and not unconstrained)
@@ -168,21 +176,88 @@ fn generateVKsForFunctions(
         print("Processing function: {s}\n", .{fn_name});
 
         // Get raw bytecode first
-        const bytecode = try getByteCode(allocator, function);
-        defer allocator.free(bytecode);
+        const bytecode = getByteCode(shared.allocator, function) catch {
+            shared.errors.store(true, .seq_cst);
+            continue;
+        };
+        defer shared.allocator.free(bytecode);
 
-        // Generate VK for this function and add it to the parsed JSON
-        const vk_data = try generateCachedVK(allocator, cache_dir_path, bytecode);
-        defer allocator.free(vk_data);
+        // Generate VK for this function
+        const vk_data = generateCachedVK(shared.allocator, shared.cache_dir_path, bytecode) catch {
+            shared.errors.store(true, .seq_cst);
+            continue;
+        };
+        defer shared.allocator.free(vk_data);
 
         // Encode to base64 for JSON storage
         const encoder = std.base64.standard.Encoder;
         const encoded_size = encoder.calcSize(vk_data.len);
-        const encoded_vk = try allocator.alloc(u8, encoded_size);
+        const encoded_vk = shared.allocator.alloc(u8, encoded_size) catch {
+            shared.errors.store(true, .seq_cst);
+            continue;
+        };
         _ = encoder.encode(encoded_vk, vk_data);
 
-        const vk_value = std.json.Value{ .string = encoded_vk };
-        try parsed_functions.array.items[fn_index].object.put("verification_key", vk_value);
+        // Store the result for later JSON update (thread-safe)
+        shared.results[fn_index] = encoded_vk;
+    }
+}
+
+fn generateVKsForFunctions(
+    allocator: std.mem.Allocator,
+    cache_dir_path: []const u8,
+    parsed_json: *std.json.Value,
+    functions: std.json.Array,
+) !void {
+    const parsed_functions = parsed_json.object.getPtr("functions").?;
+
+    // Determine number of threads to use
+    const cpu_count = std.Thread.getCpuCount() catch 1;
+    const thread_count = @min(functions.items.len, cpu_count);
+
+    // Allocate results array for thread-safe collection
+    const results = try allocator.alloc(?[]const u8, functions.items.len);
+    defer allocator.free(results);
+
+    // Initialize results array to null
+    for (results) |*result| {
+        result.* = null;
+    }
+
+    // Multi-threaded processing
+    var shared = SharedVKWork{
+        .total_jobs = functions.items.len,
+        .functions = functions.items,
+        .cache_dir_path = cache_dir_path,
+        .allocator = allocator,
+        .parsed_functions = &parsed_functions.array,
+        .results = results,
+    };
+
+    // Create and start worker threads
+    const threads = try allocator.alloc(std.Thread, thread_count);
+    defer allocator.free(threads);
+
+    for (threads) |*thread| {
+        thread.* = try std.Thread.spawn(.{}, vkWorker, .{&shared});
+    }
+
+    // Wait for all threads to complete
+    for (threads) |thread| {
+        thread.join();
+    }
+
+    // Check for errors
+    if (shared.errors.load(.seq_cst)) {
+        return error.VKGenerationFailed;
+    }
+
+    // Apply results to JSON in main thread (thread-safe)
+    for (shared.results, 0..) |maybe_vk, idx| {
+        if (maybe_vk) |vk| {
+            const vk_value = std.json.Value{ .string = vk };
+            try parsed_functions.array.items[idx].object.put("verification_key", vk_value);
+        }
     }
 }
 
