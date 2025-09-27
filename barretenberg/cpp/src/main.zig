@@ -4,20 +4,15 @@ const print = std.debug.print;
 // Import C functions from existing bb CLI
 extern fn bb_parse_and_run_cli_command_c(argc: c_int, argv: [*][*:0]u8) c_int;
 
-// Import avm-transpiler C functions
-extern fn avm_transpile_file(input_path: [*:0]const u8, output_path: [*:0]const u8) TranspileResult;
-extern fn avm_free_result(result: *TranspileResult) void;
-
 // Import bb ClientIVC C functions
 extern fn bbapi_compute_standalone_vk(bytecode: [*]const u8, bytecode_len: usize, out_vk: *[*]u8, out_vk_len: *usize) c_int;
 
-// TranspileResult structure from avm_transpiler.h
-const TranspileResult = extern struct {
-    success: c_int,
-    data: ?[*]u8,
-    length: usize,
-    error_message: ?[*:0]u8,
-};
+// Import avm-transpiler C functions and types
+const c = @cImport({
+    @cInclude("avm_transpiler.h");
+});
+
+const TranspileResult = c.TranspileResult;
 
 pub fn main() !u8 {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -45,7 +40,6 @@ pub fn main() !u8 {
 fn processAztecCommand(allocator: std.mem.Allocator, args: [][:0]u8) u8 {
     if (args.len == 0) {
         print("Usage: bb aztec-process <input_artifact> [output_artifact]\n", .{});
-        print("If output_artifact not provided, will overwrite input_artifact\n", .{});
         return 1;
     }
 
@@ -62,24 +56,6 @@ fn processAztecCommand(allocator: std.mem.Allocator, args: [][:0]u8) u8 {
     return 0;
 }
 
-// fn findArtifacts(allocator: std.mem.Allocator, artifacts: *std.ArrayList([]const u8)) !void {
-//     var dir = std.fs.cwd();
-//     var walker = try dir.walk(allocator);
-//     defer walker.deinit();
-
-//     while (try walker.next()) |entry| {
-//         if (entry.kind == .file and
-//             std.mem.endsWith(u8, entry.path, ".json") and
-//             std.mem.containsAtLeast(u8, entry.path, 1, "/target/") and
-//             !std.mem.containsAtLeast(u8, entry.path, 1, "/cache/") and
-//             !std.mem.containsAtLeast(u8, entry.path, 1, ".function_artifact_"))
-//         {
-//             const owned_path = try allocator.dupe(u8, entry.path);
-//             try artifacts.append(owned_path);
-//         }
-//     }
-// }
-
 fn processArtifact(allocator: std.mem.Allocator, input_path: []const u8, output_path: []const u8) !void {
     // Step 1: Transpile the artifact
     const input_cstr = try allocator.dupeZ(u8, input_path);
@@ -88,8 +64,8 @@ fn processArtifact(allocator: std.mem.Allocator, input_path: []const u8, output_
     const output_cstr = try allocator.dupeZ(u8, output_path);
     defer allocator.free(output_cstr);
 
-    var result = avm_transpile_file(input_cstr.ptr, output_cstr.ptr);
-    defer avm_free_result(&result);
+    var result = c.avm_transpile_file(input_cstr.ptr, output_cstr.ptr);
+    defer c.avm_free_result(&result);
 
     if (result.success == 0) {
         if (result.error_message) |msg| {
