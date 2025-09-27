@@ -228,10 +228,7 @@ fn generateVKDataForFunction(
     }
 }
 
-fn generateAndReturnVK(allocator: std.mem.Allocator, function: std.json.Value) ![]const u8 {
-    const fn_name = function.object.get("name").?.string;
-    print("Generating verification key for function {s}\n", .{fn_name});
-
+fn getByteCode(allocator: std.mem.Allocator, function: std.json.Value) ![]const u8 {
     // Extract bytecode from the function
     const bytecode_obj = function.object.get("bytecode") orelse return error.NoBytecode;
     const bytecode_b64 = switch (bytecode_obj) {
@@ -253,35 +250,40 @@ fn generateAndReturnVK(allocator: std.mem.Allocator, function: std.json.Value) !
         return error.InvalidGzip;
     }
     var reader: std.Io.Reader = .fixed(decoded_compressed);
-    const decompressed_bytecode = try allocator.alloc(u8, 100 * 1024 * 1024);
-    defer allocator.free(decompressed_bytecode);
     var decompress_buffer: [std.compress.flate.max_window_len]u8 = undefined;
     var decompress: std.compress.flate.Decompress = .init(&reader, .gzip, &decompress_buffer);
-    var writer: std.io.Writer = .fixed(decompressed_bytecode);
-    const decompressed_len = try decompress.reader.streamRemaining(&writer);
+    var writer: std.io.Writer.Allocating = .init(allocator);
+    const decompressed_len = try decompress.reader.streamRemaining(&writer.writer);
     print("Decompressed bytecode: {d} bytes\n", .{decompressed_len});
 
+    return writer.toOwnedSlice();
+}
+
+fn generateAndReturnVK(allocator: std.mem.Allocator, function: std.json.Value) ![]const u8 {
+    const fn_name = function.object.get("name").?.string;
+    print("Generating verification key for function {s}\n", .{fn_name});
+
+    const bytecode = try getByteCode(allocator, function);
+
     // Call the C function to generate VK
-    var vk_len: usize = 0;
-
-    const vk_ptr_ptr = try allocator.create([*c]u8);
-    defer allocator.destroy(vk_ptr_ptr);
-
+    var vk_output_len: usize = 0;
+    const vk_output_ptr: [*c]u8 = 0;
+    defer std.c.free(vk_output_ptr);
     const result_code = bbapi_compute_standalone_vk(
-        decompressed_bytecode.ptr,
-        decompressed_len,
-        @ptrCast(vk_ptr_ptr),
-        &vk_len,
+        bytecode.ptr,
+        bytecode.len,
+        @ptrCast(vk_output_ptr),
+        &vk_output_len,
     );
 
     if (result_code != 0) {
         return error.VKGenerationFailed;
     }
 
-    const vk_data = vk_ptr_ptr.*[0..vk_len];
-    defer std.c.free(vk_ptr_ptr.*);
+    // Create slice from C output.
+    const vk_data = vk_output_ptr.*[0..vk_output_len];
 
-    // Convert to base64 for storage
+    // Convert to base64 for storage.
     const encoder = std.base64.standard.Encoder;
     const encoded_size = encoder.calcSize(vk_data.len);
     const final_vk = try allocator.alloc(u8, encoded_size);
