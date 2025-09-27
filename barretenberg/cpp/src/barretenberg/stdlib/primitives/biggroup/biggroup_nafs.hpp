@@ -99,8 +99,8 @@ template <typename C, class Fq, class Fr, class G>
 template <size_t wnaf_size>
 Fr element<C, Fq, Fr, G>::reconstruct_bigfield_from_wnaf(Builder* builder,
                                                          const std::vector<field_t<Builder>>& wnaf,
-                                                         const field_t<Builder>& positive_skew,
-                                                         const field_t<Builder>& negative_skew,
+                                                         const bool_ct& positive_skew,
+                                                         const bool_ct& negative_skew,
                                                          const field_t<Builder>& stagger_fragment,
                                                          const size_t stagger,
                                                          const size_t rounds)
@@ -124,8 +124,9 @@ Fr element<C, Fq, Fr, G>::reconstruct_bigfield_from_wnaf(Builder* builder,
         Fr(sum, field_t<C>::from_witness_index(builder, builder->zero_idx), /*can_overflow*/ false);
 
     // Double the final value and add the positive skew
-    reconstructed_positive_part = (reconstructed_positive_part + reconstructed_positive_part)
-                                      .add_to_lower_limb(positive_skew, /*other_maximum_value*/ uint256_t(1));
+    reconstructed_positive_part =
+        (reconstructed_positive_part + reconstructed_positive_part)
+            .add_to_lower_limb(field_t<Builder>(positive_skew), /*other_maximum_value*/ uint256_t(1));
 
     // Start reconstructing the negative part: start with wnaf constant 0xff...ff
     // See the README for explanation of this constant
@@ -145,7 +146,7 @@ Fr element<C, Fq, Fr, G>::reconstruct_bigfield_from_wnaf(Builder* builder,
 
     // Add the negative skew to the bigfield constant
     Fr reconstructed_negative_part =
-        Fr(nullptr, negative_constant_wnaf_offset).add_to_lower_limb(negative_skew, uint256_t(1));
+        Fr(nullptr, negative_constant_wnaf_offset).add_to_lower_limb(field_t<Builder>(negative_skew), uint256_t(1));
 
     // output = x_pos - x_neg (x_pos and x_neg are both non-negative)
     Fr reconstructed = reconstructed_positive_part - reconstructed_negative_part;
@@ -190,11 +191,13 @@ std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr,
         builder, &wnaf_values[0], is_negative, num_rounds_excluding_stagger_bits, false);
 
     // Compute and constrain skews
-    field_t<C> negative_skew = witness_t<C>(builder, is_negative ? 0 : skew);
-    field_t<C> positive_skew = witness_t<C>(builder, is_negative ? skew : 0);
-    builder->create_new_range_constraint(negative_skew.witness_index, 1, "biggroup_nafs");
-    builder->create_new_range_constraint(positive_skew.witness_index, 1, "biggroup_nafs");
-    builder->create_new_range_constraint((negative_skew + positive_skew).witness_index, 1, "biggroup_nafs");
+    bool_ct negative_skew(witness_t<Builder>(builder, is_negative ? 0 : skew), /*use_range_constraint*/ true);
+    bool_ct positive_skew(witness_t<Builder>(builder, is_negative ? skew : 0), /*use_range_constraint*/ true);
+
+    // Enforce that both positive_skew, negative_skew are not set at the same time
+    bool_ct both_skew_cannot_be_zero = !(positive_skew & negative_skew);
+    both_skew_cannot_be_zero.assert_equal(
+        bool_ct(builder, true), "biggroup_nafs: both positive and negative skews cannot be set at the same time");
 
     // Initialize stagger witness
     field_t<C> stagger_fragment = witness_t<C>(builder, first_fragment);

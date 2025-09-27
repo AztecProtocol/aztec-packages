@@ -118,19 +118,16 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
      * scalars represented via the non-adjacent form can only be odd. If our scalars are even, we must either
      * add or subtract the relevant base point into the accumulator
      **/
-    // TODO REMOVE BOOL CASTS, VALUES HAVE ALREADY BEEN RANGE CONSTRAINED
     const auto conditional_add = [](const element& accumulator,
                                     const element& base_point,
-                                    const field_t<C>& positive_skew,
-                                    const field_t<C>& negative_skew) {
-        const bool_ct positive_skew_bool(positive_skew);
-        const bool_ct negative_skew_bool(negative_skew);
+                                    const bool_ct& positive_skew,
+                                    const bool_ct& negative_skew) {
         auto to_add = base_point;
-        to_add.y = to_add.y.conditional_negate(negative_skew_bool);
+        to_add.y = to_add.y.conditional_negate(negative_skew);
         element result = accumulator + to_add;
 
         // when computing the wNAF we have already validated that positive_skew and negative_skew cannot both be true
-        bool_ct skew_combined = positive_skew_bool ^ negative_skew_bool;
+        bool_ct skew_combined = positive_skew ^ negative_skew;
         result = accumulator.conditional_select(result, skew_combined);
         return result;
     };
