@@ -96,8 +96,10 @@ fn processArtifact(allocator: std.mem.Allocator, input_path: []const u8, output_
 
 fn generateVerificationKeys(allocator: std.mem.Allocator, artifact_path: []const u8) !void {
     const artifact_name = std.fs.path.basename(artifact_path);
-    const artifact_dir = std.fs.path.dirname(artifact_path) orelse ".";
-    const cache_dir_path = try std.fmt.allocPrint(allocator, "{s}/cache", .{artifact_dir});
+
+    // Use ~/.bb/vk_cache as cache directory
+    const home_dir = std.posix.getenv("HOME") orelse ".";
+    const cache_dir_path = try std.fmt.allocPrint(allocator, "{s}/.bb/vk_cache", .{home_dir});
     defer allocator.free(cache_dir_path);
 
     // Create cache directory
