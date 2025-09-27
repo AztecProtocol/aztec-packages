@@ -1,5 +1,8 @@
 const std = @import("std");
 const print = std.debug.print;
+const App = @import("yazap").App;
+const Arg = @import("yazap").Arg;
+const ArgMatches = @import("yazap").ArgMatches;
 
 // Import C functions from existing bb CLI
 extern fn bb_parse_and_run_cli_command_c(argc: c_int, argv: [*][*:0]u8) c_int;
@@ -21,32 +24,55 @@ pub fn main() !u8 {
 
     const args = try std.process.argsAlloc(allocator);
 
-    // Check if this is an aztec-process command
+    // Check if this is an aztec-process command before using yazap
     if (args.len > 1 and std.mem.eql(u8, args[1], "aztec-process")) {
-        return processAztecCommand(allocator, args[2..]);
+        var app = App.init(allocator, "bb", "Barretenberg CLI");
+        defer app.deinit();
+
+        var root = app.rootCommand();
+
+        // Add aztec-process subcommand
+        var aztec_cmd = app.createCommand("aztec-process", "Process Aztec contract artifacts");
+        try aztec_cmd.addArg(Arg.positional("input_artifact", "Input artifact path", null));
+        try aztec_cmd.addArg(Arg.positional("output_artifact", "Output artifact path (optional)", null));
+        try aztec_cmd.addArg(Arg.booleanOption("force", 'f', "Force rebuild even if cache exists"));
+        aztec_cmd.setProperty(.help_on_empty_args);
+
+        try root.addSubcommand(aztec_cmd);
+
+        const matches = try app.parseProcess();
+
+        // Check for aztec-process command
+        if (matches.subcommandMatches("aztec-process")) |aztec_matches| {
+            if (!aztec_matches.containsArgs()) {
+                try app.displaySubcommandHelp();
+                return 1;
+            }
+
+            const input = aztec_matches.getSingleValue("input_artifact") orelse {
+                print("Error: input_artifact is required\n", .{});
+                try app.displaySubcommandHelp();
+                return 1;
+            };
+            const output = aztec_matches.getSingleValue("output_artifact") orelse input;
+            const force = aztec_matches.containsArg("force");
+
+            return processAztecCommand(allocator, input, output, force);
+        }
     }
 
-    // Convert Zig args to C-style args for existing CLI
+    // Fall back to existing bb CLI for all other commands
     const c_args = try allocator.alloc([*:0]u8, args.len);
     for (args, 0..) |arg, i| {
         c_args[i] = @ptrCast(arg.ptr);
     }
 
-    // Fallback to existing bb CLI handler
     const result = bb_parse_and_run_cli_command_c(@intCast(args.len), c_args.ptr);
     return @intCast(result);
 }
 
-fn processAztecCommand(allocator: std.mem.Allocator, args: [][:0]u8) u8 {
-    if (args.len == 0) {
-        print("Usage: bb aztec-process <input_artifact> [output_artifact]\n", .{});
-        return 1;
-    }
-
-    const input_artifact = args[0];
-    const output_artifact = if (args.len > 1) args[1] else input_artifact;
-
-    processArtifact(allocator, input_artifact, output_artifact) catch |err| {
+fn processAztecCommand(allocator: std.mem.Allocator, input_artifact: []const u8, output_artifact: []const u8, force: bool) u8 {
+    processArtifact(allocator, input_artifact, output_artifact, force) catch |err| {
         print("Error processing: {s}: {}\n", .{ input_artifact, err });
         return 1;
     };
@@ -56,7 +82,7 @@ fn processAztecCommand(allocator: std.mem.Allocator, args: [][:0]u8) u8 {
     return 0;
 }
 
-fn processArtifact(allocator: std.mem.Allocator, input_path: []const u8, output_path: []const u8) !void {
+fn processArtifact(allocator: std.mem.Allocator, input_path: []const u8, output_path: []const u8, force: bool) !void {
     // Step 1: Transpile the artifact
     const input_cstr = try allocator.dupeZ(u8, input_path);
     defer allocator.free(input_cstr);
@@ -91,10 +117,10 @@ fn processArtifact(allocator: std.mem.Allocator, input_path: []const u8, output_
     try std.fs.cwd().access(output_path, .{});
 
     // Step 2: Generate verification keys (using the output artifact)
-    try generateVerificationKeys(allocator, output_path);
+    try generateVerificationKeys(allocator, output_path, force);
 }
 
-fn generateVerificationKeys(allocator: std.mem.Allocator, artifact_path: []const u8) !void {
+fn generateVerificationKeys(allocator: std.mem.Allocator, artifact_path: []const u8, force: bool) !void {
     const artifact_name = std.fs.path.basename(artifact_path);
 
     // Use ~/.bb/vk_cache as cache directory
@@ -122,7 +148,7 @@ fn generateVerificationKeys(allocator: std.mem.Allocator, artifact_path: []const
     }
 
     // Generate VKs for private functions and update the JSON in memory
-    try generateVKsForFunctions(allocator, cache_dir_path, &parsed.value, functions.?.array);
+    try generateVKsForFunctions(allocator, cache_dir_path, &parsed.value, functions.?.array, force);
 
     // Write the complete updated JSON to file once at the end
     var out: std.io.Writer.Allocating = .init(allocator);
@@ -139,6 +165,7 @@ const WorkerData = struct {
     functions: []std.json.Value,
     cache_dir_path: []const u8,
     allocator: std.mem.Allocator,
+    force: bool,
 };
 
 fn vkWorkerProcess(data: WorkerData) void {
@@ -176,12 +203,12 @@ fn vkWorkerProcess(data: WorkerData) void {
         defer data.allocator.free(bytecode);
 
         // Generate VK for this function - this will cache it automatically
-        const vk_data = generateCachedVK(data.allocator, data.cache_dir_path, bytecode) catch {
+        const vk_data = generateCachedVK(data.allocator, data.cache_dir_path, bytecode, data.force) catch {
             std.posix.exit(1);
         };
         defer data.allocator.free(vk_data);
 
-        print("Cached VK for function: {s}\n", .{fn_name});
+        // print("Cached VK for function: {s}\n", .{fn_name});
     }
 }
 
@@ -190,6 +217,7 @@ fn generateVKsForFunctions(
     cache_dir_path: []const u8,
     parsed_json: *std.json.Value,
     functions: std.json.Array,
+    force: bool,
 ) !void {
     const parsed_functions = parsed_json.object.getPtr("functions").?;
 
@@ -205,6 +233,7 @@ fn generateVKsForFunctions(
             .functions = functions.items,
             .cache_dir_path = cache_dir_path,
             .allocator = allocator,
+            .force = force,
         };
         vkWorkerProcess(data);
     } else {
@@ -229,6 +258,7 @@ fn generateVKsForFunctions(
                     .functions = functions.items,
                     .cache_dir_path = cache_dir_path,
                     .allocator = allocator,
+                    .force = force,
                 };
                 vkWorkerProcess(data);
                 std.posix.exit(0);
@@ -276,7 +306,7 @@ fn generateVKsForFunctions(
         defer allocator.free(bytecode);
 
         // Read from cache (should exist now)
-        const vk_data = try generateCachedVK(allocator, cache_dir_path, bytecode);
+        const vk_data = try generateCachedVK(allocator, cache_dir_path, bytecode, force);
         defer allocator.free(vk_data);
 
         // Encode to base64 for JSON storage
@@ -294,6 +324,7 @@ fn generateCachedVK(
     allocator: std.mem.Allocator,
     cache_dir_path: []const u8,
     bytecode: []const u8,
+    force: bool,
 ) ![]const u8 {
     // Create SHA256 hash of bytecode for cache filename
     var hasher = std.crypto.hash.sha2.Sha256.init(.{});
@@ -307,16 +338,21 @@ fn generateCachedVK(
     const vk_cache_path = try std.fmt.allocPrint(allocator, "{s}/{s}.vk", .{ cache_dir_path, hex_str });
     defer allocator.free(vk_cache_path);
 
-    // Check if VK already exists in cache
-    if (std.fs.cwd().access(vk_cache_path, .{})) {
-        // print("Using cached verification key\n", .{});
-        return try std.fs.cwd().readFileAlloc(allocator, vk_cache_path, 4 * 1024);
-    } else |_| {
-        const raw_vk = try generateVK(allocator, bytecode);
-        // Cache the raw VK bytes and return.
-        std.fs.cwd().writeFile(.{ .sub_path = vk_cache_path, .data = raw_vk }) catch {};
-        return raw_vk;
+    // Check cache unless force is true
+    if (!force) {
+        if (std.fs.cwd().access(vk_cache_path, .{})) {
+            // print("Using cached verification key\n", .{});
+            return try std.fs.cwd().readFileAlloc(allocator, vk_cache_path, 4 * 1024);
+        } else |_| {
+            // Cache doesn't exist, generate new VK
+        }
     }
+
+    // Force is true or cache doesn't exist, generate new VK
+    const raw_vk = try generateVK(allocator, bytecode);
+    // Cache the raw VK bytes and return.
+    std.fs.cwd().writeFile(.{ .sub_path = vk_cache_path, .data = raw_vk }) catch {};
+    return raw_vk;
 }
 
 fn getByteCode(allocator: std.mem.Allocator, function: std.json.Value) ![]const u8 {

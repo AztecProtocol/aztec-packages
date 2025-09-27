@@ -148,6 +148,10 @@ fn getBuildStepForTarget(
         // No system libraries needed for musl build - it's fully static
     }
 
+    // Add yazap dependency for command-line parsing
+    const yazap_dep = b.dependency("yazap", .{});
+    exe.root_module.addImport("yazap", yazap_dep.module("yazap"));
+
     exe.linkLibrary(lib);
     exe.linkLibrary(libdeflate_lib);
     exe.linkLibCpp();

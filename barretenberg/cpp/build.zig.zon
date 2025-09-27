@@ -9,6 +9,10 @@
         "build.zig.zon",
     },
     .dependencies = .{
+        .yazap = .{
+            .url = "git+https://github.com/prajwalch/yazap#5aad02aed585bd791c2592e1979417428a055ec4",
+            .hash = "yazap-0.6.3-Z1t-EmrzAQA-8vFR-JGpI7vCSpHv5_6z6PAIDq2X4PoH",
+        },
         .libdeflate = .{
             .url = "https://github.com/ebiggers/libdeflate/archive/refs/tags/v1.24.tar.gz",
             .hash = "N-V-__8AANOECwBB2x7zLpkdR81ENuO8pwNvKuFHK5PffRR0",
