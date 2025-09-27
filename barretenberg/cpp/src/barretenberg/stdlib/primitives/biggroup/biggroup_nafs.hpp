@@ -104,24 +104,26 @@ Fr element<C, Fq, Fr, G>::reconstruct_bigfield_from_wnaf(Builder* builder,
                                                          const size_t stagger,
                                                          const size_t rounds)
 {
-    std::vector<field_t<C>> accumulator;
     // Collect positive wnaf entries for accumulation
+    std::vector<field_t<C>> accumulator;
     for (size_t i = 0; i < rounds; ++i) {
         field_t<C> entry = wnaf[rounds - 1 - i];
-        entry *= static_cast<field_t<C>>(uint256_t(1) << (i * wnaf_size));
+        entry *= field_t<C>(uint256_t(1) << (i * wnaf_size));
         accumulator.emplace_back(entry);
     }
+
     // Accumulate entries, shift by stagger and add the stagger itself
     field_t<C> sum = field_t<C>::accumulate(accumulator);
     sum = sum * field_t<C>(bb::fr(1ULL << stagger));
     sum += (stagger_fragment);
     sum = sum.normalize();
-    // TODO: improve efficiency by creating a constructor that does NOT require us to range constrain
-    //       limbs (we already know (sum < 2^{130}))
+
     // Convert this value to bigfield element
-    Fr reconstructed = Fr(sum, field_t<C>::from_witness_index(builder, builder->zero_idx), false);
-    // Double the final value and add the skew
-    reconstructed = (reconstructed + reconstructed).add_to_lower_limb(positive_skew, uint256_t(1));
+    Fr reconstructed = Fr(sum, field_t<C>::from_witness_index(builder, builder->zero_idx), /*can_overflow*/ false);
+
+    // Double the final value and add the positive skew
+    reconstructed =
+        (reconstructed + reconstructed).add_to_lower_limb(positive_skew, /*other_maximum_value*/ uint256_t(1));
     return reconstructed;
 }
 
