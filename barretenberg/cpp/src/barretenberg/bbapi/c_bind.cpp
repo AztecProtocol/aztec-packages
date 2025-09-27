@@ -4,7 +4,9 @@
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include <cstring>
+#include <iostream>
 #include <vector>
 #ifndef NO_MULTITHREADING
 #include <mutex>
@@ -50,6 +52,9 @@ extern "C" {
 int bbapi_compute_standalone_vk(const uint8_t* bytecode, size_t bytecode_len, uint8_t** out_vk, size_t* out_vk_len)
 {
     try {
+        // Initialize CRS factory if not already initialized
+        bb::srs::init_net_crs_factory(bb::srs::bb_crs_path());
+
         // Convert bytecode to vector
         std::vector<uint8_t> bytecode_vec(bytecode, bytecode + bytecode_len);
 
@@ -70,7 +75,11 @@ int bbapi_compute_standalone_vk(const uint8_t* bytecode, size_t bytecode_len, ui
         std::memcpy(*out_vk, response.bytes.data(), *out_vk_len);
 
         return 0; // Success
+    } catch (const std::exception& e) {
+        std::cerr << "bbapi_compute_standalone_vk error: " << e.what() << std::endl;
+        return -1; // Error
     } catch (...) {
+        std::cerr << "bbapi_compute_standalone_vk: Unknown error occurred" << std::endl;
         return -1; // Error
     }
 }
