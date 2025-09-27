@@ -1,6 +1,5 @@
-import { type Logger, sleep } from '@aztec/aztec.js';
+import type { Logger } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { ChainMonitor } from '@aztec/ethereum/test';
 
 import { jest } from '@jest/globals';
 
@@ -9,38 +8,21 @@ import { EpochsTestContext, WORLD_STATE_BLOCK_HISTORY } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 15);
 
-describe('e2e_epochs/epochs_empty_blocks', () => {
+describe('e2e_epochs/epochs_multiple', () => {
   let context: EndToEndContext;
   let rollup: RollupContract;
   let logger: Logger;
-  let monitor: ChainMonitor;
-
-  let L1_BLOCK_TIME_IN_S: number;
 
   let test: EpochsTestContext;
 
   beforeEach(async () => {
     test = await EpochsTestContext.setup();
-    ({ context, rollup, logger, monitor, L1_BLOCK_TIME_IN_S } = test);
+    ({ context, rollup, logger } = test);
   });
 
   afterEach(async () => {
     jest.restoreAllMocks();
     await test.teardown();
-  });
-
-  it('submits proof even if there are no txs to build a block', async () => {
-    context.sequencer?.updateConfig({ minTxsPerBlock: 1 });
-    await test.waitUntilEpochStarts(1);
-
-    // Sleep to make sure any pending blocks are published
-    await sleep(L1_BLOCK_TIME_IN_S * 1000);
-    const blockNumberAtEndOfEpoch0 = Number(await rollup.getBlockNumber());
-    logger.info(`Starting epoch 1 after L2 block ${blockNumberAtEndOfEpoch0}`);
-
-    await test.waitUntilProvenL2BlockNumber(blockNumberAtEndOfEpoch0, 240);
-    expect(monitor.l2BlockNumber).toEqual(blockNumberAtEndOfEpoch0);
-    logger.info(`Test succeeded`);
   });
 
   it('successfully proves multiple epochs', async () => {
@@ -49,6 +31,7 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
 
     let provenBlockNumber = 0;
     let epochNumber = 0;
+    logger.info(`Waiting for ${targetProvenEpochs} epochs to be proven at ${targetProvenBlockNumber} L2 blocks`);
     while (provenBlockNumber < targetProvenBlockNumber) {
       logger.info(`Waiting for the end of epoch ${epochNumber}`);
       await test.waitUntilEpochStarts(epochNumber + 1);
@@ -71,7 +54,7 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
       await test.waitForNodeToSync(provenBlockNumber, 'proven');
       await test.verifyHistoricBlock(provenBlockNumber, true);
 
-      // right now finalisation means a block is two L2 epochs deep. If this rule changes then we need this test needs to be updated
+      // right now finalization means a block is two L2 epochs deep. If this rule changes then we need this test needs to be updated
       const finalizedBlockNumber = Math.max(provenBlockNumber - context.config.aztecEpochDuration * 2, 0);
       const expectedOldestHistoricBlock = Math.max(finalizedBlockNumber - WORLD_STATE_BLOCK_HISTORY + 1, 1);
       const expectedBlockRemoved = expectedOldestHistoricBlock - 1;
