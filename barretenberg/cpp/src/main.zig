@@ -133,23 +133,17 @@ fn generateVerificationKeys(allocator: std.mem.Allocator, artifact_path: []const
     try std.fs.cwd().writeFile(.{ .sub_path = artifact_path, .data = arr.items });
 }
 
-const SharedVKWork = struct {
-    next_job: std.atomic.Value(usize) = std.atomic.Value(usize).init(0),
-    total_jobs: usize,
+const WorkerData = struct {
+    start_index: usize,
+    end_index: usize,
     functions: []std.json.Value,
     cache_dir_path: []const u8,
     allocator: std.mem.Allocator,
-    parsed_functions: *std.json.Array,
-    results: []?[]const u8, // Array to store VK results by function index
-    errors: std.atomic.Value(bool) = std.atomic.Value(bool).init(false),
 };
 
-fn vkWorker(shared: *SharedVKWork) void {
-    while (true) {
-        const fn_index = shared.next_job.fetchAdd(1, .seq_cst);
-        if (fn_index >= shared.total_jobs) break;
-
-        const function = shared.functions[fn_index];
+fn vkWorkerProcess(data: WorkerData) void {
+    for (data.start_index..data.end_index) |fn_index| {
+        const function = data.functions[fn_index];
         const func_obj = function.object;
 
         // Check if this is a private function (not public and not unconstrained)
@@ -173,33 +167,21 @@ fn vkWorker(shared: *SharedVKWork) void {
         }
 
         const fn_name = func_obj.get("name").?.string;
-        print("Processing function: {s}\n", .{fn_name});
+        print("Processing function: {s} (PID: {d})\n", .{ fn_name, std.c.getpid() });
 
         // Get raw bytecode first
-        const bytecode = getByteCode(shared.allocator, function) catch {
-            shared.errors.store(true, .seq_cst);
-            continue;
+        const bytecode = getByteCode(data.allocator, function) catch {
+            std.posix.exit(1);
         };
-        defer shared.allocator.free(bytecode);
+        defer data.allocator.free(bytecode);
 
-        // Generate VK for this function
-        const vk_data = generateCachedVK(shared.allocator, shared.cache_dir_path, bytecode) catch {
-            shared.errors.store(true, .seq_cst);
-            continue;
+        // Generate VK for this function - this will cache it automatically
+        const vk_data = generateCachedVK(data.allocator, data.cache_dir_path, bytecode) catch {
+            std.posix.exit(1);
         };
-        defer shared.allocator.free(vk_data);
+        defer data.allocator.free(vk_data);
 
-        // Encode to base64 for JSON storage
-        const encoder = std.base64.standard.Encoder;
-        const encoded_size = encoder.calcSize(vk_data.len);
-        const encoded_vk = shared.allocator.alloc(u8, encoded_size) catch {
-            shared.errors.store(true, .seq_cst);
-            continue;
-        };
-        _ = encoder.encode(encoded_vk, vk_data);
-
-        // Store the result for later JSON update (thread-safe)
-        shared.results[fn_index] = encoded_vk;
+        print("Cached VK for function: {s}\n", .{fn_name});
     }
 }
 
@@ -211,53 +193,100 @@ fn generateVKsForFunctions(
 ) !void {
     const parsed_functions = parsed_json.object.getPtr("functions").?;
 
-    // Determine number of threads to use
+    // Determine number of processes to use
     const cpu_count = std.Thread.getCpuCount() catch 1;
-    const thread_count = @min(functions.items.len, cpu_count);
+    const process_count = @min(functions.items.len, cpu_count);
 
-    // Allocate results array for thread-safe collection
-    const results = try allocator.alloc(?[]const u8, functions.items.len);
-    defer allocator.free(results);
+    if (process_count <= 1) {
+        // Single process - handle directly
+        const data = WorkerData{
+            .start_index = 0,
+            .end_index = functions.items.len,
+            .functions = functions.items,
+            .cache_dir_path = cache_dir_path,
+            .allocator = allocator,
+        };
+        vkWorkerProcess(data);
+    } else {
+        // Multi-process - fork workers
+        var pids = try std.ArrayList(std.posix.pid_t).initCapacity(allocator, process_count);
+        defer pids.deinit(allocator);
 
-    // Initialize results array to null
-    for (results) |*result| {
-        result.* = null;
-    }
+        const functions_per_process = (functions.items.len + process_count - 1) / process_count;
 
-    // Multi-threaded processing
-    var shared = SharedVKWork{
-        .total_jobs = functions.items.len,
-        .functions = functions.items,
-        .cache_dir_path = cache_dir_path,
-        .allocator = allocator,
-        .parsed_functions = &parsed_functions.array,
-        .results = results,
-    };
+        for (0..process_count) |i| {
+            const start_index = i * functions_per_process;
+            const end_index = @min((i + 1) * functions_per_process, functions.items.len);
 
-    // Create and start worker threads
-    const threads = try allocator.alloc(std.Thread, thread_count);
-    defer allocator.free(threads);
+            if (start_index >= functions.items.len) break;
 
-    for (threads) |*thread| {
-        thread.* = try std.Thread.spawn(.{}, vkWorker, .{&shared});
-    }
-
-    // Wait for all threads to complete
-    for (threads) |thread| {
-        thread.join();
-    }
-
-    // Check for errors
-    if (shared.errors.load(.seq_cst)) {
-        return error.VKGenerationFailed;
-    }
-
-    // Apply results to JSON in main thread (thread-safe)
-    for (shared.results, 0..) |maybe_vk, idx| {
-        if (maybe_vk) |vk| {
-            const vk_value = std.json.Value{ .string = vk };
-            try parsed_functions.array.items[idx].object.put("verification_key", vk_value);
+            const pid = try std.posix.fork();
+            if (pid == 0) {
+                // Child process
+                const data = WorkerData{
+                    .start_index = start_index,
+                    .end_index = end_index,
+                    .functions = functions.items,
+                    .cache_dir_path = cache_dir_path,
+                    .allocator = allocator,
+                };
+                vkWorkerProcess(data);
+                std.posix.exit(0);
+            } else {
+                // Parent process - store child PID
+                pids.appendAssumeCapacity(pid);
+            }
         }
+
+        // Wait for all children to complete
+        for (pids.items) |pid| {
+            const result = std.posix.waitpid(pid, 0);
+            if (result.status != 0) {
+                return error.VKGenerationFailed;
+            }
+        }
+    }
+
+    // Collect results from cache and update JSON
+    for (functions.items, 0..) |function, fn_index| {
+        const func_obj = function.object;
+
+        // Check if this is a private function (same logic as worker)
+        const custom_attributes = func_obj.get("custom_attributes");
+        const is_unconstrained = func_obj.get("is_unconstrained");
+
+        var is_public = false;
+        if (custom_attributes) |attrs| {
+            for (attrs.array.items) |attr| {
+                if (std.mem.eql(u8, attr.string, "public")) {
+                    is_public = true;
+                    break;
+                }
+            }
+        }
+
+        const is_constrained = is_unconstrained == null or !is_unconstrained.?.bool;
+
+        if (is_public or !is_constrained) {
+            continue; // Skip public or unconstrained functions
+        }
+
+        // Get bytecode to compute cache key
+        const bytecode = try getByteCode(allocator, function);
+        defer allocator.free(bytecode);
+
+        // Read from cache (should exist now)
+        const vk_data = try generateCachedVK(allocator, cache_dir_path, bytecode);
+        defer allocator.free(vk_data);
+
+        // Encode to base64 for JSON storage
+        const encoder = std.base64.standard.Encoder;
+        const encoded_size = encoder.calcSize(vk_data.len);
+        const encoded_vk = try allocator.alloc(u8, encoded_size);
+        _ = encoder.encode(encoded_vk, vk_data);
+
+        const vk_value = std.json.Value{ .string = encoded_vk };
+        try parsed_functions.array.items[fn_index].object.put("verification_key", vk_value);
     }
 }
 
@@ -280,7 +309,7 @@ fn generateCachedVK(
 
     // Check if VK already exists in cache
     if (std.fs.cwd().access(vk_cache_path, .{})) {
-        print("Using cached verification key\n", .{});
+        // print("Using cached verification key\n", .{});
         return try std.fs.cwd().readFileAlloc(allocator, vk_cache_path, 4 * 1024);
     } else |_| {
         const raw_vk = try generateVK(allocator, bytecode);
@@ -299,13 +328,13 @@ fn getByteCode(allocator: std.mem.Allocator, function: std.json.Value) ![]const 
     };
 
     // Decode base64
-    print("Base64 bytecode length: {d}\n", .{bytecode_b64.len});
+    // print("Base64 bytecode length: {d}\n", .{bytecode_b64.len});
     const decoder = std.base64.standard.Decoder;
     const decoded_size = try decoder.calcSizeForSlice(bytecode_b64);
     const decoded_compressed = try allocator.alloc(u8, decoded_size);
     defer allocator.free(decoded_compressed);
     try decoder.decode(decoded_compressed, bytecode_b64);
-    print("Decoded compressed data: {d} bytes\n", .{decoded_compressed.len});
+    // print("Decoded compressed data: {d} bytes\n", .{decoded_compressed.len});
 
     // Decompress using Zig std library
     if (decoded_compressed.len < 18 or decoded_compressed[0] != 0x1f or decoded_compressed[1] != 0x8b) {
@@ -315,8 +344,8 @@ fn getByteCode(allocator: std.mem.Allocator, function: std.json.Value) ![]const 
     var decompress_buffer: [std.compress.flate.max_window_len]u8 = undefined;
     var decompress: std.compress.flate.Decompress = .init(&reader, .gzip, &decompress_buffer);
     var writer: std.io.Writer.Allocating = .init(allocator);
-    const decompressed_len = try decompress.reader.streamRemaining(&writer.writer);
-    print("Decompressed bytecode: {d} bytes\n", .{decompressed_len});
+    _ = try decompress.reader.streamRemaining(&writer.writer);
+    // print("Decompressed bytecode: {d} bytes\n", .{decompressed_len});
 
     return writer.toOwnedSlice();
 }

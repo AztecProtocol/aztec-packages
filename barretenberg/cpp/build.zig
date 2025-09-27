@@ -14,8 +14,9 @@ const platforms = [_]Platform{
     .{ .arch = .aarch64, .os = .linux, .name = "aarch64-linux" },
     .{ .arch = .x86_64, .os = .macos, .name = "x86_64-macos" },
     .{ .arch = .aarch64, .os = .macos, .name = "aarch64-macos" },
-    .{ .arch = .x86_64, .os = .windows, .name = "x86_64-windows" },
-    .{ .arch = .aarch64, .os = .windows, .name = "aarch64-windows" },
+    // Disable windows. main.zig needs fork due to bb not being fully thread safe, and windows doesn't support.
+    // .{ .arch = .x86_64, .os = .windows, .name = "x86_64-windows" },
+    // .{ .arch = .aarch64, .os = .windows, .name = "aarch64-windows" },
     .{ .arch = .wasm32, .os = .wasi, .name = "wasm32-wasi" },
 };
 
