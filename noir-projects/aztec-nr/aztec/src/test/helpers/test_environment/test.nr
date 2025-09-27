@@ -5,6 +5,7 @@ mod accounts;
 mod deployment;
 mod private_context;
 mod public_context;
+mod utility_context;
 mod notes;
 
 #[test(should_fail_with = "cannot be before next timestamp")]

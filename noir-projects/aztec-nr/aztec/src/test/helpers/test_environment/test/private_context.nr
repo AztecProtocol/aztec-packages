@@ -1,3 +1,4 @@
+use crate::oracle::notes::check_nullifier_exists;
 use crate::test::helpers::test_environment::{PrivateContextOptions, TestEnvironment};
 use protocol_types::{
     abis::function_selector::FunctionSelector, address::AztecAddress, traits::FromField,
@@ -100,5 +101,31 @@ unconstrained fn set_teardown_fails() {
             FunctionSelector::zero(),
             [],
         );
+    });
+}
+
+#[test]
+unconstrained fn check_nullifier_exists_nonexistent() {
+    let env = TestEnvironment::new();
+
+    env.private_context(|_| { assert(!check_nullifier_exists(1)); });
+}
+
+#[test]
+unconstrained fn check_nullifier_exists_settled() {
+    let env = TestEnvironment::new();
+
+    env.private_context(|context| { context.push_nullifier(1); });
+
+    env.private_context(|_| { assert(check_nullifier_exists(1)); });
+}
+
+#[test]
+unconstrained fn check_nullifier_exists_pending() {
+    let env = TestEnvironment::new();
+
+    env.private_context(|context| {
+        context.push_nullifier(1);
+        assert(check_nullifier_exists(1));
     });
 }
