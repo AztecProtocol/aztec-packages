@@ -548,9 +548,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     template <size_t wnaf_size>
     static std::vector<field_t<Builder>> convert_wnaf_values_to_witnesses(Builder* builder,
-                                                                          uint64_t* wnaf_values,
+                                                                          const uint64_t* wnaf_values,
                                                                           bool is_negative,
-                                                                          size_t rounds);
+                                                                          size_t rounds,
+                                                                          const bool range_constrain_wnaf = true);
 
     /**
      * @brief Reconstruct a scalar from its wNAF representation in circuit

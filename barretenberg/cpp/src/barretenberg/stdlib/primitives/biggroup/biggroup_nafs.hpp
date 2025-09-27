@@ -63,32 +63,34 @@ std::pair<uint64_t, bool> element<C, Fq, Fr, G>::get_staggered_wnaf_fragment_val
 
 template <typename C, class Fq, class Fr, class G>
 template <size_t wnaf_size>
-std::vector<field_t<C>> element<C, Fq, Fr, G>::convert_wnaf_values_to_witnesses(C* builder,
-                                                                                uint64_t* wnaf_values,
-                                                                                bool is_negative,
-                                                                                size_t rounds)
+std::vector<field_t<C>> element<C, Fq, Fr, G>::convert_wnaf_values_to_witnesses(
+    C* builder, const uint64_t* wnaf_values, bool is_negative, size_t rounds, const bool range_constrain_wnaf)
 {
     constexpr uint64_t wnaf_window_size = (1ULL << (wnaf_size - 1));
 
     std::vector<field_t<C>> wnaf_entries;
     for (size_t i = 0; i < rounds; ++i) {
         // Predicate == sign of current wnaf value
-        bool predicate = bool((wnaf_values[i] >> 31U) & 1U);
-        uint64_t offset_entry;
-        // If the signs of current entry and the whole scalar are the same, then add the lowest bits of current
-        // wnaf value to the windows size to form an entry. Otherwise, subract the lowest bits along with 1
-        if ((!predicate && !is_negative) || (predicate && is_negative)) {
-            // TODO: Why is this mask fixed?
-            offset_entry = wnaf_window_size + (wnaf_values[i] & 0xffffff);
-        } else {
-            offset_entry = wnaf_window_size - 1 - (wnaf_values[i] & 0xffffff);
-        }
-        field_t<C> entry(witness_t<C>(builder, offset_entry));
+        const bool predicate = (wnaf_values[i] >> 31U) & 1U;            // sign bit (32nd bit)
+        const uint64_t wnaf_magnitude = (wnaf_values[i] & 0x7fffffffU); // 31-bit magnitude
 
-        // TODO: Do these need to be range constrained? we use these witnesses
-        // to index a size-16 ROM lookup table, which performs an implicit range constraint
-        entry.create_range_constraint(wnaf_size);
-        wnaf_entries.emplace_back(entry);
+        // If the signs of current entry and the whole scalar are the same, then add the magnitude of the
+        // wnaf value to the windows size to form an entry. Otherwise, subract the magnitude along with 1.
+        // The extra 1 is needed to get a uniform representation of (2e' + 1) as explained in the README.
+        uint64_t offset_wnaf_entry = 0;
+        if ((!predicate && !is_negative) || (predicate && is_negative)) {
+            offset_wnaf_entry = wnaf_window_size + wnaf_magnitude;
+        } else {
+            offset_wnaf_entry = wnaf_window_size - wnaf_magnitude - 1;
+        }
+        field_t<C> wnaf_entry(witness_t<C>(builder, offset_wnaf_entry));
+
+        // In some cases we may want to skip range constraining the wnaf entries. For example when we use these
+        // entries to lookup in a ROM or regular table, it implicitly enforces the range constraint.
+        if (range_constrain_wnaf) {
+            wnaf_entry.create_range_constraint(wnaf_size, "biggroup_nafs: wnaf_entry is not in range");
+        }
+        wnaf_entries.emplace_back(wnaf_entry);
     }
     return wnaf_entries;
 }
