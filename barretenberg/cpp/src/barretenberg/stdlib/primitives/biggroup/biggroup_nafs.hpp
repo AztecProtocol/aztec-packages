@@ -159,8 +159,9 @@ std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr,
     constexpr uint64_t wnaf_window_size = (1ULL << (wnaf_size - 1));
 
     // Get wnaf witnesses
+    // We don't range constrain the wnaf entries here because we will use them to lookup in a ROM/regular table.
     std::vector<field_t<C>> wnaf = convert_wnaf_values_to_witnesses<wnaf_size>(
-        builder, &wnaf_values[0], is_negative, num_rounds_excluding_stagger_bits);
+        builder, &wnaf_values[0], is_negative, num_rounds_excluding_stagger_bits, false);
 
     // Compute and constrain skews
     field_t<C> negative_skew = witness_t<C>(builder, is_negative ? 0 : skew);
