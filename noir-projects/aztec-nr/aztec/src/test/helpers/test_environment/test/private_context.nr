@@ -52,6 +52,46 @@ unconstrained fn opts_sets_contract_address_and_anchor_block_number() {
     );
 }
 
+#[test]
+unconstrained fn uses_last_block_number() {
+    let env = TestEnvironment::new();
+
+    let last_block_number = env.last_block_number();
+
+    env.private_context(|context| {
+        assert_eq(
+            last_block_number,
+            context.get_anchor_block_header().global_variables.block_number,
+        );
+    });
+}
+
+#[test]
+unconstrained fn advances_block_number() {
+    let env = TestEnvironment::new();
+
+    let first_block_number = env.private_context(|context| {
+        context.get_anchor_block_header().global_variables.block_number
+    });
+    let second_block_number = env.private_context(|context| {
+        context.get_anchor_block_header().global_variables.block_number
+    });
+
+    assert_eq(second_block_number, first_block_number + 1);
+}
+
+#[test]
+unconstrained fn does_not_advance_the_timestamp() {
+    let env = TestEnvironment::new();
+
+    env.private_context(|_| {});
+    let first_timestamp = env.last_block_timestamp();
+    env.private_context(|_| {});
+    let second_timestamp = env.last_block_timestamp();
+
+    assert_eq(second_timestamp, first_timestamp);
+}
+
 #[test(should_fail_with = "Duplicate siloed nullifier")]
 unconstrained fn rejects_duplicate_transient_nullifiers() {
     let env = TestEnvironment::new();
@@ -71,8 +111,18 @@ unconstrained fn rejects_duplicate_settled_nullifiers() {
     env.private_context(|context| { context.push_nullifier(1); });
 }
 
+#[test]
+unconstrained fn repeats_contract_address() {
+    let env = TestEnvironment::new();
+
+    let first_address = env.private_context(|context| context.this_address());
+    let second_address = env.private_context(|context| context.this_address());
+
+    assert_eq(first_address, second_address);
+}
+
 #[test(should_fail_with = "Contract calls are forbidden")]
-unconstrained fn private_calls_fails() {
+unconstrained fn private_call_fails() {
     let env = TestEnvironment::new();
 
     env.private_context(|context| {
@@ -82,7 +132,7 @@ unconstrained fn private_calls_fails() {
 }
 
 #[test(should_fail_with = "Enqueueing public calls is not supported")]
-unconstrained fn public_calls_fails() {
+unconstrained fn public_call_fails() {
     let env = TestEnvironment::new();
 
     env.private_context(|context| {
