@@ -528,10 +528,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      *
      */
     template <size_t wnaf_size>
-    static std::pair<uint64_t, bool> compute_secp256k1_staggered_wnaf_fragment(const uint64_t fragment_u64,
-                                                                               const uint64_t stagger,
-                                                                               bool is_negative,
-                                                                               bool wnaf_skew);
+    static std::pair<uint64_t, bool> get_staggered_wnaf_fragment_value(const uint64_t fragment_u64,
+                                                                       const uint64_t stagger,
+                                                                       bool is_negative,
+                                                                       bool wnaf_skew);
 
     /**
      * @brief Convert wNAF values to witness values

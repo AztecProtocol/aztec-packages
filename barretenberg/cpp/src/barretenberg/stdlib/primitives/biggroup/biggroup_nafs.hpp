@@ -13,10 +13,10 @@ namespace bb::stdlib::element_default {
 
 template <typename C, class Fq, class Fr, class G>
 template <size_t wnaf_size>
-std::pair<uint64_t, bool> element<C, Fq, Fr, G>::compute_secp256k1_staggered_wnaf_fragment(const uint64_t fragment_u64,
-                                                                                           const uint64_t stagger,
-                                                                                           bool is_negative,
-                                                                                           bool wnaf_skew)
+std::pair<uint64_t, bool> element<C, Fq, Fr, G>::get_staggered_wnaf_fragment_value(const uint64_t fragment_u64,
+                                                                                   const uint64_t stagger,
+                                                                                   bool is_negative,
+                                                                                   bool wnaf_skew)
 {
     // If there is no stagger then there is no need to change anything
     if (stagger == 0) {
@@ -143,8 +143,8 @@ std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr,
     const size_t num_rounds_excluding_stagger_bits = ((num_bits + wnaf_size - 1 - stagger) / wnaf_size);
 
     // Compute the stagger-related fragment and the final skew due to the same
-    const auto [first_fragment, skew] = compute_secp256k1_staggered_wnaf_fragment<wnaf_size>(
-        stagger_scalar, stagger, is_negative, skew_without_stagger);
+    const auto [first_fragment, skew] =
+        get_staggered_wnaf_fragment_value<wnaf_size>(stagger_scalar, stagger, is_negative, skew_without_stagger);
 
     constexpr uint64_t wnaf_window_size = (1ULL << (wnaf_size - 1));
 
