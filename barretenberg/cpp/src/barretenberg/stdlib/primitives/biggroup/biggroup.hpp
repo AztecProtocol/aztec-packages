@@ -568,6 +568,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static Fr reconstruct_bigfield_from_wnaf(Builder* builder,
                                              const std::vector<field_t<Builder>>& wnaf,
                                              const field_t<Builder>& positive_skew,
+                                             const field_t<Builder>& negative_skew,
                                              const field_t<Builder>& stagger_fragment,
                                              const size_t stagger,
                                              const size_t rounds);

@@ -100,6 +100,7 @@ template <size_t wnaf_size>
 Fr element<C, Fq, Fr, G>::reconstruct_bigfield_from_wnaf(Builder* builder,
                                                          const std::vector<field_t<Builder>>& wnaf,
                                                          const field_t<Builder>& positive_skew,
+                                                         const field_t<Builder>& negative_skew,
                                                          const field_t<Builder>& stagger_fragment,
                                                          const size_t stagger,
                                                          const size_t rounds)
@@ -119,11 +120,36 @@ Fr element<C, Fq, Fr, G>::reconstruct_bigfield_from_wnaf(Builder* builder,
     sum = sum.normalize();
 
     // Convert this value to bigfield element
-    Fr reconstructed = Fr(sum, field_t<C>::from_witness_index(builder, builder->zero_idx), /*can_overflow*/ false);
+    Fr reconstructed_positive_part =
+        Fr(sum, field_t<C>::from_witness_index(builder, builder->zero_idx), /*can_overflow*/ false);
 
     // Double the final value and add the positive skew
-    reconstructed =
-        (reconstructed + reconstructed).add_to_lower_limb(positive_skew, /*other_maximum_value*/ uint256_t(1));
+    reconstructed_positive_part = (reconstructed_positive_part + reconstructed_positive_part)
+                                      .add_to_lower_limb(positive_skew, /*other_maximum_value*/ uint256_t(1));
+
+    // Start reconstructing the negative part: start with wnaf constant 0xff...ff
+    // See the README for explanation of this constant
+    constexpr uint64_t wnaf_window_size = (1ULL << (wnaf_size - 1));
+    uint256_t negative_constant_wnaf_offset(0);
+    for (size_t i = 0; i < rounds; ++i) {
+        negative_constant_wnaf_offset += uint256_t((wnaf_window_size * 2) - 1) * (uint256_t(1) << (i * wnaf_size));
+    }
+
+    // Shift by stagger
+    negative_constant_wnaf_offset = negative_constant_wnaf_offset << stagger;
+
+    // Add for stagger (if any)
+    if (stagger > 0) {
+        negative_constant_wnaf_offset += ((1ULL << wnaf_size) - 1ULL); // from stagger fragment
+    }
+
+    // Add the negative skew to the bigfield constant
+    Fr reconstructed_negative_part =
+        Fr(nullptr, negative_constant_wnaf_offset).add_to_lower_limb(negative_skew, uint256_t(1));
+
+    // output = x_pos - x_neg (x_pos and x_neg are both non-negative)
+    Fr reconstructed = reconstructed_positive_part - reconstructed_negative_part;
+
     return reconstructed;
 }
 
@@ -158,8 +184,6 @@ std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr,
     const auto [first_fragment, skew] =
         get_staggered_wnaf_fragment_value<wnaf_size>(stagger_scalar, stagger, is_negative, skew_without_stagger);
 
-    constexpr uint64_t wnaf_window_size = (1ULL << (wnaf_size - 1));
-
     // Get wnaf witnesses
     // We don't range constrain the wnaf entries here because we will use them to lookup in a ROM/regular table.
     std::vector<field_t<C>> wnaf = convert_wnaf_values_to_witnesses<wnaf_size>(
@@ -175,30 +199,9 @@ std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr,
     // Initialize stagger witness
     field_t<C> stagger_fragment = witness_t<C>(builder, first_fragment);
 
-    // Reconstruct bigfield x_pos
-    Fr wnaf_sum = reconstruct_bigfield_from_wnaf<wnaf_size>(
-        builder, wnaf, positive_skew, stagger_fragment, stagger, num_rounds_excluding_stagger_bits);
-
-    // Start reconstructing x_neg
-    uint256_t negative_constant_wnaf_offset(0);
-
-    // Construct 0xF..F
-    for (size_t i = 0; i < num_rounds_excluding_stagger_bits; ++i) {
-        negative_constant_wnaf_offset += uint256_t(wnaf_window_size * 2 - 1) * (uint256_t(1) << (i * wnaf_size));
-    }
-    // Shift by stagger
-    negative_constant_wnaf_offset = negative_constant_wnaf_offset << stagger;
-    // Add for stagger
-    if (stagger > 0) {
-        negative_constant_wnaf_offset += ((1ULL << wnaf_size) - 1ULL); // FROM STAGGER FRAMGENT
-    }
-
-    // TODO: improve efficiency by removing range constraint on lo_offset and hi_offset (we already know are
-    // boolean)
-    // Add the skew to the bigfield constant
-    Fr offset = Fr(nullptr, negative_constant_wnaf_offset).add_to_lower_limb(negative_skew, uint256_t(1));
-    // x_pos - x_neg
-    Fr reconstructed = wnaf_sum - offset;
+    // Reconstruct the bigfield scalar from (wnaf + stagger) representation
+    Fr reconstructed = reconstruct_bigfield_from_wnaf<wnaf_size>(
+        builder, wnaf, positive_skew, negative_skew, stagger_fragment, stagger, num_rounds_excluding_stagger_bits);
 
     secp256k1_wnaf wnaf_out{ .wnaf = wnaf,
                              .positive_skew = positive_skew,
