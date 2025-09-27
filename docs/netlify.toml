@@ -5,83 +5,53 @@
 
 [[redirects]]
     from = "/guides/smart_contracts/writing_contracts/initializers"
-    to = "/developers/guides/smart_contracts/define_functions"
+    to = "/developers/docs/guides/smart_contracts/define_functions"
 
 [[redirects]]
     from = "/guides/smart_contracts/writing_contracts/*"
-    to = "/developers/guides/smart_contracts/"
-
-[[redirects]]
-    from = "/reference/aztecjs/accounts"
-    to = "/developers/reference/aztecjs/accounts"
+    to = "/developers/docs/guides/smart_contracts/"
 
 [[redirects]]
     from = "/developers/reference/smart_contract_reference/storage/*"
-    to = "/developers/guides/smart_contracts/storage_types"
+    to = "/developers/docs/guides/smart_contracts/storage_types"
 
 [[redirects]]
     from = "/getting_started"
-    to = "/developers/getting_started"
+    to = "/developers/getting_started_on_sandbox"
 
 [[redirects]]
     from = "/developers/getting_started/main"
-    to = "/developers/getting_started"
+    to = "/developers/getting_started_on_sandbox"
 
 [[redirects]]
     from = "guides/getting_started"
-    to = "/developers/getting_started"
+    to = "/developers/getting_started_on_sandbox"
 
 [[redirects]]
     from = "/tutorials/simple_dapp/*"
-    to = "developers/tutorials/js_tutorials/aztecjs-getting-started"
+    to = "developers/docs/tutorials/js_tutorials/aztecjs-getting-started"
 
 [[redirects]]
     from = "/v2.0.2/migration_notes"
-    to = "/migration_notes"
+    to = "/developers/migration_notes"
 
 [[redirects]]
     from = "/tutorials/contract_tutorials/crowdfunding_contract"
-    to = "/tutorials/codealong/contract_tutorials/crowdfunding_contract"
-
-[[redirects]]
-    from = "/tutorials/contract_tutorials/private_voting_contract"
-    to = "/tutorials/codealong/contract_tutorials/private_voting_contract"
+    to = "/developers/docs/tutorials/contract_tutorials/counter_contract"
 
 [[redirects]]
     from = "/tutorials/contract_tutorials/token_contract"
-    to = "/tutorials/codealong/contract_tutorials/token_contract"
-
-[[redirects]]
-    from = "/tutorials/*"
-    to = "/tutorials/codealong/contract_tutorials/private_voting_contract"
-
-[[redirects]]
-    from = "/developers/tutorials/*"
-    to = "/tutorials/codealong/contract_tutorials/private_voting_contract"
+    to = "/developers/docs/tutorials/contract_tutorials/token_contract"
 
 [[redirects]]
     from = "/developers/sandbox/*"
-    to = "/developers/getting_started"
+    to = "/developers/getting_started_on_sandbox"
 
-[[redirects]]
-    from = "/developers/contracts/*"
-    to = "/aztec/smart_contracts_overview"
 
 [[redirects]]
     from = "/dev_docs/*"
-    to = "/developers/getting_started"
+    to = "/developers/getting_started_on_sandbox"
 
-[[redirects]]
-    from = "/aztec/cryptography/cryptography-roadmap"
-    to = "/aztec/roadmap/cryptography_roadmap"
-
-[[redirects]]
-    from = "/aztec/milestones/features-initial-ldt"
-    to = "/aztec/roadmap/"
-
-[[redirects]]
-    from = "/learn/concepts/*"
-    to = "/aztec/concepts/"
 
 [[redirects]]
     from = "/noir"
@@ -124,76 +94,64 @@
     to = "/"
 
 [[redirects]]
-    from = "/protocol-specs/gas-and-fees/fee-payment-asset"
-    to = "/protocol-specs/gas-and-fees/fee-juice"
-
-[[redirects]]
     from = "/getting-started"
     to = "/"
 
 [[redirects]]
     from = "/reference/sandbox_reference/sandbox-reference"
-    to = "/developers/getting_started"
+    to = "/developers/getting_started_on_sandbox"
 
 [[redirects]]
     from = "/reference/sandbox_reference"
-    to = "/developers/getting_started"
+    to = "/developers/getting_started_on_sandbox"
 
 [[redirects]]
     from = "/guides/getting_started/*"
-    to = "/developers/getting_started"
+    to = "/developers/getting_started_on_sandbox"
 
 [[redirects]]
     from = "/guides/developer_guides/*"
-    to = "/developers/getting_started"
-
-[[redirects]]
-    from = "/aztec/concepts_overview"
-    to = "/aztec"
+    to = "/developers/getting_started_on_sandbox"
 
 [[redirects]]
     from = "/aztec/concepts/accounts/authwit"
-    to = "/aztec/concepts/advanced/authwit"
+    to = "/developers/docs/concepts/advanced/authwit"
 
 [[redirects]]
     from = "/aztec/concepts/storage/storage_slots"
-    to = "/aztec/concepts/advanced/storage/storage_slots"
+    to = "/developers/docs/concepts/advanced/storage/storage_slots"
 
 [[redirects]]
     from = "/aztec/concepts/storage/trees/*"
-    to = "/aztec/concepts/advanced/storage/indexed_merkle_tree"
+    to = "/developers/docs/concepts/advanced/storage/indexed_merkle_tree"
 
 [[redirects]]
     from = "/aztec/concepts/storage/partial_notes"
-    to = "/aztec/concepts/advanced/storage/partial_notes"
+    to = "/developers/docs/concepts/advanced/storage/partial_notes"
 
 [[redirects]]
     from = "/aztec/concepts/circuits/*"
-    to = "/aztec/concepts/advanced/circuits"
+    to = "/developers/docs/concepts/advanced/circuits"
 
 [[redirects]]
     from = "/tutorials/*"
-    to = "/developers/tutorials/*"
+    to = "/developers/docs/tutorials/*"
 
 [[redirects]]
     from = "/guides/*"
-    to = "/developers/guides/*"
+    to = "/developers/docs/guides/*"
 
 [[redirects]]
     from = "/reference/*"
-    to = "/developers/reference/*"
+    to = "/developers/docs/reference/*"
 
 [[redirects]]
     from = "/guides/privacy_considerations"
-    to = "/developers/reference/considerations/privacy_considerations"
+    to = "/developers/docs/reference/considerations/privacy_considerations"
 
 [[redirects]]
     from = "/reference/developer_references/limitations"
-    to = "/developers/reference/considerations/limitations"
-
-[[redirects]]
-    from = "/tutorials/codealong/contract_tutorials/token_bridge/*"
-    to = "/tutorials/codealong/contract_tutorials/token_bridge"
+    to = "/developers/docs/reference/considerations/limitations"
 
 [[redirects]]
     from = "/run_node/*"
@@ -205,99 +163,83 @@
 
 [[redirects]]
     from = "/developers/tutorials/codealong/contract_tutorials/counter_contract"
-    to = "/developers/tutorials/contract_tutorials/counter_contract"
+    to = "/developers/docs/tutorials/contract_tutorials/counter_contract"
 
 
 # Redirects for renamed JS app guide pages
 [[redirects]]
     from = "/developers/guides/js_apps/connect_to_sandbox"
-    to = "/developers/guides/js_apps/how_to_connect_to_sandbox"
+    to = "/developers/docs/guides/js_apps/how_to_connect_to_sandbox"
 
 [[redirects]]
     from = "/developers/guides/js_apps/create_account"
-    to = "/developers/guides/js_apps/how_to_create_account"
+    to = "/developers/docs/guides/js_apps/how_to_create_account"
 
 [[redirects]]
     from = "/developers/guides/js_apps/deploy_contract"
-    to = "/developers/guides/js_apps/how_to_deploy_contract"
+    to = "/developers/docs/guides/js_apps/how_to_deploy_contract"
 
 [[redirects]]
     from = "/developers/guides/js_apps/send_transaction"
-    to = "/developers/guides/js_apps/how_to_send_transaction"
+    to = "/developers/docs/guides/js_apps/how_to_send_transaction"
 
 [[redirects]]
     from = "/developers/guides/js_apps/call_view_function"
-    to = "/developers/guides/js_apps/how_to_simulate_function"
+    to = "/developers/docs/guides/js_apps/how_to_simulate_function"
 
 [[redirects]]
     from = "/developers/guides/js_apps/authwit"
-    to = "/developers/guides/js_apps/how_to_use_authwit"
+    to = "/developers/docs/guides/js_apps/how_to_use_authwit"
 
 [[redirects]]
     from = "/developers/guides/js_apps/pay_fees"
-    to = "/developers/guides/js_apps/how_to_pay_fees"
+    to = "/developers/docs/guides/js_apps/how_to_pay_fees"
 
 [[redirects]]
     from = "/developers/guides/js_apps/test"
-    to = "/developers/guides/js_apps/how_to_test"
+    to = "/developers/docs/guides/js_apps/how_to_test"
 
 # Redirects for renamed smart contract guide pages
 [[redirects]]
     from = "/developers/guides/smart_contracts/compile_contract"
-    to = "/developers/guides/smart_contracts/how_to_compile_contract"
+    to = "/developers/docs/guides/smart_contracts/how_to_compile_contract"
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/deploy_contract"
-    to = "/developers/guides/smart_contracts/how_to_deploy_contract"
+    to = "/developers/docs/guides/smart_contracts/how_to_deploy_contract"
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/define_functions"
-    to = "/developers/guides/smart_contracts/how_to_define_functions"
+    to = "/developers/docs/guides/smart_contracts/how_to_define_functions"
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/define_storage"
-    to = "/developers/guides/smart_contracts/how_to_define_storage"
+    to = "/developers/docs/guides/smart_contracts/how_to_define_storage"
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/call_contracts"
-    to = "/developers/guides/smart_contracts/how_to_call_contracts"
+    to = "/developers/docs/guides/smart_contracts/how_to_call_contracts"
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/emit_event"
-    to = "/developers/guides/smart_contracts/how_to_emit_event"
+    to = "/developers/docs/guides/smart_contracts/how_to_emit_event"
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/pop_capsule"
-    to = "/developers/guides/smart_contracts/how_to_pop_capsule"
-
-[[redirects]]
-    from = "/developers/guides/smart_contracts/use_dependencies"
-    to = "/developers/guides/smart_contracts/how_to_use_dependencies"
+    to = "/developers/docs/guides/smart_contracts/advanced/how_to_use_capsules"
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/write_custom_note"
-    to = "/developers/guides/smart_contracts/how_to_write_custom_note"
+    to = "/developers/docs/guides/smart_contracts/how_to_implement_custom_note"
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/test_contracts"
-    to = "/developers/guides/smart_contracts/how_to_test_contracts"
+    to = "/developers/docs/guides/smart_contracts/how_to_test_contracts"
 
 # Redirects for renamed local_env guide pages
 [[redirects]]
     from = "/developers/guides/local_env/debug"
-    to = "/developers/guides/local_env/how_to_debug"
-
-[[redirects]]
-    from = "/developers/guides/local_env/run_devnet_against_mainnet_fork"
-    to = "/developers/guides/local_env/how_to_run_devnet_against_mainnet_fork"
-
-[[redirects]]
-    from = "/developers/guides/local_env/run_more_than_one_pxe"
-    to = "/developers/guides/local_env/how_to_run_more_than_one_pxe"
-
-[[redirects]]
-    from = "/developers/guides/local_env/set_hardware_resource_limits"
-    to = "/developers/guides/local_env/how_to_set_hardware_resource_limits"
+    to = "/developers/docs/guides/local_env/how_to_debug"
 
 # Redirects for fixed documentation structure links
 # Added to handle all the broken links that were fixed in the documentation
@@ -321,37 +263,40 @@
     to = "/developers/getting_started_on_sandbox"
 
 # Redirect guides that moved to aztec-js
-[[redirects]]
-    from = "/developers/guides/js_apps/how_to_connect_to_sandbox"
-    to = "/developers/guides/aztec-js/how_to_connect_to_sandbox"
+# The follow section should be uncommented when v2.0.2 is no longer the default version
+# v2.0.2 still uses the /developers/guides/js_apps/ path
 
-[[redirects]]
-    from = "/developers/guides/js_apps/how_to_create_account"
-    to = "/developers/guides/aztec-js/how_to_create_account"
+# [[redirects]]
+#     from = "/developers/guides/js_apps/connect_to_sandbox"
+#     to = "/developers/docs/guides/aztec-js/how_to_connect_to_sandbox"
 
-[[redirects]]
-    from = "/developers/guides/js_apps/how_to_deploy_contract"
-    to = "/developers/guides/aztec-js/how_to_deploy_contract"
+# [[redirects]]
+#     from = "/developers/guides/js_apps/create_account"
+#     to = "/developers/guides/aztec-js/how_to_create_account"
 
-[[redirects]]
-    from = "/developers/guides/js_apps/how_to_send_transaction"
-    to = "/developers/guides/aztec-js/how_to_send_transaction"
+# [[redirects]]
+#     from = "/developers/guides/js_apps/deploy_contract"
+#     to = "/developers/guides/aztec-js/how_to_deploy_contract"
 
-[[redirects]]
-    from = "/developers/guides/js_apps/how_to_simulate_function"
-    to = "/developers/guides/aztec-js/how_to_simulate_function"
+# [[redirects]]
+#     from = "/developers/guides/js_apps/send_transaction"
+#     to = "/developers/guides/aztec-js/how_to_send_transaction"
 
-[[redirects]]
-    from = "/developers/guides/js_apps/how_to_use_authwit"
-    to = "/developers/guides/aztec-js/how_to_use_authwit"
+# [[redirects]]
+#     from = "/developers/guides/js_apps/call_view_function"
+#     to = "/developers/guides/aztec-js/how_to_simulate_function"
 
-[[redirects]]
-    from = "/developers/guides/js_apps/how_to_pay_fees"
-    to = "/developers/guides/aztec-js/how_to_pay_fees"
+# [[redirects]]
+#     from = "/developers/guides/js_apps/authwit"
+#     to = "/developers/guides/aztec-js/how_to_use_authwit"
 
-[[redirects]]
-    from = "/developers/guides/js_apps/how_to_test"
-    to = "/developers/guides/aztec-js/how_to_test"
+# [[redirects]]
+#     from = "/developers/guides/js_apps/how_to_pay_fees"
+#     to = "/developers/guides/aztec-js/how_to_pay_fees"
+
+# [[redirects]]
+#     from = "/developers/guides/js_apps/test"
+#     to = "/developers/guides/aztec-js/how_to_test"
 
 # Redirect tutorials paths
 [[redirects]]
