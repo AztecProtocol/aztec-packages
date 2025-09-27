@@ -22,32 +22,40 @@ std::pair<uint64_t, bool> element<C, Fq, Fr, G>::get_staggered_wnaf_fragment_val
     if (stagger == 0) {
         return std::make_pair(0, wnaf_skew);
     }
+
+    // Convert the fragment to signed int for easier manipulation
     int fragment = static_cast<int>(fragment_u64);
+
     // Inverse the fragment if it's negative
     if (is_negative) {
         fragment = -fragment;
     }
-    // If the value is positive and there is a skew in wnaf, subtract 2^{stagger}. If negative and there is
-    // skew, then add
+    // If the value is positive and there is a skew in wnaf, subtract 2^{stagger}.
     if (!is_negative && wnaf_skew) {
         fragment -= (1 << stagger);
-    } else if (is_negative && wnaf_skew) {
+    }
+
+    // If the value is negative and there is a skew in wnaf, add 2^{stagger}.
+    if (is_negative && wnaf_skew) {
         fragment += (1 << stagger);
     }
+
     // If the lowest bit is zero, then set final skew to 1 and add 1 to the absolute value of the fragment
-    bool output_skew = (fragment_u64 % 2) == 0;
+    bool output_skew = (fragment_u64 & 1) == 0;
     if (!is_negative && output_skew) {
         fragment += 1;
     } else if (is_negative && output_skew) {
         fragment -= 1;
     }
 
-    uint64_t output_fragment;
+    // Compute raw wnaf value: w = 2e + 1  =>  e = (w - 1) / 2  => e = ⌊w / 2⌋
+    const int signed_wnaf_value = (fragment / 2);
+    constexpr int wnaf_window_size = (1ULL << (wnaf_size - 1));
+    uint64_t output_fragment = 0;
     if (fragment < 0) {
-        output_fragment = static_cast<uint64_t>((int)((1ULL << (wnaf_size - 1))) + (fragment / 2 - 1));
+        output_fragment = static_cast<uint64_t>(wnaf_window_size + signed_wnaf_value - 1);
     } else {
-        output_fragment =
-            static_cast<uint64_t>((1ULL << (wnaf_size - 1)) - 1ULL + (uint64_t)((uint64_t)fragment / 2 + 1));
+        output_fragment = static_cast<uint64_t>(wnaf_window_size + signed_wnaf_value);
     }
 
     return std::make_pair(output_fragment, output_skew);
