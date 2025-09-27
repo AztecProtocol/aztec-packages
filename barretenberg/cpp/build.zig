@@ -142,10 +142,20 @@ fn getBuildStepForTarget(
     });
 
     // Link avm-transpiler static library (musl-built, no glibc dependencies)
-    if (platform.os != .wasi) { // Skip for WASM builds
-        exe.addObjectFile(b.path("../../avm-transpiler/target/x86_64-unknown-linux-musl/release/libavm_transpiler.a"));
-        exe.addIncludePath(b.path("../../avm-transpiler/include"));
-        // No system libraries needed for musl build - it's fully static
+    exe.addIncludePath(b.path("../../avm-transpiler/include"));
+    switch (platform.os) {
+        .linux => switch (platform.arch) {
+            .x86_64 => exe.addObjectFile(b.path("../../avm-transpiler/target/x86_64-unknown-linux-musl/release/libavm_transpiler.a")),
+            // .aarch64 => exe.addObjectFile(b.path("../../avm-transpiler/target/aarch64-")),
+            else => {},
+        },
+        .macos => switch (platform.arch) {
+            // .x86_64 => exe.addObjectFile(b.path("../../avm-transpiler/target/x86_64-unknown-linux-musl/release/libavm_transpiler.a")),
+            .aarch64 => exe.addObjectFile(b.path("../../avm-transpiler/target/aarch64-apple-darwin/release/libavm_transpiler.a")),
+            else => {},
+        },
+        .wasi => exe.addObjectFile(b.path("../../avm-transpiler/target/wasm32-wasip1-threads/release/libavm_transpiler.a")),
+        else => {},
     }
 
     // Add yazap dependency for command-line parsing
