@@ -120,7 +120,7 @@ fn generateVerificationKeys(allocator: std.mem.Allocator, artifact_path: []const
     }
 
     // Generate VKs for private functions and update the JSON in memory
-    try generateVKsForFunctions(allocator, artifact_name, cache_dir_path, &parsed.value, functions.?.array);
+    try generateVKsForFunctions(allocator, cache_dir_path, &parsed.value, functions.?.array);
 
     // Write the complete updated JSON to file once at the end
     var out: std.io.Writer.Allocating = .init(allocator);
@@ -133,7 +133,6 @@ fn generateVerificationKeys(allocator: std.mem.Allocator, artifact_path: []const
 
 fn generateVKsForFunctions(
     allocator: std.mem.Allocator,
-    artifact_name: []const u8,
     cache_dir_path: []const u8,
     parsed_json: *std.json.Value,
     functions: std.json.Array,
@@ -166,65 +165,55 @@ fn generateVKsForFunctions(
         const fn_name = func_obj.get("name").?.string;
         print("Processing function: {s}\n", .{fn_name});
 
+        // Get raw bytecode first
+        const bytecode = try getByteCode(allocator, function);
+        defer allocator.free(bytecode);
+
         // Generate VK for this function and add it to the parsed JSON
-        const vk_data = try generateVKDataForFunction(allocator, artifact_name, cache_dir_path, fn_index, function);
+        const vk_data = try generateCachedVK(allocator, cache_dir_path, bytecode);
         defer allocator.free(vk_data);
 
         // Add VK data to the parsed JSON
-        const vk_string = try allocator.dupe(u8, vk_data);
-        defer allocator.free(vk_string);
+        // const vk_string = try allocator.dupe(u8, vk_data);
+        // defer allocator.free(vk_string);
 
-        const vk_value = std.json.Value{ .string = vk_string };
+        // Encode to base64 for JSON storage
+        const encoder = std.base64.standard.Encoder;
+        const encoded_size = encoder.calcSize(vk_data.len);
+        const encoded_vk = try allocator.alloc(u8, encoded_size);
+        _ = encoder.encode(encoded_vk, vk_data);
+
+        const vk_value = std.json.Value{ .string = encoded_vk };
         try parsed_functions.array.items[fn_index].object.put("verification_key", vk_value);
     }
 }
 
-fn generateVKDataForFunction(
+fn generateCachedVK(
     allocator: std.mem.Allocator,
-    artifact_name: []const u8,
     cache_dir_path: []const u8,
-    fn_index: usize,
-    function: std.json.Value,
+    bytecode: []const u8,
 ) ![]const u8 {
-    // Use a simple hash based on function index and name for cache key
-    const fn_name = function.object.get("name").?.string;
-    const hash_input = try std.fmt.allocPrint(allocator, "{d}-{s}", .{ fn_index, fn_name });
-    defer allocator.free(hash_input);
+    // Create SHA256 hash of bytecode for cache filename
+    var hasher = std.crypto.hash.sha2.Sha256.init(.{});
+    hasher.update(bytecode);
+    var hash: [32]u8 = undefined;
+    hasher.final(&hash);
 
-    const func_hash = try computeSha256(allocator, hash_input);
-    defer allocator.free(func_hash);
+    // Convert hash to hex string
+    const hex_str = std.fmt.bytesToHex(hash, .lower);
 
-    const vk_cache_path = try std.fmt.allocPrint(allocator, "{s}/{s}_{s}.vk", .{ cache_dir_path, artifact_name, func_hash });
+    const vk_cache_path = try std.fmt.allocPrint(allocator, "{s}/{s}.vk", .{ cache_dir_path, hex_str });
     defer allocator.free(vk_cache_path);
 
     // Check if VK already exists in cache
     if (std.fs.cwd().access(vk_cache_path, .{})) {
-        print("Using cached verification key for function \"{s}\"\n", .{fn_name});
-        const raw_vk = try std.fs.cwd().readFileAlloc(allocator, vk_cache_path, 10 * 1024 * 1024);
-        defer allocator.free(raw_vk);
-
-        // Encode to base64 for JSON storage
-        const encoder = std.base64.standard.Encoder;
-        const encoded_size = encoder.calcSize(raw_vk.len);
-        const encoded_vk = try allocator.alloc(u8, encoded_size);
-        _ = encoder.encode(encoded_vk, raw_vk);
-        return encoded_vk;
+        print("Using cached verification key\n", .{});
+        return try std.fs.cwd().readFileAlloc(allocator, vk_cache_path, 10 * 1024 * 1024);
     } else |_| {
-        // Generate new VK
-        const base64_vk = try generateAndReturnVK(allocator, function);
-
-        // Decode base64 to get raw bytes for caching
-        const decoder = std.base64.standard.Decoder;
-        const decoded_size = try decoder.calcSizeForSlice(base64_vk);
-        const raw_vk = try allocator.alloc(u8, decoded_size);
-        defer allocator.free(raw_vk);
-
-        _ = try decoder.decode(raw_vk, base64_vk);
-
-        // Cache the raw VK bytes
+        const raw_vk = try generateVK(allocator, bytecode);
+        // Cache the raw VK bytes and return.
         std.fs.cwd().writeFile(.{ .sub_path = vk_cache_path, .data = raw_vk }) catch {};
-
-        return base64_vk;
+        return raw_vk;
     }
 }
 
@@ -259,20 +248,13 @@ fn getByteCode(allocator: std.mem.Allocator, function: std.json.Value) ![]const 
     return writer.toOwnedSlice();
 }
 
-fn generateAndReturnVK(allocator: std.mem.Allocator, function: std.json.Value) ![]const u8 {
-    const fn_name = function.object.get("name").?.string;
-    print("Generating verification key for function {s}\n", .{fn_name});
-
-    const bytecode = try getByteCode(allocator, function);
-
-    // Call the C function to generate VK
+fn generateVK(allocator: std.mem.Allocator, bytecode: []const u8) ![]const u8 {
     var vk_output_len: usize = 0;
-    const vk_output_ptr: [*c]u8 = 0;
-    defer std.c.free(vk_output_ptr);
+    var vk_output_ptr: [*]u8 = undefined;
     const result_code = bbapi_compute_standalone_vk(
         bytecode.ptr,
         bytecode.len,
-        @ptrCast(vk_output_ptr),
+        &vk_output_ptr,
         &vk_output_len,
     );
 
@@ -280,31 +262,6 @@ fn generateAndReturnVK(allocator: std.mem.Allocator, function: std.json.Value) !
         return error.VKGenerationFailed;
     }
 
-    // Create slice from C output.
-    const vk_data = vk_output_ptr.*[0..vk_output_len];
-
-    // Convert to base64 for storage.
-    const encoder = std.base64.standard.Encoder;
-    const encoded_size = encoder.calcSize(vk_data.len);
-    const final_vk = try allocator.alloc(u8, encoded_size);
-
-    _ = encoder.encode(final_vk, vk_data);
-
-    return final_vk;
-}
-
-fn computeSha256(allocator: std.mem.Allocator, input: []const u8) ![]const u8 {
-    var hasher = std.crypto.hash.sha2.Sha256.init(.{});
-    hasher.update(input);
-    var hash: [32]u8 = undefined;
-    hasher.final(&hash);
-
-    // Convert to hex string
-    const hex_chars = "0123456789abcdef";
-    var hex_string = try allocator.alloc(u8, 64);
-    for (hash, 0..) |byte, i| {
-        hex_string[i * 2] = hex_chars[byte >> 4];
-        hex_string[i * 2 + 1] = hex_chars[byte & 0xf];
-    }
-    return hex_string;
+    const vk_data = vk_output_ptr[0..vk_output_len];
+    return try allocator.dupe(u8, vk_data);
 }
