@@ -166,8 +166,8 @@ std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr,
     // Stagger scalar represents the lower "staggered" bits that are not used in the ladder
     const uint64_t stagger_scalar = scalar.data[0] & stagger_mask;
 
-    uint64_t wnaf_values[num_rounds] = { 0 };
-    bool skew_without_stagger;
+    std::array<uint64_t, num_rounds> wnaf_values = { 0 };
+    bool skew_without_stagger = false;
     uint256_t k_u256{ scalar.data[0], scalar.data[1], scalar.data[2], scalar.data[3] };
     k_u256 = k_u256 >> stagger;
     if (is_lo) {
@@ -336,6 +336,10 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
 
     constexpr size_t num_bits = 129;
 
+    // Decomposes the scalar k into two 129-bit scalars klo, khi such that
+    // k = klo - λ * khi (mod n)
+    // where λ is the cube root of unity mod n and that |klo| < 2^129, |khi| < 2^129.
+    // In some cases, klo or khi may be negative, in which case we have to use -klo or -khi instead.
     secp256k1::fr k(scalar.get_value().lo);
     secp256k1::fr klo(0);
     secp256k1::fr khi(0);
@@ -343,19 +347,20 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
     bool khi_negative = false;
     secp256k1::fr::split_into_endomorphism_scalars(k.from_montgomery_form(), klo, khi);
 
-    /* AUDITNOTE: it has been observed in testing that klo_negative is always false.
-    On the other hand, khi_negative is sometimes true (e.g., in test_wnaf_secp256k1, take
-    scalar_a = 0x3e3e7e9628094ee8942358f6daa1130790f5165d55705d83dad745c85f36807a). So it may be
-    that this block is not needed. I could not quickly determine why this might be the case,
-    so I leave it to the auditor to check whether the following if block is needed. */
-    if (klo.uint256_t_no_montgomery_conversion().get_msb() > 129) {
+    // The low and high scalars must be less than 2^129 in absolute value. In some cases, the khi value
+    // is returned as negative, in which case we negate it and set a flag to indicate this. We do the same
+    // for klo for completeness, although this is very rare (almost never happens).
+    if (klo.uint256_t_no_montgomery_conversion().get_msb() >= 129) {
         klo_negative = true;
         klo = -klo;
     }
-    if (khi.uint256_t_no_montgomery_conversion().get_msb() > 129) {
+    if (khi.uint256_t_no_montgomery_conversion().get_msb() >= 129) {
         khi_negative = true;
         khi = -khi;
     }
+
+    BB_ASSERT_LT(klo.uint256_t_no_montgomery_conversion().get_msb(), 129ULL, "biggroup_nafs: klo > 129 bits");
+    BB_ASSERT_LT(khi.uint256_t_no_montgomery_conversion().get_msb(), 129ULL, "biggroup_nafs: khi > 129 bits");
 
     const auto [klo_reconstructed, klo_out] =
         element<C, Fq, Fr, G>::compute_secp256k1_single_wnaf<num_bits, wnaf_size, lo_stagger, hi_stagger>(
@@ -370,15 +375,12 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
 
     Fr reconstructed_scalar = khi_reconstructed.madd(minus_lambda, { klo_reconstructed });
 
-    if (reconstructed_scalar.get_value() != scalar.get_value()) {
-        std::cerr << "biggroup_nafs: secp256k1 reconstructed wnaf does not match input! " << reconstructed_scalar
-                  << " vs " << scalar << std::endl;
+    if ((reconstructed_scalar.get_value() != scalar.get_value()) && !ctx->failed()) {
+        ctx->failure("biggroup_nafs: secp256k1 reconstructed wnaf does not match input!");
     }
-    scalar.binary_basis_limbs[0].element.assert_equal(reconstructed_scalar.binary_basis_limbs[0].element);
-    scalar.binary_basis_limbs[1].element.assert_equal(reconstructed_scalar.binary_basis_limbs[1].element);
-    scalar.binary_basis_limbs[2].element.assert_equal(reconstructed_scalar.binary_basis_limbs[2].element);
-    scalar.binary_basis_limbs[3].element.assert_equal(reconstructed_scalar.binary_basis_limbs[3].element);
-    scalar.prime_basis_limb.assert_equal(reconstructed_scalar.prime_basis_limb);
+
+    // Validate that the reconstructed scalar matches the original scalar in circuit
+    scalar.assert_equal(reconstructed_scalar);
 
     return { .klo = klo_out, .khi = khi_out };
 }
