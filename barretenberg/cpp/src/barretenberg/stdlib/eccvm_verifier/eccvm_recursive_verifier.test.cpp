@@ -257,6 +257,7 @@ TEST_F(ECCVMRecursiveTests, SingleRecursiveVerificationFailure)
 
 TEST_F(ECCVMRecursiveTests, SingleRecursiveVerificationFailureTamperedProof)
 {
+    BB_DISABLE_ASSERTS(); // Avoid on_curve assertion failure in cycle_group constructor
     ECCVMRecursiveTests::test_recursive_verification_failure_tampered_proof();
 };
 

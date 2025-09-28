@@ -270,6 +270,7 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveInfinitySucceed)
  */
 TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail)
 {
+    BB_DISABLE_ASSERTS(); // Avoid on_curve assertion failure in cycle_group constructor
     STDLIB_TYPE_ALIASES;
     Builder builder;
 
@@ -289,6 +290,7 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail)
  */
 TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail2)
 {
+    BB_DISABLE_ASSERTS(); // Avoid on_curve assertion failure in cycle_group constructor
     STDLIB_TYPE_ALIASES;
     Builder builder;
 
@@ -826,6 +828,7 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalAddSucceed)
 
 TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalAddFail)
 {
+    BB_DISABLE_ASSERTS(); // Avoid on_curve assertion failure in cycle_group constructor
     STDLIB_TYPE_ALIASES;
     auto builder = Builder();
 
