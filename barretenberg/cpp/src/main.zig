@@ -18,6 +18,8 @@ const c = @cImport({
 const TranspileResult = c.TranspileResult;
 
 pub fn main() !u8 {
+    // No longer need to set BB_LOG_FD globally - each child will set it to their pipe
+
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
@@ -168,6 +170,11 @@ const WorkerData = struct {
     force: bool,
 };
 
+const ChildInfo = struct {
+    pid: std.posix.pid_t,
+    pipe_read: std.posix.fd_t,
+};
+
 fn vkWorkerProcess(data: WorkerData) void {
     for (data.start_index..data.end_index) |fn_index| {
         const function = data.functions[fn_index];
@@ -208,7 +215,7 @@ fn vkWorkerProcess(data: WorkerData) void {
         };
         defer data.allocator.free(vk_data);
 
-        // print("Cached VK for function: {s}\n", .{fn_name});
+        print("Cached VK for function: {s}\n", .{fn_name});
     }
 }
 
@@ -225,21 +232,11 @@ fn generateVKsForFunctions(
     const cpu_count = std.Thread.getCpuCount() catch 1;
     const process_count = @min(functions.items.len, cpu_count);
 
-    if (process_count <= 1) {
-        // Single process - handle directly
-        const data = WorkerData{
-            .start_index = 0,
-            .end_index = functions.items.len,
-            .functions = functions.items,
-            .cache_dir_path = cache_dir_path,
-            .allocator = allocator,
-            .force = force,
-        };
-        vkWorkerProcess(data);
-    } else {
-        // Multi-process - fork workers
-        var pids = try std.ArrayList(std.posix.pid_t).initCapacity(allocator, process_count);
-        defer pids.deinit(allocator);
+    // Always use fork for output control
+    {
+        // Multi-process - fork workers with pipes for output
+        var child_infos = try std.ArrayList(ChildInfo).initCapacity(allocator, process_count);
+        defer child_infos.deinit(allocator);
 
         const functions_per_process = (functions.items.len + process_count - 1) / process_count;
 
@@ -249,9 +246,19 @@ fn generateVKsForFunctions(
 
             if (start_index >= functions.items.len) break;
 
+            // Create pipe for this child's output
+            const pipe_fds = try std.posix.pipe();
+
             const pid = try std.posix.fork();
             if (pid == 0) {
-                // Child process
+                // Child process.
+                // Close read end in child.
+                std.posix.close(pipe_fds[0]);
+
+                // Now redirect stdout/stderr to pipe for Zig output
+                try std.posix.dup2(pipe_fds[1], std.posix.STDOUT_FILENO);
+                try std.posix.dup2(pipe_fds[1], std.posix.STDERR_FILENO);
+
                 const data = WorkerData{
                     .start_index = start_index,
                     .end_index = end_index,
@@ -263,14 +270,38 @@ fn generateVKsForFunctions(
                 vkWorkerProcess(data);
                 std.posix.exit(0);
             } else {
-                // Parent process - store child PID
-                pids.appendAssumeCapacity(pid);
+                // Parent process.
+                // Close write end in parent.
+                std.posix.close(pipe_fds[1]);
+                child_infos.appendAssumeCapacity(ChildInfo{
+                    .pid = pid,
+                    .pipe_read = pipe_fds[0],
+                });
             }
         }
 
-        // Wait for all children to complete
-        for (pids.items) |pid| {
-            const result = std.posix.waitpid(pid, 0);
+        // Wait for all children to complete and collect their output
+        for (child_infos.items) |info| {
+            // First, read and buffer all output from the child
+            var output_buffer = try std.ArrayList(u8).initCapacity(allocator, 8192);
+            defer output_buffer.deinit(allocator);
+
+            var read_buf: [4096]u8 = undefined;
+            while (true) {
+                const bytes_read = std.posix.read(info.pipe_read, &read_buf) catch break;
+                if (bytes_read == 0) break; // EOF
+                output_buffer.appendSlice(allocator, read_buf[0..bytes_read]) catch {};
+            }
+            std.posix.close(info.pipe_read);
+
+            // Wait for the child to complete
+            const result = std.posix.waitpid(info.pid, 0);
+
+            // Print the child's complete output with function prefixes
+            if (output_buffer.items.len > 0) {
+                try printOutputWithFunctionPrefixes(output_buffer.items);
+            }
+
             if (result.status != 0) {
                 return error.VKGenerationFailed;
             }
@@ -305,8 +336,8 @@ fn generateVKsForFunctions(
         const bytecode = try getByteCode(allocator, function);
         defer allocator.free(bytecode);
 
-        // Read from cache (should exist now)
-        const vk_data = try generateCachedVK(allocator, cache_dir_path, bytecode, force);
+        // Read from cache (should exist now) - never force since children already generated
+        const vk_data = try generateCachedVK(allocator, cache_dir_path, bytecode, false);
         defer allocator.free(vk_data);
 
         // Encode to base64 for JSON storage
@@ -384,6 +415,35 @@ fn getByteCode(allocator: std.mem.Allocator, function: std.json.Value) ![]const 
     // print("Decompressed bytecode: {d} bytes\n", .{decompressed_len});
 
     return writer.toOwnedSlice();
+}
+
+fn printOutputWithFunctionPrefixes(output: []const u8) !void {
+    var lines = std.mem.splitSequence(u8, output, "\n");
+    var current_function: ?[]const u8 = null;
+
+    while (lines.next()) |line| {
+        // Check if this line indicates we're processing a new function
+        const processing_prefix = "Processing function: ";
+        if (std.mem.startsWith(u8, line, processing_prefix)) {
+            // Extract function name from "Processing function: name (PID: ...)"
+            const name_start = processing_prefix.len;
+            if (std.mem.indexOf(u8, line[name_start..], " (PID:")) |paren_pos| {
+                current_function = line[name_start .. name_start + paren_pos];
+            }
+            // Don't print the "Processing function:" line itself
+            continue;
+        }
+
+        // Print the line with function prefix if we have one
+        if (current_function) |func_name| {
+            if (line.len > 0) {
+                print("{s}: {s}\n", .{ func_name, line });
+            }
+        } else if (line.len > 0) {
+            // No current function, just print the line as-is
+            print("{s}\n", .{line});
+        }
+    }
 }
 
 fn generateVK(allocator: std.mem.Allocator, bytecode: []const u8) ![]const u8 {
