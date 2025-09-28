@@ -149,6 +149,7 @@ case "$cmd" in
     ;;
   "network-tests")
     export JOB_ID="x-${NAMESPACE}-network-tests"
+    export AWS_SHUTDOWN_TIME=360 # 6 hours for network tests
     bootstrap_ec2 "./bootstrap.sh ci-network-tests"
     ;;
   "nightly")
