@@ -63,7 +63,6 @@ pub fn main() !u8 {
             };
 
             print("Successfully processed: {s} -> {s}\n", .{ input, output });
-            print("Contract postprocessing complete!\n", .{});
             return 0;
         }
     }
@@ -291,6 +290,7 @@ fn generateVKsForFunctions(
                 }
             }
         }
+        print("\n", .{});
     }
 
     // Collect results from cache and update JSON object in memory.
@@ -300,7 +300,7 @@ fn generateVKsForFunctions(
         defer allocator.free(bytecode);
 
         // Read from cache (should exist now) - never force since children already generated.
-        const vk_data = try generateCachedVK(allocator, cache_dir_path, bytecode, false);
+        const vk_data = try getCachedVK(allocator, cache_dir_path, bytecode);
         defer allocator.free(vk_data);
 
         // Encode to base64 for JSON.
@@ -328,11 +328,29 @@ fn vkWorkerProcess(data: WorkerData) void {
         defer data.allocator.free(bytecode);
 
         // Generate VK for this function - this will cache it automatically
-        const vk_data = generateCachedVK(data.allocator, data.cache_dir_path, bytecode, data.force) catch {
+        generateCachedVK(data.allocator, data.cache_dir_path, bytecode, data.force) catch {
             std.posix.exit(1);
         };
-        defer data.allocator.free(vk_data);
     }
+}
+
+fn computeBytecodeHash(bytecode: []const u8) [64]u8 {
+    var hasher = std.crypto.hash.sha2.Sha256.init(.{});
+    hasher.update(bytecode);
+    var hash: [32]u8 = undefined;
+    hasher.final(&hash);
+    return std.fmt.bytesToHex(hash, .lower);
+}
+
+fn getCachedVK(
+    allocator: std.mem.Allocator,
+    cache_dir_path: []const u8,
+    bytecode: []const u8,
+) ![]const u8 {
+    const hex_str = computeBytecodeHash(bytecode);
+    const vk_cache_path = try std.fmt.allocPrint(allocator, "{s}/{s}.vk", .{ cache_dir_path, hex_str });
+    defer allocator.free(vk_cache_path);
+    return try std.fs.cwd().readFileAlloc(allocator, vk_cache_path, 4 * 1024);
 }
 
 fn generateCachedVK(
@@ -340,34 +358,28 @@ fn generateCachedVK(
     cache_dir_path: []const u8,
     bytecode: []const u8,
     force: bool,
-) ![]const u8 {
-    // Create SHA256 hash of bytecode for cache filename
-    var hasher = std.crypto.hash.sha2.Sha256.init(.{});
-    hasher.update(bytecode);
-    var hash: [32]u8 = undefined;
-    hasher.final(&hash);
-
-    // Convert hash to hex string
-    const hex_str = std.fmt.bytesToHex(hash, .lower);
+) !void {
+    const hex_str = computeBytecodeHash(bytecode);
 
     const vk_cache_path = try std.fmt.allocPrint(allocator, "{s}/{s}.vk", .{ cache_dir_path, hex_str });
     defer allocator.free(vk_cache_path);
 
-    // Check cache unless force is true
+    // Check cache unless force is true.
     if (!force) {
         if (std.fs.cwd().access(vk_cache_path, .{})) {
-            // print("Using cached verification key\n", .{});
-            return try std.fs.cwd().readFileAlloc(allocator, vk_cache_path, 4 * 1024);
+            print("Verification key already in cache: {s}\n", .{hex_str});
+            return;
         } else |_| {
-            // Cache doesn't exist, generate new VK
+            // Cache doesn't exist, generate new VK.
         }
     }
 
     // Force is true or cache doesn't exist, generate new VK.
     const raw_vk = try generateVK(allocator, bytecode);
-    // Cache the raw VK bytes and return.
+    defer allocator.free(raw_vk);
+
+    // Cache the raw VK bytes.
     std.fs.cwd().writeFile(.{ .sub_path = vk_cache_path, .data = raw_vk }) catch {};
-    return raw_vk;
 }
 
 fn getByteCode(allocator: std.mem.Allocator, function: std.json.Value) ![]const u8 {
@@ -416,5 +428,6 @@ fn generateVK(allocator: std.mem.Allocator, bytecode: []const u8) ![]const u8 {
     }
 
     const vk_data = vk_output_ptr[0..vk_output_len];
+    defer std.c.free(vk_output_ptr);
     return try allocator.dupe(u8, vk_data);
 }
