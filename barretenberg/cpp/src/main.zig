@@ -96,7 +96,6 @@ fn processArtifact(allocator: std.mem.Allocator, input_path: []const u8, output_
                 // Contract already transpiled, copy input to output if different.
                 if (!std.mem.eql(u8, input_path, output_path)) {
                     try std.fs.cwd().copyFile(input_path, std.fs.cwd(), output_path, .{});
-                    print("Copied already transpiled artifact: {s} -> {s}\n", .{ input_path, output_path });
                 }
             } else if (msg_len > 0) {
                 print("Transpilation failed: {s}\n", .{msg});
@@ -149,13 +148,12 @@ fn generateVerificationKeys(allocator: std.mem.Allocator, artifact_path: []const
     // Create cache directory.
     std.fs.cwd().makePath(cache_dir_path) catch {};
 
-    print("Generating verification keys for functions in {s}. Cache directory: {s}\n", .{
+    print("Generating verification keys for functions in {s}.\nCache directory: {s}\n", .{
         artifact_name,
         cache_dir_path,
     });
 
     // Read and parse the artifact JSON to get private functions.
-    print("Reading artifact file: {s}\n", .{artifact_path});
     const artifact_content = try std.fs.cwd().readFileAlloc(allocator, artifact_path, 100 * 1024 * 1024);
     defer allocator.free(artifact_content);
 
@@ -164,7 +162,7 @@ fn generateVerificationKeys(allocator: std.mem.Allocator, artifact_path: []const
 
     const functions = parsed.value.object.get("functions");
     if (functions == null) {
-        print("Warning: No functions found in artifact\n", .{});
+        print("Warning: No functions found in artifact.\n", .{});
         return;
     }
 
@@ -179,20 +177,20 @@ fn generateVerificationKeys(allocator: std.mem.Allocator, artifact_path: []const
     }
 
     if (private_functions.items.len == 0) {
-        print("No private constrained functions found\n", .{});
+        print("No private constrained functions found.\n", .{});
         return;
     }
 
     // Generate VKs for filtered functions and update the JSON in memory.
     try generateVKsForFunctions(allocator, cache_dir_path, private_functions.items, force);
 
-    // Write the complete updated JSON to file once at the end.
-    var out: std.io.Writer.Allocating = .init(allocator);
-    try std.json.Stringify.value(parsed.value, .{ .whitespace = .indent_2 }, &out.writer);
-    var arr = out.toArrayList();
-    defer arr.deinit(allocator);
+    // Write the complete updated JSON directly to file.
+    const file = try std.fs.cwd().createFile(artifact_path, .{});
+    defer file.close();
 
-    try std.fs.cwd().writeFile(.{ .sub_path = artifact_path, .data = arr.items });
+    var write_buffer: [8192]u8 = undefined;
+    var file_writer = file.writer(&write_buffer);
+    try std.json.Stringify.value(parsed.value, .{ .whitespace = .indent_2 }, &file_writer.interface);
 }
 
 const WorkerData = struct {
@@ -208,29 +206,6 @@ const ChildInfo = struct {
     pid: std.posix.pid_t,
     pipe_read: std.posix.fd_t,
 };
-
-fn vkWorkerProcess(data: WorkerData) void {
-    for (data.start_index..data.end_index) |fn_index| {
-        const function = data.functions[fn_index];
-        const func_obj = function.object;
-        const fn_name = func_obj.get("name").?.string;
-        print("Processing function: {s} (PID: {d})\n", .{ fn_name, std.c.getpid() });
-
-        // Get raw bytecode first
-        const bytecode = getByteCode(data.allocator, function.*) catch {
-            std.posix.exit(1);
-        };
-        defer data.allocator.free(bytecode);
-
-        // Generate VK for this function - this will cache it automatically
-        const vk_data = generateCachedVK(data.allocator, data.cache_dir_path, bytecode, data.force) catch {
-            std.posix.exit(1);
-        };
-        defer data.allocator.free(vk_data);
-
-        print("Cached VK for function: {s}\n", .{fn_name});
-    }
-}
 
 fn generateVKsForFunctions(
     allocator: std.mem.Allocator,
@@ -291,45 +266,44 @@ fn generateVKsForFunctions(
             }
         }
 
-        // Wait for all children to complete and collect their output
-        for (child_infos.items) |info| {
-            // First, read and buffer all output from the child
-            var output_buffer = try std.ArrayList(u8).initCapacity(allocator, 8192);
-            defer output_buffer.deinit(allocator);
-
-            var read_buf: [4096]u8 = undefined;
-            while (true) {
-                const bytes_read = std.posix.read(info.pipe_read, &read_buf) catch break;
-                if (bytes_read == 0) break; // EOF
-                output_buffer.appendSlice(allocator, read_buf[0..bytes_read]) catch {};
+        // Wait for children to complete and print their output.
+        for (child_infos.items, 0..) |info, i| {
+            // Wait for the child to complete first.
+            const result = std.posix.waitpid(info.pid, 0);
+            if (result.status != 0) {
+                std.posix.close(info.pipe_read);
+                return error.VKGenerationFailed;
             }
+
+            // Read all output (assume < 64KB). Child would hang beyond this.
+            var output_buffer: [65536]u8 = undefined;
+            const bytes_read = std.posix.read(info.pipe_read, &output_buffer) catch 0;
             std.posix.close(info.pipe_read);
 
-            // Wait for the child to complete
-            const result = std.posix.waitpid(info.pid, 0);
+            if (bytes_read > 0) {
+                const output = output_buffer[0..bytes_read];
+                const function_name = functions[i].object.get("name") orelse unreachable;
 
-            // Print the child's complete output with function prefixes
-            if (output_buffer.items.len > 0) {
-                try printOutputWithFunctionPrefixes(output_buffer.items);
-            }
-
-            if (result.status != 0) {
-                return error.VKGenerationFailed;
+                print("\n--- {s} ---\n", .{function_name.string});
+                print("{s}", .{output});
+                if (output[output.len - 1] != '\n') {
+                    print("\n", .{});
+                }
             }
         }
     }
 
-    // Collect results from cache and update JSON
+    // Collect results from cache and update JSON object in memory.
     for (functions) |function| {
-        // Get bytecode to compute cache key
+        // Get bytecode to compute cache key. Ugly duplicated work. Can we get the key from the worker?
         const bytecode = try getByteCode(allocator, function.*);
         defer allocator.free(bytecode);
 
-        // Read from cache (should exist now) - never force since children already generated
+        // Read from cache (should exist now) - never force since children already generated.
         const vk_data = try generateCachedVK(allocator, cache_dir_path, bytecode, false);
         defer allocator.free(vk_data);
 
-        // Encode to base64 for JSON storage
+        // Encode to base64 for JSON.
         const encoder = std.base64.standard.Encoder;
         const encoded_size = encoder.calcSize(vk_data.len);
         const encoded_vk = try allocator.alloc(u8, encoded_size);
@@ -337,6 +311,27 @@ fn generateVKsForFunctions(
 
         const vk_value = std.json.Value{ .string = encoded_vk };
         try function.object.put("verification_key", vk_value);
+    }
+}
+
+fn vkWorkerProcess(data: WorkerData) void {
+    for (data.start_index..data.end_index) |fn_index| {
+        const function = data.functions[fn_index];
+        const func_obj = function.object;
+        const fn_name = func_obj.get("name").?.string;
+        print("Processing function: {s} (PID: {d})\n", .{ fn_name, std.c.getpid() });
+
+        // Get raw bytecode first
+        const bytecode = getByteCode(data.allocator, function.*) catch {
+            std.posix.exit(1);
+        };
+        defer data.allocator.free(bytecode);
+
+        // Generate VK for this function - this will cache it automatically
+        const vk_data = generateCachedVK(data.allocator, data.cache_dir_path, bytecode, data.force) catch {
+            std.posix.exit(1);
+        };
+        defer data.allocator.free(vk_data);
     }
 }
 
@@ -368,7 +363,7 @@ fn generateCachedVK(
         }
     }
 
-    // Force is true or cache doesn't exist, generate new VK
+    // Force is true or cache doesn't exist, generate new VK.
     const raw_vk = try generateVK(allocator, bytecode);
     // Cache the raw VK bytes and return.
     std.fs.cwd().writeFile(.{ .sub_path = vk_cache_path, .data = raw_vk }) catch {};
@@ -404,35 +399,6 @@ fn getByteCode(allocator: std.mem.Allocator, function: std.json.Value) ![]const 
     // print("Decompressed bytecode: {d} bytes\n", .{decompressed_len});
 
     return writer.toOwnedSlice();
-}
-
-fn printOutputWithFunctionPrefixes(output: []const u8) !void {
-    var lines = std.mem.splitSequence(u8, output, "\n");
-    var current_function: ?[]const u8 = null;
-
-    while (lines.next()) |line| {
-        // Check if this line indicates we're processing a new function
-        const processing_prefix = "Processing function: ";
-        if (std.mem.startsWith(u8, line, processing_prefix)) {
-            // Extract function name from "Processing function: name (PID: ...)"
-            const name_start = processing_prefix.len;
-            if (std.mem.indexOf(u8, line[name_start..], " (PID:")) |paren_pos| {
-                current_function = line[name_start .. name_start + paren_pos];
-            }
-            // Don't print the "Processing function:" line itself
-            continue;
-        }
-
-        // Print the line with function prefix if we have one
-        if (current_function) |func_name| {
-            if (line.len > 0) {
-                print("{s}: {s}\n", .{ func_name, line });
-            }
-        } else if (line.len > 0) {
-            // No current function, just print the line as-is
-            print("{s}\n", .{line});
-        }
-    }
 }
 
 fn generateVK(allocator: std.mem.Allocator, bytecode: []const u8) ![]const u8 {
