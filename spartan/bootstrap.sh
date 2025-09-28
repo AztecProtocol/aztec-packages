@@ -47,7 +47,7 @@ function gke {
       sudo rm -f /usr/share/keyrings/cloud.google.gpg && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
       echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
       sudo apt install -y google-cloud-cli
-      sudo apt install google-cloud-cli-gke-gcloud-auth-plugin
+      sudo apt install -y google-cloud-cli-gke-gcloud-auth-plugin
       echo "Now you can run 'gcloud init'. Exiting with 1 as this is a necessary step."
     else
       echo "gcloud not found. This is needed for GKE kubernetes usage." >&2
