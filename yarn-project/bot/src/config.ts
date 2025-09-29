@@ -161,7 +161,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   },
   senderSalt: {
     env: 'BOT_ACCOUNT_SALT',
-    description: 'The salt to use to deploys the sender account.',
+    description: 'The salt to use to deploy the sender account.',
     parseEnv: (val: string) => (val ? Fr.fromHexString(val) : undefined),
   },
   recipientEncryptionSecret: {
@@ -172,7 +172,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   },
   tokenSalt: {
     env: 'BOT_TOKEN_SALT',
-    description: 'Salt for the token contract deployment.',
+    description: 'The salt to use to deploy the token contract.',
     parseEnv: (val: string) => Fr.fromHexString(val),
     defaultValue: Fr.fromHexString('1'),
   },
