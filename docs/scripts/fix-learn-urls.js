@@ -1,15 +1,33 @@
 #!/usr/bin/env node
 
-/* here is the strategy for fixing URLs
-
-1. get the file name of the file with the broken link
-2. look for a file with the same name in /developers/docs/. Some of the files that contain broken links may be prefixed with a number
-underscore, so it may look like "2_how_to_define_storage.md" and the file to look for is called "how_to_define_storage"
-3. once the source file is found, save the path of the file.
-4. for every relative link, note the location, based on the current path of the file
-5. update the broken realtive URL in the original file to a new realtive url. use the the path to the destination that was discovered.
-
-*/
+/**
+ * Fix Learn Journey URLs
+ *
+ * PURPOSE:
+ * This script fixes broken relative URLs in the Learning Journey documentation (/learn/).
+ *
+ * WHY IT EXISTS:
+ * The Learning Journey reuses content from /developers/docs/ but reorganizes it into a different
+ * directory structure. When files are copied to /learn/ with new numbering prefixes (like
+ * "1_introduction.md", "2_setup.md"), their relative links break because they now point to
+ * incorrect paths. This script automatically repairs those links by:
+ *
+ * 1. Finding the original source file in /developers/docs/ that corresponds to each learn file
+ * 2. Determining where relative links in the source file point to
+ * 3. Recalculating the correct relative paths from the new learn file location
+ * 4. Updating the links in the learn files
+ *
+ * STRATEGY:
+ * 1. Get the file name of the file with the broken link in /learn/
+ * 2. Look for a file with the same name in /developers/docs/ (stripping number prefixes like "2_")
+ * 3. Once the source file is found, save the path of the file
+ * 4. For every relative link, determine where it points based on the source file's location
+ * 5. Update the broken relative URL in the learn file to point to the correct location from its new path
+ * 6. Validate that the fixed URL actually resolves to an existing file
+ *
+ * USAGE:
+ * node fix-learn-urls.js [--dry-run] [--verbose|-v]
+ */
 
 const fs = require("fs");
 const path = require("path");
@@ -21,8 +39,12 @@ const DOCS_ROOT = PROCESSED_DOCS_DIR;
 const DEVELOPERS_DOCS_DIR = path.join(PROCESSED_DOCS_DIR, "developers/docs");
 const DEVELOPERS_DIR = path.join(PROCESSED_DOCS_DIR, "developers");
 const DRY_RUN = process.argv.includes("--dry-run");
+const VERBOSE = process.argv.includes("--verbose") || process.argv.includes("-v");
 
 console.log(`${DRY_RUN ? "[DRY RUN] " : ""}Fixing URLs in processed-docs/learn directory...`);
+if (VERBOSE) {
+  console.log("Verbose logging enabled");
+}
 
 /**
  * Recursively find all files in a directory
@@ -120,6 +142,64 @@ function fileExists(filePath) {
 }
 
 /**
+ * Get the actual file path (with extension if needed)
+ */
+function getActualFilePath(filePath) {
+  if (fs.existsSync(filePath)) {
+    return filePath;
+  }
+  if (fs.existsSync(filePath + ".md")) {
+    return filePath + ".md";
+  }
+  if (fs.existsSync(filePath + ".mdx")) {
+    return filePath + ".mdx";
+  }
+  return null;
+}
+
+/**
+ * Validate that a fixed URL resolves correctly
+ */
+function validateFixedUrl(fromFile, url) {
+  // Skip external URLs, absolute paths, anchors, and special formats
+  if (
+    url.startsWith("http") ||
+    url.startsWith("/") ||
+    url.startsWith("#") ||
+    url.startsWith("mailto:") ||
+    url.startsWith("@site/")
+  ) {
+    return { valid: true, reason: "external or special URL" };
+  }
+
+  const currentDir = path.dirname(fromFile);
+  const [urlPath, fragment] = url.split("#");
+  const cleanUrl = urlPath.replace(/\.(md|mdx)$/, "");
+  const resolvedPath = path.resolve(currentDir, cleanUrl);
+
+  const actualPath = getActualFilePath(resolvedPath);
+
+  if (!actualPath) {
+    return { valid: false, reason: `file not found: ${resolvedPath}` };
+  }
+
+  // If there's a fragment, we could validate it exists in the target file
+  // but that would require parsing markdown headers, which is complex
+  // For now, just validate the file exists
+
+  return { valid: true, reason: "resolves to: " + path.relative(DOCS_ROOT, actualPath) };
+}
+
+/**
+ * Log verbose message
+ */
+function verboseLog(...args) {
+  if (VERBOSE) {
+    console.log("    [VERBOSE]", ...args);
+  }
+}
+
+/**
  * Fix URLs in a learn file based on its corresponding source file
  */
 function fixUrlsInFile(learnFilePath, sourceFilePath) {
@@ -136,6 +216,7 @@ function fixUrlsInFile(learnFilePath, sourceFilePath) {
       url.startsWith("mailto:") ||
       url.startsWith("@site/")
     ) {
+      verboseLog(`Skipping ${url} (external or special)`);
       return match;
     }
 
@@ -148,8 +229,11 @@ function fixUrlsInFile(learnFilePath, sourceFilePath) {
 
     // Check if the URL resolves correctly from the learn file location
     if (fileExists(resolvedPath)) {
+      verboseLog(`URL already correct: ${url}`);
       return match; // URL is already correct
     }
+
+    verboseLog(`URL broken: ${url}, attempting to fix...`);
 
     // URL is broken - try to fix it using the source file as reference
     const sourceDir = path.dirname(sourceFilePath);
@@ -158,13 +242,25 @@ function fixUrlsInFile(learnFilePath, sourceFilePath) {
     // Check if the URL would work from the source file location
     if (fileExists(sourceResolvedPath)) {
       // Calculate new relative path from learn file to the target
+      const actualTargetPath = getActualFilePath(sourceResolvedPath);
       const newRelativePath = calculateRelativePath(
         learnFilePath,
-        sourceResolvedPath
+        actualTargetPath
       );
-      const newUrl = newRelativePath + (hasExtension ? ".md" : "") + (fragment ? "#" + fragment : "");
+      const newUrl = newRelativePath.replace(/\.(md|mdx)$/, "") + (hasExtension ? ".md" : "") + (fragment ? "#" + fragment : "");
+
+      // Validate the fixed URL
+      const validation = validateFixedUrl(learnFilePath, newUrl);
+      if (!validation.valid) {
+        console.warn(`  ⚠️  Fixed URL validation failed: ${url} -> ${newUrl}`);
+        console.warn(`      Reason: ${validation.reason}`);
+        return match;
+      }
 
       console.log(`  Fixing: ${url} -> ${newUrl}`);
+      if (VERBOSE) {
+        console.log(`      Validation: ${validation.reason}`);
+      }
       modified = true;
       return `[${linkText}](${newUrl})`;
     }
@@ -173,16 +269,28 @@ function fixUrlsInFile(learnFilePath, sourceFilePath) {
     for (const ext of [".md", ".mdx"]) {
       const sourceResolvedPathWithExt = sourceResolvedPath + ext;
       if (fileExists(sourceResolvedPathWithExt)) {
+        const actualTargetPath = getActualFilePath(sourceResolvedPathWithExt);
         const newRelativePath = calculateRelativePath(
           learnFilePath,
-          sourceResolvedPathWithExt
+          actualTargetPath
         );
         const newUrl =
           newRelativePath.replace(/\.(md|mdx)$/, "") +
           (hasExtension ? ".md" : "") +
           (fragment ? "#" + fragment : "");
 
+        // Validate the fixed URL
+        const validation = validateFixedUrl(learnFilePath, newUrl);
+        if (!validation.valid) {
+          console.warn(`  ⚠️  Fixed URL validation failed: ${url} -> ${newUrl}`);
+          console.warn(`      Reason: ${validation.reason}`);
+          return match;
+        }
+
         console.log(`  Fixing: ${url} -> ${newUrl}`);
+        if (VERBOSE) {
+          console.log(`      Validation: ${validation.reason}`);
+        }
         modified = true;
         return `[${linkText}](${newUrl})`;
       }
@@ -212,6 +320,7 @@ function processLearnFile(learnFilePath) {
   const sourceFilePath = findSourceFile(learnFilePath);
 
   if (!sourceFilePath) {
+    verboseLog(`No corresponding source file found for ${filename}`);
     console.log(`  ⚠️  No corresponding source file found for ${filename}`);
     return 0;
   }
@@ -230,6 +339,7 @@ function processLearnFile(learnFilePath) {
     }
     return 1;
   } else {
+    verboseLog("No changes needed");
     console.log(`  ℹ️  No changes needed`);
     return 0;
   }
@@ -286,6 +396,12 @@ function main() {
       `\n💡 This was a dry run. Run without --dry-run to apply changes.`
     );
   }
+
+  if (VERBOSE) {
+    console.log("\nVerbose mode provided detailed logging above.");
+  }
+
+  console.log(`\n💡 Usage: node fix-learn-urls.js [--dry-run] [--verbose|-v]`);
 }
 
 // Run the script
