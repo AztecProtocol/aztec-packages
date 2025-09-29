@@ -9,7 +9,7 @@ import { TestWallet } from '@aztec/test-wallet/server';
 import { expect, jest } from '@jest/globals';
 
 import { deployToken, expectTokenBalance, mintTokensToPrivate } from './fixtures/token_utils.js';
-import { setup, setupPXEServiceAndGetWallet } from './fixtures/utils.js';
+import { setup, setupPXEAndGetWallet } from './fixtures/utils.js';
 
 const TIMEOUT = 300_000;
 
@@ -39,7 +39,7 @@ describe('e2e_2_pxes', () => {
     // Account A is already deployed in setup
 
     // Deploy accountB via walletB.
-    ({ wallet: walletB, teardown: teardownB } = await setupPXEServiceAndGetWallet(aztecNode, {}, undefined, true));
+    ({ wallet: walletB, teardown: teardownB } = await setupPXEAndGetWallet(aztecNode, {}, undefined, true));
     const accountB = await walletB.createSchnorrAccount(initialFundedAccounts[1].secret, initialFundedAccounts[1].salt);
     accountBAddress = accountB.getAddress();
     await accountB.deploy().wait();

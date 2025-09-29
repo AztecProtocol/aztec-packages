@@ -77,8 +77,8 @@ uint64_t DataCopy::min(uint64_t a, uint64_t b)
 /**
  * @brief Writes calldata into dst_addr. There is slight difference in how enqueued and nested contexts, this is mostly
  *        encapsulated in context.get_calldata()
- * @param cd_copy_size The size of calldata to copy, must be a u32.
- * @param cd_offset The offset in calldata to start copying from, must be a u32.
+ * @param copy_size The size of calldata to copy, must be a u32.
+ * @param offset The offset in calldata to start copying from, must be a u32.
  * @param dst_addr The address in memory to write the calldata to.
  * @throws DataCopyException if the calldata size or offset are not u32, or if the memory access is out of bounds.
  **/

@@ -75,7 +75,7 @@ describe('guides/writing_an_account_contract', () => {
       await account.deploy({ deployAccount: fundedAccount }).wait();
     } else {
       // The contract has no constructor. Deployment is not required.
-      // Register it in the PXE Service to start using it.
+      // Register it in the PXE to start using it.
       await account.register();
     }
 

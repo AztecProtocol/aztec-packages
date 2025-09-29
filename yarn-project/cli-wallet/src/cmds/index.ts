@@ -444,14 +444,10 @@ export function injectCommands(
       const { bridgeL1FeeJuice } = await import('./bridge_fee_juice.js');
       const { l1ChainId, l1RpcUrls, l1PrivateKey, mnemonic, mint, json, wait, interval: intervalS } = options;
 
-      const wallet = walletAndNodeWrapper.wallet;
-      const node = walletAndNodeWrapper.node;
-
       const [secret, messageLeafIndex] = await bridgeL1FeeJuice(
         amount,
         recipient,
-        wallet,
-        node,
+        walletAndNodeWrapper.node,
         l1RpcUrls,
         l1ChainId,
         l1PrivateKey,

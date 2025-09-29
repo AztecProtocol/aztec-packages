@@ -31,7 +31,7 @@ describe('e2e_escrow_contract', () => {
       logger,
     } = await setup(2));
 
-    // Generate private key for escrow contract, register key in pxe service, and deploy
+    // Generate private key for escrow contract, register key in PXE, and deploy
     // Note that we need to register it first if we want to emit an encrypted note for it in the constructor
     escrowSecretKey = Fr.random();
     escrowPublicKeys = (await deriveKeys(escrowSecretKey)).publicKeys;

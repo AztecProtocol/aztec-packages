@@ -307,14 +307,16 @@ namespace data_copy;
 
     // ===== Reading cd column for top level cd copy =====
     // Reading from column
-    // TODO: data size for top level column reads need to be constrained
-    // After calldata hashing
     pol commit cd_copy_col_read;
     #[CD_COPY_COLUMN]
     cd_copy_col_read = SEL_PERFORM_COPY * (1 - padding) * is_top_level * sel_cd_copy;
 
+    // The calldata trace starts at index = 1 (TODO: We need this temporarily while we dont allow for aliases in the lookup tuple):
+    pol commit read_addr_plus_one;
+    read_addr_plus_one = cd_copy_col_read * (read_addr + 1);
+
     #[COL_READ]
-    cd_copy_col_read { value, dst_context_id, read_addr }
+    cd_copy_col_read { value, dst_context_id, read_addr_plus_one }
     in
     calldata.sel { calldata.value, calldata.context_id, calldata.index };
 

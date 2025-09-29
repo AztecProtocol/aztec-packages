@@ -118,7 +118,6 @@ export interface IUtilityExecutionOracle {
   utilityCopyCapsule(contractAddress: AztecAddress, srcKey: Fr, dstKey: Fr, numEntries: number): Promise<void>;
   utilityAes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer>;
   utilityGetSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point>;
-  utilityEmitOffchainEffect(data: Fr[]): Promise<void>;
 }
 
 /**
@@ -157,4 +156,5 @@ export interface IPrivateExecutionOracle {
   privateIncrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void>;
   privateGetSenderForTags(): Promise<AztecAddress | undefined>;
   privateSetSenderForTags(senderForTags: AztecAddress): Promise<void>;
+  utilityEmitOffchainEffect(data: Fr[]): Promise<void>;
 }

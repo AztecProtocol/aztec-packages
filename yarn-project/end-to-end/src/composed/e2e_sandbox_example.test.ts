@@ -80,9 +80,6 @@ describe('e2e_sandbox_example', () => {
     const tokenContract = await deployToken(wallet, alice, initialSupply, logger);
     // docs:end:Deployment
 
-    // ensure that token contract is registered in PXE
-    expect(await wallet.getContracts()).toEqual(expect.arrayContaining([tokenContract.address]));
-
     // docs:start:Balance
 
     ////////////// QUERYING THE TOKEN BALANCE FOR EACH ACCOUNT //////////////

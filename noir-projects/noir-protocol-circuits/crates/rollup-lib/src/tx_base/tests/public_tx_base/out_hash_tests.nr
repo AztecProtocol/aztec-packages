@@ -1,21 +1,10 @@
 use super::TestBuilder;
 use types::{
     constants::{MAX_L2_TO_L1_MSG_SUBTREES_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX},
-    hash::silo_l2_to_l1_message,
     merkle_tree::{MerkleTree, UnbalancedMerkleTree},
     tests::FixtureBuilder,
     utils::arrays::subarray,
 };
-
-impl TestBuilder {
-    pub fn get_siloed_l2_to_l1_msgs(self) -> [Field; MAX_L2_TO_L1_MSGS_PER_TX] {
-        self.avm.accumulated_data.l2_to_l1_msgs.map(|msg| silo_l2_to_l1_message(
-            msg,
-            self.avm.global_variables.version,
-            self.avm.global_variables.chain_id,
-        ))
-    }
-}
 
 #[test]
 unconstrained fn empty_l2_to_l1_msgs() {

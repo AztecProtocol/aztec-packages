@@ -76,7 +76,7 @@ jobs:
     with:
       network: staging-public
       semver: ${{ needs.determine-semver.outputs.semver }}
-      ref: ${{ github.ref }}
+      ref: ${{ needs.determine-semver.outputs.branch }}
     secrets: inherit
 
   deploy-staging-ignition:
@@ -87,7 +87,7 @@ jobs:
     with:
       network: staging-ignition
       semver: ${{ needs.determine-semver.outputs.semver }}
-      ref: ${{ github.ref }}
+      ref: ${{ needs.determine-semver.outputs.branch }}
     secrets: inherit
 
   deploy-testnet:
@@ -99,5 +99,5 @@ jobs:
     with:
       network: testnet
       semver: ${{ needs.determine-semver.outputs.semver }}
-      ref: ${{ github.ref }}
+      ref: ${{ needs.determine-semver.outputs.branch }}
     secrets: inherit

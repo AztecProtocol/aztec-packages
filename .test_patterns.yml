@@ -220,8 +220,8 @@ tests:
     error_regex: "✕ Can't claim funds"
     owners:
       - *lasse
-  - regex: "src/composed/integration_l1_publisher"
-    error_regex: "BlockOutOfRangeError"
+  - regex: "src/e2e_l1_publisher/e2e_l1_publisher.test.ts"
+    error_regex: "Anvil failed to stop in time"
     owners:
       - *palla
   # http://ci.aztec-labs.com/f2007345762c50a8

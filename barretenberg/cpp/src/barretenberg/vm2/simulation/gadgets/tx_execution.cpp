@@ -43,6 +43,7 @@ void TxExecution::emit_public_call_request(const PublicCallRequestWithCalldata& 
                                   .contract_address = call.request.contractAddress,
                                   .transaction_fee = transaction_fee,
                                   .is_static = call.request.isStaticCall,
+                                  .calldata_size = static_cast<uint32_t>(call.calldata.size()),
                                   .calldata_hash = call.request.calldataHash,
                                   .start_gas = start_gas,
                                   .end_gas = end_gas,

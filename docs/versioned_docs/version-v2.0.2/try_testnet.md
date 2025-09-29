@@ -15,13 +15,12 @@ description: "Connect to Aztec Alpha Testnet, explore the ecosystem, and start b
 
 - [Run a node](./the_aztec_network/guides/run_nodes/how_to_run_sequencer.md)
 - [Interact with testnet using Playground, a tool for deploying & interacting with contracts](https://play.aztec.network/)
-- [Get inspiration for what you could build](./developers/inspiration.md)
 
 ## Develop on Aztec Testnet
 
-- Follow the [getting started on testnet guide](./developers/guides/getting_started_on_testnet.md)
+- Follow the [getting started on testnet guide](./developers/getting_started_on_testnet.md)
 - Try the [`testnet` branch of the Aztec Starter template Github repo](https://github.com/AztecProtocol/aztec-starter/tree/testnet)
-- Follow our [tutorials](./developers/tutorials/contract_tutorials/counter_contract.md) in order to write your first contract, deploy it, and interact with it using Aztec CLI and Aztec.js
+- Follow our [tutorials](./developers/docs/tutorials/contract_tutorials/counter_contract.md) in order to write your first contract, deploy it, and interact with it using Aztec CLI and Aztec.js
 
 ## Chain Information
 

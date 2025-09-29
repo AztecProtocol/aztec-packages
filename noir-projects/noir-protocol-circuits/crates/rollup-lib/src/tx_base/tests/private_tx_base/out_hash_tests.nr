@@ -1,20 +1,9 @@
 use super::TestBuilder;
 use types::{
     constants::{MAX_L2_TO_L1_MSG_SUBTREES_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX},
-    hash::silo_l2_to_l1_message,
     merkle_tree::{MerkleTree, UnbalancedMerkleTree},
     tests::FixtureBuilder,
 };
-
-impl TestBuilder {
-    pub fn get_siloed_l2_to_l1_msgs(self) -> [Field; MAX_L2_TO_L1_MSGS_PER_TX] {
-        self.private_tail.end.l2_to_l1_msgs.map(|msg| silo_l2_to_l1_message(
-            msg,
-            self.constants.global_variables.version,
-            self.constants.global_variables.chain_id,
-        ))
-    }
-}
 
 #[test]
 unconstrained fn empty_l2_to_l1_msgs() {
