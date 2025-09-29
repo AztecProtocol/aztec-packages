@@ -5,6 +5,8 @@ tags: [contracts, storage, data-types, smart-contracts]
 description: Define and manage storage state in your Aztec smart contracts using various storage types.
 ---
 
+<!-- docs:start:define_storage -->
+
 This guide shows you how to declare storage and use various storage types provided by Aztec.nr for managing contract state.
 
 ## Prerequisites
@@ -115,12 +117,15 @@ An unconstrained method to check whether the PrivateMutable has been initialized
 ```rust
 let is_initialized = my_value.is_initialized();
 ```
+
 s
+
 #### `replace`
 
 To update the value of a `PrivateMutable`, we can use the `replace` method. The method takes a function (or closure) that transforms the current note into a new one.
 
 When called, the method will:
+
 - Nullify the old note
 - Apply the transform function to produce a new note
 - Insert the new note into the data tree
@@ -399,7 +404,7 @@ Delayed Public Mutable state works around this by introducing **delays**:
 
 - Instead, a value change is be scheduled ahead of time, and some minimum amount of time must pass between the scheduling and the new value taking effect.
 - This means that we can privately prove that a historical public value cannot possibly change before some point in the future (due to the minimum delay), and therefore that our transaction will be valid **as long as it gets included before this future time**.
-- In other words, we're saying "this value is public but can't change until ___".
+- In other words, we're saying "this value is public but can't change until \_\_\_".
 
 This results in the following key properties of `DelayedPublicMutable` state:
 
@@ -504,3 +509,5 @@ storage.my_delayed_value.get_scheduled_value()
 ```
 
 It is not possible to call this function in private: doing so would not be very useful at it cannot be asserted that a scheduled value change will not be immediately replaced if `shcedule_value_change` where to be called.
+
+<!-- docs:end:define_storage -->

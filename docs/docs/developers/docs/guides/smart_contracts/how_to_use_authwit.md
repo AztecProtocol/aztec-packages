@@ -5,6 +5,8 @@ tags: [accounts, authwit]
 sidebar_position: 6
 ---
 
+<!-- docs:start:use_authwit -->
+
 Authentication witnesses (authwit) allow other contracts to execute actions on behalf of your account. This guide shows you how to implement and use authwits in your Aztec smart contracts.
 
 ## Prerequisites
@@ -93,3 +95,5 @@ fn _approve_and_execute_action(
         .call(&mut context)
 }
 ```
+
+<!-- docs:end:use_authwit -->

@@ -5,6 +5,8 @@ tags: [contracts]
 description: Prove historical state and note inclusion in your Aztec smart contracts using the Archive tree.
 ---
 
+<!-- docs:start:prove_history -->
+
 This guide shows you how to prove historical state transitions and note inclusion using Aztec's Archive tree.
 
 ## Prerequisites
@@ -86,3 +88,5 @@ Other available proofs:
 - Public data inclusion at historical blocks
 
 :::
+
+<!-- docs:end:prove_history -->

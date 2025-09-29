@@ -5,6 +5,8 @@ sidebar_position: 5
 description: Learn how to emit events from your Aztec smart contracts for offchain applications to consume.
 ---
 
+<!-- docs:start:emit_events -->
+
 This guide shows you how to emit events and logs from your Aztec contracts to communicate with offchain applications.
 
 ## Prerequisites
@@ -91,3 +93,5 @@ Event data is published to Ethereum as blobs, which incurs costs. Consider:
 - Encrypted events are optional - use alternative communication methods if needed
 - Future alternatives for data availability may become available
 - Balance event utility with cost implications
+
+<!-- docs:end:emit_events -->

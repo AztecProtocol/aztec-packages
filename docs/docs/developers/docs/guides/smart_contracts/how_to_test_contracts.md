@@ -6,6 +6,8 @@ sidebar_position: 8
 description: Write and run tests for your Aztec smart contracts using Noir's TestEnvironment.
 ---
 
+<!-- docs:start:test_contracts -->
+
 This guide shows you how to test your Aztec smart contracts using Noir's `TestEnvironment` for fast, lightweight testing.
 
 ## Prerequisites
@@ -332,3 +334,5 @@ unconstrained fn test_missing_authwit() {
 }
 
 ```
+
+<!-- docs:end:test_contracts -->

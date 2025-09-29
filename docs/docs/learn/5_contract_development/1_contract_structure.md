@@ -1,7 +1,6 @@
 ---
 title: "Contract Structure"
 description: "Master the anatomy of Aztec smart contracts - from basic structure to function attributes and storage management"
-sidebar_position: 1
 tags: [contracts, noir, development, smart contracts]
 ---
 

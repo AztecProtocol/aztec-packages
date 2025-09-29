@@ -5,6 +5,8 @@ sidebar_position: 9
 description: Send messages and data between L1 and L2 contracts using portal contracts and cross-chain messaging.
 ---
 
+<!-- docs:start:communicate_cross_chain -->
+
 This guide shows you how to implement cross-chain communication between Ethereum (L1) and Aztec (L2) contracts using portal contracts.
 
 ## Prerequisites
@@ -195,3 +197,5 @@ bytes memory message = abi.encodeWithSignature(
 ## Next steps
 
 Follow the [cross-chain messaging tutorial](../../tutorials/js_tutorials/token_bridge.md) for a complete implementation example.
+
+<!-- docs:end:communicate_cross_chain -->

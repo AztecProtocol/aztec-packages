@@ -7,6 +7,8 @@ description: Best practices and techniques for writing gas-efficient contracts o
 
 import Image from "@theme/IdealImage";
 
+<!-- docs:start:writing_efficient_contracts -->
+
 ## Writing functions
 
 On Ethereum L1, all data is public and all execution is completely reproducible. The Aztec L2 takes on the challenge of execution of private functions on private data. This is done client side, along with the generation of corresponding proofs, so that the network can verify the proofs and append any encrypted data/nullifiers (privacy preserving state update).
@@ -360,3 +362,5 @@ If a struct has many fields to be read, we can design an extra variable maintain
 :::note Leverage unconstrained functions
 When needing to make use of large private operations (eg private execution or many read requests), use of [unconstrained functions](https://noir-lang.org/docs/explainers/explainer-writing-noir#leverage-unconstrained-execution) wisely to reduce the gate count of private functions.
 :::
+
+<!-- docs:end:writing_efficient_contracts -->

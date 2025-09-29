@@ -5,6 +5,8 @@ tags: [functions, smart-contracts]
 description: Define different types of functions in your Aztec smart contracts for various execution environments.
 ---
 
+<!-- docs:start:define_functions -->
+
 This guide shows you how to define different types of functions in your Aztec contracts, each serving specific purposes and execution environments.
 
 ## Prerequisites
@@ -121,3 +123,5 @@ fn process_value(
 ```
 
 Library methods are inlined when called and reduce code duplication.
+
+ <!-- docs:end:define_functions  -->

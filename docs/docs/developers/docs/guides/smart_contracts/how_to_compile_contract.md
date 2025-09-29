@@ -5,6 +5,8 @@ sidebar_position: 1
 description: Compile your Aztec smart contracts into deployable artifacts using aztec-nargo.
 ---
 
+<!-- docs:start:compile_contracts -->
+
 This guide shows you how to compile your Aztec contracts into artifacts ready for deployment and interaction.
 
 ## Prerequisites
@@ -84,3 +86,5 @@ After compilation, use the generated artifacts to:
 - Deploy contracts with the `Contract` class from `aztec.js`
 - Interact with deployed contracts using type-safe interfaces
 - Import contracts in other Aztec.nr projects
+
+<!-- docs:end:compile_contracts -->

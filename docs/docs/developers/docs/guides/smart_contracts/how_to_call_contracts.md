@@ -5,6 +5,8 @@ tags: [functions, contracts, composability]
 description: Call functions in other contracts from your Aztec smart contracts to enable composability.
 ---
 
+<!-- docs:start:call_contracts -->
+
 This guide shows you how to call functions in other contracts from your Aztec smart contracts, enabling contract composability and interaction.
 
 ## Prerequisites
@@ -72,3 +74,5 @@ Public functions always execute after private execution completes. Learn more in
 ### Use other call types
 
 Explore additional call types for specialized use cases in the [call types reference](../../concepts/call_types.md).
+
+<!-- docs:end:call_contracts -->

@@ -92,8 +92,8 @@ function extractCodeSnippet(filePath, identifier) {
   let fileContent = fs.readFileSync(filePath, "utf-8");
   let linesToRemove = [];
 
-  const startRegex = /(?:\/\/|#)\s+docs:start:([a-zA-Z0-9-._:]+)/g; // `g` will iterate through the regex.exec loop
-  const endRegex = /(?:\/\/|#)\s+docs:end:([a-zA-Z0-9-._:]+)/g;
+  const startRegex = /(?:\/\/|#|<!--)\s+docs:start:([a-zA-Z0-9-._:]+)/g;
+  const endRegex = /(?:\/\/|#|<!--)\s+docs:end:([a-zA-Z0-9-._:]+)/g;
 
   /**
    * Search for one of the regex statements in the code file. If it's found, return the line as a string and the line number.
