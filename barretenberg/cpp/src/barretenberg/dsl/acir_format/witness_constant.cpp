@@ -23,11 +23,11 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& 
     auto point_y = to_field_ct(input_y, builder);
     auto infinite = bool_ct(to_field_ct(input_infinite, builder));
 
+    // If no witness, set coordinates to correspond to an arbitrary valid curve point (affine_one)
     if (!has_valid_witness_assignments) {
-        // Set coordinates to correspond to an arbitrary valid curve point (in our case G1).
-        auto g1 = bb::grumpkin::g1::affine_one;
-        builder.set_variable(input_x.index, g1.x);
-        builder.set_variable(input_y.index, g1.y);
+        auto one = bb::grumpkin::g1::affine_one;
+        builder.set_variable(input_x.index, one.x);
+        builder.set_variable(input_y.index, one.y);
     }
     cycle_group<Builder> input_point(point_x, point_y, infinite);
     return input_point;
