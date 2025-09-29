@@ -81,7 +81,7 @@ impl RollupFixtureBuilder {
                 self.get_block_header(block_number).hash(),
             ]
         };
-        let insert_index = block_number - block_number % 2;
+        let insert_index = (block_number - block_number % 2) as Field;
         let tree = SingleSubtreeMerkleTree::<2, 1, ARCHIVE_HEIGHT>::new_at_index(
             block_header_hashes,
             insert_index,
@@ -89,11 +89,11 @@ impl RollupFixtureBuilder {
 
         let snapshot = AppendOnlyTreeSnapshot {
             root: tree.get_root(),
-            next_available_leaf_index: block_number + 1,
+            next_available_leaf_index: (block_number + 1) as Field,
         };
 
         // Get the sibling path for the current block.
-        let sibling_path = tree.get_sibling_path(block_number);
+        let sibling_path = tree.get_sibling_path(block_number as Field);
 
         (snapshot, sibling_path)
     }
@@ -110,16 +110,16 @@ impl RollupFixtureBuilder {
         }
         let tree = SingleSubtreeMerkleTree::<4, 2, ARCHIVE_HEIGHT>::new_at_index(
             block_header_hashes,
-            insert_index,
+            insert_index as Field,
         );
 
         let previous_snapshot = AppendOnlyTreeSnapshot {
             root: tree.get_root(),
-            next_available_leaf_index: block_number,
+            next_available_leaf_index: block_number as Field,
         };
 
         // Get the sibling path for inserting the current block header hash.
-        let sibling_path_for_insertion = tree.get_sibling_path(block_number);
+        let sibling_path_for_insertion = tree.get_sibling_path(block_number as Field);
 
         (previous_snapshot, sibling_path_for_insertion)
     }
@@ -130,6 +130,7 @@ impl RollupFixtureBuilder {
     ) -> (AppendOnlyTreeSnapshot, [Field; L1_TO_L2_MSG_TREE_HEIGHT - L1_TO_L2_MSG_SUBTREE_HEIGHT], AppendOnlyTreeSnapshot) {
         // Create a subtree of size 4 filled with subtree roots before the current slot.
         let new_slot_index = self.get_l1_to_l2_message_next_available_leaf_index(slot_number - 1)
+             as u32
             >> L1_TO_L2_MSG_SUBTREE_HEIGHT;
         let start_slot_index = new_slot_index - new_slot_index % 4;
         let mut subtree_roots = [0; 4];
@@ -142,7 +143,7 @@ impl RollupFixtureBuilder {
 
         let mut tree = SingleSubtreeMerkleTree::<4, 2, L1_TO_L2_MSG_TREE_HEIGHT - L1_TO_L2_MSG_SUBTREE_HEIGHT>::new_tree_roots_at_index::<L1_TO_L2_MSG_SUBTREE_HEIGHT>(
             subtree_roots,
-            start_slot_index,
+            start_slot_index as Field,
         );
         let previous_snapshot = AppendOnlyTreeSnapshot {
             root: tree.get_root(),
@@ -152,10 +153,13 @@ impl RollupFixtureBuilder {
         };
 
         // Get the sibling path for inserting the current l1-to-l2 messages.
-        let sibling_path_for_insertion = tree.get_sibling_path(new_slot_index);
+        let sibling_path_for_insertion = tree.get_sibling_path(new_slot_index as Field);
 
         // Insert subtree of the current l1-to-l2 messages.
-        tree.update_leaf(new_slot_index, self.get_l1_to_l2_message_subtree_root(slot_number));
+        tree.update_leaf(
+            new_slot_index as Field,
+            self.get_l1_to_l2_message_subtree_root(slot_number),
+        );
         let new_snapshot = AppendOnlyTreeSnapshot {
             root: tree.get_root(),
             next_available_leaf_index: self.get_l1_to_l2_message_next_available_leaf_index(
@@ -447,8 +451,8 @@ impl RollupFixtureBuilder {
         slot_number * 7639901
     }
 
-    fn get_l1_to_l2_message_next_available_leaf_index(_self: Self, slot_number: Field) -> u32 {
-        (slot_number as u32 + 1) * (1 << L1_TO_L2_MSG_SUBTREE_HEIGHT)
+    fn get_l1_to_l2_message_next_available_leaf_index(_self: Self, slot_number: Field) -> Field {
+        (slot_number + 1) * (1 << L1_TO_L2_MSG_SUBTREE_HEIGHT) as Field
     }
 
     fn get_l1_to_l2_message_tree_snapshot(self, slot_number: Field) -> AppendOnlyTreeSnapshot {
@@ -460,7 +464,7 @@ impl RollupFixtureBuilder {
     fn get_archive(_self: Self, block_number: u32) -> AppendOnlyTreeSnapshot {
         AppendOnlyTreeSnapshot {
             root: block_number as Field * 30785,
-            next_available_leaf_index: block_number + 1,
+            next_available_leaf_index: (block_number + 1) as Field,
         }
     }
 

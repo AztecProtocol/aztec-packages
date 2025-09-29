@@ -24,7 +24,7 @@ use crate::{
         note_interface::{NoteHash, NoteType},
         note_metadata::SettledNoteMetadata,
         retrieved_note::RetrievedNote,
-        utils::compute_note_hash_for_nullify,
+        utils::compute_note_hash_for_nullification,
     },
     oracle::version::assert_compatible_oracle_version,
     test::helpers::{txe_oracles, utils::ContractDeployment},
@@ -738,7 +738,7 @@ impl TestEnvironment {
             let note = Note::unpack(subarray(packed_note.storage(), 0));
 
             let note_hash = note.compute_note_hash(storage_slot);
-            let note_hash_for_nullify = compute_note_hash_for_nullify(
+            let note_hash_for_nullification = compute_note_hash_for_nullification(
                 RetrievedNote {
                     note,
                     contract_address,
@@ -747,7 +747,7 @@ impl TestEnvironment {
                 storage_slot,
             );
 
-            let inner_nullifier = note.compute_nullifier_unconstrained(note_hash_for_nullify);
+            let inner_nullifier = note.compute_nullifier_unconstrained(note_hash_for_nullification);
 
             Option::some(NoteHashAndNullifier { note_hash, inner_nullifier })
         };

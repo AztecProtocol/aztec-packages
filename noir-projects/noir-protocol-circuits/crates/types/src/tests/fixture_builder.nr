@@ -483,17 +483,19 @@ impl FixtureBuilder {
     pub fn compute_update_tree_and_hints(&mut self) {
         let public_data_prefill = 2;
         let mut public_data_tree = empty_public_data_tree::<8, 3>(public_data_prefill);
+        let last_leaf_index = (public_data_prefill - 1) as Field;
+        let new_leaf_index = last_leaf_index + 1;
 
         if self.updated_class_id_value_change.is_empty()
             & self.updated_class_id_delay_change.is_empty() {
             self.anchor_block_header.state.partial.public_data_tree.root =
                 public_data_tree.get_root();
             self.anchor_block_header.state.partial.public_data_tree.next_available_leaf_index =
-                public_data_prefill;
+                public_data_prefill as Field;
 
             self.updated_class_id_witness = MembershipWitness {
-                leaf_index: (public_data_prefill - 1) as Field,
-                sibling_path: public_data_tree.get_sibling_path(public_data_prefill - 1),
+                leaf_index: last_leaf_index,
+                sibling_path: public_data_tree.get_sibling_path(last_leaf_index),
             };
             self.updated_class_id_leaf = PublicDataTreeLeafPreimage {
                 slot: (public_data_prefill - 1) as Field,
@@ -517,12 +519,12 @@ impl FixtureBuilder {
                 hash_slot,
             );
             public_data_tree.update_leaf(
-                public_data_prefill - 1,
+                last_leaf_index,
                 PublicDataTreeLeafPreimage {
                     slot: (public_data_prefill - 1) as Field,
                     value: 0,
                     next_slot: hash_leaf_slot,
-                    next_index: public_data_prefill,
+                    next_index: last_leaf_index + 1,
                 }
                     .hash(),
             );
@@ -532,14 +534,14 @@ impl FixtureBuilder {
                 next_slot: 0,
                 next_index: 0,
             };
-            public_data_tree.update_leaf(public_data_prefill, self.updated_class_id_leaf.hash());
+            public_data_tree.update_leaf(new_leaf_index, self.updated_class_id_leaf.hash());
             self.anchor_block_header.state.partial.public_data_tree.root =
                 public_data_tree.get_root();
             self.anchor_block_header.state.partial.public_data_tree.next_available_leaf_index =
-                public_data_prefill + 1;
+                new_leaf_index + 1;
             self.updated_class_id_witness = MembershipWitness {
-                leaf_index: public_data_prefill as Field,
-                sibling_path: public_data_tree.get_sibling_path(public_data_prefill),
+                leaf_index: new_leaf_index,
+                sibling_path: public_data_tree.get_sibling_path(new_leaf_index),
             };
         }
     }
