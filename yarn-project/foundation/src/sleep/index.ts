@@ -1,4 +1,5 @@
 import { InterruptError } from '../error/index.js';
+import { promiseWithResolvers } from '../promise/utils.js';
 
 /**
  * InterruptibleSleep is a utility class that allows you to create an interruptible sleep function.
@@ -64,12 +65,19 @@ export class InterruptibleSleep {
 /**
  * Puts the current execution context to sleep for a specified duration.
  * This simulates a blocking sleep operation by using an asynchronous function and a Promise that resolves after the given duration.
- * The sleep function can be interrupted by the 'interrupt' method of the InterruptibleSleep class.
  *
  * @param ms - The duration in milliseconds for which the sleep operation should last.
- * @param returnValue - The return value of the promise.
+ * @param returnValue - An optional return value of the promise.
+ * @param abortSignal - An optional AbortSignal that can be used to cancel the sleep operation before the duration elapses.
  * @returns A Promise that resolves after the specified duration, allowing the use of 'await' to pause execution.
  */
-export function sleep<T>(ms: number, returnValue?: T): Promise<T> {
+export function sleep<T>(ms: number, returnValue?: T, abortSignal?: AbortSignal): Promise<T> {
+  if (abortSignal) {
+    const signal = AbortSignal.any([AbortSignal.timeout(ms), abortSignal]);
+    const promise = promiseWithResolvers<T>();
+    signal.onabort = () => promise.resolve(returnValue as T);
+    return promise.promise;
+  }
+
   return new Promise(resolve => setTimeout(() => resolve(returnValue as T), ms));
 }

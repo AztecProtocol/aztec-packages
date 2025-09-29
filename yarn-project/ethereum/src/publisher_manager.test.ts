@@ -40,28 +40,28 @@ describe('PublisherManager', () => {
     });
 
     it('should throw error when all publishers are in invalid states', async () => {
-      mockPublishers[0]['state'] = TxUtilsState.SENT;
-      mockPublishers[1]['state'] = TxUtilsState.CANCELLED;
-      mockPublishers[2]['state'] = TxUtilsState.NOT_MINED;
+      mockPublishers[0]['state'] = TxUtilsState.TX_SENT;
+      mockPublishers[1]['state'] = TxUtilsState.TX_CANCEL_SENT;
+      mockPublishers[2]['state'] = TxUtilsState.TX_NOT_MINED;
 
       await expect(publisherManager.getAvailablePublisher()).rejects.toThrow('Failed to find an available publisher.');
     });
 
     it('should return a publisher in invalid state if allowed', async () => {
-      mockPublishers[0]['state'] = TxUtilsState.SENT;
-      mockPublishers[1]['state'] = TxUtilsState.CANCELLED;
-      mockPublishers[2]['state'] = TxUtilsState.NOT_MINED;
+      mockPublishers[0]['state'] = TxUtilsState.TX_SENT;
+      mockPublishers[1]['state'] = TxUtilsState.TX_CANCEL_SENT;
+      mockPublishers[2]['state'] = TxUtilsState.TX_NOT_MINED;
 
       publisherManager = new PublisherManager(mockPublishers, { publisherAllowInvalidStates: true });
-      await expect(publisherManager.getAvailablePublisher(p => p.state === TxUtilsState.CANCELLED)).resolves.toBe(
+      await expect(publisherManager.getAvailablePublisher(p => p.state === TxUtilsState.TX_CANCEL_SENT)).resolves.toBe(
         mockPublishers[1],
       );
     });
 
     it('should return publisher with best state', async () => {
-      mockPublishers[0]['state'] = TxUtilsState.MINED;
+      mockPublishers[0]['state'] = TxUtilsState.TX_MINED;
       mockPublishers[1]['state'] = TxUtilsState.IDLE;
-      mockPublishers[2]['state'] = TxUtilsState.MINED;
+      mockPublishers[2]['state'] = TxUtilsState.TX_MINED;
 
       mockPublishers[0].getSenderBalance.mockResolvedValue(1000n);
       mockPublishers[1].getSenderBalance.mockResolvedValue(500n);
@@ -73,9 +73,9 @@ describe('PublisherManager', () => {
     });
 
     it('should sort by balance when states are equal', async () => {
-      mockPublishers[0]['state'] = TxUtilsState.MINED;
-      mockPublishers[1]['state'] = TxUtilsState.MINED;
-      mockPublishers[2]['state'] = TxUtilsState.MINED;
+      mockPublishers[0]['state'] = TxUtilsState.TX_MINED;
+      mockPublishers[1]['state'] = TxUtilsState.TX_MINED;
+      mockPublishers[2]['state'] = TxUtilsState.TX_MINED;
 
       mockPublishers[0].getSenderBalance.mockResolvedValue(1000n);
       mockPublishers[1].getSenderBalance.mockResolvedValue(2000n);
@@ -87,9 +87,9 @@ describe('PublisherManager', () => {
     });
 
     it('should sort by lastMinedAtBlockNumber when state and balance comparison are equal', async () => {
-      mockPublishers[0]['state'] = TxUtilsState.MINED;
-      mockPublishers[1]['state'] = TxUtilsState.MINED;
-      mockPublishers[2]['state'] = TxUtilsState.MINED;
+      mockPublishers[0]['state'] = TxUtilsState.TX_MINED;
+      mockPublishers[1]['state'] = TxUtilsState.TX_MINED;
+      mockPublishers[2]['state'] = TxUtilsState.TX_MINED;
 
       mockPublishers[0].getSenderBalance.mockResolvedValue(1000n);
       mockPublishers[1].getSenderBalance.mockResolvedValue(1000n);
@@ -106,8 +106,8 @@ describe('PublisherManager', () => {
 
     it('should apply filter correctly', async () => {
       mockPublishers[0]['state'] = TxUtilsState.IDLE;
-      mockPublishers[1]['state'] = TxUtilsState.MINED;
-      mockPublishers[2]['state'] = TxUtilsState.MINED;
+      mockPublishers[1]['state'] = TxUtilsState.TX_MINED;
+      mockPublishers[2]['state'] = TxUtilsState.TX_MINED;
 
       mockPublishers[0].getSenderBalance.mockResolvedValue(1000n);
       mockPublishers[1].getSenderBalance.mockResolvedValue(1000n);
@@ -134,7 +134,7 @@ describe('PublisherManager', () => {
       const filter = (utils: L1TxUtils) => utils.getSenderAddress() !== mockPublishers[2].getSenderAddress(); // Filter out publisher in index 2
 
       // Set up different states, balances, and block numbers
-      mockPublishers[0]['state'] = TxUtilsState.MINED;
+      mockPublishers[0]['state'] = TxUtilsState.TX_MINED;
       mockPublishers[0].getSenderBalance.mockResolvedValue(500n);
       mockPublishers[0]['lastMinedAtBlockNumber'] = 200n;
 
@@ -147,7 +147,7 @@ describe('PublisherManager', () => {
       mockPublishers[2].getSenderBalance.mockResolvedValue(10000000000n);
       mockPublishers[2]['lastMinedAtBlockNumber'] = 0n;
 
-      mockPublishers[3]['state'] = TxUtilsState.MINED;
+      mockPublishers[3]['state'] = TxUtilsState.TX_MINED;
       mockPublishers[3].getSenderBalance.mockResolvedValue(800n);
       mockPublishers[3]['lastMinedAtBlockNumber'] = 100n;
 

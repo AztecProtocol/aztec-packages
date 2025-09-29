@@ -70,12 +70,12 @@ export class ReadOnlyL1TxUtils {
    * Gets the current gas price with bounds checking
    */
   public async getGasPrice(
-    _gasConfig?: L1TxUtilsConfig,
+    userGasConfig?: L1TxUtilsConfig,
     isBlobTx: boolean = false,
     attempt: number = 0,
     previousGasPrice?: typeof attempt extends 0 ? never : GasPrice,
   ): Promise<GasPrice> {
-    const gasConfig = { ...this.config, ..._gasConfig };
+    const gasConfig = { ...this.config, ...userGasConfig };
     const block = await this.client.getBlock({ blockTag: 'latest' });
     const baseFee = block.baseFeePerGas ?? 0n;
 
@@ -90,7 +90,7 @@ export class ReadOnlyL1TxUtils {
           this.logger,
           true,
         );
-        this.logger?.debug('L1 Blob base fee:', { blobBaseFee: formatGwei(blobBaseFee) });
+        this.logger?.trace(`L1 blob base fee is ${formatGwei(blobBaseFee)}`);
       } catch {
         this.logger?.warn('Failed to get L1 blob base fee', attempt);
       }

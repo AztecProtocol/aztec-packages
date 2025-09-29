@@ -12,7 +12,7 @@ export interface L1TxRequest {
   abi?: Abi;
 }
 
-export type L1GasConfig = Partial<L1TxUtilsConfig> & { gasLimit?: bigint; txTimeoutAt?: Date };
+export type L1TxConfig = Partial<L1TxUtilsConfig> & { gasLimit?: bigint; txTimeoutAt?: Date };
 
 export interface L1BlobInputs {
   blobs: Uint8Array[];
@@ -38,15 +38,40 @@ export type TransactionStats = {
 };
 
 export enum TxUtilsState {
+  /** The EOA is ready to send a tx */
   IDLE,
-  SENT,
-  SPEED_UP,
-  CANCELLED,
-  NOT_MINED,
-  MINED,
+  /** A tx has been sent and we are waiting for it to be mined */
+  TX_SENT,
+  /** A tx took too long to be mined so it is being replaced with a sped-up tx */
+  TX_SPEED_UP_SENT,
+  /** A tx timed out so it a replacement noop tx was sent */
+  TX_CANCEL_SENT,
+  TX_TIMED_OUT,
+  /** A tx was not mined and we have given up on it */
+  TX_NOT_MINED,
+  /** A tx has been mined and we are waiting for it to be finalized */
+  TX_MINED,
 }
 
 export type SigningCallback = (
   transaction: TransactionSerializable,
   signingAddress: EthAddress,
 ) => Promise<ViemTransactionSignature>;
+
+export type L1PendingTx = {
+  request: L1TxRequest;
+  attempts: number;
+  nonce: number;
+  gasPrice: GasPrice;
+  txHash: Hex | undefined;
+};
+
+export class ReplacedL1TxError extends Error {
+  constructor(
+    message: string,
+    public readonly nonce?: number,
+  ) {
+    super(message);
+    this.name = 'ReplacedL1TxError';
+  }
+}

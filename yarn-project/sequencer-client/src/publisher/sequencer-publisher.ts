@@ -10,7 +10,7 @@ import {
   type IEmpireBase,
   type L1BlobInputs,
   type L1ContractsConfig,
-  type L1GasConfig,
+  type L1TxConfig,
   type L1TxRequest,
   MULTI_CALL_3_ADDRESS,
   Multicall3,
@@ -94,7 +94,7 @@ interface RequestWithExpiry {
   action: Action;
   request: L1TxRequest;
   lastValidL2Slot: bigint;
-  gasConfig?: Pick<L1GasConfig, 'txTimeoutAt' | 'gasLimit'>;
+  gasConfig?: Pick<L1TxConfig, 'txTimeoutAt' | 'gasLimit'>;
   blobConfig?: L1BlobInputs;
   checkSuccess: (
     request: L1TxRequest,

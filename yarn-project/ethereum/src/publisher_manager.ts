@@ -3,8 +3,13 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { L1TxUtils, TxUtilsState } from './l1_tx_utils/index.js';
 
-const sortOrder = [TxUtilsState.IDLE, TxUtilsState.MINED];
-const invalidStates = [TxUtilsState.SENT, TxUtilsState.SPEED_UP, TxUtilsState.CANCELLED, TxUtilsState.NOT_MINED]; // Cancelled and not mined are states that can be handled by a later iteration
+const sortOrder = [TxUtilsState.IDLE, TxUtilsState.TX_MINED];
+const invalidStates = [
+  TxUtilsState.TX_SENT,
+  TxUtilsState.TX_SPEED_UP_SENT,
+  TxUtilsState.TX_CANCEL_SENT,
+  TxUtilsState.TX_NOT_MINED,
+]; // Cancelled and not mined are states that can be handled by a later iteration
 
 export type PublisherFilter<UtilsType extends L1TxUtils> = (utils: UtilsType) => boolean;
 

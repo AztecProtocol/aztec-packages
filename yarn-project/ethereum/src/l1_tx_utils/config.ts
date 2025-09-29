@@ -57,6 +57,8 @@ export interface L1TxUtilsConfig {
    * Whether to attempt to cancel a tx if it's not mined after txTimeoutMs
    */
   cancelTxOnTimeout?: boolean;
+  /** True to replace the previous pending tx (if any) by using its same nonce. */
+  replacePreviousPendingTx?: boolean;
 }
 
 export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
@@ -119,6 +121,11 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     description: "Whether to attempt to cancel a tx if it's not mined after txTimeoutMs",
     env: 'L1_TX_MONITOR_CANCEL_TX_ON_TIMEOUT',
     ...booleanConfigHelper(true),
+  },
+  replacePreviousPendingTx: {
+    description: 'True to replace the previous pending tx (if any) by using its same nonce.',
+    env: 'L1_TX_REPLACE_PREVIOUS_PENDING_TX',
+    ...booleanConfigHelper(false),
   },
 };
 

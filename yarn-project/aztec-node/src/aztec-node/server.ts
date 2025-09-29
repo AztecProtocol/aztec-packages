@@ -421,7 +421,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       await slasherClient.start();
 
       const l1TxUtils = keyStoreManager!.createAllValidatorPublisherSigners().map((signer: EthSigner) => {
-        return createL1TxUtilsWithBlobsFromEthSigner(publicClient, signer, log, dateProvider, config);
+        return createL1TxUtilsWithBlobsFromEthSigner(publicClient, signer, log, dateProvider, {
+          ...config,
+          replacePreviousPendingTx: true,
+        });
       });
 
       sequencer = await SequencerClient.new(config, {
