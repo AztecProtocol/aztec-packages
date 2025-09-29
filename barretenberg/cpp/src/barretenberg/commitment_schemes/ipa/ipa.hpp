@@ -107,7 +107,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     // records both a `VerifierAccumulator` and also whether the "running state" of the IPA verifier is true.
     // this is relevant when we run the partial verifier, a.k.a. `reduce_verify_internal_recursive`, which itself is
     // necesary for our batching.
-    struct VerifierAccumulatorRunningTruthValue {
+    struct VerifierAccumulatorBool {
         VerifierAccumulator verifier_accumulator;
         bool running_truth_value;
     };
@@ -413,11 +413,10 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         }
 
         // Step 8.
-        // Compute G_zerp
+        // Compute G_zero
         Commitment G_zero =
             scalar_multiplication::pippenger_unsafe<Curve>(s_vec, { &srs_elements[0], /*size*/ poly_length });
         Commitment G_zero_sent = transcript->template receive_from_prover<Commitment>("IPA:G_0");
-        BB_ASSERT_EQ(G_zero, G_zero_sent, "G_0 should be equal to G_0 sent in transcript. IPA verification fails.");
 
         // Step 9.
         // Receive a_zero from the prover
@@ -428,8 +427,9 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // the URS G_0.
         GroupElement right_hand_side = G_zero * a_zero + aux_generator * a_zero * b_zero;
         // Step 11.
-        // Check if C_right == C₀
-        return (C_zero.normalize() == right_hand_side.normalize());
+        // Check if C_right == C_zero and if G_zero_sent == G_zero. (While the proof could be said to pass without this
+        // second check, we require it.)
+        return (C_zero.normalize() == right_hand_side.normalize() && G_zero.normalize() == G_zero_sent.normalize());
     }
     /**
      * @brief  Recursively verify the correctness of an IPA proof, without computing G_0. This is therefore a "partial
@@ -448,8 +448,8 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      * challenge polynomial derived from the u_inv challenges, and a boolean recording whether the last accumulation
      * step failed or passed.
      */
-    static VerifierAccumulatorRunningTruthValue reduce_verify_internal_recursive(
-        const OpeningClaim<Curve>& opening_claim, auto& transcript)
+    static VerifierAccumulatorBool reduce_verify_internal_recursive(const OpeningClaim<Curve>& opening_claim,
+                                                                    auto& transcript)
         requires Curve::is_stdlib_type
     {
         // Step 1.
@@ -516,7 +516,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         ipa_relation.assert_equal(neg_commitment);
 
         VerifierAccumulator verifier_accumulator = { round_challenges_inv, G_zero };
-        VerifierAccumulatorRunningTruthValue verifier_accumulator_running_truth_value = {
+        VerifierAccumulatorBool verifier_accumulator_running_truth_value = {
             verifier_accumulator, ipa_relation.get_value() == -opening_claim.commitment.get_value()
         };
         return verifier_accumulator_running_truth_value;
