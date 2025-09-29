@@ -58,13 +58,8 @@ template <typename Fr> struct BackingMemory {
     };
     std::shared_ptr<FileBackedData> file_backed;
 #endif
-
     // Aligned memory data substruct
-    struct AlignedMemoryData {
-        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        std::shared_ptr<Fr[]> data;
-    };
-    std::shared_ptr<AlignedMemoryData> aligned_memory;
+    std::shared_ptr<Fr[]> aligned_memory;
 
     BackingMemory() = default;
 
@@ -94,11 +89,9 @@ template <typename Fr> struct BackingMemory {
   private:
     static void allocate_aligned(BackingMemory& memory, size_t size)
     {
-        auto aligned = std::make_shared<AlignedMemoryData>();
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        aligned->data = std::static_pointer_cast<Fr[]>(std::move(bb::get_mem_slab(sizeof(Fr) * size)));
-        memory.raw_data = aligned->data.get();
-        memory.aligned_memory = std::move(aligned);
+        memory.aligned_memory = std::static_pointer_cast<Fr[]>(std::move(bb::get_mem_slab(sizeof(Fr) * size)));
+        memory.raw_data = memory.aligned_memory.get();
     }
 
 #ifndef __wasm__

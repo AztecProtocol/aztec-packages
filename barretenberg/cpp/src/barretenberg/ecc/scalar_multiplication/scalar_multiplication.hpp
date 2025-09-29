@@ -132,7 +132,7 @@ template <typename Curve> class MSM {
     template <typename BucketType> static Element accumulate_buckets(BucketType& bucket_accumulators) noexcept
     {
         auto& buckets = bucket_accumulators.buckets;
-        BB_ASSERT_GT(buckets.size(), static_cast<size_t>(0));
+        ASSERT_DEBUG(buckets.size() > static_cast<size_t>(0));
         int starting_index = static_cast<int>(buckets.size() - 1);
         Element prefix_sum;
         bool found_start = false;
@@ -149,7 +149,7 @@ template <typename Curve> class MSM {
         if (!found_start) {
             return Curve::Group::point_at_infinity;
         }
-        BB_ASSERT_GT(starting_index, 0);
+        ASSERT_DEBUG(starting_index > 0);
         AffineElement offset_generator = Curve::Group::affine_point_at_infinity;
         if constexpr (std::same_as<typename Curve::Group, bb::g1>) {
             constexpr auto gen = get_precomputed_generators<typename Curve::Group, "ECCVM_OFFSET_GENERATOR", 1>()[0];

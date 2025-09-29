@@ -56,14 +56,6 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
     const T& get(size_t index, size_t virtual_padding = 0) const
     {
         static const T zero{};
-        if (index >= virtual_size_ + virtual_padding) {
-            info("BAD GET(): index = ",
-                 index,
-                 ", virtual_size_ = ",
-                 virtual_size_,
-                 ", virtual_padding = ",
-                 virtual_padding);
-        }
         ASSERT_DEBUG(index < virtual_size_ + virtual_padding);
         if (index >= start_ && index < end_) {
             return data()[index - start_];
@@ -77,8 +69,8 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      *
      * @return A pointer to the beginning of the memory-backed range.
      */
-    T* data() { return backing_memory.raw_data; }
-    const T* data() const { return backing_memory.raw_data; }
+    T* data() { return backing_memory_.raw_data; }
+    const T* data() const { return backing_memory_.raw_data; }
     // Our size is end_ - start_. Note that we need to offset end_ when doing a shift to
     // correctly maintain the size.
     size_t size() const { return end_ - start_; }
@@ -140,5 +132,5 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      * The memory is allocated for at least the range [start_, end_). Shared pointers within BackingMemory
      * allow for efficient memory use when arrays are shifted or otherwise manipulated.
      */
-    BackingMemory<T> backing_memory;
+    BackingMemory<T> backing_memory_;
 };
