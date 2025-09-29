@@ -17,25 +17,11 @@
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/constraining/entities.hpp"
+#include "barretenberg/vm2/constraining/flavor_macros.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/flavor_variables.hpp"
-
-// Entities getter macro.
-#define DEFINE_AVM_GETTER(name, start, count)                                                                          \
-    std::span<DataType> get_##name()                                                                                   \
-    {                                                                                                                  \
-        return get_all().subspan(start, count);                                                                        \
-    }                                                                                                                  \
-    std::span<const DataType> get_##name() const                                                                       \
-    {                                                                                                                  \
-        return get_all().subspan(start, count);                                                                        \
-    }                                                                                                                  \
-    std::span<const std::string> get_##name##_labels() const                                                           \
-    {                                                                                                                  \
-        return get_labels().subspan(start, count);                                                                     \
-    }
 
 namespace bb::avm2 {
 

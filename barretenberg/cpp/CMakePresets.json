@@ -211,6 +211,7 @@
         "LDFLAGS": "-O2 -gdwarf-4"
       },
       "cacheVariables": {
+        "DISABLE_ASM": "OFF",
         "ENABLE_STACKTRACES": "OFF"
       }
     },
