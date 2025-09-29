@@ -1449,7 +1449,11 @@ export class L1Deployer {
     tx: L1TxRequest,
     options?: L1GasConfig,
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
-    return this.l1TxUtils.sendTransaction(tx, options);
+    return this.l1TxUtils.sendTransaction(tx, options).then(({ txHash, state }) => ({
+      txHash,
+      gasLimit: state.gasLimit,
+      gasPrice: state.gasPrice,
+    }));
   }
 }
 

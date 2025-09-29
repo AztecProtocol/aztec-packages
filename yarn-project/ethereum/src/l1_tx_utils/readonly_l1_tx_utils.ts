@@ -34,7 +34,7 @@ import type { GasPrice, L1BlobInputs, L1TxRequest, TransactionStats } from './ty
 import { getCalldataGasUsage, tryGetCustomErrorNameContractFunction } from './utils.js';
 
 export class ReadOnlyL1TxUtils {
-  public readonly config: L1TxUtilsConfig;
+  public config: L1TxUtilsConfig;
   protected interrupted = false;
 
   constructor(

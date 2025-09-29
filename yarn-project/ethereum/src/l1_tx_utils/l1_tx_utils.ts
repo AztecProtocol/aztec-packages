@@ -1,3 +1,4 @@
+import { maxBigint } from '@aztec/foundation/bigint';
 import { times } from '@aztec/foundation/collection';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -30,18 +31,19 @@ import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './config.js';
 import { LARGE_GAS_LIMIT } from './constants.js';
 import { ReadOnlyL1TxUtils } from './readonly_l1_tx_utils.js';
 import {
-  type GasPrice,
   type L1BlobInputs,
   type L1GasConfig,
   type L1TxRequest,
+  type L1TxState,
   type SigningCallback,
   TxUtilsState,
 } from './types.js';
 
+const MAX_L1_TX_STATES = 32;
+
 export class L1TxUtils extends ReadOnlyL1TxUtils {
-  private txUtilsState: TxUtilsState = TxUtilsState.IDLE;
-  private lastMinedBlockNumber: bigint | undefined = undefined;
-  private nonceManager: NonceManager;
+  protected nonceManager: NonceManager;
+  protected txs: L1TxState[] = [];
 
   constructor(
     public override client: ViemClient,
@@ -57,21 +59,28 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
   }
 
   public get state() {
-    return this.txUtilsState;
+    return this.txs.at(-1)?.status ?? TxUtilsState.IDLE;
   }
 
   public get lastMinedAtBlockNumber() {
-    return this.lastMinedBlockNumber;
+    const minedBlockNumbers = this.txs.map(tx => tx.receipt?.blockNumber).filter(bn => bn !== undefined);
+    return minedBlockNumbers.length === 0 ? undefined : maxBigint(...minedBlockNumbers);
   }
 
-  private set lastMinedAtBlockNumber(blockNumber: bigint | undefined) {
-    this.lastMinedBlockNumber = blockNumber;
+  protected updateState(l1TxState: L1TxState, newState: TxUtilsState) {
+    const oldState = l1TxState.status;
+    l1TxState.status = newState;
+    const sender = this.getSenderAddress().toString();
+    this.logger.debug(
+      `State changed from ${TxUtilsState[oldState]} to ${TxUtilsState[newState]} for nonce ${l1TxState.nonce} account ${sender}`,
+    );
   }
 
-  private set state(state: TxUtilsState) {
-    this.txUtilsState = state;
-    this.logger?.debug(
-      `L1TxUtils state changed to ${TxUtilsState[state]} for sender: ${this.getSenderAddress().toString()}`,
+  public updateConfig(newConfig: Partial<L1TxUtilsConfig>) {
+    this.config = { ...this.config, ...newConfig };
+    this.logger.info(
+      'Updated L1TxUtils config',
+      pickBy(newConfig, (_, key) => key in l1TxUtilsConfigMappings),
     );
   }
 
@@ -103,12 +112,12 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
    */
   public async sendTransaction(
     request: L1TxRequest,
-    _gasConfig?: L1GasConfig,
+    gasConfigOverrides?: L1GasConfig,
     blobInputs?: L1BlobInputs,
     stateChange: TxUtilsState = TxUtilsState.SENT,
-  ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
+  ): Promise<{ txHash: Hex; state: L1TxState }> {
     try {
-      const gasConfig = { ...this.config, ..._gasConfig };
+      const gasConfig = { ...this.config, ...gasConfigOverrides };
       const account = this.getSenderAddress().toString();
 
       let gasLimit: bigint;
@@ -133,32 +142,41 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         chainId: this.client.chain.id,
       });
 
-      let txHash: Hex;
-      if (blobInputs) {
-        const txData = {
-          ...request,
-          ...blobInputs,
-          gas: gasLimit,
-          maxFeePerGas: gasPrice.maxFeePerGas,
-          maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-          maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
-          nonce,
-        };
+      const l1TxState: L1TxState = {
+        txHashes: [],
+        cancelTxHashes: [],
+        gasPrice,
+        request,
+        status: TxUtilsState.IDLE,
+        nonce,
+        gasLimit,
+        txConfig: gasConfig,
+        blobInputs,
+      };
 
-        const signedRequest = await this.prepareSignedTransaction(txData);
-        txHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
-      } else {
-        const txData = {
-          ...request,
-          gas: gasLimit,
-          maxFeePerGas: gasPrice.maxFeePerGas,
-          maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-          nonce,
-        };
-        const signedRequest = await this.prepareSignedTransaction(txData);
-        txHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
+      this.updateState(l1TxState, stateChange);
+
+      const baseTxData = {
+        ...request,
+        gas: gasLimit,
+        maxFeePerGas: gasPrice.maxFeePerGas,
+        maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
+        nonce,
+      };
+
+      const txData = blobInputs
+        ? { ...baseTxData, ...blobInputs, maxFeePerBlobGas: gasPrice.maxFeePerBlobGas! }
+        : baseTxData;
+
+      const signedRequest = await this.prepareSignedTransaction(txData);
+      const txHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
+
+      l1TxState.txHashes.push(txHash);
+      this.txs.push(l1TxState);
+      if (this.txs.length > MAX_L1_TX_STATES) {
+        this.txs.shift();
       }
-      this.state = stateChange;
+
       const cleanGasConfig = pickBy(gasConfig, (_, key) => key in l1TxUtilsConfigMappings);
       this.logger?.info(`Sent L1 transaction ${txHash}`, {
         gasLimit,
@@ -168,7 +186,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         ...(gasPrice.maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(gasPrice.maxFeePerBlobGas) }),
       });
 
-      return { txHash, gasLimit, gasPrice };
+      return { txHash, state: l1TxState };
     } catch (err: any) {
       const viemError = formatViemError(err, request.abi);
       this.logger?.error(`Failed to send L1 transaction`, viemError.message, {
@@ -178,60 +196,51 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     }
   }
 
+  private async tryGetTxReceipt(
+    txHashes: Hex[],
+    nonce: number,
+    isCancelTx: boolean,
+  ): Promise<TransactionReceipt | undefined> {
+    for (const hash of txHashes) {
+      try {
+        const receipt = await this.client.getTransactionReceipt({ hash });
+        if (receipt) {
+          const what = isCancelTx ? 'Cancellation L1 transaction' : 'L1 transaction';
+          if (receipt.status === 'reverted') {
+            this.logger?.warn(`${what} ${hash} with nonce ${nonce} reverted`, receipt);
+          } else {
+            this.logger?.verbose(`${what} ${hash} with nonce ${nonce} mined`, receipt);
+          }
+          return receipt;
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === 'TransactionReceiptNotFoundError') {
+          continue;
+        } else {
+          this.logger.error(`Error getting receipt for tx ${hash}`, err);
+          continue;
+        }
+      }
+    }
+  }
+
   /**
    * Monitors a transaction until completion, handling speed-ups if needed
-   * @param request - Original transaction request (needed for speed-ups)
-   * @param initialTxHash - Hash of the initial transaction
-   * @param allVersions - Hashes of all transactions submitted under the same nonce (any of them could mine)
-   * @param params - Parameters used in the initial transaction
-   * @param gasConfig - Optional gas configuration
    */
-  public async monitorTransaction(
-    request: L1TxRequest,
-    initialTxHash: Hex,
-    allVersions: Set<Hex>,
-    params: { gasLimit: bigint },
-    _gasConfig?: Partial<L1TxUtilsConfig> & { txTimeoutAt?: Date },
-    _blobInputs?: L1BlobInputs,
-    isCancelTx: boolean = false,
-  ): Promise<TransactionReceipt> {
-    const isBlobTx = !!_blobInputs;
-    const gasConfig = { ...this.config, ..._gasConfig };
+  protected async monitorTransaction(state: L1TxState): Promise<TransactionReceipt> {
+    const { request, nonce, txHashes, cancelTxHashes, gasLimit, blobInputs, txConfig: gasConfig } = state;
+    const isCancelTx = cancelTxHashes.length > 0;
+    const isBlobTx = !!blobInputs;
     const account = this.getSenderAddress().toString();
 
-    const blobInputs = _blobInputs || {};
     const makeGetTransactionBackoff = () =>
       makeBackoff(times(gasConfig.txPropagationMaxQueryAttempts ?? 3, i => i + 1));
 
-    // Retry a few times, in case the tx is not yet propagated.
-    const tx = await retry<GetTransactionReturnType>(
-      () => this.client.getTransaction({ hash: initialTxHash }),
-      `Getting L1 transaction ${initialTxHash}`,
-      makeGetTransactionBackoff(),
-      this.logger,
-      true,
-    );
-
-    if (!tx) {
-      throw new Error(`Failed to get L1 transaction ${initialTxHash} to monitor`);
-    }
-
-    if (tx?.nonce === undefined || tx?.nonce === null) {
-      throw new Error(`Failed to get L1 transaction ${initialTxHash} nonce`);
-    }
-    const nonce = tx.nonce;
-
-    allVersions.add(initialTxHash);
-    let currentTxHash = initialTxHash;
+    let currentTxHash = isCancelTx ? cancelTxHashes[0] : txHashes[0];
     let attempts = 0;
     let lastAttemptSent = this.dateProvider.now();
-    let lastGasPrice: GasPrice = {
-      maxFeePerGas: tx.maxFeePerGas!,
-      maxPriorityFeePerGas: tx.maxPriorityFeePerGas!,
-      maxFeePerBlobGas: tx.maxFeePerBlobGas!,
-    };
-    const initialTxTime = lastAttemptSent;
 
+    const initialTxTime = lastAttemptSent;
     let txTimedOut = false;
     let latestBlockTimestamp: bigint | undefined;
 
@@ -256,28 +265,19 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         const currentNonce = await this.client.getTransactionCount({ address: account });
         // If the current nonce on our account is greater than our transaction's nonce then a tx with the same nonce has been mined.
         if (currentNonce > nonce) {
-          for (const hash of allVersions) {
-            try {
-              const receipt = await this.client.getTransactionReceipt({ hash });
-              if (receipt) {
-                if (receipt.status === 'reverted') {
-                  this.logger?.error(`L1 transaction ${hash} reverted`, receipt);
-                } else {
-                  this.logger?.debug(`L1 transaction ${hash} mined`);
-                }
-                this.state = TxUtilsState.MINED;
-                this.lastMinedAtBlockNumber = receipt.blockNumber;
-                return receipt;
-              }
-            } catch (err) {
-              if (err instanceof Error && err.message.includes('reverted')) {
-                throw formatViemError(err);
-              }
-            }
+          const receipt =
+            (await this.tryGetTxReceipt(cancelTxHashes, nonce, true)) ??
+            (await this.tryGetTxReceipt(txHashes, nonce, false));
+
+          if (receipt) {
+            this.updateState(state, TxUtilsState.MINED);
+            state.receipt = receipt;
+            return receipt;
           }
+
           // If we get here then we have checked all of our tx versions and not found anything.
           // We should consider the nonce as MINED
-          this.state = TxUtilsState.MINED;
+          this.updateState(state, TxUtilsState.MINED);
           throw new Error(`Nonce ${nonce} is MINED but not by one of our expected transactions`);
         }
 
@@ -328,7 +328,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
                 }
               : undefined,
           );
-          lastGasPrice = newGasPrice;
+          state.gasPrice = newGasPrice;
 
           this.logger?.debug(
             `L1 transaction ${currentTxHash} appears stuck. Attempting speed-up ${attempts}/${gasConfig.maxAttempts} ` +
@@ -340,26 +340,28 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
             },
           );
 
-          const txData: PrepareTransactionRequestRequest = {
+          const baseTxData = {
             ...request,
-            ...blobInputs,
-            nonce,
-            gas: params.gasLimit,
+            gas: gasLimit,
             maxFeePerGas: newGasPrice.maxFeePerGas,
             maxPriorityFeePerGas: newGasPrice.maxPriorityFeePerGas,
+            nonce,
           };
-          if (isBlobTx && newGasPrice.maxFeePerBlobGas) {
-            (txData as any).maxFeePerBlobGas = newGasPrice.maxFeePerBlobGas;
-          }
+
+          const txData = blobInputs
+            ? { ...baseTxData, ...blobInputs, maxFeePerBlobGas: newGasPrice.maxFeePerBlobGas! }
+            : baseTxData;
+
           const signedRequest = await this.prepareSignedTransaction(txData);
           const newHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
+
           if (!isCancelTx) {
-            this.state = TxUtilsState.SPEED_UP;
+            this.updateState(state, TxUtilsState.SPEED_UP);
           }
 
           const cleanGasConfig = pickBy(gasConfig, (_, key) => key in l1TxUtilsConfigMappings);
           this.logger?.verbose(`Sent L1 speed-up tx ${newHash}, replacing ${currentTxHash}`, {
-            gasLimit: params.gasLimit,
+            gasLimit,
             maxFeePerGas: formatGwei(newGasPrice.maxFeePerGas),
             maxPriorityFeePerGas: formatGwei(newGasPrice.maxPriorityFeePerGas),
             gasConfig: cleanGasConfig,
@@ -368,7 +370,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
           currentTxHash = newHash;
 
-          allVersions.add(currentTxHash);
+          (isCancelTx ? cancelTxHashes : txHashes).push(currentTxHash);
           lastAttemptSent = this.dateProvider.now();
         }
         await sleep(gasConfig.checkIntervalMs!);
@@ -387,10 +389,10 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     // The transaction has timed out. If it's a cancellation then we are giving up on it.
     // Otherwise we may attempt to cancel it if configured to do so.
     if (isCancelTx) {
-      this.state = TxUtilsState.NOT_MINED;
+      this.updateState(state, TxUtilsState.NOT_MINED);
     } else if (gasConfig.cancelTxOnTimeout) {
       // Fire cancellation without awaiting to avoid blocking the main thread
-      this.attemptTxCancellation(currentTxHash, nonce, allVersions, isBlobTx, lastGasPrice, attempts).catch(err => {
+      this.attemptTxCancellation(state, attempts).catch(err => {
         const viemError = formatViemError(err);
         this.logger?.error(`Failed to send cancellation for timed out tx ${currentTxHash}:`, viemError.message, {
           metaMessages: viemError.metaMessages,
@@ -398,7 +400,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       });
     }
 
-    this.logger?.error(`L1 transaction ${currentTxHash} timed out`, undefined, {
+    this.logger?.warn(`L1 transaction ${currentTxHash} timed out`, {
       txHash: currentTxHash,
       txTimeoutAt: gasConfig.txTimeoutAt,
       txTimeoutMs: gasConfig.txTimeoutMs,
@@ -406,7 +408,6 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       now: this.dateProvider.now(),
       attempts,
       isInterrupted: this.interrupted,
-      ...tx,
     });
 
     throw new TimeoutError(`L1 transaction ${currentTxHash} timed out`);
@@ -422,10 +423,10 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     request: L1TxRequest,
     gasConfig?: L1GasConfig,
     blobInputs?: L1BlobInputs,
-  ): Promise<{ receipt: TransactionReceipt; gasPrice: GasPrice }> {
-    const { txHash, gasLimit, gasPrice } = await this.sendTransaction(request, gasConfig, blobInputs);
-    const receipt = await this.monitorTransaction(request, txHash, new Set(), { gasLimit }, gasConfig, blobInputs);
-    return { receipt, gasPrice };
+  ): Promise<{ receipt: TransactionReceipt; state: L1TxState }> {
+    const { state } = await this.sendTransaction(request, gasConfig, blobInputs);
+    const receipt = await this.monitorTransaction(state);
+    return { receipt, state };
   }
 
   public override async simulate(
@@ -458,23 +459,11 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
   /**
    * Attempts to cancel a transaction by sending a 0-value tx to self with same nonce but higher gas prices
-   * @param nonce - The nonce of the transaction to cancel
-   * @param allVersions - Hashes of all transactions submitted under the same nonce (any of them could mine)
-   * @param previousGasPrice - The gas price of the previous transaction
-   * @param attempts - The number of attempts to cancel the transaction
    * @returns The hash of the cancellation transaction
    */
-  protected async attemptTxCancellation(
-    currentTxHash: Hex,
-    nonce: number,
-    allVersions: Set<Hex>,
-    isBlobTx = false,
-    previousGasPrice?: GasPrice,
-    attempts = 0,
-  ) {
-    if (isBlobTx) {
-      throw new Error('Cannot cancel blob transactions, please use L1TxUtilsWithBlobsClass');
-    }
+  protected async attemptTxCancellation(state: L1TxState, attempts: number) {
+    const isBlobTx = state.blobInputs !== undefined;
+    const { nonce, gasPrice: previousGasPrice } = state;
 
     // Get gas price with higher priority fee for cancellation
     const cancelGasPrice = await this.getGasPrice(
@@ -488,40 +477,53 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       previousGasPrice,
     );
 
-    this.logger?.info(`Attempting to cancel L1 transaction ${currentTxHash} with nonce ${nonce}`, {
-      maxFeePerGas: formatGwei(cancelGasPrice.maxFeePerGas),
-      maxPriorityFeePerGas: formatGwei(cancelGasPrice.maxPriorityFeePerGas),
-    });
+    const { maxFeePerGas, maxPriorityFeePerGas, maxFeePerBlobGas } = cancelGasPrice;
+    this.logger?.info(
+      `Attempting to cancel L1 ${isBlobTx ? 'blob' : 'vanilla'} transaction ${state.txHashes[0]} with nonce ${nonce}`,
+      {
+        maxFeePerGas: formatGwei(maxFeePerGas),
+        maxPriorityFeePerGas: formatGwei(maxPriorityFeePerGas),
+        ...(maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(maxFeePerBlobGas) }),
+      },
+    );
+
     const request = {
       to: this.getSenderAddress().toString(),
       value: 0n,
     };
 
     // Send 0-value tx to self with higher gas price
-    const txData = {
+    const baseTxData = {
       ...request,
       nonce,
-      gas: 21_000n, // Standard ETH transfer gas
-      maxFeePerGas: cancelGasPrice.maxFeePerGas,
-      maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
+      gas: 21_000n,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
     };
+
+    const txData = isBlobTx ? { ...baseTxData, ...this.makeEmptyBlobInputs(maxFeePerBlobGas!) } : baseTxData;
     const signedRequest = await this.prepareSignedTransaction(txData);
     const cancelTxHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
 
-    this.state = TxUtilsState.CANCELLED;
+    state.gasPrice = cancelGasPrice;
+    state.gasLimit = 21_000n;
+    state.cancelTxHashes.push(cancelTxHash);
 
-    this.logger?.info(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`, { nonce });
+    this.updateState(state, TxUtilsState.CANCELLED);
 
-    const receipt = await this.monitorTransaction(
-      request,
-      cancelTxHash,
-      allVersions,
-      { gasLimit: 21_000n },
-      undefined,
-      undefined,
-      true,
-    );
+    this.logger?.info(`Sent cancellation tx ${cancelTxHash} for timed out tx with nonce ${nonce}`, {
+      nonce,
+      txData,
+      isBlobTx,
+      txHashes: state.txHashes,
+    });
 
-    return receipt.transactionHash;
+    const { transactionHash } = await this.monitorTransaction(state);
+    return transactionHash;
+  }
+
+  /** Makes empty blob inputs for the cancellation tx. To be overridden in L1TxUtilsWithBlobs. */
+  protected makeEmptyBlobInputs(_maxFeePerBlobGas: bigint): Required<L1BlobInputs> {
+    throw new Error('Cannot make empty blob inputs for cancellation');
   }
 }
