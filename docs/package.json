@@ -8,10 +8,12 @@
     "build": "yarn clean && yarn spellcheck && yarn preprocess && yarn preprocess:move && docusaurus build",
     "clean": "./scripts/clean.sh",
     "serve": "docusaurus serve",
-    "preprocess": "yarn node -r dotenv/config ./src/preprocess/index.js",
+    "preprocess": "yarn node -r dotenv/config ./src/preprocess/index.js && yarn fix-learn-urls",
     "preprocess:move": "sh scripts/move_processed.sh",
     "spellcheck": "yarn cspell",
-    "spellcheck:appendwords": "yarn cspell --words-only --unique | sort --ignore-case >> docs-words.txt"
+    "spellcheck:appendwords": "yarn cspell --words-only --unique | sort --ignore-case >> docs-words.txt",
+    "fix-learn-urls": "node ./scripts/fix-learn-urls.js",
+    "fix-learn-urls:dry": "node ./scripts/fix-learn-urls.js --dry-run"
   },
   "dependencies": {
     "@cookbookdev/docsbot": "^4.25.11",

@@ -5,9 +5,9 @@ tags: [Developers, Contracts]
 description: Best practices and techniques for writing gas-efficient contracts on Aztec, optimizing for both proving and execution costs.
 ---
 
-import Image from "@theme/IdealImage";
-
 <!-- docs:start:writing_efficient_contracts -->
+
+import Image from "@theme/IdealImage";
 
 ## Writing functions
 
