@@ -1,5 +1,7 @@
 #include "barretenberg/vm2/constraining/prover.hpp"
 
+#include <cstdlib>
+
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
@@ -10,9 +12,14 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/constraining/polynomials.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb::avm2 {
+
+// Maximum number of polynomials to batch commit at once.
+const size_t AVM_MAX_MSM_BATCH_SIZE =
+    getenv("AVM_MAX_MSM_BATCH_SIZE") != nullptr ? std::stoul(getenv("AVM_MAX_MSM_BATCH_SIZE")) : 32;
 
 using Flavor = AvmFlavor;
 using FF = Flavor::FF;
@@ -47,19 +54,40 @@ void AvmProver::execute_preamble_round()
 }
 
 /**
+ * @brief Add public inputs to transcript
+ *
+ */
+void AvmProver::execute_public_inputs_round()
+{
+    // We take the starting values of the public inputs polynomials to add to the transcript
+    const auto public_inputs_cols = std::vector({ &prover_polynomials.public_inputs_cols_0_,
+                                                  &prover_polynomials.public_inputs_cols_1_,
+                                                  &prover_polynomials.public_inputs_cols_2_,
+                                                  &prover_polynomials.public_inputs_cols_3_ });
+    for (size_t i = 0; i < public_inputs_cols.size(); ++i) {
+        for (size_t j = 0; j < AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH; ++j) {
+            // The public inputs are added to the hash buffer, but do not increase the size of the proof
+            transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
+                                           j < public_inputs_cols[i]->size() ? public_inputs_cols[i]->at(j) : FF(0));
+        }
+    }
+}
+/**
  * @brief Compute commitments to all of the witness wires (apart from the logderivative inverse wires)
  *
  */
 void AvmProver::execute_wire_commitments_round()
 {
+    BB_BENCH_NAME("AvmProver::execute_wire_commitments_round");
     // Commit to all polynomials (apart from logderivative inverse polynomials, which are committed to in the later
     // logderivative phase)
     auto wire_polys = prover_polynomials.get_wires();
     const auto& labels = prover_polynomials.get_wires_labels();
+    auto batch = commitment_key.start_batch();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-        auto comm = commitment_key.commit(wire_polys[idx]);
-        transcript->send_to_verifier(labels[idx], comm);
+        batch.add_to_batch(wire_polys[idx], labels[idx], /*mask for zk?*/ false);
     }
+    batch.commit_and_send_to_verifier(transcript, AVM_MAX_MSM_BATCH_SIZE);
 }
 
 void AvmProver::execute_log_derivative_inverse_round()
@@ -72,6 +100,12 @@ void AvmProver::execute_log_derivative_inverse_round()
     bb::constexpr_for<0, std::tuple_size_v<Flavor::LookupRelations>, 1>([&]<size_t relation_idx>() {
         using Relation = std::tuple_element_t<relation_idx, Flavor::LookupRelations>;
         tasks.push_back([&]() {
+            // We need to resize the inverse polynomials for the relation, now that the selectors have been computed.
+            constraining::resize_inverses(prover_polynomials,
+                                          Relation::Settings::INVERSES,
+                                          Relation::Settings::SRC_SELECTOR,
+                                          Relation::Settings::DST_SELECTOR);
+
             AVM_TRACK_TIME(std::string("prove/log_derivative_inverse_round/") + std::string(Relation::NAME),
                            (compute_logderivative_inverse<FF, Relation>(
                                prover_polynomials, relation_parameters, key->circuit_size)));
@@ -83,16 +117,16 @@ void AvmProver::execute_log_derivative_inverse_round()
 
 void AvmProver::execute_log_derivative_inverse_commitments_round()
 {
-    // Commit to all logderivative inverse polynomials
-    for (auto [commitment, key_poly] : zip_view(witness_commitments.get_derived(), key->get_derived())) {
-        commitment = commitment_key.commit(key_poly);
-    }
+    BB_BENCH_NAME("AvmProver::execute_log_derivative_inverse_commitments_round");
+    auto batch = commitment_key.start_batch();
+    // Commit to all logderivative inverse polynomials and send to verifier
+    for (auto [derived_poly, commitment, label] : zip_view(prover_polynomials.get_derived(),
+                                                           witness_commitments.get_derived(),
+                                                           prover_polynomials.get_derived_labels())) {
 
-    // Send all commitments to the verifier
-    for (auto [label, commitment] :
-         zip_view(prover_polynomials.get_derived_labels(), witness_commitments.get_derived())) {
-        transcript->send_to_verifier(label, commitment);
+        batch.add_to_batch(derived_poly, label, /*mask for zk?*/ false);
     }
+    batch.commit_and_send_to_verifier(transcript, AVM_MAX_MSM_BATCH_SIZE);
 }
 
 /**
@@ -145,6 +179,10 @@ HonkProof AvmProver::construct_proof()
 {
     // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();
+
+    // TODO(https://github.com/AztecProtocol/aztec-packages/pull/17045): make the protocols secure at some point
+    // // Add public inputs to transcript.
+    // AVM_TRACK_TIME("prove/public_inputs_round", execute_public_inputs_round());
 
     // Compute wire commitments.
     AVM_TRACK_TIME("prove/wire_commitments_round", execute_wire_commitments_round());

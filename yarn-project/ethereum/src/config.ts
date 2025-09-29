@@ -10,7 +10,7 @@ import {
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
-import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './l1_tx_utils.js';
+import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './l1_tx_utils/index.js';
 
 export type GenesisStateConfig = {
   /** Whether to populate the genesis state with initial fee juice for the test accounts */
@@ -28,12 +28,16 @@ export type L1ContractsConfig = {
   aztecEpochDuration: number;
   /** The target validator committee size. */
   aztecTargetCommitteeSize: number;
+  /** The number of epochs to lag behind the current epoch for validator selection. */
+  lagInEpochs: number;
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: number;
   /** The deposit amount for a validator */
   activationThreshold: bigint;
   /** The minimum stake for a validator. */
   ejectionThreshold: bigint;
+  /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
+  localEjectionThreshold: bigint;
   /** The slashing quorum, i.e. how many slots must signal for the same payload in a round for it to be submittable to the Slasher (defaults to slashRoundSize / 2 + 1) */
   slashingQuorum?: number;
   /** The slashing round size, i.e. how many epochs are in a slashing round */
@@ -46,6 +50,8 @@ export type L1ContractsConfig = {
   slashingVetoer: EthAddress;
   /** How many slashing rounds back we slash (ie when slashing in round N, we slash for offenses committed during epochs of round N-offset) */
   slashingOffsetInRounds: number;
+  /** How long slashing can be disabled for in seconds when vetoer disables it */
+  slashingDisableDuration: number;
   /** Type of slasher proposer */
   slasherFlavor: 'empire' | 'tally' | 'none';
   /** Minimum amount that can be slashed in tally slashing */
@@ -71,12 +77,14 @@ export const DefaultL1ContractsConfig = {
   aztecSlotDuration: 36,
   aztecEpochDuration: 32,
   aztecTargetCommitteeSize: 48,
+  lagInEpochs: 2,
   aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
-  activationThreshold: BigInt(100e18),
-  ejectionThreshold: BigInt(50e18),
-  slashAmountSmall: BigInt(10e18),
-  slashAmountMedium: BigInt(20e18),
-  slashAmountLarge: BigInt(50e18),
+  activationThreshold: 100n * 10n ** 18n,
+  ejectionThreshold: 50n * 10n ** 18n,
+  localEjectionThreshold: 98n * 10n ** 18n,
+  slashAmountSmall: 10n * 10n ** 18n,
+  slashAmountMedium: 20n * 10n ** 18n,
+  slashAmountLarge: 50n * 10n ** 18n,
   slashingRoundSizeInEpochs: 4,
   slashingLifetimeInRounds: 5,
   slashingExecutionDelayInRounds: 0, // round N may be submitted in round N + 1
@@ -87,6 +95,7 @@ export const DefaultL1ContractsConfig = {
   exitDelaySeconds: 2 * 24 * 60 * 60,
   slasherFlavor: 'tally' as const,
   slashingOffsetInRounds: 2,
+  slashingDisableDuration: 5 * 24 * 60 * 60, // 5 days in seconds
 } satisfies L1ContractsConfig;
 
 const LocalGovernanceConfiguration = {
@@ -103,113 +112,146 @@ const LocalGovernanceConfiguration = {
   minimumVotes: 400n * 10n ** 18n,
 };
 
-const TestnetGovernanceConfiguration = {
+const StagingPublicGovernanceConfiguration = {
   proposeConfig: {
-    lockDelay: 60n * 60n * 24n,
+    lockDelay: 60n * 60n * 24n * 30n,
     lockAmount: DefaultL1ContractsConfig.activationThreshold * 100n,
   },
   votingDelay: 60n,
   votingDuration: 60n * 60n,
-  executionDelay: 60n * 60n * 24n,
+  executionDelay: 60n,
   gracePeriod: 60n * 60n * 24n * 7n,
   quorum: 3n * 10n ** 17n, // 30%
   requiredYeaMargin: 4n * 10n ** 16n, // 4%
-  minimumVotes: DefaultL1ContractsConfig.ejectionThreshold * 200n,
+  minimumVotes: DefaultL1ContractsConfig.ejectionThreshold * 200n, // >= 200 validators must vote
+};
+
+const TestnetGovernanceConfiguration = {
+  proposeConfig: {
+    lockDelay: 10n * 365n * 24n * 60n * 60n,
+    lockAmount: 1250n * 200_000n * 10n ** 18n,
+  },
+
+  votingDelay: 12n * 60n * 60n, // 12 hours
+  votingDuration: 1n * 24n * 60n * 60n, // 1 day
+  executionDelay: 12n * 60n * 60n, // 12 hours
+  gracePeriod: 1n * 24n * 60n * 60n, // 1 day
+  quorum: 2n * 10n ** 17n, // 20%
+  requiredYeaMargin: 1n * 10n ** 17n, // 10%
+  minimumVotes: 1250n * 200_000n * 10n ** 18n,
+};
+
+const StagingIgnitionGovernanceConfiguration = {
+  proposeConfig: {
+    lockDelay: 10n * 365n * 24n * 60n * 60n,
+    lockAmount: 1250n * 200_000n * 10n ** 18n,
+  },
+
+  votingDelay: 7n * 24n * 60n * 60n,
+  votingDuration: 7n * 24n * 60n * 60n,
+  executionDelay: 30n * 24n * 60n * 60n,
+  gracePeriod: 7n * 24n * 60n * 60n,
+  quorum: 2n * 10n ** 17n, // 20%
+  requiredYeaMargin: 1n * 10n ** 17n, // 10%
+  minimumVotes: 1250n * 200_000n * 10n ** 18n,
 };
 
 export const getGovernanceConfiguration = (networkName: NetworkNames) => {
-  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
-    return TestnetGovernanceConfiguration;
+  switch (networkName) {
+    case 'local':
+      return LocalGovernanceConfiguration;
+    case 'staging-public':
+      return StagingPublicGovernanceConfiguration;
+    case 'testnet':
+      return TestnetGovernanceConfiguration;
+    case 'staging-ignition':
+      return StagingIgnitionGovernanceConfiguration;
+    default:
+      throw new Error(`Unrecognized network name: ${networkName}`);
   }
-  return LocalGovernanceConfiguration;
-};
-
-const TestnetGSEConfiguration = {
-  activationThreshold: BigInt(100e18),
-  ejectionThreshold: BigInt(50e18),
-};
-
-const LocalGSEConfiguration = {
-  activationThreshold: BigInt(100e18),
-  ejectionThreshold: BigInt(50e18),
-};
-
-export const getGSEConfiguration = (networkName: NetworkNames) => {
-  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
-    return TestnetGSEConfiguration;
-  }
-  return LocalGSEConfiguration;
 };
 
 // Making a default config here as we are only using it thought the deployment
 // and do not expect to be using different setups, so having environment variables
 // for it seems overkill
-const LocalRewardConfig = {
-  sequencerBps: 5000,
-  rewardDistributor: EthAddress.ZERO.toString(),
-  booster: EthAddress.ZERO.toString(),
-  blockReward: BigInt(50e18),
-};
 
-const TestnetRewardConfig = {
-  sequencerBps: 5000,
+const DefaultRewardConfig = {
+  sequencerBps: 8000,
   rewardDistributor: EthAddress.ZERO.toString(),
   booster: EthAddress.ZERO.toString(),
-  blockReward: BigInt(50e18),
+  blockReward: 500n * 10n ** 18n,
 };
 
 export const getRewardConfig = (networkName: NetworkNames) => {
-  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
-    return TestnetRewardConfig;
+  switch (networkName) {
+    case 'local':
+    case 'staging-public':
+    case 'testnet':
+    case 'staging-ignition':
+      return DefaultRewardConfig;
+    default:
+      throw new Error(`Unrecognized network name: ${networkName}`);
   }
-  return LocalRewardConfig;
 };
 
-const LocalRewardBoostConfig = {
-  increment: 200000,
-  maxScore: 5000000,
-  a: 5000,
-  k: 1000000,
-  minimum: 100000,
-};
-
-const TestnetRewardBoostConfig = {
-  increment: 125000,
-  maxScore: 15000000,
-  a: 1000,
-  k: 1000000,
-  minimum: 100000,
-};
-
-export const getRewardBoostConfig = (networkName: NetworkNames) => {
-  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
-    return TestnetRewardBoostConfig;
-  }
-  return LocalRewardBoostConfig;
+export const getRewardBoostConfig = () => {
+  // The reward configuration is specified with a precision of 1e5, and we use the same across
+  // all networks.
+  return {
+    increment: 125000, // 1.25
+    maxScore: 15000000, // 150
+    a: 1000, // 0.01
+    k: 1000000, // 10
+    minimum: 100000, // 1
+  };
 };
 
 // Similar to the above, no need for environment variables for this.
 const LocalEntryQueueConfig = {
   bootstrapValidatorSetSize: 0n,
   bootstrapFlushSize: 0n,
-  normalFlushSizeMin: 48n, // will effectively be bounded by maxQueueFlushSize
+  normalFlushSizeMin: 48n,
   normalFlushSizeQuotient: 2n,
-  maxQueueFlushSize: 48n,
+  maxQueueFlushSize: 32n,
 };
 
-const TestnetEntryQueueConfig = {
-  bootstrapValidatorSetSize: 750n,
-  bootstrapFlushSize: 75n, // will effectively be bounded by maxQueueFlushSize
+const StagingPublicEntryQueueConfig = {
+  bootstrapValidatorSetSize: 48n,
+  bootstrapFlushSize: 48n,
   normalFlushSizeMin: 1n,
   normalFlushSizeQuotient: 2475n,
   maxQueueFlushSize: 32n, // Limited to 32 so flush cost are kept below 15M gas.
 };
 
+const TestnetEntryQueueConfig = {
+  bootstrapValidatorSetSize: 750n,
+  bootstrapFlushSize: 32n,
+  normalFlushSizeMin: 32n,
+  normalFlushSizeQuotient: 2475n,
+  maxQueueFlushSize: 32n,
+};
+
+const StagingIgnitionEntryQueueConfig = {
+  bootstrapValidatorSetSize: 24n,
+  bootstrapFlushSize: 24n,
+  normalFlushSizeMin: 1n,
+  normalFlushSizeQuotient: 2048n,
+  maxQueueFlushSize: 24n,
+};
+
 export const getEntryQueueConfig = (networkName: NetworkNames) => {
-  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
-    return TestnetEntryQueueConfig;
+  switch (networkName) {
+    case 'local':
+      return LocalEntryQueueConfig;
+    case 'staging-public':
+      return StagingPublicEntryQueueConfig;
+    case 'testnet':
+      return TestnetEntryQueueConfig;
+    case 'staging-ignition':
+      return StagingIgnitionEntryQueueConfig;
+    default:
+      throw new Error(`Unrecognized network name: ${networkName}`);
   }
-  return LocalEntryQueueConfig;
 };
 
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
@@ -233,6 +275,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The target validator committee size.',
     ...numberConfigHelper(DefaultL1ContractsConfig.aztecTargetCommitteeSize),
   },
+  lagInEpochs: {
+    env: 'AZTEC_LAG_IN_EPOCHS',
+    description: 'The number of epochs to lag behind the current epoch for validator selection.',
+    ...numberConfigHelper(DefaultL1ContractsConfig.lagInEpochs),
+  },
   aztecProofSubmissionEpochs: {
     env: 'AZTEC_PROOF_SUBMISSION_EPOCHS',
     description: 'The number of epochs after an epoch ends that proofs are still accepted.',
@@ -247,6 +294,12 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     env: 'AZTEC_EJECTION_THRESHOLD',
     description: 'The minimum stake for a validator.',
     ...bigintConfigHelper(DefaultL1ContractsConfig.ejectionThreshold),
+  },
+  localEjectionThreshold: {
+    env: 'AZTEC_LOCAL_EJECTION_THRESHOLD',
+    description:
+      'The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup',
+    ...bigintConfigHelper(DefaultL1ContractsConfig.localEjectionThreshold),
   },
   slashingOffsetInRounds: {
     env: 'AZTEC_SLASHING_OFFSET_IN_ROUNDS',
@@ -299,6 +352,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The slashing vetoer',
     parseEnv: (val: string) => EthAddress.fromString(val),
     defaultValue: DefaultL1ContractsConfig.slashingVetoer,
+  },
+  slashingDisableDuration: {
+    env: 'AZTEC_SLASHING_DISABLE_DURATION',
+    description: 'How long slashing can be disabled for in seconds when vetoer disables it',
+    ...numberConfigHelper(DefaultL1ContractsConfig.slashingDisableDuration),
   },
   governanceProposerQuorum: {
     env: 'AZTEC_GOVERNANCE_PROPOSER_QUORUM',
@@ -373,7 +431,7 @@ export function validateConfig(config: Omit<L1ContractsConfig, keyof L1TxUtilsCo
   }
 
   // EmpireBase constructor validations for governance/slashing proposers
-  // From: require(QUORUM_SIZE > ROUND_SIZE / 2, Errors.GovernanceProposer__InvalidQuorumAndRoundSize(QUORUM_SIZE, ROUND_SIZE));
+  // From: require(QUORUM_SIZE > ROUND_SIZE / 2, Errors.EmpireBase__InvalidQuorumAndRoundSize(QUORUM_SIZE, ROUND_SIZE));
   const { governanceProposerQuorum, governanceProposerRoundSize } = config;
   if (
     governanceProposerQuorum !== undefined &&
@@ -384,7 +442,7 @@ export function validateConfig(config: Omit<L1ContractsConfig, keyof L1TxUtilsCo
     );
   }
 
-  // From: require(QUORUM_SIZE <= ROUND_SIZE, Errors.GovernanceProposer__QuorumCannotBeLargerThanRoundSize(QUORUM_SIZE, ROUND_SIZE));
+  // From: require(QUORUM_SIZE <= ROUND_SIZE, Errors.EmpireBase__QuorumCannotBeLargerThanRoundSize(QUORUM_SIZE, ROUND_SIZE));
   if (governanceProposerQuorum !== undefined && governanceProposerQuorum > governanceProposerRoundSize) {
     errors.push(
       `governanceProposerQuorum (${governanceProposerQuorum}) cannot be larger than governanceProposerRoundSize (${governanceProposerRoundSize})`,
@@ -423,78 +481,7 @@ export function validateConfig(config: Omit<L1ContractsConfig, keyof L1TxUtilsCo
 
   // TallySlashingProposer constructor validations
   if (config.slasherFlavor === 'tally') {
-    // From: require(SLASH_OFFSET_IN_ROUNDS > 0, Errors.TallySlashingProposer__SlashOffsetMustBeGreaterThanZero(...));
-    if (config.slashingOffsetInRounds <= 0) {
-      errors.push(`slashingOffsetInRounds (${config.slashingOffsetInRounds}) must be greater than 0`);
-    }
-
-    // From: require(ROUND_SIZE_IN_EPOCHS * _epochDuration == ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeMustBeMultipleOfEpochDuration(...));
-    const roundSizeInSlots = config.slashingRoundSizeInEpochs * config.aztecEpochDuration;
-
-    // From: require(QUORUM > 0, Errors.TallySlashingProposer__QuorumMustBeGreaterThanZero());
-    if (slashingQuorum !== undefined && slashingQuorum <= 0) {
-      errors.push(`slashingQuorum (${slashingQuorum}) must be greater than 0`);
-    }
-
-    // From: require(ROUND_SIZE > 1, Errors.TallySlashingProposer__InvalidQuorumAndRoundSize(QUORUM, ROUND_SIZE));
-    if (roundSizeInSlots <= 1) {
-      errors.push(`slashing round size in slots (${roundSizeInSlots}) must be greater than 1`);
-    }
-
-    // From: require(_slashAmounts[0] <= _slashAmounts[1], Errors.TallySlashingProposer__InvalidSlashAmounts(_slashAmounts));
-    if (config.slashAmountSmall > config.slashAmountMedium) {
-      errors.push(
-        `slashAmountSmall (${config.slashAmountSmall}) must be less than or equal to slashAmountMedium (${config.slashAmountMedium})`,
-      );
-    }
-
-    // From: require(_slashAmounts[1] <= _slashAmounts[2], Errors.TallySlashingProposer__InvalidSlashAmounts(_slashAmounts));
-    if (config.slashAmountMedium > config.slashAmountLarge) {
-      errors.push(
-        `slashAmountMedium (${config.slashAmountMedium}) must be less than or equal to slashAmountLarge (${config.slashAmountLarge})`,
-      );
-    }
-
-    // From: require(LIFETIME_IN_ROUNDS < ROUNDABOUT_SIZE, Errors.TallySlashingProposer__LifetimeMustBeLessThanRoundabout(...));
-    const ROUNDABOUT_SIZE = 128; // Constant from TallySlashingProposer
-    if (config.slashingLifetimeInRounds >= ROUNDABOUT_SIZE) {
-      errors.push(`slashingLifetimeInRounds (${config.slashingLifetimeInRounds}) must be less than ${ROUNDABOUT_SIZE}`);
-    }
-
-    // From: require(ROUND_SIZE_IN_EPOCHS > 0, Errors.TallySlashingProposer__RoundSizeInEpochsMustBeGreaterThanZero(...));
-    if (config.slashingRoundSizeInEpochs <= 0) {
-      errors.push(`slashingRoundSizeInEpochs (${config.slashingRoundSizeInEpochs}) must be greater than 0`);
-    }
-
-    // From: require(ROUND_SIZE < MAX_ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeTooLarge(ROUND_SIZE, MAX_ROUND_SIZE));
-    const MAX_ROUND_SIZE = 1024; // Constant from TallySlashingProposer
-    if (roundSizeInSlots >= MAX_ROUND_SIZE) {
-      errors.push(`slashing round size in slots (${roundSizeInSlots}) must be less than ${MAX_ROUND_SIZE}`);
-    }
-
-    // From: require(COMMITTEE_SIZE > 0, Errors.TallySlashingProposer__CommitteeSizeMustBeGreaterThanZero(COMMITTEE_SIZE));
-    if (config.aztecTargetCommitteeSize <= 0) {
-      errors.push(`aztecTargetCommitteeSize (${config.aztecTargetCommitteeSize}) must be greater than 0`);
-    }
-
-    // From: require(voteSize <= 128, Errors.TallySlashingProposer__VoteSizeTooBig(voteSize, 128));
-    // voteSize = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4
-    const voteSize = (config.aztecTargetCommitteeSize * config.slashingRoundSizeInEpochs) / 4;
-    if (voteSize > 128) {
-      errors.push(`vote size (${voteSize}) must be <= 128 (committee size * round size in epochs / 4)`);
-    }
-
-    // From: require(COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS % 4 == 0, Errors.TallySlashingProposer__InvalidCommitteeAndRoundSize(...));
-    if ((config.aztecTargetCommitteeSize * config.slashingRoundSizeInEpochs) % 4 !== 0) {
-      errors.push(
-        `aztecTargetCommitteeSize * slashingRoundSizeInEpochs (${config.aztecTargetCommitteeSize * config.slashingRoundSizeInEpochs}) must be divisible by 4`,
-      );
-    }
-
-    // Slashing offset validation: should be positive to allow proper slashing timing
-    if (config.slashingOffsetInRounds < 0) {
-      errors.push('slashingOffsetInRounds cannot be negative');
-    }
+    validateTallySlasherConfig(config, errors);
   }
 
   // Epoch and slot duration validations
@@ -539,5 +526,85 @@ export function validateConfig(config: Omit<L1ContractsConfig, keyof L1TxUtilsCo
     throw new Error(
       `L1 contracts configuration validation failed with ${errors.length} error(s):\n${errors.map((error, index) => `${index + 1}. ${error}`).join('\n')}`,
     );
+  }
+}
+
+function validateTallySlasherConfig(config: L1ContractsConfig, errors: string[]) {
+  if (config.slasherFlavor !== 'tally') {
+    return;
+  }
+
+  // From: require(SLASH_OFFSET_IN_ROUNDS > 0, Errors.TallySlashingProposer__SlashOffsetMustBeGreaterThanZero(...));
+  if (config.slashingOffsetInRounds <= 0) {
+    errors.push(`slashingOffsetInRounds (${config.slashingOffsetInRounds}) must be greater than 0`);
+  }
+
+  // From: require(ROUND_SIZE_IN_EPOCHS * _epochDuration == ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeMustBeMultipleOfEpochDuration(...));
+  const roundSizeInSlots = config.slashingRoundSizeInEpochs * config.aztecEpochDuration;
+
+  // From: require(QUORUM > 0, Errors.TallySlashingProposer__QuorumMustBeGreaterThanZero());
+  const { slashingQuorum } = config;
+  if (slashingQuorum !== undefined && slashingQuorum <= 0) {
+    errors.push(`slashingQuorum (${slashingQuorum}) must be greater than 0`);
+  }
+
+  // From: require(ROUND_SIZE > 1, Errors.TallySlashingProposer__InvalidQuorumAndRoundSize(QUORUM, ROUND_SIZE));
+  if (roundSizeInSlots <= 1) {
+    errors.push(`slashing round size in slots (${roundSizeInSlots}) must be greater than 1`);
+  }
+
+  // From: require(_slashAmounts[0] <= _slashAmounts[1], Errors.TallySlashingProposer__InvalidSlashAmounts(_slashAmounts));
+  if (config.slashAmountSmall > config.slashAmountMedium) {
+    errors.push(
+      `slashAmountSmall (${config.slashAmountSmall}) must be less than or equal to slashAmountMedium (${config.slashAmountMedium})`,
+    );
+  }
+
+  // From: require(_slashAmounts[1] <= _slashAmounts[2], Errors.TallySlashingProposer__InvalidSlashAmounts(_slashAmounts));
+  if (config.slashAmountMedium > config.slashAmountLarge) {
+    errors.push(
+      `slashAmountMedium (${config.slashAmountMedium}) must be less than or equal to slashAmountLarge (${config.slashAmountLarge})`,
+    );
+  }
+
+  // From: require(LIFETIME_IN_ROUNDS < ROUNDABOUT_SIZE, Errors.TallySlashingProposer__LifetimeMustBeLessThanRoundabout(...));
+  const ROUNDABOUT_SIZE = 128; // Constant from TallySlashingProposer
+  if (config.slashingLifetimeInRounds >= ROUNDABOUT_SIZE) {
+    errors.push(`slashingLifetimeInRounds (${config.slashingLifetimeInRounds}) must be less than ${ROUNDABOUT_SIZE}`);
+  }
+
+  // From: require(ROUND_SIZE_IN_EPOCHS > 0, Errors.TallySlashingProposer__RoundSizeInEpochsMustBeGreaterThanZero(...));
+  if (config.slashingRoundSizeInEpochs <= 0) {
+    errors.push(`slashingRoundSizeInEpochs (${config.slashingRoundSizeInEpochs}) must be greater than 0`);
+  }
+
+  // From: require(ROUND_SIZE < MAX_ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeTooLarge(ROUND_SIZE, MAX_ROUND_SIZE));
+  const MAX_ROUND_SIZE = 1024; // Constant from TallySlashingProposer
+  if (roundSizeInSlots >= MAX_ROUND_SIZE) {
+    errors.push(`slashing round size in slots (${roundSizeInSlots}) must be less than ${MAX_ROUND_SIZE}`);
+  }
+
+  // From: require(COMMITTEE_SIZE > 0, Errors.TallySlashingProposer__CommitteeSizeMustBeGreaterThanZero(COMMITTEE_SIZE));
+  if (config.aztecTargetCommitteeSize <= 0) {
+    errors.push(`aztecTargetCommitteeSize (${config.aztecTargetCommitteeSize}) must be greater than 0`);
+  }
+
+  // From: require(voteSize <= 128, Errors.TallySlashingProposer__VoteSizeTooBig(voteSize, 128));
+  // voteSize = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4
+  const voteSize = (config.aztecTargetCommitteeSize * config.slashingRoundSizeInEpochs) / 4;
+  if (voteSize > 128) {
+    errors.push(`vote size (${voteSize}) must be <= 128 (committee size * round size in epochs / 4)`);
+  }
+
+  // From: require(COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS % 4 == 0, Errors.TallySlashingProposer__InvalidCommitteeAndRoundSize(...));
+  if ((config.aztecTargetCommitteeSize * config.slashingRoundSizeInEpochs) % 4 !== 0) {
+    errors.push(
+      `aztecTargetCommitteeSize * slashingRoundSizeInEpochs (${config.aztecTargetCommitteeSize * config.slashingRoundSizeInEpochs}) must be divisible by 4`,
+    );
+  }
+
+  // Slashing offset validation: should be positive to allow proper slashing timing
+  if (config.slashingOffsetInRounds < 0) {
+    errors.push('slashingOffsetInRounds cannot be negative');
   }
 }

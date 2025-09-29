@@ -1,5 +1,5 @@
 import { retryUntil } from '@aztec/foundation/retry';
-import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { TxReceipt } from '../index.js';
 import { DefaultWaitOpts } from './sent_tx.js';
@@ -22,13 +22,13 @@ export const DefaultWaitForProvenOpts: WaitForProvenOpts = {
 /**
  * Wait for a transaction to be proven by polling the node
  */
-export async function waitForProven(pxeOrNode: PXE | AztecNode, receipt: TxReceipt, opts?: WaitForProvenOpts) {
+export async function waitForProven(node: AztecNode, receipt: TxReceipt, opts?: WaitForProvenOpts) {
   if (!receipt.blockNumber) {
     throw new Error(`Cannot wait for proven: receipt of tx ${receipt.txHash} does not have a block number`);
   }
   return await retryUntil(
     async () => {
-      const provenBlock = await pxeOrNode.getProvenBlockNumber();
+      const provenBlock = await node.getProvenBlockNumber();
       return provenBlock >= receipt.blockNumber! ? provenBlock : undefined;
     },
     'isProven',

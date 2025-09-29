@@ -7,6 +7,7 @@ use crate::{
 };
 use std::meta::derive;
 
+/// Deprecated. Use `TreeSnapshots` instead.
 #[derive(Deserialize, Eq, Serialize)]
 pub struct StateReference {
     pub l1_to_l2_message_tree: AppendOnlyTreeSnapshot,

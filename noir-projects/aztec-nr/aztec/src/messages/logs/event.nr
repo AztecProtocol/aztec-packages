@@ -1,24 +1,20 @@
 use crate::{
     event::event_interface::EventInterface,
     messages::{
-        encoding::encode_message,
-        encryption::{aes128::AES128, log_encryption::LogEncryption},
+        encoding::{encode_message, MESSAGE_CIPHERTEXT_LEN},
+        encryption::{aes128::AES128, message_encryption::MessageEncryption},
         msg_type::PRIVATE_EVENT_MSG_TYPE_ID,
     },
     oracle::random::random,
 };
-use protocol_types::{
-    address::AztecAddress,
-    constants::PRIVATE_LOG_CIPHERTEXT_LEN,
-    traits::{Serialize, ToField},
-};
+use protocol_types::{address::AztecAddress, traits::{Serialize, ToField}};
 
 /// Creates an encrypted private event message (i.e. one of type `PRIVATE_EVENT_MSG_TYPE_ID`) by encoding the contents
 /// of the event and then encrypting them for `recipient`.
 pub fn to_encrypted_private_event_message<Event>(
     event: Event,
     recipient: AztecAddress,
-) -> ([Field; PRIVATE_LOG_CIPHERTEXT_LEN], Field)
+) -> ([Field; MESSAGE_CIPHERTEXT_LEN], Field)
 where
     Event: EventInterface + Serialize,
 {
@@ -41,5 +37,5 @@ where
         serialized_event_with_randomness,
     );
 
-    (AES128::encrypt_log(plaintext, recipient), randomness)
+    (AES128::encrypt(plaintext, recipient), randomness)
 }

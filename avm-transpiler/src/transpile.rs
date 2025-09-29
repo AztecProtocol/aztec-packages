@@ -440,9 +440,6 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     &mut unresolved_jumps,
                 );
             }
-            BrilligOpcode::JumpIfNot { .. } => panic!(
-                "Transpiler doesn't know how to process `BrilligOpcode::JumpIfNot` brillig instruction",
-            ),
         }
 
         // Increment the AVM program counter.
@@ -721,13 +718,13 @@ fn handle_emit_unencrypted_log(
         // The message array from Brillig is indirect.
         indirect: Some(
             AddressingModeBuilder::default()
-                .indirect_operand(&message_offset)
                 .direct_operand(&message_size_offset)
+                .indirect_operand(&message_offset)
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: message_offset.to_usize() as u16 },
             AvmOperand::U16 { value: message_size_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: message_offset.to_usize() as u16 },
         ],
         ..Default::default()
     });
@@ -1197,11 +1194,7 @@ fn handle_black_box_function(
                 ..Default::default()
             });
         }
-        BlackBoxOp::Poseidon2Permutation {
-            message,
-            output,
-            len: _, // we don't use this.
-        } => {
+        BlackBoxOp::Poseidon2Permutation { message, output } => {
             // We'd love to validate the input size, but it's not known at compile time.
             assert_eq!(output.size, 4, "Poseidon2Permutation output size must be 4!");
             let input_state_offset = message.pointer.to_usize();

@@ -795,7 +795,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     const std::span<const affine_element<Fq, Fr, T>>& points, const Fr& scalar) noexcept
 {
     BB_BENCH();
-    typedef affine_element<Fq, Fr, T> affine_element;
+    using affine_element = affine_element<Fq, Fr, T>;
     const size_t num_points = points.size();
 
     // Space for temporary values
@@ -834,20 +834,6 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
         };
 
     /**
-     * @brief Perform batch affine addition in parallel
-     *
-     */
-    const auto batch_affine_add_internal =
-        [num_points, &scratch_space, &batch_affine_add_chunked](const affine_element* lhs, affine_element* rhs) {
-            parallel_for_heuristic(
-                num_points,
-                [&](size_t start, size_t end, BB_UNUSED size_t chunk_index) {
-                    batch_affine_add_chunked(lhs + start, rhs + start, end - start, &scratch_space[0] + start);
-                },
-                thread_heuristics::FF_ADDITION_COST * 6 + thread_heuristics::FF_MULTIPLICATION_COST * 6);
-        };
-
-    /**
      * @brief Perform point doubling lhs[i]=lhs[i]+lhs[i] with batch inversion
      *
      */
@@ -878,18 +864,6 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
                 lhs[i].y = personal_scratch_space[i] * (temp - lhs[i].x) - lhs[i].y;
             }
         };
-    /**
-     * @brief Perform point doubling in parallel
-     *
-     */
-    const auto batch_affine_double = [num_points, &scratch_space, &batch_affine_double_chunked](affine_element* lhs) {
-        parallel_for_heuristic(
-            num_points,
-            [&](size_t start, size_t end, BB_UNUSED size_t chunk_index) {
-                batch_affine_double_chunked(lhs + start, end - start, &scratch_space[0] + start);
-            },
-            thread_heuristics::FF_ADDITION_COST * 7 + thread_heuristics::FF_MULTIPLICATION_COST * 6);
-    };
 
     // We compute the resulting point through WNAF by evaluating (the (\sum_i (16ⁱ⋅
     // (a_i ∈ {-15,-13,-11,-9,-7,-5,-3,-1,1,3,5,7,9,11,13,15}))) - skew), where skew is 0 or 1. The result of the sum is
@@ -916,50 +890,58 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
 
     constexpr size_t LOOKUP_SIZE = 8;
     constexpr size_t NUM_ROUNDS = 32;
-    std::array<std::vector<affine_element>, LOOKUP_SIZE> lookup_table;
-    for (auto& table : lookup_table) {
-        table.resize(num_points);
-    }
-    // Initialize first etnries in lookup table
-    std::vector<affine_element> temp_point_vector(num_points);
-    parallel_for_heuristic(
-        num_points,
-        [&](size_t i) {
-            // If the point is at infinity we fix-up the result later
-            // To avoid 'trying to invert zero in the field' we set the point to 'one' here
-            temp_point_vector[i] = points[i].is_point_at_infinity() ? affine_element::one() : points[i];
-            lookup_table[0][i] = points[i].is_point_at_infinity() ? affine_element::one() : points[i];
-        },
-        thread_heuristics::FF_COPY_COST * 2);
-
-    // Construct lookup table
-    batch_affine_double(&temp_point_vector[0]);
-    for (size_t j = 1; j < LOOKUP_SIZE; ++j) {
-        parallel_for_heuristic(
-            num_points,
-            [&](size_t i) { lookup_table[j][i] = lookup_table[j - 1][i]; },
-            thread_heuristics::FF_COPY_COST);
-        batch_affine_add_internal(&temp_point_vector[0], &lookup_table[j][0]);
-    }
 
     detail::EndoScalars endo_scalars = Fr::split_into_endomorphism_scalars(converted_scalar);
     detail::EndomorphismWnaf<element, NUM_ROUNDS> wnaf{ endo_scalars };
 
     std::vector<affine_element> work_elements(num_points);
+    std::array<std::vector<affine_element>, LOOKUP_SIZE> lookup_table;
+    for (auto& table : lookup_table) {
+        table.resize(num_points);
+    }
+    std::vector<affine_element> temp_point_vector(num_points);
 
-    constexpr Fq beta = Fq::cube_root_of_unity();
-    uint64_t wnaf_entry = 0;
-    uint64_t index = 0;
-    bool sign = 0;
-    // Prepare elements for the first batch addition
-    for (size_t j = 0; j < 2; ++j) {
-        wnaf_entry = wnaf.table[j];
-        index = wnaf_entry & 0x0fffffffU;
-        sign = static_cast<bool>((wnaf_entry >> 31) & 1);
-        const bool is_odd = ((j & 1) == 1);
-        parallel_for_heuristic(
-            num_points,
-            [&](size_t i) {
+    auto execute_range = [&](size_t start, size_t end) {
+        // Perform batch affine addition in parallel
+        const auto add_chunked = [&](const affine_element* lhs, affine_element* rhs) {
+            batch_affine_add_chunked(&lhs[start], &rhs[start], end - start, &scratch_space[start]);
+        };
+
+        // Perform point doubling in parallel
+        const auto double_chunked = [&](affine_element* lhs) {
+            batch_affine_double_chunked(&lhs[start], end - start, &scratch_space[start]);
+        };
+
+        // Initialize first entries in lookup table
+        for (size_t i = start; i < end; ++i) {
+            if (points[i].is_point_at_infinity()) {
+                temp_point_vector[i] = affine_element::one();
+                lookup_table[0][i] = affine_element::one();
+            } else {
+                temp_point_vector[i] = points[i];
+                lookup_table[0][i] = points[i];
+            }
+        }
+        // Costruct lookup table
+        double_chunked(&temp_point_vector[0]);
+        for (size_t j = 1; j < LOOKUP_SIZE; ++j) {
+            for (size_t i = start; i < end; ++i) {
+                lookup_table[j][i] = lookup_table[j - 1][i];
+            }
+            add_chunked(&temp_point_vector[0], &lookup_table[j][0]);
+        }
+
+        constexpr Fq beta = Fq::cube_root_of_unity();
+        uint64_t wnaf_entry = 0;
+        uint64_t index = 0;
+        bool sign = 0;
+        // Prepare elements for the first batch addition
+        for (size_t j = 0; j < 2; ++j) {
+            wnaf_entry = wnaf.table[j];
+            index = wnaf_entry & 0x0fffffffU;
+            sign = static_cast<bool>((wnaf_entry >> 31) & 1);
+            const bool is_odd = ((j & 1) == 1);
+            for (size_t i = start; i < end; ++i) {
                 auto to_add = lookup_table[static_cast<size_t>(index)][i];
                 to_add.y.self_conditional_negate(sign ^ is_odd);
                 if (is_odd) {
@@ -970,64 +952,51 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
                 } else {
                     temp_point_vector[i] = to_add;
                 }
-            },
-            (is_odd ? thread_heuristics::FF_MULTIPLICATION_COST : 0) + thread_heuristics::FF_COPY_COST +
-                thread_heuristics::FF_ADDITION_COST);
-    }
-    // First cycle of addition
-    batch_affine_add_internal(&temp_point_vector[0], &work_elements[0]);
-    // Run through SM logic in wnaf form (excluding the skew)
-    for (size_t j = 2; j < NUM_ROUNDS * 2; ++j) {
-        wnaf_entry = wnaf.table[j];
-        index = wnaf_entry & 0x0fffffffU;
-        sign = static_cast<bool>((wnaf_entry >> 31) & 1);
-        const bool is_odd = ((j & 1) == 1);
-        if (!is_odd) {
-            for (size_t k = 0; k < 4; ++k) {
-                batch_affine_double(&work_elements[0]);
             }
         }
-        parallel_for_heuristic(
-            num_points,
-            [&](size_t i) {
+        add_chunked(&temp_point_vector[0], &work_elements[0]);
+        // Run through SM logic in wnaf form (excluding the skew)
+        for (size_t j = 2; j < NUM_ROUNDS * 2; ++j) {
+            wnaf_entry = wnaf.table[j];
+            index = wnaf_entry & 0x0fffffffU;
+            sign = static_cast<bool>((wnaf_entry >> 31) & 1);
+            const bool is_odd = ((j & 1) == 1);
+            if (!is_odd) {
+                for (size_t k = 0; k < 4; ++k) {
+                    double_chunked(&work_elements[0]);
+                }
+            }
+            for (size_t i = start; i < end; ++i) {
                 auto to_add = lookup_table[static_cast<size_t>(index)][i];
                 to_add.y.self_conditional_negate(sign ^ is_odd);
                 if (is_odd) {
                     to_add.x *= beta;
                 }
                 temp_point_vector[i] = to_add;
-            },
-            (is_odd ? thread_heuristics::FF_MULTIPLICATION_COST : 0) + thread_heuristics::FF_COPY_COST +
-                thread_heuristics::FF_ADDITION_COST);
-        batch_affine_add_internal(&temp_point_vector[0], &work_elements[0]);
-    }
-
-    // Apply skew for the first endo scalar
-    if (wnaf.skew) {
-        parallel_for_heuristic(
-            num_points,
-            [&](size_t i) { temp_point_vector[i] = -lookup_table[0][i]; },
-            thread_heuristics::FF_ADDITION_COST + thread_heuristics::FF_COPY_COST);
-        batch_affine_add_internal(&temp_point_vector[0], &work_elements[0]);
-    }
-    // Apply skew for the second endo scalar
-    if (wnaf.endo_skew) {
-        parallel_for_heuristic(
-            num_points,
-            [&](size_t i) {
+            }
+            add_chunked(&temp_point_vector[0], &work_elements[0]);
+        }
+        // Apply skew for the first endo scalar
+        if (wnaf.skew) {
+            for (size_t i = start; i < end; ++i) {
+                temp_point_vector[i] = -lookup_table[0][i];
+            }
+            add_chunked(&temp_point_vector[0], &work_elements[0]);
+        }
+        // Apply skew for the second endo scalar
+        if (wnaf.endo_skew) {
+            for (size_t i = start; i < end; ++i) {
                 temp_point_vector[i] = lookup_table[0][i];
                 temp_point_vector[i].x *= beta;
-            },
-            thread_heuristics::FF_MULTIPLICATION_COST + thread_heuristics::FF_COPY_COST);
-        batch_affine_add_internal(&temp_point_vector[0], &work_elements[0]);
-    }
-    // handle points at infinity explicitly
-    parallel_for_heuristic(
-        num_points,
-        [&](size_t i) {
+            }
+            add_chunked(&temp_point_vector[0], &work_elements[0]);
+        }
+        // handle points at infinity explicitly
+        for (size_t i = start; i < end; ++i) {
             work_elements[i] = points[i].is_point_at_infinity() ? work_elements[i].set_infinity() : work_elements[i];
-        },
-        thread_heuristics::FF_COPY_COST);
+        }
+    };
+    parallel_for_range(num_points, execute_range);
 
     return work_elements;
 }

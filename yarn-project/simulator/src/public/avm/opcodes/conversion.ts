@@ -80,6 +80,10 @@ export class ToRadixBE extends Instruction {
       value /= radixBN;
     }
 
+    if (value !== 0n) {
+      throw new InvalidToRadixInputsError(`Field failed to decompose in ${numLimbs} limbs.`);
+    }
+
     const outputType = outputBits != 0 ? Uint1 : Uint8;
     const res = limbArray.map(byte => new outputType(byte));
     memory.setSlice(dstOffset, res);

@@ -26,7 +26,7 @@
  * or obtaining the `request` for aggregating into a {@link BatchCall}.
  *
  * The result of `send`ing a transaction is a {@link SentTx} object, from which you can get the
- * transaction hash, or simply `wait` until the transaction is mined and the local PXE Service
+ * transaction hash, or simply `wait` until the transaction is mined and the local PXE
  * has synchronized its changes.
  *
  * @remarks If you are using typescript, consider using the
@@ -53,6 +53,7 @@ export { BatchCall } from '../contract/batch_call.js';
 export { type DeployOptions, DeployMethod } from '../contract/deploy_method.js';
 export { DeploySentTx } from '../contract/deploy_sent_tx.js';
 export { waitForProven, type WaitForProvenOpts, DefaultWaitForProvenOpts } from '../contract/wait_for_proven.js';
+export { getGasLimits } from '../contract/get_gas_limits.js';
 
 export {
   type PartialAddress,

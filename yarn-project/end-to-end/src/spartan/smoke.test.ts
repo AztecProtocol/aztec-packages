@@ -1,11 +1,10 @@
-import { type PXE, retryUntil } from '@aztec/aztec.js';
+import { type AztecNode, createAztecNodeClient, retryUntil } from '@aztec/aztec.js';
 import { RollupContract, type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
 
 import type { ChildProcess } from 'child_process';
 import { createPublicClient, fallback, http } from 'viem';
 
-import { startCompatiblePXE } from './setup_test_wallets.js';
 import {
   getGitProjectRoot,
   installChaosMeshChart,
@@ -18,13 +17,11 @@ const config = setupEnvironment(process.env);
 
 describe('smoke test', () => {
   const logger = createLogger('e2e:spartan-test:smoke');
-  let pxe: PXE;
+  let aztecNode: AztecNode;
   let ethereumClient: ViemPublicClient;
   const forwardProcesses: ChildProcess[] = [];
-  let cleanup: undefined | (() => Promise<void>);
 
-  afterAll(async () => {
-    await cleanup?.();
+  afterAll(() => {
     forwardProcesses.forEach(p => p.kill());
   });
 
@@ -34,11 +31,11 @@ describe('smoke test', () => {
     const { process: ethereumProcess, port: ethereumPort } = await startPortForwardForEthereum(config.NAMESPACE);
     forwardProcesses.push(aztecRpcProcess);
     forwardProcesses.push(ethereumProcess);
-    const rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
+    const nodeUrl = `http://127.0.0.1:${aztecRpcPort}`;
 
-    ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, logger));
+    aztecNode = createAztecNodeClient(nodeUrl);
     // docs:start:get_node_info_pub_client
-    const nodeInfo = await pxe.getNodeInfo();
+    const nodeInfo = await aztecNode.getNodeInfo();
 
     const ethereumUrl = `http://127.0.0.1:${ethereumPort}`;
     const chain = createEthereumChain([ethereumUrl], nodeInfo.l1ChainId);
@@ -50,7 +47,7 @@ describe('smoke test', () => {
   });
 
   it('should be able to get node enr', async () => {
-    const info = await pxe.getNodeInfo();
+    const info = await aztecNode.getNodeInfo();
 
     logger.info(`info: ${JSON.stringify(info)}`);
     expect(info).toBeDefined();
@@ -60,7 +57,7 @@ describe('smoke test', () => {
   it(
     'should have a committee',
     async () => {
-      const nodeInfo = await pxe.getNodeInfo();
+      const nodeInfo = await aztecNode.getNodeInfo();
       const rollup = new RollupContract(ethereumClient, nodeInfo.l1ContractAddresses.rollupAddress);
       const epochDuration = await rollup.getEpochDuration();
       logger.info(`Epoch duration: ${epochDuration}`);

@@ -12,7 +12,10 @@ enum SlasherFlavor {
 
 interface ISlasher {
   event VetoedPayload(address indexed payload);
+  event SlashingDisabled(uint256 disabledUntil);
 
   function slash(IPayload _payload) external returns (bool);
   function vetoPayload(IPayload _payload) external returns (bool);
+  function setSlashingEnabled(bool _enabled) external;
+  function isSlashingEnabled() external view returns (bool);
 }

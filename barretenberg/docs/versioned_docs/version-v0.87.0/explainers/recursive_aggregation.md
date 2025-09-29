@@ -49,7 +49,7 @@ In Zero-Knowledge, recursion has some similarities.
 
 It is not a Noir function calling itself, but a proof being used as an input to another circuit. In short, you verify one proof *inside* another proof, returning the proof that both proofs are valid.
 
-This means that, given enough computational resources, you can prove the correctness of any arbitrary number of proofs in a single proof. This could be useful to design state channels (for which a common example would be [Bitcoin's Lightning Network](https://en.wikipedia.org/wiki/Lightning_Network)), to save on gas costs by settling one proof on-chain, or simply to make business logic less dependent on a consensus mechanism.
+This means that, given enough computational resources, you can prove the correctness of any arbitrary number of proofs in a single proof. This could be useful to design state channels (for which a common example would be [Bitcoin's Lightning Network](https://en.wikipedia.org/wiki/Lightning_Network)), to save on gas costs by settling one proof onchain, or simply to make business logic less dependent on a consensus mechanism.
 
 ## Examples
 
@@ -61,9 +61,9 @@ Alice and Bob are friends, and they like guessing games. They want to play a gue
 
 So, they use zero-knowledge proofs. Alice tries to guess Bob's number, and Bob will generate a ZK proof stating whether she succeeded or failed.
 
-This ZK proof can go on a smart contract, revealing the winner and even giving prizes. However, this means every turn needs to be verified on-chain. This incurs some cost and waiting time that may simply make the game too expensive or time-consuming to be worth it.
+This ZK proof can go on a smart contract, revealing the winner and even giving prizes. However, this means every turn needs to be verified onchain. This incurs some cost and waiting time that may simply make the game too expensive or time-consuming to be worth it.
 
-As a solution, Alice proposes the following: "what if Bob generates his proof, and instead of sending it on-chain, I verify it *within* my own proof before playing my own turn?".
+As a solution, Alice proposes the following: "what if Bob generates his proof, and instead of sending it onchain, I verify it *within* my own proof before playing my own turn?".
 
 She can then generate a proof that she verified his proof, and so on.
 
@@ -143,14 +143,14 @@ In such a situation, and assuming Alice is first, she would skip the first part 
 
 ### Aggregating proofs
 
-In some one-way interaction situations, recursion would allow for aggregation of simple proofs that don't need to be immediately verified on-chain or elsewhere.
+In some one-way interaction situations, recursion would allow for aggregation of simple proofs that don't need to be immediately verified onchain or elsewhere.
 
-To give a practical example, a barman wouldn't need to verify a "proof-of-age" on-chain every time he serves alcohol to a customer. Instead, the architecture would comprise two circuits:
+To give a practical example, a barman wouldn't need to verify a "proof-of-age" onchain every time he serves alcohol to a customer. Instead, the architecture would comprise two circuits:
 
 - A `main`, non-recursive circuit with some logic
 - A `recursive` circuit meant to verify two proofs in one proof
 
-The customer's proofs would be intermediate, and made on their phones, and the barman could just verify them locally. He would then aggregate them into a final proof sent on-chain (or elsewhere) at the end of the day.
+The customer's proofs would be intermediate, and made on their phones, and the barman could just verify them locally. He would then aggregate them into a final proof sent onchain (or elsewhere) at the end of the day.
 
 ### Recursively verifying different circuits
 

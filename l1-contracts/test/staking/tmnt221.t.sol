@@ -25,8 +25,8 @@ contract TestTMNT221 is TestBase {
   RegistrationData[] public $registrations;
 
   uint256 public constant VALIDATOR_COUNT = 32;
-  bool public constant SEPARATE_FLUSH = false;
-  uint256 public constant GAS_LIMIT = 30_000_000;
+  bool public constant SEPARATE_FLUSH = true;
+  uint256 public constant GAS_LIMIT = 16_000_000;
 
   function setUp() public {
     string memory root = vm.projectRoot();
@@ -69,7 +69,7 @@ contract TestTMNT221 is TestBase {
       );
     }
 
-    adder.addValidators{gas: GAS_LIMIT}(args, SEPARATE_FLUSH);
+    adder.addValidators{gas: GAS_LIMIT}(args, SEPARATE_FLUSH ? 0 : type(uint256).max);
 
     if (SEPARATE_FLUSH) {
       INSTANCE.flushEntryQueue{gas: GAS_LIMIT}();

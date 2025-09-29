@@ -18,7 +18,6 @@ describe('AVM check-circuit – public fee payment', () => {
   beforeEach(async () => {
     tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true);
 
-    await tester.registerFeeJuiceContract();
     await tester.setFeePayerBalance(feePayer, initialFeeJuiceBalance);
 
     avmTestContractInstance = await tester.registerAndDeployContract(

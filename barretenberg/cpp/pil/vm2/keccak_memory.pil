@@ -88,7 +88,7 @@ sel * (1 - sel) = 0;
 
 // No relations will be checked if this identity is satisfied.
 #[skippable_if]
-sel + last = 0;
+sel = 0;
 
 pol commit start_read;
 start_read * (1 - start_read) = 0;

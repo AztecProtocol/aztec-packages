@@ -156,9 +156,6 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         const bb::Polynomial<Fr>& polynomial = opening_claim.polynomial;
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1150): Hash more things here.
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1408): Make IPA fuzzer compatible with `add_to_hash_buffer`.
-        //
         // Step 1.
         // Add the commitment, challenge, and evaluation to the hash buffer.
         // NOTE:
@@ -912,7 +909,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         return {output_claim, prover_transcript->export_proof()};
     }
 
-    static std::pair<OpeningClaim<Curve>, HonkProof> create_fake_ipa_claim_and_proof(UltraCircuitBuilder& builder)
+    static std::pair<OpeningClaim<Curve>, HonkProof> create_random_valid_ipa_claim_and_proof(UltraCircuitBuilder& builder)
     requires Curve::is_stdlib_type {
         using NativeCurve = curve::Grumpkin;
         using Builder = typename Curve::Builder;

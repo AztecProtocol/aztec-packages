@@ -114,7 +114,7 @@ template <typename ExecutionTrace> class RomRamLogic_ {
      * @brief Each entry in ram_arrays represents an independent RAM table.
      * RamTranscript tracks the current table state,
      * as well as the 'records' produced by each read and write operation.
-     * Used in `compute_proving_key` to generate consistency check gates required to validate the RAM read/write
+     * Used in `compute_prover_instance` to generate consistency check gates required to validate the RAM read/write
      * history
      */
     std::vector<RamTranscript> ram_arrays;
@@ -122,7 +122,7 @@ template <typename ExecutionTrace> class RomRamLogic_ {
      * @brief Each entry in ram_arrays represents an independent ROM table.
      * RomTranscript tracks the current table state,
      * as well as the 'records' produced by each read operation.
-     * Used in `compute_proving_key` to generate consistency check gates required to validate the ROM read history
+     * Used in `compute_prover_instance` to generate consistency check gates required to validate the ROM read history
      */
     std::vector<RomTranscript> rom_arrays;
 

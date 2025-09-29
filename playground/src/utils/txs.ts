@@ -1,4 +1,4 @@
-import { TxHash, TxReceipt, TxStatus, AztecAddress, type AztecNode, type PXE, type Wallet } from '@aztec/aztec.js';
+import { TxHash, TxReceipt, TxStatus, AztecAddress, type Wallet } from '@aztec/aztec.js';
 
 export type UserTx = {
   txHash?: TxHash;
@@ -10,9 +10,8 @@ export type UserTx = {
   contractAddress: AztecAddress;
 };
 
-
-export async function queryTxReceipt(tx: UserTx, pxe: PXE) {
+export async function queryTxReceipt(tx: UserTx, wallet: Wallet) {
   const txHash = await tx.txHash;
-  const txReceipt = await pxe.getTxReceipt(txHash);
+  const txReceipt = await wallet.getTxReceipt(txHash);
   return txReceipt;
 }

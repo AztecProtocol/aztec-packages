@@ -73,6 +73,8 @@ export async function createProverNode(
     }
   }
 
+  await keyStoreManager?.validateSigners();
+
   // Extract the prover signers from the key store and verify that we have one.
   const proverSigners = keyStoreManager?.createProverSigners();
 
@@ -85,6 +87,8 @@ export async function createProverNode(
       'KEY STORE CREATED FROM ENVIRONMENT, IT IS RECOMMENDED TO USE A FILE-BASED KEY STORE IN PRODUCTION ENVIRONMENTS',
     );
   }
+
+  log.info(`Creating prover with publishers ${proverSigners.signers.map(signer => signer.address.toString()).join()}`);
 
   // Only consider user provided config if it is valid
   const proverIdInUserConfig = config.proverId === undefined || config.proverId.isZero() ? undefined : config.proverId;
@@ -141,7 +145,7 @@ export async function createProverNode(
     deps.publisherFactory ??
     new ProverPublisherFactory(config, {
       rollupContract,
-      publisherManager: new PublisherManager(l1TxUtils),
+      publisherManager: new PublisherManager(l1TxUtils, config),
       telemetry,
     });
 
@@ -175,6 +179,7 @@ export async function createProverNode(
       'proverNodeMaxPendingJobs',
       'proverNodeMaxParallelBlocksPerEpoch',
       'proverNodePollingIntervalMs',
+      'proverNodeEpochProvingDelayMs',
       'txGatheringMaxParallelRequests',
       'txGatheringIntervalMs',
       'txGatheringTimeoutMs',
@@ -187,7 +192,7 @@ export async function createProverNode(
 
   const epochMonitor = await EpochMonitor.create(
     archiver,
-    { pollingIntervalMs: config.proverNodePollingIntervalMs },
+    { pollingIntervalMs: config.proverNodePollingIntervalMs, provingDelayMs: config.proverNodeEpochProvingDelayMs },
     telemetry,
   );
 

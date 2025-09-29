@@ -1,33 +1,38 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { AztecAddressHex, EthAddressHex, EthPrivateKey } from '@aztec/node-keystore';
+import type { EthPrivateKey } from '@aztec/node-keystore';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
 import type { SequencerClientConfig, TxSenderConfig } from '@aztec/sequencer-client/config';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ValidatorClientConfig } from '@aztec/validator-client/config';
 
+import type { Hex } from 'viem';
 import { generatePrivateKey, privateKeyToAddress } from 'viem/accounts';
 
 import { createKeyStoreForValidator } from './config.js';
+
+function privateKeyToEthAddress(privateKey: Hex): EthAddress {
+  return EthAddress.fromString(privateKeyToAddress(privateKey));
+}
 
 describe('createKeyStoreForValidator', () => {
   const mockValidatorKey1 = generatePrivateKey() as EthPrivateKey;
   const mockValidatorKey2 = generatePrivateKey() as EthPrivateKey;
   const mockPublisherKey1 = generatePrivateKey() as EthPrivateKey;
   const mockPublisherKey2 = generatePrivateKey() as EthPrivateKey;
-  const mockCoinbase = EthAddress.random().toString() as EthAddressHex;
+  const mockCoinbase = EthAddress.random();
   const web3SignerUrl = 'http://web3signer:1000';
-  const mockValidatorAddresses = [mockValidatorKey1, mockValidatorKey2].map(privateKeyToAddress);
-  const mockPublisherAddresses = [mockPublisherKey1, mockPublisherKey2].map(privateKeyToAddress);
-  let mockFeeRecipient: AztecAddressHex;
+  const mockValidatorAddresses = [mockValidatorKey1, mockValidatorKey2].map(privateKeyToEthAddress);
+  const mockPublisherAddresses = [mockPublisherKey1, mockPublisherKey2].map(privateKeyToEthAddress);
+  let mockFeeRecipient: AztecAddress;
 
   const createMockConfig = (
     validatorKeys: string[] = [],
     publisherKeys: string[] = [],
-    coinbase?: string,
-    feeRecipient?: string,
+    coinbase?: EthAddress,
+    feeRecipient?: AztecAddress,
     web3SignerUrl?: string,
-    validatorAddresses: string[] = [],
-    publisherAddresses: string[] = [],
+    validatorAddresses: EthAddress[] = [],
+    publisherAddresses: EthAddress[] = [],
   ): TxSenderConfig & ValidatorClientConfig & SequencerClientConfig & SharedNodeConfig => {
     const mockValidatorPrivateKeys =
       validatorKeys.length > 0
@@ -42,16 +47,16 @@ describe('createKeyStoreForValidator', () => {
     return {
       validatorPrivateKeys: mockValidatorPrivateKeys,
       publisherPrivateKeys: mockPublisherPrivateKeys,
-      coinbase: coinbase ? { toString: () => coinbase } : undefined,
-      feeRecipient: feeRecipient ? { toString: () => feeRecipient } : undefined,
+      coinbase: coinbase,
+      feeRecipient: feeRecipient,
       web3SignerUrl,
-      validatorAddresses: validatorAddresses.map(addr => EthAddress.fromString(addr)),
-      publisherAddresses: publisherAddresses.map(addr => EthAddress.fromString(addr)),
+      validatorAddresses: validatorAddresses.map(addr => addr),
+      publisherAddresses: publisherAddresses.map(addr => addr),
     } as TxSenderConfig & ValidatorClientConfig & SequencerClientConfig & SharedNodeConfig;
   };
 
   beforeAll(async () => {
-    mockFeeRecipient = (await AztecAddress.random()).toString() as AztecAddressHex;
+    mockFeeRecipient = await AztecAddress.random();
   });
 
   it('should return undefined when no validator keys are provided', () => {
@@ -75,8 +80,8 @@ describe('createKeyStoreForValidator', () => {
     const config = createMockConfig([mockValidatorKey1]);
     const result = createKeyStoreForValidator(config);
 
-    const expectedCoinbase = privateKeyToAddress(mockValidatorKey1);
-    const expectedFeeRecipient = AztecAddress.ZERO.toString();
+    const expectedCoinbase = privateKeyToEthAddress(mockValidatorKey1);
+    const expectedFeeRecipient = AztecAddress.ZERO;
 
     expect(result).toEqual({
       schemaVersion: 1,
@@ -99,7 +104,7 @@ describe('createKeyStoreForValidator', () => {
     const config = createMockConfig([mockValidatorKey1, mockValidatorKey2]);
     const result = createKeyStoreForValidator(config);
 
-    const expectedCoinbase = privateKeyToAddress(mockValidatorKey1);
+    const expectedCoinbase = privateKeyToEthAddress(mockValidatorKey1);
 
     expect(result).toEqual({
       schemaVersion: 1,
@@ -109,7 +114,7 @@ describe('createKeyStoreForValidator', () => {
       validators: [
         {
           attester: [mockValidatorKey1, mockValidatorKey2],
-          feeRecipient: AztecAddress.ZERO.toString(),
+          feeRecipient: AztecAddress.ZERO,
           coinbase: expectedCoinbase,
           remoteSigner: undefined,
           publisher: [],
@@ -143,7 +148,7 @@ describe('createKeyStoreForValidator', () => {
     const config = createMockConfig([mockValidatorKey1], [mockPublisherKey1, mockPublisherKey2]);
     const result = createKeyStoreForValidator(config);
 
-    const expectedCoinbase = privateKeyToAddress(mockValidatorKey1);
+    const expectedCoinbase = privateKeyToEthAddress(mockValidatorKey1);
 
     expect(result).toEqual({
       schemaVersion: 1,
@@ -153,7 +158,7 @@ describe('createKeyStoreForValidator', () => {
       validators: [
         {
           attester: [mockValidatorKey1],
-          feeRecipient: AztecAddress.ZERO.toString(),
+          feeRecipient: AztecAddress.ZERO,
           coinbase: expectedCoinbase,
           remoteSigner: undefined,
           publisher: [mockPublisherKey1, mockPublisherKey2],
@@ -199,15 +204,15 @@ describe('createKeyStoreForValidator', () => {
     const config = createMockConfig([mockValidatorKey1, mockValidatorKey2]);
     const result = createKeyStoreForValidator(config);
 
-    const expectedCoinbase = privateKeyToAddress(mockValidatorKey1);
-    expect(result?.validators?.[0]?.coinbase).toBe(expectedCoinbase);
+    const expectedCoinbase = privateKeyToEthAddress(mockValidatorKey1);
+    expect(result?.validators?.[0]?.coinbase?.equals(expectedCoinbase)).toBeTruthy();
   });
 
   it('should use AztecAddress.ZERO for feeRecipient when not provided', () => {
     const config = createMockConfig([mockValidatorKey1]);
     const result = createKeyStoreForValidator(config);
 
-    expect(result?.validators?.[0]?.feeRecipient).toBe(AztecAddress.ZERO.toString());
+    expect(result?.validators?.[0]?.feeRecipient.equals(AztecAddress.ZERO)).toBeTruthy();
   });
 
   it('should create keystore with remote signer details', () => {

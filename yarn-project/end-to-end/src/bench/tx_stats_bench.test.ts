@@ -26,7 +26,7 @@ describe('transaction benchmarks', () => {
   const COINBASE_ADDRESS = EthAddress.random();
   const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);
 
-  let { provenAssets, accounts, logger } = t;
+  let { provenAssets, logger } = t;
   let sender: AztecAddress;
   let recipient: AztecAddress;
 
@@ -53,8 +53,11 @@ describe('transaction benchmarks', () => {
     await t.applyMintSnapshot();
     await t.setup();
 
-    ({ provenAssets, accounts, logger } = t);
-    [sender, recipient] = accounts.map(a => a.address);
+    ({
+      provenAssets,
+      accounts: [sender, recipient],
+      logger,
+    } = t);
 
     // Create the two transactions
     const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate({ from: sender });

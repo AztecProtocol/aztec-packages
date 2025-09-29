@@ -16,7 +16,7 @@ template <typename LookupSettings> class LookupIntoPDecomposition : public Index
         size_t radix_index = static_cast<size_t>(uint64_t(radix));
         uint32_t row = 0;
         for (size_t i = 0; i < radix_index; ++i) {
-            row += static_cast<uint32_t>(get_p_limbs_per_radix()[i].size());
+            row += static_cast<uint32_t>(get_p_limbs_per_radix_size(i));
         }
 
         row += static_cast<uint32_t>(limb_index);

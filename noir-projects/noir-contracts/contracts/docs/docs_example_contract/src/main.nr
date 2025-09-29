@@ -10,7 +10,7 @@ pub contract DocsExample {
     use aztec::{
         context::PrivateContext,
         macros::{functions::{private, public, utility}, storage::{storage, storage_no_init}},
-        messages::logs::note::encode_and_encrypt_note,
+        messages::message_delivery::MessageDelivery,
         note::{note_interface::NoteProperties, note_viewer_options::NoteViewerOptions},
         protocol_types::{address::AztecAddress, traits::Hash},
         state_vars::{
@@ -101,10 +101,11 @@ pub contract DocsExample {
     fn initialize_private_immutable(points: u8) {
         let new_card = CardNote::new(points, context.msg_sender());
 
-        storage.private_immutable.initialize(new_card).emit(encode_and_encrypt_note(
+        storage.private_immutable.initialize(new_card).emit(
             &mut context,
             context.msg_sender(),
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
     // docs:end:initialize-private-mutable
 
@@ -116,23 +117,25 @@ pub contract DocsExample {
     }
     // docs:end:state_vars-NoteGetterOptionsComparatorExampleNoir
 
+    // docs:start:state_vars-PrivateMutableGet
+    #[private]
+    fn read_legendary_points() {
+        storage.legendary_card.get_note()
+    }
+    // docs:end:state_vars-PrivateMutableGet
+
+    // docs:start:state_vars-PrivateMutableReplace
     #[private]
     fn increase_legendary_points() {
-        // Ensure `points` > current value
-        // Also serves as a e2e test that you can `get_note()` and then `replace()`
-        // docs:start:state_vars-PrivateMutableGet
-        let card = storage.legendary_card.get_note().note;
-        // docs:end:state_vars-PrivateMutableGet
-        let points = card.get_points() + 1;
-        let new_card = CardNote::new(points, context.msg_sender());
-
-        // docs:start:state_vars-PrivateMutableReplace
-        storage.legendary_card.replace(new_card).emit(encode_and_encrypt_note(
-            &mut context,
-            context.msg_sender(),
-        ));
-        // docs:end:state_vars-PrivateMutableReplace
+        storage
+            .legendary_card
+            .replace(|old_card| {
+                let points = old_card.get_points() + 1;
+                CardNote::new(points, context.msg_sender())
+            })
+            .emit(&mut context, context.msg_sender(), MessageDelivery.CONSTRAINED_ONCHAIN);
     }
+    // docs:end:state_vars-PrivateMutableReplace
 
     // docs:start:private_mutable_is_initialized
     #[utility]

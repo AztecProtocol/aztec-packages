@@ -1,4 +1,4 @@
-import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory } from '@aztec/bb-prover';
+import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToPath } from '@aztec/bb-prover';
 import { AztecClientBackend } from '@aztec/bb.js';
 import { createLogger } from '@aztec/foundation/log';
 
@@ -8,7 +8,6 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { getWorkingDirectory } from './bb_working_directory.js';
-import { proveClientIVC as proveClientIVCNative } from './prove_native.js';
 import { proveClientIVC as proveClientIVCWasm, proveThenVerifyAztecClient } from './prove_wasm.js';
 import {
   MockAppCreatorCircuit,
@@ -40,20 +39,16 @@ describe('Client IVC Integration', () => {
       'bb',
     );
     const clientIVCWorkingDirectory = await getWorkingDirectory('bb-client-ivc-integration-');
-    const tasks = [
-      proveClientIVCNative(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, vks, logger),
-      proveClientIVCWasm(bytecodes, witnessStack, vks),
-    ];
-    const [_, wasmProof] = await Promise.all(tasks);
+    const wasmProof = await proveClientIVCWasm(bytecodes, witnessStack, vks);
 
-    // Write the WASM proof over the output directory (the bb cli will have output to this folder, we need the vk to be in place).
-    await writeClientIVCProofToOutputDirectory(wasmProof, clientIVCWorkingDirectory);
-    const verifyWasmResultInNative = await verifyClientIvcProof(
-      bbBinaryPath,
-      clientIVCWorkingDirectory.concat('/proof'),
-      clientIVCWorkingDirectory.concat('/vk'),
-      logger.info,
-    );
+    // Write the WASM proof to the working directory.
+    const proofPath = path.join(clientIVCWorkingDirectory, 'proof');
+    await writeClientIVCProofToPath(wasmProof, proofPath);
+
+    // Use the pre-generated ivc vk to verify the proof.
+    const vkPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../artifacts/keys/mock_hiding.ivc.vk');
+
+    const verifyWasmResultInNative = await verifyClientIvcProof(bbBinaryPath, proofPath, vkPath, logger.info);
     expect(verifyWasmResultInNative.status).toEqual(BB_RESULT.SUCCESS);
   });
 

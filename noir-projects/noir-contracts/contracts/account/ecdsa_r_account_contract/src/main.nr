@@ -7,7 +7,7 @@ pub contract EcdsaRAccount {
         authwit::{account::AccountActions, entrypoint::{app::AppPayload, fee::FeePayload}},
         context::PrivateContext,
         macros::{functions::{initializer, noinitcheck, private, view}, storage::storage},
-        messages::logs::note::encode_and_encrypt_note,
+        messages::message_delivery::MessageDelivery,
         oracle::{auth_witness::get_auth_witness, notes::{get_sender_for_tags, set_sender_for_tags}},
         state_vars::PrivateImmutable,
     };
@@ -39,10 +39,11 @@ pub contract EcdsaRAccount {
 
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(this) };
-        storage.signing_public_key.initialize(pub_key_note).emit(encode_and_encrypt_note(
+        storage.signing_public_key.initialize(pub_key_note).emit(
             &mut context,
             this,
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(original_sender) };
     }

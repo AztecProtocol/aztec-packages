@@ -28,12 +28,19 @@ pub trait NoteHash {
     /// This function receives the context since nullifier computation typically involves proving nullifying keys, and
     /// we require the kernel's assistance to do this in order to prevent having to reveal private keys to application
     /// circuits.
-    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field;
+    fn compute_nullifier(
+        self,
+        context: &mut PrivateContext,
+        note_hash_for_nullification: Field,
+    ) -> Field;
 
     /// Like `compute_nullifier`, except this variant is unconstrained: there are no guarantees on the returned value
     /// being correct. Because of that it doesn't need to take a context (since it won't perform any kernel key
     /// validation requests).
-    unconstrained fn compute_nullifier_unconstrained(self, note_hash_for_nullify: Field) -> Field;
+    unconstrained fn compute_nullifier_unconstrained(
+        self,
+        note_hash_for_nullification: Field,
+    ) -> Field;
 }
 // docs:end:note_interfaces
 

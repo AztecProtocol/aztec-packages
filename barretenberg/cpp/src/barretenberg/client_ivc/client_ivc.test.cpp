@@ -28,15 +28,13 @@ class ClientIVCTests : public ::testing::Test {
     using Commitment = Flavor::Commitment;
     using VerificationKey = Flavor::VerificationKey;
     using Builder = ClientIVC::ClientCircuit;
-    using DeciderProvingKey = ClientIVC::DeciderProvingKey;
-    using DeciderVerificationKey = ClientIVC::DeciderVerificationKey;
+    using ProverInstance = ClientIVC::ProverInstance;
+    using VerifierInstance = ClientIVC::VerifierInstance;
     using FoldProof = ClientIVC::FoldProof;
     using DeciderProver = ClientIVC::DeciderProver;
     using DeciderVerifier = ClientIVC::DeciderVerifier;
-    using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
     using FoldingProver = ProtogalaxyProver_<Flavor>;
-    using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
-    using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
+    using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstance>;
     using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
 
   public:
@@ -67,10 +65,6 @@ class ClientIVCTests : public ::testing::Test {
         ClientIVC ivc{ num_circuits, trace_settings };
 
         for (size_t j = 0; j < num_circuits; ++j) {
-            // Use default test settings for the mock hiding kernel since it's size must always be consistent
-            if (j == num_circuits - 1) {
-                settings = TestSettings{};
-            }
             circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
         }
         return { ivc.prove(), ivc.get_vk() };
@@ -112,7 +106,8 @@ TEST_F(ClientIVCTests, BadProofFailure)
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
         }
-        EXPECT_TRUE(ivc.prove_and_verify());
+        auto proof = ivc.prove();
+        EXPECT_TRUE(ClientIVC::verify(proof, ivc.get_vk()));
     }
 
     // The IVC throws an exception if the FIRST fold proof is tampered with
@@ -139,7 +134,8 @@ TEST_F(ClientIVCTests, BadProofFailure)
                                   num_public_inputs); // tamper with first proof
             }
         }
-        EXPECT_FALSE(ivc.prove_and_verify());
+        auto proof = ivc.prove();
+        EXPECT_FALSE(ClientIVC::verify(proof, ivc.get_vk()));
     }
 
     // The IVC fails if the SECOND fold proof is tampered with
@@ -160,7 +156,8 @@ TEST_F(ClientIVCTests, BadProofFailure)
                                   circuit.num_public_inputs()); // tamper with second proof
             }
         }
-        EXPECT_FALSE(ivc.prove_and_verify());
+        auto proof = ivc.prove();
+        EXPECT_FALSE(ClientIVC::verify(proof, ivc.get_vk()));
     }
 
     EXPECT_TRUE(true);
@@ -313,7 +310,8 @@ TEST_F(ClientIVCTests, StructuredTraceOverflow)
         log2_num_gates += 1;
     }
 
-    EXPECT_TRUE(ivc.prove_and_verify());
+    auto proof = ivc.prove();
+    EXPECT_TRUE(ClientIVC::verify(proof, ivc.get_vk()));
 };
 
 /**
@@ -348,8 +346,9 @@ TEST_F(ClientIVCTests, DynamicTraceOverflow)
                 ivc, { .log2_num_gates = test.log2_num_arith_gates[idx] });
         }
 
-        EXPECT_EQ(check_accumulator_target_sum_manual(ivc.fold_output.accumulator), true);
-        EXPECT_TRUE(ivc.prove_and_verify());
+        EXPECT_EQ(check_accumulator_target_sum_manual(ivc.prover_accumulator), true);
+        auto proof = ivc.prove();
+        EXPECT_TRUE(ClientIVC::verify(proof, ivc.get_vk()));
     }
 }
 
@@ -421,5 +420,6 @@ TEST_F(ClientIVCTests, DatabusFailure)
         ivc.accumulate(circuit, vk);
     }
 
-    EXPECT_FALSE(ivc.prove_and_verify());
+    auto proof = ivc.prove();
+    EXPECT_FALSE(ClientIVC::verify(proof, ivc.get_vk()));
 };

@@ -4,7 +4,7 @@
 
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/honk/proving_key_inspector.hpp"
+#include "barretenberg/honk/prover_instance_inspector.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
@@ -30,10 +30,10 @@ template <typename Flavor> class DataBusTests : public ::testing::Test {
     // Construct and verify a MegaHonk proof for a given circuit
     static bool construct_and_verify_proof(MegaCircuitBuilder& builder)
     {
-        auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-        auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
+        auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
+        auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
 
-        Prover prover{ proving_key, verification_key };
+        Prover prover{ prover_instance, verification_key };
         auto proof = prover.construct_proof();
         Verifier verifier{ verification_key };
         bool result = verifier.template verify_proof<DefaultIO>(proof).result;

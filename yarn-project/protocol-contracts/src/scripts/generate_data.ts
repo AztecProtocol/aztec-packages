@@ -30,6 +30,7 @@ const noirContractsRoot = '../../noir-projects/noir-contracts';
 const srcPath = path.join(noirContractsRoot, './target');
 const destArtifactsDir = './artifacts';
 const outputFilePath = './src/protocol_contract_data.ts';
+const cppOutputFilePath = '../../barretenberg/cpp/src/barretenberg/vm2/common/protocol_contract_data.hpp';
 
 const salt = new Fr(1);
 

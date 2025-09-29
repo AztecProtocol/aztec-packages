@@ -7,15 +7,15 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 namespace bb {
 /**
- * @brief The result of running the Protogalaxy prover containing a new accumulator as well as the proof data to
- * instantiate the verifier transcript.
+ * @brief The result of one iteraton of Protogalaxy proving, containing a new accumulator as well as the proof data to
+ * instantiate the verifier transcript asserting that the accumulator has been correctly constructed.
  */
 template <class Flavor> struct FoldingResult {
   public:
-    std::shared_ptr<DeciderProvingKey_<Flavor>> accumulator;
+    std::shared_ptr<ProverInstance_<Flavor>> accumulator;
     std::vector<typename Flavor::FF> proof;
 };
 } // namespace bb

@@ -127,6 +127,10 @@ safe_uint_t<Builder> safe_uint_t<Builder>::divide(
     safe_uint_t<Builder> remainder(
         remainder_field, remainder_bit_size, format("divide method remainder: ", description));
 
+    const auto merged_tag = OriginTag(get_origin_tag(), other.get_origin_tag());
+    quotient.set_origin_tag(merged_tag);
+    remainder.set_origin_tag(merged_tag);
+
     // This line implicitly checks we are not overflowing
     safe_uint_t int_val = quotient * other + remainder;
 
@@ -138,7 +142,6 @@ safe_uint_t<Builder> safe_uint_t<Builder>::divide(
 
     this->assert_equal(int_val, "divide method quotient and/or remainder incorrect");
 
-    quotient.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return quotient;
 }
 
@@ -161,6 +164,10 @@ template <typename Builder> safe_uint_t<Builder> safe_uint_t<Builder>::operator/
     safe_uint_t<Builder> remainder(
         remainder_field, (size_t)(other.current_max.get_msb() + 1), format("/ operator remainder"));
 
+    const auto merged_tag = OriginTag(get_origin_tag(), other.get_origin_tag());
+    quotient.set_origin_tag(merged_tag);
+    remainder.set_origin_tag(merged_tag);
+
     // This line implicitly checks we are not overflowing
     safe_uint_t int_val = quotient * other + remainder;
 
@@ -172,7 +179,6 @@ template <typename Builder> safe_uint_t<Builder> safe_uint_t<Builder>::operator/
 
     this->assert_equal(int_val, "/ operator quotient and/or remainder incorrect");
 
-    quotient.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return quotient;
 }
 

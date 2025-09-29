@@ -186,3 +186,8 @@ pol constant is_valid_member_enum;
 pol constant is_deployer;
 pol constant is_class_id;
 pol constant is_init_hash;
+
+// Protocol Contract Set - Maps Canonical Address to Derived Address
+// Canonical Address are represented by the execution clk
+pol commit sel_protocol_contract;
+pol commit protocol_contract_derived_address;

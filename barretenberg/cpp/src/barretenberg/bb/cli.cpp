@@ -19,7 +19,6 @@
 #include "barretenberg/api/api_msgpack.hpp"
 #include "barretenberg/api/api_ultra_honk.hpp"
 #include "barretenberg/api/file_io.hpp"
-#include "barretenberg/api/prove_tube.hpp"
 #include "barretenberg/bb/cli11_formatter.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
@@ -241,9 +240,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
                          "recursive verifier) or is it for an ivc verifier? `standalone` produces a verification key "
                          "is sufficient for verifying proofs about a single circuit (including the non-encsapsulated "
                          "use case where an IVC scheme is manually constructed via recursive UltraHonk proof "
-                         "verification). `ivc` produces a verification key for verifying the stack of run though a "
-                         "dedicated ivc verifier class (currently the only option is the ClientIVC class) ")
-            ->check(CLI::IsMember({ "standalone", "ivc" }).name("is_member"));
+                         "verification). `standalone_hiding` is similar to `standalone` but is used for the last step "
+                         "where the structured trace is not utilized. `ivc` produces a verification key for verifying "
+                         "the stack of run though a dedicated ivc verifier class (currently the only option is the "
+                         "ClientIVC class)")
+            ->check(CLI::IsMember({ "standalone", "standalone_hiding", "ivc" }).name("is_member"));
     };
 
     const auto add_verbose_flag = [&](CLI::App* subcommand) {
@@ -263,6 +264,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
     const auto add_slow_low_memory_flag = [&](CLI::App* subcommand) {
         return subcommand->add_flag(
             "--slow_low_memory", flags.slow_low_memory, "Enable low memory mode (can be 2x slower or more).");
+    };
+
+    const auto add_storage_budget_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option("--storage_budget",
+                                      flags.storage_budget,
+                                      "Storage budget for FileBackedMemory (e.g. '500m', '2g'). When exceeded, falls "
+                                      "back to RAM (requires --slow_low_memory).");
     };
 
     const auto add_update_inputs_flag = [&](CLI::App* subcommand) {
@@ -345,6 +353,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_slow_low_memory_flag(prove);
     add_print_bench_flag(prove);
     add_bench_out_option(prove);
+    add_storage_budget_option(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
 
@@ -460,6 +469,15 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     /***************************************************************************************************************
+     * Subcommand: avm_simulate
+     ***************************************************************************************************************/
+    CLI::App* avm_simulate_command = app.add_subcommand("avm_simulate", "");
+    avm_simulate_command->group(""); // hide from list of subcommands
+    add_verbose_flag(avm_simulate_command);
+    add_debug_flag(avm_simulate_command);
+    add_avm_inputs_option(avm_simulate_command);
+
+    /***************************************************************************************************************
      * Subcommand: avm_prove
      ***************************************************************************************************************/
     CLI::App* avm_prove_command = app.add_subcommand("avm_prove", "");
@@ -512,30 +530,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
         "-i,--input", msgpack_input_file, "Input file containing msgpack buffers (defaults to stdin)");
 
     /***************************************************************************************************************
-     * Subcommand: prove_tube
-     ***************************************************************************************************************/
-    CLI ::App* prove_tube_command = app.add_subcommand("prove_tube", "");
-    prove_tube_command->group(""); // hide from list of subcommands
-    add_verbose_flag(prove_tube_command);
-    add_debug_flag(prove_tube_command);
-    add_crs_path_option(prove_tube_command);
-    add_vk_path_option(prove_tube_command);
-    std::string prove_tube_output_path{ "./target" };
-    add_output_path_option(prove_tube_command, prove_tube_output_path);
-
-    /***************************************************************************************************************
-     * Subcommand: verify_tube
-     ***************************************************************************************************************/
-    CLI::App* verify_tube_command = app.add_subcommand("verify_tube", "");
-    verify_tube_command->group(""); // hide from list of subcommands
-    add_verbose_flag(verify_tube_command);
-    add_debug_flag(verify_tube_command);
-    add_crs_path_option(verify_tube_command);
-    // doesn't make sense that this is set by -o but that's how it was
-    std::string tube_proof_and_vk_path{ "./target" };
-    add_output_path_option(verify_tube_command, tube_proof_and_vk_path);
-
-    /***************************************************************************************************************
      * Build the CLI11 App
      ***************************************************************************************************************/
 
@@ -551,6 +545,9 @@ int parse_and_run_cli_command(int argc, char* argv[])
     verbose_logging = debug_logging || flags.verbose;
     slow_low_memory = flags.slow_low_memory;
 #ifndef __wasm__
+    if (!flags.storage_budget.empty()) {
+        storage_budget = parse_size_string(flags.storage_budget);
+    }
     if (print_bench || !bench_out.empty()) {
         bb::detail::use_bb_bench = true;
     }
@@ -601,19 +598,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
         if (msgpack_run_command->parsed()) {
             return execute_msgpack_run(msgpack_input_file);
         }
-        // TUBE
-        if (prove_tube_command->parsed()) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Potentially remove this extra logic.
-            prove_tube(prove_tube_output_path, vk_path);
-        } else if (verify_tube_command->parsed()) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1322): Remove verify_tube logic.
-            auto tube_public_inputs_path = tube_proof_and_vk_path + "/public_inputs";
-            auto tube_proof_path = tube_proof_and_vk_path + "/proof";
-            auto tube_vk_path = tube_proof_and_vk_path + "/vk";
-            UltraHonkAPI api;
-            return api.verify({ .ipa_accumulation = true }, tube_public_inputs_path, tube_proof_path, tube_vk_path) ? 0
-                                                                                                                    : 1;
-        }
         // AVM
 #ifndef DISABLE_AZTEC_VM
         else if (avm_prove_command->parsed()) {
@@ -623,13 +607,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
             avm_check_circuit(avm_inputs_path);
         } else if (avm_verify_command->parsed()) {
             return avm_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
+        } else if (avm_simulate_command->parsed()) {
+            avm_simulate(avm_inputs_path);
         }
 #else
-        else if (avm_prove_command->parsed()) {
-            throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
-        } else if (avm_check_circuit_command->parsed()) {
-            throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
-        } else if (avm_verify_command->parsed()) {
+        else if (avm_prove_command->parsed() || avm_check_circuit_command->parsed() || avm_verify_command->parsed() ||
+                 avm_simulate_command->parsed()) {
             throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
         }
 #endif

@@ -6,6 +6,7 @@ if (NOT(FUZZING))
 
   target_link_libraries(
     honk_solidity_key_gen
+    PRIVATE
     stdlib_solidity_helpers
   )
 
@@ -13,6 +14,29 @@ if (NOT(FUZZING))
 
   target_link_libraries(
     honk_solidity_proof_gen
+    PRIVATE
     stdlib_solidity_helpers
   )
+  if(CHECK_CIRCUIT_STACKTRACES OR ENABLE_STACKTRACES)
+    target_link_libraries(
+        honk_solidity_key_gen
+        PUBLIC
+        Backward::Interface
+    )
+    target_link_options(
+        honk_solidity_key_gen
+        PRIVATE
+        -ldw -lelf
+    )
+    target_link_libraries(
+        honk_solidity_proof_gen
+        PUBLIC
+        Backward::Interface
+    )
+    target_link_options(
+        honk_solidity_proof_gen
+        PRIVATE
+        -ldw -lelf
+    )
+  endif()
 endif()

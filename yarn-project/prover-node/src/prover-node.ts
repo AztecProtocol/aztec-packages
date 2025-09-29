@@ -87,6 +87,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       txGatheringMaxParallelRequestsPerNode: 100,
       txGatheringTimeoutMs: 120_000,
       proverNodeFailedEpochStore: undefined,
+      proverNodeEpochProvingDelayMs: undefined,
       ...compact(config),
     };
 

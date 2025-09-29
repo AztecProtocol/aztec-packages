@@ -2,9 +2,9 @@ use crate::tests::tail_to_public_output_composer_builder::TailToPublicOutputComp
 use dep::types::{
     abis::gas::Gas,
     constants::{
-        AVM_L2_GAS_PER_NOTE_HASH_WRITE, AVM_L2_GAS_PER_NULLIFIER_WRITE, DA_BYTES_PER_FIELD,
-        DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_CONTRACT_CLASS_LOG,
-        L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_PRIVATE_LOG,
+        AVM_EMITNOTEHASH_BASE_L2_GAS, AVM_EMITNULLIFIER_BASE_L2_GAS, AVM_SENDL2TOL1MSG_BASE_L2_GAS,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS,
+        L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_PRIVATE_LOG,
     },
     tests::utils::{assert_array_eq, swap_items},
 };
@@ -163,9 +163,9 @@ fn tail_to_public_output_composer_succeeds() {
     ;
     let computed_da_gas = num_da_fields * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
 
-    let computed_l2_gas = num_note_hashes * AVM_L2_GAS_PER_NOTE_HASH_WRITE
-        + num_nullifiers * AVM_L2_GAS_PER_NULLIFIER_WRITE
-        + num_l2_to_l1_msgs * L2_GAS_PER_L2_TO_L1_MSG
+    let computed_l2_gas = num_note_hashes * AVM_EMITNOTEHASH_BASE_L2_GAS
+        + num_nullifiers * AVM_EMITNULLIFIER_BASE_L2_GAS
+        + num_l2_to_l1_msgs * AVM_SENDL2TOL1MSG_BASE_L2_GAS
         + num_private_logs * L2_GAS_PER_PRIVATE_LOG
         + num_contract_class_logs * L2_GAS_PER_CONTRACT_CLASS_LOG
         + num_public_calls * FIXED_AVM_STARTUP_L2_GAS;

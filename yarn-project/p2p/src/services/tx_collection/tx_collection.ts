@@ -2,7 +2,7 @@ import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { BlockInfo, L2Block } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockInfo } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -30,7 +30,7 @@ export type FastCollectionRequestInput =
 export type FastCollectionRequest = FastCollectionRequestInput & {
   missingTxHashes: Set<string>;
   deadline: Date;
-  blockInfo: BlockInfo;
+  blockInfo: L2BlockInfo;
   promise: PromiseWithResolvers<void>;
   foundTxs: Map<string, Tx>;
 };

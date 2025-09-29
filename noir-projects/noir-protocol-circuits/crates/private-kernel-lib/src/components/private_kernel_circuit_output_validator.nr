@@ -84,9 +84,9 @@ impl PrivateKernelCircuitOutputValidator {
         assert_eq(self.output.is_private_only, is_private_only, "mismatch is_private_only");
         assert_eq(self.output.constants.tx_context, tx_request.tx_context, "mismatch tx_context");
         assert_eq(
-            self.output.constants.historical_header,
-            private_call.public_inputs.historical_header,
-            "mismatch historical_header",
+            self.output.constants.anchor_block_header,
+            private_call.public_inputs.anchor_block_header,
+            "mismatch anchor_block_header",
         );
         assert_eq(self.output.constants.vk_tree_root, vk_tree_root, "mismatch vk_tree_root");
         assert_eq(

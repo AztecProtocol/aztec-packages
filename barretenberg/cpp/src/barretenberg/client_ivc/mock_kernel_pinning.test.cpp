@@ -32,8 +32,12 @@ TEST_F(MockKernelTest, PinFoldingKernelSizes)
         auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc);
 
         ivc.accumulate(circuit, vk);
-        EXPECT_TRUE(circuit.blocks.has_overflow); // trace overflow mechanism should be triggered
+        // Expect trace overflow for all but the hiding kernel (final circuit)
+        if (idx < NUM_CIRCUITS - 1) {
+            EXPECT_TRUE(circuit.blocks.has_overflow);
+            EXPECT_EQ(ivc.prover_accumulator->log_dyadic_size(), 19);
+        } else {
+            EXPECT_FALSE(circuit.blocks.has_overflow);
+        }
     }
-
-    EXPECT_EQ(ivc.fold_output.accumulator->log_dyadic_size(), 19);
 }

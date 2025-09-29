@@ -21,6 +21,20 @@ export const schemas = {
   /** Point. Serialized as a hex string. */
   Point: Point.schema,
 
+  /** Coerces truthy-like string values to boolean. */
+  Boolean: z.union([
+    z.boolean(),
+    z
+      .number()
+      .refine(arg => arg === 0 || arg === 1, { message: `Numeric value for a boolean variable must be 0 or 1` })
+      .transform(arg => arg === 1),
+    z
+      .string()
+      .transform(arg => arg.trim().toLowerCase())
+      .refine(arg => ['true', 'false', '1', '0'].includes(arg))
+      .transform(arg => arg === '1' || arg === 'true'),
+  ]),
+
   /** Coerces any input to bigint. */
   BigInt: z.union([z.bigint(), z.number(), z.string()]).pipe(z.coerce.bigint()),
 

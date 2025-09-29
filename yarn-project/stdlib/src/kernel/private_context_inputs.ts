@@ -8,7 +8,7 @@ import { TxContext } from '../tx/tx_context.js';
 export class PrivateContextInputs {
   constructor(
     public callContext: CallContext,
-    public historicalHeader: BlockHeader,
+    public anchorBlockHeader: BlockHeader,
     public txContext: TxContext,
     public startSideEffectCounter: number,
   ) {}
@@ -18,6 +18,6 @@ export class PrivateContextInputs {
   }
 
   public toFields(): Fr[] {
-    return serializeToFields([this.callContext, this.historicalHeader, this.txContext, this.startSideEffectCounter]);
+    return serializeToFields([this.callContext, this.anchorBlockHeader, this.txContext, this.startSideEffectCounter]);
   }
 }

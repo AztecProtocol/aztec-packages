@@ -44,7 +44,9 @@ template <typename FF> static FF evaluate_perturbator(std::vector<FF> coeffs, FF
     FF result = FF(0);
     for (size_t i = 0; i < coeffs.size(); i++) {
         result += coeffs[i] * point_acc;
-        point_acc *= point;
+        if (i < coeffs.size() - 1) {
+            point_acc *= point;
+        }
     }
     return result;
 };

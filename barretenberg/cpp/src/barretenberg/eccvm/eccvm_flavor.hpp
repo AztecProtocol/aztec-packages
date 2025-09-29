@@ -512,7 +512,7 @@ class ECCVMFlavor {
          *          transcript_msm_count_at_transition_inverse: used to validate transcript_msm_count_zero_at_transition
          *          precompute_pc: point counter for Straus precomputation columns
          *          precompute_select: if 1, evaluate Straus precomputation algorithm at current row
-         *          precompute_point_transition: 1 if current row operating on a different point to previous row
+         *          precompute_point_transition: 1 if next row operating on a different point than current row.
          *          precompute_round: round counter for Straus precomputation algorithm
          *          precompute_scalar_sum: accumulating sum of Straus scalar slices
          *          precompute_s1hi/lo: 2-bit hi/lo components of a Straus 4-bit scalar slice
@@ -549,6 +549,10 @@ class ECCVMFlavor {
          *          msm_lambda2: temp variable used for ecc point addition algorithm if msm_add2 = 1
          *          msm_lambda3: temp variable used for ecc point addition algorithm if msm_add3 = 1
          *          msm_lambda4: temp variable used for ecc point addition algorithm if msm_add4 = 1
+         *          msm_slice1: wNAF digit/slice for first add
+         *          msm_slice2: wNAF digit/slice for second add
+         *          msm_slice3: wNAF digit/slice for third add
+         *          msm_slice4: wNAF digit/slice for fourth add
          *          msm_collision_x1: used to ensure incomplete ecc addition exceptions not triggered if msm_add1 = 1
          *          msm_collision_x2: used to ensure incomplete ecc addition exceptions not triggered if msm_add2 = 1
          *          msm_collision_x3: used to ensure incomplete ecc addition exceptions not triggered if msm_add3 = 1
@@ -1014,33 +1018,37 @@ class ECCVMFlavor {
     };
 
     /**
-     * @brief When evaluating the sumcheck protocol - can we skip evaluation of all relations for a given row?
+     * @brief   When evaluating the sumcheck protocol - can we skip evaluation of _all_ relations for a given row? This
+     *          is purely a prover-side optimization.
      *
      * @details When used in ClientIVC, the ECCVM has a large fixed size, which is often not fully utilized.
-     *          If a row is completely empty, the values of z_perm and z_perm_shift will match,
-     *          we can use this as a proxy to determine if we can skip Sumcheck::compute_univariate_with_row_skipping
+     *          If a row is completely empty, the values of `z_perm` and `z_perm_shift` will match,
+     *          we can use this as a proxy to determine if we can skip `Sumcheck::compute_univariate_with_row_skipping`.
+     *          In fact, here are several other conditions that need to be checked to see if we can skip the computation
+     *          of all relations in the row.
      **/
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
     static bool skip_entire_row([[maybe_unused]] const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
                                 [[maybe_unused]] const EdgeType edge_idx)
     {
-        // skip conditions. TODO: add detailed commentary during audit.
+        // SKIP CONDITIONS:
         // The most important skip condition is that `z_perm == z_perm_shift`. This implies that none of the wire values
         // for the present input are involved in non-trivial copy constraints. Edge cases where nonzero rows do not
         // contribute to permutation:
         //
         // 1: If `lagrange_last != 0`, the permutation polynomial identity is updated even if
-        // z_perm == z_perm_shift
+        //    z_perm == z_perm_shift. Therefore, we must force it to be zero.
         //
         // 2: The final MSM row won't add to the permutation but still has polynomial identitiy
         //    contributions. This is because the permutation argument uses the SHIFTED msm columns when performing
-        //    lookups i.e. `polynomials.msm_accumulator_x[last_edge_idx] will change z_perm[last_edge_idx - 1] and
-        //    z_perm_shift[last_edge_idx - 1]
+        //    lookups i.e. `msm_accumulator_x[last_edge_idx]` will change `z_perm[last_edge_idx - 1]` and
+        //    `z_perm_shift[last_edge_idx - 1]`
         //
-        // 3. The value of `transcript_mul` can be non-zero at the end of an MSM of points-at-infinity, which will
-        //    cause `full_msm_count` to be non-zero while `transcript_msm_count` vanishes.
+        // 3. The value of `transcript_mul` is non-zero at the end of an MSM of points-at-infinity, which will
+        //    cause `full_msm_count` to be non-zero while `transcript_msm_count` vanishes. We therefore force
+        //    transcript_mul == 0 as a skip-row condition.
         //
-        // 4. For similar reasons, we must add that `transcript_op==0`.
+        // 4: We also force that `transcript_op==0`.
         return (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
                (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
                (polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1]) == 0 &&

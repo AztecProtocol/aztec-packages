@@ -23,13 +23,9 @@ describe('Oracle Version Check test suite', () => {
     executionDataProvider = mock<ExecutionDataProvider>();
 
     // Mock basic oracle responses
-    executionDataProvider.getChainId.mockResolvedValue(1);
-    executionDataProvider.getVersion.mockResolvedValue(1);
-    executionDataProvider.getTimestamp.mockResolvedValue(0n);
-    executionDataProvider.getBlockNumber.mockResolvedValue(1);
     executionDataProvider.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
     executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
-    executionDataProvider.getBlockHeader.mockResolvedValue(BlockHeader.empty());
+    executionDataProvider.getAnchorBlockHeader.mockResolvedValue(BlockHeader.empty());
     executionDataProvider.getContractInstance.mockResolvedValue({
       currentContractClassId: new Fr(42),
       originalContractClassId: new Fr(42),

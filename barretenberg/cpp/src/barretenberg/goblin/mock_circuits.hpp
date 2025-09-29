@@ -12,6 +12,7 @@
 #include "barretenberg/crypto/merkle_tree/memory_store.hpp"
 #include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
@@ -63,11 +64,10 @@ class GoblinMockCircuits {
     using Flavor = bb::MegaFlavor;
     using RecursiveFlavor = bb::MegaRecursiveFlavor_<MegaBuilder>;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
-    using DeciderVerificationKey = bb::DeciderVerificationKey_<Flavor>;
-    using RecursiveDeciderVerificationKey =
-        ::bb::stdlib::recursion::honk::RecursiveDeciderVerificationKey_<RecursiveFlavor>;
-    using RecursiveVKAndHash = RecursiveDeciderVerificationKey::VKAndHash;
-    using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveDeciderVerificationKey>;
+    using VerifierInstance = bb::VerifierInstance_<Flavor>;
+    using RecursiveVerifierInstance = ::bb::stdlib::recursion::honk::RecursiveVerifierInstance_<RecursiveFlavor>;
+    using RecursiveVKAndHash = RecursiveVerifierInstance::VKAndHash;
+    using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveVerifierInstance>;
     using VerificationKey = Flavor::VerificationKey;
 
     static constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
@@ -95,7 +95,7 @@ class GoblinMockCircuits {
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
         // function circuit because we cannot support zero commtiments. While the builder handles this at
-        // DeciderProvingKey creation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other
+        // ProverInstance creation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other
         // MegaHonk circuits (where we don't explicitly need to add goblin ops), in IVC merge proving happens prior to
         // folding where the absense of goblin ecc ops will result in zero commitments.
         MockCircuits::construct_goblin_ecc_op_circuit(builder);
@@ -125,10 +125,12 @@ class GoblinMockCircuits {
     /**
      * @brief Add some randomness into the op queue.
      */
-    static void randomise_op_queue(MegaBuilder& builder)
+    static void randomise_op_queue(MegaBuilder& builder, size_t num_ops)
     {
-        builder.queue_ecc_random_op();
-        builder.queue_ecc_random_op();
+
+        for (size_t i = 0; i < num_ops; ++i) {
+            builder.queue_ecc_random_op();
+        }
     }
 
     /**
@@ -136,17 +138,32 @@ class GoblinMockCircuits {
      *
      * @param builder
      */
-    static void construct_simple_circuit(MegaBuilder& builder, bool last_circuit = false)
+    static void construct_simple_circuit(MegaBuilder& builder)
     {
         BB_BENCH();
-        // The last circuit to be accumulated must contain a no-op
-        if (last_circuit) {
-            builder.queue_ecc_no_op();
-        }
 
         add_some_ecc_op_gates(builder);
         MockCircuits::construct_arithmetic_circuit(builder);
         bb::stdlib::recursion::honk::DefaultIO<MegaBuilder>::add_default(builder);
+    }
+
+    static void construct_and_merge_mock_circuits(Goblin& goblin, const size_t num_circuits = 3)
+    {
+        for (size_t idx = 0; idx < num_circuits - 1; ++idx) {
+            MegaCircuitBuilder builder{ goblin.op_queue };
+            if (idx == num_circuits - 2) {
+                // Last circuit appended needs to begin with a no-op for translator to be shiftable
+                builder.queue_ecc_no_op();
+                randomise_op_queue(builder, TranslatorCircuitBuilder::NUM_RANDOM_OPS_START);
+            }
+            construct_simple_circuit(builder);
+            goblin.prove_merge();
+            // Pop the merge proof from the queue, Goblin will be verified at the end
+            goblin.merge_verification_queue.pop_front();
+        }
+        MegaCircuitBuilder builder{ goblin.op_queue };
+        GoblinMockCircuits::construct_simple_circuit(builder);
+        randomise_op_queue(builder, TranslatorCircuitBuilder::NUM_RANDOM_OPS_END);
     }
 
     /**

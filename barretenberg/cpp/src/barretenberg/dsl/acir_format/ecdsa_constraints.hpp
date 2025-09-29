@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
+#include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include <vector>
@@ -42,11 +43,16 @@ struct EcdsaConstraint {
     std::array<uint32_t, 32> pub_x_indices;
     std::array<uint32_t, 32> pub_y_indices;
 
+    // Predicate indicating whether the constraint should be disabled:
+    // - true: the constraint is valid
+    // - false: the constraint is disabled, i.e it must not fail and can return whatever.
+    WitnessOrConstant<bb::fr> predicate;
+
     // Expected result of signature verification
     uint32_t result;
 
     // For serialization, update with any new fields
-    MSGPACK_FIELDS(hashed_message, signature, pub_x_indices, pub_y_indices, result);
+    MSGPACK_FIELDS(hashed_message, signature, pub_x_indices, pub_y_indices, predicate, result);
     friend bool operator==(EcdsaConstraint const& lhs, EcdsaConstraint const& rhs) = default;
 };
 

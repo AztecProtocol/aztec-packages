@@ -26,7 +26,7 @@ const baseButton = css({
     backgroundColor: '#CDD1D5',
     color: '#808080',
     cursor: 'not-allowed',
-  }
+  },
 });
 
 const baseLabel = css({
@@ -111,7 +111,7 @@ export const actionButton = css({
   color: '#000000',
   '&:hover': {
     backgroundColor: '#BCC0C4',
-  }
+  },
 });
 
 export const dropZoneContainer = css({
@@ -284,8 +284,8 @@ export const parameterInput = css({
   '& .MuiInputBase-root': {
     '&.Mui-focused fieldset': {
       border: 'none',
-    }
-  }
+    },
+  },
 });
 
 export const actionButtonsContainer = css({

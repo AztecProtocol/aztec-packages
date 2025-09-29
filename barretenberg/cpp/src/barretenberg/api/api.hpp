@@ -22,6 +22,7 @@ class API {
         bool write_vk{ false };    // should we addditionally write the verification key when writing the proof
         bool include_gates_per_opcode{ false }; // should we include gates_per_opcode in the gates command output
         bool slow_low_memory{ false };          // use file backed memory for polynomials
+        std::string storage_budget;             // storage budget for file backed memory (e.g. "500m", "2g")
         bool update_inputs{ false };            // update inputs when check fails
 
         bool optimized_solidity_verifier{ false }; // should we use the optimized sol verifier? (temp)
@@ -40,6 +41,7 @@ class API {
                << "  write_vk " << flags.write_vk << "\n"
                << "  include_gates_per_opcode " << flags.include_gates_per_opcode << "\n"
                << "  slow_low_memory " << flags.slow_low_memory << "\n"
+               << "  storage_budget " << flags.storage_budget << "\n"
                << "]" << std::endl;
             return os;
         }

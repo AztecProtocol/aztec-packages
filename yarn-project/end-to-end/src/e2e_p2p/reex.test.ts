@@ -112,13 +112,11 @@ describe('e2e_p2p_reex', () => {
 
     // Hold off sequencers from building a block
     const pauseProposals = () =>
-      Promise.all(
-        nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: NUM_TXS_PER_NODE + 1 })),
-      );
+      Promise.all(nodes.map(node => node.getSequencer()?.updateConfig({ minTxsPerBlock: NUM_TXS_PER_NODE + 1 })));
 
     // Reenable them
     const resumeProposals = () =>
-      Promise.all(nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: NUM_TXS_PER_NODE })));
+      Promise.all(nodes.map(node => node.getSequencer()?.updateConfig({ minTxsPerBlock: NUM_TXS_PER_NODE })));
 
     // Make sure the nodes submit faulty proposals, in this case a faulty proposal is one where we remove one of the transactions
     // Such that the calculated archive will be different!

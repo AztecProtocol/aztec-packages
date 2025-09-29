@@ -7,7 +7,7 @@ pub contract Child {
 
     use dep::aztec::{
         macros::{functions::{internal, private, public}, storage::storage},
-        messages::logs::note::encode_and_encrypt_note,
+        messages::message_delivery::MessageDelivery,
         note::{note_getter_options::NoteGetterOptions, note_interface::NoteProperties},
         state_vars::{Map, PrivateSet, PublicMutable},
         utils::comparison::Comparator,
@@ -62,10 +62,11 @@ pub contract Child {
         let note = ValueNote::new(new_value, owner);
         // docs:end:valuenote_new
 
-        storage.a_map_with_private_values.at(owner).insert(note).emit(encode_and_encrypt_note(
+        storage.a_map_with_private_values.at(owner).insert(note).emit(
             &mut context,
             owner,
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
         new_value
     }
 

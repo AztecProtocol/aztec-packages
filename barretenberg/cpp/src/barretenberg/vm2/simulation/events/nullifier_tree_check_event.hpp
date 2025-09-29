@@ -2,14 +2,13 @@
 
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/checkpoint_event_type.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/lib/db_types.hpp"
 
 #include <cstdint>
+#include <variant>
 #include <vector>
 
 namespace bb::avm2::simulation {
-
-using NullifierTreeLeafPreimage = IndexedLeaf<NullifierLeafValue>;
 
 struct NullifierSiloingData {
     FF siloed_nullifier;

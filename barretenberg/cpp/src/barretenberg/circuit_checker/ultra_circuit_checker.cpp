@@ -22,8 +22,9 @@ UltraCircuitBuilder_<UltraExecutionTraceBlocks> UltraCircuitChecker::prepare_cir
 {
     // Create a copy of the input circuit
     UltraCircuitBuilder_<UltraExecutionTraceBlocks> builder{ builder_in };
-
-    builder.finalize_circuit(/*ensure_nonzero=*/true); // Test the ensure_nonzero gates as well
+    if (!builder.circuit_finalized) { // avoid warnings about finalizing an already finalized circuit
+        builder.finalize_circuit(/*ensure_nonzero=*/true); // Test the ensure_nonzero gates as well
+    }
 
     return builder;
 }

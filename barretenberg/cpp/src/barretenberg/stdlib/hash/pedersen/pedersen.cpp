@@ -33,30 +33,6 @@ field_t<C> pedersen_hash<C>::hash(const std::vector<field_ct>& inputs, const Gen
     return result.x;
 }
 
-template <typename C>
-field_t<C> pedersen_hash<C>::hash_skip_field_validation(const std::vector<field_ct>& inputs,
-                                                        const GeneratorContext context)
-{
-    using cycle_scalar = typename cycle_group::cycle_scalar;
-    using Curve = EmbeddedCurve;
-
-    const auto base_points = context.generators->get(inputs.size(), context.offset, context.domain_separator);
-
-    std::vector<cycle_scalar> scalars;
-    std::vector<cycle_group> points;
-    scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(field_ct(inputs.size())));
-    points.emplace_back(crypto::pedersen_hash_base<Curve>::length_generator);
-    for (size_t i = 0; i < inputs.size(); ++i) {
-        // `true` param = skip primality test when performing a scalar mul
-        scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(inputs[i], true));
-        // constructs constant cycle_group objects (non-witness)
-        points.emplace_back(base_points[i]);
-    }
-
-    auto result = cycle_group::batch_mul(points, scalars);
-    return result.x;
-}
-
 /**
  * @brief Hash a byte_array.
  *

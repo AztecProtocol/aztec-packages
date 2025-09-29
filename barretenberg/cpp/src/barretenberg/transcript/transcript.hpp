@@ -385,6 +385,15 @@ template <typename TranscriptParams> class BaseTranscript {
             manifest.add_challenge(round_number, labels...);
         }
 
+        // In case the transcript is used for recursive verification, we need to sanitize current round data so we don't
+        // get an origin tag violation inside the hasher. We are doing this to ensure that the free witness tagged
+        // elements that are sent to the transcript and are assigned tags externally, don't trigger the origin tag
+        // security mechanism while we are hashing them
+        if constexpr (in_circuit) {
+            for (auto& element : current_round_data) {
+                element.unset_free_witness_tag();
+            }
+        }
         // Compute the new challenge buffer from which we derive the challenges.
 
         // Create challenges from Frs.
@@ -500,6 +509,13 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     DataType hash_independent_buffer()
     {
+        // In case the transcript is used for recursive verification, we need to sanitize current round data so we don't
+        // get an origin tag violation inside the hasher
+        if constexpr (in_circuit) {
+            for (auto& element : independent_hash_buffer) {
+                element.unset_free_witness_tag();
+            }
+        }
         DataType buffer_hash = TranscriptParams::hash(independent_hash_buffer);
         independent_hash_buffer.clear();
         return buffer_hash;
@@ -560,18 +576,9 @@ template <typename TranscriptParams> class BaseTranscript {
     template <class T> void send_to_verifier(const std::string& label, const T& element)
     {
         DEBUG_LOG(label, element);
-
-        auto element_frs = TranscriptParams::serialize(element);
-        proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
-        num_frs_written += element_frs.size();
-
-#ifdef LOG_INTERACTIONS
-        if constexpr (Loggable<T>) {
-            info("sent:     ", label, ": ", element);
-        }
-#endif
-        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
         // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
+        // It's important to do this before adding the element to the hash buffer, otherwise we might get an origin tag
+        // violation inside the hasher
         if constexpr (in_circuit) {
             // The prover is sending data to the verifier. If before this we were in the challenge generation phase,
             // then we need to increment the round index
@@ -589,6 +596,17 @@ template <typename TranscriptParams> class BaseTranscript {
                 element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
             }
         }
+
+        auto element_frs = TranscriptParams::serialize(element);
+        proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
+        num_frs_written += element_frs.size();
+
+#ifdef LOG_INTERACTIONS
+        if constexpr (Loggable<T>) {
+            info("sent:     ", label, ": ", element);
+        }
+#endif
+        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
     }
 
     /**
@@ -604,19 +622,6 @@ template <typename TranscriptParams> class BaseTranscript {
         BB_ASSERT_LTE(num_frs_read + element_size, proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
-        num_frs_read += element_size;
-
-        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
-
-        auto element = TranscriptParams::template deserialize<T>(element_frs);
-        DEBUG_LOG(label, element);
-
-#ifdef LOG_INTERACTIONS
-        if constexpr (Loggable<T>) {
-            info("received: ", label, ": ", element);
-        }
-#endif
-
         // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
         if constexpr (in_circuit) {
             // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
@@ -625,16 +630,38 @@ template <typename TranscriptParams> class BaseTranscript {
                 reception_phase = true;
                 round_index++;
             }
-            // If the element is iterable, then we need to assign origin tags to all the elements
-            if constexpr (is_iterable_v<T>) {
-                for (auto& subelement : element) {
-                    subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-                }
-            } else {
-                // If the element is not iterable, then we need to assign an origin tag to the element
-                element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+            // Assign an origin tag to the elements going into the hash buffer
+            const auto element_origin_tag = OriginTag(transcript_index, round_index, /*is_submitted=*/true);
+            for (auto& subelement : element_frs) {
+                subelement.set_origin_tag(element_origin_tag);
             }
         }
+        num_frs_read += element_size;
+
+        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
+
+        auto element = TranscriptParams::template deserialize<T>(element_frs);
+        DEBUG_LOG(label, element);
+
+        // Ensure that the element got assigned an origin tag
+        if constexpr (in_circuit) {
+            const auto element_origin_tag = OriginTag(transcript_index, round_index, /*is_submitted=*/true);
+            // If the element is iterable, then we need to check origin tags to all the elements
+            if constexpr (is_iterable_v<T>) {
+                for (auto& subelement : element) {
+                    ASSERT(subelement.get_origin_tag() == element_origin_tag);
+                }
+            } else {
+                // If the element is not iterable, then we need to check an origin tag of the element
+                ASSERT(element.get_origin_tag() == element_origin_tag);
+            }
+        }
+#ifdef LOG_INTERACTIONS
+        if constexpr (Loggable<T>) {
+            info("received: ", label, ": ", element);
+        }
+#endif
+
         return element;
     }
 
@@ -753,7 +780,8 @@ template <typename TranscriptParams> class BaseTranscript {
         BaseTranscript branched_transcript;
 
         // Need to fetch_sub because the constructor automatically increases unique_transcript_index by 1
-        branched_transcript.transcript_index = unique_transcript_index.fetch_sub(1);
+        unique_transcript_index.fetch_sub(1);
+        branched_transcript.transcript_index = transcript_index;
         branched_transcript.round_index = round_index;
         branched_transcript.add_to_hash_buffer("init", previous_challenge);
         round_index += BRANCHING_JUMP;

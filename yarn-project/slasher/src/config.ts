@@ -20,6 +20,7 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashPrunePenalty: DefaultL1ContractsConfig.slashAmountSmall,
   slashDataWithholdingPenalty: DefaultL1ContractsConfig.slashAmountSmall,
   slashInactivityTargetPercentage: 0.9,
+  slashInactivityConsecutiveEpochThreshold: 1, // Default to 1 for backward compatibility
   slashBroadcastedInvalidBlockPenalty: DefaultL1ContractsConfig.slashAmountSmall,
   slashInactivityPenalty: DefaultL1ContractsConfig.slashAmountSmall,
   slashProposeInvalidAttestationsPenalty: DefaultL1ContractsConfig.slashAmountSmall,
@@ -28,6 +29,7 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashOffenseExpirationRounds: 4,
   slashMaxPayloadSize: 50,
   slashGracePeriodL2Slots: 0,
+  slashExecuteRoundsLookBack: 4,
   slashSelfAllowed: false,
 };
 
@@ -82,7 +84,7 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
   },
   slashBroadcastedInvalidBlockPenalty: {
     env: 'SLASH_INVALID_BLOCK_PENALTY',
-    description: 'Penalty amount for slashing a validator for an invalid block.',
+    description: 'Penalty amount for slashing a validator for an invalid block proposed via p2p.',
     ...bigintConfigHelper(DefaultSlasherConfig.slashBroadcastedInvalidBlockPenalty),
   },
   slashInactivityTargetPercentage: {
@@ -94,6 +96,18 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
         throw new RangeError(`SLASH_INACTIVITY_TARGET_PERCENTAGE out of range. Expected (0, 1] got ${v}`);
       }
     }),
+  },
+  slashInactivityConsecutiveEpochThreshold: {
+    env: 'SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD',
+    description: 'Number of consecutive epochs a validator must be inactive before slashing (minimum 1).',
+    ...numberConfigHelper(DefaultSlasherConfig.slashInactivityConsecutiveEpochThreshold),
+    parseEnv: (val: string) => {
+      const parsed = parseInt(val, 10);
+      if (parsed < 1) {
+        throw new RangeError(`SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD must be at least 1 (got ${parsed})`);
+      }
+      return parsed;
+    },
   },
   slashInactivityPenalty: {
     env: 'SLASH_INACTIVITY_PENALTY',
@@ -130,6 +144,11 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
     description: 'Number of L2 slots to wait before considering a slashing offense expired.',
     env: 'SLASH_GRACE_PERIOD_L2_SLOTS',
     ...numberConfigHelper(DefaultSlasherConfig.slashGracePeriodL2Slots),
+  },
+  slashExecuteRoundsLookBack: {
+    env: 'SLASH_EXECUTE_ROUNDS_LOOK_BACK',
+    description: 'How many rounds to look back when searching for a round to execute.',
+    ...numberConfigHelper(DefaultSlasherConfig.slashExecuteRoundsLookBack),
   },
   slashSelfAllowed: {
     description: 'Whether to allow slashes to own validators',

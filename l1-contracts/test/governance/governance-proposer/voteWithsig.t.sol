@@ -27,13 +27,6 @@ contract SignalWithSigTest is GovernanceProposerBase {
     validatorSelection = new Fakerollup();
   }
 
-  // Skipping this test since the it matches the for now skipped check in `EmpireBase::signal`
-  function skip__test_WhenProposalHoldNoCode() external {
-    // it revert
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__PayloadHaveNoCode.selector, proposal));
-    governanceProposer.signalWithSig(proposal, signature);
-  }
-
   modifier whenProposalHoldCode() {
     proposal = IPayload(address(this));
     signature = createSignature(privateKey, proposal);
@@ -50,7 +43,7 @@ contract SignalWithSigTest is GovernanceProposerBase {
     registry.addRollup(IRollup(f));
     vm.etch(f, "");
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(f)));
+    vm.expectRevert(abi.encodeWithSelector(Errors.EmpireBase__InstanceHaveNoCode.selector, address(f)));
     governanceProposer.signalWithSig(proposal, signature);
   }
 
@@ -76,7 +69,7 @@ contract SignalWithSigTest is GovernanceProposerBase {
     assertEq(Slot.unwrap(currentSlot), 1);
     governanceProposer.signalWithSig(proposal, signature);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__SignalAlreadyCastForSlot.selector, currentSlot));
+    vm.expectRevert(abi.encodeWithSelector(Errors.EmpireBase__SignalAlreadyCastForSlot.selector, currentSlot));
     governanceProposer.signalWithSig(proposal, signature);
   }
 

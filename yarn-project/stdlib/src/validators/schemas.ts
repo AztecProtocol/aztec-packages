@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import type {
   SingleValidatorStats,
+  ValidatorMissedStats,
   ValidatorStats,
   ValidatorStatusHistory,
   ValidatorStatusInSlot,
@@ -35,19 +36,20 @@ const ValidatorTimeStatSchema = z.object({
   date: z.string(),
 });
 
-const ValidatorFilteredHistorySchema = z.object({
+const ValidatorMissedStatsSchema = z.object({
   currentStreak: schemas.Integer,
   rate: z.number().optional(),
   count: schemas.Integer,
-});
+  total: schemas.Integer,
+}) satisfies ZodFor<ValidatorMissedStats>;
 
 export const ValidatorStatsSchema = z.object({
   address: schemas.EthAddress,
   lastProposal: ValidatorTimeStatSchema.optional(),
   lastAttestation: ValidatorTimeStatSchema.optional(),
   totalSlots: schemas.Integer,
-  missedProposals: ValidatorFilteredHistorySchema,
-  missedAttestations: ValidatorFilteredHistorySchema,
+  missedProposals: ValidatorMissedStatsSchema,
+  missedAttestations: ValidatorMissedStatsSchema,
   history: ValidatorStatusHistorySchema,
 }) satisfies ZodFor<ValidatorStats>;
 

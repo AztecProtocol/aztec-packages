@@ -13,171 +13,111 @@
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2_permutation.hpp"
-#include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace bb::stdlib {
 
 /**
  * @brief Implements the circuit form of a cryptographic sponge over prime fields.
- *        Implements the sponge specification from the Community Cryptographic Specification Project
- *        see https://github.com/C2SP/C2SP/blob/792c1254124f625d459bfe34417e8f6bdd02eb28/poseidon-sponge.md
- *        (Note: this spec was not accepted into the C2SP repo, we might want to reference something else!)
  *
- *        Note: If we ever use this sponge class for more than 1 hash functions, we should move this out of `poseidon2`
- *              and into its own directory
- * @tparam field_t
- * @tparam rate
- * @tparam capacity
- * @tparam t
- * @tparam Permutation
+ * @tparam Builder A circuit builder class. Can be Ultra- or MegaCircuitBuilder.
  */
-template <size_t rate, size_t capacity, size_t t, typename Permutation, typename Builder> class FieldSponge {
-  public:
-    /**
-     * @brief Defines what phase of the sponge algorithm we are in.
-     *
-     *        ABSORB: 'absorbing' field elements into the sponge
-     *        SQUEEZE: compressing the sponge and extracting a field element
-     *
-     */
-    enum Mode {
-        ABSORB,
-        SQUEEZE,
-    };
+template <typename Builder> class FieldSponge {
+  private:
+    using Permutation = Poseidon2Permutation<Builder>;
+    static constexpr size_t t = crypto::Poseidon2Bn254ScalarFieldParams::t; // = 4
+    static constexpr size_t capacity = 1;
+    static constexpr size_t rate = t - capacity; // = 3
+
     using field_t = stdlib::field_t<Builder>;
 
     // sponge state. t = rate + capacity. capacity = 1 field element (~256 bits)
-    std::array<field_t, t> state;
+    std::array<field_t, t> state{};
 
     // cached elements that have been absorbed.
-    std::array<field_t, rate> cache;
+    std::array<field_t, rate> cache{};
     size_t cache_size = 0;
-    Mode mode = Mode::ABSORB;
     Builder* builder;
 
-    FieldSponge(Builder& builder_, field_t domain_iv = 0)
-        : builder(&builder_)
+    FieldSponge(Builder* builder_, size_t in_len)
+        : builder(builder_)
     {
-        for (size_t i = 0; i < rate; ++i) {
-            state[i] = witness_t<Builder>::create_constant_witness(builder, 0);
-        }
-        state[rate] = witness_t<Builder>::create_constant_witness(builder, domain_iv.get_value());
+        // Add the domain separation to the initial state.
+        field_t iv(static_cast<uint256_t>(in_len) << 64);
+        iv.convert_constant_to_fixed_witness(builder);
+        state[rate] = iv;
     }
 
-    std::array<field_t, rate> perform_duplex()
+    void perform_duplex()
     {
-        // zero-pad the cache
-        for (size_t i = cache_size; i < rate; ++i) {
-            cache[i] = witness_t<Builder>::create_constant_witness(builder, 0);
-        }
-        // add the cache into sponge state
+        // Add the cache into sponge state
         for (size_t i = 0; i < rate; ++i) {
             state[i] += cache[i];
         }
+
+        // Apply Poseidon2 permutation
         state = Permutation::permutation(builder, state);
-        // return `rate` number of field elements from the sponge state.
-        std::array<field_t, rate> output;
-        for (size_t i = 0; i < rate; ++i) {
-            output[i] = state[i];
-        }
-        // variables with indices from rate to size of state - 1 won't be used anymore
-        // after permutation. But they aren't dangerous and needed to put in used witnesses
-        if constexpr (IsUltraBuilder<Builder>) {
-            for (size_t i = rate; i < t; i++) {
-                builder->update_used_witnesses(state[i].witness_index);
-            }
-        }
-        return output;
+
+        // Reset the cache
+        cache = {};
     }
 
     void absorb(const field_t& input)
     {
-        if (mode == Mode::ABSORB && cache_size == rate) {
+        if (cache_size == rate) {
             // If we're absorbing, and the cache is full, apply the sponge permutation to compress the cache
             perform_duplex();
             cache[0] = input;
             cache_size = 1;
-        } else if (mode == Mode::ABSORB && cache_size < rate) {
+        } else {
             // If we're absorbing, and the cache is not full, add the input into the cache
             cache[cache_size] = input;
             cache_size += 1;
-        } else if (mode == Mode::SQUEEZE) {
-            // If we're in squeeze mode, switch to absorb mode and add the input into the cache.
-            // N.B. I don't think this code path can be reached?!
-            cache[0] = input;
-            cache_size = 1;
-            mode = Mode::ABSORB;
         }
     }
 
     field_t squeeze()
     {
-        if (mode == Mode::SQUEEZE && cache_size == 0) {
-            // If we're in squeze mode and the cache is empty, there is nothing left to squeeze out of the sponge!
-            // Switch to absorb mode.
-            mode = Mode::ABSORB;
-            cache_size = 0;
-        }
-        if (mode == Mode::ABSORB) {
-            // If we're in absorb mode, apply sponge permutation to compress the cache, populate cache with compressed
-            // state and switch to squeeze mode. Note: this code block will execute if the previous `if` condition was
-            // matched
-            auto new_output_elements = perform_duplex();
-            mode = Mode::SQUEEZE;
-            for (size_t i = 0; i < rate; ++i) {
-                cache[i] = new_output_elements[i];
-            }
-            cache_size = rate;
-        }
-        // By this point, we should have a non-empty cache. Pop one item off the top of the cache and return it.
-        field_t result = cache[0];
-        for (size_t i = 1; i < cache_size; ++i) {
-            cache[i - 1] = cache[i];
-        }
-        cache_size -= 1;
-        cache[cache_size] = witness_t<Builder>::create_constant_witness(builder, 0);
-        return result;
+
+        perform_duplex();
+
+        return state[0];
     }
 
+  public:
     /**
-     * @brief Use the sponge to hash an input string
+     * @brief Use the sponge to hash an input vector.
      *
-     * @tparam out_len
-     * @tparam is_variable_length. Distinguishes between hashes where the preimage length is constant/not constant
-     * @param input
-     * @return std::array<field_t, out_len>
+     * @param input Circuit witnesses (a_0, ..., a_{N-1})
+     * @return Hash of the input, a single witness field element.
      */
-    template <size_t out_len>
-    static std::array<field_t, out_len> hash_internal(Builder& builder, std::span<const field_t> input)
+    static field_t hash_internal(std::span<const field_t> input)
     {
-        size_t in_len = input.size();
-        const uint256_t iv = (static_cast<uint256_t>(in_len) << 64) + out_len - 1;
-        FieldSponge sponge(builder, iv);
+        // Ensure that all inputs belong to the same circuit and extract a pointer to the circuit object.
+        Builder* builder = validate_context<Builder>(input);
 
+        // Ensure that the pointer is not a `nullptr`
+        ASSERT(builder);
+
+        // Initialize the sponge state. Input length is used for domain separation.
+        const size_t in_len = input.size();
+        FieldSponge sponge(builder, in_len);
+
+        // Absorb inputs in blocks of size r = 3. Make sure that all inputs are witneesses.
         for (size_t i = 0; i < in_len; ++i) {
-            BB_ASSERT_EQ(input[i].witness_index == IS_CONSTANT, false, "Sponge inputs should not be stdlib constants.");
+            BB_ASSERT_EQ(input[i].is_constant(), false, "Sponge inputs should not be stdlib constants.");
             sponge.absorb(input[i]);
         }
 
-        std::array<field_t, out_len> output;
-        for (size_t i = 0; i < out_len; ++i) {
-            output[i] = sponge.squeeze();
-        }
-        // variables with indices won't be used in the circuit.
-        // but they aren't dangerous and needed to put in used witnesses
-        if constexpr (IsUltraBuilder<Builder>) {
-            for (const auto& elem : sponge.cache) {
-                if (elem.witness_index != IS_CONSTANT) {
-                    builder.update_used_witnesses(elem.witness_index);
-                }
-            }
+        // Perform final duplex call. At this point, cache contains `m = in_len % 3` input elements and 3 - m constant
+        // zeroes served as padding.
+        field_t output = sponge.squeeze();
+
+        // The final state consists of 4 elements, we only use the first element, which means that the remaining
+        // 3 witnesses are only used in a single gate.
+        for (const auto& elem : sponge.state) {
+            builder->update_used_witnesses(elem.witness_index);
         }
         return output;
-    }
-
-    static field_t hash_internal(Builder& builder, std::span<const field_t> input)
-    {
-        return hash_internal<1>(builder, input)[0];
     }
 };
 } // namespace bb::stdlib

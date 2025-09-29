@@ -11,22 +11,13 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
   const t = new CrossChainMessagingTest('token_bridge_failure_cases');
   let version: number = 1;
 
-  let {
-    crossChainTestHarness,
-    ethAccount,
-    l2Bridge,
-    user1Wallet,
-    user2Wallet,
-    ownerAddress,
-    user1Address,
-    user2Address,
-  } = t;
+  let { crossChainTestHarness, ethAccount, l2Bridge, ownerAddress, user1Address, user2Address } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ crossChainTestHarness, user1Wallet, user2Wallet, user1Address, user2Address, ownerAddress } = t);
+    ({ crossChainTestHarness, user1Address, user2Address, ownerAddress } = t);
     ethAccount = crossChainTestHarness.ethAccount;
     l2Bridge = crossChainTestHarness.l2Bridge;
     ownerAddress = crossChainTestHarness.ownerAddress;
@@ -50,9 +41,8 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
     const authwitNonce = Fr.random();
     // Should fail as owner has not given approval to bridge burn their funds.
     await expect(
-      l2Bridge
-        .withWallet(user1Wallet)
-        .methods.exit_to_l1_public(ethAccount, withdrawAmount, EthAddress.ZERO, authwitNonce)
+      l2Bridge.methods
+        .exit_to_l1_public(ethAccount, withdrawAmount, EthAddress.ZERO, authwitNonce)
         .simulate({ from: user1Address }),
     ).rejects.toThrow(/unauthorized/);
   }, 60_000);
@@ -83,9 +73,8 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
 
     // Sending wrong secret hashes should fail:
     await expect(
-      l2Bridge
-        .withWallet(user2Wallet)
-        .methods.claim_private(ownerAddress, wrongBridgeAmount, claim.claimSecret, claim.messageLeafIndex)
+      l2Bridge.methods
+        .claim_private(ownerAddress, wrongBridgeAmount, claim.claimSecret, claim.messageLeafIndex)
         .simulate({ from: user2Address }),
     ).rejects.toThrow(`No L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
   }, 60_000);
@@ -104,9 +93,8 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
 
     // 3. Consume L1 -> L2 message and try to mint publicly on L2  - should fail
     await expect(
-      l2Bridge
-        .withWallet(user2Wallet)
-        .methods.claim_public(ownerAddress, bridgeAmount, Fr.random(), claim.messageLeafIndex)
+      l2Bridge.methods
+        .claim_public(ownerAddress, bridgeAmount, Fr.random(), claim.messageLeafIndex)
         .simulate({ from: ownerAddress }),
     ).rejects.toThrow(NO_L1_TO_L2_MSG_ERROR);
   });

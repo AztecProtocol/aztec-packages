@@ -13,4 +13,14 @@ runs = 2
 
 solc = "0.8.29"
 
+[lint]
+ignore = ["./lib/**"]
+exclude_lints = [
+  # Silencing due to just being style changes
+  "mixed-case-variable",
+  "mixed-case-function",
+  "screaming-snake-case-const",
+  "screaming-snake-case-immutable",
+]
+
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

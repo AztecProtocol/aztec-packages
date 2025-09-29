@@ -5,7 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, CustomRange, StoreSize } from '@aztec/kv-store';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2Block } from '@aztec/stdlib/block';
+import type { L2Block, ValidateBlockResult } from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -394,5 +394,13 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
 
   public removeL1ToL2Messages(startIndex: bigint): Promise<void> {
     return this.#messageStore.removeL1ToL2Messages(startIndex);
+  }
+
+  public getPendingChainValidationStatus(): Promise<ValidateBlockResult | undefined> {
+    return this.#blockStore.getPendingChainValidationStatus();
+  }
+
+  public setPendingChainValidationStatus(status: ValidateBlockResult | undefined): Promise<void> {
+    return this.#blockStore.setPendingChainValidationStatus(status);
   }
 }

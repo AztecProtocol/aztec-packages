@@ -1,4 +1,4 @@
-import { getInitialTestAccounts } from '@aztec/accounts/testing';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { type EthAddress, Fr } from '@aztec/aztec.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { SecretValue } from '@aztec/foundation/config';
@@ -27,7 +27,7 @@ export async function deployL1Contracts(
 ) {
   const config = getL1ContractsConfigEnvVars();
 
-  const initialAccounts = testAccounts ? await getInitialTestAccounts() : [];
+  const initialAccounts = testAccounts ? await getInitialTestAccountsData() : [];
   const sponsoredFPCAddress = sponsoredFPC ? await getSponsoredFPCAddress() : [];
   const initialFundedAccounts = initialAccounts.map(a => a.address).concat(sponsoredFPCAddress);
   const { genesisArchiveRoot, fundingNeeded } = await getGenesisValues(initialFundedAccounts);

@@ -6,7 +6,7 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useContext } from 'react';
-import { AztecContext } from '../../../aztecEnv';
+import { AztecContext } from '../../../aztecContext';
 import Box from '@mui/material/Box';
 import { VERSION } from '../../../utils/constants';
 
@@ -31,7 +31,7 @@ const uploadIcon = css({
 export function ContractUpload() {
   const { setCurrentContractArtifact, network } = useContext(AztecContext);
 
-  const { getRootProps, getInputProps, } = useDropzone({
+  const { getRootProps, getInputProps } = useDropzone({
     onDrop: async files => {
       const file = files[0];
       const reader = new FileReader();
@@ -58,10 +58,17 @@ export function ContractUpload() {
         </Typography>
         <Typography>Drag and drop a contract JSON file here, or click to select a file</Typography>
 
-
-        <Box sx={{ textAlign: 'left', backgroundColor: 'var(--mui-palette-grey-A200)', p: 2, borderRadius: '5px', my: 3 }}>
+        <Box
+          sx={{ textAlign: 'left', backgroundColor: 'var(--mui-palette-grey-A200)', p: 2, borderRadius: '5px', my: 3 }}
+        >
           <Box>
-            <a href="https://docs.aztec.network/developers/tutorials/codealong/contract_tutorials/counter_contract" target="_blank" rel="noopener noreferrer">Learn</a>
+            <a
+              href="https://docs.aztec.network/developers/tutorials/codealong/contract_tutorials/counter_contract"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Learn
+            </a>
             <span> to write your own Aztec smart contracts and upload them here when ready.</span>
           </Box>
 
@@ -69,7 +76,7 @@ export function ContractUpload() {
             <Typography
               variant="body2"
               color="text.secondary"
-              onClick={(e) => {
+              onClick={e => {
                 e.stopPropagation();
               }}
             >

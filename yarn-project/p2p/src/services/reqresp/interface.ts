@@ -123,27 +123,6 @@ export type SubProtocolMap = {
 };
 
 /**
- * Default handler for unimplemented sub protocols, this SHOULD be overwritten
- * by the service, but is provided as a fallback
- */
-export const defaultHandler = (_msg: any): Promise<Buffer> => {
-  return Promise.resolve(Buffer.from('unimplemented'));
-};
-
-/**
- * Default sub protocol handlers - this SHOULD be overwritten by the service,
- */
-export const DEFAULT_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
-  [ReqRespSubProtocol.PING]: defaultHandler,
-  [ReqRespSubProtocol.STATUS]: defaultHandler,
-  [ReqRespSubProtocol.TX]: defaultHandler,
-  [ReqRespSubProtocol.GOODBYE]: defaultHandler,
-  [ReqRespSubProtocol.BLOCK]: defaultHandler,
-  [ReqRespSubProtocol.AUTH]: defaultHandler,
-  [ReqRespSubProtocol.BLOCK_TXS]: defaultHandler,
-};
-
-/**
  * The Request Response Pair interface defines the methods that each
  * request response pair must implement
  */

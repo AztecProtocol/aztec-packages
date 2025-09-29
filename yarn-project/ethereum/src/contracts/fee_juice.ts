@@ -9,14 +9,21 @@ export class FeeJuiceContract {
   private readonly feeJuiceContract: GetContractReturnType<typeof FeeJuiceAbi, ViemClient>;
 
   constructor(
-    address: Hex,
+    address: Hex | EthAddress,
     public readonly client: ViemClient,
   ) {
+    if (address instanceof EthAddress) {
+      address = address.toString();
+    }
     this.feeJuiceContract = getContract({ address, abi: FeeJuiceAbi, client });
   }
 
   public get address() {
     return EthAddress.fromString(this.feeJuiceContract.address);
+  }
+
+  public async getOwner(): Promise<EthAddress> {
+    return EthAddress.fromString(await this.feeJuiceContract.read.owner());
   }
 
   private assertWalletFeeJuice(): GetContractReturnType<typeof FeeJuiceAbi, ExtendedViemWalletClient> {

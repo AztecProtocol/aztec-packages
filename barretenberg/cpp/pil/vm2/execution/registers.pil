@@ -49,31 +49,30 @@ sel_op_reg_effective[5] = sel_mem_op_reg[5] * (sel_should_read_registers * (1 - 
 #[SEL_OP_REG_EFFECTIVE_6]
 sel_op_reg_effective[6] = sel_mem_op_reg[6] * (sel_should_read_registers * (1 - rw_reg[6]) + sel_should_write_registers * rw_reg[6]);
 
-// FIXME: this should eventually be a permutation.
-// Observe that the following lookups span both temporality groups.
+// Observe that the following permutations span both temporality groups.
 // That's why we have to properly activate them with the above selectors, which take into account
 // whether we have reached a given phase.
 #[MEM_OP_0]
-sel_op_reg_effective[0] { rop[0], register[0], mem_tag_reg[0], rw_reg[0], precomputed.clk, context_id }
-in memory.sel { memory.address, memory.value, memory.tag, memory.rw, memory.clk, memory.space_id };
+sel_op_reg_effective[0]      { precomputed.clk, context_id,      rop[0],         register[0],  mem_tag_reg[0], rw_reg[0] }
+is memory.sel_register_op[0] { memory.clk,      memory.space_id, memory.address, memory.value, memory.tag,     memory.rw };
 #[MEM_OP_1]
-sel_op_reg_effective[1] { rop[1], register[1], mem_tag_reg[1], rw_reg[1], precomputed.clk, context_id }
-in memory.sel { memory.address, memory.value, memory.tag, memory.rw, memory.clk, memory.space_id };
+sel_op_reg_effective[1]      { precomputed.clk, context_id,      rop[1],         register[1],  mem_tag_reg[1], rw_reg[1] }
+is memory.sel_register_op[1] { memory.clk,      memory.space_id, memory.address, memory.value, memory.tag,     memory.rw };
 #[MEM_OP_2]
-sel_op_reg_effective[2] { rop[2], register[2], mem_tag_reg[2], rw_reg[2], precomputed.clk, context_id }
-in memory.sel { memory.address, memory.value, memory.tag, memory.rw, memory.clk, memory.space_id };
+sel_op_reg_effective[2]      { precomputed.clk, context_id,      rop[2],         register[2],  mem_tag_reg[2], rw_reg[2] }
+is memory.sel_register_op[2] { memory.clk,      memory.space_id, memory.address, memory.value, memory.tag,     memory.rw };
 #[MEM_OP_3]
-sel_op_reg_effective[3] { rop[3], register[3], mem_tag_reg[3], rw_reg[3], precomputed.clk, context_id }
-in memory.sel { memory.address, memory.value, memory.tag, memory.rw, memory.clk, memory.space_id };
+sel_op_reg_effective[3]      { precomputed.clk, context_id,      rop[3],         register[3],  mem_tag_reg[3], rw_reg[3] }
+is memory.sel_register_op[3] { memory.clk,      memory.space_id, memory.address, memory.value, memory.tag,     memory.rw };
 #[MEM_OP_4]
-sel_op_reg_effective[4] { rop[4], register[4], mem_tag_reg[4], rw_reg[4], precomputed.clk, context_id }
-in memory.sel { memory.address, memory.value, memory.tag, memory.rw, memory.clk, memory.space_id };
+sel_op_reg_effective[4]      { precomputed.clk, context_id,      rop[4],         register[4],  mem_tag_reg[4], rw_reg[4] }
+is memory.sel_register_op[4] { memory.clk,      memory.space_id, memory.address, memory.value, memory.tag,     memory.rw };
 #[MEM_OP_5]
-sel_op_reg_effective[5] { rop[5], register[5], mem_tag_reg[5], rw_reg[5], precomputed.clk, context_id }
-in memory.sel { memory.address, memory.value, memory.tag, memory.rw, memory.clk, memory.space_id };
+sel_op_reg_effective[5]      { precomputed.clk, context_id,      rop[5],         register[5],  mem_tag_reg[5], rw_reg[5] }
+is memory.sel_register_op[5] { memory.clk,      memory.space_id, memory.address, memory.value, memory.tag,     memory.rw };
 #[MEM_OP_6]
-sel_op_reg_effective[6] { rop[6], register[6], mem_tag_reg[6], rw_reg[6], precomputed.clk, context_id }
-in memory.sel { memory.address, memory.value, memory.tag, memory.rw, memory.clk, memory.space_id };
+sel_op_reg_effective[6]      { precomputed.clk, context_id,      rop[6],         register[6],  mem_tag_reg[6], rw_reg[6] }
+is memory.sel_register_op[6] { memory.clk,      memory.space_id, memory.address, memory.value, memory.tag,     memory.rw };
 
 // This error is true iff some final check failed. That is if some tag is not the expected one.
 // Observe that we don't need to know exactly which one failed.
