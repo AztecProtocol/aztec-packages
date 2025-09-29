@@ -575,27 +575,6 @@ template <typename TranscriptParams> class BaseTranscript {
     template <class T> void send_to_verifier(const std::string& label, const T& element)
     {
         DEBUG_LOG(label, element);
-        // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        // It's important to do this before adding the element to the hash buffer, otherwise we might get an origin tag
-        // violation inside the hasher
-        if constexpr (in_circuit) {
-            // The prover is sending data to the verifier. If before this we were in the challenge generation phase,
-            // then we need to increment the round index
-            if (!reception_phase) {
-                reception_phase = true;
-                round_index++;
-            }
-            // If the element is iterable, then we need to assign origin tags to all the elements
-            if constexpr (is_iterable_v<T>) {
-                for (const auto& subelement : element) {
-                    subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-                }
-            } else {
-                // If the element is not iterable, then we need to assign an origin tag to the element
-                element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-            }
-        }
-
         auto element_frs = TranscriptParams::serialize(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
         num_frs_written += element_frs.size();
@@ -680,6 +659,7 @@ template <typename TranscriptParams> class BaseTranscript {
         verifier_transcript->proof_start = 0;
         return verifier_transcript;
     }
+
     /**
      * @brief For testing: initializes transcript with some arbitrary data so that a challenge can be generated
      * after initialization. Only intended to be used by Prover.
