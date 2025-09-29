@@ -1,5 +1,8 @@
 #pragma once
 
+#include <array>
+#include <span>
+
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/common/tuple.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
@@ -8,13 +11,12 @@
 #include "barretenberg/polynomials/univariate.hpp"
 
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
-#include "barretenberg/vm2/constraining/entities.hpp"
+#include "barretenberg/vm2/constraining/flavor_macros.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -126,73 +128,55 @@ class AvmFlavor {
     //               "AVM circuit. In this case, modify AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS \n"
     //               "in constants.nr accordingly.");
 
-    template <typename DataType_> class PrecomputedEntities {
-      public:
-        using DataType = DataType_;
-        DEFINE_FLAVOR_MEMBERS(DataType_, AVM2_PRECOMPUTED_ENTITIES)
-    };
-
-  private:
-    template <typename DataType> class WireEntities {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType, AVM2_WIRE_ENTITIES)
-    };
-
-    template <typename DataType> class DerivedWitnessEntities {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType, AVM2_DERIVED_WITNESS_ENTITIES)
-    };
-
-    template <typename DataType> class ShiftedEntities {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType, AVM2_SHIFTED_ENTITIES)
-    };
-
-    template <typename DataType, typename PrecomputedAndWitnessEntitiesSuperset>
-    static auto get_to_be_shifted(PrecomputedAndWitnessEntitiesSuperset& entities)
-    {
-        return RefArray<DataType, NUM_SHIFTED_ENTITIES>{ AVM2_TO_BE_SHIFTED_E(entities.) };
-    }
-
   public:
-    template <typename DataType>
-    class WitnessEntities : public WireEntities<DataType>, public DerivedWitnessEntities<DataType> {
-      public:
-        DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedWitnessEntities<DataType>)
-
-        auto get_wires() { return WireEntities<DataType>::get_all(); }
-        static const auto& get_wires_labels() { return WireEntities<DataType>::get_labels(); }
-        auto get_derived() { return DerivedWitnessEntities<DataType>::get_all(); }
-        static const auto& get_derived_labels() { return DerivedWitnessEntities<DataType>::get_labels(); }
-    };
-
-    template <typename DataType_>
-    class AllEntities : public PrecomputedEntities<DataType_>,
-                        public WitnessEntities<DataType_>,
-                        public ShiftedEntities<DataType_> {
+    template <typename DataType_> class AllEntities {
       public:
         using DataType = DataType_;
-        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
+        std::array<DataType, NUM_ALL_ENTITIES> entities;
 
-        auto get_unshifted()
-        {
-            return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
-        }
+        std::span<DataType> get_all() { return entities; }
+        std::span<const DataType> get_all() const { return entities; }
+        std::span<const std::string> get_labels() const { return COLUMN_NAMES; }
 
-        static const auto& get_unshifted_labels()
-        {
-            static const auto labels =
-                concatenate(PrecomputedEntities<DataType>::get_labels(), WitnessEntities<DataType>::get_labels());
-            return labels;
-        }
-
-        auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<DataType>(*this); }
-        auto get_shifted() { return ShiftedEntities<DataType>::get_all(); }
-        auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
+        DEFINE_AVM_GETTER(precomputed, PRECOMPUTED_START_IDX, NUM_PRECOMPUTED_ENTITIES);
+        DEFINE_AVM_GETTER(wires, WIRE_START_IDX, NUM_WIRE_ENTITIES);
+        DEFINE_AVM_GETTER(derived, DERIVED_START_IDX, NUM_DERIVED_ENTITIES);
+        DEFINE_AVM_GETTER(shifted, SHIFTED_START_IDX, NUM_SHIFTED_ENTITIES);
+        DEFINE_AVM_GETTER(witness, WITNESS_START_IDX, NUM_WITNESS_ENTITIES);
+        DEFINE_AVM_GETTER(unshifted, UNSHIFTED_START_IDX, NUM_UNSHIFTED_ENTITIES);
+        DEFINE_AVM_GETTER(to_be_shifted, WIRES_TO_BE_SHIFTED_START_IDX, NUM_WIRES_TO_BE_SHIFTED);
 
         // We need both const and non-const versions.
-        DataType& get(ColumnAndShifts c) { return get_entity_by_column(*this, c); }
-        const DataType& get(ColumnAndShifts c) const { return get_entity_by_column(*this, c); }
+        DataType& get(ColumnAndShifts c) { return entities[static_cast<size_t>(c)]; }
+        const DataType& get(ColumnAndShifts c) const { return entities[static_cast<size_t>(c)]; }
+    };
+
+    // Even though we only need the witness entities, we hold all entities because it's
+    // easier and will not make much of a difference.
+    template <typename DataType> class WitnessEntities : public AllEntities<DataType> {
+      private:
+        // Obscure get_all since we redefine it.
+        using AllEntities<DataType>::get_all;
+        using AllEntities<DataType>::get_labels;
+
+      public:
+        std::span<DataType> get_all() { return AllEntities<DataType>::get_witness(); }
+        std::span<const DataType> get_all() const { return AllEntities<DataType>::get_witness(); }
+        std::span<const std::string> get_labels() const { return AllEntities<DataType>::get_witness_labels(); }
+    };
+
+    // Even though we only need the precomputed entities, we hold all entities because it's
+    // easier and will not make much of a difference.
+    template <typename DataType> class PrecomputedEntities : public AllEntities<DataType> {
+      private:
+        // Obscure get_all since we redefine it.
+        using AllEntities<DataType>::get_all;
+        using AllEntities<DataType>::get_labels;
+
+      public:
+        std::span<DataType> get_all() { return AllEntities<DataType>::get_precomputed(); }
+        std::span<const DataType> get_all() const { return AllEntities<DataType>::get_precomputed(); }
+        std::span<const std::string> get_labels() const { return AllEntities<DataType>::get_precomputed_labels(); }
     };
 
     class Transcript : public NativeTranscript {
@@ -214,26 +198,29 @@ class AvmFlavor {
         void serialize_full_transcript();
     };
 
-    class ProvingKey : public PrecomputedEntities<Polynomial>, public WitnessEntities<Polynomial> {
+    class ProvingKey : public AllEntities<Polynomial> {
+      private:
+        // Obscure get_all since it would be incorrect.
+        using AllEntities<Polynomial>::get_all;
+        using AllEntities<Polynomial>::get_labels;
+
       public:
         using FF = typename Polynomial::FF;
-        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>);
 
-        size_t circuit_size = MAX_AVM_TRACE_SIZE; // Fixed size
-        size_t log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
+        static constexpr size_t circuit_size = MAX_AVM_TRACE_SIZE; // Fixed size
+        static constexpr size_t log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
 
         ProvingKey();
+
+        std::span<Polynomial> get_all() { return AllEntities<Polynomial>::get_unshifted(); }
+        std::span<const Polynomial> get_all() const { return AllEntities<Polynomial>::get_unshifted(); }
+        std::span<const std::string> get_labels() const { return AllEntities<Polynomial>::get_unshifted_labels(); }
 
         CommitmentKey commitment_key;
 
         // The number of public inputs has to be the same for all instances because they are
         // folded element by element.
         std::vector<FF> public_inputs;
-
-        auto get_witness_polynomials() { return WitnessEntities<Polynomial>::get_all(); }
-        auto get_precomputed_polynomials() { return PrecomputedEntities<Polynomial>::get_all(); }
-        auto get_selectors() { return PrecomputedEntities<Polynomial>::get_all(); }
-        auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<Polynomial>(*this); }
     };
 
     class VerificationKey
@@ -246,8 +233,7 @@ class AvmFlavor {
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
             this->log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
-            for (auto [polynomial, commitment] :
-                 zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
+            for (auto [polynomial, commitment] : zip_view(proving_key->get_precomputed(), this->get_all())) {
                 commitment = proving_key->commitment_key.commit(polynomial);
             }
         }
@@ -318,27 +304,17 @@ class AvmFlavor {
      * @brief A container for univariates used during sumcheck.
      * @details During sumcheck, the prover evaluates the relations on these univariates.
      */
-    class LazilyExtendedProverUnivariates {
+    class LazilyExtendedProverUnivariates
+        : private AllEntities<std::unique_ptr<bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>>> {
       public:
-        using data_type = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>;
-
         LazilyExtendedProverUnivariates(const ProverPolynomials& multivariates)
             : multivariates(multivariates)
         {}
 
-        void set_current_edge(size_t edge_idx)
-        {
-            current_edge = edge_idx;
-            // If the current edge changed, we need to clear all the cached univariates.
-            dirty = true;
-        }
-        const data_type& get(ColumnAndShifts c) const;
+        void set_current_edge(size_t edge_idx);
+        const bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>& get(ColumnAndShifts c) const;
 
       private:
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/17288): Make AllEntities
-        // use an array like this and then use AllEntities for this class.
-        using ptr_type = std::unique_ptr<data_type>;
-        mutable std::array<ptr_type, NUM_ALL_ENTITIES> univariates;
         size_t current_edge = 0;
         mutable bool dirty = false;
         const ProverPolynomials& multivariates;

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <initializer_list>
 #include <iterator>
+#include <span>
 #include <stdexcept>
 #include <vector>
 
@@ -47,6 +48,16 @@ template <typename T> class RefVector {
         for (std::size_t i = 0; i < ref_array.size(); ++i) {
             storage[i] = &ref_array[i];
         }
+    }
+
+    // Note: making this a constructor gives problems in prover_instance.cpp.
+    static RefVector from_span(const std::span<T>& span)
+    {
+        RefVector ret;
+        for (std::size_t i = 0; i < span.size(); ++i) {
+            ret.push_back(span[i]);
+        }
+        return ret;
     }
 
     T& operator[](std::size_t idx) const

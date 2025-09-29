@@ -200,6 +200,22 @@
       }
     },
     {
+      "name": "debug-fast-notraces",
+      "displayName": "Optimized debug build with Clang-20",
+      "description": "Build with globally installed Clang-20 in optimized debug mode (no stack traces)",
+      "inherits": "debug",
+      "binaryDir": "build-debug-fast",
+      "environment": {
+        "CFLAGS": "-O2 -gdwarf",
+        "CXXFLAGS": "-O2 -gdwarf-4",
+        "LDFLAGS": "-O2 -gdwarf-4"
+      },
+      "cacheVariables": {
+        "DISABLE_ASM": "OFF",
+        "ENABLE_STACKTRACES": "OFF"
+      }
+    },
+    {
       "name": "clang20-no-avm",
       "displayName": "Optimized build with Clang-20 (no AVM)",
       "description": "Build with globally installed Clang-20 excluding the Aztec VM",
@@ -565,6 +581,11 @@
       "name": "debug-fast",
       "inherits": "default",
       "configurePreset": "debug-fast"
+    },
+    {
+      "name": "debug-fast-notraces",
+      "inherits": "default",
+      "configurePreset": "debug-fast-notraces"
     },
     {
       "name": "debug-fast-circuit-check-traces",
