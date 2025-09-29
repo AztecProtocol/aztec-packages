@@ -92,8 +92,8 @@ Options:
 - `--l1-chain-id <value>`: The chain ID of the ethereum host.
 - `--l1-rpc-urls <value>`: List of URLs of Ethereum RPC nodes that services will connect to (comma separated).
 - `--l1-consensus-host-urls <value>`: List of URLs of the Ethereum consensus nodes that services will connect to (comma separated).
-- `--l1-consensus-host-api-keys <value>`: List of API keys for the corresponding L1 consensus clients, if needed. Added to the end of the corresponding URL as "?key=<api-key>" unless a header is defined.
-- `--l1-consensus-host-api-key-headers <value>`: List of header names for the corresponding L1 consensus client API keys, if needed. Added to the corresponding request as "<api-key-header>: <api-key>".
+- `--l1-consensus-host-api-keys <value>`: List of API keys for the corresponding L1 consensus clients, if needed. Added to the end of the corresponding URL as `?key=<api-key>` unless a header is defined.
+- `--l1-consensus-host-api-key-headers <value>`: List of header names for the corresponding L1 consensus client API keys, if needed. Added to the corresponding request as `<api-key-header>: <api-key>`.
 
 #### L1 Contract Addresses
 
