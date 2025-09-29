@@ -7,7 +7,7 @@ import { SecretValue } from '@aztec/foundation/config';
 import { bufferToHex } from '@aztec/foundation/string';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
@@ -67,12 +67,11 @@ describe('e2e_bot', () => {
       expect(recipientAfter.publicBalance - recipientBefore.publicBalance).toEqual(1n);
     });
 
-    it('reuses the same account and token contract', async () => {
-      const { defaultAccountAddress, token, recipient } = bot;
+    it('reuses the same token contract', async () => {
+      const { defaultAccountAddress, token } = bot;
       const bot2 = await Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
       expect(bot2.defaultAccountAddress.toString()).toEqual(defaultAccountAddress.toString());
       expect(bot2.token.address.toString()).toEqual(token.address.toString());
-      expect(bot2.recipient.toString()).toEqual(recipient.toString());
     });
 
     it('sends token from the bot using PrivateToken', async () => {

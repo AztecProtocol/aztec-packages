@@ -12,7 +12,10 @@ pub use protocol_types::{
         PROOF_TYPE_PG, PROOF_TYPE_PG_FINAL, PROOF_TYPE_PG_TAIL, PROOF_TYPE_ROLLUP_HONK,
         PROOF_TYPE_ROOT_ROLLUP_HONK,
     },
-    proof::verification_key::{RollupHonkVerificationKey, VerificationKey},
+    proof::{
+        traits::SerializeToColumns,
+        verification_key::{RollupHonkVerificationKey, VerificationKey},
+    },
     traits::Serialize,
 };
 

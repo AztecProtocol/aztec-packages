@@ -4,7 +4,7 @@ import {
   ARCHIVE_HEIGHT,
   CIVC_PROOF_LENGTH,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
-  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -237,10 +237,10 @@ describe('LightBlockBuilder', () => {
     // Get the states before inserting new leaves.
     const lastArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, expectsFork);
     const lastArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, expectsFork);
-    const lastL1ToL2MessageSubtreeSiblingPath = padArrayEnd(
+    const lastL1ToL2MessageSubtreeRootSiblingPath = padArrayEnd(
       await getSubtreeSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, L1_TO_L2_MSG_SUBTREE_HEIGHT, expectsFork),
       Fr.ZERO,
-      L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+      L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
     );
     const lastL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsFork);
     const startSpongeBlob = SpongeBlob.init(toNumBlobFields(txs) + 1 /* block end marker */);
@@ -259,7 +259,7 @@ describe('LightBlockBuilder', () => {
       lastArchive,
       lastArchiveSiblingPath,
       lastL1ToL2Snapshot,
-      lastL1ToL2MessageSubtreeSiblingPath,
+      lastL1ToL2MessageSubtreeRootSiblingPath,
       startSpongeBlob,
     );
 
@@ -343,10 +343,12 @@ describe('LightBlockBuilder', () => {
     lastArchive: AppendOnlyTreeSnapshot,
     lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     lastL1ToL2Snapshot: AppendOnlyTreeSnapshot,
-    lastL1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    lastL1ToL2MessageSubtreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH>,
     startSpongeBlob: SpongeBlob,
   ) => {
-    const mergeRollupVk = getVkData('TxMergeRollupArtifact');
+    const mergeRollupVk = getVkData(
+      previousRollups.length === 1 ? 'PrivateTxBaseRollupArtifact' : 'TxMergeRollupArtifact',
+    );
     const previousRollupsProofs = previousRollups.map(r => new ProofData(r, emptyRollupProof, mergeRollupVk));
 
     const rootParityVk = getVkData('ParityRootArtifact');
@@ -354,7 +356,7 @@ describe('LightBlockBuilder', () => {
 
     // The sibling paths to insert the new leaf are the last sibling paths.
     const newArchiveSiblingPath = lastArchiveSiblingPath;
-    const newL1ToL2MessageSubtreeSiblingPath = lastL1ToL2MessageSubtreeSiblingPath;
+    const newL1ToL2MessageSubtreeRootSiblingPath = lastL1ToL2MessageSubtreeRootSiblingPath;
 
     if (previousRollups.length === 0) {
       const previousBlockHeader = expectsFork.getInitialHeader();
@@ -377,7 +379,7 @@ describe('LightBlockBuilder', () => {
         startSpongeBlob,
         timestamp: globalVariables.timestamp,
         newArchiveSiblingPath,
-        newL1ToL2MessageSubtreeSiblingPath,
+        newL1ToL2MessageSubtreeRootSiblingPath,
       });
       return (await simulator.getBlockRootEmptyTxFirstRollupProof(inputs)).inputs;
     } else if (previousRollups.length === 1) {
@@ -386,7 +388,7 @@ describe('LightBlockBuilder', () => {
         previousRollup: previousRollupsProofs[0],
         previousL1ToL2: lastL1ToL2Snapshot,
         newArchiveSiblingPath,
-        newL1ToL2MessageSubtreeSiblingPath,
+        newL1ToL2MessageSubtreeRootSiblingPath,
       });
       return (await simulator.getBlockRootSingleTxFirstRollupProof(inputs)).inputs;
     } else {
@@ -395,7 +397,7 @@ describe('LightBlockBuilder', () => {
         previousRollups: [previousRollupsProofs[0], previousRollupsProofs[1]],
         previousL1ToL2: lastL1ToL2Snapshot,
         newArchiveSiblingPath,
-        newL1ToL2MessageSubtreeSiblingPath,
+        newL1ToL2MessageSubtreeRootSiblingPath,
       });
       return (await simulator.getBlockRootFirstRollupProof(inputs)).inputs;
     }

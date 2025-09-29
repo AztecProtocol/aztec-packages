@@ -1,6 +1,6 @@
 use crate::{
     hash::merkle_hash,
-    merkle_tree::{calculate_empty_tree_root, merkle_tree, MerkleTree},
+    merkle_tree::{calculate_empty_tree_root, MerkleTree},
     utils::arrays::subarray,
 };
 
@@ -10,7 +10,7 @@ pub struct SingleSubtreeMerkleTree<let SubtreeWidth: u32, let SubtreeHeight: u32
     subtree_zero_hashes: [Field; SubtreeHeight],
     path_to_subtree_root: [Field; TreeHeight - SubtreeHeight],
     tree_root: Field,
-    first_leaf_index: u32,
+    first_leaf_index: Field,
 }
 
 impl<let SubtreeWidth: u32, let SubtreeHeight: u32, let TreeHeight: u32> SingleSubtreeMerkleTree<SubtreeWidth, SubtreeHeight, TreeHeight> {
@@ -18,7 +18,7 @@ impl<let SubtreeWidth: u32, let SubtreeHeight: u32, let TreeHeight: u32> SingleS
         Self::new_at_index(subtree_leaves, 0)
     }
 
-    pub fn new_at_index(subtree_leaves: [Field; SubtreeWidth], first_leaf_index: u32) -> Self {
+    pub fn new_at_index(subtree_leaves: [Field; SubtreeWidth], first_leaf_index: Field) -> Self {
         Self::new_tree_roots_at_index::<0>(subtree_leaves, first_leaf_index)
     }
 
@@ -26,10 +26,10 @@ impl<let SubtreeWidth: u32, let SubtreeHeight: u32, let TreeHeight: u32> SingleS
     /// extra layers (`InsertedValueTreeHeight`) of the inserted values.
     pub fn new_tree_roots_at_index<let InsertedValueTreeHeight: u32>(
         subtree_leaves: [Field; SubtreeWidth],
-        first_leaf_index: u32,
+        first_leaf_index: Field,
     ) -> Self {
         assert_eq(
-            first_leaf_index % SubtreeWidth,
+            first_leaf_index as u64 % SubtreeWidth as u64,
             0,
             "First leaf index must be a multiple of the subtree width",
         );
@@ -41,9 +41,12 @@ impl<let SubtreeWidth: u32, let SubtreeHeight: u32, let TreeHeight: u32> SingleS
         let subtree = MerkleTree::new(subtree_leaves);
 
         let subtree_root = subtree.get_root();
-        let subtree_root_index = first_leaf_index >> SubtreeHeight;
-        let (tree_root, path_to_subtree_root) =
-            build_root_and_path_to_value(subtree_root_index, subtree_root, top_tree_zero_hashes);
+        let subtree_root_index = first_leaf_index as u64 >> SubtreeHeight as u64;
+        let (tree_root, path_to_subtree_root) = build_root_and_path_to_value(
+            subtree_root_index as Field,
+            subtree_root,
+            top_tree_zero_hashes,
+        );
 
         Self {
             subtree,
@@ -55,21 +58,21 @@ impl<let SubtreeWidth: u32, let SubtreeHeight: u32, let TreeHeight: u32> SingleS
         }
     }
 
-    pub fn get_sibling_path(self, leaf_index: u32) -> [Field; TreeHeight] {
+    pub fn get_sibling_path(self, leaf_index: Field) -> [Field; TreeHeight] {
         let subtree_sibling_path: [Field; SubtreeHeight] = if self.is_leaf_index_in_subtree(
             leaf_index,
         ) {
-            let index_in_subtree = leaf_index % SubtreeWidth;
-            self.subtree.get_sibling_path(index_in_subtree)
+            let index_in_subtree = leaf_index as u64 % SubtreeWidth as u64;
+            self.subtree.get_sibling_path(index_in_subtree as u32)
         } else {
             self.subtree_zero_hashes
         };
 
         let mut top_tree_sibling_path = [0; TreeHeight - SubtreeHeight];
-        let mut index_at_level = leaf_index >> SubtreeHeight;
-        let mut path_index_at_level = self.first_leaf_index >> SubtreeHeight;
+        let mut index_at_level = leaf_index as u64 >> SubtreeHeight as u64;
+        let mut path_index_at_level = self.first_leaf_index as u64 >> SubtreeHeight as u64;
         for level in 0..top_tree_sibling_path.len() {
-            let sibling_index = merkle_tree::sibling_index(index_at_level);
+            let sibling_index = get_sibling_index(index_at_level);
             top_tree_sibling_path[level] = if sibling_index == path_index_at_level {
                 self.path_to_subtree_root[level]
             } else {
@@ -82,14 +85,14 @@ impl<let SubtreeWidth: u32, let SubtreeHeight: u32, let TreeHeight: u32> SingleS
         subtree_sibling_path.concat(top_tree_sibling_path)
     }
 
-    pub fn update_leaf(&mut self, leaf_index: u32, value: Field) {
+    pub fn update_leaf(&mut self, leaf_index: Field, value: Field) {
         assert(self.is_leaf_index_in_subtree(leaf_index), "Cannot update leaf at given index");
 
-        let index_in_subtree = leaf_index % SubtreeWidth;
+        let index_in_subtree = (leaf_index as u64 % SubtreeWidth as u64) as u32;
         self.subtree.update_leaf::<SubtreeHeight>(index_in_subtree, value);
 
         let subtree_root = self.subtree.get_root();
-        let subtree_root_index = leaf_index >> SubtreeHeight;
+        let subtree_root_index = (leaf_index as u64 >> SubtreeHeight as u64) as Field;
         let (tree_root, path_to_subtree_root) = build_root_and_path_to_value(
             subtree_root_index,
             subtree_root,
@@ -104,16 +107,24 @@ impl<let SubtreeWidth: u32, let SubtreeHeight: u32, let TreeHeight: u32> SingleS
         self.tree_root
     }
 
-    pub fn get_next_available_index(self) -> u32 {
-        self.first_leaf_index + (1 << SubtreeHeight)
+    pub fn get_next_available_index(self) -> Field {
+        self.first_leaf_index + (1 << SubtreeHeight as u64) as Field
     }
 
-    fn is_leaf_index_in_subtree(self, leaf_index: u32) -> bool {
-        (leaf_index >= self.first_leaf_index) & (leaf_index < self.get_next_available_index())
+    fn is_leaf_index_in_subtree(self, leaf_index: Field) -> bool {
+        !leaf_index.lt(self.first_leaf_index) & leaf_index.lt(self.get_next_available_index())
     }
 }
 
-fn compute_zero_hashes<let N: u32>() -> [Field; N] {
+fn get_sibling_index(index: u64) -> u64 {
+    if index % 2 == 0 {
+        index + 1
+    } else {
+        index - 1
+    }
+}
+
+pub fn compute_zero_hashes<let N: u32>() -> [Field; N] {
     let mut hashes = [0; N];
     hashes[0] = merkle_hash(0, 0);
 
@@ -125,13 +136,13 @@ fn compute_zero_hashes<let N: u32>() -> [Field; N] {
 }
 
 fn build_root_and_path_to_value<let TreeHeight: u32>(
-    leaf_index: u32,
+    leaf_index: Field,
     value: Field,
     sibling_path: [Field; TreeHeight],
 ) -> (Field, [Field; TreeHeight]) {
     let mut path_to_value = [0; TreeHeight];
     let mut node = value;
-    let mut index_at_level = leaf_index;
+    let mut index_at_level = leaf_index as u64;
 
     for level in 0..TreeHeight {
         path_to_value[level] = node;
@@ -284,7 +295,7 @@ fn insert_tree_roots_as_subtree_leaves_insert_front() {
     let leaf_index = 5;
     let subtree_root_at_index = 5 >> 1;
     assert_eq(
-        combined_tree.get_sibling_path(subtree_root_at_index),
+        combined_tree.get_sibling_path(subtree_root_at_index as Field),
         subarray(whole_tree.get_sibling_path(leaf_index), 1),
     );
 }
@@ -308,7 +319,7 @@ fn insert_tree_roots_as_subtree_leaves_insert_middle() {
     let leaf_index = 5;
     let subtree_root_at_index = 5 >> 1;
     assert_eq(
-        combined_tree.get_sibling_path(subtree_root_at_index),
+        combined_tree.get_sibling_path(subtree_root_at_index as Field),
         subarray(whole_tree.get_sibling_path(leaf_index), 1),
     );
 }

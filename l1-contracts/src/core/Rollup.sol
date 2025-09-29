@@ -28,6 +28,7 @@ import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ChainTipsLib, CompressedChainTips} from "./libraries/compressed-data/Tips.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
 import {RewardLib, RewardConfig} from "./libraries/rollup/RewardLib.sol";
+import {DepositArgs} from "./libraries/StakingQueue.sol";
 import {
   RollupCore,
   GenesisState,
@@ -37,7 +38,6 @@ import {
   Slot,
   Epoch,
   Timestamp,
-  Errors,
   CommitteeAttestations,
   RollupOperationsExtLib,
   ValidatorOperationsExtLib,
@@ -321,19 +321,9 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getBlock(uint256 _blockNumber) external view override(IRollup) returns (BlockLog memory) {
-    RollupStore storage rollupStore = STFLib.getStorage();
-    uint256 pendingBlockNumber = rollupStore.tips.getPendingBlockNumber();
-    require(_blockNumber <= pendingBlockNumber, Errors.Rollup__InvalidBlockNumber(pendingBlockNumber, _blockNumber));
-
-    // If the block is outside of the temp stored, will return default values (0)
-    // for all that would have been in temp.
-    TempBlockLog memory tempBlockLog;
-    if (!STFLib.isTempStale(_blockNumber)) {
-      tempBlockLog = STFLib.getTempBlockLog(_blockNumber);
-    }
-
+    TempBlockLog memory tempBlockLog = STFLib.getTempBlockLog(_blockNumber);
     return BlockLog({
-      archive: rollupStore.archives[_blockNumber],
+      archive: STFLib.getStorage().archives[_blockNumber],
       headerHash: tempBlockLog.headerHash,
       blobCommitmentsHash: tempBlockLog.blobCommitmentsHash,
       attestationsHash: tempBlockLog.attestationsHash,
@@ -540,6 +530,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function getIsBootstrapped() external view override(IStaking) returns (bool) {
     return StakingLib.getStorage().isBootstrapped;
+  }
+
+  function getEntryQueueAt(uint256 _index) external view override(IStaking) returns (DepositArgs memory) {
+    return StakingLib.getEntryQueueAt(_index);
   }
 
   function getBurnAddress() external pure override(IRollup) returns (address) {

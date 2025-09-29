@@ -12,7 +12,7 @@ import {
 } from '@aztec/aztec.js';
 import type { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { type ISnapshotManager, createSnapshotManager, deployAccounts } from '../fixtures/snapshot_manager.js';
 
@@ -71,11 +71,6 @@ export class DeployTest {
     });
     await wallet.registerContract(instance, contractArtifact.artifact);
     return contractArtifact.at(instance.address, wallet);
-  }
-
-  async registerRandomAccount(): Promise<AztecAddress> {
-    const completeAddress = await this.wallet.registerAccount(Fr.random(), Fr.random());
-    return completeAddress.address;
   }
 }
 

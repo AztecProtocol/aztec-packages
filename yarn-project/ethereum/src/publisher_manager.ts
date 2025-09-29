@@ -1,7 +1,7 @@
 import { pick } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 
-import { L1TxUtils, TxUtilsState } from './l1_tx_utils.js';
+import { L1TxUtils, TxUtilsState } from './l1_tx_utils/index.js';
 
 const sortOrder = [TxUtilsState.IDLE, TxUtilsState.MINED];
 const invalidStates = [TxUtilsState.SENT, TxUtilsState.SPEED_UP, TxUtilsState.CANCELLED, TxUtilsState.NOT_MINED]; // Cancelled and not mined are states that can be handled by a later iteration

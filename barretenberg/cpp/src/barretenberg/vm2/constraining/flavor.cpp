@@ -74,16 +74,7 @@ void AvmFlavor::Transcript::serialize_full_transcript()
     BB_ASSERT_EQ(proof_data.size(), old_proof_length);
 }
 
-AvmFlavor::PartiallyEvaluatedMultivariates::PartiallyEvaluatedMultivariates(const size_t circuit_size)
-{
-    // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
-    for (auto& poly : get_all()) {
-        poly = Polynomial(circuit_size / 2);
-    }
-}
-
-AvmFlavor::PartiallyEvaluatedMultivariates::PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials,
-                                                                            size_t circuit_size)
+AvmFlavor::ProverPolynomials::ProverPolynomials(const ProverPolynomials& full_polynomials, size_t circuit_size)
 {
     for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
         // After the initial sumcheck round, the new size is CEIL(size/2).
@@ -97,4 +88,30 @@ AvmFlavor::ProvingKey::ProvingKey()
         // The proving key's polynomials are not allocated here because they are later overwritten
         // AvmComposer::compute_witness(). We should probably refactor this flow.
     };
+
+const AvmFlavor::LazilyExtendedProverUnivariates::data_type& AvmFlavor::LazilyExtendedProverUnivariates::get(
+    ColumnAndShifts c) const
+{
+    const auto& multivariate = multivariates.get(c);
+    if (multivariate.is_empty() || multivariate.end_index() < current_edge) {
+        static const auto zero_univariate = data_type::zero();
+        return zero_univariate;
+    } else {
+        if (dirty) {
+            // If the current edge changed, we need to clear all the cached univariates.
+            for (auto& extended_ptr : univariates) {
+                extended_ptr.reset();
+            }
+            dirty = false;
+        }
+        auto& extended_ptr = univariates[static_cast<size_t>(c)];
+        if (extended_ptr.get() == nullptr) {
+            extended_ptr = std::make_unique<data_type>(
+                bb::Univariate<FF, 2>({ multivariate[current_edge], multivariate[current_edge + 1] })
+                    .template extend_to<MAX_PARTIAL_RELATION_LENGTH>());
+        }
+        return *extended_ptr;
+    }
+}
+
 } // namespace bb::avm2

@@ -16,8 +16,8 @@ pub fn merge_tx_rollups(
     TxRollupPublicInputs {
         num_txs,
         constants: left.constants,
-        start_partial_state: left.start_partial_state,
-        end_partial_state: right.end_partial_state,
+        start_tree_snapshots: left.start_tree_snapshots,
+        end_tree_snapshots: right.end_tree_snapshots,
         start_sponge_blob: left.start_sponge_blob,
         end_sponge_blob: right.end_sponge_blob,
         out_hash,

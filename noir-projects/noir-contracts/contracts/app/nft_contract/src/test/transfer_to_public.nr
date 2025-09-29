@@ -38,7 +38,12 @@ unconstrained fn transfer_to_public_on_behalf_of_other() {
 
     let transfer_to_public_call_interface =
         NFT::at(nft_contract_address).transfer_to_public(sender, recipient, token_id, 0);
-    add_private_authwit_from_call_interface(sender, recipient, transfer_to_public_call_interface);
+    add_private_authwit_from_call_interface(
+        env,
+        sender,
+        recipient,
+        transfer_to_public_call_interface,
+    );
 
     // transfer_to_public the NFT
     env.call_private(recipient, transfer_to_public_call_interface);
@@ -78,7 +83,7 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_invalid_designate
 
     let transfer_to_public_call_interface =
         NFT::at(nft_contract_address).transfer_to_public(sender, recipient, token_id, 0);
-    add_private_authwit_from_call_interface(sender, sender, transfer_to_public_call_interface);
+    add_private_authwit_from_call_interface(env, sender, sender, transfer_to_public_call_interface);
 
     // transfer_to_public the NFT
     env.call_private(recipient, transfer_to_public_call_interface);

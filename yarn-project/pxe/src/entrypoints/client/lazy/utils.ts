@@ -6,22 +6,22 @@ import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/provide
 import { WASMSimulator } from '@aztec/simulator/client';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
-import type { PXEServiceConfig } from '../../../config/index.js';
-import { PXEService } from '../../../pxe_service/pxe_service.js';
+import type { PXEConfig } from '../../../config/index.js';
+import { PXE } from '../../../pxe.js';
 import type { PXECreationOptions } from '../../pxe_creation_options.js';
 
 /**
- * Create and start an PXEService instance with the given AztecNode.
- * Returns a Promise that resolves to the started PXEService instance.
+ * Create and start an PXE instance with the given AztecNode.
+ * Returns a Promise that resolves to the started PXE instance.
  *
  * @param aztecNode - The AztecNode instance to be used by the server.
- * @param config - The PXE Service Config to use
+ * @param config - The PXE Config to use
  * @param
- * @returns A Promise that resolves to the started PXEService instance.
+ * @returns A Promise that resolves to the started PXE instance.
  */
-export async function createPXEService(
+export async function createPXE(
   aztecNode: AztecNode,
-  config: PXEServiceConfig,
+  config: PXEConfig,
   options: PXECreationOptions = { loggers: {} },
 ) {
   const logSuffix =
@@ -35,7 +35,7 @@ export async function createPXEService(
   const configWithContracts = {
     ...config,
     l1Contracts,
-  } as PXEServiceConfig;
+  } as PXEConfig;
 
   const loggers = options.loggers ?? {};
 
@@ -53,14 +53,6 @@ export async function createPXEService(
   const protocolContractsProvider = new LazyProtocolContractsProvider();
 
   const pxeLogger = loggers.pxe ? loggers.pxe : createLogger('pxe:service' + (logSuffix ? `:${logSuffix}` : ''));
-  const pxe = await PXEService.create(
-    aztecNode,
-    store,
-    prover,
-    simulator,
-    protocolContractsProvider,
-    config,
-    pxeLogger,
-  );
+  const pxe = await PXE.create(aztecNode, store, prover, simulator, protocolContractsProvider, config, pxeLogger);
   return pxe;
 }

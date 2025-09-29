@@ -23,6 +23,7 @@ extern bool use_bb_bench;
 // Compile-time string
 // See e.g. https://www.reddit.com/r/cpp_questions/comments/pumi9r/does_c20_not_support_string_literals_as_template/
 template <std::size_t N> struct OperationLabel {
+    constexpr static std::size_t size() { return N; }
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
     constexpr OperationLabel(const char (&str)[N])
     {
@@ -35,6 +36,14 @@ template <std::size_t N> struct OperationLabel {
     char value[N];
 };
 
+template <OperationLabel op1, OperationLabel op2> constexpr auto concat()
+{
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+    char result_cstr[op1.size() + op2.size() - 1] = {};
+    std::copy(op1.value, op1.value + op1.size() - 1, result_cstr);
+    std::copy(op2.value, op2.value + op2.size(), result_cstr + op1.size() - 1);
+    return OperationLabel{ result_cstr };
+}
 struct TimeStats;
 struct TimeStatsEntry;
 using OperationKey = std::string_view;

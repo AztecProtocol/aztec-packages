@@ -73,30 +73,30 @@ library FeeStructsLib {
 library FeeHeaderLib {
   using SafeCast for uint256;
 
+  uint256 internal constant MASK_32_BITS = 0xFFFFFFFF;
+  uint256 internal constant MASK_48_BITS = 0xFFFFFFFFFFFF;
+  uint256 internal constant MASK_63_BITS = 0x7FFFFFFFFFFFFFFF;
+  uint256 internal constant MASK_64_BITS = 0xFFFFFFFFFFFFFFFF;
+
   function getManaUsed(CompressedFeeHeader _compressedFeeHeader) internal pure returns (uint256) {
-    // Reads the bits 224-256
-    return CompressedFeeHeader.unwrap(_compressedFeeHeader) & 0xFFFFFFFF;
+    return CompressedFeeHeader.unwrap(_compressedFeeHeader) & MASK_32_BITS;
   }
 
   function getExcessMana(CompressedFeeHeader _compressedFeeHeader) internal pure returns (uint256) {
-    // Reads the bits 176-223
-    return (CompressedFeeHeader.unwrap(_compressedFeeHeader) >> 32) & 0xFFFFFFFFFFFF;
+    return (CompressedFeeHeader.unwrap(_compressedFeeHeader) >> 32) & MASK_48_BITS;
   }
 
   function getFeeAssetPriceNumerator(CompressedFeeHeader _compressedFeeHeader) internal pure returns (uint256) {
-    // Reads the bits 128-175
-    return (CompressedFeeHeader.unwrap(_compressedFeeHeader) >> 80) & 0xFFFFFFFFFFFF;
+    return (CompressedFeeHeader.unwrap(_compressedFeeHeader) >> 80) & MASK_48_BITS;
   }
 
   function getCongestionCost(CompressedFeeHeader _compressedFeeHeader) internal pure returns (uint256) {
-    // Reads the bits 64-127
-    return (CompressedFeeHeader.unwrap(_compressedFeeHeader) >> 128) & 0xFFFFFFFFFFFFFFFF;
+    return (CompressedFeeHeader.unwrap(_compressedFeeHeader) >> 128) & MASK_64_BITS;
   }
 
   function getProverCost(CompressedFeeHeader _compressedFeeHeader) internal pure returns (uint256) {
     // The prover cost is only 63 bits so use mask to remove first bit
-    // Reads the bits 1-63
-    return (CompressedFeeHeader.unwrap(_compressedFeeHeader) >> 192) & 0x7FFFFFFFFFFFFFFF;
+    return (CompressedFeeHeader.unwrap(_compressedFeeHeader) >> 192) & MASK_63_BITS;
   }
 
   function compress(FeeHeader memory _feeHeader) internal pure returns (CompressedFeeHeader) {
@@ -107,7 +107,7 @@ library FeeHeaderLib {
     value |= uint256(_feeHeader.congestionCost.toUint64()) << 128;
 
     uint256 proverCost = uint256(_feeHeader.proverCost.toUint64());
-    require(proverCost == proverCost & 0x7FFFFFFFFFFFFFFF);
+    require(proverCost == proverCost & MASK_63_BITS);
     value |= proverCost << 192;
 
     // Preheat
@@ -119,15 +119,15 @@ library FeeHeaderLib {
   function decompress(CompressedFeeHeader _compressedFeeHeader) internal pure returns (FeeHeader memory) {
     uint256 value = CompressedFeeHeader.unwrap(_compressedFeeHeader);
 
-    uint256 manaUsed = value & 0xFFFFFFFF;
+    uint256 manaUsed = value & MASK_32_BITS;
     value >>= 32;
-    uint256 excessMana = value & 0xFFFFFFFFFFFF;
+    uint256 excessMana = value & MASK_48_BITS;
     value >>= 48;
-    uint256 feeAssetPriceNumerator = value & 0xFFFFFFFFFFFF;
+    uint256 feeAssetPriceNumerator = value & MASK_48_BITS;
     value >>= 48;
-    uint256 congestionCost = value & 0xFFFFFFFFFFFFFFFF;
+    uint256 congestionCost = value & MASK_64_BITS;
     value >>= 64;
-    uint256 proverCost = value & 0x7FFFFFFFFFFFFFFF;
+    uint256 proverCost = value & MASK_63_BITS;
 
     return FeeHeader({
       manaUsed: uint256(manaUsed),
@@ -136,11 +136,5 @@ library FeeHeaderLib {
       congestionCost: uint256(congestionCost),
       proverCost: uint256(proverCost)
     });
-  }
-
-  function preheat(CompressedFeeHeader _compressedFeeHeader) internal pure returns (CompressedFeeHeader) {
-    uint256 value = CompressedFeeHeader.unwrap(_compressedFeeHeader);
-    value |= 1 << 255;
-    return CompressedFeeHeader.wrap(value);
   }
 }

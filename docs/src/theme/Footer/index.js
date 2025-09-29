@@ -2,19 +2,21 @@ import React, { useState } from 'react';
 import Footer from '@theme-original/Footer';
 import styles from './Footer.module.css';
 import { isValidEmail } from '@site/src/utils/emailValidation';
+import { analytics } from '@site/src/utils/analytics';
 
 export default function FooterWrapper(props) {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Clear previous errors
+    // Clear previous messages
     setError('');
-    
+
     if (!email.trim()) {
       setError('Email address is required');
       return;
@@ -30,9 +32,7 @@ export default function FooterWrapper(props) {
     
     try {
       // Track subscription attempt
-      if (typeof window !== 'undefined' && window.analytics) {
-        window.analytics.trackEvent('Email Subscription', 'Attempted', 'footer');
-      }
+      analytics.trackEvent('Email Subscription', 'Attempted', 'footer');
 
       // Call the real Brevo API endpoint
       const response = await fetch('/.netlify/functions/subscribe', {
@@ -51,15 +51,25 @@ export default function FooterWrapper(props) {
       const data = await response.json();
 
       if (response.ok) {
-        setIsSubscribed(true);
-        setEmail('');
-        
-        // Track successful subscription
-        if (typeof window !== 'undefined' && window.analytics) {
-          window.analytics.trackEvent('Email Subscription', 'Successful', 'footer');
+        if (data.alreadySubscribed) {
+          // Handle already subscribed case - show as success with different message
+          setIsSubscribed(true);
+          setSuccessMessage("It looks like you're already subscribed, good for you! 🎉");
+          setEmail('');
+
+          // Track already subscribed event
+          analytics.trackEvent('Email Subscription', 'Already Subscribed', 'footer');
+        } else {
+          // Handle new subscription success
+          setIsSubscribed(true);
+          setSuccessMessage("Thanks for subscribing! 🎉");
+          setEmail('');
+
+          // Track successful subscription
+          analytics.trackEvent('Email Subscription', 'Successful', 'footer');
         }
-        
-        console.log('✅ Subscription successful:', data.message);
+
+        console.log('✅ Subscription response:', data.message);
       } else if (response.status === 429) {
         // Rate limited
         const retryAfter = data.retryAfter || 60;
@@ -74,9 +84,7 @@ export default function FooterWrapper(props) {
       setError(err.message || 'Failed to subscribe. Please try again.');
       
       // Track subscription error
-      if (typeof window !== 'undefined' && window.analytics) {
-        window.analytics.trackEvent('Email Subscription', 'Failed', 'footer');
-      }
+      analytics.trackEvent('Email Subscription', 'Failed', 'footer');
     } finally {
       setIsSubmitting(false);
     }
@@ -93,7 +101,7 @@ export default function FooterWrapper(props) {
             
             {isSubscribed ? (
               <div className={styles.successMessage}>
-                <p>Thanks for subscribing! 🎉</p>
+                <p>{successMessage}</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className={styles.subscriptionForm}>

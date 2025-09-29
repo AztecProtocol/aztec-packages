@@ -147,6 +147,8 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     void print_connected_components_info();
     void print_variables_gate_counts();
     void print_variable_in_one_gate(const uint32_t real_idx);
+
+    std::pair<std::vector<ConnectedComponent>, std::unordered_set<uint32_t>> analyze_circuit();
     ~StaticAnalyzer_() = default;
 
   private:

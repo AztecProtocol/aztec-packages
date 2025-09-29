@@ -32,8 +32,6 @@ export type BotConfig = {
   nodeUrl: string | undefined;
   /** The URL to the Aztec node admin API to force-flush txs if configured. */
   nodeAdminUrl: string | undefined;
-  /** URL to the PXE for sending txs, or undefined if an in-proc PXE is used. */
-  pxeUrl: string | undefined;
   /** Url of the ethereum host. */
   l1RpcUrls: string[] | undefined;
   /** The mnemonic for the account to bridge fee juice from L1. */
@@ -46,8 +44,6 @@ export type BotConfig = {
   senderPrivateKey: SecretValue<Fr> | undefined;
   /** Optional salt to use to instantiate the sender account */
   senderSalt: Fr | undefined;
-  /** Encryption secret for a recipient account. */
-  recipientEncryptionSecret: SecretValue<Fr>;
   /** Salt for the token contract instantiation. */
   tokenSalt: Fr;
   /** Every how many seconds should a new tx be sent. */
@@ -86,14 +82,12 @@ export const BotConfigSchema = z
   .object({
     nodeUrl: z.string().optional(),
     nodeAdminUrl: z.string().optional(),
-    pxeUrl: z.string().optional(),
     l1RpcUrls: z.array(z.string()).optional(),
     l1Mnemonic: schemas.SecretValue(z.string()).optional(),
     l1PrivateKey: schemas.SecretValue(z.string()).optional(),
     l1ToL2MessageTimeoutSeconds: z.number(),
     senderPrivateKey: schemas.SecretValue(schemas.Fr).optional(),
     senderSalt: schemas.Fr.optional(),
-    recipientEncryptionSecret: schemas.SecretValue(schemas.Fr),
     tokenSalt: schemas.Fr,
     txIntervalSeconds: z.number(),
     privateTransfersPerTx: z.number().int().nonnegative(),
@@ -116,7 +110,6 @@ export const BotConfigSchema = z
   .transform(config => ({
     nodeUrl: undefined,
     nodeAdminUrl: undefined,
-    pxeUrl: undefined,
     l1RpcUrls: undefined,
     senderSalt: undefined,
     l2GasLimit: undefined,
@@ -137,10 +130,6 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   nodeAdminUrl: {
     env: 'AZTEC_NODE_ADMIN_URL',
     description: 'The URL to the Aztec node admin API to force-flush txs if configured.',
-  },
-  pxeUrl: {
-    env: 'BOT_PXE_URL',
-    description: 'URL to the PXE for sending txs, or undefined if an in-proc PXE is used.',
   },
   l1RpcUrls: {
     env: 'ETHEREUM_HOSTS',
@@ -169,18 +158,12 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   },
   senderSalt: {
     env: 'BOT_ACCOUNT_SALT',
-    description: 'The salt to use to deploys the sender account.',
+    description: 'The salt to use to deploy the sender account.',
     parseEnv: (val: string) => (val ? Fr.fromHexString(val) : undefined),
-  },
-  recipientEncryptionSecret: {
-    env: 'BOT_RECIPIENT_ENCRYPTION_SECRET',
-    description: 'Encryption secret for a recipient account.',
-    printDefault: sv => sv?.getValue(),
-    ...secretFrConfigHelper(Fr.fromHexString('0xcafecafe')),
   },
   tokenSalt: {
     env: 'BOT_TOKEN_SALT',
-    description: 'Salt for the token contract deployment.',
+    description: 'The salt to use to deploy the token contract.',
     parseEnv: (val: string) => Fr.fromHexString(val),
     defaultValue: Fr.fromHexString('1'),
   },

@@ -1,3 +1,4 @@
+import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import {
   type Account,
   type AccountContract,
@@ -7,7 +8,6 @@ import {
   type ContractArtifact,
   type ContractFunctionInteractionCallIntent,
   type IntentInnerHash,
-  type PXE,
   SetPublicAuthwitContractInteraction,
   SignerlessAccount,
   type SimulateMethodOptions,
@@ -16,11 +16,11 @@ import {
 } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
-import { Fq, Fr } from '@aztec/foundation/fields';
+import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import type { PXE } from '@aztec/pxe/client/lazy';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstanceWithAddress, PartialAddress } from '@aztec/stdlib/contract';
-import type { PXEInfo } from '@aztec/stdlib/interfaces/client';
 import type { NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import type { TxSimulationResult } from '@aztec/stdlib/tx';
 
@@ -50,12 +50,29 @@ export interface AccountData {
 export abstract class BaseTestWallet extends BaseWallet {
   protected accounts: Map<string, Account> = new Map();
 
+  /**
+   * Toggle for running "simulated simulations" when calling simulateTx.
+   *
+   * Terminology:
+   * - "simulation": run private circuits normally and then run the kernel in a simulated (brillig) mode on ACVM.
+   *   No kernel witnesses are generated, but protocol rules are checked.
+   * - "simulated simulation": skip running kernels in ACVM altogether and emulate their behavior in TypeScript
+   *   (akin to generateSimulatedProvingResult). We mutate public inputs like the kernels would and can swap in
+   *   fake/private bytecode or accounts for tests. This is much faster but is not usable in situations where we
+   *   need kernel witnesses.
+   *
+   * When this flag is true, simulateTx constructs a request using a fake account (and accepts contract overrides
+   * on the input) and the PXE emulates kernel effects without generating kernel witnesses. When false, simulateTx
+   * defers to the standard simulation path.
+   */
   private simulatedSimulations = false;
 
+  /** Enable the "simulated simulation" path for simulateTx. */
   enableSimulatedSimulations() {
     this.simulatedSimulations = true;
   }
 
+  /** Disable the "simulated simulation" path for simulateTx. */
   disableSimulatedSimulations() {
     this.simulatedSimulations = false;
   }
@@ -86,14 +103,21 @@ export abstract class BaseTestWallet extends BaseWallet {
     return Promise.resolve(Array.from(this.accounts.values()).map(acc => ({ alias: '', item: acc.getAddress() })));
   }
 
-  async createAccount(accountData: AccountData): Promise<AccountManager> {
-    const accountManager = await AccountManager.create(
-      this,
-      this.pxe,
-      accountData.secret,
-      accountData.contract,
-      accountData.salt,
-    );
+  /**
+   * Creates a new account with the provided account data or generates random values and uses SchnorrAccountContract
+   * if not provided.
+   *
+   * @param accountData - Optional account configuration containing secret, salt and account contract.
+   * @returns A new AccountManager instance for the created account
+   */
+  async createAccount(accountData?: AccountData): Promise<AccountManager> {
+    // Generate random values if not provided
+    const secret = accountData?.secret ?? Fr.random();
+    const salt = accountData?.salt ?? Fr.random();
+    // Use SchnorrAccountContract if not provided
+    const contract = accountData?.contract ?? new SchnorrAccountContract(GrumpkinScalar.random());
+
+    const accountManager = await AccountManager.create(this, this.pxe, secret, contract, salt);
 
     await accountManager.register();
 
@@ -191,8 +215,17 @@ export abstract class BaseTestWallet extends BaseWallet {
     }
   }
 
-  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
-  registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
+  /**
+   * Adds keys to PXE for an escrow contract.
+   * @param secretKey - Secret key used to derive public keys of the escrow contract.
+   * @param partialAddress - Partial address of the escrow contract.
+   * @deprecated This will be replaced soon with updated registerContract method that will accept secretKey and
+   * partialAddress on the input.
+   *
+   * TODO(#17324): Allow passing on the input secretKey and partialAddress to registerContract and drop this method.
+   * For context this is typically used when registering escrow contracts.
+   */
+  registerKeysForEscrowContract(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     return this.pxe.registerAccount(secretKey, partialAddress);
   }
 
@@ -201,19 +234,16 @@ export abstract class BaseTestWallet extends BaseWallet {
     return this.pxe.getNotes(filter);
   }
 
-  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
-  // Temporary hack to be able to instantiate TestWalletInternals
+  /**
+   * Returns the PXE.
+   * @deprecated This is only used by account manager to because there we call registerAccount. This can be dropped
+   * once we allow Wallet.registerContract accepts secretKey and partialAddress on the input.
+   */
   getPxe(): PXE {
     return this.pxe;
   }
 
-  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
-  getPXEInfo(): Promise<PXEInfo> {
-    return this.pxe.getPXEInfo();
-  }
-
-  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
-  getContracts(): Promise<AztecAddress[]> {
-    return this.pxe.getContracts();
+  stop(): Promise<void> {
+    return this.pxe.stop();
   }
 }

@@ -46,7 +46,7 @@ export class BotFactory {
    * deploying the token contract, and minting tokens if necessary.
    */
   public async setup() {
-    const recipient = await this.registerRecipient();
+    const recipient = (await this.wallet.createAccount()).address;
     const defaultAccountAddress = await this.setupAccount();
     const token = await this.setupToken(defaultAccountAddress);
     await this.mintTokens(token, defaultAccountAddress);
@@ -141,14 +141,6 @@ export class BotFactory {
     };
     const accountManager = await this.wallet.createAccount(accountData);
     return accountManager.getAddress();
-  }
-
-  /**
-   * Registers the recipient for txs in the pxe.
-   */
-  private async registerRecipient() {
-    const recipient = await this.wallet.registerAccount(this.config.recipientEncryptionSecret.getValue(), Fr.ONE);
-    return recipient.address;
   }
 
   /**

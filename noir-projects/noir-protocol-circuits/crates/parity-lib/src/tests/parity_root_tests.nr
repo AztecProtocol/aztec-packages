@@ -8,7 +8,7 @@ use types::{
         ULTRA_VK_LENGTH_IN_FIELDS,
     },
     proof::{proof_data::ProofData, vk_data::VkData},
-    tests::{fixtures::vk_tree::{generate_fake_vk_for_index, VK_MERKLE_TREE}, utils::pad_end},
+    tests::{fixtures::vk_tree::{get_vk_data, vk_tree_root}, utils::pad_end},
 };
 
 struct TestBuilder {
@@ -17,11 +17,7 @@ struct TestBuilder {
 
 impl TestBuilder {
     pub fn new() -> Self {
-        let vk_index = PARITY_BASE_VK_INDEX;
-        let vk = generate_fake_vk_for_index(vk_index);
-        let sibling_path = VK_MERKLE_TREE.get_sibling_path(vk_index);
-        let vk_data: VkData<ULTRA_VK_LENGTH_IN_FIELDS> =
-            VkData { vk, leaf_index: vk_index, sibling_path };
+        let vk_data = get_vk_data(PARITY_BASE_VK_INDEX);
 
         // 31 byte test SHA roots
         let children_sha_roots = [
@@ -40,8 +36,6 @@ impl TestBuilder {
         sha_root: Field,
         vk_data: VkData<ULTRA_VK_LENGTH_IN_FIELDS>,
     ) -> ParityBaseProofData {
-        let vk_tree_root = VK_MERKLE_TREE.get_root();
-
         let public_inputs = ParityPublicInputs { sha_root, converted_root: 0, vk_tree_root };
 
         let value_offset = sha_root / 2;
@@ -69,7 +63,7 @@ fn public_inputs_match_expected() {
 
     assert_eq(public_inputs.sha_root, expected_sha_root);
     assert_eq(public_inputs.converted_root, expected_converted_root);
-    assert_eq(public_inputs.vk_tree_root, VK_MERKLE_TREE.get_root());
+    assert_eq(public_inputs.vk_tree_root, vk_tree_root);
 }
 
 #[test(should_fail_with = "Inconsistent vk tree roots across parity base circuits")]

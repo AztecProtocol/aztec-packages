@@ -31,7 +31,7 @@ Aztec provers are critical infrastructure components that generate cryptographic
 
 The prover consists of three main components:
 
-1. **Prover node**: Polls L1 for unproven epochs, creates proving jobs, distributes them to the broker, and submits the final rollup proof to the rollup contract.
+1. **Prover node**: Polls L1 for unproven epochs, creates prover jobs, distributes them to the broker, and submits the final rollup proof to the rollup contract.
 
 2. **Prover broker**: Manages the job queue, distributing work to agents and collecting results.
 
@@ -45,28 +45,28 @@ The minimum hardware specifications for each of the components is listed below.
 
 Minimum specifications:
 
-- 2 core / 4 vCPU
+- 2 core / 4 vCPU (released in 2015 or later)
 - 16 GB RAM
 - 1 TB NVMe SSD
 - 25 Mbps network connection
 
-#### Proving Broker
+#### Prover Broker
 
 Minimum specifications:
 
-- 2 core / 4 vCPU
+- 2 core / 4 vCPU (released in 2015 or later)
 - 16 GB RAM
 - 10 GB SSD
 
-#### Proving Agents
+#### Prover Agents
 
-Minimum specifications:
+Minimum specifications (for each agent):
 
-- 32 core / 64 vCPU
+- 32 core / 64 vCPU (released in 2015 or later)
 - 128 GB RAM
 - 10 GB SSD
 
-This guide outlines a basic, non-distributed setup with all components on a single machine. Your hardware must meet or exceed the proving agent requirements listed above.
+This guide outlines a basic, non-distributed setup with all components on a single machine. Your hardware must meet or exceed the prover agent requirements listed above.
 
 This guide assumes you are using a standard Linux distribution (Debian or Ubuntu).
 
@@ -156,7 +156,7 @@ PROVER_BROKER_DATA_DIRECTORY=./prover-broker-data
 
 Required environment variables:
 
-- `PROVER_AGENT_COUNT`: Number of agents to run (each requires ~10GB RAM)
+- `PROVER_AGENT_COUNT`: Number of agents to run
 - `PROVER_AGENT_POLL_INTERVAL_MS`: Polling interval for job requests (milliseconds)
 - `PROVER_BROKER_HOST`: Broker endpoint for job submission
 - `PROVER_ID`: Ethereum address corresponding to `PROVER_PUBLISHER_PRIVATE_KEY`
@@ -166,7 +166,7 @@ Required environment variables:
 Add to your `.env` file:
 
 ```sh
-PROVER_AGENT_COUNT=10
+PROVER_AGENT_COUNT=1
 PROVER_AGENT_POLL_INTERVAL_MS=10000
 PROVER_ID=<the address corresponding to the PROVER_PUBLISHER_PRIVATE_KEY you set on the node>
 ```

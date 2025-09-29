@@ -116,12 +116,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       env: undefined,
     },
     {
-      flag: '--sandbox.noPXE',
-      description: 'Do not expose PXE service on sandbox start',
-      env: 'NO_PXE',
-      ...booleanConfigHelper(),
-    },
-    {
       flag: '--sandbox.l1Mnemonic <value>',
       description: 'Mnemonic for L1 accounts. Will be used ',
       defaultValue: DefaultMnemonic,
@@ -146,7 +140,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     {
       flag: '--admin-port <value>',
-      description: 'Port to run admin APIs of Aztec Services on on',
+      description: 'Port to run admin APIs of Aztec Services on',
       defaultValue: 8880,
       env: 'AZTEC_ADMIN_PORT',
       parseVal: val => parseInt(val, 10),
