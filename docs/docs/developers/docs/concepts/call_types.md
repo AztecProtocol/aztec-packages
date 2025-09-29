@@ -189,7 +189,7 @@ No correctness is guaranteed on the result of `simulate`! Correct execution is e
 
 This creates and returns a transaction request, which includes proof of correct private execution and side-effects. The request is not broadcast however, and no gas is spent. It is typically used in testing contexts to inspect transaction parameters or to check for execution failure.
 
-#include_code local-tx-fails /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
+#include_code local-tx-fails /yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts typescript
 
 #### `send`
 
