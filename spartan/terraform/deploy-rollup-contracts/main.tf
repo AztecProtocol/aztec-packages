@@ -31,7 +31,6 @@ locals {
     var.SPONSORED_FPC ? ["--sponsored-fpc"] : [],
     var.TEST_ACCOUNTS ? ["--test-accounts"] : [],
     var.REAL_VERIFIER ? ["--real-verifier"] : [],
-    var.FLUSH_ENTRY_QUEUE ? ["--flush-entry-queue"] : []
   )
 
 
