@@ -330,10 +330,9 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      */
     virtual std::vector<FF> to_field_elements() const
     {
-        using namespace bb::stdlib::field_conversion;
 
         auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
-            std::vector<FF> input_fields = convert_to_bn254_frs<Builder, T>(input);
+            std::vector<FF> input_fields = stdlib::FieldConversion<Builder>::template convert_to_bn254_frs<T>(input);
             buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
         };
 

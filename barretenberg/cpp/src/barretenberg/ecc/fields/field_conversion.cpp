@@ -67,19 +67,4 @@ std::vector<bb::fr> convert_grumpkin_fr_to_bn254_frs(const grumpkin::fr& val)
     return result;
 }
 
-grumpkin::fr convert_to_grumpkin_fr(const bb::fr& f)
-{
-    const uint64_t NUM_BITS_IN_TWO_LIMBS = 2 * NUM_LIMB_BITS; // the number of bits in 2 bigfield limbs which is 136
-
-    constexpr uint256_t LIMB_MASK =
-        (uint256_t(1) << NUM_BITS_IN_TWO_LIMBS) - 1; // split bn254_fr into two 136 bit pieces
-    const uint256_t value = f;
-    const uint256_t low = static_cast<uint256_t>(value & LIMB_MASK);
-    const uint256_t hi = static_cast<uint256_t>(value >> NUM_BITS_IN_TWO_LIMBS);
-    BB_ASSERT_EQ(static_cast<uint256_t>(low) + (static_cast<uint256_t>(hi) << NUM_BITS_IN_TWO_LIMBS), value);
-
-    std::vector<bb::fr> fr_vec{ low, hi };
-    return convert_from_bn254_frs<grumpkin::fr>(fr_vec);
-}
-
 } // namespace bb::field_conversion

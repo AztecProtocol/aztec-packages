@@ -18,6 +18,7 @@ namespace bb::stdlib::recursion::honk {
 template <typename Builder> struct StdlibTranscriptParams {
     using DataType = stdlib::field_t<Builder>;
     using Proof = std::vector<DataType>;
+    using Codec = FieldConversion<Builder>;
 
     static DataType hash(const std::vector<DataType>& data)
     {
@@ -42,23 +43,23 @@ template <typename Builder> struct StdlibTranscriptParams {
     }
     template <typename T> static T convert_challenge(const DataType& challenge)
     {
-        return bb::stdlib::field_conversion::convert_challenge<Builder, T>(challenge);
+        return Codec::template convert_challenge<T>(challenge);
     }
 
     template <typename T> static constexpr size_t calc_num_data_types()
     {
-        return bb::stdlib::field_conversion::calc_num_bn254_frs<Builder, T>();
+        return Codec::template calc_num_bn254_frs<T>();
     }
 
     template <typename T> static T deserialize(std::span<const DataType> frs)
     {
         ASSERT(!frs.empty());
-        return bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(frs);
+        return Codec::template convert_from_bn254_frs<T>(frs);
     }
 
     template <typename T> static std::vector<DataType> serialize(const T& element)
     {
-        return bb::stdlib::field_conversion::convert_to_bn254_frs<Builder, T>(element);
+        return Codec::template convert_to_bn254_frs<T>(element);
     }
 };
 

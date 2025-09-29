@@ -49,6 +49,8 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
     using NativeVerificationKey = NativeFlavor::VerificationKey;
     using Transcript = UltraRecursiveFlavor_<BuilderType>::Transcript;
 
+    using Base = UltraRecursiveFlavor_<BuilderType>;
+
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
@@ -88,16 +90,16 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
          */
         VerificationKey(std::span<FF> elements)
         {
-            using namespace bb::stdlib::field_conversion;
+            using FieldConversion = stdlib::FieldConversion<CircuitBuilder>;
 
             size_t num_frs_read = 0;
 
-            this->log_circuit_size = deserialize_from_frs<FF>(elements, num_frs_read);
-            this->num_public_inputs = deserialize_from_frs<FF>(elements, num_frs_read);
-            this->pub_inputs_offset = deserialize_from_frs<FF>(elements, num_frs_read);
+            this->log_circuit_size = FieldConversion::template deserialize_from_frs<FF>(elements, num_frs_read);
+            this->num_public_inputs = FieldConversion::template deserialize_from_frs<FF>(elements, num_frs_read);
+            this->pub_inputs_offset = FieldConversion::template deserialize_from_frs<FF>(elements, num_frs_read);
 
             for (Commitment& commitment : this->get_all()) {
-                commitment = deserialize_from_frs<Commitment>(elements, num_frs_read);
+                commitment = FieldConversion::template deserialize_from_frs<Commitment>(elements, num_frs_read);
             }
         }
 

@@ -226,14 +226,15 @@ template <typename T> std::vector<uint256_t> convert_to_uint256(const T& val)
     }
 }
 
-grumpkin::fr convert_to_grumpkin_fr(const bb::fr& f);
-
 template <typename T> T inline convert_challenge(const bb::fr& challenge)
 {
     if constexpr (std::is_same_v<T, bb::fr>) {
         return challenge;
     } else if constexpr (std::is_same_v<T, grumpkin::fr>) {
-        return convert_to_grumpkin_fr(challenge);
+        BB_ASSERT_LTE(static_cast<uint256_t>(challenge).get_msb(),
+                      2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION,
+                      "field_conversion: convert challenge");
+        return grumpkin::fr(challenge);
     }
 }
 
