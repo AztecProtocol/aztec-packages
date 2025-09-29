@@ -35,23 +35,23 @@ where
 
 /// Returns the note hash that must be used to compute a note's nullifier when calling `NoteHash::compute_nullifier` or
 /// `NoteHash::compute_nullifier_unconstrained`.
-pub fn compute_note_hash_for_nullify<Note>(
+pub fn compute_note_hash_for_nullification<Note>(
     retrieved_note: RetrievedNote<Note>,
     storage_slot: Field,
 ) -> Field
 where
     Note: NoteHash,
 {
-    compute_note_hash_for_nullify_from_read_request(
+    compute_note_hash_for_nullification_from_read_request(
         retrieved_note,
         compute_note_hash_for_read_request(retrieved_note, storage_slot),
     )
 }
 
-/// Same as `compute_note_hash_for_nullify`, except it takes the note hash used in a read request (i.e. what
+/// Same as `compute_note_hash_for_nullification`, except it takes the note hash used in a read request (i.e. what
 /// `compute_note_hash_for_read_request` would return). This is useful in scenarios where that hash has already been
 /// computed to reduce constraints by reusing this value.
-pub fn compute_note_hash_for_nullify_from_read_request<Note>(
+pub fn compute_note_hash_for_nullification_from_read_request<Note>(
     retrieved_note: RetrievedNote<Note>,
     note_hash_for_read_request: Field,
 ) -> Field {
@@ -83,8 +83,10 @@ pub fn compute_siloed_note_nullifier<Note>(
 where
     Note: NoteHash,
 {
-    let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
-    let inner_nullifier = retrieved_note.note.compute_nullifier(context, note_hash_for_nullify);
+    let note_hash_for_nullification =
+        compute_note_hash_for_nullification(retrieved_note, storage_slot);
+    let inner_nullifier =
+        retrieved_note.note.compute_nullifier(context, note_hash_for_nullification);
 
     compute_siloed_nullifier(retrieved_note.contract_address, inner_nullifier)
 }
