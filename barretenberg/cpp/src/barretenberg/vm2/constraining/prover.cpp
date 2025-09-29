@@ -59,6 +59,8 @@ void AvmProver::execute_preamble_round()
  */
 void AvmProver::execute_public_inputs_round()
 {
+    BB_BENCH_NAME("AvmProver::execute_public_inputs_round");
+
     using C = ColumnAndShifts;
     // We take the starting values of the public inputs polynomials to add to the transcript
     const auto public_inputs_cols = std::vector({ &prover_polynomials.get(C::public_inputs_cols_0_),
@@ -93,6 +95,8 @@ void AvmProver::execute_wire_commitments_round()
 
 void AvmProver::execute_log_derivative_inverse_round()
 {
+    BB_BENCH_NAME("AvmProver::execute_log_derivative_inverse_round");
+
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
@@ -136,6 +140,7 @@ void AvmProver::execute_log_derivative_inverse_commitments_round()
  */
 void AvmProver::execute_relation_check_rounds()
 {
+    BB_BENCH_NAME("AvmProver::execute_relation_check_rounds");
     using Sumcheck = SumcheckProver<Flavor>;
 
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
@@ -158,6 +163,8 @@ void AvmProver::execute_relation_check_rounds()
 
 void AvmProver::execute_pcs_rounds()
 {
+    BB_BENCH_NAME("AvmProver::execute_pcs_rounds");
+
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
