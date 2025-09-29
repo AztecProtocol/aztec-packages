@@ -116,16 +116,16 @@ mod tests {
         let contract_address = AztecAddress::from_field(42);
 
         let public_data_prefill = 2;
+        let leaf_index = (public_data_prefill - 1) as Field;
 
         let public_data_tree = empty_public_data_tree::<4, 2>(public_data_prefill);
         let mut historical_header = BlockHeader::empty();
         historical_header.state.partial.public_data_tree.root = public_data_tree.get_root();
-        historical_header.state.partial.public_data_tree.next_available_leaf_index =
-            public_data_prefill;
+        historical_header.state.partial.public_data_tree.next_available_leaf_index = leaf_index + 1;
 
         let witness = MembershipWitness {
-            leaf_index: (public_data_prefill - 1) as Field,
-            sibling_path: public_data_tree.get_sibling_path(public_data_prefill - 1),
+            leaf_index,
+            sibling_path: public_data_tree.get_sibling_path(leaf_index),
         };
 
         let leaf_preimage = PublicDataTreeLeafPreimage {
@@ -170,15 +170,17 @@ mod tests {
         );
 
         let public_data_prefill = 2;
+        let last_leaf_index = (public_data_prefill - 1) as Field;
+        let new_leaf_index = last_leaf_index + 1;
 
         let mut public_data_tree = empty_public_data_tree::<4, 2>(public_data_prefill);
         public_data_tree.update_leaf(
-            public_data_prefill - 1,
+            last_leaf_index,
             PublicDataTreeLeafPreimage {
                 slot: (public_data_prefill - 1) as Field,
                 value: 0,
                 next_slot: hash_leaf_slot,
-                next_index: public_data_prefill,
+                next_index: last_leaf_index + 1,
             }
                 .hash(),
         );
@@ -189,16 +191,16 @@ mod tests {
             next_slot: 0,
             next_index: 0,
         };
-        public_data_tree.update_leaf(public_data_prefill, leaf_preimage.hash());
+        public_data_tree.update_leaf(new_leaf_index, leaf_preimage.hash());
 
         let mut historical_header = BlockHeader::empty();
         historical_header.state.partial.public_data_tree.root = public_data_tree.get_root();
         historical_header.state.partial.public_data_tree.next_available_leaf_index =
-            public_data_prefill + 1;
+            new_leaf_index + 1;
 
         let witness = MembershipWitness {
-            leaf_index: public_data_prefill as Field,
-            sibling_path: public_data_tree.get_sibling_path(public_data_prefill),
+            leaf_index: new_leaf_index,
+            sibling_path: public_data_tree.get_sibling_path(new_leaf_index),
         };
 
         validate_with_hash_hints(
@@ -238,7 +240,7 @@ mod tests {
         let mut historical_header = BlockHeader::empty();
         historical_header.state.partial.public_data_tree.root = public_data_tree.get_root();
         historical_header.state.partial.public_data_tree.next_available_leaf_index =
-            public_data_prefill;
+            public_data_prefill as Field;
 
         let witness =
             MembershipWitness { leaf_index: 0, sibling_path: public_data_tree.get_sibling_path(0) };
@@ -269,16 +271,16 @@ mod tests {
         let contract_address = AztecAddress::from_field(42);
 
         let public_data_prefill = 2;
+        let leaf_index = (public_data_prefill - 1) as Field;
 
         let public_data_tree = empty_public_data_tree::<4, 2>(public_data_prefill);
         let mut historical_header = BlockHeader::empty();
         historical_header.state.partial.public_data_tree.root = public_data_tree.get_root();
-        historical_header.state.partial.public_data_tree.next_available_leaf_index =
-            public_data_prefill;
+        historical_header.state.partial.public_data_tree.next_available_leaf_index = leaf_index + 1;
 
         let witness = MembershipWitness {
-            leaf_index: (public_data_prefill - 1) as Field,
-            sibling_path: public_data_tree.get_sibling_path(public_data_prefill - 1),
+            leaf_index,
+            sibling_path: public_data_tree.get_sibling_path(leaf_index),
         };
 
         let leaf_preimage = PublicDataTreeLeafPreimage {
@@ -329,15 +331,17 @@ mod tests {
         let hashed_value = 9000; // Incorrect hash
 
         let public_data_prefill = 2;
+        let last_leaf_index = (public_data_prefill - 1) as Field;
+        let new_leaf_index = last_leaf_index + 1;
 
         let mut public_data_tree = empty_public_data_tree::<4, 2>(public_data_prefill);
         public_data_tree.update_leaf(
-            public_data_prefill - 1,
+            last_leaf_index,
             PublicDataTreeLeafPreimage {
                 slot: (public_data_prefill - 1) as Field,
                 value: 0,
                 next_slot: hash_leaf_slot,
-                next_index: public_data_prefill,
+                next_index: last_leaf_index + 1,
             }
                 .hash(),
         );
@@ -348,16 +352,16 @@ mod tests {
             next_slot: 0,
             next_index: 0,
         };
-        public_data_tree.update_leaf(public_data_prefill, leaf_preimage.hash());
+        public_data_tree.update_leaf(new_leaf_index, leaf_preimage.hash());
 
         let mut historical_header = BlockHeader::empty();
         historical_header.state.partial.public_data_tree.root = public_data_tree.get_root();
         historical_header.state.partial.public_data_tree.next_available_leaf_index =
-            public_data_prefill + 1;
+            new_leaf_index + 1;
 
         let witness = MembershipWitness {
-            leaf_index: public_data_prefill as Field,
-            sibling_path: public_data_tree.get_sibling_path(public_data_prefill),
+            leaf_index: new_leaf_index,
+            sibling_path: public_data_tree.get_sibling_path(new_leaf_index),
         };
 
         validate_with_hash_hints(

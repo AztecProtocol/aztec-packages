@@ -44,7 +44,7 @@ fn incorrect_next_available_archive__non_first_single_tx_block() {
     builder.execute_and_fail();
 }
 
-#[test(should_fail_with = "membership check failed")]
+#[test(should_fail_with = "Membership check failed: empty subtree root not found at insertion index")]
 fn incorrect_next_available_archive__empty_block() {
     // The error is different for the empty block root, as it doesn't have a tx, so the code path for the above tests
     // that validates the block number in the tx's constants is not triggered.
@@ -52,6 +52,67 @@ fn incorrect_next_available_archive__empty_block() {
 
     // Tweak the next_available_leaf_index of the last archive.
     builder.left_rollup.constants.last_archive.next_available_leaf_index += 1;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "The block number must match the index at which the block header hash is inserted into the archive")]
+fn next_available_archive_leaf_index_too_large__first_block() {
+    let mut builder = TestBuilder::default(true, false);
+
+    // Tweak the next_available_leaf_index to be larger than u32.
+    builder.left_rollup.constants.last_archive.next_available_leaf_index +=
+        (1 << 32 as u64) as Field;
+    builder.right_rollup.constants.last_archive.next_available_leaf_index +=
+        (1 << 32 as u64) as Field;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "The block number must match the index at which the block header hash is inserted into the archive")]
+fn next_available_archive_leaf_index_too_large__first_single_tx_block() {
+    let mut builder = TestBuilder::default(true, true);
+
+    // Tweak the next_available_leaf_index to be larger than u32.
+    builder.left_rollup.constants.last_archive.next_available_leaf_index +=
+        (1 << 32 as u64) as Field;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "The block number must match the index at which the block header hash is inserted into the archive")]
+fn next_available_archive_leaf_index_too_large__non_first_block() {
+    let mut builder = TestBuilder::default(false, false);
+
+    // Tweak the next_available_leaf_index to be larger than u32.
+    builder.left_rollup.constants.last_archive.next_available_leaf_index +=
+        (1 << 32 as u64) as Field;
+    builder.right_rollup.constants.last_archive.next_available_leaf_index +=
+        (1 << 32 as u64) as Field;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "The block number must match the index at which the block header hash is inserted into the archive")]
+fn next_available_archive_leaf_index_too_large__non_first_single_tx_block() {
+    let mut builder = TestBuilder::default(false, true);
+
+    // Tweak the next_available_leaf_index to be larger than u32.
+    builder.left_rollup.constants.last_archive.next_available_leaf_index +=
+        (1 << 32 as u64) as Field;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "call to assert_max_bit_size")]
+fn next_available_archive_leaf_index_too_large__empty_block() {
+    // The error is different for the empty block root, as it doesn't have a tx, so the code path for the above tests
+    // that validates the block number in the tx's constants is not triggered.
+    let mut builder = TestBuilder::new_empty();
+
+    // Tweak the next_available_leaf_index to be larger than u32.
+    builder.left_rollup.constants.last_archive.next_available_leaf_index +=
+        (1 << 32 as u64) as Field;
 
     builder.execute_and_fail();
 }
