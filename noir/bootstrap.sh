@@ -74,7 +74,9 @@ function build_native {
   set -euo pipefail
   local hash=$NOIR_HASH
 
-  sudo apt update && sudo apt install -y pkg-config libssl-dev
+  if ! dpkg -l pkg-config libssl-dev >/dev/null 2>&1; then
+    sudo apt update && sudo apt install -y pkg-config libssl-dev
+  fi
 
   if cache_download noir-$hash.tar.gz; then
     return
