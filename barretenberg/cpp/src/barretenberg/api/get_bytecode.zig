@@ -9,16 +9,16 @@ export fn gunzip(path: [*:0]const u8, out_len: *usize) [*]const u8 {
     defer gpa.free(contents);
 
     if (contents.len < 18 or contents[0] != 0x1f or contents[1] != 0x8b) {
-        return error.InvalidGzip;
+        unreachable;
     }
     var reader: std.Io.Reader = .fixed(contents);
     var decompress_buffer: [std.compress.flate.max_window_len]u8 = undefined;
     var decompress: std.compress.flate.Decompress = .init(&reader, .gzip, &decompress_buffer);
-    var writer: std.io.Writer.Allocating = .init(gpa.allocator);
-    _ = try decompress.reader.streamRemaining(&writer.writer);
+    var writer: std.io.Writer.Allocating = .init(gpa);
+    _ = decompress.reader.streamRemaining(&writer.writer) catch unreachable;
     // print("Decompressed bytecode: {d} bytes\n", .{decompressed_len});
 
-    const bc = writer.toOwnedSlice();
+    const bc = writer.toOwnedSlice() catch unreachable;
 
     out_len.* = bc.len;
     return bc.ptr;

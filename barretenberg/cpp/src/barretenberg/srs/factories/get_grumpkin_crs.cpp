@@ -5,6 +5,18 @@
 #include "barretenberg/common/try_catch_shim.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
+#ifdef __zig__
+extern "C" const uint8_t* download_grumpkin_g1_data(size_t* out_len);
+
+inline std::vector<uint8_t> download_grumpkin_g1_data(size_t _)
+{
+    size_t len = 0;
+    const uint8_t* ptr = download_grumpkin_g1_data(&len);
+    const auto result = std::vector<uint8_t>(ptr, ptr + len);
+    free((void*)ptr);
+    return result;
+}
+#else
 namespace {
 std::vector<uint8_t> download_grumpkin_g1_data(size_t num_points)
 {
@@ -20,6 +32,7 @@ std::vector<uint8_t> download_grumpkin_g1_data(size_t num_points)
     return data;
 }
 } // namespace
+#endif
 
 namespace bb {
 std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::filesystem::path& path,

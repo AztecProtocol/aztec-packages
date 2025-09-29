@@ -1,4 +1,6 @@
 #pragma once
+// Popen approach is deprecated in Zig land. Exclude code completely.
+#ifndef __zig__
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include <cstdint>
@@ -92,3 +94,5 @@ inline std::vector<uint8_t> exec_pipe_with_number(const char (&command_prefix)[N
     return exec_pipe_unsafe(command);
 }
 } // namespace bb
+
+#endif

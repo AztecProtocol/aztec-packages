@@ -4,7 +4,7 @@ const App = @import("yazap").App;
 const Arg = @import("yazap").Arg;
 const ArgMatches = @import("yazap").ArgMatches;
 pub const getByteCode = @import("barretenberg/api/get_bytecode.zig").getByteCode;
-pub const crs = @import("barretenberg/srs/factories/get_bn254_crs.zig");
+pub const crs = @import("barretenberg/srs/factories/get_crs.zig");
 
 // Import C functions from existing bb CLI
 extern fn bb_parse_and_run_cli_command_c(argc: c_int, argv: [*][*:0]u8) c_int;
