@@ -36,7 +36,7 @@ auto& engine = numeric::get_debug_randomness();
  *  6. \f$Q\f$ is not the point at infinity
  *  7. \f$Q_x = r \mod n\f$ (note that \f$Q_x \in \mathbb{F}_q\f$)
  *
- * @note The requirement of step 2. is to avoid signature malleability: if \f$(r,s)\f$ is a valid signature for
+ * @note The requirement of step 4. is to avoid signature malleability: if \f$(r,s)\f$ is a valid signature for
  * message \f$m\f$ and public key \f$P\f$, so is \f$(r,n-s)\f$. We protect against malleability by enforcing that
  * \f$s\f$ is always the lowest of the two possible values.
  *
@@ -51,13 +51,14 @@ auto& engine = numeric::get_debug_randomness();
  *
  * @note The circuit introduces constraints for the following assertions:
  *          1. \f$P\f$ is on the curve
- *          2. \f$H(m) < n\f$
- *          3. \f$0 < r < n\f$
- *          4. \f$0 < s < (n+1)/2\f$
- *          5. \f$Q := H(m) s^{-1} G + r s^{-1} P\f$ is not the point at infinity
+ *          2. \f$P\f$ is on the point at infinity
+ *          3. \f$H(m) < n\f$
+ *          4. \f$0 < r < n\f$
+ *          5. \f$0 < s < (n+1)/2\f$
+ *          6. \f$Q := H(m) s^{-1} G + r s^{-1} P\f$ is not the point at infinity
  * Therefore, if the witnesses passed to this function do not satisfy these constraints, the resulting circuit
  * will be unsatisfied. If a user wants to use the verification inside a in-circuit branch, then they need to supply
- * valid data for \f$P, r, s\f$, even though \f$(r,s)\f$ doesn't need to be a valid signature.
+ * valid data for \f$m, P, r, s\f$, even though \f$(r,s)\f$ doesn't need to be a valid signature.
  *
  * @tparam Builder
  * @tparam Curve
