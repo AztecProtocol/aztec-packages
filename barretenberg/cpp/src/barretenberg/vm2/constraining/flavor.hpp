@@ -16,7 +16,6 @@
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
-#include "barretenberg/vm2/constraining/entities.hpp"
 #include "barretenberg/vm2/constraining/flavor_macros.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 
