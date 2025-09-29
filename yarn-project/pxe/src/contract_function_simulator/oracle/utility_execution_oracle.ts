@@ -256,12 +256,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return values;
   }
 
-  public utilityDebugLog(levelNumber: number, message: string, fields: Fr[]): void {
-    if (!LogLevels[levelNumber]) {
-      throw new Error(`Invalid debug log level: ${levelNumber}`);
+  public utilityDebugLog(level: number, message: string, fields: Fr[]): void {
+    if (!LogLevels[level]) {
+      throw new Error(`Invalid debug log level: ${level}`);
     }
-    const level = LogLevels[levelNumber];
-    this.log[level](`${applyStringFormatting(message, fields)}`, { module: `${this.log.module}:debug_log` });
+    const levelName = LogLevels[level];
+    this.log[levelName](`${applyStringFormatting(message, fields)}`, { module: `${this.log.module}:debug_log` });
   }
 
   /**

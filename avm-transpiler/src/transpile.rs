@@ -1351,7 +1351,7 @@ fn handle_debug_log(
         );
     }
     // Level
-    let level = match &inputs[0] {
+    let level_offset = match &inputs[0] {
         ValueOrArray::MemoryAddress(level) => level,
         _ => panic!("Level for ForeignCall::DEBUGLOG should be a MemoryAddress."),
     };
@@ -1382,14 +1382,14 @@ fn handle_debug_log(
         //  * fields_size_offset direct
         indirect: Some(
             AddressingModeBuilder::default()
-                .direct_operand(level)
+                .direct_operand(level_offset)
                 .indirect_operand(message_offset)
                 .indirect_operand(fields_offset_ptr)
                 .direct_operand(fields_size_offset)
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: level.to_usize() as u16 },
+            AvmOperand::U16 { value: level_offset.to_usize() as u16 },
             AvmOperand::U16 { value: message_offset.to_usize() as u16 },
             AvmOperand::U16 { value: fields_offset_ptr.to_usize() as u16 },
             AvmOperand::U16 { value: fields_size_offset.to_usize() as u16 },

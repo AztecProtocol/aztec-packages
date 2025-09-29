@@ -257,12 +257,12 @@ export class TXE implements IUtilityExecutionOracle, IPrivateExecutionOracle {
     return values;
   }
 
-  utilityDebugLog(levelNumber: number, message: string, fields: Fr[]): void {
-    if (!LogLevels[levelNumber]) {
-      throw new Error(`Invalid debug log level: ${levelNumber}`);
+  utilityDebugLog(level: number, message: string, fields: Fr[]): void {
+    if (!LogLevels[level]) {
+      throw new Error(`Invalid debug log level: ${level}`);
     }
-    const level = LogLevels[levelNumber];
-    this.logger[level](`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
+    const levelName = LogLevels[level];
+    this.logger[levelName](`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
   }
 
   async privateIncrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {

@@ -121,13 +121,13 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   // We instruct users to debug contracts via this oracle, so it makes sense that they'd expect it to also work in tests
-  utilityDebugLog(levelNumber: number, message: string, fields: Fr[]): void {
-    if (!LogLevels[levelNumber]) {
-      throw new Error(`Invalid debug log level: ${levelNumber}`);
+  utilityDebugLog(level: number, message: string, fields: Fr[]): void {
+    if (!LogLevels[level]) {
+      throw new Error(`Invalid debug log level: ${level}`);
     }
-    const level = LogLevels[levelNumber];
+    const levelName = LogLevels[level];
 
-    this.logger[level](`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
+    this.logger[levelName](`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
   }
 
   async txeGetNextBlockNumber(): Promise<number> {
