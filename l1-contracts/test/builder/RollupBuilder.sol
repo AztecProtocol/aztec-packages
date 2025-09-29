@@ -28,7 +28,6 @@ struct ConfigFlags {
   bool makeCanonical;
   bool makeGovernance;
   bool updateOwnerships;
-  bool openFloodgates;
   bool checkProofOfPossession;
 }
 
@@ -77,7 +76,6 @@ contract RollupBuilder is Test {
     config.flags.makeCanonical = true;
     config.flags.makeGovernance = true;
     config.flags.updateOwnerships = true;
-    config.flags.openFloodgates = true;
     config.flags.checkProofOfPossession = false;
   }
 
@@ -138,11 +136,6 @@ contract RollupBuilder is Test {
 
   function setUpdateOwnerships(bool _updateOwnerships) public returns (RollupBuilder) {
     config.flags.updateOwnerships = _updateOwnerships;
-    return this;
-  }
-
-  function setOpenFloodgates(bool _openFloodgates) public returns (RollupBuilder) {
-    config.flags.openFloodgates = _openFloodgates;
     return this;
   }
 
@@ -283,21 +276,12 @@ contract RollupBuilder is Test {
     if (config.flags.makeGovernance) {
       GovernanceProposer proposer =
         new GovernanceProposer(config.registry, config.gse, config.values.govProposerN, config.values.govProposerM);
-      config.governance = new TestGov(
-        config.testERC20, address(proposer), address(config.gse), TestConstants.getGovernanceConfiguration()
-      );
+      config.governance = new TestGov(config.testERC20, address(proposer), TestConstants.getGovernanceConfiguration());
       vm.label(address(config.governance), "Governance");
       vm.label(address(proposer), "GovernanceProposer");
 
       vm.prank(config.gse.owner());
       config.gse.setGovernance(config.governance);
-
-      if (config.flags.openFloodgates) {
-        vm.prank(address(config.governance));
-        config.governance.openFloodgates();
-
-        assertEq(config.governance.isAllBeneficiariesAllowed(), true);
-      }
     }
 
     config.rollupConfigInput.rewardConfig.rewardDistributor = config.rewardDistributor;

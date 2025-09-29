@@ -33,27 +33,10 @@ contract LimitedDepositTest is TestBase {
     registry = new Registry(address(this), token);
     governanceProposer = new GovernanceProposer(registry, IGSE(address(0x03)), 677, 1000);
 
-    governance =
-      new Governance(token, address(governanceProposer), address(this), TestConstants.getGovernanceConfiguration());
+    governance = new Governance(token, address(governanceProposer), TestConstants.getGovernanceConfiguration());
   }
 
-  function test_WhenNotAllowedToDeposit(address _caller, address _depositor) external {
-    // it reverts
-
-    vm.assume(_caller != address(0) && _depositor != address(0) && _caller != address(governance));
-    vm.assume(!governance.isPermittedInGovernance(_depositor));
-
-    vm.prank(_caller);
-    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__DepositNotAllowed.selector));
-    governance.deposit(_depositor, 1000);
-  }
-
-  function test_WhenNotAllowedToDepositSelf(address _depositor, bool _floodgatesOpen) external {
-    if (_floodgatesOpen) {
-      vm.prank(address(governance));
-      governance.openFloodgates();
-    }
-
+  function test_WhenNotAllowedToDepositSelf(address _depositor) external {
     vm.prank(address(governance));
     vm.expectRevert(abi.encodeWithSelector(Errors.Governance__CallerCannotBeSelf.selector));
     governance.deposit(_depositor, 1000);
@@ -62,9 +45,6 @@ contract LimitedDepositTest is TestBase {
   function test_WhenIsAllowedToDeposit(address _caller, address _depositor) external {
     // it deposits
     vm.assume(_caller != address(0) && _depositor != address(0) && _caller != address(governance));
-
-    vm.prank(address(governance));
-    governance.addBeneficiary(_depositor);
 
     token.mint(_caller, 1000);
 
@@ -77,13 +57,10 @@ contract LimitedDepositTest is TestBase {
     assertEq(governance.powerNow(_depositor), 1000);
   }
 
-  function test_WhenFloodgatesAreOpen(address _caller, address _depositor) external {
+  function test_WhenAnyoneCanDeposit(address _caller, address _depositor) external {
     // it deposits
 
     vm.assume(_caller != address(0) && _depositor != address(0) && _caller != address(governance));
-
-    vm.prank(address(governance));
-    governance.openFloodgates();
 
     token.mint(_caller, 1000);
 

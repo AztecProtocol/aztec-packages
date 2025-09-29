@@ -102,8 +102,7 @@ contract TestTmnt143 is TestBase {
     rollup = new Fakerollup();
     registry.addRollup(rollup);
 
-    governance =
-      new Governance(asset, address(governanceProposer), address(gse), TestConstants.getGovernanceConfiguration());
+    governance = new Governance(asset, address(governanceProposer), TestConstants.getGovernanceConfiguration());
 
     registry.transferOwnership(address(governance));
 
@@ -112,9 +111,6 @@ contract TestTmnt143 is TestBase {
 
   function test_livelock() external {
     // Make a proposal to move to a new GSE, but people leave early so less than 2/3 on the latest in the GSE.
-
-    vm.prank(address(governance));
-    governance.openFloodgates();
 
     vm.prank(asset.owner());
     asset.mint(address(this), 10_000e18);

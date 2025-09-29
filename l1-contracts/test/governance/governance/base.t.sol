@@ -36,11 +36,7 @@ contract GovernanceBase is TestBase {
     registry = new Registry(address(this), token);
     governanceProposer = new GovernanceProposer(registry, IGSE(address(0x03)), 677, 1000);
 
-    governance =
-      new TestGov(token, address(governanceProposer), address(this), TestConstants.getGovernanceConfiguration());
-
-    vm.prank(address(governance));
-    governance.openFloodgates();
+    governance = new TestGov(token, address(governanceProposer), TestConstants.getGovernanceConfiguration());
 
     registry.transferOwnership(address(governance));
 

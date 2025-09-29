@@ -26,26 +26,6 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
 /**
- * @dev a whitelist, controlling who may have power in the governance contract.
- * That is, an address must be an approved beneficiary to receive power via `deposit`.
- *
- * The caveat is that the owner of the contract may open the floodgates, allowing all addresses to hold power.
- * This is currently a "one-way-valve", since if it were reopened after being shut,
- * the contract is in an odd state where entities are holding power, but not allowed to receive more;
- * the whitelist is enabled, but does not reflect the functional entities in the system.
- * As an aside, it is unlikely that in the event Governance were opened up to all addresses,
- * those same addresses would subsequently vote to close it again.
- *
- * In practice, it is expected that the only authorized beneficiary will be the GSE.
- * This is because all rollup instances deposit their stake into the GSE, which in turn deposits it into the governance
- * contract. In turn, it is the GSE that votes on proposals.
- */
-struct DepositControl {
-  mapping(address beneficiary => bool allowed) isAllowed;
-  bool allBeneficiariesAllowed;
-}
-
-/**
  * @title Governance
  * @author Aztec Labs
  * @notice A contract that implements governance logic for proposal creation, voting, and execution.
@@ -62,11 +42,6 @@ struct DepositControl {
  * **Power**: Funds received via `deposit` are held by Governance and tracked 1:1 as "power" for the beneficiary.
  *
  * **Proposals**: Payloads containing actions to be executed by governance (excluding calls to the governance ASSET).
- *
- * **Deposit Control**: A whitelist system controlling who can hold power in governance.
- * - Initially restricted to approved beneficiaries (expected to be only the GSE)
- * - Can be opened to all addresses via `openFloodgates` (one-way valve)
- * - The GSE aggregates stake from all rollup instances and votes on their behalf
  *
  * **Voting Power**: Based on checkpointed deposit history, calculated per proposal.
  *
@@ -102,7 +77,7 @@ struct DepositControl {
  * @dev USER FLOW:
  *
  * 1. **Deposit**: Transfer ASSET to governance for voting power
- *    - Only whitelisted beneficiaries can hold power
+ *    - Anyone can deposit funds into the governance contract
  *    - Power is checkpointed for historical lookups
  *
  * 2. **Vote**: Use power from proposal's snapshot timestamp
@@ -151,12 +126,6 @@ contract Governance is IGovernance {
    * This address can only be updated by the governance itself through a proposal.
    */
   address public governanceProposer;
-
-  /**
-   * @dev The whitelist of beneficiaries that are allowed to hold power via `deposit`,
-   * and the flag to allow all beneficiaries to hold power.
-   */
-  DepositControl internal depositControl;
 
   /**
    * @dev The proposals that have been made.
@@ -229,55 +198,12 @@ contract Governance is IGovernance {
     _;
   }
 
-  /**
-   * @dev Modifier to ensure that the beneficiary is allowed to hold power in Governance.
-   */
-  modifier isDepositAllowed(address _beneficiary) {
-    require(msg.sender != address(this), Errors.Governance__CallerCannotBeSelf());
-    require(
-      depositControl.allBeneficiariesAllowed || depositControl.isAllowed[_beneficiary],
-      Errors.Governance__DepositNotAllowed()
-    );
-
-    _;
-  }
-
-  /**
-   * @dev the initial _beneficiary is expected to be the GSE.
-   */
-  constructor(IERC20 _asset, address _governanceProposer, address _beneficiary, Configuration memory _configuration) {
+  constructor(IERC20 _asset, address _governanceProposer, Configuration memory _configuration) {
     ASSET = _asset;
     governanceProposer = _governanceProposer;
 
     _configuration.assertValid();
     configuration = CompressedConfigurationLib.compress(_configuration);
-
-    // Unnecessary to set, but better clarity.
-    depositControl.allBeneficiariesAllowed = false;
-    depositControl.isAllowed[_beneficiary] = true;
-    emit BeneficiaryAdded(_beneficiary);
-  }
-
-  /**
-   * @notice Add a beneficiary to the whitelist.
-   * @dev The beneficiary may hold power in the governance contract after this call.
-   * only callable by the governance contract itself.
-   *
-   * @param _beneficiary The address to add to the whitelist.
-   */
-  function addBeneficiary(address _beneficiary) external override(IGovernance) onlySelf {
-    depositControl.isAllowed[_beneficiary] = true;
-    emit BeneficiaryAdded(_beneficiary);
-  }
-
-  /**
-   * @notice Allow all addresses to hold power in the governance contract.
-   * @dev This is a one-way valve.
-   * only callable by the governance contract itself.
-   */
-  function openFloodgates() external override(IGovernance) onlySelf {
-    depositControl.allBeneficiariesAllowed = true;
-    emit FloodGatesOpened();
   }
 
   /**
@@ -317,13 +243,7 @@ contract Governance is IGovernance {
    * @notice Deposit funds into the governance contract, transferring ASSET from msg.sender to the governance contract,
    * increasing the power 1:1 of the beneficiary within the governance contract.
    *
-   * @dev The beneficiary must be allowed to hold power in the governance contract,
-   * according to `depositControl`.
-   *
    * Increments the checkpointed power of the specified beneficiary, and the total power of the governance contract.
-   *
-   * Note that anyone may deposit funds into the governance contract, and the only restriction is that
-   * the beneficiary must be allowed to hold power in the governance contract, according to `depositControl`.
    *
    * It is worth pointing out that someone could attempt to spam the deposit function, and increase the cost to vote
    * as a result of creating many checkpoints. In reality though, as the checkpoints are using time as a key it would
@@ -332,7 +252,8 @@ contract Governance is IGovernance {
    * @param _beneficiary The beneficiary to increase the power of.
    * @param _amount The amount of funds to deposit, which is converted to power 1:1.
    */
-  function deposit(address _beneficiary, uint256 _amount) external override(IGovernance) isDepositAllowed(_beneficiary) {
+  function deposit(address _beneficiary, uint256 _amount) external override(IGovernance) {
+    require(msg.sender != address(this), Errors.Governance__CallerCannotBeSelf());
     ASSET.safeTransferFrom(msg.sender, address(this), _amount);
     users[_beneficiary].add(_amount);
     total.add(_amount);
@@ -563,25 +484,6 @@ contract Governance is IGovernance {
    */
   function totalPowerNow() external view override(IGovernance) returns (uint256) {
     return total.valueNow();
-  }
-
-  /**
-   * @notice Check if an address is permitted to hold power in Governance.
-   *
-   * @param _beneficiary The address to check.
-   * @return True if the address is permitted to hold power in Governance.
-   */
-  function isPermittedInGovernance(address _beneficiary) external view override(IGovernance) returns (bool) {
-    return depositControl.isAllowed[_beneficiary];
-  }
-
-  /**
-   * @notice Check if everyone is permitted to hold power in Governance.
-   *
-   * @return True if everyone is permitted to hold power in Governance.
-   */
-  function isAllBeneficiariesAllowed() external view override(IGovernance) returns (bool) {
-    return depositControl.allBeneficiariesAllowed;
   }
 
   function getConfiguration() external view override(IGovernance) returns (Configuration memory) {

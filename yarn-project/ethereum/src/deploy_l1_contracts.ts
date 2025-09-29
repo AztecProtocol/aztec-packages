@@ -230,7 +230,6 @@ export const deploySharedContracts = async (
   const { address: governanceAddress } = await deployer.deploy(GovernanceArtifact, [
     stakingAssetAddress.toString(),
     governanceProposerAddress.toString(),
-    gseAddress.toString(),
     getGovernanceConfiguration(networkName),
   ]);
   logger.verbose(`Deployed Governance at ${governanceAddress}`);

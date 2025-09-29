@@ -17,7 +17,6 @@ import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 
 struct Flags {
-  bool openFloodgates;
   bool checkProofOfPossession;
 }
 
@@ -45,13 +44,7 @@ contract GSEBuilder is TestBase {
   constructor() {
     config.values.govProposerN = 1;
     config.values.govProposerM = 1;
-    config.flags.openFloodgates = true;
     config.flags.checkProofOfPossession = false;
-  }
-
-  function setOpenFloodgates(bool _openFloodgates) public returns (GSEBuilder) {
-    config.flags.openFloodgates = _openFloodgates;
-    return this;
   }
 
   function setGovProposerN(uint256 _govProposerN) public returns (GSEBuilder) {
@@ -88,21 +81,12 @@ contract GSEBuilder is TestBase {
 
     GovernanceProposer proposer =
       new GovernanceProposer(config.registry, config.gse, config.values.govProposerN, config.values.govProposerM);
-    config.governance = new Governance(
-      config.testERC20, address(proposer), address(config.gse), TestConstants.getGovernanceConfiguration()
-    );
+    config.governance = new Governance(config.testERC20, address(proposer), TestConstants.getGovernanceConfiguration());
     vm.label(address(config.governance), "Governance");
     vm.label(address(proposer), "GovernanceProposer");
 
     vm.prank(config.gse.owner());
     config.gse.setGovernance(config.governance);
-
-    if (config.flags.openFloodgates) {
-      vm.prank(address(config.governance));
-      config.governance.openFloodgates();
-
-      assertEq(config.governance.isAllBeneficiariesAllowed(), true);
-    }
 
     vm.startPrank(config.registry.owner());
     config.registry.transferOwnership(address(config.governance));
