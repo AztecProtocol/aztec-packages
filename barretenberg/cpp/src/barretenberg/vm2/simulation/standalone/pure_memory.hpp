@@ -9,7 +9,7 @@ namespace bb::avm2::simulation {
 // Just a map that doesn't emit events or do anything else.
 class MemoryStore : public MemoryInterface {
   public:
-    MemoryStore(uint32_t space_id = 0)
+    MemoryStore(uint16_t space_id = 0)
         : space_id(space_id)
     {}
 
@@ -20,18 +20,18 @@ class MemoryStore : public MemoryInterface {
         return it != memory.end() ? it->second : default_value;
     }
     void set(MemoryAddress index, MemoryValue value) override { memory[index] = value; }
-    uint32_t get_space_id() const override { return space_id; }
+    uint16_t get_space_id() const override { return space_id; }
 
   private:
-    uint32_t space_id;
-    unordered_flat_map<size_t, MemoryValue> memory;
+    uint16_t space_id;
+    unordered_flat_map<MemoryAddress, MemoryValue> memory;
 };
 
 class PureMemoryProvider : public MemoryProviderInterface {
   public:
     PureMemoryProvider() = default;
     ~PureMemoryProvider() override = default;
-    std::unique_ptr<MemoryInterface> make_memory(uint32_t space_id) override
+    std::unique_ptr<MemoryInterface> make_memory(uint16_t space_id) override
     {
         return std::make_unique<MemoryStore>(space_id);
     }

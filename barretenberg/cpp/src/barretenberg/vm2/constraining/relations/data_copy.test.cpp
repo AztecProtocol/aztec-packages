@@ -337,7 +337,7 @@ TEST(DataCopyWithExecutionPerm, CdCopy)
     const std::vector<FF> data = { 8, 7, 6, 5, 4, 3, 2, 1 };
 
     // Set up Memory
-    MemoryStore mem(context_id);
+    MemoryStore mem(static_cast<uint16_t>(context_id));
 
     // Execution clk is 0 for this test
     StrictMock<MockExecutionIdManager> execution_id_manager;
