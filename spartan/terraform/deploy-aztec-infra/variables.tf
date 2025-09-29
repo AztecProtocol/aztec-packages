@@ -205,6 +205,12 @@ variable "PROVER_MNEMONIC_START_INDEX" {
   default     = 1000
 }
 
+variable "PROVER_REPLICAS" {
+  description = "The number of prover replicas"
+  type        = string
+  default     = 4
+}
+
 variable "OTEL_COLLECTOR_ENDPOINT" {
   description = "Optional OpenTelemetry collector endpoint URL (e.g., http://otel-collector:4318)"
   type        = string
