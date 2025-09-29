@@ -102,6 +102,9 @@ export async function verifyProof(
   const circuitVerifier = await BBCircuitVerifier.new(bbConfig, logger);
   const queuedVerifier = new QueuedIVCVerifier(bbConfig, circuitVerifier);
 
+  // Do an initial run to ensure everything is cached ready to go
+  await queuedVerifier.verifyProof(tx);
+
   const totalProofs = Math.floor(rate * duration);
   const delayMs = 1000 / rate;
 
