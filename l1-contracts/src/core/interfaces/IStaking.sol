@@ -46,6 +46,7 @@ interface IStakingCore {
     bool _moveWithLatestRollup
   ) external;
   function flushEntryQueue() external;
+  function flushEntryQueue(uint256 _toAdd) external;
   function initiateWithdraw(address _attester, address _recipient) external returns (bool);
   function finalizeWithdraw(address _attester) external;
   function slash(address _attester, uint256 _amount) external returns (bool);
@@ -71,4 +72,6 @@ interface IStaking is IStakingCore {
   function getStatus(address _attester) external view returns (Status);
   function getNextFlushableEpoch() external view returns (Epoch);
   function getEntryQueueLength() external view returns (uint256);
+  function getAvailableValidatorFlushes() external view returns (uint256);
+  function getIsBootstrapped() external view returns (bool);
 }

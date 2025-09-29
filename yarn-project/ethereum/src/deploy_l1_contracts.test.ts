@@ -66,16 +66,24 @@ describe('deploy_l1_contracts', () => {
   });
 
   const deploy = (args: Partial<DeployL1ContractsArgs> = {}) =>
-    deployL1Contracts([rpcUrl!], privateKey, createEthereumChain([rpcUrl!], chainId).chainInfo, logger, {
-      ...DefaultL1ContractsConfig,
-      salt: undefined,
-      vkTreeRoot,
-      protocolContractTreeRoot,
-      genesisArchiveRoot,
-      l1TxConfig: { checkIntervalMs: 100 },
-      realVerifier: false,
-      ...args,
-    });
+    deployL1Contracts(
+      [rpcUrl!],
+      privateKey,
+      createEthereumChain([rpcUrl!], chainId).chainInfo,
+      logger,
+      {
+        ...DefaultL1ContractsConfig,
+        salt: undefined,
+        vkTreeRoot,
+        protocolContractTreeRoot,
+        genesisArchiveRoot,
+        l1TxConfig: { checkIntervalMs: 100 },
+        realVerifier: false,
+        ...args,
+      },
+      undefined,
+      false,
+    );
 
   const getRollup = (deployed: Awaited<ReturnType<typeof deploy>>) =>
     new RollupContract(deployed.l1Client, deployed.l1ContractAddresses.rollupAddress);
@@ -155,12 +163,57 @@ describe('deploy_l1_contracts', () => {
       const bn254SecretKey = new SecretValue(Fr.random().toBigInt());
       return { attester: addr, withdrawer: addr, bn254SecretKey };
     });
-    const info = await deploy({ initialValidators, aztecTargetCommitteeSize: initialValidators.length });
+
+    const info = await deploy({
+      initialValidators,
+      aztecTargetCommitteeSize: initialValidators.length,
+    });
+
     const rollup = new RollupContract(client, info.l1ContractAddresses.rollupAddress);
 
     expect((await rollup.getActiveAttesterCount()) + (await rollup.getEntryQueueLength())).toEqual(
       BigInt(initialValidators.length),
     );
+  });
+
+  it('deploys and flushes 48 initialValidators', async () => {
+    // Adds 48 validators. We will repeatedly flush during the same epoch up till the the bootstrap flush size.
+    const initialValidators = times(48, () => {
+      const addr = EthAddress.random();
+      const bn254SecretKey = new SecretValue(Fr.random().toBigInt());
+      return { attester: addr, withdrawer: addr, bn254SecretKey };
+    });
+
+    // Use the `staging-public` network (48 bootstrap set size with 48 bootstrap flush)
+    process.env.NETWORK = 'staging-public';
+    const info = await deploy({
+      initialValidators,
+      aztecTargetCommitteeSize: initialValidators.length,
+    });
+    process.env.NETWORK = '';
+
+    const rollup = new RollupContract(client, info.l1ContractAddresses.rollupAddress);
+
+    expect(await rollup.getEntryQueueLength()).toEqual(0n);
+    expect(await rollup.getActiveAttesterCount()).toEqual(BigInt(initialValidators.length));
+  });
+
+  it('deploys 48 validators and flushes 32', async () => {
+    // Adds 48 validators. We will repeatedly flush during the same epoch up till the limit.
+    const initialValidators = times(48, () => {
+      const addr = EthAddress.random();
+      const bn254SecretKey = new SecretValue(Fr.random().toBigInt());
+      return { attester: addr, withdrawer: addr, bn254SecretKey };
+    });
+
+    const info = await deploy({
+      initialValidators,
+      aztecTargetCommitteeSize: initialValidators.length,
+    });
+    const rollup = new RollupContract(client, info.l1ContractAddresses.rollupAddress);
+
+    expect(await rollup.getEntryQueueLength()).toEqual(48n - 32n);
+    expect(await rollup.getActiveAttesterCount()).toEqual(BigInt(32n));
   });
 
   it('ensure governance is the owner', async () => {

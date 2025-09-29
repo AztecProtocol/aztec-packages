@@ -210,15 +210,15 @@ export const getRewardBoostConfig = () => {
 const LocalEntryQueueConfig = {
   bootstrapValidatorSetSize: 0n,
   bootstrapFlushSize: 0n,
-  normalFlushSizeMin: 48n, // will effectively be bounded by maxQueueFlushSize
+  normalFlushSizeMin: 48n,
   normalFlushSizeQuotient: 2n,
   maxQueueFlushSize: 32n,
 };
 
 const StagingPublicEntryQueueConfig = {
   bootstrapValidatorSetSize: 48n,
-  bootstrapFlushSize: 32n, // will effectively be bounded by maxQueueFlushSize
-  normalFlushSizeMin: 32n,
+  bootstrapFlushSize: 48n,
+  normalFlushSizeMin: 1n,
   normalFlushSizeQuotient: 2475n,
   maxQueueFlushSize: 32n, // Limited to 32 so flush cost are kept below 15M gas.
 };

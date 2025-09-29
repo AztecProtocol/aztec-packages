@@ -446,6 +446,17 @@ export class RollupContract {
     blockNumber ??= await this.getBlockNumber();
     return this.rollup.read.getEpochForBlock([BigInt(blockNumber)]);
   }
+  getAvailableValidatorFlushes() {
+    return this.rollup.read.getAvailableValidatorFlushes();
+  }
+
+  getNextFlushableEpoch() {
+    return this.rollup.read.getNextFlushableEpoch();
+  }
+
+  getCurrentEpochNumber(): Promise<bigint> {
+    return this.rollup.read.getCurrentEpoch();
+  }
 
   async getRollupAddresses(): Promise<L1RollupContractAddresses> {
     const [

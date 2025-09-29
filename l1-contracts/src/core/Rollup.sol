@@ -534,6 +534,14 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return RewardLib.getBlockReward();
   }
 
+  function getAvailableValidatorFlushes() external view override(IStaking) returns (uint256) {
+    return ValidatorOperationsExtLib.getAvailableValidatorFlushes();
+  }
+
+  function getIsBootstrapped() external view override(IStaking) returns (bool) {
+    return StakingLib.getStorage().isBootstrapped;
+  }
+
   function getBurnAddress() external pure override(IRollup) returns (address) {
     return RewardLib.BURN_ADDRESS;
   }
