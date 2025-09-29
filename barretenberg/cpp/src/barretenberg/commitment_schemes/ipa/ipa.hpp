@@ -429,7 +429,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Step 11.
         // Check if C_right == C_zero and if G_zero_sent == G_zero. (While the proof could be said to pass without this
         // second check, we require it.)
-        return (C_zero.normalize() == right_hand_side.normalize() && G_zero.normalize() == G_zero_sent.normalize());
+        return (C_zero.normalize() == right_hand_side.normalize() && G_zero == G_zero_sent);
     }
     /**
      * @brief  Recursively verify the correctness of an IPA proof, without computing G_0. This is therefore a "partial
