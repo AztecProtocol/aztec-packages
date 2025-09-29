@@ -1,6 +1,5 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #ifndef __wasm__
-#include "barretenberg/api/exec_pipe.hpp"
 #include "barretenberg/api/get_bytecode.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/client_ivc/private_execution_steps.hpp"
@@ -26,7 +25,7 @@ class AcirIntegrationTest : public ::testing::Test {
         }
 
         // For other extensions, assume file is a raw ACIR program
-        return exec_pipe_with_stdin(bytecodePath, "gunzip -c -");
+        return ::gunzip(bytecodePath);
     }
 
     // Function to check if a file exists

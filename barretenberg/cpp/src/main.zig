@@ -3,6 +3,8 @@ const print = std.debug.print;
 const App = @import("yazap").App;
 const Arg = @import("yazap").Arg;
 const ArgMatches = @import("yazap").ArgMatches;
+pub const getByteCode = @import("barretenberg/api/get_bytecode.zig").getByteCode;
+pub const crs = @import("barretenberg/srs/factories/get_bn254_crs.zig");
 
 // Import C functions from existing bb CLI
 extern fn bb_parse_and_run_cli_command_c(argc: c_int, argv: [*][*:0]u8) c_int;
@@ -17,32 +19,16 @@ const c = @cImport({
 
 const TranspileResult = c.TranspileResult;
 
-// Wraps getByteCode to provide linkable C function for bb to call.
-export fn get_bytecode(path: [*:0]const u8, out_len: *usize) [*]const u8 {
-    const gpa = std.heap.c_allocator;
-
-    const path_slice = std.mem.span(path);
-    const max_size: usize = 16 * 1024 * 1024;
-    const contents = std.fs.cwd().readFileAlloc(gpa, path_slice, max_size) catch unreachable;
-    defer gpa.free(contents);
-
-    var arena_state = std.heap.ArenaAllocator.init(gpa);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
-
-    var parsed = std.json.parseFromSlice(std.json.Value, arena, contents, .{}) catch unreachable;
-    defer parsed.deinit();
-
-    const bc = getByteCode(gpa, parsed.value) catch unreachable;
-
-    out_len.* = bc.len;
-    return bc.ptr;
-}
-
 pub fn main() !u8 {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
+
+    const home_dir = std.posix.getenv("HOME") orelse ".";
+    const cache_path = std.fs.path.join(allocator, &.{ home_dir, ".bb-crs" }) catch return error.MemoryError;
+    defer allocator.free(cache_path);
+    std.fs.cwd().makePath(cache_path) catch {};
+    try crs.downloadCrsToCache(allocator, 1 << 19, cache_path);
 
     const args = try std.process.argsAlloc(allocator);
 
@@ -402,37 +388,6 @@ fn generateCachedVK(
 
     // Cache the raw VK bytes.
     std.fs.cwd().writeFile(.{ .sub_path = vk_cache_path, .data = raw_vk }) catch {};
-}
-
-fn getByteCode(allocator: std.mem.Allocator, function: std.json.Value) ![]const u8 {
-    // Extract bytecode from the function
-    const bytecode_obj = function.object.get("bytecode") orelse return error.NoBytecode;
-    const bytecode_b64 = switch (bytecode_obj) {
-        .string => |str| str,
-        else => return error.BytecodeNotString,
-    };
-
-    // Decode base64
-    // print("Base64 bytecode length: {d}\n", .{bytecode_b64.len});
-    const decoder = std.base64.standard.Decoder;
-    const decoded_size = try decoder.calcSizeForSlice(bytecode_b64);
-    const decoded_compressed = try allocator.alloc(u8, decoded_size);
-    defer allocator.free(decoded_compressed);
-    try decoder.decode(decoded_compressed, bytecode_b64);
-    // print("Decoded compressed data: {d} bytes\n", .{decoded_compressed.len});
-
-    // Decompress using Zig std library
-    if (decoded_compressed.len < 18 or decoded_compressed[0] != 0x1f or decoded_compressed[1] != 0x8b) {
-        return error.InvalidGzip;
-    }
-    var reader: std.Io.Reader = .fixed(decoded_compressed);
-    var decompress_buffer: [std.compress.flate.max_window_len]u8 = undefined;
-    var decompress: std.compress.flate.Decompress = .init(&reader, .gzip, &decompress_buffer);
-    var writer: std.io.Writer.Allocating = .init(allocator);
-    _ = try decompress.reader.streamRemaining(&writer.writer);
-    // print("Decompressed bytecode: {d} bytes\n", .{decompressed_len});
-
-    return writer.toOwnedSlice();
 }
 
 fn generateVK(allocator: std.mem.Allocator, bytecode: []const u8) ![]const u8 {

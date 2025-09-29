@@ -7,10 +7,21 @@
 /**
  * When compiling with zig, we're using zigs main.zig as an entrypoint.
  * The zig code provides a C ABI compatible function to get the bytecode using std features.
+ * The get_bytecode implementation is in get_bytecode.zig next to this file.
  * Avoids the need for popen calls to external programs.
  */
 #ifdef __zig__
+extern "C" const uint8_t* gunzip(char const* path, size_t* out_len);
 extern "C" const uint8_t* get_bytecode(char const* path, size_t* out_len);
+
+inline std::vector<uint8_t> gunzip(const std::string& path)
+{
+    size_t len = 0;
+    const uint8_t* ptr = gunzip(path.c_str(), &len);
+    const auto result = std::vector<uint8_t>(ptr, ptr + len);
+    free((void*)ptr);
+    return result;
+}
 
 inline std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
 {

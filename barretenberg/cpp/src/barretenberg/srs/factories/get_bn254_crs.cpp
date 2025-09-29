@@ -3,6 +3,33 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 
+/**
+ * When compiling with zig, we're using zigs main.zig as an entrypoint.
+ * The zig code provides a C ABI compatible function to get the crs using std features.
+ * Avoids the need for popen calls to external programs.
+ */
+#ifdef __zig__
+extern "C" const uint8_t* download_bn254_g1_data(size_t num_points, size_t* out_len);
+extern "C" const uint8_t* download_bn254_g2_data(size_t* out_len);
+
+inline std::vector<uint8_t> download_bn254_g1_data(size_t num_points)
+{
+    size_t len = 0;
+    const uint8_t* ptr = download_bn254_g1_data(num_points, &len);
+    const auto result = std::vector<uint8_t>(ptr, ptr + len);
+    free((void*)ptr);
+    return result;
+}
+
+inline std::vector<uint8_t> download_bn254_g2_data()
+{
+    size_t len = 0;
+    const uint8_t* ptr = download_bn254_g2_data(&len);
+    const auto result = std::vector<uint8_t>(ptr, ptr + len);
+    free((void*)ptr);
+    return result;
+}
+#else
 namespace {
 std::vector<uint8_t> download_bn254_g1_data(size_t num_points)
 {
@@ -24,6 +51,7 @@ std::vector<uint8_t> download_bn254_g2_data()
     return bb::exec_pipe_literal_string("curl 'https://crs.aztec.network/g2.dat'");
 }
 } // namespace
+#endif
 
 namespace bb {
 std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path,

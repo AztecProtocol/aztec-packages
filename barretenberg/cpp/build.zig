@@ -31,6 +31,7 @@ const common_flags = [_][]const u8{
     "-DNO_PAR_ALGOS",
     "-fbracket-depth=1024",
     "-fconstexpr-steps=1000000000",
+    "-D__zig__",
 };
 
 const no_avm_flags = common_flags ++ [_][]const u8{
