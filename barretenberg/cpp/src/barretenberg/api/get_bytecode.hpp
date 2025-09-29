@@ -5,6 +5,23 @@
 #include <iterator>
 
 /**
+ * When compiling with zig, we're using zigs main.zig as an entrypoint.
+ * The zig code provides a C ABI compatible function to get the bytecode using std features.
+ * Avoids the need for popen calls to external programs.
+ */
+#ifdef __zig__
+extern "C" const uint8_t* get_bytecode(char const* path, size_t* out_len);
+
+inline std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
+{
+    size_t len = 0;
+    const uint8_t* ptr = get_bytecode(bytecodePath.c_str(), &len);
+    const auto result = std::vector<uint8_t>(ptr, ptr + len);
+    free((void*)ptr);
+    return result;
+}
+#else
+/**
  * We can assume for now we're running on a unix like system and use the following to extract the bytecode.
  */
 inline std::vector<uint8_t> gunzip(const std::string& path)
@@ -26,6 +43,7 @@ inline std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
     // For other extensions, assume file is a raw ACIR program
     return gunzip(bytecodePath);
 }
+#endif
 
 // Filesystem path overload for convenience.
 inline std::vector<uint8_t> get_bytecode(const std::filesystem::path& bytecodePath)

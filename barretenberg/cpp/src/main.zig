@@ -17,6 +17,28 @@ const c = @cImport({
 
 const TranspileResult = c.TranspileResult;
 
+// Wraps getByteCode to provide linkable C function for bb to call.
+export fn get_bytecode(path: [*:0]const u8, out_len: *usize) [*]const u8 {
+    const gpa = std.heap.c_allocator;
+
+    const path_slice = std.mem.span(path);
+    const max_size: usize = 16 * 1024 * 1024;
+    const contents = std.fs.cwd().readFileAlloc(gpa, path_slice, max_size) catch unreachable;
+    defer gpa.free(contents);
+
+    var arena_state = std.heap.ArenaAllocator.init(gpa);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+
+    var parsed = std.json.parseFromSlice(std.json.Value, arena, contents, .{}) catch unreachable;
+    defer parsed.deinit();
+
+    const bc = getByteCode(gpa, parsed.value) catch unreachable;
+
+    out_len.* = bc.len;
+    return bc.ptr;
+}
+
 pub fn main() !u8 {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
