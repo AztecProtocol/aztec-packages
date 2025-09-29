@@ -66,8 +66,28 @@ template <typename Fr> struct BackingMemory {
     BackingMemory(const BackingMemory&) = default;
     BackingMemory& operator=(const BackingMemory&) = default;
 
-    BackingMemory(BackingMemory&& other) noexcept = default;
-    BackingMemory& operator=(BackingMemory&& other) noexcept = default;
+    BackingMemory(BackingMemory&& other) noexcept
+        : raw_data(other.raw_data)
+#ifndef __wasm__
+        , file_backed(std::move(other.file_backed))
+#endif
+        , aligned_memory(std::move(other.aligned_memory))
+    {
+        other.raw_data = nullptr;
+    }
+
+    BackingMemory& operator=(BackingMemory&& other) noexcept
+    {
+        if (this != &other) {
+            raw_data = other.raw_data;
+#ifndef __wasm__
+            file_backed = std::move(other.file_backed);
+#endif
+            aligned_memory = std::move(other.aligned_memory);
+            other.raw_data = nullptr;
+        }
+        return *this;
+    }
 
     // Allocate memory, preferring file-backed if in low memory mode
     static BackingMemory allocate(size_t size)

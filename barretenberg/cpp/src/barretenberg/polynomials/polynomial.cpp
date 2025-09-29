@@ -70,7 +70,7 @@ void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, s
  */
 template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size, size_t start_index)
 {
-
+    BB_BENCH_NAME("Polynomial::Polynomial(size_t, size_t, size_t)");
     allocate_backing_memory(size, virtual_size, start_index);
 
     size_t num_threads = calculate_num_threads(size);
