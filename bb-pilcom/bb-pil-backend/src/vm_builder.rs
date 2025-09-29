@@ -169,15 +169,13 @@ fn get_all_col_names<F: FieldElement>(
         .map(|name| sanitize_name(name.as_str()))
         .collect_vec(),
     );
-    let committed = sort_cols(
+    let committed_without_to_be_shifted = sort_cols(
         &analyzed
             .committed_polys_in_source_order()
             .iter()
             .flat_map(|(sym, _)| expand_symbol(sym))
             .map(|name| sanitize_name(name.as_str()))
-            // We want to put the columns to be shifted last.
-            // Note: afaik sorted_by_key is stable.
-            .sorted_by_key(|name| !to_be_shifted.contains(name))
+            .filter(|name| !to_be_shifted.contains(name))
             .collect_vec(),
     );
     let public = analyzed
@@ -197,14 +195,13 @@ fn get_all_col_names<F: FieldElement>(
     ]);
     let lookup_counts = get_counts_from_lookups(lookups);
 
-    let witnesses_without_inverses =
-        flatten(&[public.clone(), committed.clone(), lookup_counts.clone()]);
-    let witnesses_with_inverses = flatten(&[
+    let witnesses_without_inverses = flatten(&[
         public.clone(),
-        committed.clone(),
-        inverses.clone(),
-        lookup_counts,
+        committed_without_to_be_shifted.clone(),
+        lookup_counts.clone(),
+        to_be_shifted.clone(),
     ]);
+    let witnesses_with_inverses = flatten(&[witnesses_without_inverses.clone(), inverses.clone()]);
 
     // Group columns by properties
     let all_cols = flatten(&[constant.clone(), witnesses_with_inverses.clone()]);

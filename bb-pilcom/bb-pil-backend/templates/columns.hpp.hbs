@@ -50,11 +50,12 @@ constexpr auto NUM_ALL_ENTITIES = {{len all_cols_and_shifts}};
 /*
 * Layout for all entities is:
 *
-* precomputed | wire(not shifted) : wire(to be shifted) | derived | shifted
-*             \___________________________________________________/
-*                              witness
-* \_______________________________________________________________/
-*                             unshifted
+* precomputed | wire(not shifted) : wire(counts) : wire(to be shifted) | derived(inverses) | shifted
+*             \____________________________________________________________________________/
+*                                            witness
+* \________________________________________________________________________________________/
+*                                           unshifted
+*
 * The following end indices are exclusive.
 * That is, a section is [start_idx, end_idx).
 */
