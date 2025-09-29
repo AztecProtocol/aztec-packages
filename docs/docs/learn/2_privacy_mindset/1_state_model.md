@@ -7,15 +7,15 @@ tags: [privacy, notes, commitments, nullifiers, state]
 
 import Image from "@theme/IdealImage";
 
-This page introduces the core ideas behind Aztec’s private state model—what notes are, how commitments and nullifiers work, and the state trees that hold everything together.
+This page introduces the core ideas behind Aztec’s private state model: what notes are, how commitments and nullifiers work, and the state Merkle trees that hold everything together.
 
 ## What you’ll learn
 
 - What a note is and why we use them
 - How notes relate to UTXOs (cash-like state)
 - What a commitment is and why it preserves privacy
-- What a nullifier is and how it prevents double‑spends
-- The five state trees in Aztec and their roles
+- What a nullifier is and how it prevents double spending
+- The five state Merkle trees in Aztec and their roles
 
 ## Prerequisites
 
@@ -27,43 +27,92 @@ For deeper technical references, see:
 - [State model](../../developers/docs/concepts/storage/state_model)
 - [Notes](../../developers/docs/concepts/storage/notes)
 
-## The privacy mindset
+## Public and Private State
 
-Public state can be directly updated and read by everyone.
+Aztec has _two_ types of state: public and private state. This enables **programmable privacy** so you can build applications with selective transparency to keep sensitive data encrypted while maintaining public verifiability where needed.
 
-[TODO] add more detail about the account-based model and the UTXO model
+These two types of state are managed by **two different state models**
 
-Private state can't: updating "the same place" would reveal that something changed, even if the value is encrypted. So in Aztec, private data follows a different pattern:
+### Public state: Account based
 
-- We append new encrypted records rather than "edit in place".
-- We hide contents with commitments (hashes).
-- We prevent reuse with nullifiers (unique, un-linkable deletes).
+**Public state** can be directly updated and read by everyone. It works similarly to state on Ethereum. It is transparent. On Aztec, this public state is managed by smart contracts and stored and updated by the sequencers using an account-based model.
 
-This model mirrors how cash works: you don't edit a banknote—you hand it over and, if needed, get change.
+Whenever data, for example, an accounts balance, is stored, a `key: value` pair is created. For example:
+
+```
+0x123...abc_balance: 1
+```
+
+When the data is modified, the `value` corresponding to the `key` is updated. Account state is updated directly when transactions are executed. It can then be read by anyone.
+
+This is how **public state** works on Aztec.
+
+### Private state: UTXO based
+
+**Private state** works differently. Why? Let's go through it. Let's say we encrypt the data:
+
+```
+0x$$$_$$$_balance: $
+```
+
+When we send a transaction, it will modify this specific slot directly. So, even if the key and value themselves are encrypted, the data location is leaked. Using correlation techniques, this would expose information and break the privacy assumption. Therefore, we use a different model that breaks the link between the user and their balance. This means that balances can be updated whilst keeping the account and their associated data seperate and private.
+
+Enter UTXO-based private state using **notes**, which we will go through shortly. For now, just think of them as a sealed envelope that contains the data (e.g. a balance) sealed inside.
+
+We have explained UTXO-based state models in a previous lesson, but let's do a recap.
+
+Think of the UTXO model like physical cash. When you have cash in your wallet, you don't have "a balance", you have individual bills: a $20 bill, two $10 bills, and some $5 bills.
+
+**Cash:**
+
+Alice has a $20 bill and a $10 bill (total: $30).
+She wants to pay Bob $25.
+Alice gives Bob both bills ($30 total)
+Bob gives Alice back a $5 bill as change.
+Result: Bob has $25, Alice has $5.
+
+**UTXO Transaction (Private Notes):**
+
+Alice has a 20-token note and a 10-token note (total: 30 tokens).
+She wants to pay Bob 25 tokens.
+Alice consumes (this is called nullifying) both her existing notes and creates two new notes: a 25-token note for Bob and a 5-token note for herself as change.
+Result: Bob has a 25-token note, Alice has a 5-token note.
+
+There's no "Alice has 30 tokens" stored anywhere, only individual encrypted notes that _only she can decrypt_. When Alice spends her notes, observers see "some notes were consumed and some new notes were created" but can't tell who owns them or link them together.
+
+Each note can be encrypted separately and independently, breaking the connection between a user and their total balance.
+
+Just like with physical cash, only the people involved in the transaction know their respective amounts and identities (Alice knows how much she sent to Bob and her remaining balance and Bob only knows that he recieved 25 tokens not Alice's remaining balance). Everyone else just sees "some transaction happened" without knowing who, what, or how much.
+
+On Aztec, private state follows the following pattern:
+
+- New encrypted notes are **replaced** appended rather than "edited in place". This is a UTXO-based model rather than an account-based model.
+- Private data is hidden using commitments (hashes).
+- Private data is prevented from being reused using nullifiers (an identifier which determines that the note has been spent).
+
+This model mirrors how cash works: you don't edit a banknote—you hand it over and, if needed, you get new banknotes as change. This is called a **UTXO-based model**.
 
 <Image img={require("@site/static/img/public-and-private-state-diagram.png")} />
 
 ## Notes
 
-A note a piece of private data owned by someone, they are fundamental building blocks of private state. Notes may be encrypted and posted onchain to make the data easily retrievable by their intended owner, but it is not required.
+A note a piece of private data owned by someone, they are fundamental building blocks of private state. Notes may be encrypted, by hashing them to create a **commitment** and posted onchain to make the data easily retrievable by their intended owner, but it is not required.
 
-Think of it as a private coin or token fragment:
+Think of it as an envelope or sealed box that contains tokens inside, and only the note owner has the key to open:
 
-- Ownership: Only the owner with the nullification key can spend the note.
-- Location-less: In order to maintain privacy, notes aren't tied to a fixed storage slot like an Ethereum account balance.
+- Ownership: Only the owner with the key (called the nullification key) can spend the note.
+- Location: In order to maintain privacy, notes aren't tied to a fixed storage slot like an Ethereum account balance. Instead they are appended to a Merkle tree.
 - UTXO-like: To "spend" or "update", you consume old notes and create new ones.
-
-Analogy: You have a 5 dollar note. To pay 3.50, you hand over the 5 and get new notes (3.50 to the recipient, 1.50 back to you). On Aztec, you "nullify" the 5 note and create two new notes with the appropriate owners and values. Observers don't learn who owned which note or how it was split.
 
 ## Commitments
 
-We do not store the raw note onchain. Instead, we store a commitment—essentially a hash of the note content plus randomness. We add randomness to the commitment to ensure that the commitment is not linkable to the note and so that observers cannot brute-force hash note preimages to reveal the note data.
+We do not store the raw note onchain. Instead, we store a commitment, which is just a hash of the note content plus some randomness to ensure that the commitment is not linkable to the note and so that observers cannot brute-force hash note preimages to reveal the note data. Note commitments are stored in an _append-only_ **Note hash Merkle tree** (the first of Aztec's 5 Merkle trees). To spend a note, the owner proves knowledge of the note by providing the associated commitment's "preimage".
 
-- Privacy: The hash reveals nothing about the note contents or owner.
-- Proofs: The owner later proves knowledge of the note "preimage" to spend or update it.
-- Commitments live in the append-only Note Hash Tree.
+Commitments have **two key properties**:
+- **Hiding**: The commitment reveals nothing about the note contents or owner.
+- **Binding**: The data (the note) cannot be modified once it has been commited to.
 
-This lets users prove, and the protocol check that a note exists without revealing its data.
+Note commitments let users prove note ownership, and the protocol check that a it exists without revealing its data.
 
 ## Nullifiers
 
@@ -99,8 +148,8 @@ Result: Observers see new commitments and nullifiers, but not who paid whom or h
 - The **Note Hash Tree** holds commitments (hashes) of private notes. It is append-only and used for membership proofs when spending.
 - The **Nullifier Tree** holds nullifiers (unique "spent" markers) to prevent reusing the same note.
 - The **Public Data Tree** holds public contract storage (keyed by contract and slot). It is transparent like traditional blockchains.
-- The **Contract Tree** records deployed contracts and related data. Some deployment details are evolving toward nullifier-based storage, but conceptually this tree tracks deployments.
-- The **Archive Tree** tracks historical roots to enable proving against past states (e.g., "as of block N").
+- The **Contract Tree** records deployed contracts and related data. Some deployment details are evolving toward nullifier-based storage, but conceptually this tree tracks deployments. [TODO] what does this mean "some deployment details..."
+- The **Archive Tree** tracks historical roots to enable proving against past states (e.g., "as of block N"). [TODO] historical note roots? Roots of which tree?
 
 :::note
 Why append‑only for private data?

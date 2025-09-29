@@ -7,7 +7,7 @@ tags: [transaction, lifecycle]
 
 import Image from '@theme/IdealImage';
 
-You've learned about private state with notes and client-side execution with zero-knowledge proofs. Now let's see how these concepts come together in the lifecycle of an Aztec transaction. By the end of this page, you'll understand exactly what happens from the moment you click "send" to when your transaction becomes final on Ethereum.
+You've learned about private state with notes and client-side execution with zero-knowledge proofs. Now let's see how these concepts come together in the lifecycle of an Aztec transaction. By the end of this lesson, you'll understand exactly what happens from the moment you click "send" to when your transaction becomes final on Ethereum.
 
 ## What you'll learn
 
