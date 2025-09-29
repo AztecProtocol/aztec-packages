@@ -118,6 +118,14 @@
   --brand-background: #1a1400;
   --ifm-font-color-base: #f2eee1;
   background: #1a1400;
+
+  /* Dark theme Typesense/DocSearch contrast improvements */
+  --docsearch-modal-background: #1a1400;
+  --docsearch-hit-background: #a9cc1f;
+  --docsearch-highlight-color: #a9cc1f;
+  --docsearch-text-color: #f2eee1;
+  --docsearch-muted-color: #999;
+  --docsearch-searchbox-focus-background: #2a2000;
 }
 
 [data-theme="dark"] .footer {

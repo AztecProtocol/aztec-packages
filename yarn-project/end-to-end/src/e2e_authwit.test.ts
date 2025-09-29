@@ -2,7 +2,7 @@ import { AztecAddress, Fr, computeAuthWitMessageHash, computeInnerAuthWitHash } 
 import { AuthRegistryContract } from '@aztec/noir-contracts.js/AuthRegistry';
 import { AuthWitTestContract } from '@aztec/noir-test-contracts.js/AuthWitTest';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
@@ -24,14 +24,14 @@ describe('e2e_authwit_tests', () => {
   let auth: AuthWitTestContract;
 
   beforeAll(async () => {
-    const { wallet: defaultWallet, accounts, pxe } = await setup(2);
+    const { wallet: defaultWallet, accounts, aztecNode } = await setup(2);
     // docs:start:public_deploy_accounts
     [account1Address, account2Address] = accounts;
     wallet = defaultWallet as TestWallet;
     await ensureAccountContractsPublished(wallet, accounts.slice(0, 2));
     // docs:end:public_deploy_accounts
 
-    const nodeInfo = await pxe.getNodeInfo();
+    const nodeInfo = await aztecNode.getNodeInfo();
     chainId = new Fr(nodeInfo.l1ChainId);
     version = new Fr(nodeInfo.rollupVersion);
 
@@ -158,7 +158,7 @@ describe('e2e_authwit_tests', () => {
 
         // docs:start:set_public_authwit
         const validateActionInteraction = await wallet.setPublicAuthWit(account1Address, intent, true);
-        await validateActionInteraction.send({ from: account1Address }).wait();
+        await validateActionInteraction.send().wait();
         // docs:end:set_public_authwit
         expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
           isValidInPrivate: true,
@@ -187,7 +187,7 @@ describe('e2e_authwit_tests', () => {
           });
 
           const validateActionInteraction = await wallet.setPublicAuthWit(account1Address, intent, true);
-          await validateActionInteraction.send({ from: account1Address }).wait();
+          await validateActionInteraction.send().wait();
 
           expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
             isValidInPrivate: true,

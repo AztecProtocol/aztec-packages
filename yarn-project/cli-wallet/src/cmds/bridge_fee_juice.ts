@@ -1,4 +1,4 @@
-import { type AztecNode, L1FeeJuicePortalManager, type PXE } from '@aztec/aztec.js';
+import { type AztecNode, L1FeeJuicePortalManager } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/utils';
 import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
@@ -9,7 +9,6 @@ import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 export async function bridgeL1FeeJuice(
   amount: bigint,
   recipient: AztecAddress,
-  pxe: PXE,
   node: AztecNode,
   l1RpcUrls: string[],
   chainId: number,
@@ -28,10 +27,10 @@ export async function bridgeL1FeeJuice(
 
   const {
     protocolContractAddresses: { feeJuice: feeJuiceAddress },
-  } = await pxe.getPXEInfo();
+  } = await node.getNodeInfo();
 
   // Setup portal manager
-  const portal = await L1FeeJuicePortalManager.new(pxe, client, debugLogger);
+  const portal = await L1FeeJuicePortalManager.new(node, client, debugLogger);
   const { claimAmount, claimSecret, messageHash, messageLeafIndex } = await portal.bridgeTokensPublic(
     recipient,
     amount,

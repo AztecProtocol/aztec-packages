@@ -3,7 +3,7 @@ use crate::{
     address::aztec_address::AztecAddress,
     constants::PUBLIC_DATA_TREE_HEIGHT,
     data::{
-        hash::compute_public_data_tree_index,
+        hash::compute_public_data_leaf_slot,
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     },
     hash::poseidon2_hash,
@@ -59,7 +59,7 @@ fn public_storage_historical_read(
     witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>, // Is this the witness of a "low leaf"? If so, we don't need a low leaf witness to prove _membership_; only to prove non-membership.
     leaf_preimage: PublicDataTreeLeafPreimage,
 ) -> Field {
-    let public_data_tree_index = compute_public_data_tree_index(contract_address, storage_slot); // Should this instead be called compute_public_data_tree_slot, and the variable be called `public_data_tree_slot`? This is not an index.
+    let public_data_leaf_slot = compute_public_data_leaf_slot(contract_address, storage_slot); // Should this instead be called compute_public_data_tree_slot, and the variable be called `public_data_tree_slot`? This is not an index.
 
     assert_eq(
         historical_header.state.partial.public_data_tree.root,
@@ -72,8 +72,8 @@ fn public_storage_historical_read(
     );
 
     // These lt checks cost ~350 gates:
-    let is_less_than_slot = leaf_preimage.slot.lt(public_data_tree_index); // Why is this needed for a membership proof?
-    let is_next_greater_than = public_data_tree_index.lt(leaf_preimage.next_slot); // Why is this needed for a membership proof?
+    let is_less_than_slot = leaf_preimage.slot.lt(public_data_leaf_slot); // Why is this needed for a membership proof?
+    let is_next_greater_than = public_data_leaf_slot.lt(leaf_preimage.next_slot); // Why is this needed for a membership proof?
     let is_max = ((leaf_preimage.next_index == 0) & (leaf_preimage.next_slot == 0)); // Why is this needed for a membership proof?
     let is_in_range = is_less_than_slot & (is_next_greater_than | is_max); // Why is this needed for a membership proof?
 
@@ -83,7 +83,7 @@ fn public_storage_historical_read(
     } else {
         assert_eq(
             leaf_preimage.slot,
-            public_data_tree_index,
+            public_data_leaf_slot,
             "The provided public data tree leaf preimage is not the correct leaf for the provided contract_address and storage slot",
         );
         leaf_preimage.value
@@ -96,7 +96,7 @@ mod tests {
         address::aztec_address::AztecAddress,
         contract_class_id::ContractClassId,
         data::{
-            hash::compute_public_data_tree_index,
+            hash::compute_public_data_leaf_slot,
             public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
         },
         delayed_public_mutable::{
@@ -104,7 +104,7 @@ mod tests {
             scheduled_delay_change::ScheduledDelayChange,
             scheduled_value_change::ScheduledValueChange,
         },
-        merkle_tree::membership::MembershipWitness,
+        merkle_tree::MembershipWitness,
         tests::fixtures::public_data_tree::empty_public_data_tree,
         traits::{Empty, FromField, Hash},
     };
@@ -158,7 +158,7 @@ mod tests {
         let hash_storage_slot = compute_with_hash_hash_storage_slot::<DelayedPublicMutableValues<ContractClassId, 100>>(
             with_hash_storage_slot,
         );
-        let hash_leaf_slot = compute_public_data_tree_index(contract_address, hash_storage_slot);
+        let hash_leaf_slot = compute_public_data_leaf_slot(contract_address, hash_storage_slot);
 
         let with_hash_hint = DelayedPublicMutableValues::new(
             ScheduledValueChange::new(
@@ -315,7 +315,7 @@ mod tests {
         let hash_storage_slot = compute_with_hash_hash_storage_slot::<DelayedPublicMutableValues<ContractClassId, 100>>(
             with_hash_storage_slot,
         );
-        let hash_leaf_slot = compute_public_data_tree_index(contract_address, hash_storage_slot);
+        let hash_leaf_slot = compute_public_data_leaf_slot(contract_address, hash_storage_slot);
 
         let value_hint = DelayedPublicMutableValues::new(
             ScheduledValueChange::new(

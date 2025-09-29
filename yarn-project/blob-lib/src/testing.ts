@@ -1,11 +1,9 @@
-import { TX_START_PREFIX } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 
 import { Blob } from './blob.js';
 import { BatchedBlobAccumulator, FinalBlobBatchingChallenges } from './blob_batching.js';
-import { TX_START_PREFIX_BYTES_LENGTH } from './encoding.js';
+import { encodeTxStartMarker } from './encoding.js';
 import { Poseidon2Sponge, SpongeBlob } from './sponge_blob.js';
 
 /**
@@ -46,23 +44,6 @@ export function makeBatchedBlobAccumulator(seed = 1): BatchedBlobAccumulator {
   );
 }
 
-// TODO: copied form stdlib tx effect
-function encodeFirstField(length: number): Fr {
-  const lengthBuf = Buffer.alloc(2);
-  lengthBuf.writeUInt16BE(length, 0);
-  return new Fr(
-    Buffer.concat([
-      toBufferBE(TX_START_PREFIX, TX_START_PREFIX_BYTES_LENGTH),
-      Buffer.alloc(1),
-      lengthBuf,
-      Buffer.alloc(1),
-      Buffer.from([1]),
-      Buffer.alloc(1),
-      Buffer.alloc(1),
-    ]),
-  );
-}
-
 /**
  * Make an encoded blob with the given length
  *
@@ -71,20 +52,32 @@ function encodeFirstField(length: number): Fr {
  * @returns
  */
 export function makeEncodedBlob(length: number): Promise<Blob> {
-  return Blob.fromFields([encodeFirstField(length + 1), ...Array.from({ length: length }, () => Fr.random())]);
+  const txStartMarker = {
+    numBlobFields: length,
+    // The rest of the values don't matter. The test components using it only look at `numBlobFields` to split the blobs
+    // into fields for tx effects.
+    revertCode: 0,
+    numNoteHashes: 0,
+    numNullifiers: 0,
+    numL2ToL1Msgs: 0,
+    numPublicDataWrites: 0,
+    numPrivateLogs: 0,
+    publicLogsLength: 0,
+    contractClassLogLength: 0,
+  };
+  return Blob.fromFields([
+    encodeTxStartMarker(txStartMarker),
+    ...Array.from({ length: length - 1 }, () => Fr.random()),
+  ]);
 }
 
 /**
- * Make an unencoded blob with the given length
+ * Make a blob with random fields.
  *
  * This will fail deserialisation in the archiver
  * @param length
  * @returns
  */
-export function makeUnencodedBlob(length: number): Promise<Blob> {
+export function makeRandomBlob(length: number): Promise<Blob> {
   return Blob.fromFields([...Array.from({ length: length }, () => Fr.random())]);
-}
-
-export function makeEncodedBlobFields(fields: Fr[]): Promise<Blob> {
-  return Blob.fromFields([encodeFirstField(fields.length + 1), ...fields]);
 }

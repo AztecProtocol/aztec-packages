@@ -9,9 +9,9 @@ use types::{
     },
     constants::{
         ARCHIVE_HEIGHT, BLOCK_END_PREFIX, L1_TO_L2_MSG_SUBTREE_HEIGHT,
-        L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+        L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, L1_TO_L2_MSG_TREE_HEIGHT,
     },
-    merkle_tree::{append_only_tree, calculate_empty_tree_root},
+    merkle_tree::append_only_tree,
     traits::Hash,
 };
 
@@ -20,8 +20,8 @@ pub struct BlockRollupPublicInputsComposer {
     constants: CheckpointConstantData,
     previous_archive: AppendOnlyTreeSnapshot,
     previous_l1_to_l2: AppendOnlyTreeSnapshot,
-    start_partial_state: PartialStateReference,
-    end_partial_state: PartialStateReference,
+    start_tree_snapshots: PartialStateReference,
+    end_tree_snapshots: PartialStateReference,
     start_sponge_blob: SpongeBlob,
     end_sponge_blob: SpongeBlob,
     timestamp: u64,
@@ -51,8 +51,8 @@ impl BlockRollupPublicInputsComposer {
             previous_archive,
             previous_l1_to_l2: previous_state.l1_to_l2_message_tree,
             // The state remains the same since there are no tx effects in this block.
-            start_partial_state: previous_state.partial,
-            end_partial_state: previous_state.partial,
+            start_tree_snapshots: previous_state.partial,
+            end_tree_snapshots: previous_state.partial,
             start_sponge_blob,
             end_sponge_blob,
             timestamp,
@@ -87,8 +87,8 @@ impl BlockRollupPublicInputsComposer {
         Self {
             constants,
             previous_archive: rollup.constants.last_archive,
-            start_partial_state: rollup.start_partial_state,
-            end_partial_state: rollup.end_partial_state,
+            start_tree_snapshots: rollup.start_tree_snapshots,
+            end_tree_snapshots: rollup.end_tree_snapshots,
             start_sponge_blob: rollup.start_sponge_blob,
             end_sponge_blob,
             timestamp: global_variables.timestamp,
@@ -110,18 +110,15 @@ impl BlockRollupPublicInputsComposer {
     pub fn with_new_l1_to_l2_messages(
         &mut self,
         parity: ParityPublicInputs,
-        subtree_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
+        subtree_root_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH],
     ) -> Self {
         self.in_hash = parity.sha_root;
 
         // Insert subtree into the l1-to-l2 message tree.
-        let empty_l1_to_l2_subtree_root = calculate_empty_tree_root(L1_TO_L2_MSG_SUBTREE_HEIGHT);
-        self.new_l1_to_l2 = append_only_tree::insert_subtree_to_snapshot_tree(
+        self.new_l1_to_l2 = append_only_tree::insert_subtree_root_to_snapshot::<L1_TO_L2_MSG_TREE_HEIGHT, L1_TO_L2_MSG_SUBTREE_HEIGHT>(
             self.previous_l1_to_l2,
-            subtree_sibling_path,
-            empty_l1_to_l2_subtree_root,
+            subtree_root_sibling_path,
             parity.converted_root,
-            L1_TO_L2_MSG_SUBTREE_HEIGHT as u8,
         );
 
         *self
@@ -131,13 +128,13 @@ impl BlockRollupPublicInputsComposer {
         &mut self,
         parity: ParityPublicInputs,
         previous_l1_to_l2: AppendOnlyTreeSnapshot,
-        subtree_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
+        subtree_root_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH],
     ) -> AppendOnlyTreeSnapshot {
         // Update the previous l1-to-l2 tree snapshot to build the new snapshot with.
         self.previous_l1_to_l2 = previous_l1_to_l2;
 
         // Update the new l1-to-l2 tree snapshot and return it.
-        self.with_new_l1_to_l2_messages(parity, subtree_sibling_path).new_l1_to_l2
+        self.with_new_l1_to_l2_messages(parity, subtree_root_sibling_path).new_l1_to_l2
     }
 
     pub fn finish(
@@ -147,17 +144,15 @@ impl BlockRollupPublicInputsComposer {
         // Build the header of this block and then insert its hash to the archive tree.
         let block_header = self.create_block_header();
         let block_hash = block_header.hash();
-        let new_archive = append_only_tree::insert_subtree_to_snapshot_tree(
+        let new_archive = append_only_tree::append_leaf_to_snapshot::<ARCHIVE_HEIGHT>(
             self.previous_archive,
             new_archive_sibling_path,
-            0,
             block_hash,
-            0,
         );
 
         let start_state = StateReference {
             l1_to_l2_message_tree: self.previous_l1_to_l2,
-            partial: self.start_partial_state,
+            partial: self.start_tree_snapshots,
         };
 
         BlockRollupPublicInputs {
@@ -186,7 +181,7 @@ impl BlockRollupPublicInputsComposer {
     fn create_block_header(self) -> BlockHeader {
         let state = StateReference {
             l1_to_l2_message_tree: self.new_l1_to_l2,
-            partial: self.end_partial_state,
+            partial: self.end_tree_snapshots,
         };
 
         // Assign the `end_sponge_blob` to a mutable variable so that we can squeeze it.

@@ -1,3 +1,15 @@
+variable "R2_ACCESS_KEY_ID" {
+  description = "Cloudflare R2 access key id for RPC node snapshot uploads"
+  type        = string
+  default     = null
+}
+
+variable "R2_SECRET_ACCESS_KEY" {
+  description = "Cloudflare R2 secret access key for RPC node snapshot uploads"
+  type        = string
+  default     = null
+}
+
 variable "GCP_PROJECT_ID" {
   description = "GCP project id"
   type        = string
@@ -200,6 +212,28 @@ variable "OTEL_COLLECTOR_ENDPOINT" {
   nullable    = true
 }
 
+variable "SPONSORED_FPC" {
+  description = "Enable sponsored FPC"
+  type        = bool
+}
+
+variable "TEST_ACCOUNTS" {
+  description = "Enable test accounts"
+  type        = bool
+}
+
+variable "SEQ_MIN_TX_PER_BLOCK" {
+  description = "Minimum number of sequencer transactions per block"
+  type        = string
+  default     = "0"
+}
+
+variable "SEQ_MAX_TX_PER_BLOCK" {
+  description = "Maximum number of sequencer transactions per block"
+  type        = string
+  default     = "8"
+}
+
 variable "SENTINEL_ENABLED" {
   description = "Whether to enable sentinel"
   type        = string
@@ -299,6 +333,12 @@ variable "EXTERNAL_BOOTNODES" {
   description = "Whether to use externally deployed bootnodes"
   type        = list(string)
   default     = []
+}
+
+variable "DEPLOY_ARCHIVAL_NODE" {
+  description = "Whether to deploy the archival node"
+  type        = bool
+  default     = false
 }
 
 variable "NETWORK" {

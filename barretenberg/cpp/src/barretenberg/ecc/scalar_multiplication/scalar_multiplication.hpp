@@ -94,7 +94,7 @@ template <typename Curve> class MSM {
     static void transform_scalar_and_get_nonzero_scalar_indices(std::span<typename Curve::ScalarField> scalars,
                                                                 std::vector<uint32_t>& consolidated_indices) noexcept;
 
-    static std::vector<ThreadWorkUnits> get_work_units(std::vector<std::span<ScalarField>>& scalars,
+    static std::vector<ThreadWorkUnits> get_work_units(std::span<std::span<ScalarField>> scalars,
                                                        std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept;
     static uint32_t get_scalar_slice(const ScalarField& scalar, size_t round, size_t normal_slice_size) noexcept;
     static size_t get_optimal_log_num_buckets(const size_t num_points) noexcept;
@@ -122,8 +122,8 @@ template <typename Curve> class MSM {
                                        size_t num_input_points_processed,
                                        size_t num_queued_affine_points) noexcept;
 
-    static std::vector<AffineElement> batch_multi_scalar_mul(std::vector<std::span<const AffineElement>>& points,
-                                                             std::vector<std::span<ScalarField>>& scalars,
+    static std::vector<AffineElement> batch_multi_scalar_mul(std::span<std::span<const AffineElement>> points,
+                                                             std::span<std::span<ScalarField>> scalars,
                                                              bool handle_edge_cases = true) noexcept;
     static AffineElement msm(std::span<const AffineElement> points,
                              PolynomialSpan<const ScalarField> _scalars,

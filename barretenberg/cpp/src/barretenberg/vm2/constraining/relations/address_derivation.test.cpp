@@ -8,12 +8,12 @@
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/address_derivation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_address_derivation.hpp"
-#include "barretenberg/vm2/simulation/address_derivation.hpp"
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/gadgets/address_derivation.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
-#include "barretenberg/vm2/simulation/testing/fakes/fake_to_radix.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_to_radix.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -40,7 +40,6 @@ using simulation::Ecc;
 using simulation::EccAddEvent;
 using simulation::EccAddMemoryEvent;
 using simulation::EventEmitter;
-using simulation::FakeToRadix;
 using simulation::hash_public_keys;
 using simulation::MockExecutionIdManager;
 using simulation::MockGreaterThan;
@@ -49,6 +48,7 @@ using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
 using simulation::Poseidon2PermutationMemoryEvent;
+using simulation::PureToRadix;
 using simulation::ScalarMulEvent;
 
 using FF = AvmFlavorSettings::FF;
@@ -115,7 +115,7 @@ TEST(AddressDerivationConstrainingTest, WithInteractions)
     Poseidon2 poseidon2_simulator(
         mock_exec_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
 
-    FakeToRadix to_radix_simulator;
+    PureToRadix to_radix_simulator;
     Ecc ecc_simulator(mock_exec_id_manager,
                       mock_gt,
                       to_radix_simulator,

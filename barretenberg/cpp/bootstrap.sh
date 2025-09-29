@@ -154,7 +154,7 @@ function build_smt_verification {
     return
   fi
 
-  sudo apt update && sudo apt install -y python3-pip python3-venv m4
+  sudo apt update && sudo apt install -y python3-pip python3-venv m4 bison
   cmake --preset smt-verification
   cmake --build build-smt --target smt_verification_tests
   cache_upload barretenberg-smt-$hash.zst build-smt

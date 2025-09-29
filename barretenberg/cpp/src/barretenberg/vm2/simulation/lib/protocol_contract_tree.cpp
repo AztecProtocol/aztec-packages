@@ -1,5 +1,7 @@
 #include "barretenberg/vm2/simulation/lib/protocol_contract_tree.hpp"
 
+#include "barretenberg/vm2/common/map.hpp"
+
 namespace bb::avm2::simulation {
 
 bool ProtocolContractLeaf::is_updateable()
@@ -43,7 +45,7 @@ ProtocolContractLeaf ProtocolContractLeaf::padding([[maybe_unused]] index_t i)
     return ProtocolContractLeaf(static_cast<AztecAddress>(0));
 }
 
-ProtocolContractTree build_tree(std::unordered_map<CanonicalAddress, DerivedAddress> const& derived_addresses)
+ProtocolContractTree build_tree(const unordered_flat_map<CanonicalAddress, DerivedAddress>& derived_addresses)
 {
     // The protocol contract derived addresses are inserted in the tree at the index defined by their
     // canonical address. Since we cannot guarantee that the canonical addresses are in contiguous and sequential order,
@@ -53,7 +55,7 @@ ProtocolContractTree build_tree(std::unordered_map<CanonicalAddress, DerivedAddr
                                                                   IndexedLeaf<ProtocolContractLeaf>::empty());
 
     // We need to make sure that the 0 leaf is present in the tree
-    std::unordered_map<CanonicalAddress, DerivedAddress> leaves_map = derived_addresses;
+    unordered_flat_map<CanonicalAddress, DerivedAddress> leaves_map = derived_addresses;
     leaves_map.emplace(CanonicalAddress(0), DerivedAddress(0));
 
     // Indexed leaves are characterised by {key, next_index, next_key}, where

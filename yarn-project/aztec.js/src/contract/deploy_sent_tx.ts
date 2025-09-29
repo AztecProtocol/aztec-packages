@@ -2,7 +2,6 @@ import { createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
 import type { TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
@@ -57,18 +56,13 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
    */
   public override async wait(opts?: DeployedWaitOpts): Promise<DeployTxReceipt<TContract>> {
     const receipt = await super.wait(opts);
-    const contract = await this.getContractObject(opts?.wallet);
-    return { ...receipt, contract };
-  }
-
-  protected async getContractObject(wallet?: Wallet): Promise<TContract> {
-    const isWallet = (pxeWalletOrNode: Wallet | AztecNode | PXE): pxeWalletOrNode is Wallet =>
-      !(pxeWalletOrNode as PXE).getNotes && !(pxeWalletOrNode as AztecNode).findLeavesIndexes;
-    const contractWallet = wallet ?? (isWallet(this.pxeWalletOrNode) && this.pxeWalletOrNode);
+    // In the case of DeploySentTx we have a guarantee that this.walletOrNode is a Wallet so we can cast it to Wallet.
+    const contractWallet = opts?.wallet ?? (this.walletOrNode as Wallet);
     if (!contractWallet) {
       throw new Error(`A wallet is required for creating a contract instance`);
     }
     const instance = await this.instanceGetter();
-    return this.postDeployCtor(instance.address, contractWallet) as Promise<TContract>;
+    const contract = (await this.postDeployCtor(instance.address, contractWallet)) as TContract;
+    return { ...receipt, contract };
   }
 }

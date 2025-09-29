@@ -1,7 +1,8 @@
-import type { UserFeeOptions } from '@aztec/entrypoints/interfaces';
+import type { SimulationUserFeeOptions, UserFeeOptions } from '@aztec/entrypoints/interfaces';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { Capsule } from '@aztec/stdlib/tx';
+import type { GasSettings } from '@aztec/stdlib/gas';
+import type { Capsule, OffchainEffect, SimulationStats } from '@aztec/stdlib/tx';
 
 /**
  * Represents the options to configure a request from a contract interaction.
@@ -29,7 +30,9 @@ export type SendMethodOptions = RequestMethodOptions & {
  * Allows specifying the address from which the method should be called.
  * Disregarded for simulation of public functions
  */
-export type SimulateMethodOptions = Pick<SendMethodOptions, 'from' | 'authWitnesses' | 'capsules' | 'fee'> & {
+export type SimulateMethodOptions = Omit<SendMethodOptions, 'fee'> & {
+  /** The fee options for the transaction. */
+  fee?: SimulationUserFeeOptions;
   /** Simulate without checking for the validity of the resulting transaction, e.g. whether it emits any existing nullifiers. */
   skipTxValidation?: boolean;
   /** Whether to ensure the fee payer is not empty and has enough balance to pay for the fee. */
@@ -50,3 +53,22 @@ export type ProfileMethodOptions = SimulateMethodOptions & {
   skipProofGeneration?: boolean;
 };
 // docs:end:profile-method-options
+
+/**
+ * Represents the result type of a simulation.
+ * By default, it will just be the return value of the simulated function
+ * If `includeMetadata` is set to true in `SimulateMethodOptions` on the input of `simulate(...)`,
+ * it will provide extra information.
+ */
+export type SimulationReturn<T extends boolean | undefined> = T extends true
+  ? {
+      /** Additional stats about the simulation */
+      stats: SimulationStats;
+      /** Offchain effects generated during the simulation */
+      offchainEffects: OffchainEffect[];
+      /**  Return value of the function */
+      result: any;
+      /** Gas estimation results */
+      estimatedGas: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>;
+    }
+  : any;

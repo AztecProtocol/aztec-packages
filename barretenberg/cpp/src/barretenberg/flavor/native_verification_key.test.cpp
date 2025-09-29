@@ -35,7 +35,8 @@ template <typename Flavor> class NativeVerificationKeyTests : public ::testing::
         stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_to_public_inputs(builder);
         if constexpr (HasIPAAccumulator<Flavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
-                IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_fake_ipa_claim_and_proof(builder);
+                IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_random_valid_ipa_claim_and_proof(
+                    builder);
             stdlib_opening_claim.set_public();
             builder.ipa_proof = ipa_proof;
         }

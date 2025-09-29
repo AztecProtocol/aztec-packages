@@ -1,6 +1,7 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import { RegistryAbi } from '@aztec/l1-artifacts/RegistryAbi';
 
 import type { Anvil } from '@viem/anvil';
@@ -13,7 +14,7 @@ import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';
 import { L1Deployer, deployL1Contracts, deployRollup } from '../deploy_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
-import { defaultL1TxUtilsConfig } from '../l1_tx_utils.js';
+import { defaultL1TxUtilsConfig } from '../l1_tx_utils/index.js';
 import { EthCheatCodes } from '../test/eth_cheat_codes.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient } from '../types.js';
@@ -68,7 +69,7 @@ describe('Registry', () => {
     const rollup = new RollupContract(l1Client, deployedAddresses.rollupAddress);
     deployedVersion = Number(await rollup.getVersion());
 
-    ethCheatCodes = new EthCheatCodes([rpcUrl]);
+    ethCheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
     await ethCheatCodes.setBalance(deployedAddresses.governanceAddress, 10n ** 18n);
   });
 
@@ -136,7 +137,6 @@ describe('Registry', () => {
         realVerifier: false,
       },
       deployedAddresses,
-      true,
       logger,
     );
 

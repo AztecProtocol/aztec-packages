@@ -16,8 +16,6 @@ void validate_split_in_field(const field_t<Builder>& lo,
                              const size_t lo_bits,
                              const uint256_t& field_modulus)
 {
-    constexpr bool IS_ULTRA = Builder::CIRCUIT_TYPE == CircuitType::ULTRA;
-
     const size_t hi_bits = static_cast<size_t>(field_modulus.get_msb()) + 1 - lo_bits;
 
     // Split the field modulus at the same position
@@ -33,11 +31,7 @@ void validate_split_in_field(const field_t<Builder>& lo,
     if (!lo.is_constant()) {
         // We need to manually propagate the origin tag
         borrow.set_origin_tag(lo.get_origin_tag());
-        if constexpr (IS_ULTRA) {
-            lo.get_context()->create_new_range_constraint(borrow.get_witness_index(), 1, "borrow");
-        } else {
-            borrow.assert_equal(borrow * borrow);
-        }
+        lo.get_context()->create_new_range_constraint(borrow.get_witness_index(), 1, "borrow");
     }
 
     // Hi range check = r_hi - hi - borrow
@@ -62,18 +56,21 @@ std::pair<field_t<Builder>, field_t<Builder>> split_unique(const field_t<Builder
     const uint256_t lo_val = value.slice(0, lo_bits);
     const uint256_t hi_val = value.slice(lo_bits, max_bits);
 
+    Builder* ctx = field.get_context();
+
     // If `field` is constant, return constants based on the native hi/lo values
     if (field.is_constant()) {
         return { field_t<Builder>(lo_val), field_t<Builder>(hi_val) };
     }
 
     // Create hi/lo witnesses
-    field_t<Builder> lo = field_t<Builder>::from_witness(field.get_context(), lo_val);
-    field_t<Builder> hi = field_t<Builder>::from_witness(field.get_context(), hi_val);
+    auto lo = field_t<Builder>::from_witness(ctx, lo_val);
+    auto hi = field_t<Builder>::from_witness(ctx, hi_val);
 
-    // Component 1: Reconstruction constraint
+    // Component 1: Reconstruction constraint lo + hi * 2^lo_bits - field == 0
     const uint256_t shift = uint256_t(1) << lo_bits;
-    (lo + (hi * shift)).assert_equal(field);
+    auto zero = field_t<Builder>::from_witness_index(ctx, ctx->zero_idx);
+    field_t<Builder>::evaluate_linear_identity(lo, hi * shift, -field, zero);
 
     // Set the origin tag for the limbs
     lo.set_origin_tag(field.get_origin_tag());

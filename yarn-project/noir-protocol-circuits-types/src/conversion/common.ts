@@ -6,7 +6,6 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
   PRIVATE_LOG_SIZE_IN_FIELDS,
-  PUBLIC_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
@@ -30,7 +29,7 @@ import {
   ScopedCountedLogHash,
   ScopedLogHash,
 } from '@aztec/stdlib/kernel';
-import { PrivateLog, PublicLog } from '@aztec/stdlib/logs';
+import { PrivateLog } from '@aztec/stdlib/logs';
 import {
   CountedL2ToL1Message,
   L2ToL1Message,
@@ -68,7 +67,6 @@ import type {
   EmbeddedCurveScalar as GrumpkinScalarNoir,
   L2ToL1Message as L2ToL1MessageNoir,
   LogHash as LogHashNoir,
-  Log as LogNoir,
   MembershipWitness as MembershipWitnessNoir,
   AztecAddress as NoirAztecAddress,
   EthAddress as NoirEthAddress,
@@ -77,6 +75,7 @@ import type {
   NullifierLeafPreimage as NullifierLeafPreimageNoir,
   Option as OptionalNumberNoir,
   PartialStateReference as PartialStateReferenceNoir,
+  Log as PrivateLogNoir,
   PrivateToPublicAccumulatedData as PrivateToPublicAccumulatedDataNoir,
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
   PrivateToRollupAccumulatedData as PrivateToRollupAccumulatedDataNoir,
@@ -86,7 +85,6 @@ import type {
   PublicCallRequest as PublicCallRequestNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
   PublicDataWrite as PublicDataWriteNoir,
-  PublicLog as PublicLogNoir,
   Scoped,
   StateReference as StateReferenceNoir,
   TxConstantData as TxConstantDataNoir,
@@ -291,35 +289,17 @@ export function mapGasFeesFromNoir(gasFees: GasFeesNoir): GasFees {
   return new GasFees(mapBigIntFromNoir(gasFees.fee_per_da_gas), mapBigIntFromNoir(gasFees.fee_per_l2_gas));
 }
 
-export function mapPrivateLogToNoir(log: PrivateLog): LogNoir<typeof PRIVATE_LOG_SIZE_IN_FIELDS> {
+export function mapPrivateLogToNoir(log: PrivateLog): PrivateLogNoir {
   return {
     fields: mapTuple(log.fields, mapFieldToNoir),
     length: mapNumberToNoir(log.emittedLength),
   };
 }
 
-export function mapPrivateLogFromNoir(log: LogNoir<typeof PRIVATE_LOG_SIZE_IN_FIELDS>) {
+export function mapPrivateLogFromNoir(log: PrivateLogNoir) {
   return new PrivateLog(
     mapTupleFromNoir(log.fields, PRIVATE_LOG_SIZE_IN_FIELDS, mapFieldFromNoir),
     mapNumberFromNoir(log.length),
-  );
-}
-
-export function mapPublicLogToNoir(log: PublicLog): PublicLogNoir {
-  return {
-    contract_address: mapAztecAddressToNoir(log.contractAddress),
-    log: {
-      fields: mapTuple(log.fields, mapFieldToNoir),
-      length: mapNumberToNoir(log.emittedLength),
-    },
-  };
-}
-
-export function mapPublicLogFromNoir(log: PublicLogNoir) {
-  return new PublicLog(
-    mapAztecAddressFromNoir(log.contract_address),
-    mapTupleFromNoir(log.log.fields, PUBLIC_LOG_SIZE_IN_FIELDS, mapFieldFromNoir),
-    mapNumberFromNoir(log.log.length),
   );
 }
 

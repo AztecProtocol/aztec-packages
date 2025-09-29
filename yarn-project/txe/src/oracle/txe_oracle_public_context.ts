@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Body, L2Block } from '@aztec/stdlib/block';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/stdlib/testing';
@@ -15,9 +15,11 @@ import { GlobalVariables, TxEffect, TxHash } from '@aztec/stdlib/tx';
 import type { UInt32 } from '@aztec/stdlib/types';
 
 import { insertTxEffectIntoWorldTrees, makeTXEBlockHeader } from '../utils/block_creation.js';
-import { TXETypedOracle } from './txe_typed_oracle.js';
+import type { IAvmExecutionOracle } from './interfaces.js';
 
-export class TXEOraclePublicContext extends TXETypedOracle {
+export class TXEOraclePublicContext implements IAvmExecutionOracle {
+  isAvm = true as const;
+
   private logger: Logger;
   private transientUniqueNoteHashes: Fr[] = [];
   private transientSiloedNullifiers: Fr[] = [];
@@ -29,7 +31,6 @@ export class TXEOraclePublicContext extends TXETypedOracle {
     private txRequestHash: Fr,
     private globalVariables: GlobalVariables,
   ) {
-    super('TXEOraclePublicContext');
     this.logger = createLogger('txe:public_context');
 
     this.logger.debug('Entering Public Context', {
@@ -39,42 +40,46 @@ export class TXEOraclePublicContext extends TXETypedOracle {
     });
   }
 
-  override avmOpcodeAddress(): Promise<AztecAddress> {
+  avmOpcodeAddress(): Promise<AztecAddress> {
     return Promise.resolve(this.contractAddress);
   }
 
-  override avmOpcodeBlockNumber(): Promise<UInt32> {
+  avmOpcodeSender(): Promise<AztecAddress> {
+    return Promise.resolve(AztecAddress.ZERO); // todo: change?
+  }
+
+  avmOpcodeBlockNumber(): Promise<UInt32> {
     return Promise.resolve(this.globalVariables.blockNumber);
   }
 
-  override avmOpcodeTimestamp(): Promise<bigint> {
+  avmOpcodeTimestamp(): Promise<bigint> {
     return Promise.resolve(this.globalVariables.timestamp);
   }
 
-  override avmOpcodeIsStaticCall(): Promise<boolean> {
+  avmOpcodeIsStaticCall(): Promise<boolean> {
     return Promise.resolve(false);
   }
 
-  override avmOpcodeChainId(): Promise<Fr> {
+  avmOpcodeChainId(): Promise<Fr> {
     return Promise.resolve(this.globalVariables.chainId);
   }
 
-  override avmOpcodeVersion(): Promise<Fr> {
+  avmOpcodeVersion(): Promise<Fr> {
     return Promise.resolve(this.globalVariables.version);
   }
 
-  override async avmOpcodeEmitNullifier(nullifier: Fr) {
+  async avmOpcodeEmitNullifier(nullifier: Fr) {
     const siloedNullifier = await siloNullifier(this.contractAddress, nullifier);
     this.transientSiloedNullifiers.push(siloedNullifier);
   }
 
-  override async avmOpcodeEmitNoteHash(noteHash: Fr) {
+  async avmOpcodeEmitNoteHash(noteHash: Fr) {
     const siloedNoteHash = await siloNoteHash(this.contractAddress, noteHash);
     // TODO: make the note hash unique - they are only siloed right now
     this.transientUniqueNoteHashes.push(siloedNoteHash);
   }
 
-  override async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
+  async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
     const nullifier = await siloNullifier(targetAddress, innerNullifier!);
 
     const treeIndex = (
@@ -85,7 +90,7 @@ export class TXEOraclePublicContext extends TXETypedOracle {
     return treeIndex !== undefined || transientIndex !== undefined;
   }
 
-  override async avmOpcodeStorageWrite(slot: Fr, value: Fr) {
+  async avmOpcodeStorageWrite(slot: Fr, value: Fr) {
     this.logger.debug('AVM storage write', { slot, value });
 
     const dataWrite = new PublicDataWrite(await computePublicDataTreeLeafSlot(this.contractAddress, slot), value);
@@ -97,7 +102,7 @@ export class TXEOraclePublicContext extends TXETypedOracle {
     ]);
   }
 
-  override async avmOpcodeStorageRead(slot: Fr): Promise<Fr> {
+  async avmOpcodeStorageRead(slot: Fr): Promise<Fr> {
     const leafSlot = await computePublicDataTreeLeafSlot(this.contractAddress, slot);
 
     const lowLeafResult = await this.forkedWorldTrees.getPreviousValueIndex(

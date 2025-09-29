@@ -6,6 +6,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasSettings } from '@aztec/stdlib/gas';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+import { SetPublicAuthwitContractInteraction } from '../utils/authwit.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
 
@@ -90,20 +91,23 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
     const txNonce = Fr.random();
     const maxFee = gasSettings.getFeeLimit();
 
-    const setPublicAuthWitInteraction = await this.wallet.setPublicAuthWit(
-      this.sender,
-      {
-        caller: this.paymentContract,
-        action: {
-          name: 'transfer_in_public',
-          args: [this.sender.toField(), this.paymentContract.toField(), maxFee, txNonce],
-          selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),u128,Field)'),
-          type: FunctionType.PUBLIC,
-          isStatic: false,
-          to: await this.getAsset(),
-          returnTypes: [],
-        },
+    const intent = {
+      caller: this.paymentContract,
+      call: {
+        name: 'transfer_in_public',
+        args: [this.sender.toField(), this.paymentContract.toField(), maxFee, txNonce],
+        selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),u128,Field)'),
+        type: FunctionType.PUBLIC,
+        isStatic: false,
+        to: await this.getAsset(),
+        returnTypes: [],
       },
+    };
+
+    const setPublicAuthWitInteraction = await SetPublicAuthwitContractInteraction.create(
+      this.wallet,
+      this.sender,
+      intent,
       true,
     );
 

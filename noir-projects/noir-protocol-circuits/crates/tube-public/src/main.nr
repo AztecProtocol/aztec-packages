@@ -1,6 +1,5 @@
-use dep::rollup_lib::tx_base::PublicTubePrivateInputs;
-use types::abis::kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs;
+use dep::rollup_lib::tx_base::{PublicTubePrivateInputs, PublicTubePublicInputs};
 
-fn main(inputs: PublicTubePrivateInputs) -> pub PrivateToPublicKernelCircuitPublicInputs {
+fn main(inputs: PublicTubePrivateInputs) -> pub PublicTubePublicInputs {
     inputs.execute()
 }

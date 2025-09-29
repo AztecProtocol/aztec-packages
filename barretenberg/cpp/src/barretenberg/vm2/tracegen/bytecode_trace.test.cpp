@@ -11,6 +11,7 @@
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
@@ -22,7 +23,6 @@ namespace {
 using C = Column;
 using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
-using simulation::BytecodeId;
 using simulation::Instruction;
 using simulation::InstructionFetchingEvent;
 

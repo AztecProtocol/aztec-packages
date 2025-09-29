@@ -6,7 +6,7 @@ import { Fr } from '@aztec/foundation/fields';
 // implements TransparentNote shield flow.
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import { mkdtemp } from 'fs/promises';
@@ -221,7 +221,7 @@ describe('Aztec persistence', () => {
     });
 
     it("pxe does not have owner's private notes", async () => {
-      await context.pxe.registerContract({
+      await context.wallet.registerContract({
         artifact: TokenBlacklistContract.artifact,
         instance: contractInstance,
       });
@@ -232,7 +232,7 @@ describe('Aztec persistence', () => {
     });
 
     it('has access to public storage', async () => {
-      await context.pxe.registerContract({
+      await context.wallet.registerContract({
         artifact: TokenBlacklistContract.artifact,
         instance: contractInstance,
       });
@@ -242,7 +242,7 @@ describe('Aztec persistence', () => {
     });
 
     it('pxe restores notes after registering the owner', async () => {
-      await context.pxe.registerContract({
+      await context.wallet.registerContract({
         artifact: TokenBlacklistContract.artifact,
         instance: contractInstance,
       });
@@ -272,7 +272,7 @@ describe('Aztec persistence', () => {
     beforeAll(async () => {
       const temporaryContext = await setup(0, { deployL1ContractsValues }, {});
 
-      await temporaryContext.pxe.registerContract({
+      await temporaryContext.wallet.registerContract({
         artifact: TokenBlacklistContract.artifact,
         instance: contractInstance,
       });

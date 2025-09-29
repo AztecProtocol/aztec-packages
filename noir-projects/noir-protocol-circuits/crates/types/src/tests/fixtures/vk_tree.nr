@@ -1,10 +1,13 @@
-use crate::constants::{
-    AVM_VK_INDEX, HIDING_KERNEL_TO_PUBLIC_VK_INDEX, MEGA_VK_LENGTH_IN_FIELDS, PARITY_BASE_VK_INDEX,
-    PARITY_ROOT_VK_INDEX, PRIVATE_KERNEL_RESET_INDEX, ROOT_ROLLUP_VK_INDEX,
-    ULTRA_VK_LENGTH_IN_FIELDS, VK_TREE_HEIGHT,
+use crate::{
+    constants::{
+        AVM_VK_INDEX, HIDING_KERNEL_TO_PUBLIC_VK_INDEX, MEGA_VK_LENGTH_IN_FIELDS,
+        PARITY_BASE_VK_INDEX, PARITY_ROOT_VK_INDEX, PRIVATE_KERNEL_RESET_INDEX,
+        ROOT_ROLLUP_VK_INDEX, ULTRA_VK_LENGTH_IN_FIELDS, VK_TREE_HEIGHT,
+    },
+    merkle_tree::merkle_tree::MerkleTree,
+    proof::{verification_key::VerificationKey, vk_data::VkData},
+    tests::utils::pad_end,
 };
-use crate::merkle_tree::merkle_tree::MerkleTree;
-use crate::{proof::verification_key::VerificationKey, tests::utils::pad_end};
 
 pub global VK_TREE_WIDTH: u32 = (1 as u8 << VK_TREE_HEIGHT as u8) as u32;
 
@@ -59,3 +62,17 @@ pub global VK_MERKLE_TREE: MerkleTree<VK_TREE_WIDTH> = {
 
     MerkleTree::new(leaves)
 };
+
+impl MerkleTree<VK_TREE_WIDTH> {
+    pub fn update_vk_hash(&mut self, vk_index: u32, vk_hash: Field) {
+        self.update_leaf::<VK_TREE_HEIGHT>(vk_index, vk_hash);
+    }
+}
+
+pub global vk_tree_root: Field = VK_MERKLE_TREE.get_root();
+
+pub fn get_vk_data<let VkLen: u32>(vk_index: u32) -> VkData<VkLen> {
+    let vk = generate_fake_vk_for_index(vk_index);
+    let sibling_path = VK_MERKLE_TREE.get_sibling_path(vk_index);
+    VkData { vk, leaf_index: vk_index, sibling_path }
+}

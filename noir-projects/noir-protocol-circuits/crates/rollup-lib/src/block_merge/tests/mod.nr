@@ -1,3 +1,4 @@
+mod child_proof_vk_tests;
 mod consecutive_block_rollups_tests;
 mod rollup_structure_tests;
 

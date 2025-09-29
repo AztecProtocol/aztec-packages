@@ -1,5 +1,5 @@
 import type { FieldsOf } from '@aztec/foundation/types';
-import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
 import type { Account } from '../account/account.js';
@@ -17,11 +17,11 @@ export type DeployAccountTxReceipt = FieldsOf<TxReceipt> & {
  */
 export class DeployAccountSentTx extends SentTx {
   constructor(
-    pxeNodeOrWallet: Wallet | AztecNode | PXE,
+    walletOrNode: Wallet | AztecNode,
     sendTx: () => Promise<TxHash>,
     private getAccountPromise: Promise<Account>,
   ) {
-    super(pxeNodeOrWallet, sendTx);
+    super(walletOrNode, sendTx);
   }
 
   /**

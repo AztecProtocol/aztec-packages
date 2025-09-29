@@ -23,8 +23,7 @@ namespace bb {
 template <typename Flavor>
 static bool check_accumulator_target_sum_manual(const std::shared_ptr<ProverInstance_<Flavor>>& accumulator)
 {
-    using ProverInstances = ProverInstances_<Flavor, 2>;
-    using PGInternal = ProtogalaxyProverInternal<ProverInstances>;
+    using PGInternal = ProtogalaxyProverInternal<ProverInstance_<Flavor>>;
 
     const size_t accumulator_size = accumulator->dyadic_size();
     PGInternal pg_internal;

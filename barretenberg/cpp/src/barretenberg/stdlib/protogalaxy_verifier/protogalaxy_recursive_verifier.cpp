@@ -9,15 +9,13 @@
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
-#include "barretenberg/ultra_honk/instances.hpp"
 
 namespace bb::stdlib::recursion::honk {
 
-template <class VerifierInstances>
-void ProtogalaxyRecursiveVerifier_<VerifierInstances>::run_oink_verifier_on_each_incomplete_instance(
+template <class VerifierInstance>
+void ProtogalaxyRecursiveVerifier_<VerifierInstance>::run_oink_verifier_on_each_incomplete_instance(
     const std::vector<FF>& proof)
 {
-    BB_ASSERT_EQ(insts_to_fold.NUM, 2UL, "Protogalaxy only supports folding 2 instances.");
     transcript->load_proof(proof);
     auto key = insts_to_fold[0];
     auto domain_separator = std::to_string(0);
@@ -36,15 +34,11 @@ void ProtogalaxyRecursiveVerifier_<VerifierInstances>::run_oink_verifier_on_each
     oink_verifier.verify();
 }
 
-template <class VerifierInstances>
-std::shared_ptr<typename VerifierInstances::VerifierInstance> ProtogalaxyRecursiveVerifier_<
-    VerifierInstances>::verify_folding_proof(const stdlib::Proof<Builder>& proof)
+template <class VerifierInstance>
+std::shared_ptr<VerifierInstance> ProtogalaxyRecursiveVerifier_<VerifierInstance>::verify_folding_proof(
+    const stdlib::Proof<Builder>& proof)
 {
-    static constexpr size_t BATCHED_EXTENDED_LENGTH = VerifierInstances::BATCHED_EXTENDED_LENGTH;
-    static constexpr size_t NUM_INSTANCES = VerifierInstances::NUM;
-    // The degree of the combiner quotient (K in the paper) is dk - k - 1 = k(d - 1) - 1.
-    // Hence we need  k(d - 1) evaluations to represent it.
-    static constexpr size_t COMBINER_LENGTH = BATCHED_EXTENDED_LENGTH - NUM_INSTANCES;
+    static constexpr size_t COMBINER_QUOTIENT_LENGTH = BATCHED_EXTENDED_LENGTH - NUM_INSTANCES;
 
     run_oink_verifier_on_each_incomplete_instance(proof);
 
@@ -62,8 +56,8 @@ std::shared_ptr<typename VerifierInstances::VerifierInstance> ProtogalaxyRecursi
     perturbator_coeffs[0] = accumulator->target_sum;
     const FF perturbator_evaluation = evaluate_perturbator(perturbator_coeffs, perturbator_challenge);
 
-    std::array<FF, COMBINER_LENGTH> combiner_quotient_evals;
-    for (size_t idx = 0; idx < COMBINER_LENGTH; idx++) {
+    std::array<FF, COMBINER_QUOTIENT_LENGTH> combiner_quotient_evals;
+    for (size_t idx = 0; idx < COMBINER_QUOTIENT_LENGTH; idx++) {
         combiner_quotient_evals[idx] =
             transcript->template receive_from_prover<FF>("combiner_quotient_" + std::to_string(idx + NUM_INSTANCES));
     }
@@ -112,12 +106,12 @@ std::shared_ptr<typename VerifierInstances::VerifierInstance> ProtogalaxyRecursi
 
     std::vector<Commitment> accumulator_commitments;
     std::vector<Commitment> instance_commitments;
-    for (const auto& precomputed : insts_to_fold.get_precomputed_commitments()) {
+    for (const auto& precomputed : get_data_to_fold<FOLDING_DATA::PRECOMPUTED_COMMITMENTS>()) {
         BB_ASSERT_EQ(precomputed.size(), 2U);
         accumulator_commitments.emplace_back(precomputed[0]);
         instance_commitments.emplace_back(precomputed[1]);
     }
-    for (const auto& witness : insts_to_fold.get_witness_commitments()) {
+    for (const auto& witness : get_data_to_fold<FOLDING_DATA::WITNESS_COMMITMENTS>()) {
         BB_ASSERT_EQ(witness.size(), 2U);
         accumulator_commitments.emplace_back(witness[0]);
         instance_commitments.emplace_back(witness[1]);
@@ -182,13 +176,13 @@ std::shared_ptr<typename VerifierInstances::VerifierInstance> ProtogalaxyRecursi
     accumulator->vk_and_hash->vk->log_circuit_size = virtual_log_n;
 
     // Fold the relation parameters
-    for (auto [combination, to_combine] : zip_view(accumulator->alphas, insts_to_fold.get_alphas())) {
-        combination = linear_combination(to_combine, lagranges);
+    for (auto [combination, to_combine] : zip_view(accumulator->alphas, get_data_to_fold<FOLDING_DATA::ALPHAS>())) {
+        combination = to_combine[0] + combiner_challenge * (to_combine[1] - to_combine[0]);
     }
 
-    for (auto [combination, to_combine] :
-         zip_view(accumulator->relation_parameters.get_to_fold(), insts_to_fold.get_relation_parameters())) {
-        combination = linear_combination(to_combine, lagranges);
+    for (auto [combination, to_combine] : zip_view(accumulator->relation_parameters.get_to_fold(),
+                                                   get_data_to_fold<FOLDING_DATA::RELATION_PARAMETERS>())) {
+        combination = to_combine[0] + combiner_challenge * (to_combine[1] - to_combine[0]);
     }
 
     auto accumulator_vkey = accumulator->vk_and_hash->vk->get_all();
@@ -205,7 +199,7 @@ std::shared_ptr<typename VerifierInstances::VerifierInstance> ProtogalaxyRecursi
 }
 
 // Instantiate the template with specific flavors and builders
-template class ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstances_<MegaRecursiveFlavor_<MegaCircuitBuilder>, 2>>;
-template class ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstances_<MegaRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
+template class ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstance_<MegaRecursiveFlavor_<MegaCircuitBuilder>>>;
+template class ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstance_<MegaRecursiveFlavor_<UltraCircuitBuilder>>>;
 
 } // namespace bb::stdlib::recursion::honk

@@ -3,6 +3,7 @@ import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { Command } from 'commander';
 
 import {
+  logJson,
   nodeOption,
   parseAztecAddress,
   parseField,
@@ -10,7 +11,6 @@ import {
   parseOptionalInteger,
   parseOptionalLogId,
   parseOptionalTxHash,
-  pxeOption,
 } from '../../utils/commands.js';
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
@@ -18,11 +18,19 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .command('get-block')
     .description('Gets info for a given block or latest.')
     .argument('[blockNumber]', 'Block height', parseOptionalInteger)
-    .addOption(pxeOption)
     .addOption(nodeOption)
     .action(async (blockNumber, options) => {
       const { getBlock } = await import('./get_block.js');
-      await getBlock(options.rpcUrl, options.nodeUrl, blockNumber, debugLogger, log);
+      await getBlock(options.nodeUrl, blockNumber, log);
+    });
+
+  program
+    .command('get-current-base-fee')
+    .description('Gets the current base fee.')
+    .addOption(nodeOption)
+    .action(async options => {
+      const { getCurrentBaseFee } = await import('./get_current_base_fee.js');
+      await getCurrentBaseFee(options.rpcUrl, debugLogger, log);
     });
 
   program
@@ -63,6 +71,16 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .action(async (options: any) => {
       const { blockNumber } = await import('./block_number.js');
       await blockNumber(options.nodeUrl, log);
+    });
+
+  program
+    .command('get-node-info')
+    .description('Gets the information of an Aztec node from a PXE or directly from an Aztec node.')
+    .option('--json', 'Emit output as json')
+    .addOption(nodeOption)
+    .action(async options => {
+      const { getNodeInfo } = await import('./get_node_info.js');
+      await getNodeInfo(options.nodeUrl, options.json, log, logJson(log));
     });
 
   return program;

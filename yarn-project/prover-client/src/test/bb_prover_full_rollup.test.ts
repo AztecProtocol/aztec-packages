@@ -75,11 +75,10 @@ describe('prover/bb_prover/full-rollup', () => {
         }
       }
 
-      const firstCheckpointNumber = context.firstCheckpointNumber;
       const { blobFieldsLengths, finalBlobChallenges } = await buildBlobDataFromTxs(
         txsPerCheckpoint.map(txs => txs.flat()),
       );
-      context.orchestrator.startNewEpoch(1, firstCheckpointNumber, numCheckpoints, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
 
       for (let checkpointIndex = 0; checkpointIndex < numCheckpoints; checkpointIndex++) {
         const checkpointConstants = context.getCheckpointConstants(checkpointIndex);
@@ -87,6 +86,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
         log.info(`Starting new checkpoint #${checkpointIndex}`);
         await context.orchestrator.startNewCheckpoint(
+          checkpointIndex,
           checkpointConstants,
           l1ToL2Messages,
           1,
@@ -167,8 +167,9 @@ describe('prover/bb_prover/full-rollup', () => {
       finalBlobChallenges,
     } = await buildBlobDataFromTxs([processed]);
 
-    context.orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, finalBlobChallenges);
+    context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
     await context.orchestrator.startNewCheckpoint(
+      0, // checkpointIndex
       context.getCheckpointConstants(),
       l1ToL2Messages,
       1, // numBlocks

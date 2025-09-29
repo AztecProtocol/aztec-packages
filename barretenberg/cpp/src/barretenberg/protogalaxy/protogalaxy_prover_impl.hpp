@@ -15,18 +15,18 @@
 #include "protogalaxy_prover.hpp"
 
 namespace bb {
-template <IsUltraOrMegaHonk Flavor, size_t NUM_INSTANCES>
-void ProtogalaxyProver_<Flavor, NUM_INSTANCES>::run_oink_prover_on_one_incomplete_instance(
-    std::shared_ptr<ProverInstance> key, std::shared_ptr<VerifierInstance> vk, const std::string& domain_separator)
+template <IsUltraOrMegaHonk Flavor>
+void ProtogalaxyProver_<Flavor>::run_oink_prover_on_one_incomplete_instance(std::shared_ptr<ProverInstance> key,
+                                                                            std::shared_ptr<VerifierInstance> vk,
+                                                                            const std::string& domain_separator)
 {
 
     BB_BENCH_NAME("ProtogalaxyProver::run_oink_prover_on_one_incomplete_instance");
-    OinkProver<typename ProverInstances::Flavor> oink_prover(key, vk->vk, transcript, domain_separator + '_');
+    OinkProver<Flavor> oink_prover(key, vk->vk, transcript, domain_separator + '_');
     oink_prover.prove();
 }
 
-template <IsUltraOrMegaHonk Flavor, size_t NUM_INSTANCES>
-void ProtogalaxyProver_<Flavor, NUM_INSTANCES>::run_oink_prover_on_each_incomplete_instance()
+template <IsUltraOrMegaHonk Flavor> void ProtogalaxyProver_<Flavor>::run_oink_prover_on_each_incomplete_instance()
 {
     size_t idx = 0;
     auto& key = prover_insts_to_fold[0];
@@ -50,10 +50,9 @@ void ProtogalaxyProver_<Flavor, NUM_INSTANCES>::run_oink_prover_on_each_incomple
     accumulator = prover_insts_to_fold[0];
 };
 
-template <IsUltraOrMegaHonk Flavor, size_t NUM_INSTANCES>
+template <IsUltraOrMegaHonk Flavor>
 std::tuple<std::vector<typename Flavor::FF>, Polynomial<typename Flavor::FF>> ProtogalaxyProver_<
-    Flavor,
-    NUM_INSTANCES>::perturbator_round(const std::shared_ptr<const ProverInstance>& accumulator)
+    Flavor>::perturbator_round(const std::shared_ptr<const ProverInstance>& accumulator)
 {
     BB_BENCH_NAME("ProtogalaxyProver_::perturbator_round");
 
@@ -71,15 +70,15 @@ std::tuple<std::vector<typename Flavor::FF>, Polynomial<typename Flavor::FF>> Pr
     return std::make_tuple(deltas, perturbator);
 };
 
-template <IsUltraOrMegaHonk Flavor, size_t NUM_INSTANCES>
+template <IsUltraOrMegaHonk Flavor>
 std::tuple<std::vector<typename Flavor::FF>,
-           typename ProtogalaxyProver_<Flavor, NUM_INSTANCES>::UnivariateSubrelationSeparators,
-           typename ProtogalaxyProver_<Flavor, NUM_INSTANCES>::UnivariateRelationParameters,
+           typename ProtogalaxyProver_<Flavor>::UnivariateSubrelationSeparators,
+           typename ProtogalaxyProver_<Flavor>::UnivariateRelationParameters,
            typename Flavor::FF,
-           typename ProtogalaxyProver_<Flavor, NUM_INSTANCES>::CombinerQuotient>
-ProtogalaxyProver_<Flavor, NUM_INSTANCES>::combiner_quotient_round(const std::vector<FF>& gate_challenges,
-                                                                   const std::vector<FF>& deltas,
-                                                                   const ProverInstances& instances)
+           typename ProtogalaxyProver_<Flavor>::CombinerQuotient>
+ProtogalaxyProver_<Flavor>::combiner_quotient_round(const std::vector<FF>& gate_challenges,
+                                                    const std::vector<FF>& deltas,
+                                                    const ProverInstances& instances)
 {
     BB_BENCH_NAME("ProtogalaxyProver_::combiner_quotient_round");
 
@@ -89,7 +88,7 @@ ProtogalaxyProver_<Flavor, NUM_INSTANCES>::combiner_quotient_round(const std::ve
         update_gate_challenges(perturbator_challenge, gate_challenges, deltas);
     const UnivariateSubrelationSeparators alphas = PGInternal::compute_and_extend_alphas(instances);
     const GateSeparatorPolynomial<FF> gate_separators{ updated_gate_challenges,
-                                                       numeric::get_msb(instances.get_max_dyadic_size()) };
+                                                       numeric::get_msb(get_max_dyadic_size()) };
     const UnivariateRelationParameters relation_parameters =
         PGInternal::template compute_extended_relation_parameters<UnivariateRelationParameters>(instances);
 
@@ -100,7 +99,7 @@ ProtogalaxyProver_<Flavor, NUM_INSTANCES>::combiner_quotient_round(const std::ve
     const FF perturbator_evaluation = perturbator.evaluate(perturbator_challenge);
     const CombinerQuotient combiner_quotient = PGInternal::compute_combiner_quotient(perturbator_evaluation, combiner);
 
-    for (size_t idx = NUM_INSTANCES; idx < ProverInstances::BATCHED_EXTENDED_LENGTH; idx++) {
+    for (size_t idx = NUM_INSTANCES; idx < BATCHED_EXTENDED_LENGTH; idx++) {
         transcript->send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));
     }
 
@@ -111,8 +110,8 @@ ProtogalaxyProver_<Flavor, NUM_INSTANCES>::combiner_quotient_round(const std::ve
 /**
  * @brief Given the challenge \gamma, compute Z(\gamma) and {L_0(\gamma),L_1(\gamma)}
  */
-template <IsUltraOrMegaHonk Flavor, size_t NUM_INSTANCES>
-void ProtogalaxyProver_<Flavor, NUM_INSTANCES>::update_target_sum_and_fold(
+template <IsUltraOrMegaHonk Flavor>
+void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
     const ProverInstances& instances,
     const CombinerQuotient& combiner_quotient,
     const UnivariateSubrelationSeparators& alphas,
@@ -141,25 +140,48 @@ void ProtogalaxyProver_<Flavor, NUM_INSTANCES>::update_target_sum_and_fold(
     // solution is to simply reverse the order or the terms in the linear combination by swapping the polynomials and
     // the lagrange coefficients between the accumulator and the incoming key.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1417): make this swapping logic more robust.
-    if (incoming->get_overflow_size() > accumulator->get_overflow_size()) {
+    bool swap_polys = incoming->get_overflow_size() > accumulator->get_overflow_size();
+    if (swap_polys) {
         std::swap(accumulator->polynomials, incoming->polynomials); // swap the polys
         std::swap(lagranges[0], lagranges[1]);                 // swap the lagrange coefficients so the sum is unchanged
         accumulator->set_dyadic_size(incoming->dyadic_size()); // update dyadic size of accumulator
         accumulator->set_overflow_size(incoming->get_overflow_size()); // swap overflow size
     }
 
-    // Fold the proving key polynomials
-    parallel_for([&accumulator, &lagranges](const ThreadChunk& chunk) {
-        for (auto& poly : accumulator->polynomials.get_unshifted()) {
-            poly.multiply_chunk(chunk, lagranges[0]);
-        }
-    });
+    // Fold the prover polynomials
 
-    // This cannot be combined with the previous parallel_for because add_scaled_chunk is by the key_poly size
-    parallel_for([&accumulator, &lagranges, &incoming](const ThreadChunk& chunk) {
-        for (auto [acc_poly, key_poly] :
-             zip_view(accumulator->polynomials.get_unshifted(), incoming->polynomials.get_unshifted())) {
-            acc_poly.add_scaled_chunk(chunk, key_poly, lagranges[1]);
+    // Convert the polynomials into spans to remove boundary checks and if checks that normally apply when calling
+    // getter/setters in Polynomial (see SharedShiftedVirtualZeroesArray::get)
+    auto accumulator_polys = accumulator->polynomials.get_unshifted();
+    auto key_polys = incoming->polynomials.get_unshifted();
+    const size_t num_polys = key_polys.size();
+
+    std::vector<PolynomialSpan<FF>> acc_spans;
+    std::vector<PolynomialSpan<FF>> key_spans;
+    acc_spans.reserve(num_polys);
+    key_spans.reserve(num_polys);
+    for (size_t i = 0; i < num_polys; ++i) {
+        acc_spans.emplace_back(static_cast<PolynomialSpan<FF>>(accumulator_polys[i]));
+        key_spans.emplace_back(static_cast<PolynomialSpan<FF>>(key_polys[i]));
+    }
+
+    parallel_for([&acc_spans, &key_spans, &lagranges, &combiner_challenge, &swap_polys](const ThreadChunk& chunk) {
+        for (auto [acc_poly, key_poly] : zip_view(acc_spans, key_spans)) {
+            size_t offset = acc_poly.start_index;
+            for (size_t idx : chunk.range(acc_poly.size(), offset)) {
+                if ((idx < key_poly.start_index) || (idx >= key_poly.end_index())) {
+                    acc_poly[idx] *= lagranges[0];
+                } else {
+                    // acc * lagranges[0] + key * lagranges[1] =
+                    // acc + (key - acc) * combiner_challenge (if !swap_polys)
+                    // key + (acc - key) * combiner_challenge (if swap_polys)
+                    if (swap_polys) {
+                        acc_poly[idx] = key_poly[idx] + (acc_poly[idx] - key_poly[idx]) * combiner_challenge;
+                    } else {
+                        acc_poly[idx] = acc_poly[idx] + (key_poly[idx] - acc_poly[idx]) * combiner_challenge;
+                    }
+                }
+            }
         }
     });
 
@@ -176,8 +198,7 @@ void ProtogalaxyProver_<Flavor, NUM_INSTANCES>::update_target_sum_and_fold(
     }
 }
 
-template <IsUltraOrMegaHonk Flavor, size_t NUM_INSTANCES>
-FoldingResult<Flavor> ProtogalaxyProver_<Flavor, NUM_INSTANCES>::prove()
+template <IsUltraOrMegaHonk Flavor> FoldingResult<Flavor> ProtogalaxyProver_<Flavor>::prove()
 {
     BB_BENCH_NAME("ProtogalaxyProver::prove");
 

@@ -3,9 +3,9 @@ import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 
+import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
 import { CLIFeeArgs } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
-import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
 import { type AccountType, CLIWallet } from '../utils/wallet.js';
 
 export async function createAccount(
@@ -63,7 +63,7 @@ export async function createAccount(
   let tx;
   let txReceipt;
   if (!registerOnly) {
-    const userFeeOptions = await feeOpts.toUserFeeOptions(wallet, account.getAddress());
+    const userFeeOptions = await feeOpts.toUserFeeOptions(wallet, address);
     const feePayer = await userFeeOptions.paymentMethod?.getFeePayer();
     let paymentAsset;
     try {
@@ -81,9 +81,13 @@ export async function createAccount(
     const deployOpts: DeployOptions = {
       skipClassPublication: !publicDeploy,
       skipInstancePublication: !publicDeploy,
-      skipInitialization: skipInitialization,
+      skipInitialization,
       from,
       fee: userFeeOptions,
+      // Do not mix the deployer in the address, since the account
+      // was created (and thus its address was fixed) like this
+      universalDeploy: true,
+      contractAddressSalt: salt,
     };
 
     /*
@@ -100,29 +104,33 @@ export async function createAccount(
         : deployOpts.fee;
 
     const deployMethod = await account.getDeployMethod();
+    const { stats, estimatedGas } = await deployMethod.simulate({
+      ...deployOpts,
+      fee: { ...deployOpts.fee, estimateGas: true },
+    });
+
+    printProfileResult(stats, log);
 
     if (feeOpts.estimateOnly) {
-      const gas = await deployMethod.estimateGas({
-        ...deployOpts,
-        universalDeploy: true,
-      });
       if (json) {
         out.fee = {
           gasLimits: {
-            da: gas.gasLimits.daGas,
-            l2: gas.gasLimits.l2Gas,
+            da: estimatedGas.gasLimits.daGas,
+            l2: estimatedGas.gasLimits.l2Gas,
           },
           teardownGasLimits: {
-            da: gas.teardownGasLimits.daGas,
-            l2: gas.teardownGasLimits,
+            da: estimatedGas.teardownGasLimits.daGas,
+            l2: estimatedGas.teardownGasLimits,
           },
         };
       }
     } else {
       const provenTx = await deployMethod.prove({
         ...deployOpts,
-        universalDeploy: true,
-        contractAddressSalt: salt,
+        fee: {
+          ...deployOpts.fee,
+          gasSettings: estimatedGas,
+        },
       });
       if (verbose) {
         printProfileResult(provenTx.stats!, log);

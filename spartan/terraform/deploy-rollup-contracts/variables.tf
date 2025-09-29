@@ -49,6 +49,11 @@ variable "SPONSORED_FPC" {
   type        = bool
 }
 
+variable "TEST_ACCOUNTS" {
+  description = "Enable test accounts"
+  type        = bool
+}
+
 variable "REAL_VERIFIER" {
   description = "Deploy real verifier"
   type        = bool

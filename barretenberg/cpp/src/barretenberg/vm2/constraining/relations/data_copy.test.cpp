@@ -1,4 +1,4 @@
-#include "barretenberg/vm2/simulation/data_copy.hpp"
+#include "barretenberg/vm2/simulation/gadgets/data_copy.hpp"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -11,8 +11,9 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
-#include "barretenberg/vm2/simulation/range_check.hpp"
-#include "barretenberg/vm2/simulation/testing/fakes/fake_gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_gt.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
@@ -357,7 +358,7 @@ TEST(DataCopyWithExecutionPerm, CdCopy)
     EXPECT_CALL(context, get_context_id).WillRepeatedly(Return(context_id));
     EXPECT_CALL(context, get_parent_id).WillRepeatedly(Return(parent_context_id));
 
-    FakeGreaterThan gt;
+    PureGreaterThan gt;
 
     EventEmitter<DataCopyEvent> event_emitter;
     DataCopy copy_data = DataCopy(execution_id_manager, gt, event_emitter);
@@ -455,7 +456,7 @@ TEST(DataCopyWithExecutionPerm, RdCopy)
     EXPECT_CALL(context, get_last_child_id).WillRepeatedly(Return(child_context_id));
     EXPECT_CALL(context, get_context_id).WillRepeatedly(Return(context_id));
 
-    FakeGreaterThan gt;
+    PureGreaterThan gt;
 
     EventEmitter<DataCopyEvent> event_emitter;
     DataCopy copy_data = DataCopy(execution_id_manager, gt, event_emitter);
@@ -512,7 +513,7 @@ TEST(DataCopyWithExecutionPerm, ErrorPropagation)
     StrictMock<MockExecutionIdManager> execution_id_manager;
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(0));
 
-    FakeGreaterThan gt;
+    PureGreaterThan gt;
 
     EventEmitter<DataCopyEvent> event_emitter;
     DataCopy copy_data = DataCopy(execution_id_manager, gt, event_emitter);

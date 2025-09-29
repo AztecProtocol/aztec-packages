@@ -175,7 +175,7 @@ export function makeProcessedTxFromTxWithPublicCalls(
       ),
     publicDataWrites,
     privateLogs,
-    avmPublicInputs.accumulatedData.publicLogs.filter(l => !l.isEmpty()),
+    avmPublicInputs.accumulatedData.publicLogs.toLogs(),
     contractClassLogs,
   );
 

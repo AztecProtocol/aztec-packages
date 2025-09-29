@@ -14,7 +14,7 @@ contract NoVoteAndExitTest is GovernanceBase {
   function test_CannotVoteAndExit(address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas) external {
     bytes32 _proposalName = "empty";
 
-    vm.assume(_voter != address(0));
+    vm.assume(_voter != address(0) && _voter != address(governance));
     proposal = proposals[_proposalName];
     proposalId = proposalIds[_proposalName];
 

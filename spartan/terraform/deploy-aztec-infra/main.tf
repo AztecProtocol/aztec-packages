@@ -74,6 +74,8 @@ locals {
     "global.customAztecNetwork.feeAssetHandlerContractAddress" = var.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
     "global.customAztecNetwork.l1ChainId"                      = var.L1_CHAIN_ID
     "global.otelCollectorEndpoint"                             = var.OTEL_COLLECTOR_ENDPOINT
+    "global.sponsoredFPC"                                      = var.SPONSORED_FPC
+    "global.testAccounts"                                      = var.TEST_ACCOUNTS
   }
 
   common_list_settings = {
@@ -151,6 +153,10 @@ locals {
         "validator.node.env.PUBLISHER_KEY_INDEX_START"      = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
         "validator.node.env.VALIDATORS_PER_NODE"            = var.VALIDATORS_PER_NODE
         "validator.node.env.PUBLISHERS_PER_VALIDATOR_KEY"   = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
+        "validator.node.proverRealProofs"                   = var.PROVER_REAL_PROOFS
+        "validator.node.env.SEQ_MIN_TX_PER_BLOCK"           = var.SEQ_MIN_TX_PER_BLOCK
+        "validator.node.env.SEQ_MAX_TX_PER_BLOCK"           = var.SEQ_MAX_TX_PER_BLOCK
+        "validator.node.proverRealProofs"                   = var.PROVER_REAL_PROOFS
       }
       boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
@@ -194,7 +200,10 @@ locals {
         service = {
           rpc = {
             annotations = {
-              "cloud.google.com/neg" = "{\"ingress\": true}"
+              "cloud.google.com/neg" = jsonencode({ ingress = true })
+              "cloud.google.com/backend-config" = jsonencode({
+                default = "${var.RELEASE_PREFIX}-rpc-ingress-backend"
+              })
             }
           }
         }
@@ -210,15 +219,35 @@ locals {
         }
       })] : []
       custom_settings = {
-        "nodeType"            = "rpc"
-        "node.env.NETWORK"    = var.NETWORK
-        "ingress.rpc.enabled" = var.RPC_INGRESS_ENABLED
-        "ingress.rpc.host"    = var.RPC_INGRESS_HOST
+        "nodeType"                       = "rpc"
+        "node.env.NETWORK"               = var.NETWORK
+        "node.proverRealProofs"          = var.PROVER_REAL_PROOFS
+        "ingress.rpc.enabled"            = var.RPC_INGRESS_ENABLED
+        "ingress.rpc.host"               = var.RPC_INGRESS_HOST
+        "node.env.AWS_ACCESS_KEY_ID"     = var.R2_ACCESS_KEY_ID
+        "node.env.AWS_SECRET_ACCESS_KEY" = var.R2_SECRET_ACCESS_KEY
+      }
+      bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
+      wait                 = true
+    }
+
+    archive = var.DEPLOY_ARCHIVAL_NODE ? {
+      name  = "${var.RELEASE_PREFIX}-archive"
+      chart = "aztec-node"
+      values = [
+        "common.yaml",
+        "archive.yaml",
+        "archive-resources-dev.yaml"
+      ]
+      custom_settings = {
+        "nodeType"                       = "archive"
+        "node.env.NETWORK"               = var.NETWORK
+        "node.env.P2P_ARCHIVED_TX_LIMIT" = "10000000"
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
       wait                 = true
-    }
+    } : null
 
     # Optional: transfer bots
     bot_transfers = var.BOT_TRANSFERS_REPLICAS > 0 ? {
@@ -316,6 +345,31 @@ resource "helm_release" "releases" {
     content {
       name  = set_list.key
       value = set_list.value
+    }
+  }
+}
+
+resource "kubernetes_manifest" "rpc_ingress_backend" {
+  count    = var.RPC_INGRESS_ENABLED ? 1 : 0
+  provider = kubernetes.gke-cluster
+
+  manifest = {
+    apiVersion = "cloud.google.com/v1"
+    kind       = "BackendConfig"
+    metadata = {
+      name      = "${var.RELEASE_PREFIX}-rpc-ingress-backend"
+      namespace = var.NAMESPACE
+    }
+    spec = {
+      healthCheck = {
+        checkIntervalSec   = 15
+        timeoutSec         = 5
+        healthyThreshold   = 2
+        unhealthyThreshold = 2
+        type               = "HTTP"
+        port               = 8080
+        requestPath        = "/status"
+      }
     }
   }
 }

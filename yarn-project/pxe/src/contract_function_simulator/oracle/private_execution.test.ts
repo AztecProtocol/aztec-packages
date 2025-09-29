@@ -442,8 +442,6 @@ describe('Private Execution test suite', () => {
     });
 
     it('should run the destroy_and_create function', async () => {
-      const amountToTransfer = 100n;
-
       const storageSlot = await deriveStorageSlotInMap(StatefulTestContractArtifact.storageLayout['notes'].slot, owner);
       const recipientStorageSlot = await deriveStorageSlotInMap(
         StatefulTestContractArtifact.storageLayout['notes'].slot,
@@ -466,7 +464,7 @@ describe('Private Execution test suite', () => {
 
       await insertLeaves(consumedNotes);
 
-      const args = [recipient, amountToTransfer];
+      const args = [recipient];
       const { entrypoint: result } = await runSimulator({
         args,
         artifact: StatefulTestContractArtifact,
@@ -480,25 +478,22 @@ describe('Private Execution test suite', () => {
       const nullifiers = result.publicInputs.nullifiers;
       expect(nullifiers.claimedLength).toBe(consumedNotes.length);
 
-      expect(result.newNotes).toHaveLength(2);
-      const [changeNote, recipientNote] = result.newNotes;
+      expect(result.newNotes).toHaveLength(1);
+      const [recipientNote] = result.newNotes;
       expect(recipientNote.storageSlot).toEqual(recipientStorageSlot);
+      expect(recipientNote.note.items[0]).toEqual(new Fr(92n));
 
       const noteHashes = result.publicInputs.noteHashes;
-      expect(noteHashes.claimedLength).toBe(2);
-
-      expect(recipientNote.note.items[0]).toEqual(new Fr(amountToTransfer));
-      expect(changeNote.note.items[0]).toEqual(new Fr(40n));
+      expect(noteHashes.claimedLength).toBe(1);
 
       const privateLogs = result.publicInputs.privateLogs;
-      expect(privateLogs.claimedLength).toBe(2);
+      expect(privateLogs.claimedLength).toBe(1);
 
       const readRequests = result.publicInputs.noteHashReadRequests;
       expect(readRequests.claimedLength).toBe(consumedNotes.length);
     });
 
     it('should be able to destroy_and_create with dummy notes', async () => {
-      const amountToTransfer = 100n;
       const balance = 160n;
 
       const storageSlot = await deriveStorageSlotInMap(new Fr(1n), owner);
@@ -516,7 +511,7 @@ describe('Private Execution test suite', () => {
 
       await insertLeaves(consumedNotes);
 
-      const args = [recipient, amountToTransfer];
+      const args = [recipient];
       const { entrypoint: result } = await runSimulator({
         args,
         artifact: StatefulTestContractArtifact,
@@ -528,13 +523,12 @@ describe('Private Execution test suite', () => {
       const nullifiers = result.publicInputs.nullifiers;
       expect(nullifiers.claimedLength).toBe(consumedNotes.length);
 
-      expect(result.newNotes).toHaveLength(2);
-      const [changeNote, recipientNote] = result.newNotes;
-      expect(recipientNote.note.items[0]).toEqual(new Fr(amountToTransfer));
-      expect(changeNote.note.items[0]).toEqual(new Fr(balance - amountToTransfer));
+      // We've inserted just one note for recipient with hardcoded value 92
+      expect(result.newNotes).toHaveLength(1);
+      expect(result.newNotes[0].note.items[0]).toEqual(new Fr(92n));
 
       const privateLogs = result.publicInputs.privateLogs;
-      expect(privateLogs.claimedLength).toBe(2);
+      expect(privateLogs.claimedLength).toBe(1);
     });
   });
 

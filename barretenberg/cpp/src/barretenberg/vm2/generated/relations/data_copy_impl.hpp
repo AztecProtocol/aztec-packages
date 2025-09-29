@@ -15,8 +15,6 @@ void data_copyImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/data_copy");
-
     const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
     const auto data_copy_SEL = in.get(C::data_copy_sel_rd_copy) + in.get(C::data_copy_sel_cd_copy);
     const auto data_copy_MAX_READ_ADDR = in.get(C::data_copy_src_addr) + in.get(C::data_copy_max_read_index);

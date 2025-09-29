@@ -1,9 +1,11 @@
 import type { FeePaymentMethod } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
-import type { PXE } from '@aztec/stdlib/interfaces/client';
+import {
+  CompleteAddress,
+  type ContractInstanceWithAddress,
+  getContractInstanceFromInstantiationParams,
+} from '@aztec/stdlib/contract';
 import { deriveKeys } from '@aztec/stdlib/keys';
 
 import type { AccountContract } from '../account/account_contract.js';
@@ -33,12 +35,14 @@ export type DeployAccountOptions = Pick<
 
 /**
  * Manages a user account. Provides methods for calculating the account's address, deploying the account contract,
- * and creating and registering the user wallet in the PXE Service.
+ * and creating and registering the user wallet in the PXE.
  */
 export class AccountManager {
   private constructor(
     private wallet: Wallet,
-    private pxe: PXE,
+    // TODO: Drop pxe from here once the wallet interface is be updated (then we will not need the direct access to
+    // pxe). Hence here having the type be `any` is not a long-term problem.
+    private pxe: any,
     private secretKey: Fr,
     private accountContract: AccountContract,
     private instance: ContractInstanceWithAddress,
@@ -48,7 +52,7 @@ export class AccountManager {
     public readonly salt: Salt,
   ) {}
 
-  static async create(wallet: Wallet, pxe: PXE, secretKey: Fr, accountContract: AccountContract, salt?: Salt) {
+  static async create(wallet: Wallet, pxe: any, secretKey: Fr, accountContract: AccountContract, salt?: Salt) {
     const { publicKeys } = await deriveKeys(secretKey);
     salt = salt !== undefined ? new Fr(salt) : Fr.random();
 
@@ -81,9 +85,9 @@ export class AccountManager {
    * @returns An entrypoint.
    */
   public async getAccountInterface(): Promise<AccountInterface> {
-    const nodeInfo = await this.pxe.getNodeInfo();
+    const chainInfo = await this.wallet.getChainInfo();
     const completeAddress = await this.getCompleteAddress();
-    return this.accountContract.getInterface(completeAddress, nodeInfo);
+    return this.accountContract.getInterface(completeAddress, chainInfo);
   }
 
   /**
@@ -132,14 +136,14 @@ export class AccountManager {
   }
 
   /**
-   * Add this account in the PXE Service and returns the associated wallet. Adding
-   * the account to the PXE Service is required for managing private state associated with it.
+   * Add this account in the PXE and returns the associated wallet. Adding
+   * the account to the PXE is required for managing private state associated with it.
    * Use the returned wallet to create Contract instances to be interacted with from this account.
    * @param opts - Options to wait for the account to be synched.
    * @returns A Wallet instance.
    */
   public async register(): Promise<AccountWithSecretKey> {
-    await this.pxe.registerContract({
+    await this.wallet.registerContract({
       artifact: await this.accountContract.getContractArtifact(),
       instance: this.getInstance(),
     });
@@ -214,7 +218,7 @@ export class AccountManager {
    * (depending on the contract's design).
    * Doesn't necessarily publish the class nor publish the instance.
    * Uses the salt provided in the constructor or a randomly generated one.
-   * Adds the account to the PXE Service first.
+   * Adds the account to the PXE first.
    * @param opts - Fee options to be used for the deployment.
    * @returns A SentTx object that can be waited to get the associated Wallet.
    */
@@ -244,7 +248,7 @@ export class AccountManager {
   /**
    * Deploys the account contract that backs this account if needed and awaits the tx to be mined.
    * Uses the salt provided in the constructor or a randomly generated one. If no initialization
-   * is required it skips the transaction, and only registers the account in the PXE Service.
+   * is required it skips the transaction, and only registers the account in the PXE.
    * @param opts - Options to wait for the tx to be mined.
    * @returns An Account instance.
    */

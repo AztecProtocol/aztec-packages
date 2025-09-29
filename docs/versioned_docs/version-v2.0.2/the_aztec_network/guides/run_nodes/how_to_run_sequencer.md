@@ -105,6 +105,12 @@ The keystore defines keys and addresses for sequencer operation:
 
 Replace the placeholder values with your actual keys and addresses.
 
+:::warning
+
+Because the publisher posts block proposals to L1, the account needs to be funded with ETH. Ensure the account holds at least 0.1 ETH during operation of the sequencer to avoid being slashed.
+
+:::
+
 ### Node Configuration
 
 Required environment variables:
@@ -174,14 +180,14 @@ services:
       - ${DATA_DIRECTORY}:/var/lib/data
       - ${KEY_STORE_DIRECTORY}:/var/lib/keystore
     environment:
-    KEY_STORE_DIRECTORY: /var/lib/keystore
-    DATA_DIRECTORY: /var/lib/data
-    LOG_LEVEL: ${LOG_LEVEL}
-    ETHEREUM_HOSTS: ${ETHEREUM_HOSTS}
-    L1_CONSENSUS_HOST_URLS: ${L1_CONSENSUS_HOST_URLS}
-    P2P_IP: ${P2P_IP}
-    P2P_PORT: ${P2P_PORT}
-    AZTEC_PORT: ${AZTEC_PORT}
+      KEY_STORE_DIRECTORY: /var/lib/keystore
+      DATA_DIRECTORY: /var/lib/data
+      LOG_LEVEL: ${LOG_LEVEL}
+      ETHEREUM_HOSTS: ${ETHEREUM_HOSTS}
+      L1_CONSENSUS_HOST_URLS: ${L1_CONSENSUS_HOST_URLS}
+      P2P_IP: ${P2P_IP}
+      P2P_PORT: ${P2P_PORT}
+      AZTEC_PORT: ${AZTEC_PORT}
     entrypoint: >-
       node
       --no-warnings

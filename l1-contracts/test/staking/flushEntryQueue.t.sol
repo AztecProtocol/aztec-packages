@@ -12,7 +12,7 @@ import {Epoch, Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Status, AttesterView, IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {GSE, IGSECore} from "@aztec/governance/GSE.sol";
-import {StakingQueueLib} from "@aztec/core/libraries/StakingQueue.sol";
+import {StakingQueueLib, DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
 import {StakingQueueConfig, StakingQueueConfigLib} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
@@ -25,14 +25,15 @@ contract FlushEntryQueueTest is StakingBase {
 
     // the first one should be okay
     _help_deposit(address(uint160(1)), address(uint160(2)), true);
-    staking.flushEntryQueue();
+    _help_deposit(address(uint160(2)), address(uint160(2)), true);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Staking__QueueAlreadyFlushed.selector, Epoch.wrap(block.timestamp / EPOCH_DURATION_SECONDS)
-      )
-    );
+    uint256 flushableValidators = staking.getAvailableValidatorFlushes();
+    staking.flushEntryQueue(1);
+
+    assertEq(staking.getAvailableValidatorFlushes(), flushableValidators - 1, "invalid flushable validators");
+
     staking.flushEntryQueue();
+    assertEq(staking.getAvailableValidatorFlushes(), flushableValidators - 2, "invalid flushable validators");
   }
 
   function _setupQueueConfig(
@@ -45,7 +46,7 @@ contract FlushEntryQueueTest is StakingBase {
       bootstrapValidatorSetSize: bound(_bootstrapValidatorSetSize, 0, type(uint32).max),
       bootstrapFlushSize: bound(_bootstrapFlushSize, 0, type(uint32).max),
       normalFlushSizeMin: bound(_normalFlushSizeMin, 0, type(uint32).max),
-      normalFlushSizeQuotient: bound(_normalFlushSizeQuotient, 0, type(uint32).max),
+      normalFlushSizeQuotient: bound(_normalFlushSizeQuotient, 1, type(uint32).max),
       maxQueueFlushSize: MAX_QUEUE_FLUSH_SIZE
     });
     Rollup rollup = Rollup(address(registry.getCanonicalRollup()));
@@ -83,7 +84,8 @@ contract FlushEntryQueueTest is StakingBase {
     assertEq(staking.getEntryQueueFlushSize(), 0, "invalid flush size");
     staking.flushEntryQueue();
     (, bytes32[] memory writes) = vm.accesses(address(staking));
-    assertEq(writes.length, 0, "writes");
+    assertEq(writes.length, 2, "writes");
+    assertEq(writes[0], writes[1], "writes not to the same slot");
   }
 
   /// forge-config: default.fuzz.runs = 16
@@ -103,7 +105,7 @@ contract FlushEntryQueueTest is StakingBase {
     _bootstrapValidatorSetSize = bound(_bootstrapValidatorSetSize, 1, 1000);
     _numValidators = bound(_numValidators, _bootstrapValidatorSetSize, _bootstrapValidatorSetSize * 2);
     _bootstrapFlushSize = bound(_bootstrapFlushSize, 1, _bootstrapValidatorSetSize * 2);
-    uint256 effectiveFlushSize = Math.min(_bootstrapFlushSize, MAX_QUEUE_FLUSH_SIZE);
+    uint256 effectiveFlushSize = _bootstrapFlushSize;
 
     _setupQueueConfig(_bootstrapValidatorSetSize, _bootstrapFlushSize, _normalFlushSizeMin, _normalFlushSizeQuotient);
 
@@ -125,7 +127,7 @@ contract FlushEntryQueueTest is StakingBase {
 
     _bootstrapValidatorSetSize = bound(_bootstrapValidatorSetSize, 3, 1000);
     _bootstrapFlushSize = bound(_bootstrapFlushSize, 1, _bootstrapValidatorSetSize / 3);
-    uint256 effectiveFlushSize = Math.min(_bootstrapFlushSize, MAX_QUEUE_FLUSH_SIZE);
+    uint256 effectiveFlushSize = _bootstrapFlushSize;
 
     _setupQueueConfig(_bootstrapValidatorSetSize, _bootstrapFlushSize, _normalFlushSizeMin, _normalFlushSizeQuotient);
 
@@ -202,6 +204,14 @@ contract FlushEntryQueueTest is StakingBase {
     });
 
     assertEq(stakingAsset.balanceOf(address(staking)), balance + ACTIVATION_THRESHOLD, "invalid balance");
+
+    DepositArgs memory validator = staking.getEntryQueueAt(staking.getEntryQueueLength() - 1);
+    assertEq(validator.attester, _attester, "invalid attester");
+    assertEq(validator.withdrawer, _withdrawer, "invalid withdrawer");
+    assertTrue(BN254Lib.isZero(validator.publicKeyInG1), "invalid public key in G1");
+    assertTrue(BN254Lib.isZero(validator.publicKeyInG2), "invalid public key in G2");
+    assertTrue(BN254Lib.isZero(validator.proofOfPossession), "invalid proof of possession");
+    assertEq(validator.moveWithLatestRollup, _moveWithLatestRollup, "invalid move with latest rollup");
   }
 
   function _help_flushEntryQueue(uint256 _numValidators, uint256 _expectedFlushSize) internal {
@@ -220,7 +230,7 @@ contract FlushEntryQueueTest is StakingBase {
     assertEq(staking.getActiveAttesterCount(), initialActiveAttesterCount, "depositors should not be active");
     assertEq(stakingAsset.balanceOf(address(staking)), _numValidators * ACTIVATION_THRESHOLD, "invalid balance");
 
-    uint256 flushSize = staking.getEntryQueueFlushSize();
+    uint256 flushSize = staking.getAvailableValidatorFlushes();
     assertEq(flushSize, _expectedFlushSize, "invalid flush size");
 
     uint256 numDequeued = Math.min(flushSize, _numValidators);

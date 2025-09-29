@@ -56,7 +56,7 @@ describe('e2e_blacklist_token_contract transfer public', () => {
       { caller: otherAddress, action },
       true,
     );
-    await validateActionInteraction.send({ from: adminAddress }).wait();
+    await validateActionInteraction.send().wait();
     // docs:end:authwit_public_transfer_example
 
     // Perform the transfer
@@ -121,7 +121,7 @@ describe('e2e_blacklist_token_contract transfer public', () => {
         { caller: otherAddress, action },
         true,
       );
-      await validateActionInteraction.send({ from: adminAddress }).wait();
+      await validateActionInteraction.send().wait();
       // docs:end:set_public_authwit
       // Perform the transfer
       await expect(action.simulate({ from: otherAddress })).rejects.toThrow(U128_UNDERFLOW_ERROR);
@@ -145,7 +145,7 @@ describe('e2e_blacklist_token_contract transfer public', () => {
         { caller: adminAddress, action },
         true,
       );
-      await validateActionInteraction.send({ from: adminAddress }).wait();
+      await validateActionInteraction.send().wait();
 
       // Perform the transfer
       await expect(action.simulate({ from: otherAddress })).rejects.toThrow(/unauthorized/);

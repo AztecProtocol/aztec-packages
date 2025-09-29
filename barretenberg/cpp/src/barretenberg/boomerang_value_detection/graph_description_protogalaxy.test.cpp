@@ -37,16 +37,14 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
-    using RecursiveVerifierInstances = ::bb::stdlib::recursion::honk::RecursiveVerifierInstances_<RecursiveFlavor, 2>;
-    using RecursiveVerifierInstance = RecursiveVerifierInstances::VerifierInstance;
-    using RecursiveVerificationKey = RecursiveVerifierInstances::VerificationKey;
-    using RecursiveVKAndHash = RecursiveVerifierInstances::VKAndHash;
-    using FoldingRecursiveVerifier = ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
+    using RecursiveVerifierInstance = RecursiveVerifierInstance_<RecursiveFlavor>;
+    using RecursiveVerificationKey = RecursiveVerifierInstance::VerificationKey;
+    using RecursiveVKAndHash = RecursiveVerifierInstance::VKAndHash;
+    using FoldingRecursiveVerifier = ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstance>;
     using DeciderRecursiveVerifier = DeciderRecursiveVerifier_<RecursiveFlavor>;
     using InnerDeciderProver = DeciderProver_<InnerFlavor>;
     using InnerDeciderVerifier = DeciderVerifier_<InnerFlavor>;
-    using InnerVerifierInstances = VerifierInstances_<InnerFlavor, 2>;
-    using InnerFoldingVerifier = ProtogalaxyVerifier_<InnerVerifierInstances>;
+    using InnerFoldingVerifier = ProtogalaxyVerifier_<InnerVerifierInstance>;
     using InnerFoldingProver = ProtogalaxyProver_<InnerFlavor>;
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
@@ -130,7 +128,7 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
 
         auto recursive_transcript = std::make_shared<typename FoldingRecursiveVerifier::Transcript>();
         auto verifier = FoldingRecursiveVerifier{
-            &folding_circuit, recursive_verifier_inst_1, { recursive_vk_and_hash_2 }, recursive_transcript
+            &folding_circuit, recursive_verifier_inst_1, recursive_vk_and_hash_2, recursive_transcript
         };
         std::shared_ptr<RecursiveVerifierInstance> accumulator;
         for (size_t idx = 0; idx < num_verifiers; idx++) {
@@ -139,7 +137,7 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
             if (idx < num_verifiers - 1) { // else the transcript is null in the test below
                 auto recursive_vk_and_hash = std::make_shared<RecursiveVKAndHash>(folding_circuit, verifier_inst_1->vk);
                 verifier = FoldingRecursiveVerifier{
-                    &folding_circuit, accumulator, { recursive_vk_and_hash }, recursive_transcript
+                    &folding_circuit, accumulator, recursive_vk_and_hash, recursive_transcript
                 };
             }
         }
@@ -198,7 +196,7 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
 
         auto verifier = FoldingRecursiveVerifier{ &folding_circuit,
                                                   recursive_verifier_inst_1,
-                                                  { recursive_vk_and_hash_2 },
+                                                  recursive_vk_and_hash_2,
                                                   std::make_shared<typename FoldingRecursiveVerifier::Transcript>() };
         verifier.transcript->enable_manifest();
         auto recursive_verifier_native_accum = verifier.verify_folding_proof(stdlib_proof);

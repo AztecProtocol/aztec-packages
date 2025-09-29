@@ -6,7 +6,11 @@ set -e
 # Usage: ./update-monitoring.sh <network-namespace> <monitoring-namespace>
 
 NAMESPACE=${1:-"testnet"}
-MONITORING_NAMESPACE=${2:-"testnet-block-height-monitor"}
+MONITORING_NAMESPACE=${2:-"$NAMESPACE-block-height-monitor"}
+NETWORK=${3:-"$NAMESPACE"}
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 
 echo "Updating monitoring app for namespace: $NAMESPACE, monitoring ns: $MONITORING_NAMESPACE"
 
@@ -14,16 +18,29 @@ echo "Updating monitoring app for namespace: $NAMESPACE, monitoring ns: $MONITOR
 echo "Waiting for network deployment to be ready..."
 sleep 30
 
-# RPC node service name
-RPC_NODE_SERVICE="$NAMESPACE-rpc-node"
+# RPC node resource names
+RPC_NODE_PREFIX="${NAMESPACE}-rpc-aztec-node"
 
-# Wait for rpc node pods to be ready
-echo "Waiting for rpc node to be ready..."
-kubectl wait --for=condition=ready pod -l app=$RPC_NODE_SERVICE -n $NAMESPACE --timeout=600s
+# Find the RPC pod (e.g., ${NAMESPACE}-rpc-aztec-node-0)
+RPC_POD=$(kubectl get pods -n "$NAMESPACE" -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep "^${RPC_NODE_PREFIX}-" | head -n1 || true)
 
-# Port-forward to rpc node
+if [ -z "$RPC_POD" ]; then
+  echo "Error: Could not find RPC pod with prefix ${RPC_NODE_PREFIX}- in namespace ${NAMESPACE}"
+  kubectl get pods -n "$NAMESPACE"
+  exit 1
+fi
+
+# Wait for rpc node pod to be ready
+echo "Waiting for rpc node pod $RPC_POD to be ready..."
+kubectl wait --for=condition=ready "pod/${RPC_POD}" -n "$NAMESPACE" --timeout=600s
+
+# Port-forward to rpc node (prefer Service if it exists)
 echo "Setting up port-forward to rpc node..."
-kubectl port-forward -n $NAMESPACE svc/$RPC_NODE_SERVICE 8080:8080 &
+if kubectl -n "$NAMESPACE" get svc "${RPC_NODE_PREFIX}" >/dev/null 2>&1; then
+  kubectl port-forward -n "$NAMESPACE" "svc/${RPC_NODE_PREFIX}" 8080:8080 &
+else
+  kubectl port-forward -n "$NAMESPACE" "pod/${RPC_POD}" 8080:8080 &
+fi
 PF_PID=$!
 trap 'kill $PF_PID >/dev/null 2>&1 || true' EXIT
 
@@ -51,7 +68,7 @@ kill $PF_PID || true
 trap - EXIT
 
 # Check current deployment value BEFORE applying anything; skip if unchanged
-CURRENT_CONTRACT_ADDRESS=$(kubectl -n "$MONITORING_NAMESPACE" get deploy testnet-monitor -o jsonpath='{.spec.template.spec.containers[?(@.name=="testnet-monitor")].env[?(@.name=="ROLLUP_CONTRACT_ADDRESS")].value}' 2>/dev/null || true)
+CURRENT_CONTRACT_ADDRESS=$(kubectl -n "$MONITORING_NAMESPACE" get deploy testnet-monitor -o jsonpath='{.spec.template.spec.containers[?(@.name=="aztec-chain-monitor")].env[?(@.name=="ROLLUP_CONTRACT_ADDRESS")].value}' 2>/dev/null || true)
 if [ -n "$CURRENT_CONTRACT_ADDRESS" ] && [ "$CURRENT_CONTRACT_ADDRESS" = "$ROLLUP_CONTRACT_ADDRESS" ]; then
   echo "ROLLUP_CONTRACT_ADDRESS unchanged ($CURRENT_CONTRACT_ADDRESS). Skipping apply."
   exit 0
@@ -62,12 +79,12 @@ echo "Fetching Grafana stack token from GCP Secrets..."
 GRAFANA_TOKEN=$(gcloud secrets versions access latest --secret=grafana-stack-token)
 SILENCE_SCRIPT="$SCRIPT_DIR/silence-alerts.sh"
 echo "Creating Grafana silence (40 minutes)..."
-GRAFANA_TOKEN="$GRAFANA_TOKEN" "$SILENCE_SCRIPT" 40
+NETWORK_LABEL="$NAMESPACE" GRAFANA_TOKEN="$GRAFANA_TOKEN" "$SILENCE_SCRIPT" 40
 
 # If deployment exists, just update the env var and annotate; no re-apply of manifests
 if kubectl -n "$MONITORING_NAMESPACE" get deploy testnet-monitor >/dev/null 2>&1; then
   echo "Deployment exists in $MONITORING_NAMESPACE. Updating only ROLLUP_CONTRACT_ADDRESS and annotation..."
-  kubectl -n "$MONITORING_NAMESPACE" set env deployment/testnet-monitor ROLLUP_CONTRACT_ADDRESS="$ROLLUP_CONTRACT_ADDRESS" --containers=testnet-monitor
+  kubectl -n "$MONITORING_NAMESPACE" set env deployment/testnet-monitor ROLLUP_CONTRACT_ADDRESS="$ROLLUP_CONTRACT_ADDRESS" NETWORK="$NETWORK" --containers=aztec-chain-monitor
   kubectl -n "$MONITORING_NAMESPACE" annotate deployment/testnet-monitor rollup.aztec.dev/address="$ROLLUP_CONTRACT_ADDRESS" --overwrite
   echo "Waiting for rollout..."
   kubectl -n "$MONITORING_NAMESPACE" rollout status deployment/testnet-monitor --timeout=300s
@@ -91,7 +108,6 @@ kubectl -n "$MONITORING_NAMESPACE" create secret generic testnet-monitor-secrets
   --dry-run=client -o yaml | kubectl apply -f -
 
 # Apply manifests (namespace-agnostic)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$SCRIPT_DIR/.."
 
 echo "Applying Grafana Agent ConfigMap..."
@@ -113,10 +129,10 @@ kubectl -n "$MONITORING_NAMESPACE" apply -f "$BASE_DIR/kubernetes/monitoring-dep
 
 # Set/Update the rollup contract address env var on the app container
 echo "Setting ROLLUP_CONTRACT_ADDRESS on deployment..."
-kubectl -n "$MONITORING_NAMESPACE" set env deployment/testnet-monitor ROLLUP_CONTRACT_ADDRESS="$ROLLUP_CONTRACT_ADDRESS" --containers=testnet-monitor
+kubectl -n "$MONITORING_NAMESPACE" set env deployment/testnet-monitor ROLLUP_CONTRACT_ADDRESS="$ROLLUP_CONTRACT_ADDRESS" NETWORK="$NETWORK" --containers=aztec-chain-monitor
 
 # Show change
-CURRENT_CONTRACT_ADDRESS=$(kubectl -n "$MONITORING_NAMESPACE" get deploy testnet-monitor -o jsonpath='{.spec.template.spec.containers[?(@.name=="testnet-monitor")].env[?(@.name=="ROLLUP_CONTRACT_ADDRESS")].value}' 2>/dev/null || true)
+CURRENT_CONTRACT_ADDRESS=$(kubectl -n "$MONITORING_NAMESPACE" get deploy testnet-monitor -o jsonpath='{.spec.template.spec.containers[?(@.name=="aztec-chain-monitor")].env[?(@.name=="ROLLUP_CONTRACT_ADDRESS")].value}' 2>/dev/null || true)
 echo "Deployment contract address is now: $CURRENT_CONTRACT_ADDRESS"
 
 echo "Waiting for rollout..."

@@ -307,7 +307,7 @@ mod tests {
         address::AztecAddress,
         merkle_tree::{LeafPreimage, MembershipWitness},
         tests::{
-            merkle_tree_utils::NonEmptyMerkleTree,
+            merkle_tree_utils::SingleSubtreeMerkleTree,
             utils::{assert_array_eq, pad_end, pad_end_with},
         },
         traits::{Empty, FromField},
@@ -485,13 +485,11 @@ mod tests {
     }
 
     impl<let ReadRequestLen: u32, let PendingValueLen: u32, let PendingReadHintsLen: u32, let SettledReadHintsLen: u32> TestBuilder<ReadRequestLen, PendingValueLen, PendingReadHintsLen, SettledReadHintsLen> {
-        fn build_tree(self) -> NonEmptyMerkleTree<2, 3, 2, 1> {
-            NonEmptyMerkleTree::new(
-                [self.leaf_preimages[0].as_leaf(), self.leaf_preimages[1].as_leaf()],
-                [0; 3],
-                [0; 2],
-                [0; 1],
-            )
+        fn build_tree(self) -> SingleSubtreeMerkleTree<2, 1, 3> {
+            SingleSubtreeMerkleTree::new([
+                self.leaf_preimages[0].as_leaf(),
+                self.leaf_preimages[1].as_leaf(),
+            ])
         }
 
         pub fn get_settled_read_hints(self) -> ([TestSettledReadHint; SettledReadHintsLen], Field) {

@@ -59,7 +59,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
       { caller: otherAddress, action },
       true,
     );
-    await validateActionInteraction.send({ from: adminAddress }).wait();
+    await validateActionInteraction.send().wait();
 
     const receipt = await action.send({ from: otherAddress }).wait();
 
@@ -113,7 +113,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
         { caller: otherAddress, action },
         true,
       );
-      await validateActionInteraction.send({ from: adminAddress }).wait();
+      await validateActionInteraction.send().wait();
 
       await expect(action.simulate({ from: otherAddress })).rejects.toThrow(U128_UNDERFLOW_ERROR);
     });
@@ -131,7 +131,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
         { caller: otherAddress, action },
         true,
       );
-      await validateActionInteraction.send({ from: adminAddress }).wait();
+      await validateActionInteraction.send().wait();
 
       await expect(action.simulate({ from: blacklistedAddress })).rejects.toThrow(/unauthorized/);
     });

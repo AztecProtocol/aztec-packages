@@ -3,7 +3,7 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/checkpoint_event_type.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 
 #include <cstdint>
 #include <vector>

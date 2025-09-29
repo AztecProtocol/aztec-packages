@@ -15,8 +15,6 @@ void internal_call_stackImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/internal_call_stack");
-
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::internal_call_stack_sel)) *

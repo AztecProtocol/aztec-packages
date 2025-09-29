@@ -109,10 +109,9 @@ library RewardLib {
         Errors.Rollup__NotPastDeadline(_epochs[i].toDeadlineEpoch(), currentEpoch)
       );
 
-      require(
-        !rewardStorage.proverClaimed[_prover].get(Epoch.unwrap(_epochs[i])),
-        Errors.Rollup__AlreadyClaimed(_prover, _epochs[i])
-      );
+      if (rewardStorage.proverClaimed[_prover].get(Epoch.unwrap(_epochs[i]))) {
+        continue;
+      }
       rewardStorage.proverClaimed[_prover].set(Epoch.unwrap(_epochs[i]));
 
       EpochRewards storage e = rewardStorage.epochRewards[_epochs[i]];
@@ -123,7 +122,9 @@ library RewardLib {
       }
     }
 
-    rollupStore.config.feeAsset.safeTransfer(_prover, accumulatedRewards);
+    if (accumulatedRewards > 0) {
+      rollupStore.config.feeAsset.safeTransfer(_prover, accumulatedRewards);
+    }
 
     return accumulatedRewards;
   }
@@ -176,10 +177,10 @@ library RewardLib {
           }
         }
 
-        uint256 sequencerShare = BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);
-        v.sequencerBlockReward = sequencerShare / added;
+        uint256 sequenceBlockRewards = BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);
+        v.sequencerBlockReward = sequenceBlockRewards / added;
 
-        $er.rewards += (blockRewardsAvailable - sequencerShare).toUint128();
+        $er.rewards += (blockRewardsAvailable - sequenceBlockRewards).toUint128();
       }
 
       bool isTxsEnabled = FeeLib.isTxsEnabled();

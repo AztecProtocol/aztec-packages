@@ -11,7 +11,6 @@ import {
   type L2AmountClaim,
   type L2AmountClaimWithRecipient,
   type Logger,
-  type PXE,
   type SiblingPath,
   type TxReceipt,
   type Wallet,
@@ -131,7 +130,6 @@ export type CrossChainContext = {
 export class CrossChainTestHarness {
   static async new(
     aztecNode: AztecNode,
-    pxeService: PXE,
     l1Client: ExtendedViemWalletClient,
     wallet: Wallet,
     ownerAddress: AztecAddress,
@@ -139,7 +137,7 @@ export class CrossChainTestHarness {
     underlyingERC20Address: EthAddress,
   ): Promise<CrossChainTestHarness> {
     const ethAccount = EthAddress.fromString((await l1Client.getAddresses())[0]);
-    const l1ContractAddresses = (await pxeService.getNodeInfo()).l1ContractAddresses;
+    const l1ContractAddresses = (await aztecNode.getNodeInfo()).l1ContractAddresses;
 
     // Deploy and initialize all required contracts
     logger.info('Deploying and initializing token, portal and its bridge...');
@@ -154,7 +152,6 @@ export class CrossChainTestHarness {
 
     return new CrossChainTestHarness(
       aztecNode,
-      pxeService,
       logger,
       token,
       bridge,
@@ -174,8 +171,6 @@ export class CrossChainTestHarness {
   constructor(
     /** Aztec node instance. */
     public aztecNode: AztecNode,
-    /** Private eXecution Environment (PXE). */
-    public pxeService: PXE,
     /** Logger. */
     public logger: Logger,
 

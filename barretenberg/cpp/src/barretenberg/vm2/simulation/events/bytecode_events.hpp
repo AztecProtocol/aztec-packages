@@ -13,8 +13,6 @@
 
 namespace bb::avm2::simulation {
 
-using BytecodeId = FF;
-
 // Storage and decomposition of bytecode into sliding window.
 struct BytecodeDecompositionEvent {
     BytecodeId bytecode_id;
