@@ -342,16 +342,9 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
         return *this;
     }
 
-    info("x: ", x.get_value());
-    info("y: ", y.get_value());
-    info("is_infinity: ", is_point_at_infinity().get_value());
-
     // To support the point at infinity, we conditionally modify y to be 1 to avoid division by zero in the
     // doubling formula
     auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y).normalize();
-
-    info("x: ", x.get_value());
-    info("modified_y: ", modified_y.get_value());
 
     // Compute the doubled point coordinates (either from hint or by native calculation)
     bb::fr x3;
@@ -568,11 +561,6 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     const field_t y1 = y;
     const field_t x2 = other.x;
     const field_t y2 = other.y;
-
-    info("x1: ", x1.get_value());
-    info("y1: ", y1.get_value());
-    info("x2: ", x2.get_value());
-    info("y2: ", y2.get_value());
 
     // Execute point addition with modified lambda = (y2 - y1)/(x2 - x1 + x_coordinates_match) to avoid the possibility
     // of division by zero.
