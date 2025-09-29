@@ -82,7 +82,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
         return bytecode_id;
     }
 
-    // First time seeing this bytecode - do hashing and decomposition
+    // First time seeing this bytecode - check hashing and decomposition
     bytecode_hasher.assert_public_bytecode_commitment(
         bytecode_id, klass.packed_bytecode, klass.public_bytecode_commitment);
 
