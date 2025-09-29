@@ -125,8 +125,8 @@ TEST(AddressDerivationConstrainingTest, WithInteractions)
 
     AddressDerivation address_derivation(poseidon2_simulator, ecc_simulator, address_derivation_event_emitter);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     AddressDerivationTraceBuilder builder;
