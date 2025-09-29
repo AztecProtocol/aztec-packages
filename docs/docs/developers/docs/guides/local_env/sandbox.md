@@ -5,6 +5,8 @@ tags: [sandbox, PXE]
 description: Information about running the Aztec sandbox development environment.
 ---
 
+<!-- docs:start:sandbox -->
+
 - Current version: `#include_aztec_version`
 - Update with `aztec-up`
 
@@ -244,3 +246,5 @@ You should see something like this:
 ```
 
 You can learn more about custom commands in the [sandbox reference](../../reference/environment_reference/sandbox-reference.md).
+
+<!-- docs:end:sandbox -->

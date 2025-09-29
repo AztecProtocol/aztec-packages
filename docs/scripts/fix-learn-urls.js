@@ -19,6 +19,7 @@ const PROCESSED_DOCS_DIR = path.join(__dirname, "../processed-docs");
 const LEARN_DIR = path.join(PROCESSED_DOCS_DIR, "learn");
 const DOCS_ROOT = PROCESSED_DOCS_DIR;
 const DEVELOPERS_DOCS_DIR = path.join(PROCESSED_DOCS_DIR, "developers/docs");
+const DEVELOPERS_DIR = path.join(PROCESSED_DOCS_DIR, "developers");
 const DRY_RUN = process.argv.includes("--dry-run");
 
 console.log(`${DRY_RUN ? "[DRY RUN] " : ""}Fixing URLs in processed-docs/learn directory...`);
@@ -75,8 +76,11 @@ function findSourceFile(learnFilePath) {
   const filename = path.basename(learnFilePath);
   const baseFilename = getBaseFilename(filename);
 
-  // Find all files in developers/docs
-  const developerFiles = findAllFiles(DEVELOPERS_DOCS_DIR);
+  // Find all files in both developers/ and developers/docs/
+  const developerFiles = [
+    ...findAllFiles(DEVELOPERS_DOCS_DIR),
+    ...findAllFiles(DEVELOPERS_DIR)
+  ];
 
   // Look for a file with matching base name
   for (const devFile of developerFiles) {
@@ -249,6 +253,13 @@ function main() {
   if (!fs.existsSync(DEVELOPERS_DOCS_DIR)) {
     console.error(
       `Developers docs directory not found: ${DEVELOPERS_DOCS_DIR}`
+    );
+    process.exit(1);
+  }
+
+  if (!fs.existsSync(DEVELOPERS_DIR)) {
+    console.error(
+      `Developers directory not found: ${DEVELOPERS_DIR}`
     );
     process.exit(1);
   }

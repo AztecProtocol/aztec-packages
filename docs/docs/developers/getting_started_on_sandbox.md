@@ -5,6 +5,8 @@ sidebar_position: 0
 tags: [sandbox, testnet]
 ---
 
+<!-- docs:start:getting_started_on_sandbox -->
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -258,3 +260,5 @@ Want to build something cool on Aztec?
 
 - Check out the [Token Contract Tutorial](./docs/tutorials/contract_tutorials/token_contract.md) for a beginner tutorial, or jump into more advanced ones
 - Start on your own thing and check out the How To Guides to help you!
+
+<!-- docs:end:getting_started_on_sandbox -->
