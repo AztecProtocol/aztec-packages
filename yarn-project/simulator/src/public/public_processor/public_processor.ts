@@ -1,5 +1,6 @@
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -41,7 +42,11 @@ import {
 import { ForkCheckpoint } from '@aztec/world-state/native';
 
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
-import { type PublicTxSimulator, TelemetryPublicTxSimulator } from '../public_tx_simulator/index.js';
+import {
+  type PublicTxSimulator,
+  type PublicTxSimulatorConfig,
+  TelemetryPublicTxSimulator,
+} from '../public_tx_simulator/index.js';
 import { GuardedMerkleTreeOperations } from './guarded_merkle_tree.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
 
@@ -64,22 +69,23 @@ export class PublicProcessorFactory {
   public create(
     merkleTree: MerkleTreeWriteOperations,
     globalVariables: GlobalVariables,
-    skipFeeEnforcement: boolean,
-    clientInitiatedSimulation: boolean = false,
-    maxDebugLogMemoryReads?: number,
+    config: {
+      skipFeeEnforcement: boolean;
+      clientInitiatedSimulation: boolean;
+      proverId?: EthAddress;
+      maxDebugLogMemoryReads?: number;
+    },
   ): PublicProcessor {
     const contractsDB = new PublicContractsDB(this.contractDataSource);
 
     const guardedFork = new GuardedMerkleTreeOperations(merkleTree);
-    const publicTxSimulator = this.createPublicTxSimulator(
-      guardedFork,
-      contractsDB,
-      globalVariables,
-      /*doMerkleOperations=*/ true,
-      skipFeeEnforcement,
-      clientInitiatedSimulation,
-      maxDebugLogMemoryReads,
-    );
+    const publicTxSimulator = this.createPublicTxSimulator(guardedFork, contractsDB, globalVariables, {
+      proverId: config.proverId,
+      doMerkleOperations: true,
+      skipFeeEnforcement: config.skipFeeEnforcement,
+      clientInitiatedSimulation: config.clientInitiatedSimulation,
+      maxDebugLogMemoryReads: config.maxDebugLogMemoryReads,
+    });
 
     return new PublicProcessor(
       globalVariables,
@@ -95,21 +101,9 @@ export class PublicProcessorFactory {
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
-    doMerkleOperations: boolean,
-    skipFeeEnforcement: boolean,
-    clientInitiatedSimulation: boolean,
-    maxDebugLogMemoryReads?: number,
+    config?: Partial<PublicTxSimulatorConfig>,
   ): PublicTxSimulator {
-    return new TelemetryPublicTxSimulator(
-      merkleTree,
-      contractsDB,
-      globalVariables,
-      doMerkleOperations,
-      skipFeeEnforcement,
-      clientInitiatedSimulation,
-      this.telemetryClient,
-      maxDebugLogMemoryReads,
-    );
+    return new TelemetryPublicTxSimulator(merkleTree, contractsDB, globalVariables, this.telemetryClient, config);
   }
 }
 

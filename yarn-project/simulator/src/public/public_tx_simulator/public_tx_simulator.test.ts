@@ -263,8 +263,10 @@ describe('public_tx_simulator', () => {
       merkleTrees,
       contractsDB,
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
-      doMerkleOperations,
-      skipFeeEnforcement,
+      {
+        doMerkleOperations,
+        skipFeeEnforcement,
+      },
     );
 
     // Mock the internal private function. Borrowed from https://stackoverflow.com/a/71033167

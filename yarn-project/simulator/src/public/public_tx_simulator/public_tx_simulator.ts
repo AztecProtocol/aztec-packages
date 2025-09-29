@@ -1,4 +1,5 @@
-import { AVM_MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
+import { AVM_MAX_PROCESSABLE_L2_GAS, DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
@@ -58,18 +59,33 @@ export type PublicTxResult = {
   logs: DebugLog[];
 };
 
+export type PublicTxSimulatorConfig = {
+  proverId: EthAddress;
+  doMerkleOperations: boolean;
+  skipFeeEnforcement: boolean;
+  clientInitiatedSimulation: boolean;
+  maxDebugLogMemoryReads: number;
+};
+
 export class PublicTxSimulator {
   protected log: Logger;
+  private proverId: EthAddress;
+  private doMerkleOperations: boolean;
+  private skipFeeEnforcement: boolean;
+  private clientInitiatedSimulation: boolean;
+  private maxDebugLogMemoryReads: number;
 
   constructor(
     private merkleTree: MerkleTreeWriteOperations,
     private contractsDB: PublicContractsDB,
     private globalVariables: GlobalVariables,
-    private doMerkleOperations: boolean = false,
-    private skipFeeEnforcement: boolean = false,
-    private clientInitiatedSimulation: boolean = false,
-    private maxDebugLogMemoryReads?: number,
+    config?: Partial<PublicTxSimulatorConfig>,
   ) {
+    this.proverId = config?.proverId ?? EthAddress.ZERO;
+    this.doMerkleOperations = config?.doMerkleOperations ?? false;
+    this.skipFeeEnforcement = config?.skipFeeEnforcement ?? false;
+    this.clientInitiatedSimulation = config?.clientInitiatedSimulation ?? false;
+    this.maxDebugLogMemoryReads = config?.maxDebugLogMemoryReads ?? DEFAULT_MAX_DEBUG_LOG_MEMORY_READS;
     this.log = createLogger(`simulator:public_tx_simulator`);
   }
 
@@ -110,6 +126,7 @@ export class PublicTxSimulator {
         this.globalVariables,
         protocolContractTreeRoot, // imported from file
         this.doMerkleOperations,
+        this.proverId,
       );
 
       // This will throw if there is a nullifier collision.

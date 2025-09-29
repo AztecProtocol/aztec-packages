@@ -108,6 +108,13 @@ impl PublicTxBaseInputsValidator {
         let private_tail = self.public_tube_proof_data.public_inputs.private_tail;
         let avm = self.avm_proof_data.public_inputs;
 
+        // TODO(Alvaro): Move this
+        assert_eq(
+            self.public_tube_proof_data.public_inputs.prover_id,
+            avm.prover_id,
+            "Mismatched prover_id between private and avm",
+        );
+
         // --- Gas and fees ---
 
         assert_eq(

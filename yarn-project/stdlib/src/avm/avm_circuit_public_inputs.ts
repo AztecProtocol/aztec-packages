@@ -1,5 +1,6 @@
 import { MAX_ENQUEUED_CALLS_PER_TX } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, type Tuple, assertLength, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -33,6 +34,7 @@ export class AvmCircuitPublicInputs {
     public gasSettings: GasSettings,
     public effectiveGasFees: GasFees,
     public feePayer: AztecAddress,
+    public proverId: EthAddress,
     public publicCallRequestArrayLengths: PublicCallRequestArrayLengths,
     public publicSetupCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
     public publicAppLogicCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
@@ -61,6 +63,7 @@ export class AvmCircuitPublicInputs {
         gasSettings: GasSettings.schema,
         effectiveGasFees: GasFees.schema,
         feePayer: AztecAddress.schema,
+        proverId: EthAddress.schema,
         publicCallRequestArrayLengths: PublicCallRequestArrayLengths.schema,
         publicSetupCallRequests: PublicCallRequest.schema.array().max(MAX_ENQUEUED_CALLS_PER_TX),
         publicAppLogicCallRequests: PublicCallRequest.schema.array().max(MAX_ENQUEUED_CALLS_PER_TX),
@@ -85,6 +88,7 @@ export class AvmCircuitPublicInputs {
           gasSettings,
           effectiveGasFees,
           feePayer,
+          proverId,
           publicCallRequestArrayLengths,
           publicSetupCallRequests,
           publicAppLogicCallRequests,
@@ -108,6 +112,7 @@ export class AvmCircuitPublicInputs {
             gasSettings,
             effectiveGasFees,
             feePayer,
+            proverId,
             publicCallRequestArrayLengths,
             assertLength(publicSetupCallRequests, MAX_ENQUEUED_CALLS_PER_TX),
             assertLength(publicAppLogicCallRequests, MAX_ENQUEUED_CALLS_PER_TX),
@@ -136,6 +141,7 @@ export class AvmCircuitPublicInputs {
       reader.readObject(GasSettings),
       reader.readObject(GasFees),
       reader.readObject(AztecAddress),
+      reader.readObject(EthAddress),
       reader.readObject(PublicCallRequestArrayLengths),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
@@ -162,6 +168,7 @@ export class AvmCircuitPublicInputs {
       this.gasSettings,
       this.effectiveGasFees,
       this.feePayer,
+      this.proverId,
       this.publicCallRequestArrayLengths,
       this.publicSetupCallRequests,
       this.publicAppLogicCallRequests,
@@ -197,6 +204,7 @@ export class AvmCircuitPublicInputs {
       GasSettings.fromFields(reader),
       GasFees.fromFields(reader),
       AztecAddress.fromFields(reader),
+      EthAddress.fromFields(reader),
       PublicCallRequestArrayLengths.fromFields(reader),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
@@ -223,6 +231,7 @@ export class AvmCircuitPublicInputs {
       ...this.gasSettings.toFields(),
       ...this.effectiveGasFees.toFields(),
       this.feePayer,
+      this.proverId,
       ...this.publicCallRequestArrayLengths.toFields(),
       ...this.publicSetupCallRequests.map(request => request.toFields()),
       ...this.publicAppLogicCallRequests.map(request => request.toFields()),
@@ -249,6 +258,7 @@ export class AvmCircuitPublicInputs {
       GasSettings.empty(),
       GasFees.empty(),
       AztecAddress.zero(),
+      EthAddress.ZERO,
       PublicCallRequestArrayLengths.empty(),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
@@ -279,6 +289,7 @@ export class AvmCircuitPublicInputs {
       gasSettings: ${inspect(this.gasSettings)},
       effectiveGasFees: ${inspect(this.effectiveGasFees)},
       feePayer: ${inspect(this.feePayer)},
+      proverId: ${inspect(this.proverId)},
       publicCallRequestArrayLengths: ${inspect(this.publicCallRequestArrayLengths)},
       publicSetupCallRequests: [${this.publicSetupCallRequests
         .filter(x => !x.isEmpty())
