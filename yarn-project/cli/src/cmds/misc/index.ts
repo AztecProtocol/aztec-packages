@@ -97,5 +97,27 @@ export function injectCommands(program: Command, log: LogFn) {
       await updateProject(projectPath, contract, aztecVersion, log);
     });
 
+  program
+    .command('verify-proof')
+    .description('Verify a serialized proof at a specified rate')
+    .option('-r, --rate <number>', 'Rate of verification in proofs per second', '10')
+    .option('-d, --duration <number>', 'Duration of test in seconds', '60')
+    .option('-t, --type <type>', 'Type of proof to verify (public or private)', 'private')
+    .option('-n, --num-concurrent-verifiers <number>', 'Number of concurrent IVC verifiers', '1')
+    .option('-b, --bb-concurrency <number>', 'BB IVC concurrency level', '1')
+    .action(async options => {
+      const { verifyProof } = await import('./verify_proof.js');
+      const rate = parseFloat(options.rate);
+      const duration = parseFloat(options.duration);
+      const proofType = options.type as 'public' | 'private';
+      const numConcurrentVerifiers = parseInt(options.numConcurrentVerifiers);
+      const bbConcurrency = parseInt(options.bbConcurrency);
+      if (proofType !== 'public' && proofType !== 'private') {
+        log(`Invalid proof type: ${proofType}. Must be 'public' or 'private'`);
+        process.exit(1);
+      }
+      await verifyProof(rate, duration, proofType, numConcurrentVerifiers, bbConcurrency, log);
+    });
+
   return program;
 }

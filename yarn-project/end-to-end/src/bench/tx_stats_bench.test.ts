@@ -88,6 +88,23 @@ describe('transaction benchmarks', () => {
 
   afterAll(async () => {
     await t.teardown();
+
+    // Serialize the proven transactions to files in the CLI directory
+    const cliProofsDir = path.resolve(process.cwd(), '../cli/proofs');
+    await mkdir(cliProofsDir, { recursive: true });
+
+    if (publicProvenTx) {
+      const publicProofPath = path.join(cliProofsDir, 'public_proven_tx.bin');
+      await writeFile(publicProofPath, publicProvenTx.toBuffer());
+      logger.info(`Public proven tx serialized to ${publicProofPath}`);
+    }
+
+    if (privateProvenTx) {
+      const privateProofPath = path.join(cliProofsDir, 'private_proven_tx.bin');
+      await writeFile(privateProofPath, privateProvenTx.toBuffer());
+      logger.info(`Private proven tx serialized to ${privateProofPath}`);
+    }
+
     if (process.env.BENCH_OUTPUT) {
       await mkdir(path.dirname(process.env.BENCH_OUTPUT), { recursive: true });
       await writeFile(process.env.BENCH_OUTPUT, toGithubActionBenchmarkJSON());

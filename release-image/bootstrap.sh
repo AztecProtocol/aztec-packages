@@ -8,6 +8,14 @@ hash=$(cache_content_hash ^release-image/Dockerfile ^build-images/src/Dockerfile
 function build_image {
   set -euo pipefail
   cd ..
+
+  # Copy proof files to a location that will be included in the build
+  if [ -d "yarn-project/cli/proofs" ]; then
+    echo "Copying proof files for Docker build..."
+    mkdir -p yarn-project/cli/dest/proofs
+    cp yarn-project/cli/proofs/*.bin yarn-project/cli/dest/proofs/ 2>/dev/null || true
+  fi
+
   if semver check $REF_NAME; then
     # We are a tagged release. Use the version from the tag.
     # We strip leading 'v' so that this is a valid semver.

@@ -3,6 +3,18 @@ FROM aztecprotocol/release-image-base
 # Copy in project files.
 COPY . /usr/src
 
+# Create proofs directory and copy proofs if they exist
+# Proofs should be copied to yarn-project/cli/dest/proofs by the build script
+RUN mkdir -p /usr/src/proofs && \
+    if [ -d /usr/src/yarn-project/cli/dest/proofs ]; then \
+      echo "Found proofs in dest directory, copying..." && \
+      cp /usr/src/yarn-project/cli/dest/proofs/*.bin /usr/src/proofs/ && \
+      echo "Proofs copied:" && \
+      ls -la /usr/src/proofs/; \
+    else \
+      echo "No proofs found in /usr/src/yarn-project/cli/dest/proofs"; \
+    fi
+
 ARG BUILD_METADATA=""
 ENV BUILD_METADATA=$BUILD_METADATA
 
