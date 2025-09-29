@@ -151,7 +151,7 @@ fn set_snapshot_in_cols(
     row_idx: u32,
 ) {
     cols[0][row_idx] = snapshot.root;
-    cols[1][row_idx] = snapshot.next_available_leaf_index as Field;
+    cols[1][row_idx] = snapshot.next_available_leaf_index;
 }
 fn set_gas_in_cols(
     gas: Gas,
