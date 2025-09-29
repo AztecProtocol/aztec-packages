@@ -91,8 +91,6 @@ struct NativeTranscriptParams {
     static DataType hash(const std::vector<DataType>& data);
     template <typename T> static T convert_challenge(const DataType& challenge)
     {
-        // Shouldn't convert field_t --> (lo, hi) --> bigfield just to split bigfield element into 2. can simply
-        // propagate
         return bb::field_conversion::convert_challenge<T>(challenge);
     }
     /**
@@ -659,7 +657,6 @@ template <typename TranscriptParams> class BaseTranscript {
         verifier_transcript->proof_start = 0;
         return verifier_transcript;
     }
-
     /**
      * @brief For testing: initializes transcript with some arbitrary data so that a challenge can be generated
      * after initialization. Only intended to be used by Prover.

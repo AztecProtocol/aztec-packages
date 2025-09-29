@@ -25,8 +25,6 @@ template <typename Builder> struct StdlibTranscriptParams {
         ASSERT(!data.empty());
         return stdlib::poseidon2<Builder>::hash(data);
     }
-
-    // move it to field_conversion?
     /**
      * @brief Split a challenge field element into two half-width challenges
      * @details `lo` is 128 bits and `hi` is 126 bits which should provide significantly more than our security
