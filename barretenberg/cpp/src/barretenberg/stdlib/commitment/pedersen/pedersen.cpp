@@ -10,35 +10,30 @@
 
 namespace bb::stdlib {
 
-template <typename C>
-cycle_group<C> pedersen_commitment<C>::commit(const std::vector<field_t>& inputs, const GeneratorContext context)
+/**
+ * @brief Compute a Pedersen commitment to the provided inputs
+ * @details Computes `commit(inputs) = sum_i inputs[i] * G_i` where `G_i` are Grumpkin curve generators derived from the
+ * provided GeneratorContext. The inputs are converted from `field_t` (circuit representation of BN254 scalars) to
+ * `cycle_scalar` (circuit representation of Grumpkin scalars) in order to perform the batch multiplication.
+ *
+ *
+ * @tparam Builder
+ * @param inputs Vector of BN254 scalar field elements to commit to
+ * @param context Generator configuration specifying offset and domain separator for deterministic generator selection
+ * @return cycle_group The resulting Pedersen commitment as a Grumpkin curve point
+ */
+template <typename Builder>
+cycle_group<Builder> pedersen_commitment<Builder>::commit(const std::vector<field_t>& inputs,
+                                                          const GeneratorContext context)
 {
-
-    using cycle_scalar = typename cycle_group::cycle_scalar;
-
     const auto base_points = context.generators->get(inputs.size(), context.offset, context.domain_separator);
 
     std::vector<cycle_scalar> scalars;
     std::vector<cycle_group> points;
-    for (size_t i = 0; i < inputs.size(); ++i) {
-        scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(inputs[i]));
-        // constructs circuit-constant cycle_group objects (non-witness)
-        points.emplace_back(base_points[i]);
-    }
-
-    return cycle_group::batch_mul(points, scalars);
-}
-
-template <typename C>
-cycle_group<C> pedersen_commitment<C>::commit(const std::vector<std::pair<field_t, GeneratorContext>>& input_pairs)
-{
-
-    std::vector<cycle_scalar> scalars;
-    std::vector<cycle_group> points;
-    for (auto& [scalar, context] : input_pairs) {
+    for (const auto [scalar, point] : zip_view(inputs, base_points)) {
         scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(scalar));
-        // constructs constant cycle_group objects (non-witness)
-        points.emplace_back(context.generators->get(1, context.offset, context.domain_separator)[0]);
+        // Construct circuit-constant cycle_group objects representing the generators
+        points.emplace_back(point);
     }
 
     return cycle_group::batch_mul(points, scalars);
