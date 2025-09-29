@@ -232,130 +232,114 @@ It's like having a referee that's actually a robot - it can't be bribed, intimid
 
 ## Core Value #4: Compliance
 
-### The Compliance Paradox Solved
+Previously, you could have privacy OR compliance on the blockchain, but not both". With Atec, you can have privacy AND selective, programmable compliance".
 
-This might surprise you, but privacy and compliance aren't opposites - they're actually perfect partners when done right.
+Aztec lets developers build compliance directly into applications while preserving user privacy.
 
-**The Old Way:**
-"You can have privacy OR compliance, but not both"
+**Example: Private Lending with KYC**
 
-**The Aztec Way (Best of Both):**
-"You can have privacy AND selective, programmable compliance"
-
-### Applied Programmable Privacy
-
-Here's the revolutionary part: developers can build compliance directly into their applications while preserving user privacy. Let's see how:
-
-#### Example: Private KYC
+- [TODO] check this code lol
 
 ```rust
-// A private lending protocol on Aztec (conceptual)
+contract PrivateLender {
+    #[aztec(private)]
+    fn borrow(
+        amount: Field,
+        kyc_proof: KYCProof,
+        creditworthiness_proof: CreditProof
+    ) {
+        // Verify user meets requirements without revealing:
+        // - Exact income or credit score
+        // - Identity or personal details
+        // - Transaction history
 
-fn borrowFunds(amount, proof_of_creditworthiness) {
-  // User proves they meet requirements WITHOUT revealing:
-  // - Their exact income
-  // - Their identity
-  // - Their transaction history
+        assert(kyc_proof.verify());
+        assert(creditworthiness_proof.verify_minimum_score(650));
 
-  if (verify_creditworthiness_proof(proof_of_creditworthiness)) {
-    // Loan approved based on zero-knowledge proof
-    approve_loan(amount);
-  }
+        // Approve loan based on zero-knowledge proofs
+        mint_loan_tokens(amount);
+    }
 }
 ```
 
-The user proved they're creditworthy without exposing their financial life!
+Users can prove they're creditworthy without exposing their financial details.
 
-#### Example: Regulatory Reporting
+**Example: Regulatory Reporting**
 
-```javascript
-// Automated compliance reporting (conceptual)
+- [TODO] check code lol
 
-function generate_regulatory_report() {
-  // Generate proof that shows:
-  // ✓ No transactions exceeded $10,000 (without showing actual amounts)
-  // ✓ All users were KYC verified (without revealing identities)
-  // ✓ No sanctioned addresses were involved (without exposing user addresses)
+```rust
+contract ComplianceReporter {
+    #[aztec(public)]
+    fn generate_aml_report() -> AMLProof {
+        // Generate proof showing:
+        // ✓ No transactions exceeded $10k (without amounts)
+        // ✓ All users were KYC verified (without identities)
+        // ✓ No sanctioned addresses involved (without revealing addresses)
 
-  return aggregated_compliance_proof;
+        AMLProof::aggregate_compliance_data(self.transaction_nullifiers)
+    }
 }
 ```
 
 Regulators get the assurance they need, users keep their privacy. Everyone wins!
 
-### Real-World Compliance Scenarios
+### Real-World Compliance Examples
 
 Let's explore how this enables previously impossible applications:
 
-#### Private But Auditable Business Operations
-
-- Companies can keep trade secrets while proving regulatory compliance
-- Auditors can verify correctness without seeing sensitive data
-- Competitors can't spy on your operations
-- Regulators get the transparency they need
-
-#### Age Verification Without ID
-
-- Prove you're over 18 without revealing your birthdate
-- Access age-restricted content privately
-- No database of personal information to hack
-- Compliance with age-verification laws
-
-#### Tax Compliance with Privacy
-
-- Prove you paid the correct taxes
-- Don't reveal your entire financial history
-- Automatic reporting without manual disclosure
-- Privacy from everyone except designated authorities
+- **Private But Auditable Business Operations**: Companies can keep trade secrets while proving regulatory complianc and auditors can verify correctness without seeing sensitive data.
+- **Age Verification**: Prove you're over 18 without revealing your birthdate or any personal details. This enables compliance with age-verification laws such as age-restricted access, without storing personal details, such as government ID, in a database.
+- **Tax Compliance**: Prove you paid the correct taxes without revealing your entire financial history. This enables automatic reporting without manual disclosure
 
 :::warning Important Distinction
-Aztec provides the tools for compliance - it's up to application developers to implement them appropriately for their jurisdiction and use case. The protocol layer remains neutral and permissionless.
+Aztec provides the tools for compliance. It is up to application developers to implement them appropriately for their jurisdiction and use case. The protocol layer remains neutral and permissionless.
 :::
 
-### The Innovation This Enables
+### Example Privacy Applications
 
-When you combine privacy with programmable compliance, entirely new business models become possible:
+When you combine privacy with programmable compliance on the blockchain, new business models become possible:
 
-1. **Private DEXs** that meet trading regulations
-2. **Confidential payroll** systems that handle tax withholding
-3. **Private voting** that prevents double-voting
-4. **Private healthcare** applications that meet HIPAA requirements
-5. **Confidential supply chains** that provide necessary customs data
+- **Private DEXs** that meet trading regulations.
+- **Confidential payroll** systems that handle tax withholding.
+- **Private voting** that is verifiably correct and prevents double-voting.
+- **Private healthcare** applications that meet HIPAA requirements.
+- **Confidential supply chains** that provide necessary customs data.
 
 ---
 
-## Bringing It All Together: The Full Picture
+## Summary
 
-### The Synergy of Our Values
-
-These four core values don't exist in isolation - they reinforce each other:
+These four core values don't exist in isolation; they reinforce each other:
 
 ```
 Privacy ←→ Accessibility
    ↑            ↓
    ↑            ↓
-Trust Minimized ←→ Compliance
+Trust Minimization ←→ Compliance
 ```
 
-- **Privacy needs Accessibility** or it's only for the elite
-- **Accessibility needs trust minimized** or it can be shut down
-- **Trust minimized needs Compliance** or it can't integrate with the real world
-- **Compliance needs Privacy** or it exposes too much information
+- **Privacy needs accessibility** or it's only for the elite.
+- **Accessibility needs trust minimization** or it can be shut down.
+- **Trust minimization needs compliance** or it can't integrate with the real world.
+- **Compliance needs Privacy** or it exposes too much information.
 
 ### What This Means for You
 
-As a developer learning Aztec, you're not just learning another blockchain platform. You're learning to build applications that:
+As a developer learning Aztec, you're not just learning another blockchain platform. You're learning to build on-chain privacy applications that:
 
 - Protect user privacy by default
-- Cost less through innovative proof aggregation
+- Cost less through proof aggregation
 - Can't be censored or controlled by any single entity
 - Can meet real-world compliance requirements
 
-You're learning to build the future of Web3 - one that's actually better than Web2!
+You're learning to build the future of Web3. One that's _actually_ better than Web2!
 
 ### The Journey Ahead
 
-This vision might seem ambitious, and it is! But here's the exciting part - it's not just a vision anymore. Aztec is live, the technology works, and developers are already building amazing applications.
+Aztec is live, the technology works, and developers are _already_ building amazing applications.
+
+- [TODO] link to a page of example dapps on Aztec
 
 As you continue through this learning journey, you'll see how these values translate into actual code, real applications, and tangible benefits for users.
 
@@ -370,6 +354,8 @@ You now understand:
 - ✅ Why compliance and privacy are partners, not enemies
 
 **Feeling inspired?** You should be! You're about to learn how to build applications that were literally impossible before Aztec.
+
+- [TODO] maybe add a link to cretae a tweet to say you're on the learning journey? Could be good for our metric tracking?
 :::
 
 ---
@@ -383,7 +369,7 @@ Now that you understand the vision, you're ready to see how it all works under t
 - The developer tools that make building on Aztec accessible
 - Your first hands-on experience with Aztec
 
-Remember, every expert was once a beginner. Every line of code you write brings us closer to a world where privacy is a default, not a luxury. Welcome to the revolution - we're glad you're here!
+Remember, every expert was once a beginner. Every line of code you write brings us closer to a world where privacy is a default, not a luxury. Welcome to the revolution. We're glad you're here!
 
 ## Quick Review Questions
 
@@ -401,7 +387,7 @@ Before moving on, try to answer these questions to test your understanding:
 4. **How can applications be compliant AND private?**
    _Hint: Think about proving properties without revealing data_
 
-Don't worry if you can't answer all of these yet - they'll become clearer as we dive deeper into the technical details in upcoming modules!
+Don't worry if you can't answer all of these yet, they'll become clearer as we dive deeper into the technical details in upcoming modules!
 
 ## Further Resources
 
