@@ -1940,7 +1940,7 @@ let historical_header = context.header_at(some_block_number);
 
 ### NoteInterface changes
 
-`compute_note_hash_and_nullifier*` functions were renamed as `compute_nullifier*` and the `compute_nullifier` function now takes `note_hash_for_nullify` as an argument (this allowed us to reduce gate counts and the hash was typically computed before). Also `compute_note_hash_for_consumption` function was renamed as `compute_note_hash_for_nullify`.
+`compute_note_hash_and_nullifier*` functions were renamed as `compute_nullifier*` and the `compute_nullifier` function now takes `note_hash_for_nullify` as an argument (this allowed us to reduce gate counts and the hash was typically computed before). Also `compute_note_hash_for_consumption` function was renamed as `compute_note_hash_for_nullification`.
 
 ```diff
 impl NoteInterface<VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN> for ValueNote {
@@ -1977,7 +1977,7 @@ impl NoteInterface<VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN> for ValueNote {
 +        )
 +    }
 +    fn compute_nullifier_without_context(self) -> Field {
-+        let note_hash_for_nullify = compute_note_hash_for_nullify(self);
++        let note_hash_for_nullify = compute_note_hash_for_nullification(self);
 +        let secret = get_nsk_app(self.npk_m_hash);
 +        poseidon2_hash_with_separator([
 +            note_hash_for_nullify,

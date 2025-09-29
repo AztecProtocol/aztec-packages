@@ -71,7 +71,7 @@ use dep::aztec::history::nullifier_inclusion::ProveNullifierInclusion;
 use dep::aztec::protocol_types::hash::compute_siloed_nullifier;
 
 // Compute nullifier (requires note hash)
-let nullifier = note.compute_nullifier(&mut context, note_hash_for_nullify);
+let nullifier = note.compute_nullifier(&mut context, note_hash_for_nullification);
 let siloed_nullifier = compute_siloed_nullifier(context.this_address(), nullifier);
 
 // Prove nullifier was included
