@@ -26,6 +26,7 @@ export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
     skipFeeEnforcement: boolean = false,
     clientInitiatedSimulation: boolean = false,
     telemetryClient: TelemetryClient = getTelemetryClient(),
+    maxDebugLogMemoryReads?: number,
   ) {
     const metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
     super(
@@ -36,6 +37,7 @@ export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
       skipFeeEnforcement,
       clientInitiatedSimulation,
       metrics,
+      maxDebugLogMemoryReads,
     );
     this.tracer = metrics.tracer;
   }
