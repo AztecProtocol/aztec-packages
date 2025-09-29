@@ -656,9 +656,6 @@ If two subsystems can contain the same configuration option, only one needs to b
     --bot.senderSalt <value>                                                                                                               ($BOT_ACCOUNT_SALT)
           The salt to use to deploy the sender account.
 
-    --bot.recipientEncryptionSecret <value>                                  (default: 0x00000000000000000000000000000000000000000000000000000000cafecafe)($BOT_RECIPIENT_ENCRYPTION_SECRET)
-          Encryption secret for a recipient account.
-
     --bot.tokenSalt <value>                                                  (default: 0x0000000000000000000000000000000000000000000000000000000000000001)($BOT_TOKEN_SALT)
           The salt to use to deploy the token contract.
 

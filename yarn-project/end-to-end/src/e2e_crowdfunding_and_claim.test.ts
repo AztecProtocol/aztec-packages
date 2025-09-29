@@ -95,7 +95,10 @@ describe('e2e_crowdfunding_and_claim', () => {
       deadline,
     );
     const crowdfundingInstance = await crowdfundingDeployment.getInstance();
-    await wallet.registerAccount(crowdfundingSecretKey, await computePartialAddress(crowdfundingInstance));
+    await wallet.registerKeysForEscrowContract(
+      crowdfundingSecretKey,
+      await computePartialAddress(crowdfundingInstance),
+    );
     crowdfundingContract = await crowdfundingDeployment.send({ from: operatorAddress }).deployed();
     logger.info(`Crowdfunding contract deployed at ${crowdfundingContract.address}`);
 
@@ -226,9 +229,11 @@ describe('e2e_crowdfunding_and_claim', () => {
     const anotherDonationNote = processUniqueNote(filtered![0]);
 
     // 2) We try to claim the reward token via the Claim contract with the unrelated wallet
+    // docs:start:local-tx-fails
     await expect(
       claimContract.methods.claim(anotherDonationNote, donorAddress).send({ from: unrelatedAdress }).wait(),
     ).rejects.toThrow('Note does not belong to the sender');
+    // docs:end:local-tx-fails
   });
 
   it('cannot claim with a non-existent note', async () => {

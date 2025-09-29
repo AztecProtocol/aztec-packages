@@ -1,3 +1,4 @@
+import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import {
   type Account,
   type AccountContract,
@@ -15,7 +16,7 @@ import {
 } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
-import { Fq, Fr } from '@aztec/foundation/fields';
+import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import type { PXE } from '@aztec/pxe/client/lazy';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -102,14 +103,21 @@ export abstract class BaseTestWallet extends BaseWallet {
     return Promise.resolve(Array.from(this.accounts.values()).map(acc => ({ alias: '', item: acc.getAddress() })));
   }
 
-  async createAccount(accountData: AccountData): Promise<AccountManager> {
-    const accountManager = await AccountManager.create(
-      this,
-      this.pxe,
-      accountData.secret,
-      accountData.contract,
-      accountData.salt,
-    );
+  /**
+   * Creates a new account with the provided account data or generates random values and uses SchnorrAccountContract
+   * if not provided.
+   *
+   * @param accountData - Optional account configuration containing secret, salt and account contract.
+   * @returns A new AccountManager instance for the created account
+   */
+  async createAccount(accountData?: AccountData): Promise<AccountManager> {
+    // Generate random values if not provided
+    const secret = accountData?.secret ?? Fr.random();
+    const salt = accountData?.salt ?? Fr.random();
+    // Use SchnorrAccountContract if not provided
+    const contract = accountData?.contract ?? new SchnorrAccountContract(GrumpkinScalar.random());
+
+    const accountManager = await AccountManager.create(this, this.pxe, secret, contract, salt);
 
     await accountManager.register();
 
@@ -207,8 +215,17 @@ export abstract class BaseTestWallet extends BaseWallet {
     }
   }
 
-  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
-  registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
+  /**
+   * Adds keys to PXE for an escrow contract.
+   * @param secretKey - Secret key used to derive public keys of the escrow contract.
+   * @param partialAddress - Partial address of the escrow contract.
+   * @deprecated This will be replaced soon with updated registerContract method that will accept secretKey and
+   * partialAddress on the input.
+   *
+   * TODO(#17324): Allow passing on the input secretKey and partialAddress to registerContract and drop this method.
+   * For context this is typically used when registering escrow contracts.
+   */
+  registerKeysForEscrowContract(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     return this.pxe.registerAccount(secretKey, partialAddress);
   }
 
@@ -217,9 +234,11 @@ export abstract class BaseTestWallet extends BaseWallet {
     return this.pxe.getNotes(filter);
   }
 
-  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
-  // Note: This is only used by account manager to because there we call registerAccount. This can be dropped once we
-  // allow Wallet.registerContract accepts secretKey and partialAddress on the input.
+  /**
+   * Returns the PXE.
+   * @deprecated This is only used by account manager to because there we call registerAccount. This can be dropped
+   * once we allow Wallet.registerContract accepts secretKey and partialAddress on the input.
+   */
   getPxe(): PXE {
     return this.pxe;
   }

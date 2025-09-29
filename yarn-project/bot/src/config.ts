@@ -44,8 +44,6 @@ export type BotConfig = {
   senderPrivateKey: SecretValue<Fr> | undefined;
   /** Optional salt to use to instantiate the sender account */
   senderSalt: Fr | undefined;
-  /** Encryption secret for a recipient account. */
-  recipientEncryptionSecret: SecretValue<Fr>;
   /** Salt for the token contract instantiation. */
   tokenSalt: Fr;
   /** Every how many seconds should a new tx be sent. */
@@ -90,7 +88,6 @@ export const BotConfigSchema = z
     l1ToL2MessageTimeoutSeconds: z.number(),
     senderPrivateKey: schemas.SecretValue(schemas.Fr).optional(),
     senderSalt: schemas.Fr.optional(),
-    recipientEncryptionSecret: schemas.SecretValue(schemas.Fr),
     tokenSalt: schemas.Fr,
     txIntervalSeconds: z.number(),
     privateTransfersPerTx: z.number().int().nonnegative(),
@@ -163,12 +160,6 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     env: 'BOT_ACCOUNT_SALT',
     description: 'The salt to use to deploy the sender account.',
     parseEnv: (val: string) => (val ? Fr.fromHexString(val) : undefined),
-  },
-  recipientEncryptionSecret: {
-    env: 'BOT_RECIPIENT_ENCRYPTION_SECRET',
-    description: 'Encryption secret for a recipient account.',
-    printDefault: sv => sv?.getValue(),
-    ...secretFrConfigHelper(Fr.fromHexString('0xcafecafe')),
   },
   tokenSalt: {
     env: 'BOT_TOKEN_SALT',
