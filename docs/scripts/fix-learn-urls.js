@@ -204,7 +204,10 @@ function verboseLog(...args) {
  */
 function fixUrlsInFile(learnFilePath, sourceFilePath) {
   const content = fs.readFileSync(learnFilePath, "utf8");
-  const urlRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
+  // Updated regex to handle nested brackets and backticks in link text
+  // Matches [ followed by anything (including nested brackets in backticks), then ]( and the URL
+  // The [\s\S] pattern matches any character including newlines
+  const urlRegex = /\[((?:[^\[\]]|\[[^\]]*\])*?)\]\(([^)]+)\)/g;
   let modified = false;
 
   const fixedContent = content.replace(urlRegex, (match, linkText, url) => {
@@ -223,7 +226,8 @@ function fixUrlsInFile(learnFilePath, sourceFilePath) {
     // This is a relative URL - need to check if it's broken
     const currentDir = path.dirname(learnFilePath);
     const [urlPath, fragment] = url.split("#");
-    const hasExtension = /\.(md|mdx)$/.test(urlPath);
+    const extensionMatch = urlPath.match(/\.(md|mdx)$/);
+    const originalExtension = extensionMatch ? extensionMatch[0] : "";
     const cleanUrl = urlPath.replace(/\.(md|mdx)$/, "");
     const resolvedPath = path.resolve(currentDir, cleanUrl);
 
@@ -247,7 +251,9 @@ function fixUrlsInFile(learnFilePath, sourceFilePath) {
         learnFilePath,
         actualTargetPath
       );
-      const newUrl = newRelativePath.replace(/\.(md|mdx)$/, "") + (hasExtension ? ".md" : "") + (fragment ? "#" + fragment : "");
+      // Preserve the original extension (or derive from actual file if none)
+      const targetExtension = originalExtension || path.extname(actualTargetPath);
+      const newUrl = newRelativePath.replace(/\.(md|mdx)$/, "") + targetExtension + (fragment ? "#" + fragment : "");
 
       // Validate the fixed URL
       const validation = validateFixedUrl(learnFilePath, newUrl);
@@ -274,9 +280,11 @@ function fixUrlsInFile(learnFilePath, sourceFilePath) {
           learnFilePath,
           actualTargetPath
         );
+        // Preserve the original extension (or derive from actual file if none)
+        const targetExtension = originalExtension || path.extname(actualTargetPath);
         const newUrl =
           newRelativePath.replace(/\.(md|mdx)$/, "") +
-          (hasExtension ? ".md" : "") +
+          targetExtension +
           (fragment ? "#" + fragment : "");
 
         // Validate the fixed URL

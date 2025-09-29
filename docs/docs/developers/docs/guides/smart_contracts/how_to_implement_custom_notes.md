@@ -6,6 +6,8 @@ tags: [smart contracts, notes, privacy]
 keywords: [implementing note, note, custom note]
 ---
 
+<!-- docs:start:how_to_implement_custom_notes -->
+
 This guide shows you how to create custom note types for storing specialized private data in your Aztec contracts. Notes are the fundamental data structure in Aztec when working with private state.
 
 ## Prerequisites
@@ -341,3 +343,5 @@ fn get_order(owner: AztecAddress, target_id: Field) -> OrderNote {
 - [Note portals for L1 communication](./how_to_communicate_cross_chain.md)
 - [Macros reference](../../reference/smart_contract_reference/macros.md)
 - [Keys, including npk_m_hash](../../concepts/accounts/keys.md)
+
+<!-- docs:end:how_to_implement_custom_notes -->
