@@ -11,10 +11,10 @@ let protocolContractArtifact: ContractArtifact;
 
 export async function getContractInstanceRegistryArtifact(): Promise<ContractArtifact> {
   if (!protocolContractArtifact) {
-    // Cannot assert this import as it's incompatible with browsers
-    // https://caniuse.com/mdn-javascript_statements_import_import_assertions_type_json
-    // Use the new "with" syntax once supported by firefox
-    // https://caniuse.com/mdn-javascript_statements_import_import_attributes_type_json
+    // Cannot assert this import as it's incompatible with bundlers like vite
+    // https://github.com/vitejs/vite/issues/19095#issuecomment-2566074352
+    // Even if now supported by al major browsers, the MIME type is replaced with
+    // "text/javascript"
     // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
     const { default: contractInstanceRegistryJson } = await import('../../artifacts/ContractInstanceRegistry.json');
     protocolContractArtifact = loadContractArtifact(contractInstanceRegistryJson);

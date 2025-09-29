@@ -50,7 +50,6 @@ export { Body, L2Block } from '@aztec/stdlib/block';
 export { LogId, type LogFilter } from '@aztec/stdlib/logs';
 export { L1ToL2Message, L2Actor, L1Actor } from '@aztec/stdlib/messaging';
 export { UniqueNote, ExtendedNote, Comparator, Note } from '@aztec/stdlib/note';
-export { type PXE, EventType } from '@aztec/stdlib/interfaces/client';
 
 export { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
@@ -76,10 +75,10 @@ export * from './api/account.js';
 export * from './api/addresses.js';
 export * from './api/deployment.js';
 export * from './api/ethereum.js';
+export * from './api/events.js';
 export * from './api/eth_address.js';
 export * from './api/fee.js';
 export * from './api/log.js';
 export * from './api/contract.js';
 export * from './api/utils.js';
-export * from './api/rpc.js';
 export * from './api/wallet.js';

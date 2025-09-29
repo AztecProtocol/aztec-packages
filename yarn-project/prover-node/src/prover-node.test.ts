@@ -108,6 +108,7 @@ describe('prover-node', () => {
       txGatheringMaxParallelRequestsPerNode: 5,
       proverNodeFailedEpochStore: undefined,
       txGatheringTimeoutMs: 1000,
+      proverNodeEpochProvingDelayMs: undefined,
     };
 
     // World state returns a new mock db every time it is asked to fork
@@ -129,7 +130,7 @@ describe('prover-node', () => {
 
     // We create 3 fake blocks with 1 tx effect each
     blocks = await timesParallel(3, async i => await L2Block.random(i + 20, 1));
-    previousBlockHeader = await L2Block.random(19).then(b => b.header);
+    previousBlockHeader = await L2Block.random(19).then(b => b.getBlockHeader());
     lastBlock = { block: blocks.at(-1)!, attestations: [CommitteeAttestation.random()] } as PublishedL2Block;
 
     // Archiver returns a bunch of fake blocks

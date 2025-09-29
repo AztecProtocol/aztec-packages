@@ -73,7 +73,7 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
     // Wait until the start of epoch one so prover node starts proving epoch 0,
     // and wait for the data to be uploaded to the remote file store
     await test.waitUntilEpochStarts(1);
-    await retryUntil(() => epochUploadUrl !== undefined, 'Upload epoch failure', 120, 1);
+    await retryUntil(() => epochUploadUrl !== undefined, 'Upload epoch failure', 240, 1);
 
     // Stop everything, we're going to prove on a fresh instance
     await test.teardown();

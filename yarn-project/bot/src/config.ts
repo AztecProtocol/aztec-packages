@@ -1,15 +1,17 @@
 import {
   type ConfigMappingsType,
-  type SecretValue,
+  SecretValue,
   booleanConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
   optionalNumberConfigHelper,
+  pickConfigMappings,
   secretFrConfigHelper,
   secretStringConfigHelper,
 } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ZodFor, schemas } from '@aztec/stdlib/schemas';
@@ -30,22 +32,18 @@ export type BotConfig = {
   nodeUrl: string | undefined;
   /** The URL to the Aztec node admin API to force-flush txs if configured. */
   nodeAdminUrl: string | undefined;
-  /** URL to the PXE for sending txs, or undefined if an in-proc PXE is used. */
-  pxeUrl: string | undefined;
   /** Url of the ethereum host. */
   l1RpcUrls: string[] | undefined;
   /** The mnemonic for the account to bridge fee juice from L1. */
-  l1Mnemonic: SecretValue<string | undefined>;
+  l1Mnemonic: SecretValue<string> | undefined;
   /** The private key for the account to bridge fee juice from L1. */
-  l1PrivateKey: SecretValue<string | undefined>;
+  l1PrivateKey: SecretValue<string> | undefined;
   /** How long to wait for L1 to L2 messages to become available on L2 */
   l1ToL2MessageTimeoutSeconds: number;
   /** Signing private key for the sender account. */
-  senderPrivateKey: SecretValue<Fr | undefined>;
+  senderPrivateKey: SecretValue<Fr> | undefined;
   /** Optional salt to use to instantiate the sender account */
   senderSalt: Fr | undefined;
-  /** Encryption secret for a recipient account. */
-  recipientEncryptionSecret: SecretValue<Fr>;
   /** Salt for the token contract instantiation. */
   tokenSalt: Fr;
   /** Every how many seconds should a new tx be sent. */
@@ -78,20 +76,18 @@ export type BotConfig = {
   stopWhenUnhealthy: boolean;
   /** Deploy an AMM contract and do swaps instead of transfers */
   ammTxs: boolean;
-};
+} & Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'>;
 
 export const BotConfigSchema = z
   .object({
     nodeUrl: z.string().optional(),
     nodeAdminUrl: z.string().optional(),
-    pxeUrl: z.string().optional(),
     l1RpcUrls: z.array(z.string()).optional(),
-    l1Mnemonic: schemas.SecretValue(z.string().optional()),
-    l1PrivateKey: schemas.SecretValue(z.string().optional()),
+    l1Mnemonic: schemas.SecretValue(z.string()).optional(),
+    l1PrivateKey: schemas.SecretValue(z.string()).optional(),
     l1ToL2MessageTimeoutSeconds: z.number(),
-    senderPrivateKey: schemas.SecretValue(schemas.Fr.optional()),
+    senderPrivateKey: schemas.SecretValue(schemas.Fr).optional(),
     senderSalt: schemas.Fr.optional(),
-    recipientEncryptionSecret: schemas.SecretValue(schemas.Fr),
     tokenSalt: schemas.Fr,
     txIntervalSeconds: z.number(),
     privateTransfersPerTx: z.number().int().nonnegative(),
@@ -108,15 +104,21 @@ export const BotConfigSchema = z
     maxConsecutiveErrors: z.number().int().nonnegative(),
     stopWhenUnhealthy: z.boolean(),
     ammTxs: z.boolean().default(false),
+    dataDirectory: z.string().optional(),
+    dataStoreMapSizeKB: z.number().optional(),
   })
   .transform(config => ({
     nodeUrl: undefined,
     nodeAdminUrl: undefined,
-    pxeUrl: undefined,
     l1RpcUrls: undefined,
     senderSalt: undefined,
     l2GasLimit: undefined,
     daGasLimit: undefined,
+    l1Mnemonic: undefined,
+    l1PrivateKey: undefined,
+    senderPrivateKey: undefined,
+    dataDirectory: undefined,
+    dataStoreMapSizeKB: 1_024 * 1_024,
     ...config,
   })) satisfies ZodFor<BotConfig>;
 
@@ -128,10 +130,6 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   nodeAdminUrl: {
     env: 'AZTEC_NODE_ADMIN_URL',
     description: 'The URL to the Aztec node admin API to force-flush txs if configured.',
-  },
-  pxeUrl: {
-    env: 'BOT_PXE_URL',
-    description: 'URL to the PXE for sending txs, or undefined if an in-proc PXE is used.',
   },
   l1RpcUrls: {
     env: 'ETHEREUM_HOSTS',
@@ -151,7 +149,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   l1ToL2MessageTimeoutSeconds: {
     env: 'BOT_L1_TO_L2_TIMEOUT_SECONDS',
     description: 'How long to wait for L1 to L2 messages to become available on L2',
-    ...numberConfigHelper(60),
+    ...numberConfigHelper(3600),
   },
   senderPrivateKey: {
     env: 'BOT_PRIVATE_KEY',
@@ -160,17 +158,12 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   },
   senderSalt: {
     env: 'BOT_ACCOUNT_SALT',
-    description: 'The salt to use to deploys the sender account.',
+    description: 'The salt to use to deploy the sender account.',
     parseEnv: (val: string) => (val ? Fr.fromHexString(val) : undefined),
-  },
-  recipientEncryptionSecret: {
-    env: 'BOT_RECIPIENT_ENCRYPTION_SECRET',
-    description: 'Encryption secret for a recipient account.',
-    ...secretFrConfigHelper(Fr.fromHexString('0xcafecafe')),
   },
   tokenSalt: {
     env: 'BOT_TOKEN_SALT',
-    description: 'Salt for the token contract deployment.',
+    description: 'The salt to use to deploy the token contract.',
     parseEnv: (val: string) => Fr.fromHexString(val),
     defaultValue: Fr.fromHexString('1'),
   },
@@ -266,6 +259,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     description: 'Deploy an AMM and send swaps to it',
     ...booleanConfigHelper(false),
   },
+  ...pickConfigMappings(dataConfigMappings, ['dataStoreMapSizeKB', 'dataDirectory']),
 };
 
 export function getBotConfigFromEnv(): BotConfig {

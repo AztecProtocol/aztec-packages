@@ -1,14 +1,13 @@
 import {
+  FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_PUBLIC_LOGS_PER_TX,
   PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  PUBLIC_LOG_SIZE_IN_FIELDS,
+  PUBLIC_LOG_HEADER_LENGTH,
 } from '@aztec/constants';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { PublicDataUpdateRequest } from '@aztec/stdlib/avm';
@@ -83,9 +82,7 @@ describe('Public Side Effect Trace', () => {
     trace.tracePublicLog(address, log);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
-    const expectedLog = new PublicLog(address, padArrayEnd(log, Fr.ZERO, PUBLIC_LOG_SIZE_IN_FIELDS), log.length);
-
-    expect(trace.getSideEffects().publicLogs).toEqual([expectedLog]);
+    expect(trace.getSideEffects().publicLogs).toEqual([new PublicLog(address, log)]);
   });
 
   describe('Maximum accesses', () => {
@@ -142,13 +139,13 @@ describe('Public Side Effect Trace', () => {
       );
     });
 
-    it('Should enforce maximum number of new logs', () => {
-      for (let i = 0; i < MAX_PUBLIC_LOGS_PER_TX; i++) {
-        trace.tracePublicLog(AztecAddress.fromNumber(i), [new Fr(i), new Fr(i)]);
-      }
-      expect(() => trace.tracePublicLog(AztecAddress.fromNumber(42), [new Fr(42), new Fr(42)])).toThrow(
-        SideEffectLimitReachedError,
+    it('Should enforce maximum number of log fields', () => {
+      // Fill the payload with one super large log
+      trace.tracePublicLog(
+        AztecAddress.fromNumber(42),
+        new Array(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH - PUBLIC_LOG_HEADER_LENGTH).fill(new Fr(42)),
       );
+      expect(() => trace.tracePublicLog(AztecAddress.fromNumber(42), [])).toThrow(SideEffectLimitReachedError);
     });
 
     it('Should enforce maximum number of unique contract class IDs', async () => {
@@ -194,7 +191,7 @@ describe('Public Side Effect Trace', () => {
           MAX_NOTE_HASHES_PER_TX,
           MAX_NULLIFIERS_PER_TX,
           MAX_L2_TO_L1_MSGS_PER_TX,
-          MAX_PUBLIC_LOGS_PER_TX,
+          FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
         ),
       );
       await expect(
@@ -208,9 +205,7 @@ describe('Public Side Effect Trace', () => {
       expect(() => trace.traceNewL2ToL1Message(AztecAddress.fromNumber(42), new Fr(42), new Fr(42))).toThrow(
         SideEffectLimitReachedError,
       );
-      expect(() => trace.tracePublicLog(AztecAddress.fromNumber(42), [new Fr(42), new Fr(42)])).toThrow(
-        SideEffectLimitReachedError,
-      );
+      expect(() => trace.tracePublicLog(AztecAddress.fromNumber(42), [])).toThrow(SideEffectLimitReachedError);
     });
   });
 

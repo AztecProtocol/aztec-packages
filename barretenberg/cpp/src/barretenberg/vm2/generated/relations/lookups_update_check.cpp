@@ -31,6 +31,6 @@ INSTANTIATE_LOOKUP(lookup_update_check_update_hash_public_data_read_relation);
 INSTANTIATE_LOOKUP(lookup_update_check_update_hash_poseidon2_relation);
 INSTANTIATE_LOOKUP(lookup_update_check_update_hi_metadata_range_relation);
 INSTANTIATE_LOOKUP(lookup_update_check_update_lo_metadata_range_relation);
-INSTANTIATE_LOOKUP(lookup_update_check_timestamp_of_change_cmp_range_relation);
+INSTANTIATE_LOOKUP(lookup_update_check_timestamp_is_lt_timestamp_of_change_relation);
 
 } // namespace bb::avm2

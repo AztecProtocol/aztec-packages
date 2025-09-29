@@ -5,7 +5,7 @@ import { CircularProgress, MenuItem } from '@mui/material';
 import { useContext, useEffect, useState } from 'react';
 import Typography from '@mui/material/Typography';
 import { FeeJuicePaymentMethod, type FeePaymentMethod } from '@aztec/aztec.js';
-import { AztecContext } from '../../aztecEnv';
+import { AztecContext } from '../../aztecContext';
 import { progressIndicator, select } from '../../styles/common';
 import { INFO_TEXT } from '../../constants';
 import { InfoText } from './InfoText';
@@ -19,7 +19,7 @@ interface FeePaymentSelectorProps {
 }
 
 export function FeePaymentSelector({ setFeePaymentMethod }: FeePaymentSelectorProps) {
-  const { pxe, network, wallet } = useContext(AztecContext);
+  const { network, wallet, from } = useContext(AztecContext);
 
   const [isMethodChanging, setIsMethodChanging] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<FeePaymentMethodType | undefined>(
@@ -36,7 +36,7 @@ export function FeePaymentSelector({ setFeePaymentMethod }: FeePaymentSelectorPr
     switch (method) {
       case 'sponsored_fpc': {
         const feePaymentMethod = await prepareForFeePayment(
-          pxe,
+          wallet,
           network.sponsoredFPC?.address,
           network.sponsoredFPC?.version,
         );
@@ -44,7 +44,7 @@ export function FeePaymentSelector({ setFeePaymentMethod }: FeePaymentSelectorPr
         break;
       }
       case 'fee_juice': {
-        const feePaymentMethod = new FeeJuicePaymentMethod(wallet.getAddress());
+        const feePaymentMethod = new FeeJuicePaymentMethod(from);
         setFeePaymentMethod(feePaymentMethod);
         break;
       }

@@ -55,6 +55,7 @@ type TXEForeignCallInput = {
   inputs: ForeignCallArgs;
 };
 
+// TODO: why does the zod validation in the txe dispatcher not reject invalid function names?
 const TXEForeignCallInputSchema = z.object({
   // eslint-disable-next-line camelcase
   session_id: z.number().int().nonnegative(),

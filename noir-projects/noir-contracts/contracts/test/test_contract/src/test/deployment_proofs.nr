@@ -40,25 +40,25 @@ unconstrained fn contract_historical_proofs_happy_path() {
     let (env, contract_address, _owner) = setup();
 
     env.private_context_opts(
-        PrivateContextOptions::new().at_historical_block_number(CONTRACT_DEPLOYED_AT - 1),
-        |context| { context.historical_header.prove_contract_non_deployment(contract_address); },
+        PrivateContextOptions::new().at_anchor_block_number(CONTRACT_DEPLOYED_AT - 1),
+        |context| { context.anchor_block_header.prove_contract_non_deployment(contract_address); },
     );
 
     env.private_context_opts(
-        PrivateContextOptions::new().at_historical_block_number(CONTRACT_DEPLOYED_AT),
-        |context| { context.historical_header.prove_contract_deployment(contract_address); },
+        PrivateContextOptions::new().at_anchor_block_number(CONTRACT_DEPLOYED_AT),
+        |context| { context.anchor_block_header.prove_contract_deployment(contract_address); },
     );
 
     env.private_context_opts(
-        PrivateContextOptions::new().at_historical_block_number(CONTRACT_INITIALIZED_AT - 1),
+        PrivateContextOptions::new().at_anchor_block_number(CONTRACT_INITIALIZED_AT - 1),
         |context| {
-            context.historical_header.prove_contract_non_initialization(contract_address);
+            context.anchor_block_header.prove_contract_non_initialization(contract_address);
         },
     );
 
     env.private_context_opts(
-        PrivateContextOptions::new().at_historical_block_number(CONTRACT_INITIALIZED_AT),
-        |context| { context.historical_header.prove_contract_initialization(contract_address); },
+        PrivateContextOptions::new().at_anchor_block_number(CONTRACT_INITIALIZED_AT),
+        |context| { context.anchor_block_header.prove_contract_initialization(contract_address); },
     );
 }
 
@@ -68,8 +68,8 @@ unconstrained fn prove_contract_deployment_before_deployment_fais() {
 
     // Note that we're only testing that the function fails, but not that it would correct reject bad hints from an oracle
     env.private_context_opts(
-        PrivateContextOptions::new().at_historical_block_number(CONTRACT_DEPLOYED_AT - 1),
-        |context| { context.historical_header.prove_contract_deployment(contract_address); },
+        PrivateContextOptions::new().at_anchor_block_number(CONTRACT_DEPLOYED_AT - 1),
+        |context| { context.anchor_block_header.prove_contract_deployment(contract_address); },
     );
 }
 
@@ -79,8 +79,8 @@ unconstrained fn prove_contract_initialization_before_initialization_fails() {
 
     // Note that we're only testing that the function fails, but not that it would correct reject bad hints from an oracle
     env.private_context_opts(
-        PrivateContextOptions::new().at_historical_block_number(CONTRACT_INITIALIZED_AT - 1),
-        |context| { context.historical_header.prove_contract_initialization(contract_address); },
+        PrivateContextOptions::new().at_anchor_block_number(CONTRACT_INITIALIZED_AT - 1),
+        |context| { context.anchor_block_header.prove_contract_initialization(contract_address); },
     );
 }
 
@@ -90,8 +90,8 @@ unconstrained fn prove_contract_non_deployment_of_deployed_fails() {
 
     // Note that we're only testing that the function fails, but not that it would correct reject bad hints from an oracle
     env.private_context_opts(
-        PrivateContextOptions::new().at_historical_block_number(CONTRACT_DEPLOYED_AT),
-        |context| { context.historical_header.prove_contract_non_deployment(contract_address); },
+        PrivateContextOptions::new().at_anchor_block_number(CONTRACT_DEPLOYED_AT),
+        |context| { context.anchor_block_header.prove_contract_non_deployment(contract_address); },
     );
 }
 
@@ -101,9 +101,9 @@ unconstrained fn prove_contract_non_initialization_of_initialized_fails() {
 
     // Note that we're only testing that the function fails, but not that it would correct reject bad hints from an oracle
     env.private_context_opts(
-        PrivateContextOptions::new().at_historical_block_number(CONTRACT_INITIALIZED_AT),
+        PrivateContextOptions::new().at_anchor_block_number(CONTRACT_INITIALIZED_AT),
         |context| {
-            context.historical_header.prove_contract_non_initialization(contract_address);
+            context.anchor_block_header.prove_contract_non_initialization(contract_address);
         },
     );
 }

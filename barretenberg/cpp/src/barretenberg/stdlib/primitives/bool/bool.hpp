@@ -61,7 +61,7 @@ template <typename Builder> class bool_t {
     bool_t(const bool value = false);
     bool_t(Builder* parent_context);
     bool_t(Builder* parent_context, const bool value);
-    bool_t(const witness_t<Builder>& value);
+    bool_t(const witness_t<Builder>& value, const bool& use_range_constraint = false);
     bool_t(const bool_t& other);
     bool_t(bool_t&& other);
 
@@ -69,6 +69,8 @@ template <typename Builder> class bool_t {
     bool_t& operator=(const witness_t<Builder>& other);
     bool_t& operator=(const bool_t& other);
     bool_t& operator=(bool_t&& other);
+
+    static bool_t from_witness_index_unsafe(Builder* ctx, uint32_t witness_index);
 
     // bitwise operations
     bool_t operator&(const bool_t& other) const;
@@ -109,6 +111,13 @@ template <typename Builder> class bool_t {
     bool get_value() const { return witness_bool ^ witness_inverted; }
 
     bool is_constant() const { return witness_index == IS_CONSTANT; }
+    bool is_inverted() const
+    {
+        if (is_constant()) {
+            ASSERT(!witness_inverted);
+        }
+        return witness_inverted;
+    }
 
     bool_t normalize() const;
 
@@ -127,11 +136,16 @@ template <typename Builder> class bool_t {
         context->fix_witness(witness_index, get_value());
         unset_free_witness_tag();
     }
+
+  private:
     mutable Builder* context = nullptr;
     mutable bool witness_bool = false;
     mutable bool witness_inverted = false;
     mutable uint32_t witness_index = IS_CONSTANT;
     mutable OriginTag tag{};
+
+    template <typename, typename> friend class bigfield;
+    template <typename> friend class field_t;
 };
 
 template <typename T> inline std::ostream& operator<<(std::ostream& os, bool_t<T> const& v)

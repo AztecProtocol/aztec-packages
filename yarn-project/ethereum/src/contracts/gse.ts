@@ -39,6 +39,14 @@ export class GSEContract {
     this.gse = getContract({ address, abi: GSEAbi, client });
   }
 
+  public async getOwner(): Promise<EthAddress> {
+    return EthAddress.fromString(await this.gse.read.owner());
+  }
+
+  public async getGovernance(): Promise<EthAddress> {
+    return EthAddress.fromString(await this.gse.read.getGovernance());
+  }
+
   getAttestersFromIndicesAtTime(instance: Hex | EthAddress, ts: bigint, indices: bigint[]) {
     if (instance instanceof EthAddress) {
       instance = instance.toString();

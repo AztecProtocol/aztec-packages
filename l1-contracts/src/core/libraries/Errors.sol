@@ -48,6 +48,9 @@ library Errors {
   error Outbox__AlreadyNullified(uint256 l2BlockNumber, uint256 leafIndex); // 0xfd71c2d4
   error Outbox__NothingToConsumeAtBlock(uint256 l2BlockNumber); // 0xa4508f22
   error Outbox__BlockNotProven(uint256 l2BlockNumber); // 0x0e194a6d
+  error Outbox__BlockAlreadyProven(uint256 l2BlockNumber);
+  error Outbox__PathTooLong();
+  error Outbox__LeafIndexOutOfBounds(uint256 leafIndex, uint256 pathLength);
 
   // Rollup
   error Rollup__InsufficientBondAmount(uint256 minimum, uint256 provided); // 0xa165f276
@@ -61,6 +64,7 @@ library Errors {
   error Rollup__InvalidTimestamp(Timestamp expected, Timestamp actual); // 0x3132e895
   error Rollup__InvalidAttestations();
   error Rollup__AttestationsAreValid();
+  error Rollup__InvalidAttestationIndex();
   error Rollup__BlockAlreadyProven();
   error Rollup__BlockNotInPendingChain();
   error Rollup__InvalidBlobHash(bytes32 expected, bytes32 actual); // 0x13031e6a
@@ -80,7 +84,6 @@ library Errors {
   error Rollup__StartIsNotFirstBlockOfEpoch(); // 0x4ef11e0d
   error Rollup__StartIsNotBuildingOnProven(); // 0x4a59f42e
   error Rollup__TooManyBlocksInEpoch(uint256 expected, uint256 actual); // 0x7d5b1408
-  error Rollup__AlreadyClaimed(address prover, Epoch epoch);
   error Rollup__NotPastDeadline(Epoch deadline, Epoch currentEpoch);
   error Rollup__PastDeadline(Epoch deadline, Epoch currentEpoch);
   error Rollup__ProverHaveAlreadySubmitted(address prover, Epoch epoch);
@@ -89,7 +92,8 @@ library Errors {
   error Rollup__RewardsNotClaimable();
   error Rollup__InvalidFirstEpochProof();
   error Rollup__InvalidCoinbase();
-  error Rollup__StaleTempBlockLog(uint256 blockNumber, uint256 pendingBlockNumber, uint256 size);
+  error Rollup__UnavailableTempBlockLog(uint256 blockNumber, uint256 pendingBlockNumber, uint256 upperLimit);
+  error Rollup__NoBlobsInBlock();
 
   // ProposedHeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
@@ -147,6 +151,7 @@ library Errors {
   error Staking__GovernanceAlreadySet();
   error Staking__InsufficientBootstrapValidators(uint256 queueSize, uint256 bootstrapFlushSize);
   error Staking__InvalidStakingQueueConfig();
+  error Staking__InvalidNormalFlushSizeQuotient();
 
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe
@@ -165,14 +170,17 @@ library Errors {
   // SignatureLib (duplicated)
   error SignatureLib__InvalidSignature(address, address); // 0xd9cbae6c
 
-  error AttestationLib__OutOfBounds(uint256, uint256);
+  error AttestationLib__InvalidDataSize(uint256, uint256);
   error AttestationLib__SignatureIndicesSizeMismatch(uint256, uint256);
   error AttestationLib__SignaturesOrAddressesSizeMismatch(uint256, uint256);
+  error AttestationLib__SignersSizeMismatch(uint256, uint256);
   error AttestationLib__NotASignatureAtIndex(uint256 index);
   error AttestationLib__NotAnAddressAtIndex(uint256 index);
 
   // RewardBooster
   error RewardBooster__OnlyRollup(address caller);
+
+  error RewardLib__InvalidSequencerBps();
 
   // TallySlashingProposer
   error TallySlashingProposer__InvalidSignature();

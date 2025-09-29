@@ -153,7 +153,7 @@ export async function createTxForPublicCalls(
 
   return await Tx.create({
     data: txData,
-    clientIvcProof: ClientIvcProof.empty(),
+    clientIvcProof: ClientIvcProof.random(),
     contractClassLogFields: [],
     publicFunctionCalldata: calldata,
   });

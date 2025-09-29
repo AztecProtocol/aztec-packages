@@ -12,6 +12,8 @@
     "./schnorr/lazy": "./dest/schnorr/lazy.js",
     "./single_key": "./dest/single_key/index.js",
     "./single_key/lazy": "./dest/single_key/lazy.js",
+    "./stub": "./dest/stub/index.js",
+    "./stub/lazy": "./dest/stub/lazy.js",
     "./testing": "./dest/testing/index.js",
     "./testing/lazy": "./dest/testing/lazy.js",
     "./copy-cat": "./dest/copy_cat/index.js",

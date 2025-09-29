@@ -35,26 +35,26 @@ template <typename FF> class note_hash_tree_check : public Relation<note_hash_tr
   public:
     static constexpr const std::string_view NAME = "note_hash_tree_check";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 5:
-            return "DISABLE_SILOING_ON_READ";
-        case 7:
-            return "PASSTHROUGH_SILOING";
-        case 9:
-            return "DISABLE_UNIQUENESS_ON_READ";
-        case 10:
-            return "PASSTHROUGH_UNIQUENESS";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_DISABLE_SILOING_ON_READ = 5;
     static constexpr size_t SR_PASSTHROUGH_SILOING = 7;
     static constexpr size_t SR_DISABLE_UNIQUENESS_ON_READ = 9;
     static constexpr size_t SR_PASSTHROUGH_UNIQUENESS = 10;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_DISABLE_SILOING_ON_READ:
+            return "DISABLE_SILOING_ON_READ";
+        case SR_PASSTHROUGH_SILOING:
+            return "PASSTHROUGH_SILOING";
+        case SR_DISABLE_UNIQUENESS_ON_READ:
+            return "DISABLE_UNIQUENESS_ON_READ";
+        case SR_PASSTHROUGH_UNIQUENESS:
+            return "PASSTHROUGH_UNIQUENESS";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

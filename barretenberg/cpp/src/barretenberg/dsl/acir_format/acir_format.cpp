@@ -16,7 +16,7 @@
 #include "barretenberg/dsl/acir_format/pg_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/honk/proving_key_inspector.hpp"
+#include "barretenberg/honk/prover_instance_inspector.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
@@ -34,9 +34,6 @@
 namespace acir_format {
 
 using namespace bb;
-
-template class DSLBigInts<UltraCircuitBuilder>;
-template class DSLBigInts<MegaCircuitBuilder>;
 
 template <typename Builder>
 void perform_full_IPA_verification(Builder& builder,
@@ -261,30 +258,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         }
     }
 
-    // Add big_int constraints
-    DSLBigInts<Builder> dsl_bigints;
-    dsl_bigints.set_builder(&builder);
-    for (size_t i = 0; i < constraint_system.bigint_from_le_bytes_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.bigint_from_le_bytes_constraints.at(i);
-        create_bigint_from_le_bytes_constraint(builder, constraint, dsl_bigints);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.bigint_from_le_bytes_constraints.at(i));
-    }
-
-    for (size_t i = 0; i < constraint_system.bigint_operations.size(); ++i) {
-        const auto& constraint = constraint_system.bigint_operations[i];
-        create_bigint_operations_constraint<Builder>(constraint, dsl_bigints, has_valid_witness_assignments);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.bigint_operations[i]);
-    }
-
-    for (size_t i = 0; i < constraint_system.bigint_to_le_bytes_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.bigint_to_le_bytes_constraints.at(i);
-        create_bigint_to_le_bytes_constraint(builder, constraint, dsl_bigints);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.bigint_to_le_bytes_constraints.at(i));
-    }
-
     // assert equals
     for (size_t i = 0; i < constraint_system.assert_equalities.size(); ++i) {
         const auto& constraint = constraint_system.assert_equalities.at(i);
@@ -330,12 +303,17 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         bool has_pairing_points =
             has_honk_recursion_constraints || has_civc_recursion_constraints || has_avm_recursion_constraints;
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1523): Only handle either HONK or CIVC + AVM and
-        // fail fast otherwise
+        // We only handle:
+        // - CIVC recursion constraints (Private Base Rollup)
+        // - HONK + AVM recursion constraints (Public Base Rollup)
+        // - HONK recursion constraints
+        // - AVM recursion constraints
+        // However, as mock protocol circuits use CIVC + AVM (mock Public Base Rollup), instead of throwing an assert we
+        // return a vinfo for the case of CIVC + AVM
         BB_ASSERT_EQ(has_pg_recursion_constraints,
                      false,
                      "Invalid circuit: pg recursion constraints are present with UltraBuilder.");
-        BB_ASSERT_EQ(!(has_honk_recursion_constraints && has_civc_recursion_constraints),
+        BB_ASSERT_EQ(!(has_civc_recursion_constraints && has_honk_recursion_constraints),
                      true,
                      "Invalid circuit: both honk and civc recursion constraints are present.");
         BB_ASSERT_EQ(
@@ -343,6 +321,11 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
                 is_recursive_circuit,
             true,
             "Invalid circuit: honk, civc, or avm recursion constraints present but the circuit is not recursive.");
+        if (has_civc_recursion_constraints && has_avm_recursion_constraints) {
+            vinfo("WARNING: both civc and avm recursion constraints are present. While we support this combination, we "
+                  "expect to see it only in a mock "
+                  "circuit.");
+        }
 
         // Container for data to be propagated
         HonkRecursionConstraintsOutput<Builder> honk_output;
@@ -491,7 +474,7 @@ std::pair<OpeningClaim<stdlib::grumpkin<Builder>>, HonkProof> handle_IPA_accumul
         // UltraRollupHonk, indicated by the manual setting of the honk_recursion metadata to 2.
         info("Proving with UltraRollupHonk but no IPA claims exist.");
         auto [stdlib_opening_claim, ipa_proof] =
-            IPA<stdlib::grumpkin<Builder>>::create_fake_ipa_claim_and_proof(builder);
+            IPA<stdlib::grumpkin<Builder>>::create_random_valid_ipa_claim_and_proof(builder);
 
         final_ipa_claim = stdlib_opening_claim;
         final_ipa_proof = ipa_proof;

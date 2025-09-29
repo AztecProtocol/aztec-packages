@@ -10,12 +10,12 @@
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/ultra_honk/decider_verification_key.hpp"
+#include "barretenberg/ultra_honk/verifier_instance.hpp"
 
 namespace bb {
 
 template <typename Flavor>
-DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& accumulator,
+DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<VerifierInstance>& accumulator,
                                            const std::shared_ptr<Transcript>& transcript)
     : accumulator(accumulator)
     , transcript(transcript)

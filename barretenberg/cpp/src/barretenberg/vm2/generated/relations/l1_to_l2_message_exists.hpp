@@ -14,7 +14,7 @@ template <typename FF_> class l1_to_l2_message_existsImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 3, 3 };
+    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -34,23 +34,23 @@ template <typename FF> class l1_to_l2_message_exists : public Relation<l1_to_l2_
   public:
     static constexpr const std::string_view NAME = "l1_to_l2_message_exists";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_L1_TO_L2_MSG_EXISTS_OUT_OF_RANGE_FALSE = 1;
+    static constexpr size_t SR_L1_TO_L2_MSG_EXISTS_U1_OUTPUT_TAG = 2;
+    static constexpr size_t SR_L1_TO_L2_MSG_EXISTS_SUCCESS = 3;
+
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 2:
+        case SR_L1_TO_L2_MSG_EXISTS_OUT_OF_RANGE_FALSE:
             return "L1_TO_L2_MSG_EXISTS_OUT_OF_RANGE_FALSE";
-        case 3:
+        case SR_L1_TO_L2_MSG_EXISTS_U1_OUTPUT_TAG:
             return "L1_TO_L2_MSG_EXISTS_U1_OUTPUT_TAG";
-        case 4:
+        case SR_L1_TO_L2_MSG_EXISTS_SUCCESS:
             return "L1_TO_L2_MSG_EXISTS_SUCCESS";
         }
         return std::to_string(index);
     }
-
-    // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_L1_TO_L2_MSG_EXISTS_OUT_OF_RANGE_FALSE = 2;
-    static constexpr size_t SR_L1_TO_L2_MSG_EXISTS_U1_OUTPUT_TAG = 3;
-    static constexpr size_t SR_L1_TO_L2_MSG_EXISTS_SUCCESS = 4;
 };
 
 } // namespace bb::avm2

@@ -9,6 +9,7 @@ import {Add2HonkZKVerifier} from "../../src/honk/instance/Add2HonkZK.sol";
 import {DifferentialFuzzer} from "../base/DifferentialFuzzer.sol";
 import {IVerifier} from "../../src/interfaces/IVerifier.sol";
 
+/// forge-lint: disable-next-item(unaliased-plain-import)
 import "forge-std/console.sol";
 
 contract Add2HonkZKTest is TestBaseHonkZK {

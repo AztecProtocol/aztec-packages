@@ -3,6 +3,7 @@ import { keccak256 } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import type { Fr } from '@aztec/foundation/fields';
+import type { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
 import {
   BlockAttestation,
   BlockProposal,
@@ -10,7 +11,8 @@ import {
   ConsensusPayload,
   SignatureDomainSeparator,
 } from '@aztec/stdlib/p2p';
-import type { ProposedBlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
+import type { CheckpointHeader } from '@aztec/stdlib/rollup';
+import type { StateReference, Tx } from '@aztec/stdlib/tx';
 
 import type { ValidatorKeyStore } from '../key_store/interface.js';
 
@@ -29,7 +31,7 @@ export class ValidationService {
    */
   async createBlockProposal(
     blockNumber: number,
-    header: ProposedBlockHeader,
+    header: CheckpointHeader,
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
@@ -75,5 +77,15 @@ export class ValidationService {
     );
     //await this.keyStore.signMessage(buf);
     return signatures.map(sig => new BlockAttestation(proposal.blockNumber, proposal.payload, sig));
+  }
+
+  async signAttestationsAndSigners(
+    attestationsAndSigners: CommitteeAttestationsAndSigners,
+    proposer: EthAddress,
+  ): Promise<Signature> {
+    const buf = Buffer32.fromBuffer(
+      keccak256(attestationsAndSigners.getPayloadToSign(SignatureDomainSeparator.attestationsAndSigners)),
+    );
+    return await this.keyStore.signMessageWithAddress(proposer, buf);
   }
 }

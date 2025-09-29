@@ -123,7 +123,7 @@ TEST(stdlib_schnorr, schnorr_signature_verification_result)
     stdlib::schnorr_signature_bits sig = stdlib::schnorr_convert_signature(&builder, signature);
     byte_array_ct message(&builder, longer_string);
     bool_ct signature_result = schnorr_signature_verification_result(message, pub_key, sig);
-    EXPECT_EQ(signature_result.witness_bool, true);
+    EXPECT_EQ(signature_result.get_value(), true);
 
     info("num gates = ", builder.get_estimated_num_finalized_gates());
 
@@ -166,7 +166,7 @@ TEST(stdlib_schnorr, signature_verification_result_failure)
     stdlib::schnorr_signature_bits sig = stdlib::schnorr_convert_signature(&builder, signature);
     byte_array_ct message(&builder, message_string);
     bool_ct signature_result = schnorr_signature_verification_result(message, pub_key2_ct, sig);
-    EXPECT_EQ(signature_result.witness_bool, false);
+    EXPECT_EQ(signature_result.get_value(), false);
 
     info("num gates = ", builder.get_estimated_num_finalized_gates());
 

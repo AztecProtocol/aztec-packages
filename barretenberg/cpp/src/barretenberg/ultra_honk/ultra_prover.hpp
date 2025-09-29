@@ -12,7 +12,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 
 namespace bb {
 
@@ -27,12 +27,12 @@ template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using PCS = typename Flavor::PCS;
-    using DeciderPK = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using HonkVK = typename Flavor::VerificationKey;
     using Transcript = typename Flavor::Transcript;
     using Proof = typename Transcript::Proof;
 
-    std::shared_ptr<DeciderPK> proving_key;
+    std::shared_ptr<ProverInstance> prover_instance;
     std::shared_ptr<HonkVK> honk_vk;
 
     std::shared_ptr<Transcript> transcript;
@@ -45,9 +45,9 @@ template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
 
     CommitmentKey commitment_key;
 
-    UltraProver_(const std::shared_ptr<DeciderPK>&, const std::shared_ptr<HonkVK>&, const CommitmentKey&);
+    UltraProver_(const std::shared_ptr<ProverInstance>&, const std::shared_ptr<HonkVK>&, const CommitmentKey&);
 
-    explicit UltraProver_(const std::shared_ptr<DeciderPK>&,
+    explicit UltraProver_(const std::shared_ptr<ProverInstance>&,
                           const std::shared_ptr<HonkVK>&,
                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 

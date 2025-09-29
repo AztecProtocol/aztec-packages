@@ -12,71 +12,46 @@
 
 namespace bb {
 
-template <class DeciderVerificationKeys>
-void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_incomplete_key(
-    const std::vector<FF>& proof)
+template <class VerifierInstance>
+void ProtogalaxyVerifier_<VerifierInstance>::run_oink_verifier_on_each_incomplete_instance(const std::vector<FF>& proof)
 {
     transcript->load_proof(proof);
-    auto key = keys_to_fold[0];
+    auto inst = insts_to_fold[0];
     auto domain_separator = std::to_string(0);
-    if (!key->is_complete) {
-        OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
+    if (!inst->is_complete) {
+        OinkVerifier<Flavor> oink_verifier{ inst, transcript, domain_separator + '_' };
         oink_verifier.verify();
-        key->target_sum = 0;
+        inst->target_sum = 0;
         // Get the gate challenges for sumcheck/combiner computation
-        key->gate_challenges =
+        inst->gate_challenges =
             transcript->template get_powers_of_challenge<FF>(domain_separator + "_gate_challenge", CONST_PG_LOG_N);
     }
 
-    key = keys_to_fold[1];
+    inst = insts_to_fold[1];
     domain_separator = std::to_string(1);
-    OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
+    OinkVerifier<Flavor> oink_verifier{ inst, transcript, domain_separator + '_' };
     oink_verifier.verify();
 }
 
-template <typename FF, size_t NUM>
+template <typename FF>
 std::tuple<FF, std::vector<FF>> compute_vanishing_polynomial_and_lagrange_evaluations(const FF& combiner_challenge)
 {
-    static_assert(NUM < 5);
-    static constexpr FF inverse_two = FF(2).invert();
-
-    std::vector<FF> lagranges(NUM);
-    FF vanishing_polynomial_at_challenge;
-    if constexpr (NUM == 2) {
-        vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
-        lagranges = { FF(1) - combiner_challenge, combiner_challenge };
-    } else if constexpr (NUM == 3) {
-        vanishing_polynomial_at_challenge =
-            combiner_challenge * (combiner_challenge - FF(1)) * (combiner_challenge - FF(2));
-        lagranges = { (FF(1) - combiner_challenge) * (FF(2) - combiner_challenge) * inverse_two,
-                      combiner_challenge * (FF(2) - combiner_challenge),
-                      combiner_challenge * (combiner_challenge - FF(1)) * inverse_two };
-    } else if constexpr (NUM == 4) {
-        static constexpr FF inverse_six = FF(6).invert();
-        vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1)) *
-                                            (combiner_challenge - FF(2)) * (combiner_challenge - FF(3));
-        lagranges = { (FF(1) - combiner_challenge) * (FF(2) - combiner_challenge) * (FF(3) - combiner_challenge) *
-                          inverse_six,
-                      combiner_challenge * (FF(2) - combiner_challenge) * (FF(3) - combiner_challenge) * inverse_two,
-                      combiner_challenge * (combiner_challenge - FF(1)) * (FF(3) - combiner_challenge) * inverse_two,
-                      combiner_challenge * (combiner_challenge - FF(1)) * (combiner_challenge - FF(2)) * inverse_six };
-    }
+    FF vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
+    std::vector<FF> lagranges = { FF(1) - combiner_challenge, combiner_challenge };
     return std::make_tuple(vanishing_polynomial_at_challenge, lagranges);
 }
 
-template <class DeciderVerificationKeys>
-std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier_<
-    DeciderVerificationKeys>::verify_folding_proof(const std::vector<FF>& proof)
+template <class VerifierInstance>
+std::shared_ptr<VerifierInstance> ProtogalaxyVerifier_<VerifierInstance>::verify_folding_proof(
+    const std::vector<FF>& proof)
 {
-    static constexpr size_t BATCHED_EXTENDED_LENGTH = DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH;
-    static constexpr size_t NUM_KEYS = DeciderVerificationKeys::NUM;
     // The degree of the combiner quotient (K in the paper) is dk - k - 1 = k(d - 1) - 1.
     // Hence we need  k(d - 1) evaluations to represent it.
-    static constexpr size_t COMBINER_LENGTH = BATCHED_EXTENDED_LENGTH - NUM_KEYS;
+    static constexpr size_t COMBINER_QUOTIENT_LENGTH = BATCHED_EXTENDED_LENGTH - NUM_INSTANCES;
 
-    const std::shared_ptr<DeciderVK>& accumulator = keys_to_fold[0];
+    const std::shared_ptr<VerifierInstance>& accumulator = insts_to_fold[0];
 
-    run_oink_verifier_on_each_incomplete_key(proof);
+    run_oink_verifier_on_each_incomplete_instance(proof);
 
     // Perturbator round
     const std::vector<FF> deltas = transcript->template get_powers_of_challenge<FF>("delta", CONST_PG_LOG_N);
@@ -92,14 +67,14 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     const Polynomial<FF> perturbator(perturbator_coeffs);
     const FF perturbator_evaluation = perturbator.evaluate(perturbator_challenge);
 
-    std::array<FF, COMBINER_LENGTH> combiner_quotient_evals;
-    for (size_t idx = DeciderVerificationKeys::NUM; auto& val : combiner_quotient_evals) {
+    std::array<FF, COMBINER_QUOTIENT_LENGTH> combiner_quotient_evals;
+    for (size_t idx = NUM_INSTANCES; auto& val : combiner_quotient_evals) {
         val = transcript->template receive_from_prover<FF>("combiner_quotient_" + std::to_string(idx++));
     }
 
     // Folding
     const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
-    const Univariate<FF, BATCHED_EXTENDED_LENGTH, NUM_KEYS> combiner_quotient(combiner_quotient_evals);
+    const Univariate<FF, BATCHED_EXTENDED_LENGTH, NUM_INSTANCES> combiner_quotient(combiner_quotient_evals);
     const FF combiner_quotient_evaluation = combiner_quotient.evaluate(combiner_challenge);
 
     // Set a constant virtual log circuit size in the accumulator
@@ -108,34 +83,34 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
 
     // Compute next folding parameters
     const auto [vanishing_polynomial_at_challenge, lagranges] =
-        compute_vanishing_polynomial_and_lagrange_evaluations<FF, NUM_KEYS>(combiner_challenge);
+        compute_vanishing_polynomial_and_lagrange_evaluations<FF>(combiner_challenge);
     accumulator->target_sum =
         perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_evaluation;
     accumulator->gate_challenges = // note: known already in previous round
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
-    // // Fold the commitments
+    // Fold the commitments
     for (auto [combination, to_combine] :
-         zip_view(accumulator->vk->get_all(), keys_to_fold.get_precomputed_commitments())) {
+         zip_view(accumulator->vk->get_all(), get_data_to_fold<FOLDING_DATA::PRECOMPUTED_COMMITMENTS>())) {
         combination = batch_mul_native(to_combine, lagranges);
     }
     for (auto [combination, to_combine] :
-         zip_view(accumulator->witness_commitments.get_all(), keys_to_fold.get_witness_commitments())) {
+         zip_view(accumulator->witness_commitments.get_all(), get_data_to_fold<FOLDING_DATA::WITNESS_COMMITMENTS>())) {
         combination = batch_mul_native(to_combine, lagranges);
     }
 
     // Fold the relation parameters
-    for (auto [combination, to_combine] : zip_view(accumulator->alphas, keys_to_fold.get_alphas())) {
-        combination = linear_combination(to_combine, lagranges);
+    for (auto [combination, to_combine] : zip_view(accumulator->alphas, get_data_to_fold<FOLDING_DATA::ALPHAS>())) {
+        combination = to_combine[0] + combiner_challenge * (to_combine[1] - to_combine[0]);
     }
-    for (auto [combination, to_combine] :
-         zip_view(accumulator->relation_parameters.get_to_fold(), keys_to_fold.get_relation_parameters())) {
-        combination = linear_combination(to_combine, lagranges);
+    for (auto [combination, to_combine] : zip_view(accumulator->relation_parameters.get_to_fold(),
+                                                   get_data_to_fold<FOLDING_DATA::RELATION_PARAMETERS>())) {
+        combination = to_combine[0] + combiner_challenge * (to_combine[1] - to_combine[0]);
     }
 
     return accumulator;
 }
 
-template class ProtogalaxyVerifier_<DeciderVerificationKeys_<MegaFlavor, 2>>;
+template class ProtogalaxyVerifier_<VerifierInstance_<MegaFlavor>>;
 
 } // namespace bb

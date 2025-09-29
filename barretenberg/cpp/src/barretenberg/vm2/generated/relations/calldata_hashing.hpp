@@ -34,17 +34,17 @@ template <typename FF> class calldata_hashing : public Relation<calldata_hashing
   public:
     static constexpr const std::string_view NAME = "calldata_hashing";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_TRACE_CONTINUITY = 0;
+
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 0:
+        case SR_TRACE_CONTINUITY:
             return "TRACE_CONTINUITY";
         }
         return std::to_string(index);
     }
-
-    // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_TRACE_CONTINUITY = 0;
 };
 
 } // namespace bb::avm2

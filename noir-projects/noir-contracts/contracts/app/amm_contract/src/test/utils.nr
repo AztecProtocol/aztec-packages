@@ -63,7 +63,7 @@ pub(crate) unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddr
 }
 
 pub(crate) unconstrained fn add_liquidity(
-    env: &mut TestEnvironment,
+    env: TestEnvironment,
     amm_address: AztecAddress,
     token0_address: AztecAddress,
     token1_address: AztecAddress,
@@ -89,6 +89,7 @@ pub(crate) unconstrained fn add_liquidity(
         AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
+        env,
         liquidity_provider,
         amm_address,
         transfer0_call_interface,
@@ -101,6 +102,7 @@ pub(crate) unconstrained fn add_liquidity(
         AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
+        env,
         liquidity_provider,
         amm_address,
         transfer1_call_interface,
@@ -113,7 +115,7 @@ pub(crate) unconstrained fn add_liquidity(
 }
 
 pub(crate) unconstrained fn remove_liquidity(
-    env: &mut TestEnvironment,
+    env: TestEnvironment,
     amm_address: AztecAddress,
     liquidity_token_address: AztecAddress,
     liquidity_provider: AztecAddress,
@@ -131,6 +133,7 @@ pub(crate) unconstrained fn remove_liquidity(
         AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
+        env,
         liquidity_provider,
         amm_address,
         transfer_liquidity_call_interface,

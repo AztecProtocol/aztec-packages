@@ -42,6 +42,10 @@ contract TimeCheater {
     return Epoch.wrap(currentSlot / epochDuration);
   }
 
+  function getCurrentSlot() public view returns (uint256) {
+    return currentSlot;
+  }
+
   function cheat__setTimeStorage(TimeStorage memory _timeStorage) public {
     vm.store(
       target,

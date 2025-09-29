@@ -78,3 +78,19 @@ To add a new package, make sure to add it to the `build_manifest.json`, to the `
 ## Deploying npm packages
 
 Run `DRY_RUN=1 ./bootstrap.sh release` to see the release workflow that runs in CI. You must have checked out a valid semver tag.
+
+## Profiling
+
+There is an instrumenting profiler available with e.g. `./bootstrap.sh instrumented_profile "cd end-to-end; LOG_LEVEL=info yarn test e2e_prover/client"`
+Note that it actually rewrites source code so you need a clean git state. This command will restore the state afterwards and print the command to print the benchmark results.
+You can use --min-ms flags. You can also pass multiple --exclude regex patterns to not print certain names (similar to if they were lower than --min-ms, we will still consider their children).
+
+NOTE: Due to this using async functions, a child can have >100% of parent time. This is normal as not all functions await their async calls.
+
+Full example:
+
+```
+cd yarn-project
+./bootstrap.sh instrumented_profile "cd end-to-end; LOG_LEVEL=info yarn test e2e_prover/client"
+scripts/instrumenting-profiler/print.mjs end-to-end/profile-0.json --min-ms 100 --exclude anon
+```

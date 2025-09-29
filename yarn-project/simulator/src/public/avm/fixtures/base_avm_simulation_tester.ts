@@ -57,6 +57,7 @@ export abstract class BaseAvmSimulationTester {
     contractArtifact: ContractArtifact,
     skipNullifierInsertion = false,
     seed = 0,
+    contractClassSeed = seed,
     originalContractClassId?: Fr, // if previously upgraded
   ): Promise<ContractInstanceWithAddress> {
     const { contractClass, contractInstance } = await createContractClassAndInstance(
@@ -64,6 +65,7 @@ export abstract class BaseAvmSimulationTester {
       deployer,
       contractArtifact,
       seed,
+      contractClassSeed,
       originalContractClassId,
     );
 

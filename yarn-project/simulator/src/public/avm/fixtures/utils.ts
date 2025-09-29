@@ -113,6 +113,7 @@ export async function createContractClassAndInstance(
   deployer: AztecAddress,
   contractArtifact: ContractArtifact,
   seed = 0,
+  contractClassSeed = seed,
   originalContractClassId?: Fr, // if previously upgraded
 ): Promise<{
   contractClass: ContractClassPublic;
@@ -121,7 +122,7 @@ export async function createContractClassAndInstance(
 }> {
   const bytecode = (getContractFunctionArtifact(PUBLIC_DISPATCH_FN_NAME, contractArtifact) as FunctionArtifact)!
     .bytecode;
-  const contractClass = await makeContractClassPublic(seed, bytecode);
+  const contractClass = await makeContractClassPublic(contractClassSeed, bytecode);
 
   const constructorAbi = getContractFunctionAbi('constructor', contractArtifact);
   const { publicKeys } = await deriveKeys(new Fr(seed));

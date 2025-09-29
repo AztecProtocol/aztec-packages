@@ -34,6 +34,6 @@ void GreaterThanTraceBuilder::process(
 }
 
 const InteractionDefinition GreaterThanTraceBuilder::interactions =
-    InteractionDefinition().add<lookup_gt_gt_range_settings, InteractionType::LookupGeneric>();
+    InteractionDefinition().add<lookup_gt_gt_range_settings, InteractionType::LookupGeneric>(Column::range_check_sel);
 
 } // namespace bb::avm2::tracegen

@@ -3,7 +3,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { type ProvingJobStatus, makePublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import { makeRecursiveProof } from '@aztec/stdlib/proofs';
-import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
+import { makeParityBasePrivateInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { jest } from '@jest/globals';
@@ -39,7 +39,7 @@ describe('BrokerCircuitProverFacade', () => {
   });
 
   it('sends jobs to the broker', async () => {
-    const inputs = makeBaseParityInputs();
+    const inputs = makeParityBasePrivateInputs();
     const controller = new AbortController();
 
     jest.spyOn(broker, 'enqueueProvingJob');
@@ -54,7 +54,7 @@ describe('BrokerCircuitProverFacade', () => {
   });
 
   it('handles multiple calls for the same job', async () => {
-    const inputs = makeBaseParityInputs();
+    const inputs = makeParityBasePrivateInputs();
     const controller = new AbortController();
     const promises: Promise<any>[] = [];
 
@@ -103,7 +103,7 @@ describe('BrokerCircuitProverFacade', () => {
   });
 
   it('handles proof errors', async () => {
-    const inputs = makeBaseParityInputs();
+    const inputs = makeParityBasePrivateInputs();
     const controller = new AbortController();
     const promises: Promise<any>[] = [];
 
@@ -149,7 +149,7 @@ describe('BrokerCircuitProverFacade', () => {
   });
 
   it('handles aborts', async () => {
-    const inputs = makeBaseParityInputs();
+    const inputs = makeParityBasePrivateInputs();
     const controller = new AbortController();
 
     const resultPromise = promiseWithResolvers<any>();
@@ -169,7 +169,7 @@ describe('BrokerCircuitProverFacade', () => {
   });
 
   it('rejects jobs when the facade is stopped', async () => {
-    const inputs = makeBaseParityInputs();
+    const inputs = makeParityBasePrivateInputs();
     const controller = new AbortController();
 
     const resultPromise = promiseWithResolvers<any>();
@@ -185,7 +185,7 @@ describe('BrokerCircuitProverFacade', () => {
 
   // Regression test for #13166
   it('handles stopping while sending a proof to the broker', async () => {
-    const inputs = makeBaseParityInputs();
+    const inputs = makeParityBasePrivateInputs();
     const controller = new AbortController();
 
     // make sure the job hangs on waiting for the broker

@@ -12,12 +12,12 @@ import { TxContext } from './tx_context.js';
 export class TxConstantData {
   constructor(
     /** Header of a block whose state is used during execution (not the block the transaction is included in). */
-    public historicalHeader: BlockHeader,
+    public anchorBlockHeader: BlockHeader,
     /**
      * Context of the transaction.
      *
      * Note: `chainId` and `version` in txContext are not redundant to the values in
-     * self.historical_header.global_variables because they can be different in case of a protocol upgrade. In such
+     * self.anchor_block_header.global_variables because they can be different in case of a protocol upgrade. In such
      * a situation we could be using header from a block before the upgrade took place but be using the updated
      * protocol to execute and prove the transaction.
      */
@@ -37,7 +37,7 @@ export class TxConstantData {
   }
 
   static getFields(fields: FieldsOf<TxConstantData>) {
-    return [fields.historicalHeader, fields.txContext, fields.vkTreeRoot, fields.protocolContractTreeRoot] as const;
+    return [fields.anchorBlockHeader, fields.txContext, fields.vkTreeRoot, fields.protocolContractTreeRoot] as const;
   }
 
   static fromFields(fields: Fr[] | FieldReader): TxConstantData {
@@ -80,7 +80,7 @@ export class TxConstantData {
 
   getSize() {
     return (
-      this.historicalHeader.getSize() +
+      this.anchorBlockHeader.getSize() +
       this.txContext.getSize() +
       this.vkTreeRoot.size +
       this.protocolContractTreeRoot.size

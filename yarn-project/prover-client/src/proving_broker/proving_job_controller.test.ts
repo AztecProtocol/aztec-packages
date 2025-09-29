@@ -4,7 +4,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { type ProvingJobId, makePublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType, makeRecursiveProof } from '@aztec/stdlib/proofs';
-import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
+import { makeParityBasePrivateInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { jest } from '@jest/globals';
@@ -23,8 +23,8 @@ describe('ProvingJobController', () => {
     controller = new ProvingJobController(
       '1' as ProvingJobId,
       {
-        type: ProvingRequestType.BASE_PARITY,
-        inputs: makeBaseParityInputs(),
+        type: ProvingRequestType.PARITY_BASE,
+        inputs: makeParityBasePrivateInputs(),
       },
       42,
       0,

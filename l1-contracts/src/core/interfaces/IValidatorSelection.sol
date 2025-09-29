@@ -11,7 +11,8 @@ struct ValidatorSelectionStorage {
   mapping(Epoch => bytes32 committeeCommitment) committeeCommitments;
   // Checkpointed map of epoch -> randao value
   Checkpoints.Trace224 randaos;
-  uint256 targetCommitteeSize;
+  uint32 targetCommitteeSize;
+  uint32 lagInEpochs;
 }
 
 interface IValidatorSelectionCore {
@@ -36,6 +37,8 @@ interface IValidatorSelection is IValidatorSelectionCore, IEmperor {
   function getTimestampForSlot(Slot _slotNumber) external view returns (Timestamp);
 
   function getSampleSeedAt(Timestamp _ts) external view returns (uint256);
+  function getSamplingSizeAt(Timestamp _ts) external view returns (uint256);
+  function getLagInEpochs() external view returns (uint256);
   function getCurrentSampleSeed() external view returns (uint256);
 
   function getEpochAt(Timestamp _ts) external view returns (Epoch);

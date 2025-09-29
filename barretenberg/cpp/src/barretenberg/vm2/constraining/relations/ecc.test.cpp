@@ -9,13 +9,14 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/ecc.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_scalar_mul.hpp"
-#include "barretenberg/vm2/simulation/ecc.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
-#include "barretenberg/vm2/simulation/memory.hpp"
-#include "barretenberg/vm2/simulation/testing/fakes/fake_gt.hpp"
-#include "barretenberg/vm2/simulation/testing/fakes/fake_to_radix.hpp"
+#include "barretenberg/vm2/simulation/gadgets/ecc.hpp"
+#include "barretenberg/vm2/simulation/gadgets/memory.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_gt.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_to_radix.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
@@ -47,13 +48,13 @@ using ToRadixSimulator = simulation::ToRadix;
 using simulation::EccAddEvent;
 using simulation::EccAddMemoryEvent;
 using simulation::EventEmitter;
-using simulation::FakeGreaterThan;
-using simulation::FakeToRadix;
 using simulation::MemoryStore;
 using simulation::MockExecutionIdManager;
 using simulation::MockGreaterThan;
 using simulation::MockMemory;
 using simulation::NoopEventEmitter;
+using simulation::PureGreaterThan;
+using simulation::PureToRadix;
 using simulation::ScalarMulEvent;
 using simulation::ToRadixEvent;
 using simulation::ToRadixMemoryEvent;
@@ -508,7 +509,7 @@ TEST(ScalarMulConstrainingTest, MulByOne)
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    FakeToRadix to_radix_simulator = FakeToRadix();
+    PureToRadix to_radix_simulator = PureToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -538,7 +539,7 @@ TEST(ScalarMulConstrainingTest, BasicMul)
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    FakeToRadix to_radix_simulator = FakeToRadix();
+    PureToRadix to_radix_simulator = PureToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -568,7 +569,7 @@ TEST(ScalarMulConstrainingTest, MultipleInvocations)
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    FakeToRadix to_radix_simulator = FakeToRadix();
+    PureToRadix to_radix_simulator = PureToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -636,7 +637,7 @@ TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinity)
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    FakeToRadix to_radix_simulator = FakeToRadix();
+    PureToRadix to_radix_simulator = PureToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -670,7 +671,7 @@ TEST(ScalarMulConstrainingTest, NegativeMulAddInteractions)
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    FakeToRadix to_radix_simulator = FakeToRadix();
+    PureToRadix to_radix_simulator = PureToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -703,7 +704,7 @@ TEST(ScalarMulConstrainingTest, NegativeMulRadixInteractions)
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    FakeToRadix to_radix_simulator = FakeToRadix();
+    PureToRadix to_radix_simulator = PureToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -736,7 +737,7 @@ TEST(ScalarMulConstrainingTest, NegativeDisableSel)
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    FakeToRadix to_radix_simulator = FakeToRadix();
+    PureToRadix to_radix_simulator = PureToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -768,7 +769,7 @@ TEST(ScalarMulConstrainingTest, NegativeEnableStartFirstRow)
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    FakeToRadix to_radix_simulator = FakeToRadix();
+    PureToRadix to_radix_simulator = PureToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -799,7 +800,7 @@ TEST(ScalarMulConstrainingTest, NegativeMutateScalarOnEnd)
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    FakeToRadix to_radix_simulator = FakeToRadix();
+    PureToRadix to_radix_simulator = PureToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -831,7 +832,7 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointXOnEnd)
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    FakeToRadix to_radix_simulator = FakeToRadix();
+    PureToRadix to_radix_simulator = PureToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -864,7 +865,7 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointYOnEnd)
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    FakeToRadix to_radix_simulator = FakeToRadix();
+    PureToRadix to_radix_simulator = PureToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -897,7 +898,7 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointInfOnEnd)
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    FakeToRadix to_radix_simulator = FakeToRadix();
+    PureToRadix to_radix_simulator = PureToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -943,8 +944,8 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemory)
     StrictMock<MockExecutionIdManager> execution_id_manager;
     EXPECT_CALL(execution_id_manager, get_execution_id)
         .WillRepeatedly(Return(0)); // Use a fixed execution IDfor the test
-    FakeGreaterThan gt;
-    FakeToRadix to_radix_simulator = FakeToRadix();
+    PureGreaterThan gt;
+    PureToRadix to_radix_simulator = PureToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -969,8 +970,8 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryInteractions)
     StrictMock<MockExecutionIdManager> execution_id_manager;
     EXPECT_CALL(execution_id_manager, get_execution_id)
         .WillRepeatedly(Return(0)); // Use a fixed execution IDfor the test
-    FakeGreaterThan gt;
-    FakeToRadix to_radix_simulator = FakeToRadix();
+    PureGreaterThan gt;
+    PureToRadix to_radix_simulator = PureToRadix();
 
     EventEmitter<EccAddEvent> ecc_add_event_emitter;
     NoopEventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
@@ -1053,8 +1054,8 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryInvalidDstRange)
     StrictMock<MockExecutionIdManager> execution_id_manager;
     EXPECT_CALL(execution_id_manager, get_execution_id)
         .WillRepeatedly(Return(0)); // Use a fixed execution IDfor the test
-    FakeGreaterThan gt;
-    FakeToRadix to_radix_simulator = FakeToRadix();
+    PureGreaterThan gt;
+    PureToRadix to_radix_simulator = PureToRadix();
 
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
@@ -1108,8 +1109,8 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryPointError)
     StrictMock<MockExecutionIdManager> execution_id_manager;
     EXPECT_CALL(execution_id_manager, get_execution_id)
         .WillRepeatedly(Return(0)); // Use a fixed execution IDfor the test
-    FakeGreaterThan gt;
-    FakeToRadix to_radix_simulator = FakeToRadix();
+    PureGreaterThan gt;
+    PureToRadix to_radix_simulator = PureToRadix();
 
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,

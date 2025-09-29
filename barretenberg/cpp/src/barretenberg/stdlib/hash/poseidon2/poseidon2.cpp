@@ -5,22 +5,18 @@
 // =====================
 
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
-#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 namespace bb::stdlib {
-
-using namespace bb;
 
 /**
  * @brief Hash a vector of field_ct.
  */
-template <typename C> field_t<C> poseidon2<C>::hash(C& builder, const std::vector<field_ct>& inputs)
+template <typename C> field_t<C> poseidon2<C>::hash(const std::vector<field_ct>& inputs)
 {
 
     /* Run the sponge by absorbing all the input and squeezing one output.
-     * This should just call the sponge variable length hash function
      *
      */
-    return Sponge::hash_internal(builder, inputs);
+    return Sponge::hash_internal(inputs);
 }
 
 template class poseidon2<bb::MegaCircuitBuilder>;

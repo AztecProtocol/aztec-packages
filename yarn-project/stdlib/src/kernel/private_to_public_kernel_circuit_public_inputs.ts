@@ -1,6 +1,7 @@
 import { GeneratorIndex, PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import type { Fr } from '@aztec/foundation/fields';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, bigintToUInt64BE, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
@@ -92,5 +93,13 @@ export class PrivateToPublicKernelCircuitPublicInputs {
 
   hash() {
     return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.PUBLIC_TX_HASH);
+  }
+
+  toJSON() {
+    return this.toBuffer();
+  }
+
+  static get schema() {
+    return bufferSchemaFor(PrivateToPublicKernelCircuitPublicInputs);
   }
 }

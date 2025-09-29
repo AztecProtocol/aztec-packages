@@ -11,21 +11,20 @@ export type ValidatorStatusInSlot =
 
 export type ValidatorStatusHistory = { slot: bigint; status: ValidatorStatusInSlot }[];
 
+export type ValidatorMissedStats = {
+  currentStreak: number;
+  rate?: number;
+  count: number;
+  total: number;
+};
+
 export type ValidatorStats = {
   address: EthAddress;
   lastProposal?: { timestamp: bigint; slot: bigint; date: string };
   lastAttestation?: { timestamp: bigint; slot: bigint; date: string };
   totalSlots: number;
-  missedProposals: {
-    currentStreak: number;
-    rate?: number;
-    count: number;
-  };
-  missedAttestations: {
-    currentStreak: number;
-    rate?: number;
-    count: number;
-  };
+  missedProposals: ValidatorMissedStats;
+  missedAttestations: ValidatorMissedStats;
   history: ValidatorStatusHistory;
 };
 

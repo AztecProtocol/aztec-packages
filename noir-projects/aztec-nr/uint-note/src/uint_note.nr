@@ -68,23 +68,26 @@ impl NoteHash for UintNote {
     fn compute_nullifier(
         self,
         context: &mut PrivateContext,
-        note_hash_for_nullify: Field,
+        note_hash_for_nullification: Field,
     ) -> Field {
         let owner_npk_m = get_public_keys(self.owner).npk_m;
         let owner_npk_m_hash = owner_npk_m.hash();
         let secret = context.request_nsk_app(owner_npk_m_hash);
         poseidon2_hash_with_separator(
-            [note_hash_for_nullify, secret],
+            [note_hash_for_nullification, secret],
             GENERATOR_INDEX__NOTE_NULLIFIER,
         )
     }
 
-    unconstrained fn compute_nullifier_unconstrained(self, note_hash_for_nullify: Field) -> Field {
+    unconstrained fn compute_nullifier_unconstrained(
+        self,
+        note_hash_for_nullification: Field,
+    ) -> Field {
         let owner_npk_m = get_public_keys(self.owner).npk_m;
         let owner_npk_m_hash = owner_npk_m.hash();
         let secret = get_nsk_app(owner_npk_m_hash);
         poseidon2_hash_with_separator(
-            [note_hash_for_nullify, secret],
+            [note_hash_for_nullification, secret],
             GENERATOR_INDEX__NOTE_NULLIFIER,
         )
     }
@@ -144,14 +147,14 @@ impl UintNote {
         //  - the commitment is already public information, so we're not revealing anything else
         //  - we don't need to create any additional information, private or public, for the tag
         //  - other contracts cannot impersonate us and emit logs with the same tag due to public log siloing
-        let private_log_content = PrivateUintPartialNotePrivateLogContent {
-            owner,
-            randomness,
-            public_log_tag: commitment,
-        };
+        let private_log_content =
+            UintPartialNotePrivateLogContent { owner, randomness, public_log_tag: commitment };
 
-        let encrypted_log =
-            note::compute_partial_note_log(private_log_content, storage_slot, recipient);
+        let encrypted_log = note::compute_partial_note_private_content_log(
+            private_log_content,
+            storage_slot,
+            recipient,
+        );
         // Regardless of the original content size, the log is padded with random bytes up to
         // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
         let length = encrypted_log.len();
@@ -190,7 +193,7 @@ impl UintPartialNotePrivateContent {
 }
 
 #[derive(Packable)]
-struct PrivateUintPartialNotePrivateLogContent {
+struct UintPartialNotePrivateLogContent {
     // The ordering of these fields is important given that it must:
     //   a) match that of UintNote, and
     //   b) have the public log tag at the beginning
@@ -200,7 +203,7 @@ struct PrivateUintPartialNotePrivateLogContent {
     randomness: Field,
 }
 
-impl NoteType for PrivateUintPartialNotePrivateLogContent {
+impl NoteType for UintPartialNotePrivateLogContent {
     fn get_id() -> Field {
         UintNote::get_id()
     }
@@ -261,7 +264,7 @@ impl PartialUintNote {
         // the nullifiers in the tree are siloed by the protocol.
         let siloed_validity_commitment =
             compute_siloed_nullifier(context.this_address(), validity_commitment);
-        context.get_block_header().prove_nullifier_inclusion(siloed_validity_commitment);
+        context.get_anchor_block_header().prove_nullifier_inclusion(siloed_validity_commitment);
 
         // We need to do two things:
         //  - emit an unencrypted log containing the public fields (the value) via the private log channel. The
@@ -328,8 +331,7 @@ impl FromField for PartialUintNote {
 
 mod test {
     use super::{
-        PartialUintNote, PrivateUintPartialNotePrivateLogContent, UintNote,
-        UintPartialNotePrivateContent,
+        PartialUintNote, UintNote, UintPartialNotePrivateContent, UintPartialNotePrivateLogContent,
     };
     use dep::aztec::{
         note::note_interface::NoteHash,
@@ -372,11 +374,8 @@ mod test {
         let partial_note_private_content = UintPartialNotePrivateContent { owner, randomness };
         let commitment = partial_note_private_content.compute_partial_commitment(storage_slot);
 
-        let private_log_content = PrivateUintPartialNotePrivateLogContent {
-            owner,
-            randomness,
-            public_log_tag: commitment,
-        };
+        let private_log_content =
+            UintPartialNotePrivateLogContent { owner, randomness, public_log_tag: commitment };
         // The following is a misuse of the `deserialize` function, but this is just a test and it's better than
         // letting devs manually construct it when they shouldn't be able to.
         let partial_note = PartialUintNote::deserialize([commitment]);

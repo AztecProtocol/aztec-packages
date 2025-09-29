@@ -107,6 +107,10 @@ spec:
               value: "{{ .Values.aztec.contracts.registryAddress }}"
             - name: KEY_INDEX_START
               value: {{ .Values.aztec.proverKeyIndexStart | quote }}
+            - name: PUBLISHER_KEY_INDEX_START
+              value: {{ .Values.aztec.proverPublisherIndexStart | quote }}
+            - name: PUBLISHERS_PER_PROVER
+              value: {{ .Values.proverNode.publishersPerProver | quote }}
             - name: MNEMONIC
               value: {{ .Values.aztec.l1DeploymentMnemonic }}
             - name: K8S_POD_UID

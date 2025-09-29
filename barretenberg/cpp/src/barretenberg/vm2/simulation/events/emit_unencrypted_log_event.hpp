@@ -23,14 +23,13 @@ struct EmitUnencryptedLogWriteEvent {
     uint32_t space_id;
     MemoryAddress log_address;
     uint32_t log_size;
-    uint32_t prev_num_unencrypted_logs;
-    uint32_t next_num_unencrypted_logs;
+    uint32_t prev_num_unencrypted_log_fields;
+    uint32_t next_num_unencrypted_log_fields;
     bool is_static;
     std::vector<MemoryValue> values;
 
-    bool error_too_large;
     bool error_memory_out_of_bounds;
-    bool error_too_many_logs;
+    bool error_too_many_log_fields;
     bool error_is_static;
     bool error_tag_mismatch;
 

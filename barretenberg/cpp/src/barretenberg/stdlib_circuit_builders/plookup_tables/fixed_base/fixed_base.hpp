@@ -84,8 +84,8 @@ class table : public FixedBaseParams {
     static const std::array<affine_element, table::NUM_FIXED_BASE_MULTI_TABLES>& fixed_base_table_offset_generators();
 
     static bool lookup_table_exists_for_point(const affine_element& input);
-    static std::optional<std::array<MultiTableId, 2>> get_lookup_table_ids_for_point(const affine_element& input);
-    static std::optional<affine_element> get_generator_offset_for_table_id(MultiTableId table_id);
+    static std::array<MultiTableId, 2> get_lookup_table_ids_for_point(const affine_element& input);
+    static affine_element get_generator_offset_for_table_id(MultiTableId table_id);
 
     template <size_t multitable_index>
     static BasicTable generate_basic_fixed_base_table(BasicTableId id, size_t basic_table_index, size_t table_index);

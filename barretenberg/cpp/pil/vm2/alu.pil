@@ -185,16 +185,16 @@ a_lo_bits - sel_mul_div_u128 * constant_64 - sel_shift_ops * shift_lo_bits = 0;
 a_hi_bits - sel_mul_div_u128 * constant_64 - sel_shift_ops * SHIFT_HI_BITS = 0;
 
 #[RANGE_CHECK_DECOMPOSITION_A_LO]
-sel_decompose_a { a_lo, a_lo_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_decompose_a { a_lo, a_lo_bits } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
 
 #[RANGE_CHECK_DECOMPOSITION_A_HI]
-sel_decompose_a { a_hi, a_hi_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_decompose_a { a_hi, a_hi_bits } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
 
 #[RANGE_CHECK_DECOMPOSITION_B_LO]
-sel_mul_div_u128 { b_lo, constant_64 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_mul_div_u128 { b_lo, constant_64 } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
 
 #[RANGE_CHECK_DECOMPOSITION_B_HI]
-sel_mul_div_u128 { b_hi, constant_64 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_mul_div_u128 { b_hi, constant_64 } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
 
 
 // ADD
@@ -252,7 +252,7 @@ sel_mul_u128 * (1 - sel_tag_err)
 // up max_value. i.e. we cannot provide a malicious c, c_hi such that a + b - c_hi * 2^n = c passes for n < 128.
 // No need to range_check c_lo = ic because the memory write will ensure ic <= max_value.
 #[RANGE_CHECK_MUL_U128_C_HI]
-sel_mul_u128 { c_hi, constant_64 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_mul_u128 { c_hi, constant_64 } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
 
 // DIV
 
@@ -264,7 +264,7 @@ sel_op_div * (1 - sel_op_div) = 0;
 pol commit sel_div_no_0_err;
 sel_div_no_0_err = sel_op_div * (1 - sel_div_0_err);
 #[GT_DIV_REMAINDER]
-sel_div_no_0_err { ib, helper1, sel_op_div } in gt.sel { gt.input_a, gt.input_b, gt.res };
+sel_div_no_0_err { ib, helper1, sel_op_div } in gt.sel_alu { gt.input_a, gt.input_b, gt.res };
 
 // DIV - u128
 
@@ -395,7 +395,7 @@ in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
 
 #[INT_GT]
 sel_int_lt_ops { lt_ops_input_a, lt_ops_input_b, lt_ops_result_c }
-in gt.sel { gt.input_a, gt.input_b, gt.res };
+in gt.sel_alu { gt.input_a, gt.input_b, gt.res };
 
 // NOT
 // Input is sent to ia, ia_tag and output is sent to ib, ib_tag.
@@ -598,4 +598,4 @@ mid_bits = sel_trunc_non_trivial * (128 - max_bits);
 // is supported by our range_check gadget.
 // No need to range_check ic because the memory write will ensure ic <= max_value.
 #[RANGE_CHECK_TRUNC_MID]
-sel_trunc_non_trivial { mid, mid_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_trunc_non_trivial { mid, mid_bits } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };

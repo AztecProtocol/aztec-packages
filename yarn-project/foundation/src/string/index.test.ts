@@ -6,8 +6,11 @@ describe('string', () => {
       expect(urlJoin('http://example.com', 'foo', 'bar')).toBe('http://example.com/foo/bar');
     });
 
-    it('removes duplicate slashes', () => {
-      expect(urlJoin('http://example.com/', '/foo/', '/bar/')).toBe('http://example.com/foo/bar');
+    it.each([
+      [['http://example.com/', '/foo/', '/bar/'], 'http://example.com/foo/bar'],
+      [['http://example.com/', '', '//', '///', '////foo//', '//bar////', 'baz'], 'http://example.com/foo/bar/baz'],
+    ])('removes duplicate slashes', (parts, url) => {
+      expect(urlJoin(...parts)).toBe(url);
     });
   });
 

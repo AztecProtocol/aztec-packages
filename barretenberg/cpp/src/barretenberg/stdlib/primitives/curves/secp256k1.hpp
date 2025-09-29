@@ -21,6 +21,20 @@ template <typename CircuitType> struct secp256k1 {
     using fr = ::bb::secp256k1::fr;
     using g1 = ::bb::secp256k1::g1;
 
+    // Native types
+    using ScalarFieldNative = ::bb::secp256k1::fr;
+    using BaseFieldNative = ::bb::secp256k1::fq;
+    using GroupNative = ::bb::secp256k1::g1;
+    using ElementNative = GroupNative::element;
+    using AffineElementNative = GroupNative::affine_element;
+
+    // Stdlib types
+    using ScalarField = bigfield<CircuitType, typename ::bb::secp256k1::FrParams>;
+    using BaseField = bigfield<CircuitType, typename ::bb::secp256k1::FqParams>;
+    using Group = element<CircuitType, BaseField, ScalarField, GroupNative>;
+    using Element = Group;
+    using AffineElement = Group;
+
     using Builder = CircuitType;
     using witness_ct = witness_t<Builder>;
     using public_witness_ct = public_witness_t<Builder>;

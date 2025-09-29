@@ -199,10 +199,14 @@ export interface AztecNode
     l1ToL2Message: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined>;
 
+  /** Returns the L2 block number in which this L1 to L2 message becomes available, or undefined if not found. */
+  getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<number | undefined>;
+
   /**
-   * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
+   * Returns whether an L1 to L2 message is synced by archiver.
    * @param l1ToL2Message - The L1 to L2 message to check.
-   * @returns Whether the message is synced and ready to be included in a block.
+   * @returns Whether the message is synced.
+   * @deprecated Use `getL1ToL2MessageBlock` instead. This method may return true even if the message is not ready to use.
    */
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
 
@@ -500,6 +504,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .function()
     .args(L2BlockNumberSchema, schemas.Fr)
     .returns(z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)]).optional()),
+
+  getL1ToL2MessageBlock: z.function().args(schemas.Fr).returns(z.number().optional()),
 
   isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
 

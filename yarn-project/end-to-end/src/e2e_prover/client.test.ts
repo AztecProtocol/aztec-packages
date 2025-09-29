@@ -31,7 +31,7 @@ describe('client_prover', () => {
     await t.setup();
 
     ({ provenAssets, accounts, logger } = t);
-    [sender, recipient] = accounts.map(a => a.address);
+    [sender, recipient] = accounts;
 
     feeJuicePortal = getContract({
       abi: FeeJuicePortalAbi,

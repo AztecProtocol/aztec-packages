@@ -1,6 +1,7 @@
 import type { AccountContract, AccountInterface, AuthWitnessProvider } from '@aztec/aztec.js/account';
+import type { ChainInfo } from '@aztec/aztec.js/wallet';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
-import type { CompleteAddress, NodeInfo } from '@aztec/stdlib/contract';
+import type { CompleteAddress } from '@aztec/stdlib/contract';
 
 import { DefaultAccountInterface } from '../defaults/account_interface.js';
 
@@ -23,7 +24,7 @@ export abstract class DefaultAccountContract implements AccountContract {
 
   constructor() {}
 
-  getInterface(address: CompleteAddress, nodeInfo: NodeInfo): AccountInterface {
-    return new DefaultAccountInterface(this.getAuthWitnessProvider(address), address, nodeInfo);
+  getInterface(address: CompleteAddress, chainInfo: ChainInfo): AccountInterface {
+    return new DefaultAccountInterface(this.getAuthWitnessProvider(address), address, chainInfo);
   }
 }

@@ -216,37 +216,3 @@ export class FinalBlobAccumulatorPublicInputs {
     }`;
   }
 }
-
-/**
- * startBlobAccumulator: Accumulated opening proofs for all blobs before this block range.
- * endBlobAccumulator: Accumulated opening proofs for all blobs after adding this block range.
- * finalBlobChallenges:  Final values z and gamma, shared across the epoch.
- */
-export class BlockBlobPublicInputs {
-  constructor(
-    public startBlobAccumulator: BlobAccumulatorPublicInputs,
-    public endBlobAccumulator: BlobAccumulatorPublicInputs,
-    public finalBlobChallenges: FinalBlobBatchingChallenges,
-  ) {}
-
-  static empty(): BlockBlobPublicInputs {
-    return new BlockBlobPublicInputs(
-      BlobAccumulatorPublicInputs.empty(),
-      BlobAccumulatorPublicInputs.empty(),
-      FinalBlobBatchingChallenges.empty(),
-    );
-  }
-
-  static fromBuffer(buffer: Buffer | BufferReader): BlockBlobPublicInputs {
-    const reader = BufferReader.asReader(buffer);
-    return new BlockBlobPublicInputs(
-      reader.readObject(BlobAccumulatorPublicInputs),
-      reader.readObject(BlobAccumulatorPublicInputs),
-      reader.readObject(FinalBlobBatchingChallenges),
-    );
-  }
-
-  toBuffer() {
-    return serializeToBuffer(this.startBlobAccumulator, this.endBlobAccumulator, this.finalBlobChallenges);
-  }
-}

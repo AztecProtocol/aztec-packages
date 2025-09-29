@@ -22,6 +22,8 @@ VERSION=${VERSION:-"latest"}
 # We default to colored logs.
 FORCE_COLOR=${FORCE_COLOR:-1}
 
+DOCKER_REPO=${DOCKER_REPO:-"aztecprotocol/aztec"}
+
 function warn {
   y="\033[33m"
   r="\033[0m"
@@ -144,7 +146,7 @@ function run {
     ${arg_host_binds:-} \
     ${arg_user:-} \
     --entrypoint "" \
-    aztecprotocol/aztec:$VERSION "${args[@]}"
+    $DOCKER_REPO:$VERSION "${args[@]}"
 }
 
 if [ -t 0 ]; then

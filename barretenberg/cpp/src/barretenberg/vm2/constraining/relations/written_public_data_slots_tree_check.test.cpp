@@ -13,13 +13,13 @@
 #include "barretenberg/vm2/generated/relations/written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/written_public_data_slot_tree_check_event.hpp"
-#include "barretenberg/vm2/simulation/field_gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/gadgets/written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
-#include "barretenberg/vm2/simulation/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
-#include "barretenberg/vm2/simulation/written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/testing/test_tree.hpp"
@@ -38,6 +38,7 @@ using ::testing::TestWithParam;
 using testing::TestMemoryTree;
 
 using simulation::build_public_data_slots_tree;
+using simulation::DeduplicatingEventEmitter;
 using simulation::EventEmitter;
 using simulation::FieldGreaterThan;
 using simulation::FieldGreaterThanEvent;
@@ -134,7 +135,7 @@ TEST_P(WrittenPublicDataSlotsReadPositiveTests, Positive)
 
     NiceMock<MockRangeCheck> range_check;
 
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_tree_check_event_emitter;
@@ -177,7 +178,7 @@ TEST_F(WrittenPublicDataSlotsTreeCheckConstrainingTest, PositiveWriteAppend)
 
     NiceMock<MockRangeCheck> range_check;
 
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_tree_check_event_emitter;
@@ -224,7 +225,7 @@ TEST_F(WrittenPublicDataSlotsTreeCheckConstrainingTest, PositiveWriteMembership)
 
     NiceMock<MockRangeCheck> range_check;
 
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_tree_check_event_emitter;

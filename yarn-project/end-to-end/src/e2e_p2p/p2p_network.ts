@@ -1,7 +1,6 @@
-import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { type AccountWalletWithSecretKey, AztecAddress, EthAddress, Fr } from '@aztec/aztec.js';
+import { AztecAddress, EthAddress, Fr } from '@aztec/aztec.js';
 import {
   type EmpireSlashingProposerContract,
   type ExtendedViemWalletClient,
@@ -26,6 +25,7 @@ import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
+import type { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import getPort from 'get-port';
@@ -43,7 +43,7 @@ import {
   createSnapshotManager,
   deployAccounts,
 } from '../fixtures/snapshot_manager.js';
-import { getPrivateKeyFromIndex, getSponsoredFPCAddress } from '../fixtures/utils.js';
+import { type SetupOptions, getPrivateKeyFromIndex, getSponsoredFPCAddress } from '../fixtures/utils.js';
 import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils.js';
 
 // Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
@@ -75,18 +75,18 @@ export class P2PNetworkTest {
   public prefilledPublicData: PublicDataTreeLeaf[] = [];
 
   // The re-execution test needs a wallet and a spam contract
-  public wallet?: AccountWalletWithSecretKey;
+  public wallet?: TestWallet;
   public defaultAccountAddress?: AztecAddress;
   public spamContract?: SpamContract;
 
   public bootstrapNode?: BootstrapNode;
 
   constructor(
-    testName: string,
+    public readonly testName: string,
     public bootstrapNodeEnr: string,
     public bootNodePort: number,
     public numberOfValidators: number,
-    initialValidatorConfig: AztecNodeConfig,
+    initialValidatorConfig: SetupOptions,
     public numberOfNodes = 0,
     // If set enable metrics collection
     private metricsPort?: number,
@@ -162,7 +162,7 @@ export class P2PNetworkTest {
     numberOfValidators: number;
     basePort?: number;
     metricsPort?: number;
-    initialConfig?: Partial<AztecNodeConfig>;
+    initialConfig?: SetupOptions;
     startProverNode?: boolean;
     mockZkPassportVerifier?: boolean;
   }) {
@@ -230,88 +230,83 @@ export class P2PNetworkTest {
 
   async applyBaseSnapshots() {
     await this.addBootstrapNode();
-    await this.snapshotManager.snapshot(
-      'add-validators',
-      async ({ deployL1ContractsValues, dateProvider, cheatCodes }) => {
-        const rollup = getContract({
-          address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-          abi: RollupAbi,
-          client: deployL1ContractsValues.l1Client,
-        });
+    await this.snapshotManager.snapshot('add-validators', async ({ deployL1ContractsValues, cheatCodes }) => {
+      const rollup = getContract({
+        address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+        abi: RollupAbi,
+        client: deployL1ContractsValues.l1Client,
+      });
 
-        this.logger.info(`Adding ${this.numberOfValidators} validators`);
+      this.logger.info(`Adding ${this.numberOfValidators} validators`);
 
-        const stakingAsset = getContract({
-          address: deployL1ContractsValues.l1ContractAddresses.stakingAssetAddress.toString(),
-          abi: TestERC20Abi,
-          client: deployL1ContractsValues.l1Client,
-        });
+      const stakingAsset = getContract({
+        address: deployL1ContractsValues.l1ContractAddresses.stakingAssetAddress.toString(),
+        abi: TestERC20Abi,
+        client: deployL1ContractsValues.l1Client,
+      });
 
-        const { address: multiAdderAddress } = await deployL1Contract(
-          deployL1ContractsValues.l1Client,
-          MultiAdderArtifact.contractAbi,
-          MultiAdderArtifact.contractBytecode,
-          [rollup.address, deployL1ContractsValues.l1Client.account.address],
-        );
+      const { address: multiAdderAddress } = await deployL1Contract(
+        deployL1ContractsValues.l1Client,
+        MultiAdderArtifact.contractAbi,
+        MultiAdderArtifact.contractBytecode,
+        [rollup.address, deployL1ContractsValues.l1Client.account.address],
+      );
 
-        const multiAdder = getContract({
-          address: multiAdderAddress.toString(),
-          abi: MultiAdderArtifact.contractAbi,
-          client: deployL1ContractsValues.l1Client,
-        });
+      const multiAdder = getContract({
+        address: multiAdderAddress.toString(),
+        abi: MultiAdderArtifact.contractAbi,
+        client: deployL1ContractsValues.l1Client,
+      });
 
-        const stakeNeeded = l1ContractsConfig.activationThreshold * BigInt(this.numberOfValidators);
-        await Promise.all(
-          [await stakingAsset.write.mint([multiAdder.address, stakeNeeded], {} as any)].map(txHash =>
-            deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash }),
-          ),
-        );
+      const stakeNeeded = (await rollup.read.getActivationThreshold()) * BigInt(this.numberOfValidators);
+      await Promise.all(
+        [await stakingAsset.write.mint([multiAdder.address, stakeNeeded], {} as any)].map(txHash =>
+          deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash }),
+        ),
+      );
 
-        const { validators } = this.getValidators();
-        this.validators = validators;
+      const { validators } = this.getValidators();
+      this.validators = validators;
 
-        const gseAddress = deployL1ContractsValues.l1ContractAddresses.gseAddress!;
-        if (!gseAddress) {
-          throw new Error('GSE contract not deployed');
-        }
+      const gseAddress = deployL1ContractsValues.l1ContractAddresses.gseAddress!;
+      if (!gseAddress) {
+        throw new Error('GSE contract not deployed');
+      }
 
-        const gseContract = new GSEContract(deployL1ContractsValues.l1Client, gseAddress.toString());
+      const gseContract = new GSEContract(deployL1ContractsValues.l1Client, gseAddress.toString());
 
-        const makeValidatorTuples = async (validator: Operator) => {
-          const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey.getValue());
-          return {
-            attester: validator.attester.toString() as `0x${string}`,
-            withdrawer: validator.withdrawer.toString() as `0x${string}`,
-            ...registrationTuple,
-          };
+      const makeValidatorTuples = async (validator: Operator) => {
+        const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey.getValue());
+        return {
+          attester: validator.attester.toString() as `0x${string}`,
+          withdrawer: validator.withdrawer.toString() as `0x${string}`,
+          ...registrationTuple,
         };
-        const validatorTuples = await Promise.all(validators.map(makeValidatorTuples));
+      };
+      const validatorTuples = await Promise.all(validators.map(makeValidatorTuples));
 
-        await deployL1ContractsValues.l1Client.waitForTransactionReceipt({
-          hash: await multiAdder.write.addValidators([validatorTuples]),
-        });
+      await deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+        hash: await multiAdder.write.addValidators([validatorTuples]),
+      });
 
-        const timestamp = await cheatCodes.rollup.advanceToEpoch(2n, { updateDateProvider: dateProvider });
+      await cheatCodes.rollup.advanceToEpoch(
+        (await cheatCodes.rollup.getEpoch()) + (await rollup.read.getLagInEpochs()) + 1n,
+      );
 
-        // Send and await a tx to make sure we mine a block for the warp to correctly progress.
-        await this._sendDummyTx(deployL1ContractsValues.l1Client);
-
-        // Set the system time in the node, only after we have warped the time and waited for a block
-        // Time is only set in the NEXT block
-        dateProvider.setTime(Number(timestamp) * 1000);
-      },
-    );
+      // Send and await a tx to make sure we mine a block for the warp to correctly progress.
+      await this._sendDummyTx(deployL1ContractsValues.l1Client);
+    });
   }
 
   async setupAccount() {
     await this.snapshotManager.snapshot(
       'setup-account',
-      deployAccounts(1, this.logger, false),
-      async ({ deployedAccounts }, { pxe }) => {
+      deployAccounts(1, this.logger),
+      ({ deployedAccounts }, { wallet }) => {
         this.deployedAccounts = deployedAccounts;
-        const [account] = deployedAccounts;
-        this.wallet = await getSchnorrWalletWithSecretKey(pxe, account.secret, account.signingKey, account.salt);
-        this.defaultAccountAddress = this.wallet.getAddress();
+        [{ address: this.defaultAccountAddress }] = deployedAccounts;
+        this.wallet = wallet;
+        return Promise.resolve();
       },
     );
   }
@@ -415,7 +410,7 @@ export class P2PNetworkTest {
     );
 
     const slasherContract = getContract({
-      address: getAddress(await rollup.getSlasher()),
+      address: getAddress(await rollup.getSlasherAddress()),
       abi: SlasherAbi,
       client: this.ctx.deployL1ContractsValues.l1Client,
     });

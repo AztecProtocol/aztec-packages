@@ -1,4 +1,4 @@
-import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory } from '@aztec/bb-prover';
+import { BB_RESULT, verifyClientIvcProof } from '@aztec/bb-prover';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
@@ -31,15 +31,14 @@ describe('Client IVC Integration', () => {
   it('Should generate a verifiable client IVC proof from a simple mock tx', async () => {
     const [bytecodes, witnessStack, _, vks] = await generateTestingIVCStack(1, 0);
 
-    const proof = await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger);
-    await writeClientIVCProofToOutputDirectory(proof, bbWorkingDirectory);
+    await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger);
+
     const verifyResult = await verifyClientIvcProof(
       bbBinaryPath,
       bbWorkingDirectory.concat('/proof'),
       bbWorkingDirectory.concat('/vk'),
       logger.info,
     );
-
     expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
   });
 
@@ -54,15 +53,14 @@ describe('Client IVC Integration', () => {
   it('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
     const [bytecodes, witnessStack, _, vks] = await generateTestingIVCStack(1, 1);
 
-    const proof = await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger);
-    await writeClientIVCProofToOutputDirectory(proof, bbWorkingDirectory);
+    await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger);
+
     const verifyResult = await verifyClientIvcProof(
       bbBinaryPath,
       bbWorkingDirectory.concat('/proof'),
       bbWorkingDirectory.concat('/vk'),
       logger.info,
     );
-
     expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
   });
 });

@@ -56,7 +56,7 @@
 //     ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
 
 //     pxe = await createCompatibleClient(PXE_URL, debugLogger);
-//     nodeInfo = await pxe.getNodeInfo();
+//     nodeInfo = await aztecNode.getNodeInfo();
 //   });
 
 //   // We need a separate account to deploy the new governance proposer

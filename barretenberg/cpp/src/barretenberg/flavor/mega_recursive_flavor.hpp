@@ -140,18 +140,18 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
          * @param builder
          * @param elements
          */
-        VerificationKey(CircuitBuilder& builder, std::span<FF> elements)
+        VerificationKey(std::span<FF> elements)
         {
             using namespace bb::stdlib::field_conversion;
 
             size_t num_frs_read = 0;
 
-            this->log_circuit_size = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-            this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-            this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
+            this->log_circuit_size = deserialize_from_frs<FF>(elements, num_frs_read);
+            this->num_public_inputs = deserialize_from_frs<FF>(elements, num_frs_read);
+            this->pub_inputs_offset = deserialize_from_frs<FF>(elements, num_frs_read);
 
             for (Commitment& commitment : this->get_all()) {
-                commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
+                commitment = deserialize_from_frs<Commitment>(elements, num_frs_read);
             }
 
             if (num_frs_read != elements.size()) {
@@ -174,7 +174,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             for (const auto& idx : witness_indices) {
                 vk_fields.emplace_back(FF::from_witness_index(&builder, idx));
             }
-            return VerificationKey(builder, vk_fields);
+            return VerificationKey(vk_fields);
         }
 
         /**

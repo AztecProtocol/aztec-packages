@@ -79,6 +79,102 @@ TEST(Databus, CallDataAndReturnData)
 }
 
 /**
+ * @brief An expository test demonstrating the functionality of the databus in a small use case when the entries are
+ * constant witnesses
+ */
+TEST(Databus, ConstantEntryAccess)
+{
+
+    Builder builder;
+    databus_ct databus;
+    fr value_0 = 13;
+    fr value_1 = 12;
+    auto constant_0 = witness_ct::create_constant_witness(&builder, value_0);
+    auto constant_1 = witness_ct::create_constant_witness(&builder, value_1);
+    databus.return_data.set_values({ constant_0, constant_1 });
+    field_ct idx_0(witness_ct(&builder, 0));
+    field_ct idx_1(witness_ct(&builder, 1));
+
+    field_ct read_result_0 = databus.return_data[idx_0];
+    field_ct read_result_1 = databus.return_data[idx_1];
+
+    EXPECT_EQ(value_0, read_result_0.get_value());
+    EXPECT_EQ(value_1, read_result_1.get_value());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief An expository test demonstrating the functionality of the databus in a small use case when the entries of the
+ * bus_vector are not normalized
+ */
+TEST(Databus, UnnormalizedEntryAccess)
+{
+
+    Builder builder;
+    databus_ct databus;
+    std::array<fr, 3> raw_calldata_entries = { 3, 2, 1 };
+    std::array<fr, 3> raw_returndata_entries = { 3, 2, 1 };
+    std::vector<field_ct> calldata_entries;
+    for (fr entry : raw_calldata_entries) {
+        calldata_entries.emplace_back(witness_ct(&builder, entry));
+        field_ct entry_witness = witness_ct(&builder, entry);
+    }
+    std::vector<field_ct> returndata_entries;
+    for (fr entry : raw_returndata_entries) {
+        field_ct entry_witness = witness_ct(&builder, entry);
+        // add the value to itself to make it unnormalized (the multiplicative constant will be 2)
+        returndata_entries.emplace_back(entry_witness + entry_witness);
+    }
+    databus.calldata.set_values(calldata_entries);
+    databus.return_data.set_values(returndata_entries);
+    field_ct idx_0 = witness_ct(&builder, 0);
+    field_ct idx_1 = witness_ct(&builder, 1);
+    field_ct idx_2 = witness_ct(&builder, 2);
+    databus.return_data[idx_0].assert_equal(databus.calldata[idx_0] + databus.calldata[idx_0]);
+    databus.return_data[idx_1].assert_equal(databus.calldata[idx_1] + databus.calldata[idx_1]);
+    databus.return_data[idx_2].assert_equal(databus.calldata[idx_2] + databus.calldata[idx_2]);
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief An expository test demonstrating the functionality of the databus in a small use case where the indices are
+ * constant and/or unnormalized
+ */
+TEST(Databus, ConstantAndUnnormalizedIndices)
+{
+    Builder builder;
+    databus_ct databus;
+    std::array<fr, 3> raw_calldata_values = { 54, 32, 30 };
+    std::array<fr, 3> raw_returndata_values = { 54, 32, 116 };
+    // Populate the calldata in the databus
+    std::vector<field_ct> calldata_values;
+    for (auto& value : raw_calldata_values) {
+        calldata_values.emplace_back(witness_ct(&builder, value));
+    }
+    databus.calldata.set_values(calldata_values);
+
+    // Populate the return data in the databus
+    std::vector<field_ct> returndata_values;
+    for (auto& value : raw_returndata_values) {
+        returndata_values.emplace_back(witness_ct(&builder, value));
+    }
+    databus.return_data.set_values(returndata_values);
+
+    // constant first index
+    field_ct idx_0(witness_ct::create_constant_witness(&builder, 0));
+    field_ct idx_1(witness_ct(&builder, 1));
+    // un-normalized index (with multiplicative constant 2)
+    field_ct idx_2 = idx_1 + idx_1;
+    field_ct sum = databus.calldata[idx_0] + databus.calldata[idx_1] + databus.calldata[idx_2];
+
+    databus.return_data[idx_0].assert_equal(databus.calldata[idx_0]);
+    databus.return_data[idx_1].assert_equal(databus.calldata[idx_1]);
+    databus.return_data[idx_2].assert_equal(sum);
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
  * @brief A failure test demonstrating that trying to prove (via a databus read) that an erroneous value is present in
  * the databus will result in an invalid witness.
  *

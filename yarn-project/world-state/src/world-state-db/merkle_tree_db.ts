@@ -39,8 +39,10 @@ export interface MerkleTreeAdminDatabase extends ForkMerkleTreeOperations {
    * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param block - The L2 block to handle.
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
+   * @param isFirstBlock - Whether the block is the first block in a checkpoint. Temporary hack to only insert l1 to l2
+   * messages for the first block in a checkpoint. TODO(#17027) Remove this.
    */
-  handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull>;
+  handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[], isFirstBlock?: boolean): Promise<WorldStateStatusFull>;
 
   /**
    * Gets a handle that allows reading the latest committed state

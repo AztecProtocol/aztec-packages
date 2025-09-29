@@ -101,7 +101,7 @@ pub contract ContractClassRegistry {
     ) {
         // Safety: The bytecode loaded here is unconstrained, which is acceptable since:
         // 1. Unlike public functions, we don't need execution guarantees for private functions.
-        // 2. This broadcast simply provides convenient bytecode sharing vs off-chain distribution.
+        // 2. This broadcast simply provides convenient bytecode sharing vs offchain distribution.
         // 3. Computing the VK for private bytecode in-circuit is not possible, so we can't do better.
         let private_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS] = unsafe {
             capsules::load(
@@ -151,7 +151,7 @@ pub contract ContractClassRegistry {
     ) {
         // Safety: The bytecode loaded here is unconstrained, which is acceptable since:
         // 1. Unlike public functions, we don't need execution guarantees for utility functions.
-        // 2. This broadcast simply provides convenient bytecode sharing vs off-chain distribution.
+        // 2. This broadcast simply provides convenient bytecode sharing vs offchain distribution.
         let utility_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS] = unsafe {
             capsules::load(
                 context.this_address(),

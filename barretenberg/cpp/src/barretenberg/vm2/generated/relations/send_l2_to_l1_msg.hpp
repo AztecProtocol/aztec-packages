@@ -34,26 +34,26 @@ template <typename FF> class send_l2_to_l1_msg : public Relation<send_l2_to_l1_m
   public:
     static constexpr const std::string_view NAME = "send_l2_to_l1_msg";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 1:
-            return "MAX_WRITES_REACHED";
-        case 2:
-            return "OPCODE_ERROR";
-        case 3:
-            return "SEND_L2_TO_L1_MSG_CONDITION";
-        case 5:
-            return "EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_MAX_WRITES_REACHED = 1;
     static constexpr size_t SR_OPCODE_ERROR = 2;
     static constexpr size_t SR_SEND_L2_TO_L1_MSG_CONDITION = 3;
     static constexpr size_t SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE = 5;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_MAX_WRITES_REACHED:
+            return "MAX_WRITES_REACHED";
+        case SR_OPCODE_ERROR:
+            return "OPCODE_ERROR";
+        case SR_SEND_L2_TO_L1_MSG_CONDITION:
+            return "SEND_L2_TO_L1_MSG_CONDITION";
+        case SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE:
+            return "EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

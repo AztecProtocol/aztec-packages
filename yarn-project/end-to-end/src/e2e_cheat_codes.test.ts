@@ -2,6 +2,7 @@ import { type AztecAddress, EthAddress, Fr, type Wallet } from '@aztec/aztec.js'
 import { AnvilTestWatcher, CheatCodes, EthCheatCodes } from '@aztec/aztec/testing';
 import { type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
+import { DateProvider } from '@aztec/foundation/timer';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import type { Anvil } from '@viem/anvil';
@@ -24,7 +25,7 @@ describe('e2e_cheat_codes', () => {
     beforeEach(async () => {
       const res = await startAnvil();
       anvil = res.anvil;
-      ethCheatCodes = new EthCheatCodes([res.rpcUrl]);
+      ethCheatCodes = new EthCheatCodes([res.rpcUrl], new DateProvider());
       const account = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
       l1Client = createExtendedL1Client([res.rpcUrl], account, foundry);
     });
@@ -189,7 +190,7 @@ describe('e2e_cheat_codes', () => {
       // docs:start:load_private_cheatcode
       const mintAmount = 100n;
 
-      await mintTokensToPrivate(token, adminAddress, wallet, adminAddress, mintAmount);
+      await mintTokensToPrivate(token, adminAddress, adminAddress, mintAmount);
       await token.methods.sync_private_state().simulate({ from: adminAddress });
 
       const balancesAdminSlot = await cc.aztec.computeSlotInMap(TokenContract.storage.balances.slot, adminAddress);

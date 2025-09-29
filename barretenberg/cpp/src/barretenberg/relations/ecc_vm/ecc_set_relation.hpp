@@ -22,13 +22,27 @@ template <typename FF_> class ECCVMSetRelationImpl {
         22, // grand product construction sub-relation
         3   // left-shiftable polynomial sub-relation
     };
-
+    // prover optimization to allow for skipping the computation of sub-relations at certain points in sumcheck.
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        // If z_perm == z_perm_shift, this implies that none of the wire values for the present input are involved in
-        // non-trivial copy constraints. The value of `transcript_mul` can be non-zero at the end of an MSM of
-        // points-at-infinity, which will cause `full_msm_count` to be non-zero while `transcript_msm_count` vanishes.
-        // Therefore, we add this as a skip condition.
+        // For the first accumulator in the set relation, the added-on term is 0 if the following vanishes:
+        //
+        // `(z_perm + lagrange_first) * numerator_evaluation - (z_perm_shift + lagrange_last) * denominator_evaluation`,
+        //
+        // i.e., if z_perm is well-formed.
+        //
+        // For the second accumulator in the set relation, the added-on term is 0 if the following vanishes:
+        //
+        // `lagrange_last_short * z_perm_shift_short`
+        //
+        // To know when we can skip this computation (i.e., when it is "automatically" 0), most cases are handled by the
+        // condtion `z_perm == z_perf_shift`. In most circumstances, this implies that with overwhelming probability,
+        // none of the wire values for the present input are involved in non-trivial copy constraints.
+        //
+        // There are two other edge-cases we need to check for to know we can skip the computation. First,
+        // `transcript_mul` can be 1 even though the multiplication is "degenerate" (and not handled by the MSM table):
+        // this holds if either the scalar is 0 or the point is the neutral element. Therefore we force this. Second, we
+        // must force lagrange_last == 0.
         return (in.z_perm - in.z_perm_shift).is_zero() && in.transcript_mul.is_zero() && in.lagrange_last.is_zero();
     }
 

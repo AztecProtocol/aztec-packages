@@ -81,7 +81,7 @@ where
 {
     // Safety: Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do
     // is check that the metadata is correct, and that the note exists.
-    let retrieved_note = unsafe { get_note_internal::<Note>(storage_slot) };
+    let retrieved_note = unsafe { view_note::<Note>(storage_slot) };
 
     // For settled notes, the contract address is implicitly checked since the hash returned from
     // `compute_note_hash_for_read_request` is siloed and kernels verify the siloing during note read request
@@ -189,7 +189,7 @@ where
     (notes, note_hashes)
 }
 
-unconstrained fn get_note_internal<Note>(storage_slot: Field) -> RetrievedNote<Note>
+pub unconstrained fn view_note<Note>(storage_slot: Field) -> RetrievedNote<Note>
 where
     Note: NoteType + Packable,
 {
@@ -210,7 +210,7 @@ where
         NoteStatus.ACTIVE,
     );
 
-    opt_notes[0].expect(f"Failed to get a note") // Notice: we don't allow dummies to be returned from get_note (singular).
+    opt_notes[0].expect(f"Failed to get a note")
 }
 
 unconstrained fn get_notes_internal<Note, let M: u32, PreprocessorArgs, FilterArgs>(

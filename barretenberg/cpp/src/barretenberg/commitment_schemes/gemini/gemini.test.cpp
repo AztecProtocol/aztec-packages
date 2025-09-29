@@ -22,6 +22,16 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
 
+    // is_big_ck is set to true in the high degree attack test. It uses a larger SRS size (big_ck_size=2^14) and allows
+    // the prover
+    //  to commit to high degree polynomials (big_n=2^12).
+    bool is_big_ck = false;
+    static constexpr size_t big_n = 1UL << 12;
+    static constexpr size_t small_log_n = 3;
+    static constexpr size_t big_ck_size = 1 << 14;
+    inline static CK big_ck = create_commitment_key<CK>(big_ck_size);
+    bool is_reject_case = false;
+
     static CK ck;
     static VK vk;
 
@@ -34,13 +44,17 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     void execute_gemini_and_verify_claims(std::vector<Fr>& multilinear_evaluation_point,
                                           MockClaimGenerator<Curve> mock_claims)
     {
+        const size_t poly_size = is_big_ck ? big_n : n;
+        const CK& comkey = is_big_ck ? big_ck : ck;
+        const size_t multilinear_challenge_size = is_big_ck ? small_log_n : log_n;
+
         auto prover_transcript = NativeTranscript::prover_init_empty();
 
         // Compute:
         // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
         // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
         auto prover_output = GeminiProver::prove(
-            this->n, mock_claims.polynomial_batcher, multilinear_evaluation_point, ck, prover_transcript);
+            poly_size, mock_claims.polynomial_batcher, multilinear_evaluation_point, comkey, prover_transcript);
 
         // The prover output needs to be completed by adding the "positive" Fold claims, i.e. evaluations of Fold^(i) at
         // r^{2^i} for i=1, ..., d-1. Although here we are copying polynomials, it is not the case when GeminiProver is
@@ -48,7 +62,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         std::vector<ProverOpeningClaim<Curve>> prover_claims_with_pos_evals;
         // `prover_output` consists of d+1 opening claims, we add another d-1 claims for each positive evaluation
         // Fold^i(r^{2^i}) for i = 1, ..., d-1
-        const size_t total_num_claims = 2 * log_n;
+        const size_t total_num_claims = 2 * multilinear_challenge_size;
         prover_claims_with_pos_evals.reserve(total_num_claims);
 
         for (auto& claim : prover_output) {
@@ -81,9 +95,20 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
             multilinear_evaluation_point, mock_claims.claim_batcher, verifier_transcript);
 
         // Check equality of the opening pairs computed by prover and verifier
-        for (auto [prover_claim, verifier_claim] : zip_view(prover_claims_with_pos_evals, verifier_claims)) {
-            this->verify_opening_claim(verifier_claim, prover_claim.polynomial, ck);
-            ASSERT_EQ(prover_claim.opening_pair, verifier_claim.opening_pair);
+        if (this->is_reject_case) {
+            bool mismatch = false;
+            for (auto [prover_claim, verifier_claim] : zip_view(prover_claims_with_pos_evals, verifier_claims)) {
+                if (prover_claim.opening_pair != verifier_claim.opening_pair) {
+                    mismatch = true;
+                    break;
+                }
+            }
+            EXPECT_TRUE(mismatch) << "Expected a mismatch in opening pairs, but all matched.";
+        } else {
+            for (auto [prover_claim, verifier_claim] : zip_view(prover_claims_with_pos_evals, verifier_claims)) {
+                this->verify_opening_claim(verifier_claim, prover_claim.polynomial, comkey);
+                ASSERT_EQ(prover_claim.opening_pair, verifier_claim.opening_pair);
+            }
         }
     }
 
@@ -333,6 +358,63 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
     for (auto idx : mismatching_claim_indices) {
         EXPECT_FALSE(prover_opening_claims[idx].opening_pair == verifier_claims[idx].opening_pair);
     }
+}
+
+// The prover commits to a higher degree polynomial than what is expected. The test considers the case where
+//  this polynomial folds down to a constant (equal to the claimed evaluation) after the expected number of rounds
+//  (due to the choice of the evaluation point). In this case, the verifier accepts.
+TYPED_TEST(GeminiTest, HighDegreeAttackAccept)
+{
+    using Fr = typename TypeParam::ScalarField;
+
+    this->is_big_ck = true;
+
+    // Sample public opening point (u_0, u_1, u_2)
+    auto u = this->random_evaluation_point(this->small_log_n);
+
+    // Choose a claimed eval at `u`
+    Fr claimed_multilinear_eval = Fr::random_element();
+
+    //  poly is of high degrees, as the SRS allows for it
+    Polynomial<Fr> poly(this->big_n);
+
+    // Define poly to be of a specific form such that after small_log_n folds with u, it becomes a constant equal to
+    // claimed_multilinear_eval.
+    const Fr tail = ((Fr(1) - u[0]) * (Fr(1) - u[1])).invert();
+    poly.at(4) = claimed_multilinear_eval * tail / u[2];
+    poly.at(4088) = tail;
+    poly.at(4092) = -tail * (Fr(1) - u[2]) / u[2];
+
+    MockClaimGenerator<TypeParam> mock_claims(
+        this->big_n, std::vector{ std::move(poly) }, std::vector<Fr>{ claimed_multilinear_eval }, this->big_ck);
+
+    this->execute_gemini_and_verify_claims(u, mock_claims);
+}
+
+// The prover commits to a higher degree polynomial than what is expected. The test considers the case where
+//  this polynomial does not fold down to a constant after the expected number of rounds. In this case, the verifier
+//  rejects with high probabililty.
+TYPED_TEST(GeminiTest, HighDegreeAttackReject)
+{
+    using Fr = typename TypeParam::ScalarField;
+    using Polynomial = bb::Polynomial<Fr>;
+
+    this->is_big_ck = true;
+    this->is_reject_case = true;
+
+    // poly of high degree, as SRS allows for it
+    Polynomial poly = Polynomial::random(this->big_n);
+
+    // Sample public opening point (u_0, u_1, u_2)
+    auto u = this->random_evaluation_point(this->small_log_n);
+
+    // Choose a claimed eval at `u`
+    Fr claimed_multilinear_eval = Fr::random_element();
+
+    MockClaimGenerator<TypeParam> mock_claims(
+        this->big_n, std::vector{ std::move(poly) }, std::vector<Fr>{ claimed_multilinear_eval }, this->big_ck);
+
+    this->execute_gemini_and_verify_claims(u, mock_claims);
 }
 
 template <class Curve> typename GeminiTest<Curve>::CK GeminiTest<Curve>::ck;

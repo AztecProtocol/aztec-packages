@@ -36,27 +36,6 @@ template <typename FF> class to_radix : public Relation<to_radixImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "to_radix";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 4:
-            return "START_AFTER_LATCH";
-        case 5:
-            return "SELECTOR_ON_START";
-        case 6:
-            return "SELECTOR_CONSISTENCY";
-        case 36:
-            return "OVERFLOW_CHECK";
-        case 37:
-            return "CONSTANT_CONSISTENCY_RADIX";
-        case 38:
-            return "CONSTANT_CONSISTENCY_VALUE";
-        case 39:
-            return "CONSTANT_CONSISTENCY_SAFE_LIMBS";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_START_AFTER_LATCH = 4;
     static constexpr size_t SR_SELECTOR_ON_START = 5;
@@ -65,6 +44,27 @@ template <typename FF> class to_radix : public Relation<to_radixImpl<FF>> {
     static constexpr size_t SR_CONSTANT_CONSISTENCY_RADIX = 37;
     static constexpr size_t SR_CONSTANT_CONSISTENCY_VALUE = 38;
     static constexpr size_t SR_CONSTANT_CONSISTENCY_SAFE_LIMBS = 39;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_START_AFTER_LATCH:
+            return "START_AFTER_LATCH";
+        case SR_SELECTOR_ON_START:
+            return "SELECTOR_ON_START";
+        case SR_SELECTOR_CONSISTENCY:
+            return "SELECTOR_CONSISTENCY";
+        case SR_OVERFLOW_CHECK:
+            return "OVERFLOW_CHECK";
+        case SR_CONSTANT_CONSISTENCY_RADIX:
+            return "CONSTANT_CONSISTENCY_RADIX";
+        case SR_CONSTANT_CONSISTENCY_VALUE:
+            return "CONSTANT_CONSISTENCY_VALUE";
+        case SR_CONSTANT_CONSISTENCY_SAFE_LIMBS:
+            return "CONSTANT_CONSISTENCY_SAFE_LIMBS";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

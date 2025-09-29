@@ -43,6 +43,7 @@ pub fn analyzed_to_cpp<F: FieldElement>(
     vm_name: &str,
     delete_dir: bool,
 ) {
+    println!("Going from AST to CPP...");
     let mut bb_files = BBFiles::new(&snake_case(&vm_name), generated_dir, None);
 
     // Remove the generated directory if it exists.

@@ -122,3 +122,8 @@ output "deployment_successful" {
   description = "Whether the deployment completed successfully with valid contract addresses"
   value       = lookup(data.external.contract_addresses.result, "status", "success") != "no_json_found"
 }
+
+output "verification_json_b64" {
+  description = "Base64-encoded contents of /tmp/l1-verify.json emitted by the job"
+  value       = data.external.verification_json.result.b64
+}

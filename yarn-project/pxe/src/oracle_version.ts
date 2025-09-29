@@ -4,8 +4,8 @@
 ///
 /// @dev Whenever a contract function or Noir test is run, the `utilityAssertCompatibleOracleVersion` oracle is called
 /// and if the oracle version is incompatible an error is thrown.
-export const ORACLE_VERSION = 1;
+export const ORACLE_VERSION = 2;
 
 /// This hash is computed as by hashing the Oracle interface and it is used to detect when the Oracle interface changes,
 /// which in turn implies that you need to update the ORACLE_VERSION constant.
-export const ORACLE_INTERFACE_HASH = 'b48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d';
+export const ORACLE_INTERFACE_HASH = '6cf8e69893d8cfb3579bcffcf6740bf35a09dd63bdf5b076407841f896b0c07f';

@@ -21,6 +21,14 @@ provider "google" {
   region  = var.region
 }
 
+data "terraform_remote_state" "ssl" {
+  backend = "gcs"
+  config = {
+    bucket = "aztec-terraform"
+    prefix = "ssl/terraform.tfstate"
+  }
+}
+
 resource "google_compute_address" "grafana_ip" {
   provider     = google
   name         = "grafana-ip"
@@ -83,7 +91,25 @@ resource "helm_release" "aztec-gke-cluster" {
   # base values file
   values = [
     file("../../metrics/values.yaml"),
-    file("../../metrics/values/${var.VALUES_FILE}")
+    file("../../metrics/values/${var.VALUES_FILE}"),
+    yamlencode({
+      grafana = {
+        service = {
+          annotations = {
+            "cloud.google.com/neg" = jsonencode({ ingress = true })
+          }
+        }
+        ingress = {
+          hosts = [data.terraform_remote_state.ssl.outputs.grafana_host]
+          annotations = {
+            "kubernetes.io/ingress.class"                 = "gce"
+            "kubernetes.io/ingress.allow-http"            = "false"
+            "kubernetes.io/ingress.global-static-ip-name" = data.terraform_remote_state.ssl.outputs.grafana_ip_name
+            "ingress.gcp.kubernetes.io/pre-shared-cert"   = data.terraform_remote_state.ssl.outputs.grafana_cert_name
+          }
+        }
+      }
+    })
   ]
 
   set {
@@ -93,7 +119,7 @@ resource "helm_release" "aztec-gke-cluster" {
 
   set {
     name  = "grafana.grafana\\.ini.server.root_url"
-    value = "http://${google_compute_address.grafana_ip.address}"
+    value = "https://${data.terraform_remote_state.ssl.outputs.grafana_host}"
   }
 
   set {

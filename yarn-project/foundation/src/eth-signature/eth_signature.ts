@@ -94,9 +94,7 @@ export class Signature {
   }
 
   toBuffer(): Buffer {
-    const buffer = serializeToBuffer([this.r, this.s, this.v]);
-    this.size = buffer.length;
-    return buffer;
+    return serializeToBuffer([this.r, this.s, this.v]);
   }
 
   getSize(): number {

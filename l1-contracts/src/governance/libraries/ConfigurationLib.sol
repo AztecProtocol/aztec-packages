@@ -23,7 +23,7 @@ library ConfigurationLib {
   uint256 internal constant LOCK_AMOUNT_UPPER = type(uint96).max; // Maximum for compressed storage (uint96)
 
   Timestamp internal constant TIME_LOWER = Timestamp.wrap(60);
-  Timestamp internal constant TIME_UPPER = Timestamp.wrap(30 * 24 * 3600);
+  Timestamp internal constant TIME_UPPER = Timestamp.wrap(90 * 24 * 3600);
 
   /**
    * @notice The delay after which a withdrawal can be finalized.
@@ -46,7 +46,7 @@ library ConfigurationLib {
    * @dev     We specify `memory` here since it is called on outside import for validation
    *          before writing it to state.
    */
-  function assertValid(Configuration memory _self) internal pure returns (bool) {
+  function assertValid(Configuration memory _self) internal pure {
     require(_self.quorum >= QUORUM_LOWER, Errors.Governance__ConfigurationLib__QuorumTooSmall());
     require(_self.quorum <= QUORUM_UPPER, Errors.Governance__ConfigurationLib__QuorumTooBig());
 
@@ -66,12 +66,13 @@ library ConfigurationLib {
     );
 
     // Beyond checking the bounds like this, it might be useful to ensure that the value is larger than the withdrawal
-    // delay
-    // this, can be useful if one want to ensure that the "locker" cannot himself vote in the proposal, but as it is
-    // unclear
-    // if this is a useful property, it is not enforced.
+    // delay. this, can be useful if one want to ensure that the "locker" cannot himself vote in the proposal, but as
+    // it is unclear if this is a useful property, it is not enforced.
     require(_self.proposeConfig.lockDelay >= TIME_LOWER, Errors.Governance__ConfigurationLib__TimeTooSmall("LockDelay"));
-    require(_self.proposeConfig.lockDelay <= TIME_UPPER, Errors.Governance__ConfigurationLib__TimeTooBig("LockDelay"));
+    require(
+      _self.proposeConfig.lockDelay <= Timestamp.wrap(type(uint32).max),
+      Errors.Governance__ConfigurationLib__TimeTooBig("LockDelay")
+    );
 
     require(_self.votingDelay >= TIME_LOWER, Errors.Governance__ConfigurationLib__TimeTooSmall("VotingDelay"));
     require(_self.votingDelay <= TIME_UPPER, Errors.Governance__ConfigurationLib__TimeTooBig("VotingDelay"));
@@ -84,7 +85,5 @@ library ConfigurationLib {
 
     require(_self.gracePeriod >= TIME_LOWER, Errors.Governance__ConfigurationLib__TimeTooSmall("GracePeriod"));
     require(_self.gracePeriod <= TIME_UPPER, Errors.Governance__ConfigurationLib__TimeTooBig("GracePeriod"));
-
-    return true;
   }
 }

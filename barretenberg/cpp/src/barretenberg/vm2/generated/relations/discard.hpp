@@ -34,37 +34,6 @@ template <typename FF> class discard : public Relation<discardImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "discard";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 0:
-            return "SEL_FAILURE";
-        case 2:
-            return "DISCARD_IFF_DYING_CONTEXT";
-        case 3:
-            return "DISCARD_IF_FAILURE";
-        case 5:
-            return "IS_DYING_CONTEXT_CHECK";
-        case 6:
-            return "RESOLVES_DYING_CONTEXT";
-        case 7:
-            return "NESTED_CALL_FROM_UNDISCARDED_CONTEXT";
-        case 8:
-            return "SHOULD_PROPAGATE_DISCARD";
-        case 9:
-            return "DISCARD_PROPAGATION";
-        case 10:
-            return "DYING_CONTEXT_PROPAGATION";
-        case 11:
-            return "DYING_CONTEXT_MUST_FAIL";
-        case 12:
-            return "ENTER_CALL_DISCARD_MUST_BE_DYING_CONTEXT";
-        case 13:
-            return "DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_SEL_FAILURE = 0;
     static constexpr size_t SR_DISCARD_IFF_DYING_CONTEXT = 2;
@@ -78,6 +47,37 @@ template <typename FF> class discard : public Relation<discardImpl<FF>> {
     static constexpr size_t SR_DYING_CONTEXT_MUST_FAIL = 11;
     static constexpr size_t SR_ENTER_CALL_DISCARD_MUST_BE_DYING_CONTEXT = 12;
     static constexpr size_t SR_DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD = 13;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_SEL_FAILURE:
+            return "SEL_FAILURE";
+        case SR_DISCARD_IFF_DYING_CONTEXT:
+            return "DISCARD_IFF_DYING_CONTEXT";
+        case SR_DISCARD_IF_FAILURE:
+            return "DISCARD_IF_FAILURE";
+        case SR_IS_DYING_CONTEXT_CHECK:
+            return "IS_DYING_CONTEXT_CHECK";
+        case SR_RESOLVES_DYING_CONTEXT:
+            return "RESOLVES_DYING_CONTEXT";
+        case SR_NESTED_CALL_FROM_UNDISCARDED_CONTEXT:
+            return "NESTED_CALL_FROM_UNDISCARDED_CONTEXT";
+        case SR_SHOULD_PROPAGATE_DISCARD:
+            return "SHOULD_PROPAGATE_DISCARD";
+        case SR_DISCARD_PROPAGATION:
+            return "DISCARD_PROPAGATION";
+        case SR_DYING_CONTEXT_PROPAGATION:
+            return "DYING_CONTEXT_PROPAGATION";
+        case SR_DYING_CONTEXT_MUST_FAIL:
+            return "DYING_CONTEXT_MUST_FAIL";
+        case SR_ENTER_CALL_DISCARD_MUST_BE_DYING_CONTEXT:
+            return "ENTER_CALL_DISCARD_MUST_BE_DYING_CONTEXT";
+        case SR_DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD:
+            return "DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

@@ -1,4 +1,4 @@
-import { type AccountWalletWithSecretKey, AztecAddress, Fr } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, Fr, type Logger, type Wallet, getDecodedPublicEvents } from '@aztec/aztec.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
 import type { Tuple } from '@aztec/foundation/serialize';
@@ -14,24 +14,29 @@ describe('Logs', () => {
   let testLogContract: TestLogContract;
   jest.setTimeout(TIMEOUT);
 
-  let wallet1: AccountWalletWithSecretKey;
-  let wallet2: AccountWalletWithSecretKey;
+  let wallet: Wallet;
+  let aztecNode: AztecNode;
 
   let account1Address: AztecAddress;
   let account2Address: AztecAddress;
 
+  let log: Logger;
   let teardown: () => Promise<void>;
 
   beforeAll(async () => {
     ({
       teardown,
-      wallets: [wallet1, wallet2],
+      wallet,
       accounts: [account1Address, account2Address],
+      aztecNode,
+      logger: log,
     } = await setup(2));
 
-    await ensureAccountContractsPublished(wallet1, [wallet1, wallet2]);
+    log.warn(`Setup complete, checking account contracts published`);
+    await ensureAccountContractsPublished(wallet, [account1Address, account2Address]);
 
-    testLogContract = await TestLogContract.deploy(wallet1).send({ from: account1Address }).deployed();
+    log.warn(`Deploying test contract`);
+    testLogContract = await TestLogContract.deploy(wallet).send({ from: account1Address }).deployed();
   });
 
   afterAll(() => teardown());
@@ -55,7 +60,7 @@ describe('Logs', () => {
 
       // Each emit_encrypted_events call emits 2 ExampleEvent0s and 1 ExampleEvent1
       // So with 5 calls we expect 10 ExampleEvent0s and 5 ExampleEvent1s
-      const collectedEvent0s = await wallet1.getPrivateEvents<ExampleEvent0>(
+      const collectedEvent0s = await wallet.getPrivateEvents<ExampleEvent0>(
         testLogContract.address,
         TestLogContract.events.ExampleEvent0,
         firstBlockNumber,
@@ -63,7 +68,7 @@ describe('Logs', () => {
         [account1Address, account2Address],
       );
 
-      const collectedEvent1s = await wallet1.getPrivateEvents<ExampleEvent1>(
+      const collectedEvent1s = await wallet.getPrivateEvents<ExampleEvent1>(
         testLogContract.address,
         TestLogContract.events.ExampleEvent1,
         firstBlockNumber,
@@ -74,7 +79,7 @@ describe('Logs', () => {
       expect(collectedEvent0s.length).toBe(10); // 2 events per tx * 5 txs
       expect(collectedEvent1s.length).toBe(5); // 1 event per tx * 5 txs
 
-      const emptyEvent1s = await wallet1.getPrivateEvents<ExampleEvent1>(
+      const emptyEvent1s = await wallet.getPrivateEvents<ExampleEvent1>(
         testLogContract.address,
         TestLogContract.events.ExampleEvent1,
         firstBlockNumber,
@@ -120,13 +125,15 @@ describe('Logs', () => {
         .send({ from: account1Address })
         .wait();
 
-      const collectedEvent0s = await wallet1.getPublicEvents<ExampleEvent0>(
+      const collectedEvent0s = await getDecodedPublicEvents<ExampleEvent0>(
+        aztecNode,
         TestLogContract.events.ExampleEvent0,
         firstTx.blockNumber!,
         lastTx.blockNumber! - firstTx.blockNumber! + 1,
       );
 
-      const collectedEvent1s = await wallet1.getPublicEvents<ExampleEvent1>(
+      const collectedEvent1s = await getDecodedPublicEvents<ExampleEvent1>(
+        aztecNode,
         TestLogContract.events.ExampleEvent1,
         firstTx.blockNumber!,
         lastTx.blockNumber! - firstTx.blockNumber! + 1,

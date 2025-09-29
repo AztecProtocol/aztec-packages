@@ -18,6 +18,10 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
+# entrypoint for docs
+if [ -n "${DOCS_WORKING_DIR:-}" ]; then
+  cd "$DOCS_WORKING_DIR"
+fi
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
@@ -26,7 +30,7 @@ export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export TRANSPILER=${TRANSPILER:-../../avm-transpiler/target/release/avm-transpiler}
-export BB_HASH=$(../../barretenberg/cpp/bootstrap.sh hash)
+export BB_HASH=${BB_HASH:-$(../../barretenberg/cpp/bootstrap.sh hash)}
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
 
 export tmp_dir=./target/tmp
@@ -96,16 +100,29 @@ function process_function {
 export -f process_function
 
 # Compute hash for a given contract.
+# $1 is the contract name, $2 is the folder name (e.g. "contracts" or "examples")
 function get_contract_hash {
-  local contract_path=$(get_contract_path "$1")
+  local contract_path=$(get_contract_path "$1" "$2")
 
-  hash_str \
-    $NOIR_HASH \
-    $(cache_content_hash \
-      ../../avm-transpiler/.rebuild_patterns \
-      "^noir-projects/noir-contracts/contracts/$contract_path/" \
-      "^noir-projects/aztec-nr/" \
-      "^noir-projects/noir-protocol-circuits/crates/types/")
+  if [ "$2" = "examples" ]; then
+    # Called from docs
+    hash_str \
+      $NOIR_HASH \
+      $(cache_content_hash \
+        ../avm-transpiler/.rebuild_patterns \
+        "^docs/examples/$contract_path/" \
+        "^noir-projects/aztec-nr/" \
+        "^noir-projects/noir-protocol-circuits/crates/types/")
+  else
+    # Called from noir-contracts
+    hash_str \
+      $NOIR_HASH \
+      $(cache_content_hash \
+        ../../avm-transpiler/.rebuild_patterns \
+        "^noir-projects/noir-contracts/contracts/$contract_path/" \
+        "^noir-projects/aztec-nr/" \
+        "^noir-projects/noir-protocol-circuits/crates/types/")
+  fi
 }
 export -f get_contract_hash
 
@@ -114,16 +131,18 @@ export -f get_contract_hash
 # E.g. for both "ecdsa_k_account_contract" and "account/ecdsa_k_account_contractor" returns
 # "account/ecdsa_k_account_contractor"
 #
+# $1 is the contract input, $2 is the folder name (e.g. "contracts" or "examples")
 # This is done to ensure that both paths can be provided as inputs to the script.
 function get_contract_path {
   local input=$1
+  local folder_name=$2
   local contract_path
   if [[ $input == *"/"* ]]; then
     # Full path provided (e.g. account/ecdsa_k_account_contract)
     contract_path=$input
   else
     # Just contract name provided (e.g. ecdsa_k_account_contract)
-    contract_path=$(grep -oP "(?<=contracts/)[^\"]+/$input" Nargo.toml)
+    contract_path=$(grep -oP "(?<=$folder_name/)[^\"]+/$input" Nargo.toml)
     if [ -z "$contract_path" ]; then
       echo "Contract $input not found in Nargo.toml" >&2
       exit 1
@@ -134,19 +153,20 @@ function get_contract_path {
 export -f get_contract_path
 
 # This compiles a noir contract, transpile's public functions, and generates vk's for private functions.
-# $1 is the input package name, and on exit it's fully processed json artifact is in the target dir.
+# $1 is the input package name, $2 is the folder name (e.g. "contracts" or "examples")
+# On exit it's fully processed json artifact is in the target dir.
 # The function is exported and called by a sub-shell in parallel, so we must "set -eu" etc..
 function compile {
   set -euo pipefail
   local contract_name contract_hash
 
-  local contract_path=$(get_contract_path "$1")
+  local contract_path=$(get_contract_path "$1" "$2")
   local contract=${contract_path#*/}
   # Calculate filename because nargo...
-  contract_name=$(cat contracts/$contract_path/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
+  contract_name=$(cat $2/$contract_path/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
   local filename="$contract-$contract_name.json"
   local json_path="./target/$filename"
-  contract_hash=$(get_contract_hash $1)
+  contract_hash=$(get_contract_hash $1 $2)
   if ! cache_download contract-$contract_hash.tar.gz; then
     $NARGO compile --package $contract --inliner-aggressiveness 0 --pedantic-solving --deny-warnings
     $TRANSPILER $json_path $json_path
@@ -174,15 +194,22 @@ export -f compile
 # Otherwise parse out all relevant contracts from the root Nargo.toml and process them in parallel.
 function build {
   echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
+  local folder_name
+  if [ -n "${DOCS_WORKING_DIR:-}" ]; then
+    folder_name="examples"
+  else
+    folder_name="contracts"
+  fi
+
   if [ "$#" -eq 0 ]; then
     rm -rf target
     mkdir -p $tmp_dir
-    local contracts=$(grep -oP '(?<=contracts/)[^"]+' Nargo.toml)
+    local contracts=$(grep -oP "(?<=$folder_name/)[^\"]+" Nargo.toml)
   else
     local contracts="$@"
   fi
   set +e
-  parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {} ::: ${contracts[@]}
+  parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {} $folder_name ::: ${contracts[@]}
   code=$?
   cat joblog.txt
   return $code
@@ -190,10 +217,16 @@ function build {
 
 function test_cmds {
   local -A cache
+  local folder_name
+  if [ -n "${DOCS_WORKING_DIR:-}" ]; then
+    folder_name="examples"
+  else
+    folder_name="contracts"
+  fi
   i=0
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     port=$((45730 + (i++ % ${NUM_TXES:-1})))
-    [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package)
+    [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package $folder_name)
     echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
   done
 }

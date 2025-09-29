@@ -21,16 +21,6 @@ template <typename T> std::vector<T> concatenate_jobs(std::vector<T>&& first, au
     return result;
 }
 
-// We set a dummy value in the inverse column so that the size of the column is right.
-// The correct value will be set by the prover.
-template <typename LookupSettings> void SetDummyInverses(TraceContainer& trace)
-{
-    trace.visit_column(LookupSettings::SRC_SELECTOR,
-                       [&](uint32_t row, const FF&) { trace.set(LookupSettings::INVERSES, row, 0xdeadbeef); });
-    trace.visit_column(LookupSettings::DST_SELECTOR,
-                       [&](uint32_t row, const FF&) { trace.set(LookupSettings::INVERSES, row, 0xdeadbeef); });
-}
-
 } // namespace bb::avm2::tracegen
 
 // Define a hash function for std::array so that it can be used as a key in a std::unordered_map.

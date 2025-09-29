@@ -29,6 +29,5 @@ INSTANTIATE_LOOKUP(lookup_to_radix_mem_check_dst_addr_in_range_relation);
 INSTANTIATE_LOOKUP(lookup_to_radix_mem_check_radix_lt_2_relation);
 INSTANTIATE_LOOKUP(lookup_to_radix_mem_check_radix_gt_256_relation);
 INSTANTIATE_LOOKUP(lookup_to_radix_mem_input_output_to_radix_relation);
-INSTANTIATE_LOOKUP(lookup_to_radix_mem_write_mem_relation);
 
 } // namespace bb::avm2

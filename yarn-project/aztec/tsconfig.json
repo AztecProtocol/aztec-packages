@@ -37,9 +37,6 @@
       "path": "../cli"
     },
     {
-      "path": "../cli-wallet"
-    },
-    {
       "path": "../constants"
     },
     {
@@ -56,6 +53,9 @@
     },
     {
       "path": "../l1-artifacts"
+    },
+    {
+      "path": "../node-lib"
     },
     {
       "path": "../noir-contracts.js"
@@ -86,6 +86,9 @@
     },
     {
       "path": "../telemetry-client"
+    },
+    {
+      "path": "../test-wallet"
     },
     {
       "path": "../txe"

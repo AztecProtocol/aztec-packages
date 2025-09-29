@@ -18,7 +18,7 @@ export interface ContractClass {
   /**
    * Hash of the contract artifact. The specification of this hash is not enforced by the protocol. Should include
    * commitments to code of utility functions and compilation metadata. Intended to be used by clients to verify that
-   * an off-chain fetched artifact matches a registered class.
+   * an offchain fetched artifact matches a registered class.
    */
   artifactHash: Fr;
   /** List of individual private functions, constructors included. */

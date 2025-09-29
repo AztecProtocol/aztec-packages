@@ -119,10 +119,9 @@ bool table::lookup_table_exists_for_point(const affine_element& input)
  * MultiTables
  *
  * @param input
- * @return std::optional<std::array<MultiTableId, 2>>
+ * @return std::array<MultiTableId, 2>
  */
-std::optional<std::array<MultiTableId, 2>> table::get_lookup_table_ids_for_point(
-    const grumpkin::g1::affine_element& input)
+std::array<MultiTableId, 2> table::get_lookup_table_ids_for_point(const grumpkin::g1::affine_element& input)
 {
     if (input == lhs_generator_point()) {
         return { { FIXED_BASE_LEFT_LO, FIXED_BASE_LEFT_HI } };
@@ -130,6 +129,7 @@ std::optional<std::array<MultiTableId, 2>> table::get_lookup_table_ids_for_point
     if (input == rhs_generator_point()) {
         return { { FIXED_BASE_RIGHT_LO, FIXED_BASE_RIGHT_HI } };
     }
+    ASSERT(false && "No fixed-base table for input point");
     return {};
 }
 
@@ -139,9 +139,9 @@ std::optional<std::array<MultiTableId, 2>> table::get_lookup_table_ids_for_point
  * Return value is std::optional in case the table_id is not a fixed-base table.
  *
  * @param table_id
- * @return std::optional<affine_element>
+ * @return affine_element
  */
-std::optional<grumpkin::g1::affine_element> table::get_generator_offset_for_table_id(const MultiTableId table_id)
+grumpkin::g1::affine_element table::get_generator_offset_for_table_id(const MultiTableId table_id)
 {
     if (table_id == FIXED_BASE_LEFT_LO) {
         return fixed_base_table_offset_generators()[0];
@@ -155,7 +155,8 @@ std::optional<grumpkin::g1::affine_element> table::get_generator_offset_for_tabl
     if (table_id == FIXED_BASE_RIGHT_HI) {
         return fixed_base_table_offset_generators()[3];
     }
-    return std::nullopt;
+    ASSERT(false && "Invalid fixed-base table ID");
+    return {};
 }
 
 using function_ptr = std::array<bb::fr, 2> (*)(const std::array<uint64_t, 2>);
@@ -245,6 +246,16 @@ template <size_t multitable_index, size_t num_bits> MultiTable table::get_fixed_
     };
     constexpr function_ptr_table get_values_from_key_table = make_function_pointer_table();
 
+    // For fixed base scalar mul lookup tables, the special "accumulator" structure of our lookup tables (see add ref
+    // bb::plookup::get_lookup_accumulators()) is used for the scalar (first column), but not for the (x,y) coordinates
+    // (columns 2 & 3). Each table entry contains a distinct point, not an accumulated point. This is so that we can use
+    // custom ECC addition gates to perform the accumulation efficiently, e.g. in
+    // cycle_group::_fixed_base_batch_mul_internal.
+    //
+    // To achieve this, we set the step sizes of each column as follows:
+    // - Column 1 coefficient: MAX_TABLE_SIZE (512) - creates accumulator structure for scalar slices
+    // - Column 2 coefficient: 0 - results in NO accumulation for x-coordinates
+    // - Column 3 coefficient: 0 - results in NO accumulation for y-coordinates
     MultiTable table(MAX_TABLE_SIZE, 0, 0, NUM_TABLES);
     table.id = id;
     table.get_table_values.resize(NUM_TABLES);

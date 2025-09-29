@@ -18,7 +18,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
     private address: AztecAddress = ProtocolContractAddress.MultiCallEntrypoint,
   ) {}
 
-  async createTxExecutionRequest(exec: ExecutionPayload, fee: FeeOptions): Promise<TxExecutionRequest> {
+  async createTxExecutionRequest(exec: ExecutionPayload, feeOptions: FeeOptions): Promise<TxExecutionRequest> {
     // Initial request with calls, authWitnesses and capsules
     const { calls, authWitnesses, capsules, extraHashedArgs } = exec;
 
@@ -27,7 +27,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
       calls: feeCalls,
       authWitnesses: feeAuthwitnesses,
       extraHashedArgs: feeExtraHashedArgs,
-    } = await fee.paymentMethod.getExecutionPayload(fee.gasSettings);
+    } = await feeOptions.paymentMethod.getExecutionPayload(feeOptions.gasSettings);
 
     // Encode the calls, including the fee calls
     // (since this entrypoint does not distinguish between app and fee calls)
@@ -42,7 +42,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
       firstCallArgsHash: entrypointHashedArgs.hash,
       origin: this.address,
       functionSelector: await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
-      txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
+      txContext: new TxContext(this.chainId, this.version, feeOptions.gasSettings),
       argsOfCalls: [...encodedCalls.hashedArguments, entrypointHashedArgs, ...extraHashedArgs, ...feeExtraHashedArgs],
       authWitnesses: [...feeAuthwitnesses, ...authWitnesses],
       capsules,

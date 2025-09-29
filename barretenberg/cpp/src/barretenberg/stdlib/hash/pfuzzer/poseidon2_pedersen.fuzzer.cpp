@@ -118,7 +118,7 @@ template <typename Builder> bool test_poseidon2_circuit(const std::vector<Fr>& i
         }
 
         // Compute hash using circuit
-        auto circuit_result = stdlib::poseidon2<Builder>::hash(builder, circuit_inputs);
+        auto circuit_result = stdlib::poseidon2<Builder>::hash(circuit_inputs);
 
         // Compute hash using native implementation
         auto native_result = native_poseidon2::hash(inputs);

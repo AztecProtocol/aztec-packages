@@ -2,9 +2,9 @@ import { type L1TxRequest, type ViemClient, tryExtractEvent } from '@aztec/ether
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { hexToBuffer } from '@aztec/foundation/string';
 import { TallySlashingProposerAbi } from '@aztec/l1-artifacts/TallySlashingProposerAbi';
 
-import EventEmitter from 'events';
 import {
   type GetContractReturnType,
   type Hex,
@@ -18,7 +18,7 @@ import {
  * Wrapper around the TallySlashingProposer contract that provides
  * a TypeScript interface for interacting with the consensus-based slashing system.
  */
-export class TallySlashingProposerContract extends EventEmitter {
+export class TallySlashingProposerContract {
   private readonly contract: GetContractReturnType<typeof TallySlashingProposerAbi, ViemClient>;
 
   public readonly type = 'tally' as const;
@@ -27,7 +27,6 @@ export class TallySlashingProposerContract extends EventEmitter {
     public readonly client: ViemClient,
     address: Hex | EthAddress,
   ) {
-    super();
     this.contract = getContract({
       address: typeof address === 'string' ? address : address.toString(),
       abi: TallySlashingProposerAbi,
@@ -221,6 +220,21 @@ export class TallySlashingProposerContract extends EventEmitter {
     };
   }
 
+  /** Returns the last vote emitted for a given round  */
+  public async getLastVote(round: bigint) {
+    const { voteCount } = await this.getRound(round);
+    const validators = (await this.contract.simulate.getSlashTargetCommittees([round])).result.flat();
+    const vote = await this.contract.read.getVotes([round, voteCount - 1n]);
+    const decoded = decodeSlashConsensusVotes(hexToBuffer(vote));
+    const slashAmounts = await this.getSlashingAmounts();
+    return decoded
+      .map((units, i) => ({
+        validator: EthAddress.fromString(validators[i]),
+        slashAmount: slashAmounts[units - 1] ?? 0n,
+      }))
+      .filter(v => v.slashAmount > 0n);
+  }
+
   /**
    * Listen for VoteCast events
    * @param callback - Callback function to handle vote cast events
@@ -264,4 +278,29 @@ export class TallySlashingProposerContract extends EventEmitter {
       },
     );
   }
+}
+
+/**
+ * Decodes a Buffer containing slash votes back into an array of numbers.
+ * Each vote is represented as a 2-bit value (0, 1, 2, or 3) representing slashing units.
+ * @dev This should live in stdlib next to encodeSlashConsensusVotes but is here since we
+ * do not have a dependency to stdlib from the ethereum package. We need a larger refactor to fix this.
+ * @param buffer - The Buffer containing encoded slash votes
+ * @returns An array of numbers representing the slash votes
+ */
+export function decodeSlashConsensusVotes(buffer: Buffer): number[] {
+  const votes: number[] = [];
+  for (let i = 0; i < buffer.length; i++) {
+    const voteByte = buffer.readUInt8(i);
+    // Decode votes from Solidity's bit order (LSB to MSB)
+    // Bits 0-1: validator at index i*4
+    // Bits 2-3: validator at index i*4+1
+    // Bits 4-5: validator at index i*4+2
+    // Bits 6-7: validator at index i*4+3
+    votes.push((voteByte >> 0) & 0x03);
+    votes.push((voteByte >> 2) & 0x03);
+    votes.push((voteByte >> 4) & 0x03);
+    votes.push((voteByte >> 6) & 0x03);
+  }
+  return votes;
 }

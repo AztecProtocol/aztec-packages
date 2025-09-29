@@ -114,6 +114,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     bytes blobInputs;
     CommitteeAttestation[] attestations;
     address[] signers;
+    Signature attestationsAndSignersSignature;
   }
 
   DecoderBase.Full full = load("empty_block_1");
@@ -236,7 +237,13 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
         blockAttestations[currentBlockNumber] = AttestationLibHelper.packAttestations(b.attestations);
 
         vm.prank(proposer);
-        rollup.propose(b.proposeArgs, AttestationLibHelper.packAttestations(b.attestations), b.signers, b.blobInputs);
+        rollup.propose(
+          b.proposeArgs,
+          AttestationLibHelper.packAttestations(b.attestations),
+          b.signers,
+          b.attestationsAndSignersSignature,
+          b.blobInputs
+        );
 
         nextSlot = nextSlot + Slot.wrap(1);
       }
@@ -383,11 +390,20 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
       }
     }
 
+    Signature memory attestationsAndSignersSignature;
+    if (proposer != address(0)) {
+      attestationsAndSignersSignature = createAttestation(
+        proposer,
+        AttestationLib.getAttestationsAndSignersDigest(AttestationLibHelper.packAttestations(attestations), signers)
+      ).signature;
+    }
+
     return Block({
       proposeArgs: proposeArgs,
       blobInputs: full.block.blobCommitments,
       attestations: attestations,
-      signers: signers
+      signers: signers,
+      attestationsAndSignersSignature: attestationsAndSignersSignature
     });
   }
 

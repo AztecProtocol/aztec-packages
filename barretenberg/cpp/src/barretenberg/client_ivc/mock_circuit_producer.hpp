@@ -150,9 +150,9 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
         // Deepcopy the opqueue to avoid modifying the original one when finalising the circuit
         builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
-        std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key =
-            std::make_shared<ClientIVC::DeciderProvingKey>(builder, trace_settings);
-        std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(proving_key->get_precomputed());
+        std::shared_ptr<ClientIVC::ProverInstance> prover_instance =
+            std::make_shared<ClientIVC::ProverInstance>(builder, trace_settings);
+        std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
         return vk;
     }
 
@@ -202,6 +202,11 @@ class PrivateFunctionExecutionMockCircuitProducer {
     std::pair<ClientCircuit, std::shared_ptr<VerificationKey>> create_next_circuit_and_vk(ClientIVC& ivc,
                                                                                           TestSettings settings = {})
     {
+        // If this is a mock hiding kernel, remove the settings and use a default (non-structured) trace
+        if (ivc.num_circuits_accumulated == ivc.get_num_circuits() - 1) {
+            settings = TestSettings{};
+            ivc.trace_settings = TraceSettings{};
+        }
         auto circuit = create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs);
         return { circuit, get_verification_key(circuit, ivc.trace_settings) };
     }

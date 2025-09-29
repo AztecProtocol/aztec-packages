@@ -358,8 +358,7 @@ export class NodeKeystoreAdapter implements ExtendedValidatorKeyStore {
    */
   getFeeRecipient(attesterAddress: EthAddress): AztecAddress {
     const validatorIndex = this.findValidatorIndexForAttester(attesterAddress);
-    const feeRecipientHex = this.keystoreManager.getFeeRecipient(validatorIndex);
-    return AztecAddress.fromString(feeRecipientHex);
+    return this.keystoreManager.getFeeRecipient(validatorIndex);
   }
 
   /**

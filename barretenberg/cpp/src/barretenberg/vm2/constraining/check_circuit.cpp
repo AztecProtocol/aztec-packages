@@ -58,7 +58,9 @@ void run_check_circuit(AvmFlavor::ProverPolynomials& polys, size_t num_rows, boo
                     }
                 }
             }
-            // Do final check for the linearly dependent part of the relation.
+            // Do final check (accumulation over all rows) for all the subrelations and in
+            // particular the linearly dependent ones. (Linearly independent sub-relations are
+            // checked to be zero as each row by the above loop so their accumulation is zero.)
             for (size_t j = 0; j < result.size(); ++j) {
                 if (!result[j].is_zero()) {
                     throw std::runtime_error(format(
@@ -72,6 +74,12 @@ void run_check_circuit(AvmFlavor::ProverPolynomials& polys, size_t num_rows, boo
     bb::constexpr_for<0, std::tuple_size_v<typename AvmFlavor::LookupRelations>, 1>([&]<size_t i>() {
         using Relation = std::tuple_element_t<i, typename AvmFlavor::LookupRelations>;
         checks.push_back([&, num_rows]() {
+            // We need to resize the inverse polynomials for the relation, now that the selectors have been computed.
+            constraining::resize_inverses(polys,
+                                          Relation::Settings::INVERSES,
+                                          Relation::Settings::SRC_SELECTOR,
+                                          Relation::Settings::DST_SELECTOR);
+
             // Compute logderivs.
             bb::compute_logderivative_inverse<typename AvmFlavor::FF, Relation>(polys, params, num_rows);
 

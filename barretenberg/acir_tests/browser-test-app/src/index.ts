@@ -87,7 +87,10 @@ function installClientIvcGlobal() {
       threads,
       logger: console.log,
     });
-    const [proof, verificationKey] = await backend.prove(witnessBufs, vkBufs);
+    const [_, proof, verificationKey] = await backend.prove(
+      witnessBufs,
+      vkBufs
+    );
     await backend.destroy();
     return { proof, verificationKey };
   }

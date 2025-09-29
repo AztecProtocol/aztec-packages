@@ -185,6 +185,31 @@ template <typename Curve> struct MockClaimGenerator {
             ClaimBatcher{ .unshifted = ClaimBatch{ RefVector(unshifted.commitments), RefVector(unshifted.evals) } };
     }
 
+    // Generates mock claims by using the custom polynomials provided as input instead of random polynomials. Used for
+    // the high degree attack tests.
+    MockClaimGenerator(const size_t poly_size,
+                       const std::vector<Polynomial> custom_unshifted,
+                       const std::vector<Fr>& custom_unshifted_evals,
+                       const CommitmentKey& commitment_key)
+
+        : ck(commitment_key)
+        , polynomial_batcher(poly_size)
+    {
+
+        //  ---------- Unshifted ----------
+        for (size_t i = 0; i < custom_unshifted.size(); ++i) {
+            auto& p = custom_unshifted[i];
+            unshifted.commitments.push_back(ck.commit(p));
+            unshifted.evals.push_back(custom_unshifted_evals[i]);
+            unshifted.polys.push_back(std::move(p));
+        }
+
+        polynomial_batcher.set_unshifted(RefVector(unshifted.polys));
+
+        claim_batcher =
+            ClaimBatcher{ .unshifted = ClaimBatch{ RefVector(unshifted.commitments), RefVector(unshifted.evals) } };
+    }
+
     InterleaveData generate_interleaving_inputs(const std::vector<Fr>& u_challenge,
                                                 const size_t num_interleaved,
                                                 const size_t group_size,

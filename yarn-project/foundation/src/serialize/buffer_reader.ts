@@ -130,6 +130,11 @@ export class BufferReader {
     return result;
   }
 
+  /** Alias for readUInt256 */
+  public readBigInt(): bigint {
+    return this.readUInt256();
+  }
+
   /**
    * Reads a 16-bit unsigned integer from the buffer at the current index position.
    * Updates the index position by 2 bytes after reading the number.

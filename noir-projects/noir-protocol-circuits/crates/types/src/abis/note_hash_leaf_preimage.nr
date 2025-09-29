@@ -2,7 +2,7 @@ global NOTE_HASH_LEAF_PREIMAGE_LENGTH: u32 = 1;
 
 use crate::{
     abis::{read_request::ScopedReadRequest, side_effect::Readable},
-    merkle_tree::leaf_preimage::LeafPreimage,
+    merkle_tree::LeafPreimage,
     traits::Empty,
 };
 

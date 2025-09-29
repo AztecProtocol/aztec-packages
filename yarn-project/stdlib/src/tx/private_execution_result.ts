@@ -103,10 +103,10 @@ export class PrivateExecutionResult {
   }
 
   /**
-   * The block number that this execution was simulated with.
+   * The anchor block number that this execution was simulated with.
    */
-  getSimulationBlockNumber(): UInt32 {
-    return this.entrypoint.publicInputs.historicalHeader.globalVariables.blockNumber;
+  getSimulationAnchorBlockNumber(): UInt32 {
+    return this.entrypoint.publicInputs.anchorBlockHeader.globalVariables.blockNumber;
   }
 }
 

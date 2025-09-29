@@ -186,27 +186,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* Data, size_t Size)
 
             // Use pre-computed scalar selected by scalar_indices
             Fr scalar = precomputed_scalars[op.scalar_index % precomputed_scalars.size()];
-            // TODO(@Rumata888): remove this if we fix the completeness issue
-            // Convert scalar to endomorphism scalars and check that none exceed 128 bits
-            auto converted = scalar.from_montgomery_form();
-            uint256_t converted_u256(scalar);
-            uint256_t k1_u256, k2_u256;
-            Fr z_1 = 0;
-            Fr z_2 = 0;
-
-            if (converted_u256.get_msb() <= 128) {
-                k1_u256 = converted_u256;
-                k2_u256 = 0;
-            } else {
-                bb::fr::split_into_endomorphism_scalars(converted, z_1, z_2);
-                k1_u256 = uint256_t(z_1.to_montgomery_form());
-                k2_u256 = uint256_t(z_2.to_montgomery_form());
-            }
-
-            if (k1_u256.get_msb() >= 128 || k2_u256.get_msb() >= 128) {
-                // Skip this operation if endomorphism scalars are too large
-                continue;
-            }
 
             typename G1::element point_to_multiply = points[generator_index];
             if (should_negate) {

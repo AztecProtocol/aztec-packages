@@ -35,35 +35,6 @@ template <typename FF> class instr_fetching : public Relation<instr_fetchingImpl
   public:
     static constexpr const std::string_view NAME = "instr_fetching";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 4:
-            return "PC_OUT_OF_RANGE_TOGGLE";
-        case 6:
-            return "INSTR_OUT_OF_RANGE_TOGGLE";
-        case 7:
-            return "TAG_VALUE";
-        case 9:
-            return "INDIRECT_BYTES_DECOMPOSITION";
-        case 10:
-            return "OP1_BYTES_DECOMPOSITION";
-        case 11:
-            return "OP2_BYTES_DECOMPOSITION";
-        case 12:
-            return "OP3_BYTES_DECOMPOSITION";
-        case 13:
-            return "OP4_BYTES_DECOMPOSITION";
-        case 14:
-            return "OP5_BYTES_DECOMPOSITION";
-        case 15:
-            return "OP6_BYTES_DECOMPOSITION";
-        case 16:
-            return "OP7_BYTES_DECOMPOSITION";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_PC_OUT_OF_RANGE_TOGGLE = 4;
     static constexpr size_t SR_INSTR_OUT_OF_RANGE_TOGGLE = 6;
@@ -76,6 +47,35 @@ template <typename FF> class instr_fetching : public Relation<instr_fetchingImpl
     static constexpr size_t SR_OP5_BYTES_DECOMPOSITION = 14;
     static constexpr size_t SR_OP6_BYTES_DECOMPOSITION = 15;
     static constexpr size_t SR_OP7_BYTES_DECOMPOSITION = 16;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_PC_OUT_OF_RANGE_TOGGLE:
+            return "PC_OUT_OF_RANGE_TOGGLE";
+        case SR_INSTR_OUT_OF_RANGE_TOGGLE:
+            return "INSTR_OUT_OF_RANGE_TOGGLE";
+        case SR_TAG_VALUE:
+            return "TAG_VALUE";
+        case SR_INDIRECT_BYTES_DECOMPOSITION:
+            return "INDIRECT_BYTES_DECOMPOSITION";
+        case SR_OP1_BYTES_DECOMPOSITION:
+            return "OP1_BYTES_DECOMPOSITION";
+        case SR_OP2_BYTES_DECOMPOSITION:
+            return "OP2_BYTES_DECOMPOSITION";
+        case SR_OP3_BYTES_DECOMPOSITION:
+            return "OP3_BYTES_DECOMPOSITION";
+        case SR_OP4_BYTES_DECOMPOSITION:
+            return "OP4_BYTES_DECOMPOSITION";
+        case SR_OP5_BYTES_DECOMPOSITION:
+            return "OP5_BYTES_DECOMPOSITION";
+        case SR_OP6_BYTES_DECOMPOSITION:
+            return "OP6_BYTES_DECOMPOSITION";
+        case SR_OP7_BYTES_DECOMPOSITION:
+            return "OP7_BYTES_DECOMPOSITION";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2
