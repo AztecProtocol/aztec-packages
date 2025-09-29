@@ -5,7 +5,7 @@ import type { TestDateProvider } from '@aztec/foundation/timer';
 import { LendingContract } from '@aztec/noir-contracts.js/Lending';
 import { PriceFeedContract } from '@aztec/noir-contracts.js/PriceFeed';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { afterAll, jest } from '@jest/globals';
 

@@ -56,8 +56,7 @@ void RomRamLogic_<ExecutionTrace>::set_ROM_element_pair(CircuitBuilder* builder,
 {
     BB_ASSERT_GT(rom_arrays.size(), rom_id);
     RomTranscript& rom_array = rom_arrays[rom_id];
-    const uint32_t index_witness =
-        (index_value == 0) ? builder->zero_idx : builder->put_constant_variable((uint64_t)index_value);
+    const uint32_t index_witness = builder->put_constant_variable((uint64_t)index_value);
     BB_ASSERT_GT(rom_array.state.size(), index_value);
     BB_ASSERT_EQ(rom_array.state[index_value][0], UNINITIALIZED_MEMORY_RECORD);
     RomRecord new_record{

@@ -8,6 +8,7 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/execution.hpp"
 #include "barretenberg/vm2/simulation/events/nullifier_tree_check_event.hpp"
+#include "barretenberg/vm2/simulation/gadgets/nullifier_tree_check.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"

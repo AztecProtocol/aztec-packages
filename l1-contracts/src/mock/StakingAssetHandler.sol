@@ -32,6 +32,7 @@ import {ZKPassportVerifier, ProofVerificationParams, ProofType} from "@zkpasspor
 interface IStakingAssetHandler {
   event ToppedUp(uint256 _amount);
   event ValidatorAdded(address indexed _rollup, address indexed _attester, address _withdrawer);
+  event ValidatorsToFlushUpdated(uint256 _validatorsToFlush);
   event IntervalUpdated(uint256 _interval);
   event DepositsPerMintUpdated(uint256 _depositsPerMint);
   event WithdrawerUpdated(address indexed _withdrawer);
@@ -79,6 +80,7 @@ interface IStakingAssetHandler {
   ) external;
 
   // Admin methods
+  function setValidatorsToFlush(uint256 _validatorsToFlush) external;
   function setMintInterval(uint256 _interval) external;
   function setDepositsPerMint(uint256 _depositsPerMint) external;
   function setWithdrawer(address _withdrawer) external;
@@ -101,6 +103,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     address stakingAsset;
     IRegistry registry;
     address withdrawer;
+    uint256 validatorsToFlush;
     uint256 mintInterval;
     uint256 depositsPerMint;
     bytes32 depositMerkleRoot;
@@ -124,6 +127,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   mapping(bytes32 nullifier => bool exists) public nullifiers;
   mapping(address attester => bytes32 nullifier) public attesterToNullifier;
 
+  uint256 public validatorsToFlush;
   uint256 public lastMintTimestamp;
   uint256 public mintInterval;
   uint256 public depositsPerMint;
@@ -152,6 +156,9 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
     withdrawer = _args.withdrawer;
     emit WithdrawerUpdated(_args.withdrawer);
+
+    validatorsToFlush = _args.validatorsToFlush;
+    emit ValidatorsToFlushUpdated(_args.validatorsToFlush);
 
     mintInterval = _args.mintInterval;
     emit IntervalUpdated(_args.mintInterval);
@@ -235,6 +242,11 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
     _topUpIfRequired(activationThreshold);
     _triggerDeposit(rollup, activationThreshold, _attester, _publicKeyG1, _publicKeyG2, _signature);
+  }
+
+  function setValidatorsToFlush(uint256 _validatorsToFlush) external override(IStakingAssetHandler) onlyOwner {
+    validatorsToFlush = _validatorsToFlush;
+    emit ValidatorsToFlushUpdated(_validatorsToFlush);
   }
 
   function setMintInterval(uint256 _interval) external override(IStakingAssetHandler) onlyOwner {
@@ -392,7 +404,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
     // Try to flush the entry queue, but don't let it revert the deposit
     // solhint-disable-next-line no-empty-blocks
-    try _rollup.flushEntryQueue() {
+    try _rollup.flushEntryQueue(validatorsToFlush) {
       // Flush succeeded, no action needed
       // solhint-disable-next-line no-empty-blocks
     } catch {

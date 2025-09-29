@@ -3,7 +3,8 @@
 #include <vector>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/common/map.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/indexed_memory_tree.hpp"
 
 namespace bb::avm2::simulation {
@@ -37,6 +38,6 @@ using ProtocolContractTree = IndexedMemoryTree<ProtocolContractLeaf, Poseidon2Ha
 using CanonicalAddress = AztecAddress; // The "index" into the tree
 using DerivedAddress = AztecAddress;   // The "value" stored at that index
 
-ProtocolContractTree build_tree(std::unordered_map<CanonicalAddress, DerivedAddress> const& derived_addresses);
+ProtocolContractTree build_tree(const unordered_flat_map<CanonicalAddress, DerivedAddress>& derived_addresses);
 
 } // namespace bb::avm2::simulation

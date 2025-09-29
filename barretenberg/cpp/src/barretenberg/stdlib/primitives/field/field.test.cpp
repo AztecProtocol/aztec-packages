@@ -930,7 +930,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         // Lambda to check split_at functionality
         auto check_split_at = [&](const field_ct& a, size_t start, size_t num_bits) {
             const uint256_t a_native = a.get_value();
-            auto split_data = a.split_at(start, num_bits);
+            auto split_data = a.no_wrap_split_at(start, num_bits);
             EXPECT_EQ(split_data.first.get_value(), a_native & ((uint256_t(1) << start) - 1));
             EXPECT_EQ(split_data.second.get_value(), (a_native >> start) & ((uint256_t(1) << num_bits) - 1));
 
@@ -1424,7 +1424,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         // Split preserves tags
         const size_t num_bits = uint256_t(a.get_value()).get_msb() + 1;
-        auto split_data = a.split_at(num_bits / 2, num_bits);
+        auto split_data = a.no_wrap_split_at(num_bits / 2, num_bits);
         EXPECT_EQ(split_data.first.get_origin_tag(), submitted_value_origin_tag);
         EXPECT_EQ(split_data.second.get_origin_tag(), submitted_value_origin_tag);
 

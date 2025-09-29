@@ -15,8 +15,6 @@ void memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/memory");
-
     const auto constants_MEM_TAG_FF = FF(0);
     const auto memory_GLOB_ADDR_DIFF = (in.get(C::memory_global_addr_shift) - in.get(C::memory_global_addr));
     const auto memory_TAG_FF_DIFF = (in.get(C::memory_tag) - constants_MEM_TAG_FF);

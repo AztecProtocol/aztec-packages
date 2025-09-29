@@ -1,6 +1,7 @@
 import { getPublicClient } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import { InboxAbi } from '@aztec/l1-artifacts/InboxAbi';
 
 import type { Anvil } from '@viem/anvil';
@@ -37,7 +38,7 @@ describe('RollupCheatCodes', () => {
     ({ anvil, rpcUrl } = await startAnvil());
 
     publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: 31337 });
-    cheatCodes = new EthCheatCodes([rpcUrl]);
+    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
 
     deployedL1Contracts = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, {
       ...DefaultL1ContractsConfig,
@@ -48,7 +49,7 @@ describe('RollupCheatCodes', () => {
       realVerifier: false,
     });
 
-    rollupCheatCodes = RollupCheatCodes.create([rpcUrl], deployedL1Contracts.l1ContractAddresses);
+    rollupCheatCodes = RollupCheatCodes.create([rpcUrl], deployedL1Contracts.l1ContractAddresses, new DateProvider());
   });
 
   afterAll(async () => {

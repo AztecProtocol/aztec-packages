@@ -17,7 +17,7 @@ export interface BlobSinkConfig extends BlobSinkArchiveApiConfig {
   l1RpcUrls?: string[];
 
   /**
-   * List of URLs for L1 consensus clients
+   * List of URLs of the Ethereum consensus nodes that services will connect to (comma separated)
    */
   l1ConsensusHostUrls?: string[];
 
@@ -49,7 +49,7 @@ export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
   },
   l1ConsensusHostUrls: {
     env: 'L1_CONSENSUS_HOST_URLS',
-    description: 'List of URLS for L1 consensus clients',
+    description: 'List of URLs of the Ethereum consensus nodes that services will connect to (comma separated)',
     parseEnv: (val: string) => val.split(',').map(url => url.trim().replace(/\/$/, '')),
   },
   l1ConsensusHostApiKeys: {

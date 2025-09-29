@@ -15,8 +15,6 @@ void discardImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/discard");
-
     const auto execution_DYING_CONTEXT_DIFF = (in.get(C::execution_context_id) - in.get(C::execution_dying_context_id));
 
     { // SEL_FAILURE

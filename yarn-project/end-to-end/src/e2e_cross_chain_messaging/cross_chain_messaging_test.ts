@@ -1,5 +1,5 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
-import { AztecAddress, type AztecNode, EthAddress, type Logger, type PXE, createLogger } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, EthAddress, type Logger, createLogger } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
 import {
   type DeployL1ContractsArgs,
@@ -12,7 +12,7 @@ import { InboxAbi, OutboxAbi, TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { getContract } from 'viem';
 
@@ -33,7 +33,6 @@ export class CrossChainMessagingTest {
   private snapshotManager: ISnapshotManager;
   logger: Logger;
   aztecNode!: AztecNode;
-  pxe!: PXE;
   aztecNodeConfig!: AztecNodeConfig;
   aztecNodeAdmin!: AztecNodeAdmin;
   ctx!: SubsystemsContext;
@@ -70,9 +69,9 @@ export class CrossChainMessagingTest {
   async setup() {
     this.ctx = await this.snapshotManager.setup();
     this.aztecNode = this.ctx.aztecNode;
-    this.pxe = this.ctx.pxe;
+    this.wallet = this.ctx.wallet;
     this.aztecNodeConfig = this.ctx.aztecNodeConfig;
-    this.cheatCodes = await CheatCodes.create(this.aztecNodeConfig.l1RpcUrls, this.pxe, this.aztecNode);
+    this.cheatCodes = this.ctx.cheatCodes;
     this.deployL1ContractsValues = this.ctx.deployL1ContractsValues;
     this.aztecNodeAdmin = this.ctx.aztecNode;
   }
@@ -88,15 +87,14 @@ export class CrossChainMessagingTest {
   }
 
   async applyBaseSnapshots() {
-    // Note that we are using the same `pxe`, `aztecNodeConfig` and `aztecNode` across all snapshots.
+    // Note that we are using the same `wallet`, `aztecNodeConfig` and `aztecNode` across all snapshots.
     // This is to not have issues with different networks.
 
     await this.snapshotManager.snapshot(
       '3_accounts',
       deployAccounts(3, this.logger),
-      ({ deployedAccounts }, { pxe, wallet, aztecNodeConfig, aztecNode }) => {
+      ({ deployedAccounts }, { wallet, aztecNodeConfig, aztecNode }) => {
         [this.ownerAddress, this.user1Address, this.user2Address] = deployedAccounts.map(a => a.address);
-        this.pxe = pxe;
         this.wallet = wallet;
         this.aztecNode = aztecNode;
         this.aztecNodeConfig = aztecNodeConfig;
@@ -123,7 +121,6 @@ export class CrossChainMessagingTest {
         this.logger.verbose(`Setting up cross chain harness...`);
         this.crossChainTestHarness = await CrossChainTestHarness.new(
           this.aztecNode,
-          this.pxe,
           this.l1Client,
           this.wallet,
           this.ownerAddress,
@@ -158,7 +155,6 @@ export class CrossChainMessagingTest {
 
         this.crossChainTestHarness = new CrossChainTestHarness(
           this.aztecNode,
-          this.pxe,
           this.logger,
           this.l2Token,
           this.l2Bridge,

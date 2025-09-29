@@ -9,8 +9,8 @@ use parity_lib::ParityPublicInputs;
 use types::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     constants::{
-        ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, PRIVATE_TX_BASE_ROLLUP_VK_INDEX,
-        PUBLIC_TX_BASE_ROLLUP_VK_INDEX, TX_MERGE_ROLLUP_VK_INDEX,
+        ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
+        PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX, TX_MERGE_ROLLUP_VK_INDEX,
     },
     proof::proof_data::{RollupHonkProofData, UltraHonkProofData},
 };
@@ -26,7 +26,7 @@ pub struct BlockRootFirstRollupPrivateInputs {
     // ensure it matches the l1-to-l2 tree snapshot in the header of the last block from the previous checkpoint.
     pub(crate) previous_l1_to_l2: AppendOnlyTreeSnapshot,
     // Hint for inserting the new l1-to-l2 message subtree.
-    pub(crate) new_l1_to_l2_message_subtree_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
+    pub(crate) new_l1_to_l2_message_subtree_root_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH],
     // Hint for inserting the new block hash to the last archive.
     pub(crate) new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
 }
@@ -39,7 +39,7 @@ impl BlockRootFirstRollupPrivateInputs {
         let new_l1_to_l2 = composer.update_l1_to_l2_tree_snapshots(
             self.parity_root.public_inputs,
             self.previous_l1_to_l2,
-            self.new_l1_to_l2_message_subtree_sibling_path,
+            self.new_l1_to_l2_message_subtree_root_sibling_path,
         );
 
         validate_parity_root(

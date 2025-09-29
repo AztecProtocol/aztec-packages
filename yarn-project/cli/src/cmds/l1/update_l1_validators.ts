@@ -11,6 +11,7 @@ import {
 import { EthCheatCodes } from '@aztec/ethereum/test';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi, StakingAssetHandlerAbi } from '@aztec/l1-artifacts';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 
@@ -120,7 +121,7 @@ export async function addL1Validator({
   await l1Client.waitForTransactionReceipt({ hash: receipt.transactionHash });
   if (isAnvilTestChain(chainId)) {
     dualLog(`Funding validator on L1`);
-    const cheatCodes = new EthCheatCodes(rpcUrls, debugLogger);
+    const cheatCodes = new EthCheatCodes(rpcUrls, new DateProvider(), debugLogger);
     await cheatCodes.setBalance(attesterAddress, 10n ** 20n);
   } else {
     const balance = await l1Client.getBalance({ address: attesterAddress.toString() });
@@ -194,7 +195,7 @@ export async function addL1ValidatorViaRollup({
   await l1Client.waitForTransactionReceipt({ hash: receipt.transactionHash });
   if (isAnvilTestChain(chainId)) {
     dualLog(`Funding validator on L1`);
-    const cheatCodes = new EthCheatCodes(rpcUrls, debugLogger);
+    const cheatCodes = new EthCheatCodes(rpcUrls, new DateProvider(), debugLogger);
     await cheatCodes.setBalance(attesterAddress, 10n ** 20n);
   } else {
     const balance = await l1Client.getBalance({ address: attesterAddress.toString() });
@@ -275,7 +276,7 @@ export async function fastForwardEpochs({
     client: publicClient,
   });
 
-  const cheatCodes = new EthCheatCodes(rpcUrls, debugLogger);
+  const cheatCodes = new EthCheatCodes(rpcUrls, new DateProvider(), debugLogger);
   const currentSlot = await rollup.read.getCurrentSlot();
   const l2SlotsInEpoch = await rollup.read.getEpochDuration();
   const timestamp = await rollup.read.getTimestampForSlot([currentSlot + l2SlotsInEpoch * numEpochs]);

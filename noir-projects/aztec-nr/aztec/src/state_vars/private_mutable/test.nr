@@ -250,36 +250,35 @@ unconstrained fn initialize_or_replace_uninitialized() {
     });
 }
 
-// TODO(#16800): restore this test once we correctly fetch a transient nullifier
-// #[test]
-// unconstrained fn initialize_or_replace_initialized_pending() {
-//     let env = TestEnvironment::new();
-//
-//     env.private_context(|context| {
-//         let state_var = in_private(context);
+#[test]
+unconstrained fn initialize_or_replace_initialized_pending() {
+    let env = TestEnvironment::new();
 
-//         // Initialize with a known value
-//         let init_note = MockNote::new(VALUE).build_note();
-//         let _ = state_var.initialize(init_note);
+    env.private_context(|context| {
+        let state_var = in_private(context);
 
-//         // Record context lengths before replacement
-//         let note_hash_read_requests_pre_replace = context.note_hash_read_requests.len();
-//         let nullifiers_pre_replace = context.nullifiers.len();
-//         let note_hashes_pre_replace = context.note_hashes.len();
+        let note = MockNote::new(VALUE).build_note();
+        let _ = state_var.initialize(note);
 
-//         // Use initialize_or_replace with the helper function
-//         let emission = state_var.initialize_or_replace(init_note, plus_one);
+        let note_hash_read_requests_pre_replace = context.note_hash_read_requests.len();
+        let nullifiers_pre_replace = context.nullifiers.len();
+        let note_hashes_pre_replace = context.note_hashes.len();
 
-//         let expected_note = MockNote::new(VALUE + 1).build_note();
-//         assert_eq(emission.note, expected_note);
-//         // assert_eq(emission.storage_slot, STORAGE_SLOT);
+        let replacement_note = MockNote::new(note.value + 1).build_note();
+        let emission = state_var.initialize_or_replace(|opt_current_note| {
+            assert_eq(opt_current_note.unwrap(), note);
+            replacement_note
+        });
 
-//         // Verify context updates: read request, nullifier, and new note
-//         assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_replace + 1);
-//         assert_eq(context.nullifiers.len(), nullifiers_pre_replace + 1);
-//         assert_eq(context.note_hashes.len(), note_hashes_pre_replace + 1);
-//     });
-// }
+        assert_eq(emission.note, replacement_note);
+        assert_eq(emission.storage_slot, STORAGE_SLOT);
+
+        // Verify context updates: read request, nullifier, and new note
+        assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_replace + 1);
+        assert_eq(context.nullifiers.len(), nullifiers_pre_replace + 1);
+        assert_eq(context.note_hashes.len(), note_hashes_pre_replace + 1);
+    });
+}
 
 #[test]
 unconstrained fn initialize_or_replace_initialized_settled() {
@@ -302,8 +301,7 @@ unconstrained fn initialize_or_replace_initialized_settled() {
         let nullifiers_pre_replace = context.nullifiers.len();
         let note_hashes_pre_replace = context.note_hashes.len();
 
-        let replacement_value = VALUE + 1;
-        let replacement_note = MockNote::new(replacement_value).build_note();
+        let replacement_note = MockNote::new(note.value + 1).build_note();
         let emission = state_var.initialize_or_replace(|opt_current_note| {
             assert_eq(opt_current_note.unwrap(), note);
             replacement_note

@@ -15,19 +15,18 @@ export interface EpochProver extends Omit<IBlockFactory, 'setBlockCompleted' | '
   /**
    * Starts a new epoch. Must be the first method to be called.
    * @param epochNumber - The epoch number.
-   * @param firstCheckpointNumber - The number of the first checkpoint in the epoch. Used to determine the correct order when checkpoints are added.
    * @param totalNumCheckpoints - The total number of checkpoints expected in the epoch (must be at least one).
    * @param finalBlobBatchingChallenges - The final blob batching challenges for the epoch.
    **/
   startNewEpoch(
     epochNumber: number,
-    firstCheckpointNumber: Fr,
     totalNumCheckpoints: number,
     finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
   ): void;
 
   /**
    * Starts a new checkpoint.
+   * @param checkpointIndex - The index of the checkpoint in the epoch.
    * @param constants - The constants for this checkpoint.
    * @param l1ToL2Messages - The set of L1 to L2 messages to be included in this checkpoint.
    * @param totalNumBlocks - The total number of blocks expected in the checkpoint (must be at least one).
@@ -35,6 +34,7 @@ export interface EpochProver extends Omit<IBlockFactory, 'setBlockCompleted' | '
    * @param headerOfLastBlockInPreviousCheckpoint - The header of the last block in the previous checkpoint.
    */
   startNewCheckpoint(
+    checkpointIndex: number,
     constants: CheckpointConstantData,
     l1ToL2Messages: Fr[],
     totalNumBlocks: number,

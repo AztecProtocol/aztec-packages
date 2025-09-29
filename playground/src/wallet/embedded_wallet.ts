@@ -9,13 +9,12 @@ import {
   BaseWallet,
   SignerlessAccount,
   type SimulateMethodOptions,
-  type PXE,
   createAztecNodeClient,
   type Aliased,
   type AztecNode,
 } from '@aztec/aztec.js';
-import { getPXEServiceConfig, type PXEServiceConfig } from '@aztec/pxe/config';
-import { createPXEService } from '@aztec/pxe/client/lazy';
+import { getPXEConfig, type PXEConfig } from '@aztec/pxe/config';
+import { createPXE, PXE } from '@aztec/pxe/client/lazy';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -61,16 +60,16 @@ export class EmbeddedWallet extends BaseWallet {
     const l1Contracts = await aztecNode.getL1ContractAddresses();
     const rollupAddress = l1Contracts.rollupAddress;
 
-    const config = getPXEServiceConfig();
+    const config = getPXEConfig();
     config.dataDirectory = `pxe-${rollupAddress}`;
     config.proverEnabled = true;
     const configWithContracts = {
       ...config,
       l1Contracts,
-    } as PXEServiceConfig;
+    } as PXEConfig;
 
     const logger = WebLogger.getInstance();
-    const pxe = await createPXEService(aztecNode, configWithContracts, {
+    const pxe = await createPXE(aztecNode, configWithContracts, {
       loggers: {
         store: logger.createLogger('pxe:data:idb'),
         pxe: logger.createLogger('pxe:service'),
@@ -232,8 +231,10 @@ export class EmbeddedWallet extends BaseWallet {
   ): Promise<TxSimulationResult> {
     const executionOptions = { txNonce: Fr.random(), cancellable: false };
     const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(opts.from);
-    const fee = await this.getFeeOptions(fromAccount, executionPayload, opts.fee, executionOptions);
-    const txRequest = await fromAccount.createTxExecutionRequest(executionPayload, fee, executionOptions);
+    const feeOptions = opts.fee?.estimateGas
+      ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
+      : await this.getDefaultFeeOptions(opts.from, opts.fee);
+    const txRequest = await fromAccount.createTxExecutionRequest(executionPayload, feeOptions, executionOptions);
     const contractOverrides = {
       [opts.from.toString()]: { instance, artifact },
     };

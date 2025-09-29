@@ -27,7 +27,10 @@ template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
     static constexpr FrNative private_key =
         FrNative("0xd67abee717b3fc725adf59e2cc8cd916435c348b277dd814a34e3ceb279436c2");
 
-    static size_t generate_ecdsa_constraint(EcdsaConstraint& ecdsa_constraint, WitnessVector& witness_values)
+    static size_t generate_ecdsa_constraint(EcdsaConstraint& ecdsa_constraint,
+                                            WitnessVector& witness_values,
+                                            bool tweak_pub_key_x = false,
+                                            bool tweak_pub_key_y = false)
     {
         std::string message_string = "Instructions unclear, ask again later.";
 
@@ -49,6 +52,14 @@ template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
         std::array<uint8_t, 32> buffer_y;
         FqNative::serialize_to_buffer(account.public_key.x, &buffer_x[0]);
         FqNative::serialize_to_buffer(account.public_key.y, &buffer_y[0]);
+        if (tweak_pub_key_x || tweak_pub_key_y) {
+            std::vector<uint8_t> modulus_plus_one = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                                                      0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                                                      0xff, 0xff, 0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xfc, 0x30 };
+            for (auto [byte, tweaked_byte] : zip_view(tweak_pub_key_x ? buffer_x : buffer_y, modulus_plus_one)) {
+                byte = tweaked_byte;
+            }
+        }
 
         // Create witness indices and witnesses
         size_t num_variables = 0;
@@ -93,11 +104,13 @@ template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
         return num_variables;
     }
 
-    static std::pair<AcirFormat, WitnessVector> generate_constraint_system()
+    static std::pair<AcirFormat, WitnessVector> generate_constraint_system(bool tweak_pub_key_x = false,
+                                                                           bool tweak_pub_key_y = false)
     {
         EcdsaConstraint ecdsa_constraint;
         WitnessVector witness_values;
-        size_t num_variables = generate_ecdsa_constraint(ecdsa_constraint, witness_values);
+        size_t num_variables =
+            generate_ecdsa_constraint(ecdsa_constraint, witness_values, tweak_pub_key_x, tweak_pub_key_y);
         AcirFormat constraint_system = {
             .varnum = static_cast<uint32_t>(num_variables),
             .num_acir_opcodes = 1,
@@ -158,4 +171,33 @@ TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
     }
 
     EXPECT_EQ(*vk_from_witness, *vk_from_constraint);
+}
+
+TYPED_TEST(EcdsaConstraintsTest, NonUniquePubKey)
+{
+    // Disable asserts otherwise the test fails because the public keys are not on the curve
+    BB_DISABLE_ASSERTS();
+
+    for (size_t idx = 0; idx < 2; idx++) {
+        bool tweak_x = idx == 0;
+        bool tweak_y = idx == 1;
+        std::string failure_msg =
+            idx == 0
+                ? "ECDSA input validation: the x coordinate of the public key is larger than Fq::modulus: hi limb."
+                : "ECDSA input validation: the y coordinate of the public key is larger than Fq::modulus: hi limb.";
+
+        using Builder = TestFixture::Builder;
+
+        auto [constraint_system, witness_values] =
+            TestFixture::generate_constraint_system(/*tweak_pub_key_x=*/tweak_x, /*tweak_pub_key_y=*/tweak_y);
+
+        AcirProgram program{ constraint_system, witness_values };
+        auto builder = create_circuit<Builder>(program);
+
+        // Validate the builder
+        EXPECT_FALSE(CircuitChecker::check(builder));
+
+        // Check error message
+        EXPECT_EQ(builder.err(), failure_msg);
+    }
 }

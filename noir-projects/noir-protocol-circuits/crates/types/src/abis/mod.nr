@@ -9,7 +9,7 @@ pub mod private_log;
 
 pub mod side_effect;
 pub mod read_request;
-pub mod public_log;
+pub mod public_logs;
 pub mod public_data_write;
 
 pub mod log_hash;

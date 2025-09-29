@@ -396,7 +396,7 @@ template <typename Builder_> class field_t {
 
     Builder* get_context() const { return context; }
 
-    std::pair<field_t<Builder>, field_t<Builder>> split_at(
+    std::pair<field_t<Builder>, field_t<Builder>> no_wrap_split_at(
         const size_t lsb_index, const size_t num_bits = grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH) const;
 
     bool_t<Builder> is_zero() const;

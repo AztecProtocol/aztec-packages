@@ -2,6 +2,7 @@ import { getPublicClient } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import type { Anvil } from '@viem/anvil';
@@ -39,7 +40,7 @@ describe('Rollup', () => {
     ({ anvil, rpcUrl } = await startAnvil());
 
     publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: 31337 });
-    cheatCodes = new EthCheatCodes([rpcUrl]);
+    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
 
     const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, {
       ...DefaultL1ContractsConfig,

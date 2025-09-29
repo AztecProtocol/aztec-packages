@@ -1,5 +1,5 @@
-import { EventSelector, decodeFromAbi } from '@aztec/stdlib/abi';
-import type { AztecNode, EventMetadataDefinition } from '@aztec/stdlib/interfaces/client';
+import { type EventMetadataDefinition, EventSelector, decodeFromAbi } from '@aztec/stdlib/abi';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 /**
  * Returns decoded public events given search parameters.
@@ -24,9 +24,9 @@ export async function getDecodedPublicEvents<T>(
     .map(log => {
       // +1 for the event selector
       const expectedLength = eventMetadataDef.fieldNames.length + 1;
-      if (log.log.emittedLength !== expectedLength) {
+      if (log.log.fields.length !== expectedLength) {
         throw new Error(
-          `Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length. Expected ${expectedLength}. Got ${log.log.emittedLength}.`,
+          `Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length. Expected ${expectedLength}. Got ${log.log.fields.length}.`,
         );
       }
 

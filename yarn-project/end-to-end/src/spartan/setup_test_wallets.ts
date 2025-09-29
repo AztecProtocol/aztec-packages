@@ -1,4 +1,4 @@
-import { generateSchnorrAccounts, getDeployedTestAccounts } from '@aztec/accounts/testing';
+import { generateSchnorrAccounts } from '@aztec/accounts/testing';
 import {
   type AztecAddress,
   type AztecNode,
@@ -6,26 +6,23 @@ import {
   type FeePaymentMethod,
   Fr,
   L1FeeJuicePortalManager,
-  type PXE,
   SponsoredFeePaymentMethod,
   type Wallet,
   createAztecNodeClient,
-  createCompatibleClient,
   retryUntil,
 } from '@aztec/aztec.js';
 import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import type { Logger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { createPXEService } from '@aztec/pxe/server';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { TestWallet } from '@aztec/test-wallet';
+import { registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import { getSponsoredFPCAddress, registerSponsoredFPC } from '../fixtures/utils.js';
 
 export interface TestAccounts {
-  pxe: PXE;
   aztecNode: AztecNode;
   wallet: TestWallet;
   accounts: AztecAddress[];
@@ -41,51 +38,43 @@ const TOKEN_SYMBOL = 'USD';
 const TOKEN_DECIMALS = 18n;
 
 export async function setupTestAccountsWithTokens(
-  pxeUrl: string,
   nodeUrl: string,
   mintAmount: bigint,
   logger: Logger,
 ): Promise<TestAccounts> {
   const ACCOUNT_COUNT = 1; // TODO fix this to allow for 16 wallets again
 
-  const pxe = await createCompatibleClient(pxeUrl, logger);
   const aztecNode = createAztecNodeClient(nodeUrl);
-  const wallet = new TestWallet(pxe, aztecNode);
+  const wallet = await TestWallet.create(aztecNode);
 
-  const [recipientAccount, ...accounts] = (await getDeployedTestAccounts(pxe)).slice(0, ACCOUNT_COUNT + 1);
+  const [recipientAccount, ...accounts] = (await registerInitialSandboxAccountsInWallet(wallet)).slice(
+    0,
+    ACCOUNT_COUNT + 1,
+  );
 
   const tokenAdmin = accounts[0];
-  const tokenAddress = await deployTokenAndMint(
-    wallet,
-    accounts.map(acc => acc.address),
-    tokenAdmin.address,
-    mintAmount,
-    undefined,
-    logger,
-  );
+  const tokenAddress = await deployTokenAndMint(wallet, accounts, tokenAdmin, mintAmount, undefined, logger);
   const tokenContract = await TokenContract.at(tokenAddress, wallet);
 
   return {
-    pxe,
     aztecNode,
-    accounts: accounts.map(acc => acc.address),
+    accounts,
     wallet,
-    tokenAdminAddress: tokenAdmin.address,
+    tokenAdminAddress: tokenAdmin,
     tokenName: TOKEN_NAME,
     tokenAddress,
     tokenContract,
-    recipientAddress: recipientAccount.address,
+    recipientAddress: recipientAccount,
   };
 }
 
 export async function deploySponsoredTestAccounts(
-  pxe: PXE,
+  wallet: TestWallet,
   aztecNode: AztecNode,
   mintAmount: bigint,
   logger: Logger,
   numberOfFundedWallets = 1,
 ): Promise<TestAccounts> {
-  const wallet = new TestWallet(pxe, aztecNode);
   const [recipient, ...funded] = await generateSchnorrAccounts(numberOfFundedWallets + 1);
   const recipientAccount = await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
   const fundedAccounts = await Promise.all(funded.map(a => wallet.createSchnorrAccount(a.secret, a.salt)));
@@ -113,7 +102,6 @@ export async function deploySponsoredTestAccounts(
   const tokenContract = await TokenContract.at(tokenAddress, wallet);
 
   return {
-    pxe,
     aztecNode,
     wallet,
     accounts: fundedAccounts.map(acc => acc.getAddress()),
@@ -126,7 +114,6 @@ export async function deploySponsoredTestAccounts(
 }
 
 export async function deployTestAccountsWithTokens(
-  pxeUrl: string,
   nodeUrl: string,
   l1RpcUrls: string[],
   mnemonicOrPrivateKey: string,
@@ -134,9 +121,8 @@ export async function deployTestAccountsWithTokens(
   logger: Logger,
   numberOfFundedWallets = 1,
 ): Promise<TestAccounts> {
-  const pxe = await createCompatibleClient(pxeUrl, logger);
   const aztecNode = createAztecNodeClient(nodeUrl);
-  const wallet = new TestWallet(pxe, aztecNode);
+  const wallet = await TestWallet.create(aztecNode);
 
   const [recipient, ...funded] = await generateSchnorrAccounts(numberOfFundedWallets + 1);
   const recipientAccount = await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
@@ -144,7 +130,7 @@ export async function deployTestAccountsWithTokens(
 
   const claims = await Promise.all(
     fundedAccounts.map(a =>
-      bridgeL1FeeJuice(l1RpcUrls, mnemonicOrPrivateKey, pxe, aztecNode, a.getAddress(), undefined, logger),
+      bridgeL1FeeJuice(l1RpcUrls, mnemonicOrPrivateKey, aztecNode, a.getAddress(), undefined, logger),
     ),
   );
 
@@ -173,7 +159,6 @@ export async function deployTestAccountsWithTokens(
   const tokenContract = await TokenContract.at(tokenAddress, wallet);
 
   return {
-    pxe,
     aztecNode,
     wallet,
     accounts: fundedAccounts.map(acc => acc.getAddress()),
@@ -188,7 +173,6 @@ export async function deployTestAccountsWithTokens(
 async function bridgeL1FeeJuice(
   l1RpcUrls: string[],
   mnemonicOrPrivateKey: string,
-  pxe: PXE,
   aztecNode: AztecNode,
   recipient: AztecAddress,
   amount: bigint | undefined,
@@ -294,25 +278,27 @@ export async function performTransfers({
   }
 }
 
-export async function startCompatiblePXE(
+export async function createWalletAndAztecNodeClient(
   nodeUrl: string,
   proverEnabled: boolean,
   logger: Logger,
-): Promise<{ pxe: PXE; cleanup: () => Promise<void> }> {
-  const node = createAztecNodeClient(nodeUrl);
+): Promise<{ wallet: TestWallet; aztecNode: AztecNode; cleanup: () => Promise<void> }> {
+  const aztecNode = createAztecNodeClient(nodeUrl);
   const [bbConfig, acvmConfig] = await Promise.all([getBBConfig(logger), getACVMConfig(logger)]);
-  const pxe = await createPXEService(node, {
+  const pxeConfig = {
     dataDirectory: undefined,
     dataStoreMapSizeKB: 1024 * 1024,
     ...bbConfig,
     ...acvmConfig,
     proverEnabled,
-  });
+  };
+  const wallet = await TestWallet.create(aztecNode, pxeConfig);
 
   return {
-    pxe,
+    wallet,
+    aztecNode,
     async cleanup() {
-      await pxe.stop();
+      await wallet.stop();
       await bbConfig?.cleanup();
       await acvmConfig?.cleanup();
     },

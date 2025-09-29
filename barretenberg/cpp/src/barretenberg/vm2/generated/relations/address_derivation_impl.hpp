@@ -15,8 +15,6 @@ void address_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/address_derivation");
-
     const auto constants_GRUMPKIN_ONE_X = FF(1);
     const auto constants_GRUMPKIN_ONE_Y =
         FF(uint256_t{ 9457493854555940652UL, 3253583849847263892UL, 14921373847124204899UL, 2UL });

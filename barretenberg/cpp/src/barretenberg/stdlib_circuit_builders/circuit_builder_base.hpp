@@ -84,6 +84,7 @@ template <typename FF_> class CircuitBuilderBase {
     virtual size_t get_num_variables() const;
     // TODO(#216)(Adrian): Feels wrong to let the zero_idx be changed.
     uint32_t zero_idx = 0;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1546): Do we need `one_idx`?
     uint32_t one_idx = 1;
 
     virtual void create_add_gate(const add_triple_<FF>& in) = 0;

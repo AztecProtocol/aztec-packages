@@ -38,9 +38,9 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
  *      status.
  *
  *      Attestation Verification:
- *      Before accepting an epoch proof, this library verifies the attestations for the last block in the epoch.
- *      This ensures that the committee has properly validated the final state of the epoch. Note that this is
- *      equivalent to verifying the attestations for every block in the epoch, since the committee should not attest
+ *      Before accepting an epoch proof, this library verifies the attestations for the end block of the proof.
+ *      This ensures that the committee has properly validated the final state of the proof. Note that this is
+ *      equivalent to verifying the attestations for every prior block, since the committee should not attest
  *      to a block unless its ancestors are also valid and have been attested to. This step checks that the committee
  *      have agreed on the same output state of the proven range. For honest nodes, this is done by re-executing the
  *      transactions in the proven range and matching the state root, effectively acting as training wheels for the

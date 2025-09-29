@@ -22,6 +22,29 @@ export enum OffenseType {
   ATTESTED_DESCENDANT_OF_INVALID = 7,
 }
 
+export function getOffenseTypeName(offense: OffenseType) {
+  switch (offense) {
+    case OffenseType.UNKNOWN:
+      return 'unknown';
+    case OffenseType.DATA_WITHHOLDING:
+      return 'data_withholding';
+    case OffenseType.VALID_EPOCH_PRUNED:
+      return 'valid_epoch_pruned';
+    case OffenseType.INACTIVITY:
+      return 'inactivity';
+    case OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL:
+      return 'broadcasted_invalid_block_proposal';
+    case OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS:
+      return 'proposed_insufficient_attestations';
+    case OffenseType.PROPOSED_INCORRECT_ATTESTATIONS:
+      return 'proposed_incorrect_attestations';
+    case OffenseType.ATTESTED_DESCENDANT_OF_INVALID:
+      return 'attested_descendant_of_invalid';
+    default:
+      throw new Error(`Unknown offense type: ${offense}`);
+  }
+}
+
 export const OffenseTypeSchema = z.nativeEnum(OffenseType);
 
 export const OffenseToBigInt: Record<OffenseType, bigint> = {

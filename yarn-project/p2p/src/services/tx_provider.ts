@@ -45,7 +45,7 @@ export class TxProvider implements ITxProvider {
       if (tx === undefined) {
         missingTxs.push(txHashes[i]);
       } else {
-        txs.push(tx.setTxHash(txHashes[i]));
+        txs.push(tx);
       }
     }
 

@@ -206,16 +206,6 @@ export class Tx extends Gossipable {
     return this.txHash;
   }
 
-  /**
-   * Allows setting the hash of the Tx.
-   * Use this when you want to skip computing it from the original data.
-   * Don't set a Tx hash received from an untrusted source.
-   * @param hash - The hash to set.
-   */
-  setTxHash(_hash: TxHash) {
-    return this;
-  }
-
   getCalldataMap(): Map<string, Fr[]> {
     if (!this.calldataMap) {
       const calldataMap = new Map();

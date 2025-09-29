@@ -21,7 +21,7 @@ template <typename Flavor>
 UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder,
                                                          const std::shared_ptr<VKAndHash>& vk_and_hash,
                                                          const std::shared_ptr<Transcript>& transcript)
-    : verifier_instance(std::make_shared<RecursiveVerifierInstances>(builder, vk_and_hash))
+    : verifier_instance(std::make_shared<RecursiveVerifierInstance>(builder, vk_and_hash))
     , builder(builder)
     , transcript(transcript)
 {}

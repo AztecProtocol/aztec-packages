@@ -2,6 +2,7 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AztecAddress,
   type AztecNode,
+  type DeployOptions,
   FeeJuicePaymentMethod,
   type FeePaymentMethod,
   PublicFeePaymentMethod,
@@ -51,13 +52,14 @@ describe('e2e_fees gas_estimation', () => {
 
   const makeTransferRequest = () => bananaCoin.methods.transfer_in_public(aliceAddress, bobAddress, 1n, 0n);
 
-  // Sends two tx with transfers of public tokens: one with estimateGas on, one with estimateGas off
-  const sendTransfers = (paymentMethod: FeePaymentMethod) =>
+  // Sends two txs with transfers of public tokens: one with limits based on the estimate, another one without
+  const sendTransfers = (
+    paymentMethod: FeePaymentMethod,
+    limits: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>,
+  ) =>
     Promise.all(
-      [true, false].map(estimateGas =>
-        makeTransferRequest()
-          .send({ from: aliceAddress, fee: { estimateGas, gasSettings, paymentMethod, estimatedGasPadding: 0 } })
-          .wait(),
+      [GasSettings.from({ ...gasSettings, ...limits }), gasSettings].map(gasSettings =>
+        makeTransferRequest().send({ from: aliceAddress, fee: { gasSettings, paymentMethod } }).wait(),
       ),
     );
 
@@ -69,15 +71,15 @@ describe('e2e_fees gas_estimation', () => {
 
   it('estimates gas with Fee Juice payment method', async () => {
     const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
-    const estimatedGas = await makeTransferRequest().estimateGas({
+    const { estimatedGas } = await makeTransferRequest().simulate({
       from: aliceAddress,
-      fee: { gasSettings, paymentMethod, estimatedGasPadding: 0 },
+      fee: { gasSettings, paymentMethod, estimateGas: true, estimatedGasPadding: 0 },
     });
     logGasEstimate(estimatedGas);
 
     (t.aztecNode as AztecNodeService).getSequencer()!.updateConfig({ minTxsPerBlock: 2, maxTxsPerBlock: 2 });
 
-    const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod);
+    const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod, estimatedGas);
 
     // This is the interesting case, which we hit most of the time.
     const block = await t.aztecNode.getBlock(withEstimate.blockNumber!);
@@ -99,15 +101,16 @@ describe('e2e_fees gas_estimation', () => {
 
   it('estimates gas with public payment method', async () => {
     const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, aliceAddress, wallet);
-    const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod);
 
-    const teardownFixedFee = gasSettings.teardownGasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
-
-    const estimatedGas = await makeTransferRequest().estimateGas({
+    const { estimatedGas } = await makeTransferRequest().simulate({
       from: aliceAddress,
-      fee: { gasSettings, paymentMethod, estimatedGasPadding: 0 },
+      fee: { gasSettings, paymentMethod, estimatedGasPadding: 0, estimateGas: true },
     });
     logGasEstimate(estimatedGas);
+
+    const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod, estimatedGas);
+
+    const teardownFixedFee = gasSettings.teardownGasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
 
     // Checks that estimated teardown gas limits are less than the default ones.
     expect(estimatedGas.teardownGasLimits.l2Gas).toBeLessThan(gasSettings.teardownGasLimits.l2Gas);
@@ -132,17 +135,23 @@ describe('e2e_fees gas_estimation', () => {
   it('estimates gas for public contract initialization with Fee Juice payment method', async () => {
     const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
     const deployMethod = () => BananaCoin.deploy(wallet, aliceAddress, 'TKN', 'TKN', 8);
-    const deployOpts = (estimateGas = false) => ({
+    const deployOpts: (limits?: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>) => DeployOptions = limits => ({
       from: aliceAddress,
-      fee: { gasSettings, paymentMethod, estimateGas, estimatedGasPadding: 0 },
+      fee: { gasSettings: { ...gasSettings, ...limits }, paymentMethod },
       skipClassPublication: true,
     });
-    const estimatedGas = await deployMethod().estimateGas(deployOpts());
+    const { estimatedGas } = await deployMethod().simulate({
+      ...deployOpts(),
+      fee: {
+        estimateGas: true,
+        estimatedGasPadding: 0,
+      },
+    });
     logGasEstimate(estimatedGas);
 
     const [withEstimate, withoutEstimate] = await Promise.all([
-      deployMethod().send(deployOpts(true)).wait(),
-      deployMethod().send(deployOpts(false)).wait(),
+      deployMethod().send(deployOpts(estimatedGas)).wait(),
+      deployMethod().send(deployOpts()).wait(),
     ]);
 
     // Estimation should yield that teardown has no cost, so should send the tx with zero for teardown

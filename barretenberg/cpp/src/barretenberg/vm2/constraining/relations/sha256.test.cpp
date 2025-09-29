@@ -8,10 +8,11 @@
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
 #include "barretenberg/vm2/generated/relations/sha256.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/gadgets/memory.hpp"
 #include "barretenberg/vm2/simulation/lib/sha256_compression.hpp"
-#include "barretenberg/vm2/simulation/memory.hpp"
-#include "barretenberg/vm2/simulation/testing/fakes/fake_bitwise.hpp"
-#include "barretenberg/vm2/simulation/testing/fakes/fake_gt.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_bitwise.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_gt.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
@@ -23,7 +24,7 @@
 // Temporary imports, see comment in test.
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
-#include "barretenberg/vm2/simulation/sha256.hpp"
+#include "barretenberg/vm2/simulation/gadgets/sha256.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -39,14 +40,14 @@ using simulation::Bitwise;
 using simulation::BitwiseEvent;
 using simulation::DeduplicatingEventEmitter;
 using simulation::EventEmitter;
-using simulation::FakeBitwise;
-using simulation::FakeGreaterThan;
 using simulation::FieldGreaterThan;
 using simulation::FieldGreaterThanEvent;
 using simulation::GreaterThan;
 using simulation::GreaterThanEvent;
 using simulation::MemoryStore;
 using simulation::MockExecutionIdManager;
+using simulation::PureBitwise;
+using simulation::PureGreaterThan;
 using simulation::RangeCheck;
 using simulation::RangeCheckEvent;
 using simulation::Sha256;
@@ -77,8 +78,8 @@ TEST(Sha256ConstrainingTest, Basic)
     MemoryStore mem;
     StrictMock<MockExecutionIdManager> execution_id_manager;
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
-    FakeGreaterThan gt;
-    FakeBitwise bitwise;
+    PureGreaterThan gt;
+    PureBitwise bitwise;
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
     Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
@@ -231,7 +232,7 @@ TEST(Sha256MemoryConstrainingTest, Basic)
     RangeCheck range_check(range_check_event_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
     GreaterThan gt(field_gt, range_check, gt_event_emitter);
-    FakeBitwise bitwise;
+    PureBitwise bitwise;
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
     Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
@@ -282,12 +283,12 @@ TEST(Sha256MemoryConstrainingTest, SimpleOutOfRangeMemoryAddresses)
     RangeCheck range_check(range_check_event_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
     GreaterThan gt(field_gt, range_check, gt_event_emitter);
-    FakeBitwise bitwise;
+    PureBitwise bitwise;
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
     Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
 
-    MemoryAddress state_addr = AVM_HIGHEST_MEM_ADDRESS - 6; // This will be out of range
+    MemoryAddress state_addr = static_cast<MemoryAddress>(AVM_HIGHEST_MEM_ADDRESS - 6); // This will be out of range
     MemoryAddress input_addr = 8;
     MemoryAddress output_addr = 25;
 
@@ -323,14 +324,14 @@ TEST(Sha256MemoryConstrainingTest, MultiOutOfRangeMemoryAddresses)
     RangeCheck range_check(range_check_event_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
     GreaterThan gt(field_gt, range_check, gt_event_emitter);
-    FakeBitwise bitwise;
+    PureBitwise bitwise;
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
     Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
 
-    MemoryAddress state_addr = AVM_HIGHEST_MEM_ADDRESS - 6;   // This will be out of range
-    MemoryAddress input_addr = AVM_HIGHEST_MEM_ADDRESS - 2;   // This will be out of range
-    MemoryAddress output_addr = AVM_HIGHEST_MEM_ADDRESS - 20; // This will be out of range
+    MemoryAddress state_addr = static_cast<MemoryAddress>(AVM_HIGHEST_MEM_ADDRESS - 6);   // This will be out of range
+    MemoryAddress input_addr = static_cast<MemoryAddress>(AVM_HIGHEST_MEM_ADDRESS - 2);   // This will be out of range
+    MemoryAddress output_addr = static_cast<MemoryAddress>(AVM_HIGHEST_MEM_ADDRESS - 20); // This will be out of range
 
     EXPECT_THROW_WITH_MESSAGE(sha256_gadget.compression(mem, state_addr, input_addr, output_addr),
                               ".*Memory address out of range.*");
@@ -364,7 +365,7 @@ TEST(Sha256MemoryConstrainingTest, InvalidStateTagErr)
     RangeCheck range_check(range_check_event_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
     GreaterThan gt(field_gt, range_check, gt_event_emitter);
-    FakeBitwise bitwise;
+    PureBitwise bitwise;
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
     Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
@@ -412,7 +413,7 @@ TEST(Sha256MemoryConstrainingTest, InvalidInputTagErr)
     RangeCheck range_check(range_check_event_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
     GreaterThan gt(field_gt, range_check, gt_event_emitter);
-    FakeBitwise bitwise;
+    PureBitwise bitwise;
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
     Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
@@ -469,7 +470,7 @@ TEST(Sha256MemoryConstrainingTest, PropagateError)
     RangeCheck range_check(range_check_event_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
     GreaterThan gt(field_gt, range_check, gt_event_emitter);
-    FakeBitwise bitwise;
+    PureBitwise bitwise;
 
     Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
 
@@ -585,7 +586,7 @@ TEST(Sha256MemoryConstrainingTest, Complex)
             { C::execution_sel, 1 },
             { C::execution_context_id, mem.get_space_id() },
             { C::execution_sel_execute_sha256_compression, 1 },
-            { C::execution_rop_0_, AVM_HIGHEST_MEM_ADDRESS - 1 },
+            { C::execution_rop_0_, static_cast<MemoryAddress>(AVM_HIGHEST_MEM_ADDRESS - 1) },
             { C::execution_rop_1_, state_addr },
             { C::execution_rop_2_, input_addr },
             { C::execution_sel_opcode_error, 1 },
@@ -646,8 +647,9 @@ TEST(Sha256MemoryConstrainingTest, Complex)
                   } });
     }
 
-    EXPECT_THROW(sha256_gadget.compression(mem, state_addr, input_addr, AVM_HIGHEST_MEM_ADDRESS - 1),
-                 std::runtime_error);                                    // This will be out of range and throw an error
+    EXPECT_THROW(
+        sha256_gadget.compression(mem, state_addr, input_addr, static_cast<MemoryAddress>(AVM_HIGHEST_MEM_ADDRESS - 1)),
+        std::runtime_error);                                             // This will be out of range and throw an error
     sha256_gadget.compression(mem, state_addr, input_addr, output_addr); // This will succeed
 
     Sha256TraceBuilder builder;

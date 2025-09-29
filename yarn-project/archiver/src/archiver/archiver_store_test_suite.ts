@@ -2,7 +2,6 @@ import {
   INITIAL_L2_BLOCK_NUM,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PRIVATE_LOG_SIZE_IN_FIELDS,
-  PUBLIC_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
@@ -737,8 +736,8 @@ export function describeArchiverDataStore(
       const makePublicLog = (tag: Fr) =>
         PublicLog.from({
           contractAddress: AztecAddress.fromNumber(1),
-          fields: makeTuple(PUBLIC_LOG_SIZE_IN_FIELDS, i => (!i ? tag : new Fr(tag.toNumber() + i))),
-          emittedLength: PUBLIC_LOG_SIZE_IN_FIELDS,
+          // Arbitrary length
+          fields: new Array(10).fill(null).map((_, i) => (!i ? tag : new Fr(tag.toNumber() + i))),
         });
 
       const mockPrivateLogs = (blockNumber: number, txIndex: number) => {

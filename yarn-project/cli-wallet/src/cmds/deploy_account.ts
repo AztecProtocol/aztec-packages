@@ -2,9 +2,9 @@ import { AztecAddress, type DeployOptions, ProtocolContractAddress } from '@azte
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 
+import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
 import type { CLIFeeArgs } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
-import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
 import type { CLIWallet } from '../utils/wallet.js';
 
 export async function deployAccount(
@@ -64,6 +64,10 @@ export async function deployAccount(
     skipClassPublication: !registerClass,
     from,
     fee: userFeeOptions,
+    // Do not mix the deployer in the address, since the account
+    // was created (and thus its address was fixed) like this
+    universalDeploy: true,
+    contractAddressSalt: salt,
   };
 
   /*
@@ -80,30 +84,31 @@ export async function deployAccount(
       : deployOpts?.fee;
 
   const deployMethod = await account.getDeployMethod();
+  const { estimatedGas } = await deployMethod.simulate({
+    ...deployOpts,
+    fee: { ...deployOpts.fee, estimateGas: true },
+  });
 
   if (feeOpts.estimateOnly) {
-    const gas = await deployMethod.estimateGas({
-      ...deployOpts,
-      universalDeploy: !deployer,
-      contractAddressSalt: salt,
-    });
     if (json) {
       out.fee = {
         gasLimits: {
-          da: gas.gasLimits.daGas,
-          l2: gas.gasLimits.l2Gas,
+          da: estimatedGas.gasLimits.daGas,
+          l2: estimatedGas.gasLimits.l2Gas,
         },
         teardownGasLimits: {
-          da: gas.teardownGasLimits.daGas,
-          l2: gas.teardownGasLimits,
+          da: estimatedGas.teardownGasLimits.daGas,
+          l2: estimatedGas.teardownGasLimits,
         },
       };
     }
   } else {
     const provenTx = await deployMethod.prove({
       ...deployOpts,
-      universalDeploy: true,
-      contractAddressSalt: salt,
+      fee: {
+        ...deployOpts.fee,
+        gasSettings: estimatedGas,
+      },
     });
     if (verbose) {
       printProfileResult(provenTx.stats!, log);

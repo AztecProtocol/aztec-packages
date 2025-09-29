@@ -1,32 +1,41 @@
 /* eslint-disable import/no-duplicates */
 // docs:start:create_account_imports
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { Fr, GrumpkinScalar, createAztecNodeClient, createPXEClient } from '@aztec/aztec.js';
+import { Fr, GrumpkinScalar, createAztecNodeClient } from '@aztec/aztec.js';
 // docs:end:create_account_imports
 // docs:start:import_contract
 import { Contract } from '@aztec/aztec.js';
 // docs:end:import_contract
 // docs:start:import_token_contract
 import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 // docs:end:import_token_contract
 
+// To run these tests against a local sandbox:
+// 1. Start a local Ethereum node (Anvil):
+//    anvil --host 127.0.0.1 --port 8545
+//
+// 2. Start the Aztec sandbox:
+//    cd yarn-project/aztec
+//    NODE_NO_WARNINGS=1 ETHEREUM_HOSTS=http://127.0.0.1:8545 node ./dest/bin/index.js start --sandbox
+//
+// 3. Run the tests:
+//    yarn test:e2e docs_examples.test.ts
 describe('docs_examples', () => {
   it('deploys and interacts with a token contract', async () => {
     // docs:start:full_deploy
     // docs:start:define_account_vars
-    const PXE_URL = process.env.PXE_URL || 'http://localhost:8080';
-    const AZTEC_NODE_URL = process.env.AZTEC_NODE_URL || 'http://localhost:8079';
+    const AZTEC_NODE_URL = process.env.AZTEC_NODE_URL || 'http://localhost:8080';
     const node = createAztecNodeClient(AZTEC_NODE_URL);
-    const pxe = createPXEClient(PXE_URL);
+
+    const wallet = await TestWallet.create(node);
     const secretKey = Fr.random();
     const signingPrivateKey = GrumpkinScalar.random();
     // docs:end:define_account_vars
 
     // docs:start:create_wallet
     // Use a pre-funded wallet to pay for the fees for the deployments.
-    const wallet = new TestWallet(pxe, node);
     const [accountData] = await getInitialTestAccountsData();
     const prefundedAccount = await wallet.createSchnorrAccount(accountData.secret, accountData.salt);
     const newAccount = await wallet.createSchnorrAccount(secretKey, Fr.random(), signingPrivateKey);

@@ -30,7 +30,8 @@ twin_rom_table<Builder>::twin_rom_table(const std::vector<std::array<field_pt, 2
     }
     raw_entries = table_entries;
     length = raw_entries.size();
-    // do not initialize the table yet. The input entries might all be constant,
+
+    // We do not initialize the table yet. The input entries might all be constant,
     // if this is the case we might not have a valid pointer to a Builder
     // We get around this, by initializing the table when `operator[]` is called
     // with a non-const field element.
@@ -51,7 +52,8 @@ template <typename Builder> void twin_rom_table<Builder>::initialize_table() con
     if (initialized) {
         return;
     }
-    ASSERT(context != nullptr);
+    BB_ASSERT_EQ(context != nullptr, true, "twin_rom_table: context must be set before initializing the table");
+
     // populate table. Table entries must be normalized and cannot be constants
     for (const auto& entry : raw_entries) {
         field_pt first;
@@ -68,6 +70,8 @@ template <typename Builder> void twin_rom_table<Builder>::initialize_table() con
         }
         entries.emplace_back(field_pair_pt{ first, second });
     }
+
+    // create uninitialized table of size `length`
     rom_id = context->create_ROM_array(length);
 
     for (size_t i = 0; i < length; ++i) {
@@ -155,7 +159,7 @@ std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const field_
         context->failure("twin_rom_table: ROM array access out of bounds");
     }
 
-    auto output_indices = context->read_ROM_array_pair(rom_id, index.normalize().get_witness_index());
+    auto output_indices = context->read_ROM_array_pair(rom_id, index.get_normalized_witness_index());
     auto pair = field_pair_pt{
         field_pt::from_witness_index(context, output_indices[0]),
         field_pt::from_witness_index(context, output_indices[1]),

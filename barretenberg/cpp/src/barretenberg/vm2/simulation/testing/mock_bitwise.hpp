@@ -2,7 +2,7 @@
 
 #include <gmock/gmock.h>
 
-#include "barretenberg/vm2/simulation/bitwise.hpp"
+#include "barretenberg/vm2/simulation/interfaces/bitwise.hpp"
 
 namespace bb::avm2::simulation {
 

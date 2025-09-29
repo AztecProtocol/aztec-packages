@@ -718,13 +718,13 @@ fn handle_emit_unencrypted_log(
         // The message array from Brillig is indirect.
         indirect: Some(
             AddressingModeBuilder::default()
-                .indirect_operand(&message_offset)
                 .direct_operand(&message_size_offset)
+                .indirect_operand(&message_offset)
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: message_offset.to_usize() as u16 },
             AvmOperand::U16 { value: message_size_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: message_offset.to_usize() as u16 },
         ],
         ..Default::default()
     });

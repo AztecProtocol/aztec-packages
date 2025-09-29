@@ -15,8 +15,6 @@ void bc_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/bc_retrieval");
-
     const auto constants_MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS = FF(21);
     const auto constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE = FF(1);
     const auto bc_retrieval_REMAINING_BYTECODES = ((constants_MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS +

@@ -64,7 +64,7 @@ describe('e2e_avm_simulator', () => {
           ).rejects.toThrow("Assertion failed: Nullifier doesn't exist!");
         });
         it('PXE processes intrinsic assertions and recovers message', async () => {
-          await expect(avmContract.methods.divide_by_zero().simulate({ from: defaultAccountAddress })).rejects.toThrow(
+          await expect(avmContract.methods.divide_by_zero(0).simulate({ from: defaultAccountAddress })).rejects.toThrow(
             'Division by zero',
           );
         });

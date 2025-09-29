@@ -3,7 +3,7 @@
 #include <gmock/gmock.h>
 
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/simulation/written_public_data_slots_tree_check.hpp"
+#include "barretenberg/vm2/simulation/interfaces/written_public_data_slots_tree_check.hpp"
 
 namespace bb::avm2::simulation {
 

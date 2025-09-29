@@ -13,10 +13,9 @@ namespace bb::stdlib::recursion::honk {
 class ClientIVCRecursiveVerifier {
     using Builder = UltraCircuitBuilder;                     // The circuit will be an Ultra circuit
     using RecursiveFlavor = MegaZKRecursiveFlavor_<Builder>; // The hiding circuit verifier algorithm is MegaZK
-    using RecursiveVerifierInstances = RecursiveVerifierInstances_<RecursiveFlavor, 2>;
-    using RecursiveVerifierInstance = RecursiveVerifierInstances::VerifierInstance;
-    using RecursiveVerificationKey = RecursiveVerifierInstances::VerificationKey;
-    using FoldingVerifier = ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
+    using RecursiveVerifierInstance = RecursiveVerifierInstance_<RecursiveFlavor>;
+    using RecursiveVerificationKey = RecursiveVerifierInstance::VerificationKey;
+    using FoldingVerifier = ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstance>;
     using MegaVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using GoblinVerifier = GoblinRecursiveVerifier;
     using Flavor = RecursiveFlavor::NativeFlavor;
@@ -26,7 +25,7 @@ class ClientIVCRecursiveVerifier {
   public:
     using GoblinVerificationKey = Goblin::VerificationKey;
     using Output = GoblinRecursiveVerifierOutput;
-    using RecursiveVKAndHash = RecursiveVerifierInstances::VKAndHash;
+    using RecursiveVKAndHash = RecursiveVerifierInstance::VKAndHash;
     using RecursiveVK = RecursiveFlavor::VerificationKey;
 
     struct StdlibProof {
