@@ -1,5 +1,4 @@
-import { type NetworkConfig, NetworkConfigMapSchema } from '@aztec/foundation/config';
-import type { NetworkNames } from '@aztec/foundation/config';
+import { type NetworkConfig, NetworkConfigMapSchema, type NetworkNames } from '@aztec/foundation/config';
 
 import { readFile } from 'fs/promises';
 import { join } from 'path';
@@ -36,7 +35,9 @@ export async function getNetworkConfig(
     } else {
       url = new URL(`file://${configLocation}`);
     }
-  } catch (err) {}
+  } catch {
+    /* no-op */
+  }
 
   if (!url) {
     return undefined;
@@ -53,7 +54,7 @@ export async function getNetworkConfig(
     } else if (url.protocol === 'file:') {
       rawConfig = JSON.parse(await readFile(url.pathname, 'utf-8'));
     } else {
-      throw new Error('Unsupported Aztec network config protocol: ' + url);
+      throw new Error('Unsupported Aztec network config protocol: ' + url.href);
     }
 
     if (!rawConfig) {
