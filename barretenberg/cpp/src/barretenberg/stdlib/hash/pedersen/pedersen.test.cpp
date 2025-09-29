@@ -282,7 +282,13 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
 
         EXPECT_EQ(result.get_value(), expected);
 
-        check_circuit_and_gate_count(builder, 62376);
+        // Note: gate count delta is an illusion due to extra constants added by default in the Mega builder which then
+        // get resused as ROM indices in the underlying batch mul algorithm (only applies for num_inputs > 2).
+        if constexpr (std::is_same_v<Builder, bb::UltraCircuitBuilder>) {
+            check_circuit_and_gate_count(builder, 62376);
+        } else {
+            check_circuit_and_gate_count(builder, 62373);
+        }
     }
 
     static void test_generator_contexts()
@@ -349,7 +355,13 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
         // Different offsets with same domain should produce different results
         EXPECT_NE(result_offset_10.get_value(), result_offset_20.get_value());
 
-        check_circuit_and_gate_count(builder, 21845);
+        // Note: gate count delta is an illusion due to extra constants added by default in the Mega builder which then
+        // get resused as ROM indices in the underlying batch mul algorithm (only applies for num_inputs > 2).
+        if constexpr (std::is_same_v<Builder, bb::UltraCircuitBuilder>) {
+            check_circuit_and_gate_count(builder, 21845);
+        } else {
+            check_circuit_and_gate_count(builder, 21842);
+        }
     }
 
     static void test_determinism()
@@ -377,7 +389,13 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
         auto expected = crypto::pedersen_hash::hash(inputs);
         EXPECT_EQ(result1.get_value(), expected);
 
-        check_circuit_and_gate_count(builder, 6645);
+        // Note: gate count delta is an illusion due to extra constants added by default in the Mega builder which then
+        // get resused as ROM indices in the underlying batch mul algorithm (only applies for num_inputs > 2).
+        if constexpr (std::is_same_v<Builder, bb::UltraCircuitBuilder>) {
+            check_circuit_and_gate_count(builder, 6645);
+        } else {
+            check_circuit_and_gate_count(builder, 6642);
+        }
     }
 };
 
