@@ -57,6 +57,10 @@ pub fn debug_log_format_slice<let M: u32>(log_level: u8, msg: str<M>, args: [Fie
     unsafe { debug_log_slice_oracle_wrapper(log_level, msg, args) };
 }
 
+// We provide two versions of the debug log oracle: one that takes args as a slice and another one that takes args as an array.
+// We do this since conversion from array to slice generates overhead in public functions, since opcodes need to be emitted for the conversion.
+// By exposing the two flavors, we avoid conversions since the AVM is able to handle both arrays an slices in this oracle.
+
 unconstrained fn debug_log_slice_oracle_wrapper<let M: u32>(
     log_level: u8,
     msg: str<M>,
