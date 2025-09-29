@@ -66,55 +66,54 @@ aztec start [options]
 
 Options:
 
+#### Misc Options
+
+- `--network <value>`: Network to run Aztec on.
+- `--auto-update <value>`: The auto update mode for this node (default: disabled).
+- `--auto-update-url <value>`: Base URL to check for updates.
+- `--sync-mode <value>`: Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data (default: snapshot).
+- `--snapshots-url <value>`: Base URL for snapshots index.
+
 #### Sandbox Options
 
-- `-sb, --sandbox`: Starts the Aztec Sandbox.
-
-#### Network Options
-
-- `--network <value>`: Network to run Aztec on, e.g. `testnet`. By default connects to sandbox (local network)
+- `--sandbox`: Starts Aztec Sandbox.
+- `--sandbox.noPXE`: Do not expose PXE service on sandbox start.
+- `--sandbox.l1Mnemonic <value>`: Mnemonic for L1 accounts. Will be used (default: test test test test test test test test test test test junk).
+- `--sandbox.deployAztecContractsSalt <value>`: Numeric salt for deploying L1 Aztec contracts before starting the sandbox. Needs mnemonic or private key to be set.
 
 #### API Options
 
-- `-p, --port <value>`: Port to run the Aztec Services on (default: 8080).
+- `--port <value>`: Port to run the Aztec Services on (default: 8080).
 - `--admin-port <value>`: Port to run admin APIs of Aztec Services on (default: 8880).
 - `--api-prefix <value>`: Prefix for API routes on any service that is started.
 
 #### Ethereum Options
 
-- `--l1-rpc-urls <value>`: List of URLs of Ethereum RPC nodes that services will connect to (comma separated) (default: http://localhost:8545).
-- `--l1-chain-id <value>`: The L1 chain ID (default: 31337).
-- `--l1-mnemonic <value>`: Mnemonic for L1 accounts. Will be used if no publisher private keys are provided (default: test test test test test test test test test test test junk).
+- `--l1-chain-id <value>`: The chain ID of the ethereum host.
+- `--l1-rpc-urls <value>`: List of URLs of Ethereum RPC nodes that services will connect to (comma separated).
 - `--l1-consensus-host-urls <value>`: List of URLs of the Ethereum consensus nodes that services will connect to (comma separated).
-- `--l1-consensus-host-api-keys <value>`: List of API keys for the corresponding Ethereum consensus nodes.
-- `--l1-consensus-host-api-key-headers <value>`: List of API key headers for the corresponding Ethereum consensus nodes. If not set, the api key for the corresponding node will be appended to the URL as `?key=<api-key>`.
-
-#### Storage Options
-
-- `--data-directory <value>`: Where to store data for services. If not set, will store temporarily.
-- `--data-store-map-size-kb <value>`: The maximum possible size of the data store DB in KB. Can be overridden by component-specific options.
+- `--l1-consensus-host-api-keys <value>`: List of API keys for the corresponding L1 consensus clients, if needed. Added to the end of the corresponding URL as "?key=<api-key>" unless a header is defined.
+- `--l1-consensus-host-api-key-headers <value>`: List of header names for the corresponding L1 consensus client API keys, if needed. Added to the corresponding request as "<api-key-header>: <api-key>".
 
 #### L1 Contract Addresses
 
-- `--rollup-address <value>`: The deployed L1 rollup contract address.
 - `--registry-address <value>`: The deployed L1 registry contract address.
-- `--inbox-address <value>`: The deployed L1 -> L2 inbox contract address.
-- `--outbox-address <value>`: The deployed L2 -> L1 outbox contract address.
-- `--fee-juice-address <value>`: The deployed L1 Fee Juice contract address.
-- `--staking-asset-address <value>`: The deployed L1 Staking Asset contract address.
-- `--fee-juice-portal-address <value>`: The deployed L1 Fee Juice portal contract address.
+- `--rollup-version <value>`: The version of the rollup.
+
+#### Storage Options
+
+- `--data-directory <value>`: Optional dir to store data. If omitted will store in memory.
+- `--data-store-map-size-kb <value>`: The maximum possible size of a data store DB in KB. Can be overridden by component-specific options (default: 134217728).
+
+#### World State Options
+
+- `--world-state-data-directory <value>`: Optional directory for the world state database.
+- `--world-state-db-map-size-kb <value>`: The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKB.
+- `--world-state-block-history <value>`: The number of historic blocks to maintain. Values less than 1 mean all history is maintained (default: 64).
 
 #### Aztec Node Options
 
 - `--node`: Starts Aztec Node with options.
-- `--node.archiver-url <value>`: URL for an archiver service.
-- `--node.deploy-aztec-contracts`: Deploys L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set.
-- `--node.deploy-aztec-contracts-salt <value>`: Numeric salt for deploying L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set. Implies --node.deploy-aztec-contracts.
-- `--node.assume-proven-through-block-number <value>`: Cheats the rollup contract into assuming every block until this one is proven. Useful for speeding up bootstraps.
-- `--node.publisher-private-key <value>`: Private key of account for publishing L1 contracts.
-- `--node.world-state-block-check-interval-ms <value>`: Frequency in which to check for blocks in ms (default: 100).
-- `--node.sync-mode <value>`: Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data (default: snapshot).
-- `--node.snapshots-url <value>`: Base URL for downloading snapshots for snapshot sync.
 
 ##### Example Usage
 
@@ -137,57 +136,6 @@ aztec start --node --network testnet
     --archiver
 ```
 
-#### P2P Subsystem Options
-
-- `--p2p-enabled [value]`: Enable P2P subsystem.
-- `--p2p.block-check-interval-ms <value>`: The frequency in which to check for new L2 blocks (default: 100).
-- `--p2p.debug-disable-colocation-penalty <value>`: DEBUG: Disable colocation penalty - NEVER set to true in production.
-- `--p2p.peer-check-interval-ms <value>`: The frequency in which to check for new peers (default: 30000).
-- `--p2p.l2-queue-size <value>`: Size of queue of L2 blocks to store (default: 1000).
-- `--p2p.listen-address <value>`: The listen address. ipv4 address (default: 0.0.0.0).
-- `--p2p.p2p-port <value>`: The port for the P2P service (default: 40400).
-- `--p2p.p2p-ip <value>`: The IP address for the P2P service. ipv4 address.
-- `--p2p.peer-id-private-key <value>`: An optional peer id private key. If blank, will generate a random key.
-- `--p2p.peer-id-private-key-path <value>`: An optional path to store generated peer id private keys.
-- `--p2p.bootstrap-nodes <value>`: A list of bootstrap peer ENRs to connect to. Separated by commas.
-- `--p2p.bootstrap-node-enr-version-check <value>`: Whether to check the version of the bootstrap node ENR.
-- `--p2p.bootstrap-nodes-as-full-peers <value>`: Whether to consider our configured bootnodes as full peers.
-- `--p2p.max-peer-count <value>`: The maximum number of peers to connect to (default: 100).
-- `--p2p.query-for-ip <value>`: If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.
-- `--p2p.keep-proven-txs-in-pool-for <value>`: How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven).
-- `--p2p.keep-attestations-in-pool-for <value>`: How many slots to keep attestations for (default: 96).
-- `--p2p.gossipsub-interval <value>`: The interval of the gossipsub heartbeat to perform maintenance tasks (default: 700).
-- `--p2p.gossipsub-d <value>`: The D parameter for the gossipsub protocol (default: 8).
-- `--p2p.gossipsub-dlo <value>`: The Dlo parameter for the gossipsub protocol (default: 4).
-- `--p2p.gossipsub-dhi <value>`: The Dhi parameter for the gossipsub protocol (default: 12).
-- `--p2p.gossipsub-dlazy <value>`: The Dlazy parameter for the gossipsub protocol (default: 8).
-- `--p2p.gossipsub-flood-publish <value>`: Whether to flood publish messages. - For testing purposes only (default: true).
-- `--p2p.gossipsub-mcache-length <value>`: The number of gossipsub interval message cache windows to keep (default: 6).
-- `--p2p.gossipsub-mcache-gossip <value>`: How many message cache windows to include when gossiping with other pears (default: 3).
-- `--p2p.gossipsub-tx-topic-weight <value>`: The weight of the tx topic for the gossipsub protocol (default: 1).
-- `--p2p.gossipsub-tx-invalid-message-deliveries-weight <value>`: The weight of the tx invalid message deliveries for the gossipsub protocol (default: -20).
-- `--p2p.gossipsub-tx-invalid-message-deliveries-decay <value>`: Determines how quickly the penalty for invalid message deliveries decays over time. Between 0 and 1 (default: 0.5).
-- `--p2p.peer-penalty-values <value>`: The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors (default: 2,10,50).
-- `--p2p.double-spend-severe-peer-penalty-window <value>`: The "age" (in L2 blocks) of a tx after which we heavily penalize a peer for sending it (default: 30).
-- `--p2p.block-request-batch-size <value>`: The number of blocks to fetch in a single batch (default: 20).
-- `--p2p.archived-tx-limit <value>`: The number of transactions that will be archived. If the limit is set to 0 then archiving will be disabled.
-- `--p2p.trusted-peers <value>`: A list of trusted peers ENRs. Separated by commas.
-- `--p2p.p2p-store-map-size-kb <value>`: The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB.
-- `--p2p.tx-public-setup-allow-list <value>`: The list of functions calls allowed to run in setup.
-- `--p2p.max-tx-pool-size <value>`: The maximum cumulative tx size of pending txs (in bytes) before evicting lower priority txs (default: 100000000).
-- `--p2p.overall-request-timeout-ms <value>`: The overall timeout for a request response operation (default: 4000).
-- `--p2p.individual-request-timeout-ms <value>`: The timeout for an individual request response peer interaction (default: 2000).
-- `--p2p.rollup-version <value>`: The version of the rollup.
-
-#### Telemetry Options
-
-- `--tel.metrics-collector-url <value>`: The URL of the telemetry collector for metrics.
-- `--tel.traces-collector-url <value>`: The URL of the telemetry collector for traces.
-- `--tel.logs-collector-url <value>`: The URL of the telemetry collector for logs.
-- `--tel.otel-collect-interval-ms <value>`: The interval at which to collect metrics (default: 60000).
-- `--tel.otel-export-timeout-ms <value>`: The timeout for exporting metrics (default: 30000).
-- `--tel.otel-exclude-metrics <value>`: A list of metric prefixes to exclude from export.
-
 ##### Example Usage
 
 ```bash
@@ -197,89 +145,51 @@ aztec start --port 8081 --pxe --pxe.nodeUrl=$BOOTNODE --pxe.proverEnabled true -
 #### Archiver Options
 
 - `--archiver`: Starts Aztec Archiver with options.
-- `--archiver.blob-sink-url <value>`: The URL of the blob sink.
-- `--archiver.archive-api-url <value>`: The URL of the archive API.
-- `--archiver.archiver-polling-interval-ms <value>`: The polling interval in ms for retrieving new L2 blocks and encrypted logs (default: 500).
-- `--archiver.archiver-batch-size <value>`: The number of L2 blocks the archiver will attempt to download at a time (default: 100).
-- `--archiver.max-logs <value>`: The max number of logs that can be obtained in 1 "getPublicLogs" call (default: 1000).
-- `--archiver.archiver-store-map-size-kb <value>`: The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKB.
-- `--archiver.rollup-version <value>`: The version of the rollup.
-- `--archiver.viem-polling-interval-ms <value>`: The polling interval viem uses in ms (default: 1000).
-- `--archiver.ethereum-slot-duration <value>`: How many seconds an L1 slot lasts (default: 12).
-- `--archiver.aztec-slot-duration <value>`: How many seconds an L2 slots lasts (must be multiple of ethereum slot duration) (default: 24).
-- `--archiver.aztec-epoch-duration <value>`: How many L2 slots an epoch lasts (maximum AZTEC_MAX_EPOCH_DURATION) (default: 16).
-- `--archiver.aztec-target-committee-size <value>`: The target validator committee size (default: 48).
-- `--archiver.aztec-proof-submission-window <value>`: The number of L2 slots that a proof for an epoch can be submitted in, starting from the beginning of the epoch (default: 31).
-- `--archiver.minimum-stake <value>`: The minimum stake for a validator (default: 100000000000000000000).
-- `--archiver.slashing-quorum <value>`: The slashing quorum (default: 6).
-- `--archiver.slashing-round-size <value>`: The slashing round size (default: 10).
-- `--archiver.governance-proposer-quorum <value>`: The governance proposing quorum (default: 51).
-- `--archiver.governance-proposer-round-size <value>`: The governance proposing round size (default: 100).
-- `--archiver.mana-target <value>`: The mana target for the rollup (default: 10000000000).
-- `--archiver.proving-cost-per-mana <value>`: The proving cost per mana (default: 100).
-- `--archiver.gas-limit-buffer-percentage <value>`: How much to increase calculated gas limit by (percentage) (default: 20).
-- `--archiver.max-gwei <value>`: Maximum gas price in gwei (default: 500).
-- `--archiver.max-blob-gwei <value>`: Maximum blob fee per gas in gwei (default: 1500).
-- `--archiver.priority-fee-bump-percentage <value>`: How much to increase priority fee by each attempt (percentage) (default: 20).
-- `--archiver.priority-fee-retry-bump-percentage <value>`: How much to increase priority fee by each retry attempt (percentage) (default: 50).
-- `--archiver.fixed-priority-fee-per-gas <value>`: Fixed priority fee per gas in Gwei. Overrides any priority fee bump percentage.
-- `--archiver.max-attempts <value>`: Maximum number of speed-up attempts (default: 3).
-- `--archiver.check-interval-ms <value>`: How often to check tx status (default: 1000).
-- `--archiver.stall-time-ms <value>`: How long before considering tx stalled (default: 45000).
-- `--archiver.tx-timeout-ms <value>`: How long to wait for a tx to be mined before giving up. Set to 0 to disable (default: 300000).
-- `--archiver.tx-propagation-max-query-attempts <value>`: How many attempts will be done to get a tx after it was sent (default: 3).
+- `--archiver.blobSinkUrl <value>`: The URL of the blob sink.
+- `--archiver.blobSinkMapSizeKb <value>`: The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKB.
+- `--archiver.archiveApiUrl <value>`: The URL of the archive API.
+- `--archiver.archiverPollingIntervalMS <value>`: The polling interval in ms for retrieving new L2 blocks and encrypted logs (default: 500).
+- `--archiver.archiverBatchSize <value>`: The number of L2 blocks the archiver will attempt to download at a time (default: 100).
+- `--archiver.maxLogs <value>`: The max number of logs that can be obtained in 1 "getPublicLogs" call (default: 1000).
+- `--archiver.archiverStoreMapSizeKb <value>`: The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKB.
+- `--archiver.skipValidateBlockAttestations <value>`: Whether to skip validating block attestations (use only for testing).
 
 #### Sequencer Options
 
-- `-n, --node [options]`: Starts the Aztec Node with specified options.
-- `-px, --pxe [options]`: Starts the PXE (Private eXecution Environment) with specified options.
-- `-a, --archiver [options]`: Starts the Archiver with specified options.
-- `-s, --sequencer [options]`: Starts the Sequencer with specified options.
-- `-r, --prover [options]`: Starts the Prover Agent with specified options.
-- `-o, --prover-node [options]`: Starts the Prover Node with specified options.
-- `-p2p, --p2p-bootstrap [options]`: Starts the P2P Bootstrap node with specified options.
-- `-t, --txe [options]`: Starts the TXE (Test eXecution Environment) with specified options.
-- `--faucet [options]`: Starts the Aztec faucet service with specified options.
-- `--sequencer.validator-private-key <value>`: The private key of the validator participating in attestation duties.
-- `--sequencer.disable-validator <value>`: Do not run the validator.
-- `--sequencer.attestation-polling-interval-ms <value>`: Interval between polling for new attestations (default: 200).
-- `--sequencer.validator-reexecute <value>`: Re-execute transactions before attesting (default: true).
-- `--sequencer.transaction-polling-interval-ms <value>`: The number of ms to wait between polling for pending txs (default: 500).
-- `--sequencer.max-txs-per-block <value>`: The maximum number of txs to include in a block (default: 32).
-- `--sequencer.min-txs-per-block <value>`: The minimum number of txs to include in a block (default: 1).
-- `--sequencer.max-l2-block-gas <value>`: The maximum L2 block gas (default: 10000000000).
-- `--sequencer.max-da-block-gas <value>`: The maximum DA block gas (default: 10000000000).
+- `--sequencer`: Starts Aztec Sequencer with options.
+- `--sequencer.validatorPrivateKeys <value>`: List of private keys of the validators participating in attestation duties.
+- `--sequencer.validatorAddresses <value>`: List of addresses of the validators to use with remote signers.
+- `--sequencer.disableValidator <value>`: Do not run the validator.
+- `--sequencer.disabledValidators <value>`: Temporarily disable these specific validator addresses.
+- `--sequencer.attestationPollingIntervalMs <value>`: Interval between polling for new attestations (default: 200).
+- `--sequencer.validatorReexecute <value>`: Re-execute transactions before attesting (default: true).
+- `--sequencer.validatorReexecuteDeadlineMs <value>`: Will re-execute until this many milliseconds are left in the slot (default: 6000).
+- `--sequencer.alwaysReexecuteBlockProposals <value>`: Whether to always reexecute block proposals, even for non-validator nodes (useful for monitoring network status).
+- `--sequencer.transactionPollingIntervalMS <value>`: The number of ms to wait between polling for pending txs (default: 500).
+- `--sequencer.maxTxsPerBlock <value>`: The maximum number of txs to include in a block (default: 32).
+- `--sequencer.minTxsPerBlock <value>`: The minimum number of txs to include in a block (default: 1).
+- `--sequencer.publishTxsWithProposals <value>`:  Whether to publish txs with proposals.
+- `--sequencer.maxL2BlockGas <value>`: The maximum L2 block gas (default: 10000000000).
+- `--sequencer.maxDABlockGas <value>`: The maximum DA block gas (default: 10000000000).
 - `--sequencer.coinbase <value>`: Recipient of block reward.
-- `--sequencer.fee-recipient <value>`: Address to receive fees.
-- `--sequencer.acvm-working-directory <value>`: The working directory to use for simulation/proving.
-- `--sequencer.acvm-binary-path <value>`: The path to the ACVM binary.
-- `--sequencer.max-block-size-in-bytes <value>`: Max block size (default: 1048576).
-- `--sequencer.enforce-time-table <value>`: Whether to enforce the time table when building blocks (default: true).
-- `--sequencer.governance-proposer-payload <value>`: The address of the payload for the governanceProposer (default: 0x0000000000000000000000000000000000000000).
-- `--sequencer.max-l1-tx-inclusion-time-into-slot <value>`: How many seconds into an L1 slot we can still send a tx and get it mined.
-- `--sequencer.tx-public-setup-allow-list <value>`: The list of functions calls allowed to run in setup.
-- `--sequencer.viem-polling-interval-ms <value>`: The polling interval viem uses in ms (default: 1000).
-- `--sequencer.custom-forwarder-contract-address <value>`: The address of the custom forwarder contract (default: 0x0000000000000000000000000000000000000000).
-- `--sequencer.publisher-private-key <value>`: The private key to be used by the publisher (default: 0x0000000000000000000000000000000000000000000000000000000000000000).
-- `--sequencer.l1-publish-retry-interval-ms <value>`: The interval to wait between publish retries (default: 1000).
-- `--sequencer.gas-limit-buffer-percentage <value>`: How much to increase calculated gas limit by (percentage) (default: 20).
-- `--sequencer.max-gwei <value>`: Maximum gas price in gwei (default: 500).
-- `--sequencer.max-blob-gwei <value>`: Maximum blob fee per gas in gwei (default: 1500).
-- `--sequencer.priority-fee-bump-percentage <value>`: How much to increase priority fee by each attempt (percentage) (default: 20).
-- `--sequencer.priority-fee-retry-bump-percentage <value>`: How much to increase priority fee by each retry attempt (percentage) (default: 50).
-- `--sequencer.fixed-priority-fee-per-gas <value>`: Fixed priority fee per gas in Gwei. Overrides any priority fee bump percentage.
-- `--sequencer.max-attempts <value>`: Maximum number of speed-up attempts (default: 3).
-- `--sequencer.check-interval-ms <value>`: How often to check tx status (default: 1000).
-- `--sequencer.stall-time-ms <value>`: How long before considering tx stalled (default: 45000).
-- `--sequencer.tx-timeout-ms <value>`: How long to wait for a tx to be mined before giving up. Set to 0 to disable (default: 300000).
-- `--sequencer.tx-propagation-max-query-attempts <value>`: How many attempts will be done to get a tx after it was sent (default: 3).
-- `--sequencer.blob-sink-url <value>`: The URL of the blob sink.
-- `--sequencer.archive-api-url <value>`: The URL of the archive API.
-- `--sequencer.rollup-version <value>`: The version of the rollup.
-- `--sequencer.ethereum-slot-duration <value>`: How many seconds an L1 slot lasts (default: 12).
-- `--sequencer.aztec-slot-duration <value>`: How many seconds an L2 slots lasts (must be multiple of ethereum slot duration) (default: 24).
-- `--sequencer.aztec-epoch-duration <value>`: How many L2 slots an epoch lasts (maximum AZTEC_MAX_EPOCH_DURATION) (default: 16).
-- `--sequencer.aztec-proof-submission-window <value>`: The number of L2 slots that a proof for an epoch can be submitted in, starting from the beginning of the epoch (default: 31).
+- `--sequencer.feeRecipient <value>`: Address to receive fees.
+- `--sequencer.acvmWorkingDirectory <value>`: The working directory to use for simulation/proving.
+- `--sequencer.acvmBinaryPath <value>`: The path to the ACVM binary.
+- `--sequencer.maxBlockSizeInBytes <value>`: Max block size (default: 1048576).
+- `--sequencer.enforceTimeTable <value>`: Whether to enforce the time table when building blocks (default: true).
+- `--sequencer.governanceProposerPayload <value>`: The address of the payload for the governanceProposer (default: 0x0000000000000000000000000000000000000000).
+- `--sequencer.maxL1TxInclusionTimeIntoSlot <value>`: How many seconds into an L1 slot we can still send a tx and get it mined.
+- `--sequencer.attestationPropagationTime <value>`: How many seconds it takes for proposals and attestations to travel across the p2p layer (one-way) (default: 2).
+- `--sequencer.secondsBeforeInvalidatingBlockAsCommitteeMember <value>`: How many seconds to wait before trying to invalidate a block from the pending chain as a committee member (zero to never invalidate). The next proposer is expected to invalidate, so the committee acts as a fallback (default: 144).
+- `--sequencer.secondsBeforeInvalidatingBlockAsNonCommitteeMember <value>`: How many seconds to wait before trying to invalidate a block from the pending chain as a non-committee member (zero to never invalidate). The next proposer is expected to invalidate, then the committee, so other sequencers act as a fallback (default: 432).
+- `--sequencer.txPublicSetupAllowList <value>`: The list of functions calls allowed to run in setup.
+- `--sequencer.keyStoreDirectory <value>`: Location of key store directory.
+- `--sequencer.publisherPrivateKeys <value>`: The private keys to be used by the publisher.
+- `--sequencer.publisherAddresses <value>`: The addresses of the publishers to use with remote signers.
+- `--sequencer.l1PublishRetryIntervalMS <value>`: The interval to wait between publish retries (default: 1000).
+- `--sequencer.publisherAllowInvalidStates <value>`: True to use publishers in invalid states (timed out, cancelled, etc) if no other is available.
+- `--sequencer.blobSinkUrl <value>`: The URL of the blob sink.
+- `--sequencer.archiveApiUrl <value>`: The URL of the archive API.
 
 #### Example Usage
 
@@ -290,120 +200,185 @@ aztec start --network testnet --l1-rpc-urls https://example.com --l1-consensus-h
 #### Blob Sink Options
 
 - `--blob-sink`: Starts Aztec Blob Sink with options.
-- `--blob-sink.port <value>`: The port to run the blob sink server on.
-- `--blob-sink.archive-api-url <value>`: The URL of the archive API.
-- `--blob-sink.data-store-map-size-kb <value>`: DB mapping size to be applied to all key/value stores (default: 134217728).
-- `--blob-sink.rollup-version <value>`: The version of the rollup.
-- `--blob-sink.viem-polling-interval-ms <value>`: The polling interval viem uses in ms (default: 1000).
+- `--blobSink.port <value>`: The port to run the blob sink server on.
+- `--blobSink.blobSinkMapSizeKb <value>`: The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKB.
+- `--blobSink.archiveApiUrl <value>`: The URL of the archive API.
 
 #### Prover Node Options
 
 - `--prover-node`: Starts Aztec Prover Node with options.
-- `--prover-node.archiver-url <value>`: URL for an archiver service.
-- `--prover-node.acvm-working-directory <value>`: The working directory to use for simulation/proving.
-- `--prover-node.acvm-binary-path <value>`: The path to the ACVM binary.
-- `--prover-node.bb-working-directory <value>`: The working directory to use for proving.
-- `--prover-node.bb-binary-path <value>`: The path to the bb binary.
-- `--prover-node.bb-skip-cleanup <value>`: Whether to skip cleanup of bb temporary files.
-- `--prover-node.node-url <value>`: The URL to the Aztec node to take proving jobs from.
-- `--prover-node.prover-id <value>`: Hex value that identifies the prover. Defaults to the address used for submitting proofs if not set.
-- `--prover-node.failed-proof-store <value>`: Store for failed proof inputs. Google cloud storage is only supported at the moment. Set this value as gs://bucket-name/path/to/store.
-- `--prover-node.world-state-block-check-interval-ms <value>`: The frequency in which to check (default: 100).
-- `--prover-node.world-state-proven-blocks-only <value>`: Whether to follow only the proven chain.
-- `--prover-node.world-state-block-request-batch-size <value>`: Size of the batch for each get-blocks request from the synchronizer to the archiver.
-- `--prover-node.world-state-db-map-size-kb <value>`: The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKB.
-- `--prover-node.world-state-data-directory <value>`: Optional directory for the world state database.
-- `--prover-node.world-state-block-history <value>`: The number of historic blocks to maintain. Values less than 1 mean all history is maintained (default: 64).
-- `--prover-node.l1-publish-retry-interval-ms <value>`: The interval to wait between publish retries (default: 1000).
-- `--prover-node.custom-forwarder-contract-address <value>`: The address of the custom forwarder contract (default: 0x0000000000000000000000000000000000000000).
-- `--prover-node.publisher-private-key <value>`: The private key to be used by the publisher (default: 0x0000000000000000000000000000000000000000000000000000000000000000).
-- `--prover-node.prover-coordination-node-url <value>`: The URL of the tx provider node.
-- `--prover-node.prover-node-max-pending-jobs <value>`: The maximum number of pending jobs for the prover node (default: 10).
-- `--prover-node.prover-node-polling-interval-ms <value>`: The interval in milliseconds to poll for new jobs (default: 1000).
-- `--prover-node.prover-node-max-parallel-blocks-per-epoch <value>`: The Maximum number of blocks to process in parallel while proving an epoch (default: 32).
-- `--prover-node.tx-gathering-timeout-ms <value>`: The maximum amount of time to wait for tx data to be available (default: 60000).
-- `--prover-node.tx-gathering-interval-ms <value>`: How often to check that tx data is available (default: 1000).
-- `--prover-node.tx-gathering-max-parallel-requests <value>`: How many txs to load up a time (default: 100).
-- `--prover-node.test-accounts <value>`: Whether to populate the genesis state with initial fee juice for the test accounts.
-- `--prover-node.sponsored-fpc <value>`: Whether to populate the genesis state with initial fee juice for the sponsored FPC.
-- `--prover-node.sync-mode <value>`: Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data (default: snapshot).
-- `--prover-node.snapshots-url <value>`: Base URL for snapshots index.
+- `--proverNode.keystoreDirectory <value>`: Location of key store directory.
+- `--proverNode.acvmWorkingDirectory <value>`: The working directory to use for simulation/proving.
+- `--proverNode.acvmBinaryPath <value>`: The path to the ACVM binary.
+- `--proverNode.bbWorkingDirectory <value>`: The working directory to use for proving.
+- `--proverNode.bbBinaryPath <value>`: The path to the bb binary.
+- `--proverNode.bbSkipCleanup <value>`: Whether to skip cleanup of bb temporary files.
+- `--proverNode.numConcurrentIVCVerifiers <value>`: Max number of client IVC verifiers to run concurrently (default: 8).
+- `--proverNode.bbIVCConcurrency <value>`: Number of threads to use for IVC verification (default: 1).
+- `--proverNode.nodeUrl <value>`: The URL to the Aztec node to take proving jobs from.
+- `--proverNode.proverId <value>`: Hex value that identifies the prover. Defaults to the address used for submitting proofs if not set.
+- `--proverNode.failedProofStore <value>`: Store for failed proof inputs. Google cloud storage is only supported at the moment. Set this value as gs://bucket-name/path/to/store.
+- `--proverNode.l1PublishRetryIntervalMS <value>`: The interval to wait between publish retries (default: 1000).
+- `--proverNode.publisherAllowInvalidStates <value>`: True to use publishers in invalid states (timed out, cancelled, etc) if no other is available.
+- `--proverNode.publisherPrivateKeys <value>`: The private keys to be used by the publisher.
+- `--proverNode.publisherAddresses <value>`: The addresses of the publishers to use with remote signers.
+- `--proverNode.proverNodeMaxPendingJobs <value>`: The maximum number of pending jobs for the prover node (default: 10).
+- `--proverNode.proverNodePollingIntervalMs <value>`: The interval in milliseconds to poll for new jobs (default: 1000).
+- `--proverNode.proverNodeMaxParallelBlocksPerEpoch <value>`: The Maximum number of blocks to process in parallel while proving an epoch (default: 32).
+- `--proverNode.proverNodeFailedEpochStore <value>`: File store where to upload node state when an epoch fails to be proven.
+- `--proverNode.proverNodeEpochProvingDelayMs <value>`: Optional delay in milliseconds to wait before proving a new epoch.
+- `--proverNode.txGatheringIntervalMs <value>`: How often to check that tx data is available (default: 1000).
+- `--proverNode.txGatheringBatchSize <value>`: How many transactions to gather from a node in a single request (default: 10).
+- `--proverNode.txGatheringMaxParallelRequestsPerNode <value>`: How many tx requests to make in parallel to each node (default: 100).
+- `--proverNode.txGatheringTimeoutMs <value>`: How long to wait for tx data to be available before giving up (default: 120000).
 
 #### Prover Broker Options
 
 - `--prover-broker`: Starts Aztec proving job broker.
-- `--prover-broker.prover-broker-job-timeout-ms <value>`: Jobs are retried if not kept alive for this long (default: 30000).
-- `--prover-broker.prover-broker-poll-interval-ms <value>`: The interval to check job health status (default: 1000).
-- `--prover-broker.prover-broker-job-max-retries <value>`: If starting a prover broker locally, the max number of retries per proving job (default: 3).
-- `--prover-broker.prover-broker-batch-size <value>`: The prover broker writes jobs to disk in batches (default: 100).
-- `--prover-broker.prover-broker-batch-interval-ms <value>`: How often to flush batches to disk (default: 50).
-- `--prover-broker.prover-broker-max-epochs-to-keep-results-for <value>`: The maximum number of epochs to keep results for (default: 1).
-- `--prover-broker.prover-broker-store-map-size-kb <value>`: The size of the prover broker's database. Will override the dataStoreMapSizeKB if set.
-- `--prover-broker.data-store-map-size-kb <value>`: DB mapping size to be applied to all key/value stores (default: 134217728).
-- `--prover-broker.viem-polling-interval-ms <value>`: The polling interval viem uses in ms (default: 1000).
-- `--prover-broker.rollup-version <value>`: The version of the rollup.
+- `--proverBroker.proverBrokerJobTimeoutMs <value>`: Jobs are retried if not kept alive for this long (default: 30000).
+- `--proverBroker.proverBrokerPollIntervalMs <value>`: The interval to check job health status (default: 1000).
+- `--proverBroker.proverBrokerJobMaxRetries <value>`: If starting a prover broker locally, the max number of retries per proving job (default: 3).
+- `--proverBroker.proverBrokerBatchSize <value>`: The prover broker writes jobs to disk in batches (default: 100).
+- `--proverBroker.proverBrokerBatchIntervalMs <value>`: How often to flush batches to disk (default: 50).
+- `--proverBroker.proverBrokerMaxEpochsToKeepResultsFor <value>`: The maximum number of epochs to keep results for (default: 1).
+- `--proverBroker.proverBrokerStoreMapSizeKb <value>`: The size of the prover broker's database. Will override the dataStoreMapSizeKB if set.
 
 #### Prover Agent Options
 
 - `--prover-agent`: Starts Aztec Prover Agent with options.
-- `--prover-agent.prover-agent-count <value>`: Whether this prover has a local prover agent (default: 1).
-- `--prover-agent.prover-agent-poll-interval-ms <value>`: The interval agents poll for jobs at (default: 100).
-- `--prover-agent.prover-agent-proof-types <value>`: The types of proofs the prover agent can generate.
-- `--prover-agent.prover-broker-url <value>`: The URL where this agent takes jobs from.
-- `--prover-agent.real-proofs <value>`: Whether to construct real proofs (default: true).
-- `--prover-agent.prover-test-delay-type <value>`: The type of artificial delay to introduce (default: fixed).
-- `--prover-agent.prover-test-delay-ms <value>`: Artificial delay to introduce to all operations to the test prover.
-- `--prover-agent.prover-test-delay-factor <value>`: If using realistic delays, what percentage of realistic times to apply (default: 1).
+- `--proverAgent.proverAgentCount <value>`: Whether this prover has a local prover agent (default: 1).
+- `--proverAgent.proverAgentPollIntervalMs <value>`: The interval agents poll for jobs at (default: 1000).
+- `--proverAgent.proverAgentProofTypes <value>`: The types of proofs the prover agent can generate.
+- `--proverAgent.proverBrokerUrl <value>`: The URL where this agent takes jobs from.
+- `--proverAgent.realProofs <value>`: Whether to construct real proofs (default: true).
+- `--proverAgent.proverTestDelayType <value>`: The type of artificial delay to introduce (default: fixed).
+- `--proverAgent.proverTestDelayMs <value>`: Artificial delay to introduce to all operations to the test prover.
+- `--proverAgent.proverTestDelayFactor <value>`: If using realistic delays, what percentage of realistic times to apply (default: 1).
+
+#### P2P Subsystem Options
+
+- `--p2p-enabled`: Enable P2P subsystem.
+- `--p2p.p2pDiscoveryDisabled`: A flag dictating whether the P2P discovery system should be disabled.
+- `--p2p.blockCheckIntervalMS <value>`: The frequency in which to check for new L2 blocks (default: 100).
+- `--p2p.debugDisableColocationPenalty <value>`: DEBUG: Disable colocation penalty - NEVER set to true in production.
+- `--p2p.peerCheckIntervalMS <value>`: The frequency in which to check for new peers (default: 30000).
+- `--p2p.l2QueueSize <value>`: Size of queue of L2 blocks to store (default: 1000).
+- `--p2p.listenAddress <value>`: The listen address. ipv4 address (default: 0.0.0.0).
+- `--p2p.p2pPort <value>`: The port for the P2P service (default: 40400).
+- `--p2p.p2pBroadcastPort <value>`: The port to broadcast the P2P service on (included in the node's ENR). Defaults to P2P_PORT.
+- `--p2p.p2pIp <value>`: The IP address for the P2P service. ipv4 address.
+- `--p2p.peerIdPrivateKey <value>`: An optional peer id private key. If blank, will generate a random key.
+- `--p2p.peerIdPrivateKeyPath <value>`: An optional path to store generated peer id private keys.
+- `--p2p.bootstrapNodes <value>`: A list of bootstrap peer ENRs to connect to. Separated by commas.
+- `--p2p.bootstrapNodeEnrVersionCheck <value>`: Whether to check the version of the bootstrap node ENR.
+- `--p2p.bootstrapNodesAsFullPeers <value>`: Whether to consider our configured bootnodes as full peers.
+- `--p2p.maxPeerCount <value>`: The maximum number of peers to connect to (default: 100).
+- `--p2p.queryForIp <value>`: If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.
+- `--p2p.gossipsubInterval <value>`: The interval of the gossipsub heartbeat to perform maintenance tasks (default: 700).
+- `--p2p.gossipsubD <value>`: The D parameter for the gossipsub protocol (default: 8).
+- `--p2p.gossipsubDlo <value>`: The Dlo parameter for the gossipsub protocol (default: 4).
+- `--p2p.gossipsubDhi <value>`: The Dhi parameter for the gossipsub protocol (default: 12).
+- `--p2p.gossipsubDLazy <value>`: The Dlazy parameter for the gossipsub protocol (default: 8).
+- `--p2p.gossipsubFloodPublish <value>`: Whether to flood publish messages. - For testing purposes only.
+- `--p2p.gossipsubMcacheLength <value>`: The number of gossipsub interval message cache windows to keep (default: 6).
+- `--p2p.gossipsubMcacheGossip <value>`: How many message cache windows to include when gossiping with other peers (default: 3).
+- `--p2p.gossipsubSeenTTL <value>`: How long to keep message IDs in the seen cache (default: 1200000).
+- `--p2p.gossipsubTxTopicWeight <value>`: The weight of the tx topic for the gossipsub protocol (default: 1).
+- `--p2p.gossipsubTxInvalidMessageDeliveriesWeight <value>`: The weight of the tx invalid message deliveries for the gossipsub protocol (default: -20).
+- `--p2p.gossipsubTxInvalidMessageDeliveriesDecay <value>`: Determines how quickly the penalty for invalid message deliveries decays over time. Between 0 and 1 (default: 0.5).
+- `--p2p.peerPenaltyValues <value>`: The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors (default: 2,10,50).
+- `--p2p.doubleSpendSeverePeerPenaltyWindow <value>`: The "age" (in L2 blocks) of a tx after which we heavily penalize a peer for sending it (default: 30).
+- `--p2p.blockRequestBatchSize <value>`: The number of blocks to fetch in a single batch (default: 20).
+- `--p2p.archivedTxLimit <value>`: The number of transactions that will be archived. If the limit is set to 0 then archiving will be disabled.
+- `--p2p.trustedPeers <value>`: A list of trusted peer ENRs that will always be persisted. Separated by commas.
+- `--p2p.privatePeers <value>`: A list of private peer ENRs that will always be persisted and not be used for discovery. Separated by commas.
+- `--p2p.preferredPeers <value>`: A list of preferred peer ENRs that will always be persisted and not be used for discovery. Separated by commas.
+- `--p2p.p2pStoreMapSizeKb <value>`: The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB.
+- `--p2p.txPublicSetupAllowList <value>`: The list of functions calls allowed to run in setup.
+- `--p2p.maxTxPoolSize <value>`: The maximum cumulative tx size of pending txs (in bytes) before evicting lower priority txs (default: 100000000).
+- `--p2p.txPoolOverflowFactor <value>`: How much the tx pool can overflow before it starts evicting txs. Must be greater than 1 (default: 1.1).
+- `--p2p.seenMessageCacheSize <value>`: The number of messages to keep in the seen message cache (default: 100000).
+- `--p2p.p2pDisableStatusHandshake <value>`: True to disable the status handshake on peer connected.
+- `--p2p.p2pAllowOnlyValidators <value>`: True to only permit validators to connect.
+- `--p2p.p2pMaxFailedAuthAttemptsAllowed <value>`: Number of auth attempts to allow before peer is banned. Number is inclusive (default: 3).
+- `--p2p.dropTransactions <value>`: True to simulate discarding transactions. - For testing purposes only.
+- `--p2p.dropTransactionsProbability <value>`: The probability that a transaction is discarded. - For testing purposes only
+- `--p2p.disableTransactions <value>`: Whether transactions are disabled for this node. This means transactions will be rejected at the RPC and P2P layers.
+- `--p2p.txPoolDeleteTxsAfterReorg <value>`: Whether to delete transactions from the pool after a reorg instead of moving them back to pending.
+- `--p2p.overallRequestTimeoutMs <value>`: The overall timeout for a request response operation (default: 10000).
+- `--p2p.individualRequestTimeoutMs <value>`: The timeout for an individual request response peer interaction (default: 10000).
+- `--p2p.dialTimeoutMs <value>`: How long to wait for the dial protocol to establish a connection (default: 5000).
+- `--p2p.p2pOptimisticNegotiation <value>`: Whether to use optimistic protocol negotiation when dialing to another peer (opposite of `negotiateFully`).
+- `--p2p.txCollectionFastNodesTimeoutBeforeReqRespMs <value>`: How long to wait before starting reqresp for fast collection (default: 200).
+- `--p2p.txCollectionSlowNodesIntervalMs <value>`: How often to collect from configured nodes in the slow collection loop (default: 12000).
+- `--p2p.txCollectionSlowReqRespIntervalMs <value>`: How often to collect from peers via reqresp in the slow collection loop (default: 12000).
+- `--p2p.txCollectionSlowReqRespTimeoutMs <value>`: How long to wait for a reqresp response during slow collection (default: 20000).
+- `--p2p.txCollectionReconcileIntervalMs <value>`: How often to reconcile found txs from the tx pool (default: 60000).
+- `--p2p.txCollectionDisableSlowDuringFastRequests <value>`: Whether to disable the slow collection loop if we are dealing with any immediate requests (default: true).
+- `--p2p.txCollectionFastNodeIntervalMs <value>`: How many ms to wait between retried request to a node via RPC during fast collection (default: 500).
+- `--p2p.txCollectionNodeRpcUrls <value>`: A comma-separated list of Aztec node RPC URLs to use for tx collection.
+- `--p2p.txCollectionFastMaxParallelRequestsPerNode <value>`: Maximum number of parallel requests to make to a node during fast collection (default: 4).
+- `--p2p.txCollectionNodeRpcMaxBatchSize <value>`: Maximum number of transactions to request from a node in a single batch (default: 50).
 
 #### P2P Bootstrap Options
 
 - `--p2p-bootstrap`: Starts Aztec P2P Bootstrap with options.
-- `--p2p-bootstrap.peer-id-private-key-path <value>`: An optional path to store generated peer id private keys.
-- `--p2p-bootstrap.data-store-map-size-kb <value>`: DB mapping size to be applied to all key/value stores (default: 134217728).
+- `--p2pBootstrap.p2pBroadcastPort <value>`: The port to broadcast the P2P service on (included in the node's ENR). Defaults to P2P_PORT.
+- `--p2pBootstrap.peerIdPrivateKeyPath <value>`: An optional path to store generated peer id private keys. If blank, will default to storing any generated keys in the root of the data directory.
+
+#### Telemetry Options
+
+- `--tel.metricsCollectorUrl <value>`: The URL of the telemetry collector for metrics.
+- `--tel.tracesCollectorUrl <value>`: The URL of the telemetry collector for traces.
+- `--tel.logsCollectorUrl <value>`: The URL of the telemetry collector for logs.
+- `--tel.otelCollectIntervalMs <value>`: The interval at which to collect metrics (default: 60000).
+- `--tel.otelExportTimeoutMs <value>`: The timeout for exporting metrics (default: 30000).
+- `--tel.otelExcludeMetrics <value>`: A list of metric prefixes to exclude from export.
+- `--tel.publicMetricsCollectorUrl <value>`: A URL to publish a subset of metrics for public consumption.
+- `--tel.publicMetricsCollectFrom <value>`: The role types to collect metrics from.
+- `--tel.publicIncludeMetrics <value>`: A list of metric prefixes to publicly export.
+- `--tel.publicMetricsOptOut <value>`: Whether to opt out of sharing optional telemetry.
 
 #### Bot Options
 
 - `--bot`: Starts Aztec Bot with options.
-- `--bot.node-url <value>`: The URL to the Aztec node to check for tx pool status.
-- `--bot.node-admin-url <value>`: The URL to the Aztec node admin API to force-flush txs if configured.
-- `--bot.l1-mnemonic <value>`: The mnemonic for the account to bridge fee juice from L1.
-- `--bot.l1-private-key <value>`: The private key for the account to bridge fee juice from L1.
-- `--bot.sender-private-key <value>`: Signing private key for the sender account.
-- `--bot.sender-salt <value>`: The salt to use to instantiate the sender account.
-- `--bot.recipient-encryption-secret <value>`: Encryption secret for a recipient account (default: 0x00000000000000000000000000000000000000000000000000000000cafecafe).
-- `--bot.token-salt <value>`: The salt to use to instantiate the token contract (default: 0x0000000000000000000000000000000000000000000000000000000000000001).
-- `--bot.tx-interval-seconds <value>`: Every how many seconds should a new tx be sent (default: 60).
-- `--bot.private-transfers-per-tx <value>`: How many private token transfers are executed per tx (default: 1).
-- `--bot.public-transfers-per-tx <value>`: How many public token transfers are executed per tx (default: 1).
-- `--bot.fee-payment-method <value>`: How to handle fee payments. (Options: fee_juice) (default: fee_juice).
-- `--bot.no-start <value>`: True to not automatically setup or start the bot on initialization.
-- `--bot.tx-mined-wait-seconds <value>`: How long to wait for a tx to be mined before reporting an error (default: 180).
-- `--bot.follow-chain <value>`: Which chain the bot follows (default: NONE).
-- `--bot.max-pending-txs <value>`: Do not send a tx if the node's tx pool already has this many pending txs (default: 128).
-- `--bot.flush-setup-transactions <value>`: Make a request for the sequencer to build a block after each setup transaction.
-- `--bot.skip-public-simulation <value>`: Whether to skip public simulation of txs before sending them.
-- `--bot.l2-gas-limit <value>`: L2 gas limit for the tx (empty to have the bot trigger an estimate gas).
-- `--bot.da-gas-limit <value>`: DA gas limit for the tx (empty to have the bot trigger an estimate gas).
+- `--bot.nodeUrl <value>`: The URL to the Aztec node to check for tx pool status.
+- `--bot.nodeAdminUrl <value>`: The URL to the Aztec node admin API to force-flush txs if configured.
+- `--bot.l1Mnemonic <value>`: The mnemonic for the account to bridge fee juice from L1.
+- `--bot.l1PrivateKey <value>`: The private key for the account to bridge fee juice from L1.
+- `--bot.l1ToL2MessageTimeoutSeconds <value>`: How long to wait for L1 to L2 messages to become available on L2 (default: 3600).
+- `--bot.senderPrivateKey <value>`: Signing private key for the sender account.
+- `--bot.senderSalt <value>`: The salt to use to deploy the sender account.
+- `--bot.recipientEncryptionSecret <value>`: Encryption secret for a recipient account (default: 0x00000000000000000000000000000000000000000000000000000000cafecafe).
+- `--bot.tokenSalt <value>`: The salt to use to deploy the token contract (default: 0x0000000000000000000000000000000000000000000000000000000000000001).
+- `--bot.txIntervalSeconds <value>`: Every how many seconds should a new tx be sent (default: 60).
+- `--bot.privateTransfersPerTx <value>`: How many private token transfers are executed per tx (default: 1).
+- `--bot.publicTransfersPerTx <value>`: How many public token transfers are executed per tx (default: 1).
+- `--bot.feePaymentMethod <value>`: How to handle fee payments. (Options: fee_juice) (default: fee_juice).
+- `--bot.noStart <value>`: True to not automatically setup or start the bot on initialization.
+- `--bot.txMinedWaitSeconds <value>`: How long to wait for a tx to be mined before reporting an error (default: 180).
+- `--bot.followChain <value>`: Which chain the bot follows (default: NONE).
+- `--bot.maxPendingTxs <value>`: Do not send a tx if the node's tx pool already has this many pending txs (default: 128).
+- `--bot.flushSetupTransactions <value>`: Make a request for the sequencer to build a block after each setup transaction.
+- `--bot.l2GasLimit <value>`: L2 gas limit for the tx (empty to have the bot trigger an estimate gas).
+- `--bot.daGasLimit <value>`: DA gas limit for the tx (empty to have the bot trigger an estimate gas).
 - `--bot.contract <value>`: Token contract to use (default: TokenContract).
-- `--bot.max-consecutive-errors <value>`: The maximum number of consecutive errors before the bot shuts down.
-- `--bot.stop-when-unhealthy <value>`: Stops the bot if service becomes unhealthy.
-- `--bot.amm-txs <value>`: Deploy an AMM and send swaps to it.
+- `--bot.maxConsecutiveErrors <value>`: The maximum number of consecutive errors before the bot shuts down.
+- `--bot.stopWhenUnhealthy <value>`: Stops the bot if service becomes unhealthy.
+- `--bot.ammTxs <value>`: Deploy an AMM and send swaps to it.
+
+#### PXE Options
+- `--pxe`: Starts Aztec PXE with options.
+- `--pxe.l2BlockBatchSize <value>`: Maximum amount of blocks to pull from the stream in one request when synchronizing (default: 50).
+- `--pxe.bbBinaryPath <value>`: Path to the BB binary.
+- `--pxe.bbWorkingDirectory <value>`: Working directory for the BB binary.
+- `--pxe.bbSkipCleanup <value>`: True to skip cleanup of temporary files for debugging purposes.
+- `--pxe.proverEnabled <value>`: Enable real proofs (default: true).
+- `--pxe.nodeUrl <value>`: Custom Aztec Node URL to connect to.
 
 #### TXE Options
 
 - `--txe`: Starts Aztec TXE with options.
-
-#### Faucet Options
-
-- `--faucet`: Starts the Aztec faucet.
-- `--faucet.api-server`: Starts a simple HTTP server to access the faucet (default: true).
-- `--faucet.api-server-port <value>`: The port on which to start the api server on (default: 8080).
-- `--faucet.viem-polling-interval-ms <value>`: The polling interval viem uses in ms (default: 1000).
-- `--faucet.l1-mnemonic <value>`: The mnemonic for the faucet account.
-- `--faucet.mnemonic-account-index <value>`: The account to use.
-- `--faucet.interval <value>`: How often the faucet can be dripped (default: 3600000).
-- `--faucet.eth-amount <value>`: How much eth the faucet should drip per call (default: 1.0).
-- `--faucet.l1-assets <value>`: Which other L1 assets the faucet is able to drip.
 
 ### Test
 

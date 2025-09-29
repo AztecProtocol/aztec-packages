@@ -140,7 +140,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     {
       flag: '--admin-port <value>',
-      description: 'Port to run admin APIs of Aztec Services on on',
+      description: 'Port to run admin APIs of Aztec Services on',
       defaultValue: 8880,
       env: 'AZTEC_ADMIN_PORT',
       parseVal: val => parseInt(val, 10),
