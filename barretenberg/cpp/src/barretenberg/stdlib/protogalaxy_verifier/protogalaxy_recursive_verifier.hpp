@@ -19,6 +19,7 @@ template <class VerifierInstance> class ProtogalaxyRecursiveVerifier_ {
     using Flavor = typename VerifierInstance::Flavor;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
+    using BaseField = typename Commitment::BaseField;
     using VKAndHash = typename Flavor::VKAndHash;
     using VerifierInstances = std::array<std::shared_ptr<VerifierInstance>, NUM_INSTANCES>;
 
