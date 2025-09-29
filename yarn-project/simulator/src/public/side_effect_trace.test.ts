@@ -14,7 +14,7 @@ import { PublicDataUpdateRequest } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import { NoteHash, Nullifier } from '@aztec/stdlib/kernel';
-import { PublicLog } from '@aztec/stdlib/logs';
+import { DebugLog, PublicLog } from '@aztec/stdlib/logs';
 import { L2ToL1Message } from '@aztec/stdlib/messaging';
 import { makeContractClassPublic } from '@aztec/stdlib/testing';
 
@@ -83,6 +83,17 @@ describe('Public Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     expect(trace.getSideEffects().publicLogs).toEqual([new PublicLog(address, log)]);
+  });
+
+  it('Should trace debug logs', () => {
+    trace.traceDebugLog(address, 'verbose', 'Hello {0}!', [value]);
+    expect(trace.getDebugLogs()).toEqual([new DebugLog(address, 'verbose', 'Hello {0}!', [value])]);
+  });
+
+  it('Should trace debug log memory reads', () => {
+    trace.traceDebugLogMemoryReads(100);
+    trace.traceDebugLogMemoryReads(100);
+    expect(trace.getDebugLogMemoryReads()).toBe(200);
   });
 
   describe('Maximum accesses', () => {
@@ -224,6 +235,10 @@ describe('Public Side Effect Trace', () => {
       nestedTrace.tracePublicLog(address, log);
       testCounter++;
 
+      const debugLog = new DebugLog(address, 'verbose', 'Hello {0}!', [value]);
+      nestedTrace.traceDebugLog(debugLog.contractAddress, debugLog.level, debugLog.message, debugLog.fields);
+      nestedTrace.traceDebugLogMemoryReads(100);
+
       trace.merge(nestedTrace, reverted);
 
       // parent trace adopts nested call's counter
@@ -246,6 +261,10 @@ describe('Public Side Effect Trace', () => {
         // parent trace adopts nested call's writtenPublicDataSlots
         expect(trace.isStorageCold(address, slot)).toBe(false);
       }
+
+      // DebugLogs are merged regardless of reverted
+      expect(trace.getDebugLogs()).toHaveLength(1);
+      expect(trace.getDebugLogMemoryReads()).toBe(100);
     });
   });
 });

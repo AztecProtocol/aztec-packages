@@ -1115,6 +1115,10 @@ pub global UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE: u32 =
 pub global GRUMPKIN_ONE_X: Field = 1;
 pub global GRUMPKIN_ONE_Y: Field = 17631683881184975370165255887551781615748388533673675138860;
 
+// Excessive memory reads due to debug logging can open a DOS vector to nodes that perform public tx simulation for users.
+// This default limit (4MB) can be configured further by node runners via the `RPC_SIMULATE_PUBLIC_MAX_DEBUG_LOG_MEMORY_READS` environment variable.
+pub global DEFAULT_MAX_DEBUG_LOG_MEMORY_READS: u32 = 125000;
+
 mod test {
     use crate::constants::{
         AVM_RETRIEVED_BYTECODES_TREE_HEIGHT, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT,
