@@ -60,8 +60,9 @@ template <typename Builder, typename T> inline T convert_challenge(const fr<Buil
         return challenge;
     } else if constexpr (std::is_same_v<T, fq<Builder>>) {
         // Sanity check that the input challenge fits into the first 2 bigfield limbs.
-        BB_ASSERT_LTE(
-            static_cast<uint256_t>(challenge).get_msb(), T::NUM_LIMB_BITS * 2, "field_conversion: convert_challenge");
+        BB_ASSERT_LTE(static_cast<uint256_t>(challenge.get_value()).get_msb(),
+                      T::NUM_LIMB_BITS * 2,
+                      "field_conversion: convert_challenge");
         Builder* builder = challenge.get_context();
         // All challenges must be circuit witnesses.
         ASSERT(builder);
