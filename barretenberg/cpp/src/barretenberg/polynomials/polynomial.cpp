@@ -33,17 +33,18 @@ SharedShiftedVirtualZeroesArray<Fr> _clone(const SharedShiftedVirtualZeroesArray
                                            size_t left_expansion = 0)
 {
     size_t expanded_size = array.size() + right_expansion + left_expansion;
-    std::shared_ptr<BackingMemory<Fr>> backing_clone = BackingMemory<Fr>::allocate(expanded_size);
+    BackingMemory<Fr> backing_clone = BackingMemory<Fr>::allocate(expanded_size);
     // zero any left extensions to the array
-    memset(static_cast<void*>(backing_clone->raw_data()), 0, sizeof(Fr) * left_expansion);
+    memset(static_cast<void*>(backing_clone.raw_data), 0, sizeof(Fr) * left_expansion);
     // copy our cloned array over
-    memcpy(static_cast<void*>(backing_clone->raw_data() + left_expansion),
+    memcpy(static_cast<void*>(backing_clone.raw_data + left_expansion),
            static_cast<const void*>(array.data()),
            sizeof(Fr) * array.size());
     // zero any right extensions to the array
-    memset(
-        static_cast<void*>(backing_clone->raw_data() + left_expansion + array.size()), 0, sizeof(Fr) * right_expansion);
-    return { array.start_ - left_expansion, array.end_ + right_expansion, array.virtual_size_, backing_clone };
+    memset(static_cast<void*>(backing_clone.raw_data + left_expansion + array.size()), 0, sizeof(Fr) * right_expansion);
+    return {
+        array.start_ - left_expansion, array.end_ + right_expansion, array.virtual_size_, std::move(backing_clone)
+    };
 }
 
 template <typename Fr>

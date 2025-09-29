@@ -77,8 +77,8 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      *
      * @return A pointer to the beginning of the memory-backed range.
      */
-    T* data() { return backing_memory_ ? backing_memory_->raw_data() : nullptr; }
-    const T* data() const { return backing_memory_ ? backing_memory_->raw_data() : nullptr; }
+    T* data() { return backing_memory.raw_data; }
+    const T* data() const { return backing_memory.raw_data; }
     // Our size is end_ - start_. Note that we need to offset end_ when doing a shift to
     // correctly maintain the size.
     size_t size() const { return end_ - start_; }
@@ -135,10 +135,10 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
     size_t virtual_size_ = 0;
 
     /**
-     * @brief Shared pointer to the underlying memory array.
+     * @brief The underlying memory storage.
      *
-     * The memory is allocated for at least the range [start_, end_). It is shared across instances to allow
-     * for efficient memory use when arrays are shifted or otherwise manipulated.
+     * The memory is allocated for at least the range [start_, end_). Shared pointers within BackingMemory
+     * allow for efficient memory use when arrays are shifted or otherwise manipulated.
      */
-    std::shared_ptr<BackingMemory<T>> backing_memory_;
+    BackingMemory<T> backing_memory;
 };

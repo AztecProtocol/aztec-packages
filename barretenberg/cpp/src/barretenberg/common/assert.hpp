@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <cstdint>
@@ -61,6 +62,7 @@ struct AssertGuard {
 #else
 #define ASSERT_IN_CONSTEXPR(expression, ...)                                                                           \
     do {                                                                                                               \
+        BB_BENCH_NAME(#expression);                                                                                    \
         if (!(BB_LIKELY(expression))) {                                                                                \
             info("Assertion failed: (" #expression ")");                                                               \
             __VA_OPT__(info("Reason   : ", __VA_ARGS__);)                                                              \
@@ -70,6 +72,7 @@ struct AssertGuard {
 
 #define ASSERT(expression, ...)                                                                                        \
     do {                                                                                                               \
+        BB_BENCH_NAME(#expression);                                                                                    \
         if (!(BB_LIKELY(expression))) {                                                                                \
             std::ostringstream oss;                                                                                    \
             oss << "Assertion failed: (" #expression ")";                                                              \
@@ -80,6 +83,7 @@ struct AssertGuard {
 
 #define BB_ASSERT_EQ(actual, expected, ...)                                                                            \
     do {                                                                                                               \
+        BB_BENCH_NAME(#actual " == " #expected);                                                                       \
         auto _actual = (actual);                                                                                       \
         auto _expected = (expected);                                                                                   \
         if (!(BB_LIKELY(_actual == _expected))) {                                                                      \
@@ -94,6 +98,7 @@ struct AssertGuard {
 
 #define BB_ASSERT_NEQ(actual, expected, ...)                                                                           \
     do {                                                                                                               \
+        BB_BENCH_NAME(#actual " != " #expected);                                                                       \
         auto _actual = (actual);                                                                                       \
         auto _expected = (expected);                                                                                   \
         if (!(BB_LIKELY(_actual != _expected))) {                                                                      \

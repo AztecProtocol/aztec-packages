@@ -102,10 +102,7 @@ template <typename Fr> class Polynomial {
     {}
 
     /**
-     * @brief Utility to efficiently construct a shift from the original polynomial.
-     *
-     * @param virtual_size the size of the polynomial to be shifted
-     * @return Polynomial
+     * @brief Utility to create a shiftable polynomial of given virtual size.
      */
     static Polynomial shiftable(size_t virtual_size)
     {
