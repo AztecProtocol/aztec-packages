@@ -587,16 +587,6 @@ WorldStateStatusFull WorldState::sync_block(const StateReference& block_state_re
                                             const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes)
 {
     validate_trees_are_equally_synched();
-    WorldStateStatusFull status;
-    if (is_same_state_reference(WorldStateRevision::uncommitted(), block_state_ref) &&
-        is_archive_tip(WorldStateRevision::uncommitted(), block_header_hash)) {
-        std::pair<bool, std::string> result = commit(status);
-        if (!result.first) {
-            throw std::runtime_error(result.second);
-        }
-        populate_status_summary(status);
-        return status;
-    }
     rollback();
 
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
@@ -658,22 +648,32 @@ WorldStateStatusFull WorldState::sync_block(const StateReference& block_state_re
 
     signal.wait_for_level();
 
-    if (!success) {
-        throw std::runtime_error("Failed to sync block: " + err_message);
+    // Check resulting state and commit if successful
+    WorldStateStatusFull status;
+    try {
+        if (!success) {
+            throw std::runtime_error("Failed to sync block: " + err_message);
+        }
+
+        if (!is_archive_tip(WorldStateRevision::uncommitted(), block_header_hash)) {
+            throw std::runtime_error("Can't synch block: block header hash is not the tip of the archive tree");
+        }
+
+        if (!is_same_state_reference(WorldStateRevision::uncommitted(), block_state_ref)) {
+            throw std::runtime_error("Can't synch block: block state does not match world state");
+        }
+
+        std::pair<bool, std::string> result = commit(status);
+        if (!result.first) {
+            throw std::runtime_error(result.second);
+        }
+    } catch (const std::exception& e) {
+        // We failed, rollback any uncommitted state before leaving
+        rollback();
+        throw;
     }
 
-    if (!is_archive_tip(WorldStateRevision::uncommitted(), block_header_hash)) {
-        throw std::runtime_error("Can't synch block: block header hash is not the tip of the archive tree");
-    }
-
-    if (!is_same_state_reference(WorldStateRevision::uncommitted(), block_state_ref)) {
-        throw std::runtime_error("Can't synch block: block state does not match world state");
-    }
-
-    std::pair<bool, std::string> result = commit(status);
-    if (!result.first) {
-        throw std::runtime_error(result.second);
-    }
+    // Success return the status
     populate_status_summary(status);
     return status;
 }
@@ -726,6 +726,9 @@ WorldStateStatusSummary WorldState::set_finalized_blocks(const block_number_t& t
 }
 WorldStateStatusFull WorldState::unwind_blocks(const block_number_t& toBlockNumber)
 {
+    // Ensure no uncommitted state
+    rollback();
+
     WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
     std::array<TreeMeta, NUM_TREES> responses;
     get_all_tree_info(revision, responses);

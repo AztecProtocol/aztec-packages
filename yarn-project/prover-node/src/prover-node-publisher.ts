@@ -39,6 +39,7 @@ export type L1SubmitEpochProofArgs = {
 };
 
 export class ProverNodePublisher {
+  private enabled: boolean;
   private interruptibleSleep = new InterruptibleSleep();
   private sleepTimeMs: number;
   private interrupted = false;
@@ -58,6 +59,7 @@ export class ProverNodePublisher {
       telemetry?: TelemetryClient;
     },
   ) {
+    this.enabled = config.publisherEnabled ?? true;
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
@@ -103,6 +105,12 @@ export class ProverNodePublisher {
   }): Promise<boolean> {
     const { epochNumber, fromBlock, toBlock } = args;
     const ctx = { epochNumber, fromBlock, toBlock };
+
+    if (!this.enabled) {
+      this.log.warn(`Publishing L1 txs is disabled`);
+      return false;
+    }
+
     if (!this.interrupted) {
       const timer = new Timer();
       // Validate epoch proof range and hashes are correct before submitting

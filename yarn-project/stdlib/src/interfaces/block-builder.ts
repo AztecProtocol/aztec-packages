@@ -43,6 +43,7 @@ export interface PublicProcessorLimits {
   maxTransactions?: number;
   maxBlockSize?: number;
   maxBlockGas?: Gas;
+  maxBlobFields?: number;
   deadline?: Date;
 }
 

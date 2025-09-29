@@ -1,4 +1,4 @@
-import { type AccountWalletWithSecretKey, AztecAddress, Fr } from '@aztec/aztec.js';
+import { AccountWalletWithSecretKey, AztecAddress, Fr, type Logger } from '@aztec/aztec.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
 import type { Tuple } from '@aztec/foundation/serialize';
@@ -20,6 +20,7 @@ describe('Logs', () => {
   let account1Address: AztecAddress;
   let account2Address: AztecAddress;
 
+  let log: Logger;
   let teardown: () => Promise<void>;
 
   beforeAll(async () => {
@@ -27,10 +28,13 @@ describe('Logs', () => {
       teardown,
       wallets: [wallet1, wallet2],
       accounts: [account1Address, account2Address],
+      logger: log,
     } = await setup(2));
 
+    log.warn(`Setup complete, checking account contracts published`);
     await ensureAccountContractsPublished(wallet1, [wallet1, wallet2]);
 
+    log.warn(`Deploying test contract`);
     testLogContract = await TestLogContract.deploy(wallet1).send({ from: account1Address }).deployed();
   });
 

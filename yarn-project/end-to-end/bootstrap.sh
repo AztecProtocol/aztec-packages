@@ -48,7 +48,17 @@ function test_cmds {
     echo "$hash:ONLY_TERM_PARENT=1 $run_test_script compose $test"
   done
 
-  echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/composed/web3signer/integration_remote_signer.test.ts"
+  tests=(
+    src/composed/web3signer/*.test.ts
+  )
+  for test in "${tests[@]}"; do
+    # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
+    echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer $test"
+  done
+
+  #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script simple src/e2e_multi_validator/e2e_multi_validator_node.test.ts"
+  # echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/composed/web3signer/integration_remote_signer.test.ts"
+  #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/e2e_multi_validator/e2e_multi_validator_node_key_store.test.ts"
 
   # TODO(AD): figure out workaround for mainframe subnet exhaustion
   if [ "$CI" -eq 1 ]; then

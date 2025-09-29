@@ -39,6 +39,15 @@ export class SlasherContract {
   }
 
   /**
+   * Checks if slashing is currently enabled.
+   * @returns True if slashing is enabled, false otherwise
+   */
+  public isSlashingEnabled(): Promise<boolean> {
+    // TODO(#16971) Update when merged L1 changes
+    return Promise.resolve(true);
+  }
+
+  /**
    * Gets the current vetoer address.
    * @returns The vetoer address
    */
