@@ -57,6 +57,8 @@ Observers see: "Someone did something" ¯\_(ツ)_/¯
 
 This isn't just hiding amounts - it's complete transaction privacy!
 
+We will be going into notes and Aztec's private UTXO model later in the learning journey.
+
 ### Smart Contracts with Secrets
 
 Here's where it gets really exciting. Aztec doesn't just enable private payments; it enables private smart contracts. Let's explore what this means:

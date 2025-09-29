@@ -9,7 +9,7 @@ tags: [privacy, execution, zk, proofs]
 
 By the end of this lesson, you'll understand:
 
-1. What a zero-knowledge proof is and why it's crucial for privacy
+1. What a zero-knowledge (ZK) proof is and why it's crucial for privacy
 2. The roles of prover and verifier in the ZK ecosystem
 3. Who acts as prover and verifier in Aztec transactions
 4. Why Noir exists and how it makes writing private smart contracts accessible
@@ -50,13 +50,13 @@ The verification is incredibly fast compared to re-running the entire computatio
 
 This property is what makes client-side execution practical. Your device does the heavy lifting of running the computation and generating the proof, while the network only needs to do the lightweight verification.
 
-## The prover and verifier dance
+## The prover and verifier
 
 ### Understanding the roles
 
 In the world of zero-knowledge proofs, there are always two parties:
 
-**The Prover** (that's you!):
+**The Prover** (that's you, the user!):
 
 - Executes the actual computation
 - Has access to private inputs (your data)
@@ -98,7 +98,7 @@ All of this happens automatically - you don't need to think about it! From your 
 Once your transaction reaches the network:
 
 1. Sequencers collect your proof along with others
-2. The proofs are verified using the contract's verification keys
+2. The proofs are verified using the verification keys for the contract you are interacting with
 3. Only valid proofs are included in blocks
 4. The final block proof is verified on Ethereum L1
 
