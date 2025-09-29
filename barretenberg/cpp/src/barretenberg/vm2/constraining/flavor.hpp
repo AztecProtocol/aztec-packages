@@ -305,27 +305,17 @@ class AvmFlavor {
      * @brief A container for univariates used during sumcheck.
      * @details During sumcheck, the prover evaluates the relations on these univariates.
      */
-    class LazilyExtendedProverUnivariates {
+    class LazilyExtendedProverUnivariates
+        : private AllEntities<std::unique_ptr<bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>>> {
       public:
-        using data_type = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>;
-
         LazilyExtendedProverUnivariates(const ProverPolynomials& multivariates)
             : multivariates(multivariates)
         {}
 
-        void set_current_edge(size_t edge_idx)
-        {
-            current_edge = edge_idx;
-            // If the current edge changed, we need to clear all the cached univariates.
-            dirty = true;
-        }
-        const data_type& get(ColumnAndShifts c) const;
+        void set_current_edge(size_t edge_idx);
+        const bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>& get(ColumnAndShifts c) const;
 
       private:
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/17288): Make AllEntities
-        // use an array like this and then use AllEntities for this class.
-        using ptr_type = std::unique_ptr<data_type>;
-        mutable std::array<ptr_type, NUM_ALL_ENTITIES> univariates;
         size_t current_edge = 0;
         mutable bool dirty = false;
         const ProverPolynomials& multivariates;
@@ -362,6 +352,6 @@ class AvmFlavor {
 
     // Native version of the verifier commitments
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
-}; // namespace bb::avm2
+};
 
 } // namespace bb::avm2
