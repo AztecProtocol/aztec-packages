@@ -161,7 +161,7 @@ template <typename Curve> class MSM {
         Element sum = prefix_sum + offset_generator;
         for (int i = static_cast<int>(starting_index - 1); i > 0; --i) {
             size_t idx = static_cast<size_t>(i);
-            BB_ASSERT_LT(idx, bucket_accumulators.bucket_exists.size());
+            ASSERT_DEBUG(idx < bucket_accumulators.bucket_exists.size());
             if (bucket_accumulators.bucket_exists.get(idx)) {
 
                 prefix_sum += buckets[idx];

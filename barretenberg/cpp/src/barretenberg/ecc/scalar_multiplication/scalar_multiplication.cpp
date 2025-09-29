@@ -154,7 +154,7 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
     size_t thread_accumulated_work = 0;
     size_t current_thread_idx = 0;
     for (size_t i = 0; i < num_msms; ++i) {
-        BB_ASSERT_LT(i, msm_scalar_indices.size());
+        ASSERT_DEBUG(i < msm_scalar_indices.size());
         size_t msm_work = msm_scalar_indices[i].size();
         size_t msm_size = msm_work;
         while (msm_work > 0) {
@@ -450,9 +450,9 @@ typename Curve::Element MSM<Curve>::evaluate_small_pippenger_round(MSMData& msm_
 
     const size_t size = nonzero_scalar_indices.size();
     for (size_t i = 0; i < size; ++i) {
-        BB_ASSERT_LT(nonzero_scalar_indices[i], scalars.size());
+        ASSERT_DEBUG(nonzero_scalar_indices[i] < scalars.size());
         uint32_t bucket_index = get_scalar_slice(scalars[nonzero_scalar_indices[i]], round_index, bits_per_slice);
-        BB_ASSERT_LT(bucket_index, static_cast<uint32_t>(1 << bits_per_slice));
+        ASSERT_DEBUG(bucket_index < static_cast<uint32_t>(1 << bits_per_slice));
         if (bucket_index > 0) {
             // do this check because we do not reset bucket_data.buckets after each round
             // (i.e. not neccessarily at infinity)
@@ -511,7 +511,7 @@ typename Curve::Element MSM<Curve>::evaluate_pippenger_round(MSMData& msm_data,
     // 1. low 32 bits: which bucket index do we add the point into? (bucket index = slice value)
     // 2. high 32 bits: which point index do we source the point from?
     for (size_t i = 0; i < size; ++i) {
-        BB_ASSERT_LT(scalar_indices[i], scalars.size());
+        ASSERT_DEBUG(scalar_indices[i] < scalars.size());
         round_schedule[i] = get_scalar_slice(scalars[scalar_indices[i]], round_index, bits_per_slice);
         round_schedule[i] += (static_cast<uint64_t>(scalar_indices[i]) << 32ULL);
     }
@@ -692,7 +692,7 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
     while ((affine_output_it < (num_affine_output_points - 1)) && (num_affine_output_points > 0)) {
         size_t lhs_bucket = static_cast<size_t>(affine_addition_output_bucket_destinations[affine_output_it]);
         size_t rhs_bucket = static_cast<size_t>(affine_addition_output_bucket_destinations[affine_output_it + 1]);
-        BB_ASSERT_LT(lhs_bucket, bucket_accumulator_exists.size());
+        ASSERT_DEBUG(lhs_bucket < bucket_accumulator_exists.size());
 
         bool has_bucket_accumulator = bucket_accumulator_exists.get(lhs_bucket);
         bool buckets_match = (lhs_bucket == rhs_bucket);
@@ -724,9 +724,9 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
 
         bool has_bucket_accumulator = bucket_accumulator_exists.get(lhs_bucket);
         if (has_bucket_accumulator) {
-            BB_ASSERT_LT(new_scratch_space_it + 1, affine_addition_scratch_space.size());
-            BB_ASSERT_LT(lhs_bucket, bucket_accumulators.size());
-            BB_ASSERT_LT(new_scratch_space_it >> 1, output_point_schedule.size());
+            ASSERT_DEBUG(new_scratch_space_it + 1 < affine_addition_scratch_space.size());
+            ASSERT_DEBUG(lhs_bucket < bucket_accumulators.size());
+            ASSERT_DEBUG((new_scratch_space_it >> 1) < output_point_schedule.size());
             affine_addition_scratch_space[new_scratch_space_it] = affine_output[affine_output_it];
             affine_addition_scratch_space[new_scratch_space_it + 1] = bucket_accumulators[lhs_bucket];
             bucket_accumulator_exists.set(lhs_bucket, false);
