@@ -192,7 +192,11 @@ export class EpochProvingJob implements Traceable {
 
         // Process public fns
         const db = await this.createFork(block.number - 1, l1ToL2Messages);
-        const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, true);
+        const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, {
+          skipFeeEnforcement: true,
+          clientInitiatedSimulation: false,
+          proverId: this.prover.getProverId().toField(),
+        });
         const processed = await this.processTxs(publicProcessor, txs);
         await this.prover.addTxs(processed);
         await db.close();

@@ -1,5 +1,5 @@
-import { AVM_MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
-import type { Fr } from '@aztec/foundation/fields';
+import { AVM_MAX_PROCESSABLE_L2_GAS, DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   ProtocolContractAddress,
@@ -58,18 +58,31 @@ export type PublicTxResult = {
   logs: DebugLog[];
 };
 
+export type PublicTxSimulatorConfig = {
+  proverId: Fr;
+  doMerkleOperations: boolean;
+  skipFeeEnforcement: boolean;
+  clientInitiatedSimulation: boolean;
+  maxDebugLogMemoryReads: number;
+};
+
 export class PublicTxSimulator {
   protected log: Logger;
+  private config: PublicTxSimulatorConfig;
 
   constructor(
     private merkleTree: MerkleTreeWriteOperations,
     private contractsDB: PublicContractsDB,
     private globalVariables: GlobalVariables,
-    private doMerkleOperations: boolean = false,
-    private skipFeeEnforcement: boolean = false,
-    private clientInitiatedSimulation: boolean = false,
-    private maxDebugLogMemoryReads?: number,
+    config?: Partial<PublicTxSimulatorConfig>,
   ) {
+    this.config = {
+      proverId: config?.proverId ?? Fr.ZERO,
+      doMerkleOperations: config?.doMerkleOperations ?? false,
+      skipFeeEnforcement: config?.skipFeeEnforcement ?? false,
+      clientInitiatedSimulation: config?.clientInitiatedSimulation ?? false,
+      maxDebugLogMemoryReads: config?.maxDebugLogMemoryReads ?? DEFAULT_MAX_DEBUG_LOG_MEMORY_READS,
+    };
     this.log = createLogger(`simulator:public_tx_simulator`);
   }
 
@@ -109,7 +122,8 @@ export class PublicTxSimulator {
         tx,
         this.globalVariables,
         protocolContractTreeRoot, // imported from file
-        this.doMerkleOperations,
+        this.config.doMerkleOperations,
+        this.config.proverId,
       );
 
       // This will throw if there is a nullifier collision.
@@ -334,8 +348,8 @@ export class PublicTxSimulator {
       request.isStaticCall,
       calldata,
       allocatedGas,
-      this.clientInitiatedSimulation,
-      this.maxDebugLogMemoryReads,
+      this.config.clientInitiatedSimulation,
+      this.config.maxDebugLogMemoryReads,
     );
     const avmCallResult = await simulator.execute();
     return avmCallResult.finalize();
@@ -429,7 +443,7 @@ export class PublicTxSimulator {
     // When mocking the balance of the fee payer, the circuit should not be able to prove the simulation
 
     if (currentBalance.lt(txFee)) {
-      if (!this.skipFeeEnforcement) {
+      if (!this.config.skipFeeEnforcement) {
         throw new Error(
           `Not enough balance for fee payer to pay for transaction (got ${currentBalance.toBigInt()} needs ${txFee.toBigInt()})`,
         );

@@ -129,6 +129,14 @@ describe('epoch-proving-job', () => {
     expect(job.getState()).toEqual('completed');
     expect(db.close).toHaveBeenCalledTimes(NUM_BLOCKS);
     expect(publicProcessor.process).toHaveBeenCalledTimes(NUM_BLOCKS);
+    expect(publicProcessorFactory.create).toHaveBeenCalledTimes(NUM_BLOCKS);
+    expect(publicProcessorFactory.create.mock.calls.map(call => /* config */ call[2])).toEqual(
+      new Array(NUM_BLOCKS).fill({
+        skipFeeEnforcement: true,
+        clientInitiatedSimulation: false,
+        proverId: proverId.toField(),
+      }),
+    );
     expect(publisher.submitEpochProof).toHaveBeenCalledWith(
       expect.objectContaining({ epochNumber, proof, publicInputs, attestations: attestations.map(a => a.toViem()) }),
     );

@@ -374,7 +374,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       globals,
       guardedMerkleTrees,
       contractsDB,
-      new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, true, true),
+      new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, {
+        doMerkleOperations: true,
+        skipFeeEnforcement: true,
+      }),
       new TestDateProvider(),
     );
 
@@ -480,7 +483,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(blockNumber, this.contractDataProvider));
     const guardedMerkleTrees = new GuardedMerkleTreeOperations(forkedWorldTrees);
-    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, true, true);
+    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, {
+      doMerkleOperations: true,
+      skipFeeEnforcement: true,
+    });
     const processor = new PublicProcessor(globals, guardedMerkleTrees, contractsDB, simulator, new TestDateProvider());
 
     // We're simulating a scenario in which private execution immediately enqueues a public call and halts. The private
