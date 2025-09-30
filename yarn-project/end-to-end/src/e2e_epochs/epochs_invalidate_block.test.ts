@@ -58,6 +58,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       slashingRoundSizeInEpochs: 4,
       slashingOffsetInRounds: 256,
       slasherFlavor: 'tally',
+      minTxsPerBlock: 1,
     });
 
     ({ context, logger, l1Client } = test);
@@ -103,7 +104,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     logger.warn('Sending transaction to trigger block building');
     const sentTx = contract.methods.spam(1, 1n, false).send({ from: context.accounts[0] });
 
-    // Disable skipCollectingAttestations after the first block is mined
+    // Disable skipCollectingAttestations after the first L2 block is mined
     test.monitor.once('l2-block', ({ l2BlockNumber }) => {
       logger.warn(`Disabling skipCollectingAttestations after L2 block ${l2BlockNumber} has been mined`);
       sequencers.forEach(sequencer => {
