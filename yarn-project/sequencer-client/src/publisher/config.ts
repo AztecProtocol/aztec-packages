@@ -48,7 +48,7 @@ export const getTxSenderConfigMappings: (
     description: 'The private keys to be used by the publisher.',
     parseEnv: (val: string) => val.split(',').map(key => new SecretValue(`0x${key.replace('0x', '')}`)),
     defaultValue: [],
-    fallback: scope === 'PROVER' ? ['PROVER_PUBLISHER_PRIVATE_KEY'] : ['SEQ_PUBLISHER_PRIVATE_KEY'],
+    fallback: [scope === 'PROVER' ? `PROVER_PUBLISHER_PRIVATE_KEY` : `SEQ_PUBLISHER_PRIVATE_KEY`],
   },
   publisherAddresses: {
     env: scope === 'PROVER' ? `PROVER_PUBLISHER_ADDRESSES` : `SEQ_PUBLISHER_ADDRESSES`,
