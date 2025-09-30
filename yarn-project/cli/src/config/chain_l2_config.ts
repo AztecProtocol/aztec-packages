@@ -321,6 +321,8 @@ export const ignitionL2ChainConfig: L2ChainConfig = {
   aztecEpochDuration: 32,
   /** The target validator committee size. */
   aztecTargetCommitteeSize: 24,
+  /** The number of epochs to lag behind the current epoch for validator selection. */
+  lagInEpochs: 2,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
   /** How many sequencers must agree with a slash for it to be executed. */
@@ -329,6 +331,7 @@ export const ignitionL2ChainConfig: L2ChainConfig = {
   slashingRoundSizeInEpochs: 4,
   slashingLifetimeInRounds: 40,
   slashingExecutionDelayInRounds: 28,
+  slashingDisableDuration: 5 * 24 * 60 * 60, // 5 days in seconds
   slashAmountSmall: 2_000n * 10n ** 18n,
   slashAmountMedium: 10_000n * 10n ** 18n,
   slashAmountLarge: 50_000n * 10n ** 18n,
@@ -346,6 +349,7 @@ export const ignitionL2ChainConfig: L2ChainConfig = {
 
   ejectionThreshold: 100_000n * 10n ** 18n,
   activationThreshold: 200_000n * 10n ** 18n,
+  localEjectionThreshold: 196_000n * 10n ** 18n,
 
   governanceProposerRoundSize: 300, // TODO TMNT-322
   governanceProposerQuorum: 151, // TODO TMNT-322
