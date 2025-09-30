@@ -115,7 +115,8 @@ resource "helm_release" "aztec-gke-cluster" {
           }
         }
         ingress = {
-          hosts = [data.terraform_remote_state.ssl.outputs.grafana_host]
+          enabled = true
+          hosts   = [data.terraform_remote_state.ssl.outputs.grafana_host]
           annotations = {
             "kubernetes.io/ingress.class"                 = "gce"
             "kubernetes.io/ingress.allow-http"            = "false"
