@@ -56,7 +56,35 @@ This will give you a sense of the conventions and patterns used in Aztec contrac
 
 ### Step 3: Create Your Task Manager Contract
 
-Create a new contract project folder `src/nr/task_manager/` with the following requirements:
+Create a new contract project folder `src/nr/task_manager/`.
+
+```bash
+aztec-nargo new --contract task_manager
+```
+
+### Step 4: Implement Your Contract
+
+Now implement the contract with the following requirements:
+
+#### Define Your Custom Note Type
+
+Before declaring your storage, define a custom note type for tasks. This is important because you'll need to reference it when declaring your storage.
+
+```rust
+use dep::aztec::macros::notes::note;
+
+#[derive(Packable, Eq)]
+#[note]
+struct TaskNote {
+    task_id: Field,
+    description_hash: Field,
+    completed: bool,
+    owner: AztecAddress,
+    randomness: Field,
+}
+```
+
+The `#[note]` attribute will auto-generate the necessary serialization and hashing functions.
 
 #### Storage Requirements
 
@@ -65,12 +93,7 @@ Your contract should have:
 1. **Private storage**:
 
    - A `PrivateSet` to store tasks for each user (use a `Map` keyed by `AztecAddress`)
-   - Each task should be a custom note type with:
-     - Task ID (`Field`)
-     - Task description hash (`Field`)
-     - Completion status (`bool`)
-     - Owner (`AztecAddress`)
-     - Randomness (`Field`)
+   - Each task should use the custom `TaskNote` type you defined above
 
 2. **Public storage**:
    - A counter tracking the total number of tasks created across all users
@@ -95,7 +118,6 @@ Implement these functions:
 
    - Accept a task ID
    - Mark the specified task as complete
-   - Verify the caller owns the task
 
 4. **`increment_task_counter_internal`** (`#[public]`, `#[internal]`):
 
@@ -110,23 +132,6 @@ Implement these functions:
    - Accept an owner address
    - Return the task notes for that owner
    - This queries the PXE database
-
-### Step 4: Define Your Custom Note Type
-
-Before implementing your storage, define a custom note type for tasks:
-
-```rust
-#[note]
-struct TaskNote {
-    task_id: Field,
-    description_hash: Field,
-    completed: bool,
-    owner: AztecAddress,
-    randomness: Field,
-}
-```
-
-The `#[note]` attribute will auto-generate the necessary serialization and hashing functions.
 
 ### Step 5: Compile Your Contract
 
