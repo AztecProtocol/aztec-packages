@@ -84,7 +84,7 @@ Alice consumes (this is called nullifying) both her existing notes and creates t
 Result: Bob has a 25-token note, Alice has a 5-token note.
 ```
 
-Only the people involved in the transaction know their respective amounts and identities (Alice knows how much she sent to Bob and her remaining balance and Bob only knows that he recieved 25 tokens _not_ Alice's remaining balance). Everyone else just sees "some transaction happened" without knowing who, what, or how much. There's no "Alice has 30 tokens" stored anywhere, only individual encrypted notes that _only she can decrypt_. Each note is encrypted and stored separately, rather than the balance being stored in a single note. This allows the connection between a user and their total balance to be broken.
+Only the people involved in the transaction know their respective amounts and identities (Alice knows how much she sent to Bob and her remaining balance and Bob only knows that he recieved 25 tokens _not_ Alice's remaining balance). Everyone else just sees "some transaction happened" without knowing who, what, or how much. There's no "Alice has 30 tokens" stored anywhere, only individual hashed notes that _only she can knows the preimage for_. Each note is commited to (hashed) and stored separately, rather than the balance being stored in a single note. This allows the connection between a user and their total balance to be broken.
 
 But what actually is a note?
 
@@ -92,7 +92,7 @@ But what actually is a note?
 
 ## Notes
 
-A note is a piece of private data that has been encrypted via hashing to create a **commitment**. Notes are fundamental building blocks of private state. Notes commitments may be posted onchain to make the data easily retrievable by their intended owner, but it is not required.
+A note is a piece of private data that can optionally be encrypted to share with other users. Notes are fundamental building blocks of private state. They are hased to create commitments which are stored in a Merkle tree and may be posted onchain to make the data easily retrievable by their intended owner, but it is not required.
 
 Think of a note as an envelope or sealed box that contains tokens inside, and only the note owner has the key to open:
 
