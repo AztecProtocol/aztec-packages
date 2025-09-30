@@ -75,7 +75,7 @@ Your PXE transmits:
 - New note commitments (not the notes themselves to maintain privacy)
 - Nullifiers (to mark your spent notes as consumed)
 - Any public function calls that need to be executed
-- Optionally: note commitments to post onchain (so Alice can later discover and decrypt her new tokens). These notes can also be shared offchain to save onchain storage costs.
+- Optionally: encrypted note to post onchain (so Alice can later discover and decrypt her new tokens). These notes can also be shared offchain to save onchain storage costs.
 
 Notice what's NOT sent:
 - Your actual balance
