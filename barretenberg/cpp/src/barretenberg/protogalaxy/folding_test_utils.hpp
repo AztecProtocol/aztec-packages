@@ -35,8 +35,13 @@ static bool check_accumulator_target_sum_manual(const std::shared_ptr<ProverInst
     // Compute the corresponding target sum and create a dummy accumulator
     typename Flavor::FF expected_target_sum{ 0 };
     for (size_t idx = 0; idx < accumulator_size; idx++) {
+        if (expected_honk_evals[idx] != 0) {
+            info("Non zero at: ", idx);
+        }
         expected_target_sum += expected_honk_evals[idx] * expected_gate_separators[idx];
     }
+    info(accumulator->target_sum);
+    info(expected_target_sum);
     return accumulator->target_sum == expected_target_sum;
 }
 } // namespace bb
