@@ -54,6 +54,7 @@ template <typename Flavor> class SumcheckProverRound {
                                              typename Flavor::template ProverUnivariates<2>,
                                              typename Flavor::ExtendedEdges>;
     using ZKData = ZKSumcheckData<Flavor>;
+
     /**
      * @brief In Round \f$i = 0,\ldots, d-1\f$, equals \f$2^{d-i}\f$.
      */
@@ -124,6 +125,9 @@ template <typename Flavor> class SumcheckProverRound {
                       const ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
                       const size_t edge_idx)
     {
+        // TODO: Implement lazy per-polynomial extension here following AVM pattern (commit 96894dd)
+        // Currently extending all polynomials eagerly, but many relations skip early based on selectors
+        // and never use all extended polynomials. Lazy extension could provide significant speedup.
         for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
             if constexpr (Flavor::USE_SHORT_MONOMIALS) {
                 extended_edge = bb::Univariate<FF, 2>({ multivariate[edge_idx], multivariate[edge_idx + 1] });
@@ -152,7 +156,12 @@ template <typename Flavor> class SumcheckProverRound {
         if constexpr (isAvmFlavor<Flavor>) {
             return compute_univariate_avm(polynomials, relation_parameters, gate_separators, alphas);
         } else {
-            return compute_univariate_with_row_skipping(polynomials, relation_parameters, gate_separators, alphas);
+            // Check if flavor supports lazy extension
+            if constexpr (requires { typename Flavor::template LazilyExtendedEdgesFor<ProverPolynomialsOrPartiallyEvaluatedMultivariates>; }) {
+                return compute_univariate_with_lazy_edges(polynomials, relation_parameters, gate_separators, alphas);
+            } else {
+                return compute_univariate_with_row_skipping(polynomials, relation_parameters, gate_separators, alphas);
+            }
         }
     }
 
@@ -378,6 +387,11 @@ template <typename Flavor> class SumcheckProverRound {
     }
 
     /**
+     * @brief Version with lazy edge extension that can be used by all flavors
+     * @details Combines the benefits of lazy edge extension with row-skipping capabilities
+     */
+
+    /**
      * @brief Return the evaluations of the univariate round polynomials \f$ \tilde{S}_{i} (X_{i}) \f$
      at \f$ X_{i } = 0,\ldots, D \f$. Most likely, \f$ D \f$ is around  \f$ 12 \f$. At the end, reset all
      * univariate accumulators to be zero.
@@ -433,7 +447,7 @@ template <typename Flavor> class SumcheckProverRound {
                                                                : (thread_idx + 1) * iterations_per_thread;
 
             RowIterator edge_iterator(round_manifest, start);
-            // Construct extended univariates containers; one per thread
+            // Use regular extended edges for row skipping (not lazy)
             ExtendedEdges extended_edges;
             for (size_t i = start; i < end; ++i) {
                 size_t edge_idx = edge_iterator.get_next_edge();
@@ -462,6 +476,93 @@ template <typename Flavor> class SumcheckProverRound {
 
         return round_univariate;
     };
+    /**
+     * @brief Compute univariate with lazy per-polynomial edge extension
+     * @details This method implements the lazy extension optimization from AVM (commit 96894dd).
+     *          Instead of extending all polynomials upfront, each polynomial is extended only
+     *          when it's actually accessed by relations.
+     */
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    SumcheckRoundUnivariate compute_univariate_with_lazy_edges(
+        ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+        const bb::RelationParameters<FF>& relation_parameters,
+        const bb::GateSeparatorPolynomial<FF>& gate_separators,
+        const SubrelationSeparators& alphas)
+    {
+        BB_BENCH_NAME("compute_univariate_with_lazy_edges");
+
+        std::vector<BlockOfContiguousRows> round_manifest = compute_contiguous_round_size(polynomials);
+        // Compute how many nonzero rows we have
+        size_t num_valid_rows = 0;
+        for (const BlockOfContiguousRows& block : round_manifest) {
+            num_valid_rows += block.size;
+        }
+        size_t num_valid_iterations = num_valid_rows / 2;
+
+        // Determine number of threads for multithreading
+        size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
+        size_t num_threads = bb::calculate_num_threads(num_valid_iterations, min_iterations_per_thread);
+        size_t iterations_per_thread = num_valid_iterations / num_threads; // actual iterations per thread
+        size_t iterations_for_last_thread = num_valid_iterations - (iterations_per_thread * (num_threads - 1));
+
+        // Construct univariate accumulator containers; one per thread
+        std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
+
+        // Construct lazy extended edges container; one per thread
+        using LazyExtendedEdges = LazilyExtendedEdges<ProverPolynomialsOrPartiallyEvaluatedMultivariates,
+                                                       FF,
+                                                       MAX_PARTIAL_RELATION_LENGTH,
+                                                       Flavor::NUM_ALL_ENTITIES,
+                                                       Flavor::USE_SHORT_MONOMIALS>;
+
+        parallel_for(num_threads, [&](size_t thread_idx) {
+            const size_t start = thread_idx * iterations_per_thread;
+            const size_t end = (thread_idx == num_threads - 1) ? start + iterations_for_last_thread
+                                                                 : (thread_idx + 1) * iterations_per_thread;
+
+            RowIterator edge_iterator(round_manifest, start);
+
+            // Create thread-local lazy extended edges with named member access
+            struct LazyExtendedEdgesWrapper : public Flavor::template AllEntities<typename LazyExtendedEdges::UnivariateType> {
+                LazyExtendedEdges lazy_edges;
+
+                LazyExtendedEdgesWrapper(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polys) {
+                    lazy_edges.initialize(polys, 0);
+                }
+
+                void set_edge(size_t edge_idx) {
+                    lazy_edges.set_current_edge(edge_idx);
+                    // Update all members to point to lazy evaluated univariates
+                    size_t idx = 0;
+                    for (auto& member : this->get_all()) {
+                        member = lazy_edges[idx++];
+                    }
+                }
+            } extended_edges(polynomials);
+
+            for (size_t i = start; i < end; ++i) {
+                size_t edge_idx = edge_iterator.get_next_edge();
+                extended_edges.set_edge(edge_idx);
+
+                accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
+                                                extended_edges,
+                                                relation_parameters,
+                                                gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
+            }
+        });
+
+        // Accumulate the per-thread univariate accumulators into a single set of accumulators
+        for (auto& accumulators : thread_univariate_accumulators) {
+            Utils::add_nested_tuples(univariate_accumulators, accumulators);
+        }
+
+        // Batch the univariate contributions from each sub-relation to obtain the round univariate
+        const auto round_univariate =
+            batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alphas, gate_separators);
+
+        return round_univariate;
+    }
+
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     SumcheckRoundUnivariate compute_hiding_univariate(
         const size_t round_idx,
@@ -539,19 +640,9 @@ template <typename Flavor> class SumcheckProverRound {
         // edge (0, ...,0).
         const size_t virtual_contribution_edge_idx = 0;
 
-        // Perform the usual sumcheck accumulation, but for a single edge.
-        // Note: we use a combination of `auto`, constexpr and a lambda to construct different types.
-        auto extended_edges = [&]() {
-            if constexpr (isAvmFlavor<Flavor>) {
-                auto lazy_extended_edges = ExtendedEdges(polynomials);
-                lazy_extended_edges.set_current_edge(virtual_contribution_edge_idx);
-                return lazy_extended_edges;
-            } else {
-                ExtendedEdges extended_edges;
-                extend_edges(extended_edges, polynomials, virtual_contribution_edge_idx);
-                return extended_edges;
-            }
-        }();
+        // Perform the usual sumcheck accumulation, but for a single edge
+        ExtendedEdges extended_edges;
+        extend_edges(extended_edges, polynomials, virtual_contribution_edge_idx);
 
         // The tail of G(X) = \prod_{k} (1 + X_k(\beta_k - 1) ) evaluated at the edge (0, ..., 0).
         const FF gate_separator_tail{ 1 };

@@ -28,6 +28,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include "barretenberg/sumcheck/lazy_extended_edges.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -533,7 +534,13 @@ class UltraFlavor {
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
+     * @details Uses lazy per-polynomial extension for optimal performance.
+     *          Only extends polynomials when they are actually accessed by relations.
      */
+    template<typename SourceEntities>
+    using LazilyExtendedEdgesFor = LazilyExtendedEdges<SourceEntities, FF, MAX_PARTIAL_RELATION_LENGTH, NUM_ALL_ENTITIES, USE_SHORT_MONOMIALS>;
+
+    // Keep ExtendedEdges as the original for now to avoid breaking existing code
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
     /**
