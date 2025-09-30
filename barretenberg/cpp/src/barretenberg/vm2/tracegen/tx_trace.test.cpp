@@ -34,6 +34,7 @@ TEST(TxTraceGenTest, EnqueuedCallEvent)
         .state = { .gas_used = { 500, 1000 }, .tree_states = {}, .written_public_data_slots_tree_snapshot = {} },
         .gas_limit = { 1000, 2000 },
         .teardown_gas_limit = { 0, 0 },
+        .phase_lengths = { .setup = 1 },
     };
 
     simulation::TxPhaseEvent tx_event = {
