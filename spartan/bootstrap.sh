@@ -104,6 +104,7 @@ function network_tests {
   echo_header "spartan scenario test"
 
   # no parallelize here as we want to run the tests sequentially
+  export SCENARIO_TESTS=1
   network_test_cmds | filter_test_cmds | parallelize 1
 }
 

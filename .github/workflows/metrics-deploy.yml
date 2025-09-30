@@ -37,11 +37,6 @@ on:
         required: true
         type: string
         default: "grafana-dashboard-password"
-      slack_webhook_url_secret_name:
-        description: The name of the secret which holds the Slack webhook URL
-        required: true
-        type: string
-        default: "slack-webhook-url"
     secrets:
       GCP_SA_KEY:
         required: true
@@ -75,10 +70,6 @@ on:
         description: The name of the secret which holds the Grafana dashboard password
         required: true
         default: "grafana-dashboard-password"
-      slack_webhook_url_secret_name:
-        description: The name of the secret which holds the Slack webhook URL
-        required: true
-        default: "slack-webhook-url"
 
 jobs:
   metrics_deployment:
@@ -98,7 +89,10 @@ jobs:
       TF_STATE_BUCKET: aztec-terraform
       GKE_CLUSTER_CONTEXT: "gke_testnet-440309_us-west1-a_${{ inputs.cluster }}"
       GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME: ${{ inputs.grafana_dashboard_password_secret_name }}
-      SLACK_WEBHOOK_URL_SECRET_NAME: ${{ inputs.slack_webhook_url_secret_name }}
+      SLACK_WEBHOOK_URL_SECRET_NAME: slack-webhook-url
+      SLACK_WEBHOOK_STAGING_PUBLIC_SECRET_NAME: slack-webhook-staging-public-url
+      SLACK_WEBHOOK_STAGING_IGNITION_SECRET_NAME: slack-webhook-staging-ignition-url
+      SLACK_WEBHOOK_NEXT_SCENARIO_SECRET_NAME: slack-webhook-next-scenario-url
 
     steps:
       - name: Checkout code
@@ -160,6 +154,9 @@ jobs:
             -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
             -var="GRAFANA_PASSWORD_SECRET_NAME=${{ env.GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME }}" \
             -var="SLACK_WEBHOOK_SECRET_NAME=${{ env.SLACK_WEBHOOK_URL_SECRET_NAME }}" \
+            -var="SLACK_WEBHOOK_STAGING_PUBLIC_SECRET_NAME=${{ env.SLACK_WEBHOOK_STAGING_PUBLIC_SECRET_NAME }}" \
+            -var="SLACK_WEBHOOK_STAGING_IGNITION_SECRET_NAME=${{ env.SLACK_WEBHOOK_STAGING_IGNITION_SECRET_NAME }}" \
+            -var="SLACK_WEBHOOK_NEXT_SCENARIO_SECRET_NAME=${{ env.SLACK_WEBHOOK_NEXT_SCENARIO_SECRET_NAME }}" \
             -lock=${{ inputs.respect_tf_lock }}
 
       - name: Terraform Plan
@@ -171,6 +168,9 @@ jobs:
             -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
             -var="GRAFANA_PASSWORD_SECRET_NAME=${{ env.GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME }}" \
             -var="SLACK_WEBHOOK_SECRET_NAME=${{ env.SLACK_WEBHOOK_URL_SECRET_NAME }}" \
+            -var="SLACK_WEBHOOK_STAGING_PUBLIC_SECRET_NAME=${{ env.SLACK_WEBHOOK_STAGING_PUBLIC_SECRET_NAME }}" \
+            -var="SLACK_WEBHOOK_STAGING_IGNITION_SECRET_NAME=${{ env.SLACK_WEBHOOK_STAGING_IGNITION_SECRET_NAME }}" \
+            -var="SLACK_WEBHOOK_NEXT_SCENARIO_SECRET_NAME=${{ env.SLACK_WEBHOOK_NEXT_SCENARIO_SECRET_NAME }}" \
             -out=tfplan \
             -lock=${{ inputs.respect_tf_lock }}
 

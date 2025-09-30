@@ -46,24 +46,24 @@ EXCLUDED_VARS_ARRAY=(
     "K8S_NAMESPACE_NAME"
     "POD_IP"
     "POD_NAME"
-    
+
     # System environment variables
     "PATH"
     "HOME"
     "USER"
     "SHELL"
-    
+
     # Service/container specific vars that may not be in env_var.ts
     "OTEL_SERVICE_NAME"
     "OTEL_RESOURCE_ATTRIBUTES"
     "SERVICE_NAME"
     "NAMESPACE"
     "OTEL_COLLECTOR_ENDPOINT"
-    
+
     # Helm template variables (not actual env vars)
     "RELEASE_NAME"
     "CHART_NAME"
-    
+
     # External service variables that may not be managed by the app
     "ETH_BEACON_URL"
     "ETH_EXECUTION_URL"
@@ -72,7 +72,7 @@ EXCLUDED_VARS_ARRAY=(
     "WS_PORT"
     "BEACON_HTTP_PORT"
     "MAX_TX_INPUT_SIZE_BYTES"
-    
+
     # Network/infrastructure variables
     "NETWORK_PUBLIC"
     "EXTERNAL_ETHEREUM_HOSTS"
@@ -90,7 +90,7 @@ EXCLUDED_VARS_ARRAY=(
     "PROVER_BROKER_PORT"
     "BOOT_NODE_HOST"
     "FULL_NODE_HOST"
-    
+
     # Deployment and CI/CD specific variables
     "ACCELERATED_TEST_DEPLOYMENTS"
     "ARCHIVE_NODE_VALUES"
@@ -111,7 +111,7 @@ EXCLUDED_VARS_ARRAY=(
     "GRAFANA_PASSWORD_SECRET_NAME"
     "HOSTNAME"
     "INIT_VALIDATORS"
-    
+
     # Job/workflow specific variables
     "JOB_BACKOFF_LIMIT"
     "JOB_NAME"
@@ -129,7 +129,7 @@ EXCLUDED_VARS_ARRAY=(
     "NODE_OPTIONS"
     "NODE_RPC_VALUES"
     "NUMBER_OF_VALIDATOR_NODES"
-    
+
     # Resource and configuration variables
     "P2P_BOOTSTRAP_RESOURCE_PROFILE"
     "PREFUNDED_MNEMONIC_INDICES"
@@ -149,9 +149,12 @@ EXCLUDED_VARS_ARRAY=(
     "SALT"
     "SERVICE"
     "SLACK_WEBHOOK_SECRET_NAME"
+    "SLACK_WEBHOOK_STAGING_PUBLIC_SECRET_NAME"
+    "SLACK_WEBHOOK_STAGING_IGNITION_SECRET_NAME"
+    "SLACK_WEBHOOK_NEXT_SCENARIO_SECRET_NAME"
     "SLASHER_KEY_INDEX_START"
     "SNAPSHOT_VALUES"
-    
+
     # Validator and node specific variables
     "VALIDATOR_KEY_START"
     "VALIDATOR_MNEMONIC"
@@ -177,7 +180,7 @@ if [[ -d "$HELM_TEMPLATES_DIR" ]]; then
                 sort -u || true)
 fi
 
-# Extract environment variables from Terraform scripts  
+# Extract environment variables from Terraform scripts
 echo "Scanning Terraform scripts..."
 terraform_vars=""
 if [[ -d "$TERRAFORM_DIR" ]]; then
@@ -208,7 +211,7 @@ missing_vars=""
 if [[ -n "$all_vars" ]]; then
     # Filter out excluded variables and check against defined vars
     filtered_vars=$(echo "$all_vars" | grep -vE "^($EXCLUDED_VARS)$" || true)
-    
+
     if [[ -n "$filtered_vars" ]]; then
         missing_vars=$(comm -23 <(echo "$filtered_vars") <(echo "$defined_vars"))
     fi

@@ -201,7 +201,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     const donationAmount = 1000n;
 
     const donorAddress = donor2Address;
-    const unrelatedAdress = donor1Address;
+    const unrelatedAddress = donor1Address;
 
     // 1) We permit the crowdfunding contract to pull the donation amount from the donor's wallet, and we donate
 
@@ -231,7 +231,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     // 2) We try to claim the reward token via the Claim contract with the unrelated wallet
     // docs:start:local-tx-fails
     await expect(
-      claimContract.methods.claim(anotherDonationNote, donorAddress).send({ from: unrelatedAdress }).wait(),
+      claimContract.methods.claim(anotherDonationNote, donorAddress).send({ from: unrelatedAddress }).wait(),
     ).rejects.toThrow('Note does not belong to the sender');
     // docs:end:local-tx-fails
   });
