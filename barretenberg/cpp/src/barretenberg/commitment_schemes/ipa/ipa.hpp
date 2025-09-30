@@ -100,17 +100,18 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
 
-    // records the `u_challenges_inv` and the Pederson commitment to the `h` -polynomial, a.k.a. the challenge
-    // polynomial, given as ∏_{i ∈ [k]} (1 + u_{len-i}^{-1}.X^{2^{i-1}}).
+    // records the `u_challenges_inv`, the Pederson commitment to the `h` -polynomial, a.k.a. the challenge
+    // polynomial, given as ∏_{i ∈ [k]} (1 + u_{len-i}^{-1}.X^{2^{i-1}}), and the running truth value of the IPA
+    // accumulation claim.
     using VerifierAccumulator = stdlib::recursion::honk::IpaAccumulator<Curve>;
 
-    // records both a `VerifierAccumulator` and also whether the "running state" of the IPA verifier is true.
-    // this is relevant when we run the partial verifier, a.k.a. `reduce_verify_internal_recursive`, which itself is
-    // necesary for our batching.
-    struct VerifierAccumulatorBool {
-        VerifierAccumulator verifier_accumulator;
-        bool running_truth_value;
-    };
+    // // records both a `VerifierAccumulator` and also whether the "running state" of the IPA verifier is true.
+    // // this is relevant when we run the partial verifier, a.k.a. `reduce_verify_internal_recursive`, which itself is
+    // // necesary for our batching.
+    // struct VerifierAccumulatorBool {
+    //     VerifierAccumulator verifier_accumulator;
+    //     bool running_truth_value;
+    // };
 
     // Compute the length of the vector of coefficients of a polynomial being opened.
     static constexpr size_t poly_length = 1UL << log_poly_length;
@@ -191,6 +192,8 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         // Step 3.
         // Compute auxiliary generator U, which is used to bind together the inner product claim and the commitment.
+        // This yields the binding property because we assume it is computationally difficult to find a linear relation
+        // between the CRS and `Commitment::one()`.
         auto aux_generator = Commitment::one() * generator_challenge;
 
         // Checks poly_degree is greater than zero and a power of two
@@ -444,12 +447,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      * @param vk
      * @param opening_claim
      * @param transcript
-     * @return VerifierAccumulatorRunningTruthValue, i.e., the u_inv challenges, the claimed Pederson commitment to the
+     * @return VerifierAccumulator, i.e., the u_inv challenges, the claimed Pederson commitment to the
      * challenge polynomial derived from the u_inv challenges, and a boolean recording whether the last accumulation
      * step failed or passed.
      */
-    static VerifierAccumulatorBool reduce_verify_internal_recursive(const OpeningClaim<Curve>& opening_claim,
-                                                                    auto& transcript)
+    static VerifierAccumulator reduce_verify_internal_recursive(const OpeningClaim<Curve>& opening_claim,
+                                                                auto& transcript)
         requires Curve::is_stdlib_type
     {
         // Step 1.
@@ -515,11 +518,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // the below is the only constraint.
         ipa_relation.assert_equal(neg_commitment);
 
-        VerifierAccumulator verifier_accumulator = { round_challenges_inv, G_zero };
-        VerifierAccumulatorBool verifier_accumulator_running_truth_value = {
-            verifier_accumulator, ipa_relation.get_value() == -opening_claim.commitment.get_value()
-        };
-        return verifier_accumulator_running_truth_value;
+        return { round_challenges_inv, G_zero, ipa_relation.get_value() == -opening_claim.commitment.get_value() };
     }
 
     /**
@@ -574,7 +573,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // The output of `reduce_verify_internal_recursive` consists of a `VerifierAccumulator` and a boolean, recording
         // the truth value of the last verifier-compatibility check. This simply forgets the boolean and returns the
         // `VerifierAccumulator`.
-        return reduce_verify_internal_recursive(opening_claim, transcript).verifier_accumulator;
+        return reduce_verify_internal_recursive(opening_claim, transcript);
     }
 
     /**
@@ -597,11 +596,9 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     static bool full_verify_recursive(const VK& vk, const OpeningClaim<Curve>& opening_claim, auto& transcript)
         requires Curve::is_stdlib_type
     {
-        auto verifier_accumulator_with_running_truth_value =
-            reduce_verify_internal_recursive(opening_claim, transcript);
-        auto round_challenges_inv = verifier_accumulator_with_running_truth_value.verifier_accumulator.u_challenges_inv;
-        // auto claimed_G_zero = transcript->template receive_from_prover<Commitment>("IPA:G_0");
-        auto claimed_G_zero = verifier_accumulator_with_running_truth_value.verifier_accumulator.comm;
+        VerifierAccumulator verifier_accumulator = reduce_verify_internal_recursive(opening_claim, transcript);
+        auto round_challenges_inv = verifier_accumulator.u_challenges_inv;
+        auto claimed_G_zero = verifier_accumulator.comm;
 
         // Construct vector s, whose rth entry is ∏ (u_i)^{-1 * r_i}, where (r_i) is the binary expansion of r. This
         // is required to _compute_ G_zero (rather than just passively receive G_zero from the Prover).
@@ -639,7 +636,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         claimed_G_zero.assert_equal(computed_G_zero);
         BB_ASSERT_EQ(computed_G_zero.get_value(), claimed_G_zero.get_value(), "G_zero doesn't match received G_zero.");
 
-        bool running_truth_value = verifier_accumulator_with_running_truth_value.running_truth_value;
+        bool running_truth_value = verifier_accumulator.running_truth_value;
         return running_truth_value;
     }
 
@@ -838,33 +835,33 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         using NativeCurve = curve::Grumpkin;
         using Builder = typename Curve::Builder;
         // Step 1: Run the partial verifier for each IPA instance
-        VerifierAccumulator pair_1 = reduce_verify(claim_1, transcript_1);
-        VerifierAccumulator pair_2 = reduce_verify(claim_2, transcript_2);
+        VerifierAccumulator verifier_accumulator_1 = reduce_verify(claim_1, transcript_1);
+        VerifierAccumulator verifier_accumulator_2 = reduce_verify(claim_2, transcript_2);
 
         // Step 2: Generate the challenges by hashing the pairs
         using StdlibTranscript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
         StdlibTranscript transcript;
-        transcript.send_to_verifier("u_challenges_inv_1", pair_1.u_challenges_inv);
-        transcript.send_to_verifier("U_1", pair_1.comm);
-        transcript.send_to_verifier("u_challenges_inv_2", pair_2.u_challenges_inv);
-        transcript.send_to_verifier("U_2", pair_2.comm);
+        transcript.send_to_verifier("u_challenges_inv_1", verifier_accumulator_1.u_challenges_inv);
+        transcript.send_to_verifier("U_1", verifier_accumulator_1.comm);
+        transcript.send_to_verifier("u_challenges_inv_2", verifier_accumulator_2.u_challenges_inv);
+        transcript.send_to_verifier("U_2", verifier_accumulator_2.comm);
         auto [alpha, r] = transcript.template get_challenges<Fr>("IPA:alpha", "IPA:r");
 
         // Step 3: Compute the new accumulator
         OpeningClaim<Curve> output_claim;
-        output_claim.commitment = pair_1.comm + pair_2.comm * alpha;
+        output_claim.commitment = verifier_accumulator_1.comm + verifier_accumulator_2.comm * alpha;
         output_claim.opening_pair.challenge = r;
         // Evaluate the challenge_poly polys at r and linearly combine them with alpha challenge
-        output_claim.opening_pair.evaluation =
-            evaluate_and_accumulate_challenge_polys(pair_1.u_challenges_inv, pair_2.u_challenges_inv, r, alpha);
+        output_claim.opening_pair.evaluation = evaluate_and_accumulate_challenge_polys(
+            verifier_accumulator_1.u_challenges_inv, verifier_accumulator_2.u_challenges_inv, r, alpha);
 
         // Step 4: Compute the new challenge polynomial natively
         std::vector<bb::fq> native_u_challenges_inv_1;
         std::vector<bb::fq> native_u_challenges_inv_2;
-        for (Fr u_inv_i : pair_1.u_challenges_inv) {
+        for (Fr u_inv_i : verifier_accumulator_1.u_challenges_inv) {
             native_u_challenges_inv_1.push_back(bb::fq(u_inv_i.get_value()));
         }
-        for (Fr u_inv_i : pair_2.u_challenges_inv) {
+        for (Fr u_inv_i : verifier_accumulator_2.u_challenges_inv) {
             native_u_challenges_inv_2.push_back(bb::fq(u_inv_i.get_value()));
         }
 
