@@ -4,8 +4,6 @@ tags: [protocol, glossary]
 description: Comprehensive glossary of terms used throughout the Aztec documentation and protocol.
 ---
 
-// import { Glossary } from '@site/src/components/Snippets/glossary_snippets';
-
 ### ACIR (Abstract Circuit Intermediate Representation)
 
 ACIR bytecode is the compilation target of private functions. ACIR expresses arithmetic circuits and has no control flow: any control flow in functions is either unrolled (for loops) or flattened (by inlining and adding predicates). ACIR contains different types of opcodes including arithmetic operations, BlackBoxFuncCall (for efficient operations like hashing), Brillig opcodes (for unconstrained hints), and MemoryOp (for dynamic array access). Private functions compiled to ACIR are executed by the ACVM (Abstract Circuit Virtual Machine) and proved using Barretenberg.
