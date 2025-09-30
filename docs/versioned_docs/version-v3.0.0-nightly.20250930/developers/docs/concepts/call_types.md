@@ -103,7 +103,7 @@ Contract functions marked with `#[private]` can only be called privately, and as
 
 Private functions from other contracts can be called either regularly or statically by using the `.call()` and `.static_call` functions. They will also be 'executed' (i.e. proved) in the user's device, and `static_call` will fail if any state changes are attempted (like the EVM's `STATICCALL`).
 
-```rust title="private_call" showLineNumbers 
+```rust title="private_call" showLineNumbers
 let _ = Token::at(stable_coin).burn_private(from, amount, authwit_nonce).call(&mut context);
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-nightly.20250930/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L254-L256" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L254-L256</a></sub></sup>
@@ -117,7 +117,7 @@ Since public execution can only be performed by the sequencer, public functions 
 
 Since the public call is made asynchronously, any return values or side effects are not available during private execution. If the public function fails once executed, the entire transaction is reverted including state changes caused by the private part, such as new notes or nullifiers. Note that this does result in gas being spent, like in the case of the EVM.
 
-```rust title="enqueue_public" showLineNumbers 
+```rust title="enqueue_public" showLineNumbers
 Lending::at(context.this_address())
     ._deposit(AztecAddress::from_field(on_behalf_of), amount, collateral_asset)
     .enqueue(&mut context);
@@ -129,7 +129,7 @@ It is also possible to create public functions that can _only_ be invoked by pri
 
 A common pattern is to enqueue public calls to check some validity condition on public state, e.g. that a deadline has not expired or that some public value is set.
 
-```rust title="enqueueing" showLineNumbers 
+```rust title="enqueueing" showLineNumbers
 Router::at(ROUTER_ADDRESS).check_block_number(operation, value).call(context);
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-nightly.20250930/noir-projects/noir-contracts/contracts/protocol/router_contract/src/utils.nr#L17-L19" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/protocol/router_contract/src/utils.nr#L17-L19</a></sub></sup>
@@ -140,7 +140,7 @@ For this reason we've created a canonical router contract which implements some 
 
 An example of how a deadline can be checked using the router contract follows:
 
-```rust title="call-check-deadline" showLineNumbers 
+```rust title="call-check-deadline" showLineNumbers
 privately_check_timestamp(Comparator.LT, config.deadline, &mut context);
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-nightly.20250930/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L65-L67" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L65-L67</a></sub></sup>
@@ -148,7 +148,7 @@ privately_check_timestamp(Comparator.LT, config.deadline, &mut context);
 
 `privately_check_timestamp` and `privately_check_block_number` are helper functions around the call to the router contract:
 
-```rust title="helper_router_functions" showLineNumbers 
+```rust title="helper_router_functions" showLineNumbers
 /// Asserts that the current timestamp in the enqueued public call enqueued by `check_timestamp` satisfies
 /// the `operation` with respect to the `value. Preserves privacy by performing the check via the router contract.
 /// This conceals an address of the calling contract by setting `context.msg_sender` to the router contract address.
@@ -168,7 +168,7 @@ pub fn privately_check_block_number(operation: u8, value: u32, context: &mut Pri
 
 This is what the implementation of the check timestamp functionality looks like:
 
-```rust title="check_timestamp" showLineNumbers 
+```rust title="check_timestamp" showLineNumbers
 /// Asserts that the current timestamp in the enqueued public call satisfies the `operation` with respect
 /// to the `value.
 #[private]
@@ -213,7 +213,7 @@ Since private calls are always run in a user's device, it is not possible to per
 
 Public functions in other contracts can be called both regularly and statically, just like on the EVM.
 
-```rust title="public_call" showLineNumbers 
+```rust title="public_call" showLineNumbers
 Token::at(config.accepted_asset)
     .transfer_in_public(context.msg_sender(), context.this_address(), max_fee, authwit_nonce
         )
@@ -238,7 +238,7 @@ There are three different ways to execute an Aztec contract function using the `
 
 This is used to get a result out of an execution, either private or public. It creates no transaction and spends no gas. The mental model is fairly close to that of [`eth_call`](#eth_call), in that it can be used to call any type of function, simulate its execution and get a result out of it. `simulate` is also the only way to run [utility functions](#utility).
 
-```rust title="public_getter" showLineNumbers 
+```rust title="public_getter" showLineNumbers
 #[public]
 #[view]
 fn get_authorized() -> AztecAddress {
@@ -248,7 +248,7 @@ fn get_authorized() -> AztecAddress {
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-nightly.20250930/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L42-L50" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L42-L50</a></sub></sup>
 
 
-```typescript title="simulate_function" showLineNumbers 
+```typescript title="simulate_function" showLineNumbers
 const balance = await contract.methods.balance_of_public(newAccountAddress).simulate({ from: newAccountAddress });
 expect(balance).toEqual(1n);
 ```
@@ -263,7 +263,7 @@ No correctness is guaranteed on the result of `simulate`! Correct execution is e
 
 This creates and returns a transaction request, which includes proof of correct private execution and side-effects. The request is not broadcast however, and no gas is spent. It is typically used in testing contexts to inspect transaction parameters or to check for execution failure.
 
-```typescript title="local-tx-fails" showLineNumbers 
+```typescript title="local-tx-fails" showLineNumbers
 await expect(
   claimContract.methods.claim(anotherDonationNote, donorAddress).send({ from: unrelatedAddress }).wait(),
 ).rejects.toThrow('Note does not belong to the sender');
@@ -275,7 +275,7 @@ await expect(
 
 This is the same as [`prove`](#prove) except it also broadcasts the transaction and returns a receipt. This is how transactions are sent, getting them to be included in blocks and spending gas. It is similar to [`eth_sendTransaction`](#eth_sendtransaction), except it also performs some work on the user's device, namely the production of the proof for the private part of the transaction.
 
-```typescript title="send_tx" showLineNumbers 
+```typescript title="send_tx" showLineNumbers
 await contract.methods.buy_pack(seed).send({ from: firstPlayer }).wait();
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-nightly.20250930/yarn-project/end-to-end/src/e2e_card_game.test.ts#L116-L118" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_card_game.test.ts#L116-L118</a></sub></sup>

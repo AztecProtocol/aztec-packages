@@ -9,7 +9,7 @@ pub contract Claim {
             note_interface::NoteHash, retrieved_note::RetrievedNote,
             utils::compute_note_hash_for_nullification,
         },
-        protocol_types::address::AztecAddress,
+        protocol_types::{address::AztecAddress, storage::map::derive_storage_slot_in_map},
         state_vars::PublicImmutable,
     };
     use dep::uint_note::uint_note::UintNote;
@@ -36,19 +36,20 @@ pub contract Claim {
     fn claim(proof_retrieved_note: RetrievedNote<UintNote>, recipient: AztecAddress) {
         // 1) Check that the note corresponds to the target contract and belongs to the sender
         let target_address = storage.target_contract.read();
+        let owner = proof_retrieved_note.note.get_owner();
         assert(
             target_address == proof_retrieved_note.contract_address,
             "Note does not correspond to the target contract",
         );
-        assert_eq(
-            proof_retrieved_note.note.get_owner(),
-            context.msg_sender(),
-            "Note does not belong to the sender",
-        );
+        assert_eq(owner, context.msg_sender(), "Note does not belong to the sender");
 
         // 2) Prove that the note hash exists in the note hash tree
-        // Note: The note has been inserted into the donation_receipts set in the Crowdfunding contract.
-        let note_storage_slot = Crowdfunding::storage_layout().donation_receipts.slot;
+        // Note: The note has been inserted into the donation_receipts set in a map under the owner address in
+        // the Crowdfunding contract.
+        let note_storage_slot = derive_storage_slot_in_map(
+            Crowdfunding::storage_layout().donation_receipts.slot,
+            owner,
+        );
         let header = context.get_anchor_block_header();
         header.prove_note_inclusion(proof_retrieved_note, note_storage_slot);
 

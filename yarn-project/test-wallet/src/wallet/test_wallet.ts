@@ -229,7 +229,17 @@ export abstract class BaseTestWallet extends BaseWallet {
     return this.pxe.registerAccount(secretKey, partialAddress);
   }
 
-  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
+  /**
+   * A debugging utility to get notes based on the provided filter.
+   *
+   * Note that this should not be used in production code because the structure of notes is considered to be
+   * an implementation detail of contracts. This is only meant to be used for debugging purposes. If you need to obtain
+   * note-related information in production code, please implement a custom utility function on your contract and call
+   * that function instead (e.g. `get_balance(owner: AztecAddress) -> u128` utility function on a Token contract).
+   *
+   * @param filter - The filter to apply to the notes.
+   * @returns The requested notes.
+   */
   getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
     return this.pxe.getNotes(filter);
   }
@@ -243,6 +253,11 @@ export abstract class BaseTestWallet extends BaseWallet {
     return this.pxe;
   }
 
+  /**
+   * Stops the internal job queue.
+   *
+   * This function is typically used when tearing down tests.
+   */
   stop(): Promise<void> {
     return this.pxe.stop();
   }

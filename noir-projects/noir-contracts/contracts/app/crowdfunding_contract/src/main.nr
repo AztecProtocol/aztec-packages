@@ -12,17 +12,22 @@ pub contract Crowdfunding {
         event::event_emission::emit_event_in_public,
         macros::{
             events::event,
-            functions::{initializer, internal, private, public},
+            functions::{initializer, internal, private, public, utility},
             storage::storage,
         },
         messages::message_delivery::MessageDelivery,
         protocol_types::address::AztecAddress,
-        state_vars::{PrivateSet, PublicImmutable},
-        utils::comparison::Comparator,
+        state_vars::{Map, PrivateSet, PublicImmutable, storage::HasStorageSlot},
+        utils::{array, comparison::Comparator},
+    };
+    use aztec::note::{
+        constants::MAX_NOTES_PER_PAGE, note_getter_options::NoteStatus,
+        retrieved_note::RetrievedNote,
     };
     use router::utils::privately_check_timestamp;
     use token::Token;
     use uint_note::uint_note::UintNote;
+
     // docs:end:all-deps
 
     // docs:start:withdrawal-processed-event
@@ -37,7 +42,7 @@ pub contract Crowdfunding {
     struct Storage<Context> {
         config: PublicImmutable<Config, Context>,
         // Notes emitted to donors when they donate (can be used as proof to obtain rewards, eg in Claim contracts)
-        donation_receipts: PrivateSet<UintNote, Context>,
+        donation_receipts: Map<AztecAddress, PrivateSet<UintNote, Context>, Context>,
     }
     // docs:end:storage
 
@@ -78,10 +83,12 @@ pub contract Crowdfunding {
         // contract by proving that the hash of this note exists in the note hash tree.
         let note = UintNote::new(amount, donor);
 
-        storage.donation_receipts.insert(note).emit(
+        // We don't constrain encryption because the donor is sending the note to himself. And hence by performing
+        // encryption incorrectly would harm himself only.
+        storage.donation_receipts.at(donor).insert(note).emit(
             &mut context,
             donor,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+            MessageDelivery.UNCONSTRAINED_ONCHAIN,
         );
     }
     // docs:end:donate
@@ -110,4 +117,34 @@ pub contract Crowdfunding {
         emit_event_in_public(WithdrawalProcessed { amount, who: to }, &mut context);
     }
     // docs:end:operator-withdrawals
+
+    #[utility]
+    unconstrained fn get_donation_notes(
+        donor: AztecAddress,
+        page_index: u32,
+    ) -> BoundedVec<RetrievedNote<UintNote>, MAX_NOTES_PER_PAGE> {
+        let storage_slot = storage.donation_receipts.at(donor).get_storage_slot();
+
+        // We bypass Aztec.nr's higher-level abstractions here to access the metadata available only in RetrievedNote
+        // type that is not returned by view_notes function. We on the other hand need this metadata because we will
+        // be proving the note existence in the Claim contract.
+        let opt_notes = aztec::oracle::notes::get_notes(
+            storage_slot,
+            0,
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            MAX_NOTES_PER_PAGE,
+            page_index * MAX_NOTES_PER_PAGE,
+            NoteStatus.ACTIVE,
+        );
+
+        array::collapse(opt_notes)
+    }
 }
