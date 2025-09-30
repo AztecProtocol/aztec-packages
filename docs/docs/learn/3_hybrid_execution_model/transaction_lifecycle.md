@@ -7,7 +7,7 @@ tags: [transaction, lifecycle]
 
 import Image from '@theme/IdealImage';
 
-You've learned about private state with notes and client-side execution with zero-knowledge proofs. Now let's see how these concepts come together in the lifecycle of an Aztec transaction. By the end of this lesson, you'll understand exactly what happens from the moment you click "send" to when your transaction becomes final on Ethereum.
+You've learned about private state with notes and client-side execution of private functions with zero-knowledge proofs. Now let's see how these concepts come together in the lifecycle of an Aztec transaction. By the end of this lesson, you'll understand exactly what happens from the moment you click "send" to when your transaction becomes final on Ethereum.
 
 ## What you'll learn
 
@@ -18,13 +18,14 @@ You've learned about private state with notes and client-side execution with zer
 
 ## Prerequisites
 
-- Understanding of notes, commitments, and nullifiers from the [State model lesson](../2_privacy_mindset/1_state_model.md)
-- Familiarity with client-side execution from the [previous lesson](../2_privacy_mindset/2_client_side_execution.md)
+Understanding of:
+- Notes, commitments, and nullifiers from the [State model lesson](../2_privacy_mindset/1_state_model.md)
+- Private function client-side execution from the [previous lesson](../2_privacy_mindset/2_client_side_execution.md)
 - Basic knowledge of Ethereum and rollups
 
 ## Private and public execution
 
-Here's something that might surprise you: Aztec transactions can have both private AND public components, and they happen at completely different times! This hybrid model is what makes Aztec so powerful - you get privacy when you need it and transparency when you want it, all in the same transaction.
+Aztec transactions can have both private AND public components, and they happen at completely different times! This hybrid model is what makes Aztec so powerful, you get privacy when you need it and transparency when you want it, all in the same transaction. This is programmable privacy!
 
 Let's start with the big picture, then dive into the details.
 
@@ -49,47 +50,40 @@ Let's say you want to send 100 private tokens to your friend Alice. Here's what 
 
 Running entirely on your device, your PXE:
 
-1. **Retrieves your notes**: Finds your note(s) that contain at least 100 tokens
+[TODO] do they not use multiple notes? I assume its - do they have one with exact amount or more, if not combine multiple notes
+
+1. **Retrieves your notes**: Finds your note(s) to a total of at least 100 tokens
 2. **Executes the transfer locally**: Runs the smart contract's transfer function with your inputs
 3. **Creates new notes**:
    - One note for Alice with 100 tokens
-   - One change note for you if your input note was larger than 100
-4. **Generates the proof**: Creates a zero-knowledge proof that all of this was done correctly
+   - One change note for you if your input note(s) were larger than 100
+4. **Generates the proof**: Creates a zero-knowledge proof that all of this was done correctly including:
+   - You own the notes you're spending (without revealing which notes)
+   - You have sufficient balance (without revealing how much)
+   - The transfer follows all the contract's rules
+   - The new notes are created correctly
+   - The math all adds up (inputs = outputs, no tokens created from thin air)
 
 This all happens on your device. Your actual balance, Alice's address, and the amount never leave your computer in plain text.
 
-### What's in the proof?
-
-Your PXE generates a proof that:
-
-- You own the notes you're spending (without revealing which notes)
-- You have sufficient balance (without revealing how much)
-- The transfer follows all the contract's rules
-- The new notes are created correctly
-- The math all adds up (inputs = outputs, no tokens created from thin air)
-
-## Step 2: Entering the public arena (privately!)
+## Step 2: Network execution
 
 Now your transaction needs to leave the safety of your PXE and enter the wider network, while maintaining privacy.
 
-### What your PXE sends
-
 Your PXE transmits:
-
 - The zero-knowledge proof(s)
-- New note commitments (hashes that reveal nothing about the notes)
+- New note commitments (not the notes themselves to maintain privacy)
 - Nullifiers (to mark your spent notes as consumed)
 - Any public function calls that need to be executed
-- Optionally: encrypted notes to post onchain (so Alice can later discover and decrypt her new tokens). These notes can also be shared offchain to save onchain storage costs.
+- Optionally: note commitments to post onchain (so Alice can later discover and decrypt her new tokens). These notes can also be shared offchain to save onchain storage costs.
 
 Notice what's NOT sent:
-
 - Your actual balance
 - The real transfer amount
 - Alice's address in plain text
 - Which notes you're actually spending
 
-### The kernel circuits step in
+### The kernel circuits
 
 Before your transaction can be accepted, it needs to pass through the kernel circuits. These protocol circuits:
 
@@ -100,7 +94,7 @@ Before your transaction can be accepted, it needs to pass through the kernel cir
    - Ensure gas fees are properly handled
 3. **Prepare for public execution**: If your transaction includes public functions, set them up for processing
 
-The kernel circuits use recursive proofs - they create a new proof that says "I verified the application's proof and added my own checks."
+The kernel circuits use recursive proofs, which we learned about in the previous lesson. They create a new proof that says "I verified the application's proof and added my own checks."
 
 ## Step 3: The sequencer's role
 
