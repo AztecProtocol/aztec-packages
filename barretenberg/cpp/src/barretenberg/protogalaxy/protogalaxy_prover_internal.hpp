@@ -193,30 +193,43 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
 
         const size_t polynomial_size = polynomials.get_polynomial_size();
         Polynomial<FF> aggregated_relation_evaluations(polynomial_size);
+        info(aggregated_relation_evaluations[0]);
 
         // Determine the number of threads over which to distribute the work
         const size_t num_threads = compute_num_threads(polynomial_size);
 
         std::vector<FF> linearly_dependent_contribution_accumulators(num_threads);
+        info(linearly_dependent_contribution_accumulators[0]);
 
         // Distribute the execution trace rows across threads so that each handles an equal number of active rows
         trace_usage_tracker.construct_thread_ranges(num_threads, polynomial_size, /*use_prev_accumulator=*/true);
 
-        parallel_for(num_threads, [&](size_t thread_idx) {
+        parallel_for(1, [&](size_t thread_idx) {
             for (const ExecutionTraceUsageTracker::Range& range : trace_usage_tracker.thread_ranges[thread_idx]) {
                 for (size_t idx = range.first; idx < range.second; idx++) {
+                    if (idx == 0) {
+                        info("Hello");
+                    }
                     const AllValues row = polynomials.get_row(idx);
                     // Evaluate all subrelations on given row. Separator is 1 since we are not summing across rows here.
                     const RelationEvaluations evals =
                         RelationUtils::accumulate_relation_evaluations(row, relation_parameters, FF(1));
 
+                    info(aggregated_relation_evaluations[0]);
+
                     // Sum against challenges alpha
                     aggregated_relation_evaluations.at(idx) = process_subrelation_evaluations(
                         evals, alphas, linearly_dependent_contribution_accumulators[thread_idx]);
+
+                    if (aggregated_relation_evaluations[0] != FF::zero()) {
+                        info("HERE");
+                    };
                 }
             }
         });
 
+        info(sum(linearly_dependent_contribution_accumulators));
+        info(aggregated_relation_evaluations[0]);
         aggregated_relation_evaluations.at(0) += sum(linearly_dependent_contribution_accumulators);
 
         return aggregated_relation_evaluations;
