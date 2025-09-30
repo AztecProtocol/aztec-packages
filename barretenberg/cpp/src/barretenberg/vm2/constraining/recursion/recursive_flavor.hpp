@@ -2,8 +2,8 @@
 
 #include <cstdint>
 
+#include "barretenberg/"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/vm2/constraining/flavor.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor_settings.hpp"

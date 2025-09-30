@@ -5,13 +5,13 @@
 // =====================
 
 #pragma once
+#include "barretenberg/"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/protogalaxy/constants.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion::honk {
 template <class VerifierInstance> class ProtogalaxyRecursiveVerifier_ {

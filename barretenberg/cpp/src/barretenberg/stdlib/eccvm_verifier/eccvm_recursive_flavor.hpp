@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/"
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -19,7 +20,6 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members) ?
 
