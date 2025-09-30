@@ -70,7 +70,7 @@ impl TestBuilder {
 
         // --- Build things at rollup level ---
 
-        let mut rollup_fixture_builder = RollupFixtureBuilder::new();
+        let rollup_fixture_builder = RollupFixtureBuilder::new();
 
         let block_number = rollup_fixture_builder.start_block_number;
 

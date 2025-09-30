@@ -68,11 +68,7 @@ export type PublicTxSimulatorConfig = {
 
 export class PublicTxSimulator {
   protected log: Logger;
-  private proverId: Fr;
-  private doMerkleOperations: boolean;
-  private skipFeeEnforcement: boolean;
-  private clientInitiatedSimulation: boolean;
-  private maxDebugLogMemoryReads: number;
+  private config: PublicTxSimulatorConfig;
 
   constructor(
     private merkleTree: MerkleTreeWriteOperations,
@@ -80,11 +76,13 @@ export class PublicTxSimulator {
     private globalVariables: GlobalVariables,
     config?: Partial<PublicTxSimulatorConfig>,
   ) {
-    this.proverId = config?.proverId ?? Fr.ZERO;
-    this.doMerkleOperations = config?.doMerkleOperations ?? false;
-    this.skipFeeEnforcement = config?.skipFeeEnforcement ?? false;
-    this.clientInitiatedSimulation = config?.clientInitiatedSimulation ?? false;
-    this.maxDebugLogMemoryReads = config?.maxDebugLogMemoryReads ?? DEFAULT_MAX_DEBUG_LOG_MEMORY_READS;
+    this.config = {
+      proverId: config?.proverId ?? Fr.ZERO,
+      doMerkleOperations: config?.doMerkleOperations ?? false,
+      skipFeeEnforcement: config?.skipFeeEnforcement ?? false,
+      clientInitiatedSimulation: config?.clientInitiatedSimulation ?? false,
+      maxDebugLogMemoryReads: config?.maxDebugLogMemoryReads ?? DEFAULT_MAX_DEBUG_LOG_MEMORY_READS,
+    };
     this.log = createLogger(`simulator:public_tx_simulator`);
   }
 
@@ -124,8 +122,8 @@ export class PublicTxSimulator {
         tx,
         this.globalVariables,
         protocolContractTreeRoot, // imported from file
-        this.doMerkleOperations,
-        this.proverId,
+        this.config.doMerkleOperations,
+        this.config.proverId,
       );
 
       // This will throw if there is a nullifier collision.
@@ -350,8 +348,8 @@ export class PublicTxSimulator {
       request.isStaticCall,
       calldata,
       allocatedGas,
-      this.clientInitiatedSimulation,
-      this.maxDebugLogMemoryReads,
+      this.config.clientInitiatedSimulation,
+      this.config.maxDebugLogMemoryReads,
     );
     const avmCallResult = await simulator.execute();
     return avmCallResult.finalize();
@@ -445,7 +443,7 @@ export class PublicTxSimulator {
     // When mocking the balance of the fee payer, the circuit should not be able to prove the simulation
 
     if (currentBalance.lt(txFee)) {
-      if (!this.skipFeeEnforcement) {
+      if (!this.config.skipFeeEnforcement) {
         throw new Error(
           `Not enough balance for fee payer to pay for transaction (got ${currentBalance.toBigInt()} needs ${txFee.toBigInt()})`,
         );
