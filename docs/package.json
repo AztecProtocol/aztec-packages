@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "HOST=0.0.0.0 ENV=dev yarn preprocess && ENV=dev docusaurus start --host ${HOST:-localhost}",
     "dev:netlify": "yarn netlify dev",
-    "build": "yarn clean && yarn spellcheck && yarn preprocess && yarn preprocess:move && docusaurus build",
+    "build": "yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && docusaurus build",
     "clean": "./scripts/clean.sh",
     "serve": "docusaurus serve",
     "preprocess": "yarn node -r dotenv/config ./src/preprocess/index.js",
@@ -57,11 +57,11 @@
       "./docs/**/{*.md,*.md?}",
       "./versioned_docs/**/{*.md,*.md?}",
       "./internal_notes/**/{*.md,*.md?}",
-      "./src/components/Snippets/*.js"
+      "./src/components/Snippets/*.js",
+      "./processed-docs/**/{*.md,*.md?}"
     ],
     "ignorePaths": [
       "node_modules",
-      "processed-docs",
       "processed-docs-cache",
       "/docs-words.txt"
     ]
