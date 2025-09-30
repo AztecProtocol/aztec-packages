@@ -4,7 +4,9 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
+import { MockVerifierAbi, MockVerifierBytecode, TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
+import type { Hex } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { createEthereumChain } from './chain.js';
@@ -14,7 +16,12 @@ import { GovernanceContract } from './contracts/governance.js';
 import { GSEContract } from './contracts/gse.js';
 import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
-import { type DeployL1ContractsArgs, type Operator, deployL1Contracts } from './deploy_l1_contracts.js';
+import {
+  type DeployL1ContractsArgs,
+  type Operator,
+  deployL1Contract,
+  deployL1Contracts,
+} from './deploy_l1_contracts.js';
 import { startAnvil } from './test/start_anvil.js';
 import type { ExtendedViemWalletClient } from './types.js';
 
@@ -50,7 +57,7 @@ describe('deploy_l1_contracts', () => {
     }));
 
     if (!rpcUrl) {
-      ({ stop, rpcUrl } = await startAnvil());
+      ({ stop, rpcUrl } = await startAnvil({ port: 8546 }));
     }
 
     client = createExtendedL1Client([rpcUrl], privateKey, createEthereumChain([rpcUrl], chainId).chainInfo);
@@ -98,6 +105,62 @@ describe('deploy_l1_contracts', () => {
   it('deploys without salt', async () => {
     const deployed = await deploy();
     await checkRollupDeploy(deployed);
+  });
+
+  it('deploys using an existing external token for fee and staking', async () => {
+    const { address: externalTokenAddress } = await deployL1Contract(client, TestERC20Abi, TestERC20Bytecode as Hex, [
+      'TEST',
+      'TEST',
+      client.account.address,
+    ]);
+
+    const deployed = await deploy({ existingTokenAddress: externalTokenAddress });
+
+    await checkRollupDeploy(deployed);
+
+    expect(deployed.l1ContractAddresses.feeJuiceAddress).toEqual(externalTokenAddress);
+    expect(deployed.l1ContractAddresses.stakingAssetAddress).toEqual(externalTokenAddress);
+
+    expect(deployed.l1ContractAddresses.feeAssetHandlerAddress).toBeUndefined();
+    expect(deployed.l1ContractAddresses.stakingAssetHandlerAddress).toBeUndefined();
+
+    // Ownership of the external token should remain with the deployer, not CoinIssuer
+    expect(await getOwner(deployed.l1ContractAddresses.feeJuiceAddress)).toEqual(
+      EthAddress.fromString(client.account.address),
+    );
+  });
+
+  it('fails when deploying with an address that has no contract code', async () => {
+    const randomAddress = EthAddress.random();
+    await expect(deploy({ existingTokenAddress: randomAddress })).rejects.toThrow(
+      `No contract code found at provided token address ${randomAddress.toString()}`,
+    );
+  });
+
+  it('fails when deploying with a non-ERC20 contract address', async () => {
+    // Deploy a MockVerifier contract (has code but no ERC20 methods)
+    const { address: nonTokenAddress } = await deployL1Contract(
+      client,
+      MockVerifierAbi,
+      MockVerifierBytecode as Hex,
+      [],
+    );
+
+    await expect(deploy({ existingTokenAddress: nonTokenAddress })).rejects.toThrow(
+      `Address ${nonTokenAddress.toString()} does not appear to implement ERC20 view methods`,
+    );
+  });
+
+  it('fails when deploying with both initialValidators and existingTokenAddress', async () => {
+    const { address: externalTokenAddress } = await deployL1Contract(client, TestERC20Abi, TestERC20Bytecode as Hex, [
+      'TEST',
+      'TEST',
+      client.account.address,
+    ]);
+
+    await expect(deploy({ existingTokenAddress: externalTokenAddress, initialValidators })).rejects.toThrow(
+      'Cannot deploy with both initialValidators and existingTokenAddress',
+    );
   });
 
   it('deploys initializing validators', async () => {
