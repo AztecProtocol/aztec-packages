@@ -45,6 +45,7 @@ pub fn main() !u8 {
         try aztec_cmd.addArg(Arg.positional("input_artifact", "Input artifact path", null));
         try aztec_cmd.addArg(Arg.positional("output_artifact", "Output artifact path (optional)", null));
         try aztec_cmd.addArg(Arg.booleanOption("force", 'f', "Force rebuild even if cache exists"));
+        try aztec_cmd.addArg(Arg.singleValueOption("jobs", 'j', "Number of parallel jobs for VK generation"));
         aztec_cmd.setProperty(.help_on_empty_args);
 
         try root.addSubcommand(aztec_cmd);
@@ -66,7 +67,20 @@ pub fn main() !u8 {
             const output = aztec_matches.getSingleValue("output_artifact") orelse input;
             const force = aztec_matches.containsArg("force");
 
-            processArtifact(allocator, input, output, force) catch |err| {
+            const jobs_str = aztec_matches.getSingleValue("jobs");
+            var jobs: usize = if (builtin.target.os.tag == .wasi) 1 else (std.Thread.getCpuCount() catch 1);
+            if (jobs_str) |j_str| {
+                jobs = std.fmt.parseUnsigned(usize, j_str, 10) catch {
+                    print("Error: Invalid jobs value: {s}\n", .{j_str});
+                    return 1;
+                };
+                if (jobs == 0) {
+                    print("Error: Jobs value must be greater than 0\n", .{});
+                    return 1;
+                }
+            }
+
+            processArtifact(allocator, input, output, force, jobs) catch |err| {
                 print("Error processing: {s}: {}\n", .{ input, err });
                 return 1;
             };
@@ -86,7 +100,7 @@ pub fn main() !u8 {
     return @intCast(result);
 }
 
-fn processArtifact(allocator: std.mem.Allocator, input_path: []const u8, output_path: []const u8, force: bool) !void {
+fn processArtifact(allocator: std.mem.Allocator, input_path: []const u8, output_path: []const u8, force: bool, jobs: usize) !void {
     // Step 1: Transpile the artifact.
     const input_cstr = try allocator.dupeZ(u8, input_path);
     defer allocator.free(input_cstr);
@@ -120,7 +134,7 @@ fn processArtifact(allocator: std.mem.Allocator, input_path: []const u8, output_
     try std.fs.cwd().access(output_path, .{});
 
     // Step 2: Generate verification keys (using the output artifact).
-    try generateVerificationKeys(allocator, output_path, force);
+    try generateVerificationKeys(allocator, output_path, force, jobs);
 }
 
 fn isPrivateConstrainedFunction(function: std.json.Value) bool {
@@ -145,7 +159,7 @@ fn isPrivateConstrainedFunction(function: std.json.Value) bool {
     return !is_public and is_constrained;
 }
 
-fn generateVerificationKeys(allocator: std.mem.Allocator, artifact_path: []const u8, force: bool) !void {
+fn generateVerificationKeys(allocator: std.mem.Allocator, artifact_path: []const u8, force: bool, jobs: usize) !void {
     const artifact_name = std.fs.path.basename(artifact_path);
 
     // Use ~/.bb/vk_cache as cache directory.
@@ -190,7 +204,7 @@ fn generateVerificationKeys(allocator: std.mem.Allocator, artifact_path: []const
     }
 
     // Generate VKs for filtered functions and update the JSON in memory.
-    try generateVKsForFunctions(allocator, cache_dir_path, private_functions.items, force);
+    try generateVKsForFunctions(allocator, cache_dir_path, private_functions.items, force, jobs);
 
     // Write the complete updated JSON directly to file.
     const file = try std.fs.cwd().createFile(artifact_path, .{});
@@ -199,6 +213,7 @@ fn generateVerificationKeys(allocator: std.mem.Allocator, artifact_path: []const
     var write_buffer: [8192]u8 = undefined;
     var file_writer = file.writer(&write_buffer);
     try std.json.Stringify.value(parsed.value, .{ .whitespace = .indent_2 }, &file_writer.interface);
+    try file_writer.end();
 }
 
 const WorkerData = struct {
@@ -220,11 +235,12 @@ fn generateVKsForFunctions(
     cache_dir_path: []const u8,
     functions: []*std.json.Value,
     force: bool,
+    jobs: usize,
 ) !void {
 
-    // Use single-threaded processing for WASM target
-    if (builtin.target.os.tag == .wasi) {
-        // Single-threaded processing for WASM
+    // Use single-threaded processing when jobs == 1
+    if (jobs == 1) {
+        // Single-threaded processing
         for (functions) |function| {
             const func_obj = function.object;
             const fn_name = func_obj.get("name").?.string;
@@ -243,7 +259,9 @@ fn generateVKsForFunctions(
     } else {
         // Determine number of processes to use
         const cpu_count = std.Thread.getCpuCount() catch 1;
-        const process_count = @min(functions.len, cpu_count);
+        var process_count = jobs;
+        process_count = @min(process_count, functions.len);
+        process_count = @min(process_count, cpu_count);
 
         // Multi-process - fork workers with pipes for output
         var child_infos = try std.ArrayList(ChildInfo).initCapacity(allocator, process_count);
@@ -292,7 +310,7 @@ fn generateVKsForFunctions(
         }
 
         // Wait for children to complete and print their output.
-        for (child_infos.items, 0..) |info, i| {
+        for (child_infos.items) |info| {
             // Wait for the child to complete first.
             const result = std.posix.waitpid(info.pid, 0);
             if (result.status != 0) {
@@ -307,9 +325,6 @@ fn generateVKsForFunctions(
 
             if (bytes_read > 0) {
                 const output = output_buffer[0..bytes_read];
-                const function_name = functions[i].object.get("name") orelse unreachable;
-
-                print("\n--- {s} ---\n", .{function_name.string});
                 print("{s}", .{output});
                 if (output[output.len - 1] != '\n') {
                     print("\n", .{});
@@ -345,6 +360,8 @@ fn vkWorkerProcess(data: WorkerData) void {
         const function = data.functions[fn_index];
         const func_obj = function.object;
         const fn_name = func_obj.get("name").?.string;
+
+        print("\n--- {s} ---\n", .{fn_name});
         print("Processing function: {s} (PID: {d})\n", .{ fn_name, std.c.getpid() });
 
         // Get raw bytecode first
