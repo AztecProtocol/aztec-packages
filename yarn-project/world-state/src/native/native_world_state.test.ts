@@ -39,13 +39,14 @@ describe('NativeWorldState', () => {
   let dataDir: string;
   let backupDir: string | undefined;
   let rollupAddress: EthAddress;
-  const defaultDBMapSize = 25 * 1024 * 1024;
+  const defaultDBMapSize = 128 * 1024 * 1024; // 128 GB
+  const tbMapSize = 1024 * 1024 * 1024; // 1 TB
   const wsTreeMapSizes: WorldStateTreeMapSizes = {
     archiveTreeMapSizeKb: defaultDBMapSize,
-    nullifierTreeMapSizeKb: defaultDBMapSize,
-    noteHashTreeMapSizeKb: defaultDBMapSize,
+    nullifierTreeMapSizeKb: tbMapSize,
+    noteHashTreeMapSizeKb: tbMapSize,
     messageTreeMapSizeKb: defaultDBMapSize,
-    publicDataTreeMapSizeKb: defaultDBMapSize,
+    publicDataTreeMapSizeKb: tbMapSize,
   };
 
   beforeAll(async () => {
@@ -1196,12 +1197,13 @@ describe('NativeWorldState', () => {
         statuses[0].dbStats.publicDataTreeStats.blocksDBStats.numDataItems,
       );
 
-      const mapSizeBytes = BigInt(1024 * defaultDBMapSize);
-      expect(statuses[0].dbStats.archiveTreeStats.mapSize).toBe(mapSizeBytes);
-      expect(statuses[0].dbStats.messageTreeStats.mapSize).toBe(mapSizeBytes);
-      expect(statuses[0].dbStats.nullifierTreeStats.mapSize).toBe(mapSizeBytes);
-      expect(statuses[0].dbStats.noteHashTreeStats.mapSize).toBe(mapSizeBytes);
-      expect(statuses[0].dbStats.publicDataTreeStats.mapSize).toBe(mapSizeBytes);
+      const defaultMapSizeBytes = BigInt(1024 * defaultDBMapSize);
+      const tbMapSizeBytes = BigInt(1024 * tbMapSize);
+      expect(statuses[0].dbStats.archiveTreeStats.mapSize).toBe(defaultMapSizeBytes);
+      expect(statuses[0].dbStats.messageTreeStats.mapSize).toBe(defaultMapSizeBytes);
+      expect(statuses[0].dbStats.nullifierTreeStats.mapSize).toBe(tbMapSizeBytes);
+      expect(statuses[0].dbStats.noteHashTreeStats.mapSize).toBe(tbMapSizeBytes);
+      expect(statuses[0].dbStats.publicDataTreeStats.mapSize).toBe(tbMapSizeBytes);
 
       await ws.close();
     });
