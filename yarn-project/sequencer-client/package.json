@@ -65,7 +65,7 @@
     "@types/node": "^22.15.17",
     "concurrently": "^7.6.0",
     "eslint": "^9.26.0",
-    "express": "^4.21.1",
+    "express": "^4.21.2",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "prettier": "^3.5.3",
