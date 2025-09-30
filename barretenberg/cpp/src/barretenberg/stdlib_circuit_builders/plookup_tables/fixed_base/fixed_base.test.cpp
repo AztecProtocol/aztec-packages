@@ -147,7 +147,7 @@ TEST_F(FixedBaseTableTest, TableGenerationAndValueRetrieval)
 {
     // Generate a basic table for the first LHS_LO sub-table
     auto basic_table =
-        table::generate_basic_fixed_base_table<0>(FIXED_BASE_0_0, COLUMN_2_STEP_SIZE, COLUMN_3_STEP_SIZE);
+        table::generate_basic_fixed_base_table<0>(FIXED_BASE_0_0, /*basic_table_index=*/0, /*table_index=*/0);
 
     // Verify the basic table metadata is set correctly
     EXPECT_EQ(basic_table.id, FIXED_BASE_0_0);
