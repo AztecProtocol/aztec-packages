@@ -23,11 +23,11 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& 
     auto point_y = to_field_ct(input_y, builder);
     auto infinite = bool_ct(to_field_ct(input_infinite, builder));
 
-    bool non_constant_coordinates = !input_x.is_constant || !input_y.is_constant;
+    bool constant_coordinates = input_x.is_constant && input_y.is_constant;
 
-    // If witness is provided and the input is non-constant, overwrite the coordinates to correspond to an arbitrary
+    // If witness is not provided and the input is non-constant, overwrite the coordinates to correspond to an arbitrary
     // valid curve point (affine_one) to avoid triggering assertions in cycle_group.
-    if (!has_valid_witness_assignments && non_constant_coordinates) {
+    if (!has_valid_witness_assignments && !constant_coordinates) {
         auto one = bb::grumpkin::g1::affine_one;
         builder.set_variable(input_x.index, one.x);
         builder.set_variable(input_y.index, one.y);
