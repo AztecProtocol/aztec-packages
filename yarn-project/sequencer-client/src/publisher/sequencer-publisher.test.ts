@@ -162,7 +162,7 @@ describe('SequencerPublisher', () => {
 
     l1TxUtils.sendAndMonitorTransaction.mockResolvedValue({
       receipt: proposeTxReceipt,
-      gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },
+      state: { gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n } } as any,
     });
     (l1TxUtils as any).estimateGas.mockResolvedValue(GAS_GUESS);
     (l1TxUtils as any).simulate.mockResolvedValue({ gasUsed: 1_000_000n, result: '0x' });
@@ -271,7 +271,6 @@ describe('SequencerPublisher', () => {
 
     forwardSpy.mockResolvedValue({
       receipt: proposeTxReceipt,
-      gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },
       errorMsg: undefined,
     });
 
@@ -327,7 +326,6 @@ describe('SequencerPublisher', () => {
   it('errors if forwarder tx fails', async () => {
     forwardSpy.mockRejectedValueOnce(new Error()).mockResolvedValueOnce({
       receipt: proposeTxReceipt,
-      gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },
       errorMsg: undefined,
     });
 
@@ -358,7 +356,6 @@ describe('SequencerPublisher', () => {
   it('returns errorMsg if forwarder tx reverts', async () => {
     forwardSpy.mockResolvedValue({
       receipt: { ...proposeTxReceipt, status: 'reverted' },
-      gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },
       errorMsg: 'Test error',
     });
 
