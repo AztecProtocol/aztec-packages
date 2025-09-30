@@ -99,13 +99,13 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         MockCircuits::add_arithmetic_gates_with_public_inputs(builder, 1 << log_num_gates_with_public_inputs);
 
         // Create lookup gates
-        // MockCircuits::add_lookup_gates(builder);
+        MockCircuits::add_lookup_gates(builder);
 
         // Create RAM gates
-        // MockCircuits::add_RAM_gates(builder);
+        MockCircuits::add_RAM_gates(builder);
 
         // Create ecc gates
-        // GoblinMockCircuits::add_some_ecc_op_gates(builder);
+        GoblinMockCircuits::add_some_ecc_op_gates(builder);
 
         // Arbitrary non-trivial arithmetic logic
         Fr a = Fr::from_witness(&builder, FrNative::random_element(&engine));
@@ -158,6 +158,9 @@ class ProtogalaxyRecursiveTests : public testing::Test {
             prover_inst->is_complete = false;
         }
         [[maybe_unused]] bool is_valid = check_accumulator_target_sum_manual(prover_inst);
+        info("Is valid? ", is_valid);
+        [[maybe_unused]] bool is_valid_circuit = CircuitChecker::check(builder);
+        info("Is valid circuit: ", is_valid_circuit);
 
         return NativeFoldingData{ .prover_inst = prover_inst, .honk_vk = honk_vk, .verifier_inst = verifier_inst };
     }
@@ -328,7 +331,7 @@ class ProtogalaxyRecursiveTests : public testing::Test {
             is_valid = check_accumulator_target_sum_manual(prover_inst_1);
             break;
         case TamperingMode::WiresSecondInstance:
-            // prover_inst_2->polynomials.w_l.at(1) += NativeFF(1);
+            prover_inst_2->polynomials.w_l.at(1) += NativeFF(1);
             {
                 OinkProver<NativeFlavor> oink_prover(
                     prover_inst_2, std::make_shared<NativeVerificationKey>(prover_inst_2->get_precomputed()));
