@@ -94,29 +94,29 @@ Before your transaction can be accepted, it needs to pass through the kernel cir
    - Ensure gas fees are properly handled
 3. **Prepare for public execution**: If your transaction includes public functions, set them up for processing
 
-The kernel circuits use recursive proofs, which we learned about in the previous lesson. They create a new proof that says "I verified the application's proof and added my own checks."
+The kernel circuits use **recursive proofs**, which we learned about in the previous lesson. They create a new proof that says "I verified the application's proof and added my own checks."
 
 ## Step 3: The sequencer's role
 
-Your transaction has now reached the sequencer network. In Aztec, **sequencers are full nodes responsible for the production of blocks within the network**. Like air traffic controllers, they take all the incoming transactions and organize them into orderly blocks. Importantly, they have no visibility into the contents, purpose, or origin of any transactions they are sequencing, unless that transaction explicitly has public side-effects.
+Your transaction has now reached the sequencer network. In Aztec, **sequencers are full nodes responsible for the production of blocks within the network**. Like air traffic controllers, they take all the incoming transactions and organize them into orderly blocks. Importantly, they have no visibility into the contents, purpose, or origin of any transactions they are sequencing, unless that transaction explicitly has public elements.
 
 ### Selection and validation
 
-Sequencers can take on two roles: proposer or attester. Each epoch, a committee of proposers is sampled from the sequencer set. The proposer for a specific slot:
+Sequencers have two roles: **proposer** and **attester**. Each epoch, a committee of sequencers is sampled from the sequencer set. Each slot, a sequencer acts as a **proposer** and proposes a block by:
 
-1. **Collects transactions**: Gathers proofs and transaction data from many users
-2. **Validates everything**:
+1. **Collecting transactions**: Gathers proofs and transaction data from many users
+2. **Validating everything**:
    - Checks all proofs are valid
    - Ensures nullifiers aren't duplicated
    - Verifies sufficient gas fees
-3. **Orders transactions**: Determines the sequence for the block
-4. **Distributes to attesters**: Shares the block with committee members who verify and sign it (requiring 2/3+1 signatures)
+3. **Ordering transactions**: Determines the sequence for the block
+4. **Distributing to attesters**: Shares the block with committee members who act as attesters and verify and sign the proposed block (requiring 2/3+1 of attesters to agree)
 
 ### The public/private split
 
-Here's where things get interesting. Remember we mentioned that transactions can have both private and public components? The sequencer handles them differently:
+Remember we mentioned that transactions can have both private and public components? The sequencer handles them differently:
 
-**Private functions** (already executed):
+**Private functions** (already executed in the PXE):
 
 - The sequencer just verifies the proofs
 - Updates the note hash tree with new commitments
@@ -130,9 +130,11 @@ Here's where things get interesting. Remember we mentioned that transactions can
 - Other nodes can see and verify this execution
 - Results are deterministic - everyone gets the same answer
 
-This split is crucial! Private functions maintain complete privacy because they've already been executed on your device. Public functions provide transparency where needed, like updating a public AMM pool or recording a public vote.
+Private functions maintain complete privacy because they've already been executed on your device. Public functions provide transparency where needed, like updating a public AMM pool or recording a public vote.
 
 ### Building the block
+
+[TODO] so at what point are they bundling then?
 
 The sequencer bundles many transactions together:
 
@@ -143,7 +145,9 @@ The sequencer bundles many transactions together:
 
 ## Step 4: Block proof generation
 
-After blocks are included in the pending chain (secured by sequencer stake), specialized entities called provers generate zero-knowledge proofs for these blocks. This is where Aztec's recursive proof magic really shines - provers take all the transaction proofs in a block (or multiple blocks) and compress them into a single, compact proof.
+[TODO] multiple blocks?
+
+After blocks are included in the pending chain (secured by sequencer stake), specialized entities called provers generate zero-knowledge proofs for these blocks. Provers take all the transaction proofs across multiple blocks and compress them into a single, compact proof.
 
 ### Layers of aggregation
 
