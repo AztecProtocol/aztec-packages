@@ -12,7 +12,7 @@ import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CommitteeAttestation, type L2BlockSource } from '@aztec/stdlib/block';
+import { CommitteeAttestation, CommitteeAttestationsAndSigners, type L2BlockSource } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import {
@@ -30,7 +30,7 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { BlockAttestation, BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { makeAppendOnlyTreeSnapshot, mockTxForRollup } from '@aztec/stdlib/testing';
 import type { MerkleTreeId } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, type Tx, TxHash, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, type Tx, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
 import type { ValidatorClient } from '@aztec/validator-client';
 
 import { expect } from '@jest/globals';
@@ -141,11 +141,17 @@ describe('sequencer', () => {
     return tx;
   };
 
-  const expectPublisherProposeL2Block = (txHashes: TxHash[]) => {
+  const expectPublisherProposeL2Block = () => {
+    const attestationsAndSigners = new CommitteeAttestationsAndSigners(getSignatures());
     expect(publisher.enqueueProposeL2Block).toHaveBeenCalledTimes(1);
-    expect(publisher.enqueueProposeL2Block).toHaveBeenCalledWith(block, getSignatures(), txHashes, {
-      txTimeoutAt: expect.any(Date),
-    });
+    expect(publisher.enqueueProposeL2Block).toHaveBeenCalledWith(
+      block,
+      attestationsAndSigners,
+      getSignatures()[0].signature,
+      {
+        txTimeoutAt: expect.any(Date),
+      },
+    );
   };
 
   beforeEach(async () => {
@@ -265,6 +271,7 @@ describe('sequencer', () => {
     validatorClient = mock<ValidatorClient>();
     validatorClient.collectAttestations.mockImplementation(() => Promise.resolve(getAttestations()));
     validatorClient.createBlockProposal.mockImplementation(() => Promise.resolve(createBlockProposal()));
+    validatorClient.signAttestationsAndSigners.mockImplementation(() => Promise.resolve(getSignatures()[0].signature));
 
     slasherClient = mock<SlasherClientInterface>();
     slasherClient.getProposerActions.mockResolvedValue([]);
@@ -295,13 +302,12 @@ describe('sequencer', () => {
   describe('block building', () => {
     it('builds a block out of a single tx', async () => {
       const tx = await makeTx();
-      const txHash = tx.getTxHash();
 
       block = await makeBlock([tx]);
       mockPendingTxs([tx]);
       await sequencer.doRealWork();
 
-      expectPublisherProposeL2Block([txHash]);
+      expectPublisherProposeL2Block();
     });
 
     it('does not build a block if it does not have enough time left in the slot', async () => {
@@ -351,7 +357,6 @@ describe('sequencer', () => {
 
     it('builds a block when it is their turn', async () => {
       const tx = await makeTx();
-      const txHash = tx.getTxHash();
 
       mockPendingTxs([tx]);
       block = await makeBlock([tx]);
@@ -384,7 +389,7 @@ describe('sequencer', () => {
         globalVariables,
         expect.anything(),
       );
-      expectPublisherProposeL2Block([txHash]);
+      expectPublisherProposeL2Block();
     });
 
     it('builds a block once it reaches the minimum number of transactions', async () => {
@@ -416,7 +421,7 @@ describe('sequencer', () => {
         expect.anything(),
       );
 
-      expectPublisherProposeL2Block(await Promise.all(neededTxs.map(tx => tx.getTxHash())));
+      expectPublisherProposeL2Block();
     });
 
     it('settles on the chain tip before it starts building a block', async () => {
@@ -514,7 +519,7 @@ describe('sequencer', () => {
       publisher.enqueueProposeL2Block.mockRejectedValueOnce(new Error('Failed to enqueue propose L2 block'));
 
       await sequencer.doRealWork();
-      expectPublisherProposeL2Block([tx.getTxHash()]);
+      expectPublisherProposeL2Block();
 
       // Even though the block publish was not enqueued, we still send any requests
       expect(publisher.sendRequests).toHaveBeenCalledTimes(1);
@@ -596,7 +601,6 @@ describe('sequencer', () => {
       // Build and publish 2 blocks, the sequencer should request a new publisher each time
       for (let i = 0; i < 2; i++) {
         const tx = await makeTx();
-        const txHash = tx.getTxHash();
 
         mockPendingTxs([tx]);
         block = await makeBlock([tx]);
@@ -609,10 +613,16 @@ describe('sequencer', () => {
           expect.anything(),
         );
 
+        const attestationsAndSigners = new CommitteeAttestationsAndSigners(getSignatures());
         expect(publishers[i].enqueueProposeL2Block).toHaveBeenCalledTimes(1);
-        expect(publishers[i].enqueueProposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], {
-          txTimeoutAt: expect.any(Date),
-        });
+        expect(publishers[i].enqueueProposeL2Block).toHaveBeenCalledWith(
+          block,
+          attestationsAndSigners,
+          getSignatures()[0].signature,
+          {
+            txTimeoutAt: expect.any(Date),
+          },
+        );
       }
     });
   });

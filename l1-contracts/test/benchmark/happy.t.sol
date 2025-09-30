@@ -115,6 +115,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     bytes blobInputs;
     CommitteeAttestation[] attestations;
     address[] signers;
+    Signature attestationsAndSignersSignature;
   }
 
   enum TestSlash {
@@ -351,11 +352,20 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       }
     }
 
+    Signature memory attestationsAndSignersSignature;
+    if (proposer != address(0)) {
+      attestationsAndSignersSignature = createAttestation(
+        proposer,
+        AttestationLib.getAttestationsAndSignersDigest(AttestationLibHelper.packAttestations(attestations), signers)
+      ).signature;
+    }
+
     return Block({
       proposeArgs: proposeArgs,
       blobInputs: full.block.blobCommitments,
       attestations: attestations,
-      signers: signers
+      signers: signers,
+      attestationsAndSignersSignature: attestationsAndSignersSignature
     });
   }
 
@@ -453,7 +463,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
     calls[0] = Multicall3.Call3({
       target: address(rollup),
-      callData: abi.encodeCall(rollup.propose, (b.proposeArgs, attestations, b.signers, b.blobInputs)),
+      callData: abi.encodeCall(
+        rollup.propose, (b.proposeArgs, attestations, b.signers, b.attestationsAndSignersSignature, b.blobInputs)
+      ),
       allowFailure: false
     });
     calls[1] = Multicall3.Call3({
@@ -509,7 +521,13 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
             target: address(rollup),
             callData: abi.encodeCall(
               rollup.propose,
-              (b.proposeArgs, AttestationLibHelper.packAttestations(b.attestations), b.signers, b.blobInputs)
+              (
+                b.proposeArgs,
+                AttestationLibHelper.packAttestations(b.attestations),
+                b.signers,
+                b.attestationsAndSignersSignature,
+                b.blobInputs
+              )
             ),
             allowFailure: false
           });
@@ -530,18 +548,19 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
             // Before slash offset, just propose normally
             CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(b.attestations);
             vm.prank(proposer);
-            rollup.propose(b.proposeArgs, attestations, b.signers, b.blobInputs);
+            rollup.propose(b.proposeArgs, attestations, b.signers, b.attestationsAndSignersSignature, b.blobInputs);
           }
         } else {
           CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(b.attestations);
 
           // Emit calldata size for propose
-          bytes memory proposeCalldata =
-            abi.encodeCall(rollup.propose, (b.proposeArgs, attestations, b.signers, b.blobInputs));
+          bytes memory proposeCalldata = abi.encodeCall(
+            rollup.propose, (b.proposeArgs, attestations, b.signers, b.attestationsAndSignersSignature, b.blobInputs)
+          );
           emit log_named_uint("propose_calldata_size", proposeCalldata.length);
 
           vm.prank(proposer);
-          rollup.propose(b.proposeArgs, attestations, b.signers, b.blobInputs);
+          rollup.propose(b.proposeArgs, attestations, b.signers, b.attestationsAndSignersSignature, b.blobInputs);
         }
 
         nextSlot = nextSlot + Slot.wrap(1);

@@ -352,10 +352,14 @@ describe('TallySlasherClient', () => {
 
       it('should not execute vetoed rounds', async () => {
         const currentRound = 5n;
-        const currentSlot = currentRound * BigInt(roundSize);
+        const currentSlot = currentRound * BigInt(roundSize); // Round 5
         const executableRound = 2n; // After execution delay of 2: currentRound - delay - 1 = 5 - 2 - 1 = 2
 
-        tallySlashingProposer.getRound.mockResolvedValueOnce(executableRoundData);
+        tallySlashingProposer.getRound.mockResolvedValueOnce({
+          isExecuted: false,
+          readyToExecute: true,
+          voteCount: 120n,
+        });
 
         const payloadAddress = EthAddress.random();
         tallySlashingProposer.getPayload.mockResolvedValue({
@@ -373,31 +377,12 @@ describe('TallySlasherClient', () => {
 
       it('should not execute when slashing is disabled', async () => {
         const currentRound = 5n;
-        const currentSlot = currentRound * BigInt(roundSize);
+        const currentSlot = currentRound * BigInt(roundSize); // Round 5
 
         slasherContract.isSlashingEnabled.mockResolvedValue(false);
         const actions = await tallySlasherClient.getProposerActions(currentSlot);
 
         expect(actions).toHaveLength(0);
-      });
-
-      it('should return earliest execute when multiple are available', async () => {
-        const currentRound = 5n;
-        const currentSlot = currentRound * BigInt(roundSize);
-
-        tallySlasherClient.updateConfig({ slashExecuteRoundsLookBack: 5 });
-
-        tallySlashingProposer.getRound
-          .mockResolvedValueOnce({ ...executedRoundData }) // round 0
-          .mockResolvedValueOnce({ ...executableRoundData }); // round 1
-
-        const actions = await tallySlasherClient.getProposerActions(currentSlot);
-
-        expect(actions).toHaveLength(1);
-        expectActionExecuteSlash(actions[0], 1n);
-        expect(tallySlashingProposer.getRound).toHaveBeenCalledTimes(2);
-        expect(tallySlashingProposer.getRound).toHaveBeenCalledWith(0n);
-        expect(tallySlashingProposer.getRound).toHaveBeenCalledWith(1n);
       });
     });
 

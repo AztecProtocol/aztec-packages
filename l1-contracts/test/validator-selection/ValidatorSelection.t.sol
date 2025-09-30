@@ -43,6 +43,8 @@ import {
   BlockHeaderValidationFlags
 } from "@aztec/core/interfaces/IRollup.sol";
 
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
+
 // solhint-disable comprehensive-interface
 
 // Test Block Flags
@@ -54,6 +56,7 @@ struct TestFlags {
   bool invalidAddressAttestation;
   bool invalidSignatureSValue;
   bool invalidSignatureAddress0;
+  bool invalidAttestationAndSignersSignature;
 }
 
 library TestFlagsLib {
@@ -65,7 +68,8 @@ library TestFlagsLib {
       invalidSigners: false,
       invalidAddressAttestation: false,
       invalidSignatureSValue: false,
-      invalidSignatureAddress0: false
+      invalidSignatureAddress0: false,
+      invalidAttestationAndSignersSignature: false
     });
   }
 
@@ -101,6 +105,11 @@ library TestFlagsLib {
 
   function invalidateSignatureAddress0(TestFlags memory _flags) internal pure returns (TestFlags memory) {
     _flags.invalidSignatureAddress0 = true;
+    return _flags;
+  }
+
+  function invalidateAttestationAndSignersSignature(TestFlags memory _flags) internal pure returns (TestFlags memory) {
+    _flags.invalidAttestationAndSignersSignature = true;
     return _flags;
   }
 }
@@ -345,6 +354,22 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
+  function testInvalidAttestationAndSignersSignature() public setup(4, 4) progressEpochs(2) {
+    _testBlock(
+      "mixed_block_1",
+      Errors.SignatureLib__InvalidSignature.selector,
+      3,
+      4,
+      TestFlagsLib.empty().invalidateAttestationAndSignersSignature()
+    );
+  }
+
+  function testInvalidAttestationIndex(uint256 _invalidIndex) public setup(4, 4) progressEpochs(2) {
+    ProposeTestData memory ree = _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
+    uint256 invalidIndex = bound(_invalidIndex, ree.committee.length, type(uint256).max);
+    _invalidateByAttestationSig(ree, invalidIndex, Errors.Rollup__InvalidAttestationIndex.selector);
+  }
+
   function testInvalidAttestationSigner() public setup(4, 4) progressEpochs(2) {
     ProposeTestData memory ree =
       _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateAttestationSigner());
@@ -355,24 +380,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   }
 
   function testInvalidAddressAttestation() public setup(4, 4) progressEpochs(2) {
-    ProposeTestData memory ree =
-      _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateAddressAttestation());
-
-    // We try to invalidate the count, but it got sufficient, so tx should revert
-    _invalidateByAttestationCount(ree, Errors.ValidatorSelection__InsufficientAttestations.selector);
-
-    // We now invalidate the wrong attestation, no revert
-    // https://www.youtube.com/watch?v=glN0W8WogK8
-    _invalidateByAttestationSig(ree, ree.invalidAddressAttestationIndex, NO_REVERT);
-
-    // Try to prove to show that it can explode at this point, and we could not do anything before it.
-    // This should revert but won't if we did not invalidate
-    _proveBlocks(
-      "mixed_block_",
-      1,
-      1,
-      AttestationLibHelper.packAttestations(ree.attestations),
-      Errors.Rollup__InvalidBlockNumber.selector
+    _testBlock(
+      "mixed_block_1",
+      Errors.ValidatorSelection__InvalidCommitteeCommitment.selector,
+      3,
+      4,
+      TestFlagsLib.empty().invalidateAddressAttestation()
     );
   }
 
@@ -586,17 +599,14 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     }
 
     if (_flags.invalidAddressAttestation) {
-      // By using this function we end up caching the correct proposer so we can skip the check in the real submission
-      // Only works in the same tx.
-      rollup.validateHeaderWithAttestations(
-        ree.proposeArgs.header,
-        AttestationLibHelper.packAttestations(ree.attestations),
-        ree.signers,
-        digest,
-        bytes32(0),
-        BlockHeaderValidationFlags({ignoreDA: true})
-      );
-
+      if (ree.proposer != address(0)) {
+        ree.attestationsAndSignersSignature = _createAttestation(
+          ree.proposer,
+          AttestationLib.getAttestationsAndSignersDigest(
+            AttestationLibHelper.packAttestations(ree.attestations), ree.signers
+          )
+        ).signature;
+      }
       // Change the last element in the committee (since it don't need a sig as we have enough earlier)
       // to be a random address instead of the expected one.
       address invalidAddress = address(uint160(uint256(keccak256(abi.encode("invalid", block.timestamp)))));
@@ -650,6 +660,31 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       ree.signers[0] = invalidSigner;
     }
 
+    // The proposer signs over the `attestations` and `signers`. Will always be done.
+    if (ree.proposer != address(0) && !_flags.invalidAttestationAndSignersSignature) {
+      ree.attestationsAndSignersSignature = _createAttestation(
+        ree.proposer,
+        AttestationLib.getAttestationsAndSignersDigest(
+          AttestationLibHelper.packAttestations(ree.attestations), ree.signers
+        )
+      ).signature;
+    } else if (ree.proposer != address(0) && _flags.invalidAttestationAndSignersSignature) {
+      // Use a signature that is not the proposers!
+      address invalidSigner;
+      for (uint256 i = 0; i < ree.signers.length; i++) {
+        if (ree.signers[i] != ree.proposer) {
+          invalidSigner = ree.signers[i];
+          break;
+        }
+      }
+      ree.attestationsAndSignersSignature = _createAttestation(
+        invalidSigner,
+        AttestationLib.getAttestationsAndSignersDigest(
+          AttestationLibHelper.packAttestations(ree.attestations), ree.signers
+        )
+      ).signature;
+    }
+
     emit log("Time to propose");
     if (_revertData != NO_REVERT) {
       if (_revertData == ANY_REVERT) {
@@ -661,7 +696,11 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     vm.prank(ree.sender);
     rollup.propose(
-      ree.proposeArgs, AttestationLibHelper.packAttestations(ree.attestations), ree.signers, full.block.blobCommitments
+      ree.proposeArgs,
+      AttestationLibHelper.packAttestations(ree.attestations),
+      ree.signers,
+      ree.attestationsAndSignersSignature,
+      full.block.blobCommitments
     );
 
     if (_revertData != NO_REVERT) {

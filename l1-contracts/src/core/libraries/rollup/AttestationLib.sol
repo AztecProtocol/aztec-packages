@@ -13,7 +13,8 @@ uint256 constant ADDRESS_LENGTH = 20;
  */
 enum SignatureDomainSeparator {
   blockProposal,
-  blockAttestation
+  blockAttestation,
+  attestationsAndSigners
 }
 
 // A committee attestation can be made up of a signature and an address.
@@ -129,49 +130,6 @@ library AttestationLib {
   }
 
   /**
-   * @notice Assert that the size of `_attestations` is as expected, throw otherwise
-   *
-   * @custom:reverts SignatureIndicesSizeMismatch if the signature indices have a wrong size
-   * @custom:reverts SignaturesOrAddressesSizeMismatch if the signatures or addresses object has wrong size
-   *
-   * @param _attestations - The attestation struct
-   * @param _expectedCount - The expected size of the validator set
-   */
-  function assertSizes(CommitteeAttestations memory _attestations, uint256 _expectedCount) internal pure {
-    // Count signatures (1s) and addresses (0s) from bitmap
-    uint256 signatureCount = 0;
-    uint256 addressCount = 0;
-    uint256 bitmapBytes = (_expectedCount + 7) / 8; // Round up to nearest byte
-    require(
-      bitmapBytes == _attestations.signatureIndices.length,
-      Errors.AttestationLib__SignatureIndicesSizeMismatch(bitmapBytes, _attestations.signatureIndices.length)
-    );
-
-    for (uint256 i = 0; i < _expectedCount; i++) {
-      uint256 byteIndex = i / 8;
-      uint256 bitIndex = 7 - (i % 8);
-      uint8 bitMask = uint8(1 << bitIndex);
-
-      if (uint8(_attestations.signatureIndices[byteIndex]) & bitMask != 0) {
-        signatureCount++;
-      } else {
-        addressCount++;
-      }
-    }
-
-    // Calculate expected size
-    uint256 sizeOfSignaturesAndAddresses = (signatureCount * SIGNATURE_LENGTH) + (addressCount * ADDRESS_LENGTH);
-
-    // Validate actual size matches expected
-    require(
-      sizeOfSignaturesAndAddresses == _attestations.signaturesOrAddresses.length,
-      Errors.AttestationLib__SignaturesOrAddressesSizeMismatch(
-        sizeOfSignaturesAndAddresses, _attestations.signaturesOrAddresses.length
-      )
-    );
-  }
-
-  /**
    * Recovers the committee from the addresses in the attestations and signers.
    *
    * @custom:reverts SignatureIndicesSizeMismatch if the signature indices have a wrong size
@@ -236,13 +194,6 @@ library AttestationLib {
       }
     }
 
-    // Ensure that the reads were within the boundaries of the data.
-    // As `dataPtr` will always be increasing (and unlikely to wrap around because it would require insane size)
-    // we can just check that the last dataPtr value is inside the limit, as all the others would be as well then.
-    uint256 upperLimit = offset + _attestations.signaturesOrAddresses.length;
-    // As the offset was added already part of both values, we can subtract to give a more meaningful error.
-    require(dataPtr <= upperLimit, Errors.AttestationLib__OutOfBounds(dataPtr - offset, upperLimit - offset));
-
     // Ensure that the size of data provided actually matches what we expect
     uint256 sizeOfSignaturesAndAddresses =
       (signersIndex * SIGNATURE_LENGTH) + ((_length - signersIndex) * ADDRESS_LENGTH);
@@ -252,7 +203,26 @@ library AttestationLib {
         sizeOfSignaturesAndAddresses, _attestations.signaturesOrAddresses.length
       )
     );
+    require(signersIndex == _signers.length, Errors.AttestationLib__SignersSizeMismatch(signersIndex, _signers.length));
+
+    // Ensure that the reads were within the boundaries of the data, and that we have read all the data.
+    // This check is an extra precaution. There are two cases, we we would end up with an invalid
+    // read, and both should be covered by the above checks.
+    // 1. If trying to read beyond the expected data, the bitmap must have more ones than signatures,
+    // but this will make the the `sizeOfSignaturesAndAddresses` larger than passed data.
+    // 2. If trying to read less than expected data, the bitmap must have fewer ones than signatures,
+    // but this will make the the `sizeOfSignaturesAndAddresses` smaller than passed data.
+    uint256 upperLimit = offset + _attestations.signaturesOrAddresses.length;
+    require(dataPtr == upperLimit, Errors.AttestationLib__InvalidDataSize(dataPtr - offset, upperLimit - offset));
 
     return addresses;
+  }
+
+  function getAttestationsAndSignersDigest(CommitteeAttestations memory _attestations, address[] memory _signers)
+    internal
+    pure
+    returns (bytes32)
+  {
+    return keccak256(abi.encode(SignatureDomainSeparator.attestationsAndSigners, _attestations, _signers));
   }
 }

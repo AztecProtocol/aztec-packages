@@ -39,12 +39,16 @@ export class SlasherContract {
   }
 
   /**
-   * Checks if slashing is currently enabled.
+   * Checks if slashing is currently enabled. Slashing can be disabled by the vetoer.
    * @returns True if slashing is enabled, false otherwise
    */
-  public isSlashingEnabled(): Promise<boolean> {
-    // TODO(#16971) Update when merged L1 changes
-    return Promise.resolve(true);
+  public async isSlashingEnabled(): Promise<boolean> {
+    try {
+      return await this.contract.read.isSlashingEnabled();
+    } catch (error) {
+      this.log.error(`Error checking if slashing is enabled`, error);
+      throw error;
+    }
   }
 
   /**
@@ -54,6 +58,15 @@ export class SlasherContract {
   public async getVetoer(): Promise<EthAddress> {
     const vetoer = await this.contract.read.VETOER();
     return EthAddress.fromString(vetoer);
+  }
+
+  /**
+   * Gets the disable duration by the vetoer.
+   * @returns The disable duration in seconds
+   */
+  public async getSlashingDisableDuration(): Promise<number> {
+    const duration = await this.contract.read.SLASHING_DISABLE_DURATION();
+    return Number(duration);
   }
 
   /**

@@ -75,7 +75,7 @@ contract TestTmnt150 is GovernanceProposerBase {
 
     assertEq(governanceProposer.signalCount(address(rollup1), round, proposal), 0, "invalid number of votes");
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__SignalAlreadyCastForSlot.selector, 1));
+    vm.expectRevert(abi.encodeWithSelector(Errors.EmpireBase__SignalAlreadyCastForSlot.selector, 1));
 
     rollup1.commenceAttack();
 

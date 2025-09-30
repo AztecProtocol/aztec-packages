@@ -1,5 +1,6 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -16,7 +17,7 @@ import {
   type WatcherEmitter,
 } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { CommitteeAttestationsAndSigners, L2BlockSource } from '@aztec/stdlib/block';
 import type { IFullNodeBlockBuilder, Validator, ValidatorClientFullConfig } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
@@ -360,6 +361,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   async broadcastBlockProposal(proposal: BlockProposal): Promise<void> {
     await this.p2pClient.broadcastProposal(proposal);
+  }
+
+  async signAttestationsAndSigners(
+    attestationsAndSigners: CommitteeAttestationsAndSigners,
+    proposer: EthAddress | undefined,
+  ): Promise<Signature> {
+    return await this.validationService.signAttestationsAndSigners(attestationsAndSigners, proposer);
   }
 
   async collectOwnAttestations(proposal: BlockProposal): Promise<BlockAttestation[]> {

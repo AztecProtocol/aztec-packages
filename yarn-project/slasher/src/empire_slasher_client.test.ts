@@ -163,6 +163,7 @@ describe('EmpireSlasherClient', () => {
     // Setup rollup and slasher contract mocks
     rollupContract.getSlasherContract.mockResolvedValue(slasherContract);
     slasherContract.isPayloadVetoed.mockResolvedValue(false);
+    slasherContract.isSlashingEnabled.mockResolvedValue(true);
 
     // Create watcher
     dummyWatcher = new DummyWatcher();

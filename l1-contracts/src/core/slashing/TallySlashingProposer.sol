@@ -487,8 +487,9 @@ contract TallySlashingProposer is EIP712 {
   /**
    * @notice Load committees for all epochs to be potentially slashed in a round from the rollup instance
    * @dev This is an expensive call. It is not marked as view since `getEpochCommittee` may modify rollup state.
+   *      If `getEpochCommittee` throws (eg committee not yet formed), an empty committee is returned for that epoch.
    * @param _round The round number to load committees for
-   * @return committees Array of committees, one for each epoch in the round
+   * @return committees Array of committees, one for each epoch in the round (may contain empty arrays for early epochs)
    */
   function getSlashTargetCommittees(SlashRound _round) external returns (address[][] memory committees) {
     committees = new address[][](ROUND_SIZE_IN_EPOCHS);
@@ -497,7 +498,11 @@ contract TallySlashingProposer is EIP712 {
     unchecked {
       for (uint256 epochIndex; epochIndex < ROUND_SIZE_IN_EPOCHS; ++epochIndex) {
         Epoch epoch = getSlashTargetEpoch(_round, epochIndex);
-        committees[epochIndex] = rollup.getEpochCommittee(epoch);
+        try rollup.getEpochCommittee(epoch) returns (address[] memory committee) {
+          committees[epochIndex] = committee;
+        } catch {
+          committees[epochIndex] = new address[](0);
+        }
       }
     }
 

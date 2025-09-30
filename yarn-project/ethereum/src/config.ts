@@ -28,12 +28,16 @@ export type L1ContractsConfig = {
   aztecEpochDuration: number;
   /** The target validator committee size. */
   aztecTargetCommitteeSize: number;
+  /** The number of epochs to lag behind the current epoch for validator selection. */
+  lagInEpochs: number;
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: number;
   /** The deposit amount for a validator */
   activationThreshold: bigint;
   /** The minimum stake for a validator. */
   ejectionThreshold: bigint;
+  /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
+  localEjectionThreshold: bigint;
   /** The slashing quorum, i.e. how many slots must signal for the same payload in a round for it to be submittable to the Slasher (defaults to slashRoundSize / 2 + 1) */
   slashingQuorum?: number;
   /** The slashing round size, i.e. how many epochs are in a slashing round */
@@ -46,6 +50,8 @@ export type L1ContractsConfig = {
   slashingVetoer: EthAddress;
   /** How many slashing rounds back we slash (ie when slashing in round N, we slash for offenses committed during epochs of round N-offset) */
   slashingOffsetInRounds: number;
+  /** How long slashing can be disabled for in seconds when vetoer disables it */
+  slashingDisableDuration: number;
   /** Type of slasher proposer */
   slasherFlavor: 'empire' | 'tally' | 'none';
   /** Minimum amount that can be slashed in tally slashing */
@@ -71,9 +77,11 @@ export const DefaultL1ContractsConfig = {
   aztecSlotDuration: 36,
   aztecEpochDuration: 32,
   aztecTargetCommitteeSize: 48,
+  lagInEpochs: 2,
   aztecProofSubmissionEpochs: 1, // you have 1 full epoch to submit a proof after the epoch to prove ends
   activationThreshold: 100n * 10n ** 18n,
   ejectionThreshold: 50n * 10n ** 18n,
+  localEjectionThreshold: 98n * 10n ** 18n,
   slashAmountSmall: 10n * 10n ** 18n,
   slashAmountMedium: 20n * 10n ** 18n,
   slashAmountLarge: 50n * 10n ** 18n,
@@ -87,6 +95,7 @@ export const DefaultL1ContractsConfig = {
   exitDelaySeconds: 2 * 24 * 60 * 60,
   slasherFlavor: 'tally' as const,
   slashingOffsetInRounds: 2,
+  slashingDisableDuration: 5 * 24 * 60 * 60, // 5 days in seconds
 } satisfies L1ContractsConfig;
 
 const LocalGovernanceConfiguration = {
@@ -162,41 +171,6 @@ export const getGovernanceConfiguration = (networkName: NetworkNames) => {
   }
 };
 
-const LocalGSEConfiguration = {
-  activationThreshold: BigInt(100e18),
-  ejectionThreshold: BigInt(50e18),
-};
-
-const StagingPublicGSEConfiguration = {
-  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
-  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
-};
-
-const TestnetGSEConfiguration = {
-  activationThreshold: BigInt(100e18),
-  ejectionThreshold: BigInt(50e18),
-};
-
-const StagingIgnitionGSEConfiguration = {
-  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
-  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
-};
-
-export const getGSEConfiguration = (networkName: NetworkNames) => {
-  switch (networkName) {
-    case 'local':
-      return LocalGSEConfiguration;
-    case 'staging-public':
-      return StagingPublicGSEConfiguration;
-    case 'testnet':
-      return TestnetGSEConfiguration;
-    case 'staging-ignition':
-      return StagingIgnitionGSEConfiguration;
-    default:
-      throw new Error(`Unrecognized network name: ${networkName}`);
-  }
-};
-
 // Making a default config here as we are only using it thought the deployment
 // and do not expect to be using different setups, so having environment variables
 // for it seems overkill
@@ -236,15 +210,15 @@ export const getRewardBoostConfig = () => {
 const LocalEntryQueueConfig = {
   bootstrapValidatorSetSize: 0n,
   bootstrapFlushSize: 0n,
-  normalFlushSizeMin: 48n, // will effectively be bounded by maxQueueFlushSize
+  normalFlushSizeMin: 48n,
   normalFlushSizeQuotient: 2n,
   maxQueueFlushSize: 32n,
 };
 
 const StagingPublicEntryQueueConfig = {
   bootstrapValidatorSetSize: 48n,
-  bootstrapFlushSize: 32n, // will effectively be bounded by maxQueueFlushSize
-  normalFlushSizeMin: 32n,
+  bootstrapFlushSize: 48n,
+  normalFlushSizeMin: 1n,
   normalFlushSizeQuotient: 2475n,
   maxQueueFlushSize: 32n, // Limited to 32 so flush cost are kept below 15M gas.
 };
@@ -301,6 +275,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The target validator committee size.',
     ...numberConfigHelper(DefaultL1ContractsConfig.aztecTargetCommitteeSize),
   },
+  lagInEpochs: {
+    env: 'AZTEC_LAG_IN_EPOCHS',
+    description: 'The number of epochs to lag behind the current epoch for validator selection.',
+    ...numberConfigHelper(DefaultL1ContractsConfig.lagInEpochs),
+  },
   aztecProofSubmissionEpochs: {
     env: 'AZTEC_PROOF_SUBMISSION_EPOCHS',
     description: 'The number of epochs after an epoch ends that proofs are still accepted.',
@@ -315,6 +294,12 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     env: 'AZTEC_EJECTION_THRESHOLD',
     description: 'The minimum stake for a validator.',
     ...bigintConfigHelper(DefaultL1ContractsConfig.ejectionThreshold),
+  },
+  localEjectionThreshold: {
+    env: 'AZTEC_LOCAL_EJECTION_THRESHOLD',
+    description:
+      'The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup',
+    ...bigintConfigHelper(DefaultL1ContractsConfig.localEjectionThreshold),
   },
   slashingOffsetInRounds: {
     env: 'AZTEC_SLASHING_OFFSET_IN_ROUNDS',
@@ -367,6 +352,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The slashing vetoer',
     parseEnv: (val: string) => EthAddress.fromString(val),
     defaultValue: DefaultL1ContractsConfig.slashingVetoer,
+  },
+  slashingDisableDuration: {
+    env: 'AZTEC_SLASHING_DISABLE_DURATION',
+    description: 'How long slashing can be disabled for in seconds when vetoer disables it',
+    ...numberConfigHelper(DefaultL1ContractsConfig.slashingDisableDuration),
   },
   governanceProposerQuorum: {
     env: 'AZTEC_GOVERNANCE_PROPOSER_QUORUM',
@@ -441,7 +431,7 @@ export function validateConfig(config: Omit<L1ContractsConfig, keyof L1TxUtilsCo
   }
 
   // EmpireBase constructor validations for governance/slashing proposers
-  // From: require(QUORUM_SIZE > ROUND_SIZE / 2, Errors.GovernanceProposer__InvalidQuorumAndRoundSize(QUORUM_SIZE, ROUND_SIZE));
+  // From: require(QUORUM_SIZE > ROUND_SIZE / 2, Errors.EmpireBase__InvalidQuorumAndRoundSize(QUORUM_SIZE, ROUND_SIZE));
   const { governanceProposerQuorum, governanceProposerRoundSize } = config;
   if (
     governanceProposerQuorum !== undefined &&
@@ -452,7 +442,7 @@ export function validateConfig(config: Omit<L1ContractsConfig, keyof L1TxUtilsCo
     );
   }
 
-  // From: require(QUORUM_SIZE <= ROUND_SIZE, Errors.GovernanceProposer__QuorumCannotBeLargerThanRoundSize(QUORUM_SIZE, ROUND_SIZE));
+  // From: require(QUORUM_SIZE <= ROUND_SIZE, Errors.EmpireBase__QuorumCannotBeLargerThanRoundSize(QUORUM_SIZE, ROUND_SIZE));
   if (governanceProposerQuorum !== undefined && governanceProposerQuorum > governanceProposerRoundSize) {
     errors.push(
       `governanceProposerQuorum (${governanceProposerQuorum}) cannot be larger than governanceProposerRoundSize (${governanceProposerRoundSize})`,
