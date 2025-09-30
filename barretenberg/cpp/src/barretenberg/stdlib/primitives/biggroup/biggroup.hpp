@@ -482,10 +482,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
   private:
     bool_ct _is_infinity;
 
-    // Following are private methods for computation of secp256k1 wNAF. These used to be lambda
-    // functions inside `compute_secp256k1_endo_wnaf`, but we moved them out so that they can be unit tested
-    // individually. They are not intended for public use.
-
     /**
      * @brief Compute the wNAF representation (in circuit) of a scalar for secp256k1
      *
@@ -507,7 +503,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     /**
      * @brief Compute the stagger-related part of wNAF and the final skew
      *
-     * @param fragment_u64 Stagger-masked lower bits of the skalar
+     * @param fragment_u64 Stagger-masked lower bits of the scalar
      * @param stagger The number of staggering bits
      * @param is_negative If the initial scalar is supposed to be subtracted
      * @param wnaf_skew The skew of the stagger-right-shifted part of the scalar

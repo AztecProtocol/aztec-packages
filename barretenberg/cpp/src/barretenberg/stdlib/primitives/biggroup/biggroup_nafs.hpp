@@ -18,16 +18,16 @@ std::pair<uint64_t, bool> element<C, Fq, Fr, G>::compute_secp256k1_staggered_wna
                                                                                            bool is_negative,
                                                                                            bool wnaf_skew)
 {
-    // If there is not stagger then there is no need to change anyhing
+    // If there is no stagger then there is no need to change anything
     if (stagger == 0) {
-        return std::make_pair<uint64_t, bool>((uint64_t)0, (bool)wnaf_skew);
+        return std::make_pair(0, wnaf_skew);
     }
     int fragment = static_cast<int>(fragment_u64);
     // Inverse the fragment if it's negative
     if (is_negative) {
         fragment = -fragment;
     }
-    // If the value is positive and there is a skew in wnaf, subtract 2ˢᵗᵃᵍᵍᵉʳ. If negative and there is
+    // If the value is positive and there is a skew in wnaf, subtract 2^{stagger}. If negative and there is
     // skew, then add
     if (!is_negative && wnaf_skew) {
         fragment -= (1 << stagger);
@@ -50,7 +50,7 @@ std::pair<uint64_t, bool> element<C, Fq, Fr, G>::compute_secp256k1_staggered_wna
             static_cast<uint64_t>((1ULL << (wnaf_size - 1)) - 1ULL + (uint64_t)((uint64_t)fragment / 2 + 1));
     }
 
-    return std::make_pair<uint64_t, bool>((uint64_t)output_fragment, (bool)output_skew);
+    return std::make_pair(output_fragment, output_skew);
 }
 
 template <typename C, class Fq, class Fr, class G>
@@ -193,7 +193,7 @@ std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr,
                              .least_significant_wnaf_fragment = stagger_fragment,
                              .has_wnaf_fragment = (stagger > 0) };
 
-    return std::make_pair<Fr, secp256k1_wnaf>((Fr)reconstructed, (secp256k1_wnaf)wnaf_out);
+    return std::make_pair(reconstructed, wnaf_out);
 }
 
 /**
