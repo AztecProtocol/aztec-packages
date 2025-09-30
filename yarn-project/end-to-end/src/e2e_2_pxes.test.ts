@@ -1,8 +1,6 @@
-// docs:start:import_aztecjs
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import { type AztecAddress, type AztecNode, Fr, type Logger, sleep } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-// docs:end:import_aztecjs
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { TestWallet } from '@aztec/test-wallet/server';
 

@@ -52,10 +52,8 @@ unconstrained fn prove_nullifier_inclusion_succeeds_on_blocks_after_nullifier_cr
     env.private_context_opts(
         PrivateContextOptions::new().at_anchor_block_number(nullifier_created_at),
         |context| {
-            // docs:start:prove_nullifier_inclusion
             let header = context.anchor_block_header;
             header.prove_nullifier_inclusion(siloed_nullifier);
-            // docs:end:prove_nullifier_inclusion
         },
     );
 }

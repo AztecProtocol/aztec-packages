@@ -3,7 +3,6 @@ import {
   registerDeployedBananaFPCInWalletAndGetAddress,
   registerDeployedSponsoredFPCInWalletAndGetAddress,
 } from '@aztec/aztec';
-// docs:start:imports2
 import {
   Fr,
   GrumpkinScalar,
@@ -13,17 +12,14 @@ import {
   getFeeJuiceBalance,
   waitForNode,
 } from '@aztec/aztec.js';
-// docs:end:imports2
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee/testing';
 import { timesParallel } from '@aztec/foundation/collection';
-// docs:start:imports3
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet';
 import { TestWallet } from '@aztec/test-wallet/server';
 
 import { format } from 'util';
 
-// docs:end:imports3
 import { deployToken, mintTokensToPrivate } from '../fixtures/token_utils.js';
 
 const { AZTEC_NODE_URL = 'http://localhost:8080' } = process.env;
@@ -63,24 +59,18 @@ describe('e2e_sandbox_example', () => {
     // For the sandbox quickstart we just want to show them preloaded accounts (since it is a quickstart)
     // We show creation of accounts in a later test
 
-    // docs:start:load_accounts
     ////////////// LOAD SOME ACCOUNTS FROM THE SANDBOX //////////////
     // The sandbox comes with a set of created accounts. Load them
     const [alice, bob] = await registerInitialSandboxAccountsInWallet(wallet);
 
     logger.info(`Loaded alice's account at ${alice.toString()}`);
     logger.info(`Loaded bob's account at ${bob.toString()}`);
-    // docs:end:load_accounts
 
-    // docs:start:Deployment
     ////////////// DEPLOY OUR TOKEN CONTRACT //////////////
 
     const initialSupply = 1_000_000n;
 
     const tokenContract = await deployToken(wallet, alice, initialSupply, logger);
-    // docs:end:Deployment
-
-    // docs:start:Balance
 
     ////////////// QUERYING THE TOKEN BALANCE FOR EACH ACCOUNT //////////////
 
@@ -90,12 +80,9 @@ describe('e2e_sandbox_example', () => {
     let bobBalance = await tokenContract.methods.balance_of_private(bob).simulate({ from: bob });
     logger.info(`Bob's balance ${bobBalance}`);
 
-    // docs:end:Balance
-
     expect(aliceBalance).toBe(initialSupply);
     expect(bobBalance).toBe(0n);
 
-    // docs:start:Transfer
     ////////////// TRANSFER FUNDS FROM ALICE TO BOB //////////////
 
     // We will now transfer tokens from ALice to Bob
@@ -109,12 +96,10 @@ describe('e2e_sandbox_example', () => {
 
     bobBalance = await tokenContract.methods.balance_of_private(bob).simulate({ from: bob });
     logger.info(`Bob's balance ${bobBalance}`);
-    // docs:end:Transfer
 
     expect(aliceBalance).toBe(initialSupply - transferQuantity);
     expect(bobBalance).toBe(transferQuantity);
 
-    // docs:start:Mint
     ////////////// MINT SOME MORE TOKENS TO BOB'S ACCOUNT //////////////
 
     // Now mint some further funds for Bob
@@ -131,7 +116,6 @@ describe('e2e_sandbox_example', () => {
 
     bobBalance = await tokenContract.methods.balance_of_private(bob).simulate({ from: bob });
     logger.info(`Bob's balance ${bobBalance}`);
-    // docs:end:Mint
 
     expect(aliceBalance).toBe(initialSupply - transferQuantity);
     expect(bobBalance).toBe(transferQuantity + mintQuantity);
@@ -145,7 +129,6 @@ describe('e2e_sandbox_example', () => {
     await waitForNode(node, logger);
     const wallet = await TestWallet.create(node);
 
-    // docs:start:create_accounts
     ////////////// CREATE SOME ACCOUNTS WITH SCHNORR SIGNERS //////////////
 
     // Use one of the pre-funded accounts to pay for the deployments.
@@ -187,7 +170,6 @@ describe('e2e_sandbox_example', () => {
       }
       logger.info(`Failed to create account for ${name}!`);
     }
-    // docs:end:create_accounts
 
     // check that alice and bob are in registeredAccounts
     expect(registeredAccounts.find(acc => acc.equals(alice))).toBeTruthy();
@@ -228,12 +210,10 @@ describe('e2e_sandbox_example', () => {
     // const sponsoredPaymentMethod = await SponsoredFeePaymentMethod.new(pxe);
     const initialFPCFeeJuice = await getFeeJuiceBalance(sponsoredFPC, node);
 
-    // docs:start:transaction_with_payment_method
     const receiptForBob = await bananaCoin.methods
       .transfer(alice, amountTransferToAlice)
       .send({ from: bob, fee: { paymentMethod: sponsoredPaymentMethod } })
       .wait();
-    // docs:end:transaction_with_payment_method
     // Check the balances
     const aliceNewBalance = await bananaCoin.methods.balance_of_private(alice).simulate({ from: alice });
     logger.info(`Alice's new balance: ${aliceNewBalance}`);

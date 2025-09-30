@@ -12,9 +12,7 @@ pub contract BobToken {
     };
     // docs:end:imports
 
-    // docs:start:easy_private_uint
     use easy_private_state::EasyPrivateUint;
-    // docs:end:easy_private_uint
 
     // docs:start:public_storage
     // docs:start:storage

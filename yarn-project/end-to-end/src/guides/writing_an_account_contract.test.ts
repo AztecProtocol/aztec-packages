@@ -14,7 +14,6 @@ import { TestWallet } from '@aztec/test-wallet/server';
 
 import { setup } from '../fixtures/utils.js';
 
-// docs:start:account-contract
 const PRIVATE_KEY = GrumpkinScalar.fromHexString('0xd35d743ac0dfe3d6dbe6be8c877cb524a00ab1e3d52d7bada095dfc8894ccfa');
 
 /** Account contract implementation that authenticates txs using Schnorr signatures. */
@@ -43,7 +42,6 @@ class SchnorrHardcodedKeyAccountContract extends DefaultAccountContract {
     };
   }
 }
-// docs:end:account-contract
 
 describe('guides/writing_an_account_contract', () => {
   let context: Awaited<ReturnType<typeof setup>>;
@@ -61,7 +59,6 @@ describe('guides/writing_an_account_contract', () => {
       accounts: [fundedAccount],
     } = context;
 
-    // docs:start:account-contract-deploy
     const secretKey = Fr.random();
 
     const account = await (wallet as TestWallet).createAccount({
@@ -80,10 +77,8 @@ describe('guides/writing_an_account_contract', () => {
     }
 
     const address = account.getAddress();
-    // docs:end:account-contract-deploy
     logger.info(`Deployed account contract at ${address}`);
 
-    // docs:start:token-contract-deploy
     const token = await TokenContract.deploy(wallet, fundedAccount, 'TokenName', 'TokenSymbol', 18)
       .send({ from: fundedAccount })
       .deployed();
@@ -94,10 +89,8 @@ describe('guides/writing_an_account_contract', () => {
 
     const balance = await token.methods.balance_of_private(address).simulate({ from: address });
     logger.info(`Balance of wallet is now ${balance}`);
-    // docs:end:token-contract-deploy
     expect(balance).toEqual(50n);
 
-    // docs:start:account-contract-fails
     const wrongKey = GrumpkinScalar.random();
     const wrongAccountContract = new SchnorrHardcodedKeyAccountContract(wrongKey);
     const wrongAccount = await (wallet as TestWallet).createAccount({
@@ -111,6 +104,5 @@ describe('guides/writing_an_account_contract', () => {
     } catch (err) {
       logger.info(`Failed to send tx: ${err}`);
     }
-    // docs:end:account-contract-fails
   });
 });

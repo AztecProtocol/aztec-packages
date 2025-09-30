@@ -4,7 +4,6 @@ use dep::aztec::{
     protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
 };
 
-// docs:start:address_note_def
 #[derive(Deserialize, Eq, Packable, Serialize)]
 #[note]
 pub struct AddressNote {
@@ -27,4 +26,3 @@ impl AddressNote {
         self.address
     }
 }
-// docs:end:address_note_def

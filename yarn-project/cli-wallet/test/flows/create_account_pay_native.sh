@@ -14,10 +14,8 @@ aztec-wallet bridge-fee-juice 1000000000000000000000 main --mint --no-wait
 section "Use a pre-funded test account to send dummy txs to force block creations"
 
 aztec-wallet import-test-accounts
-# docs:start:force-two-blocks
 aztec-wallet deploy counter_contract@Counter --init initialize --args 0 accounts:test0 -f test0 -a counter
 aztec-wallet send increment -ca counter --args accounts:test0 -f test0
-# docs:end:force-two-blocks
 
 
 section "Deploy main account claiming the fee juice, use it later"

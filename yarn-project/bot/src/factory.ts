@@ -116,11 +116,9 @@ export class BotFactory {
 
       const claim = await this.getOrCreateBridgeClaim(address);
 
-      // docs:start:claim_and_deploy
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(accountManager.getAddress(), claim);
       const sentTx = accountManager.deploy({ fee: { paymentMethod } });
       const txHash = await sentTx.getTxHash();
-      // docs:end:claim_and_deploy
       this.log.info(`Sent tx for account deployment with hash ${txHash.toString()}`);
       await this.withNoMinTxsPerBlock(() => sentTx.wait({ timeout: this.config.txMinedWaitSeconds }));
       this.log.info(`Account deployed at ${address}`);

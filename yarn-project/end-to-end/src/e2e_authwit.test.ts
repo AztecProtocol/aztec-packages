@@ -25,11 +25,9 @@ describe('e2e_authwit_tests', () => {
 
   beforeAll(async () => {
     const { wallet: defaultWallet, accounts, aztecNode } = await setup(2);
-    // docs:start:public_deploy_accounts
     [account1Address, account2Address] = accounts;
     wallet = defaultWallet as TestWallet;
     await ensureAccountContractsPublished(wallet, accounts.slice(0, 2));
-    // docs:end:public_deploy_accounts
 
     const nodeInfo = await aztecNode.getNodeInfo();
     chainId = new Fr(nodeInfo.l1ChainId);
@@ -48,16 +46,10 @@ describe('e2e_authwit_tests', () => {
         // 4. We check that the authwit is valid in private for wallet[0] (check that it is signed by 0)
         // 5. We check that the authwit is NOT valid in private for wallet[1] (check that it is not signed by 1)
 
-        // docs:start:compute_inner_authwit_hash
         const innerHash = await computeInnerAuthWitHash([Fr.fromHexString('0xdead')]);
-        // docs:end:compute_inner_authwit_hash
-        // docs:start:compute_arbitrary_authwit_hash
 
         const intent = { consumer: auth.address, innerHash };
-        // docs:end:compute_arbitrary_authwit_hash
-        // docs:start:create_authwit
         const witness = await wallet.createAuthWit(account1Address, intent);
-        // docs:end:create_authwit
 
         // Check that the authwit is valid in private for account1
         expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
@@ -156,10 +148,8 @@ describe('e2e_authwit_tests', () => {
           isValidInPublic: false,
         });
 
-        // docs:start:set_public_authwit
         const validateActionInteraction = await wallet.setPublicAuthWit(account1Address, intent, true);
         await validateActionInteraction.send().wait();
-        // docs:end:set_public_authwit
         expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
           isValidInPrivate: true,
           isValidInPublic: true,

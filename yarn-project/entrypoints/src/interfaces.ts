@@ -79,7 +79,6 @@ export type FeeOptions = {
   gasSettings: GasSettings;
 };
 
-// docs:start:user_fee_options
 /** Fee options as set by a user. */
 export type UserFeeOptions = {
   /** The fee payment method to use */
@@ -87,7 +86,6 @@ export type UserFeeOptions = {
   /** The gas settings */
   gasSettings?: Partial<FieldsOf<GasSettings>>;
 };
-// docs:end:user_fee_options
 
 /**  Fee options that can be set for simulation *only* */
 export type SimulationUserFeeOptions = UserFeeOptions & {

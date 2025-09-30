@@ -69,7 +69,6 @@ describe('e2e_token_contract transfer public', () => {
     expect(amount).toBeGreaterThan(0n);
     const authwitNonce = Fr.random();
 
-    // docs:start:authwit_public_transfer_example
     const action = asset.methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
 
     const validateActionInteraction = await wallet.setPublicAuthWit(
@@ -78,7 +77,6 @@ describe('e2e_token_contract transfer public', () => {
       true,
     );
     await validateActionInteraction.send().wait();
-    // docs:end:authwit_public_transfer_example
 
     // Perform the transfer
     await action.send({ from: account1Address }).wait();

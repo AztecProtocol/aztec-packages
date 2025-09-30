@@ -1,4 +1,3 @@
-// docs:start:private_token_contract
 use dep::aztec::macros::aztec;
 
 #[aztec]
@@ -46,4 +45,3 @@ pub contract PrivateToken {
         storage.balances.at(owner).get_value()
     }
 }
-// docs:end:private_token_contract

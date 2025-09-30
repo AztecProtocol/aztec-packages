@@ -51,7 +51,6 @@ function isContractFunctionIntractionCallIntent(
   );
 }
 
-// docs:start:authwit_computeAuthWitMessageHash
 /**
  * Compute an authentication witness message hash from an intent and metadata
  *
@@ -93,7 +92,6 @@ export const computeAuthWitMessageHash = async (
     return computeOuterAuthWitHash(intent.consumer, chainId, version, inner);
   }
 };
-// docs:end:authwit_computeAuthWitMessageHash
 
 /**
  * Compute an authentication witness message hash from an intent and metadata. This is just

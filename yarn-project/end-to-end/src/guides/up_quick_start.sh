@@ -23,32 +23,24 @@ aztec-wallet create-account -a alice --payment method=fee_juice,feePayer=test0
 aztec-wallet create-account -a bob --payment method=fee_juice,feePayer=test0
 # docs:end:declare-accounts
 
-# docs:start:deploy
 DEPLOY_OUTPUT=$(aztec-wallet deploy ../noir-contracts.js/artifacts/token_contract-Token.json --args accounts:test0 Test TST 18 -f test0)
 TOKEN_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -oE 'Contract deployed at 0x[0-9a-fA-F]+' | cut -d ' ' -f4)
 echo "Deployed contract at $TOKEN_ADDRESS"
-# docs:end:deploy
 
-# docs:start:mint-private
 MINT_AMOUNT=69
 aztec-wallet send mint_to_private -ca last --args accounts:alice $MINT_AMOUNT -f test0
-# docs:end:mint-private
 
-# docs:start:get-balance
 ALICE_BALANCE=$(aztec-wallet simulate balance_of_private -ca last --args accounts:alice -f alice)
 if ! echo $ALICE_BALANCE | grep -q $MINT_AMOUNT; then
   echo "Incorrect Alice balance after transaction (expected $MINT_AMOUNT but got $ALICE_BALANCE)"
   exit 1
 fi
-# docs:end:get-balance
 
-# docs:start:transfer
 TRANSFER_AMOUNT=42
 
 aztec-wallet create-authwit transfer_in_private accounts:test0 -ca last --args accounts:alice accounts:bob $TRANSFER_AMOUNT 1 -f alice
 
 aztec-wallet send transfer_in_private -ca last --args accounts:alice accounts:bob $TRANSFER_AMOUNT 1 -aw authwits:last -f test0
-# docs:end:transfer
 
 # Test end result
 ALICE_BALANCE=$(aztec-wallet simulate balance_of_private -ca last --args accounts:alice -f alice)

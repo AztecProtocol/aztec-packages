@@ -1,4 +1,3 @@
-// docs:start:contract
 // Account contract that uses Schnorr signatures for authentication using a hardcoded public key.
 use dep::aztec::macros::aztec;
 
@@ -37,7 +36,6 @@ pub contract SchnorrHardcodedAccount {
         actions.verify_private_authwit(inner_hash)
     }
 
-    // docs:start:is-valid
     #[contract_library_method]
     fn is_valid_impl(_context: &mut PrivateContext, outer_hash: Field) -> bool {
         // Load auth witness and format as an u8 array
@@ -57,6 +55,4 @@ pub contract SchnorrHardcodedAccount {
             outer_hash.to_be_bytes::<32>(),
         )
     }
-    // docs:end:is-valid
 }
-// docs:end:contract
