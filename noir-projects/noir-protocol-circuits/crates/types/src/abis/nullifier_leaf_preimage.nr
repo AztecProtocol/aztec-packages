@@ -1,12 +1,11 @@
-pub global NULLIFIER_LEAF_PREIMAGE_LENGTH: u32 = 3;
-
 use crate::{
     abis::{read_request::ScopedReadRequest, side_effect::Readable},
     hash::compute_siloed_nullifier,
     merkle_tree::{IndexedTreeLeafPreimage, LeafPreimage},
-    traits::{Empty, Hash},
+    traits::{Deserialize, Empty, Hash, Serialize},
 };
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct NullifierLeafPreimage {
     pub nullifier: Field,
     pub next_nullifier: Field,
@@ -78,28 +77,4 @@ impl NullifierLeafPreimage {
     pub fn is_empty(self) -> bool {
         (self.nullifier == 0) & (self.next_nullifier == 0) & (self.next_index == 0)
     }
-
-    pub fn serialize(self) -> [Field; NULLIFIER_LEAF_PREIMAGE_LENGTH] {
-        [self.nullifier, self.next_nullifier, self.next_index]
-    }
-
-    pub fn deserialize(fields: [Field; NULLIFIER_LEAF_PREIMAGE_LENGTH]) -> Self {
-        Self { nullifier: fields[0], next_nullifier: fields[1], next_index: fields[2] }
-    }
-}
-
-impl Eq for NullifierLeafPreimage {
-    fn eq(self, other: Self) -> bool {
-        (self.nullifier == other.nullifier)
-            & (self.next_nullifier == other.next_nullifier)
-            & (self.next_index == other.next_index)
-    }
-}
-
-#[test]
-fn serialization_of_empty() {
-    let item = NullifierLeafPreimage::empty();
-    let serialized = item.serialize();
-    let deserialized = NullifierLeafPreimage::deserialize(serialized);
-    assert(item.eq(deserialized));
 }

@@ -1,11 +1,11 @@
 use aztec::{
     macros::notes::note,
     oracle::random::random,
-    protocol_types::{address::AztecAddress, traits::Packable},
+    protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
 };
 
 // docs:start:value-note-def
-#[derive(Eq, Packable)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 #[note]
 pub struct ValueNote {
     value: Field,

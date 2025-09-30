@@ -1,11 +1,11 @@
 use dep::aztec::{
     macros::notes::note,
     oracle::random::random,
-    protocol_types::{address::AztecAddress, traits::Packable},
+    protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
 };
 
 // docs:start:address_note_def
-#[derive(Eq, Packable)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 #[note]
 pub struct AddressNote {
     address: AztecAddress,
