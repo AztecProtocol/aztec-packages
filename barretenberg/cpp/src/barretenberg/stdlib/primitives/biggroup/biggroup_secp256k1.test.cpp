@@ -61,6 +61,54 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    static void test_wnaf_secp256k1_scalar_exceeding_modulus_regression()
+    {
+        Builder builder = Builder();
+        const uint512_t scalar_field_modulus = scalar_ct::modulus_u512;
+        {
+            // Generate a random scalar k < r (r is the scalar field modulus).
+            const fr scalar_a = fr::random_element();
+            scalar_ct scalar_a_ct = scalar_ct::from_witness(&builder, scalar_a);
+
+            // Generate a large scalar k' := (k + mr) > r where r is the scalar field modulus and m >= 1
+            // We need k' be larger than 256 bits to test the edge case properly. We achieve this by choosing
+            // m = 2^256 / r + 1, which guarantees that r < 2^256 < k'.
+            uint512_t m = ((uint512_t(1) << 256) / scalar_field_modulus) + 1;
+            uint512_t large_value = uint512_t(scalar_a) + (m * scalar_field_modulus);
+            scalar_ct large_scalar_ct = scalar_ct::create_from_u512_as_witness(&builder, large_value, true);
+            EXPECT_EQ(large_scalar_ct.get_value() >= (uint512_t(1) << 256), true);
+            EXPECT_EQ(large_scalar_ct.get_value() >= uint512_t(scalar_field_modulus), true);
+            EXPECT_EQ(large_scalar_ct.get_value() % uint512_t(scalar_field_modulus), uint512_t(scalar_a));
+
+            // circuit wnaf computation should work fine for scalar k
+            element_ct::template compute_secp256k1_endo_wnaf<4, 0, 1>(scalar_a_ct);
+
+            // circuit wnaf computation should also work for the large scalar k'
+            element_ct::template compute_secp256k1_endo_wnaf<4, 0, 1>(large_scalar_ct);
+        }
+        {
+            // Generate a scalar k such that k < (2^256 - r)
+            const size_t num_allowed_bits = ((uint512_t(1) << 256) - scalar_field_modulus).get_msb();
+            const fr scalar_a = uint256_t(fr::random_element()) & ((uint256_t(1) << num_allowed_bits) - 1);
+            scalar_ct scalar_a_ct = scalar_ct::from_witness(&builder, scalar_a);
+
+            // Generate a large scalar k' := (k + r) < 2^256 (because k < 2^256 - r)
+            uint512_t large_value = uint512_t(scalar_a) + scalar_field_modulus;
+            scalar_ct large_scalar_ct = scalar_ct::create_from_u512_as_witness(&builder, large_value, true);
+            EXPECT_EQ(large_scalar_ct.get_value() < (uint512_t(1) << 256), true);
+            EXPECT_EQ(large_scalar_ct.get_value() >= uint512_t(scalar_field_modulus), true);
+            EXPECT_EQ(large_scalar_ct.get_value() % uint512_t(scalar_field_modulus), uint512_t(scalar_a));
+
+            // circuit wnaf computation should work fine for scalar k
+            element_ct::template compute_secp256k1_endo_wnaf<4, 0, 1>(scalar_a_ct);
+
+            // circuit wnaf computation should also work for the large scalar k'
+            element_ct::template compute_secp256k1_endo_wnaf<4, 0, 1>(large_scalar_ct);
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
     static void test_wnaf_8bit_secp256k1()
     {
         Builder builder = Builder();
@@ -242,6 +290,10 @@ TYPED_TEST_SUITE(stdlibBiggroupSecp256k1, Secp256k1TestTypes);
 TYPED_TEST(stdlibBiggroupSecp256k1, WnafSecp256k1)
 {
     TestFixture::test_wnaf_secp256k1();
+}
+TYPED_TEST(stdlibBiggroupSecp256k1, WnafSecp256k1LargeScalarRegression)
+{
+    TestFixture::test_wnaf_secp256k1_scalar_exceeding_modulus_regression();
 }
 TYPED_TEST(stdlibBiggroupSecp256k1, Wnaf8bitSecp256k1)
 {

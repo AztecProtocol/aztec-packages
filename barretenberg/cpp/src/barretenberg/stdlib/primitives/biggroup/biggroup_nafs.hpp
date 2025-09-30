@@ -340,7 +340,7 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
     // k = klo - λ * khi (mod n)
     // where λ is the cube root of unity mod n and that |klo| < 2^129, |khi| < 2^129.
     // In some cases, klo or khi may be negative, in which case we have to use -klo or -khi instead.
-    secp256k1::fr k(scalar.get_value().lo);
+    secp256k1::fr k(uint256_t(scalar.get_value() % Fr::modulus_u512));
     secp256k1::fr klo(0);
     secp256k1::fr khi(0);
     bool klo_negative = false;
