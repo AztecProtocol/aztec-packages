@@ -57,12 +57,13 @@ class TxExecution final {
                                   const Gas& start_gas,
                                   const Gas& end_gas,
                                   const TxContextEvent& state_before,
-                                  const TxContextEvent& state_after);
+                                  const TxContextEvent& state_after,
+                                  uint32_t phase_length);
     void pay_fee(const FF& fee_payer, const FF& fee, const uint128_t& fee_per_da_gas, const uint128_t& fee_per_l2_gas);
 
-    void emit_l2_to_l1_message(bool revertible, const ScopedL2ToL1Message& l2_to_l1_message);
-    void emit_nullifier(bool revertible, const FF& nullifier);
-    void emit_note_hash(bool revertible, const FF& note_hash);
+    void emit_l2_to_l1_message(bool revertible, const ScopedL2ToL1Message& l2_to_l1_message, uint32_t phase_length);
+    void emit_nullifier(bool revertible, const FF& nullifier, uint32_t phase_length);
+    void emit_note_hash(bool revertible, const FF& note_hash, uint32_t phase_length);
 
     void pad_trees();
 

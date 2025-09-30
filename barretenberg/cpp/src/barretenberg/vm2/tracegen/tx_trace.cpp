@@ -570,7 +570,8 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
         // Count the number of steps in this phase
         uint32_t phase_counter = 0;
-        uint32_t phase_length = static_cast<uint32_t>(phase_events.size());
+        // Use the phase_length from the first event, which represents the total number of items in the phase
+        uint32_t phase_length = phase_events.empty() ? 0 : phase_events[0]->phase_length;
 
         // We have events to process in this phase
         for (const auto& tx_phase_event : phase_events) {

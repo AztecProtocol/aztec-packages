@@ -131,7 +131,7 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // REM_COUNT_IS_ONE
         using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
         auto tmp =
-            in.get(C::tx_sel) * (FF(1) - in.get(C::tx_is_padded)) *
+            in.get(C::tx_sel) * (FF(1) - in.get(C::tx_reverted)) * (FF(1) - in.get(C::tx_is_padded)) *
             ((tx_REM_COUNT_MINUS_1 * (in.get(C::tx_end_phase) * (FF(1) - in.get(C::tx_remaining_phase_minus_one_inv)) +
                                       in.get(C::tx_remaining_phase_minus_one_inv)) -
               FF(1)) +

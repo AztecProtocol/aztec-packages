@@ -51,6 +51,25 @@ describe('AVM check-circuit – unhappy paths 3', () => {
     },
     TIMEOUT,
   );
+
+  it(
+    'top-level exceptional halt in app logic, and remaining app logic calls are skipped',
+    async () => {
+      await tester.simProveVerify(
+        sender,
+        /*setupCalls=*/ [],
+        /*appCalls=*/ [
+          { address: avmTestContractInstance.address, fnName: 'add_args_return', args: [new Fr(1), new Fr(2)] },
+          { address: avmTestContractInstance.address, fnName: 'divide_by_zero', args: [] },
+          { address: avmTestContractInstance.address, fnName: 'add_args_return', args: [new Fr(1), new Fr(2)] },
+        ],
+        /*teardownCall=*/ undefined,
+        /*expectRevert=*/ true,
+      );
+    },
+    TIMEOUT,
+  );
+
   it(
     'top-level exceptional halt in teardown, but app logic succeeds',
     async () => {

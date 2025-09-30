@@ -94,7 +94,7 @@ namespace tx;
     pol REM_COUNT_MINUS_1 = remaining_phase_counter - 1;
     // If remaining_phase_counter == 1, end_phase = 1
     #[REM_COUNT_IS_ONE]
-    sel * (1 - is_padded) * (REM_COUNT_MINUS_1 * (end_phase * (1 - remaining_phase_minus_one_inv) + remaining_phase_minus_one_inv) - 1 + end_phase) = 0;
+    sel * (1 - reverted) * (1 - is_padded) * (REM_COUNT_MINUS_1 * (end_phase * (1 - remaining_phase_minus_one_inv) + remaining_phase_minus_one_inv) - 1 + end_phase) = 0;
 
     // TODO: Add constraints to propagate down the things read from precomputed
     // while NOT_PHASE_END

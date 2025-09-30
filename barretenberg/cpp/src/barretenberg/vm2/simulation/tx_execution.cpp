@@ -32,22 +32,25 @@ void TxExecution::emit_public_call_request(const PublicCallRequestWithCalldata& 
                                            const Gas& start_gas,
                                            const Gas& end_gas,
                                            const TxContextEvent& state_before,
-                                           const TxContextEvent& state_after)
+                                           const TxContextEvent& state_after,
+                                           uint32_t phase_length)
 {
     events.emit(TxPhaseEvent{ .phase = phase,
                               .state_before = state_before,
                               .state_after = state_after,
                               .reverted = !success,
-                              .event = EnqueuedCallEvent{
-                                  .msg_sender = call.request.msgSender,
-                                  .contract_address = call.request.contractAddress,
-                                  .transaction_fee = transaction_fee,
-                                  .is_static = call.request.isStaticCall,
-                                  .calldata_hash = call.request.calldataHash,
-                                  .start_gas = start_gas,
-                                  .end_gas = end_gas,
-                                  .success = success,
-                              } });
+                              .event =
+                                  EnqueuedCallEvent{
+                                      .msg_sender = call.request.msgSender,
+                                      .contract_address = call.request.contractAddress,
+                                      .transaction_fee = transaction_fee,
+                                      .is_static = call.request.isStaticCall,
+                                      .calldata_hash = call.request.calldataHash,
+                                      .start_gas = start_gas,
+                                      .end_gas = end_gas,
+                                      .success = success,
+                                  },
+                              .phase_length = phase_length });
 }
 
 // Simulates the entire transaction execution phases.
@@ -86,6 +89,7 @@ void TxExecution::simulate(const Tx& tx)
     if (tx.setupEnqueuedCalls.empty()) {
         emit_empty_phase(TransactionPhase::SETUP);
     } else {
+        uint32_t setup_phase_length = static_cast<uint32_t>(tx.setupEnqueuedCalls.size());
         for (const auto& call : tx.setupEnqueuedCalls) {
             info("[SETUP] Executing enqueued call to ", call.request.contractAddress);
             TxContextEvent state_before = tx_context.serialize_tx_context_event();
@@ -110,7 +114,8 @@ void TxExecution::simulate(const Tx& tx)
                                      start_gas,
                                      tx_context.gas_used,
                                      state_before,
-                                     tx_context.serialize_tx_context_event());
+                                     tx_context.serialize_tx_context_event(),
+                                     setup_phase_length);
             if (!result.success) {
                 // This will result in an unprovable tx.
                 throw TxExecutionException(
@@ -132,6 +137,7 @@ void TxExecution::simulate(const Tx& tx)
         if (tx.appLogicEnqueuedCalls.empty()) {
             emit_empty_phase(TransactionPhase::APP_LOGIC);
         } else {
+            uint32_t app_logic_phase_length = static_cast<uint32_t>(tx.appLogicEnqueuedCalls.size());
             for (const auto& call : tx.appLogicEnqueuedCalls) {
                 info("[APP_LOGIC] Executing enqueued call to ", call.request.contractAddress);
                 TxContextEvent state_before = tx_context.serialize_tx_context_event();
@@ -156,7 +162,8 @@ void TxExecution::simulate(const Tx& tx)
                                          start_gas,
                                          tx_context.gas_used,
                                          state_before,
-                                         tx_context.serialize_tx_context_event());
+                                         tx_context.serialize_tx_context_event(),
+                                         app_logic_phase_length);
                 if (!result.success) {
                     // This exception should be handled and the tx be provable.
                     throw TxExecutionException(
@@ -211,7 +218,8 @@ void TxExecution::simulate(const Tx& tx)
                                      start_gas,
                                      result.gas_used,
                                      state_before,
-                                     tx_context.serialize_tx_context_event());
+                                     tx_context.serialize_tx_context_event(),
+                                     1); // Teardown always has exactly 1 call
             if (!result.success) {
                 // This exception should be handled and the tx be provable.
                 throw TxExecutionException(format(
@@ -235,7 +243,7 @@ void TxExecution::simulate(const Tx& tx)
     cleanup();
 }
 
-void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)
+void TxExecution::emit_nullifier(bool revertible, const FF& nullifier, uint32_t phase_length)
 {
     TransactionPhase phase =
         revertible ? TransactionPhase::R_NULLIFIER_INSERTION : TransactionPhase::NR_NULLIFIER_INSERTION;
@@ -254,7 +262,8 @@ void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)
         events.emit(TxPhaseEvent{ .phase = phase,
                                   .state_before = state_before,
                                   .state_after = tx_context.serialize_tx_context_event(),
-                                  .event = PrivateAppendTreeEvent{ .leaf_value = nullifier } });
+                                  .event = PrivateAppendTreeEvent{ .leaf_value = nullifier },
+                                  .phase_length = phase_length });
 
     } catch (const TxExecutionException& e) {
         events.emit(TxPhaseEvent{
@@ -263,13 +272,14 @@ void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)
             .state_after = tx_context.serialize_tx_context_event(),
             .reverted = true,
             .event = PrivateAppendTreeEvent{ .leaf_value = nullifier },
+            .phase_length = phase_length,
         });
         // Rethrow the error
         throw e;
     }
 }
 
-void TxExecution::emit_note_hash(bool revertible, const FF& note_hash)
+void TxExecution::emit_note_hash(bool revertible, const FF& note_hash, uint32_t phase_length)
 {
     TransactionPhase phase = revertible ? TransactionPhase::R_NOTE_INSERTION : TransactionPhase::NR_NOTE_INSERTION;
     TxContextEvent state_before = tx_context.serialize_tx_context_event();
@@ -290,19 +300,23 @@ void TxExecution::emit_note_hash(bool revertible, const FF& note_hash)
         events.emit(TxPhaseEvent{ .phase = phase,
                                   .state_before = state_before,
                                   .state_after = tx_context.serialize_tx_context_event(),
-                                  .event = PrivateAppendTreeEvent{ .leaf_value = note_hash } });
+                                  .event = PrivateAppendTreeEvent{ .leaf_value = note_hash },
+                                  .phase_length = phase_length });
     } catch (const TxExecutionException& e) {
         events.emit(TxPhaseEvent{ .phase = phase,
                                   .state_before = state_before,
                                   .state_after = tx_context.serialize_tx_context_event(),
                                   .reverted = true,
-                                  .event = PrivateAppendTreeEvent{ .leaf_value = note_hash } });
+                                  .event = PrivateAppendTreeEvent{ .leaf_value = note_hash },
+                                  .phase_length = phase_length });
         // Rethrow the error
         throw e;
     }
 }
 
-void TxExecution::emit_l2_to_l1_message(bool revertible, const ScopedL2ToL1Message& l2_to_l1_message)
+void TxExecution::emit_l2_to_l1_message(bool revertible,
+                                        const ScopedL2ToL1Message& l2_to_l1_message,
+                                        uint32_t phase_length)
 {
     TransactionPhase phase = revertible ? TransactionPhase::R_L2_TO_L1_MESSAGE : TransactionPhase::NR_L2_TO_L1_MESSAGE;
     TxContextEvent state_before = tx_context.serialize_tx_context_event();
@@ -317,13 +331,15 @@ void TxExecution::emit_l2_to_l1_message(bool revertible, const ScopedL2ToL1Messa
         events.emit(TxPhaseEvent{ .phase = phase,
                                   .state_before = state_before,
                                   .state_after = tx_context.serialize_tx_context_event(),
-                                  .event = PrivateEmitL2L1MessageEvent{ .scoped_msg = l2_to_l1_message } });
+                                  .event = PrivateEmitL2L1MessageEvent{ .scoped_msg = l2_to_l1_message },
+                                  .phase_length = phase_length });
     } catch (const TxExecutionException& e) {
         events.emit(TxPhaseEvent{ .phase = phase,
                                   .state_before = state_before,
                                   .state_after = tx_context.serialize_tx_context_event(),
                                   .reverted = true,
-                                  .event = PrivateEmitL2L1MessageEvent{ .scoped_msg = l2_to_l1_message } });
+                                  .event = PrivateEmitL2L1MessageEvent{ .scoped_msg = l2_to_l1_message },
+                                  .phase_length = phase_length });
         // Rethrow the error
         throw e;
     }
@@ -347,8 +363,9 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
     if (tx.nonRevertibleAccumulatedData.nullifiers.empty()) {
         emit_empty_phase(TransactionPhase::NR_NULLIFIER_INSERTION);
     } else {
+        uint32_t nr_nullifiers_phase_length = static_cast<uint32_t>(tx.nonRevertibleAccumulatedData.nullifiers.size());
         for (const auto& nullifier : tx.nonRevertibleAccumulatedData.nullifiers) {
-            emit_nullifier(false, nullifier);
+            emit_nullifier(false, nullifier, nr_nullifiers_phase_length);
         }
     }
 
@@ -356,8 +373,9 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
     if (tx.nonRevertibleAccumulatedData.noteHashes.empty()) {
         emit_empty_phase(TransactionPhase::NR_NOTE_INSERTION);
     } else {
+        uint32_t nr_note_hashes_phase_length = static_cast<uint32_t>(tx.nonRevertibleAccumulatedData.noteHashes.size());
         for (const auto& unique_note_hash : tx.nonRevertibleAccumulatedData.noteHashes) {
-            emit_note_hash(false, unique_note_hash);
+            emit_note_hash(false, unique_note_hash, nr_note_hashes_phase_length);
         }
     }
 
@@ -365,8 +383,10 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
     if (tx.nonRevertibleAccumulatedData.l2ToL1Messages.empty()) {
         emit_empty_phase(TransactionPhase::NR_L2_TO_L1_MESSAGE);
     } else {
+        uint32_t nr_l2_l1_msgs_phase_length =
+            static_cast<uint32_t>(tx.nonRevertibleAccumulatedData.l2ToL1Messages.size());
         for (const auto& l2_to_l1_msg : tx.nonRevertibleAccumulatedData.l2ToL1Messages) {
-            emit_l2_to_l1_message(false, l2_to_l1_msg);
+            emit_l2_to_l1_message(false, l2_to_l1_msg, nr_l2_l1_msgs_phase_length);
         }
     }
 }
@@ -387,8 +407,9 @@ void TxExecution::insert_revertibles(const Tx& tx)
     if (tx.revertibleAccumulatedData.nullifiers.empty()) {
         emit_empty_phase(TransactionPhase::R_NULLIFIER_INSERTION);
     } else {
+        uint32_t r_nullifiers_phase_length = static_cast<uint32_t>(tx.revertibleAccumulatedData.nullifiers.size());
         for (const auto& siloed_nullifier : tx.revertibleAccumulatedData.nullifiers) {
-            emit_nullifier(true, siloed_nullifier);
+            emit_nullifier(true, siloed_nullifier, r_nullifiers_phase_length);
         }
     }
 
@@ -396,8 +417,9 @@ void TxExecution::insert_revertibles(const Tx& tx)
     if (tx.revertibleAccumulatedData.noteHashes.empty()) {
         emit_empty_phase(TransactionPhase::R_NOTE_INSERTION);
     } else {
+        uint32_t r_note_hashes_phase_length = static_cast<uint32_t>(tx.revertibleAccumulatedData.noteHashes.size());
         for (const auto& siloed_note_hash : tx.revertibleAccumulatedData.noteHashes) {
-            emit_note_hash(true, siloed_note_hash);
+            emit_note_hash(true, siloed_note_hash, r_note_hashes_phase_length);
         }
     }
 
@@ -405,8 +427,9 @@ void TxExecution::insert_revertibles(const Tx& tx)
     if (tx.revertibleAccumulatedData.l2ToL1Messages.empty()) {
         emit_empty_phase(TransactionPhase::R_L2_TO_L1_MESSAGE);
     } else {
+        uint32_t r_l2_l1_msgs_phase_length = static_cast<uint32_t>(tx.revertibleAccumulatedData.l2ToL1Messages.size());
         for (const auto& l2_to_l1_msg : tx.revertibleAccumulatedData.l2ToL1Messages) {
-            emit_l2_to_l1_message(true, l2_to_l1_msg);
+            emit_l2_to_l1_message(true, l2_to_l1_msg, r_l2_l1_msgs_phase_length);
         }
     }
 }
@@ -467,7 +490,8 @@ void TxExecution::emit_empty_phase(TransactionPhase phase)
                               .state_before = current_state,
                               .state_after = current_state,
                               .reverted = false,
-                              .event = EmptyPhaseEvent{} });
+                              .event = EmptyPhaseEvent{},
+                              .phase_length = 0 }); // Empty phase has no items
 }
 
 } // namespace bb::avm2::simulation

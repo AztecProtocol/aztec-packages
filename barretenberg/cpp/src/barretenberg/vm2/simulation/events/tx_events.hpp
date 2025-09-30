@@ -64,6 +64,7 @@ struct TxPhaseEvent {
     TxContextEvent state_after;
     bool reverted;
     TxPhaseEventType event;
+    uint32_t phase_length = 1; // Total # items that COULD be processed (even ones skipped after revert)
 };
 
 using TxEvent = std::variant<TxStartupEvent, TxPhaseEvent>;
