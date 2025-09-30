@@ -240,7 +240,9 @@ GlobalBenchStatsContainer::~GlobalBenchStatsContainer()
 
 void GlobalBenchStatsContainer::add_entry(const char* key, const std::shared_ptr<TimeStatsEntry>& entry)
 {
+#ifndef NO_MULTITHREADING
     std::unique_lock<std::mutex> lock(mutex);
+#endif
     entry->key = key;
     entries.push_back(entry);
 }
@@ -559,7 +561,9 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
 
 void GlobalBenchStatsContainer::clear()
 {
+#ifndef NO_MULTITHREADING
     std::unique_lock<std::mutex> lock(mutex);
+#endif
     for (std::shared_ptr<TimeStatsEntry>& entry : entries) {
         entry->count = TimeStats();
     }

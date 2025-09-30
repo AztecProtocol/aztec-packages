@@ -73,7 +73,9 @@ struct GlobalBenchStatsContainer {
   public:
     static inline thread_local TimeStatsEntry* parent = nullptr;
     ~GlobalBenchStatsContainer();
+#ifndef NO_MULTITHREADING
     std::mutex mutex;
+#endif
     std::vector<std::shared_ptr<TimeStatsEntry>> entries;
     void print() const;
     // NOTE: Should be called when other threads aren't active

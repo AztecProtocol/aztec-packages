@@ -6,12 +6,12 @@ cmd=${1:-}
 
 hash=$(hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 
-export GIT_COMMIT="$(cat ../noir/noir-repo-ref | head -n1)-aztec"
-export SOURCE_DATE_EPOCH=0
-export GIT_DIRTY=false
-export RUSTFLAGS="-Dwarnings"
-
 function build {
+  export GIT_COMMIT="$(cat ../noir/noir-repo-ref | head -n1)-aztec"
+  export SOURCE_DATE_EPOCH=0
+  export GIT_DIRTY=false
+  export RUSTFLAGS="-Dwarnings"
+
   echo_header "avm-transpiler build"
   artifact=avm-transpiler-$hash.tar.gz
   if ! cache_download $artifact; then
@@ -22,12 +22,37 @@ function build {
   fi
 }
 
+function zig_build {
+  if ! command -v cargo-zigbuild >/dev/null 2>&1; then
+    cargo install --locked cargo-zigbuild
+  fi
+
+  targets=(
+    x86_64-unknown-linux-musl
+    aarch64-unknown-linux-musl
+    x86_64-apple-darwin
+    aarch64-apple-darwin
+  )
+
+  for target in "${targets[@]}"; do
+    if ! rustup target list --installed | grep -q "^$target$"; then
+      echo "Installing Rust target: $target"
+      rustup target add "$target"
+    fi
+  done
+
+  parallel --tag --line-buffered cargo zigbuild --release --target {} --lib ::: "${targets[@]}"
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
     ;;
   ""|"fast"|"full"|"ci")
     build
+    ;;
+  "zig_build")
+    zig_build
     ;;
   "test")
     echo "No tests."

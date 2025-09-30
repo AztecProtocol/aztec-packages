@@ -48,6 +48,10 @@ const wasm_flags = no_avm_flags ++ [_][]const u8{
     "-fno-exceptions",
 };
 
+const wasm_st_flags = wasm_flags ++ [_][]const u8{
+    "-DNO_MULTITHREADING",
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
@@ -70,10 +74,20 @@ pub fn build(b: *std.Build) void {
         if (platform.os == .wasi) {
             // We always default to ReleaseSmall for WASM builds with no AVM.
             // Debug builds are so slow they basically hang.
-            const platform_step = getBuildStepForTarget(b, platform, .ReleaseSmall, false, is_req);
-            // We build the wasm reactor for JS.
-            addBuildStepForWasmReactor(b, .ReleaseSmall, platform_step);
-            cross_step.dependOn(platform_step);
+            // TODO: Don't build bb for wasm right now. It's a nice to have but should:
+            // - Get rid of e.g. cli11 as it uses exceptions, or experiment with wasm exceptions.
+            // - Properly fix barretenberg threading, or fallback on single threaded aztec-process cmd.
+            // _ = getBuildStepForTarget(b, platform, .ReleaseSmall, false, is_req);
+
+            // We build the single/multi threaded wasm reactors for JS.
+            const reactor_step = addBuildStepForWasmReactor(b, .ReleaseSmall, false);
+            const reactor_threads_step = addBuildStepForWasmReactor(b, .ReleaseSmall, true);
+            if (is_req) {
+                b.getInstallStep().dependOn(reactor_step);
+                b.getInstallStep().dependOn(reactor_threads_step);
+            }
+            cross_step.dependOn(reactor_step);
+            cross_step.dependOn(reactor_threads_step);
         } else {
             const platform_step = getBuildStepForTarget(b, platform, optimize, enable_avm, is_req);
             cross_step.dependOn(platform_step);
@@ -96,6 +110,7 @@ fn getBuildStepForTarget(
             .wasm32 => std.Target.Query.CpuModel{ .explicit = &std.Target.wasm.cpu.bleeding_edge },
             else => .baseline,
         },
+        .abi = if (platform.os == .linux) .musl else null,
     });
 
     const flags = if (platform.os == .wasi) &wasm_flags else if (enable_avm) &common_flags else &no_avm_flags;
@@ -147,11 +162,11 @@ fn getBuildStepForTarget(
     switch (platform.os) {
         .linux => switch (platform.arch) {
             .x86_64 => exe.addObjectFile(b.path("../../avm-transpiler/target/x86_64-unknown-linux-musl/release/libavm_transpiler.a")),
-            // .aarch64 => exe.addObjectFile(b.path("../../avm-transpiler/target/aarch64-")),
+            .aarch64 => exe.addObjectFile(b.path("../../avm-transpiler/target/aarch64-unknown-linux-musl/release/libavm_transpiler.a")),
             else => {},
         },
         .macos => switch (platform.arch) {
-            // .x86_64 => exe.addObjectFile(b.path("../../avm-transpiler/target/x86_64-unknown-linux-musl/release/libavm_transpiler.a")),
+            .x86_64 => exe.addObjectFile(b.path("../../avm-transpiler/target/x86_64-apple-darwin/release/libavm_transpiler.a")),
             .aarch64 => exe.addObjectFile(b.path("../../avm-transpiler/target/aarch64-apple-darwin/release/libavm_transpiler.a")),
             else => {},
         },
@@ -378,12 +393,12 @@ fn getBuildStepForTarget(
 fn addBuildStepForWasmReactor(
     b: *std.Build,
     optimize: std.builtin.OptimizeMode,
-    platform_step: *std.Build.Step,
-) void {
+    multi_threaded: bool,
+) *std.Build.Step {
     const target = b.resolveTargetQuery(.{
         .cpu_arch = .wasm32,
         .os_tag = .wasi,
-        .cpu_features_add = std.Target.wasm.featureSet(&.{ .atomics, .bulk_memory }),
+        .cpu_features_add = if (multi_threaded) std.Target.wasm.featureSet(&.{ .atomics, .bulk_memory }) else .empty,
     });
 
     const libdeflate_lib = deps.buildLibdeflate(b, target, optimize);
@@ -391,17 +406,19 @@ fn addBuildStepForWasmReactor(
     const msgpack_dep = b.dependency("msgpack", .{});
 
     const exe = b.addExecutable(.{
-        .name = "barretenberg",
+        .name = if (multi_threaded) "barretenberg-threads" else "barretenberg",
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
-            .single_threaded = false,
+            .single_threaded = !multi_threaded,
         }),
     });
-    exe.libc_file = b.path("wasi-libc-posix.txt");
+    // WARNING: Without this it will still compile, but you'll fail with missing pthread functions at runtime.
+    // TODO: Can remove once zig's wasi runtime ships with pthread support.
+    exe.libc_file = if (multi_threaded) b.path("wasi-libc-posix.txt") else null;
     exe.entry = .disabled;
     exe.wasi_exec_model = .reactor;
-    exe.shared_memory = true;
+    exe.shared_memory = multi_threaded;
     exe.import_memory = true;
     exe.import_symbols = true;
     exe.export_memory = true;
@@ -418,8 +435,9 @@ fn addBuildStepForWasmReactor(
     exe.addIncludePath(msgpack_dep.path("include"));
 
     // Sources
-    exe.addCSourceFiles(.{ .files = &sources.core_sources, .flags = &wasm_flags });
-    exe.addCSourceFiles(.{ .files = &sources.wasi_sources, .flags = &wasm_flags });
+    const flags = if (multi_threaded) &wasm_flags else &wasm_st_flags;
+    exe.addCSourceFiles(.{ .files = &sources.core_sources, .flags = flags });
+    exe.addCSourceFiles(.{ .files = &sources.wasi_sources, .flags = flags });
 
     exe.linkLibC();
     exe.linkLibCpp();
@@ -427,9 +445,18 @@ fn addBuildStepForWasmReactor(
 
     const install = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = "wasm32-wasi" } } });
     // Add step to gzip the output wasm file to the same file with .gz extension.
-    const gzip = b.addSystemCommand(&.{ "gzip", "-k", "-f", b.getInstallPath(.{ .custom = "wasm32-wasi" }, "barretenberg.wasm") });
+    const gzip = b.addSystemCommand(&.{
+        "gzip",
+        "-k",
+        "-f",
+        b.getInstallPath(
+            .{ .custom = "wasm32-wasi" },
+            if (multi_threaded) "barretenberg-threads.wasm" else "barretenberg.wasm",
+        ),
+    });
     gzip.step.dependOn(&install.step);
-    platform_step.dependOn(&gzip.step);
+
+    return &gzip.step;
 }
 
 fn addDefaultIncludesAndLinks(b: *std.Build, lib: *std.Build.Step.Compile) void {

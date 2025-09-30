@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const print = std.debug.print;
 const App = @import("yazap").App;
 const Arg = @import("yazap").Arg;
@@ -221,12 +222,29 @@ fn generateVKsForFunctions(
     force: bool,
 ) !void {
 
-    // Determine number of processes to use
-    const cpu_count = std.Thread.getCpuCount() catch 1;
-    const process_count = @min(functions.len, cpu_count);
+    // Use single-threaded processing for WASM target
+    if (builtin.target.os == .wasi) {
+        // Single-threaded processing for WASM
+        for (functions) |function| {
+            const func_obj = function.object;
+            const fn_name = func_obj.get("name").?.string;
 
-    // Always use fork for output control
-    {
+            print("\n--- {s} ---\n", .{fn_name});
+            print("Processing function: {s} (single-threaded)\n", .{fn_name});
+
+            // Get raw bytecode first
+            const bytecode = try getByteCode(allocator, function.*);
+            defer allocator.free(bytecode);
+
+            // Generate VK for this function - this will cache it automatically
+            try generateCachedVK(allocator, cache_dir_path, bytecode, force);
+        }
+        print("\n", .{});
+    } else {
+        // Determine number of processes to use
+        const cpu_count = std.Thread.getCpuCount() catch 1;
+        const process_count = @min(functions.len, cpu_count);
+
         // Multi-process - fork workers with pipes for output
         var child_infos = try std.ArrayList(ChildInfo).initCapacity(allocator, process_count);
         defer child_infos.deinit(allocator);
