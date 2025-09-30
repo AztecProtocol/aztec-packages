@@ -232,8 +232,8 @@ const TestnetEntryQueueConfig = {
 };
 
 const StagingIgnitionEntryQueueConfig = {
-  bootstrapValidatorSetSize: 24n,
-  bootstrapFlushSize: 24n,
+  bootstrapValidatorSetSize: 48n,
+  bootstrapFlushSize: 48n,
   normalFlushSizeMin: 1n,
   normalFlushSizeQuotient: 2048n,
   maxQueueFlushSize: 24n,
