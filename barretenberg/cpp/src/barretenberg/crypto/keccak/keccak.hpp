@@ -12,8 +12,11 @@
 #pragma once
 
 #include "./hash_types.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 
 #include <stddef.h>
+#include <vector>
 
 #ifdef __cplusplus
 #define NOEXCEPT noexcept
@@ -41,6 +44,32 @@ struct keccak256 hash_field_elements(const uint64_t* limbs, size_t num_elements)
 
 struct keccak256 hash_field_element(const uint64_t* limb);
 
+class Keccak {
+
+    static bb::fr keccak_hash_uint256(std::vector<uint256_t> const& data)
+    // Losing 2 bits of this is not an issue -> we can just reduce mod p
+    {
+        // cast into uint256_t
+        std::vector<uint8_t> buffer = to_buffer(data);
+
+        keccak256 hash_result = ethash_keccak256(&buffer[0], buffer.size());
+        for (auto& word : hash_result.word64s) {
+            if (is_little_endian()) {
+                word = __builtin_bswap64(word);
+            }
+        }
+        std::array<uint8_t, 32> result;
+
+        for (size_t i = 0; i < 4; ++i) {
+            for (size_t j = 0; j < 8; ++j) {
+                uint8_t byte = static_cast<uint8_t>(hash_result.word64s[i] >> (56 - (j * 8)));
+                result[i * 8 + j] = byte;
+            }
+        }
+
+        return from_buffer<bb::fr>(result);
+    }
+};
 #ifdef __cplusplus
 }
 #endif

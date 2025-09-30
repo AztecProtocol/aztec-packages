@@ -16,8 +16,9 @@
 
 namespace bb::stdlib {
 
-template <typename Builder> class StdlibCodec {
+template <typename Field> class StdlibCodec {
   public:
+    using Builder = typename Field::Builder;
     using fr = field_t<Builder>;
     using fq = bigfield<Builder, bb::Bn254FqParams>;
     using bn254_element = element<Builder, fq, fr, curve::BN254::Group>;
@@ -86,17 +87,17 @@ template <typename Builder> class StdlibCodec {
     /**
      * @brief Calculates the size of a type (in its native form) in terms of frs.
      */
-    template <typename T> static constexpr size_t calc_num_bn254_frs()
+    template <typename T> static constexpr size_t calc_num_fields()
     {
         if constexpr (IsAnyOf<T, fr>) {
             return Bn254FrParams::NUM_BN254_SCALARS;
         } else if constexpr (IsAnyOf<T, fq, goblin_field<Builder>>) {
             return Bn254FqParams::NUM_BN254_SCALARS;
         } else if constexpr (IsAnyOf<T, bn254_element, grumpkin_element>) {
-            return 2 * calc_num_bn254_frs<typename T::BaseField>();
+            return 2 * calc_num_fields<typename T::BaseField>();
         } else {
             // Array or Univariate
-            return calc_num_bn254_frs<typename T::value_type>() * (std::tuple_size<T>::value);
+            return calc_num_fields<typename T::value_type>() * (std::tuple_size<T>::value);
         }
     }
 
@@ -134,12 +135,12 @@ template <typename Builder> class StdlibCodec {
      * @tparam T Target object type
      * @param fr_vec Input `field_t` elements
      */
-    template <typename T> static T convert_from_bn254_frs(std::span<const fr> fr_vec)
+    template <typename T> static T deserialize_from_fields(std::span<const fr> fr_vec)
     {
         using field_ct = fr;
         using bigfield_ct = fq;
 
-        constexpr size_t expected_size = calc_num_bn254_frs<T>();
+        constexpr size_t expected_size = calc_num_fields<T>();
         BB_ASSERT_EQ(fr_vec.size(), expected_size);
 
         ASSERT(validate_context<Builder>(fr_vec));
@@ -156,8 +157,8 @@ template <typename Builder> class StdlibCodec {
 
             constexpr size_t base_field_frs = expected_size / 2;
 
-            Basefield x = convert_from_bn254_frs<Basefield>(fr_vec.subspan(0, base_field_frs));
-            Basefield y = convert_from_bn254_frs<Basefield>(fr_vec.subspan(base_field_frs, base_field_frs));
+            Basefield x = deserialize_from_fields<Basefield>(fr_vec.subspan(0, base_field_frs));
+            Basefield y = deserialize_from_fields<Basefield>(fr_vec.subspan(base_field_frs, base_field_frs));
 
             T out(x, y, check_point_at_infinity<T>(fr_vec));
             // Note that in the case of bn254 with Mega arithmetization, the check is delegated to ECCVM, see
@@ -168,11 +169,11 @@ template <typename Builder> class StdlibCodec {
             // Case 6: Array or Univariate
             T val;
             using element_type = typename T::value_type;
-            const size_t scalar_frs = calc_num_bn254_frs<element_type>();
+            const size_t scalar_frs = calc_num_fields<element_type>();
 
             size_t i = 0;
             for (auto& x : val) {
-                x = convert_from_bn254_frs<element_type>(fr_vec.subspan(scalar_frs * i, scalar_frs));
+                x = deserialize_from_fields<element_type>(fr_vec.subspan(scalar_frs * i, scalar_frs));
                 ++i;
             }
             return val;
@@ -182,7 +183,7 @@ template <typename Builder> class StdlibCodec {
     /**
      * @brief Core stdlib Transcript serialization method.
      * @details Serializes an object into a flat vector of in-circuit `fr`, i.e. \ref bb::stdlib::field_t "field_t"
-     * elements. This is the inverse of \ref convert_from_bn254_frs (up to the
+     * elements. This is the inverse of \ref deserialize_from_fields (up to the
      * conventional point-at-infinity representation; see TODO below).
      *
      * Serializes the following types:
@@ -217,7 +218,7 @@ template <typename Builder> class StdlibCodec {
      * - `bb::Univariate<FF, N>` or `std::array<FF, N>` of any of the above — serialize element-wise and concatenate.
      *
      * Round-trip note:
-     * - For supported types, `convert_to_bn254_frs(val)` followed by `convert_from_bn254_frs<T>(...)` reconstructs an
+     * - For supported types, `serialize_to_fields(val)` followed by `deserialize_from_fields<T>(...)` reconstructs an
      *   equivalent in-circuit object, assuming the same arithmetization and that range/ECC checks are enforced where
      *   applicable during reconstruction (see \ref bb::ECCVMTranscriptRelationImpl< FF_ > "ECCVM Transcript" relation).
      *
@@ -229,7 +230,7 @@ template <typename Builder> class StdlibCodec {
      * @param val      Value to serialize
      * @return         Flat vector of `fr<Builder>` elements
      */
-    template <typename T> static std::vector<fr> convert_to_bn254_frs(const T& val)
+    template <typename T> static std::vector<fr> serialize_to_fields(const T& val)
     {
         using field_ct = fr;
         using bigfield_ct = fq;
@@ -243,8 +244,8 @@ template <typename Builder> class StdlibCodec {
         } else if constexpr (IsAnyOf<T, bn254_element, grumpkin_element>) {
             using BaseField = typename T::BaseField;
 
-            std::vector<field_ct> fr_vec_x = convert_to_bn254_frs<BaseField>(val.x);
-            std::vector<field_ct> fr_vec_y = convert_to_bn254_frs<BaseField>(val.y);
+            std::vector<field_ct> fr_vec_x = serialize_to_fields<BaseField>(val.x);
+            std::vector<field_ct> fr_vec_y = serialize_to_fields<BaseField>(val.y);
             std::vector<field_ct> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
             fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
             return fr_vec;
@@ -252,11 +253,26 @@ template <typename Builder> class StdlibCodec {
             // Array or Univariate
             std::vector<field_ct> fr_vec;
             for (auto& x : val) {
-                auto tmp_vec = convert_to_bn254_frs<typename T::value_type>(x);
+                auto tmp_vec = serialize_to_fields<typename T::value_type>(x);
                 fr_vec.insert(fr_vec.end(), tmp_vec.begin(), tmp_vec.end());
             }
             return fr_vec;
         }
+    }
+    /**
+     * @brief Split a challenge field element into two half-width challenges
+     * @details `lo` is 128 bits and `hi` is 126 bits which should provide significantly more than our security
+     * parameter bound: 100 bits. The decomposition is constrained to be unique.
+     *
+     * @param challenge
+     * @return std::array<DataType, 2>
+     */
+    static std::array<fr, 2> split_challenge(const fr& challenge)
+    {
+        const size_t lo_bits = fr::native::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
+        // Constuct a unique lo/hi decomposition of the challenge (hi_bits will be 254 - 128 = 126)
+        const auto [lo, hi] = split_unique(challenge, lo_bits);
+        return std::array<fr, 2>{ lo, hi };
     }
 
     /**
@@ -271,12 +287,11 @@ template <typename Builder> class StdlibCodec {
      */
     template <typename TargetType> static TargetType deserialize_from_frs(std::span<fr> elements, size_t& num_frs_read)
     {
-        constexpr size_t num_frs = calc_num_bn254_frs<TargetType>();
+        constexpr size_t num_frs = calc_num_fields<TargetType>();
         BB_ASSERT_GTE(elements.size(), num_frs_read + num_frs);
-        TargetType result = convert_from_bn254_frs<TargetType>(elements.subspan(num_frs_read, num_frs));
+        TargetType result = deserialize_from_fields<TargetType>(elements.subspan(num_frs_read, num_frs));
         num_frs_read += num_frs;
         return result;
     }
 };
-
 } // namespace bb::stdlib
