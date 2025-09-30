@@ -25,7 +25,7 @@ export type L2ChainConfig = L1ContractsConfig &
     seqMinTxsPerBlock: number;
     seqMaxTxsPerBlock: number;
     realProofs: boolean;
-    snapshotsUrl: string;
+    snapshotsUrls: string[];
     autoUpdate: SharedNodeConfig['autoUpdate'];
     autoUpdateUrl?: string;
     maxTxPoolSize: number;
@@ -99,7 +99,7 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
-  snapshotsUrl: `${SNAPSHOT_URL}/staging-ignition/`,
+  snapshotsUrls: [`${SNAPSHOT_URL}/staging-ignition/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-ignition.json',
   maxTxPoolSize: 100_000_000, // 100MB
@@ -179,7 +179,7 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
-  snapshotsUrl: `${SNAPSHOT_URL}/staging-public/`,
+  snapshotsUrls: [`${SNAPSHOT_URL}/staging-public/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-public.json',
   publicIncludeMetrics,
@@ -231,7 +231,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
-  snapshotsUrl: `${SNAPSHOT_URL}/testnet/`,
+  snapshotsUrls: [`${SNAPSHOT_URL}/testnet/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/testnet.json',
   maxTxPoolSize: 100_000_000, // 100MB
@@ -285,7 +285,7 @@ export const ignitionL2ChainConfig: L2ChainConfig = {
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
-  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/ignition/',
+  snapshotsUrls: ['https://storage.googleapis.com/aztec-testnet/snapshots/ignition/'],
   autoUpdate: 'notify',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/ignition.json',
   maxTxPoolSize: 100_000_000, // 100MB
@@ -421,7 +421,7 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('SEQ_MAX_TX_PER_BLOCK', config.seqMaxTxsPerBlock.toString());
   enrichVar('PROVER_REAL_PROOFS', config.realProofs.toString());
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
-  enrichVar('SYNC_SNAPSHOTS_URL', config.snapshotsUrl);
+  enrichVar('SYNC_SNAPSHOTS_URLS', config.snapshotsUrls.join(','));
   enrichVar('P2P_MAX_TX_POOL_SIZE', config.maxTxPoolSize.toString());
 
   enrichVar('DATA_STORE_MAP_SIZE_KB', config.dbMapSizeKb.toString());
