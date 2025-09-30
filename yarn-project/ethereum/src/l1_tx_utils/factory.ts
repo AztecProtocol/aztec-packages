@@ -13,7 +13,7 @@ import type { SigningCallback } from './types.js';
 
 export function createL1TxUtilsFromViemWallet(
   client: ExtendedViemWalletClient,
-  logger: Logger = createLogger('L1TxUtils'),
+  logger: Logger = createLogger('l1-tx-utils'),
   dateProvider: DateProvider = new DateProvider(),
   config?: Partial<L1TxUtilsConfig>,
   debugMaxGasLimit: boolean = false,
@@ -32,7 +32,7 @@ export function createL1TxUtilsFromViemWallet(
 export function createL1TxUtilsFromEthSigner(
   client: ViemClient,
   signer: EthSigner,
-  logger: Logger = createLogger('L1TxUtils'),
+  logger: Logger = createLogger('l1-tx-utils'),
   dateProvider: DateProvider = new DateProvider(),
   config?: Partial<L1TxUtilsConfig>,
   debugMaxGasLimit: boolean = false,

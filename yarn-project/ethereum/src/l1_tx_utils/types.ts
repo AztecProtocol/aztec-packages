@@ -1,7 +1,8 @@
+import type { BlobKzgInstance } from '@aztec/blob-lib/types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemTransactionSignature } from '@aztec/foundation/eth-signature';
 
-import type { Abi, Address, Hex, TransactionSerializable } from 'viem';
+import type { Abi, Address, Hex, TransactionReceipt, TransactionSerializable } from 'viem';
 
 import type { L1TxUtilsConfig } from './config.js';
 
@@ -16,7 +17,7 @@ export type L1GasConfig = Partial<L1TxUtilsConfig> & { gasLimit?: bigint; txTime
 
 export interface L1BlobInputs {
   blobs: Uint8Array[];
-  kzg: any;
+  kzg: BlobKzgInstance;
   maxFeePerBlobGas?: bigint;
 }
 
@@ -45,6 +46,19 @@ export enum TxUtilsState {
   NOT_MINED,
   MINED,
 }
+
+export type L1TxState = {
+  txHashes: Hex[];
+  cancelTxHashes: Hex[];
+  gasLimit: bigint;
+  gasPrice: GasPrice;
+  txConfig: L1GasConfig;
+  request: L1TxRequest;
+  status: TxUtilsState;
+  nonce: number;
+  receipt?: TransactionReceipt;
+  blobInputs: L1BlobInputs | undefined;
+};
 
 export type SigningCallback = (
   transaction: TransactionSerializable,
