@@ -98,7 +98,7 @@ The kernel circuits use recursive proofs, which we learned about in the previous
 
 ## Step 3: The sequencer's role
 
-Your transaction has now reached the sequencer network. In Aztec, sequencers are full nodes responsible for the production of blocks within the network. Like air traffic controllers, they take all the incoming transactions and organize them into orderly blocks. Importantly, they have no visibility into the contents, purpose, or origin of any transactions they are sequencing, unless that transaction explicitly has public side-effects.
+Your transaction has now reached the sequencer network. In Aztec, **sequencers are full nodes responsible for the production of blocks within the network**. Like air traffic controllers, they take all the incoming transactions and organize them into orderly blocks. Importantly, they have no visibility into the contents, purpose, or origin of any transactions they are sequencing, unless that transaction explicitly has public side-effects.
 
 ### Selection and validation
 
