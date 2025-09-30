@@ -16,5 +16,5 @@ typename Poseidon2<Params>::FF Poseidon2<Params>::hash(const std::vector<typenam
     return Sponge::hash_internal(input);
 }
 
-template class Poseidon2<Poseidon2Bn254ScalarFieldParams>;
+extern template class Poseidon2<Poseidon2Bn254ScalarFieldParams>;
 } // namespace bb::crypto

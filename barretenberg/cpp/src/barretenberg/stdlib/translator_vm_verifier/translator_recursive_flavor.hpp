@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include "barretenberg/"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -149,7 +148,7 @@ class TranslatorRecursiveFlavor {
     // Reuse the VerifierCommitments from Translator
     using VerifierCommitments = TranslatorFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from Translator
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
+    using Transcript = UltraStdlibTranscript;
 
     using VKAndHash = VKAndHash_<VerificationKey, FF>;
 };

@@ -1,5 +1,4 @@
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
-#include "barretenberg/"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.test.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
@@ -72,7 +71,7 @@ TYPED_TEST(ShplonkRecursionTest, Simple)
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using Transcript = bb::BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
     using StdlibProof = stdlib::Proof<Builder>;
 
     // Prover transcript

@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include "barretenberg/"
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_verifier_instance.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -19,7 +18,7 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using Builder = typename Flavor::CircuitBuilder;
     using SubrelationSeparators = typename Flavor::SubrelationSeparators;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using OinkProof = std::vector<FF>;
 

@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include "barretenberg/"
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/goblin/types.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"

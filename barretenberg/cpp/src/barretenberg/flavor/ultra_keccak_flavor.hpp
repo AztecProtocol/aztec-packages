@@ -32,13 +32,13 @@ namespace bb {
 
 class UltraKeccakFlavor : public bb::UltraFlavor {
   public:
-    using Transcript = UltraKeccakFlavor::Transcript_<KeccakTranscriptParams>;
+    using Transcript = KeccakTranscript;
 
     static constexpr bool USE_PADDING = false;
 
     // Override as proof length is different
-    static constexpr size_t num_elements_comm = bb::field_conversion::calc_num_uint256_ts<Commitment>();
-    static constexpr size_t num_elements_fr = bb::field_conversion::calc_num_uint256_ts<FF>();
+    static constexpr size_t num_elements_comm = U256Codec::template calc_num_fields<Commitment>();
+    static constexpr size_t num_elements_fr = U256Codec::template calc_num_fields<FF>();
 
     // Proof length formula methods
     static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =

@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include "barretenberg/"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"

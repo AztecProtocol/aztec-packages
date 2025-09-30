@@ -29,7 +29,6 @@
 #include <type_traits>
 #include <vector>
 
-#include "barretenberg/"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 

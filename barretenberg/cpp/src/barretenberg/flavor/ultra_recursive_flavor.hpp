@@ -28,7 +28,6 @@
 #include <type_traits>
 #include <vector>
 
-#include "barretenberg/"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
@@ -58,7 +57,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     using FF = typename Curve::ScalarField;
     using NativeFlavor = UltraFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
+    using Transcript = StdlibTranscript<CircuitBuilder>;
 
     static constexpr size_t VIRTUAL_LOG_N = UltraFlavor::VIRTUAL_LOG_N;
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials

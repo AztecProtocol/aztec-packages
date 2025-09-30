@@ -118,7 +118,7 @@ void tamper_with_proof(ProofType& inner_proof, bool end_of_proof)
         }
     } else {
         // Manually deserialize, modify, and serialize the last commitment contained in the proof.
-        static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
+        static constexpr size_t num_frs_comm = FrCodec::template calc_num_fields<Commitment>();
         size_t offset = inner_proof.size() - num_frs_comm;
 
         auto element_frs = std::span{ inner_proof }.subspan(offset, num_frs_comm);

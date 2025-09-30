@@ -1,5 +1,4 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
-#include "barretenberg/"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.test.hpp"
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"

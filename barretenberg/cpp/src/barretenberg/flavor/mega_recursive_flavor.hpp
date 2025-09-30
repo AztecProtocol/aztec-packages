@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include "barretenberg/"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -46,7 +45,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     using Commitment = typename Curve::Element;
     using NativeFlavor = MegaFlavor;
 
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
+    using Transcript = MegaStdlibTranscript;
     static constexpr size_t VIRTUAL_LOG_N = MegaFlavor::VIRTUAL_LOG_N;
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = MegaFlavor::USE_SHORT_MONOMIALS;

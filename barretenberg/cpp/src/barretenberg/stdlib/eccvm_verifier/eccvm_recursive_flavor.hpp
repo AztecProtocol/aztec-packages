@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include "barretenberg/"
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -153,7 +152,7 @@ class ECCVMRecursiveFlavor {
     // Reuse the VerifierCommitments from ECCVM
     using VerifierCommitments = ECCVMFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from ECCVM
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
+    using Transcript = StdlibTranscript<CircuitBuilder>;
 
     using VKAndHash = VKAndHash_<VerificationKey, FF>;
 

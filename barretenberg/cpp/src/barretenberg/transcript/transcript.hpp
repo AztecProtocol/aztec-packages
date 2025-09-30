@@ -53,8 +53,9 @@ inline std::atomic<size_t> unique_transcript_index{ 0 };
  * @brief Common transcript class for both parties. Stores the data for the current round, as well as the
  * manifest.
  */
-template <typename DataType, typename HashFunction> class BaseTranscript {
+template <typename DataType_, typename HashFunction> class BaseTranscript {
   public:
+    using DataType = DataType_;
     using Proof = std::vector<DataType>;
     using Codec = std::
         conditional_t<IsAnyOf<DataType, bb::fr, uint256_t>, FieldConversion<DataType>, stdlib::StdlibCodec<DataType>>;
@@ -177,7 +178,7 @@ template <typename DataType, typename HashFunction> class BaseTranscript {
      */
     template <typename T> void serialize_to_buffer(const T& element, Proof& proof_data)
     {
-        auto element_frs = Codec::serialize_from_fields(element);
+        auto element_frs = Codec::serialize_to_fields(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
     }
     /**
@@ -391,7 +392,7 @@ template <typename DataType, typename HashFunction> class BaseTranscript {
                 element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
             }
         }
-        auto element_frs = Codec::serialize(element);
+        auto element_frs = Codec::serialize_to_fields(element);
 
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {
@@ -671,6 +672,8 @@ template <typename DataType, typename HashFunction> class BaseTranscript {
 using NativeTranscript = BaseTranscript<bb::fr, bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>>;
 using KeccakTranscript = BaseTranscript<uint256_t, Keccak>;
 
+template <typename Builder>
+using StdlibTranscript = BaseTranscript<bb::stdlib::field_t<Builder>, bb::stdlib::poseidon2<Builder>>;
 using UltraStdlibTranscript =
     BaseTranscript<stdlib::field_t<UltraCircuitBuilder>, stdlib::poseidon2<UltraCircuitBuilder>>;
 using MegaStdlibTranscript = BaseTranscript<stdlib::field_t<MegaCircuitBuilder>, stdlib::poseidon2<MegaCircuitBuilder>>;

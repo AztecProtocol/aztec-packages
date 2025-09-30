@@ -107,8 +107,8 @@ class UltraFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
-    static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
+    static constexpr size_t num_frs_comm = FrCodec::template calc_num_fields<Commitment>();
+    static constexpr size_t num_frs_fr = FrCodec::template calc_num_fields<FF>();
 
     // Proof length formula methods
     static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
@@ -346,9 +346,9 @@ class UltraFlavor {
      * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
      *
      */
-    template <typename Params> class Transcript_ : public BaseTranscript<Params> {
+    class Transcript : public NativeTranscript {
       public:
-        using Base = BaseTranscript<Params>;
+        using Base = NativeTranscript;
 
         // Transcript objects defined as public member variables for easy access and modification
         std::vector<FF> public_inputs;
@@ -366,19 +366,19 @@ class UltraFlavor {
         std::vector<FF> gemini_fold_evals;
         Commitment shplonk_q_comm;
         Commitment kzg_w_comm;
-        Transcript_() = default;
+        // Transcript_() = default;
 
-        static std::shared_ptr<Transcript_> prover_init_empty()
-        {
-            auto transcript = Base::prover_init_empty();
-            return std::static_pointer_cast<Transcript_>(transcript);
-        };
+        // static std::shared_ptr<Transcript_> prover_init_empty()
+        // {
+        //     auto transcript = Base::prover_init_empty();
+        //     return std::static_pointer_cast<Transcript_>(transcript);
+        // };
 
-        static std::shared_ptr<Transcript_> verifier_init_empty(const std::shared_ptr<Transcript_>& transcript)
-        {
-            auto verifier_transcript = Base::verifier_init_empty(transcript);
-            return std::static_pointer_cast<Transcript_>(verifier_transcript);
-        };
+        // static std::shared_ptr<Transcript_> verifier_init_empty(const std::shared_ptr<Transcript_>& transcript)
+        // {
+        //     auto verifier_transcript = Base::verifier_init_empty(transcript);
+        //     return std::static_pointer_cast<Transcript_>(verifier_transcript);
+        // };
 
         /**
          * @brief Takes a FULL Ultra proof and deserializes it into the public member variables
@@ -460,8 +460,6 @@ class UltraFlavor {
             BB_ASSERT_EQ(proof_data.size(), old_proof_length);
         }
     };
-
-    using Transcript = Transcript_<NativeTranscriptParams>;
 
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)

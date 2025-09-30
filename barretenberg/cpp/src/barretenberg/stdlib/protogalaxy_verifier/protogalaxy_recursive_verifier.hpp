@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include "barretenberg/"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"

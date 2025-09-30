@@ -70,7 +70,6 @@
  */
 
 #pragma once
-#include "barretenberg/"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/std_array.hpp"
@@ -181,7 +180,6 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     static size_t calc_num_data_types()
     {
-        using namespace bb::field_conversion;
         // Create a temporary instance to get the number of precomputed entities
         size_t commitments_size =
             PrecomputedCommitments::size() * Transcript::template calc_num_data_types<Commitment>();
@@ -201,7 +199,6 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     virtual std::vector<typename Transcript::DataType> to_field_elements() const
     {
-        using namespace bb::field_conversion;
 
         auto serialize = [](const auto& input, std::vector<typename Transcript::DataType>& buffer) {
             std::vector<typename Transcript::DataType> input_fields = Transcript::serialize(input);
@@ -232,7 +229,6 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     size_t from_field_elements(const std::span<const typename Transcript::DataType>& elements)
     {
-        using namespace bb::field_conversion;
 
         size_t idx = 0;
         auto deserialize = [&idx, &elements]<typename T>(T& target) {
@@ -309,7 +305,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     using Builder = Builder_;
     using FF = stdlib::field_t<Builder>;
     using Commitment = typename PrecomputedCommitments::DataType;
-    using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = BaseTranscript<FF, stdlib::poseidon2<Builder>>;
     FF log_circuit_size;
     FF num_public_inputs;
     FF pub_inputs_offset = 0;

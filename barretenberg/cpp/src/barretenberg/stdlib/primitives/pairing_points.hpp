@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include "barretenberg/"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
@@ -67,7 +66,7 @@ template <typename Builder_> struct PairingPoints {
             return;
         }
         // We use a Transcript because it provides us an easy way to hash to get a "random" separator.
-        BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>> transcript{};
+        StdlibTranscript<Builder> transcript{};
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1375): Sometimes unnecesarily hashing constants
 
         transcript.add_to_hash_buffer("Accumulator_P0", P0);
