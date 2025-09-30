@@ -87,6 +87,7 @@ impl TxBasePublicInputsComposer {
             global_variables: avm.global_variables,
             vk_tree_root: private_to_public.constants.vk_tree_root,
             protocol_contract_tree_root: avm.protocol_contract_tree_root,
+            // We take the prover id of the public tube, but we validate that it matches the prover id of the avm in validate_public_tube_against_avm
             prover_id: public_tube.prover_id,
         };
 

@@ -561,6 +561,7 @@ export function mapAvmCircuitPublicInputsToNoir(inputs: AvmCircuitPublicInputs):
     gas_settings: mapGasSettingsToNoir(inputs.gasSettings),
     effective_gas_fees: mapGasFeesToNoir(inputs.effectiveGasFees),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
+    prover_id: mapFieldToNoir(inputs.proverId),
     public_call_request_array_lengths: mapPublicCallRequestArrayLengthsToNoir(inputs.publicCallRequestArrayLengths),
     public_setup_call_requests: mapTuple(inputs.publicSetupCallRequests, mapPublicCallRequestToNoir),
     public_app_logic_call_requests: mapTuple(inputs.publicAppLogicCallRequests, mapPublicCallRequestToNoir),

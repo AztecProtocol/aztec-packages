@@ -34,6 +34,7 @@ struct PublicInputs {
     GasSettings gasSettings;
     GasFees effectiveGasFees;
     AztecAddress feePayer;
+    FF proverId;
     PublicCallRequestArrayLengths publicCallRequestArrayLengths;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicSetupCallRequests;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicAppLogicCallRequests;
@@ -93,6 +94,7 @@ struct PublicInputs {
                    gasSettings,
                    effectiveGasFees,
                    feePayer,
+                   proverId,
                    publicCallRequestArrayLengths,
                    publicSetupCallRequests,
                    publicAppLogicCallRequests,
