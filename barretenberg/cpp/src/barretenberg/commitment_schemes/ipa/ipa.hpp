@@ -417,6 +417,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         Commitment G_zero =
             scalar_multiplication::pippenger_unsafe<Curve>(s_vec, { &srs_elements[0], /*size*/ poly_length });
         Commitment G_zero_sent = transcript->template receive_from_prover<Commitment>("IPA:G_0");
+        BB_ASSERT_EQ(G_zero, G_zero_sent, "G_0 should be equal to G_0 sent in transcript. IPA verification fails.");
 
         // Step 9.
         // Receive a_zero from the prover
@@ -427,9 +428,8 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // the URS G_0.
         GroupElement right_hand_side = G_zero * a_zero + aux_generator * a_zero * b_zero;
         // Step 11.
-        // Check if C_right == C_zero and if G_zero_sent == G_zero. (While the proof could be said to pass without this
-        // second check, we require it.)
-        return (C_zero.normalize() == right_hand_side.normalize() && G_zero == G_zero_sent);
+        // Check if C_right == C_zero
+        return (C_zero.normalize() == right_hand_side.normalize());
     }
     /**
      * @brief  Recursively verify the correctness of an IPA proof, without computing G_0. This is therefore a "partial
