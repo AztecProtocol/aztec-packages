@@ -246,6 +246,8 @@ Each circuit verifies the proofs from the previous layer while adding its own lo
 
 ## Putting it all together
 
+[TODO] remove? Seems like it's just a shit version of the next lesson to me?
+
 Let's trace through what happens when you make a private token transfer:
 
 1. **You initiate**: "Send 100 tokens to Alice"
