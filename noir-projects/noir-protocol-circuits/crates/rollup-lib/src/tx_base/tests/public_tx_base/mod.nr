@@ -59,6 +59,8 @@ impl TestBuilder {
 
         builder.append_nullifiers(1);
 
+        builder.prover_id = 42;
+
         let mut private_tail = builder.to_private_to_public_kernel_circuit_public_inputs();
 
         let mut avm = builder.to_avm_circuit_public_inputs();
@@ -67,7 +69,8 @@ impl TestBuilder {
 
         // --- Build things at rollup level ---
 
-        let rollup_fixture_builder = RollupFixtureBuilder::new();
+        let mut rollup_fixture_builder = RollupFixtureBuilder::new();
+        rollup_fixture_builder.prover_id = 42;
         let block_number = rollup_fixture_builder.start_block_number;
 
         let start_sponge_blob = rollup_fixture_builder.get_sponge_blob(block_number);

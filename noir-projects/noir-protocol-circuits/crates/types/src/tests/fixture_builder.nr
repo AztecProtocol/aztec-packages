@@ -180,7 +180,7 @@ pub struct FixtureBuilder {
 
     // Public call.
     pub bytecode_hash: Field,
-    pub prover_id: EthAddress,
+    pub prover_id: Field,
 
     // Proof.
     pub vk: MegaVerificationKey,
@@ -765,7 +765,7 @@ impl FixtureBuilder {
             gas_settings: self.tx_context.gas_settings,
             effective_gas_fees: self.effective_gas_fees,
             fee_payer: self.fee_payer,
-            prover_id: self.prover_id.to_field(),
+            prover_id: self.prover_id,
             public_call_request_array_lengths,
             public_setup_call_requests,
             public_app_logic_call_requests,
