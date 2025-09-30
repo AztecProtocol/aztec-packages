@@ -213,7 +213,7 @@ template <typename FF_>
 void CircuitBuilderBase<FF_>::assert_valid_variables(const std::vector<uint32_t>& variable_indices)
 {
     for (const auto& variable_index : variable_indices) {
-        ASSERT_DEBUG(variable_index < variables.size());
+        BB_ASSERT_LT(variable_index, variables.size());
     }
 }
 

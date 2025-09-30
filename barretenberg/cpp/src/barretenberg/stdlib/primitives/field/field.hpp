@@ -28,7 +28,7 @@ template <typename T, typename... Ts> T* validate_context(T* first, Ts*... rest)
     if (!tail) {
         return first; // tail is null, use first
     }
-    ASSERT_DEBUG(first == tail && "Pointers refer to different builder objects!");
+    ASSERT(first == tail, "Pointers refer to different builder objects!");
     return first;
 }
 
