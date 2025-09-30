@@ -21,6 +21,16 @@ policies:
           - - k8s_namespace_name
             - =~
             - $NEXT_SCENARIO_REGEX
+      - receiver: "Slack #alerts-testnet"
+        object_matchers:
+          - - k8s_namespace_name
+            - =~
+            - $TESTNET_NAMESPACES_REGEX
+      - receiver: "Slack #alerts-mainnet"
+        object_matchers:
+          - - k8s_namespace_name
+            - =~
+            - $MAINNET_NAMESPACES_REGEX
       - receiver: "Slack #network-alerts channel"
         object_matchers:
           - - k8s_namespace_name
