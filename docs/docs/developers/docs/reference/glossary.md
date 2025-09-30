@@ -114,7 +114,7 @@ Partial notes are a concept that allows users to commit to an encrypted value, a
 
 ### Programmable Privacy
 
-Aztec achieves programmable privacy through its hybrid architecture that supports both private and public smart contract execution. Private functions run client-side with zero-knowledge proofs, while public functions run on-chain. This allows developers to program custom privacy logic, choosing what data remains private and what becomes public, with composability between private and public state and execution contexts.
+Aztec achieves programmable privacy through its hybrid architecture that supports both private and public smart contract execution. Private functions run client-side with zero-knowledge proofs, while public functions run onchain. This allows developers to program custom privacy logic, choosing what data remains private and what becomes public, with composability between private and public state and execution contexts.
 
 ### Provers
 
@@ -130,7 +130,7 @@ A key that is used to generate a proof. In the case of Aztec, these are compiled
 
 ### Private Execution Environment (PXE)
 
-The private execution enviroment is where private computation occurs. This local such as your device or browser.
+The private execution environment is where private computation occurs. This local such as your device or browser.
 
 <Glossary.PXE />
 
@@ -181,7 +181,7 @@ A statement in Aztec's zero-knowledge context refers to the public assertion bei
 
 ### Verifier
 
-The entity resposible for verifying the validity of a ZK proof. In the context of Aztec, this is:
+The entity responsible for verifying the validity of a ZK proof. In the context of Aztec, this is:
 - **The sequencers**: verify that private functions were executed correctly.
 - **The Ethereum L1 smart contract**: verifies batches of transactions were executed correctly.
 
@@ -195,4 +195,4 @@ In the context of Aztec's zero-knowledge proofs, a witness refers to the private
 
 ### Zero-knowledge (ZK) proof
 
-Zero-knowledge proofs in Aztec are cryptographic proofs that allow someone to prove they know certain information or have performed a computation correctly without revealing the underlying data. Aztec uses various ZK-SNARK protocols including UltraPlonk and Honk. These proofs enable private execution where users can prove they executed a private function correctly and that they own certain notes, without revealing the function inputs, note contents, or internal computation details. The proofs are verified on-chain to ensure the integrity of private state transitions.
+Zero-knowledge proofs in Aztec are cryptographic proofs that allow someone to prove they know certain information or have performed a computation correctly without revealing the underlying data. Aztec uses various ZK-SNARK protocols including UltraPlonk and Honk. These proofs enable private execution where users can prove they executed a private function correctly and that they own certain notes, without revealing the function inputs, note contents, or internal computation details. The proofs are verified onchain to ensure the integrity of private state transitions.
