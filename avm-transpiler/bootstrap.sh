@@ -6,12 +6,12 @@ cmd=${1:-}
 
 hash=$(hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 
-function build {
-  export GIT_COMMIT="$(cat ../noir/noir-repo-ref | head -n1)-aztec"
-  export SOURCE_DATE_EPOCH=0
-  export GIT_DIRTY=false
-  export RUSTFLAGS="-Dwarnings"
+export GIT_COMMIT="$(cat ../noir/noir-repo-ref | head -n1)-aztec"
+export SOURCE_DATE_EPOCH=0
+export GIT_DIRTY=false
+export RUSTFLAGS="-Dwarnings"
 
+function build {
   echo_header "avm-transpiler build"
   artifact=avm-transpiler-$hash.tar.gz
   if ! cache_download $artifact; then

@@ -223,7 +223,7 @@ fn generateVKsForFunctions(
 ) !void {
 
     // Use single-threaded processing for WASM target
-    if (builtin.target.os == .wasi) {
+    if (builtin.target.os.tag == .wasi) {
         // Single-threaded processing for WASM
         for (functions) |function| {
             const func_obj = function.object;

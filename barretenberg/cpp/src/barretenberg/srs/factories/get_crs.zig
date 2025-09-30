@@ -28,15 +28,17 @@ fn downloadData(allocator: std.mem.Allocator, num_bytes: usize, filename: []cons
     try request.sendBodiless();
 
     // Receive response headers
-    var read_buffer: [8192]u8 = undefined;
-    var response = try request.receiveHead(&read_buffer);
+    var redirect_buffer: [1024]u8 = undefined;
+    var response = try request.receiveHead(&redirect_buffer);
 
     // Read the response body
-    var reader = response.reader(&read_buffer);
+    var transfer_buffer: [8192]u8 = undefined;
+    var reader = response.reader(&transfer_buffer);
 
     var data_list = try std.ArrayList(u8).initCapacity(allocator, num_bytes);
     defer data_list.deinit(allocator);
 
+    var read_buffer: [4096]u8 = undefined;
     while (true) {
         const bytes_read = reader.readSliceShort(&read_buffer) catch break;
         if (bytes_read == 0) break;

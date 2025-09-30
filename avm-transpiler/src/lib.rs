@@ -2,6 +2,7 @@
 #![cfg_attr(not(test), warn(unused_crate_dependencies, unused_extern_crates))]
 
 use noirc_frontend as _;
+use env_logger as _;
 
 use libc::{c_char, c_int, size_t};
 use std::ffi::{CStr, CString};
@@ -16,8 +17,6 @@ mod procedures;
 mod transpile;
 mod transpile_contract;
 mod utils;
-
-use transpile_contract::{CompiledAcirContractArtifact, TranspiledContractArtifact};
 
 pub use transpile_contract::*;
 pub use transpile::*;
