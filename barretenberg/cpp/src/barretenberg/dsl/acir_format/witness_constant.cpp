@@ -23,10 +23,6 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& 
     auto point_y = to_field_ct(input_y, builder);
     auto infinite = bool_ct(to_field_ct(input_infinite, builder));
 
-    // Logically all inputs must agree in terms of constant-ness
-    BB_ASSERT_EQ(input_x.is_constant, input_y.is_constant);
-    BB_ASSERT_EQ(input_x.is_constant, input_infinite.is_constant);
-
     bool non_constant_coordinates = !input_x.is_constant || !input_y.is_constant;
 
     // If witness is provided and the input is non-constant, overwrite the coordinates to correspond to an arbitrary
