@@ -138,25 +138,13 @@ To prevent double-spends, we need a public record that "this specific note commi
 
 Together, commitments say "a note was created", and nullifiers say "a note was consumed once—and only once".
 
-## A simple private transfer
+## Summary
 
-Now that we know the building blocks, let's see how this all fits together.
+**Public data** is stored in a Merkle tree using an **account-based model** with key-value pairs, in the same way that Ethereum manages state.
 
-1. Create note commitment:
+**Private data** is stored in a **note**, which is a UTXO-like envelope that contains the private data. These notes are hased to produce a **commitment** and stored in an **append-only** note hash Merkle tree.
 
-- The sender proves ownership of their note by proving knowledge of a note commitment preimage.
-- New output note commitments are produced (e.g., one to the recipient, one as change).
-
-2. Sending a note:
-
-- The spent input note(s) emit nullifiers to mark them as consumed.
-
-3. Prove and publish:
-
-- The sender’s wallet generates proofs that the user is following the rules of the contract they are interacting with, as well as the protocol rules.
-- The sequencer includes the commitment inserts and nullifiers in the block and updates the trees.
-
-Result: Observers see new commitments and nullifiers, but not who paid whom or how amounts were split.
+To "spend" a note, the user must prove that they know the **preimage** to the commitment without revealing it (this is done using zero-knowledge proofs, which will be explained in the next lesson). Then, a **nullifier** is created and stored in the nullifier Merkle tree to mark it as used.
 
 ## Five State Trees
 
