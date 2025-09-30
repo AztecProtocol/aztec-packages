@@ -18,7 +18,7 @@ namespace bb::stdlib::recursion::honk {
 template <typename Builder> struct StdlibTranscriptParams {
     using DataType = stdlib::field_t<Builder>;
     using Proof = std::vector<DataType>;
-    using Codec = FieldConversion<Builder>;
+    using Codec = StdlibCodec<Builder>;
 
     static DataType hash(const std::vector<DataType>& data)
     {

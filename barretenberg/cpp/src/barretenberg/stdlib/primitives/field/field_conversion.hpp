@@ -16,7 +16,7 @@
 
 namespace bb::stdlib {
 
-template <typename Builder> class FieldConversion {
+template <typename Builder> class StdlibCodec {
   public:
     using fr = field_t<Builder>;
     using fq = bigfield<Builder, bb::Bn254FqParams>;

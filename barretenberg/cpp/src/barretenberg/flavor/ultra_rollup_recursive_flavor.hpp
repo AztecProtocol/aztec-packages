@@ -90,16 +90,16 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
          */
         VerificationKey(std::span<FF> elements)
         {
-            using FieldConversion = stdlib::FieldConversion<CircuitBuilder>;
+            using Codec = stdlib::StdlibCodec<CircuitBuilder>;
 
             size_t num_frs_read = 0;
 
-            this->log_circuit_size = FieldConversion::template deserialize_from_frs<FF>(elements, num_frs_read);
-            this->num_public_inputs = FieldConversion::template deserialize_from_frs<FF>(elements, num_frs_read);
-            this->pub_inputs_offset = FieldConversion::template deserialize_from_frs<FF>(elements, num_frs_read);
+            this->log_circuit_size = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
+            this->num_public_inputs = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
+            this->pub_inputs_offset = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
 
             for (Commitment& commitment : this->get_all()) {
-                commitment = FieldConversion::template deserialize_from_frs<Commitment>(elements, num_frs_read);
+                commitment = Codec::template deserialize_from_frs<Commitment>(elements, num_frs_read);
             }
         }
 

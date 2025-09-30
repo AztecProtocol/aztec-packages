@@ -79,14 +79,13 @@ class AvmRecursiveFlavor {
          */
         VerificationKey(std::span<const FF> elements)
         {
-            using FieldConversion = stdlib::FieldConversion<CircuitBuilder>;
+            using Codec = stdlib::StdlibCodec<CircuitBuilder>;
 
             size_t num_frs_read = 0;
-            size_t num_frs_Comm = FieldConversion::template calc_num_bn254_frs<Commitment>();
+            size_t num_frs_Comm = Codec::template calc_num_bn254_frs<Commitment>();
 
             for (Commitment& comm : this->get_all()) {
-                comm = FieldConversion::template convert_from_bn254_frs<Commitment>(
-                    elements.subspan(num_frs_read, num_frs_Comm));
+                comm = Codec::template convert_from_bn254_frs<Commitment>(elements.subspan(num_frs_read, num_frs_Comm));
                 num_frs_read += num_frs_Comm;
             }
         }
