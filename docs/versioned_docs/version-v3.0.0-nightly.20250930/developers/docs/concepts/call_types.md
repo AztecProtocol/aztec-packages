@@ -265,7 +265,7 @@ This creates and returns a transaction request, which includes proof of correct 
 
 ```typescript title="local-tx-fails" showLineNumbers 
 await expect(
-  claimContract.methods.claim(anotherDonationNote, donorAddress).send({ from: unrelatedAdress }).wait(),
+  claimContract.methods.claim(anotherDonationNote, donorAddress).send({ from: unrelatedAddress }).wait(),
 ).rejects.toThrow('Note does not belong to the sender');
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-nightly.20250930/yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts#L232-L236" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts#L232-L236</a></sub></sup>

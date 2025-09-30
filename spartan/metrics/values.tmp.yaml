@@ -118,7 +118,13 @@ grafana:
   env:
     PRODUCTION_NAMESPACES_REGEX: "v2-testnet|staging-public|staging-ignition"
     NIGHTLY_NAMESPACES_REGEX: "next-rc-1"
+    STAGING_PUBLIC_REGEX: "staging-public"
+    STAGING_IGNITION_REGEX: "staging-ignition"
+    NEXT_SCENARIO_REGEX: "v[0-9]+-scenario|next-scenario|next-rc-.*"
     SLACK_WEBHOOK_URL: "http://127.0.0.1" # dummy value
+    SLACK_WEBHOOK_STAGING_PUBLIC_URL: "http://127.0.0.1" # dummy value
+    SLACK_WEBHOOK_STAGING_IGNITION_URL: "http://127.0.0.1" # dummy value
+    SLACK_WEBHOOK_NEXT_SCENARIO_URL: "http://127.0.0.1" # dummy value
   datasources:
     datasources.yaml:
       apiVersion: 1

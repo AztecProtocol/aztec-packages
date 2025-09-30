@@ -1,20 +1,35 @@
 apiVersion: 1
 policies:
-    - orgId: 1
-      receiver: grafana-default-email
-      group_by:
-        - grafana_folder
-        - alertname
-      routes:
-        - receiver: 'Slack #network-alerts channel'
-          object_matchers:
-            - - k8s_namespace_name
-              - =~
-              - $PRODUCTION_NAMESPACES_REGEX
-        - receiver: 'Slack #network-alerts channel'
-          object_matchers:
-            - - k8s_namespace_name
-              - =~
-              - $NIGHTLY_NAMESPACES_REGEX
-          mute_time_intervals:
-            - nightly_deployment
+  - orgId: 1
+    receiver: grafana-default-email
+    group_by:
+      - grafana_folder
+      - alertname
+    routes:
+      - receiver: "Slack #alerts-staging-public"
+        object_matchers:
+          - - k8s_namespace_name
+            - =~
+            - $STAGING_PUBLIC_REGEX
+      - receiver: "Slack #alerts-staging-ignition"
+        object_matchers:
+          - - k8s_namespace_name
+            - =~
+            - $STAGING_IGNITION_REGEX
+      - receiver: "Slack #alerts-next-scenario"
+        object_matchers:
+          - - k8s_namespace_name
+            - =~
+            - $NEXT_SCENARIO_REGEX
+      - receiver: "Slack #network-alerts channel"
+        object_matchers:
+          - - k8s_namespace_name
+            - =~
+            - $PRODUCTION_NAMESPACES_REGEX
+      - receiver: "Slack #network-alerts channel"
+        object_matchers:
+          - - k8s_namespace_name
+            - =~
+            - $NIGHTLY_NAMESPACES_REGEX
+        mute_time_intervals:
+          - nightly_deployment
