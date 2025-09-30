@@ -11,7 +11,6 @@ use dep::aztec::protocol_types::{
 
 // Shows how to use NoteGetterOptions and query for notes.
 
-// docs:start:state_vars-NoteGetterOptionsSelectSortOffset
 pub fn create_npk_card_getter_options<let M: u32>(
     account: AztecAddress,
     offset: u32,
@@ -25,9 +24,7 @@ where
         .sort(CardNote::properties().points, SortOrder.DESC)
         .set_offset(offset)
 }
-// docs:end:state_vars-NoteGetterOptionsSelectSortOffset
 
-// docs:start:state_vars-NoteGetterOptionsMultiSelects
 pub fn create_exact_card_getter_options<let M: u32>(
     points: u8,
     secret: Field,
@@ -42,9 +39,7 @@ where
         .select(CardNote::properties().randomness, Comparator.EQ, secret)
         .select(CardNote::properties().owner, Comparator.EQ, account)
 }
-// docs:end:state_vars-NoteGetterOptionsMultiSelects
 
-// docs:start:state_vars-OptionFilter
 pub fn filter_min_points(
     cards: [Option<RetrievedNote<CardNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_points: u8,
@@ -59,9 +54,7 @@ pub fn filter_min_points(
     }
     selected_cards
 }
-// docs:end:state_vars-OptionFilter
 
-// docs:start:state_vars-NoteGetterOptionsFilter
 pub fn create_cards_with_min_points_getter_options<let M: u32>(
     min_points: u8,
 ) -> NoteGetterOptions<CardNote, M, Field, u8>
@@ -73,9 +66,7 @@ where
         SortOrder.ASC,
     )
 }
-// docs:end:state_vars-NoteGetterOptionsFilter
 
-// docs:start:state_vars-NoteGetterOptionsPickOne
 pub fn create_largest_card_getter_options<let M: u32>() -> NoteGetterOptions<CardNote, M, Field, Field>
 where
     CardNote: Packable<N = M>,
@@ -83,4 +74,3 @@ where
     let mut options = NoteGetterOptions::new();
     options.sort(CardNote::properties().points, SortOrder.DESC).set_limit(1)
 }
-// docs:end:state_vars-NoteGetterOptionsPickOne

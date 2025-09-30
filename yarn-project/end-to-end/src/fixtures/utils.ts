@@ -733,7 +733,6 @@ export async function setup(
  * @param accountsToDeploy - Which accounts to publicly deploy.
  */
 
-// docs:start:public_deploy_accounts
 export async function ensureAccountContractsPublished(wallet: Wallet, accountsToDeploy: AztecAddress[]) {
   // We have to check whether the accounts are already deployed. This can happen if the test runs against
   // the sandbox and the test accounts exist
@@ -762,7 +761,6 @@ export async function ensureAccountContractsPublished(wallet: Wallet, accountsTo
   const batch = new BatchCall(wallet, requests);
   await batch.send({ from: accountsToDeploy[0] }).wait();
 }
-// docs:end:public_deploy_accounts
 
 /** Returns the job name for the current test. */
 function getJobName() {

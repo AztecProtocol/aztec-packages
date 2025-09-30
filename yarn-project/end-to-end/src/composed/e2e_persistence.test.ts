@@ -354,7 +354,6 @@ async function addPendingShieldNoteToPXE(
   txHash: TxHash,
   aztecNode: AztecNode,
 ) {
-  // docs:start:offchain_delivery
   const txEffects = await aztecNode.getTxEffect(txHash);
   await contract.methods
     .deliver_transparent_note(
@@ -367,5 +366,4 @@ async function addPendingShieldNoteToPXE(
       recipient,
     )
     .simulate({ from: recipient });
-  // docs:end:offchain_delivery
 }

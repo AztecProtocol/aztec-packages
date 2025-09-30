@@ -945,7 +945,6 @@ impl PrivateContext {
     ///               This content has a very specific layout.
     /// docs:start:context_message_portal
     pub fn message_portal(&mut self, recipient: EthAddress, content: Field) {
-        // docs:end:context_message_portal
         let message = L2ToL1Message { recipient, content };
         self.l2_to_l1_msgs.push(message.count(self.next_counter()));
     }
@@ -982,8 +981,6 @@ impl PrivateContext {
     /// Validates message existence in the L1-to-L2 message tree and nullifies
     /// the message to prevent double-consumption.
     ///
-    // docs:start:context_consume_l1_to_l2_message
-    // docs:start:consume_l1_to_l2_message
     pub fn consume_l1_to_l2_message(
         &mut self,
         content: Field,
@@ -991,7 +988,6 @@ impl PrivateContext {
         sender: EthAddress,
         leaf_index: Field,
     ) {
-        // docs:end:context_consume_l1_to_l2_message
         let nullifier = process_l1_to_l2_message(
             self.anchor_block_header.state.l1_to_l2_message_tree.root,
             self.this_address(),
@@ -1006,7 +1002,6 @@ impl PrivateContext {
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
         self.push_nullifier(nullifier)
     }
-    // docs:end:consume_l1_to_l2_message
 
     /// Emits a private log (an array of Fields) that will be published to an
     /// Ethereum blob.

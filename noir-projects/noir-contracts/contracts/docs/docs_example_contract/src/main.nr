@@ -24,26 +24,14 @@ pub contract DocsExample {
     #[storage_no_init]
     struct Storage<Context> {
         // Shows how to create a custom struct in PublicMutable
-        // docs:start:storage-leader-declaration
         leader: PublicMutable<Leader, Context>,
-        // docs:end:storage-leader-declaration
-        // docs:start:storage-private-mutable-declaration
         legendary_card: PrivateMutable<CardNote, Context>,
-        // docs:end:storage-private-mutable-declaration
         // just used for docs example to show how to create a private mutable map.
         profiles: Map<AztecAddress, PrivateMutable<CardNote, Context>, Context>,
-        // docs:start:storage-set-declaration
         set: PrivateSet<CardNote, Context>,
-        // docs:end:storage-set-declaration
-        // docs:start:storage-private-immutable-declaration
         private_immutable: PrivateImmutable<CardNote, Context>,
-        // docs:end:storage-private-immutable-declaration
-        // docs:start:storage-public-immutable-declaration
         public_immutable: PublicImmutable<Leader, Context>,
-        // docs:end:storage-public-immutable-declaration
-        // docs:start:storage-minters-declaration
         minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
-        // docs:end:storage-minters-declaration
     }
 
     // Note: The following is no longer necessary to implement manually as our macros do this for us. It is left here
@@ -51,52 +39,37 @@ pub contract DocsExample {
     impl<Context> Storage<Context> {
         fn init(context: Context) -> Self {
             Storage {
-                // docs:start:storage-leader-init
                 leader: PublicMutable::new(context, 1),
-                // docs:end:storage-leader-init
-                // docs:start:start_vars_private_mutable
                 legendary_card: PrivateMutable::new(context, 3),
-                // docs:end:start_vars_private_mutable
                 // just used for docs example (not for game play):
-                // docs:start:state_vars-MapPrivateMutable
                 profiles: Map::new(
                     context,
                     4,
                     |context, slot| PrivateMutable::new(context, slot),
                 ),
-                // docs:end:state_vars-MapPrivateMutable
-                // docs:start:storage-set-init
                 set: PrivateSet::new(context, 5),
-                // docs:end:storage-set-init
                 private_immutable: PrivateImmutable::new(context, 6),
                 public_immutable: PublicImmutable::new(context, 7),
-                // docs:start:storage-minters-init
                 minters: Map::new(
                     context,
                     8,
                     |context, slot| PublicMutable::new(context, slot),
                 ),
-                // docs:end:storage-minters-init
             }
         }
     }
 
-    // docs:start:initialize_public_immutable
     #[public]
     fn initialize_public_immutable(points: u8) {
         let mut new_leader = Leader { account: context.msg_sender(), points };
         storage.public_immutable.initialize(new_leader);
-        // docs:end:initialize_public_immutable
     }
 
-    // docs:start:read_public_immutable
     #[utility]
     unconstrained fn get_public_immutable() -> Leader {
         storage.public_immutable.read()
-        // docs:end:read_public_immutable
     }
 
-    // docs:start:initialize-private-mutable
     #[private]
     fn initialize_private_immutable(points: u8) {
         let new_card = CardNote::new(points, context.msg_sender());
@@ -107,24 +80,18 @@ pub contract DocsExample {
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
-    // docs:end:initialize-private-mutable
 
-    // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
     #[utility]
     unconstrained fn read_note(comparator: u8, amount: Field) -> BoundedVec<CardNote, 10> {
         let mut options = NoteViewerOptions::new();
         storage.set.view_notes(options.select(CardNote::properties().points, comparator, amount))
     }
-    // docs:end:state_vars-NoteGetterOptionsComparatorExampleNoir
 
-    // docs:start:state_vars-PrivateMutableGet
     #[private]
     fn read_legendary_points() {
         storage.legendary_card.get_note()
     }
-    // docs:end:state_vars-PrivateMutableGet
 
-    // docs:start:state_vars-PrivateMutableReplace
     #[private]
     fn increase_legendary_points() {
         storage
@@ -135,21 +102,16 @@ pub contract DocsExample {
             })
             .emit(&mut context, context.msg_sender(), MessageDelivery.CONSTRAINED_ONCHAIN);
     }
-    // docs:end:state_vars-PrivateMutableReplace
 
-    // docs:start:private_mutable_is_initialized
     #[utility]
     unconstrained fn is_legendary_initialized() -> bool {
         storage.legendary_card.is_initialized()
     }
-    // docs:end:private_mutable_is_initialized
 
-    // docs:start:get_note-private-immutable
     #[private]
     fn get_imm_card() -> CardNote {
         storage.private_immutable.get_note()
     }
-    // docs:end:get_note-private-immutable
 
     /// Macro equivalence section
     use dep::aztec::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;

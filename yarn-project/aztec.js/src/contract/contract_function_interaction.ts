@@ -52,7 +52,6 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     };
   }
 
-  // docs:start:request
   /**
    * Returns an execution request that represents this operation.
    * Can be used as a building block for constructing batch requests.
@@ -60,7 +59,6 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @returns An execution payload wrapped in promise.
    */
   public override async request(options: RequestMethodOptions = {}): Promise<ExecutionPayload> {
-    // docs:end:request
     const calls = [await this.getFunctionCall()];
     const { authWitnesses, capsules } = options;
     return new ExecutionPayload(

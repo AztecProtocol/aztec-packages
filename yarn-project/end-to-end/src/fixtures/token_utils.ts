@@ -1,8 +1,6 @@
 import { type AztecAddress, BatchCall, type Logger, type Wallet } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-// docs:start:token_utils
-
 export async function deployToken(wallet: Wallet, admin: AztecAddress, initialAdminBalance: bigint, logger: Logger) {
   logger.info(`Deploying Token contract...`);
   const contract = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18)
@@ -26,7 +24,6 @@ export async function mintTokensToPrivate(
 ) {
   await token.methods.mint_to_private(recipient, amount).send({ from: minter }).wait();
 }
-// docs:end:token_utils
 
 export async function expectTokenBalance(
   wallet: Wallet,

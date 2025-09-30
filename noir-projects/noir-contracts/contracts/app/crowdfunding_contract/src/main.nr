@@ -1,12 +1,9 @@
-// docs:start:empty-contract
 mod config;
 
 use aztec::macros::aztec;
 
 #[aztec]
 pub contract Crowdfunding {
-    // docs:end:empty-contract
-    // docs:start:all-deps
     use crate::config::Config;
     use aztec::{
         event::event_emission::emit_event_in_public,
@@ -28,15 +25,11 @@ pub contract Crowdfunding {
     use token::Token;
     use uint_note::uint_note::UintNote;
 
-    // docs:end:all-deps
-
-    // docs:start:withdrawal-processed-event
     #[event]
     struct WithdrawalProcessed {
         who: AztecAddress,
         amount: u128,
     }
-    // docs:end:withdrawal-processed-event
     // docs:start:storage
     #[storage]
     struct Storage<Context> {
@@ -47,20 +40,13 @@ pub contract Crowdfunding {
     // docs:end:storage
 
     // TODO(#8367): Ensure deadline is quantized to improve privacy set.
-    // docs:start:init
-    // docs:start:init-header
-    // docs:start:init-header-error
     #[public]
     #[initializer]
     // this-will-error:init-header-error
     fn init(donation_token: AztecAddress, operator: AztecAddress, deadline: u64) {
-        // docs:end:init-header
-        // docs:end:init-header-error
         storage.config.initialize(Config { donation_token, operator, deadline });
     }
-    // docs:end:init
 
-    // docs:start:donate
     #[private]
     fn donate(amount: u128) {
         let config = storage.config.read();
@@ -71,13 +57,11 @@ pub contract Crowdfunding {
         privately_check_timestamp(Comparator.LT, config.deadline, &mut context);
         // docs:end:call-check-deadline
 
-        // docs:start:do-transfer
         // 2) Transfer the donation tokens from donor to this contract
         let donor = context.msg_sender();
         Token::at(config.donation_token)
             .transfer_in_private(donor, context.this_address(), amount, 0)
             .call(&mut context);
-        // docs:end:do-transfer
 
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
@@ -91,9 +75,7 @@ pub contract Crowdfunding {
             MessageDelivery.UNCONSTRAINED_ONCHAIN,
         );
     }
-    // docs:end:donate
 
-    // docs:start:operator-withdrawals
     // Withdraws balance to the operator. Requires that msg_sender() is the operator.
     #[private]
     fn withdraw(amount: u128) {
@@ -116,7 +98,6 @@ pub contract Crowdfunding {
     fn _publish_donation_receipts(amount: u128, to: AztecAddress) {
         emit_event_in_public(WithdrawalProcessed { amount, who: to }, &mut context);
     }
-    // docs:end:operator-withdrawals
 
     #[utility]
     unconstrained fn get_donation_notes(

@@ -182,10 +182,8 @@ async function bridgeL1FeeJuice(
   const chain = createEthereumChain(l1RpcUrls, l1ChainId);
   const l1Client = createExtendedL1Client(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
-  // docs:start:bridge_fee_juice
   const portal = await L1FeeJuicePortalManager.new(aztecNode, l1Client, log);
   const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
-  // docs:end:bridge_fee_juice
 
   const isSynced = async () =>
     (await aztecNode.getL1ToL2MessageBlock(Fr.fromHexString(claim.messageHash))) !== undefined;

@@ -1457,7 +1457,6 @@ export class L1Deployer {
   }
 }
 
-// docs:start:deployL1Contract
 /**
  * Helper function to deploy ETH contracts.
  * @param walletClient - A viem WalletClient.
@@ -1654,5 +1653,3 @@ export function getExpectedAddress(
     calldata,
   };
 }
-
-// docs:end:deployL1Contract

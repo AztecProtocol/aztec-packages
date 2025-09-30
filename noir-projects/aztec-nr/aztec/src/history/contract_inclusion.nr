@@ -40,9 +40,7 @@ impl ProveContractNonDeployment for BlockHeader {
             contract_address.to_field(),
         );
 
-        // docs:start:prove_nullifier_non_inclusion
         self.prove_nullifier_non_inclusion(nullifier);
-        // docs:end:prove_nullifier_non_inclusion
     }
 }
 
