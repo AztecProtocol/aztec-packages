@@ -14,6 +14,10 @@ The PXE JSON RPC Server has been removed, and PXE is now available only as a lib
 
 ## [Aztec.js]
 
+### Removing Aztec cheatcodes
+
+The Aztec cheatcodes class has been removed. Its functionality can be replaced by using the `getNotes(...)` function directly available on our `TestWallet`, along with the relevant functions available on the Aztec Node interface (note that the cheatcodes were generally just a thin wrapper around the Aztec Node interface).
+
 ### CLI Wallet commands dropped from `aztec` command
 
 The following commands used to be exposed by both the `aztec` and the `aztec-wallet` commands:

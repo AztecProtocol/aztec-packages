@@ -91,14 +91,6 @@ P2P_LISTEN_ADDR=0.0.0.0 # The  address on which the P2P service should listen fo
 P2P_PORT=40400 # The Port that will be used for sending & listening p2p messages (default: 40400)
 ```
 
-## Cheat Codes
-
-To help with testing, the sandbox is shipped with a set of cheatcodes.
-
-Cheatcodes allow you to change the time of the Aztec block, load certain state or more easily manipulate Ethereum instead of having to write dedicated RPC calls to anvil or hardhat.
-
-You can find the cheat code reference [here](./cheat_codes.md).
-
 ## Contracts
 
 We have shipped a number of example contracts in the `@aztec/noir-contracts.js` [npm package](https://www.npmjs.com/package/@aztec/noir-contracts.js). This is included with the sandbox by default so you are able to use these contracts to test with.

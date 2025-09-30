@@ -447,7 +447,7 @@ async function setupFromFresh(
   // Only enable proving if specifically requested.
   pxeConfig.proverEnabled = !!opts.realProofs;
   const wallet = await TestWallet.create(aztecNode, pxeConfig);
-  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, wallet, aztecNode, dateProvider);
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, aztecNode, dateProvider);
 
   if (statePath) {
     writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig, resolver));
@@ -575,7 +575,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   const pxeConfig = getPXEConfig();
   pxeConfig.dataDirectory = statePath;
   const wallet = await TestWallet.create(aztecNode, pxeConfig);
-  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, wallet, aztecNode, dateProvider);
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, aztecNode, dateProvider);
 
   return {
     aztecNodeConfig,

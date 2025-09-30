@@ -220,7 +220,7 @@ async function setupWithRemoteEnvironment(
   };
   const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls, new DateProvider());
   const wallet = await TestWallet.create(aztecNode);
-  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, wallet, aztecNode, new DateProvider());
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNode, new DateProvider());
   const teardown = () => Promise.resolve();
 
   logger.verbose('Populating wallet from already registered accounts...');
@@ -636,7 +636,7 @@ export async function setup(
     logger.verbose('Creating a pxe...');
     const { wallet, teardown: pxeTeardown } = await setupPXEAndGetWallet(aztecNode!, pxeOpts, logger);
 
-    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, wallet, aztecNode, dateProvider);
+    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNode, dateProvider);
 
     if (
       (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
