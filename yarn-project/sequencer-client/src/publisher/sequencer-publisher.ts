@@ -40,7 +40,6 @@ import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
 import { StateReference } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import pick from 'lodash.pick';
 import { type TransactionReceipt, type TypedDataDefinition, encodeFunctionData, toHex } from 'viem';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
@@ -808,7 +807,8 @@ export class SequencerPublisher {
     // We issued the simulation against the rollup contract, so we need to account for the overhead of the multicall3
     const gasLimit = this.l1TxUtils.bumpGasLimit(BigInt(Math.ceil((Number(request.gasUsed) * 64) / 63)));
 
-    const logData = { ...pick(request, 'gasUsed', 'blockNumber'), gasLimit, opts };
+    const { gasUsed, blockNumber } = request;
+    const logData = { gasUsed, blockNumber, gasLimit, opts };
     this.log.verbose(`Enqueuing invalidate block request`, logData);
     this.addRequest({
       action: `invalidate-by-${request.reason}`,

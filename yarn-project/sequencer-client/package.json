@@ -51,7 +51,6 @@
     "@aztec/validator-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "lodash.chunk": "^4.2.0",
-    "lodash.pick": "^4.4.0",
     "tslib": "^2.4.0",
     "viem": "2.23.7"
   },

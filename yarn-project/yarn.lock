@@ -1943,7 +1943,6 @@ __metadata:
     "@types/node": "npm:^22.15.17"
     fs-extra: "npm:^11.1.1"
     jest: "npm:^30.0.0"
-    lodash.pick: "npm:^4.4.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
@@ -1993,7 +1992,6 @@ __metadata:
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     lodash.chunk: "npm:^4.2.0"
-    lodash.pick: "npm:^4.4.0"
     prettier: "npm:^3.5.3"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
@@ -16733,13 +16731,6 @@ __metadata:
   version: 4.5.0
   resolution: "lodash.omit@npm:4.5.0"
   checksum: 10/f5c67cd1df11f1275662060febb629a4d4e7b547c4bea66454508b5e6096162c2af882aab1ff8cb5dcf2b328f22252416de6ca9c1334588f6310edfac525e511
-  languageName: node
-  linkType: hard
-
-"lodash.pick@npm:^4.4.0":
-  version: 4.4.0
-  resolution: "lodash.pick@npm:4.4.0"
-  checksum: 10/5a76778aa1c245ce081d19c5a625a44cdf4853f421c8789ec962cb5d73dd21be7cf11ae3bc2123ff5f432326ed0176d674d22ca6e0e8f9eaba5b74b00f632c12
   languageName: node
   linkType: hard
 
