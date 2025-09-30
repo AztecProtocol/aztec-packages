@@ -76,13 +76,10 @@ template <size_t num_bits> table::fixed_base_scalar_mul_tables table::generate_t
 /**
  * @brief For a fixed-base lookup of size `num_table_bits` and an input base point `input`, return the total
  * contribution from the offset generators in the scalar multiplication output.
- * @details Each lookup table i contains entries of the form: G_i + j*[2^(iw)*P] for j in [0, 2^w)
- *          where G_i is a unique offset generator that prevents point-at-infinity cases.
- *
- *          The scalar multiplication result k*P is computed as:
+ * @details Each lookup table i contains entries of the form: G_i + j*[2^(iw)*P] for j in [0, 2^w) where G_i is a unique
+ * offset generator that prevents point-at-infinity edge cases. The scalar multiplication result k*P is computed as:
  *          k*P = sum_i(table_lookup(k_i)) - sum_i(G_i)
- *
- *          This function returns the correction term sum_i(G_i) that must be subtracted.
+ * This method returns the correction term sum_i(G_i) that must be subtracted.
  *
  * @note We need the base point as an input parameter because we derive the offset generators using our hash-to-curve
  * algorithm, where the base point is used as the domain separator. This ensures generator points cannot collide with

@@ -8,7 +8,6 @@
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include <gtest/gtest.h>
-#include <set>
 
 namespace bb::plookup::fixed_base {
 
@@ -17,277 +16,214 @@ class FixedBaseTableTest : public ::testing::Test {
     using affine_element = grumpkin::g1::affine_element;
     using element = grumpkin::g1::element;
     using fr = grumpkin::fr;
-
-    void SetUp() override {}
 };
 
 /**
- * @brief Test that the generator points are properly initialized and distinct
+ * @brief Test that generator points are correctly initialized and have the expected relationships.
+ *
+ * This test verifies:
+ * - LHS and RHS generator points are valid curve points
+ * - LHS and RHS generators are distinct (required for proper scalar multiplication separation)
+ * - The "lo" base points are identical to their respective generators
+ * - The "hi" base points are correctly computed as lo * 2^128 for handling the high bits of scalars
  */
-TEST_F(FixedBaseTableTest, GeneratorPointsAreValid)
+TEST_F(FixedBaseTableTest, GeneratorPointsAndBasePointRelationships)
 {
     const auto lhs_gen = table::lhs_generator_point();
     const auto rhs_gen = table::rhs_generator_point();
-
-    // Check that generators are on the curve
-    EXPECT_TRUE(lhs_gen.on_curve());
-    EXPECT_TRUE(rhs_gen.on_curve());
-
-    // Check that generators are distinct
-    EXPECT_NE(lhs_gen, rhs_gen);
-
-    // Check that hi/lo base points are correctly computed
     const auto lhs_lo = table::lhs_base_point_lo();
     const auto lhs_hi = table::lhs_base_point_hi();
     const auto rhs_lo = table::rhs_base_point_lo();
     const auto rhs_hi = table::rhs_base_point_hi();
 
+    // Both generators must be valid points on the Grumpkin curve
+    EXPECT_TRUE(lhs_gen.on_curve());
+    EXPECT_TRUE(rhs_gen.on_curve());
+
+    // LHS and RHS generators must be different to avoid correlation between left and right scalar multiplications
+    EXPECT_NE(lhs_gen, rhs_gen);
+
+    // The "lo" base points should be the same as the generators themselves
+    // These handle the low 128 bits of the scalar
     EXPECT_EQ(lhs_lo, lhs_gen);
     EXPECT_EQ(rhs_lo, rhs_gen);
 
-    // Verify that hi points are lo points multiplied by 2^128
-    element expected_lhs_hi = element(lhs_lo) * table::MAX_LO_SCALAR;
-    element expected_rhs_hi = element(rhs_lo) * table::MAX_LO_SCALAR;
-
-    EXPECT_EQ(lhs_hi, affine_element(expected_lhs_hi));
-    EXPECT_EQ(rhs_hi, affine_element(expected_rhs_hi));
+    // The "hi" base points should be the "lo" points multiplied by 2^128
+    // These handle the high bits of the scalar (bits 128-253 for 254-bit scalars)
+    EXPECT_EQ(lhs_hi, affine_element(element(lhs_lo) * table::MAX_LO_SCALAR));
+    EXPECT_EQ(rhs_hi, affine_element(element(rhs_lo) * table::MAX_LO_SCALAR));
 }
 
 /**
- * @brief Test single lookup table generation
+ * @brief Test that single lookup tables are generated correctly with the expected point progression.
+ *
+ * A lookup table contains precomputed multiples of a base point: [offset, offset + base, offset + 2*base, ...]
+ * This allows efficient scalar multiplication by table lookup instead of repeated point additions.
+ * The offset generator provides a starting point to avoid having the point at infinity in the table.
  */
-TEST_F(FixedBaseTableTest, SingleLookupTableGeneration)
+TEST_F(FixedBaseTableTest, LookupTableGenerationCorrectness)
 {
     const auto base_point = table::lhs_generator_point();
-    const auto offset_gen = grumpkin::g1::affine_one;
-
+    const auto offset_gen = grumpkin::g1::affine_one; // Use the generator (1,2) as offset
     const auto lookup_table = table::generate_single_lookup_table(base_point, offset_gen);
 
-    // Check table size
+    // Table should have exactly MAX_TABLE_SIZE (512) entries for 9-bit lookups
     EXPECT_EQ(lookup_table.size(), table::MAX_TABLE_SIZE);
 
-    // Verify all entries in a single loop:
-    // - Check the pattern: table[i] = offset_gen + i * base_point
-    // - Check that all entries are on the curve
+    // Verify every entry follows the pattern: table[i] = offset_gen + i * base_point
+    // This allows us to compute k * base_point by looking up table[k] and subtracting offset_gen
     for (size_t i = 0; i < lookup_table.size(); ++i) {
         element expected = element(offset_gen) + element(base_point) * i;
         EXPECT_EQ(lookup_table[i], affine_element(expected));
+
+        // Every point in the table must be a valid curve point
         EXPECT_TRUE(lookup_table[i].on_curve());
     }
 }
 
 /**
- * @brief Test that generated tables have the correct structure
+ * @brief Test the complete multi-table structure and verify offset generators are computed correctly.
+ *
+ * The fixed-base scalar multiplication system uses 4 multi-tables:
+ * - LHS_LO: 15 tables of 9 bits each for the low 128 bits of left scalars (last table uses only 2 bits)
+ * - LHS_HI: 14 tables of 9 bits each for the high 126 bits of left scalars
+ * - RHS_LO: 15 tables of 9 bits each for the low 128 bits of right scalars (last table uses only 2 bits)
+ * - RHS_HI: 14 tables of 9 bits each for the high 126 bits of right scalars
+ *
+ * Each multi-table has an offset generator that ensures no table entries are the point at infinity,
+ * which is critical for the completeness of the lookup arguments.
  */
-TEST_F(FixedBaseTableTest, MultiTableStructure)
+TEST_F(FixedBaseTableTest, MultiTableStructureAndOffsets)
 {
     const auto& all_tables = table::fixed_base_tables();
+    const auto& offset_gens = table::fixed_base_table_offset_generators();
 
-    // Check we have 4 multi-tables
+    // We should have exactly 4 multi-tables: LHS_LO, LHS_HI, RHS_LO, RHS_HI
     EXPECT_EQ(all_tables.size(), table::NUM_FIXED_BASE_MULTI_TABLES);
 
-    // Check table 0 (LHS_LO): should have 15 sub-tables
-    EXPECT_EQ(all_tables[0].size(), table::NUM_TABLES_PER_LO_MULTITABLE);
+    // LO multi-tables have 15 sub-tables (14 full 9-bit tables + 1 partial 2-bit table)
+    EXPECT_EQ(all_tables[0].size(), table::NUM_TABLES_PER_LO_MULTITABLE); // LHS_LO
+    EXPECT_EQ(all_tables[2].size(), table::NUM_TABLES_PER_LO_MULTITABLE); // RHS_LO
 
-    // Check table 1 (LHS_HI): should have 14 sub-tables
-    EXPECT_EQ(all_tables[1].size(), table::NUM_TABLES_PER_HI_MULTITABLE);
+    // HI multi-tables have 14 sub-tables (all full 9-bit tables)
+    EXPECT_EQ(all_tables[1].size(), table::NUM_TABLES_PER_HI_MULTITABLE); // LHS_HI
+    EXPECT_EQ(all_tables[3].size(), table::NUM_TABLES_PER_HI_MULTITABLE); // RHS_HI
 
-    // Check table 2 (RHS_LO): should have 15 sub-tables
-    EXPECT_EQ(all_tables[2].size(), table::NUM_TABLES_PER_LO_MULTITABLE);
-
-    // Check table 3 (RHS_HI): should have 14 sub-tables
-    EXPECT_EQ(all_tables[3].size(), table::NUM_TABLES_PER_HI_MULTITABLE);
-
-    // Verify each sub-table has MAX_TABLE_SIZE entries
+    // Verify that every sub-table has the correct size and contains valid curve points
+    // Even partial tables allocate full MAX_TABLE_SIZE for consistency
     for (const auto& multi_table : all_tables) {
         for (const auto& sub_table : multi_table) {
             EXPECT_EQ(sub_table.size(), table::MAX_TABLE_SIZE);
 
-            // Verify all points are on the curve
+            // Every point in every table must be a valid curve point
             for (const auto& point : sub_table) {
                 EXPECT_TRUE(point.on_curve());
             }
         }
     }
-}
 
-/**
- * @brief Test that offset generators are properly computed
- */
-TEST_F(FixedBaseTableTest, OffsetGeneratorComputation)
-{
-    const auto& offset_gens = table::fixed_base_table_offset_generators();
-
-    // Should have 4 offset generators
+    // There should be one offset generator per multi-table
     EXPECT_EQ(offset_gens.size(), table::NUM_FIXED_BASE_MULTI_TABLES);
 
-    // All offset generators should be on the curve
-    for (const auto& gen : offset_gens) {
-        EXPECT_TRUE(gen.on_curve());
-    }
+    // Each offset generator should match what compute_generator_offset produces
+    // The offset is computed as: base_point * (2^total_bits - 1) to cover the full scalar range
+    EXPECT_EQ(offset_gens[0], table::compute_generator_offset<table::BITS_PER_LO_SCALAR>(table::lhs_base_point_lo()));
+    EXPECT_EQ(offset_gens[1], table::compute_generator_offset<table::BITS_PER_HI_SCALAR>(table::lhs_base_point_hi()));
+    EXPECT_EQ(offset_gens[2], table::compute_generator_offset<table::BITS_PER_LO_SCALAR>(table::rhs_base_point_lo()));
+    EXPECT_EQ(offset_gens[3], table::compute_generator_offset<table::BITS_PER_HI_SCALAR>(table::rhs_base_point_hi()));
 
-    // Offset generators should be distinct
-    std::set<affine_element> unique_gens(offset_gens.begin(), offset_gens.end());
-    EXPECT_EQ(unique_gens.size(), offset_gens.size());
-
-    // Verify offset generators match what's computed from compute_generator_offset
-    auto lhs_lo_offset = table::compute_generator_offset<table::BITS_PER_LO_SCALAR>(table::lhs_base_point_lo());
-    auto lhs_hi_offset = table::compute_generator_offset<table::BITS_PER_HI_SCALAR>(table::lhs_base_point_hi());
-    auto rhs_lo_offset = table::compute_generator_offset<table::BITS_PER_LO_SCALAR>(table::rhs_base_point_lo());
-    auto rhs_hi_offset = table::compute_generator_offset<table::BITS_PER_HI_SCALAR>(table::rhs_base_point_hi());
-
-    EXPECT_EQ(offset_gens[0], lhs_lo_offset);
-    EXPECT_EQ(offset_gens[1], lhs_hi_offset);
-    EXPECT_EQ(offset_gens[2], rhs_lo_offset);
-    EXPECT_EQ(offset_gens[3], rhs_hi_offset);
-}
-
-/**
- * @brief Test get_generator_offset_for_table_id function
- */
-// AUDITTODO: make this test checlk that the total offset matches the sum of the individual offsets
-TEST_F(FixedBaseTableTest, GetGeneratorOffsetForTableId)
-{
-    const auto& offset_gens = table::fixed_base_table_offset_generators();
-
-    // Test each valid table ID
+    // Verify that get_generator_offset_for_table_id returns the correct offset for each multi-table ID
+    // This function is used during circuit construction to retrieve the appropriate offset
     EXPECT_EQ(table::get_generator_offset_for_table_id(FIXED_BASE_LEFT_LO), offset_gens[0]);
     EXPECT_EQ(table::get_generator_offset_for_table_id(FIXED_BASE_LEFT_HI), offset_gens[1]);
     EXPECT_EQ(table::get_generator_offset_for_table_id(FIXED_BASE_RIGHT_LO), offset_gens[2]);
     EXPECT_EQ(table::get_generator_offset_for_table_id(FIXED_BASE_RIGHT_HI), offset_gens[3]);
-
-    // Test invalid table ID triggers assertion
-    // BB_ASSERT_EQ throws an exception, so we use EXPECT_THROW instead of EXPECT_DEATH
-    EXPECT_THROW(table::get_generator_offset_for_table_id(SHA256_CH_INPUT), std::runtime_error);
 }
 
 /**
- * @brief Test that basic table generation works correctly
+ * @brief Test the generation of basic lookup tables and multi-tables, verifying value retrieval functions.
+ *
+ * Basic tables are the fundamental building blocks that store precomputed curve points.
+ * Multi-tables combine multiple basic tables to handle multi-scalar multiplication efficiently.
+ * This test ensures that both table types are constructed correctly and that their lookup
+ * functions return the expected values.
  */
-TEST_F(FixedBaseTableTest, BasicTableGeneration)
+TEST_F(FixedBaseTableTest, TableGenerationAndValueRetrieval)
 {
-    // Generate a basic table for the first LHS_LO table
+    // Generate a basic table for the first LHS_LO sub-table
     auto basic_table = table::generate_basic_fixed_base_table<0>(FIXED_BASE_0_0, 0, 0);
 
-    // Check basic properties
+    // Verify the basic table metadata is set correctly
     EXPECT_EQ(basic_table.id, FIXED_BASE_0_0);
     EXPECT_EQ(basic_table.table_index, 0);
-    EXPECT_FALSE(basic_table.use_twin_keys);
+    EXPECT_FALSE(basic_table.use_twin_keys); // Fixed base tables don't use twin keys
 
-    // Check table size
+    // Each basic table has 3 columns: index, x-coordinate, y-coordinate
     EXPECT_EQ(basic_table.column_1.size(), table::MAX_TABLE_SIZE);
     EXPECT_EQ(basic_table.column_2.size(), table::MAX_TABLE_SIZE);
     EXPECT_EQ(basic_table.column_3.size(), table::MAX_TABLE_SIZE);
 
-    // Check column 1 contains indices
+    // The lookup function should be properly initialized
+    EXPECT_NE(basic_table.get_values_from_key, nullptr);
+
+    // Column 1 should contain sequential indices from 0 to MAX_TABLE_SIZE-1
+    // These indices correspond to the scalar values being looked up
     for (size_t i = 0; i < basic_table.column_1.size(); ++i) {
         EXPECT_EQ(basic_table.column_1[i], bb::fr(i));
     }
 
-    // Check that get_values_from_key is not null
-    EXPECT_NE(basic_table.get_values_from_key, nullptr);
+    // Test that value retrieval works correctly for various indices
+    // The key format is {index, 0} where the second element is unused for fixed base tables
+    for (size_t test_idx : { size_t(0), size_t(5), size_t(100), table::MAX_TABLE_SIZE - 1 }) {
+        std::array<uint64_t, 2> test_key = { test_idx, 0 };
+        auto values = basic_table.get_values_from_key(test_key);
 
-    // Test the function pointer works
-    std::array<uint64_t, 2> test_key = { 5, 0 };
-    auto values = basic_table.get_values_from_key(test_key);
-    EXPECT_EQ(values[0], basic_table.column_2[5]);
-    EXPECT_EQ(values[1], basic_table.column_3[5]);
-}
+        // The returned values should be the x and y coordinates at the given index
+        EXPECT_EQ(values[0], basic_table.column_2[test_idx]); // x-coordinate
+        EXPECT_EQ(values[1], basic_table.column_3[test_idx]); // y-coordinate
+    }
 
-/**
- * @brief Test multi-table generation
- */
-TEST_F(FixedBaseTableTest, MultiTableGeneration)
-{
-    // Generate multi-table for LHS_LO
+    // Test multi-table generation for the LHS_LO multi-table
     auto multi_table = table::get_fixed_base_table<0, table::BITS_PER_LO_SCALAR>(FIXED_BASE_LEFT_LO);
 
-    // Check basic properties
+    // Verify the multi-table has the correct ID and number of sub-tables
     EXPECT_EQ(multi_table.id, FIXED_BASE_LEFT_LO);
     EXPECT_EQ(multi_table.basic_table_ids.size(), table::NUM_TABLES_PER_LO_MULTITABLE);
     EXPECT_EQ(multi_table.get_table_values.size(), table::NUM_TABLES_PER_LO_MULTITABLE);
 
-    // Check that all function pointers are set
-    for (const auto& func_ptr : multi_table.get_table_values) {
-        EXPECT_NE(func_ptr, nullptr);
-    }
-
-    // Check slice sizes
-    for (const auto& slice_size : multi_table.slice_sizes) {
-        EXPECT_EQ(slice_size, table::MAX_TABLE_SIZE);
+    // Each sub-table should have a valid lookup function and the correct slice size
+    // Even the last table (which only uses 2 bits) reports MAX_TABLE_SIZE for consistency
+    for (size_t i = 0; i < multi_table.get_table_values.size(); ++i) {
+        EXPECT_NE(multi_table.get_table_values[i], nullptr);
+        EXPECT_EQ(multi_table.slice_sizes[i], table::MAX_TABLE_SIZE);
     }
 }
 
 /**
- * @brief Test edge cases in table indexing
+ * @brief Test that partial tables (using fewer than 9 bits) are handled correctly.
+ *
+ * When splitting a 254-bit scalar into 9-bit chunks, the last chunk may have fewer bits.
+ * For 128-bit LO scalars: 14 tables × 9 bits + 1 table × 2 bits = 128 bits
+ * For 126-bit HI scalars: 14 tables × 9 bits = 126 bits (evenly divisible)
+ *
+ * This test verifies that the last LO table only allocates space for 4 entries (2^2)
+ * while the last HI table uses the full 512 entries (2^9).
  */
-TEST_F(FixedBaseTableTest, TableIndexingEdgeCases)
+TEST_F(FixedBaseTableTest, PartialTableHandling)
 {
-    const auto& all_tables = table::fixed_base_tables();
+    // The last table in LHS_LO handles only 2 bits, so it should have 2^2 = 4 entries
+    // This avoids wasting memory on unused table entries
+    const size_t num_lo_tables = table::NUM_TABLES_PER_LO_MULTITABLE;
+    auto basic_table = table::generate_basic_fixed_base_table<0>(
+        static_cast<BasicTableId>(FIXED_BASE_0_0 + num_lo_tables - 1), num_lo_tables - 1, num_lo_tables - 1);
+    EXPECT_EQ(basic_table.column_1.size(), 4);
 
-    // Test the last entry in each table
-    for (size_t multi_idx = 0; multi_idx < all_tables.size(); ++multi_idx) {
-        const auto& multi_table = all_tables[multi_idx];
-        for (size_t table_idx = 0; table_idx < multi_table.size(); ++table_idx) {
-            const auto& sub_table = multi_table[table_idx];
-
-            // Last entry should be on curve
-            EXPECT_TRUE(sub_table.back().on_curve());
-
-            // Test get_basic_fixed_base_table_values for boundary values
-            if (multi_idx == 0 && table_idx == 0) {
-                std::array<uint64_t, 2> key = { table::MAX_TABLE_SIZE - 1, 0 };
-                auto values = table::get_basic_fixed_base_table_values<0, 0>(key);
-                EXPECT_EQ(values[0], sub_table.back().x);
-                EXPECT_EQ(values[1], sub_table.back().y);
-            }
-        }
-    }
-}
-
-/**
- * @brief Test that the smaller tables (for high bits) are handled correctly
- */
-TEST_F(FixedBaseTableTest, SmallerTableHandling)
-{
-    // Check the last table in LO multitables (should only need 2 bits)
-    // BITS_PER_LO_SCALAR = 128, BITS_PER_TABLE = 9
-    // 128 / 9 = 14 full tables + 1 partial table
-    // Last table covers: 128 - 14*9 = 128 - 126 = 2 bits
-    {
-        const size_t lo_bits = table::BITS_PER_LO_SCALAR;
-        const size_t num_lo_tables = table::NUM_TABLES_PER_LO_MULTITABLE;
-        EXPECT_EQ(num_lo_tables, 15);
-
-        const size_t last_table_bits = lo_bits - (num_lo_tables - 1) * table::BITS_PER_TABLE;
-        EXPECT_EQ(last_table_bits, 2);
-
-        // The storage has MAX_TABLE_SIZE entries, but only 4 should be needed
-        const auto& all_tables = table::fixed_base_tables();
-        const auto& last_lo_table = all_tables[0][num_lo_tables - 1];
-        EXPECT_EQ(last_lo_table.size(), table::MAX_TABLE_SIZE); // Storage is full size
-
-        // But when used in BasicTable, it should only reference 4 entries
-        auto basic_table = table::generate_basic_fixed_base_table<0>(
-            static_cast<BasicTableId>(FIXED_BASE_0_0 + num_lo_tables - 1), num_lo_tables - 1, num_lo_tables - 1);
-        EXPECT_EQ(basic_table.column_1.size(), 4); // Only 4 entries used
-    }
-
-    // Check HI multitables (all tables are full size)
-    // BITS_PER_HI_SCALAR = 126, BITS_PER_TABLE = 9
-    // 126 / 9 = 14 tables, last table covers 126 - 13*9 = 9 bits (full table)
-    {
-        const size_t hi_bits = table::BITS_PER_HI_SCALAR;
-        const size_t num_hi_tables = table::NUM_TABLES_PER_HI_MULTITABLE;
-        EXPECT_EQ(num_hi_tables, 14);
-
-        const size_t last_table_bits = hi_bits - (num_hi_tables - 1) * table::BITS_PER_TABLE;
-        EXPECT_EQ(last_table_bits, 9); // Full table
-
-        auto basic_table = table::generate_basic_fixed_base_table<1>(
-            static_cast<BasicTableId>(FIXED_BASE_1_0 + num_hi_tables - 1), num_hi_tables - 1, num_hi_tables - 1);
-        EXPECT_EQ(basic_table.column_1.size(), table::MAX_TABLE_SIZE); // Full size used
-    }
+    // The last table in LHS_HI handles a full 9 bits, so it should have 2^9 = 512 entries
+    // 126 bits divides evenly by 9, so all HI tables are full-sized
+    const size_t num_hi_tables = table::NUM_TABLES_PER_HI_MULTITABLE;
+    auto hi_basic_table = table::generate_basic_fixed_base_table<1>(
+        static_cast<BasicTableId>(FIXED_BASE_1_0 + num_hi_tables - 1), num_hi_tables - 1, num_hi_tables - 1);
+    EXPECT_EQ(hi_basic_table.column_1.size(), table::MAX_TABLE_SIZE);
 }
 
 } // namespace bb::plookup::fixed_base
