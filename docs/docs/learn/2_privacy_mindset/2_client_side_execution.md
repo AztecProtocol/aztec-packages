@@ -9,10 +9,31 @@ tags: [privacy, execution, zk, proofs]
 
 By the end of this lesson, you'll understand:
 
-1. What a zero-knowledge (ZK) proof is and why it's crucial for privacy
-2. The roles of prover and verifier in the ZK ecosystem
-3. Who acts as prover and verifier in Aztec transactions
-4. Why Noir exists and how it makes writing private smart contracts accessible
+1. Where public and private computation occurs
+2. What a zero-knowledge (ZK) proof is and why it's crucial for privacy
+3. The roles of prover and verifier in a ZK system
+4. Who acts as prover and verifier in Aztec transactions
+5. Why Noir exists and how it makes writing private smart contracts accessible
+
+## Aztec smart contracts
+
+You can write and deploy smart contracts to Aztec, just like Ethereum. Exect they work a litle differently:
+
+- Smart contracts are written in [Noir](https://noir-lang.org/) using the [Aztec.nr](https://github.com/AztecProtocol/aztec-packages/tree/next/noir-projects/aztec-nr) framework
+- Functions can be **public** or **private**. This is _different_ from function visibility for Solidity smart contracts. Instead of controlling just **who can call the function** as in Solidity, on Aztec, a function being public or private controls **who and how** the function executes. It affects privacy not just access.
+
+Whether a function is **public** or **private** changes the **execution environment**.
+
+
+## Public and private execution environments
+
+Public functions execute onchain via the nodes in the Aztec network in the public VM.
+
+Private functions are executed client-side in your private execution environment (PXE). This is offchain. This could be:
+- In your browser in an application
+- Locally when using a CLI
+This means that all your private data is not visible to anyone but you. All private data and computation is done offchain, locally.
+
 
 ## Why client-side execution matters
 
