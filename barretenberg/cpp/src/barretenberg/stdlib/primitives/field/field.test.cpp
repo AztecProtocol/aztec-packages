@@ -1696,10 +1696,12 @@ TYPED_TEST(stdlib_field, test_multiplicative_constant_regression)
 {
     TestFixture::test_multiplicative_constant_regression();
 }
+#ifndef AZTEC_NO_ORIGIN_TAGS
 TYPED_TEST(stdlib_field, test_origin_tag_consistency)
 {
     TestFixture::test_origin_tag_consistency();
 }
+#endif
 TYPED_TEST(stdlib_field, test_postfix_increment)
 {
     TestFixture::test_postfix_increment();
