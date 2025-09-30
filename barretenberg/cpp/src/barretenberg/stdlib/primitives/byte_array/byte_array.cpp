@@ -277,7 +277,7 @@ template <typename Builder> byte_array<Builder>& byte_array<Builder>::write_at(b
  */
 template <typename Builder> byte_array<Builder> byte_array<Builder>::slice(size_t offset) const
 {
-    BB_ASSERT_LT(offset, values.size());
+    ASSERT_DEBUG(offset < values.size());
     return byte_array(context, bytes_t(values.begin() + static_cast<ptrdiff_t>(offset), values.end()));
 }
 
@@ -287,9 +287,9 @@ template <typename Builder> byte_array<Builder> byte_array<Builder>::slice(size_
  **/
 template <typename Builder> byte_array<Builder> byte_array<Builder>::slice(size_t offset, size_t length) const
 {
-    BB_ASSERT_LT(offset, values.size());
+    ASSERT_DEBUG(offset < values.size());
     // it's <= cause vector constructor doesn't include end point
-    BB_ASSERT_LTE(length, values.size() - offset);
+    ASSERT_DEBUG(length <= values.size() - offset);
     auto start = values.begin() + static_cast<ptrdiff_t>(offset);
     auto end = values.begin() + static_cast<ptrdiff_t>((offset + length));
     return byte_array(context, bytes_t(start, end));

@@ -559,7 +559,6 @@ TYPED_TEST(CycleGroupTest, TestDblMixedConstantWitness)
     // The issue is that when we have mixed constant/witness coordinates, the dbl()
     // implementation tries to access witness indices that don't exist for constants
 
-    // In test builds, assertions throw exceptions rather than terminating
     EXPECT_THROW(
         { [[maybe_unused]] cycle_group_ct result = a.dbl(); },
         std::exception // Expect exception from assertion failure
