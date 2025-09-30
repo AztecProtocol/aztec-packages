@@ -26,10 +26,6 @@
 
 namespace bb {
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1226): univariates should also be logged
-template <typename T, typename... U>
-concept Loggable = (IsAnyOf<T, bb::fr, grumpkin::fr, bb::g1::affine_element, grumpkin::g1::affine_element, uint32_t>);
-
 class TranscriptManifest {
     struct RoundData {
         std::vector<std::string> challenge_label;
