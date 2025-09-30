@@ -7,6 +7,7 @@ import {
   getDefaultConfig,
   numberConfigHelper,
 } from '@aztec/foundation/config';
+import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemTransactionSignature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -928,7 +929,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       });
     }
 
-    this.logger?.error(`L1 transaction ${currentTxHash} timed out`, {
+    this.logger?.error(`L1 transaction ${currentTxHash} timed out`, undefined, {
       txHash: currentTxHash,
       txTimeoutAt: gasConfig.txTimeoutAt,
       txTimeoutMs: gasConfig.txTimeoutMs,
@@ -939,7 +940,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       ...tx,
     });
 
-    throw new Error(`L1 transaction ${currentTxHash} timed out`);
+    throw new TimeoutError(`L1 transaction ${currentTxHash} timed out`);
   }
 
   /**

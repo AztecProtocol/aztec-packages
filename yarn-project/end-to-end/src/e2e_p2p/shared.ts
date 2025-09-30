@@ -14,6 +14,7 @@ import {
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
 import type { EmpireSlashingProposerContract, RollupContract, TallySlashingProposerContract } from '@aztec/ethereum';
 import { timesAsync, unique } from '@aztec/foundation/collection';
+import { pluralize } from '@aztec/foundation/string';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract, TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
@@ -164,17 +165,20 @@ export async function awaitOffenseDetected({
   nodeAdmin,
   slashingRoundSize,
   epochDuration,
+  waitUntilOffenseCount,
 }: {
   nodeAdmin: AztecNodeAdmin;
   logger: Logger;
   slashingRoundSize: number;
   epochDuration: number;
+  waitUntilOffenseCount?: number;
 }) {
-  logger.info(`Waiting for an offense to be detected`);
+  const targetOffenseCount = waitUntilOffenseCount ?? 1;
+  logger.warn(`Waiting for ${pluralize('offense', targetOffenseCount)} to be detected`);
   const offenses = await retryUntil(
     async () => {
       const offenses = await nodeAdmin.getSlashOffenses('all');
-      if (offenses.length > 0) {
+      if (offenses.length >= targetOffenseCount) {
         return offenses;
       }
     },
@@ -219,8 +223,9 @@ export async function awaitCommitteeKicked({
 
   logger.info(`Advancing epochs so we start slashing`);
   await cheatCodes.debugRollup();
-  await cheatCodes.advanceToNextEpoch({ updateDateProvider: dateProvider });
-  await cheatCodes.advanceToNextEpoch({ updateDateProvider: dateProvider });
+  await cheatCodes.advanceToEpoch((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochs()) + 1n, {
+    updateDateProvider: dateProvider,
+  });
 
   // Await for the slash payload to be created if empire (no payload is created on tally until execution time)
   if (slashingProposer.type === 'empire') {
@@ -265,10 +270,11 @@ export async function awaitCommitteeKicked({
     expect(attesterInfo.status).toEqual(2); // Living
   }
 
-  logger.info(`Advancing two epochs to check current committee`);
+  logger.info(`Advancing to check current committee`);
   await cheatCodes.debugRollup();
-  await cheatCodes.advanceToNextEpoch({ updateDateProvider: dateProvider });
-  await cheatCodes.advanceToNextEpoch({ updateDateProvider: dateProvider });
+  await cheatCodes.advanceToEpoch((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochs()) + 1n, {
+    updateDateProvider: dateProvider,
+  });
   await cheatCodes.debugRollup();
 
   const committeeNextEpoch = await rollup.getCurrentEpochCommittee();

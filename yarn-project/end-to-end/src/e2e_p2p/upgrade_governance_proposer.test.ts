@@ -39,7 +39,7 @@ describe('e2e_p2p_governance_proposer', () => {
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
-      testName: 'e2e_p2p_gerousia',
+      testName: 'e2e_p2p_upgrade_governance_proposer',
       numberOfNodes: 0,
       numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,

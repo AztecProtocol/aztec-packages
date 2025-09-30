@@ -1,11 +1,6 @@
 import { type BatchedBlob, FinalBlobAccumulatorPublicInputs } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
-import {
-  type L1TxUtils,
-  type RollupContract,
-  RollupContract as RollupContractClass,
-  type ViemCommitteeAttestation,
-} from '@aztec/ethereum';
+import type { L1TxUtils, RollupContract, ViemCommitteeAttestation } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { areArraysEqual } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -16,6 +11,7 @@ import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
+import { CommitteeAttestation, CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
 import type { Proof } from '@aztec/stdlib/proofs';
 import type { FeeRecipient, RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 import type { L1PublishProofStats } from '@aztec/stdlib/stats';
@@ -39,6 +35,7 @@ export type L1SubmitEpochProofArgs = {
 };
 
 export class ProverNodePublisher {
+  private enabled: boolean;
   private interruptibleSleep = new InterruptibleSleep();
   private sleepTimeMs: number;
   private interrupted = false;
@@ -58,6 +55,7 @@ export class ProverNodePublisher {
       telemetry?: TelemetryClient;
     },
   ) {
+    this.enabled = config.publisherEnabled ?? true;
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
@@ -103,6 +101,12 @@ export class ProverNodePublisher {
   }): Promise<boolean> {
     const { epochNumber, fromBlock, toBlock } = args;
     const ctx = { epochNumber, fromBlock, toBlock };
+
+    if (!this.enabled) {
+      this.log.warn(`Publishing L1 txs is disabled`);
+      return false;
+    }
+
     if (!this.interrupted) {
       const timer = new Timer();
       // Validate epoch proof range and hashes are correct before submitting
@@ -290,7 +294,9 @@ export class ProverNodePublisher {
       end: argsArray[1],
       args: argsArray[2],
       fees: argsArray[3],
-      attestations: RollupContractClass.packAttestations(args.attestations),
+      attestations: new CommitteeAttestationsAndSigners(
+        args.attestations.map(a => CommitteeAttestation.fromViem(a)),
+      ).getPackedAttestations(),
       blobInputs: argsArray[4],
       proof: proofHex,
     };

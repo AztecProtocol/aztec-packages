@@ -1,5 +1,6 @@
 import type { SecretValue } from '@aztec/foundation/config';
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import type { SequencerConfig, SlasherConfig } from '@aztec/stdlib/interfaces/server';
@@ -8,6 +9,8 @@ import type { ProposedBlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 import { z } from 'zod';
+
+import type { CommitteeAttestationsAndSigners } from '../block/index.js';
 
 /**
  * Validator client configuration
@@ -28,11 +31,14 @@ export interface ValidatorClientConfig {
   /** Interval between polling for new attestations from peers */
   attestationPollingIntervalMs: number;
 
-  /** Re-execute transactions before attesting */
+  /** Whether to re-execute transactions in a block proposal before attesting */
   validatorReexecute: boolean;
 
   /** Will re-execute until this many milliseconds are left in the slot */
   validatorReexecuteDeadlineMs: number;
+
+  /** Whether to always reexecute block proposals, even for non-validator nodes or when out of the currnet committee */
+  alwaysReexecuteBlockProposals?: boolean;
 }
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &
@@ -46,11 +52,11 @@ export const ValidatorClientConfigSchema = z.object({
   attestationPollingIntervalMs: z.number().min(0),
   validatorReexecute: z.boolean(),
   validatorReexecuteDeadlineMs: z.number().min(0),
+  alwaysReexecuteBlockProposals: z.boolean().optional(),
 }) satisfies ZodFor<Omit<ValidatorClientConfig, 'validatorPrivateKeys'>>;
 
 export interface Validator {
   start(): Promise<void>;
-  registerBlockProposalHandler(): void;
   updateConfig(config: Partial<ValidatorClientFullConfig>): void;
 
   // Block validation responsibilities
@@ -67,4 +73,8 @@ export interface Validator {
 
   broadcastBlockProposal(proposal: BlockProposal): Promise<void>;
   collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]>;
+  signAttestationsAndSigners(
+    attestationsAndSigners: CommitteeAttestationsAndSigners,
+    proposer: EthAddress,
+  ): Promise<Signature>;
 }

@@ -38,6 +38,7 @@ import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQ
 import {FeeConfigLib, CompressedFeeConfig} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 
 /**
  * @title RollupCore
@@ -227,6 +228,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     // from the onset). It might be updated later to 0 by governance in order to close the validator set for this
     // instance. For details see `StakingLib.getEntryQueueFlushSize` function.
     require(_config.stakingQueueConfig.normalFlushSizeMin > 0, Errors.Staking__InvalidStakingQueueConfig());
+    require(_config.stakingQueueConfig.normalFlushSizeQuotient > 0, Errors.Staking__InvalidNormalFlushSizeQuotient());
 
     TimeLib.initialize(
       block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration, _config.aztecProofSubmissionEpochs
@@ -254,7 +256,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
         _config.slashAmounts,
         _config.targetCommitteeSize,
         _config.aztecEpochDuration,
-        _config.slashingOffsetInRounds
+        _config.slashingOffsetInRounds,
+        _config.slashingDisableDuration
       );
     } else {
       slasher = EmpireSlasherDeploymentExtLib.deployEmpireSlasher(
@@ -264,12 +267,15 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
         _config.slashingQuorum,
         _config.slashingRoundSize,
         _config.slashingLifetimeInRounds,
-        _config.slashingExecutionDelayInRounds
+        _config.slashingExecutionDelayInRounds,
+        _config.slashingDisableDuration
       );
     }
 
-    StakingLib.initialize(_stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig);
-    ValidatorOperationsExtLib.initializeValidatorSelection(_config.targetCommitteeSize);
+    StakingLib.initialize(
+      _stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig, _config.localEjectionThreshold
+    );
+    ValidatorOperationsExtLib.initializeValidatorSelection(_config.targetCommitteeSize, _config.lagInEpochs);
 
     // If no booster is specifically provided, deploy one.
     if (address(_config.rewardConfig.booster) == address(0)) {
@@ -348,6 +354,16 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    */
   function setSlasher(address _slasher) external override(IStakingCore) onlyOwner {
     ValidatorOperationsExtLib.setSlasher(_slasher);
+  }
+
+  /**
+   * @notice Updates the local ejection threshold
+   * @dev Only callable by owner. The local ejection threshold is the minimum amount of stake that a validator can have
+   *      after being slashed.
+   * @param _localEjectionThreshold The new local ejection threshold
+   */
+  function setLocalEjectionThreshold(uint256 _localEjectionThreshold) external override(IStakingCore) onlyOwner {
+    ValidatorOperationsExtLib.setLocalEjectionThreshold(_localEjectionThreshold);
   }
 
   /**
@@ -433,9 +449,14 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @notice Processes the validator entry queue to add new validators to the active set
    * @dev Can be called by anyone. The number of validators added is limited by queue configuration.
    *      This helps maintain a controlled growth rate of the validator set.
+   * @param _toAdd - The max number the caller will try to add
    */
+  function flushEntryQueue(uint256 _toAdd) external override(IStakingCore) {
+    ValidatorOperationsExtLib.flushEntryQueue(_toAdd);
+  }
+
   function flushEntryQueue() external override(IStakingCore) {
-    ValidatorOperationsExtLib.flushEntryQueue();
+    ValidatorOperationsExtLib.flushEntryQueue(type(uint256).max);
   }
 
   /**
@@ -507,9 +528,12 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     ProposeArgs calldata _args,
     CommitteeAttestations memory _attestations,
     address[] calldata _signers,
+    Signature calldata _attestationsAndSignersSignature,
     bytes calldata _blobInput
   ) external override(IRollupCore) {
-    RollupOperationsExtLib.propose(_args, _attestations, _signers, _blobInput, checkBlob);
+    RollupOperationsExtLib.propose(
+      _args, _attestations, _signers, _attestationsAndSignersSignature, _blobInput, checkBlob
+    );
   }
 
   /**

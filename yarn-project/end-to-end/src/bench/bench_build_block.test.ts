@@ -16,7 +16,6 @@ describe('benchmarks/build_block', () => {
       enforceTimeTable: false, // Let the sequencer take as much time as it needs
       metrics: [
         Metrics.SEQUENCER_BLOCK_BUILD_DURATION,
-        Metrics.SEQUENCER_BLOCK_BUILD_INSERTION_TIME,
         {
           // Invert mana-per-second since benchmark action requires that all metrics
           // conform to either "bigger-is-better" or "smaller-is-better".

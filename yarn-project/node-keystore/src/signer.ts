@@ -105,6 +105,82 @@ export class RemoteSigner implements EthSigner {
   ) {}
 
   /**
+   * Validates that a web3signer is accessible and that the given addresses are available.
+   * @param remoteSignerUrl - The URL of the web3signer (can be string or EthRemoteSignerConfig)
+   * @param addresses - The addresses to check for availability
+   * @param fetch - Optional fetch implementation for testing
+   * @throws Error if the web3signer is not accessible or if any address is not available
+   */
+  static async validateAccess(
+    remoteSignerUrl: EthRemoteSignerConfig,
+    addresses: string[],
+    fetch: typeof globalThis.fetch = globalThis.fetch,
+  ): Promise<void> {
+    const url = typeof remoteSignerUrl === 'string' ? remoteSignerUrl : remoteSignerUrl.remoteSignerUrl;
+
+    try {
+      // Check if the web3signer is reachable by calling eth_accounts
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_accounts',
+          params: [],
+          id: 1,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new SignerError(
+          `Web3Signer validation failed: ${response.status} ${response.statusText} - ${errorText}`,
+          'eth_accounts',
+          url,
+          response.status,
+        );
+      }
+
+      const result = await response.json();
+
+      if (result.error) {
+        throw new SignerError(
+          `Web3Signer JSON-RPC error during validation: ${result.error.code} - ${result.error.message}`,
+          'eth_accounts',
+          url,
+          200,
+          result.error.code,
+        );
+      }
+
+      if (!result.result || !Array.isArray(result.result)) {
+        throw new Error('Invalid response from Web3Signer: expected array of accounts');
+      }
+
+      // Normalize addresses to lowercase for comparison
+      const availableAccounts: string[] = result.result.map((addr: string) => addr.toLowerCase());
+      const requestedAddresses = addresses.map(addr => addr.toLowerCase());
+
+      // Check if all requested addresses are available
+      const missingAddresses = requestedAddresses.filter(addr => !availableAccounts.includes(addr));
+
+      if (missingAddresses.length > 0) {
+        throw new Error(`The following addresses are not available in the web3signer: ${missingAddresses.join(', ')}`);
+      }
+    } catch (error: any) {
+      if (error instanceof SignerError) {
+        throw error;
+      }
+      if (error.code === 'ECONNREFUSED' || error.cause?.code === 'ECONNREFUSED') {
+        throw new Error(`Unable to connect to web3signer at ${url}. Please ensure it is running and accessible.`);
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Sign a message using eth_sign via remote JSON-RPC.
    */
   async signMessage(message: Buffer32): Promise<Signature> {

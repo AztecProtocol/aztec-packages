@@ -55,7 +55,7 @@ const EXECUTION_DELAY_IN_ROUNDS = 1;
 const SLASHING_UNIT = BigInt(20e18);
 // offset for slashing rounds
 const SLASH_OFFSET_IN_ROUNDS = 2;
-const COMMITEE_SIZE = NUM_VALIDATORS;
+const COMMITTEE_SIZE = NUM_VALIDATORS;
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'slash-veto-demo-'));
 
 describe('veto slash', () => {
@@ -158,7 +158,7 @@ describe('veto slash', () => {
     const vetoer = deployerClient.account.address;
     const governance = EthAddress.random().toString(); // We don't need a real governance address for this test
     debugLogger.info(`\n\ndeploying slasher with vetoer: ${vetoer}\n\n`);
-    const slasher = (await deployer.deploy(SlasherArtifact, [vetoer, governance])).address;
+    const slasher = (await deployer.deploy(SlasherArtifact, [vetoer, governance, 3600n])).address;
     await deployer.waitForDeployments();
 
     let proposer: EthAddress;
@@ -182,7 +182,7 @@ describe('veto slash', () => {
         BigInt(LIFETIME_IN_ROUNDS),
         BigInt(EXECUTION_DELAY_IN_ROUNDS),
         [SLASHING_UNIT, SLASHING_UNIT * 2n, SLASHING_UNIT * 3n],
-        BigInt(COMMITEE_SIZE),
+        BigInt(COMMITTEE_SIZE),
         BigInt(EPOCH_DURATION),
         BigInt(SLASH_OFFSET_IN_ROUNDS),
       ] as const;

@@ -24,9 +24,11 @@ import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {CompressedSlot, CompressedTimestamp, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ChainTipsLib, CompressedChainTips} from "./libraries/compressed-data/Tips.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
 import {RewardLib, RewardConfig} from "./libraries/rollup/RewardLib.sol";
+import {DepositArgs} from "./libraries/StakingQueue.sol";
 import {
   RollupCore,
   GenesisState,
@@ -36,7 +38,6 @@ import {
   Slot,
   Epoch,
   Timestamp,
-  Errors,
   CommitteeAttestations,
   RollupOperationsExtLib,
   ValidatorOperationsExtLib,
@@ -88,6 +89,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     ProposedHeader calldata _header,
     CommitteeAttestations memory _attestations,
     address[] calldata _signers,
+    Signature memory _attestationsAndSignersSignature,
     bytes32 _digest,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags
@@ -102,7 +104,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
         flags: _flags
       }),
       _attestations,
-      _signers
+      _signers,
+      _attestationsAndSignersSignature
     );
   }
 
@@ -200,6 +203,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function getSlasher() external view override(IStaking) returns (address) {
     return StakingLib.getStorage().slasher;
+  }
+
+  function getLocalEjectionThreshold() external view override(IStaking) returns (uint256) {
+    return StakingLib.getStorage().localEjectionThreshold;
   }
 
   function getStakingAsset() external view override(IStaking) returns (IERC20) {
@@ -314,19 +321,9 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getBlock(uint256 _blockNumber) external view override(IRollup) returns (BlockLog memory) {
-    RollupStore storage rollupStore = STFLib.getStorage();
-    uint256 pendingBlockNumber = rollupStore.tips.getPendingBlockNumber();
-    require(_blockNumber <= pendingBlockNumber, Errors.Rollup__InvalidBlockNumber(pendingBlockNumber, _blockNumber));
-
-    // If the block is outside of the temp stored, will return default values (0)
-    // for all that would have been in temp.
-    TempBlockLog memory tempBlockLog;
-    if (!STFLib.isTempStale(_blockNumber)) {
-      tempBlockLog = STFLib.getTempBlockLog(_blockNumber);
-    }
-
+    TempBlockLog memory tempBlockLog = STFLib.getTempBlockLog(_blockNumber);
     return BlockLog({
-      archive: rollupStore.archives[_blockNumber],
+      archive: STFLib.getStorage().archives[_blockNumber],
       headerHash: tempBlockLog.headerHash,
       blobCommitmentsHash: tempBlockLog.blobCommitmentsHash,
       attestationsHash: tempBlockLog.attestationsHash,
@@ -378,6 +375,14 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function getSampleSeedAt(Timestamp _ts) external view override(IValidatorSelection) returns (uint256) {
     return ValidatorOperationsExtLib.getSampleSeedAt(getEpochAt(_ts));
+  }
+
+  function getSamplingSizeAt(Timestamp _ts) external view override(IValidatorSelection) returns (uint256) {
+    return ValidatorOperationsExtLib.getSamplingSizeAt(getEpochAt(_ts));
+  }
+
+  function getLagInEpochs() external view override(IValidatorSelection) returns (uint256) {
+    return ValidatorOperationsExtLib.getLagInEpochs();
   }
 
   /**
@@ -517,6 +522,18 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function getBlockReward() external view override(IRollup) returns (uint256) {
     return RewardLib.getBlockReward();
+  }
+
+  function getAvailableValidatorFlushes() external view override(IStaking) returns (uint256) {
+    return ValidatorOperationsExtLib.getAvailableValidatorFlushes();
+  }
+
+  function getIsBootstrapped() external view override(IStaking) returns (bool) {
+    return StakingLib.getStorage().isBootstrapped;
+  }
+
+  function getEntryQueueAt(uint256 _index) external view override(IStaking) returns (DepositArgs memory) {
+    return StakingLib.getEntryQueueAt(_index);
   }
 
   function getBurnAddress() external pure override(IRollup) returns (address) {

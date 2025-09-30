@@ -5,7 +5,12 @@ import {
   l1ReaderConfigMappings,
   l1TxUtilsConfigMappings,
 } from '@aztec/ethereum';
-import { type ConfigMappingsType, SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  SecretValue,
+  booleanConfigHelper,
+  getConfigFromMappings,
+} from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**
@@ -21,6 +26,9 @@ export type TxSenderConfig = L1ReaderConfig & {
    * Publisher addresses to be used with a remote signer
    */
   publisherAddresses?: EthAddress[];
+
+  /** Whether this publisher is enabled */
+  publisherEnabled?: boolean;
 };
 
 /**
@@ -28,10 +36,10 @@ export type TxSenderConfig = L1ReaderConfig & {
  */
 export type PublisherConfig = L1TxUtilsConfig &
   BlobSinkConfig & {
-    /**
-     * The interval to wait between publish retries.
-     */
+    /** The interval to wait between publish retries. */
     l1PublishRetryIntervalMS: number;
+    /** True to use publishers in invalid states (timed out, cancelled, etc) if no other is available */
+    publisherAllowInvalidStates?: boolean;
   };
 
 export const getTxSenderConfigMappings: (
@@ -43,13 +51,18 @@ export const getTxSenderConfigMappings: (
     description: 'The private keys to be used by the publisher.',
     parseEnv: (val: string) => val.split(',').map(key => new SecretValue(`0x${key.replace('0x', '')}`)),
     defaultValue: [],
-    fallback: scope === 'PROVER' ? ['PROVER_PUBLISHER_PRIVATE_KEY'] : ['SEQ_PUBLISHER_PRIVATE_KEY'],
+    fallback: [scope === 'PROVER' ? `PROVER_PUBLISHER_PRIVATE_KEY` : `SEQ_PUBLISHER_PRIVATE_KEY`],
   },
   publisherAddresses: {
     env: scope === 'PROVER' ? `PROVER_PUBLISHER_ADDRESSES` : `SEQ_PUBLISHER_ADDRESSES`,
     description: 'The addresses of the publishers to use with remote signers',
     parseEnv: (val: string) => val.split(',').map(address => EthAddress.fromString(address)),
     defaultValue: [],
+  },
+  publisherEnabled: {
+    env: scope === 'PROVER' ? `PROVER_PUBLISHER_ENABLED` : `SEQ_PUBLISHER_ENABLED`,
+    description: 'Whether this L1 publisher is enabled',
+    ...booleanConfigHelper(true),
   },
 });
 
@@ -65,6 +78,11 @@ export const getPublisherConfigMappings: (
     parseEnv: (val: string) => +val,
     defaultValue: 1000,
     description: 'The interval to wait between publish retries.',
+  },
+  publisherAllowInvalidStates: {
+    description: 'True to use publishers in invalid states (timed out, cancelled, etc) if no other is available',
+    env: scope === `PROVER` ? `PROVER_PUBLISHER_ALLOW_INVALID_STATES` : `SEQ_PUBLISHER_ALLOW_INVALID_STATES`,
+    ...booleanConfigHelper(false),
   },
   ...l1TxUtilsConfigMappings,
   ...blobSinkConfigMapping,

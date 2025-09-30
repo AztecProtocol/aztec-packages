@@ -599,7 +599,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param txHash - Hash of the tx to query.
    * @returns Pending or mined depending on its status, or undefined if not found.
    */
-  public getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined> {
+  public getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | 'deleted' | undefined> {
     return this.txPool.getTxStatus(txHash);
   }
 
@@ -688,19 +688,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   /**
-   * Deletes txs from these blocks.
-   * @param blocks - A list of existing blocks with txs that the P2P client needs to ensure the tx pool is reconciled with.
-   * @returns Empty promise.
-   */
-  private async deleteTxsFromBlocks(blocks: L2Block[]): Promise<void> {
-    this.log.debug(`Deleting txs from blocks ${blocks[0].number} to ${blocks[blocks.length - 1].number}`);
-    for (const block of blocks) {
-      const txHashes = block.body.txEffects.map(txEffect => txEffect.txHash);
-      await this.txPool.deleteTxs(txHashes);
-    }
-  }
-
-  /**
    * Handles new mined blocks by marking the txs in them as mined.
    * @param blocks - A list of existing blocks with txs that the P2P client needs to ensure the tx pool is reconciled with.
    * @returns Empty promise.
@@ -765,19 +752,23 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @returns Empty promise.
    */
   private async handleFinalizedL2Blocks(blocks: L2Block[]): Promise<void> {
-    this.log.trace(`Handling finalized blocks ${blocks.length} up to ${blocks.at(-1)?.number}`);
     if (!blocks.length) {
       return Promise.resolve();
     }
+    this.log.debug(`Handling finalized blocks ${blocks.length} up to ${blocks.at(-1)?.number}`);
 
     const lastBlockNum = blocks[blocks.length - 1].number;
     const lastBlockSlot = blocks[blocks.length - 1].header.getSlot();
 
-    await this.deleteTxsFromBlocks(blocks);
+    const txHashes = blocks.flatMap(block => block.body.txEffects.map(txEffect => txEffect.txHash));
+    this.log.debug(`Deleting ${txHashes.length} txs from pool from finalized blocks up to ${lastBlockNum}`);
+    await this.txPool.deleteTxs(txHashes, { permanently: true });
+    await this.txPool.cleanupDeletedMinedTxs(lastBlockNum);
+
     await this.attestationPool?.deleteAttestationsOlderThan(lastBlockSlot);
 
     await this.synchedFinalizedBlockNumber.set(lastBlockNum);
-    this.log.debug(`Synched to finalized block ${lastBlockNum}`);
+    this.log.debug(`Synched to finalized block ${lastBlockNum} at slot ${lastBlockSlot}`);
 
     await this.startServiceIfSynched();
   }
@@ -802,6 +793,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.info(`Detected chain prune. Removing ${txsToDelete.size} txs built against pruned blocks.`, {
       newLatestBlock: latestBlock,
       previousLatestBlock: await this.getSyncedLatestBlockNum(),
+      txsToDelete: Array.from(txsToDelete.keys()),
     });
 
     // delete invalid txs (both pending and mined)
@@ -814,7 +806,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     // (see this.keepProvenTxsFor)
     const minedTxsFromReorg: TxHash[] = [];
     for (const [txHash, blockNumber] of minedTxs) {
-      if (blockNumber > latestBlock) {
+      // We keep the txsToDelete out of this list as they have already been deleted above
+      if (blockNumber > latestBlock && !txsToDelete.has(txHash.toString())) {
         minedTxsFromReorg.push(txHash);
       }
     }

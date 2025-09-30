@@ -111,6 +111,10 @@ export class CommitteeAttestation {
     return this.address.equals(other.address) && this.signature.equals(other.signature);
   }
 
+  toString(): string {
+    return `CommitteeAttestation(${this.address.toString()}, ${this.signature.toString()})`;
+  }
+
   toViem(): ViemCommitteeAttestation {
     return {
       addr: this.address.toString(),
