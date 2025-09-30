@@ -1,11 +1,11 @@
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <fstream>
 #include <gtest/gtest.h>
 #include <iostream>
 #include <string>
 
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 #include "barretenberg/smt_verification/circuit/ultra_circuit.hpp"
 

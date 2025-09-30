@@ -156,6 +156,13 @@ function build_smt_verification {
 
   sudo apt update && sudo apt install -y python3-pip python3-venv m4 bison
   cmake --preset smt-verification
+  
+  cvc5_commit="5fcdb48eb26dee9385e0d0e6377fcc7e4afee85a"
+  if ! cache_download barretenberg-cvc5-$cvc5_commit.zst; then
+      cmake --build build-smt --target cvc5
+      cache_upload barretenberg-cvc5-$cvc5_commit.zst build-smt/_deps/cvc5
+  fi
+
   cmake --build build-smt --target smt_verification_tests
   cache_upload barretenberg-smt-$hash.zst build-smt
 }
