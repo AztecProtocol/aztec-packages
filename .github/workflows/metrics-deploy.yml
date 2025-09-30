@@ -93,6 +93,8 @@ jobs:
       SLACK_WEBHOOK_STAGING_PUBLIC_SECRET_NAME: slack-webhook-staging-public-url
       SLACK_WEBHOOK_STAGING_IGNITION_SECRET_NAME: slack-webhook-staging-ignition-url
       SLACK_WEBHOOK_NEXT_SCENARIO_SECRET_NAME: slack-webhook-next-scenario-url
+      SLACK_WEBHOOK_TESTNET_SECRET_NAME: slack-webhook-testnet-url
+      SLACK_WEBHOOK_MAINNET_SECRET_NAME: slack-webhook-mainnet-url
 
     steps:
       - name: Checkout code

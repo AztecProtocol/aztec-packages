@@ -46,6 +46,18 @@ variable "SLACK_WEBHOOK_NEXT_SCENARIO_SECRET_NAME" {
   default     = "slack-webhook-next-scenario-url"
 }
 
+variable "SLACK_WEBHOOK_TESTNET_SECRET_NAME" {
+  description = "Webhook for testnet alerts"
+  type        = string
+  default     = "slack-webhook-testnet-url"
+}
+
+variable "SLACK_WEBHOOK_MAINNET_SECRET_NAME" {
+  description = "Webhook for mainnet alerts"
+  type        = string
+  default     = "slack-webhook-mainnet-url"
+}
+
 variable "project" {
   default = "testnet-440309"
   type    = string
