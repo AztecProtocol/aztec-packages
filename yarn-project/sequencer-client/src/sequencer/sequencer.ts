@@ -665,10 +665,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
       const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations ?? []);
       const attestationsAndSignersSignature = this.validatorClient
-        ? await this.validatorClient.signAttestationsAndSigners(
-            attestationsAndSigners,
-            proposerAddress ?? publisher.getSenderAddress(),
-          )
+        ? await this.validatorClient.signAttestationsAndSigners(attestationsAndSigners, proposerAddress)
         : Signature.empty();
 
       await this.enqueuePublishL2Block(

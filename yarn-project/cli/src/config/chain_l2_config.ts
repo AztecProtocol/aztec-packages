@@ -150,7 +150,7 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
 
   ejectionThreshold: 100_000n * 10n ** 18n,
   activationThreshold: 200_000n * 10n ** 18n,
-  localEjectionThreshold: 196n * 10n ** 18n,
+  localEjectionThreshold: 196_000n * 10n ** 18n,
 
   governanceProposerRoundSize: 300, // TODO TMNT-322
   governanceProposerQuorum: 151, // TODO TMNT-322

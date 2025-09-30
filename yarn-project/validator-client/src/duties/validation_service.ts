@@ -1,7 +1,7 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { Signature } from '@aztec/foundation/eth-signature';
+import { Signature } from '@aztec/foundation/eth-signature';
 import type { Fr } from '@aztec/foundation/fields';
 import type { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
 import {
@@ -80,8 +80,12 @@ export class ValidationService {
 
   async signAttestationsAndSigners(
     attestationsAndSigners: CommitteeAttestationsAndSigners,
-    proposer: EthAddress,
+    proposer: EthAddress | undefined,
   ): Promise<Signature> {
+    if (proposer === undefined) {
+      return Signature.empty();
+    }
+
     const buf = Buffer32.fromBuffer(
       keccak256(attestationsAndSigners.getPayloadToSign(SignatureDomainSeparator.attestationsAndSigners)),
     );

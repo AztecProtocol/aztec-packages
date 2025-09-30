@@ -365,7 +365,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   async signAttestationsAndSigners(
     attestationsAndSigners: CommitteeAttestationsAndSigners,
-    proposer: EthAddress,
+    proposer: EthAddress | undefined,
   ): Promise<Signature> {
     return await this.validationService.signAttestationsAndSigners(attestationsAndSigners, proposer);
   }

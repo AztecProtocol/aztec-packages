@@ -36,7 +36,7 @@ export class CommitteeAttestationsAndSigners implements Signable {
   }
 
   toString() {
-    throw new Error('Not implemented');
+    return `CommitteeAttestationsAndSigners(${this.attestations.map(a => a.toString()).join(',')})`;
   }
 
   getSigners() {
