@@ -36,7 +36,7 @@ launch_spec=$(cat <<EOF
     {
       "DeviceName": "/dev/sda1",
       "Ebs": {
-        "VolumeSize": 96,
+        "VolumeSize": 128,
         "VolumeType": "gp3",
         "Throughput": 1000,
         "Iops": 4000

@@ -37,8 +37,8 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      */
     void set(size_t index, const T& value)
     {
-        BB_ASSERT_GTE(index, start_);
-        BB_ASSERT_LT(index, end_);
+        ASSERT_DEBUG(index >= start_);
+        ASSERT_DEBUG(index < end_);
         data()[index - start_] = value;
     }
 
@@ -56,15 +56,7 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
     const T& get(size_t index, size_t virtual_padding = 0) const
     {
         static const T zero{};
-        if (index >= virtual_size_ + virtual_padding) {
-            info("BAD GET(): index = ",
-                 index,
-                 ", virtual_size_ = ",
-                 virtual_size_,
-                 ", virtual_padding = ",
-                 virtual_padding);
-        }
-        BB_ASSERT_LT(index, virtual_size_ + virtual_padding);
+        ASSERT_DEBUG(index < virtual_size_ + virtual_padding);
         if (index >= start_ && index < end_) {
             return data()[index - start_];
         }
@@ -77,8 +69,8 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      *
      * @return A pointer to the beginning of the memory-backed range.
      */
-    T* data() { return backing_memory_ ? backing_memory_->raw_data() : nullptr; }
-    const T* data() const { return backing_memory_ ? backing_memory_->raw_data() : nullptr; }
+    T* data() { return backing_memory_.raw_data; }
+    const T* data() const { return backing_memory_.raw_data; }
     // Our size is end_ - start_. Note that we need to offset end_ when doing a shift to
     // correctly maintain the size.
     size_t size() const { return end_ - start_; }
@@ -93,15 +85,15 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
 
     T& operator[](size_t index)
     {
-        BB_ASSERT_GTE(index, start_);
-        BB_ASSERT_LT(index, end_);
+        ASSERT_DEBUG(index >= start_);
+        ASSERT_DEBUG(index < end_);
         return data()[index - start_];
     }
     // get() is more useful, but for completeness with the non-const operator[]
     const T& operator[](size_t index) const
     {
-        BB_ASSERT_GTE(index, start_);
-        BB_ASSERT_LT(index, end_);
+        ASSERT_DEBUG(index >= start_);
+        ASSERT_DEBUG(index < end_);
         return data()[index - start_];
     }
 
@@ -135,10 +127,10 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
     size_t virtual_size_ = 0;
 
     /**
-     * @brief Shared pointer to the underlying memory array.
+     * @brief The underlying memory storage.
      *
-     * The memory is allocated for at least the range [start_, end_). It is shared across instances to allow
-     * for efficient memory use when arrays are shifted or otherwise manipulated.
+     * The memory is allocated for at least the range [start_, end_). Shared pointers within BackingMemory
+     * allow for efficient memory use when arrays are shifted or otherwise manipulated.
      */
-    std::shared_ptr<BackingMemory<T>> backing_memory_;
+    BackingMemory<T> backing_memory_;
 };

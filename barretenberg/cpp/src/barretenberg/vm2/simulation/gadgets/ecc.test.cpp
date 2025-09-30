@@ -2,6 +2,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <stdexcept>
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
@@ -131,7 +132,8 @@ TEST(AvmSimulationEccDeathTest, ScalarMulNotOnCurve)
 
     FF scalar("0x009242167ec31949c00cbe441cd36757607406e87844fa2c8c4364a4403e66d7");
 
-    ASSERT_DEATH(ecc.scalar_mul(p, scalar), "Point must be on the curve for scalar multiplication");
+    // prints: Point must be on the curve for scalar multiplication
+    ASSERT_THROW(ecc.scalar_mul(p, scalar), std::runtime_error);
 }
 
 TEST(AvmSimulationEccTest, AddWithMemory)
