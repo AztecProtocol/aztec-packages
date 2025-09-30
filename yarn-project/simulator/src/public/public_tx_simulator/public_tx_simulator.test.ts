@@ -255,9 +255,11 @@ describe('public_tx_simulator', () => {
   const createSimulator = ({
     doMerkleOperations = true,
     skipFeeEnforcement = false,
+    proverId,
   }: {
     doMerkleOperations?: boolean;
     skipFeeEnforcement?: boolean;
+    proverId?: Fr;
   }) => {
     const simulator = new PublicTxSimulator(
       merkleTrees,
@@ -266,6 +268,7 @@ describe('public_tx_simulator', () => {
       {
         doMerkleOperations,
         skipFeeEnforcement,
+        proverId,
       },
     );
 
@@ -1263,5 +1266,31 @@ describe('public_tx_simulator', () => {
     // Verify that the SimulationError contains information about the nullifier collision
     const simulationError = txResult.revertReason as SimulationError;
     expect(simulationError.getOriginalMessage()).toContain('Nullifier collision');
+  });
+
+  describe('prover id', () => {
+    it('exposes the default prover id in public inputs', async () => {
+      const tx = await mockTxWithPublicCalls({
+        numberOfAppLogicCalls: 1,
+      });
+
+      const txResult = await simulator.simulate(tx);
+
+      expect(txResult.avmProvingRequest!.inputs.publicInputs.proverId).toEqual(Fr.ZERO);
+    });
+
+    it('exposes the prover id in public inputs', async () => {
+      const tx = await mockTxWithPublicCalls({
+        numberOfAppLogicCalls: 1,
+      });
+
+      const proverId = Fr.random();
+
+      simulator = createSimulator({ skipFeeEnforcement: true, proverId });
+
+      const txResult = await simulator.simulate(tx);
+
+      expect(txResult.avmProvingRequest!.inputs.publicInputs.proverId).toEqual(proverId);
+    });
   });
 });
