@@ -1,3 +1,14 @@
+terraform {
+  required_providers {
+    helm = {
+      source = "hashicorp/helm"
+    }
+    kubernetes = {
+      source = "hashicorp/kubernetes"
+    }
+  }
+}
+
 resource "helm_release" "keystore_setup" {
   name             = "${var.RELEASE_NAME}-setup"
   repository       = "../../"
