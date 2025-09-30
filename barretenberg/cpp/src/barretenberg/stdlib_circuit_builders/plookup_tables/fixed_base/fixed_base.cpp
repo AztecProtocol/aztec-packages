@@ -193,9 +193,9 @@ constexpr function_ptr_table make_function_pointer_table()
  * y-coord) for index in [0, 2^w). For the last table in a multitable, the size may be smaller if remaining bits < w.
  *
  * @tparam multitable_index Which of our 4 multitables (LEFT_LO/HI, RIGHT_LO/HI) this table belongs to
- * @param id The unique BasicTableId for this table
- * @param basic_table_index The plookup table index
- * @param table_index The bit-slice position (0 = least significant slice)
+ * @param id The unique and fixed BasicTableId for this table
+ * @param basic_table_index The circuit table index (e.g. idx = i means this is the i'th table used in the circuit)
+ * @param table_index The bit-slice position (0 = least significant slice) (0 <= table_index < NUM_TABLES_IN_MULTITABLE)
  * @return BasicTable containing the precomputed points and lookup function
  */
 template <size_t multitable_index>
