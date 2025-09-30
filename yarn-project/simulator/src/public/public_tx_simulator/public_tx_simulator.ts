@@ -1,6 +1,5 @@
 import { AVM_MAX_PROCESSABLE_L2_GAS, DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   ProtocolContractAddress,
@@ -60,7 +59,7 @@ export type PublicTxResult = {
 };
 
 export type PublicTxSimulatorConfig = {
-  proverId: EthAddress;
+  proverId: Fr;
   doMerkleOperations: boolean;
   skipFeeEnforcement: boolean;
   clientInitiatedSimulation: boolean;
@@ -69,7 +68,7 @@ export type PublicTxSimulatorConfig = {
 
 export class PublicTxSimulator {
   protected log: Logger;
-  private proverId: EthAddress;
+  private proverId: Fr;
   private doMerkleOperations: boolean;
   private skipFeeEnforcement: boolean;
   private clientInitiatedSimulation: boolean;
@@ -81,7 +80,7 @@ export class PublicTxSimulator {
     private globalVariables: GlobalVariables,
     config?: Partial<PublicTxSimulatorConfig>,
   ) {
-    this.proverId = config?.proverId ?? EthAddress.ZERO;
+    this.proverId = config?.proverId ?? Fr.ZERO;
     this.doMerkleOperations = config?.doMerkleOperations ?? false;
     this.skipFeeEnforcement = config?.skipFeeEnforcement ?? false;
     this.clientInitiatedSimulation = config?.clientInitiatedSimulation ?? false;

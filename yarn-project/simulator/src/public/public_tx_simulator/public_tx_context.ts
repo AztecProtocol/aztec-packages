@@ -6,7 +6,6 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
@@ -72,7 +71,7 @@ export class PublicTxContext {
     private readonly startTreeSnapshots: TreeSnapshots,
     private readonly globalVariables: GlobalVariables,
     private readonly protocolContractTreeRoot: Fr,
-    private readonly proverId: EthAddress,
+    private readonly proverId: Fr,
     private readonly gasSettings: GasSettings,
     private readonly gasUsedByPrivate: Gas,
     private readonly gasAllocatedToPublic: Gas,
@@ -95,7 +94,7 @@ export class PublicTxContext {
     globalVariables: GlobalVariables,
     protocolContractTreeRoot: Fr,
     doMerkleOperations: boolean,
-    proverId: EthAddress,
+    proverId: Fr,
   ) {
     const nonRevertibleAccumulatedDataFromPrivate = tx.data.forPublic!.nonRevertibleAccumulatedData;
 

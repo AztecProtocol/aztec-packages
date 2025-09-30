@@ -1,6 +1,5 @@
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -72,7 +71,7 @@ export class PublicProcessorFactory {
     config: {
       skipFeeEnforcement: boolean;
       clientInitiatedSimulation: boolean;
-      proverId?: EthAddress;
+      proverId?: Fr;
       maxDebugLogMemoryReads?: number;
     },
   ): PublicProcessor {

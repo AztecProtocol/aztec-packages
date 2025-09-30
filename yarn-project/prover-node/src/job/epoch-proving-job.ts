@@ -189,7 +189,7 @@ export class EpochProvingJob implements Traceable {
         const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, {
           skipFeeEnforcement: true,
           clientInitiatedSimulation: false,
-          proverId: this.prover.getProverId(),
+          proverId: this.prover.getProverId().toField(),
         });
         const processed = await this.processTxs(publicProcessor, txs);
         await this.prover.addTxs(processed);

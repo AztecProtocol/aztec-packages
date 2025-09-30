@@ -1,6 +1,5 @@
 import { MAX_ENQUEUED_CALLS_PER_TX } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, type Tuple, assertLength, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -34,7 +33,7 @@ export class AvmCircuitPublicInputs {
     public gasSettings: GasSettings,
     public effectiveGasFees: GasFees,
     public feePayer: AztecAddress,
-    public proverId: EthAddress,
+    public proverId: Fr,
     public publicCallRequestArrayLengths: PublicCallRequestArrayLengths,
     public publicSetupCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
     public publicAppLogicCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
@@ -63,7 +62,7 @@ export class AvmCircuitPublicInputs {
         gasSettings: GasSettings.schema,
         effectiveGasFees: GasFees.schema,
         feePayer: AztecAddress.schema,
-        proverId: EthAddress.schema,
+        proverId: Fr.schema,
         publicCallRequestArrayLengths: PublicCallRequestArrayLengths.schema,
         publicSetupCallRequests: PublicCallRequest.schema.array().max(MAX_ENQUEUED_CALLS_PER_TX),
         publicAppLogicCallRequests: PublicCallRequest.schema.array().max(MAX_ENQUEUED_CALLS_PER_TX),
@@ -141,7 +140,7 @@ export class AvmCircuitPublicInputs {
       reader.readObject(GasSettings),
       reader.readObject(GasFees),
       reader.readObject(AztecAddress),
-      reader.readObject(EthAddress),
+      reader.readObject(Fr),
       reader.readObject(PublicCallRequestArrayLengths),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
@@ -204,7 +203,7 @@ export class AvmCircuitPublicInputs {
       GasSettings.fromFields(reader),
       GasFees.fromFields(reader),
       AztecAddress.fromFields(reader),
-      EthAddress.fromFields(reader),
+      reader.readField(),
       PublicCallRequestArrayLengths.fromFields(reader),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
@@ -258,7 +257,7 @@ export class AvmCircuitPublicInputs {
       GasSettings.empty(),
       GasFees.empty(),
       AztecAddress.zero(),
-      EthAddress.ZERO,
+      Fr.zero(),
       PublicCallRequestArrayLengths.empty(),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
