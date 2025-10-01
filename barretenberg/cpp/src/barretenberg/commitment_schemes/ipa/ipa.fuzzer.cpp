@@ -180,7 +180,7 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     }
     auto const opening_pair = OpeningPair<Curve>{ x, poly.evaluate(x) };
     auto const opening_claim = OpeningClaim<Curve>{ opening_pair, ck.commit(poly) };
-    ProxyCaller::compute_opening_proof_internal(ck, { poly, opening_pair }, transcript, log_size);
+    ProxyCaller::compute_opening_proof(ck, { poly, opening_pair }, transcript, log_size);
 
     // Reset challenge indices
     transcript->reset_indices();
