@@ -5,6 +5,8 @@ sidebar_position: 2
 description: Step-by-step guide to creating and deploying user accounts in Aztec.js applications.
 ---
 
+<!-- docs:start:create_account -->
+
 This guide shows you how to create and deploy a new account contract in Aztec.
 
 ## Prerequisites
@@ -92,3 +94,5 @@ On the testnet your account won't be funded with Fee Juice, so you have to use t
 - [Send transactions](./how_to_send_transaction.md) from your account
 - Learn about [account abstraction](../../concepts/accounts/index.md)
 - Implement [authentication witnesses](./how_to_use_authwit.md)
+
+<!-- docs:end:create_account -->
