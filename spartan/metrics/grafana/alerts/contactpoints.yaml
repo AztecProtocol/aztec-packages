@@ -1,7 +1,7 @@
 apiVersion: 1
 contactPoints:
   - orgId: 1
-    name: "Slack #network-alerts channel"
+    name: "Slack #network-alerts channel by namespace"
     receivers:
       - uid: deexubp9hzpc1b
         type: slack
@@ -44,9 +44,9 @@ contactPoints:
         disableResolveMessage: false
 
   - orgId: 1
-    name: "Slack #alerts-staging-public"
+    name: "Slack #alerts-staging-public by namespace"
     receivers:
-      - uid: alertsstagingpublic
+      - uid: alertsstagingpublicbynamespace
         type: slack
         settings:
           url: $SLACK_WEBHOOK_STAGING_PUBLIC_URL
@@ -87,9 +87,9 @@ contactPoints:
         disableResolveMessage: false
 
   - orgId: 1
-    name: "Slack #alerts-staging-ignition"
+    name: "Slack #alerts-staging-ignition by namespace"
     receivers:
-      - uid: alertsstagingignition
+      - uid: alertsstagingignitionbynamespace
         type: slack
         settings:
           url: $SLACK_WEBHOOK_STAGING_IGNITION_URL
@@ -130,9 +130,9 @@ contactPoints:
         disableResolveMessage: false
 
   - orgId: 1
-    name: "Slack #alerts-next-scenario"
+    name: "Slack #alerts-next-scenario by namespace"
     receivers:
-      - uid: alertsnextscenario
+      - uid: alertsnextscenariobynamespace
         type: slack
         settings:
           url: $SLACK_WEBHOOK_NEXT_SCENARIO_URL
@@ -173,9 +173,9 @@ contactPoints:
         disableResolveMessage: false
 
   - orgId: 1
-    name: "Slack #alerts-testnet"
+    name: "Slack #alerts-testnet by namespace"
     receivers:
-      - uid: alertstestnet
+      - uid: alertstestnetbynamespace
         type: slack
         settings:
           url: $SLACK_WEBHOOK_TESTNET_URL
@@ -216,9 +216,9 @@ contactPoints:
         disableResolveMessage: false
 
   - orgId: 1
-    name: "Slack #alerts-mainnet"
+    name: "Slack #alerts-mainnet by namespace"
     receivers:
-      - uid: alertsmainnet
+      - uid: alertsmainnetbynamespace
         type: slack
         settings:
           url: $SLACK_WEBHOOK_MAINNET_URL
@@ -256,4 +256,116 @@ contactPoints:
             {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
               with (index .CommonLabels "k8s_namespace_name")
             {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}%22%5D%29%29
+        disableResolveMessage: false
+
+  - orgId: 1
+    name: "Slack #alerts-staging-public by network"
+    receivers:
+      - uid: alertsstagingpublicbynetwork
+        type: slack
+        settings:
+          url: $SLACK_WEBHOOK_STAGING_PUBLIC_URL
+          text: |-
+            {{ "{{" }} if gt (len .Alerts) 0 {{ "}}" }}
+            *Alerts:*
+            {{ "{{" }} range .Alerts {{ "}}" }}
+            - {{ "{{" }} with (index .Labels "network") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown-network{{ "{{" }} end {{ "}}" }}: {{ "{{" }} with (index .Annotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
+            {{ "{{" }} end {{ "}}" }}
+            {{ "{{" }} else {{ "}}" }}
+            *Alerts:*
+            - {{ "{{" }} with (index .CommonAnnotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
+            {{ "{{" }} end {{ "}}" }}
+
+            *Grafana overview:*
+            {{ "{{" }} .ExternalURL {{ "}}" }}d/bexge5lz3e51cd/p2p-bootnodes?orgId=1&var-network={{ "{{" }}
+              if gt (len .Alerts) 0
+            {{ "}}" }}{{ "{{" }}
+              with (index (index .Alerts 0).Labels "network")
+            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+              with (index .CommonLabels "network")
+            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}
+        disableResolveMessage: false
+
+  - orgId: 1
+    name: "Slack #alerts-staging-ignition by network"
+    receivers:
+      - uid: alertsstagingignitionbynetwork
+        type: slack
+        settings:
+          url: $SLACK_WEBHOOK_STAGING_IGNITION_URL
+          text: |-
+            {{ "{{" }} if gt (len .Alerts) 0 {{ "}}" }}
+            *Alerts:*
+            {{ "{{" }} range .Alerts {{ "}}" }}
+            - {{ "{{" }} with (index .Labels "network") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown-network{{ "{{" }} end {{ "}}" }}: {{ "{{" }} with (index .Annotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
+            {{ "{{" }} end {{ "}}" }}
+            {{ "{{" }} else {{ "}}" }}
+            *Alerts:*
+            - {{ "{{" }} with (index .CommonAnnotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
+            {{ "{{" }} end {{ "}}" }}
+
+            *Grafana overview:*
+            {{ "{{" }} .ExternalURL {{ "}}" }}d/bexge5lz3e51cd/p2p-bootnodes?orgId=1&var-network={{ "{{" }}
+              if gt (len .Alerts) 0
+            {{ "}}" }}{{ "{{" }}
+              with (index (index .Alerts 0).Labels "network")
+            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+              with (index .CommonLabels "network")
+            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}
+        disableResolveMessage: false
+
+  - orgId: 1
+    name: "Slack #alerts-testnet by network"
+    receivers:
+      - uid: alertstestnetbynetwork
+        type: slack
+        settings:
+          url: $SLACK_WEBHOOK_TESTNET_URL
+          text: |-
+            {{ "{{" }} if gt (len .Alerts) 0 {{ "}}" }}
+            *Alerts:*
+            {{ "{{" }} range .Alerts {{ "}}" }}
+            - {{ "{{" }} with (index .Labels "network") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown-network{{ "{{" }} end {{ "}}" }}: {{ "{{" }} with (index .Annotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
+            {{ "{{" }} end {{ "}}" }}
+            {{ "{{" }} else {{ "}}" }}
+            *Alerts:*
+            - {{ "{{" }} with (index .CommonAnnotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
+            {{ "{{" }} end {{ "}}" }}
+
+            *Grafana overview:*
+            {{ "{{" }} .ExternalURL {{ "}}" }}d/bexge5lz3e51cd/p2p-bootnodes?orgId=1&var-network={{ "{{" }}
+              if gt (len .Alerts) 0
+            {{ "}}" }}{{ "{{" }}
+              with (index (index .Alerts 0).Labels "network")
+            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+              with (index .CommonLabels "network")
+            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}
+        disableResolveMessage: false
+
+  - orgId: 1
+    name: "Slack #alerts-mainnet by network"
+    receivers:
+      - uid: alertsmainnetbynetwork
+        type: slack
+        settings:
+          url: $SLACK_WEBHOOK_MAINNET_URL
+          text: |-
+            {{ "{{" }} if gt (len .Alerts) 0 {{ "}}" }}
+            *Alerts:*
+            {{ "{{" }} range .Alerts {{ "}}" }}
+            - {{ "{{" }} with (index .Labels "network") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown-network{{ "{{" }} end {{ "}}" }}: {{ "{{" }} with (index .Annotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
+            {{ "{{" }} end {{ "}}" }}
+            {{ "{{" }} else {{ "}}" }}
+            *Alerts:*
+            - {{ "{{" }} with (index .CommonAnnotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
+            {{ "{{" }} end {{ "}}" }}
+
+            *Grafana overview:*
+            {{ "{{" }} .ExternalURL {{ "}}" }}d/bexge5lz3e51cd/p2p-bootnodes?orgId=1&var-network={{ "{{" }}
+              if gt (len .Alerts) 0
+            {{ "}}" }}{{ "{{" }}
+              with (index (index .Alerts 0).Labels "network")
+            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+              with (index .CommonLabels "network")
+            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}
         disableResolveMessage: false
