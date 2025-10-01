@@ -30,7 +30,7 @@ As you build your own contract, try to incorporate these concepts you've learned
 - Implement different function types:
   - `#[private]` for confidential operations
   - `#[public]` for transparent state changes
-  - `#[utility]` for off-chain queries
+  - `#[utility]` for offchain queries
   - `#[initializer]` for contract setup
 - Practice enqueuing public functions from private contexts
 - Use `#[internal]` for functions that should only be called by the contract itself
@@ -67,7 +67,7 @@ As you build, keep these principles in mind:
 
 **Privacy vs. Transparency**: Think about what data needs to be private and what can be public. Not everything needs to be private - public state is simpler and sometimes necessary for coordination.
 
-**Function Types Matter**: Choose the right function type for each operation. Private functions hide data, public functions provide transparency, utility functions query off-chain, and initializers set up contracts.
+**Function Types Matter**: Choose the right function type for each operation. Private functions hide data, public functions provide transparency, utility functions query offchain, and initializers set up contracts.
 
 **Custom Notes**: If you need to store complex private data, define custom note types. They give you precise control over what's stored and how it's structured.
 

@@ -10,7 +10,7 @@ Great work completing the sections on custom notes, composability, and events! Y
 
 Remember the contract you started building after learning about storage, functions, and compilation? Now's the perfect time to expand it with the advanced features you've just learned. These concepts will transform your basic contract into something much more powerful and production-ready.
 
-If you haven't started building yet, check out [Start Building: Practice Your Skills](/learn/5_contract_development/2_storage_functions_compile/5_hands_on_exercise) first, then come back here.
+If you haven't started building yet, check out [Start Building: Practice Your Skills](../storage_functions_compile_test/exercise) first, then come back here.
 
 ## What to Add Next
 
