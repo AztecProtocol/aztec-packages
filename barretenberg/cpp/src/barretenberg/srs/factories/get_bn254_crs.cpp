@@ -1,27 +1,29 @@
 #include "get_bn254_crs.hpp"
-#include "barretenberg/api/exec_pipe.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/ecc/curves/bn254/g2.hpp"
+#include "bn254_crs_data.hpp"
+#include "http_download.hpp"
 
 namespace {
 std::vector<uint8_t> download_bn254_g1_data(size_t num_points)
 {
     size_t g1_end = (num_points * sizeof(bb::g1::affine_element)) - 1;
 
-    // Safe command construction with numeric interpolation and hardcoded URL
-    auto data = bb::exec_pipe_with_number("curl -H \"Range: bytes=0-", g1_end, "\" 'https://crs.aztec.network/g1.dat'");
-    // Header + num_points * sizeof point.
-    if (data.size() < g1_end) {
-        throw_or_abort("Failed to download g1 data.");
+    // Download via HTTP with Range header
+    auto data = bb::srs::http_download("http://crs.aztec.network/g1.dat", 0, g1_end);
+
+    if (data.size() < sizeof(bb::g1::affine_element)) {
+        throw_or_abort("Downloaded g1 data is too small");
+    }
+
+    // Verify first element matches expected generator
+    auto first_element = bb::from_buffer<bb::g1::affine_element>(data, 0);
+    if (first_element != bb::srs::BN254_G1_FIRST_ELEMENT) {
+        throw_or_abort("Downloaded BN254 G1 CRS first element does not match expected generator point (1, 2)");
     }
 
     return data;
-}
-
-std::vector<uint8_t> download_bn254_g2_data()
-{
-    // Safe command with hardcoded URL - using exec_pipe_safe with single literal
-    return bb::exec_pipe_literal_string("curl 'https://crs.aztec.network/g2.dat'");
 }
 } // namespace
 
@@ -67,22 +69,4 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     return points;
 }
 
-g2::affine_element get_bn254_g2_data(const std::filesystem::path& path, bool allow_download)
-{
-    std::filesystem::create_directories(path);
-
-    auto g2_path = path / "bn254_g2.dat";
-    size_t g2_file_size = get_file_size(g2_path);
-
-    if (g2_file_size == sizeof(g2::affine_element)) {
-        auto data = read_file(g2_path);
-        return from_buffer<g2::affine_element>(data.data());
-    }
-    if (!allow_download) {
-        throw_or_abort("bn254 g2 data not found and download not allowed in this context");
-    }
-    auto data = download_bn254_g2_data();
-    write_file(g2_path, data);
-    return from_buffer<g2::affine_element>(data.data());
-}
 } // namespace bb

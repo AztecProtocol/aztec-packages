@@ -2,6 +2,7 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
+#include "barretenberg/srs/factories/bn254_crs_data.hpp"
 #include "barretenberg/srs/factories/mem_bn254_crs_factory.hpp"
 #include "barretenberg/srs/factories/mem_grumpkin_crs_factory.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
@@ -28,9 +29,8 @@ void check_bn254_consistency(const fs::path& crs_download_path, size_t num_point
         g1_points[i] = from_buffer<g1::affine_element>(g1_buf, i * sizeof(g1::affine_element));
     }
 
-    // read G2
-    auto g2_buf = read_file(bb::srs::bb_crs_path() / "bn254_g2.dat", sizeof(g2::affine_element));
-    auto g2_point = from_buffer<g2::affine_element>(g2_buf);
+    // Use hardcoded G2 element
+    auto g2_point = bb::srs::get_bn254_g2_crs_element();
 
     // build in-memory CRS
     MemBn254CrsFactory mem_crs(g1_points, g2_point);

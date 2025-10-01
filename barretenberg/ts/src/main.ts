@@ -61,7 +61,7 @@ async function initUltraHonk(bytecodePath: string, crsPath: string) {
 
   // Load CRS into wasm global CRS state.
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
-  await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
+  await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints);
   return { api, circuitSize, dyadicCircuitSize };
 }
 
@@ -72,7 +72,7 @@ async function initLite(crsPath: string) {
   const crs = await Crs.new(1, crsPath);
 
   // Load CRS into wasm global CRS state.
-  await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
+  await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints);
 
   return { api };
 }

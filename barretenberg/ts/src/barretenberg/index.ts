@@ -81,7 +81,7 @@ export class Barretenberg extends BarretenbergApi {
     const crs = await Crs.new(Math.max(circuitSize, minSRSSize) + 1, this.options.crsPath, this.options.logger);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1129): Do slab allocator initialization?
     // await this.commonInitSlabAllocator(circuitSize);
-    await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
+    await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints);
   }
 
   async initSRSClientIVC(srsSize = this.getDefaultSrsSize()): Promise<void> {
@@ -91,7 +91,7 @@ export class Barretenberg extends BarretenbergApi {
 
     // Load CRS into wasm global CRS state.
     // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
-    await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
+    await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints);
     await this.srsInitGrumpkinSrs(new RawBuffer(grumpkinCrs.getG1Data()), grumpkinCrs.numPoints);
   }
 

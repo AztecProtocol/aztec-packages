@@ -144,6 +144,7 @@ include(cmake/module.cmake)
 include(cmake/msgpack.cmake)
 include(cmake/nlohmann_json.cmake)
 include(cmake/cpp_base64.cmake)
+include(cmake/httplib.cmake)
 include(cmake/lmdb.cmake)
 include(cmake/libdeflate.cmake)
 
