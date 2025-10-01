@@ -22,9 +22,6 @@ export type L2ChainConfig = L1ContractsConfig &
     sponsoredFPC: boolean;
     p2pEnabled: boolean;
     p2pBootstrapNodes: string[];
-    registryAddress: string;
-    slashFactoryAddress: string;
-    feeAssetHandlerAddress: string;
     seqMinTxsPerBlock: number;
     seqMaxTxsPerBlock: number;
     realProofs: boolean;
@@ -99,9 +96,6 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: false,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '0x5f85fa0f40bc4b5ccd53c9f34258aa55d25cdde8',
-  slashFactoryAddress: '0x257db2ca1471b7f76f414d2997404bfbe916c8c9',
-  feeAssetHandlerAddress: '0x67d645b0a3e053605ea861d7e8909be6669812c4',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
@@ -183,9 +177,6 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: true,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '0x2e48addca360da61e4d6c21ff2b1961af56eb83b',
-  slashFactoryAddress: '0xe19410632fd00695bc5a08dd82044b7b26317742',
-  feeAssetHandlerAddress: '0xb46dc3d91f849999330b6dd93473fa29fc45b076',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
@@ -239,9 +230,6 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: true,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '0xc2f24280f5c7f4897370dfdeb30f79ded14f1c81',
-  slashFactoryAddress: '0x76291684ae928d6e5bcff348e36917f4cc532db8',
-  feeAssetHandlerAddress: '0x50513c3713ffd33301e85f30d86ab764df421fe9',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
@@ -298,9 +286,6 @@ export const ignitionL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: false,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '',
-  slashFactoryAddress: '',
-  feeAssetHandlerAddress: '',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
@@ -467,10 +452,6 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   if (config.publicMetricsCollectFrom) {
     enrichVar('PUBLIC_OTEL_COLLECT_FROM', config.publicMetricsCollectFrom.join(','));
   }
-
-  enrichEthAddressVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);
-  enrichEthAddressVar('SLASH_FACTORY_CONTRACT_ADDRESS', config.slashFactoryAddress);
-  enrichEthAddressVar('FEE_ASSET_HANDLER_CONTRACT_ADDRESS', config.feeAssetHandlerAddress);
 
   // Deployment stuff
   enrichVar('ETHEREUM_SLOT_DURATION', config.ethereumSlotDuration.toString());
