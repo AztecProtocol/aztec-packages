@@ -4,7 +4,7 @@ import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import type { ContractClassLog, IndexedTaggingSecret } from '@aztec/stdlib/logs';
+import type { ContractClassLog } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
@@ -100,7 +100,6 @@ export interface IUtilityExecutionOracle {
     blockNumber: number,
     numberOfElements: number,
   ): Promise<Fr[]>;
-  utilityGetIndexedTaggingSecretAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<IndexedTaggingSecret>;
   utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr): Promise<void>;
   utilityValidateEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
@@ -153,8 +152,8 @@ export interface IPrivateExecutionOracle {
     isStaticCall: boolean,
   ): Promise<void>;
   privateNotifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void>;
-  privateIncrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void>;
   privateGetSenderForTags(): Promise<AztecAddress | undefined>;
   privateSetSenderForTags(senderForTags: AztecAddress): Promise<void>;
+  privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Fr>;
   utilityEmitOffchainEffect(data: Fr[]): Promise<void>;
 }

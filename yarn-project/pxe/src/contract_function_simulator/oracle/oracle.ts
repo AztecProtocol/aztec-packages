@@ -433,23 +433,12 @@ export class Oracle {
     return Promise.resolve([]);
   }
 
-  async utilityGetIndexedTaggingSecretAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
-    const taggingSecret = await this.handlerAsUtility().utilityGetIndexedTaggingSecretAsSender(
+  async privateGetNextAppTagAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
+    const tag = await this.handlerAsPrivate().privateGetNextAppTagAsSender(
       AztecAddress.fromString(sender),
       AztecAddress.fromString(recipient),
     );
-    return taggingSecret.toFields().map(toACVMField);
-  }
-
-  async privateIncrementAppTaggingSecretIndexAsSender(
-    [sender]: ACVMField[],
-    [recipient]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().privateIncrementAppTaggingSecretIndexAsSender(
-      AztecAddress.fromString(sender),
-      AztecAddress.fromString(recipient),
-    );
-    return [];
+    return [toACVMField(tag)];
   }
 
   async utilityFetchTaggedLogs([pendingTaggedLogArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {

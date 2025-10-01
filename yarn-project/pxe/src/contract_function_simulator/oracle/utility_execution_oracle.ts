@@ -6,7 +6,6 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
@@ -262,21 +261,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     }
     const levelName = LogLevels[level];
     this.log[levelName](`${applyStringFormatting(message, fields)}`, { module: `${this.log.module}:debug_log` });
-  }
-
-  /**
-   * Returns the tagging secret for a given sender and recipient pair, siloed to the current contract address.
-   * Includes the next index to be used used for tagging with this secret.
-   * For this to work, the ivsk_m of the sender must be known.
-   * @param sender - The address sending the note
-   * @param recipient - The address receiving the note
-   * @returns A tagging secret that can be used to tag notes.
-   */
-  public async utilityGetIndexedTaggingSecretAsSender(
-    sender: AztecAddress,
-    recipient: AztecAddress,
-  ): Promise<IndexedTaggingSecret> {
-    return await this.executionDataProvider.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
   public async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
