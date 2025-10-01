@@ -8,7 +8,6 @@ import { deriveKeys } from '@aztec/stdlib/keys';
 import type { ChainInfo } from '../wallet/index.js';
 import type { AccountInterface } from './interface.js';
 
-// docs:start:account-contract-interface
 /**
  * An account contract instance. Knows its artifact, deployment arguments, how to create
  * transaction execution requests out of function calls, and how to authorize actions.
@@ -48,7 +47,6 @@ export interface AccountContract {
    */
   getAuthWitnessProvider(address: CompleteAddress): AuthWitnessProvider;
 }
-// docs:end:account-contract-interface
 
 /**
  * Compute the address of an account contract from secret and salt.

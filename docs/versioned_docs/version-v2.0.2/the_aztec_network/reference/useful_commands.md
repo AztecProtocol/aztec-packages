@@ -9,7 +9,7 @@ These commands are useful to sequencer operators. If you're trying to do somethi
 ## Prerequisites
 
 - You'll need a way to query the L1 contracts, this guide assumes you have `foundry` installed.
-- Have the `aztec` tool [installed](../../developers/getting_started/getting_started_on_sandbox.md#install-the-sandbox)
+- Have the `aztec` tool [installed](../../developers/getting_started_on_sandbox.md#install-the-sandbox)
 - Ethereum EL RPC endpoint
 
 ## Basics

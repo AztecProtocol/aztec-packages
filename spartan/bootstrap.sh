@@ -7,31 +7,13 @@ hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootst
 
 dump_fail "flock scripts/logs/install_deps.lock retry scripts/install_deps.sh >&2"
 
+source ./scripts/source_env_basic.sh
+source ./scripts/source_network_env.sh
+source ./scripts/gcp_auth.sh
+
 function build {
   denoise "helm lint ./aztec-network/"
   denoise ./spartan/scripts/check_env_vars.sh
-}
-
-function source_network_env {
-  local env_file
-  # Check if the argument is an absolute path
-  if [[ "$1" = /* ]]; then
-    env_file="$1"
-  else
-    env_file="environments/$1"
-  fi
-  # Optionally source an env file passed as first argument
-  if [[ -n "${env_file:-}" ]]; then
-    if [[ -f "$env_file" ]]; then
-      set -a
-      # shellcheck disable=SC1090
-      source "$env_file"
-      set +a
-    else
-      echo "Env file not found: $env_file" >&2
-      exit 1
-    fi
-  fi
 }
 
 function network_shaping {
@@ -110,17 +92,6 @@ function stop_env {
   fi
 }
 
-function gcp_auth {
-  # if the GCP_PROJECT_ID is set, activate the service account
-  if [[ -n "${GCP_PROJECT_ID:-}" && "${CLUSTER}" != "kind" ]]; then
-    echo "Activating service account"
-    if [ "$CI" -eq 1 ]; then
-      gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
-    fi
-    gcloud config set project "$GCP_PROJECT_ID"
-    gcloud container clusters get-credentials ${CLUSTER} --region=${GCP_REGION} --project=${GCP_PROJECT_ID}
-  fi
-}
 
 function test {
   echo_header "spartan test (deprecated)"
@@ -133,6 +104,7 @@ function network_tests {
   echo_header "spartan scenario test"
 
   # no parallelize here as we want to run the tests sequentially
+  export SCENARIO_TESTS=1
   network_test_cmds | filter_test_cmds | parallelize 1
 }
 
@@ -159,17 +131,23 @@ case "$cmd" in
     env_file="$1"
     amount="$2"
 
-    source_network_env $env_file
+    # First pass: source environment for basic variables like CLUSTER (skip GCP secret processing)
+    source_env_basic "$env_file"
+
+    # Perform GCP auth (needs CLUSTER and other basic vars)
+    gcp_auth
+
+    # Second pass: source environment with GCP secret processing
+    source_network_env "$env_file"
+
     ensure_eth_balances "$amount"
     ;;
   "network_deploy")
     shift
     env_file="$1"
-    source_network_env $env_file
 
-    gcp_auth
-    ./scripts/deploy_network.sh
-    echo "Deployed network"
+    # Run the network deploy script
+    ./scripts/network_deploy.sh "$env_file"
 
     if [[ "${RUN_TESTS:-}" == "true" ]]; then
       echo "Running tests"

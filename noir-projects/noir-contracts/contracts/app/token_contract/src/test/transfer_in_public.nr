@@ -31,12 +31,10 @@ unconstrained fn public_transfer_to_self() {
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = mint_amount / (10 as u128);
-    // docs:start:call_public
     env.call_public(
         owner,
         Token::at(token_contract_address).transfer_in_public(owner, owner, transfer_amount, 0),
     );
-    // docs:end:call_public
     // Check balances
     utils::check_public_balance(env, token_contract_address, owner, mint_amount);
 }
@@ -113,7 +111,6 @@ unconstrained fn public_transfer_failure_on_behalf_of_other_more_than_balance() 
     let (env, token_contract_address, owner, recipient, mint_amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ true);
     let transfer_amount = mint_amount + (1 as u128);
-    // docs:start:public_authwit
     let public_transfer_in_private_call_interface =
         Token::at(token_contract_address).transfer_in_public(owner, recipient, transfer_amount, 1);
     add_public_authwit_from_call_interface(
@@ -122,7 +119,6 @@ unconstrained fn public_transfer_failure_on_behalf_of_other_more_than_balance() 
         recipient,
         public_transfer_in_private_call_interface,
     );
-    // docs:end:public_authwit
 
     // Try to transfer tokens
     env.call_public(recipient, public_transfer_in_private_call_interface);

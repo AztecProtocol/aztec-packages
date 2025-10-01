@@ -12,28 +12,22 @@ void MerkleCheck::assert_membership(const FF& leaf_value,
                                     std::span<const FF> sibling_path,
                                     const FF& root)
 {
-    // Gadget breaks if tree_height >= 254
-    assert(sibling_path.size() <= 254 && "Merkle path length must be less than 254");
+    // Gadget breaks if tree_height > 64
+    assert(sibling_path.size() <= 64 && "Merkle path length must be less than or equal to 64");
 
     FF curr_value = leaf_value;
     uint64_t curr_index = leaf_index;
-    // for (const auto& i : sibling_path) {
-    for (size_t i = 0; i < sibling_path.size(); ++i) {
-        const FF sibling = sibling_path[i];
+    for (const auto& sibling : sibling_path) {
         bool index_is_even = (curr_index % 2 == 0);
 
         curr_value = index_is_even ? poseidon2.hash({ curr_value, sibling }) : poseidon2.hash({ sibling, curr_value });
 
-        // Halve the index (to get the parent index) as we move up the tree>
-        // Don't halve on the last iteration because after the loop,
-        // we want curr_index to be the "final" index (0 or 1).
-        if (i < sibling_path.size() - 1) {
-            curr_index >>= 1;
-        }
+        // Halve the index (to get the parent index) as we move up the tree.
+        curr_index >>= 1;
     }
 
-    if (curr_index != 0 && curr_index != 1) {
-        throw std::runtime_error("Merkle check's final node index must be 0 or 1");
+    if (curr_index != 0) {
+        throw std::runtime_error("Merkle check's final node index must be 0");
     }
     if (curr_value != root) {
         throw std::runtime_error("Merkle read check failed");
@@ -50,31 +44,26 @@ FF MerkleCheck::write(const FF& current_value,
                       std::span<const FF> sibling_path,
                       const FF& current_root)
 {
-    // Gadget breaks if tree_height >= 254
-    assert(sibling_path.size() <= 254 && "Merkle path length must be less than 254");
+    // Gadget breaks if tree_height > 64
+    assert(sibling_path.size() <= 64 && "Merkle path length must be less than or equal to 64");
 
     FF read_value = current_value;
     FF write_value = new_value;
     uint64_t curr_index = leaf_index;
 
-    for (size_t i = 0; i < sibling_path.size(); ++i) {
-        const FF sibling = sibling_path[i];
+    for (const auto& sibling : sibling_path) {
         bool index_is_even = (curr_index % 2 == 0);
 
         read_value = index_is_even ? poseidon2.hash({ read_value, sibling }) : poseidon2.hash({ sibling, read_value });
         write_value =
             index_is_even ? poseidon2.hash({ write_value, sibling }) : poseidon2.hash({ sibling, write_value });
 
-        // Halve the index (to get the parent index) as we move up the tree>
-        // Don't halve on the last iteration because after the loop,
-        // we want curr_index to be the "final" index (0 or 1).
-        if (i < sibling_path.size() - 1) {
-            curr_index >>= 1;
-        }
+        // Halve the index (to get the parent index) as we move up the tree.
+        curr_index >>= 1;
     }
 
-    if (curr_index != 0 && curr_index != 1) {
-        throw std::runtime_error("Merkle check's final node index must be 0 or 1");
+    if (curr_index != 0) {
+        throw std::runtime_error("Merkle check's final node index must be 0");
     }
     if (read_value != current_root) {
         throw std::runtime_error("Merkle read check failed");

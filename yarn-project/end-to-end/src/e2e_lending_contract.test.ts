@@ -5,7 +5,7 @@ import type { TestDateProvider } from '@aztec/foundation/timer';
 import { LendingContract } from '@aztec/noir-contracts.js/Lending';
 import { PriceFeedContract } from '@aztec/noir-contracts.js/PriceFeed';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { afterAll, jest } from '@jest/globals';
 
@@ -232,7 +232,7 @@ describe('e2e_lending_contract', () => {
         },
         true,
       );
-      await validateAction.send({ from: defaultAccountAddress }).wait();
+      await validateAction.send().wait();
 
       await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
       lendingSim.depositPublic(lendingAccount.address, lendingAccount.address.toField(), activationThreshold);
@@ -358,7 +358,7 @@ describe('e2e_lending_contract', () => {
         },
         true,
       );
-      await validateAction.send({ from: defaultAccountAddress }).wait();
+      await validateAction.send().wait();
 
       await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
       lendingSim.repayPublic(lendingAccount.address, lendingAccount.address.toField(), repayAmount);

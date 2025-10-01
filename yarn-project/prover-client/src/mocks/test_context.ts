@@ -325,7 +325,10 @@ export class TestContext {
       contractDataSource ?? new SimpleContractDataSource(),
       new TestDateProvider(),
     );
-    const publicProcessor = processorFactory.create(merkleTrees, this.globalVariables, /*skipFeeEnforcement=*/ false);
+    const publicProcessor = processorFactory.create(merkleTrees, this.globalVariables, {
+      skipFeeEnforcement: false,
+      clientInitiatedSimulation: false,
+    });
 
     return await publicProcessor.process(txs, { maxTransactions });
   }

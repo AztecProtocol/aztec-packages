@@ -27,7 +27,6 @@ struct Index {
 
 // AddressSnapshotLib
 error AddressSnapshotLib__IndexOutOfBounds(uint256 index, uint256 size); // 0xd789b71a
-error AddressSnapshotLib__AddressNotInSet(address addr);
 error AddressSnapshotLib__CannotAddAddressZero();
 
 /**
@@ -72,8 +71,6 @@ library AddressSnapshotLib {
 
   /**
    * @notice Removes a address from the set by address
-   *
-   * @dev This function is only used in tests.
    *
    * @param _self The storage reference to the set
    * @param _address The address of the address to remove

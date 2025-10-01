@@ -364,6 +364,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
+  function testInvalidAttestationIndex(uint256 _invalidIndex) public setup(4, 4) progressEpochs(2) {
+    ProposeTestData memory ree = _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
+    uint256 invalidIndex = bound(_invalidIndex, ree.committee.length, type(uint256).max);
+    _invalidateByAttestationSig(ree, invalidIndex, Errors.Rollup__InvalidAttestationIndex.selector);
+  }
+
   function testInvalidAttestationSigner() public setup(4, 4) progressEpochs(2) {
     ProposeTestData memory ree =
       _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateAttestationSigner());

@@ -33,7 +33,7 @@ class CalldataHashingProvider : public CalldataHashingProviderInterface {
         , events(event_emitter)
     {}
 
-    std::unique_ptr<CalldataHashingInterface> make_cd_hasher(uint32_t context_id) override
+    std::unique_ptr<CalldataHashingInterface> make_calldata_hasher(uint32_t context_id) override
     {
         return std::make_unique<CalldataHasher>(context_id, hasher, events);
     }

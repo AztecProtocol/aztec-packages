@@ -1,34 +1,5 @@
 name: aztec-devnet
 services:
-  pxe:
-    image: aztecprotocol/aztec${AZTEC_DOCKER_TAG:-@sha256:03feac60e91f1aabf678cecbcd13271dda229120ec6007f2c1bac718ff550c70}
-    # need to run bb for proofs and bb is only built for x86
-    platform: linux/amd64
-    environment:
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-      L1_CHAIN_ID: 31337
-      VERSION: 1
-      PXE_PROVER_ENABLED: ${PXE_PROVER_ENABLED:-1}
-      PXE_DATA_DIRECTORY: /var/lib/aztec/pxe
-      NODE_NO_WARNINGS: 1
-      AZTEC_PORT: 8080
-      MNEMONIC: "test test test test test test test test test test test junk"
-    entrypoint: >
-      sh -c '
-        export AZTEC_NODE_URL=$$(cat /var/run/secrets/aztec-node-url);
-        while ! curl --head --silent $AZTEC_NODE_URL > /dev/null; do echo "Node $$AZTEC_NODE_URL not up. Retrying after 1s"; sleep 1; done;
-        node /usr/src/yarn-project/aztec/dest/bin/index.js start --pxe
-      '
-    secrets:
-      - aztec-node-url
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - aztec:/var/lib/aztec
-    ports:
-      - 8080:8080/tcp
-    profiles:
-      - pxe
 
   node:
     image: aztecprotocol/aztec${AZTEC_DOCKER_TAG:-@sha256:03feac60e91f1aabf678cecbcd13271dda229120ec6007f2c1bac718ff550c70}
@@ -54,7 +25,7 @@ services:
       P2P_QUERY_FOR_IP: true
       P2P_ENABLED: true
       PEER_ID_PRIVATE_KEY:
-      AZTEC_PORT: 8999
+      AZTEC_PORT: 8080
       OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:-http://otel-collector:4318/v1/metrics}
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-http://otel-collector:4318/v1/traces}
     secrets:
@@ -90,17 +61,16 @@ services:
     profiles:
       - node
     ports:
-      # the RPC endpoint - expose it on a different port to avoid conflicting with PXE
-      - 8999:8999/tcp
+      - 8080:8080/tcp
       - 9000:9000/tcp
       - 9001:9001/udp
 
   cli:
     image: aztecprotocol/aztec${AZTEC_DOCKER_TAG:-@sha256:03feac60e91f1aabf678cecbcd13271dda229120ec6007f2c1bac718ff550c70}
-    # run the same image as pxe
+    # run the same image as node
     platform: linux/amd64
     environment:
-      PXE_URL: http://pxe:8080
+      AZTEC_NODE_URL: http://node:8080
       NODE_NO_WARNINGS: 1
       SECRET_KEY:
       ETHEREUM_HOSTS:

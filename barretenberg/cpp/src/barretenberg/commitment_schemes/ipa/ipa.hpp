@@ -32,6 +32,12 @@ namespace bb {
 static constexpr size_t IPA_PROOF_LENGTH = /* comms IPA_L and IPA_R */ 4 * CONST_ECCVM_LOG_N +
                                            /* comm G_0 */ 2 +
                                            /* eval a_0 */ 2;
+// Note that an update of this constant requires updating the inputs to noir protocol circuit (rollup-base-private,
+// rollup-base-public, rollup-block-merge, rollup-block-root, rollup-merge, rollup-root), as well as updating
+// IPA_PROOF_LENGTH in other places.
+static constexpr size_t IPA_PROOF_LENGTH = /* comms IPA_L and IPA_R */ 4 * CONST_ECCVM_LOG_N +
+                                           /* comm G_0 */ 2 +
+                                           /* eval a_0 */ 2;
 
 /**
 * @brief IPA (inner product argument) commitment scheme class.
@@ -178,6 +184,9 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         }
 
         // Step 3.
+        // Compute auxiliary generator U, which is used to bind together the inner product claim and the commitment.
+        // This yields the binding property because we assume it is computationally difficult to find a linear relation
+        // between the CRS and `Commitment::one()`.
         // Compute auxiliary generator U, which is used to bind together the inner product claim and the commitment.
         // This yields the binding property because we assume it is computationally difficult to find a linear relation
         // between the CRS and `Commitment::one()`.

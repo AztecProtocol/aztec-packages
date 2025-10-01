@@ -17,7 +17,7 @@ import { FeeAssetHandlerAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type Hex, getContract } from 'viem';
@@ -33,7 +33,7 @@ import {
   deployAccounts,
   publicDeployAccounts,
 } from './snapshot_manager.js';
-import { getPrivateKeyFromIndex, getSponsoredFPCAddress, setupPXEServiceAndGetWallet } from './utils.js';
+import { getPrivateKeyFromIndex, getSponsoredFPCAddress, setupPXEAndGetWallet } from './utils.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
 
@@ -208,7 +208,7 @@ export class FullProverTest {
 
     this.logger.verbose(`Main setup completed, initializing full prover PXE, Node, and Prover Node`);
     for (let i = 0; i < 2; i++) {
-      const { wallet: provenWallet, teardown: provenTeardown } = await setupPXEServiceAndGetWallet(
+      const { wallet: provenWallet, teardown: provenTeardown } = await setupPXEAndGetWallet(
         this.aztecNode,
         {
           proverEnabled: this.realProofs,

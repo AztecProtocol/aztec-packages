@@ -95,14 +95,6 @@ spec:
           port: {{ .Values.service.rpc.port }}
         periodSeconds: {{ .Values.node.startupProbe.periodSeconds }}
         failureThreshold: {{ .Values.node.startupProbe.failureThreshold }}
-      livenessProbe:
-        httpGet:
-          path: /status
-          port: {{ .Values.service.rpc.port }}
-        initialDelaySeconds: 30
-        periodSeconds: 5
-        timeoutSeconds: 30
-        failureThreshold: 3
       volumeMounts:
         - name: shared
           mountPath: /shared

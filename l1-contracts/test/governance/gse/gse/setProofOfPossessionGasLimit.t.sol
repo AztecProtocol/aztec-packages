@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity >=0.8.27;
+
+import {WithGSE} from "./base.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
+import {GSE} from "@aztec/governance/GSE.sol";
+import {Governance} from "@aztec/governance/Governance.sol";
+import {Errors} from "@aztec/governance/libraries/Errors.sol";
+import {TestConstants} from "../../../harnesses/TestConstants.sol";
+
+contract SetProofOfPossessionGasLimitTest is WithGSE {
+  address internal caller;
+
+  function setUp() public override(WithGSE) {
+    gse =
+      new GSE(address(this), IERC20(address(0)), TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD);
+  }
+
+  function test_WhenCallerNeqOwner(address _caller) external {
+    // it reverts
+
+    vm.assume(_caller != gse.owner());
+
+    vm.prank(_caller);
+    vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, _caller));
+    gse.setProofOfPossessionGasLimit(150_000);
+  }
+
+  function whenCallerEqOwner() external {
+    caller = gse.owner();
+
+    uint64 nextValue = gse.proofOfPossessionGasLimit() + 1;
+
+    vm.prank(caller);
+    gse.setProofOfPossessionGasLimit(nextValue);
+
+    assertEq(gse.proofOfPossessionGasLimit(), nextValue);
+  }
+}

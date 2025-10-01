@@ -245,7 +245,7 @@ describe('prover-node-publisher', () => {
     jest.spyOn(l1Utils, 'getSenderAddress').mockReturnValue(EthAddress.random());
 
     jest.spyOn(l1Utils, 'sendAndMonitorTransaction').mockResolvedValue({
-      gasPrice: {} as any,
+      state: { gasPrice: {} as any } as any,
       receipt: {
         status: 'reverted',
         effectiveGasPrice: 1n,

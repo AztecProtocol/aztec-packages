@@ -171,7 +171,7 @@ void to_radix_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::to_radix_mem_err)) -
+        auto tmp = (static_cast<View>(in.get(C::to_radix_mem_input_validation_error)) -
                     (FF(1) - (FF(1) - static_cast<View>(in.get(C::to_radix_mem_sel_dst_out_of_range_err))) *
                                  (FF(1) - static_cast<View>(in.get(C::to_radix_mem_sel_radix_lt_2_err))) *
                                  (FF(1) - static_cast<View>(in.get(C::to_radix_mem_sel_radix_gt_256_err))) *
@@ -179,33 +179,83 @@ void to_radix_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                                  (FF(1) - static_cast<View>(in.get(C::to_radix_mem_sel_invalid_num_limbs_err)))));
         std::get<21>(evals) += (tmp * scaling_factor);
     }
-    { // DECR_NUM_LIMBS
+    {
         using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
-        auto tmp = CView(to_radix_mem_NOT_LAST) * (static_cast<View>(in.get(C::to_radix_mem_num_limbs_shift)) -
-                                                   (static_cast<View>(in.get(C::to_radix_mem_num_limbs)) - FF(1)));
+        auto tmp = static_cast<View>(in.get(C::to_radix_mem_sel_should_decompose)) *
+                   (FF(1) - static_cast<View>(in.get(C::to_radix_mem_sel_should_decompose)));
         std::get<22>(evals) += (tmp * scaling_factor);
     }
-    { // INCR_DST_ADDRESS
+    {
         using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
-        auto tmp = CView(to_radix_mem_NOT_LAST) * (static_cast<View>(in.get(C::to_radix_mem_dst_addr_shift)) -
-                                                   (static_cast<View>(in.get(C::to_radix_mem_dst_addr)) + FF(1)));
+        auto tmp = static_cast<View>(in.get(C::to_radix_mem_start)) *
+                   ((FF(1) - static_cast<View>(in.get(C::to_radix_mem_input_validation_error))) *
+                        (FF(1) - static_cast<View>(in.get(C::to_radix_mem_sel_num_limbs_is_zero))) -
+                    static_cast<View>(in.get(C::to_radix_mem_sel_should_decompose)));
         std::get<23>(evals) += (tmp * scaling_factor);
     }
-    { // LAST_ROW_ERR_COMPUTATION
+    { // SEL_SHOULD_DECOMPOSE_CONTINUITY
         using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::to_radix_mem_start)) * static_cast<View>(in.get(C::to_radix_mem_err)) *
-                   (static_cast<View>(in.get(C::to_radix_mem_last)) - FF(1));
+        auto tmp =
+            CView(to_radix_mem_NOT_LAST) * (static_cast<View>(in.get(C::to_radix_mem_sel_should_decompose_shift)) -
+                                            static_cast<View>(in.get(C::to_radix_mem_sel_should_decompose)));
         std::get<24>(evals) += (tmp * scaling_factor);
     }
-    { // LAST_ROW_NUM_LIMBS_ZERO
+    {
         using View = typename std::tuple_element_t<25, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::to_radix_mem_limb_index_to_lookup)) -
+                    static_cast<View>(in.get(C::to_radix_mem_sel_should_decompose)) *
+                        (static_cast<View>(in.get(C::to_radix_mem_num_limbs)) - FF(1)));
+        std::get<25>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<26, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::to_radix_mem_sel_truncation_error)) *
+                   (FF(1) - static_cast<View>(in.get(C::to_radix_mem_sel_truncation_error)));
+        std::get<26>(evals) += (tmp * scaling_factor);
+    }
+    { // TRUNCATION_ERROR
+        using View = typename std::tuple_element_t<27, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::to_radix_mem_sel_truncation_error)) -
+                    static_cast<View>(in.get(C::to_radix_mem_start)) *
+                        static_cast<View>(in.get(C::to_radix_mem_sel_should_decompose)) *
+                        (FF(1) - static_cast<View>(in.get(C::to_radix_mem_value_found))));
+        std::get<27>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<28, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::to_radix_mem_err)) -
+                    static_cast<View>(in.get(C::to_radix_mem_start)) *
+                        (FF(1) - (FF(1) - static_cast<View>(in.get(C::to_radix_mem_input_validation_error))) *
+                                     (FF(1) - static_cast<View>(in.get(C::to_radix_mem_sel_truncation_error)))));
+        std::get<28>(evals) += (tmp * scaling_factor);
+    }
+    { // DECR_NUM_LIMBS
+        using View = typename std::tuple_element_t<29, ContainerOverSubrelations>::View;
+        auto tmp = CView(to_radix_mem_NOT_LAST) * (static_cast<View>(in.get(C::to_radix_mem_num_limbs_shift)) -
+                                                   (static_cast<View>(in.get(C::to_radix_mem_num_limbs)) - FF(1)));
+        std::get<29>(evals) += (tmp * scaling_factor);
+    }
+    { // INCR_DST_ADDRESS
+        using View = typename std::tuple_element_t<30, ContainerOverSubrelations>::View;
+        auto tmp = CView(to_radix_mem_NOT_LAST) * (static_cast<View>(in.get(C::to_radix_mem_dst_addr_shift)) -
+                                                   (static_cast<View>(in.get(C::to_radix_mem_dst_addr)) + FF(1)));
+        std::get<30>(evals) += (tmp * scaling_factor);
+    }
+    { // LAST_ROW_ERR_COMPUTATION
+        using View = typename std::tuple_element_t<31, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::to_radix_mem_start)) * static_cast<View>(in.get(C::to_radix_mem_err)) *
+                   (static_cast<View>(in.get(C::to_radix_mem_last)) - FF(1));
+        std::get<31>(evals) += (tmp * scaling_factor);
+    }
+    { // LAST_ROW_NUM_LIMBS_ZERO
+        using View = typename std::tuple_element_t<32, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::to_radix_mem_start)) *
                    static_cast<View>(in.get(C::to_radix_mem_sel_num_limbs_is_zero)) *
                    (static_cast<View>(in.get(C::to_radix_mem_last)) - FF(1));
-        std::get<25>(evals) += (tmp * scaling_factor);
+        std::get<32>(evals) += (tmp * scaling_factor);
     }
     { // LAST_ROW_VALID_COMPUTATION
-        using View = typename std::tuple_element_t<26, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<33, ContainerOverSubrelations>::View;
         auto tmp = CView(to_radix_mem_NO_ERR_NOR_NUM_LIMBS_ZERO) *
                    ((CView(to_radix_mem_NUM_LIMBS_MINUS_ONE) *
                          (static_cast<View>(in.get(C::to_radix_mem_last)) *
@@ -213,31 +263,31 @@ void to_radix_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                           static_cast<View>(in.get(C::to_radix_mem_num_limbs_minus_one_inv))) -
                      FF(1)) +
                     static_cast<View>(in.get(C::to_radix_mem_last)));
-        std::get<26>(evals) += (tmp * scaling_factor);
+        std::get<33>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<27, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<34, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::to_radix_mem_start)) *
+                   ((FF(1) - static_cast<View>(in.get(C::to_radix_mem_err))) *
+                        (FF(1) - static_cast<View>(in.get(C::to_radix_mem_sel_num_limbs_is_zero))) -
+                    static_cast<View>(in.get(C::to_radix_mem_sel_should_write_mem)));
+        std::get<34>(evals) += (tmp * scaling_factor);
+    }
+    { // SEL_SHOULD_WRITE_MEM_CONTINUITY
+        using View = typename std::tuple_element_t<35, ContainerOverSubrelations>::View;
         auto tmp =
-            (static_cast<View>(in.get(C::to_radix_mem_sel_should_exec)) -
-             static_cast<View>(in.get(C::to_radix_mem_sel)) * (FF(1) - static_cast<View>(in.get(C::to_radix_mem_err))) *
-                 (FF(1) - static_cast<View>(in.get(C::to_radix_mem_sel_num_limbs_is_zero))));
-        std::get<27>(evals) += (tmp * scaling_factor);
+            CView(to_radix_mem_NOT_LAST) * (static_cast<View>(in.get(C::to_radix_mem_sel_should_write_mem_shift)) -
+                                            static_cast<View>(in.get(C::to_radix_mem_sel_should_write_mem)));
+        std::get<35>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<28, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::to_radix_mem_limb_index_to_lookup)) -
-                    static_cast<View>(in.get(C::to_radix_mem_sel_should_exec)) *
-                        (static_cast<View>(in.get(C::to_radix_mem_num_limbs)) - FF(1)));
-        std::get<28>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<29, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<36, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::to_radix_mem_output_tag)) -
-                    static_cast<View>(in.get(C::to_radix_mem_sel_should_exec)) *
+                    static_cast<View>(in.get(C::to_radix_mem_sel_should_write_mem)) *
                         ((CView(constants_MEM_TAG_U1) - CView(constants_MEM_TAG_U8)) *
                              static_cast<View>(in.get(C::to_radix_mem_is_output_bits)) +
                          CView(constants_MEM_TAG_U8)));
-        std::get<29>(evals) += (tmp * scaling_factor);
+        std::get<36>(evals) += (tmp * scaling_factor);
     }
 }
 

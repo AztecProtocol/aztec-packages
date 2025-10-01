@@ -1,9 +1,10 @@
-import { AztecAddress, type AztecNode, BatchCall, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, BatchCall, Fr, type Logger } from '@aztec/aztec.js';
 import { NoConstructorContract } from '@aztec/noir-test-contracts.js/NoConstructor';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
 
@@ -11,7 +12,7 @@ describe('e2e_deploy_contract private initialization', () => {
   const t = new DeployTest('private initialization');
 
   let logger: Logger;
-  let wallet: Wallet;
+  let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
   let aztecNode: AztecNode;
 
@@ -49,7 +50,7 @@ describe('e2e_deploy_contract private initialization', () => {
 
   // Tests privately initializing an undeployed contract. Also requires pxe registration in advance.
   it('privately initializes an undeployed contract from an account contract', async () => {
-    const owner = await t.registerRandomAccount();
+    const owner = (await wallet.createAccount()).address;
     const initArgs: StatefulContractCtorArgs = [owner, 42];
     const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs });
     logger.info(`Calling the constructor for ${contract.address}`);
@@ -66,7 +67,7 @@ describe('e2e_deploy_contract private initialization', () => {
 
   // Tests privately initializing multiple undeployed contracts on the same tx through an account contract.
   it('initializes multiple undeployed contracts in a single tx', async () => {
-    const owner = await t.registerRandomAccount();
+    const owner = (await wallet.createAccount()).address;
     const initArgs: StatefulContractCtorArgs[] = [42, 52].map(value => [owner, value]);
     const contracts = await Promise.all(
       initArgs.map(initArgs => t.registerContract(wallet, StatefulTestContract, { initArgs })),
@@ -78,7 +79,7 @@ describe('e2e_deploy_contract private initialization', () => {
   });
 
   it('initializes and calls a private function in a single tx', async () => {
-    const owner = await t.registerRandomAccount();
+    const owner = (await wallet.createAccount()).address;
     const initArgs: StatefulContractCtorArgs = [owner, 42];
     const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs });
     const batch = new BatchCall(wallet, [
@@ -91,7 +92,7 @@ describe('e2e_deploy_contract private initialization', () => {
   });
 
   it('refuses to initialize a contract twice', async () => {
-    const owner = await t.registerRandomAccount();
+    const owner = (await wallet.createAccount()).address;
     const initArgs: StatefulContractCtorArgs = [owner, 42];
     const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs });
     await contract.methods
@@ -107,7 +108,7 @@ describe('e2e_deploy_contract private initialization', () => {
   });
 
   it('refuses to call a private function that requires initialization', async () => {
-    const owner = await t.registerRandomAccount();
+    const owner = (await wallet.createAccount()).address;
     const initArgs: StatefulContractCtorArgs = [owner, 42];
     const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs });
     // TODO(@spalladino): It'd be nicer to be able to fail the assert with a more descriptive message.
@@ -117,7 +118,7 @@ describe('e2e_deploy_contract private initialization', () => {
   });
 
   it('refuses to initialize a contract with incorrect args', async () => {
-    const owner = await t.registerRandomAccount();
+    const owner = (await wallet.createAccount()).address;
     const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs: [owner, 42] });
     await expect(contract.methods.constructor(owner, 43).simulate({ from: defaultAccountAddress })).rejects.toThrow(
       /Initialization hash does not match/,
@@ -125,7 +126,7 @@ describe('e2e_deploy_contract private initialization', () => {
   });
 
   it('refuses to initialize an instance from a different deployer', async () => {
-    const owner = await t.registerRandomAccount();
+    const owner = (await wallet.createAccount()).address;
     const contract = await t.registerContract(wallet, StatefulTestContract, {
       initArgs: [owner, 42],
       deployer: owner,

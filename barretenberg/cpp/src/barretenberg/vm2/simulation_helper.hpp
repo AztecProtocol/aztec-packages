@@ -8,7 +8,11 @@ namespace bb::avm2 {
 class AvmSimulationHelper {
   public:
     // Full simulation with event collection.
-    simulation::EventsContainer simulate_for_witgen(const ExecutionHints& hints);
+    // public_data_writes are required to generate some ff_gt events at the end of the simulation in order to
+    // constrain that leaf slots of public data writes are sorted in ascending order.
+    // This is needed to perform squashing of public data writes.
+    simulation::EventsContainer simulate_for_witgen(const ExecutionHints& hints,
+                                                    std::vector<PublicDataWrite> public_data_writes);
 
     // Fast simulation without event collection.
     // FIXME(fcarreiro): This should eventually only take the Tx.

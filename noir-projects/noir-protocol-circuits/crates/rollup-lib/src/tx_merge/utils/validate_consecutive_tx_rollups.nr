@@ -42,15 +42,15 @@ fn assert_prev_rollups_follow_on_from_each_other(
     right: TxRollupPublicInputs,
 ) {
     assert(
-        left.end_partial_state.note_hash_tree.eq(right.start_partial_state.note_hash_tree),
+        left.end_tree_snapshots.note_hash_tree.eq(right.start_tree_snapshots.note_hash_tree),
         "Mismatched note hash tree snapshots: expected right.start to match left.end",
     );
     assert(
-        left.end_partial_state.nullifier_tree.eq(right.start_partial_state.nullifier_tree),
+        left.end_tree_snapshots.nullifier_tree.eq(right.start_tree_snapshots.nullifier_tree),
         "Mismatched nullifier tree snapshots: expected right.start to match left.end",
     );
     assert(
-        left.end_partial_state.public_data_tree.eq(right.start_partial_state.public_data_tree),
+        left.end_tree_snapshots.public_data_tree.eq(right.start_tree_snapshots.public_data_tree),
         "Mismatched public data tree snapshots: expected right.start to match left.end",
     );
     assert(

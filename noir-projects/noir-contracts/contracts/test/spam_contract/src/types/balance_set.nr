@@ -47,10 +47,8 @@ where
 
     pub unconstrained fn balance_of_with_offset(self: Self, offset: u32) -> u128 {
         let mut balance = 0 as u128;
-        // docs:start:view_notes
         let mut options = NoteViewerOptions::new();
         let notes = self.set.view_notes(options.set_offset(offset));
-        // docs:end:view_notes
         for i in 0..options.limit {
             if i < notes.len() {
                 balance = balance + notes.get_unchecked(i).get_amount();
@@ -74,9 +72,7 @@ impl<Note> BalanceSet<Note, &mut PrivateContext> {
         } else {
             let mut addend_note = Note::new(addend, owner);
 
-            // docs:start:insert
             OuterNoteEmission::new(Option::some(self.set.insert(addend_note)))
-            // docs:end:insert
         }
     }
 

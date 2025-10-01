@@ -10,6 +10,8 @@
 
 namespace bb {
 
+// Useful for programatically benching different thread counts
+void set_hardware_concurrency(size_t num_cores);
 inline size_t get_num_cpus()
 {
     return env_hardware_concurrency();
@@ -152,7 +154,7 @@ constexpr size_t ALWAYS_MULTITHREAD = 100000;
 struct ThreadChunk {
     size_t thread_index;
     size_t total_threads;
-    auto range(size_t size) const
+    auto range(size_t size, size_t offset = 0) const
     {
         if (total_threads == 0 || thread_index >= total_threads) {
             return std::views::iota(size_t{ 0 }, size_t{ 0 });
@@ -165,12 +167,12 @@ struct ThreadChunk {
             // Threads with index < remainder get chunk_size + 1 elements
             size_t start = thread_index * (chunk_size + 1);
             size_t end = start + chunk_size + 1;
-            return std::views::iota(start, end);
+            return std::views::iota(start + offset, end + offset);
         }
         // Threads with index >= remainder get chunk_size elements
         size_t start = remainder * (chunk_size + 1) + (thread_index - remainder) * chunk_size;
         size_t end = start + chunk_size;
-        return std::views::iota(start, end);
+        return std::views::iota(start + offset, end + offset);
     }
 };
 

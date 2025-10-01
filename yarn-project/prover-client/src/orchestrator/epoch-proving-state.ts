@@ -1,7 +1,7 @@
 import { BatchedBlob, BatchedBlobAccumulator, type FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import type {
   ARCHIVE_HEIGHT,
-  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
 } from '@aztec/constants';
@@ -9,13 +9,13 @@ import type { Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { Proof } from '@aztec/stdlib/proofs';
 import {
   CheckpointConstantData,
   CheckpointMergeRollupPrivateInputs,
   CheckpointPaddingRollupPrivateInputs,
   CheckpointRollupPublicInputs,
+  PublicTubePublicInputs,
   RootRollupPrivateInputs,
   type RootRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
@@ -60,12 +60,7 @@ export class EpochProvingState {
   // Map from tx hash to tube proof promise. Used when kickstarting tube proofs before tx processing.
   public readonly cachedTubeProofs = new Map<
     string,
-    Promise<
-      PublicInputsAndRecursiveProof<
-        PrivateToPublicKernelCircuitPublicInputs,
-        typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
-      >
-    >
+    Promise<PublicInputsAndRecursiveProof<PublicTubePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>
   >();
 
   constructor(
@@ -91,9 +86,9 @@ export class EpochProvingState {
     lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     l1ToL2Messages: Fr[],
     lastL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    lastL1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    lastL1ToL2MessageSubtreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH>,
     newL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    newL1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    newL1ToL2MessageSubtreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH>,
   ): CheckpointProvingState {
     if (checkpointIndex >= this.totalNumCheckpoints) {
       throw new Error(
@@ -111,9 +106,9 @@ export class EpochProvingState {
       lastArchiveSiblingPath,
       l1ToL2Messages,
       lastL1ToL2MessageTreeSnapshot,
-      lastL1ToL2MessageSubtreeSiblingPath,
+      lastL1ToL2MessageSubtreeRootSiblingPath,
       newL1ToL2MessageTreeSnapshot,
-      newL1ToL2MessageSubtreeSiblingPath,
+      newL1ToL2MessageSubtreeRootSiblingPath,
       this,
       this.onCheckpointBlobAccumulatorSet,
     );

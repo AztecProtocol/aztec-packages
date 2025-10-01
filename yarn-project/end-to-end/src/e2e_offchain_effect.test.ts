@@ -62,12 +62,6 @@ describe('e2e_offchain_effect', () => {
     expect(provenTx.offchainEffects).toEqual([]);
   });
 
-  it('should revert when emitting offchain effects from utility function', async () => {
-    await expect(
-      contract1.methods.emitting_offchain_effect_from_utility_reverts().simulate({ from: defaultAccountAddress }),
-    ).rejects.toThrow('Cannot emit offchain effects from a utility function');
-  });
-
   it('should emit event as offchain message and process it', async () => {
     const [a, b, c] = [1n, 2n, 3n];
     const provenTx = await contract1.methods

@@ -64,25 +64,11 @@ void ECCVMProver::execute_wire_commitments_round()
     const size_t circuit_size = key->circuit_size;
     unmasked_witness_size = circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
-    CommitmentKey::CommitType commit_type =
-        (circuit_size > key->real_size) ? CommitmentKey::CommitType::Structured : CommitmentKey::CommitType::Default;
-
-    // Commit to wires whose length is bounded by the real size of the ECCVM
-    for (const auto& [wire, label] : zip_view(key->polynomials.get_wires_without_accumulators(),
-                                              commitment_labels.get_wires_without_accumulators())) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
-        // ECCVM/Translator/MegaZK
-        const size_t start = circuit_size == wire.size() ? 0 : 1;
-        std::vector<std::pair<size_t, size_t>> active_ranges{ { start, key->real_size + start },
-                                                              { unmasked_witness_size, circuit_size } };
-        commit_to_witness_polynomial(wire, label, commit_type, active_ranges);
+    auto batch = key->commitment_key.start_batch();
+    for (const auto& [wire, label] : zip_view(key->polynomials.get_wires(), commitment_labels.get_wires())) {
+        batch.add_to_batch(wire, label, /* mask for zk? */ true);
     }
-
-    // The accumulators are populated until the 2^{CONST_ECCVM_LOG_N}, therefore we commit to a full-sized polynomial
-    for (const auto& [wire, label] :
-         zip_view(key->polynomials.get_accumulators(), commitment_labels.get_accumulators())) {
-        commit_to_witness_polynomial(wire, label);
-    }
+    batch.commit_and_send_to_verifier(transcript);
 }
 
 /**

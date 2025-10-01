@@ -17,13 +17,13 @@ struct perm_to_radix_mem_write_mem_settings_ {
     static constexpr std::string_view NAME = "PERM_TO_RADIX_MEM_WRITE_MEM";
     static constexpr std::string_view RELATION_NAME = "to_radix_mem";
     static constexpr size_t COLUMNS_PER_SET = 6;
-    static constexpr Column SRC_SELECTOR = Column::to_radix_mem_sel_should_exec;
+    static constexpr Column SRC_SELECTOR = Column::to_radix_mem_sel_should_write_mem;
     static constexpr Column DST_SELECTOR = Column::memory_sel_to_radix_write;
     static constexpr Column INVERSES = Column::perm_to_radix_mem_write_mem_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
         ColumnAndShifts::to_radix_mem_execution_clk, ColumnAndShifts::to_radix_mem_space_id,
-        ColumnAndShifts::to_radix_mem_dst_addr,      ColumnAndShifts::to_radix_mem_output_limb_value,
-        ColumnAndShifts::to_radix_mem_output_tag,    ColumnAndShifts::to_radix_mem_sel_should_exec
+        ColumnAndShifts::to_radix_mem_dst_addr,      ColumnAndShifts::to_radix_mem_limb_value,
+        ColumnAndShifts::to_radix_mem_output_tag,    ColumnAndShifts::to_radix_mem_sel_should_write_mem
     };
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
         ColumnAndShifts::memory_clk,   ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_address,

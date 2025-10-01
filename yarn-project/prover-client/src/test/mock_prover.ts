@@ -17,7 +17,6 @@ import {
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/stdlib/interfaces/server';
-import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { ParityBasePrivateInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
 import { makeEmptyRecursiveProof, makeRecursiveProof } from '@aztec/stdlib/proofs';
 import type {
@@ -35,6 +34,7 @@ import type {
   CheckpointRootSingleBlockRollupPrivateInputs,
   PrivateTxBaseRollupPrivateInputs,
   PublicTubePrivateInputs,
+  PublicTubePublicInputs,
   PublicTxBaseRollupPrivateInputs,
   RootRollupPrivateInputs,
   RootRollupPublicInputs,
@@ -45,7 +45,7 @@ import {
   makeBlockRollupPublicInputs,
   makeCheckpointRollupPublicInputs,
   makeParityPublicInputs,
-  makePrivateToPublicKernelCircuitPublicInputs,
+  makePublicTubePublicInputs,
   makeRootRollupPublicInputs,
   makeTxRollupPublicInputs,
 } from '@aztec/stdlib/testing';
@@ -143,15 +143,10 @@ export class MockProver implements ServerCircuitProver {
     _inputs: PublicTubePrivateInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<
-      PrivateToPublicKernelCircuitPublicInputs,
-      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
-    >
-  > {
+  ): Promise<PublicInputsAndRecursiveProof<PublicTubePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
-        makePrivateToPublicKernelCircuitPublicInputs(),
+        makePublicTubePublicInputs(),
         makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
         VerificationKeyData.makeFakeRollupHonk(),
       ),

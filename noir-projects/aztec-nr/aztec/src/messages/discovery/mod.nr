@@ -42,12 +42,12 @@ pub struct NoteHashAndNullifier {
 ///         let note = MyNoteType::unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
 ///
 ///         let note_hash = note.compute_note_hash(storage_slot);
-///         let note_hash_for_nullify = aztec::note::utils::compute_note_hash_for_nullify(
+///         let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
 ///             RetrievedNote{ note, contract_address, metadata: SettledNoteMetadata::new(note_nonce).into() },
 ///             storage_slot
 ///         );
 ///
-///         let inner_nullifier = note.compute_nullifier_unconstrained(note_hash_for_nullify);
+///         let inner_nullifier = note.compute_nullifier_unconstrained(note_hash_for_nullification);
 ///
 ///         Option::some(
 ///             aztec::messages::discovery::NoteHashAndNullifier {

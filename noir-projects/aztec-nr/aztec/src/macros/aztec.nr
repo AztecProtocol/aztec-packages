@@ -178,7 +178,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                         // The message discovery process finds settled notes, that is, notes that were created in prior
                         // transactions and are therefore already part of the note hash tree. We therefore compute the
                         // nullification note hash by treating the note as a settled note with the provided note nonce.
-                        let note_hash_for_nullify = aztec::note::utils::compute_note_hash_for_nullify(
+                        let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
                             aztec::note::retrieved_note::RetrievedNote{ 
                                 note, 
                                 contract_address, 
@@ -187,7 +187,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                             storage_slot,
                         );
 
-                        let inner_nullifier = $compute_nullifier_unconstrained(note, note_hash_for_nullify);
+                        let inner_nullifier = $compute_nullifier_unconstrained(note, note_hash_for_nullification);
 
                         Option::some(
                             aztec::messages::discovery::NoteHashAndNullifier {

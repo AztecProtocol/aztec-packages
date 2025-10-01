@@ -1,8 +1,6 @@
 import { type AztecAddress, BatchCall, type Logger, type Wallet } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-// docs:start:token_utils
-
 export async function deployToken(wallet: Wallet, admin: AztecAddress, initialAdminBalance: bigint, logger: Logger) {
   logger.info(`Deploying Token contract...`);
   const contract = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18)
@@ -26,7 +24,6 @@ export async function mintTokensToPrivate(
 ) {
   await token.methods.mint_to_private(recipient, amount).send({ from: minter }).wait();
 }
-// docs:end:token_utils
 
 export async function expectTokenBalance(
   wallet: Wallet,
@@ -49,9 +46,9 @@ export async function mintNotes(
   asset: TokenContract,
   noteAmounts: bigint[],
 ): Promise<bigint> {
-  // We can only mint 4 notes at a time, since that's the maximum number of calls our entrypoints allow
+  // We can only mint 5 notes at a time, since that's the maximum number of calls our entrypoints allow
   // TODO(#13024): mint as many notes as possible in a single tx
-  const notesPerIteration = 4;
+  const notesPerIteration = 5;
   for (let mintedNotes = 0; mintedNotes < noteAmounts.length; mintedNotes += notesPerIteration) {
     const toMint = noteAmounts.slice(mintedNotes, mintedNotes + notesPerIteration);
     const actions = toMint.map(amt => asset.methods.mint_to_private(recipient, amt));

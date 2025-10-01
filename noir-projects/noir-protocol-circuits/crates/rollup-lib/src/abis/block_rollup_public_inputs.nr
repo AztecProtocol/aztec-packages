@@ -58,7 +58,7 @@ impl BlockRollupPublicInputs {
         // the indices.
         let num_blocks = self.new_archive.next_available_leaf_index
             - self.previous_archive.next_available_leaf_index;
-        assert(num_blocks < (1 << 16), "Too many accumulated blocks");
+        num_blocks.assert_max_bit_size::<16>();
         num_blocks as u16
     }
 }
@@ -79,10 +79,18 @@ fn correct_num_blocks() {
     assert_eq(item.num_blocks(), 3);
 }
 
-#[test(should_fail_with = "Too many accumulated blocks")]
-fn too_many_num_blocks() {
+#[test]
+fn correct_num_blocks_with_large_leaf_indices() {
+    let mut item: BlockRollupPublicInputs = make_fixture(1);
+    item.previous_archive.next_available_leaf_index = ((1 << 16) + 35) as Field;
+    item.new_archive.next_available_leaf_index = ((1 << 16) + 38) as Field;
+    assert_eq(item.num_blocks(), 3);
+}
+
+#[test(should_fail_with = "call to assert_max_bit_size")]
+fn num_blocks_too_large() {
     let mut item: BlockRollupPublicInputs = make_fixture(1);
     item.previous_archive.next_available_leaf_index = 35;
-    item.new_archive.next_available_leaf_index = (1 << 16) + 35;
+    item.new_archive.next_available_leaf_index = ((1 << 16) + 35) as Field;
     let _ = item.num_blocks();
 }

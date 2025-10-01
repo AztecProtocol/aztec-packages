@@ -152,7 +152,8 @@ Instruction random_instruction(WireOpCode w_opcode)
 
 TestTraceContainer empty_trace()
 {
-    return TestTraceContainer::from_rows({ { .precomputed_first_row = 1 }, { .precomputed_clk = 1 } });
+    using C = Column;
+    return TestTraceContainer({ { { C::precomputed_first_row, 1 } }, { { C::precomputed_clk, 1 } } });
 }
 
 ContractInstance random_contract_instance()
@@ -186,7 +187,15 @@ std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi()
     AvmProvingInputs inputs = AvmProvingInputs::from(data);
 
     AvmSimulationHelper simulation_helper;
-    auto events = simulation_helper.simulate_for_witgen(inputs.hints);
+
+    assert(inputs.publicInputs.accumulatedDataArrayLengths.publicDataWrites <=
+           inputs.publicInputs.accumulatedData.publicDataWrites.size());
+    const auto* public_data_writes_start = inputs.publicInputs.accumulatedData.publicDataWrites.begin();
+    std::vector<PublicDataWrite> public_data_writes(
+        public_data_writes_start,
+        public_data_writes_start + inputs.publicInputs.accumulatedDataArrayLengths.publicDataWrites);
+
+    auto events = simulation_helper.simulate_for_witgen(inputs.hints, public_data_writes);
 
     AvmTraceGenHelper trace_gen_helper;
     auto trace = trace_gen_helper.generate_trace(std::move(events), inputs.publicInputs);

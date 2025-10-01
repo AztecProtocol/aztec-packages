@@ -3,13 +3,17 @@ import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/ab
 
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
-import type { RequestMethodOptions, SimulateMethodOptions } from './interaction_options.js';
+import {
+  type RequestMethodOptions,
+  type SimulateMethodOptions,
+  sanitizeSimulateOptions,
+} from './interaction_options.js';
 
 /** A batch of function calls to be sent as a single transaction through a wallet. */
 export class BatchCall extends BaseContractInteraction {
   constructor(
     wallet: Wallet,
-    protected calls: BaseContractInteraction[],
+    protected interactions: BaseContractInteraction[],
   ) {
     super(wallet);
   }
@@ -29,13 +33,13 @@ export class BatchCall extends BaseContractInteraction {
    */
   public async request(options: RequestMethodOptions = {}): Promise<ExecutionPayload> {
     const requests = await this.getRequests();
-    const combinedPayload = mergeExecutionPayloads(requests);
-    return new ExecutionPayload(
-      combinedPayload.calls,
-      combinedPayload.authWitnesses.concat(options.authWitnesses ?? []),
-      combinedPayload.capsules.concat(options.capsules ?? []),
-      combinedPayload.extraHashedArgs,
-    );
+    const feeExecutionPayload = options.fee?.paymentMethod
+      ? await options.fee.paymentMethod.getExecutionPayload()
+      : undefined;
+    const finalExecutionPayload = feeExecutionPayload
+      ? mergeExecutionPayloads([feeExecutionPayload, ...requests])
+      : mergeExecutionPayloads([...requests]);
+    return finalExecutionPayload;
   }
 
   /**
@@ -90,7 +94,7 @@ export class BatchCall extends BaseContractInteraction {
 
     const [utilityResults, simulatedTx] = await Promise.all([
       Promise.all(utilityCalls),
-      this.wallet.simulateTx(executionPayload, options),
+      this.wallet.simulateTx(executionPayload, await sanitizeSimulateOptions(options)),
     ]);
 
     const results: any[] = [];
@@ -113,7 +117,7 @@ export class BatchCall extends BaseContractInteraction {
     return results;
   }
 
-  private async getRequests() {
-    return await Promise.all(this.calls.map(c => c.request()));
+  protected async getRequests() {
+    return await Promise.all(this.interactions.map(i => i.request()));
   }
 }

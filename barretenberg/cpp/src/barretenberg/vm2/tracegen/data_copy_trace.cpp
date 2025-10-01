@@ -161,6 +161,7 @@ void DataCopyTraceBuilder::process(
 
                           { C::data_copy_sel_mem_read, sel_mem_read ? 1 : 0 },
                           { C::data_copy_read_addr, read_addr },
+                          { C::data_copy_read_addr_plus_one, read_cd_col ? read_addr + 1 : 0 },
 
                           { C::data_copy_reads_left_inv, reads_left_inv },
                           { C::data_copy_padding, is_padding_row ? 1 : 0 },

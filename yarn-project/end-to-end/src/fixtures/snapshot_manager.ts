@@ -2,7 +2,7 @@ import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
-  type AztecAddress,
+  AztecAddress,
   type AztecNode,
   BatchCall,
   type ContractFunctionInteraction,
@@ -31,11 +31,11 @@ import { createLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { ProverNode } from '@aztec/prover-node';
-import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import { getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryConfig, initTelemetryClient } from '@aztec/telemetry-client';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import type { Anvil } from '@viem/anvil';
@@ -442,13 +442,12 @@ async function setupFromFresh(
   }
 
   logger.verbose('Creating pxe...');
-  const pxeConfig = getPXEServiceConfig();
+  const pxeConfig = getPXEConfig();
   pxeConfig.dataDirectory = statePath ?? path.join(directoryToCleanup, randomBytes(8).toString('hex'));
   // Only enable proving if specifically requested.
   pxeConfig.proverEnabled = !!opts.realProofs;
-  const pxe = await createPXEService(aztecNode, pxeConfig);
-  const wallet = new TestWallet(pxe, aztecNode);
-  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, wallet, aztecNode, dateProvider);
+  const wallet = await TestWallet.create(aztecNode, pxeConfig);
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, aztecNode, dateProvider);
 
   if (statePath) {
     writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig, resolver));
@@ -573,11 +572,10 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   }
 
   logger.verbose('Creating pxe...');
-  const pxeConfig = getPXEServiceConfig();
+  const pxeConfig = getPXEConfig();
   pxeConfig.dataDirectory = statePath;
-  const pxe = await createPXEService(aztecNode, pxeConfig);
-  const wallet = new TestWallet(pxe, aztecNode);
-  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, wallet, aztecNode, dateProvider);
+  const wallet = await TestWallet.create(aztecNode, pxeConfig);
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, aztecNode, dateProvider);
 
   return {
     aztecNodeConfig,
@@ -622,8 +620,10 @@ export const deployAccounts =
         deployedAccounts[i].salt,
         deployedAccounts[i].signingKey,
       );
-      await accountManager
-        .deploy({
+      const deployMethod = await accountManager.getDeployMethod();
+      await deployMethod
+        .send({
+          from: AztecAddress.ZERO,
           skipClassPublication: i !== 0, // Publish the contract class at most once.
         })
         .wait();

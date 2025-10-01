@@ -39,3 +39,6 @@
 
 # Notify the circuit team of changes to the protocol circuits
 /noir-projects/noir-protocol-circuits @LeilaWang
+
+# Notify devrel of changes to docs examples
+/docs/examples @AztecProtocol/devrel
