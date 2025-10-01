@@ -89,6 +89,23 @@
       "environment": {
         "CC": "clang-20",
         "CXX": "clang++-20"
+      },
+      "cacheVariables": {
+        "ENABLE_AVM_TRANSPILER": "ON"
+      }
+    },
+    {
+      "name": "clang20-assert",
+      "displayName": "Build with Clang-20",
+      "description": "Build with globally installed Clang-20",
+      "inherits": "default",
+      "binaryDir": "build",
+      "environment": {
+        "CC": "clang-20",
+        "CXX": "clang++-20"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
@@ -222,7 +239,8 @@
       "inherits": "clang20",
       "binaryDir": "build-no-avm",
       "cacheVariables": {
-        "DISABLE_AZTEC_VM": "ON"
+        "DISABLE_AZTEC_VM": "ON",
+        "ENABLE_AVM_TRANSPILER": "OFF"
       }
     },
     {

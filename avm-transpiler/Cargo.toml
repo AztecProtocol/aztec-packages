@@ -7,6 +7,9 @@ license = "MIT OR Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
 [dependencies]
 # local
 acvm = { path = "../noir/noir-repo/acvm-repo/acvm", features = ["bn254"] }
@@ -14,6 +17,9 @@ noirc_errors = { path = "../noir/noir-repo/compiler/noirc_errors" }
 noirc_abi = { path = "../noir/noir-repo/tooling/noirc_abi" }
 noirc_evaluator = { path = "../noir/noir-repo/compiler/noirc_evaluator", features = ["bn254"] }
 noirc_frontend = { path = "../noir/noir-repo/compiler/noirc_frontend", features = ["test_utils"] }
+
+# FFI
+libc = "0.2"
 
 # external
 base64 = "0.21"

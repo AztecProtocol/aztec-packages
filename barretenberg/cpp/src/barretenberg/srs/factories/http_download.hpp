@@ -8,7 +8,9 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-literal-operator"
 #pragma GCC diagnostic ignored "-Wunused-parameter"
+#ifndef __wasm__
 #include <httplib.h>
+#endif
 #pragma GCC diagnostic pop
 #pragma clang diagnostic pop
 
@@ -24,8 +26,13 @@ namespace bb::srs {
  * @param end_byte Ending byte for range request (0 for no range)
  * @return Downloaded data as bytes
  */
-inline std::vector<uint8_t> http_download(const std::string& url, size_t start_byte = 0, size_t end_byte = 0)
+inline std::vector<uint8_t> http_download([[maybe_unused]] const std::string& url,
+                                          [[maybe_unused]] size_t start_byte = 0,
+                                          [[maybe_unused]] size_t end_byte = 0)
 {
+#ifdef __wasm__
+    throw_or_abort("HTTP download not supported in WASM");
+#else
     // Parse URL into host and path
     size_t proto_end = url.find("://");
     if (proto_end == std::string::npos) {
@@ -67,6 +74,6 @@ inline std::vector<uint8_t> http_download(const std::string& url, size_t start_b
     // Convert string body to vector<uint8_t>
     const std::string& body = res->body;
     return std::vector<uint8_t>(body.begin(), body.end());
+#endif
 }
-
 } // namespace bb::srs
