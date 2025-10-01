@@ -5,10 +5,11 @@ authors = ["The Aztec Team <hello@aztecprotocol.com>"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [lib]
-crate-type = ["cdylib", "staticlib"]
+name = "avm_transpiler"
+crate-type = ["staticlib", "rlib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 # local

@@ -51,8 +51,8 @@ endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${MSGPACK_INCLUDE} ${TRACY_INCLUDE} ${LMDB_INCLUDE} ${LIBDEFLATE_INCLUDE} ${HTTPLIB_INCLUDE} ${NLOHMANN_JSON_INCLUDE})
 
-# Add avm-transpiler include path when enabled
-if(ENABLE_AVM_TRANSPILER)
+# Add avm-transpiler include path when library is provided
+if(AVM_TRANSPILER_LIB)
     include_directories(${AVM_TRANSPILER_INCLUDE})
 endif()
 

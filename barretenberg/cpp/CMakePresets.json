@@ -57,7 +57,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_TOOLCHAIN_FILE": "/opt/osxcross/toolchain.cmake",
-        "CMAKE_EXE_LINKER_FLAGS": "-fuse-ld=/opt/osxcross/bin/arm64-apple-darwin23-ld"
+        "CMAKE_EXE_LINKER_FLAGS": "-fuse-ld=/opt/osxcross/bin/arm64-apple-darwin23-ld",
+        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/aarch64-apple-darwin/release/libavm_transpiler.a"
       },
       "environment": {
         "CXXFLAGS": "-Wno-deprecated-declarations",
@@ -73,7 +74,8 @@
       "inherits": "darwin-arm64",
       "binaryDir": "build-darwin-amd64",
       "cacheVariables": {
-        "CMAKE_EXE_LINKER_FLAGS": "-fuse-ld=/opt/osxcross/bin/x86_64-apple-darwin23-ld"
+        "CMAKE_EXE_LINKER_FLAGS": "-fuse-ld=/opt/osxcross/bin/x86_64-apple-darwin23-ld",
+        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/x86_64-apple-darwin/release/libavm_transpiler.a"
       },
       "environment": {
         "CXXFLAGS": "-Wno-deprecated-declarations",
@@ -91,7 +93,7 @@
         "CXX": "clang++-20"
       },
       "cacheVariables": {
-        "ENABLE_AVM_TRANSPILER": "ON"
+        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/release/libavm_transpiler.a"
       }
     },
     {
@@ -240,7 +242,7 @@
       "binaryDir": "build-no-avm",
       "cacheVariables": {
         "DISABLE_AZTEC_VM": "ON",
-        "ENABLE_AVM_TRANSPILER": "OFF"
+        "AVM_TRANSPILER_LIB": ""
       }
     },
     {
