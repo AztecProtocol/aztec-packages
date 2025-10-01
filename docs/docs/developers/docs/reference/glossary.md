@@ -88,7 +88,7 @@ You can find more info about the LSP [in the Noir docs](https://noir-lang.org/do
 
 ### Node
 
-A node is a computer running Aztec software that participates in the Aztec network. A specific type of node is a sequencer. Nodes run the public execution environment (AVM), validate proofs, and maintain the 5 state Merkle trees (note hash, nullifier, private state, contract and archive trees).
+A node is a computer running Aztec software that participates in the Aztec network. A specific type of node is a sequencer. Nodes run the public execution environment (AVM), validate proofs, and maintain the 5 state Merkle trees (note hash, nullifier, public state, contract and archive trees).
 
 The Aztec testnet rolls up to Ethereum Sepolia.
 
@@ -118,7 +118,7 @@ Aztec achieves programmable privacy through its hybrid architecture that support
 
 ### Provers
 
-The Prover in a ZK system is the entity proving they have knowledge of a valid witness that satisfies a statement. In the context of Aztec, this is the entity that creates the proof that some computation was executed correctly. Here, the statement would be "I know the inputs and outputs that satisfy the requirements for the computation, and I did the computation correctly.
+The Prover in a ZK system is the entity proving they have knowledge of a valid witness that satisfies a statement. In the context of Aztec, this is the entity that creates the proof that some computation was executed correctly. Here, the statement would be "I know the inputs and outputs that satisfy the requirements for the computation, and I did the computation correctly."
 
 Aztec will be launched with a fully permissionless proving network (pieces of code that produce the proofs for valid rollup state transitions) that anyone can participate in.
 
@@ -130,9 +130,8 @@ A key that is used to generate a proof. In the case of Aztec, these are compiled
 
 ### Private Execution Environment (PXE)
 
-The private execution environment is where private computation occurs. This local such as your device or browser.
+The private execution environment is where private computation occurs. This is local such as your device or browser.
 
-<Glossary.PXE />
 
 Read more [here](../concepts/pxe/index.md).
 
@@ -146,7 +145,7 @@ Included in the sandbox:
 - Deployed Aztec protocol contracts (for L1 and L2)
 - A set of test accounts with some test tokens to pay fees
 - Development tools to compile contracts and interact with the network (aztec-nargo and aztec-wallet)
-- All of this comes packages in a Docker container to make it easy to install and run.
+- All of this comes packaged in a Docker container to make it easy to install and run.
 
 ### Sequencer
 
