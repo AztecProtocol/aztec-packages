@@ -124,14 +124,15 @@ class LazilyExtendedEdges {
         size_t edge_idx = std::numeric_limits<size_t>::max(); // Invalid edge initially
     };
 
-    std::unique_ptr<UnivariateType> extend_polynomial_at_index(size_t idx) const {
+    // Compile-time indexed access for specific polynomial
+    template<size_t idx>
+    std::unique_ptr<UnivariateType> extend_polynomial_at_index_ct() const {
         if (!source_entities_) {
-            // Not initialized yet
             return std::make_unique<UnivariateType>(UnivariateType::zero());
         }
 
-        auto all_source = source_entities_->get_all();
-        const auto& multivariate = all_source[idx];
+        // Use new get_by_index method that avoids concatenation
+        const auto& multivariate = source_entities_->template get_by_index<idx>();
 
         // Handle empty or out-of-bounds polynomials
         if (multivariate.is_empty() || multivariate.end_index() < current_edge_) {
@@ -146,6 +147,55 @@ class LazilyExtendedEdges {
             return std::make_unique<UnivariateType>(base_univariate);
         } else {
             return std::make_unique<UnivariateType>(base_univariate.template extend_to<MAX_LENGTH>());
+        }
+    }
+
+    // Runtime dispatch to compile-time version
+    std::unique_ptr<UnivariateType> extend_polynomial_at_index(size_t idx) const {
+        switch(idx) {
+            case 0: return extend_polynomial_at_index_ct<0>();
+            case 1: return extend_polynomial_at_index_ct<1>();
+            case 2: return extend_polynomial_at_index_ct<2>();
+            case 3: return extend_polynomial_at_index_ct<3>();
+            case 4: return extend_polynomial_at_index_ct<4>();
+            case 5: return extend_polynomial_at_index_ct<5>();
+            case 6: return extend_polynomial_at_index_ct<6>();
+            case 7: return extend_polynomial_at_index_ct<7>();
+            case 8: return extend_polynomial_at_index_ct<8>();
+            case 9: return extend_polynomial_at_index_ct<9>();
+            case 10: return extend_polynomial_at_index_ct<10>();
+            case 11: return extend_polynomial_at_index_ct<11>();
+            case 12: return extend_polynomial_at_index_ct<12>();
+            case 13: return extend_polynomial_at_index_ct<13>();
+            case 14: return extend_polynomial_at_index_ct<14>();
+            case 15: return extend_polynomial_at_index_ct<15>();
+            case 16: return extend_polynomial_at_index_ct<16>();
+            case 17: return extend_polynomial_at_index_ct<17>();
+            case 18: return extend_polynomial_at_index_ct<18>();
+            case 19: return extend_polynomial_at_index_ct<19>();
+            case 20: return extend_polynomial_at_index_ct<20>();
+            case 21: return extend_polynomial_at_index_ct<21>();
+            case 22: return extend_polynomial_at_index_ct<22>();
+            case 23: return extend_polynomial_at_index_ct<23>();
+            case 24: return extend_polynomial_at_index_ct<24>();
+            case 25: return extend_polynomial_at_index_ct<25>();
+            case 26: return extend_polynomial_at_index_ct<26>();
+            case 27: return extend_polynomial_at_index_ct<27>();
+            case 28: return extend_polynomial_at_index_ct<28>();
+            case 29: return extend_polynomial_at_index_ct<29>();
+            case 30: return extend_polynomial_at_index_ct<30>();
+            case 31: return extend_polynomial_at_index_ct<31>();
+            case 32: return extend_polynomial_at_index_ct<32>();
+            case 33: return extend_polynomial_at_index_ct<33>();
+            case 34: return extend_polynomial_at_index_ct<34>();
+            case 35: return extend_polynomial_at_index_ct<35>();
+            case 36: return extend_polynomial_at_index_ct<36>();
+            case 37: return extend_polynomial_at_index_ct<37>();
+            case 38: return extend_polynomial_at_index_ct<38>();
+            case 39: return extend_polynomial_at_index_ct<39>();
+            case 40: return extend_polynomial_at_index_ct<40>();
+            default:
+                return std::make_unique<UnivariateType>(UnivariateType::zero());
         }
     }
 

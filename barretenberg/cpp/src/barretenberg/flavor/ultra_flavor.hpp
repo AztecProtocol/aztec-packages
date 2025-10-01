@@ -257,6 +257,61 @@ class UltraFlavor {
         };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
+
+        // Direct indexed access for lazy extension - avoids concatenation overhead
+        template<size_t idx>
+        const auto& get_by_index() const {
+            // PrecomputedEntities: indices 0-27 (28 total)
+            if constexpr (idx < 28) {
+                if constexpr (idx == 0) return this->q_m;
+                else if constexpr (idx == 1) return this->q_c;
+                else if constexpr (idx == 2) return this->q_l;
+                else if constexpr (idx == 3) return this->q_r;
+                else if constexpr (idx == 4) return this->q_o;
+                else if constexpr (idx == 5) return this->q_4;
+                else if constexpr (idx == 6) return this->q_lookup;
+                else if constexpr (idx == 7) return this->q_arith;
+                else if constexpr (idx == 8) return this->q_delta_range;
+                else if constexpr (idx == 9) return this->q_elliptic;
+                else if constexpr (idx == 10) return this->q_memory;
+                else if constexpr (idx == 11) return this->q_nnf;
+                else if constexpr (idx == 12) return this->q_poseidon2_external;
+                else if constexpr (idx == 13) return this->q_poseidon2_internal;
+                else if constexpr (idx == 14) return this->sigma_1;
+                else if constexpr (idx == 15) return this->sigma_2;
+                else if constexpr (idx == 16) return this->sigma_3;
+                else if constexpr (idx == 17) return this->sigma_4;
+                else if constexpr (idx == 18) return this->id_1;
+                else if constexpr (idx == 19) return this->id_2;
+                else if constexpr (idx == 20) return this->id_3;
+                else if constexpr (idx == 21) return this->id_4;
+                else if constexpr (idx == 22) return this->table_1;
+                else if constexpr (idx == 23) return this->table_2;
+                else if constexpr (idx == 24) return this->table_3;
+                else if constexpr (idx == 25) return this->table_4;
+                else if constexpr (idx == 26) return this->lagrange_first;
+                else if constexpr (idx == 27) return this->lagrange_last;
+            }
+            // WitnessEntities: indices 28-35 (8 total)
+            else if constexpr (idx < 36) {
+                if constexpr (idx == 28) return this->w_l;
+                else if constexpr (idx == 29) return this->w_r;
+                else if constexpr (idx == 30) return this->w_o;
+                else if constexpr (idx == 31) return this->w_4;
+                else if constexpr (idx == 32) return this->z_perm;
+                else if constexpr (idx == 33) return this->lookup_inverses;
+                else if constexpr (idx == 34) return this->lookup_read_counts;
+                else if constexpr (idx == 35) return this->lookup_read_tags;
+            }
+            // ShiftedEntities: indices 36-40 (5 total)
+            else {
+                if constexpr (idx == 36) return this->w_l_shift;
+                else if constexpr (idx == 37) return this->w_r_shift;
+                else if constexpr (idx == 38) return this->w_o_shift;
+                else if constexpr (idx == 39) return this->w_4_shift;
+                else if constexpr (idx == 40) return this->z_perm_shift;
+            }
+        }
     };
 
     /**
