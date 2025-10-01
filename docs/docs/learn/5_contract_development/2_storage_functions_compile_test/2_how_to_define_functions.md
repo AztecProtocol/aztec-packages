@@ -14,4 +14,6 @@ The source of the following guide is [the define functions guide](../../../devel
 
 ---
 
+<!-- This file must have the same name the file that it is importing code from for the url fixer script to work -->
+
 #include_code define_functions /docs/docs/developers/docs/guides/smart_contracts/how_to_define_functions.md raw

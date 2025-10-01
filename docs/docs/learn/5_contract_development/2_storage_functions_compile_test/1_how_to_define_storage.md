@@ -16,4 +16,6 @@ The source of the following guide is [the define storage guide](../../../develop
 
 ---
 
+<!-- This file must have the same name the file that it is importing code from for the url fixer script to work -->
+
 #include_code define_storage /docs/docs/developers/docs/guides/smart_contracts/how_to_define_storage.md raw
