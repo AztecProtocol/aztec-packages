@@ -336,7 +336,7 @@ As a developer learning Aztec, you're not just learning another blockchain platf
 
 You're learning to build the future of Web3. One that's _actually_ better than Web2!
 
-### The Journey Ahead
+### Applications on Aztec
 
 Aztec is live, the technology works, and developers are _already_ building amazing applications.
 
@@ -356,7 +356,7 @@ You now understand:
 
 **Feeling inspired?** You should be! You're about to learn how to build applications that were literally impossible before Aztec.
 
-- [TODO] maybe add a link to cretae a tweet to say you're on the learning journey? Could be good for our metric tracking?
+- [TODO] maybe add a link to create a tweet to say you're on the learning journey? Could be good for our metric tracking?
 :::
 
 ---

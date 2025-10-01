@@ -26,8 +26,6 @@ The learning path is structured as a progression through five key areas:
 
 **Module 4: Testing & Deployment** - Gain practical experience with the Aztec Sandbox, write comprehensive tests for private functions, deploy contracts to testnet, and debug privacy smart contracts.
 
-- [TODO] add links for testnet and sandbox
-
 **Module 5: Advanced Patterns** - Explore advanced contract architectures, cross-contract private interactions, optimized proof generation, and integration with existing Ethereum infrastructure.
 
 ## The Aztec Stack
@@ -86,7 +84,7 @@ By following this guided learning journey, you will get a hands-on practical und
 
 **Progressive Complexity** - We start with simple concepts and gradually introduce advanced topics, ensuring each module builds on previous knowledge.
 
-**Hands-On Practice** - Every concept is reinforced with practical examples, interactive tutorials, and real-world scenarios you can experiment with in the Aztec Sandbox. [TODO] link her uppppp
+**Hands-On Practice** - Every concept is reinforced with practical examples, interactive tutorials, and real-world scenarios you can experiment with in the Aztec Sandbox.
 
 **Privacy-First** - Learn to think about application design from a privacy perspective, understanding the trade-offs and opportunities unique to Aztec.
 
@@ -113,7 +111,7 @@ For immediate hands-on experience, visit the [Developer Getting Started Guide](.
 
 Throughout your learning journey, you'll have access to:
 
-- **Interactive Sandbox** - Experiment safely in a local Aztec environment. [TODO] LINK LINK LINK
+- **Interactive Sandbox** - Experiment safely in a local Aztec environment.
 - **Code Examples** - Production-ready patterns and templates.
 - **Community Support** - Join our [Discord](https://discord.com/invite/aztec) to ask questions and connect with other developers building on Aztec.
 - **Regular Updates** - Stay current with the evolving Aztec ecosystem.

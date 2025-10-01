@@ -98,8 +98,6 @@ In the world of zero-knowledge proofs, there are always two parties:
 
 How does the verifier know what to check?" This is where proving and verification keys come in. Think of them as a special pair of puzzle pieces that fit together perfectly:
 
-[TODO] proving keys??? Not witness????? Or ACIR so like bytecode????
-
 - **Proving Key**: A large file that contains all the mathematical constraints (like specific rules your programme inputs must follow to satisfy the requirements) of your program. Your PXE uses this to generate proofs.
 - **Verification Key**: A small file that contains the essential information needed to verify proofs. The network uses this to check your work.
 
@@ -252,14 +250,14 @@ Let's trace through what happens when you make a private token transfer:
 
 1. **You initiate**: "Send 100 tokens to Alice"
 
-2. **Your PXE springs into action**:
+2. **Your PXE**:
 
    - Retrieves your private balance notes from your local database
    - Executes the transfer function locally with your private data
    - Generates a ZK proof using the contract's proving key
    - Nullifies used notes and creates new notes for Alice with her updated balance
 
-3. **The proof journey begins**:
+3. **The proof**:
 
    - Your application circuit proof is wrapped by kernel circuits (the mega, outer circuir)
    - The wrapped proof is sent to the network

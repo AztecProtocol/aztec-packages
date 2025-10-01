@@ -231,6 +231,3 @@ now that we understand _why_ we need privacy and the kinds of applications it un
 - How zero-knowledge proofs provide the solution
 - How to build private smart contracts
 - How to design applications with privacy in mind
-- How to leverage Aztec's unique capabilities
-
-- [TODO] links or maybe just remove this section tbh.
