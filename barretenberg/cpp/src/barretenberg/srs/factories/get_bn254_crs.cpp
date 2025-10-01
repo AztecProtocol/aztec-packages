@@ -1,5 +1,6 @@
 #include "get_bn254_crs.hpp"
 #include "barretenberg/api/file_io.hpp"
+#include "barretenberg/common/flock.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/bn254/g2.hpp"
@@ -33,11 +34,11 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
                                                   size_t num_points,
                                                   bool allow_download)
 {
-    // TODO(AD): per Charlie this should just download and replace the flat file portion atomically so we have no race
-    // condition
     std::filesystem::create_directories(path);
 
     auto g1_path = path / "bn254_g1.dat";
+    auto lock_path = path / "crs.lock";
+
     size_t g1_downloaded_points = get_file_size(g1_path) / sizeof(g1::affine_element);
 
     if (g1_downloaded_points >= num_points) {
@@ -59,6 +60,22 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
                               num_points,
                               " were requested but download not allowed in this context"));
     }
+
+    // Acquire exclusive lock to prevent simultaneous downloads
+    FileLockGuard lock(lock_path.string());
+
+    // Double-check after acquiring lock (another process may have downloaded while we waited)
+    g1_downloaded_points = get_file_size(g1_path) / sizeof(g1::affine_element);
+    if (g1_downloaded_points >= num_points) {
+        vinfo("using cached bn254 crs with num points ", std::to_string(g1_downloaded_points), " at ", g1_path);
+        auto data = read_file(g1_path, num_points * sizeof(g1::affine_element));
+        auto points = std::vector<g1::affine_element>(num_points);
+        for (size_t i = 0; i < num_points; ++i) {
+            points[i] = from_buffer<g1::affine_element>(data, i * sizeof(g1::affine_element));
+        }
+        return points;
+    }
+
     vinfo("downloading bn254 crs...");
     auto data = download_bn254_g1_data(num_points);
     write_file(g1_path, data);
