@@ -343,7 +343,7 @@
     },
     {
       "name": "smt-verification",
-      "displayName": "Build with smt verificaiton",
+      "displayName": "Build with smt verification",
       "description": "Build default preset but with smt library included",
       "inherits": "clang20",
       "binaryDir": "build-smt",
@@ -482,6 +482,52 @@
         "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=500 -DXRAY=1"
       },
       "binaryDir": "build-xray"
+    },
+    {
+      "name": "zig",
+      "displayName": "Build with Zig compiler",
+      "description": "Build using Zig as the C/C++ compiler",
+      "binaryDir": "build-zig",
+      "generator": "Ninja",
+      "environment": {
+        "CC": "zig cc",
+        "CXX": "zig c++",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "zig-no-avm",
+      "displayName": "Build with Zig compiler (no AVM)",
+      "description": "Build using Zig as the C/C++ compiler excluding the Aztec VM",
+      "binaryDir": "build-zig-no-avm",
+      "generator": "Ninja",
+      "inherits": "zig",
+      "cacheVariables": {
+        "DISABLE_AZTEC_VM": "ON"
+      }
+    },
+    {
+      "name": "zig-darwin-arm64",
+      "displayName": "Build for macOS arm64 with Zig",
+      "description": "Cross-compile for macOS arm64 (Apple Silicon) using Zig",
+      "binaryDir": "build-zig-darwin-arm64",
+      "generator": "Ninja",
+      "environment": {
+        "CC": "zig cc -target aarch64-macos",
+        "CXX": "zig c++ -target aarch64-macos"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_SYSTEM_NAME": "Darwin",
+        "CMAKE_AR": "${sourceDir}/scripts/zig-ar.sh",
+        "CMAKE_RANLIB": "${sourceDir}/scripts/zig-ranlib.sh",
+        "CMAKE_SYSTEM_PROCESSOR": "aarch64",
+        "DISABLE_AZTEC_VM": "ON",
+        "HAVE_STD_REGEX": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -667,6 +713,23 @@
       "name": "xray",
       "configurePreset": "xray",
       "inherits": "default"
+    },
+    {
+      "name": "zig",
+      "configurePreset": "zig",
+      "inheritConfigureEnvironment": true,
+      "jobs": 0
+    },
+    {
+      "name": "zig-no-avm",
+      "inherits": "zig",
+      "configurePreset": "zig-no-avm"
+    },
+    {
+      "name": "zig-darwin-arm64",
+      "configurePreset": "zig-darwin-arm64",
+      "inheritConfigureEnvironment": true,
+      "jobs": 0
     }
   ],
   "testPresets": [

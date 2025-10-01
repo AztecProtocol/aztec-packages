@@ -54,7 +54,7 @@ struct AssertGuard {
 #define ASSERT_DEBUG(expression, ...) ASSERT(expression, __VA_ARGS__)
 #endif // NDEBUG
 
-#ifdef __wasm__
+#if 1
 #define ASSERT_IN_CONSTEXPR(expression, ...) DONT_EVALUATE((expression))
 #define ASSERT(expression, ...) DONT_EVALUATE((expression))
 
