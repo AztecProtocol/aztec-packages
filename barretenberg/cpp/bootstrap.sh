@@ -67,7 +67,6 @@ function build_preset() {
   cmake --fresh --preset "$preset" ${DISABLE_AZTEC_VM:+-DDISABLE_AZTEC_VM=$DISABLE_AZTEC_VM}
   cmake --build --preset "$preset" "$@"
 }
-export -f build_preset
 
 # Build all native binaries, including tests.
 function build_native {
