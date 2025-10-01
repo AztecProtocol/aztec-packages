@@ -4,5 +4,6 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#include "barretenberg/transcript/transcript.hpp"
-// Needed to keep CMake happy
+#include "transcript.hpp"
+
+void __make_not_empty_cpp_appease_mac_clang() {}
