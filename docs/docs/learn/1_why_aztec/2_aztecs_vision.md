@@ -244,7 +244,7 @@ Aztec lets developers build compliance directly into applications while preservi
 
 ```rust
 contract PrivateLender {
-    #[aztec(private)]
+    #[private]
     fn borrow(
         amount: Field,
         kyc_proof: KYCProof,
