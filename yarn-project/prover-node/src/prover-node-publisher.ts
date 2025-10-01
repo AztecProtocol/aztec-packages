@@ -77,6 +77,7 @@ export class ProverNodePublisher {
   public interrupt() {
     this.interrupted = true;
     this.interruptibleSleep.interrupt();
+    this.l1TxUtils.interrupt();
   }
 
   /** Restarts the publisher after calling `interrupt`. */
