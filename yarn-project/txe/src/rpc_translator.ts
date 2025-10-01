@@ -596,15 +596,6 @@ export class RPCTranslator {
     return toForeignCallResult(witness.toNoirRepresentation());
   }
 
-  async utilityGetIndexedTaggingSecretAsSender(foreignSender: ForeignCallSingle, foreignRecipient: ForeignCallSingle) {
-    const sender = AztecAddress.fromField(fromSingle(foreignSender));
-    const recipient = AztecAddress.fromField(fromSingle(foreignRecipient));
-
-    const secret = await this.handlerAsUtility().utilityGetIndexedTaggingSecretAsSender(sender, recipient);
-
-    return toForeignCallResult(secret.toFields().map(toSingle));
-  }
-
   async utilityFetchTaggedLogs(foreignPendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
     const pendingTaggedLogArrayBaseSlot = fromSingle(foreignPendingTaggedLogArrayBaseSlot);
 
@@ -1005,5 +996,14 @@ export class RPCTranslator {
     await this.handlerAsPrivate().privateSetSenderForTags(senderForTags);
 
     return toForeignCallResult([]);
+  }
+
+  async privateGetNextAppTagAsSender(foreignSender: ForeignCallSingle, foreignRecipient: ForeignCallSingle) {
+    const sender = AztecAddress.fromField(fromSingle(foreignSender));
+    const recipient = AztecAddress.fromField(fromSingle(foreignRecipient));
+
+    const nextAppTag = await this.handlerAsPrivate().privateGetNextAppTagAsSender(sender, recipient);
+
+    return toForeignCallResult([toSingle(nextAppTag)]);
   }
 }
