@@ -253,11 +253,8 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the transaction as returned by the contract function.
    */
-  public override proveInternal(options: SendMethodOptions = { from: this.from }) {
-    if (!options.from.equals(this.from)) {
-      throw new Error(`A public authwit can only be sent from the account authorizing the action(${this.from})`);
-    }
-    return super.proveInternal(options);
+  public override proveInternal(options: Omit<SendMethodOptions, 'from'>) {
+    return super.proveInternal({ ...options, from: this.from });
   }
 
   /**
@@ -267,16 +264,13 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
    * @returns The result of the transaction as returned by the contract function.
    */
   public override simulate<T extends SimulateMethodOptions>(
-    options: T,
+    options: Omit<T, 'from'>,
   ): Promise<SimulationReturn<T['includeMetadata']>>;
   // eslint-disable-next-line jsdoc/require-jsdoc
   public override simulate(
-    options: SimulateMethodOptions = { from: this.from },
+    options: Omit<SimulateMethodOptions, 'from'> = {},
   ): Promise<SimulationReturn<typeof options.includeMetadata>> {
-    if (!options.from.equals(this.from)) {
-      throw new Error(`A public authwit can only be sent from the account authorizing the action(${this.from})`);
-    }
-    return super.simulate(options);
+    return super.simulate({ ...options, from: this.from });
   }
 
   /**
@@ -286,12 +280,9 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
    * @returns An object containing the function return value and profile result.
    */
   public override profile(
-    options: ProfileMethodOptions = { from: this.from, profileMode: 'gates' },
+    options: Omit<ProfileMethodOptions, 'from'> = { profileMode: 'gates' },
   ): Promise<TxProfileResult> {
-    if (!options.from.equals(this.from)) {
-      throw new Error(`A public authwit can only be sent from the account authorizing the action(${this.from})`);
-    }
-    return super.profile(options);
+    return super.profile({ ...options, from: this.from });
   }
 
   /**
@@ -300,11 +291,8 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
    * @param options - An optional object containing 'fee' options information
    * @returns A SentTx instance for tracking the transaction status and information.
    */
-  public override send(options: SendMethodOptions = { from: this.from }): SentTx {
-    if (!options.from.equals(this.from)) {
-      throw new Error(`A public authwit can only be sent from the account authorizing the action(${this.from})`);
-    }
-    return super.send(options);
+  public override send(options: Omit<SendMethodOptions, 'from'> = {}): SentTx {
+    return super.send({ ...options, from: this.from });
   }
 
   private static getSetAuthorizedAbi(): FunctionAbi {

@@ -185,7 +185,7 @@ describe('e2e_authwit_tests', () => {
           });
 
           const cancelActionInteraction = await wallet.setPublicAuthWit(account1Address, intent, false);
-          await cancelActionInteraction.send({ from: account1Address }).wait();
+          await cancelActionInteraction.send().wait();
 
           expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
             isValidInPrivate: true,

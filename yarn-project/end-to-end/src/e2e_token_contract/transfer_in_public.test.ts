@@ -225,7 +225,7 @@ describe('e2e_token_contract transfer public', () => {
         { caller: account1Address, action },
         false,
       );
-      await cancelActionInteraction.send({ from: adminAddress }).wait();
+      await cancelActionInteraction.send().wait();
 
       await expect(
         asset.methods
@@ -254,7 +254,7 @@ describe('e2e_token_contract transfer public', () => {
         { caller: account1Address, action },
         false,
       );
-      await cancelActionInteraction.send({ from: adminAddress }).wait();
+      await cancelActionInteraction.send().wait();
 
       await expect(action.simulate({ from: account1Address })).rejects.toThrow(/unauthorized/);
     });

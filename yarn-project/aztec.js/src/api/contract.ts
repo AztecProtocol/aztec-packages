@@ -43,6 +43,7 @@ export {
   type SendMethodOptions,
   type ProfileMethodOptions,
   type SimulateMethodOptions,
+  type InteractionFeeOptions,
 } from '../contract/interaction_options.js';
 
 export { TxProfileResult } from '@aztec/stdlib/tx';

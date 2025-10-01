@@ -1,6 +1,6 @@
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { generateSchnorrAccounts } from '@aztec/accounts/testing';
-import { type AztecAddress, FeeJuicePaymentMethod, FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js';
+import { type AztecAddress, FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js';
 import type { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import type { GasSettings } from '@aztec/stdlib/gas';
@@ -31,8 +31,9 @@ describe('e2e_fees Fee Juice payments', () => {
     });
 
     // Alice pays for Bob's account contract deployment.
-    await bobsAccountManager.deploy({ deployAccount: aliceAddress }).wait();
-    bobAddress = bobsAccountManager.getAddress();
+    const bobsDeployMethod = await bobsAccountManager.getDeployMethod();
+    await bobsDeployMethod.send({ from: aliceAddress }).wait();
+    bobAddress = bobsAccountManager.address;
   });
 
   afterAll(async () => {
@@ -45,21 +46,16 @@ describe('e2e_fees Fee Juice payments', () => {
     });
 
     it('fails to simulate a tx', async () => {
-      const paymentMethod = new FeeJuicePaymentMethod(bobAddress);
       await expect(
         feeJuiceContract.methods
           .check_balance(0n)
-          .simulate({ from: bobAddress, fee: { gasSettings, paymentMethod }, skipFeeEnforcement: false }),
+          .simulate({ from: bobAddress, fee: { gasSettings }, skipFeeEnforcement: false }),
       ).rejects.toThrow(/Not enough balance for fee payer to pay for transaction/i);
     });
 
     it('fails to send a tx', async () => {
-      const paymentMethod = new FeeJuicePaymentMethod(bobAddress);
       await expect(
-        feeJuiceContract.methods
-          .check_balance(0n)
-          .send({ from: bobAddress, fee: { gasSettings, paymentMethod } })
-          .wait(),
+        feeJuiceContract.methods.check_balance(0n).send({ from: bobAddress, fee: { gasSettings } }).wait(),
       ).rejects.toThrow(/Invalid tx: Insufficient fee payer balance/i);
     });
 
@@ -83,10 +79,9 @@ describe('e2e_fees Fee Juice payments', () => {
       const initialBalance = await feeJuiceContract.methods
         .balance_of_public(aliceAddress)
         .simulate({ from: aliceAddress });
-      const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
       const { transactionFee } = await bananaCoin.methods
         .transfer_in_public(aliceAddress, bobAddress, 1n, 0n)
-        .send({ fee: { gasSettings, paymentMethod }, from: aliceAddress })
+        .send({ fee: { gasSettings }, from: aliceAddress })
         .wait();
       expect(transactionFee).toBeGreaterThan(0n);
       const endBalance = await feeJuiceContract.methods
@@ -99,10 +94,9 @@ describe('e2e_fees Fee Juice payments', () => {
       const initialBalance = await feeJuiceContract.methods
         .balance_of_public(aliceAddress)
         .simulate({ from: aliceAddress });
-      const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
       const { transactionFee } = await bananaCoin.methods
         .transfer(bobAddress, 1n)
-        .send({ fee: { gasSettings, paymentMethod }, from: aliceAddress })
+        .send({ fee: { gasSettings }, from: aliceAddress })
         .wait();
       expect(transactionFee).toBeGreaterThan(0n);
       const endBalance = await feeJuiceContract.methods

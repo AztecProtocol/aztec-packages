@@ -172,7 +172,7 @@ describe('Aztec persistence', () => {
     it('allows spending of private notes', async () => {
       const account = initialFundedAccounts[1]; // Not the owner account.
       const otherAccount = await context.wallet.createSchnorrAccount(account.secret, account.salt);
-      const otherAddress = otherAccount.getAddress();
+      const otherAddress = otherAccount.address;
 
       const initialOwnerBalance = await contract.methods
         .balance_of_private(ownerAddress)

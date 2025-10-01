@@ -232,7 +232,7 @@ describe('e2e_lending_contract', () => {
         },
         true,
       );
-      await validateAction.send({ from: defaultAccountAddress }).wait();
+      await validateAction.send().wait();
 
       await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
       lendingSim.depositPublic(lendingAccount.address, lendingAccount.address.toField(), activationThreshold);
@@ -358,7 +358,7 @@ describe('e2e_lending_contract', () => {
         },
         true,
       );
-      await validateAction.send({ from: defaultAccountAddress }).wait();
+      await validateAction.send().wait();
 
       await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
       lendingSim.repayPublic(lendingAccount.address, lendingAccount.address.toField(), repayAmount);

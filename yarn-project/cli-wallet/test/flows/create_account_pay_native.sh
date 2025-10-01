@@ -17,11 +17,10 @@ aztec-wallet import-test-accounts
 aztec-wallet deploy counter_contract@Counter --init initialize --args 0 accounts:test0 -f test0 -a counter
 aztec-wallet send increment -ca counter --args accounts:test0 -f test0
 
-
 section "Deploy main account claiming the fee juice, use it later"
 
 # docs:start:claim-deploy-account
-aztec-wallet deploy-account -f main --payment method=fee_juice,claim
+aztec-wallet deploy-account main --payment method=fee_juice,claim
 # docs:end:claim-deploy-account
 aztec-wallet send increment -ca counter --args accounts:main -f main
 aztec-wallet send increment -ca counter --args accounts:main -f main

@@ -1,9 +1,4 @@
-import {
-  EncodedAppEntrypointCalls,
-  EncodedCallsForEntrypoint,
-  computeCombinedPayloadHash,
-} from '@aztec/entrypoints/encoding';
-import type { AuthWitnessProvider, FeePaymentMethod } from '@aztec/entrypoints/interfaces';
+import { EncodedAppEntrypointCalls } from '@aztec/entrypoints/encoding';
 import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import {
   type ContractArtifact,
@@ -15,6 +10,9 @@ import {
 } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
+
+import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
+import type { Wallet } from './index.js';
 
 /**
  * Fee payment method that allows a contract to pay for its own deployment
@@ -32,8 +30,8 @@ import type { GasSettings } from '@aztec/stdlib/gas';
  */
 export class AccountEntrypointMetaPaymentMethod implements FeePaymentMethod {
   constructor(
+    private wallet: Wallet,
     private artifact: ContractArtifact,
-    private authWitnessProvider: AuthWitnessProvider,
     private feePaymentNameOrArtifact: string | FunctionArtifact,
     private accountAddress: AztecAddress,
     private paymentMethod: FeePaymentMethod,
@@ -43,18 +41,17 @@ export class AccountEntrypointMetaPaymentMethod implements FeePaymentMethod {
     return this.paymentMethod.getAsset();
   }
 
-  async getExecutionPayload(gasSettings: GasSettings): Promise<ExecutionPayload> {
-    const emptyAppCalls = await EncodedAppEntrypointCalls.fromAppExecution([]);
+  async getExecutionPayload(): Promise<ExecutionPayload> {
     // Get the execution payload for the fee, it includes the calls and potentially authWitnesses
-    const { calls: feeCalls, authWitnesses: feeAuthwitnesses } =
-      await this.paymentMethod.getExecutionPayload(gasSettings);
+    const { calls: feeCalls, authWitnesses: feeAuthwitnesses } = await this.paymentMethod.getExecutionPayload();
     // Encode the calls for the fee
     const feePayer = await this.paymentMethod.getFeePayer();
     const isFeePayer = feePayer.equals(this.accountAddress);
-    const feeEncodedCalls = await EncodedCallsForEntrypoint.fromFeeCalls(feeCalls, isFeePayer);
+    const endSetup = feeCalls.length === 0 && isFeePayer;
+    const feeEncodedCalls = await EncodedAppEntrypointCalls.create(feeCalls);
 
     // Get the entrypoint args
-    const args = [emptyAppCalls, feeEncodedCalls, false];
+    const args = [feeEncodedCalls, isFeePayer, endSetup, false];
     const feePaymentArtifact =
       typeof this.feePaymentNameOrArtifact === 'string'
         ? getFunctionArtifactByName(this.artifact, this.feePaymentNameOrArtifact)
@@ -71,19 +68,21 @@ export class AccountEntrypointMetaPaymentMethod implements FeePaymentMethod {
     );
 
     // Compute the authwitness required to verify the combined payload
-    const combinedPayloadAuthWitness = await this.authWitnessProvider.createAuthWit(
-      await computeCombinedPayloadHash(emptyAppCalls, feeEncodedCalls),
-    );
+    const payloadAuthWitness = await this.wallet.createAuthWit(this.accountAddress, await feeEncodedCalls.hash());
 
     return new ExecutionPayload(
       [entrypointCall],
-      [combinedPayloadAuthWitness, ...feeAuthwitnesses],
+      [payloadAuthWitness, ...feeAuthwitnesses],
       [],
-      [...emptyAppCalls.hashedArguments, ...feeEncodedCalls.hashedArguments],
+      feeEncodedCalls.hashedArguments,
     );
   }
 
   getFeePayer(): Promise<AztecAddress> {
     return this.paymentMethod.getFeePayer();
+  }
+
+  getGasSettings(): GasSettings | undefined {
+    return this.paymentMethod.getGasSettings();
   }
 }

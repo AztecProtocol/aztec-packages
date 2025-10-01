@@ -15,7 +15,7 @@ import {
 } from '@aztec/aztec.js';
 import { getPXEConfig, type PXEConfig } from '@aztec/pxe/config';
 import { createPXE, PXE } from '@aztec/pxe/client/lazy';
-import type { ExecutionPayload } from '@aztec/entrypoints/payload';
+import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
@@ -131,8 +131,16 @@ export class EmbeddedWallet extends BaseWallet {
       }
     }
 
-    const accountManager = await AccountManager.create(this, this.pxe, secret, contract, salt);
-    await accountManager.register();
+    const accountManager = await AccountManager.create(this, secret, contract, salt);
+
+    const instance = await accountManager.getInstance();
+    const artifact = await accountManager.getAccountContract().getContractArtifact();
+
+    await this.pxe.registerContract({ artifact, instance });
+    await this.pxe.registerAccount(
+      accountManager.getSecretKey(),
+      (await accountManager.getCompleteAddress()).partialAddress,
+    );
 
     return accountManager;
   }
@@ -145,7 +153,7 @@ export class EmbeddedWallet extends BaseWallet {
     signingKey: Buffer,
   ): Promise<AccountManager> {
     const accountManager = await this.createAccountInternal(type, secret, salt, signingKey);
-    await this.walletDB.storeAccount(accountManager.getAddress(), { type, secretKey: secret, salt, alias, signingKey });
+    await this.walletDB.storeAccount(accountManager.address, { type, secretKey: secret, salt, alias, signingKey });
     return accountManager;
   }
 
@@ -167,7 +175,7 @@ export class EmbeddedWallet extends BaseWallet {
           accountData.salt,
           accountData.signingKey.toBuffer(),
         );
-        if (!aliasedAccounts.find(({ item }) => accountManager.getAddress().equals(item))) {
+        if (!aliasedAccounts.find(({ item }) => accountManager.address.equals(item))) {
           const instance = accountManager.getInstance();
           const account = await accountManager.getAccount();
           const alias = `test${i}`;
@@ -229,12 +237,25 @@ export class EmbeddedWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     opts: SimulateMethodOptions,
   ): Promise<TxSimulationResult> {
-    const executionOptions = { txNonce: Fr.random(), cancellable: false };
-    const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(opts.from);
     const feeOptions = opts.fee?.estimateGas
       ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
       : await this.getDefaultFeeOptions(opts.from, opts.fee);
-    const txRequest = await fromAccount.createTxExecutionRequest(executionPayload, feeOptions, executionOptions);
+    const feeExecutionPayload = await feeOptions.paymentMethod?.getExecutionPayload();
+    const executionOptions = {
+      txNonce: Fr.random(),
+      cancellable: this.cancellableTransactions,
+      isFeePayer: feeOptions.isFeePayer,
+      endSetup: feeOptions.endSetup,
+    };
+    const finalExecutionPayload = feeExecutionPayload
+      ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
+      : executionPayload;
+    const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(opts.from);
+    const txRequest = await fromAccount.createTxExecutionRequest(
+      finalExecutionPayload,
+      feeOptions.gasSettings,
+      executionOptions,
+    );
     const contractOverrides = {
       [opts.from.toString()]: { instance, artifact },
     };

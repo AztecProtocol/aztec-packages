@@ -1,17 +1,22 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import {
+  type AppConfigurableFeePaymentMethod,
   type AztecAddress,
   type AztecNode,
   type DeployOptions,
-  FeeJuicePaymentMethod,
-  type FeePaymentMethod,
   PublicFeePaymentMethod,
   type Wallet,
 } from '@aztec/aztec.js';
+import {
+  GAS_ESTIMATION_DA_GAS_LIMIT,
+  GAS_ESTIMATION_L2_GAS_LIMIT,
+  GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
+  GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
+} from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
-import { GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 
 import { inspect } from 'util';
 
@@ -54,8 +59,8 @@ describe('e2e_fees gas_estimation', () => {
 
   // Sends two txs with transfers of public tokens: one with limits based on the estimate, another one without
   const sendTransfers = (
-    paymentMethod: FeePaymentMethod,
     limits: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>,
+    paymentMethod?: AppConfigurableFeePaymentMethod,
   ) =>
     Promise.all(
       [GasSettings.from({ ...gasSettings, ...limits }), gasSettings].map(gasSettings =>
@@ -70,16 +75,15 @@ describe('e2e_fees gas_estimation', () => {
     });
 
   it('estimates gas with Fee Juice payment method', async () => {
-    const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
     const { estimatedGas } = await makeTransferRequest().simulate({
       from: aliceAddress,
-      fee: { gasSettings, paymentMethod, estimateGas: true, estimatedGasPadding: 0 },
+      fee: { gasSettings, estimateGas: true, estimatedGasPadding: 0 },
     });
     logGasEstimate(estimatedGas);
 
     (t.aztecNode as AztecNodeService).getSequencer()!.updateConfig({ minTxsPerBlock: 2, maxTxsPerBlock: 2 });
 
-    const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod, estimatedGas);
+    const [withEstimate, withoutEstimate] = await sendTransfers(estimatedGas);
 
     // This is the interesting case, which we hit most of the time.
     const block = await t.aztecNode.getBlock(withEstimate.blockNumber!);
@@ -100,15 +104,21 @@ describe('e2e_fees gas_estimation', () => {
   });
 
   it('estimates gas with public payment method', async () => {
-    const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, aliceAddress, wallet);
+    const gasSettingsForEstimation = new GasSettings(
+      new Gas(GAS_ESTIMATION_DA_GAS_LIMIT, GAS_ESTIMATION_L2_GAS_LIMIT),
+      new Gas(GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT, GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT),
+      gasSettings.maxFeesPerGas,
+      gasSettings.maxPriorityFeesPerGas,
+    );
+    const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettingsForEstimation);
 
     const { estimatedGas } = await makeTransferRequest().simulate({
       from: aliceAddress,
-      fee: { gasSettings, paymentMethod, estimatedGasPadding: 0, estimateGas: true },
+      fee: { paymentMethod, estimatedGasPadding: 0, estimateGas: true },
     });
     logGasEstimate(estimatedGas);
 
-    const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod, estimatedGas);
+    const [withEstimate, withoutEstimate] = await sendTransfers(estimatedGas, paymentMethod);
 
     const teardownFixedFee = gasSettings.teardownGasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
 
@@ -133,11 +143,10 @@ describe('e2e_fees gas_estimation', () => {
   });
 
   it('estimates gas for public contract initialization with Fee Juice payment method', async () => {
-    const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
     const deployMethod = () => BananaCoin.deploy(wallet, aliceAddress, 'TKN', 'TKN', 8);
     const deployOpts: (limits?: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>) => DeployOptions = limits => ({
       from: aliceAddress,
-      fee: { gasSettings: { ...gasSettings, ...limits }, paymentMethod },
+      fee: { gasSettings: { ...gasSettings, ...limits } },
       skipClassPublication: true,
     });
     const { estimatedGas } = await deployMethod().simulate({

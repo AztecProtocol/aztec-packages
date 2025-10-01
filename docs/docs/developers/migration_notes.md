@@ -9,6 +9,15 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [cli-wallet]
+
+The `deploy-account` command now requires the address (or alias) of the account to deploy as an argument, not a parameter
+
+```diff
++aztec-wallet deploy-account main
+-aztec-wallet deploy-account -f main
+```
+
 This release includes a major architectural change to the system.
 The PXE JSON RPC Server has been removed, and PXE is now available only as a library to be used by wallets.
 

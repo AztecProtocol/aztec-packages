@@ -69,14 +69,11 @@ describe('guides/writing_an_account_contract', () => {
 
     if (await account.hasInitializer()) {
       // The account has no funds. Use a funded wallet to pay for the fee for the deployment.
-      await account.deploy({ deployAccount: fundedAccount }).wait();
-    } else {
-      // The contract has no constructor. Deployment is not required.
-      // Register it in the PXE to start using it.
-      await account.register();
+      const deployMethod = await account.getDeployMethod();
+      await deployMethod.send({ from: fundedAccount }).wait();
     }
 
-    const address = account.getAddress();
+    const address = account.address;
     logger.info(`Deployed account contract at ${address}`);
 
     const token = await TokenContract.deploy(wallet, fundedAccount, 'TokenName', 'TokenSymbol', 18)
@@ -100,7 +97,7 @@ describe('guides/writing_an_account_contract', () => {
     });
 
     try {
-      await token.methods.mint_to_public(address, 200).prove({ from: wrongAccount.getAddress() });
+      await token.methods.mint_to_public(address, 200).prove({ from: wrongAccount.address });
     } catch (err) {
       logger.info(`Failed to send tx: ${err}`);
     }

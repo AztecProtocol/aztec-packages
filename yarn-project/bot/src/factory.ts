@@ -19,6 +19,7 @@ import { Timer } from '@aztec/foundation/timer';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { TestWallet } from '@aztec/test-wallet';
@@ -101,23 +102,25 @@ export class BotFactory {
       contract: new SchnorrAccountContract(signingKey!),
     };
     const accountManager = await this.wallet.createAccount(accountData);
-    const isInit = (await this.wallet.getContractMetadata(accountManager.getAddress())).isContractInitialized;
+    const isInit = (await this.wallet.getContractMetadata(accountManager.address)).isContractInitialized;
     if (isInit) {
-      this.log.info(`Account at ${accountManager.getAddress().toString()} already initialized`);
+      this.log.info(`Account at ${accountManager.address.toString()} already initialized`);
       const timer = new Timer();
-      await accountManager.register();
-      const address = accountManager.getAddress();
+      const address = accountManager.address;
       this.log.info(`Account at ${address} registered. duration=${timer.ms()}`);
       await this.store.deleteBridgeClaim(address);
       return address;
     } else {
-      const address = accountManager.getAddress();
+      const address = accountManager.address;
       this.log.info(`Deploying account at ${address}`);
 
       const claim = await this.getOrCreateBridgeClaim(address);
 
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(accountManager.getAddress(), claim);
-      const sentTx = accountManager.deploy({ fee: { paymentMethod } });
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(accountManager.address, claim);
+      const deployMethod = await accountManager.getDeployMethod();
+      const maxFeesPerGas = (await this.aztecNode.getCurrentBaseFees()).mul(1 + this.config.baseFeePadding);
+      const gasSettings = GasSettings.default({ maxFeesPerGas });
+      const sentTx = deployMethod.send({ from: AztecAddress.ZERO, fee: { gasSettings, paymentMethod } });
       const txHash = await sentTx.getTxHash();
       this.log.info(`Sent tx for account deployment with hash ${txHash.toString()}`);
       await this.withNoMinTxsPerBlock(() => sentTx.wait({ timeout: this.config.txMinedWaitSeconds }));
@@ -126,7 +129,7 @@ export class BotFactory {
       // Clean up the consumed bridge claim
       await this.store.deleteBridgeClaim(address);
 
-      return accountManager.getAddress();
+      return accountManager.address;
     }
   }
 
@@ -138,7 +141,7 @@ export class BotFactory {
       contract: new SchnorrAccountContract(initialAccountData.signingKey),
     };
     const accountManager = await this.wallet.createAccount(accountData);
-    return accountManager.getAddress();
+    return accountManager.address;
   }
 
   /**

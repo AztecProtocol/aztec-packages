@@ -1,4 +1,4 @@
-import { ExecutionPayload } from '@aztec/entrypoints/payload';
+import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -7,11 +7,13 @@ import { type Capsule, type HashedValues, type TxProfileResult, collectOffchainE
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import { getGasLimits } from './get_gas_limits.js';
-import type {
-  ProfileMethodOptions,
-  RequestMethodOptions,
-  SimulateMethodOptions,
-  SimulationReturn,
+import {
+  type ProfileMethodOptions,
+  type RequestMethodOptions,
+  type SimulateMethodOptions,
+  type SimulationReturn,
+  sanitizeProfileOptions,
+  sanitizeSimulateOptions,
 } from './interaction_options.js';
 
 /**
@@ -53,20 +55,26 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   }
 
   /**
-   * Returns an execution request that represents this operation.
-   * Can be used as a building block for constructing batch requests.
-   * @param options - An optional object containing additional configuration for the request generation.
-   * @returns An execution payload wrapped in promise.
+   * Returns the execution payload that allows this operation to happen on chain.
+   * @param options - Configuration options.
+   * @returns The execution payload for this operation
    */
   public override async request(options: RequestMethodOptions = {}): Promise<ExecutionPayload> {
     const calls = [await this.getFunctionCall()];
     const { authWitnesses, capsules } = options;
-    return new ExecutionPayload(
+    const feeExecutionPayload = options.fee?.paymentMethod
+      ? await options.fee.paymentMethod.getExecutionPayload()
+      : undefined;
+    const functionExecutionPayload = new ExecutionPayload(
       calls,
       this.authWitnesses.concat(authWitnesses ?? []),
       this.capsules.concat(capsules ?? []),
       this.extraHashedArgs,
     );
+    const finalExecutionPayload = feeExecutionPayload
+      ? mergeExecutionPayloads([feeExecutionPayload, functionExecutionPayload])
+      : functionExecutionPayload;
+    return finalExecutionPayload;
   }
 
   // docs:start:simulate
@@ -108,7 +116,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
 
     const executionPayload = await this.request(options);
-    const simulatedTx = await this.wallet.simulateTx(executionPayload, options);
+    const simulatedTx = await this.wallet.simulateTx(executionPayload, await sanitizeSimulateOptions(options));
 
     let rawReturnValues;
     if (this.functionDao.functionType == FunctionType.PRIVATE) {
@@ -155,7 +163,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
 
     const executionPayload = await this.request(options);
-    return await this.wallet.profileTx(executionPayload, options);
+    return await this.wallet.profileTx(executionPayload, await sanitizeProfileOptions(options));
   }
 
   /**

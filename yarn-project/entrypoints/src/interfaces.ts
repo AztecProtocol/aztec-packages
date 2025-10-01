@@ -1,7 +1,5 @@
 import type { Fr } from '@aztec/foundation/fields';
-import type { FieldsOf } from '@aztec/foundation/types';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
@@ -19,6 +17,17 @@ export type TxExecutionOptions = {
    * but higher fee. The nullifier ensures only one transaction can succeed.
    */
   txNonce?: Fr;
+  /**
+   * Account contracts usually support paying transaction fees using their own fee juice balance, which is configured
+   * by setting this flag to true.
+   */
+  isFeePayer: boolean;
+  /**
+   * When paying transactions with fee juice, the account contract itself usually has to signal the end of the setup phase since
+   * no other contract will do it. This is configurable independently of the previous flag because in the case of using
+   * FeeJuiceWithClaim the account contract is the fee payer, but the end of the setup is handled by the FeeJuice contract.
+   */
+  endSetup: boolean;
 };
 
 /**
@@ -29,13 +38,13 @@ export interface EntrypointInterface {
   /**
    * Generates an execution request out of set of function calls.
    * @param exec - The execution intents to be run.
-   * @param feeOptions - The fee options for the transaction.
-   * @param options - Transaction nonce and whether the transaction is cancellable.
+   * @param gasSettings - The gas settings for the transaction.
+   * @param options - Miscellaneous tx options that enable/disable features of the account contract
    * @returns The authenticated transaction execution request.
    */
   createTxExecutionRequest(
     exec: ExecutionPayload,
-    feeOptions: FeeOptions,
+    gasSettings: GasSettings,
     options: TxExecutionOptions,
   ): Promise<TxExecutionRequest>;
 }
@@ -49,48 +58,3 @@ export interface AuthWitnessProvider {
    */
   createAuthWit(messageHash: Fr | Buffer): Promise<AuthWitness>;
 }
-
-/**
- * Holds information about how the fee for a transaction is to be paid.
- */
-export interface FeePaymentMethod {
-  /** The asset used to pay the fee. */
-  getAsset(): Promise<AztecAddress>;
-  /**
-   * Returns the data to be added to the final execution request
-   * to pay the fee in the given asset
-   * @param gasSettings - The gas limits and max fees.
-   * @returns The function calls to pay the fee.
-   */
-  getExecutionPayload(gasSettings: GasSettings): Promise<ExecutionPayload>;
-  /**
-   * The expected fee payer for this tx.
-   */
-  getFeePayer(): Promise<AztecAddress>;
-}
-
-/**
- * Fee payment options for a transaction.
- */
-export type FeeOptions = {
-  /** The fee payment method to use */
-  paymentMethod: FeePaymentMethod;
-  /** The gas settings */
-  gasSettings: GasSettings;
-};
-
-/** Fee options as set by a user. */
-export type UserFeeOptions = {
-  /** The fee payment method to use */
-  paymentMethod?: FeePaymentMethod;
-  /** The gas settings */
-  gasSettings?: Partial<FieldsOf<GasSettings>>;
-};
-
-/**  Fee options that can be set for simulation *only* */
-export type SimulationUserFeeOptions = UserFeeOptions & {
-  /** Whether to modify the fee settings of the simulation with high gas limit to figure out actual gas settings. */
-  estimateGas?: boolean;
-  /** Percentage to pad the estimated gas limits by, if empty, defaults to 0.1. Only relevant if estimateGas is set. */
-  estimatedGasPadding?: number;
-};

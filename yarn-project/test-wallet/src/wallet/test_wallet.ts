@@ -10,14 +10,13 @@ import {
   type IntentInnerHash,
   SetPublicAuthwitContractInteraction,
   SignerlessAccount,
-  type SimulateMethodOptions,
+  type SimulateOptions,
   getMessageHashFromIntent,
   lookupValidity,
 } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
-import type { ExecutionPayload } from '@aztec/entrypoints/payload';
+import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import type { PXE } from '@aztec/pxe/client/lazy';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstanceWithAddress, PartialAddress } from '@aztec/stdlib/contract';
@@ -117,11 +116,15 @@ export abstract class BaseTestWallet extends BaseWallet {
     // Use SchnorrAccountContract if not provided
     const contract = accountData?.contract ?? new SchnorrAccountContract(GrumpkinScalar.random());
 
-    const accountManager = await AccountManager.create(this, this.pxe, secret, contract, salt);
+    const accountManager = await AccountManager.create(this, secret, contract, salt);
 
-    await accountManager.register();
+    const instance = accountManager.getInstance();
+    const artifact = await contract.getContractArtifact();
 
-    this.accounts.set(accountManager.getAddress().toString(), await accountManager.getAccount());
+    await this.pxe.registerContract({ artifact, instance });
+    await this.pxe.registerAccount(secret, (await accountManager.getCompleteAddress()).partialAddress);
+
+    this.accounts.set(accountManager.address.toString(), await accountManager.getAccount());
 
     return accountManager;
   }
@@ -190,24 +193,29 @@ export abstract class BaseTestWallet extends BaseWallet {
     address: AztecAddress, // eslint-disable-next-line jsdoc/require-jsdoc
   ): Promise<{ account: Account; instance: ContractInstanceWithAddress; artifact: ContractArtifact }>;
 
-  override async simulateTx(
-    executionPayload: ExecutionPayload,
-    opts: SimulateMethodOptions,
-  ): Promise<TxSimulationResult> {
-    if (this.simulatedSimulations && opts.fee?.estimateGas) {
-      throw new Error(
-        'Simulated simulations potentially skews gas measurements, please disable this feature to estimate gas',
-      );
-    }
+  override async simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult> {
     if (!this.simulatedSimulations) {
       return super.simulateTx(executionPayload, opts);
     } else {
-      const executionOptions = { txNonce: Fr.random(), cancellable: false };
-      const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(opts.from);
       const feeOptions = opts.fee?.estimateGas
         ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
         : await this.getDefaultFeeOptions(opts.from, opts.fee);
-      const txRequest = await fromAccount.createTxExecutionRequest(executionPayload, feeOptions, executionOptions);
+      const feeExecutionPayload = await feeOptions.paymentMethod?.getExecutionPayload();
+      const executionOptions = {
+        txNonce: Fr.random(),
+        cancellable: this.cancellableTransactions,
+        isFeePayer: feeOptions.isFeePayer,
+        endSetup: feeOptions.endSetup,
+      };
+      const finalExecutionPayload = feeExecutionPayload
+        ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
+        : executionPayload;
+      const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(opts.from);
+      const txRequest = await fromAccount.createTxExecutionRequest(
+        finalExecutionPayload,
+        feeOptions.gasSettings,
+        executionOptions,
+      );
       const contractOverrides = {
         [opts.from.toString()]: { instance, artifact },
       };
@@ -242,15 +250,6 @@ export abstract class BaseTestWallet extends BaseWallet {
    */
   getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
     return this.pxe.getNotes(filter);
-  }
-
-  /**
-   * Returns the PXE.
-   * @deprecated This is only used by account manager to because there we call registerAccount. This can be dropped
-   * once we allow Wallet.registerContract accepts secretKey and partialAddress on the input.
-   */
-  getPxe(): PXE {
-    return this.pxe;
   }
 
   /**

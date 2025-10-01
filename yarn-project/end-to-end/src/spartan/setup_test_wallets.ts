@@ -1,9 +1,9 @@
 import { generateSchnorrAccounts } from '@aztec/accounts/testing';
 import {
-  type AztecAddress,
+  type AppConfigurableFeePaymentMethod,
+  AztecAddress,
   type AztecNode,
   FeeJuicePaymentMethodWithClaim,
-  type FeePaymentMethod,
   Fr,
   L1FeeJuicePortalManager,
   SponsoredFeePaymentMethod,
@@ -82,19 +82,21 @@ export async function deploySponsoredTestAccounts(
   await registerSponsoredFPC(wallet);
 
   const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
-  await recipientAccount.deploy({ fee: { paymentMethod } }).wait({ timeout: 2400 });
+  const recipientDeployMethod = await recipientAccount.getDeployMethod();
+  await recipientDeployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } }).wait({ timeout: 2400 });
   await Promise.all(
     fundedAccounts.map(async a => {
-      await a.deploy({ fee: { paymentMethod } }).wait({ timeout: 2400 }); // increase timeout on purpose in order to account for two empty epochs
-      logger.info(`Account deployed at ${a.getAddress()}`);
+      const deployMethod = await a.getDeployMethod();
+      await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } }).wait({ timeout: 2400 }); // increase timeout on purpose in order to account for two empty epochs
+      logger.info(`Account deployed at ${a.address}`);
     }),
   );
 
   const tokenAdmin = fundedAccounts[0];
   const tokenAddress = await deployTokenAndMint(
     wallet,
-    fundedAccounts.map(acc => acc.getAddress()),
-    tokenAdmin.getAddress(),
+    fundedAccounts.map(acc => acc.address),
+    tokenAdmin.address,
     mintAmount,
     new SponsoredFeePaymentMethod(await getSponsoredFPCAddress()),
     logger,
@@ -104,12 +106,12 @@ export async function deploySponsoredTestAccounts(
   return {
     aztecNode,
     wallet,
-    accounts: fundedAccounts.map(acc => acc.getAddress()),
-    tokenAdminAddress: tokenAdmin.getAddress(),
+    accounts: fundedAccounts.map(acc => acc.address),
+    tokenAdminAddress: tokenAdmin.address,
     tokenName: TOKEN_NAME,
     tokenAddress,
     tokenContract,
-    recipientAddress: recipientAccount.getAddress(),
+    recipientAddress: recipientAccount.address,
   };
 }
 
@@ -129,9 +131,7 @@ export async function deployTestAccountsWithTokens(
   const fundedAccounts = await Promise.all(funded.map(a => wallet.createSchnorrAccount(a.secret, a.salt)));
 
   const claims = await Promise.all(
-    fundedAccounts.map(a =>
-      bridgeL1FeeJuice(l1RpcUrls, mnemonicOrPrivateKey, aztecNode, a.getAddress(), undefined, logger),
-    ),
+    fundedAccounts.map(a => bridgeL1FeeJuice(l1RpcUrls, mnemonicOrPrivateKey, aztecNode, a.address, undefined, logger)),
   );
 
   // Progress by 3 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
@@ -141,17 +141,18 @@ export async function deployTestAccountsWithTokens(
 
   await Promise.all(
     fundedAccounts.map(async (a, i) => {
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(a.getAddress(), claims[i]);
-      await a.deploy({ fee: { paymentMethod } }).wait();
-      logger.info(`Account deployed at ${a.getAddress()}`);
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(a.address, claims[i]);
+      const deployMethod = await a.getDeployMethod();
+      await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } }).wait();
+      logger.info(`Account deployed at ${a.address}`);
     }),
   );
 
   const tokenAdmin = fundedAccounts[0];
   const tokenAddress = await deployTokenAndMint(
     wallet,
-    fundedAccounts.map(acc => acc.getAddress()),
-    tokenAdmin.getAddress(),
+    fundedAccounts.map(acc => acc.address),
+    tokenAdmin.address,
     mintAmount,
     undefined,
     logger,
@@ -161,12 +162,12 @@ export async function deployTestAccountsWithTokens(
   return {
     aztecNode,
     wallet,
-    accounts: fundedAccounts.map(acc => acc.getAddress()),
-    tokenAdminAddress: tokenAdmin.getAddress(),
+    accounts: fundedAccounts.map(acc => acc.address),
+    tokenAdminAddress: tokenAdmin.address,
     tokenName: TOKEN_NAME,
     tokenAddress,
     tokenContract,
-    recipientAddress: recipientAccount.getAddress(),
+    recipientAddress: recipientAccount.address,
   };
 }
 
@@ -214,7 +215,7 @@ async function deployTokenAndMint(
   accounts: AztecAddress[],
   admin: AztecAddress,
   mintAmount: bigint,
-  paymentMethod: FeePaymentMethod | undefined,
+  paymentMethod: AppConfigurableFeePaymentMethod | undefined,
   logger: Logger,
 ) {
   logger.verbose(`Deploying TokenContract...`);
@@ -256,7 +257,7 @@ export async function performTransfers({
   rounds: number;
   transferAmount: bigint;
   logger: Logger;
-  feePaymentMethod?: FeePaymentMethod;
+  feePaymentMethod?: AppConfigurableFeePaymentMethod;
 }) {
   const recipient = testAccounts.recipientAddress;
   // Default to sponsored fee payment if no fee method is provided
