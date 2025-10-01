@@ -89,17 +89,17 @@ bool PureMerkleDB::nullifier_exists_internal(std::optional<AztecAddress> contrac
     return present;
 }
 
-bool PureMerkleDB::nullifier_write(const AztecAddress& contract_address, const FF& nullifier)
+void PureMerkleDB::nullifier_write(const AztecAddress& contract_address, const FF& nullifier)
 {
-    return nullifier_write_internal(contract_address, nullifier);
+    nullifier_write_internal(contract_address, nullifier);
 }
 
-bool PureMerkleDB::siloed_nullifier_write(const FF& nullifier)
+void PureMerkleDB::siloed_nullifier_write(const FF& nullifier)
 {
-    return nullifier_write_internal(/*contract_address*/ std::nullopt, nullifier);
+    nullifier_write_internal(/*contract_address*/ std::nullopt, nullifier);
 }
 
-bool PureMerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_address, const FF& nullifier)
+void PureMerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_address, const FF& nullifier)
 {
     FF siloed_nullifier = nullifier;
     if (contract_address.has_value()) {
@@ -111,13 +111,12 @@ bool PureMerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract
     auto [present, low_leaf_index_] =
         raw_merkle_db.get_low_indexed_leaf(MerkleTreeId::NULLIFIER_TREE, siloed_nullifier);
 
-    // FIXME(fcarreiro): shouldn't we throw if present?
-    if (!present) {
-        raw_merkle_db.insert_indexed_leaves_nullifier_tree(siloed_nullifier);
-        tree_counters_stack.top().nullifier_counter++;
+    if (present) {
+        throw NullifierCollisionException(format("Nullifier ", nullifier, " already exists"));
     }
 
-    return !present;
+    raw_merkle_db.insert_indexed_leaves_nullifier_tree(siloed_nullifier);
+    tree_counters_stack.top().nullifier_counter++;
 }
 
 bool PureMerkleDB::note_hash_exists(uint64_t leaf_index, const FF& unique_note_hash) const

@@ -78,9 +78,9 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
 
     bool nullifier_exists(const AztecAddress& contract_address, const FF& nullifier) const override;
     bool siloed_nullifier_exists(const FF& nullifier) const override;
-    // Returns false if the nullifier already exists, performing a membership proof instead.
-    bool nullifier_write(const AztecAddress& contract_address, const FF& nullifier) override;
-    bool siloed_nullifier_write(const FF& nullifier) override;
+    // Throws if the nullifier already exists, but still performs a membership proof.
+    void nullifier_write(const AztecAddress& contract_address, const FF& nullifier) override;
+    void siloed_nullifier_write(const FF& nullifier) override;
 
     // Returns a unique note hash stored in the tree at leaf_index.
     bool note_hash_exists(uint64_t leaf_index, const FF& unique_note_hash) const override;
@@ -97,7 +97,7 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
 
   private:
     bool nullifier_exists_internal(std::optional<AztecAddress> contract_address, const FF& nullifier) const;
-    bool nullifier_write_internal(std::optional<AztecAddress> contract_address, const FF& nullifier);
+    void nullifier_write_internal(std::optional<AztecAddress> contract_address, const FF& nullifier);
 
     LowLevelMerkleDBInterface& raw_merkle_db;
     // TODO: when you have a merkle gadget, consider marking it "mutable" so that read can be const.

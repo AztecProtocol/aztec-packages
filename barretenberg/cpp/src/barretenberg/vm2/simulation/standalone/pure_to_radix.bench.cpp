@@ -10,7 +10,7 @@ using namespace bb::avm2;
 
 namespace {
 
-void VM_pure_to_radix(State& state)
+void BM_pure_to_radix(State& state)
 {
     PureToRadix pure_to_radix;
 
@@ -24,7 +24,7 @@ void VM_pure_to_radix(State& state)
     }
 }
 
-void VM_pure_to_bits(State& state)
+void BM_pure_to_bits(State& state)
 {
     PureToRadix pure_to_radix;
 
@@ -37,7 +37,7 @@ void VM_pure_to_bits(State& state)
     }
 }
 
-void VM_pure_to_radix_memory(State& state)
+void BM_pure_to_radix_memory(State& state)
 {
     PureToRadix pure_to_radix;
 
@@ -56,9 +56,9 @@ void VM_pure_to_radix_memory(State& state)
     }
 }
 
-BENCHMARK(VM_pure_to_radix)->Ranges({ { 2, 256 }, { 2, 256 } })->Unit(benchmark::kMillisecond);
-BENCHMARK(VM_pure_to_bits)->Ranges({ { 2, 256 } })->Unit(benchmark::kMillisecond);
-BENCHMARK(VM_pure_to_radix_memory)->Ranges({ { 2, 256 }, { 2, 256 } })->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_pure_to_radix)->Ranges({ { 2, 256 }, { 2, 256 } })->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_pure_to_bits)->Ranges({ { 2, 256 } })->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_pure_to_radix_memory)->Ranges({ { 2, 256 }, { 2, 256 } })->Unit(benchmark::kMillisecond);
 
 } // namespace
 
