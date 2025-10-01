@@ -21,18 +21,26 @@ Let's dive in!
 
 ## The Anatomy of an Aztec Contract
 
+### The Aztec Macro
+
+Above any contract you write, you must first include the `#[aztec]` procedural macro attribute. If you are familiar with Rust, this will make sense but otherwise, a procedural macro is a program that takes code as input, processes it and output new/modified code during compilation time. An attribute, donated with the `#[...]` syntax, signals to the compiler "do something special with this code".
+
+The top-line of what this line is doing taking your Noir code and transforming it into a Aztec-compatible contract.
+
 ### The Contract Keyword
 
 Every Aztec smart contract starts with the `contract` keyword. This is similar to how Solidity contracts use `contract` or Rust programs use `mod`, but with some Aztec-specific magic happening behind the scenes.
 
 ```rust
+use aztec::macros::aztec;
+
 #[aztec]
 contract MyFirstContract {
     // Your contract code goes here
 }
 ```
 
-Notice the naming convention - we use `PascalCase` for contract names. This isn't just style; it's the Aztec way!
+Notice the naming convention: we use `PascalCase` for contract names. This isn't just style; it's the Aztec way!
 
 ### Basic Contract Structure
 
@@ -70,6 +78,12 @@ contract TodoList {
 }
 ```
 
+As you can see, Aztec smart contracts should follow this structure:
+1. Imports
+2. Storage declarations
+3. Custom types (e.g. custom private data structures AKA notes)
+4. Functions
+
 Let's break down each section:
 
 ## 1. Imports: Bringing in Dependencies
@@ -82,11 +96,11 @@ use aztec::{
 };
 ```
 
-## Storage
+## 2. Storage
 
 ### Understanding Storage in Aztec
 
-Here's where Aztec gets interesting! Unlike Ethereum where all storage is public, Aztec gives you choices:
+Unlike Ethereum where all storage is public, Aztec gives you choices:
 
 ```rust
 #[storage]
@@ -109,7 +123,7 @@ The `#[storage]` attribute is doing a lot of work behind the scenes:
 - It injects the context needed for state operations
 - It generates initialization functions
 
-When you define storage, you're essentially defining the persistent state of your contract - the data that survives between function calls.
+When you define storage, you're essentially defining the persistent state of your contract, the data that survives between function calls.
 
 ### Storage Types
 
@@ -129,11 +143,11 @@ We'll explore these in detail in the next section, but for now, just know that y
 
 ### Function Types and Attributes
 
-Aztec functions come in different flavors, each with its own features. Let's explore them:
+There are different types of Aztec functions. Let's explore them:
 
 ### Private Functions (`#[private]`)
 
-Private functions are the heart of Aztec's privacy model. They execute on the user's device, keeping sensitive data local:
+Private functions are the crux of Aztec's privacy model. They execute on the user's device, keeping sensitive data local:
 
 ```rust
 #[private]
@@ -144,7 +158,7 @@ fn increment_counter(to: AztecAddress) {
 }
 ```
 
-Why is this powerful? The counter changes, and even who you're sending to remain private. The network only knows that a valid transaction occurred!
+The counter's value, and even who you're sending to remain private. The network only knows that a valid transaction occurred!
 
 ### Public Functions (`#[public]`)
 
@@ -178,7 +192,7 @@ The `#[view]` attribute guarantees this function won't modify any state - perfec
 
 ### Utility Functions (`#[utility]`)
 
-Utility functions are special - they help you query state from your local PXE (Private eXecution Environment) without creating a transaction:
+Utility functions help you query state from your local PXE (Private eXecution Environment) without creating a transaction:
 
 ```rust
 #[utility]
@@ -189,7 +203,7 @@ fn balance_of_private(owner: AztecAddress) -> Field {
 }
 ```
 
-Think of utility functions as your contract's API for reading data - they're perfect for UIs and testing!
+Think of utility functions as your contract's API for reading private data - they're perfect for UIs and testing!
 
 ### Initializer Functions (`#[initializer]`)
 
@@ -211,7 +225,7 @@ Key points about initializers:
 
 ### Internal Functions (`#[internal]`)
 
-Sometimes you want a function that only your contract can call:
+Sometimes you want a function that **only your contract can call**:
 
 ```rust
 #[internal]
@@ -230,7 +244,7 @@ This essentially asserts that the `msg_sender` is the contract itself, so this i
 
 Notes are fundamental to Aztec's privacy model. Think of them as private pieces of data that only specific people can see:
 
-For example, if you want to store a value in private state, you can use the `ValueNote` type (from the `Aztec.nr` package):
+For example, if you want to store a value in private state, you can use the [`ValueNote`](https://github.com/AztecProtocol/aztec-packages/tree/next/noir-projects/aztec-nr/value-note) type (from the `Aztec.nr` package):
 
 ```rust
 #[note]
@@ -244,10 +258,8 @@ pub struct ValueNote {
 The `#[note]` attribute automatically generates:
 
 - Serialization/deserialization methods
-- Note hash computation
-- Nullifier computation (for spending/destroying notes)
-
-Don't worry if this seems abstract now - we'll dive deep into notes in the privacy section!
+- Note commitment (hash) computation
+- Nullifier computation (for marking notes as used)
 
 ## Understanding the Execution Context
 
@@ -270,9 +282,31 @@ fn check_caller() {
 The context provides:
 
 - **Caller information** - Who initiated this transaction?
+
+```rust
+let caller = context.msg_sender();
+```
+
 - **Block data** - Current block number, timestamp
+
+```rust
+let block_num = context.block_number();
+let block_timestamp = context.block_timestamp();
+```
+
 - **Chain information** - Which network are we on?
+
+```rust
+let chain_id = context.chain_id();
+```
+
 - **Transaction details** - Gas prices, limits
+
+```rust
+let gas_price = context.base_fee_per_l2_gas()
+```
+
+[TODO] wait what? Wdym its unified API but different info i conf¨sed af? AKA like the resturned info is different?
 
 The context differs between private and public functions, but the API is unified - making it easy to work with both! Note that there is different information in the context for private and public functions.
 
@@ -339,7 +373,7 @@ fn update_state(new_value: Field) {
 Now that you understand contract structure, let's practice:
 
 1. **Create a simple contract** with both private and public functions
-2. **Add storage** with both public and private state
+2. **Add storage variables** both public and private
 3. **Define a custom note type** for your use case
 4. **Write an initializer** that sets up initial state
 
@@ -347,24 +381,21 @@ Now that you understand contract structure, let's practice:
 
 ### Mixing Private and Public State Incorrectly
 
-Remember: Private functions can't directly modify public state. They need to enqueue public function calls.
+Remember: **Private functions can't directly modify public state**. They need to _enqueue_ public function calls.
 
 ## Key Takeaways
 
 - **Contract structure** in Aztec follows a clear pattern: imports → storage → types → functions
-- **Function attributes** (`#[private]`, `#[public]`, etc.) control where and how functions execute
-- **Storage** can be public or private, giving you fine-grained control over data visibility
+- **Function attributes** (`#[private]`, `#[public]`, etc.) control _where_ and _how_ functions execute
+- **Storage** can be _public_ or _private_, giving you fine-grained control over data visibility
 - **The context object** is your window into the execution environment
 - **Notes** are the building blocks of privacy in Aztec
 
-You've just learned the fundamental structure of Aztec smart contracts! This foundation will serve you throughout your Aztec journey. In the next section, we'll dive deeper into state management and explore how public and private storage really work.
+You've just learned the fundamental structure of Aztec smart contracts!
 
 ## What's Next?
 
 Now that you understand contract structure, you're ready to explore:
 
 - **State Management** - Deep dive into storage types and patterns
-- **Privacy Concepts** - Understanding notes, nullifiers, and commitments
 - **Contract Interactions** - How contracts talk to each other
-
-Remember, every expert was once a beginner. You're doing great - keep experimenting and building!
