@@ -70,8 +70,8 @@ TEST(ToRadixConstrainingTest, ToLeBitsBasicTest)
     EXPECT_EQ(bits.size(), 254);
     EXPECT_FALSE(truncated);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder builder;
@@ -94,8 +94,8 @@ TEST(ToRadixConstrainingTest, ToLeBitsPMinusOne)
     EXPECT_EQ(bits.size(), 254);
     EXPECT_FALSE(truncated);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder builder;
@@ -118,8 +118,8 @@ TEST(ToRadixConstrainingTest, ToLeBitsShortest)
     EXPECT_EQ(bits.size(), 1);
     EXPECT_FALSE(truncated);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder builder;
@@ -142,8 +142,8 @@ TEST(ToRadixConstrainingTest, ToLeBitsPadded)
     EXPECT_EQ(bits.size(), 500);
     EXPECT_FALSE(truncated);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder builder;
@@ -170,8 +170,8 @@ TEST(ToRadixConstrainingTest, ToLeRadixBasic)
     EXPECT_EQ(bytes, expected_bytes);
     EXPECT_FALSE(truncated);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder builder;
@@ -198,8 +198,8 @@ TEST(ToRadixConstrainingTest, ToLeRadixPMinusOne)
     EXPECT_EQ(bytes, expected_bytes);
     EXPECT_FALSE(truncated);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder builder;
@@ -223,8 +223,8 @@ TEST(ToRadixConstrainingTest, ToLeRadixOneByte)
     EXPECT_EQ(bytes, expected_bytes);
     EXPECT_FALSE(truncated);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder builder;
@@ -252,8 +252,8 @@ TEST(ToRadixConstrainingTest, ToLeRadixPadded)
     EXPECT_EQ(bytes, expected_bytes);
     EXPECT_FALSE(truncated);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder builder;
@@ -273,8 +273,8 @@ TEST(ToRadixConstrainingTest, ToLeBitsInteractions)
 
     to_radix_simulator.to_le_bits(FF::neg_one(), 254);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder to_radix_builder;
@@ -306,8 +306,8 @@ TEST(ToRadixConstrainingTest, ToLeRadixInteractions)
 
     to_radix_simulator.to_le_radix(FF::neg_one(), 32, 256);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder to_radix_builder;
@@ -331,8 +331,8 @@ TEST(ToRadixConstrainingTest, ToLeRadixInteractions)
 
 TEST(ToRadixConstrainingTest, NegativeOverflowCheck)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     std::vector<uint8_t> modulus_le_bits(256, 0);
@@ -360,8 +360,8 @@ TEST(ToRadixConstrainingTest, NegativeConsistency)
 
     to_radix_simulator.to_le_radix(FF(256), 32, 256);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder builder;

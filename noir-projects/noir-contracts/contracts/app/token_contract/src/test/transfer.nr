@@ -7,11 +7,9 @@ unconstrained fn transfer_private() {
     let (env, token_contract_address, owner, recipient, mint_amount) =
         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
 
-    // docs:start:txe_test_transfer_private
     // Transfer tokens
     let transfer_amount = 1000 as u128;
     env.call_private(owner, Token::at(token_contract_address).transfer(recipient, transfer_amount));
-    // docs:end:txe_test_transfer_private
     // Check balances
     utils::check_private_balance(
         env,

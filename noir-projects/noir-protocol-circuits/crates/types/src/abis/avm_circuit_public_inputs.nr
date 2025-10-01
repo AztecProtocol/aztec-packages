@@ -60,7 +60,7 @@ use crate::{
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
-        AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACT_TREE_ROOT,
+        AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACT_TREE_ROOT, AVM_PUBLIC_INPUTS_PROVER_ID_ROW_IDX,
         AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX,
@@ -93,6 +93,7 @@ pub struct AvmCircuitPublicInputs {
     pub gas_settings: GasSettings,
     pub effective_gas_fees: GasFees,
     pub fee_payer: AztecAddress,
+    pub prover_id: Field,
     pub public_call_request_array_lengths: PublicCallRequestArrayLengths,
     pub public_setup_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
     pub public_app_logic_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
@@ -123,6 +124,7 @@ impl Empty for AvmCircuitPublicInputs {
             gas_settings: GasSettings::empty(),
             effective_gas_fees: GasFees::empty(),
             fee_payer: AztecAddress::zero(),
+            prover_id: 0,
             public_call_request_array_lengths: PublicCallRequestArrayLengths::empty(),
             public_setup_call_requests: [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
             public_app_logic_call_requests: [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
@@ -335,6 +337,9 @@ impl AvmCircuitPublicInputs {
 
         // Fee payer
         cols[0][AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX] = self.fee_payer.to_field();
+
+        // Prover id
+        cols[0][AVM_PUBLIC_INPUTS_PROVER_ID_ROW_IDX] = self.prover_id;
 
         // Setup, app logic, and teardown call request array lengths
         cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX] =

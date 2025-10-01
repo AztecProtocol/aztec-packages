@@ -270,7 +270,6 @@ pub contract TokenBlacklist {
         storage.balances.balance_of(owner).to_field()
     }
 
-    // docs:start:deliver_note_contract_method
     // We cannot replace this function with the standard `process_message` function because the transparent note
     // originates in public and hence we cannot emit it as an offchain message. We could construct the offchain message
     // "manually" and then pass it to the `process_message` function, but this doesn't seem to be worth the effort
@@ -285,8 +284,6 @@ pub contract TokenBlacklist {
         first_nullifier_in_tx: Field,
         recipient: AztecAddress,
     ) {
-        // docs:end:deliver_note_contract_method
-
         let note = TransparentNote::new(amount, secret_hash);
         let storage_slot = TokenBlacklist::storage_layout().pending_shields.slot;
         let note_type_id = TransparentNote::get_id();

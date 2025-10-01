@@ -8,7 +8,6 @@ pub trait OwnedNote {
     fn new(amount: u128, owner: AztecAddress) -> Self;
     fn get_amount(self) -> u128;
 }
-// docs:start:TokenNote
 #[derive(Eq, Packable)]
 #[note]
 pub struct TokenNote {
@@ -19,7 +18,6 @@ pub struct TokenNote {
     // Randomness of the note to protect against note hash preimage attacks
     randomness: Field,
 }
-// docs:end:TokenNote
 
 impl OwnedNote for TokenNote {
     fn new(amount: u128, owner: AztecAddress) -> Self {

@@ -1,6 +1,6 @@
 import { type InitialAccountData, getInitialTestAccountsData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { EthAddress, Fr, generateClaimSecret, retryUntil, sleep } from '@aztec/aztec.js';
+import { AztecAddress, EthAddress, Fr, generateClaimSecret, retryUntil, sleep } from '@aztec/aztec.js';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { createBlobSinkServer } from '@aztec/blob-sink/server';
 import {
@@ -239,9 +239,14 @@ describe('e2e_p2p_add_rollup', () => {
       // We are doing some of the things that are in the crosschain harness, but we don't actually want the full thing
       const wallet = await TestWallet.create(node, { ...getPXEConfig(), proverEnabled: false }, { useLogSuffix: true });
       const aliceAccountManager = await wallet.createSchnorrAccount(aliceAccount.secret, aliceAccount.salt);
-      await aliceAccountManager.deploy().wait();
+      const aliceDeploymethod = await aliceAccountManager.getDeployMethod();
+      await aliceDeploymethod
+        .send({
+          from: AztecAddress.ZERO,
+        })
+        .wait();
 
-      const aliceAddress = aliceAccountManager.getAddress();
+      const aliceAddress = aliceAccountManager.address;
 
       const testContract = await TestContract.deploy(wallet).send({ from: aliceAddress }).deployed();
 

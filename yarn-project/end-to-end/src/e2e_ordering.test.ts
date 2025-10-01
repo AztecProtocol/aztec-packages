@@ -21,14 +21,12 @@ describe('e2e_ordering', () => {
   let teardown: () => Promise<void>;
 
   const expectLogsFromLastBlockToBe = async (logMessages: bigint[]) => {
-    // docs:start:get_logs
     const fromBlock = await aztecNode.getBlockNumber();
     const logFilter = {
       fromBlock,
       toBlock: fromBlock + 1,
     };
     const publicLogs = (await aztecNode.getPublicLogs(logFilter)).logs;
-    // docs:end:get_logs
 
     const bigintLogs = publicLogs.map(extendedLog => toBigIntBE(serializeToBuffer(extendedLog.log.getEmittedFields())));
 

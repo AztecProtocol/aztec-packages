@@ -7,6 +7,14 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2AmountClaim } from '../ethereum/portal_manager.js';
 import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
 
+/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
+
+/** AppConfigurableFeePaymentMethod branding */
+export interface FeeJuicePaymentMethodWithClaim {
+  /** Brand. */
+  _branding: 'AppConfigurableFeePaymentMethod';
+}
+
 /**
  * Pay fee directly with Fee Juice claimed on the same tx.
  */
@@ -23,13 +31,13 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
    * @returns An execution payload that just contains the claim function call.
    */
   override async getExecutionPayload(): Promise<ExecutionPayload> {
-    const selector = await FunctionSelector.fromSignature('claim((Field),u128,Field,Field)');
+    const selector = await FunctionSelector.fromSignature('claim_and_end_setup((Field),u128,Field,Field)');
 
     return new ExecutionPayload(
       [
         {
           to: ProtocolContractAddress.FeeJuice,
-          name: 'claim',
+          name: 'claim_and_end_setup',
           selector,
           isStatic: false,
           args: [

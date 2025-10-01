@@ -76,6 +76,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
     calldata: Fr[],
     allocatedGas: Gas,
     clientInitiatedSimulation: boolean = false,
+    maxDebugLogMemoryReads?: number,
   ) {
     const avmExecutionEnv = new AvmExecutionEnvironment(
       address,
@@ -86,6 +87,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
       isStaticCall,
       calldata,
       clientInitiatedSimulation,
+      maxDebugLogMemoryReads,
     );
 
     const avmMachineState = new AvmMachineState(allocatedGas);

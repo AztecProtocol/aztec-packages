@@ -20,25 +20,44 @@ void calldataImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
         auto tmp =
+            static_cast<View>(in.get(C::calldata_latch)) * (FF(1) - static_cast<View>(in.get(C::calldata_latch)));
+        std::get<0>(evals) += (tmp * scaling_factor);
+    }
+    { // SEL_TOGGLED_AT_LATCH
+        using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::calldata_latch)) * (FF(1) - static_cast<View>(in.get(C::calldata_sel)));
+        std::get<1>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
+        auto tmp =
             static_cast<View>(in.get(C::calldata_sel)) * (FF(1) - CView(calldata_FIRST_OR_LAST_CALLDATA)) *
             ((static_cast<View>(in.get(C::calldata_index_shift)) - static_cast<View>(in.get(C::calldata_index))) -
              FF(1));
-        std::get<0>(evals) += (tmp * scaling_factor);
+        std::get<2>(evals) += (tmp * scaling_factor);
     }
     { // TRACE_CONTINUITY
-        using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - static_cast<View>(in.get(C::precomputed_first_row))) *
                    (FF(1) - static_cast<View>(in.get(C::calldata_sel))) *
                    static_cast<View>(in.get(C::calldata_sel_shift));
-        std::get<1>(evals) += (tmp * scaling_factor);
+        std::get<3>(evals) += (tmp * scaling_factor);
     }
     { // CONTEXT_ID_CONTINUITY
-        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - static_cast<View>(in.get(C::precomputed_first_row))) *
-                   static_cast<View>(in.get(C::calldata_sel)) * (FF(1) - static_cast<View>(in.get(C::calldata_latch))) *
+        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - CView(calldata_FIRST_OR_LAST_CALLDATA)) *
                    (static_cast<View>(in.get(C::calldata_context_id)) -
                     static_cast<View>(in.get(C::calldata_context_id_shift)));
-        std::get<2>(evals) += (tmp * scaling_factor);
+        std::get<4>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::calldata_diff_context_id)) -
+                    static_cast<View>(in.get(C::calldata_latch)) * static_cast<View>(in.get(C::calldata_sel_shift)) *
+                        ((static_cast<View>(in.get(C::calldata_context_id_shift)) -
+                          static_cast<View>(in.get(C::calldata_context_id))) -
+                         FF(1)));
+        std::get<5>(evals) += (tmp * scaling_factor);
     }
 }
 

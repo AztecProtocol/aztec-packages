@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, SentTx, TxReceipt, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, Fr, SentTx, TxReceipt } from '@aztec/aztec.js';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -18,7 +18,7 @@ type Balances = { token0: bigint; token1: bigint };
 export class AmmBot extends BaseBot {
   protected constructor(
     node: AztecNode,
-    wallet: Wallet,
+    wallet: TestWallet,
     defaultAccountAddress: AztecAddress,
     public readonly amm: AMMContract,
     public readonly token0: TokenContract,

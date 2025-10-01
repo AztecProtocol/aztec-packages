@@ -2,7 +2,7 @@ mod child_proof_vk_tests;
 mod end_blob_sponge_tests;
 mod out_hash_tests;
 mod validate_private_tail_to_public_tests;
-mod validate_private_tail_against_avm_tests;
+mod validate_public_tube_against_avm_tests;
 
 use crate::{
     abis::{PublicTubePublicInputs, TxRollupPublicInputs},
@@ -39,8 +39,11 @@ struct TestBuilder {
 
 impl TestBuilder {
     pub fn new() -> Self {
+        let prover_id = 42;
         // --- Build things at tx level ---
         let mut builder = FixtureBuilder::new();
+
+        builder.prover_id = prover_id;
 
         builder.gas_used.l2_gas = 111;
         builder.start_gas_used.l2_gas = builder.gas_used.l2_gas;
@@ -68,6 +71,7 @@ impl TestBuilder {
         // --- Build things at rollup level ---
 
         let rollup_fixture_builder = RollupFixtureBuilder::new();
+
         let block_number = rollup_fixture_builder.start_block_number;
 
         let start_sponge_blob = rollup_fixture_builder.get_sponge_blob(block_number);
@@ -84,14 +88,14 @@ impl TestBuilder {
         TestBuilder {
             private_tail,
             public_tube_vk_index: PUBLIC_TUBE_VK_INDEX,
-            public_tube_prover_id: rollup_fixture_builder.prover_id,
+            public_tube_prover_id: prover_id,
             avm,
             avm_vk_index: AVM_VK_INDEX,
             start_sponge_blob,
             last_archive,
             anchor_block_archive_sibling_path,
             contract_class_log_fields,
-            prover_id: rollup_fixture_builder.prover_id,
+            prover_id,
         }
     }
 

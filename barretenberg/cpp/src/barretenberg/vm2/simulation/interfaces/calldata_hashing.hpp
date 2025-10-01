@@ -17,7 +17,7 @@ class CalldataHashingInterface {
 class CalldataHashingProviderInterface {
   public:
     virtual ~CalldataHashingProviderInterface() = default;
-    virtual std::unique_ptr<CalldataHashingInterface> make_cd_hasher(uint32_t context_id) = 0;
+    virtual std::unique_ptr<CalldataHashingInterface> make_calldata_hasher(uint32_t context_id) = 0;
 };
 
 } // namespace bb::avm2::simulation

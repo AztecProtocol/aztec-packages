@@ -1,9 +1,10 @@
-import type { EntrypointInterface, FeeOptions, TxExecutionOptions } from '@aztec/entrypoints/interfaces';
+import type { EntrypointInterface, TxExecutionOptions } from '@aztec/entrypoints/interfaces';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { Fr } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
+import type { GasSettings } from '@aztec/stdlib/gas';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import type { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
@@ -18,11 +19,11 @@ export class SignerlessAccount implements Account {
   constructor(private entrypoint: EntrypointInterface) {}
 
   createTxExecutionRequest(
-    execution: ExecutionPayload,
-    feeOptions: FeeOptions,
+    exec: ExecutionPayload,
+    gasSettings: GasSettings,
     options: TxExecutionOptions,
   ): Promise<TxExecutionRequest> {
-    return this.entrypoint.createTxExecutionRequest(execution, feeOptions, options);
+    return this.entrypoint.createTxExecutionRequest(exec, gasSettings, options);
   }
 
   getChainId(): Fr {

@@ -331,6 +331,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(gates);
     add_bytecode_path_option(gates);
     add_include_gates_per_opcode_flag(gates);
+    add_oracle_hash_option(gates);
+    add_ipa_accumulation_flag(gates);
 
     /***************************************************************************************************************
      * Subcommand: prove

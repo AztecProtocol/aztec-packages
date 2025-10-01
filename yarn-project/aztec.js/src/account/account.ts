@@ -1,7 +1,8 @@
-import type { FeeOptions, TxExecutionOptions } from '@aztec/entrypoints/interfaces';
+import type { TxExecutionOptions } from '@aztec/entrypoints/interfaces';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
+import type { GasSettings } from '@aztec/stdlib/gas';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { type CallIntent, type IntentInnerHash, computeAuthWitMessageHash } from '../utils/authwit.js';
@@ -35,10 +36,10 @@ export class BaseAccount implements Account {
 
   createTxExecutionRequest(
     exec: ExecutionPayload,
-    feeOptions: FeeOptions,
+    gasSettings: GasSettings,
     options: TxExecutionOptions,
   ): Promise<TxExecutionRequest> {
-    return this.account.createTxExecutionRequest(exec, feeOptions, options);
+    return this.account.createTxExecutionRequest(exec, gasSettings, options);
   }
 
   getChainId(): Fr {
