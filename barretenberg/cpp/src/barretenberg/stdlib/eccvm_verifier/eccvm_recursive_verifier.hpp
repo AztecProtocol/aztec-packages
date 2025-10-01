@@ -22,7 +22,7 @@ class ECCVMRecursiveVerifier {
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
     using Builder = Flavor::CircuitBuilder;
     using PCS = Flavor::PCS;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
     using VerifierCommitments = Flavor::VerifierCommitments;
     using StdlibPreIpaProof = bb::stdlib::Proof<Builder>;
     using StdlibIpaProof = bb::stdlib::Proof<Builder>;

@@ -60,7 +60,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
     using PairingObject = PairingPoints<Builder>;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
     using OinkVerifier = OinkRecursiveVerifier_<Flavor>;
     using Output = UltraRecursiveVerifierOutput<Builder>;
     using StdlibProof = stdlib::Proof<Builder>;

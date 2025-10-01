@@ -476,7 +476,7 @@ template <typename DataType_, typename HashFunction> class BaseTranscript {
     template <class T> void send_to_verifier(const std::string& label, const T& element)
     {
         DEBUG_LOG(label, element);
-        auto element_frs = Codec::serialize(element);
+        auto element_frs = Codec::serialize_to_fields(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
         num_frs_written += element_frs.size();
 
@@ -497,7 +497,7 @@ template <typename DataType_, typename HashFunction> class BaseTranscript {
      */
     template <class T> T receive_from_prover(const std::string& label)
     {
-        const size_t element_size = Codec::template calc_num_data_types<T>();
+        const size_t element_size = Codec::template calc_num_fields<T>();
         BB_ASSERT_LTE(num_frs_read + element_size, proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);

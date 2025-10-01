@@ -39,7 +39,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using NativeFr = typename Curve::NativeCurve::ScalarField;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
     using MockClaimGen = MockClaimGenerator<NativeCurve>;

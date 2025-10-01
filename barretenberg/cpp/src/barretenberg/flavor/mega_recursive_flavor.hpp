@@ -141,7 +141,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
          */
         VerificationKey(std::span<FF> elements)
         {
-            using Codec = stdlib::StdlibCodec<CircuitBuilder>;
+            using Codec = stdlib::StdlibCodec<FF>;
             size_t num_frs_read = 0;
 
             this->log_circuit_size = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);

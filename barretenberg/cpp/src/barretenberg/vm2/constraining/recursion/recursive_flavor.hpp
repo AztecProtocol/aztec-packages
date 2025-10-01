@@ -21,7 +21,7 @@ class AvmRecursiveFlavor {
 
     using NativeFlavor = avm2::AvmFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
-    using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
+    using Transcript = StdlibTranscript<CircuitBuilder>;
 
     // Native one is used!
     using VerifierCommitmentKey = NativeFlavor::VerifierCommitmentKey;
@@ -78,7 +78,7 @@ class AvmRecursiveFlavor {
          */
         VerificationKey(std::span<const FF> elements)
         {
-            using Codec = stdlib::StdlibCodec<CircuitBuilder>;
+            using Codec = stdlib::StdlibCodec<FF>;
 
             size_t num_frs_read = 0;
             size_t num_frs_Comm = Codec::template calc_num_bn254_frs<Commitment>();

@@ -89,7 +89,7 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
          */
         VerificationKey(std::span<FF> elements)
         {
-            using Codec = stdlib::StdlibCodec<CircuitBuilder>;
+            using Codec = stdlib::StdlibCodec<FF>;
 
             size_t num_frs_read = 0;
 

@@ -115,7 +115,7 @@ TYPED_TEST(ShplonkRecursionTest, LinearlyDependent)
     using GroupElement = Curve::Element;
     using Commitment = typename Curve::AffineElement;
     using OpeningClaim = OpeningClaim<Curve>;
-    using Transcript = bb::BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
     using StdlibProof = stdlib::Proof<Builder>;
 
     // Prover transcript

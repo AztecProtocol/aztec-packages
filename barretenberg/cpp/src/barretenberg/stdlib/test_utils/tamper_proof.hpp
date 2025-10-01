@@ -122,9 +122,9 @@ void tamper_with_proof(ProofType& inner_proof, bool end_of_proof)
         size_t offset = inner_proof.size() - num_frs_comm;
 
         auto element_frs = std::span{ inner_proof }.subspan(offset, num_frs_comm);
-        auto last_commitment = NativeTranscriptParams::template deserialize<Commitment>(element_frs);
+        auto last_commitment = NativeTranscript::template deserialize<Commitment>(element_frs);
         last_commitment = last_commitment * FF(2);
-        auto last_commitment_reserialized = bb::NativeTranscriptParams::serialize(last_commitment);
+        auto last_commitment_reserialized = NativeTranscript::serialize(last_commitment);
         std::copy(last_commitment_reserialized.begin(),
                   last_commitment_reserialized.end(),
                   inner_proof.begin() + static_cast<std::ptrdiff_t>(offset));

@@ -60,9 +60,9 @@ class UltraZKFlavor : public UltraFlavor {
      * functions.
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/1355): Deduplicate zk flavor transcripts.
      */
-    template <typename Params> class Transcript_ : public UltraFlavor::Transcript_<Params> {
+    class Transcript_ : public UltraFlavor::Transcript {
       public:
-        using Base = UltraFlavor::Transcript_<Params>::Base;
+        using Base = UltraFlavor::Transcript::Base;
         // Note: we have a different vector of univariates because the degree for ZK flavors differs
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> zk_sumcheck_univariates;
         Commitment libra_concatenation_commitment;
@@ -197,6 +197,6 @@ class UltraZKFlavor : public UltraFlavor {
             BB_ASSERT_EQ(proof_data.size(), old_proof_length);
         }
     };
-    using Transcript = Transcript_<NativeTranscriptParams>;
+    using Transcript = Transcript_;
 };
 } // namespace bb

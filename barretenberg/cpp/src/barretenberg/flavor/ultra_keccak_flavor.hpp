@@ -32,7 +32,7 @@ namespace bb {
 
 class UltraKeccakFlavor : public bb::UltraFlavor {
   public:
-    using Transcript = KeccakTranscript;
+    using Transcript = UltraKeccakFlavor::Transcript_<uint256_t, Keccak>;
 
     static constexpr bool USE_PADDING = false;
 

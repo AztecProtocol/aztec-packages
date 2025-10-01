@@ -51,11 +51,11 @@ class GoblinRecursiveVerifierTests : public testing::Test {
 
         // Extract `op` fields and convert them to a Commitment object
         auto element_frs = std::span{ translator_proof }.subspan(offset, comm_frs);
-        auto op_commitment = NativeTranscriptParams::template deserialize<Commitment>(element_frs);
+        auto op_commitment = NativeTranscript::template deserialize<Commitment>(element_frs);
         // Modify the commitment
         op_commitment = op_commitment * FF(2);
         // Serialize the tampered commitment into the proof (overwriting the valid one).
-        auto op_commitment_reserialized = bb::NativeTranscriptParams::serialize(op_commitment);
+        auto op_commitment_reserialized = NativeTranscript::serialize(op_commitment);
         std::copy(op_commitment_reserialized.begin(),
                   op_commitment_reserialized.end(),
                   translator_proof.begin() + static_cast<std::ptrdiff_t>(offset));

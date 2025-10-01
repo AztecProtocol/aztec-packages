@@ -26,7 +26,7 @@ class GoblinRecursiveVerifier {
     // Goblin Recursive Verifier circuit is using Ultra arithmetisation
     using Builder = UltraCircuitBuilder;
     using MergeVerifier = goblin::MergeRecursiveVerifier_<Builder>;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = UltraStdlibTranscript;
 
     using TranslatorFlavor = TranslatorRecursiveFlavor;
     using TranslatorVerifier = TranslatorRecursiveVerifier;

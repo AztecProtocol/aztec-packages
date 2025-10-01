@@ -22,7 +22,7 @@ template <class VerifierInstance> class ProtogalaxyRecursiveVerifier_ {
     using VerifierInstances = std::array<std::shared_ptr<VerifierInstance>, NUM_INSTANCES>;
 
     using Builder = typename Flavor::CircuitBuilder;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
 
     static constexpr size_t EXTENDED_LENGTH = computed_extended_length<Flavor>();
     static constexpr size_t BATCHED_EXTENDED_LENGTH = computed_batched_extended_length<Flavor>();

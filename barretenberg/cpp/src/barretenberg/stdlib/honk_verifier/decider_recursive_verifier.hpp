@@ -24,7 +24,7 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
     using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
     using RecursiveVerifierInstance = RecursiveVerifierInstance_<Flavor>;
     using NativeVerifierInstance = bb::VerifierInstance_<NativeFlavor>;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
     using StdlibProof = bb::stdlib::Proof<Builder>;
 
   public:
