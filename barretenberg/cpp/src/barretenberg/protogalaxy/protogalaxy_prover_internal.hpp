@@ -210,8 +210,6 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
                     const RelationEvaluations evals =
                         RelationUtils::accumulate_relation_evaluations(row, relation_parameters, FF(1));
 
-                    info(aggregated_relation_evaluations[0]);
-
                     // Sum against challenges alpha
                     aggregated_relation_evaluations.at(idx) = process_subrelation_evaluations(
                         evals, alphas, linearly_dependent_contribution_accumulators[thread_idx]);

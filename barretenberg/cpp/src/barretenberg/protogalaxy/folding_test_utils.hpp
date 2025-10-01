@@ -14,14 +14,13 @@
 namespace bb {
 
 /**
- * @brief Utility to manually compute the target sum of an accumulator and compare it to the one produced in Protogalxy
- * to attest correctness.
+ * @brief Utility to manually compute the target sum of an accumulator.
  *
  * @details As we create a ProtogalaxyProverInternal object with an empty execution trace tracker and no active_ranges
  * set, compute_row_evaluations will operate on all rows.
  */
 template <typename Flavor>
-static bool check_accumulator_target_sum_manual(const std::shared_ptr<ProverInstance_<Flavor>>& accumulator)
+static Flavor::FF compute_accumulator_target_sum_manual(const std::shared_ptr<ProverInstance_<Flavor>>& accumulator)
 {
     using PGInternal = ProtogalaxyProverInternal<ProverInstance_<Flavor>>;
 
@@ -35,13 +34,18 @@ static bool check_accumulator_target_sum_manual(const std::shared_ptr<ProverInst
     // Compute the corresponding target sum and create a dummy accumulator
     typename Flavor::FF expected_target_sum{ 0 };
     for (size_t idx = 0; idx < accumulator_size; idx++) {
-        if (expected_honk_evals[idx] != 0) {
-            info("Non zero at: ", idx);
-        }
         expected_target_sum += expected_honk_evals[idx] * expected_gate_separators[idx];
     }
-    info(accumulator->target_sum);
-    info(expected_target_sum);
-    return accumulator->target_sum == expected_target_sum;
+    return expected_target_sum;
+}
+
+/**
+ * @brief Utility to manually compute the target sum of an accumulator and compare it to the one produced in Protogalxy
+ * to attest correctness.
+ */
+template <typename Flavor>
+static bool check_accumulator_target_sum_manual(const std::shared_ptr<ProverInstance_<Flavor>>& accumulator)
+{
+    return accumulator->target_sum == compute_accumulator_target_sum_manual(accumulator);
 }
 } // namespace bb

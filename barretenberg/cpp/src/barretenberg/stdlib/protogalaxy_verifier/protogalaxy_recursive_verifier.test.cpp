@@ -44,10 +44,10 @@ class ProtogalaxyRecursiveTests : public testing::Test {
     using NativeCurve = bn254<NativeBuilder>;
     using Commitment = NativeFlavor::Commitment;
     using NativeFF = NativeFlavor::FF;
+    using CommitmentKey = NativeFlavor::CommitmentKey;
 
     struct NativeFoldingData {
         std::shared_ptr<NativeProverInstance> prover_inst;
-        std::shared_ptr<NativeVerificationKey> honk_vk;
         std::shared_ptr<NativeVerifierInstance> verifier_inst;
     };
 
@@ -56,20 +56,18 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         std::shared_ptr<RecursiveVKAndHash> vk_and_hash;
     };
 
-    enum class TamperingMode : uint8_t {
+    enum class AccumulatorTamperingMode : uint8_t {
         None,
-        WiresFirstInstance,
-        AlphasFirstInstance,
-        GateChallengesFirstInstance,
-        RelationParametersFirstInstance,
-        TargetSumFirstInstance,
-        WiresSecondInstance,
-        TargetSumSecondInstance,
-        WiresFoldedInstance,
-        AlphasFoldedInstance,
-        GateChallengesFoldedInstance,
-        RelationParametersFoldedInstance,
-        TargetSumFoldedInstance,
+        Wires,
+        Alphas,
+        GateChallenges,
+        RelationParameters,
+        TargetSum,
+    };
+
+    enum class InstanceTamperingMode : uint8_t {
+        None,
+        Wires,
     };
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
@@ -151,18 +149,7 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         auto honk_vk = std::make_shared<NativeVerificationKey>(prover_inst->get_precomputed());
         auto verifier_inst = std::make_shared<NativeVerifierInstance>(honk_vk);
 
-        {
-            OinkProver<NativeFlavor> oink_prover(
-                prover_inst, std::make_shared<NativeVerificationKey>(prover_inst->get_precomputed()));
-            oink_prover.prove();
-            prover_inst->is_complete = false;
-        }
-        [[maybe_unused]] bool is_valid = check_accumulator_target_sum_manual(prover_inst);
-        info("Is valid? ", is_valid);
-        [[maybe_unused]] bool is_valid_circuit = CircuitChecker::check(builder);
-        info("Is valid circuit: ", is_valid_circuit);
-
-        return NativeFoldingData{ .prover_inst = prover_inst, .honk_vk = honk_vk, .verifier_inst = verifier_inst };
+        return NativeFoldingData{ .prover_inst = prover_inst, .verifier_inst = verifier_inst };
     }
 
     /**
@@ -182,10 +169,7 @@ class ProtogalaxyRecursiveTests : public testing::Test {
 
         auto [prover_accumulator, folding_proof] = folding_prover.prove();
         auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);
-        return NativeFoldingData{ .prover_inst = prover_accumulator,
-                                  .honk_vk =
-                                      std::make_shared<NativeVerificationKey>(prover_accumulator->get_precomputed()),
-                                  .verifier_inst = verifier_accumulator };
+        return NativeFoldingData{ .prover_inst = prover_accumulator, .verifier_inst = verifier_accumulator };
     }
 
     /**
@@ -240,9 +224,8 @@ class ProtogalaxyRecursiveTests : public testing::Test {
      * @brief Create the circuit that verifies the folding proof. Return the circuit, the hash of the folded
      * verifier accumulator computed in-circuit, and the verifier transcript.
      */
-    static std::tuple<std::shared_ptr<RecursiveVerifierInstance>,
-                      typename RecursiveVerifierInstance::NativeFF,
-                      std::shared_ptr<RecursiveFoldingVerifier::Transcript>>
+    static std::pair<typename RecursiveVerifierInstance::NativeFF,
+                     std::shared_ptr<RecursiveFoldingVerifier::Transcript>>
     create_folding_circuit(RecursiveBuilder& builder,
                            const NativeFoldingData& folding_data_1,
                            const NativeFoldingData& folding_data_2,
@@ -270,16 +253,17 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         // Recursively verify folding proof
         auto folded_verifier_instance = recursive_folding_verifier.verify_folding_proof(recursive_folding_proof);
 
-        return { folded_verifier_instance,
-                 folded_verifier_instance->hash_through_transcript("-", *recursive_transcript).get_value(),
-                 recursive_folding_verifier.transcript };
+        return { folded_verifier_instance->hash_through_transcript("-", *recursive_transcript).get_value(),
+                 recursive_transcript };
     }
 
     /**
      * @brief Perform the folding natively for comparison with the in-circuit one. Return the hash of the folded
      * verifier accumulator and the verifier transcript.
      */
-    static std::pair<typename NativeVerifierInstance::FF, std::shared_ptr<typename NativeFoldingVerifier::Transcript>>
+    static std::tuple<std::shared_ptr<NativeVerifierInstance>,
+                      typename NativeVerifierInstance::FF,
+                      std::shared_ptr<typename NativeFoldingVerifier::Transcript>>
     perfom_native_folding(const NativeFoldingData& folding_data_1,
                           const NativeFoldingData& folding_data_2,
                           const HonkProof& folding_proof)
@@ -295,117 +279,146 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         auto native_folded_verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);
 
         // We don't have an equality operator for NativeVerifierInstances, so we check that the hashes are equal
-        return { native_folded_verifier_accumulator->hash_through_transcript("-", *native_transcript),
+        return { native_folded_verifier_accumulator,
+                 native_folded_verifier_accumulator->hash_through_transcript("-", *native_transcript),
                  native_transcript };
     }
 
-    static void tampering(const std::shared_ptr<NativeProverInstance>& prover_inst_1,
-                          const std::shared_ptr<NativeProverInstance>& prover_inst_2,
-                          const std::shared_ptr<NativeProverInstance>& folded_prover_inst,
-                          const TamperingMode& mode)
+    /**
+     * @brief Tamper with an accumulator by changing one of its values: wires, alphas, gate challenge, relation
+     * parameters, or target sum. Update both the prover and verifier side.
+     */
+    static void tamper_with_accumulator(const NativeFoldingData& accumulator,
+                                        const AccumulatorTamperingMode& mode,
+                                        bool expected)
     {
         bool is_valid = true;
+
+        accumulator.prover_inst->commitment_key =
+            CommitmentKey(accumulator.prover_inst->get_precomputed().metadata.dyadic_size);
+
         switch (mode) {
-        case TamperingMode::None:
+        case AccumulatorTamperingMode::None:
             // No tampering
+            is_valid = check_accumulator_target_sum_manual(accumulator.prover_inst);
             break;
-        case TamperingMode::WiresFirstInstance:
-            prover_inst_1->polynomials.w_l.at(1) += NativeFF(1);
-            is_valid = check_accumulator_target_sum_manual(prover_inst_1);
+        case AccumulatorTamperingMode::Wires:
+            accumulator.prover_inst->polynomials.w_l.at(1) += NativeFF(1);
+            accumulator.verifier_inst->witness_commitments.get_wires()[0] =
+                accumulator.prover_inst->commitment_key.commit(accumulator.prover_inst->polynomials.w_l);
+            is_valid = check_accumulator_target_sum_manual(accumulator.prover_inst);
             break;
-        case TamperingMode::AlphasFirstInstance:
-            prover_inst_1->alphas[1] +=
+        case AccumulatorTamperingMode::Alphas:
+            accumulator.prover_inst->alphas[1] +=
                 NativeFF(150); // Second subrelation is zero for the mock circuits constructed here
-            is_valid = check_accumulator_target_sum_manual(prover_inst_1);
+            accumulator.verifier_inst->alphas[1] = accumulator.prover_inst->alphas[1];
+            is_valid = check_accumulator_target_sum_manual(accumulator.prover_inst);
             break;
-        case TamperingMode::GateChallengesFirstInstance:
-            prover_inst_1->gate_challenges[0] += NativeFF(42);
-            is_valid = check_accumulator_target_sum_manual(prover_inst_1);
+        case AccumulatorTamperingMode::GateChallenges:
+            accumulator.prover_inst->gate_challenges[0] += NativeFF(42);
+            accumulator.verifier_inst->gate_challenges[0] = accumulator.prover_inst->gate_challenges[0];
+            is_valid = check_accumulator_target_sum_manual(accumulator.prover_inst);
             break;
-        case TamperingMode::RelationParametersFirstInstance:
-            prover_inst_1->relation_parameters.get_to_fold()[0] += NativeFF(3009);
-            is_valid = check_accumulator_target_sum_manual(prover_inst_1);
+        case AccumulatorTamperingMode::RelationParameters:
+            accumulator.prover_inst->relation_parameters.get_to_fold()[0] += NativeFF(3009);
+            accumulator.verifier_inst->relation_parameters.get_to_fold()[0] =
+                accumulator.prover_inst->relation_parameters.get_to_fold()[0];
+            is_valid = check_accumulator_target_sum_manual(accumulator.prover_inst);
             break;
-        case TamperingMode::TargetSumFirstInstance:
-            prover_inst_1->target_sum += NativeFF(2025);
-            is_valid = check_accumulator_target_sum_manual(prover_inst_1);
-            break;
-        case TamperingMode::WiresSecondInstance:
-            prover_inst_2->polynomials.w_l.at(1) += NativeFF(1);
-            {
-                OinkProver<NativeFlavor> oink_prover(
-                    prover_inst_2, std::make_shared<NativeVerificationKey>(prover_inst_2->get_precomputed()));
-                oink_prover.prove();
-                prover_inst_2->is_complete = false;
-            }
-            is_valid = check_accumulator_target_sum_manual(prover_inst_2);
-            break;
-        case TamperingMode::TargetSumSecondInstance:
-            prover_inst_2->target_sum += NativeFF(2025);
-            is_valid = check_accumulator_target_sum_manual(prover_inst_2);
-            break;
-        case TamperingMode::WiresFoldedInstance:
-            folded_prover_inst->polynomials.w_l.at(1) += NativeFF(1);
-            is_valid = check_accumulator_target_sum_manual(folded_prover_inst);
-            break;
-        case TamperingMode::AlphasFoldedInstance:
-            folded_prover_inst->alphas[0] += NativeFF(150);
-            is_valid = check_accumulator_target_sum_manual(folded_prover_inst);
-            break;
-        case TamperingMode::GateChallengesFoldedInstance:
-            folded_prover_inst->gate_challenges[0] += NativeFF(42);
-            is_valid = check_accumulator_target_sum_manual(folded_prover_inst);
-            break;
-        case TamperingMode::RelationParametersFoldedInstance:
-            folded_prover_inst->relation_parameters.get_to_fold()[0] += NativeFF(3009);
-            is_valid = check_accumulator_target_sum_manual(folded_prover_inst);
-            break;
-        case TamperingMode::TargetSumFoldedInstance:
-            folded_prover_inst->target_sum += NativeFF(2025);
-            is_valid = check_accumulator_target_sum_manual(folded_prover_inst);
+        case AccumulatorTamperingMode::TargetSum:
+            accumulator.prover_inst->target_sum += NativeFF(2025);
+            accumulator.verifier_inst->target_sum = accumulator.prover_inst->target_sum;
+            is_valid = check_accumulator_target_sum_manual(accumulator.prover_inst);
             break;
         }
 
-        bool expected = mode == TamperingMode::None;
         EXPECT_EQ(is_valid, expected);
     }
 
-    static void protogalaxy_testing(const TamperingMode& mode,
-                                    const bool& fold_accumulator = true,
+    /**
+     * @brief Tamper with an instance by changing its wire values.
+     */
+    static void tamper_with_instance(const NativeFoldingData& instance, const InstanceTamperingMode& mode)
+    {
+        auto run_oink_and_reset = [&instance]() {
+            OinkProver<NativeFlavor> oink_prover(
+                instance.prover_inst, std::make_shared<NativeVerificationKey>(instance.prover_inst->get_precomputed()));
+            oink_prover.prove();
+            // Reset so that PG runs Oink on this instance
+            instance.prover_inst->is_complete = false;
+        };
+
+        bool is_valid = true;
+
+        switch (mode) {
+        case InstanceTamperingMode::None:
+            // No tampering
+            break;
+        case InstanceTamperingMode::Wires:
+            instance.prover_inst->polynomials.w_l.at(1) += NativeFF(1);
+            run_oink_and_reset();
+            is_valid = check_accumulator_target_sum_manual(instance.prover_inst);
+            break;
+        }
+
+        bool expected = mode == InstanceTamperingMode::None;
+        EXPECT_EQ(is_valid, expected);
+    }
+
+    static bool run_decider(std::shared_ptr<NativeProverInstance>& folded_prover_inst,
+                            std::shared_ptr<NativeVerifierInstance>& folded_verifier_inst)
+    {
+        // Generate decider proof
+        DeciderProver_<NativeFlavor> decider_prover(folded_prover_inst);
+        decider_prover.construct_proof();
+        HonkProof decider_proof = decider_prover.export_proof();
+
+        // Natively verify the decider proof
+        DeciderVerifier_<NativeFlavor> decider_verifier(folded_verifier_inst);
+        bool result = decider_verifier.verify_proof(decider_proof).check();
+
+        return result;
+    }
+
+    static void protogalaxy_testing(const AccumulatorTamperingMode& accumulator_mode,
+                                    const InstanceTamperingMode& instance_mode,
+                                    const AccumulatorTamperingMode& folded_accumulator_mode,
                                     const size_t& log_num_gates = 9,
                                     const size_t& log_num_gates_with_public_inputs = 9)
     {
-        // Get the instance/accumulator to be folded
-        NativeFoldingData accumulator = fold_accumulator ? get_accumulator_data() : get_instance_data();
-        // Get the instance to be folded
+        NativeFoldingData accumulator = get_accumulator_data();
         NativeFoldingData instance = get_instance_data(log_num_gates, log_num_gates_with_public_inputs);
-
-        // Tampering before folding
-        tampering(accumulator.prover_inst, instance.prover_inst, nullptr, mode);
+        tamper_with_accumulator(
+            accumulator, accumulator_mode, /*expected=*/accumulator_mode == AccumulatorTamperingMode::None);
+        tamper_with_instance(instance, instance_mode);
 
         // Fold
+        auto folding_prover_transcript = std::make_shared<typename NativeFoldingProver::Transcript>();
+        if (accumulator.verifier_inst->is_complete) {
+            auto accumulator_hash = accumulator.verifier_inst->hash_through_transcript("-", *folding_prover_transcript);
+            folding_prover_transcript->add_to_hash_buffer("accumulator_hash", accumulator_hash);
+        }
         NativeFoldingProver folding_prover({ accumulator.prover_inst, instance.prover_inst },
                                            { accumulator.verifier_inst, instance.verifier_inst },
-                                           std::make_shared<typename NativeFoldingProver::Transcript>());
+                                           folding_prover_transcript);
         auto [folded_accumulator, folding_proof] = folding_prover.prove();
 
         // Construct the circuit that recursively verifies the folding proof
         RecursiveBuilder builder;
-        auto [folded_verifier_accumulator, folded_verifier_accumulator_hash, recursive_transcript] =
+        auto [folded_verifier_accumulator_hash, recursive_transcript] =
             create_folding_circuit(builder, accumulator, instance, folding_proof);
 
         // Check that the circuit is satisfied
         EXPECT_TRUE(CircuitChecker::check(builder)) << "Builder error: " << builder.err();
 
-        // Verify that the native folding result matches the recursive one
-        auto [native_folded_verifier_accumulator_hash, native_transcript] =
+        // Verify that the native folding result matches the recursive one. As NativeVerifierInstance doesn't have
+        // operator==, we check that the hashes match
+        auto [native_folded_verifier_accumulator, native_folded_verifier_accumulator_hash, native_transcript] =
             perfom_native_folding(accumulator, instance, folding_proof);
-
-        // NativeVerifierInstance doesn't have operator==, we check that the hashes match
         EXPECT_EQ(folded_verifier_accumulator_hash, native_folded_verifier_accumulator_hash)
             << "Native and recursive hashes don't match.";
 
-        // Verify that the transcripts match
+        // Verify that the transcripts of recursive and native verifiers match
         auto native_manifest = native_transcript->get_manifest();
         auto recursive_manifest = recursive_transcript->get_manifest();
         EXPECT_EQ(native_manifest.size(), recursive_manifest.size());
@@ -415,63 +428,91 @@ class ProtogalaxyRecursiveTests : public testing::Test {
                 << "Recursive Verifier/Verifier manifest discrepency in round " << idx;
         }
 
-        // Verify that if one of the accumulated instances was invalid, then the folded instance is invalid
-        DeciderProver_<NativeFlavor> decider_prover(folded_accumulator, native_transcript);
-        decider_prover.construct_proof();
-        HonkProof decider_proof = decider_prover.export_proof();
-        DeciderRecursiveVerifier_<RecursiveFlavor> decider_verifier(
-            &builder, folded_verifier_accumulator, recursive_transcript);
-        stdlib::Proof<RecursiveBuilder> recursive_decider_proof(builder, decider_proof);
-        auto pairing_points = decider_verifier.verify_proof(recursive_decider_proof);
-        auto P0 = pairing_points.P0.get_value();
-        auto P1 = pairing_points.P1.get_value();
-        bb::PairingPoints pp(P0, P1);
-        bool is_decider_proof_valid = pp.check();
-        EXPECT_EQ(is_decider_proof_valid, mode == TamperingMode::None);
+        // Verify that if one of the accumulated instances was invalid, then the folded instance is invalid. We use the
+        // native folded instance because we have already checked that the native and in-circuit computed one agree
+        tamper_with_accumulator(NativeFoldingData{ folded_accumulator, native_folded_verifier_accumulator },
+                                folded_accumulator_mode,
+                                /*expected=*/
+                                accumulator_mode == AccumulatorTamperingMode::None &&
+                                    instance_mode == InstanceTamperingMode::None &&
+                                    folded_accumulator_mode == AccumulatorTamperingMode::None);
+        bool is_folded_accumulator_valid = run_decider(folded_accumulator, native_folded_verifier_accumulator);
+        EXPECT_EQ(is_folded_accumulator_valid,
+                  accumulator_mode == AccumulatorTamperingMode::None && instance_mode == InstanceTamperingMode::None &&
+                      folded_accumulator_mode == AccumulatorTamperingMode::None);
     }
 };
 
-TEST_F(ProtogalaxyRecursiveTests, FoldAccumulatorAndInstance)
+TEST_F(ProtogalaxyRecursiveTests, ValidFolding)
 {
-    protogalaxy_testing(TamperingMode::None, true);
-}
-
-TEST_F(ProtogalaxyRecursiveTests, FoldTwoInstances)
-{
-    protogalaxy_testing(TamperingMode::None, false);
+    protogalaxy_testing(AccumulatorTamperingMode::None, InstanceTamperingMode::None, AccumulatorTamperingMode::None);
 }
 
 TEST_F(ProtogalaxyRecursiveTests, FoldCircuitsOfDifferentSize)
 {
-    protogalaxy_testing(TamperingMode::None, false, 10, 10);
+    protogalaxy_testing(
+        AccumulatorTamperingMode::None, InstanceTamperingMode::None, AccumulatorTamperingMode::None, 10, 10);
 }
 
-TEST_F(ProtogalaxyRecursiveTests, WiresFirstInstance)
+TEST_F(ProtogalaxyRecursiveTests, WiresIncomingAccumulator)
 {
-    BB_DISABLE_ASSERTS();
-    protogalaxy_testing(TamperingMode::WiresFirstInstance, true);
+    protogalaxy_testing(AccumulatorTamperingMode::Wires, InstanceTamperingMode::None, AccumulatorTamperingMode::None);
 }
 
-TEST_F(ProtogalaxyRecursiveTests, AlphasFirstInstance)
+TEST_F(ProtogalaxyRecursiveTests, AlphasIncomingAccumulator)
 {
-    // BB_DISABLE_ASSERTS();
-    protogalaxy_testing(TamperingMode::AlphasFirstInstance, true);
+    protogalaxy_testing(AccumulatorTamperingMode::Alphas, InstanceTamperingMode::None, AccumulatorTamperingMode::None);
 }
 
-TEST_F(ProtogalaxyRecursiveTests, GateChallengesFirstInstance)
+TEST_F(ProtogalaxyRecursiveTests, GateChallengesIncomingAccumulator)
 {
-    protogalaxy_testing(TamperingMode::GateChallengesFirstInstance, true);
+    protogalaxy_testing(
+        AccumulatorTamperingMode::GateChallenges, InstanceTamperingMode::None, AccumulatorTamperingMode::None);
 }
 
-TEST_F(ProtogalaxyRecursiveTests, RelationParametersFirstInstance)
+TEST_F(ProtogalaxyRecursiveTests, RelationParametersIncomingAccumulator)
 {
-    protogalaxy_testing(TamperingMode::RelationParametersFirstInstance, true);
+    protogalaxy_testing(
+        AccumulatorTamperingMode::RelationParameters, InstanceTamperingMode::None, AccumulatorTamperingMode::None);
 }
 
-TEST_F(ProtogalaxyRecursiveTests, WiresSecondInstance)
+TEST_F(ProtogalaxyRecursiveTests, TargetSumIncomingAccumulator)
 {
-    BB_DISABLE_ASSERTS();
-    protogalaxy_testing(TamperingMode::WiresSecondInstance, true);
+    protogalaxy_testing(
+        AccumulatorTamperingMode::TargetSum, InstanceTamperingMode::None, AccumulatorTamperingMode::None);
+}
+
+TEST_F(ProtogalaxyRecursiveTests, WiresIncomingInstance)
+{
+    protogalaxy_testing(AccumulatorTamperingMode::None, InstanceTamperingMode::Wires, AccumulatorTamperingMode::None);
+}
+
+TEST_F(ProtogalaxyRecursiveTests, WiresFoldedAccumulator)
+{
+    protogalaxy_testing(AccumulatorTamperingMode::None, InstanceTamperingMode::None, AccumulatorTamperingMode::Wires);
+}
+
+TEST_F(ProtogalaxyRecursiveTests, AlphasFoldedAccumulator)
+{
+    protogalaxy_testing(AccumulatorTamperingMode::None, InstanceTamperingMode::None, AccumulatorTamperingMode::Alphas);
+}
+
+TEST_F(ProtogalaxyRecursiveTests, GateChallengesFoldedAccumulator)
+{
+    protogalaxy_testing(
+        AccumulatorTamperingMode::None, InstanceTamperingMode::None, AccumulatorTamperingMode::GateChallenges);
+}
+
+TEST_F(ProtogalaxyRecursiveTests, RelationParametersFoldedAccumulator)
+{
+    protogalaxy_testing(
+        AccumulatorTamperingMode::None, InstanceTamperingMode::None, AccumulatorTamperingMode::RelationParameters);
+}
+
+TEST_F(ProtogalaxyRecursiveTests, TargetSumFoldedAccumulator)
+{
+    protogalaxy_testing(
+        AccumulatorTamperingMode::None, InstanceTamperingMode::None, AccumulatorTamperingMode::TargetSum);
 }
 
 } // namespace bb::stdlib::recursion::honk
