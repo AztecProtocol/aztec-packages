@@ -130,7 +130,7 @@ export class PXE {
     const contractDataProvider = new ContractDataProvider(store);
     const noteDataProvider = await NoteDataProvider.create(store);
     const syncDataProvider = new SyncDataProvider(store);
-    const taggingDataProvider = new TaggingDataProvider(store);
+    const taggingDataProvider = new TaggingDataProvider(store, log);
     const capsuleDataProvider = new CapsuleDataProvider(store);
     const keyStore = new KeyStore(store);
     const tipsStore = new L2TipsKVStore(store, 'pxe');
@@ -715,6 +715,7 @@ export class PXE {
     // computationally demanding that it'd be rare for someone to try to do it concurrently regardless.
     return this.#putInJobQueue(async () => {
       const totalTimer = new Timer();
+      await this.taggingDataProvider.pruneDanglingIndices();
       try {
         const syncTimer = new Timer();
         await this.synchronizer.sync();
@@ -751,6 +752,11 @@ export class PXE {
         };
 
         this.log.debug(`Proving completed in ${totalTime}ms`, { timings });
+
+        // Associate all dangling indices captured during this tx construction with its hash
+        const txHash = (await txRequest.toTxRequest().hash()).toString();
+        await this.taggingDataProvider.associateDanglingIndicesWithTx(txHash);
+
         return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!, {
           timings,
           nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,

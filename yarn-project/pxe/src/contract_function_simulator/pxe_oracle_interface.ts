@@ -296,7 +296,12 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
     // Compute and return the tag using the current index
     const indexedTaggingSecret = new IndexedTaggingSecret(appTaggingSecret, index);
-    return indexedTaggingSecret.computeTag(recipient);
+    const appTag = await indexedTaggingSecret.computeTag(recipient);
+
+    // Store the dangling index for later association with tx hash
+    await this.taggingDataProvider.storeDanglingIndex(appTag, sender, recipient, index);
+
+    return appTag;
   }
 
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
