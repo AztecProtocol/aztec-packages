@@ -156,7 +156,8 @@ TEST_F(FieldConversionTest, FieldConversionUnivariateGrumpkinFr)
  */
 TEST_F(FieldConversionTest, ConvertChallengeGrumpkinFr)
 {
-    bb::fr chal(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")); // 256 bits
+    uint256_t chal_raw(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")); // 256 bits
+    bb::fr chal(chal_raw.slice(0, 136));
     auto result = FrCodec::template convert_challenge<grumpkin::fr>(chal);
     auto expected = uint256_t(chal);
     EXPECT_EQ(uint256_t(result), expected);
