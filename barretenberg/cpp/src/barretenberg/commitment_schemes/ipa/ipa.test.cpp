@@ -308,7 +308,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithoutShift)
 
     EXPECT_EQ(result, true);
 }
-// Shplemini + IPA. Four polynomials, one of which is shifted.
+// Shplemini + IPA. Five polynomials, one of which is shifted.
 TEST_F(IPATest, ShpleminiIPAWithShift)
 {
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
