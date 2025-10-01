@@ -279,3 +279,5 @@ Let's recap this journey:
 Understanding this lifecycle helps you appreciate why Aztec can offer both complete privacy and public verifiability. Every step is carefully designed to maintain privacy while ensuring the network remains secure and consistent.
 
 ## Next steps
+
+Next, we are ready to get hands-on and start setting up our development environment to write and deploy smart contracts to Aztec!
