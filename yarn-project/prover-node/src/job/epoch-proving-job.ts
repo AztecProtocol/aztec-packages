@@ -302,7 +302,6 @@ export class EpochProvingJob implements Traceable {
   public async stop(state: EpochProvingJobTerminalState = 'stopped') {
     this.state = state;
     this.prover.cancel();
-    // TODO(palla/prover): Stop the publisher as well
     if (this.runPromise) {
       await this.runPromise;
     }
