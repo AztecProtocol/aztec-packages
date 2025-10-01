@@ -11,7 +11,7 @@ import {
   getContract,
 } from 'viem';
 
-import type { GasPrice, L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
+import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ViemClient } from '../types.js';
 import { type IEmpireBase, encodeSignal, encodeSignalWithSignature, signSignalWithSig } from './empire_base.js';
 import { extractProposalIdFromLogs } from './governance.js';
@@ -102,10 +102,9 @@ export class GovernanceProposerContract implements IEmpireBase {
     l1TxUtils: L1TxUtils,
   ): Promise<{
     receipt: TransactionReceipt;
-    gasPrice: GasPrice;
     proposalId: bigint;
   }> {
-    const { receipt, gasPrice } = await l1TxUtils.sendAndMonitorTransaction({
+    const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
       to: this.address.toString(),
       data: encodeFunctionData({
         abi: this.proposer.abi,
@@ -114,6 +113,6 @@ export class GovernanceProposerContract implements IEmpireBase {
       }),
     });
     const proposalId = extractProposalIdFromLogs(receipt.logs);
-    return { receipt, gasPrice, proposalId };
+    return { receipt, proposalId };
   }
 }

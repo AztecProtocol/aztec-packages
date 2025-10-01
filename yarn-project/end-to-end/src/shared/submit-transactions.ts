@@ -13,7 +13,8 @@ export const submitTxsTo = async (
   await Promise.all(
     times(numTxs, async () => {
       const accountManager = await wallet.createSchnorrAccount(Fr.random(), Fr.random(), GrumpkinScalar.random());
-      const tx = accountManager.deploy({ deployAccount: submitter });
+      const deployMethod = await accountManager.getDeployMethod();
+      const tx = deployMethod.send({ from: submitter });
       const txHash = await tx.getTxHash();
 
       logger.info(`Tx sent with hash ${txHash}`);

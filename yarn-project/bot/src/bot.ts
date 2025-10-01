@@ -1,4 +1,4 @@
-import { type AztecAddress, BatchCall, SentTx, type Wallet } from '@aztec/aztec.js';
+import { type AztecAddress, BatchCall, SentTx } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import type { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -16,7 +16,7 @@ const TRANSFER_AMOUNT = 1;
 export class Bot extends BaseBot {
   protected constructor(
     node: AztecNode,
-    wallet: Wallet,
+    wallet: TestWallet,
     defaultAccountAddress: AztecAddress,
     public readonly token: TokenContract | PrivateTokenContract,
     public readonly recipient: AztecAddress,

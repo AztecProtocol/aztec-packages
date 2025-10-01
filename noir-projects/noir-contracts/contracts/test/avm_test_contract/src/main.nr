@@ -316,6 +316,15 @@ pub contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log_format("second: {1}", [1, 2, 3, 4]);
         dep::aztec::oracle::debug_log::debug_log_format("whole array: {}", [1, 2, 3, 4]);
         dep::aztec::oracle::debug_log::debug_log("tabs and newlines\n\t- first\n\t- second");
+        dep::aztec::oracle::debug_log::debug_log_with_level(
+            dep::aztec::oracle::debug_log::FATAL_LOG_LEVEL,
+            "fatal error",
+        );
+        dep::aztec::oracle::debug_log::debug_log_format_with_level(
+            dep::aztec::oracle::debug_log::TRACE_LOG_LEVEL,
+            "trace format: {}",
+            [1, 3, 3, 7],
+        );
     }
 
     #[public]

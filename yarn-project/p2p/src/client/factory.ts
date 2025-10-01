@@ -54,6 +54,13 @@ export async function createP2PClient<T extends P2PClientType>(
   });
 
   const logger = deps.logger ?? createLogger('p2p');
+
+  if (config.bootstrapNodes.length === 0) {
+    logger.warn(
+      'No bootstrap nodes have been provided. Set the BOOTSTRAP_NODES environment variable in order to join the P2P network',
+    );
+  }
+
   const store = deps.store ?? (await createStore(P2P_STORE_NAME, 2, config, createLogger('p2p:lmdb-v2')));
   const archive = await createStore(P2P_ARCHIVE_STORE_NAME, 1, config, createLogger('p2p-archive:lmdb-v2'));
   const peerStore = await createStore(P2P_PEER_STORE_NAME, 1, config, createLogger('p2p-peer:lmdb-v2'));

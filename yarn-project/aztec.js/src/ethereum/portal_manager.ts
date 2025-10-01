@@ -17,8 +17,6 @@ import { getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
 
 import { type Hex, getContract, toFunctionSelector } from 'viem';
 
-// docs:start:claim_type
-// docs:start:claim_type_amount
 /** L1 to L2 message info to claim it on L2. */
 export type L2Claim = {
   /** Secret for claiming. */
@@ -30,11 +28,9 @@ export type L2Claim = {
   /** Leaf index in the L1 to L2 message tree. */
   messageLeafIndex: bigint;
 };
-// docs:end:claim_type
 
 /** L1 to L2 message info that corresponds to an amount to claim. */
 export type L2AmountClaim = L2Claim & { /** Amount to claim */ claimAmount: bigint };
-// docs:end:claim_type_amount
 
 /** L1 to L2 message info that corresponds to an amount to claim with associated recipient. */
 export type L2AmountClaimWithRecipient = L2AmountClaim & {
@@ -302,7 +298,6 @@ export class L1ToL2TokenPortalManager {
     };
   }
 
-  // docs:start:bridge_tokens_private
   /**
    * Bridges tokens from L1 to L2 privately. Handles token approvals. Returns once the tx has been mined.
    * @param to - Address to send the tokens to on L2.
@@ -314,7 +309,6 @@ export class L1ToL2TokenPortalManager {
     amount: bigint,
     mint = false,
   ): Promise<L2AmountClaimWithRecipient> {
-    // docs:end:bridge_tokens_private
     const [claimSecret, claimSecretHash] = await this.bridgeSetup(amount, mint);
 
     this.logger.info('Sending L1 tokens to L2 to be claimed privately');

@@ -22,7 +22,6 @@ use dep::aztec::{
 // #[custom_note] macro to implement it manually, resulting in some boilerplate. This is expected to be unnecessary once
 // macro support is expanded.
 
-// docs:start:nft_note
 /// A private note representing a token id associated to an account.
 #[derive(Eq, Serialize, Packable)]
 #[custom_note]
@@ -39,7 +38,6 @@ pub struct NFTNote {
     /// The ID of the token represented by this note.
     token_id: Field,
 }
-// docs:end:nft_note
 
 impl NoteHash for NFTNote {
     fn compute_note_hash(self, storage_slot: Field) -> Field {

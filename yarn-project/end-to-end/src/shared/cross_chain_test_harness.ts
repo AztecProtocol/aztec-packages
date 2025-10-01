@@ -1,4 +1,3 @@
-// docs:start:cross_chain_test_harness
 import {
   AuthWitness,
   type AztecAddress,
@@ -25,7 +24,6 @@ import { type Hex, getContract } from 'viem';
 
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 
-// docs:start:deployAndInitializeTokenAndBridgeContracts
 /**
  * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract, its L2 bridge contract and attach is to the portal.
  * @param wallet - the wallet instance
@@ -110,7 +108,6 @@ export async function deployAndInitializeTokenAndBridgeContracts(
 
   return { token, bridge, tokenPortalAddress, tokenPortal, underlyingERC20 };
 }
-// docs:end:deployAndInitializeTokenAndBridgeContracts
 
 export type CrossChainContext = {
   l2Token: AztecAddress;
@@ -382,4 +379,3 @@ export class CrossChainTestHarness {
     };
   }
 }
-// docs:end:cross_chain_test_harness

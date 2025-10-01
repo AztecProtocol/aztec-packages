@@ -1,5 +1,5 @@
 import { EcdsaRAccountContractArtifact } from '@aztec/accounts/ecdsa';
-import { AztecAddress, type DeployOptions, Fr, type Wallet, publishContractClass } from '@aztec/aztec.js';
+import { AztecAddress, type DeployAccountOptions, type Wallet, publishContractClass } from '@aztec/aztec.js';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import type { TestWallet } from '@aztec/test-wallet/server';
 
@@ -21,7 +21,7 @@ describe('Deployment benchmark', () => {
   // Benchmarking configuration
   const config = t.config.accountDeployments;
   // Benchmarking user's Wallet
-  let userWallet: Wallet;
+  let userWallet: TestWallet;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -46,31 +46,29 @@ describe('Deployment benchmark', () => {
     return describe(`Deployment benchmark for ${accountType}`, () => {
       function deploymentTest(benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {
         return it(`Deploys a ${accountType} account contract, pays using ${benchmarkingPaymentMethod}`, async () => {
-          const benchysAccountManager = await t.createBenchmarkingAccountManager(userWallet as TestWallet, accountType);
+          const benchysAccountManager = await t.createBenchmarkingAccountManager(userWallet, accountType);
 
           if (benchmarkingPaymentMethod === 'sponsored_fpc') {
             await userWallet.registerContract(sponsoredFPC);
           }
 
-          const benchysAddress = benchysAccountManager.getAddress();
+          const benchysAddress = benchysAccountManager.address;
 
           const deploymentInteraction = await benchysAccountManager.getDeployMethod();
 
-          const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
-          const wrappedPaymentMethod = await benchysAccountManager.getSelfPaymentMethod(
-            await paymentMethod.forWallet(userWallet, benchysAddress),
-          );
-          const fee = { paymentMethod: wrappedPaymentMethod };
+          const paymentMethodManager = t.paymentMethods[benchmarkingPaymentMethod];
+          const paymentMethod = await paymentMethodManager.forWallet(userWallet, benchysAddress);
+
           // Publicly deploy the contract, but skip the class registration as that is the
           // "typical" use case
-          const options: DeployOptions = {
+          const options: DeployAccountOptions = {
             from: AztecAddress.ZERO, // Self deployment
-            fee,
-            universalDeploy: true,
             skipClassPublication: true,
             skipInstancePublication: false,
             skipInitialization: false,
-            contractAddressSalt: new Fr(benchysAccountManager.salt),
+            fee: {
+              paymentMethod,
+            },
           };
 
           await captureProfile(
@@ -83,7 +81,7 @@ describe('Deployment benchmark', () => {
               2 + // ContractClassRegistry assert_class_id_is_published + kernel inner
               2 + // Account constructor + kernel inner
               2 + // Account entrypoint (wrapped fee payload) + kernel inner
-              paymentMethod.circuits + // Payment method circuits
+              paymentMethodManager.circuits + // Payment method circuits
               1 + // Kernel reset
               1 + // Kernel tail
               1, // Kernel hiding

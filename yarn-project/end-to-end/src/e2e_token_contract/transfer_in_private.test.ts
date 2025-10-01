@@ -29,11 +29,9 @@ describe('e2e_token_contract transfer private', () => {
     expect(amount).toBeGreaterThan(0n);
 
     // We need to compute the message we want to sign and add it to the wallet as approved
-    // docs:start:authwit_transfer_example
     const action = asset.methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
 
     const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
-    // docs:end:authwit_transfer_example
 
     // Perform the transfer
     await action.send({ from: account1Address, authWitnesses: [witness] }).wait();

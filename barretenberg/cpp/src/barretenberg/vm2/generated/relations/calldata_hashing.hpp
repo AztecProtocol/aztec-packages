@@ -14,13 +14,14 @@ template <typename FF_> class calldata_hashingImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 1> SUBRELATION_PARTIAL_LENGTHS = { 4 };
+    static constexpr std::array<size_t, 23> SUBRELATION_PARTIAL_LENGTHS = { 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3,
+                                                                            3, 3, 3, 4, 4, 4, 4, 5, 3, 3, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
 
-        return (in.get(C::cd_hashing_sel)).is_zero();
+        return (in.get(C::calldata_hashing_sel)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -36,12 +37,63 @@ template <typename FF> class calldata_hashing : public Relation<calldata_hashing
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_TRACE_CONTINUITY = 0;
+    static constexpr size_t SR_SEL_TOGGLED_AT_LATCH = 2;
+    static constexpr size_t SR_ID_CONSISTENCY = 3;
+    static constexpr size_t SR_SIZE_CONSISTENCY = 4;
+    static constexpr size_t SR_START_AFTER_LATCH = 7;
+    static constexpr size_t SR_START_INDEX_IS_ZERO = 8;
+    static constexpr size_t SR_START_IS_SEPARATOR = 9;
+    static constexpr size_t SR_INDEX_INCREMENTS = 10;
+    static constexpr size_t SR_INDEX_INCREMENTS_1 = 11;
+    static constexpr size_t SR_INDEX_INCREMENTS_2 = 12;
+    static constexpr size_t SR_PADDED_BY_ZERO_1 = 15;
+    static constexpr size_t SR_PADDED_BY_ZERO_2 = 16;
+    static constexpr size_t SR_PADDING_CONSISTENCY = 17;
+    static constexpr size_t SR_PADDING_END = 18;
+    static constexpr size_t SR_CHECK_FINAL_INDEX = 19;
+    static constexpr size_t SR_HASH_CONSISTENCY = 20;
+    static constexpr size_t SR_CALLDATA_HASH_INPUT_LENGTH_FIELDS = 21;
+    static constexpr size_t SR_ROUNDS_DECREMENT = 22;
 
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
         case SR_TRACE_CONTINUITY:
             return "TRACE_CONTINUITY";
+        case SR_SEL_TOGGLED_AT_LATCH:
+            return "SEL_TOGGLED_AT_LATCH";
+        case SR_ID_CONSISTENCY:
+            return "ID_CONSISTENCY";
+        case SR_SIZE_CONSISTENCY:
+            return "SIZE_CONSISTENCY";
+        case SR_START_AFTER_LATCH:
+            return "START_AFTER_LATCH";
+        case SR_START_INDEX_IS_ZERO:
+            return "START_INDEX_IS_ZERO";
+        case SR_START_IS_SEPARATOR:
+            return "START_IS_SEPARATOR";
+        case SR_INDEX_INCREMENTS:
+            return "INDEX_INCREMENTS";
+        case SR_INDEX_INCREMENTS_1:
+            return "INDEX_INCREMENTS_1";
+        case SR_INDEX_INCREMENTS_2:
+            return "INDEX_INCREMENTS_2";
+        case SR_PADDED_BY_ZERO_1:
+            return "PADDED_BY_ZERO_1";
+        case SR_PADDED_BY_ZERO_2:
+            return "PADDED_BY_ZERO_2";
+        case SR_PADDING_CONSISTENCY:
+            return "PADDING_CONSISTENCY";
+        case SR_PADDING_END:
+            return "PADDING_END";
+        case SR_CHECK_FINAL_INDEX:
+            return "CHECK_FINAL_INDEX";
+        case SR_HASH_CONSISTENCY:
+            return "HASH_CONSISTENCY";
+        case SR_CALLDATA_HASH_INPUT_LENGTH_FIELDS:
+            return "CALLDATA_HASH_INPUT_LENGTH_FIELDS";
+        case SR_ROUNDS_DECREMENT:
+            return "ROUNDS_DECREMENT";
         }
         return std::to_string(index);
     }

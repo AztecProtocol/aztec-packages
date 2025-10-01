@@ -186,6 +186,16 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
+   * Returns the next app tag for a given sender and recipient pair.
+   * @param sender - The address sending the log
+   * @param recipient - The address receiving the log
+   * @returns An app tag to be used in a log.
+   */
+  public async privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Fr> {
+    return await this.executionDataProvider.getNextAppTagAsSender(this.contractAddress, sender, recipient);
+  }
+
+  /**
    * Store values in the execution cache.
    * @param values - Values to store.
    * @returns The hash of the values.
@@ -565,10 +575,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
   public getDebugFunctionName() {
     return this.executionDataProvider.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
-  }
-
-  public async privateIncrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress) {
-    await this.executionDataProvider.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
   }
 
   public utilityEmitOffchainEffect(data: Fr[]): Promise<void> {

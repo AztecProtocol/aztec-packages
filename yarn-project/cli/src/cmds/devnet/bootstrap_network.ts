@@ -65,7 +65,7 @@ export async function bootstrapNetwork(
     accountData.signingKey,
   );
 
-  const defaultAccountAddress = accountManager.getAddress();
+  const defaultAccountAddress = accountManager.address;
 
   const l1Client = createExtendedL1Client(
     l1Urls,
