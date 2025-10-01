@@ -1,14 +1,14 @@
 #include <gtest/gtest.h>
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/stdlib/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion::honk {
 
 using Builder = UltraCircuitBuilder;
 using UltraFlavor = UltraFlavor;
-using UltraRecursiveFlavor = UltraRecursiveFlavor_<Builder>;
 using FF = fr;
 using NativeTranscript = NativeTranscript;
 using StdlibTranscript = UltraStdlibTranscript;
@@ -20,10 +20,10 @@ using StdlibProof = stdlib::Proof<Builder>;
  * @param prover_transcript
  * @return auto proof_data
  */
-template <class Flavor, size_t LENGTH> auto generate_mock_proof_data(auto prover_transcript)
+template <class Curve, size_t LENGTH> auto generate_mock_proof_data(auto prover_transcript)
 {
-    using FF = typename Flavor::FF;
-    using Commitment = typename Flavor::Commitment;
+    using FF = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
     using Univariate = typename bb::Univariate<FF, LENGTH>;
 
     // Create some mock data to be added to the transcript in several mock rounds
@@ -62,10 +62,10 @@ template <class Flavor, size_t LENGTH> auto generate_mock_proof_data(auto prover
  * @tparam Flavor
  * @tparam LENGTH Length of Univariate to be serialized
  */
-template <class Flavor, size_t LENGTH> void perform_mock_verifier_transcript_operations(auto transcript)
+template <class Curve, size_t LENGTH> void perform_mock_verifier_transcript_operations(auto transcript)
 {
-    using FF = typename Flavor::FF;
-    using Commitment = typename Flavor::Commitment;
+    using FF = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
     using Univariate = typename bb::Univariate<FF, LENGTH>;
 
     // round 0
@@ -89,18 +89,20 @@ template <class Flavor, size_t LENGTH> void perform_mock_verifier_transcript_ope
  */
 TEST(RecursiveHonkTranscript, InterfacesMatch)
 {
+    using NativeCurve = curve::BN254;
+    using StdlibCurve = stdlib::bn254<Builder>;
     Builder builder;
 
     constexpr size_t LENGTH = 8; // arbitrary length of Univariate to be serialized
 
     // Instantiate a Prover Transcript and use it to generate some mock proof data
     NativeTranscript prover_transcript;
-    auto proof_data = generate_mock_proof_data<UltraFlavor, LENGTH>(prover_transcript);
+    auto proof_data = generate_mock_proof_data<NativeCurve, LENGTH>(prover_transcript);
 
     // Instantiate a (native) Verifier Transcript with the proof data and perform some mock transcript operations
     NativeTranscript native_transcript;
     native_transcript.load_proof(proof_data);
-    perform_mock_verifier_transcript_operations<UltraFlavor, LENGTH>(native_transcript);
+    perform_mock_verifier_transcript_operations<NativeCurve, LENGTH>(native_transcript);
 
     // Confirm that Prover and Verifier transcripts have generated the same manifest via the operations performed
     EXPECT_EQ(prover_transcript.get_manifest(), native_transcript.get_manifest());
@@ -109,7 +111,7 @@ TEST(RecursiveHonkTranscript, InterfacesMatch)
     StdlibProof stdlib_proof(builder, proof_data);
     StdlibTranscript transcript;
     transcript.load_proof(stdlib_proof);
-    perform_mock_verifier_transcript_operations<UltraRecursiveFlavor, LENGTH>(transcript);
+    perform_mock_verifier_transcript_operations<StdlibCurve, LENGTH>(transcript);
 
     // Confirm that the native and stdlib verifier transcripts have generated the same manifest
     EXPECT_EQ(transcript.get_manifest(), native_transcript.get_manifest());
