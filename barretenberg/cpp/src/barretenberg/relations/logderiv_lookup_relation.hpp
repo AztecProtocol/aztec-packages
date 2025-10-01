@@ -13,6 +13,7 @@
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/relations/relation_accessors.hpp"
 
 namespace bb {
 
@@ -45,7 +46,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         // Ensure the input does not contain a lookup gate or data that is being read
-        return in.q_lookup.is_zero() && in.lookup_read_counts.is_zero();
+        return GET(in, q_lookup).is_zero() && GET(in, lookup_read_counts).is_zero();
     }
 
     /**
@@ -73,8 +74,8 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     {
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        const auto row_has_write = CoefficientAccumulator(in.lookup_read_tags);
-        const auto row_has_read = CoefficientAccumulator(in.q_lookup);
+        const auto row_has_write = CoefficientAccumulator(GET(in, lookup_read_tags));
+        const auto row_has_read = CoefficientAccumulator(GET(in, q_lookup));
         // degree                1(1)               1(1)           1              1       = 2(2)
         return Accumulator(-(row_has_write * row_has_read) + row_has_write + row_has_read);
     }
@@ -83,7 +84,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     static Accumulator lookup_read_counts(const AllEntities& in)
     {
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
-        return Accumulator(CoefficientAccumulator(in.lookup_read_counts));
+        return Accumulator(CoefficientAccumulator(GET(in, lookup_read_counts)));
     }
 
     // Compute table_1 + gamma + table_2 * eta + table_3 * eta_2 + table_4 * eta_3
@@ -102,10 +103,10 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         const auto eta_two = ParameterCoefficientAccumulator(params.eta_two);
         const auto eta_three = ParameterCoefficientAccumulator(params.eta_three);
 
-        auto table_1 = CoefficientAccumulator(in.table_1);
-        auto table_2 = CoefficientAccumulator(in.table_2);
-        auto table_3 = CoefficientAccumulator(in.table_3);
-        auto table_4 = CoefficientAccumulator(in.table_4);
+        auto table_1 = CoefficientAccumulator(GET(in, table_1));
+        auto table_2 = CoefficientAccumulator(GET(in, table_2));
+        auto table_3 = CoefficientAccumulator(GET(in, table_3));
+        auto table_4 = CoefficientAccumulator(GET(in, table_4));
 
         // degree          1     0(1)      1         0(1)          1         0(1) =   1(2)
         auto result = (table_2 * eta) + (table_3 * eta_two) + (table_4 * eta_three);
@@ -127,18 +128,18 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         const auto eta_two = ParameterCoefficientAccumulator(params.eta_two);
         const auto eta_three = ParameterCoefficientAccumulator(params.eta_three);
 
-        auto w_1 = CoefficientAccumulator(in.w_l);
-        auto w_2 = CoefficientAccumulator(in.w_r);
-        auto w_3 = CoefficientAccumulator(in.w_o);
+        auto w_1 = CoefficientAccumulator(GET(in, w_l));
+        auto w_2 = CoefficientAccumulator(GET(in, w_r));
+        auto w_3 = CoefficientAccumulator(GET(in, w_o));
 
-        auto w_1_shift = CoefficientAccumulator(in.w_l_shift);
-        auto w_2_shift = CoefficientAccumulator(in.w_r_shift);
-        auto w_3_shift = CoefficientAccumulator(in.w_o_shift);
+        auto w_1_shift = CoefficientAccumulator(GET(in, w_l_shift));
+        auto w_2_shift = CoefficientAccumulator(GET(in, w_r_shift));
+        auto w_3_shift = CoefficientAccumulator(GET(in, w_o_shift));
 
-        auto table_index = CoefficientAccumulator(in.q_o);
-        auto negative_column_1_step_size = CoefficientAccumulator(in.q_r);
-        auto negative_column_2_step_size = CoefficientAccumulator(in.q_m);
-        auto negative_column_3_step_size = CoefficientAccumulator(in.q_c);
+        auto table_index = CoefficientAccumulator(GET(in, q_o));
+        auto negative_column_1_step_size = CoefficientAccumulator(GET(in, q_r));
+        auto negative_column_2_step_size = CoefficientAccumulator(GET(in, q_m));
+        auto negative_column_3_step_size = CoefficientAccumulator(GET(in, q_c));
 
         // The wire values for lookup gates are accumulators structured in such a way that the differences w_i -
         // step_size*w_i_shift result in values present in column i of a corresponding table. See the documentation in
@@ -266,10 +267,10 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         // allows to re-use the values accumulated by the accumulator of the size smaller than
         // the size of Accumulator declared above
 
-        const auto inverses_m = CoefficientAccumulator(in.lookup_inverses); // Degree 1
+        const auto inverses_m = CoefficientAccumulator(GET(in, lookup_inverses)); // Degree 1
         const Accumulator inverses(inverses_m);
-        const auto read_counts_m = CoefficientAccumulator(in.lookup_read_counts); // Degree 1
-        const auto read_selector_m = CoefficientAccumulator(in.q_lookup);         // Degree 1
+        const auto read_counts_m = CoefficientAccumulator(GET(in, lookup_read_counts)); // Degree 1
+        const auto read_selector_m = CoefficientAccumulator(GET(in, q_lookup));         // Degree 1
 
         const auto inverse_exists = compute_inverse_exists<Accumulator>(in);    // Degree 2 (2)
         const auto read_term = compute_read_term<Accumulator, 0>(in, params);   // Degree 2 (3)
@@ -290,7 +291,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         std::get<1>(accumulator) += tmp; // Deg 4 (5)
 
         // we should make sure that the read_tag is a boolean value
-        const auto read_tag_m = CoefficientAccumulator(in.lookup_read_tags);
+        const auto read_tag_m = CoefficientAccumulator(GET(in, lookup_read_tags));
         const auto read_tag = BooleanCheckerAccumulator(read_tag_m);
         // degree                          1         1                       0(1) =  2(3)
         std::get<2>(accumulator) += (read_tag * read_tag - read_tag) * scaling_factor;

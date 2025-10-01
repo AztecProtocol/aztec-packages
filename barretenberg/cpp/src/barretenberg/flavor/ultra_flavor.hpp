@@ -540,8 +540,8 @@ class UltraFlavor {
     template<typename SourceEntities>
     using LazilyExtendedEdgesFor = LazilyExtendedEdges<SourceEntities, FF, MAX_PARTIAL_RELATION_LENGTH, NUM_ALL_ENTITIES, USE_SHORT_MONOMIALS>;
 
-    // Keep ExtendedEdges as the original for now to avoid breaking existing code
-    using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
+    // Use lazy extension as the default ExtendedEdges type
+    using ExtendedEdges = LazilyExtendedEdgesFor<ProverPolynomials>;
 
     /**
      * @brief A container for the witness commitments.

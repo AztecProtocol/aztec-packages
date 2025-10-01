@@ -34,29 +34,29 @@ class LazilyExtendedEdges {
         source_entities_ = &source;
         current_edge_ = edge_idx;
         // Clear cache when initializing
-        for (auto& cached : cached_univariates_) {
-            cached.reset();
+        for (auto& entry : cache_entries_) {
+            entry.univariate.reset();
+            entry.edge_idx = std::numeric_limits<size_t>::max();
         }
     }
 
-    // Update current edge and invalidate cache
+    // Update current edge
     void set_current_edge(size_t edge_idx) {
-        if (current_edge_ != edge_idx) {
-            current_edge_ = edge_idx;
-            // Clear all cached univariates
-            for (auto& cached : cached_univariates_) {
-                cached.reset();
-            }
-        }
+        current_edge_ = edge_idx;
     }
 
     // Get extended univariate by index (lazy evaluation)
-    const UnivariateType& get_by_index(size_t idx) const {
-        auto& cached = cached_univariates_[idx];
-        if (!cached) {
-            cached = extend_polynomial_at_index(idx);
+    // Uses per-entry edge tracking instead of global cache clearing
+    __attribute__((always_inline)) const UnivariateType& get_by_index(size_t idx) const {
+        auto& cache_entry = cache_entries_[idx];
+
+        // Check if cached value is for current edge
+        if (cache_entry.edge_idx != current_edge_ || cache_entry.univariate.get() == nullptr) {
+            cache_entry.univariate = extend_polynomial_at_index(idx);
+            cache_entry.edge_idx = current_edge_;
         }
-        return *cached;
+
+        return *cache_entry.univariate;
     }
 
     // Operator[] for array-like access
@@ -64,7 +64,66 @@ class LazilyExtendedEdges {
         return get_by_index(idx);
     }
 
+    // Named accessors for compatibility with relation code that uses in.member syntax
+    // These provide the same interface as AllEntities but with lazy evaluation
+    #define LAZY_ACCESSOR(idx, name) \
+        __attribute__((always_inline)) const UnivariateType& name() const { return get_by_index(idx); }
+
+    // PrecomputedEntities (indices 0-27) - must match DEFINE_FLAVOR_MEMBERS order
+    LAZY_ACCESSOR(0, q_m)
+    LAZY_ACCESSOR(1, q_c)
+    LAZY_ACCESSOR(2, q_l)
+    LAZY_ACCESSOR(3, q_r)
+    LAZY_ACCESSOR(4, q_o)
+    LAZY_ACCESSOR(5, q_4)
+    LAZY_ACCESSOR(6, q_lookup)
+    LAZY_ACCESSOR(7, q_arith)
+    LAZY_ACCESSOR(8, q_delta_range)
+    LAZY_ACCESSOR(9, q_elliptic)
+    LAZY_ACCESSOR(10, q_memory)
+    LAZY_ACCESSOR(11, q_nnf)
+    LAZY_ACCESSOR(12, q_poseidon2_external)
+    LAZY_ACCESSOR(13, q_poseidon2_internal)
+    LAZY_ACCESSOR(14, sigma_1)
+    LAZY_ACCESSOR(15, sigma_2)
+    LAZY_ACCESSOR(16, sigma_3)
+    LAZY_ACCESSOR(17, sigma_4)
+    LAZY_ACCESSOR(18, id_1)
+    LAZY_ACCESSOR(19, id_2)
+    LAZY_ACCESSOR(20, id_3)
+    LAZY_ACCESSOR(21, id_4)
+    LAZY_ACCESSOR(22, table_1)
+    LAZY_ACCESSOR(23, table_2)
+    LAZY_ACCESSOR(24, table_3)
+    LAZY_ACCESSOR(25, table_4)
+    LAZY_ACCESSOR(26, lagrange_first)
+    LAZY_ACCESSOR(27, lagrange_last)
+
+    // WitnessEntities (indices 28-35)
+    LAZY_ACCESSOR(28, w_l)
+    LAZY_ACCESSOR(29, w_r)
+    LAZY_ACCESSOR(30, w_o)
+    LAZY_ACCESSOR(31, w_4)
+    LAZY_ACCESSOR(32, z_perm)
+    LAZY_ACCESSOR(33, lookup_inverses)
+    LAZY_ACCESSOR(34, lookup_read_counts)
+    LAZY_ACCESSOR(35, lookup_read_tags)
+
+    // ShiftedEntities (indices 36-40)
+    LAZY_ACCESSOR(36, w_l_shift)
+    LAZY_ACCESSOR(37, w_r_shift)
+    LAZY_ACCESSOR(38, w_o_shift)
+    LAZY_ACCESSOR(39, w_4_shift)
+    LAZY_ACCESSOR(40, z_perm_shift)
+
+    #undef LAZY_ACCESSOR
+
   private:
+    struct CacheEntry {
+        std::unique_ptr<UnivariateType> univariate;
+        size_t edge_idx = std::numeric_limits<size_t>::max(); // Invalid edge initially
+    };
+
     std::unique_ptr<UnivariateType> extend_polynomial_at_index(size_t idx) const {
         if (!source_entities_) {
             // Not initialized yet
@@ -92,7 +151,7 @@ class LazilyExtendedEdges {
 
     const SourceEntities* source_entities_ = nullptr;
     size_t current_edge_ = 0;
-    mutable std::array<std::unique_ptr<UnivariateType>, NUM_ENTITIES> cached_univariates_;
+    mutable std::array<CacheEntry, NUM_ENTITIES> cache_entries_;
 };
 
 } // namespace bb

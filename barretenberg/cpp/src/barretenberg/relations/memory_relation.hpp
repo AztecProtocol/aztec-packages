@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/relations/relation_accessors.hpp"
 
 namespace bb {
 
@@ -36,7 +37,9 @@ template <typename FF_> class MemoryRelationImpl {
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_memory.is_zero(); }
+    template <typename AllEntities> inline static bool skip(const AllEntities& in) {
+        return GET(in, q_memory).is_zero();
+    }
 
     /**
      * @brief RAM/ROM memory relation
@@ -84,23 +87,23 @@ template <typename FF_> class MemoryRelationImpl {
         const auto& eta_two_m = ParameterCoefficientAccumulator(params.eta_two);
         const auto& eta_three_m = ParameterCoefficientAccumulator(params.eta_three);
 
-        auto w_1_m = CoefficientAccumulator(in.w_l);
-        auto w_2_m = CoefficientAccumulator(in.w_r);
-        auto w_3_m = CoefficientAccumulator(in.w_o);
-        auto w_4_m = CoefficientAccumulator(in.w_4);
-        auto w_1_shift_m = CoefficientAccumulator(in.w_l_shift);
-        auto w_2_shift_m = CoefficientAccumulator(in.w_r_shift);
-        auto w_3_shift_m = CoefficientAccumulator(in.w_o_shift);
-        auto w_4_shift_m = CoefficientAccumulator(in.w_4_shift);
+        auto w_1_m = CoefficientAccumulator(GET(in, w_l));
+        auto w_2_m = CoefficientAccumulator(GET(in, w_r));
+        auto w_3_m = CoefficientAccumulator(GET(in, w_o));
+        auto w_4_m = CoefficientAccumulator(GET(in, w_4));
+        auto w_1_shift_m = CoefficientAccumulator(GET(in, w_l_shift));
+        auto w_2_shift_m = CoefficientAccumulator(GET(in, w_r_shift));
+        auto w_3_shift_m = CoefficientAccumulator(GET(in, w_o_shift));
+        auto w_4_shift_m = CoefficientAccumulator(GET(in, w_4_shift));
 
-        auto q_1_m = CoefficientAccumulator(in.q_l);
-        auto q_2_m = CoefficientAccumulator(in.q_r);
-        auto q_3_m = CoefficientAccumulator(in.q_o);
-        auto q_4_m = CoefficientAccumulator(in.q_4);
-        auto q_m_m = CoefficientAccumulator(in.q_m);
-        auto q_c_m = CoefficientAccumulator(in.q_c);
+        auto q_1_m = CoefficientAccumulator(GET(in, q_l));
+        auto q_2_m = CoefficientAccumulator(GET(in, q_r));
+        auto q_3_m = CoefficientAccumulator(GET(in, q_o));
+        auto q_4_m = CoefficientAccumulator(GET(in, q_4));
+        auto q_m_m = CoefficientAccumulator(GET(in, q_m));
+        auto q_c_m = CoefficientAccumulator(GET(in, q_c));
 
-        auto q_memory_m = CoefficientAccumulator(in.q_memory);
+        auto q_memory_m = CoefficientAccumulator(GET(in, q_memory));
 
         /**
          * MEMORY

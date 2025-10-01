@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/relations/relation_accessors.hpp"
 
 namespace bb {
 
@@ -22,7 +23,7 @@ template <typename FF_> class UltraArithmeticRelationImpl {
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_arith.is_zero(); }
+    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return GET(in, q_arith).is_zero(); }
 
     /**
      * @brief Expression for the Ultra Arithmetic gate.
@@ -84,24 +85,24 @@ template <typename FF_> class UltraArithmeticRelationImpl {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        auto w_l_m = CoefficientAccumulator(in.w_l);
-        auto w_4_m = CoefficientAccumulator(in.w_4);
-        auto q_arith_m = CoefficientAccumulator(in.q_arith);
-        auto q_m_m = CoefficientAccumulator(in.q_m);
+        auto w_l_m = CoefficientAccumulator(GET(in, w_l));
+        auto w_4_m = CoefficientAccumulator(GET(in, w_4));
+        auto q_arith_m = CoefficientAccumulator(GET(in, q_arith));
+        auto q_m_m = CoefficientAccumulator(GET(in, q_m));
 
         auto q_arith_sub_1 = q_arith_m - FF(1);
         auto scaled_q_arith = q_arith_m * scaling_factor;
         {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
 
-            auto w_4_shift_m = CoefficientAccumulator(in.w_4_shift);
-            auto w_r_m = CoefficientAccumulator(in.w_r);
-            auto w_o_m = CoefficientAccumulator(in.w_o);
-            auto q_l_m = CoefficientAccumulator(in.q_l);
-            auto q_r_m = CoefficientAccumulator(in.q_r);
-            auto q_o_m = CoefficientAccumulator(in.q_o);
-            auto q_4_m = CoefficientAccumulator(in.q_4);
-            auto q_c_m = CoefficientAccumulator(in.q_c);
+            auto w_4_shift_m = CoefficientAccumulator(GET(in, w_4_shift));
+            auto w_r_m = CoefficientAccumulator(GET(in, w_r));
+            auto w_o_m = CoefficientAccumulator(GET(in, w_o));
+            auto q_l_m = CoefficientAccumulator(GET(in, q_l));
+            auto q_r_m = CoefficientAccumulator(GET(in, q_r));
+            auto q_o_m = CoefficientAccumulator(GET(in, q_o));
+            auto q_4_m = CoefficientAccumulator(GET(in, q_4));
+            auto q_c_m = CoefficientAccumulator(GET(in, q_c));
 
             static const FF neg_half = FF(-2).invert();
 
@@ -114,7 +115,7 @@ template <typename FF_> class UltraArithmeticRelationImpl {
         {
             using ShortAccumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
 
-            auto w_l_shift_m = CoefficientAccumulator(in.w_l_shift);
+            auto w_l_shift_m = CoefficientAccumulator(GET(in, w_l_shift));
 
             auto tmp_0 = w_l_m + w_4_m - w_l_shift_m + q_m_m;
             auto tmp_1 = tmp_0 * (q_arith_m - FF(2));

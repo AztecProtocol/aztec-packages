@@ -8,6 +8,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/relations/relation_accessors.hpp"
 
 namespace bb {
 
@@ -24,7 +25,7 @@ template <typename FF_> class EllipticRelationImpl {
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_elliptic.is_zero(); }
+    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return GET(in, q_elliptic).is_zero(); }
 
     // TODO(@zac-williamson #2609 find more generic way of doing this)
     static constexpr FF get_curve_b()
@@ -56,16 +57,16 @@ template <typename FF_> class EllipticRelationImpl {
     {
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
-        auto x_3_m = CoefficientAccumulator(in.w_r_shift);
-        auto y_1_m = CoefficientAccumulator(in.w_o);
-        auto y_2_m = CoefficientAccumulator(in.w_4_shift);
+        auto x_3_m = CoefficientAccumulator(GET(in, w_r_shift));
+        auto y_1_m = CoefficientAccumulator(GET(in, w_o));
+        auto y_2_m = CoefficientAccumulator(GET(in, w_4_shift));
 
-        auto x_1_m = CoefficientAccumulator(in.w_r);
-        auto x_2_m = CoefficientAccumulator(in.w_l_shift);
-        auto y_3_m = CoefficientAccumulator(in.w_o_shift);
-        auto q_elliptic_m = CoefficientAccumulator(in.q_elliptic);
-        auto q_is_double_m = CoefficientAccumulator(in.q_m);
-        auto q_sign_m = CoefficientAccumulator(in.q_l);
+        auto x_1_m = CoefficientAccumulator(GET(in, w_r));
+        auto x_2_m = CoefficientAccumulator(GET(in, w_l_shift));
+        auto y_3_m = CoefficientAccumulator(GET(in, w_o_shift));
+        auto q_elliptic_m = CoefficientAccumulator(GET(in, q_elliptic));
+        auto q_is_double_m = CoefficientAccumulator(GET(in, q_m));
+        auto q_sign_m = CoefficientAccumulator(GET(in, q_l));
 
         // we need to efficiently construct the following:
         // 1. (x2 - x1)
