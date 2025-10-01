@@ -346,7 +346,8 @@ class UltraFlavor {
      * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
      *
      */
-    template <typename DataType, typename HashFunction> class Transcript_ : public NativeTranscript {
+    template <typename DataType, typename HashFunction>
+    class Transcript_ : public BaseTranscript<DataType, HashFunction> {
       public:
         using Base = BaseTranscript<DataType, HashFunction>;
 

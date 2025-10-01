@@ -226,7 +226,7 @@ template <typename Field> class FieldConversion {
     }
 
     template <typename T>
-    static std::vector<uint256_t> convert_to_uint256(const T& val)
+    static std::vector<uint256_t> serialize_to_fields(const T& val)
         requires(IsAnyOf<Field, uint256_t>)
     {
         if constexpr (IsAnyOf<T, bool, uint32_t, uint64_t, uint256_t, bb::fr, fq>) {
@@ -235,11 +235,11 @@ template <typename Field> class FieldConversion {
             using BaseField = typename T::Fq;
             std::vector<uint256_t> x, y;
             if (val.is_point_at_infinity()) {
-                x = convert_to_uint256(BaseField::zero());
-                y = convert_to_uint256(BaseField::zero());
+                x = serialize_to_fields<BaseField>(BaseField::zero());
+                y = serialize_to_fields<BaseField>(BaseField::zero());
             } else {
-                x = convert_to_uint256(val.x);
-                y = convert_to_uint256(val.y);
+                x = serialize_to_fields<BaseField>(val.x);
+                y = serialize_to_fields<BaseField>(val.y);
             }
             std::vector<uint256_t> out(x.begin(), x.end());
             out.insert(out.end(), y.begin(), y.end());
@@ -248,7 +248,7 @@ template <typename Field> class FieldConversion {
             // Array or Univariate
             std::vector<uint256_t> out;
             for (auto& e : val) {
-                auto tmp = convert_to_uint256(e);
+                auto tmp = serialize_to_fields(e);
                 out.insert(out.end(), tmp.begin(), tmp.end());
             }
             return out;
@@ -273,9 +273,7 @@ template <typename Field> class FieldConversion {
     // ---------------------------------------------------------------------
     // Transcript challenge cast (fr -> target)
     // ---------------------------------------------------------------------
-    template <typename T>
-    static T convert_challenge(const bb::fr& challenge)
-        requires(IsAnyOf<Field, bb::fr>)
+    template <typename T> static T convert_challenge(const bb::fr& challenge)
 
     {
         if constexpr (std::is_same_v<T, bb::fr>) {

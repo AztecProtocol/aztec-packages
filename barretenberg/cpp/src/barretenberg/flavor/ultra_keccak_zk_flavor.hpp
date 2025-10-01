@@ -51,7 +51,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
      */
     class Transcript : public UltraKeccakFlavor::Transcript {
       public:
-        using Base = UltraKeccakFlavor::Transcript;
+        using Base = UltraKeccakFlavor::Transcript::Base;
         // Note: we have a different vector of univariates because the degree for ZK flavors differs
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> zk_sumcheck_univariates;
         Commitment libra_concatenation_commitment;

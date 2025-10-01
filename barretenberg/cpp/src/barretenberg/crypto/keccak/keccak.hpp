@@ -45,8 +45,8 @@ struct keccak256 hash_field_elements(const uint64_t* limbs, size_t num_elements)
 struct keccak256 hash_field_element(const uint64_t* limb);
 
 class Keccak {
-
-    static bb::fr keccak_hash_uint256(std::vector<uint256_t> const& data)
+  public:
+    static bb::fr hash(std::vector<uint256_t> const& data)
     // Losing 2 bits of this is not an issue -> we can just reduce mod p
     {
         // cast into uint256_t
