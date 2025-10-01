@@ -11,13 +11,13 @@ tags:
   ]
 ---
 
-Now that you have your Sandbox running, let's explore a practical starting point for Aztec development! The Aztec boilerplate repository provides a solid foundation with everything you need to begin building privacy-preserving smart contracts.
+Now that you have your Sandbox running, let's explore a practical starting point for Aztec development! The [Aztec boilerplate repository](https://github.com/defi-wonderland/aztec-boilerplate) provides a solid foundation with everything you need to begin building privacy-preserving smart contracts.
 
 ## What is the Aztec Boilerplate?
 
-Think of the boilerplate as your starter kit - it's like getting a partially assembled model where the tricky foundation work is already done, letting you focus on building your unique features. Created by the DeFi Wonderland team, this boilerplate gives you a pre-configured Aztec workspace with example contracts, tests, and development tools all wired together.
+Think of the boilerplate as your starter kit. It's like getting a partially assembled model where the foundational work is already done, letting you focus on building your unique features. Created by the DeFi Wonderland team, this boilerplate gives you a pre-configured Aztec workspace with example contracts, tests, and development tools all wired together. It's great for getting a feel for how to develop Aztec smart contracts.
 
-You can find it here: https://github.com/defi-wonderland/aztec-boilerplate
+You can find it [here](https://github.com/defi-wonderland/aztec-boilerplate)
 
 ## What's Inside?
 
@@ -31,11 +31,11 @@ The repository includes a basic Counter contract that demonstrates key Aztec con
 - **Owner access control** - How to restrict certain functions to specific users
 - **State management** - Working with both private and public state
 
-This isn't just a "Hello World" - it's a practical example showing real patterns you'll use in production contracts.
+This isn't just a "Hello World", it's a practical example showing real patterns you'll use in production contracts.
 
 ### Project Structure
 
-The boilerplate organizes code in a clean, intuitive way:
+The boilerplate organizes code as follows:
 
 ```
 src/
@@ -46,7 +46,7 @@ src/
 
 ### Pre-configured Testing
 
-One of the best features is the complete testing setup:
+The boilerplate also has a complete testing setup:
 
 - **Automatic Sandbox management** - Tests automatically start and stop the Aztec Sandbox
 - **Noir unit tests** - Test contract logic directly
@@ -55,7 +55,7 @@ One of the best features is the complete testing setup:
 
 ## Getting Started
 
-Let's get the boilerplate up and running. Don't worry if some concepts aren't clear yet - we'll explore them in detail throughout your learning journey.
+Let's get the boilerplate up and running. Don't worry if some concepts aren't clear yet, we'll explore them in detail throughout your learning journey.
 
 ### Step 1: Clone the Repository
 
@@ -65,6 +65,8 @@ cd aztec-boilerplate
 ```
 
 ### Step 2: Install Aztec Tools
+
+[TODO] which version? Does it need to match something like nargo and bb do?
 
 Make sure you have the Aztec tools installed at the correct version. If you haven't already:
 
@@ -84,7 +86,7 @@ yarn install
 yarn build
 ```
 
-This command compiles your Noir contracts and generates TypeScript bindings - essentially creating a bridge between your smart contracts and your tests or application code.
+This command compiles your Noir contracts and generates TypeScript bindings to create a bridge between your smart contracts and your tests or application code.
 
 ### Step 5: Run the Tests
 
@@ -92,7 +94,7 @@ This command compiles your Noir contracts and generates TypeScript bindings - es
 yarn test
 ```
 
-Watch as the tests automatically spin up a local Aztec Sandbox, deploy contracts, and run through various scenarios. Pretty cool, right?
+Watch as the tests automatically spin up a local Aztec Sandbox, deploy contracts, and run the tests.
 
 ## Exploring the Code
 
@@ -106,8 +108,8 @@ Take some time to browse through the repository:
 
 Don't worry if not everything in the repository makes perfect sense right now. As you progress through the learning journey, you'll understand:
 
-- How private and public execution works (coming in the next module)
-- Testing strategies and best practices (covered in detail later)
+- How to write Aztec smart contracts from scratch
+- Testing strategies and best practices
 - Advanced patterns for building complex applications
 
 ### Try This!
@@ -119,7 +121,7 @@ If you're feeling adventurous, try modifying the Counter contract:
 3. Add a test for your new function
 4. Run `yarn test` to see if it works
 
-Don't worry if you run into issues - experimentation is how we learn! Each error message is a learning opportunity.
+Don't worry if you run into issues, experimentation is how we learn! Each error message is a learning opportunity.
 
 ## Key Takeaways
 

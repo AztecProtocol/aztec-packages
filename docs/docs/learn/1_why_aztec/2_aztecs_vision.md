@@ -244,7 +244,7 @@ Aztec lets developers build compliance directly into applications while preservi
 
 ```rust
 contract PrivateLender {
-    #[aztec(private)]
+    #[private]
     fn borrow(
         amount: Field,
         kyc_proof: KYCProof,
@@ -255,8 +255,7 @@ contract PrivateLender {
         // - Identity or personal details
         // - Transaction history
 
-        assert(kyc_proof.verify());
-        assert(creditworthiness_proof.verify_minimum_score(650));
+        //verify two proofs using std:verify_proof_with_type
 
         // Approve loan based on zero-knowledge proofs
         mint_loan_tokens(amount);
