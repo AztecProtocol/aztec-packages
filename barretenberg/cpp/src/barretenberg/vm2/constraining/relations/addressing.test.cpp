@@ -354,10 +354,10 @@ TEST(AddressingConstrainingTest, RelativeOverflowCheck)
             { C::execution_sel_op_is_address_2_, 1 },
             { C::execution_sel_op_is_address_4_, 1 },
             { C::execution_sel_op_is_address_6_, 1 },
-            { C::execution_sel_op_is_relative_valid_base_0_, 1 },
-            { C::execution_sel_op_is_relative_valid_base_2_, 1 },
-            { C::execution_sel_op_is_relative_valid_base_4_, 1 },
-            { C::execution_sel_op_is_relative_valid_base_6_, 1 },
+            { C::execution_sel_op_do_overflow_check_0_, 1 },
+            { C::execution_sel_op_do_overflow_check_2_, 1 },
+            { C::execution_sel_op_do_overflow_check_4_, 1 },
+            { C::execution_sel_op_do_overflow_check_6_, 1 },
             // After relative step. Base address was added when applicable.
             { C::execution_op_after_relative_0_, resolved_addrs[0] },
             { C::execution_op_after_relative_1_, resolved_addrs[1] },
@@ -388,13 +388,13 @@ TEST(AddressingConstrainingTest, RelativeOverflowCheck)
     }
 
     check_relation<addressing>(trace,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_0,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_1,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_2,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_3,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_4,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_5,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_6);
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_0,
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_1,
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_2,
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_3,
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_4,
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_5,
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_6);
 
     check_interaction<ExecutionTraceBuilder,
                       lookup_addressing_relative_overflow_result_0_settings,
@@ -421,18 +421,21 @@ TEST(AddressingConstrainingTest, RelativeOverflowCheck)
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<ExecutionTraceBuilder, lookup_addressing_relative_overflow_result_0_settings>(trace)),
         "Failed.*LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_0.*Could not find tuple in destination.");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_NO_OVERFLOW_1),
-                              "NOT_RELATIVE_NO_OVERFLOW_1");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_1),
+        "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_1");
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<ExecutionTraceBuilder, lookup_addressing_relative_overflow_result_2_settings>(trace)),
         "Failed.*LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_2.*Could not find tuple in destination.");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_NO_OVERFLOW_3),
-                              "NOT_RELATIVE_NO_OVERFLOW_3");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_3),
+        "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_3");
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<ExecutionTraceBuilder, lookup_addressing_relative_overflow_result_4_settings>(trace)),
         "Failed.*LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_4.*Could not find tuple in destination.");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_NO_OVERFLOW_5),
-                              "NOT_RELATIVE_NO_OVERFLOW_5");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_5),
+        "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_5");
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<ExecutionTraceBuilder, lookup_addressing_relative_overflow_result_6_settings>(trace)),
         "Failed.*LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_6.*Could not find tuple in destination.");

@@ -85,10 +85,10 @@ constexpr std::array<Column, AVM_MAX_OPERANDS> OPERAND_RELATIVE_OVERFLOW_COLUMNS
     C::execution_sel_relative_overflow_6_,
 };
 constexpr std::array<Column, AVM_MAX_OPERANDS> OPERAND_IS_RELATIVE_VALID_BASE_COLUMNS = {
-    C::execution_sel_op_is_relative_valid_base_0_, C::execution_sel_op_is_relative_valid_base_1_,
-    C::execution_sel_op_is_relative_valid_base_2_, C::execution_sel_op_is_relative_valid_base_3_,
-    C::execution_sel_op_is_relative_valid_base_4_, C::execution_sel_op_is_relative_valid_base_5_,
-    C::execution_sel_op_is_relative_valid_base_6_,
+    C::execution_sel_op_do_overflow_check_0_, C::execution_sel_op_do_overflow_check_1_,
+    C::execution_sel_op_do_overflow_check_2_, C::execution_sel_op_do_overflow_check_3_,
+    C::execution_sel_op_do_overflow_check_4_, C::execution_sel_op_do_overflow_check_5_,
+    C::execution_sel_op_do_overflow_check_6_,
 };
 constexpr size_t TOTAL_INDIRECT_BITS = 16;
 static_assert(AVM_MAX_OPERANDS * 2 <= TOTAL_INDIRECT_BITS);
