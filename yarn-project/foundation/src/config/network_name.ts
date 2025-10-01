@@ -1,9 +1,11 @@
-export type NetworkNames = 'local' | 'staging-ignition' | 'staging-public' | 'testnet';
+export type NetworkNames = 'local' | 'staging-ignition' | 'staging-public' | 'testnet' | 'scenario';
 
 export function getActiveNetworkName(name?: string): NetworkNames {
   const network = name || process.env.NETWORK;
   if (!network || network === '' || network === 'local') {
     return 'local';
+  } else if (network === 'scenario') {
+    return network;
   } else if (network === 'staging-ignition') {
     return network;
   } else if (network === 'staging-public') {
