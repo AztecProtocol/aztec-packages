@@ -15,6 +15,7 @@ import {
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee/testing';
 import { timesParallel } from '@aztec/foundation/collection';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { GasSettings } from '@aztec/stdlib/gas';
 import { registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet';
 import { TestWallet } from '@aztec/test-wallet/server';
 
@@ -147,7 +148,8 @@ describe('e2e_sandbox_example', () => {
 
       return await Promise.all(
         accountManagers.map(async x => {
-          await x.deploy({ deployAccount: fundedAccount }).wait();
+          const deployMethod = await x.getDeployMethod();
+          await deployMethod.send({ from: fundedAccount }).wait();
           return x;
         }),
       );
@@ -184,7 +186,11 @@ describe('e2e_sandbox_example', () => {
     ////////////// USE A NEW ACCOUNT TO SEND A TX AND PAY WITH BANANA COIN //////////////
     const amountTransferToBob = 100n;
     const bananaFPCAddress = await registerDeployedBananaFPCInWalletAndGetAddress(wallet);
-    const paymentMethod = new PrivateFeePaymentMethod(bananaFPCAddress, alice, wallet);
+    // The private fee paying method assembled on the app side requires knowledge of the maximum
+    // fee the user is willing to pay
+    const maxFeesPerGas = (await node.getCurrentBaseFees()).mul(1.5);
+    const gasSettings = GasSettings.default({ maxFeesPerGas });
+    const paymentMethod = new PrivateFeePaymentMethod(bananaFPCAddress, alice, wallet, gasSettings);
     const receiptForAlice = await bananaCoin.methods
       .transfer(bob, amountTransferToBob)
       .send({ from: alice, fee: { paymentMethod } })

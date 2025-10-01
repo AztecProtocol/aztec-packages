@@ -1,4 +1,3 @@
-import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { type AztecAddress, type AztecNode, type Logger, createLogger, sleep } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { type DeployL1ContractsArgs, RollupContract, createExtendedL1Client } from '@aztec/ethereum';
@@ -190,17 +189,6 @@ export class FeesTest {
         this.accounts = deployedAccounts.map(a => a.address);
         this.accounts.forEach((a, i) => this.logger.verbose(`Account ${i} address: ${a}`));
         [this.aliceAddress, this.bobAddress, this.sequencerAddress] = this.accounts.slice(0, 3);
-        await Promise.all(
-          deployedAccounts.map(async acc => {
-            const accountData = {
-              secret: acc.secret,
-              salt: acc.salt,
-              contract: new SchnorrAccountContract(acc.signingKey),
-            };
-            const accountManager = await this.wallet.createAccount(accountData);
-            return accountManager.register();
-          }),
-        );
 
         // We set Alice as the FPC admin to avoid the need for deployment of another account.
         this.fpcAdmin = this.aliceAddress;

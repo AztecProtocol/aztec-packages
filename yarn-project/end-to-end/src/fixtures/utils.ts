@@ -234,7 +234,7 @@ async function setupWithRemoteEnvironment(
   const testAccounts = await Promise.all(
     initialFundedAccounts.slice(0, numberOfAccounts).map(async account => {
       const accountManager = await wallet.createSchnorrAccount(account.secret, account.salt, account.signingKey);
-      return accountManager.getAddress();
+      return accountManager.address;
     }),
   );
 
@@ -659,8 +659,8 @@ export async function setup(
         `${numberOfAccounts} accounts are being deployed. Reliably progressing past genesis by setting minTxsPerBlock to 1 and waiting for the accounts to be deployed`,
       );
       const accountsData = initialFundedAccounts.slice(0, numberOfAccounts);
-      const accountManagers = await deployFundedSchnorrAccounts(wallet, accountsData);
-      accounts = accountManagers.map(accountManager => accountManager.getAddress());
+      const accountManagers = await deployFundedSchnorrAccounts(wallet, aztecNode, accountsData);
+      accounts = accountManagers.map(accountManager => accountManager.address);
     }
 
     // Now we restore the original minTxsPerBlock setting.

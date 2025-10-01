@@ -1,5 +1,4 @@
-import type { FeePaymentMethod, FieldsOf, Wallet } from '@aztec/aztec.js';
-import type { FeeOptions, UserFeeOptions } from '@aztec/entrypoints/interfaces';
+import type { AppConfigurableFeePaymentMethod, AztecNode, FeeOptions, FieldsOf, Wallet } from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -8,6 +7,7 @@ import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { Option } from 'commander';
 
 import type { WalletDB } from '../../storage/wallet_db.js';
+import { BASE_FEE_PADDING } from '../wallet.js';
 import { aliasedAddressParser } from './options.js';
 
 export type RawCliFeeArgs = {
@@ -16,7 +16,11 @@ export type RawCliFeeArgs = {
   payment?: string;
   maxFeesPerGas?: string;
   maxPriorityFeesPerGas?: string;
-  estimateGas?: boolean;
+};
+
+export type ParsedFeeOptions = {
+  paymentMethod?: AppConfigurableFeePaymentMethod;
+  gasSettings?: Partial<FieldsOf<GasSettings>>;
 };
 
 type OptionParams = {
@@ -40,15 +44,13 @@ function printOptionParams(params: OptionParams) {
     : '';
 }
 
-function getFeePaymentMethodParams(allowCustomFeePayer: boolean): OptionParams {
-  const feePayer = allowCustomFeePayer ? { type: 'address', description: 'The account paying the fee.' } : undefined;
+function getFeePaymentMethodParams(): OptionParams {
   return {
     method: {
       type: 'name',
       description: 'Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored"',
       default: 'fee_juice',
     },
-    ...(feePayer ? { feePayer } : {}),
     asset: {
       type: 'address',
       description: 'The asset used for fee payment. Required for "fpc-public" and "fpc-private".',
@@ -73,28 +75,23 @@ function getFeePaymentMethodParams(allowCustomFeePayer: boolean): OptionParams {
       type: 'bigint',
       description: 'The index of the claim in the l1toL2Message tree.',
     },
-    feeRecipient: {
-      type: 'string',
-      description: 'Recipient of the fee.',
-    },
   };
 }
 
-export function getPaymentMethodOption(allowCustomFeePayer: boolean = false) {
-  const params = getFeePaymentMethodParams(allowCustomFeePayer);
+export function getPaymentMethodOption() {
+  const params = getFeePaymentMethodParams();
   return new Option(`--payment <options>`, `Fee payment method and arguments.${printOptionParams(params)}`);
 }
 
-function getFeeOptions(allowCustomFeePayer: boolean = false) {
+function getFeeOptions() {
   return [
-    getPaymentMethodOption(allowCustomFeePayer),
+    getPaymentMethodOption(),
     new Option('--gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>', 'Gas limits for the tx.'),
     new Option('--max-fees-per-gas <da=100,l2=100>', 'Maximum fees per gas unit for DA and L2 computation.'),
     new Option(
       '--max-priority-fees-per-gas <da=0,l2=0>',
       'Maximum priority fees per gas unit for DA and L2 computation.',
     ),
-    new Option('--estimate-gas', 'Whether to automatically estimate gas limits for the tx.'),
     new Option('--estimate-gas-only', 'Only report gas estimation for the tx, do not send it.'),
   ];
 }
@@ -112,10 +109,13 @@ function parseGasSettings(args: RawCliFeeArgs): Partial<FieldsOf<GasSettings>> {
 
 export function parsePaymentMethod(
   payment: string,
-  allowCustomFeePayer: boolean,
   log: LogFn,
   db?: WalletDB,
-): (wallet: Wallet, sender: AztecAddress) => Promise<FeePaymentMethod> {
+): (
+  wallet: Wallet,
+  from: AztecAddress,
+  gasSettings: GasSettings,
+) => Promise<AppConfigurableFeePaymentMethod | undefined> {
   const parsed = payment.split(',').reduce(
     (acc, item) => {
       const [dimension, value] = item.split('=');
@@ -139,7 +139,7 @@ export function parsePaymentMethod(
     return AztecAddress.fromString(parsed.asset);
   };
 
-  return async (wallet: Wallet, sender: AztecAddress) => {
+  return async (wallet: Wallet, from: AztecAddress, gasSettings: GasSettings) => {
     switch (parsed.method) {
       case 'fee_juice': {
         if (parsed.claim || (parsed.claimSecret && parsed.claimAmount && parsed.messageLeafIndex)) {
@@ -149,13 +149,13 @@ export function parsePaymentMethod(
               amount: claimAmount,
               secret: claimSecret,
               leafIndex: messageLeafIndex,
-            } = await db.popBridgedFeeJuice(sender, log));
+            } = await db.popBridgedFeeJuice(from, log));
           } else {
             ({ claimAmount, claimSecret, messageLeafIndex } = parsed);
           }
           log(`Using Fee Juice for fee payments with claim for ${claimAmount} tokens`);
           const { FeeJuicePaymentMethodWithClaim } = await import('@aztec/aztec.js/fee');
-          return new FeeJuicePaymentMethodWithClaim(sender, {
+          return new FeeJuicePaymentMethodWithClaim(from, {
             claimAmount: (typeof claimAmount === 'string'
               ? Fr.fromHexString(claimAmount)
               : new Fr(claimAmount)
@@ -164,11 +164,8 @@ export function parsePaymentMethod(
             messageLeafIndex: BigInt(messageLeafIndex),
           });
         } else {
-          log(`Using Fee Juice for fee payment`);
-          const { FeeJuicePaymentMethod } = await import('@aztec/aztec.js/fee');
-          const feePayer =
-            parsed.feePayer && allowCustomFeePayer ? aliasedAddressParser('accounts', parsed.feePayer, db) : sender;
-          return new FeeJuicePaymentMethod(feePayer);
+          log(`Using Fee Juice for fee payment with the balance of account ${from}`);
+          return;
         }
       }
       case 'fpc-public': {
@@ -176,14 +173,14 @@ export function parsePaymentMethod(
         const asset = getAsset();
         log(`Using public fee payment with asset ${asset} via paymaster ${fpc}`);
         const { PublicFeePaymentMethod } = await import('@aztec/aztec.js/fee');
-        return new PublicFeePaymentMethod(fpc, sender, wallet);
+        return new PublicFeePaymentMethod(fpc, from, wallet, gasSettings);
       }
       case 'fpc-private': {
         const fpc = getFpc();
         const asset = getAsset();
         log(`Using private fee payment with asset ${asset} via paymaster ${fpc}`);
         const { PrivateFeePaymentMethod } = await import('@aztec/aztec.js/fee');
-        return new PrivateFeePaymentMethod(fpc, sender, wallet);
+        return new PrivateFeePaymentMethod(fpc, from, wallet, gasSettings);
       }
       case 'fpc-sponsored': {
         const sponsor = getFpc();
@@ -244,48 +241,34 @@ export function parseGasFees(gasFees: string): GasFees {
 export class CLIFeeArgs {
   constructor(
     public estimateOnly: boolean,
-    private paymentMethod: (wallet: Wallet, sender: AztecAddress) => Promise<FeePaymentMethod>,
+    private paymentMethod: (
+      wallet: Wallet,
+      feePayer: AztecAddress,
+      gasSettings: GasSettings,
+    ) => Promise<AppConfigurableFeePaymentMethod | undefined>,
     private gasSettings: Partial<FieldsOf<GasSettings>>,
-    private estimateGas: boolean,
   ) {}
 
-  async toUserFeeOptions(wallet: Wallet, sender: AztecAddress): Promise<UserFeeOptions> {
+  async toUserFeeOptions(node: AztecNode, wallet: Wallet, from: AztecAddress): Promise<ParsedFeeOptions> {
+    const maxFeesPerGas = (await node.getCurrentBaseFees()).mul(1 + BASE_FEE_PADDING);
+    const gasSettings = GasSettings.default({ ...this.gasSettings, maxFeesPerGas });
+    const paymentMethod = await this.paymentMethod(wallet, from, gasSettings);
     return {
-      paymentMethod: await this.paymentMethod(wallet, sender),
-      gasSettings: this.gasSettings,
+      paymentMethod,
+      gasSettings,
     };
   }
 
   static parse(args: RawCliFeeArgs, log: LogFn, db?: WalletDB): CLIFeeArgs {
-    return CLIFeeArgs.parseInternal(args, false, log, db);
+    return new CLIFeeArgs(
+      !!args.estimateGasOnly,
+      parsePaymentMethod(args.payment ?? 'method=fee_juice', log, db),
+      parseGasSettings(args),
+    );
   }
 
   static getOptions() {
     return getFeeOptions();
-  }
-
-  protected static parseInternal(
-    args: RawCliFeeArgs,
-    allowCustomFeePayer: boolean,
-    log: LogFn,
-    db?: WalletDB,
-  ): CLIFeeArgs {
-    return new CLIFeeArgs(
-      !!args.estimateGasOnly,
-      parsePaymentMethod(args.payment ?? 'method=fee_juice', allowCustomFeePayer, log, db),
-      parseGasSettings(args),
-      !!args.estimateGas,
-    );
-  }
-}
-
-export class CLIFeeArgsWithFeePayer extends CLIFeeArgs {
-  static override parse(args: RawCliFeeArgs, log: LogFn, db?: WalletDB) {
-    return CLIFeeArgs.parseInternal(args, true, log, db);
-  }
-
-  static override getOptions() {
-    return getFeeOptions(true);
   }
 }
 

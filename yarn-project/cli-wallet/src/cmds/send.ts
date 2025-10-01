@@ -1,4 +1,4 @@
-import { AuthWitness, type AztecAddress, Contract, Fr, type SendMethodOptions, type Wallet } from '@aztec/aztec.js';
+import { AuthWitness, type AztecAddress, type AztecNode, Contract, Fr, type SendMethodOptions } from '@aztec/aztec.js';
 import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
 import { GasSettings } from '@aztec/stdlib/gas';
@@ -6,9 +6,11 @@ import { GasSettings } from '@aztec/stdlib/gas';
 import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
 import { CLIFeeArgs } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
+import type { CLIWallet } from '../utils/wallet.js';
 
 export async function send(
-  wallet: Wallet,
+  wallet: CLIWallet,
+  node: AztecNode,
   from: AztecAddress,
   functionName: string,
   functionArgsIn: any[],
@@ -28,20 +30,23 @@ export async function send(
 
   const txNonce = Fr.random();
 
-  const userFeeOptions = await feeOpts.toUserFeeOptions(wallet, from);
+  const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(node, wallet, from);
   const sendOptions: SendMethodOptions = {
-    fee: userFeeOptions,
+    fee: { paymentMethod, gasSettings },
     from,
     authWitnesses,
   };
 
-  const { estimatedGas } = await call.simulate({ ...sendOptions, fee: { ...sendOptions.fee, estimateGas: true } });
+  const { estimatedGas } = await call.simulate({
+    ...sendOptions,
+    fee: { ...sendOptions.fee, estimateGas: true },
+  });
 
   if (feeOpts.estimateOnly) {
     return;
   }
 
-  const provenTx = await call.prove(sendOptions);
+  const provenTx = await call.prove({ ...sendOptions, fee: { ...sendOptions.fee, gasSettings: estimatedGas } });
   if (verbose) {
     printProfileResult(provenTx.stats!, log);
   }
@@ -66,7 +71,7 @@ export async function send(
   } else {
     log('Transaction pending. Check status with check-tx');
   }
-  const gasSettings = GasSettings.from({
+  const finalGasSettings = GasSettings.from({
     ...provenTx.data.constants.txContext.gasSettings,
     ...estimatedGas,
   });
@@ -74,6 +79,6 @@ export async function send(
     txHash,
     txNonce,
     cancellable,
-    gasSettings,
+    gasSettings: finalGasSettings,
   };
 }

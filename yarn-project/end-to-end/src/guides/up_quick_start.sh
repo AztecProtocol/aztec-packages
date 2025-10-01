@@ -19,8 +19,8 @@ aztec-wallet() {
 aztec-wallet import-test-accounts
 
 # docs:start:declare-accounts
-aztec-wallet create-account -a alice --payment method=fee_juice,feePayer=test0
-aztec-wallet create-account -a bob --payment method=fee_juice,feePayer=test0
+aztec-wallet create-account -a alice -f test0
+aztec-wallet create-account -a bob -f test0
 # docs:end:declare-accounts
 
 DEPLOY_OUTPUT=$(aztec-wallet deploy ../noir-contracts.js/artifacts/token_contract-Token.json --args accounts:test0 Test TST 18 -f test0)

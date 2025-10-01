@@ -1,5 +1,5 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { AccountManager, type AztecNode, Fr } from '@aztec/aztec.js';
+import { type AztecNode, DeployAccountMethod, Fr } from '@aztec/aztec.js';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import { AmmBot, Bot, type BotConfig, BotStore, SupportedTokenContracts, getBotDefaultConfig } from '@aztec/bot';
 import { AVM_MAX_PROCESSABLE_L2_GAS, MAX_PROCESSABLE_DA_GAS_PER_BLOCK } from '@aztec/constants';
@@ -122,7 +122,7 @@ describe('e2e_bot', () => {
       };
 
       {
-        using deploy = jest.spyOn(AccountManager.prototype, 'deploy');
+        using deploy = jest.spyOn(DeployAccountMethod.prototype, 'send');
 
         deploy.mockImplementation(() => {
           throw new Error('test error');
@@ -160,7 +160,7 @@ describe('e2e_bot', () => {
       };
 
       {
-        using deploy = jest.spyOn(AccountManager.prototype, 'deploy');
+        using deploy = jest.spyOn(DeployAccountMethod.prototype, 'send');
         deploy.mockImplementation(() => {
           throw new Error('test error');
         });

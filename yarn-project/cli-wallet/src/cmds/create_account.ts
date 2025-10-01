@@ -1,4 +1,4 @@
-import { AztecAddress, type DeployOptions, ProtocolContractAddress } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, type DeployAccountOptions } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';
@@ -10,13 +10,16 @@ import { type AccountType, CLIWallet } from '../utils/wallet.js';
 
 export async function createAccount(
   wallet: CLIWallet,
+  aztecNode: AztecNode,
   accountType: AccountType,
   secretKey: Fr | undefined,
   publicKey: string | undefined,
   alias: string | undefined,
+  deployer: AztecAddress | undefined,
   registerOnly: boolean,
-  publicDeploy: boolean,
   skipInitialization: boolean,
+  publicDeploy: boolean,
+  registerClass: boolean,
   wait: boolean,
   feeOpts: CLIFeeArgs,
   json: boolean,
@@ -46,7 +49,6 @@ export async function createAccount(
     out.partialAddress = partialAddress;
     out.salt = salt;
     out.initHash = account.getInstance().initializationHash;
-    out.deployer = account.getInstance().deployer;
   } else {
     log(`\nNew account:\n`);
     log(`Address:         ${address.toString()}`);
@@ -57,59 +59,29 @@ export async function createAccount(
     log(`Partial address: ${partialAddress.toString()}`);
     log(`Salt:            ${salt.toString()}`);
     log(`Init hash:       ${account.getInstance().initializationHash.toString()}`);
-    log(`Deployer:        ${account.getInstance().deployer.toString()}`);
   }
 
   let tx;
   let txReceipt;
   if (!registerOnly) {
-    const userFeeOptions = await feeOpts.toUserFeeOptions(wallet, address);
-    const feePayer = await userFeeOptions.paymentMethod?.getFeePayer();
-    let paymentAsset;
-    try {
-      paymentAsset = await userFeeOptions.paymentMethod?.getAsset();
-      // eslint-disable-next-line no-empty
-    } catch {}
+    const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(aztecNode, wallet, address);
 
-    // If someone else is paying the fee, set them as the deployment account.
-    // What we're trying to identify here is that the fee payment method is
-    // FeeJuicePaymentMethod(anAddressThatsNotTheAccountBeingDeployed)
-    const delegatedDeployment =
-      paymentAsset?.equals(ProtocolContractAddress.FeeJuice) && !feePayer?.equals(account.getAddress());
-    const from = delegatedDeployment ? feePayer! : AztecAddress.ZERO;
+    const delegatedDeployment = deployer && !account.address.equals(deployer);
+    const from = delegatedDeployment ? deployer : AztecAddress.ZERO;
 
-    const deployOpts: DeployOptions = {
-      skipClassPublication: !publicDeploy,
+    const deployAccountOpts: DeployAccountOptions = {
+      skipClassPublication: !registerClass,
       skipInstancePublication: !publicDeploy,
       skipInitialization,
       from,
-      fee: userFeeOptions,
-      // Do not mix the deployer in the address, since the account
-      // was created (and thus its address was fixed) like this
-      universalDeploy: true,
-      contractAddressSalt: salt,
+      fee: { paymentMethod, gasSettings },
     };
 
-    /*
-     * This is usually handled by accountManager.create(), but we're accessing the lower
-     * level method to get gas and timings. That means we have to replicate some of the logic here.
-     * In case we're initializing and/or publishing our own account, we need to hijack the payment method for the fee,
-     * wrapping it in the one that will make use of the freshly deployed account's
-     * entrypoint. For reference, see aztec.js/src/account_manager.ts:sendAccountContractSetupTx()
-     * Also, salt and universalDeploy have to be explicitly provided
-     */
-    deployOpts.fee =
-      !delegatedDeployment && deployOpts.fee
-        ? { ...deployOpts.fee, paymentMethod: await account.getSelfPaymentMethod(deployOpts.fee.paymentMethod) }
-        : deployOpts.fee;
-
     const deployMethod = await account.getDeployMethod();
-    const { stats, estimatedGas } = await deployMethod.simulate({
-      ...deployOpts,
-      fee: { ...deployOpts.fee, estimateGas: true },
+    const { estimatedGas } = await deployMethod.simulate({
+      ...deployAccountOpts,
+      fee: { ...deployAccountOpts.fee, estimateGas: true },
     });
-
-    printProfileResult(stats, log);
 
     if (feeOpts.estimateOnly) {
       if (json) {
@@ -126,11 +98,13 @@ export async function createAccount(
       }
     } else {
       const provenTx = await deployMethod.prove({
-        ...deployOpts,
-        fee: {
-          ...deployOpts.fee,
-          gasSettings: estimatedGas,
-        },
+        ...deployAccountOpts,
+        fee: deployAccountOpts.fee
+          ? {
+              ...deployAccountOpts.fee,
+              gasSettings: estimatedGas,
+            }
+          : undefined,
       });
       if (verbose) {
         printProfileResult(provenTx.stats!, log);

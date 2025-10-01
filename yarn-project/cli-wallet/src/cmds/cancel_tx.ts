@@ -1,5 +1,11 @@
-import { AztecAddress, type FeePaymentMethod, SentTx, type TxHash, TxStatus } from '@aztec/aztec.js';
-import type { FeeOptions } from '@aztec/entrypoints/interfaces';
+import {
+  type AppConfigurableFeePaymentMethod,
+  AztecAddress,
+  type FeeOptions,
+  SentTx,
+  type TxHash,
+  TxStatus,
+} from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
@@ -16,7 +22,7 @@ export async function cancelTx(
     txNonce,
     cancellable,
   }: { txHash: TxHash; gasSettings: GasSettings; txNonce: Fr; cancellable: boolean },
-  paymentMethod: FeePaymentMethod,
+  paymentMethod: AppConfigurableFeePaymentMethod | undefined,
   increasedFees: GasFees,
   maxFeesPerGas: GasFees | undefined,
   log: LogFn,
@@ -39,6 +45,8 @@ export async function cancelTx(
       maxPriorityFeesPerGas,
       maxFeesPerGas: maxFeesPerGas ?? prevTxGasSettings.maxFeesPerGas,
     }),
+    endSetup: false,
+    isFeePayer: false,
   };
 
   const txProvingResult = await wallet.proveCancellationTx(from, txNonce, feeOptions);

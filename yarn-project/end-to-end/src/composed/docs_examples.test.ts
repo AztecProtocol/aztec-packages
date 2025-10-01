@@ -27,10 +27,11 @@ describe('docs_examples', () => {
     // Use a pre-funded wallet to pay for the fees for the deployments.
     const [accountData] = await getInitialTestAccountsData();
     const prefundedAccount = await wallet.createSchnorrAccount(accountData.secret, accountData.salt);
-    const newAccount = await wallet.createSchnorrAccount(secretKey, Fr.random(), signingPrivateKey);
-    await newAccount.deploy({ deployAccount: prefundedAccount.getAddress() }).wait();
-    const newAccountAddress = newAccount.getAddress();
-    const defaultAccountAddress = prefundedAccount.getAddress();
+    const newAccountManager = await wallet.createSchnorrAccount(secretKey, Fr.random(), signingPrivateKey);
+    const newAccountDeployMethod = await newAccountManager.getDeployMethod();
+    await newAccountDeployMethod.send({ from: prefundedAccount.address }).wait();
+    const newAccountAddress = newAccountManager.address;
+    const defaultAccountAddress = prefundedAccount.address;
 
     const deployedContract = await TokenContract.deploy(
       wallet, // wallet instance
