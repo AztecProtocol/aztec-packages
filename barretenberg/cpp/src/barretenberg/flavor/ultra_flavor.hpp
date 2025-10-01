@@ -346,9 +346,9 @@ class UltraFlavor {
      * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
      *
      */
-    class Transcript : public NativeTranscript {
+    template <typename DataType, typename HashFunction> class Transcript_ : public NativeTranscript {
       public:
-        using Base = NativeTranscript;
+        using Base = BaseTranscript<DataType, HashFunction>;
 
         // Transcript objects defined as public member variables for easy access and modification
         std::vector<FF> public_inputs;
@@ -366,19 +366,19 @@ class UltraFlavor {
         std::vector<FF> gemini_fold_evals;
         Commitment shplonk_q_comm;
         Commitment kzg_w_comm;
-        // Transcript_() = default;
+        Transcript_() = default;
 
-        // static std::shared_ptr<Transcript_> prover_init_empty()
-        // {
-        //     auto transcript = Base::prover_init_empty();
-        //     return std::static_pointer_cast<Transcript_>(transcript);
-        // };
+        static std::shared_ptr<Transcript_> prover_init_empty()
+        {
+            auto transcript = Base::prover_init_empty();
+            return std::static_pointer_cast<Transcript_>(transcript);
+        };
 
-        // static std::shared_ptr<Transcript_> verifier_init_empty(const std::shared_ptr<Transcript_>& transcript)
-        // {
-        //     auto verifier_transcript = Base::verifier_init_empty(transcript);
-        //     return std::static_pointer_cast<Transcript_>(verifier_transcript);
-        // };
+        static std::shared_ptr<Transcript_> verifier_init_empty(const std::shared_ptr<Transcript_>& transcript)
+        {
+            auto verifier_transcript = Base::verifier_init_empty(transcript);
+            return std::static_pointer_cast<Transcript_>(verifier_transcript);
+        };
 
         /**
          * @brief Takes a FULL Ultra proof and deserializes it into the public member variables
@@ -460,6 +460,8 @@ class UltraFlavor {
             BB_ASSERT_EQ(proof_data.size(), old_proof_length);
         }
     };
+
+    using Transcript = Transcript_<FF, crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>>;
 
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
