@@ -22,6 +22,7 @@ export async function deployL1Contracts(
   createVerificationJson: string | false,
   initialValidators: EthAddress[],
   realVerifier: boolean,
+  existingToken: EthAddress | undefined,
   log: LogFn,
   debugLogger: Logger,
 ) {
@@ -50,6 +51,7 @@ export async function deployL1Contracts(
     fundingNeeded,
     acceleratedTestDeployments,
     config,
+    existingToken,
     realVerifier,
     createVerificationJson,
     debugLogger,
