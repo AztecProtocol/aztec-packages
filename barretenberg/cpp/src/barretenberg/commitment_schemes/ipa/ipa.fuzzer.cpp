@@ -26,16 +26,16 @@ VerifierCommitmentKey<Curve> vk;
 class ProxyCaller {
   public:
     template <typename Transcript>
-    static void compute_opening_proof_internal(const CommitmentKey<Curve>& ck,
-                                               const ProverOpeningClaim<Curve>& opening_claim,
-                                               const std::shared_ptr<Transcript>& transcript,
-                                               size_t poly_log_size)
+    static void compute_opening_proof(const CommitmentKey<Curve>& ck,
+                                      const ProverOpeningClaim<Curve>& opening_claim,
+                                      const std::shared_ptr<Transcript>& transcript,
+                                      size_t poly_log_size)
     {
         if (poly_log_size == 1) {
-            IPA<Curve, 1>::compute_opening_proof_internal(ck, opening_claim, transcript);
+            IPA<Curve, 1>::compute_opening_proof(ck, opening_claim, transcript);
         }
         if (poly_log_size == 2) {
-            IPA<Curve, 2>::compute_opening_proof_internal(ck, opening_claim, transcript);
+            IPA<Curve, 2>::compute_opening_proof(ck, opening_claim, transcript);
         }
     }
     template <typename Transcript>
