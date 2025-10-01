@@ -62,6 +62,17 @@ struct shift_right {
     }
 };
 
+struct greater_than {
+    template <typename T, typename U> bool operator()(const T& a, const U& b) const
+    {
+        if constexpr (std::is_same_v<T, FF>) {
+            return static_cast<uint256_t>(a) > static_cast<uint256_t>(b);
+        } else {
+            return a > b;
+        }
+    }
+};
+
 struct less_than {
     template <typename T, typename U> bool operator()(const T& a, const U& b) const
     {
@@ -328,6 +339,12 @@ bool TaggedValue::operator<(const TaggedValue& other) const
 {
     // Cannot use std::less<> here because we need to handle FF specially.
     return std::visit(ComparisonOperationVisitor<less_than>(), value, other.value);
+}
+
+bool TaggedValue::operator>(const TaggedValue& other) const
+{
+    // Cannot use std::greater<> here because we need to handle FF specially.
+    return std::visit(ComparisonOperationVisitor<greater_than>(), value, other.value);
 }
 
 bool TaggedValue::operator<=(const TaggedValue& other) const

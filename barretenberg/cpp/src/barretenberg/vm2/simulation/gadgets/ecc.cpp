@@ -57,7 +57,7 @@ void Ecc::add(MemoryInterface& memory,
               MemoryAddress dst_address)
 {
     uint32_t execution_clk = execution_id_manager.get_execution_id();
-    uint32_t space_id = memory.get_space_id();
+    uint16_t space_id = memory.get_space_id();
 
     try {
         // The resulting EmbeddedCurvePoint is a triple of (x, y, is_infinity).

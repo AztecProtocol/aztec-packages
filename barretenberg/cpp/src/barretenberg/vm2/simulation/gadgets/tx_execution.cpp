@@ -247,9 +247,11 @@ void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)
         if (prev_nullifier_count == MAX_NULLIFIERS_PER_TX) {
             throw TxExecutionException("Maximum number of nullifiers reached");
         }
-        bool success = merkle_db.siloed_nullifier_write(nullifier);
-        if (!success) {
-            throw TxExecutionException("Nullifier collision");
+
+        try {
+            merkle_db.siloed_nullifier_write(nullifier);
+        } catch (const NullifierCollisionException& e) {
+            throw TxExecutionException(e.what());
         }
 
         events.emit(TxPhaseEvent{ .phase = phase,

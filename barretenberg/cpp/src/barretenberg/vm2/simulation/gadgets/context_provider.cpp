@@ -18,6 +18,9 @@ std::unique_ptr<ContextInterface> ContextProvider::make_nested_context(AztecAddr
 {
     merkle_db.create_checkpoint(); // Fork DB just like in TS.
     uint32_t context_id = next_context_id++;
+    // Memory assumes that the space id is <= 16 bits.
+    assert(context_id <= std::numeric_limits<uint16_t>::max());
+    uint16_t space_id = static_cast<uint16_t>(context_id);
     return std::make_unique<NestedContext>(
         context_id,
         address,
@@ -27,7 +30,7 @@ std::unique_ptr<ContextInterface> ContextProvider::make_nested_context(AztecAddr
         gas_limit,
         parent_context.get_globals(),
         std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
-        memory_provider.make_memory(context_id),
+        memory_provider.make_memory(space_id),
         internal_call_stack_manager_provider.make_internal_call_stack_manager(context_id),
         merkle_db,
         written_public_data_slots_tree,
@@ -51,6 +54,9 @@ std::unique_ptr<ContextInterface> ContextProvider::make_enqueued_context(AztecAd
 {
 
     uint32_t context_id = next_context_id++;
+    // Memory assumes that the space id is <= 16 bits.
+    assert(context_id <= std::numeric_limits<uint16_t>::max());
+    uint16_t space_id = static_cast<uint16_t>(context_id);
 
     cd_hash_provider.make_calldata_hasher(context_id)->compute_calldata_hash(calldata);
 
@@ -64,7 +70,7 @@ std::unique_ptr<ContextInterface> ContextProvider::make_enqueued_context(AztecAd
         gas_used,
         global_variables,
         std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
-        memory_provider.make_memory(context_id),
+        memory_provider.make_memory(space_id),
         internal_call_stack_manager_provider.make_internal_call_stack_manager(context_id),
         merkle_db,
         written_public_data_slots_tree,

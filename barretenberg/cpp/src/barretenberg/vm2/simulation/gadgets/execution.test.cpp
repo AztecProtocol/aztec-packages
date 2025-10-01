@@ -881,7 +881,7 @@ TEST_F(ExecutionSimulationTest, EmitNullifier)
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
     EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
-    EXPECT_CALL(merkle_db, nullifier_write(address, nullifier.as_ff())).WillOnce(Return(true)); // success
+    EXPECT_CALL(merkle_db, nullifier_write(address, nullifier.as_ff())).WillOnce(Return()); // success
 
     execution.emit_nullifier(context, nullifier_addr);
 }
@@ -942,7 +942,8 @@ TEST_F(ExecutionSimulationTest, EmitNullifierCollision)
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
     EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
-    EXPECT_CALL(merkle_db, nullifier_write(address, nullifier.as<FF>())).WillOnce(Return(false)); // collision
+    EXPECT_CALL(merkle_db, nullifier_write(address, nullifier.as<FF>()))
+        .WillOnce(Throw(NullifierCollisionException("Nullifier collision"))); // collision
 
     EXPECT_THROW_WITH_MESSAGE(execution.emit_nullifier(context, nullifier_addr), "EMITNULLIFIER: Nullifier collision");
 }

@@ -11,8 +11,6 @@ class GreaterThanInterface {
     virtual ~GreaterThanInterface() = default;
     virtual bool gt(const FF& a, const FF& b) = 0;
     virtual bool gt(const uint128_t& a, const uint128_t& b) = 0;
-    // virtual bool gt(uint32_t a, uint32_t b) = 0;
-    // virtual bool gt(uint64_t a, uint64_t b) = 0;
     virtual bool gt(const MemoryValue& a, const MemoryValue& b) = 0;
 };
 
