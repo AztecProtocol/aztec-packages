@@ -79,6 +79,7 @@ resource "google_compute_instance" "vm" {
       PUBLIC_IP              = data.terraform_remote_state.ip.outputs.ip_addresses[var.regions[count.index]],
       PEER_ID_PRIVATE_KEY    = var.peer_id_private_keys[count.index],
       LOCATION               = "GCP",
+      REGION                 = var.regions[count.index],
       DATA_STORE_MAP_SIZE_KB = 16777216,
       P2P_PORT               = var.p2p_port,
       SSH_USER               = local.ssh_user,
