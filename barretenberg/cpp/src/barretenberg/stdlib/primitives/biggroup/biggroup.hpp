@@ -482,6 +482,77 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
   private:
     bool_ct _is_infinity;
 
+    /**
+     * @brief Compute the wNAF representation (in circuit) of a scalar for secp256k1
+     *
+     * @param builder
+     * @param scalar The scalar to be represented in wNAF, should be ≤ 129 bits
+     * @param stagger The stagger value (in terms of number of bits)
+     * @param is_negative Whether the scalar is negative
+     * @param is_lo Whether this is the low part of a split scalar
+     * @return std::pair<Fr, secp256k1_wnaf>
+     *
+     * @details For a scalar k > (r / 2), we compute the wNAF representation of k' = r - k.
+     * We then have k = -k' mod r, and we can perform scalar multiplication using -k'. This case is handled by
+     * setting `is_negative = true`.
+     */
+    template <size_t num_bits, size_t wnaf_size, size_t lo_stagger, size_t hi_stagger>
+    static std::pair<Fr, secp256k1_wnaf> compute_secp256k1_single_wnaf(
+        Builder* builder, const secp256k1::fr& scalar, size_t stagger, bool is_negative, bool is_lo = false);
+
+    /**
+     * @brief Compute the stagger-related part of wNAF and the final skew
+     *
+     * @param fragment_u64 Stagger-masked lower bits of the scalar
+     * @param stagger The number of staggering bits
+     * @param is_negative If the initial scalar is supposed to be subtracted
+     * @param wnaf_skew The skew of the stagger-right-shifted part of the scalar
+     *
+     */
+    template <size_t wnaf_size>
+    static std::pair<uint64_t, bool> compute_secp256k1_staggered_wnaf_fragment(const uint64_t fragment_u64,
+                                                                               const uint64_t stagger,
+                                                                               bool is_negative,
+                                                                               bool wnaf_skew);
+
+    /**
+     * @brief Convert wNAF values to witness values
+     *
+     * @param builder
+     * @param wnaf_values
+     * @param is_negative
+     * @param rounds
+     * @return std::vector<field_t<Builder>>
+     *
+     * @details For 4-bit window, each wNAF value is in the range [-15, 15]. We convert these to the range [0, 30] by
+     * adding 15 if `is_negative = false` and by subtracting from 15 if `is_negative = true`. This ensures that all
+     * values are non-negative, which is required for the ROM table lookup.
+     */
+    template <size_t wnaf_size>
+    static std::vector<field_t<Builder>> convert_wnaf_values_to_witnesses(Builder* builder,
+                                                                          uint64_t* wnaf_values,
+                                                                          bool is_negative,
+                                                                          size_t rounds);
+
+    /**
+     * @brief Reconstruct a scalar from its wNAF representation in circuit
+     *
+     * @param builder
+     * @param wnaf The wNAF representation of the scalar
+     * @param positive_skew The skew to be applied if the scalar is non-negative
+     * @param stagger_fragment The stagger-related fragment of the scalar
+     * @param stagger The number of staggering bits
+     * @param rounds The number of rounds in the wNAF representation
+     * @return Fr The reconstructed scalar
+     */
+    template <size_t wnaf_size>
+    static Fr reconstruct_bigfield_from_wnaf(Builder* builder,
+                                             const std::vector<field_t<Builder>>& wnaf,
+                                             const field_t<Builder>& positive_skew,
+                                             const field_t<Builder>& stagger_fragment,
+                                             const size_t stagger,
+                                             const size_t rounds);
+
     template <size_t num_elements>
     static std::array<twin_rom_table<Builder>, Fq::NUM_LIMBS + 1> create_group_element_rom_tables(
         const std::array<element, num_elements>& rom_data, std::array<uint256_t, Fq::NUM_LIMBS * 2>& limb_max);
@@ -908,7 +979,8 @@ concept IsGoblinBigGroup =
     std::same_as<Fr, bb::stdlib::field_t<Builder>> && std::same_as<NativeGroup, bb::g1>;
 
 /**
- * @brief element wraps either element_default::element or element_goblin::goblin_element depending on parametrisation
+ * @brief element wraps either element_default::element or element_goblin::goblin_element depending on
+ * parametrisation
  * @details if C = MegaBuilder, G = bn254, Fq = bigfield<C, bb::Bn254FqParams>, Fr = field_t then we're cooking
  */
 template <typename C, typename Fq, typename Fr, typename G>
