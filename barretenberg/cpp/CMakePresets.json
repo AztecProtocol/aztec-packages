@@ -529,9 +529,42 @@
       "cacheVariables": {
         "ENABLE_PIC": "ON",
         "CMAKE_BUILD_TYPE": "Release",
+        "ENABLE_AVM_TRANSPILER": "ON",
         "DISABLE_AZTEC_VM": "ON",
         "CMAKE_AR": "${sourceDir}/scripts/zig-ar.sh",
         "CMAKE_RANLIB": "${sourceDir}/scripts/zig-ranlib.sh"
+      }
+    },
+    {
+      "name": "zig-darwin-amd64",
+      "displayName": "Build for macOS amd64 with Zig",
+      "description": "Cross-compile for intel macOS using Zig",
+      "binaryDir": "build-zig-darwin-amd64",
+      "generator": "Ninja",
+      "environment": {
+        "CC": "zig cc -target x86_64-macos",
+        "CXX": "zig c++ -target x86_64-macos"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Darwin",
+        "CMAKE_SYSTEM_PROCESSOR": "x86_64",
+        "HAVE_STD_REGEX": "ON"
+      }
+    },
+    {
+      "name": "zig-darwin-arm64",
+      "displayName": "Build for macOS arm64 with Zig",
+      "description": "Cross-compile for macOS arm64 (Apple Silicon) using Zig",
+      "binaryDir": "build-zig-darwin-arm64",
+      "generator": "Ninja",
+      "environment": {
+        "CC": "zig cc -target aarch64-macos",
+        "CXX": "zig c++ -target aarch64-macos"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Darwin",
+        "CMAKE_SYSTEM_PROCESSOR": "aarch64",
+        "HAVE_STD_REGEX": "ON"
       }
     },
     {
