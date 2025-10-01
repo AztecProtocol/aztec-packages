@@ -245,6 +245,11 @@ const config = {
                 className: "dropdown-subtitle",
               },
               {
+                to: "/developers/docs/reference/glossary",
+                label: "Glossary",
+                className: "no-external-icon",
+              },
+              {
                 to: "/developers/migration_notes",
                 label: "Migration Notes",
                 className: "no-external-icon",
