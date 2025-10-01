@@ -521,7 +521,8 @@
       "inherits": "zig-base",
       "environment": {
         "CC": "zig cc -target x86_64-linux-musl",
-        "CXX": "zig c++ -target x86_64-linux-musl"
+        "CXX": "zig c++ -target x86_64-linux-musl",
+        "LDFLAGS": "-s"
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Linux",
@@ -533,7 +534,8 @@
       "inherits": "zig-base",
       "environment": {
         "CC": "zig cc -target aarch64-linux-musl",
-        "CXX": "zig c++ -target aarch64-linux-musl"
+        "CXX": "zig c++ -target aarch64-linux-musl",
+        "LDFLAGS": "-s"
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Linux",
