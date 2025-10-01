@@ -125,8 +125,8 @@ TEST_F(Poseidon2ConstrainingTest, HashWithSinglePermutation)
     // This first row column is set becuase it is used in the relations for Poseidon2Hash.
     // This could be replaced by having the precomputed tables in the trace, but currently that would
     // mean the clk column of length 2^21 -1 will be include :O
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
     Poseidon2TraceBuilder builder;
 
@@ -147,8 +147,8 @@ TEST_F(Poseidon2ConstrainingTest, HashWithMultiplePermutation)
     std::vector<FF> input = { a, b, c, d };
     poseidon2.hash(input);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
     Poseidon2TraceBuilder builder;
 
@@ -170,8 +170,8 @@ TEST_F(Poseidon2ConstrainingTest, MultipleHashInvocations)
     bb_result = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash({ bb_result, 1, 2, 3, 4 });
     EXPECT_EQ(result, bb_result);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
     Poseidon2TraceBuilder builder;
 
@@ -188,8 +188,8 @@ TEST_F(Poseidon2ConstrainingTest, HashPermInteractions)
 
     poseidon2.hash(input);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
     Poseidon2TraceBuilder builder;
 
@@ -210,8 +210,8 @@ TEST_F(Poseidon2ConstrainingTest, NegativeHashPermInteractions)
 
     poseidon2.hash(input);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
     Poseidon2TraceBuilder builder;
 

@@ -74,6 +74,7 @@ import {
   type GetPublicLogsResponse,
 } from '@aztec/stdlib/interfaces/client';
 import {
+  type AllowedElement,
   type ClientProtocolCircuitVerifier,
   type L2LogsSource,
   type Service,
@@ -108,7 +109,12 @@ import {
   getTelemetryClient,
   trackSpan,
 } from '@aztec/telemetry-client';
-import { NodeKeystoreAdapter, ValidatorClient, createValidatorClient } from '@aztec/validator-client';
+import {
+  NodeKeystoreAdapter,
+  ValidatorClient,
+  createBlockProposalHandler,
+  createValidatorClient,
+} from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { createPublicClient, fallback, http } from 'viem';
@@ -211,6 +217,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         keyStoreManager = new KeystoreManager(keyStore);
       }
     }
+
+    await keyStoreManager?.validateSigners();
 
     // If we are a validator, verify our configuration before doing too much more.
     if (!config.disableValidator) {
@@ -334,6 +342,21 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       if (!options.dontStartSequencer) {
         await validatorClient.registerHandlers();
       }
+    }
+
+    // If there's no validator client but alwaysReexecuteBlockProposals is enabled,
+    // create a BlockProposalHandler to reexecute block proposals for monitoring
+    if (!validatorClient && config.alwaysReexecuteBlockProposals) {
+      log.info('Setting up block proposal reexecution for monitoring');
+      createBlockProposalHandler(config, {
+        blockBuilder,
+        epochCache,
+        blockSource: archiver,
+        l1ToL2MessageSource: archiver,
+        p2pClient,
+        dateProvider,
+        telemetry,
+      }).registerForReexecution(p2pClient);
     }
 
     // Start world state and wait for it to sync to the archiver.
@@ -482,6 +505,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public getEncodedEnr(): Promise<string | undefined> {
     return Promise.resolve(this.p2pClient.getEnr()?.encodeTxt());
+  }
+
+  public async getAllowedPublicSetup(): Promise<AllowedElement[]> {
+    return this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
   }
 
   /**
@@ -1080,12 +1107,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     const merkleTreeFork = await this.worldStateSynchronizer.fork();
     try {
-      const processor = publicProcessorFactory.create(
-        merkleTreeFork,
-        newGlobalVariables,
+      const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, {
         skipFeeEnforcement,
-        /*clientInitiatedSimulation*/ true,
-      );
+        clientInitiatedSimulation: true,
+        maxDebugLogMemoryReads: this.config.rpcSimulatePublicMaxDebugLogMemoryReads,
+      });
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
       const [processedTxs, failedTxs, _usedTxs, returns] = await processor.process([tx]);

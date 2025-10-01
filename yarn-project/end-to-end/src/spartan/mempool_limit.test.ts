@@ -1,12 +1,12 @@
 // import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 // import { AztecAddress, Fr, SponsoredFeePaymentMethod, Tx, TxStatus, type Wallet } from '@aztec/aztec.js';
-// import type { UserFeeOptions } from '@aztec/entrypoints/interfaces';
+// import type { InteractionFeeOptions } from '@aztec/entrypoints/interfaces';
 // import { asyncPool } from '@aztec/foundation/async-pool';
 // import { times } from '@aztec/foundation/collection';
 // import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
 // import { createLogger } from '@aztec/foundation/log';
 // import { TokenContract } from '@aztec/noir-contracts.js/Token';
-// import { createPXEService } from '@aztec/pxe/server';
+// import { createPXE } from '@aztec/pxe/server';
 // import {
 //   type AztecNode,
 //   type AztecNodeAdmin,
@@ -45,7 +45,7 @@
 //   let tokenContractAddress: AztecAddress;
 //   let sampleTx: Tx;
 
-//   let userFeeOptions: UserFeeOptions;
+//   let InteractionFeeOptions: InteractionFeeOptions;
 
 //   const forwardProcesses: ChildProcess[] = [];
 
@@ -89,7 +89,7 @@
 //     // set a large pool size so that deploy txs fit
 //     await nodeAdmin.setConfig({ maxTxPoolSize: 1e9 });
 
-//     const pxe = await createPXEService(node, pxeOptions);
+//     const pxe = await createPXE(node, pxeOptions);
 
 //     await registerSponsoredFPC(pxe);
 //     fee = {

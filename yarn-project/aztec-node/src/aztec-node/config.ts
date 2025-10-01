@@ -10,7 +10,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import {
   type KeyStore,
-  type KeyStoreConfig,
   type ValidatorKeyStore,
   ethPrivateKeySchema,
   keyStoreConfigMappings,
@@ -47,7 +46,6 @@ export type AztecNodeConfig = ArchiverConfig &
   Pick<ProverClientUserConfig, 'bbBinaryPath' | 'bbWorkingDirectory' | 'realProofs'> &
   P2PConfig &
   DataStoreConfig &
-  KeyStoreConfig &
   SentinelConfig &
   SharedNodeConfig &
   GenesisStateConfig &
@@ -94,7 +92,7 @@ export function getConfigEnvVars(): AztecNodeConfig {
 
 type ConfigRequiredToBuildKeyStore = TxSenderConfig & SequencerClientConfig & SharedNodeConfig & ValidatorClientConfig;
 
-function createKeyStoreFromWeb3Signer(config: ConfigRequiredToBuildKeyStore) {
+function createKeyStoreFromWeb3Signer(config: ConfigRequiredToBuildKeyStore): KeyStore | undefined {
   const validatorKeyStores: ValidatorKeyStore[] = [];
 
   if (
@@ -124,7 +122,7 @@ function createKeyStoreFromWeb3Signer(config: ConfigRequiredToBuildKeyStore) {
   return keyStore;
 }
 
-function createKeyStoreFromPrivateKeys(config: ConfigRequiredToBuildKeyStore) {
+function createKeyStoreFromPrivateKeys(config: ConfigRequiredToBuildKeyStore): KeyStore | undefined {
   const validatorKeyStores: ValidatorKeyStore[] = [];
   const ethPrivateKeys = config.validatorPrivateKeys
     ? config.validatorPrivateKeys.getValue().map(x => ethPrivateKeySchema.parse(x))
@@ -158,7 +156,9 @@ function createKeyStoreFromPrivateKeys(config: ConfigRequiredToBuildKeyStore) {
   return keyStore;
 }
 
-export function createKeyStoreForValidator(config: TxSenderConfig & SequencerClientConfig & SharedNodeConfig) {
+export function createKeyStoreForValidator(
+  config: TxSenderConfig & SequencerClientConfig & SharedNodeConfig,
+): KeyStore | undefined {
   if (config.web3SignerUrl !== undefined && config.web3SignerUrl.length > 0) {
     return createKeyStoreFromWeb3Signer(config);
   }

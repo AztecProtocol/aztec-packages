@@ -1,8 +1,7 @@
-import fs from 'fs';
-import path from 'path';
 import {
   AztecAddress,
   createAztecNodeClient,
+  type DeployAccountOptions,
   DeployMethod,
   Fr,
   getContractInstanceFromInstantiationParams,
@@ -11,12 +10,14 @@ import {
   type Wallet,
 } from '@aztec/aztec.js';
 import { type AztecNode } from '@aztec/aztec.js/interfaces';
-import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
-import { createStore } from '@aztec/kv-store/lmdb';
-import { getDefaultInitializer } from '@aztec/stdlib/abi';
-import { SponsoredFPCContractArtifact } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
-import { TestWallet } from '@aztec/test-wallet';
+import { createStore } from '@aztec/kv-store/lmdb';
+import { SponsoredFPCContractArtifact } from '@aztec/noir-contracts.js/SponsoredFPC';
+import { getPXEConfig } from '@aztec/pxe/server';
+import { getDefaultInitializer } from '@aztec/stdlib/abi';
+import { TestWallet } from '@aztec/test-wallet/server';
+import fs from 'fs';
+import path from 'path';
 // @ts-ignore
 import { PrivateVotingContract } from '../artifacts/PrivateVoting.ts';
 
@@ -26,7 +27,7 @@ const WRITE_ENV_FILE = process.env.WRITE_ENV_FILE === 'false' ? false : true;
 
 const PXE_STORE_DIR = path.join(import.meta.dirname, '.store');
 
-async function setupPXE(aztecNode: AztecNode) {
+async function setupWallet(aztecNode: AztecNode) {
   fs.rmSync(PXE_STORE_DIR, { recursive: true, force: true });
 
   const store = await createStore('pxe', {
@@ -34,18 +35,14 @@ async function setupPXE(aztecNode: AztecNode) {
     dataStoreMapSizeKB: 1e6,
   });
 
-  const config = getPXEServiceConfig();
+  const config = getPXEConfig();
   config.dataDirectory = 'pxe';
   config.proverEnabled = PROVER_ENABLED;
-  const configWithContracts = {
-    ...config,
-  };
 
-  const pxe = await createPXEService(aztecNode, configWithContracts, {
+  return await TestWallet.create(aztecNode, config, {
     store,
     useLogSuffix: true,
   });
-  return pxe;
 }
 
 async function getSponsoredPFCContract() {
@@ -71,22 +68,20 @@ async function createAccount(wallet: TestWallet) {
 
   const deployMethod = await accountManager.getDeployMethod();
   const sponsoredPFCContract = await getSponsoredPFCContract();
-  const deployOpts = {
+  const deployOpts: DeployAccountOptions = {
     from: AztecAddress.ZERO,
-    contractAddressSalt: Fr.fromString(salt.toString()),
     fee: {
-      paymentMethod: await accountManager.getSelfPaymentMethod(
-        new SponsoredFeePaymentMethod(sponsoredPFCContract.address)
+      paymentMethod: new SponsoredFeePaymentMethod(
+        sponsoredPFCContract.address
       ),
     },
-    universalDeploy: true,
     skipClassPublication: true,
     skipInstancePublication: true,
   };
   const provenInteraction = await deployMethod.prove(deployOpts);
   await provenInteraction.send().wait({ timeout: 120 });
 
-  return accountManager.getAddress();
+  return accountManager.address;
 }
 
 async function deployContract(wallet: Wallet, deployer: AztecAddress) {
@@ -158,8 +153,7 @@ async function writeEnvFile(deploymentInfo) {
 
 async function createAccountAndDeployContract() {
   const aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
-  const pxe = await setupPXE(aztecNode);
-  const wallet = new TestWallet(pxe, aztecNode);
+  const wallet = await setupWallet(aztecNode);
 
   // Register the SponsoredFPC contract (for sponsored fee payments)
   await wallet.registerContract(

@@ -153,13 +153,13 @@ template <typename FF> class ZeroSelector : public Selector<FF> {
 
     void set(size_t idx, int value) override
     {
-        BB_ASSERT_LT(idx, size_);
+        ASSERT_DEBUG(idx < size_);
         BB_ASSERT_EQ(value, 0, "Calling ZeroSelector::set with a non zero value.");
     }
 
     void set(size_t idx, const FF& value) override
     {
-        BB_ASSERT_LT(idx, size_);
+        ASSERT_DEBUG(idx < size_);
         ASSERT(value.is_zero());
         size_++;
     }
@@ -170,7 +170,7 @@ template <typename FF> class ZeroSelector : public Selector<FF> {
 
     const FF& operator[](size_t index) const override
     {
-        BB_ASSERT_LT(index, size_);
+        ASSERT_DEBUG(index < size_);
         return zero;
     }
 

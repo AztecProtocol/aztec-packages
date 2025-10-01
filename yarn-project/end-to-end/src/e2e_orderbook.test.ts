@@ -1,7 +1,7 @@
 import { AztecAddress, type AztecNode, type FieldLike, Fr, type Logger, getDecodedPublicEvents } from '@aztec/aztec.js';
 import { type OrderCreated, type OrderFulfilled, OrderbookContract } from '@aztec/noir-contracts.js/Orderbook';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 

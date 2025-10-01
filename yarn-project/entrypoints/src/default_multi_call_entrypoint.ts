@@ -2,10 +2,11 @@ import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { GasSettings } from '@aztec/stdlib/gas';
 import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
-import { EncodedCallsForEntrypoint } from './encoding.js';
-import type { EntrypointInterface, FeeOptions } from './interfaces.js';
+import { EncodedAppEntrypointCalls } from './encoding.js';
+import type { EntrypointInterface } from './interfaces.js';
 import type { ExecutionPayload } from './payload.js';
 
 /**
@@ -18,20 +19,12 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
     private address: AztecAddress = ProtocolContractAddress.MultiCallEntrypoint,
   ) {}
 
-  async createTxExecutionRequest(exec: ExecutionPayload, feeOptions: FeeOptions): Promise<TxExecutionRequest> {
+  async createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings): Promise<TxExecutionRequest> {
     // Initial request with calls, authWitnesses and capsules
     const { calls, authWitnesses, capsules, extraHashedArgs } = exec;
 
-    // Get the execution payload for the fee, it includes the calls and potentially authWitnesses
-    const {
-      calls: feeCalls,
-      authWitnesses: feeAuthwitnesses,
-      extraHashedArgs: feeExtraHashedArgs,
-    } = await feeOptions.paymentMethod.getExecutionPayload(feeOptions.gasSettings);
-
-    // Encode the calls, including the fee calls
-    // (since this entrypoint does not distinguish between app and fee calls)
-    const encodedCalls = await EncodedCallsForEntrypoint.fromAppExecution(calls.concat(feeCalls));
+    // Encode the calls for the app
+    const encodedCalls = await EncodedAppEntrypointCalls.create(calls);
 
     // Obtain the entrypoint hashed args, built from the encoded calls
     const abi = this.getEntrypointAbi();
@@ -42,9 +35,9 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
       firstCallArgsHash: entrypointHashedArgs.hash,
       origin: this.address,
       functionSelector: await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
-      txContext: new TxContext(this.chainId, this.version, feeOptions.gasSettings),
-      argsOfCalls: [...encodedCalls.hashedArguments, entrypointHashedArgs, ...extraHashedArgs, ...feeExtraHashedArgs],
-      authWitnesses: [...feeAuthwitnesses, ...authWitnesses],
+      txContext: new TxContext(this.chainId, this.version, gasSettings),
+      argsOfCalls: [...encodedCalls.hashedArguments, entrypointHashedArgs, ...extraHashedArgs],
+      authWitnesses,
       capsules,
       salt: Fr.random(),
     });
@@ -70,7 +63,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
                 name: 'function_calls',
                 type: {
                   kind: 'array',
-                  length: 4,
+                  length: 5,
                   type: {
                     kind: 'struct',
                     path: 'authwit::entrypoint::function_call::FunctionCall',

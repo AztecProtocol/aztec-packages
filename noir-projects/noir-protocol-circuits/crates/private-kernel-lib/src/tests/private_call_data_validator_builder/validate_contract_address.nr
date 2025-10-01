@@ -157,7 +157,7 @@ fn validate_contract_address_wrong_vk_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 
     // Change the vk hash so the address doesn't match anymore
-    builder.private_call.client_ivc_vk.hash += 1;
+    builder.private_call.vk.hash += 1;
 
     builder.validate();
 }

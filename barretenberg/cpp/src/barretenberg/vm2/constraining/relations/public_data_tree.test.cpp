@@ -168,7 +168,8 @@ TEST_P(PublicDataReadPositiveTests, Positive)
                                                      .nextAvailableLeafIndex = 128,
                                                  });
 
-    precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+    precomputed_builder.process_misc(trace, 1 << 16);
+    precomputed_builder.process_sel_range_16(trace);
     public_inputs_builder.process_public_inputs(trace, test_public_inputs);
     public_inputs_builder.process_public_inputs_aux_precomputed(trace);
     range_check_builder.process(range_check_emitter.dump_events(), trace);
@@ -380,7 +381,8 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
                                                                                     false);
     EXPECT_EQ(next_snapshot, result_snapshot);
 
-    precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+    precomputed_builder.process_misc(trace, 1 << 16);
+    precomputed_builder.process_sel_range_16(trace);
     public_inputs_builder.process_public_inputs(trace, test_public_inputs);
     public_inputs_builder.process_public_inputs_aux_precomputed(trace);
     range_check_builder.process(range_check_emitter.dump_events(), trace);
@@ -411,8 +413,9 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
     FF dummy_leaf_slot = unconstrained_compute_leaf_slot(contract_address, dummy_slot);
     FF dummy_leaf_value = 0;
 
-    // The expected tree order is 40 => leaf_slot => dummy_leaf_slot
-    ASSERT_GT(dummy_leaf_slot, leaf_slot);
+    // The expected tree order is low_leaf_slot := 40 < leaf_slot < second_low_leaf_slot < dummy_leaf_slot
+    // We set second_low_leaf_slot == leaf_slot + 1. (We do not need to know the preimage for second_low_leaf_slot)
+    ASSERT_GT(dummy_leaf_slot, leaf_slot + 1);
 
     FF low_leaf_slot = 40;
     TestMemoryTree<Poseidon2HashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
@@ -455,17 +458,25 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
     PublicInputsTraceBuilder public_inputs_builder;
     PublicDataTreeTraceBuilder public_data_tree_read_builder;
 
+    // Insert leaves which are already present in the tree (test preparation)
     PublicDataTreeLeafPreimage low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(low_leaf_slot, 1), 0, 0);
     FF low_leaf_hash = UnconstrainedPoseidon2::hash(low_leaf.get_hash_inputs());
     uint64_t low_leaf_index = 30;
     public_data_tree.update_element(low_leaf_index, low_leaf_hash);
+
+    uint64_t second_low_leaf_index = 31;
+    FF second_low_leaf_slot = leaf_slot + 1;
+
+    PublicDataTreeLeafPreimage second_low_leaf =
+        PublicDataTreeLeafPreimage(PublicDataLeafValue(second_low_leaf_slot, 1), 0, 0);
+    FF second_low_leaf_hash = UnconstrainedPoseidon2::hash(second_low_leaf.get_hash_inputs());
+    public_data_tree.update_element(second_low_leaf_index, second_low_leaf_hash);
 
     AppendOnlyTreeSnapshot prev_snapshot =
         AppendOnlyTreeSnapshot{ .root = public_data_tree.root(), .nextAvailableLeafIndex = 128 };
     std::vector<FF> low_leaf_sibling_path = public_data_tree.get_sibling_path(low_leaf_index);
 
     // Insertion section
-
     PublicDataTreeLeafPreimage updated_low_leaf = low_leaf;
     updated_low_leaf.nextIndex = prev_snapshot.nextAvailableLeafIndex;
     updated_low_leaf.nextKey = leaf_slot;
@@ -498,11 +509,11 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
 
     // Dummy insertion section
 
-    low_leaf_index = prev_snapshot.nextAvailableLeafIndex;
     prev_snapshot = snapshot_after_insertion;
 
-    low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(leaf_slot, new_value), 0, 0);
-    low_leaf_hash = UnconstrainedPoseidon2::hash(low_leaf.get_hash_inputs());
+    low_leaf = second_low_leaf;
+    low_leaf_hash = second_low_leaf_hash;
+    low_leaf_index = second_low_leaf_index;
     low_leaf_sibling_path = public_data_tree.get_sibling_path(low_leaf_index);
 
     updated_low_leaf = low_leaf;
@@ -510,7 +521,6 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
     updated_low_leaf.nextKey = dummy_leaf_slot;
     updated_low_leaf_hash = UnconstrainedPoseidon2::hash(updated_low_leaf.get_hash_inputs());
     public_data_tree.update_element(low_leaf_index, updated_low_leaf_hash);
-
     insertion_sibling_path = public_data_tree.get_sibling_path(prev_snapshot.nextAvailableLeafIndex);
 
     new_leaf = PublicDataTreeLeafPreimage(
@@ -540,21 +550,18 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
     low_leaf_index = value_to_be_updated_leaf_index;
     prev_snapshot = snapshot_after_dummy_insertion;
 
-    low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(leaf_slot, new_value), dummy_leaf_index, dummy_leaf_slot);
-    low_leaf_hash = UnconstrainedPoseidon2::hash(low_leaf.get_hash_inputs());
+    low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(leaf_slot, new_value), 0, 0);
     low_leaf_sibling_path = public_data_tree.get_sibling_path(low_leaf_index);
 
     updated_low_leaf = low_leaf;
     updated_low_leaf.leaf.value = updated_value;
     updated_low_leaf_hash = UnconstrainedPoseidon2::hash(updated_low_leaf.get_hash_inputs());
     public_data_tree.update_element(low_leaf_index, updated_low_leaf_hash);
-
     insertion_sibling_path = public_data_tree.get_sibling_path(prev_snapshot.nextAvailableLeafIndex);
 
     // No insertion happens
     next_snapshot = AppendOnlyTreeSnapshot{ .root = public_data_tree.root(),
                                             .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex };
-
     AppendOnlyTreeSnapshot snapshot_after_update = public_data_tree_check_simulator.write(slot,
                                                                                           contract_address,
                                                                                           updated_value,
@@ -566,7 +573,18 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
                                                                                           true);
     EXPECT_EQ(next_snapshot, snapshot_after_update);
 
-    precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+    ASSERT_LE(test_public_inputs.accumulatedDataArrayLengths.publicDataWrites,
+              test_public_inputs.accumulatedData.publicDataWrites.size());
+
+    const auto* public_data_writes_start = test_public_inputs.accumulatedData.publicDataWrites.begin();
+    std::vector<PublicDataWrite> public_data_writes(
+        public_data_writes_start,
+        public_data_writes_start + test_public_inputs.accumulatedDataArrayLengths.publicDataWrites);
+
+    public_data_tree_check_simulator.generate_ff_gt_events_for_squashing(public_data_writes);
+
+    precomputed_builder.process_misc(trace, 1 << 16);
+    precomputed_builder.process_sel_range_16(trace);
     public_inputs_builder.process_public_inputs(trace, test_public_inputs);
     public_inputs_builder.process_public_inputs_aux_precomputed(trace);
     range_check_builder.process(range_check_emitter.dump_events(), trace);
@@ -777,6 +795,74 @@ TEST(PublicDataTreeConstrainingTest, NegativeWriteIdxIncrement)
                               "WRITE_IDX_INCREMENT");
 }
 
+// Negative clock diff decompostion
+TEST(PublicDataTreeConstrainingTest, NegativeClockDiffDecomposition)
+{
+    // Test constraint: CLK_DIFF = clk_diff_lo + 2**16 * clk_diff_hi;
+    TestTraceContainer trace({
+        {
+            { C::public_data_check_not_end, 1 },
+            { C::public_data_check_clk, 12 << 28 },
+            { C::public_data_check_clk_diff_lo, 234 },
+            { C::public_data_check_clk_diff_hi, 1 << 12 },
+        },
+        {
+            { C::public_data_check_clk, (13 << 28) + 234 },
+        },
+    });
+
+    check_relation<public_data_check>(trace, public_data_check::SR_CLK_DIFF_DECOMP);
+
+    // Mutate wrongly clk_diff_lo
+    trace.set(C::public_data_check_clk_diff_lo, 0, trace.get(C::public_data_check_clk_diff_lo, 0) + 1);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_CLK_DIFF_DECOMP),
+                              "CLK_DIFF_DECOMP");
+
+    // Reset
+    trace.set(C::public_data_check_clk_diff_lo, 0, trace.get(C::public_data_check_clk_diff_lo, 0) - 1);
+
+    // Mutate wrongly clk_diff_hi
+    trace.set(C::public_data_check_clk_diff_hi, 0, trace.get(C::public_data_check_clk_diff_hi, 0) + 1);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_CLK_DIFF_DECOMP),
+                              "CLK_DIFF_DECOMP");
+}
+
+// Out of range clock diff
+TEST(PublicDataTreeConstrainingTest, NegativeOutOfRangeClockDiff)
+{
+    TestTraceContainer trace({
+        {
+            { C::public_data_check_not_end, 1 },
+            { C::public_data_check_clk_diff_lo, UINT16_MAX },
+            { C::public_data_check_clk_diff_hi, UINT16_MAX },
+        },
+    });
+
+    PrecomputedTraceBuilder precomputed_trace_builder;
+    precomputed_trace_builder.process_sel_range_16(trace);
+    precomputed_trace_builder.process_misc(trace, 1 << 16);
+
+    check_interaction<PublicDataTreeTraceBuilder,
+                      lookup_public_data_check_clk_diff_range_lo_settings,
+                      lookup_public_data_check_clk_diff_range_hi_settings>(trace);
+
+    // Mutate wrongly clk_diff_lo
+    trace.set(C::public_data_check_clk_diff_lo, 0, UINT16_MAX + 1);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<PublicDataTreeTraceBuilder, lookup_public_data_check_clk_diff_range_lo_settings>(trace)),
+        "Failed.*LOOKUP_PUBLIC_DATA_CHECK_CLK_DIFF_RANGE_LO. Could not find tuple in destination.");
+
+    // Mutate wrongly clk_diff_hi
+    trace.set(C::public_data_check_clk_diff_hi, 0, UINT16_MAX + 1);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<PublicDataTreeTraceBuilder, lookup_public_data_check_clk_diff_range_hi_settings>(trace)),
+        "Failed.*LOOKUP_PUBLIC_DATA_CHECK_CLK_DIFF_RANGE_HI. Could not find tuple in destination.");
+}
+
 // Squashing subtrace
 
 TEST(PublicDataTreeConstrainingTest, SquashingNegativeStartCondition)
@@ -885,6 +971,136 @@ TEST(PublicDataTreeConstrainingTest, SquashingNegativeFinalValueCheck)
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_FINAL_VALUE_CHECK),
                               "FINAL_VALUE_CHECK");
     trace.set(C::public_data_squash_value, 1, 27);
+}
+
+TEST(PublicDataTreeConstrainingTest, SquashingNegativeLeafSlotIncrease)
+{
+    // Test constraint: leaf_slot_increase { leaf_slot', leaf_slot, sel } in ff_gt.sel_gt { ff_gt.a, ff_gt.b,
+    // ff_gt.result }
+    TestTraceContainer trace({ {
+                                   { C::public_data_squash_leaf_slot_increase, 1 },
+                                   { C::public_data_squash_leaf_slot, FF::modulus_minus_two },
+                                   { C::public_data_squash_sel, 1 },
+                               },
+                               {
+                                   { C::public_data_squash_leaf_slot_increase, 0 },
+                                   { C::public_data_squash_leaf_slot, FF::modulus - 1 },
+                                   { C::public_data_squash_sel, 1 },
+                               } });
+
+    // Corresponding ff_gt values. For this trace we keep the correct result.
+    trace.set(0,
+              { {
+                  { C::ff_gt_sel_gt, 1 },
+                  { C::ff_gt_a, FF::modulus - 1 },
+                  { C::ff_gt_b, FF::modulus_minus_two },
+                  { C::ff_gt_result, 1 },
+              } });
+
+    trace.set(1,
+              { {
+                  { C::ff_gt_sel_gt, 1 },
+                  { C::ff_gt_a, FF::modulus_minus_two },
+                  { C::ff_gt_b, FF::modulus_minus_two },
+                  { C::ff_gt_result, 0 },
+              } });
+
+    trace.set(2,
+              { {
+                  { C::ff_gt_sel_gt, 1 },
+                  { C::ff_gt_a, FF::modulus_minus_two },
+                  { C::ff_gt_b, FF::modulus - 3 },
+                  { C::ff_gt_result, 0 },
+              } });
+
+    check_interaction<PublicDataTreeTraceBuilder, lookup_public_data_squash_leaf_slot_increase_ff_gt_settings>(trace);
+
+    // Mutate the second row to be equal to the first row
+    trace.set(C::public_data_squash_leaf_slot, 1, FF::modulus_minus_two);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<PublicDataTreeTraceBuilder, lookup_public_data_squash_leaf_slot_increase_ff_gt_settings>(
+            trace)),
+        "Failed.*LOOKUP_PUBLIC_DATA_SQUASH_LEAF_SLOT_INCREASE_FF_GT. Could not find tuple in destination.");
+
+    // Mutate the second row to be smaller than the first row
+    trace.set(C::public_data_squash_leaf_slot, 1, FF::modulus - 3);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<PublicDataTreeTraceBuilder, lookup_public_data_squash_leaf_slot_increase_ff_gt_settings>(
+            trace)),
+        "Failed.*LOOKUP_PUBLIC_DATA_SQUASH_LEAF_SLOT_INCREASE_FF_GT. Could not find tuple in destination.");
+}
+
+TEST(PublicDataTreeConstrainingTest, SquashingNegativeClockDecomposition)
+{
+    // Test constraint: CLK_DIFF = clk_diff_lo + 2**16 * clk_diff_hi;
+    TestTraceContainer trace({
+        {
+            { C::public_data_squash_sel, 1 },
+            { C::public_data_squash_check_clock, 1 },
+            { C::public_data_squash_clk, 1 << 25 },
+            { C::public_data_squash_clk_diff_lo, 37 },
+            { C::public_data_squash_clk_diff_hi, 12 },
+        },
+        {
+            { C::public_data_squash_sel, 1 },
+            { C::public_data_squash_clk, (1 << 25) + (12 << 16) + 37 },
+        },
+    });
+
+    check_relation<public_data_squash>(trace, public_data_squash::SR_CLK_DIFF_DECOMP);
+
+    // Mutate wrongly clk_diff_lo
+    trace.set(C::public_data_squash_clk_diff_lo, 0, trace.get(C::public_data_squash_clk_diff_lo, 0) + 1);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_CLK_DIFF_DECOMP),
+                              "CLK_DIFF_DECOMP");
+
+    // Reset
+    trace.set(C::public_data_squash_clk_diff_lo, 0, trace.get(C::public_data_squash_clk_diff_lo, 0) - 1);
+
+    // Mutate wrongly clk_diff_hi
+    trace.set(C::public_data_squash_clk_diff_hi, 0, trace.get(C::public_data_squash_clk_diff_hi, 0) + 1);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_CLK_DIFF_DECOMP),
+                              "CLK_DIFF_DECOMP");
+}
+
+// Out of range clk diff
+TEST(PublicDataTreeConstrainingTest, SquashingNegativeOutOfRangeClockDiff)
+{
+    TestTraceContainer trace({
+        {
+            { C::public_data_squash_sel, 1 },
+            { C::public_data_squash_check_clock, 1 },
+            { C::public_data_squash_clk, 1 << 25 },
+            { C::public_data_squash_clk_diff_lo, UINT16_MAX },
+            { C::public_data_squash_clk_diff_hi, UINT16_MAX },
+        },
+    });
+
+    PrecomputedTraceBuilder precomputed_trace_builder;
+    precomputed_trace_builder.process_sel_range_16(trace);
+    precomputed_trace_builder.process_misc(trace, 1 << 16);
+
+    check_interaction<PublicDataTreeTraceBuilder,
+                      lookup_public_data_squash_clk_diff_range_lo_settings,
+                      lookup_public_data_squash_clk_diff_range_hi_settings>(trace);
+
+    // Mutate wrongly clk_diff_lo
+    trace.set(C::public_data_squash_clk_diff_lo, 0, UINT16_MAX + 1);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<PublicDataTreeTraceBuilder, lookup_public_data_squash_clk_diff_range_lo_settings>(trace)),
+        "Failed.*LOOKUP_PUBLIC_DATA_SQUASH_CLK_DIFF_RANGE_LO. Could not find tuple in destination.");
+
+    // Mutate wrongly clk_diff_hi
+    trace.set(C::public_data_squash_clk_diff_hi, 0, UINT16_MAX + 1);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<PublicDataTreeTraceBuilder, lookup_public_data_squash_clk_diff_range_hi_settings>(trace)),
+        "Failed.*LOOKUP_PUBLIC_DATA_SQUASH_CLK_DIFF_RANGE_HI. Could not find tuple in destination.");
 }
 
 } // namespace

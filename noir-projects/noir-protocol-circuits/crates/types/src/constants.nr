@@ -65,14 +65,13 @@ pub global L1_TO_L2_MSG_TREE_LEAF_COUNT: u64 = 1 << (L1_TO_L2_MSG_TREE_HEIGHT as
 // SUB-TREES RELATED CONSTANTS
 pub global NOTE_HASH_SUBTREE_HEIGHT: u32 = 6;
 pub global NULLIFIER_SUBTREE_HEIGHT: u32 = 6;
-// Deprecated: to be removed after removal of legacy ts trees
 pub global PUBLIC_DATA_SUBTREE_HEIGHT: u32 = 6;
 pub global L1_TO_L2_MSG_SUBTREE_HEIGHT: u32 = 4;
-pub global NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH: u32 =
+pub global NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
     NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT;
-pub global NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH: u32 =
+pub global NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
     NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT;
-pub global L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH: u32 =
+pub global L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
     L1_TO_L2_MSG_TREE_HEIGHT - L1_TO_L2_MSG_SUBTREE_HEIGHT;
 // Maximum number of subtrees a L2ToL1Msg wonky tree can have. Used when calculating the out hash of a tx.
 pub global MAX_L2_TO_L1_MSG_SUBTREES_PER_TX: u32 = 3; // ceil(log2(MAX_L2_TO_L1_MSGS_PER_TX))
@@ -278,11 +277,15 @@ pub global PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_LENGTH
 /// mandatory).
 pub global PRIVATE_LOG_CIPHERTEXT_LEN: u32 = PRIVATE_LOG_SIZE_IN_FIELDS - 1; // -1 for the tag
 pub global SCOPED_PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_DATA_LENGTH + 1 /* contract_address */;
+// Below are constants for the entire PublicLogs struct.
 pub global FLAT_PUBLIC_LOGS_HEADER_LENGTH: u32 = 1 /* length */;
 pub global FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH: u32 = 4096;
 pub global PUBLIC_LOGS_LENGTH: u32 =
     FLAT_PUBLIC_LOGS_HEADER_LENGTH + FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH;
+// Below are constants for individual public log in PublicLogs' payload.
 pub global PUBLIC_LOG_HEADER_LENGTH: u32 = 2; /* length and contract_address */
+pub global MAX_PUBLIC_LOG_SIZE_IN_FIELDS: u32 =
+    FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH - PUBLIC_LOG_HEADER_LENGTH;
 
 // TODO(MW): add new constant for this - the below is just the largest combination atm
 pub global CONTRACT_CLASS_LOG_SIZE_IN_FIELDS: u32 = MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS
@@ -455,6 +458,7 @@ pub global AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = GLOBAL_VARIABLES_LENGTH
     + GAS_SETTINGS_LENGTH
     + GAS_FEES_LENGTH /* effective_gas_fees */
     + 1 /* fee_payer */
+    + 1 /* prover_id */
     + NUM_PUBLIC_CALL_REQUEST_ARRAYS /* public_call_request_array_lengths */
     + (MAX_ENQUEUED_CALLS_PER_TX * PUBLIC_CALL_REQUEST_LENGTH) /* public_setup_call_requests */
     + (MAX_ENQUEUED_CALLS_PER_TX * PUBLIC_CALL_REQUEST_LENGTH) /* public_app_logic_call_requests */
@@ -778,9 +782,12 @@ pub global AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX: u32 =
 pub global AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX: u32 =
     AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX + 1;
 
+// Prover ID
+pub global AVM_PUBLIC_INPUTS_PROVER_ID_ROW_IDX: u32 = AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX + 1;
+
 // Public Call Request Array Lengths
 pub global AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_ROW_IDX: u32 =
-    AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX + 1;
+    AVM_PUBLIC_INPUTS_PROVER_ID_ROW_IDX + 1;
 pub global AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX: u32 =
     AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_ROW_IDX;
 pub global AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX: u32 =
@@ -1056,15 +1063,6 @@ pub global AVM_SSTORE_DYN_DA_GAS: u32 = 2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE
 // BLOB PREFIXES
 // Used when decoding blobs of tightly packed effects
 pub global TX_START_PREFIX: Field = 0x74785f7374617274; // = "tx_start".to_field() in nr
-pub global REVERT_CODE_PREFIX: u8 = 1;
-pub global TX_FEE_PREFIX: u8 = 2;
-pub global NOTES_PREFIX: u8 = 3;
-pub global NULLIFIERS_PREFIX: u8 = 4;
-pub global L2_L1_MSGS_PREFIX: u8 = 5;
-pub global PUBLIC_DATA_UPDATE_REQUESTS_PREFIX: u8 = 6;
-pub global PRIVATE_LOGS_PREFIX: u8 = 7;
-pub global PUBLIC_LOGS_PREFIX: u8 = 8;
-pub global CONTRACT_CLASS_LOGS_PREFIX: u8 = 9;
 pub global BLOCK_END_PREFIX: Field = 0x626c6f636b5f656e64; // = "block_end".to_field() in nr
 
 // Constants related to proof type of a recursive proof verification.
@@ -1120,6 +1118,10 @@ pub global UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE: u32 =
 
 pub global GRUMPKIN_ONE_X: Field = 1;
 pub global GRUMPKIN_ONE_Y: Field = 17631683881184975370165255887551781615748388533673675138860;
+
+// Excessive memory reads due to debug logging can open a DOS vector to nodes that perform public tx simulation for users.
+// This default limit (4MB) can be configured further by node runners via the `RPC_SIMULATE_PUBLIC_MAX_DEBUG_LOG_MEMORY_READS` environment variable.
+pub global DEFAULT_MAX_DEBUG_LOG_MEMORY_READS: u32 = 125000;
 
 mod test {
     use crate::constants::{

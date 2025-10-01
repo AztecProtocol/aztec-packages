@@ -19,7 +19,6 @@
     "./fields": "./dest/api/fields.js",
     "./log": "./dest/api/log.js",
     "./log_id": "./dest/api/log_id.js",
-    "./rpc": "./dest/api/rpc.js",
     "./tx_hash": "./dest/api/tx_hash.js",
     "./wallet": "./dest/api/wallet.js",
     "./utils": "./dest/api/utils.js",

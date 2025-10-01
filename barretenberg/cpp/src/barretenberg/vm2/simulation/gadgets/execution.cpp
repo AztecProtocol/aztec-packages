@@ -579,63 +579,22 @@ void Execution::keccak_permutation(ContextInterface& context, MemoryAddress dst_
 }
 
 void Execution::debug_log(ContextInterface& context,
+                          MemoryAddress level_offset,
                           MemoryAddress message_offset,
                           MemoryAddress fields_offset,
                           MemoryAddress fields_size_offset,
-                          uint16_t message_size,
-                          bool is_debug_logging_enabled)
+                          uint16_t message_size)
 {
     BB_BENCH_NAME("Execution::debug_log");
     get_gas_tracker().consume_gas();
 
-    // DebugLog is a no-op on the prover side. If it was compiled with assertions and ran in debug mode,
-    // we will print part of the log. However, for this opcode, we give priority to never failing and
-    // never griefing the prover. Some safety checks are done, but if a failure happens, we will just
-    // silently continue.
-    if (is_debug_logging_enabled) {
-        try {
-            auto& memory = context.get_memory();
-
-            // This is a workaround. Do not copy or use in other places.
-            auto unconstrained_read = [&memory](MemoryAddress offset) {
-                Memory* memory_ptr = dynamic_cast<Memory*>(&memory);
-                if (memory_ptr) {
-                    // This means that we are using the event generating memory.
-                    return memory_ptr->unconstrained_get(offset);
-                } else {
-                    // This assumes that any other type will not generate events.
-                    return memory.get(offset);
-                }
-            };
-
-            // Get the fields size and validate its tag
-            const auto fields_size_value = unconstrained_read(fields_size_offset);
-            const uint32_t fields_size = fields_size_value.as<uint32_t>();
-
-            // Read message and fields from memory
-            std::string message_as_str;
-            uint16_t truncated_message_size = std::min<uint16_t>(message_size, 100);
-            for (uint32_t i = 0; i < truncated_message_size; ++i) {
-                const auto message_field = unconstrained_read(message_offset + i);
-                message_as_str += static_cast<char>(static_cast<uint8_t>(message_field.as_ff()));
-            }
-            message_as_str += ": [";
-
-            // Read fields
-            for (uint32_t i = 0; i < fields_size; ++i) {
-                const auto field = unconstrained_read(fields_offset + i);
-                message_as_str += field_to_string(field);
-                if (i < fields_size - 1) {
-                    message_as_str += ", ";
-                }
-            }
-            message_as_str += "]";
-
-            debug("DEBUGLOG: ", message_as_str);
-        } catch (const std::exception& e) {
-            debug("DEBUGLOG: Error: ", e.what());
-        }
-    }
+    debug_log_component.debug_log(context.get_memory(),
+                                  context.get_address(),
+                                  level_offset,
+                                  message_offset,
+                                  message_size,
+                                  fields_offset,
+                                  fields_size_offset);
 }
 
 void Execution::success_copy(ContextInterface& context, MemoryAddress dst_addr)
@@ -1379,12 +1338,7 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         call_with_operands(&Execution::rd_size, context, resolved_operands);
         break;
     case ExecutionOpCode::DEBUGLOG:
-        debug_log(context,
-                  resolved_operands.at(0).as<MemoryAddress>(),
-                  resolved_operands.at(1).as<MemoryAddress>(),
-                  resolved_operands.at(2).as<MemoryAddress>(),
-                  resolved_operands.at(3).as<uint16_t>(),
-                  debug_logging);
+        call_with_operands(&Execution::debug_log, context, resolved_operands);
         break;
     case ExecutionOpCode::AND:
         call_with_operands(&Execution::and_op, context, resolved_operands);

@@ -1,10 +1,8 @@
 mod test;
-// docs:start:declaration
 use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract PrivateVoting {
-    // docs:end:declaration
     // docs:start:imports
     use dep::aztec::{
         keys::getters::get_public_keys,
@@ -39,7 +37,6 @@ pub contract PrivateVoting {
     }
     // docs:end:constructor
 
-    // docs:start:cast_vote
     #[private]
     // annotation to mark function as private and expose private context
     fn cast_vote(candidate: Field) {
@@ -53,9 +50,7 @@ pub contract PrivateVoting {
             &mut context,
         );
     }
-    // docs:end:cast_vote
 
-    // docs:start:add_to_tally_public
     #[public]
     #[internal]
     fn add_to_tally_public(candidate: Field) {
@@ -63,19 +58,14 @@ pub contract PrivateVoting {
         let new_tally = storage.tally.at(candidate).read() + 1;
         storage.tally.at(candidate).write(new_tally);
     }
-    // docs:end:add_to_tally_public
 
-    // docs:start:end_vote
     #[public]
     fn end_vote() {
         assert(storage.admin.read().eq(context.msg_sender()), "Only admin can end votes"); // assert that caller is admin
         storage.vote_ended.write(true);
     }
-    // docs:end:end_vote
-    // docs:start:get_vote
     #[utility]
     unconstrained fn get_vote(candidate: Field) -> Field {
         storage.tally.at(candidate).read()
     }
-    // docs:end:get_vote
 }

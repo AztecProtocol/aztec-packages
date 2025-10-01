@@ -93,8 +93,8 @@ using lookup_to_radix_mem_check_radix_gt_256_relation =
 struct lookup_to_radix_mem_input_output_to_radix_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TO_RADIX_MEM_INPUT_OUTPUT_TO_RADIX";
     static constexpr std::string_view RELATION_NAME = "to_radix_mem";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::to_radix_mem_sel_should_exec;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
+    static constexpr Column SRC_SELECTOR = Column::to_radix_mem_sel_should_decompose;
     static constexpr Column DST_SELECTOR = Column::to_radix_sel;
     static constexpr Column COUNTS = Column::lookup_to_radix_mem_input_output_to_radix_counts;
     static constexpr Column INVERSES = Column::lookup_to_radix_mem_input_output_to_radix_inv;
@@ -102,13 +102,15 @@ struct lookup_to_radix_mem_input_output_to_radix_settings_ {
         ColumnAndShifts::to_radix_mem_value_to_decompose,
         ColumnAndShifts::to_radix_mem_limb_index_to_lookup,
         ColumnAndShifts::to_radix_mem_radix,
-        ColumnAndShifts::to_radix_mem_output_limb_value
+        ColumnAndShifts::to_radix_mem_limb_value,
+        ColumnAndShifts::to_radix_mem_value_found
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::to_radix_value,
         ColumnAndShifts::to_radix_limb_index,
         ColumnAndShifts::to_radix_radix,
-        ColumnAndShifts::to_radix_limb
+        ColumnAndShifts::to_radix_limb,
+        ColumnAndShifts::to_radix_found
     };
 };
 

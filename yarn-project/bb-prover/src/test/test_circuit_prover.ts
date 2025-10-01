@@ -57,29 +57,29 @@ import {
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/stdlib/interfaces/server';
-import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
 import { type Proof, ProvingRequestType, makeEmptyRecursiveProof, makeRecursiveProof } from '@aztec/stdlib/proofs';
-import type {
-  BlockMergeRollupPrivateInputs,
-  BlockRollupPublicInputs,
-  BlockRootEmptyTxFirstRollupPrivateInputs,
-  BlockRootFirstRollupPrivateInputs,
-  BlockRootRollupPrivateInputs,
-  BlockRootSingleTxFirstRollupPrivateInputs,
-  BlockRootSingleTxRollupPrivateInputs,
-  CheckpointMergeRollupPrivateInputs,
-  CheckpointPaddingRollupPrivateInputs,
-  CheckpointRollupPublicInputs,
-  CheckpointRootRollupPrivateInputs,
-  CheckpointRootSingleBlockRollupPrivateInputs,
-  PrivateTxBaseRollupPrivateInputs,
-  PublicTubePrivateInputs,
-  PublicTxBaseRollupPrivateInputs,
-  RootRollupPrivateInputs,
-  RootRollupPublicInputs,
-  TxMergeRollupPrivateInputs,
-  TxRollupPublicInputs,
+import {
+  type BlockMergeRollupPrivateInputs,
+  type BlockRollupPublicInputs,
+  type BlockRootEmptyTxFirstRollupPrivateInputs,
+  type BlockRootFirstRollupPrivateInputs,
+  type BlockRootRollupPrivateInputs,
+  type BlockRootSingleTxFirstRollupPrivateInputs,
+  type BlockRootSingleTxRollupPrivateInputs,
+  type CheckpointMergeRollupPrivateInputs,
+  type CheckpointPaddingRollupPrivateInputs,
+  type CheckpointRollupPublicInputs,
+  type CheckpointRootRollupPrivateInputs,
+  type CheckpointRootSingleBlockRollupPrivateInputs,
+  type PrivateTxBaseRollupPrivateInputs,
+  type PublicTubePrivateInputs,
+  PublicTubePublicInputs,
+  type PublicTxBaseRollupPrivateInputs,
+  type RootRollupPrivateInputs,
+  type RootRollupPublicInputs,
+  type TxMergeRollupPrivateInputs,
+  type TxRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
 import { type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -160,15 +160,10 @@ export class TestCircuitProver implements ServerCircuitProver {
 
   public getPublicTubeProof(
     inputs: PublicTubePrivateInputs,
-  ): Promise<
-    PublicInputsAndRecursiveProof<
-      PrivateToPublicKernelCircuitPublicInputs,
-      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
-    >
-  > {
+  ): Promise<PublicInputsAndRecursiveProof<PublicTubePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
     return this.applyDelay(ProvingRequestType.PUBLIC_TUBE, () =>
       makePublicInputsAndRecursiveProof(
-        inputs.hidingKernelProofData.publicInputs,
+        new PublicTubePublicInputs(inputs.hidingKernelProofData.publicInputs, inputs.proverId),
         makeEmptyRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
         ProtocolCircuitVks.PublicTube,
       ),

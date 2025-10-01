@@ -6,7 +6,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract SchnorrSingleKeyAccount {
     use dep::aztec::{
-        authwit::{account::AccountActions, entrypoint::{app::AppPayload, fee::FeePayload}},
+        authwit::{account::AccountActions, entrypoint::app::AppPayload},
         context::PrivateContext,
         oracle::notes::set_sender_for_tags,
     };
@@ -17,14 +17,14 @@ pub contract SchnorrSingleKeyAccount {
 
     // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts
     #[private]
-    fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
+    fn entrypoint(app_payload: AppPayload, is_fee_payer: bool, end_setup: bool, cancellable: bool) {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
         // it is safe to set from a constrained context.
         unsafe { set_sender_for_tags(context.this_address()) };
 
         let actions = AccountActions::init(&mut context, is_valid_impl);
-        actions.entrypoint(app_payload, fee_payload, cancellable);
+        actions.entrypoint(app_payload, is_fee_payer, end_setup, cancellable);
     }
 
     #[private]

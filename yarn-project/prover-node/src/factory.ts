@@ -73,6 +73,8 @@ export async function createProverNode(
     }
   }
 
+  await keyStoreManager?.validateSigners();
+
   // Extract the prover signers from the key store and verify that we have one.
   const proverSigners = keyStoreManager?.createProverSigners();
 

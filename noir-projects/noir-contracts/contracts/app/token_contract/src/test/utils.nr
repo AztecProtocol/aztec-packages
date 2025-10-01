@@ -76,7 +76,6 @@ pub unconstrained fn check_public_balance(
     );
 }
 
-// docs:start:txe_test_call_utility
 pub unconstrained fn check_private_balance(
     env: TestEnvironment,
     token_contract_address: AztecAddress,
@@ -88,4 +87,3 @@ pub unconstrained fn check_private_balance(
         address_amount,
     );
 }
-// docs:end:txe_test_call_utility

@@ -1,5 +1,7 @@
-use dep::protocol_types::{constants::PUBLIC_DATA_TREE_HEIGHT, data::PublicDataTreeLeafPreimage};
+use protocol_types::{constants::PUBLIC_DATA_TREE_HEIGHT, data::PublicDataTreeLeafPreimage};
+use protocol_types::traits::{Deserialize, Serialize};
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct PublicDataWitness {
     pub index: Field,
     pub leaf_preimage: PublicDataTreeLeafPreimage,

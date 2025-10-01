@@ -81,6 +81,7 @@ library InvalidateLib {
    * @custom:reverts Errors.Rollup__BlockAlreadyProven If block number is already proven
    * @custom:reverts Errors.Rollup__InvalidAttestations If provided attestations don't match stored hash
    * @custom:reverts Errors.ValidatorSelection__InvalidCommitteeCommitment If committee doesn't match stored commitment
+   * @custom:reverts Rollup__InvalidAttestationIndex if the _invalidIndex is beyond the committee
    * @custom:reverts Errors.Rollup__AttestationsAreValid If the attestation at invalidIndex is actually valid
    */
   function invalidateBadAttestation(
@@ -89,7 +90,8 @@ library InvalidateLib {
     address[] memory _committee,
     uint256 _invalidIndex
   ) internal {
-    (bytes32 digest,) = _validateInvalidationInputs(_blockNumber, _attestations, _committee);
+    (bytes32 digest, uint256 committeeSize) = _validateInvalidationInputs(_blockNumber, _attestations, _committee);
+    require(_invalidIndex < committeeSize, Errors.Rollup__InvalidAttestationIndex());
 
     address recovered;
 

@@ -1,4 +1,4 @@
-import { type AztecAddress, BatchCall, SentTx, type Wallet } from '@aztec/aztec.js';
+import { type AztecAddress, BatchCall, SentTx } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import type { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -8,6 +8,7 @@ import type { TestWallet } from '@aztec/test-wallet';
 import { BaseBot } from './base_bot.js';
 import type { BotConfig } from './config.js';
 import { BotFactory } from './factory.js';
+import type { BotStore } from './store/index.js';
 import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils.js';
 
 const TRANSFER_AMOUNT = 1;
@@ -15,7 +16,7 @@ const TRANSFER_AMOUNT = 1;
 export class Bot extends BaseBot {
   protected constructor(
     node: AztecNode,
-    wallet: Wallet,
+    wallet: TestWallet,
     defaultAccountAddress: AztecAddress,
     public readonly token: TokenContract | PrivateTokenContract,
     public readonly recipient: AztecAddress,
@@ -28,11 +29,13 @@ export class Bot extends BaseBot {
     config: BotConfig,
     wallet: TestWallet,
     aztecNode: AztecNode,
-    aztecNodeAdmin?: AztecNodeAdmin,
+    aztecNodeAdmin: AztecNodeAdmin | undefined,
+    store: BotStore,
   ): Promise<Bot> {
     const { defaultAccountAddress, token, recipient } = await new BotFactory(
       config,
       wallet,
+      store,
       aztecNode,
       aztecNodeAdmin,
     ).setup();

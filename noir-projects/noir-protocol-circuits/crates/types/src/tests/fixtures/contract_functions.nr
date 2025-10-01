@@ -1,6 +1,8 @@
-use crate::abis::{function_data::FunctionData, function_selector::FunctionSelector};
-use crate::constants::{FUNCTION_TREE_HEIGHT, MEGA_VK_LENGTH_IN_FIELDS};
-use crate::merkle_tree::membership::MembershipWitness;
+use crate::{
+    abis::{function_data::FunctionData, function_selector::FunctionSelector},
+    constants::{FUNCTION_TREE_HEIGHT, MEGA_VK_LENGTH_IN_FIELDS},
+    merkle_tree::MembershipWitness,
+};
 
 pub struct ContractFunction {
     pub data: FunctionData,

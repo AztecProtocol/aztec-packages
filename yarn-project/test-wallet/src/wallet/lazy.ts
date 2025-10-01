@@ -1,15 +1,38 @@
 import { EcdsaKAccountContract, EcdsaRAccountContract } from '@aztec/accounts/ecdsa/lazy';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr/lazy';
 import { createStubAccount, getStubAccountContractArtifact } from '@aztec/accounts/stub/lazy';
-import { AccountManager, type AztecAddress, Fq, Fr, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js';
+import {
+  AccountManager,
+  type AztecAddress,
+  type AztecNode,
+  Fq,
+  Fr,
+  getContractInstanceFromInstantiationParams,
+} from '@aztec/aztec.js';
+import { type PXEConfig, type PXECreationOptions, createPXE, getPXEConfig } from '@aztec/pxe/client/lazy';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { BaseTestWallet } from './test_wallet.js';
 
 /**
  * A TestWallet implementation that loads the account contract artifacts lazily
+ * Note that the only difference from `server` and `bundle` test wallets is that it uses the `createPXE` function
+ * from the `pxe/client/lazy` package.
  */
 export class TestWallet extends BaseTestWallet {
+  static async create(
+    node: AztecNode,
+    overridePXEConfig?: Partial<PXEConfig>,
+    options: PXECreationOptions = { loggers: {} },
+  ): Promise<TestWallet> {
+    const pxeConfig = Object.assign(getPXEConfig(), {
+      proverEnabled: overridePXEConfig?.proverEnabled ?? false,
+      ...overridePXEConfig,
+    });
+    const pxe = await createPXE(node, pxeConfig, options);
+    return new TestWallet(pxe, node);
+  }
+
   createSchnorrAccount(secret: Fr, salt: Fr, signingKey?: Fq): Promise<AccountManager> {
     signingKey = signingKey ?? deriveSigningKey(secret);
     const accountData = {

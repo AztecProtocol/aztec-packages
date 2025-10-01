@@ -1,10 +1,11 @@
 use crate::{
     constants::{
-        CIVC_PROOF_LENGTH, CIVC_VK_LENGTH_IN_FIELDS, PROOF_TYPE_CIVC, PROOF_TYPE_HONK,
-        PROOF_TYPE_ROLLUP_HONK, PROOF_TYPE_ROOT_ROLLUP_HONK, RECURSIVE_PROOF_LENGTH,
-        RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, ULTRA_VK_LENGTH_IN_FIELDS,
+        AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
+        CIVC_PROOF_LENGTH, CIVC_VK_LENGTH_IN_FIELDS, PROOF_TYPE_AVM, PROOF_TYPE_CIVC,
+        PROOF_TYPE_HONK, PROOF_TYPE_ROLLUP_HONK, PROOF_TYPE_ROOT_ROLLUP_HONK,
+        RECURSIVE_PROOF_LENGTH, RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, ULTRA_VK_LENGTH_IN_FIELDS,
     },
-    proof::vk_data::VkData,
+    proof::{traits::SerializeToColumns, vk_data::VkData},
     traits::Serialize,
 };
 
@@ -66,6 +67,21 @@ where
     }
 }
 
+impl<T> ProofData<T, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED> {
+    pub fn verify_proof_with_columns<let N: u32>(self)
+    where
+        T: SerializeToColumns<N>,
+    {
+        std::verify_proof_with_type(
+            self.vk_data.vk.key,
+            self.proof,
+            self.public_inputs.serialize_to_columns(),
+            self.vk_data.vk.hash,
+            PROOF_TYPE_AVM,
+        );
+    }
+}
+
 pub type CivcProofData<T> = ProofData<T, CIVC_PROOF_LENGTH, CIVC_VK_LENGTH_IN_FIELDS>;
 
 /// Using this type for both RECURSIVE_PROOF_LENGTH and NESTED_RECURSIVE_PROOF_LENGTH.
@@ -73,3 +89,5 @@ pub type UltraHonkProofData<T> = ProofData<T, RECURSIVE_PROOF_LENGTH, ULTRA_VK_L
 
 /// Using this type for both RECURSIVE_ROLLUP_HONK_PROOF_LENGTH and NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH.
 pub type RollupHonkProofData<T> = ProofData<T, RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, ULTRA_VK_LENGTH_IN_FIELDS>;
+
+pub type AvmV2ProofData<T> = ProofData<T, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED>;
