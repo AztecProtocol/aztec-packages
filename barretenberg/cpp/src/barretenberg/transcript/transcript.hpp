@@ -33,7 +33,7 @@ concept Loggable = (IsAnyOf<T, bb::fr, grumpkin::fr, bb::g1::affine_element, gru
 
 // A concept for detecting whether a type is native or in-circuit
 template <typename T>
-concept InCircuit = !(std::same_as<T, bb::fr> || std::same_as<T, grumpkin::fr> || std::same_as<T, uint256_t>);
+concept InCircuit = !IsAnyOf<T, bb::fr, grumpkin::fr, uint256_t>;
 
 template <typename T, typename = void> struct is_iterable : std::false_type {};
 
@@ -81,8 +81,6 @@ template <typename DataType_, typename HashFunction> class BaseTranscript {
         }
     }
 
-    static constexpr size_t HASH_OUTPUT_SIZE = 32;
-
     std::ptrdiff_t proof_start = 0;
     size_t num_frs_written = 0; // the number of bb::frs written to proof_data by the prover
     size_t num_frs_read = 0;    // the number of bb::frs read from proof_data by the verifier
@@ -107,7 +105,7 @@ template <typename DataType_, typename HashFunction> class BaseTranscript {
      * and the current round data, if they exist. It clears the current_round_data if nonempty after
      * computing the challenge to minimize how much we compress. It also sets previous_challenge
      * to the current challenge buffer to set up next function call.
-     * @return std::array<Fr, HASH_OUTPUT_SIZE>
+     * @return std::array<DataType, 2>
      */
     [[nodiscard]] std::array<DataType, 2> get_next_duplex_challenge_buffer(size_t num_challenges)
     {
@@ -304,7 +302,7 @@ template <typename DataType_, typename HashFunction> class BaseTranscript {
         for (size_t i = 0; i < num_challenges / 2; i += 1) {
             auto challenge_buffer = get_next_duplex_challenge_buffer(2);
             challenges[2 * i] = Codec::template convert_challenge<ChallengeType>(challenge_buffer[0]);
-            challenges[2 * i + 1] = Codec::template convert_challenge<ChallengeType>(challenge_buffer[1]);
+            challenges[(2 * i) + 1] = Codec::template convert_challenge<ChallengeType>(challenge_buffer[1]);
         }
         if ((num_challenges & 1) == 1) {
             auto challenge_buffer = get_next_duplex_challenge_buffer(1);
@@ -457,7 +455,7 @@ template <typename DataType_, typename HashFunction> class BaseTranscript {
             info("consumed:     ", label, ": ", element);
         }
 #endif
-        BaseTranscript::add_element_frs_to_hash_buffer(label, elements);
+        add_element_frs_to_hash_buffer(label, elements);
     }
 
     /**
@@ -485,7 +483,7 @@ template <typename DataType_, typename HashFunction> class BaseTranscript {
             info("sent:     ", label, ": ", element);
         }
 #endif
-        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
+        add_element_frs_to_hash_buffer(label, element_frs);
     }
 
     /**
@@ -517,7 +515,7 @@ template <typename DataType_, typename HashFunction> class BaseTranscript {
         }
         num_frs_read += element_size;
 
-        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
+        add_element_frs_to_hash_buffer(label, element_frs);
 
         auto element = Codec::template deserialize_from_fields<T>(element_frs);
         DEBUG_LOG(label, element);
