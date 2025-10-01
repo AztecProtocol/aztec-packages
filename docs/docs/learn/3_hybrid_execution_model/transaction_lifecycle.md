@@ -286,6 +286,4 @@ Understanding this lifecycle helps you appreciate why Aztec can offer both compl
 
 ## Next steps
 
-We not finally have all the building blocks necessary to understand how Aztec works!
-
-Next, we are going to get hands on! Let's start setting up our development environment so we can finally start writing and deploying some Aztec smart contracts!
+Next, we are ready to get hands-on and start setting up our development environment to write and deploy smart contracts to Aztec!
