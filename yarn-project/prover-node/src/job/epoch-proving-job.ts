@@ -27,6 +27,12 @@ import type { ProverNodeJobMetrics } from '../metrics.js';
 import type { ProverNodePublisher } from '../prover-node-publisher.js';
 import { type EpochProvingJobData, validateEpochProvingJobData } from './epoch-proving-job-data.js';
 
+export type EpochProvingJobOptions = {
+  parallelBlockLimit?: number;
+  skipEpochCheck?: boolean;
+  skipSubmitProof?: boolean;
+};
+
 /**
  * Job that grabs a range of blocks from the unfinalized chain from L1, gets their txs given their hashes,
  * re-executes their public calls, generates a rollup proof, and submits it to L1. This job will update the
@@ -52,7 +58,7 @@ export class EpochProvingJob implements Traceable {
     private l2BlockSource: L2BlockSource | undefined,
     private metrics: ProverNodeJobMetrics,
     private deadline: Date | undefined,
-    private config: { parallelBlockLimit?: number; skipEpochCheck?: boolean },
+    private config: EpochProvingJobOptions,
   ) {
     validateEpochProvingJobData(data);
     this.uuid = crypto.randomUUID();
@@ -186,7 +192,11 @@ export class EpochProvingJob implements Traceable {
 
         // Process public fns
         const db = await this.createFork(block.number - 1, l1ToL2Messages);
-        const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, true);
+        const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, {
+          skipFeeEnforcement: true,
+          clientInitiatedSimulation: false,
+          proverId: this.prover.getProverId().toField(),
+        });
         const processed = await this.processTxs(publicProcessor, txs);
         await this.prover.addTxs(processed);
         await db.close();
@@ -208,6 +218,15 @@ export class EpochProvingJob implements Traceable {
       this.log.info(`Finalized proof for epoch ${epochNumber}`, { epochNumber, uuid: this.uuid, duration: timer.ms() });
 
       this.progressState('publishing-proof');
+
+      if (this.config.skipSubmitProof) {
+        this.log.info(
+          `Proof publishing is disabled. Dropping valid proof for epoch ${epochNumber} (blocks ${fromBlock} to ${toBlock})`,
+        );
+        this.state = 'completed';
+        this.metrics.recordProvingJob(executionTime, timer.ms(), epochSizeBlocks, epochSizeTxs);
+        return;
+      }
 
       const success = await this.publisher.submitEpochProof({
         fromBlock,

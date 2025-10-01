@@ -42,17 +42,13 @@ impl EasyPrivateUint<&mut PrivateContext> {
         let addend_note = ValueNote::new(addend as Field, owner);
 
         // Insert the new note to the owner's set of notes.
-        // docs:start:insert
         self.set.insert(addend_note).emit(self.context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
-        // docs:end:insert
     }
 
     // Very similar to `value_note::utils::decrement`.
     pub fn sub(self, subtrahend: u64, owner: AztecAddress) {
-        // docs:start:pop_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
         let notes = self.set.pop_notes(options);
-        // docs:end:pop_notes
         let mut minuend: u64 = 0;
         for i in 0..options.limit {
             if i < notes.len() {

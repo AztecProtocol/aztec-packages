@@ -112,11 +112,12 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         return false;
     }
 
+    using C = ColumnAndShifts;
     std::array<FF, AVM_NUM_PUBLIC_INPUT_COLUMNS> claimed_evaluations = {
-        output.claimed_evaluations.public_inputs_cols_0_,
-        output.claimed_evaluations.public_inputs_cols_1_,
-        output.claimed_evaluations.public_inputs_cols_2_,
-        output.claimed_evaluations.public_inputs_cols_3_,
+        output.claimed_evaluations.get(C::public_inputs_cols_0_),
+        output.claimed_evaluations.get(C::public_inputs_cols_1_),
+        output.claimed_evaluations.get(C::public_inputs_cols_2_),
+        output.claimed_evaluations.get(C::public_inputs_cols_3_),
     };
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
         FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], output.challenge);
@@ -127,8 +128,10 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     }
 
     ClaimBatcher claim_batcher{
-        .unshifted = ClaimBatch{ commitments.get_unshifted(), output.claimed_evaluations.get_unshifted() },
-        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), output.claimed_evaluations.get_shifted() }
+        .unshifted = ClaimBatch{ .commitments = RefVector<Commitment>::from_span(commitments.get_unshifted()),
+                                 .evaluations = RefVector<FF>::from_span(output.claimed_evaluations.get_unshifted()) },
+        .shifted = ClaimBatch{ .commitments = RefVector<Commitment>::from_span(commitments.get_to_be_shifted()),
+                               .evaluations = RefVector<FF>::from_span(output.claimed_evaluations.get_shifted()) }
     };
     const BatchOpeningClaim<Curve> opening_claim = Shplemini::compute_batch_opening_claim(
         padding_indicator_array, claim_batcher, output.challenge, Commitment::one(), transcript);

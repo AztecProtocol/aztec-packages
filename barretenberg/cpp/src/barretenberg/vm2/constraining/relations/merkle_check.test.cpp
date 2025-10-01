@@ -494,8 +494,8 @@ TEST(MerkleCheckConstrainingTest, OutputHashIsNotNextRowsCurrentNodeValueForLast
 
 TEST(MerkleCheckConstrainingTest, ReadWithTracegen)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
     MerkleCheckTraceBuilder builder;
 
@@ -528,8 +528,8 @@ TEST(MerkleCheckConstrainingTest, ReadWithTracegen)
 
 TEST(MerkleCheckConstrainingTest, WriteWithTracegen)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
     MerkleCheckTraceBuilder builder;
 
@@ -651,8 +651,8 @@ TEST_F(MerkleCheckPoseidon2Test, WriteWithInteractions)
 
 TEST_F(MerkleCheckPoseidon2Test, MultipleWithTracegen)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
     MerkleCheckTraceBuilder builder;
 

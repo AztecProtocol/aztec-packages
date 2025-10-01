@@ -11,10 +11,28 @@ yarn
 ## Local Development
 
 ```bash
-yarn start
+yarn dev
 ```
 
 This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
+
+### Netlify Development (Full-Stack Testing)
+
+For testing features that require Netlify functions (like email subscriptions), use the Netlify development environment:
+
+```bash
+yarn dev:netlify
+```
+
+**Environment Setup:**
+Create a `.env` file in the project root for Netlify functions:
+
+```bash
+# Copy .env.template to .env and update with your API key
+cp .env.template .env
+```
+
+Then edit `.env` with your actual Brevo API key.
 
 ## Build
 

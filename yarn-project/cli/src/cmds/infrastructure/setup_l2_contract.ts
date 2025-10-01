@@ -19,13 +19,13 @@ export async function setupL2Contracts(nodeUrl: string, testAccounts: boolean, j
   if (testAccounts) {
     log('setupL2Contracts: Deploying test accounts...');
     const initialAccountsData = await getInitialTestAccountsData();
-    deployedAccountManagers = await deployFundedSchnorrAccounts(wallet, initialAccountsData, waitOpts);
+    deployedAccountManagers = await deployFundedSchnorrAccounts(wallet, node, initialAccountsData, waitOpts);
   }
 
   if (json) {
     const toPrint: Record<string, AztecAddress> = { ...ProtocolContractAddress };
     deployedAccountManagers.forEach((a, i) => {
-      toPrint[`testAccount${i}`] = a.getAddress();
+      toPrint[`testAccount${i}`] = a.address;
     });
     log(JSON.stringify(toPrint, null, 2));
   }

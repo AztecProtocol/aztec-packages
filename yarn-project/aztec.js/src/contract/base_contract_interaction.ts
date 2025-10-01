@@ -4,7 +4,7 @@ import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { Capsule, TxProvingResult } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
-import type { RequestMethodOptions, SendMethodOptions } from './interaction_options.js';
+import { type RequestMethodOptions, type SendMethodOptions, sanitizeSendOptions } from './interaction_options.js';
 import { ProvenTx } from './proven_tx.js';
 import { SentTx } from './sent_tx.js';
 
@@ -38,7 +38,8 @@ export abstract class BaseContractInteraction {
    */
   protected async proveInternal(options: SendMethodOptions): Promise<TxProvingResult> {
     const executionPayload = await this.request(options);
-    return await this.wallet.proveTx(executionPayload, options);
+    const proveOptions = await sanitizeSendOptions(options);
+    return await this.wallet.proveTx(executionPayload, proveOptions);
   }
 
   // docs:start:prove

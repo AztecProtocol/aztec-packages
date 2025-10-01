@@ -2,10 +2,11 @@
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_calldata.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_calldata_hashing.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
-using bb::crypto::Poseidon2;
+using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
 
 namespace bb::avm2::tracegen {
 
@@ -13,20 +14,37 @@ void CalldataTraceBuilder::process_retrieval(
     const simulation::EventEmitterInterface<simulation::CalldataEvent>::Container& events, TraceContainer& trace)
 {
     using C = Column;
+    // Sort events by context_id:
+    auto cmp = [](const simulation::CalldataEvent* a, const simulation::CalldataEvent* b) {
+        return a->context_id < b->context_id;
+    };
+    std::vector<const simulation::CalldataEvent*> sorted_events;
+    sorted_events.reserve(events.size());
+    for (const auto& event : events) {
+        sorted_events.push_back(&event);
+    }
+    std::ranges::sort(sorted_events.begin(), sorted_events.end(), cmp);
+
     uint32_t row = 1; // Has skip relations
 
-    for (const auto& event : events) {
-        const auto& calldata = event.calldata;
-        const auto context_id = event.context_id;
+    for (uint32_t j = 0; j < events.size(); j++) {
+        const auto& event = sorted_events[j];
+        const auto& calldata = event->calldata;
+        const auto context_id = event->context_id;
+        bool is_last = j == events.size() - 1;
 
         for (size_t i = 0; i < calldata.size(); i++) {
+            bool is_latch = i == calldata.size() - 1;
             trace.set(row,
                       { {
                           { C::calldata_sel, 1 },
                           { C::calldata_context_id, context_id },
                           { C::calldata_value, calldata[i] },
-                          { C::calldata_index, i },
-                          { C::calldata_latch, (i == calldata.size() - 1) ? 1 : 0 },
+                          { C::calldata_index, i + 1 },
+                          { C::calldata_latch, is_latch ? 1 : 0 },
+                          // Note that the diff is shifted by 1 to ensure the context_ids are increasing:
+                          { C::calldata_diff_context_id,
+                            (is_latch && !is_last) ? sorted_events[j + 1]->context_id - context_id - 1 : 0 },
 
                       } });
             row++;
@@ -45,39 +63,55 @@ void CalldataTraceBuilder::process_hashing(
         size_t input_size = event.calldata.size() + 1; // +1 for the separator
         calldata_with_sep.reserve(input_size);
         calldata_with_sep.insert(calldata_with_sep.end(), event.calldata.begin(), event.calldata.end());
+        auto calldata_field_at = [&calldata_with_sep](size_t i) -> FF {
+            return i < calldata_with_sep.size() ? calldata_with_sep[i] : 0;
+        };
 
-        auto calldata_hash = Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(calldata_with_sep);
-        size_t round = 0;
-        while (input_size > 0) {
-            std::array<FF, 4> input = {};
-            size_t chunk_size = std::min(input_size, static_cast<size_t>(3));
-            // We hash the calldata with the separator
-            for (size_t j = 0; j < chunk_size; j++) {
-                input[j] = calldata_with_sep[(round * 3) + j];
-            }
-
-            input_size -= chunk_size;
-
-            trace.set(row,
-                      { {
-                          { C::cd_hashing_sel, 1 },
-                          { C::cd_hashing_context_id, event.context_id },
-                          { C::cd_hashing_length_remaining, input_size },
-                          { C::cd_hashing_input_0_, input[0] },
-                          { C::cd_hashing_input_1_, input[1] },
-                          { C::cd_hashing_input_2_, input[2] },
-                          { C::cd_hashing_output_hash, input_size == 0 ? calldata_hash : 0 },
-                          { C::cd_hashing_latch, (input_size == 0) ? 1 : 0 },
-                      } });
-            round++;
+        FF output_hash = Poseidon2::hash(calldata_with_sep);
+        // We must pad up to the next multiple of 3:
+        // n % 3 == 0 => padding_amount = 0 = 2n % 3
+        // n % 3 == 1 => padding_amount = 2 = 2n % 3
+        // n % 3 == 2 => padding_amount = 1 = 2n % 3
+        auto padding_amount = (2 * calldata_with_sep.size()) % 3;
+        auto num_rounds_rem = (calldata_with_sep.size() + padding_amount) / 3;
+        uint32_t index = 0;
+        while (num_rounds_rem > 0) {
+            trace.set(
+                row,
+                { {
+                    { C::calldata_hashing_sel, 1 },
+                    { C::calldata_hashing_start, index == 0 ? 1 : 0 },
+                    { C::calldata_hashing_sel_not_start, index == 0 ? 0 : 1 },
+                    { C::calldata_hashing_context_id, event.context_id },
+                    { C::calldata_hashing_calldata_size, event.calldata.size() },
+                    { C::calldata_hashing_input_len, calldata_with_sep.size() },
+                    { C::calldata_hashing_rounds_rem, num_rounds_rem },
+                    { C::calldata_hashing_index_0_, index },
+                    { C::calldata_hashing_index_1_, index + 1 },
+                    { C::calldata_hashing_index_2_, index + 2 },
+                    { C::calldata_hashing_input_0_, calldata_field_at(index) },
+                    { C::calldata_hashing_input_1_, calldata_field_at(index + 1) },
+                    { C::calldata_hashing_input_2_, calldata_field_at(index + 2) },
+                    { C::calldata_hashing_output_hash, output_hash },
+                    { C::calldata_hashing_sel_not_padding_1, (num_rounds_rem == 1) && (padding_amount == 2) ? 0 : 1 },
+                    { C::calldata_hashing_sel_not_padding_2, (num_rounds_rem == 1) && (padding_amount > 0) ? 0 : 1 },
+                    { C::calldata_hashing_latch, num_rounds_rem == 1 ? 1 : 0 },
+                } });
+            index += 3;
             row++;
+            num_rounds_rem--;
         }
     }
 }
 
 const InteractionDefinition CalldataTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_calldata_hashing_cd_hash_settings, InteractionType::LookupSequential>()
-        .add<lookup_calldata_hashing_cd_hash_end_settings, InteractionType::LookupSequential>();
+        .add<lookup_calldata_range_check_context_id_diff_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_calldata_hashing_get_calldata_field_0_settings, InteractionType::LookupSequential>()
+        .add<lookup_calldata_hashing_get_calldata_field_1_settings, InteractionType::LookupSequential>()
+        .add<lookup_calldata_hashing_get_calldata_field_2_settings, InteractionType::LookupSequential>()
+        .add<lookup_calldata_hashing_check_final_size_settings, InteractionType::LookupSequential>()
+        .add<lookup_calldata_hashing_poseidon2_hash_settings,
+             InteractionType::LookupGeneric>(); // Note: using lookup generic to avoid dedup issues
 
 } // namespace bb::avm2::tracegen

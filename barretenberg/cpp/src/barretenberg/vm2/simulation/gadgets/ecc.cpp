@@ -25,7 +25,7 @@ EmbeddedCurvePoint Ecc::add(const EmbeddedCurvePoint& p, const EmbeddedCurvePoin
 EmbeddedCurvePoint Ecc::scalar_mul(const EmbeddedCurvePoint& point, const FF& scalar)
 {
     // This is bad - the scalar mul circuit assumes that the point is on the curve.
-    assert(point.on_curve() && "Point must be on the curve for scalar multiplication");
+    ASSERT(point.on_curve(), "Point must be on the curve for scalar multiplication");
 
     auto intermediate_states = std::vector<ScalarMulIntermediateState>(254);
     auto bits = to_radix.to_le_bits(scalar, 254).first;

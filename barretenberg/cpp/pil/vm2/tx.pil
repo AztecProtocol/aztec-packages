@@ -3,6 +3,7 @@ include "execution.pil";
 include "precomputed.pil";
 include "trees/note_hash_tree_check.pil";
 include "poseidon2_hash.pil";
+include "calldata_hashing.pil";
 include "tx_context.pil";
 include "tx_discard.pil";
 
@@ -180,7 +181,20 @@ namespace tx;
     pol commit msg_sender;
     pol commit contract_addr;
     pol commit is_static;
+    pol commit calldata_size;
     pol commit calldata_hash;
+
+    // TODO: Consider if a permutation is preferable here, and whether that work work with gas:
+    #[READ_CALLDATA_HASH]
+    should_process_call_request {
+        calldata_hash,
+        calldata_size,
+        next_context_id
+    } in calldata_hashing.latch {
+        calldata_hashing.output_hash,
+        calldata_hashing.calldata_size,
+        calldata_hashing.context_id
+    };
 
     // Read information relating to the public call request from public inputs
     #[READ_PUBLIC_CALL_REQUEST_PHASE]
@@ -228,6 +242,7 @@ namespace tx;
         contract_addr,
         fee,
         is_static,
+        calldata_size,
         // Tree State
         prev_note_hash_tree_root,
         prev_note_hash_tree_size,
@@ -258,6 +273,7 @@ namespace tx;
         execution.contract_address,
         execution.transaction_fee,
         execution.is_static,
+        execution.parent_calldata_size,
         // Tree State
         execution.prev_note_hash_tree_root,
         execution.prev_note_hash_tree_size,

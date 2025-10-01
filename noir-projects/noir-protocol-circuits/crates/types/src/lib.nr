@@ -30,7 +30,6 @@ pub mod data;
 pub mod storage;
 pub mod validate;
 pub mod meta;
-pub mod indexed_tagging_secret;
 
 pub mod tests;
 

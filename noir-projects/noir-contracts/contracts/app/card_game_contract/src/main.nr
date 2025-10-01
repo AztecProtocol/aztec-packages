@@ -80,11 +80,9 @@ pub contract CardGame {
         let mut game_deck = storage.game_decks.at(game as Field).at(player);
         game_deck.remove_cards([card]);
 
-        // docs:start:call_public_function
         CardGame::at(context.this_address()).on_card_played(game, player, card.to_field()).enqueue(
             &mut context,
         );
-        // docs:end:call_public_function
     }
 
     #[public]

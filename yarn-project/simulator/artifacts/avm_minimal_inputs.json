@@ -924,6 +924,7 @@
     },
     "effectiveGasFees": { "feePerDaGas": "2", "feePerL2Gas": "3" },
     "feePayer": "0x000000000000000000000000000000000000000000000000000000000000002a",
+    "proverId": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "publicCallRequestArrayLengths": { "setupCalls": 0, "appLogicCalls": 1, "teardownCall": false },
     "publicSetupCallRequests": [
       {

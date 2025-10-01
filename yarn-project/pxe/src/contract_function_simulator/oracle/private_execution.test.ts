@@ -47,7 +47,6 @@ import {
 } from '@aztec/stdlib/hash';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
-import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { Note } from '@aztec/stdlib/note';
 import { makeHeader } from '@aztec/stdlib/testing';
@@ -302,10 +301,9 @@ describe('Private Execution test suite', () => {
       throw new Error(`Unknown address: ${address}. Recipient: ${recipient}, Owner: ${owner}`);
     });
 
-    executionDataProvider.getIndexedTaggingSecretAsSender.mockImplementation(
+    executionDataProvider.getNextAppTagAsSender.mockImplementation(
       (_contractAddress: AztecAddress, _sender: AztecAddress, _recipient: AztecAddress) => {
-        const secret = Fr.random();
-        return Promise.resolve(new IndexedTaggingSecret(secret, 0));
+        return Promise.resolve(Fr.random());
       },
     );
     executionDataProvider.getFunctionArtifact.mockImplementation(async (address, selector) => {

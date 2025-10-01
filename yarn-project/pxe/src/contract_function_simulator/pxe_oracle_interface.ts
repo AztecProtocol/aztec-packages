@@ -263,52 +263,40 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   /**
-   * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.
-   * Includes the next index to be used used for tagging with this secret.
-   * @param contractAddress - The contract address to silo the secret for
+   * Returns the next app tag for a given sender and recipient pair.
+   * @param contractAddress - The contract address emitting the log.
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
-   * @returns An indexed tagging secret that can be used to tag notes.
+   * @returns The computed tag.
    */
-  public async getIndexedTaggingSecretAsSender(
+  public async getNextAppTagAsSender(
     contractAddress: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
-  ): Promise<IndexedTaggingSecret> {
+  ): Promise<Fr> {
     await this.syncTaggedLogsAsSender(contractAddress, sender, recipient);
 
     const appTaggingSecret = await this.#calculateAppTaggingSecret(contractAddress, sender, recipient);
     const [index] = await this.taggingDataProvider.getTaggingSecretsIndexesAsSender([appTaggingSecret], sender);
 
-    return new IndexedTaggingSecret(appTaggingSecret, index);
-  }
-
-  /**
-   * Increments the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.
-   * @param contractAddress - The contract address to silo the secret for
-   * @param sender - The address sending the note
-   * @param recipient - The address receiving the note
-   */
-  public async incrementAppTaggingSecretIndexAsSender(
-    contractAddress: AztecAddress,
-    sender: AztecAddress,
-    recipient: AztecAddress,
-  ): Promise<void> {
-    const secret = await this.#calculateAppTaggingSecret(contractAddress, sender, recipient);
+    // Increment the index for next time
     const contractName = await this.contractDataProvider.getDebugContractName(contractAddress);
     this.log.debug(`Incrementing app tagging secret at ${contractName}(${contractAddress})`, {
-      secret,
+      appTaggingSecret,
       sender,
       recipient,
       contractName,
       contractAddress,
     });
 
-    const [index] = await this.taggingDataProvider.getTaggingSecretsIndexesAsSender([secret], sender);
     await this.taggingDataProvider.setTaggingSecretsIndexesAsSender(
-      [new IndexedTaggingSecret(secret, index + 1)],
+      [new IndexedTaggingSecret(appTaggingSecret, index + 1)],
       sender,
     );
+
+    // Compute and return the tag using the current index
+    const indexedTaggingSecret = new IndexedTaggingSecret(appTaggingSecret, index);
+    return indexedTaggingSecret.computeTag(recipient);
   }
 
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {

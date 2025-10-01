@@ -90,6 +90,16 @@ data "google_secret_manager_secret_version" "slack_webhook_next_scenario" {
   project = var.project
 }
 
+data "google_secret_manager_secret_version" "slack_webhook_testnet" {
+  secret  = var.SLACK_WEBHOOK_TESTNET_SECRET_NAME
+  project = var.project
+}
+
+data "google_secret_manager_secret_version" "slack_webhook_mainnet" {
+  secret  = var.SLACK_WEBHOOK_MAINNET_SECRET_NAME
+  project = var.project
+}
+
 # Aztec Helm release for gke-cluster
 resource "helm_release" "aztec-gke-cluster" {
   provider          = helm.gke-cluster
@@ -115,7 +125,8 @@ resource "helm_release" "aztec-gke-cluster" {
           }
         }
         ingress = {
-          hosts = [data.terraform_remote_state.ssl.outputs.grafana_host]
+          enabled = true
+          hosts   = [data.terraform_remote_state.ssl.outputs.grafana_host]
           annotations = {
             "kubernetes.io/ingress.class"                 = "gce"
             "kubernetes.io/ingress.allow-http"            = "false"
@@ -160,6 +171,16 @@ resource "helm_release" "aztec-gke-cluster" {
   set {
     name  = "grafana.env.SLACK_WEBHOOK_NEXT_SCENARIO_URL"
     value = data.google_secret_manager_secret_version.slack_webhook_next_scenario.secret_data
+  }
+
+  set {
+    name  = "grafana.env.SLACK_WEBHOOK_TESTNET_URL"
+    value = data.google_secret_manager_secret_version.slack_webhook_testnet.secret_data
+  }
+
+  set {
+    name  = "grafana.env.SLACK_WEBHOOK_MAINNET_URL"
+    value = data.google_secret_manager_secret_version.slack_webhook_mainnet.secret_data
   }
 
   set {

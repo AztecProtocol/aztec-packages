@@ -65,7 +65,7 @@ export const submitTransactions = async (
   rpcConfig.proverEnabled = false;
   const wallet = await TestWallet.create(node, { ...getPXEConfig(), proverEnabled: false }, { useLogSuffix: true });
   const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
-  return submitTxsTo(wallet, fundedAccountManager.getAddress(), numTxs, logger);
+  return submitTxsTo(wallet, fundedAccountManager.address, numTxs, logger);
 };
 
 export async function prepareTransactions(
@@ -87,7 +87,7 @@ export async function prepareTransactions(
   const contract = await TestContract.at(testContractInstance.address, wallet);
 
   return timesAsync(numTxs, async () => {
-    const tx = await contract.methods.emit_nullifier(Fr.random()).prove({ from: fundedAccountManager.getAddress() });
+    const tx = await contract.methods.emit_nullifier(Fr.random()).prove({ from: fundedAccountManager.address });
     const txHash = tx.getTxHash();
     logger.info(`Tx prepared with hash ${txHash}`);
     return tx;

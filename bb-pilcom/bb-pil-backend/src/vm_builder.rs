@@ -157,20 +157,6 @@ fn get_all_col_names<F: FieldElement>(
             .map(|name| sanitize_name(name.as_str()))
             .collect_vec(),
     );
-    let committed = sort_cols(
-        &analyzed
-            .committed_polys_in_source_order()
-            .iter()
-            .flat_map(|(sym, _)| expand_symbol(sym))
-            .map(|name| sanitize_name(name.as_str()))
-            .collect_vec(),
-    );
-    let public = analyzed
-        .public_polys_in_source_order()
-        .iter()
-        .flat_map(|(sym, _)| expand_symbol(sym))
-        .map(|name| sanitize_name(name.as_str()))
-        .collect_vec();
     let to_be_shifted = sort_cols(
         &get_shifted_polys(
             analyzed
@@ -183,6 +169,21 @@ fn get_all_col_names<F: FieldElement>(
         .map(|name| sanitize_name(name.as_str()))
         .collect_vec(),
     );
+    let committed_without_to_be_shifted = sort_cols(
+        &analyzed
+            .committed_polys_in_source_order()
+            .iter()
+            .flat_map(|(sym, _)| expand_symbol(sym))
+            .map(|name| sanitize_name(name.as_str()))
+            .filter(|name| !to_be_shifted.contains(name))
+            .collect_vec(),
+    );
+    let public = analyzed
+        .public_polys_in_source_order()
+        .iter()
+        .flat_map(|(sym, _)| expand_symbol(sym))
+        .map(|name| sanitize_name(name.as_str()))
+        .collect_vec();
     let shifted = to_be_shifted
         .iter()
         .map(|name| format!("{}_shift", name))
@@ -194,14 +195,13 @@ fn get_all_col_names<F: FieldElement>(
     ]);
     let lookup_counts = get_counts_from_lookups(lookups);
 
-    let witnesses_without_inverses =
-        flatten(&[public.clone(), committed.clone(), lookup_counts.clone()]);
-    let witnesses_with_inverses = flatten(&[
+    let witnesses_without_inverses = flatten(&[
         public.clone(),
-        committed.clone(),
-        inverses.clone(),
-        lookup_counts,
+        committed_without_to_be_shifted.clone(),
+        lookup_counts.clone(),
+        to_be_shifted.clone(),
     ]);
+    let witnesses_with_inverses = flatten(&[witnesses_without_inverses.clone(), inverses.clone()]);
 
     // Group columns by properties
     let all_cols = flatten(&[constant.clone(), witnesses_with_inverses.clone()]);
