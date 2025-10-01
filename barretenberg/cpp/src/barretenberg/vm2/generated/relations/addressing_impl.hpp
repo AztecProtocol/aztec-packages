@@ -17,6 +17,20 @@ void addressingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 
     const auto constants_MEM_TAG_U32 = FF(4);
     const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
+    const auto execution_SEL_OP_IS_RELATIVE_EFFECTIVE_0_ =
+        in.get(C::execution_sel_op_is_relative_wire_0_) * in.get(C::execution_sel_op_is_address_0_);
+    const auto execution_SEL_OP_IS_RELATIVE_EFFECTIVE_1_ =
+        in.get(C::execution_sel_op_is_relative_wire_1_) * in.get(C::execution_sel_op_is_address_1_);
+    const auto execution_SEL_OP_IS_RELATIVE_EFFECTIVE_2_ =
+        in.get(C::execution_sel_op_is_relative_wire_2_) * in.get(C::execution_sel_op_is_address_2_);
+    const auto execution_SEL_OP_IS_RELATIVE_EFFECTIVE_3_ =
+        in.get(C::execution_sel_op_is_relative_wire_3_) * in.get(C::execution_sel_op_is_address_3_);
+    const auto execution_SEL_OP_IS_RELATIVE_EFFECTIVE_4_ =
+        in.get(C::execution_sel_op_is_relative_wire_4_) * in.get(C::execution_sel_op_is_address_4_);
+    const auto execution_SEL_OP_IS_RELATIVE_EFFECTIVE_5_ =
+        in.get(C::execution_sel_op_is_relative_wire_5_) * in.get(C::execution_sel_op_is_address_5_);
+    const auto execution_SEL_OP_IS_RELATIVE_EFFECTIVE_6_ =
+        in.get(C::execution_sel_op_is_relative_wire_6_) * in.get(C::execution_sel_op_is_address_6_);
     const auto execution_SEL_OP_IS_INDIRECT_EFFECTIVE_0_ =
         in.get(C::execution_sel_op_is_indirect_wire_0_) * in.get(C::execution_sel_op_is_address_0_);
     const auto execution_SEL_OP_IS_INDIRECT_EFFECTIVE_1_ =
@@ -32,10 +46,10 @@ void addressingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto execution_SEL_OP_IS_INDIRECT_EFFECTIVE_6_ =
         in.get(C::execution_sel_op_is_indirect_wire_6_) * in.get(C::execution_sel_op_is_address_6_);
     const auto execution_NUM_RELATIVE_OPERANDS =
-        in.get(C::execution_sel_op_is_relative_effective_0_) + in.get(C::execution_sel_op_is_relative_effective_1_) +
-        in.get(C::execution_sel_op_is_relative_effective_2_) + in.get(C::execution_sel_op_is_relative_effective_3_) +
-        in.get(C::execution_sel_op_is_relative_effective_4_) + in.get(C::execution_sel_op_is_relative_effective_5_) +
-        in.get(C::execution_sel_op_is_relative_effective_6_);
+        execution_SEL_OP_IS_RELATIVE_EFFECTIVE_0_ + execution_SEL_OP_IS_RELATIVE_EFFECTIVE_1_ +
+        execution_SEL_OP_IS_RELATIVE_EFFECTIVE_2_ + execution_SEL_OP_IS_RELATIVE_EFFECTIVE_3_ +
+        execution_SEL_OP_IS_RELATIVE_EFFECTIVE_4_ + execution_SEL_OP_IS_RELATIVE_EFFECTIVE_5_ +
+        execution_SEL_OP_IS_RELATIVE_EFFECTIVE_6_;
     const auto execution_NUM_RELATIVE_X = execution_NUM_RELATIVE_OPERANDS;
     const auto execution_NUM_RELATIVE_Y = in.get(C::execution_num_relative_operands_inv);
     const auto execution_NUM_RELATIVE_E = (FF(1) - in.get(C::execution_sel_do_base_check));
@@ -202,169 +216,162 @@ void addressingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                      FF(32768) * static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_7_))));
         std::get<16>(evals) += (tmp * scaling_factor);
     }
-    {
-        using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_0_)) -
-                    static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_0_)) *
-                        static_cast<View>(in.get(C::execution_sel_op_is_address_0_)));
-        std::get<17>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_1_)) -
-                    static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_1_)) *
-                        static_cast<View>(in.get(C::execution_sel_op_is_address_1_)));
-        std::get<18>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_2_)) -
-                    static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_2_)) *
-                        static_cast<View>(in.get(C::execution_sel_op_is_address_2_)));
-        std::get<19>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_3_)) -
-                    static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_3_)) *
-                        static_cast<View>(in.get(C::execution_sel_op_is_address_3_)));
-        std::get<20>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_4_)) -
-                    static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_4_)) *
-                        static_cast<View>(in.get(C::execution_sel_op_is_address_4_)));
-        std::get<21>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_5_)) -
-                    static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_5_)) *
-                        static_cast<View>(in.get(C::execution_sel_op_is_address_5_)));
-        std::get<22>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_6_)) -
-                    static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_6_)) *
-                        static_cast<View>(in.get(C::execution_sel_op_is_address_6_)));
-        std::get<23>(evals) += (tmp * scaling_factor);
-    }
     { // NUM_RELATIVE_INV_CHECK
-        using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
         auto tmp = ((CView(execution_NUM_RELATIVE_X) *
                          (CView(execution_NUM_RELATIVE_E) * (FF(1) - CView(execution_NUM_RELATIVE_Y)) +
                           CView(execution_NUM_RELATIVE_Y)) -
                      FF(1)) +
                     CView(execution_NUM_RELATIVE_E));
-        std::get<24>(evals) += (tmp * scaling_factor);
+        std::get<17>(evals) += (tmp * scaling_factor);
     }
     { // BASE_ADDRESS_CHECK
-        using View = typename std::tuple_element_t<25, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
         auto tmp =
             ((CView(execution_BASE_CHECK_X) * (CView(execution_BASE_CHECK_E) * (FF(1) - CView(execution_BASE_CHECK_Y)) +
                                                CView(execution_BASE_CHECK_Y)) -
               FF(1)) +
              CView(execution_BASE_CHECK_E));
-        std::get<25>(evals) += (tmp * scaling_factor);
+        std::get<18>(evals) += (tmp * scaling_factor);
     }
     { // NOT_RELATIVE_NO_OVERFLOW_0
-        using View = typename std::tuple_element_t<26, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_relative_overflow_0_)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_0_)));
-        std::get<26>(evals) += (tmp * scaling_factor);
+                   (FF(1) - CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_0_));
+        std::get<19>(evals) += (tmp * scaling_factor);
     }
     { // NOT_RELATIVE_NO_OVERFLOW_1
-        using View = typename std::tuple_element_t<27, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_relative_overflow_1_)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_1_)));
-        std::get<27>(evals) += (tmp * scaling_factor);
+                   (FF(1) - CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_1_));
+        std::get<20>(evals) += (tmp * scaling_factor);
     }
     { // NOT_RELATIVE_NO_OVERFLOW_2
-        using View = typename std::tuple_element_t<28, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_relative_overflow_2_)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_2_)));
-        std::get<28>(evals) += (tmp * scaling_factor);
+                   (FF(1) - CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_2_));
+        std::get<21>(evals) += (tmp * scaling_factor);
     }
     { // NOT_RELATIVE_NO_OVERFLOW_3
-        using View = typename std::tuple_element_t<29, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_relative_overflow_3_)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_3_)));
-        std::get<29>(evals) += (tmp * scaling_factor);
+                   (FF(1) - CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_3_));
+        std::get<22>(evals) += (tmp * scaling_factor);
     }
     { // NOT_RELATIVE_NO_OVERFLOW_4
-        using View = typename std::tuple_element_t<30, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_relative_overflow_4_)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_4_)));
-        std::get<30>(evals) += (tmp * scaling_factor);
+                   (FF(1) - CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_4_));
+        std::get<23>(evals) += (tmp * scaling_factor);
     }
     { // NOT_RELATIVE_NO_OVERFLOW_5
-        using View = typename std::tuple_element_t<31, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_relative_overflow_5_)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_5_)));
-        std::get<31>(evals) += (tmp * scaling_factor);
+                   (FF(1) - CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_5_));
+        std::get<24>(evals) += (tmp * scaling_factor);
     }
     { // NOT_RELATIVE_NO_OVERFLOW_6
-        using View = typename std::tuple_element_t<32, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<25, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_relative_overflow_6_)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_6_)));
-        std::get<32>(evals) += (tmp * scaling_factor);
+                   (FF(1) - CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_6_));
+        std::get<25>(evals) += (tmp * scaling_factor);
     }
     { // RELATIVE_RESOLUTION_0
-        using View = typename std::tuple_element_t<33, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<26, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_op_after_relative_0_)) -
                     (static_cast<View>(in.get(C::execution_op_0_)) +
-                     static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_0_)) *
-                         CView(execution_RELATIVE_RESOLUTION_FILTER)));
-        std::get<33>(evals) += (tmp * scaling_factor);
+                     CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_0_) * CView(execution_RELATIVE_RESOLUTION_FILTER)));
+        std::get<26>(evals) += (tmp * scaling_factor);
     }
     { // RELATIVE_RESOLUTION_1
-        using View = typename std::tuple_element_t<34, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<27, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_op_after_relative_1_)) -
                     (static_cast<View>(in.get(C::execution_op_1_)) +
-                     static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_1_)) *
-                         CView(execution_RELATIVE_RESOLUTION_FILTER)));
-        std::get<34>(evals) += (tmp * scaling_factor);
+                     CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_1_) * CView(execution_RELATIVE_RESOLUTION_FILTER)));
+        std::get<27>(evals) += (tmp * scaling_factor);
     }
     { // RELATIVE_RESOLUTION_2
-        using View = typename std::tuple_element_t<35, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<28, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_op_after_relative_2_)) -
                     (static_cast<View>(in.get(C::execution_op_2_)) +
-                     static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_2_)) *
-                         CView(execution_RELATIVE_RESOLUTION_FILTER)));
-        std::get<35>(evals) += (tmp * scaling_factor);
+                     CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_2_) * CView(execution_RELATIVE_RESOLUTION_FILTER)));
+        std::get<28>(evals) += (tmp * scaling_factor);
     }
     { // RELATIVE_RESOLUTION_3
-        using View = typename std::tuple_element_t<36, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<29, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_op_after_relative_3_)) -
                     (static_cast<View>(in.get(C::execution_op_3_)) +
-                     static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_3_)) *
-                         CView(execution_RELATIVE_RESOLUTION_FILTER)));
-        std::get<36>(evals) += (tmp * scaling_factor);
+                     CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_3_) * CView(execution_RELATIVE_RESOLUTION_FILTER)));
+        std::get<29>(evals) += (tmp * scaling_factor);
     }
     { // RELATIVE_RESOLUTION_4
-        using View = typename std::tuple_element_t<37, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<30, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_op_after_relative_4_)) -
                     (static_cast<View>(in.get(C::execution_op_4_)) +
-                     static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_4_)) *
-                         CView(execution_RELATIVE_RESOLUTION_FILTER)));
-        std::get<37>(evals) += (tmp * scaling_factor);
+                     CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_4_) * CView(execution_RELATIVE_RESOLUTION_FILTER)));
+        std::get<30>(evals) += (tmp * scaling_factor);
     }
     { // RELATIVE_RESOLUTION_5
-        using View = typename std::tuple_element_t<38, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<31, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_op_after_relative_5_)) -
                     (static_cast<View>(in.get(C::execution_op_5_)) +
-                     static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_5_)) *
-                         CView(execution_RELATIVE_RESOLUTION_FILTER)));
-        std::get<38>(evals) += (tmp * scaling_factor);
+                     CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_5_) * CView(execution_RELATIVE_RESOLUTION_FILTER)));
+        std::get<31>(evals) += (tmp * scaling_factor);
     }
     { // RELATIVE_RESOLUTION_6
-        using View = typename std::tuple_element_t<39, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<32, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_op_after_relative_6_)) -
                     (static_cast<View>(in.get(C::execution_op_6_)) +
-                     static_cast<View>(in.get(C::execution_sel_op_is_relative_effective_6_)) *
-                         CView(execution_RELATIVE_RESOLUTION_FILTER)));
+                     CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_6_) * CView(execution_RELATIVE_RESOLUTION_FILTER)));
+        std::get<32>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<33, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_op_is_relative_valid_base_0_)) -
+                    CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_0_) *
+                        (FF(1) - static_cast<View>(in.get(C::execution_sel_base_address_failure))));
+        std::get<33>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<34, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_op_is_relative_valid_base_1_)) -
+                    CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_1_) *
+                        (FF(1) - static_cast<View>(in.get(C::execution_sel_base_address_failure))));
+        std::get<34>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<35, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_op_is_relative_valid_base_2_)) -
+                    CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_2_) *
+                        (FF(1) - static_cast<View>(in.get(C::execution_sel_base_address_failure))));
+        std::get<35>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<36, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_op_is_relative_valid_base_3_)) -
+                    CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_3_) *
+                        (FF(1) - static_cast<View>(in.get(C::execution_sel_base_address_failure))));
+        std::get<36>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<37, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_op_is_relative_valid_base_4_)) -
+                    CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_4_) *
+                        (FF(1) - static_cast<View>(in.get(C::execution_sel_base_address_failure))));
+        std::get<37>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<38, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_op_is_relative_valid_base_5_)) -
+                    CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_5_) *
+                        (FF(1) - static_cast<View>(in.get(C::execution_sel_base_address_failure))));
+        std::get<38>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<39, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_op_is_relative_valid_base_6_)) -
+                    CView(execution_SEL_OP_IS_RELATIVE_EFFECTIVE_6_) *
+                        (FF(1) - static_cast<View>(in.get(C::execution_sel_base_address_failure))));
         std::get<39>(evals) += (tmp * scaling_factor);
     }
     {

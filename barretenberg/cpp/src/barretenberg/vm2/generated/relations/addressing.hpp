@@ -15,8 +15,8 @@ template <typename FF_> class addressingImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 58> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 4, 3, 3, 3, 3, 3, 3, 3, 4, 5, 3, 3, 3, 3,
-                                                                            3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5,
+                                                                            3, 4, 5, 5, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5,
+                                                                            5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5,
                                                                             5, 5, 5, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -42,22 +42,22 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_INDIRECT_RECONSTRUCTION = 16;
-    static constexpr size_t SR_NUM_RELATIVE_INV_CHECK = 24;
-    static constexpr size_t SR_BASE_ADDRESS_CHECK = 25;
-    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_0 = 26;
-    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_1 = 27;
-    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_2 = 28;
-    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_3 = 29;
-    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_4 = 30;
-    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_5 = 31;
-    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_6 = 32;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_0 = 33;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_1 = 34;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_2 = 35;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_3 = 36;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_4 = 37;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_5 = 38;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_6 = 39;
+    static constexpr size_t SR_NUM_RELATIVE_INV_CHECK = 17;
+    static constexpr size_t SR_BASE_ADDRESS_CHECK = 18;
+    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_0 = 19;
+    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_1 = 20;
+    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_2 = 21;
+    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_3 = 22;
+    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_4 = 23;
+    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_5 = 24;
+    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_6 = 25;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_0 = 26;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_1 = 27;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_2 = 28;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_3 = 29;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_4 = 30;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_5 = 31;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_6 = 32;
     static constexpr size_t SR_INDIRECT_GATING_0 = 41;
     static constexpr size_t SR_INDIRECT_GATING_1 = 42;
     static constexpr size_t SR_INDIRECT_GATING_2 = 43;
