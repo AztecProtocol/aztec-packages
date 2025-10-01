@@ -210,7 +210,7 @@ TEST_F(IPATest, ChallengesAreZero)
         auto new_random_vector = random_vector;
         new_random_vector[i] = Fr::zero();
         transcript->initialize(new_random_vector);
-        EXPECT_ANY_THROW(PCS::compute_opening_proof_internal(ck, { poly, opening_pair }, transcript));
+        EXPECT_ANY_THROW(PCS::compute_opening_proof<MockTranscript>(ck, { poly, opening_pair }, transcript));
     }
     // Fill out a vector of affine elements that the verifier receives from the prover with generators (we don't care
     // about them right now)
@@ -258,7 +258,7 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
     transcript->initialize(random_vector);
 
     // Compute opening proof
-    PCS::compute_opening_proof_internal(ck, { poly, opening_pair }, transcript);
+    PCS::compute_opening_proof<MockTranscript>(ck, { poly, opening_pair }, transcript);
 
     // Reset indices
     transcript->reset_indices();

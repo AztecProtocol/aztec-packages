@@ -140,7 +140,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      *\f$\vec{v}_{low}=(v_0,v_1,...,v_{n-1})\f$ and \f$\vec{v}_{high}=(v_{n},v_{n+1},...v_{2n-1})\f$. The procedure runs
      *as follows:
      *
-     *1. Send the degree of \f$f(x)\f$ plus one, equal to \f$d\f$ to the verifier
+     *1. We assume that the hash buffer has been populated by the opening claim. (This is done in a different method.)
      *2. Receive the generator challenge \f$u\f$ from the verifier. If it is zero, abort
      *3. Compute the auxiliary generator \f$U=u\cdot G\f$, where \f$G\f$ is a generator of \f$E(\mathbb{F}_p)\f$​
      *4. Set \f$\vec{G}_{k}=\vec{G}\f$, \f$\vec{a}_{k}=\vec{p}\f$ where \f$vec{p}\f$ represent the polynomial's
@@ -168,19 +168,6 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                                                const std::shared_ptr<Transcript>& transcript)
     {
         const bb::Polynomial<Fr>& polynomial = opening_claim.polynomial;
-
-        // Step 1.
-        // Add the commitment, challenge, and evaluation to the hash buffer.
-        // NOTE:
-        //      a. This is a bit inefficient, as the prover otherwise doesn't need this commitment.
-        //      However, the effect to performance of this MSM (in practice of size 2^16) is tiny.
-        //      b. Note that we add these three pieces of information to the hash buffer, as opposed to
-        //      calling the `send_to_verifier` method, as the verifier knows them.
-
-        const auto commitment = ck.commit(polynomial);
-        transcript->add_to_hash_buffer("IPA:commitment", commitment);
-        transcript->add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
-        transcript->add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
 
         // Step 2.
         // Receive challenge for the auxiliary generator
@@ -315,6 +302,37 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Step 8
         // Send a_0 to the verifier
         transcript->send_to_verifier("IPA:a_0", a_vec[0]);
+    }
+    /**
+     * @brief Add the opening claim to the hash buffer.
+     *
+     * @details We add the commitment, challenge, and claimed evaluation to the hash buffer.
+     * @tparam Transcript
+     * @param ck
+     * @param opening_claim
+     * @param transcript
+     * @note This requires us to explicitly compute the commitment.
+     * @note We enact this separation to allow for more ergonomic failure tests.
+     */
+    template <typename Transcript>
+    static void send_claim_to_hash_buffer(const CK& ck,
+                                          const ProverOpeningClaim<Curve>& opening_claim,
+                                          const std::shared_ptr<Transcript>& transcript)
+    {
+        const bb::Polynomial<Fr>& polynomial = opening_claim.polynomial;
+
+        // Step 1.
+        // Add the commitment, challenge, and evaluation to the hash buffer.
+        // NOTE:
+        //      a. This is a bit inefficient, as the prover otherwise doesn't need this commitment.
+        //      However, the effect to performance of this MSM (in practice of size 2^16) is tiny.
+        //      b. Note that we add these three pieces of information to the hash buffer, as opposed to
+        //      calling the `send_to_verifier` method, as the verifier knows them.
+
+        const auto commitment = ck.commit(polynomial);
+        transcript->add_to_hash_buffer("IPA:commitment", commitment);
+        transcript->add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
+        transcript->add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
     }
 
     /**
@@ -532,10 +550,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      * @remark Detailed documentation can be found in \link IPA::compute_opening_proof_internal
      * compute_opening_proof_internal \endlink.
      */
+    template <typename Transcript = NativeTranscript>
     static void compute_opening_proof(const CK& ck,
                                       const ProverOpeningClaim<Curve>& opening_claim,
-                                      const std::shared_ptr<NativeTranscript>& transcript)
+                                      const std::shared_ptr<Transcript>& transcript)
     {
+        send_claim_to_hash_buffer(ck, opening_claim, transcript);
         compute_opening_proof_internal(ck, opening_claim, transcript);
     }
 

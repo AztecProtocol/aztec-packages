@@ -29,10 +29,11 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
     using StdlibProof = bb::stdlib::Proof<Builder>;
 
     using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
-    // `FailureMode::None` corresponds to a normal, completeness test. The other two cases are legitimate failure modes,
-    // where the test should fail. (Note that it will not fail for Fiat-Shamir reasons, as neither `a_0` nor `G_0` is
-    // hashed.)
-    enum class FailureMode : std::uint8_t { None, A_Zero, G_Zero };
+    // `FailureMode::None` corresponds to a normal, completeness test. The other cases are legitimate failure modes,
+    // where the test should fail. As neither `a_0` nor `G_0` are hashed, the corresponding variants will not fail for
+    // Fiat-Shamir reasons. The last failure mode is: we send an OpeningClaim to the hash buffer, then
+    // we have the prover run the IPA process with a _different polynomial_.
+    enum class FailureMode : std::uint8_t { None, A_Zero, G_Zero, ChangePoly };
 
     /**
      * @brief  Given a builder, polynomial, and challenge point, return the transcript and opening claim _in circuit_.
@@ -60,24 +61,28 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
 
         const OpeningPair<NativeCurve> opening_pair = { x, eval };
         const OpeningClaim<NativeCurve> opening_claim{ opening_pair, commitment };
-
+        const ProverOpeningClaim<NativeCurve> prover_claim{ poly, opening_pair };
         // initialize empty prover transcript
         auto prover_transcript = std::make_shared<NativeTranscript>();
-        NativeIPA::compute_opening_proof(this->ck(), { poly, opening_pair }, prover_transcript);
-
+        using DataType = NativeTranscriptParams::DataType;
+        std::vector<DataType> proof;
         // Export proof
-        auto proof = prover_transcript->export_proof();
         switch (failure_mode) {
         case FailureMode::None:
-            // Do nothing, normal operation
+            // Normal operation
+            NativeIPA::compute_opening_proof(this->ck(), prover_claim, prover_transcript);
+            proof = prover_transcript->export_proof();
             break;
         case FailureMode::A_Zero:
+            NativeIPA::compute_opening_proof(this->ck(), prover_claim, prover_transcript);
+            proof = prover_transcript->export_proof();
             // Multiply the last element of the proof, what the prover sends as a_0, by 3
             proof.back() *= 3;
             break;
-        case FailureMode::G_Zero:
+        case FailureMode::G_Zero: {
+            NativeIPA::compute_opening_proof(this->ck(), prover_claim, prover_transcript);
+            proof = prover_transcript->export_proof();
             // Multiply the second to last element of the proof, what the prover sends as G_0, by 2.
-
             const size_t comm_frs = 2; // an affine Grumpkin point requires 2 Fr elements to represent.
             const size_t offset = log_poly_length * 2 * comm_frs; // we first send the L_i and R_i, then G_0.
             auto element_frs = std::span{ proof }.subspan(offset, comm_frs);
@@ -88,6 +93,20 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
             std::copy(new_op_commitment_reserialized.begin(),
                       new_op_commitment_reserialized.end(),
                       proof.begin() + static_cast<std::ptrdiff_t>(offset));
+            break;
+        }
+        case FailureMode::ChangePoly:
+            // instead of calling compute_opening_proof, we first send the prover claim to the hash buffer, then we run
+            // IPA with a _new_ polynomial.
+            NativeIPA::send_claim_to_hash_buffer(this->ck(), prover_claim, prover_transcript);
+            // generate a new polynomial evaluation claim.
+            auto [new_poly, new_x] = generate_poly_and_challenge<log_poly_length>();
+            auto new_eval = new_poly.evaluate(new_x);
+
+            const OpeningPair<NativeCurve> new_opening_pair = { new_x, new_eval };
+            const ProverOpeningClaim<NativeCurve> new_prover_claim{ new_poly, new_opening_pair };
+            NativeIPA::compute_opening_proof_internal(this->ck(), new_prover_claim, prover_transcript);
+            proof = prover_transcript->export_proof();
             break;
         }
 
@@ -292,6 +311,7 @@ TEST_F(IPARecursiveTests, RecursiveMediumRandomFailure)
     auto [poly, x] = generate_poly_and_challenge<log_poly_length>(PolyType::Random);
     test_recursive_ipa<log_poly_length>(poly, x, FailureMode::A_Zero);
     test_recursive_ipa<log_poly_length>(poly, x, FailureMode::G_Zero);
+    test_recursive_ipa<log_poly_length>(poly, x, FailureMode::ChangePoly);
 }
 
 /**
@@ -379,30 +399,6 @@ TEST_F(IPARecursiveTests, FullRecursiveVerifierMediumRandom)
     VerifierCommitmentKey<Curve> stdlib_pcs_vkey(&builder, poly_length, this->vk());
     auto result = RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, stdlib_claim, stdlib_transcript);
     EXPECT_TRUE(result);
-    builder.finalize_circuit(/*ensure_nonzero=*/true);
-    info("Full IPA Recursive Verifier num finalized gates for length ",
-         1UL << log_poly_length,
-         " = ",
-         builder.get_num_finalized_gates());
-    EXPECT_TRUE(CircuitChecker::check(builder));
-}
-
-TEST_F(IPARecursiveTests, FailureFullRecursiveVerifierMediumRandom)
-{
-
-    static constexpr size_t log_poly_length = 10;
-    static constexpr size_t poly_length = 1UL << log_poly_length;
-    using RecursiveIPA = IPA<Curve, log_poly_length>;
-
-    Builder builder;
-    auto [poly, x] = generate_poly_and_challenge<log_poly_length>();
-    auto [stdlib_transcript, stdlib_claim] = create_ipa_claim<log_poly_length>(builder, poly, x);
-
-    VerifierCommitmentKey<Curve> stdlib_pcs_vkey(&builder, poly_length, this->vk());
-    auto result = RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, stdlib_claim, stdlib_transcript);
-    EXPECT_TRUE(result);
-
-    // screw with G_0
     builder.finalize_circuit(/*ensure_nonzero=*/true);
     info("Full IPA Recursive Verifier num finalized gates for length ",
          1UL << log_poly_length,
