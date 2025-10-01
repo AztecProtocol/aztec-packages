@@ -1,6 +1,7 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #ifndef __wasm__
 #include "barretenberg/api/exec_pipe.hpp"
+#include "barretenberg/api/get_bytecode.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/client_ivc/private_execution_steps.hpp"
 #include "barretenberg/common/streams.hpp"
@@ -21,7 +22,7 @@ class AcirIntegrationTest : public ::testing::Test {
         std::filesystem::path filePath = bytecodePath;
         if (filePath.extension() == ".json") {
             // Try reading json files as if they are a Nargo build artifact
-            return exec_pipe_with_stdin(bytecodePath, "jq -r '.bytecode' - | base64 -d | gunzip -c");
+            return get_bytecode_from_json(bytecodePath);
         }
 
         // For other extensions, assume file is a raw ACIR program
