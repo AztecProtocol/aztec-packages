@@ -300,6 +300,7 @@ describe('deploy_l1_contracts', () => {
     const registry = new RegistryContract(client, deployment.l1ContractAddresses.registryAddress);
     const rollup = new RollupContract(client, deployment.l1ContractAddresses.rollupAddress);
     const gse = new GSEContract(client, await rollup.getGSE());
+    const dateGatedRelayerAddress = deployment.l1ContractAddresses.dateGatedRelayerAddress!;
 
     // Checking the shared
     expect(await registry.getOwner()).toEqual(governance.address);
@@ -308,7 +309,10 @@ describe('deploy_l1_contracts', () => {
     expect(await getOwner(deployment.l1ContractAddresses.rewardDistributorAddress, 'REGISTRY')).toEqual(
       registry.address,
     );
-    expect(await getOwner(deployment.l1ContractAddresses.coinIssuerAddress)).toEqual(governance.address);
+
+    // The coin issuer should be owned by governance, but indirectly through the date gated relayer
+    expect(await getOwner(deployment.l1ContractAddresses.coinIssuerAddress)).toEqual(dateGatedRelayerAddress);
+    expect(await getOwner(dateGatedRelayerAddress)).toEqual(governance.address);
 
     expect(await getOwner(deployment.l1ContractAddresses.feeJuiceAddress)).toEqual(
       deployment.l1ContractAddresses.coinIssuerAddress,

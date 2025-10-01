@@ -63,6 +63,7 @@ describe('Registry', () => {
       'feeAssetHandlerAddress',
       'stakingAssetHandlerAddress',
       'zkPassportVerifierAddress',
+      'dateGatedRelayerAddress',
     );
     registry = new RegistryContract(l1Client, deployedAddresses.registryAddress);
 
