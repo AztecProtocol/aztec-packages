@@ -560,6 +560,7 @@ TEST_F(ProtogalaxyRecursiveTests, TamperedDeciderProof)
 
 TEST_F(ProtogalaxyRecursiveTests, TamperedAccumulator)
 {
+    BB_DISABLE_ASSERTS();
     ProtogalaxyRecursiveTests::test_tampered_accumulator();
 }
 
