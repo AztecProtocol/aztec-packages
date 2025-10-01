@@ -164,6 +164,8 @@ export interface DeployL1ContractsArgs extends Omit<L1ContractsConfig, keyof L1T
   realVerifier: boolean;
   /** The zk passport args */
   zkPassportArgs?: ZKPassportArgs;
+  /** If provided, use this token for BOTH fee and staking assets (skip deployments) */
+  existingTokenAddress?: EthAddress;
 }
 
 export interface ZKPassportArgs {
@@ -173,6 +175,80 @@ export interface ZKPassportArgs {
   zkPassportDomain?: string;
   /** The scope of the zk passport (personhood, etc) */
   zkPassportScope?: string;
+}
+
+// Minimal ERC20 ABI for validation purposes. We only read view methods.
+const ERC20_VALIDATION_ABI = [
+  {
+    type: 'function',
+    name: 'totalSupply',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'name',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'string' }],
+  },
+  {
+    type: 'function',
+    name: 'symbol',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'string' }],
+  },
+  {
+    type: 'function',
+    name: 'decimals',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint8' }],
+  },
+] as const;
+
+/**
+ * Validates that the provided address points to a contract that resembles an ERC20 token.
+ * Checks for contract code and attempts common ERC20 view calls.
+ * Throws an error if validation fails.
+ */
+export async function validateExistingErc20TokenAddress(
+  l1Client: ExtendedViemWalletClient,
+  tokenAddress: EthAddress,
+  logger: Logger,
+): Promise<void> {
+  const addressString = tokenAddress.toString();
+
+  // Ensure there is contract code at the address
+  const code = await l1Client.getCode({ address: addressString });
+  if (!code || code === '0x') {
+    throw new Error(`No contract code found at provided token address ${addressString}`);
+  }
+
+  const contract = getContract({
+    address: getAddress(addressString),
+    abi: ERC20_VALIDATION_ABI,
+    client: l1Client,
+  });
+
+  // Validate all required ERC20 methods in parallel
+  const checks = [
+    contract.read.totalSupply().then(total => typeof total === 'bigint'),
+    contract.read.name().then(() => true),
+    contract.read.symbol().then(() => true),
+    contract.read.decimals().then(dec => typeof dec === 'number' || typeof dec === 'bigint'),
+  ];
+
+  const results = await Promise.allSettled(checks);
+  const failedChecks = results.filter(result => result.status === 'rejected' || result.value !== true);
+
+  if (failedChecks.length > 0) {
+    throw new Error(`Address ${addressString} does not appear to implement ERC20 view methods`);
+  }
+
+  logger.verbose(`Validated existing token at ${addressString} appears to be ERC20-compatible`);
 }
 
 export const deploySharedContracts = async (
@@ -187,19 +263,22 @@ export const deploySharedContracts = async (
 
   const txHashes: Hex[] = [];
 
-  const { address: feeAssetAddress } = await deployer.deploy(FeeAssetArtifact, [
-    'FeeJuice',
-    'FEE',
-    l1Client.account.address,
-  ]);
-  logger.verbose(`Deployed Fee Asset at ${feeAssetAddress}`);
+  let feeAssetAddress: EthAddress;
+  let stakingAssetAddress: EthAddress;
+  if (args.existingTokenAddress) {
+    await validateExistingErc20TokenAddress(l1Client, args.existingTokenAddress, logger);
+    feeAssetAddress = args.existingTokenAddress;
+    stakingAssetAddress = args.existingTokenAddress;
+    logger.verbose(`Using existing token for fee and staking assets at ${args.existingTokenAddress}`);
+  } else {
+    const deployedFee = await deployer.deploy(FeeAssetArtifact, ['FeeJuice', 'FEE', l1Client.account.address]);
+    feeAssetAddress = deployedFee.address;
+    logger.verbose(`Deployed Fee Asset at ${feeAssetAddress}`);
 
-  const { address: stakingAssetAddress } = await deployer.deploy(StakingAssetArtifact, [
-    'Staking',
-    'STK',
-    l1Client.account.address,
-  ]);
-  logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
+    const deployedStaking = await deployer.deploy(StakingAssetArtifact, ['Staking', 'STK', l1Client.account.address]);
+    stakingAssetAddress = deployedStaking.address;
+    logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
+  }
 
   const gseAddress = (
     await deployer.deploy(GSEArtifact, [
@@ -287,8 +366,8 @@ export const deploySharedContracts = async (
   let stakingAssetHandlerAddress: EthAddress | undefined = undefined;
   let zkPassportVerifierAddress: EthAddress | undefined = undefined;
 
-  // Only if not on mainnet will we deploy the handlers
-  if (l1Client.chain.id !== 1) {
+  // Only if not on mainnet will we deploy the handlers, and only when we control the token
+  if (l1Client.chain.id !== 1 && !args.existingTokenAddress) {
     /* -------------------------------------------------------------------------- */
     /*                          CHEAT CODES START HERE                            */
     /* -------------------------------------------------------------------------- */
@@ -379,19 +458,23 @@ export const deploySharedContracts = async (
 
   const rewardDistributorAddress = await registry.getRewardDistributor();
 
-  const blockReward = getRewardConfig(networkName).blockReward;
+  if (!args.existingTokenAddress) {
+    const blockReward = getRewardConfig(networkName).blockReward;
 
-  const funding = blockReward * 200000n;
-  const { txHash: fundRewardDistributorTxHash } = await deployer.sendTransaction({
-    to: feeAssetAddress.toString(),
-    data: encodeFunctionData({
-      abi: FeeAssetArtifact.contractAbi,
-      functionName: 'mint',
-      args: [rewardDistributorAddress.toString(), funding],
-    }),
-  });
+    const funding = blockReward * 200000n;
+    const { txHash: fundRewardDistributorTxHash } = await deployer.sendTransaction({
+      to: feeAssetAddress.toString(),
+      data: encodeFunctionData({
+        abi: FeeAssetArtifact.contractAbi,
+        functionName: 'mint',
+        args: [rewardDistributorAddress.toString(), funding],
+      }),
+    });
 
-  logger.verbose(`Funded reward distributor with ${funding} fee asset in ${fundRewardDistributorTxHash}`);
+    logger.verbose(`Funded reward distributor with ${funding} fee asset in ${fundRewardDistributorTxHash}`);
+  } else {
+    logger.verbose(`Skipping reward distributor funding as existing token is provided`);
+  }
 
   /* -------------------------------------------------------------------------- */
   /*                      FUND REWARD DISTRIBUTOR STOP                          */
@@ -610,21 +693,26 @@ export const deployRollup = async (
   logger.verbose(`All core contracts have been deployed`);
 
   if (args.feeJuicePortalInitialBalance && args.feeJuicePortalInitialBalance > 0n) {
-    const feeJuicePortalAddress = await rollupContract.getFeeJuicePortal();
+    // Skip funding when using an external token, as we likely don't have mint permissions
+    if (!('existingTokenAddress' in args) || !args.existingTokenAddress) {
+      const feeJuicePortalAddress = await rollupContract.getFeeJuicePortal();
 
-    // In fast mode, use the L1TxUtils to send transactions with nonce management
-    const { txHash: mintTxHash } = await deployer.sendTransaction({
-      to: addresses.feeJuiceAddress.toString(),
-      data: encodeFunctionData({
-        abi: FeeAssetArtifact.contractAbi,
-        functionName: 'mint',
-        args: [feeJuicePortalAddress.toString(), args.feeJuicePortalInitialBalance],
-      }),
-    });
-    logger.verbose(
-      `Funding fee juice portal with ${args.feeJuicePortalInitialBalance} fee juice in ${mintTxHash} (accelerated test deployments)`,
-    );
-    txHashes.push(mintTxHash);
+      // In fast mode, use the L1TxUtils to send transactions with nonce management
+      const { txHash: mintTxHash } = await deployer.sendTransaction({
+        to: addresses.feeJuiceAddress.toString(),
+        data: encodeFunctionData({
+          abi: FeeAssetArtifact.contractAbi,
+          functionName: 'mint',
+          args: [feeJuicePortalAddress.toString(), args.feeJuicePortalInitialBalance],
+        }),
+      });
+      logger.verbose(
+        `Funding fee juice portal with ${args.feeJuicePortalInitialBalance} fee juice in ${mintTxHash} (accelerated test deployments)`,
+      );
+      txHashes.push(mintTxHash);
+    } else {
+      logger.verbose('Skipping fee juice portal funding due to external token usage');
+    }
   }
 
   const slashFactoryAddress = (await deployer.deploy(SlashFactoryArtifact, [rollupAddress.toString()])).address;
@@ -747,6 +835,7 @@ export const handoverToGovernance = async (
   governanceAddress: EthAddress,
   logger: Logger,
   acceleratedTestDeployments: boolean | undefined,
+  useExternalToken: boolean = false,
 ) => {
   // We need to call a function on the registry to set the various contract addresses.
   const registryContract = getContract({
@@ -812,7 +901,10 @@ export const handoverToGovernance = async (
     txHashes.push(transferOwnershipTxHash);
   }
 
-  if (acceleratedTestDeployments || (await feeAsset.read.owner()) !== coinIssuerAddress.toString()) {
+  if (
+    !useExternalToken &&
+    (acceleratedTestDeployments || (await feeAsset.read.owner()) !== coinIssuerAddress.toString())
+  ) {
     const { txHash } = await deployer.sendTransaction(
       {
         to: feeAssetAddress.toString(),
@@ -839,6 +931,8 @@ export const handoverToGovernance = async (
     );
     logger.verbose(`Accept ownership of fee asset in ${acceptTokenOwnershipTxHash}`);
     txHashes.push(acceptTokenOwnershipTxHash);
+  } else if (useExternalToken) {
+    logger.verbose('Skipping fee asset ownership transfer due to external token usage');
   }
 
   // If the owner is not the Governance contract, transfer ownership to the Governance contract
@@ -1079,6 +1173,13 @@ export const deployL1Contracts = async (
   logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
   validateConfig(args);
 
+  if (args.initialValidators && args.initialValidators.length > 0 && args.existingTokenAddress) {
+    throw new Error(
+      'Cannot deploy with both initialValidators and existingTokenAddress. ' +
+        'Initial validator funding requires minting tokens, which is not possible with an external token.',
+    );
+  }
+
   const l1Client = createExtendedL1Client(rpcUrls, account, chain);
 
   // Deploy multicall3 if it does not exist in this network
@@ -1158,6 +1259,7 @@ export const deployL1Contracts = async (
     governanceAddress,
     logger,
     args.acceleratedTestDeployments,
+    !!args.existingTokenAddress,
   );
 
   logger.info(`Handing over to governance complete`);
