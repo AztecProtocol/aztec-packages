@@ -31,7 +31,7 @@ std::vector<Operand> PureAddressing::resolve(const Instruction& instruction, Mem
         Operand& operand = resolved_operands[i];
         const ValueTag tag = operand.get_tag();
 
-        // We assume from setialization that the operand is <= the bits of a memory address.
+        // We assume from serialization that the operand is <= the bits of a memory address.
         // We assert this here as it is a precondition.
         assert(get_tag_bits(tag) <= get_tag_bits(MemoryAddressTag));
         // Normalize possibly smaller sizes to MemoryAddress.

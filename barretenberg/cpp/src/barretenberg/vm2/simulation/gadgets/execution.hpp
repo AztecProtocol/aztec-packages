@@ -37,20 +37,6 @@
 
 namespace bb::avm2::simulation {
 
-class RegisterValidationException : public std::runtime_error {
-  public:
-    RegisterValidationException(const std::string& message)
-        : std::runtime_error(message)
-    {}
-};
-
-class OpcodeExecutionException : public std::runtime_error {
-  public:
-    OpcodeExecutionException(const std::string& message)
-        : std::runtime_error(message)
-    {}
-};
-
 // In charge of executing a single enqueued call.
 class Execution : public ExecutionInterface {
   public:
