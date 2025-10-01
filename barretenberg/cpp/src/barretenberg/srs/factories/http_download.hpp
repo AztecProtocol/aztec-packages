@@ -1,7 +1,17 @@
 #pragma once
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <cstdint>
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-literal-operator"
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-literal-operator"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include <httplib.h>
+#pragma GCC diagnostic pop
+#pragma clang diagnostic pop
+
 #include <string>
 #include <vector>
 

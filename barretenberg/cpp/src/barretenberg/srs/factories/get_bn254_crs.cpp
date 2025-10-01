@@ -1,5 +1,6 @@
 #include "get_bn254_crs.hpp"
 #include "barretenberg/api/file_io.hpp"
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/bn254/g2.hpp"
 #include "bn254_crs_data.hpp"
@@ -18,9 +19,9 @@ std::vector<uint8_t> download_bn254_g1_data(size_t num_points)
     }
 
     // Verify first element matches expected generator
-    auto first_element = bb::from_buffer<bb::g1::affine_element>(data, 0);
+    auto first_element = from_buffer<bb::g1::affine_element>(data, 0);
     if (first_element != bb::srs::BN254_G1_FIRST_ELEMENT) {
-        throw_or_abort("Downloaded BN254 G1 CRS first element does not match expected generator point (1, 2)");
+        throw_or_abort("Downloaded BN254 G1 CRS first element does not match expected point.");
     }
 
     return data;

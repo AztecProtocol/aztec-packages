@@ -1,9 +1,8 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #ifndef __wasm__
-#include "barretenberg/api/exec_pipe.hpp"
-#include "barretenberg/api/get_bytecode.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/client_ivc/private_execution_steps.hpp"
+#include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/pg_recursion_constraint.hpp"
@@ -17,18 +16,6 @@
 using namespace bb;
 class AcirIntegrationTest : public ::testing::Test {
   public:
-    static std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
-    {
-        std::filesystem::path filePath = bytecodePath;
-        if (filePath.extension() == ".json") {
-            // Try reading json files as if they are a Nargo build artifact
-            return get_bytecode_from_json(bytecodePath);
-        }
-
-        // For other extensions, assume file is a raw ACIR program
-        return exec_pipe_with_stdin(bytecodePath, "gunzip -c -");
-    }
-
     // Function to check if a file exists
     static bool file_exists(const std::string& path)
     {

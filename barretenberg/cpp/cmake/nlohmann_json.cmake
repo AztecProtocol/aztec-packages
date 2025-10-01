@@ -1,5 +1,7 @@
 include(FetchContent)
 
+set(NLOHMANN_JSON_INCLUDE "${CMAKE_BINARY_DIR}/_deps/nlohmann_json-src/include")
+
 FetchContent_Declare(
     nlohmann_json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
