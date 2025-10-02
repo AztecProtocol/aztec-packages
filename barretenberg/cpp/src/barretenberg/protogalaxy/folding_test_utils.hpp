@@ -32,6 +32,8 @@ template <class Flavor> class ProtogalaxyTestUtilities {
     using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstance>;
     using DeciderProver = DeciderProver_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
+    using FoldingVerificationResult =
+        std::tuple<std::shared_ptr<VerifierInstance>, std::shared_ptr<typename FoldingVerifier::Transcript>>;
 
     /**
      * @brief Create a circuit with the specified number of arithmetic gates and arithmetic gates with public inputs
@@ -88,10 +90,10 @@ template <class Flavor> class ProtogalaxyTestUtilities {
     /**
      * @brief Construct Prover and Verifier instances for a provided circuit and add to tuple
      */
-    static void construct_tuple_of_keys(TupleOfKeys& keys,
-                                        Builder& builder,
-                                        size_t idx = 0,
-                                        TraceSettings trace_settings = TraceSettings{})
+    static void construct_instances_and_add_to_tuple(TupleOfKeys& keys,
+                                                     Builder& builder,
+                                                     size_t idx = 0,
+                                                     TraceSettings trace_settings = TraceSettings{})
     {
 
         auto prover_instance = std::make_shared<ProverInstance>(builder, trace_settings);
@@ -102,19 +104,97 @@ template <class Flavor> class ProtogalaxyTestUtilities {
     }
 
     /**
+     * @brief Construct Prover and Verifier accumulators and add to tuple
+     */
+    static void construct_accumulator_and_add_to_tuple(TupleOfKeys& keys,
+                                                       size_t idx = 0,
+                                                       TraceSettings trace_settings = TraceSettings{})
+    {
+        TupleOfKeys instances = construct_instances(2, trace_settings, true);
+        FoldingData accumulators = fold_and_verify(get<0>(instances), get<1>(instances));
+
+        get<0>(keys)[idx] = get<0>(accumulators);
+        get<1>(keys)[idx] = get<1>(accumulators);
+    }
+
+    /**
      * @brief Construct a given number of Prover and Verifier instances
      */
-    static TupleOfKeys construct_keys(size_t num_keys, TraceSettings trace_settings = TraceSettings{})
+    static TupleOfKeys construct_instances(size_t num_keys,
+                                           TraceSettings trace_settings = TraceSettings{},
+                                           bool circuits_of_different_size = false)
     {
-        TupleOfKeys keys;
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop
-        for (size_t idx = 0; idx < num_keys; idx++) {
-            auto builder = typename Flavor::CircuitBuilder();
-            create_function_circuit(builder);
+        // Need to use shared_ptrs because builders don't have copy constructors
+        std::vector<std::shared_ptr<Builder>> builders(num_keys, nullptr);
+        parallel_for([&builders, &num_keys, &circuits_of_different_size](const ThreadChunk& chunk) {
+            for (size_t idx : chunk.range(num_keys)) {
+                size_t log_num_gates = circuits_of_different_size ? 9 + std::min(idx, 3UL) : 9;
+                Builder builder;
+                create_function_circuit(builder, log_num_gates, log_num_gates);
+                builders[idx] = std::make_shared<Builder>(builder);
+            }
+        });
 
-            construct_tuple_of_keys(keys, builder, idx, trace_settings);
+        // The following loop cannot be parallelized because the construction of a ProverInstance already has a
+        // parallel_for call and nested parallel_for calls are not allowed
+        TupleOfKeys keys;
+        for (size_t idx = 0; idx < num_keys; idx++) {
+            construct_instances_and_add_to_tuple(keys, *builders[idx], idx, trace_settings);
         }
         return keys;
+    }
+
+    /**
+     * @brief Get folding data at index idx in the tuple of keys
+     */
+    static FoldingData get_folding_data(const TupleOfKeys& keys, size_t idx)
+    {
+        return FoldingData(get<0>(keys)[idx], get<1>(keys)[idx]);
+    }
+
+    /**
+     * @brief  Fold two prover instances. Return folded accumulator and folding proof.
+     */
+    static FoldingResult<Flavor> fold(const ProverInstances& prover_instances,
+                                      const VerifierInstances& verification_keys,
+                                      bool hash_accumulator = false,
+                                      ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
+    {
+        auto prover_transcript = std::make_shared<typename FoldingProver::Transcript>();
+        prover_transcript->enable_manifest();
+        if (hash_accumulator) {
+            // We allow this option because otherwise in a recursive setting the folding verifier interacts with
+            // values that it has never seen before (because Oink is not run on an accumulator). By hashing the
+            // verifier accumulator, we ensure its origin is properly tracked
+            BB_ASSERT_EQ(get<0>(verification_keys)->is_complete, true);
+            auto accumulator_hash = get<0>(verification_keys)->hash_through_transcript("-", *prover_transcript);
+            prover_transcript->add_to_hash_buffer("accumulator_hash", accumulator_hash);
+        }
+        FoldingProver folding_prover(prover_instances, verification_keys, prover_transcript, trace_usage_tracker);
+
+        return folding_prover.prove();
+    }
+
+    /**
+     * @brief Verify a folding proof. Return the folded accumulator and the verifier transcript.
+     */
+    static FoldingVerificationResult verify_folding_proof(const VerifierInstances& verification_keys,
+                                                          const HonkProof& folding_proof,
+                                                          bool hash_accumulator = false)
+    {
+        auto verifier_transcript = std::make_shared<typename FoldingVerifier::Transcript>();
+        verifier_transcript->enable_manifest();
+        if (hash_accumulator) {
+            // We allow this option because otherwise in a recursive setting the folding verifier interacts with
+            // values that it has never seen before (because Oink is not run on an accumulator). By hashing the
+            // verifier accumulator, we ensure its origin is properly tracked
+            auto accumulator_hash = get<0>(verification_keys)->hash_through_transcript("-", *verifier_transcript);
+            verifier_transcript->add_to_hash_buffer("accumulator_hash", accumulator_hash);
+        }
+        FoldingVerifier folding_verifier(verification_keys, verifier_transcript);
+        auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);
+
+        return { verifier_accumulator, verifier_transcript };
     }
 
     /**
@@ -122,16 +202,14 @@ template <class Flavor> class ProtogalaxyTestUtilities {
      */
     static FoldingData fold_and_verify(const ProverInstances& prover_instances,
                                        const VerifierInstances& verification_keys,
-                                       ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
+                                       ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{},
+                                       bool hash_accumulator = false)
     {
-        FoldingProver folding_prover(prover_instances,
-                                     verification_keys,
-                                     std::make_shared<typename FoldingProver::Transcript>(),
-                                     trace_usage_tracker);
-        FoldingVerifier folding_verifier(verification_keys, std::make_shared<typename FoldingVerifier::Transcript>());
+        auto [prover_accumulator, folding_proof] =
+            fold(prover_instances, verification_keys, hash_accumulator, trace_usage_tracker);
 
-        auto [prover_accumulator, folding_proof] = folding_prover.prove();
-        auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);
+        auto [verifier_accumulator, _] = verify_folding_proof(verification_keys, folding_proof, hash_accumulator);
+
         return FoldingData{ prover_accumulator, verifier_accumulator };
     }
 
@@ -154,12 +232,15 @@ template <class Flavor> class ProtogalaxyTestUtilities {
 /**
  * @brief Utility to manually compute the target sum of an accumulator.
  *
- * @details As we create a ProtogalaxyProverInternal object with an empty execution trace tracker and no active_ranges
- * set, compute_row_evaluations will operate on all rows.
+ * @details As we create a ProtogalaxyProverInternal object with an empty execution trace tracker and no
+ * active_ranges set, compute_row_evaluations will operate on all rows.
  */
 template <typename Flavor>
 static Flavor::FF compute_accumulator_target_sum_manual(const std::shared_ptr<ProverInstance_<Flavor>>& accumulator)
 {
+    BB_ASSERT_EQ(
+        accumulator->is_complete, true, "Computing the target sum of an incomplete accumulator, indefinite behaviour.");
+
     using PGInternal = ProtogalaxyProverInternal<ProverInstance_<Flavor>>;
 
     const size_t accumulator_size = accumulator->dyadic_size();
@@ -178,8 +259,8 @@ static Flavor::FF compute_accumulator_target_sum_manual(const std::shared_ptr<Pr
 }
 
 /**
- * @brief Utility to manually compute the target sum of an accumulator and compare it to the one produced in Protogalxy
- * to attest correctness.
+ * @brief Utility to manually compute the target sum of an accumulator and compare it to the one produced in
+ * Protogalxy to attest correctness.
  */
 template <typename Flavor>
 static bool check_accumulator_target_sum_manual(const std::shared_ptr<ProverInstance_<Flavor>>& accumulator)

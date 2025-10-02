@@ -251,8 +251,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         auto check_fold_and_decide = [](Builder& circuit_1, Builder& circuit_2) {
             // Construct decider key pairs for each
             TupleOfKeys keys;
-            ProtogalaxyTestUtils::construct_tuple_of_keys(keys, circuit_1, 0);
-            ProtogalaxyTestUtils::construct_tuple_of_keys(keys, circuit_2, 1);
+            ProtogalaxyTestUtils::construct_instances_and_add_to_tuple(keys, circuit_1, 0);
+            ProtogalaxyTestUtils::construct_instances_and_add_to_tuple(keys, circuit_2, 1);
 
             // Perform prover and verifier folding
             auto [prover_accumulator, verifier_accumulator] =
@@ -334,8 +334,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         // Construct the key pairs for each
         TupleOfKeys keys;
-        ProtogalaxyTestUtils::construct_tuple_of_keys(keys, builder1, 0);
-        ProtogalaxyTestUtils::construct_tuple_of_keys(keys, builder2, 1);
+        ProtogalaxyTestUtils::construct_instances_and_add_to_tuple(keys, builder1, 0);
+        ProtogalaxyTestUtils::construct_instances_and_add_to_tuple(keys, builder2, 1);
 
         // Perform prover and verifier folding
         auto [prover_accumulator, verifier_accumulator] =
@@ -352,12 +352,12 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
      */
     static void test_full_protogalaxy()
     {
-        TupleOfKeys insts = ProtogalaxyTestUtils::construct_keys(2);
+        TupleOfKeys insts = ProtogalaxyTestUtils::construct_instances(2);
         auto [prover_accumulator, verifier_accumulator] =
             ProtogalaxyTestUtils::fold_and_verify(get<0>(insts), get<1>(insts));
         EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
 
-        TupleOfKeys insts_2 = ProtogalaxyTestUtils::construct_keys(1); // just one key pair
+        TupleOfKeys insts_2 = ProtogalaxyTestUtils::construct_instances(1); // just one key pair
         auto [prover_accumulator_2, verifier_accumulator_2] =
             ProtogalaxyTestUtils::fold_and_verify(ProverInstances{ prover_accumulator, get<0>(insts_2)[0] },
                                                   VerifierInstances{ verifier_accumulator, get<1>(insts_2)[0] });
@@ -373,13 +373,13 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     static void test_full_protogalaxy_structured_trace()
     {
         TraceSettings trace_settings{ SMALL_TEST_STRUCTURE_FOR_OVERFLOWS };
-        TupleOfKeys keys_1 = ProtogalaxyTestUtils::construct_keys(2, trace_settings);
+        TupleOfKeys keys_1 = ProtogalaxyTestUtils::construct_instances(2, trace_settings);
 
         auto [prover_accumulator, verifier_accumulator] =
             ProtogalaxyTestUtils::fold_and_verify(get<0>(keys_1), get<1>(keys_1));
         EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
 
-        TupleOfKeys keys_2 = ProtogalaxyTestUtils::construct_keys(1, trace_settings); // just one key pair
+        TupleOfKeys keys_2 = ProtogalaxyTestUtils::construct_instances(1, trace_settings); // just one key pair
 
         auto [prover_accumulator_2, verifier_accumulator_2] =
             ProtogalaxyTestUtils::fold_and_verify(ProverInstances{ prover_accumulator, get<0>(keys_2)[0] },
@@ -451,8 +451,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         // Construct the decider key pairs for the first two circuits
         TupleOfKeys keys_1;
-        ProtogalaxyTestUtils::construct_tuple_of_keys(keys_1, builder1, 0, trace_settings);
-        ProtogalaxyTestUtils::construct_tuple_of_keys(keys_1, builder2, 1, trace_settings);
+        ProtogalaxyTestUtils::construct_instances_and_add_to_tuple(keys_1, builder1, 0, trace_settings);
+        ProtogalaxyTestUtils::construct_instances_and_add_to_tuple(keys_1, builder2, 1, trace_settings);
 
         // Fold the first two pairs
         auto [prover_accumulator, verifier_accumulator] =
@@ -461,7 +461,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         // Construct the decider key pair for the third circuit
         TupleOfKeys keys_2;
-        ProtogalaxyTestUtils::construct_tuple_of_keys(keys_2, builder3, 0, trace_settings);
+        ProtogalaxyTestUtils::construct_instances_and_add_to_tuple(keys_2, builder3, 0, trace_settings);
 
         // Fold 3rd pair of keys into their respective accumulators
         auto [prover_accumulator_2, verifier_accumulator_2] =
@@ -480,7 +480,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
      */
     static void test_tampered_commitment()
     {
-        TupleOfKeys insts = ProtogalaxyTestUtils::construct_keys(2);
+        TupleOfKeys insts = ProtogalaxyTestUtils::construct_instances(2);
         auto [prover_accumulator, verifier_accumulator] =
             ProtogalaxyTestUtils::fold_and_verify(get<0>(insts), get<1>(insts));
         EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
@@ -488,7 +488,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         // Tamper with a commitment
         verifier_accumulator->witness_commitments.w_l = Projective(Affine::random_element());
 
-        TupleOfKeys insts_2 = ProtogalaxyTestUtils::construct_keys(1); // just one decider key pair
+        TupleOfKeys insts_2 = ProtogalaxyTestUtils::construct_instances(1); // just one decider key pair
         auto [prover_accumulator_2, verifier_accumulator_2] =
             ProtogalaxyTestUtils::fold_and_verify(ProverInstances{ prover_accumulator, get<0>(insts_2)[0] },
                                                   VerifierInstances{ verifier_accumulator, get<1>(insts_2)[0] });
@@ -504,7 +504,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
      */
     static void test_tampered_accumulator_polynomial()
     {
-        TupleOfKeys insts = ProtogalaxyTestUtils::construct_keys(2);
+        TupleOfKeys insts = ProtogalaxyTestUtils::construct_instances(2);
         auto [prover_accumulator, verifier_accumulator] =
             ProtogalaxyTestUtils::fold_and_verify(get<0>(insts), get<1>(insts));
         EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
@@ -513,7 +513,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         prover_accumulator->polynomials.w_l.at(1) = FF::random_element();
         EXPECT_FALSE(check_accumulator_target_sum_manual(prover_accumulator));
 
-        TupleOfKeys insts_2 = ProtogalaxyTestUtils::construct_keys(1); // just one decider key pair
+        TupleOfKeys insts_2 = ProtogalaxyTestUtils::construct_instances(1); // just one decider key pair
         auto [prover_accumulator_2, verifier_accumulator_2] =
             ProtogalaxyTestUtils::fold_and_verify(ProverInstances{ prover_accumulator, get<0>(insts_2)[0] },
                                                   VerifierInstances{ verifier_accumulator, get<1>(insts_2)[0] });
@@ -525,7 +525,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     template <size_t k> static void test_fold_k_key_pairs()
     {
         constexpr size_t total_insts = k + 1;
-        TupleOfKeys insts = ProtogalaxyTestUtils::construct_keys(total_insts);
+        TupleOfKeys insts = ProtogalaxyTestUtils::construct_instances(total_insts);
 
         ProtogalaxyProver_<Flavor> folding_prover(get<0>(insts), get<1>(insts), std::make_shared<NativeTranscript>());
         ProtogalaxyVerifier_<VerifierInstance> folding_verifier(get<1>(insts), std::make_shared<NativeTranscript>());
