@@ -16,7 +16,7 @@
 
 namespace bb {
 
-template <typename Field> class FieldConversion {
+template <typename Field> class NativeCodec {
   public:
     using fr = bb::fr;
     using fq = grumpkin::fr;
@@ -288,7 +288,7 @@ template <typename Field> class FieldConversion {
     }
 };
 
-using FrCodec = FieldConversion<bb::fr>;
-using U256Codec = FieldConversion<uint256_t>;
+using FrCodec = NativeCodec<bb::fr>;
+using U256Codec = NativeCodec<uint256_t>;
 
 } // namespace bb

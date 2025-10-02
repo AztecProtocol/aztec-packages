@@ -20,9 +20,8 @@
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "transcript_manifest.hpp"
-#include <concepts>
-
 #include <atomic>
+#include <concepts>
 
 namespace bb {
 
@@ -56,8 +55,8 @@ template <typename DataType_, typename HashFunction> class BaseTranscript {
   public:
     using DataType = DataType_;
     using Proof = std::vector<DataType>;
-    using Codec = std::
-        conditional_t<IsAnyOf<DataType, bb::fr, uint256_t>, FieldConversion<DataType>, stdlib::StdlibCodec<DataType>>;
+    using Codec =
+        std::conditional_t<IsAnyOf<DataType, bb::fr, uint256_t>, NativeCodec<DataType>, stdlib::StdlibCodec<DataType>>;
 
     // Detects whether the transcript is in-circuit or not
     static constexpr bool in_circuit = InCircuit<DataType>;
