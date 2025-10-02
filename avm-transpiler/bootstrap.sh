@@ -19,7 +19,7 @@ function build {
     denoise "cargo build --release --locked --lib"
     denoise "cargo fmt --check"
     denoise "cargo clippy"
-    cache_upload $artifact target/release/libavm_transpiler.a
+    cache_upload $artifact target/release/avm-transpiler target/release/libavm_transpiler.a
   fi
 }
 
