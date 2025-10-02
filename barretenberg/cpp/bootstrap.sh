@@ -110,8 +110,8 @@ function build_darwin {
   local arch=${1:-arm64}
 
   if ! cache_download barretenberg-darwin-$arch-$hash.zst; then
-    build_preset darwin-$arch --target bb
-    cache_upload barretenberg-darwin-$arch-$hash.zst build-darwin-$arch/bin
+    build_preset zig-darwin-$arch --target bb
+    cache_upload barretenberg-darwin-$arch-$hash.zst build-zig-darwin-$arch/bin
   fi
 }
 
@@ -209,13 +209,13 @@ function build_release {
     fi
 
     # Package darwin-arm64
-    cp build-darwin-arm64/bin/bb build-release/bb-darwin-arm64
+    cp build-zig-darwin-arm64/bin/bb build-release/bb-darwin-arm64
     inject_version build-release/bb-darwin-arm64
     build-release/ldid -S build-release/bb-darwin-arm64
     tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb-darwin-arm64
 
     # Package darwin-amd64
-    cp build-darwin-amd64/bin/bb build-release/bb-darwin-amd64
+    cp build-zig-darwin-amd64/bin/bb build-release/bb-darwin-amd64
     inject_version build-release/bb-darwin-amd64
     build-release/ldid -S build-release/bb-darwin-amd64
     tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb-darwin-amd64

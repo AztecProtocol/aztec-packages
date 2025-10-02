@@ -607,16 +607,6 @@
       "configurePreset": "clang20"
     },
     {
-      "name": "darwin-arm64",
-      "inherits": "default",
-      "configurePreset": "darwin-arm64"
-    },
-    {
-      "name": "darwin-amd64",
-      "inherits": "default",
-      "configurePreset": "darwin-amd64"
-    },
-    {
       "name": "debug",
       "inherits": "default",
       "configurePreset": "debug"
@@ -801,6 +791,16 @@
       "configurePreset": "zig-node-arm64-macos",
       "inheritConfigureEnvironment": true,
       "targets": ["nodejs_module"]
+    },
+    {
+      "name": "zig-darwin-arm64",
+      "configurePreset": "zig-darwin-arm64",
+      "inheritConfigureEnvironment": true
+    },
+    {
+      "name": "zig-darwin-amd64",
+      "configurePreset": "zig-darwin-amd64",
+      "inheritConfigureEnvironment": true
     }
   ],
   "testPresets": [
