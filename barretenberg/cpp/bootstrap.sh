@@ -105,13 +105,19 @@ function build_nodejs_module {
   fi
 }
 
-function build_darwin {
+function build_darwin_arm64 {
   set -eu
-  local arch=${1:-arm64}
+  if ! cache_download barretenberg-darwin-arm64-$hash.zst; then
+    build_preset zig-darwin-arm64 --target bb
+    cache_upload barretenberg-darwin-arm64-$hash.zst build-zig-darwin-arm64/bin
+  fi
+}
 
-  if ! cache_download barretenberg-darwin-$arch-$hash.zst; then
-    build_preset zig-darwin-$arch --target bb
-    cache_upload barretenberg-darwin-$arch-$hash.zst build-zig-darwin-$arch/bin
+function build_darwin_amd64 {
+  set -eu
+  if ! cache_download barretenberg-darwin-amd64-$hash.zst; then
+    build_preset zig-darwin-amd64 --target bb
+    cache_upload barretenberg-darwin-amd64-$hash.zst build-zig-darwin-amd64/bin
   fi
 }
 
@@ -221,11 +227,13 @@ function build_release {
   fi
 }
 
-export -f ensure_zig build_preset build_native build_asan_fast build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
+export -f ensure_zig build_preset build_native build_asan_fast build_darwin_amd64 build_darwin_arm64 build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
 
 function build {
   echo_header "bb cpp build"
   builds=(
+    build_darwin_arm64
+    build_darwin_amd64
     build_native
     build_nodejs_module
     build_wasm
@@ -235,12 +243,6 @@ function build {
     builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast build_smt_verification)
   fi
   parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${builds[@]}
-
-  # Build macOS binaries on amd64
-  if [ "$(arch)" == "amd64" ]; then
-    parallel --line-buffered --tag --halt now,fail=1 denoise ::: "build_darwin arm64" "build_darwin amd64"
-  fi
-
   build_release
 }
 
