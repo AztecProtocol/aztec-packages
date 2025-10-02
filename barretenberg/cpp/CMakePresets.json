@@ -297,6 +297,7 @@
       "cacheVariables": {
         "FUZZING": "ON",
         "DISABLE_AZTEC_VM": "ON",
+        "AVM_TRANSPILER_LIB": "",
         "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
@@ -309,6 +310,7 @@
       "cacheVariables": {
         "FUZZING": "ON",
         "DISABLE_AZTEC_VM": "ON",
+        "AVM_TRANSPILER_LIB": "",
         "DISABLE_ASM": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
@@ -337,6 +339,7 @@
       "cacheVariables": {
         "FUZZING": "ON",
         "DISABLE_ASM": "ON",
+        "AVM_TRANSPILER_LIB": "",
         "DISABLE_AZTEC_VM": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert"
       },
@@ -351,6 +354,7 @@
       "inherits": "clang20",
       "binaryDir": "build-smt",
       "cacheVariables": {
+        "AVM_TRANSPILER_LIB": "",
         "SMT": "ON"
       }
     },
@@ -408,6 +412,7 @@
       "cacheVariables": {
         "COVERAGE": "ON",
         "DISABLE_ASM": "ON",
+        "AVM_TRANSPILER_LIB": "",
         "DISABLE_AZTEC_VM": "ON"
       }
     },
@@ -419,6 +424,7 @@
       "binaryDir": "build-gperftools",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "AVM_TRANSPILER_LIB": "",
         "CMAKE_EXE_LINKER_FLAGS": "-ltcmalloc",
         "CXXFLAGS": "-fno-omit-frame-pointer"
       }
