@@ -13,7 +13,7 @@
 
 namespace {
 
-std::vector<uint8_t> gzip_decompress(const std::vector<uint8_t>& compressed)
+std::vector<uint8_t> gzip_decompress([[maybe_unused]] const std::vector<uint8_t>& compressed)
 {
 #ifdef __wasm__
     throw_or_abort("gzip_decompress not supported in WASM");
@@ -50,17 +50,13 @@ std::vector<uint8_t> gzip_decompress(const std::vector<uint8_t>& compressed)
 
 std::vector<uint8_t> decode_bytecode(const std::string& base64_bytecode)
 {
-#ifdef __wasm__
-    throw_or_abort("decode_bytecode not supported in WASM");
-#else
     // Decode base64 and decompress using libdeflate for gzip
     std::string decoded = base64_decode(base64_bytecode, false);
     std::vector<uint8_t> gzipped(decoded.begin(), decoded.end());
     return gzip_decompress(gzipped);
-#endif
 }
 
-std::vector<uint8_t> get_bytecode_from_json(const std::string& json_path)
+std::vector<uint8_t> get_bytecode_from_json [[maybe_unused]] (const std::string& json_path)
 {
 #ifdef __wasm__
     throw_or_abort("get_bytecode_from_json not supported in WASM");
@@ -79,9 +75,6 @@ std::vector<uint8_t> get_bytecode_from_json(const std::string& json_path)
 
 std::vector<uint8_t> gunzip(const std::string& path)
 {
-#ifdef __wasm__
-    throw_or_abort("gunzip not supported in WASM");
-#else
     std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) {
         throw std::runtime_error("Failed to open file: " + path);
@@ -89,14 +82,10 @@ std::vector<uint8_t> gunzip(const std::string& path)
 
     std::vector<uint8_t> compressed((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     return gzip_decompress(compressed);
-#endif
 }
 
 std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
 {
-#ifdef __wasm__
-    throw_or_abort("get_bytecode not supported in WASM");
-#else
     if (bytecodePath == "-") {
         return { (std::istreambuf_iterator<char>(std::cin)), std::istreambuf_iterator<char>() };
     }
@@ -108,5 +97,4 @@ std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
 
     // For other extensions, assume file is a raw ACIR program
     return gunzip(bytecodePath);
-#endif
 }
