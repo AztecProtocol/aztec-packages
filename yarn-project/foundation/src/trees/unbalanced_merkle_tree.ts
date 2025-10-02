@@ -63,7 +63,7 @@ function getMaxBalancedSubtreeDepth(numLeaves: number) {
 }
 
 /// Get the maximum depth of an unbalanced tree that can be created with the given number of leaves.
-export function getMaxUnbalancedTreeDepth(numLeaves: number) {
+function getMaxUnbalancedTreeDepth(numLeaves: number) {
   return Math.ceil(Math.log2(numLeaves));
 }
 

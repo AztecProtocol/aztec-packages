@@ -1,7 +1,21 @@
 use super::TestBuilder;
 
-// Note: We only test a few cases here to ensure the code path is triggered. More comprehensive tests for validating
-// consecutive block rollups can be found in `block_merge/tests/consecutive_block_rollups_tests.nr`.
+// Note: We only test a few cases here to ensure the code path is triggered. More comprehensive tests for merging and
+// validating consecutive block rollups can be found in `block_merge/tests/consecutive_block_rollups_tests.nr`.
+
+#[test]
+fn propagate_right_out_hash_when_left_is_zero() {
+    let mut builder = TestBuilder::default();
+
+    builder.left_rollup.out_hash = 0;
+    builder.right_rollup.out_hash = 123;
+
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+
+    let checkpoint_header = builder.get_expected_checkpoint_header();
+    assert_eq(checkpoint_header.content_commitment.out_hash, 123);
+}
 
 #[test(should_fail_with = "Mismatched constants in block rollups")]
 fn mismatch_constants() {
