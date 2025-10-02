@@ -1,6 +1,9 @@
+#include "barretenberg/common/throw_or_abort.hpp"
+#include <string>
+#include <vector>
 #ifndef __wasm__
-#include "get_bytecode.hpp"
 #include "base64.hpp"
+#include "get_bytecode.hpp"
 
 #include <fstream>
 #include <libdeflate.h>
