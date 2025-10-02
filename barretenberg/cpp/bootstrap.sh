@@ -235,8 +235,6 @@ export -f ensure_zig build_preset build_native build_asan_fast build_darwin_amd6
 function build {
   echo_header "bb cpp build"
   builds=(
-    build_darwin_arm64
-    build_darwin_amd64
     build_native
     build_nodejs_module
     build_wasm
@@ -244,6 +242,10 @@ function build {
   )
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
     builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast build_smt_verification)
+    # macOS builds require the avm-transpiler linked.
+    if [ "${DISABLE_AZTEC_VM:-0}" -eq 0 ]; then
+      builds+=(build_darwin_arm64 build_darwin_amd64)
+    fi
   fi
   ensure_zig
   parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${builds[@]}
