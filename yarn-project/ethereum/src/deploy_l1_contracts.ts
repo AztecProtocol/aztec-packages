@@ -1003,66 +1003,6 @@ export const addMultipleValidators = async (
       );
     }
 
-    // Optionally continue flushing across epochs until we reach target committee size
-    const flushUntilTarget = (process.env.FLUSH_UNTIL_TARGET || '').toLowerCase() === 'true';
-    logger.info('value of flushUntilTarget', flushUntilTarget);
-    if (flushUntilTarget) {
-      // Default poll interval: AZTEC_EPOCH_DURATION seconds if provided, otherwise 5 seconds
-      const epochSeconds = Number(process.env.AZTEC_EPOCH_DURATION || '0');
-      const defaultPollMs = (isFinite(epochSeconds) && epochSeconds > 0 ? epochSeconds : 5) * 1000;
-      const pollMs = Number(process.env.FLUSH_POLL_INTERVAL_SECONDS || defaultPollMs.toString());
-      const maxEpochs = Number(process.env.FLUSH_MAX_EPOCHS || '0');
-
-      let epochsWaited = 0;
-      while (true) {
-        const [active, target] = await Promise.all([
-          rollup.getActiveAttesterCount(),
-          rollup.getTargetCommitteeSize(),
-          rollup.getEntryQueueLength(),
-        ]);
-        if (active >= target) {
-          logger.info(`Active validators: ${active}, Target committee size: ${target}, breaking`);
-          break;
-        }
-
-        // Wait until new flushes are available
-        const available = await rollup.getAvailableValidatorFlushes();
-        if (available === 0n) {
-          if (maxEpochs > 0 && epochsWaited >= maxEpochs) {
-            logger.info(`Max epochs reached, breaking`);
-            break;
-          }
-          await new Promise(resolve => setTimeout(resolve, pollMs));
-          epochsWaited += 1;
-          continue;
-        }
-
-        // Spend available flushes in chunks, reusing the same chunk size and gas limits
-        // Loop guarded by queue/available checks similar to the initial loop
-        while (true) {
-          if ((await rollup.getEntryQueueLength()) === 0n) {
-            break;
-          }
-          if ((await rollup.getAvailableValidatorFlushes()) === 0n) {
-            break;
-          }
-          await deployer.l1TxUtils.sendAndMonitorTransaction(
-            {
-              to: rollup.address,
-              data: encodeFunctionData({
-                abi: RollupArtifact.contractAbi,
-                functionName: 'flushEntryQueue',
-                args: [BigInt(chunkSize)],
-              }),
-            },
-            {
-              gasLimit: 16_000_000n,
-            },
-          );
-        }
-      }
-    }
-
     const entryQueueLengthAfter = await rollup.getEntryQueueLength();
     const validatorCountAfter = await rollup.getActiveAttesterCount();
 

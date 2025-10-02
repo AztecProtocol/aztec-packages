@@ -64,10 +64,6 @@ locals {
       AZTEC_MANA_TARGET                        = var.AZTEC_MANA_TARGET
       AZTEC_PROVING_COST_PER_MANA              = var.AZTEC_PROVING_COST_PER_MANA
       AZTEC_EXIT_DELAY_SECONDS                 = var.AZTEC_EXIT_DELAY_SECONDS
-      # Flushing behavior
-      FLUSH_UNTIL_TARGET                       = var.FLUSH_UNTIL_TARGET
-      FLUSH_POLL_INTERVAL_SECONDS              = var.FLUSH_POLL_INTERVAL_SECONDS
-      FLUSH_MAX_EPOCHS                         = var.FLUSH_MAX_EPOCHS
       LOG_LEVEL                                = "debug"
   } : k => v if v != null }
 

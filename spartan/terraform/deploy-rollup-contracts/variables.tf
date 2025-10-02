@@ -221,24 +221,3 @@ variable "FLUSH_ENTRY_QUEUE" {
   type        = bool
   default     = true
 }
-
-variable "FLUSH_UNTIL_TARGET" {
-  description = "Continue flushing across epochs until active >= target"
-  type        = bool
-  nullable    = true
-  default     = null
-}
-
-variable "FLUSH_POLL_INTERVAL_SECONDS" {
-  description = "Polling interval seconds between flush attempts when waiting for next epoch"
-  type        = number
-  nullable    = true
-  default     = null
-}
-
-variable "FLUSH_MAX_EPOCHS" {
-  description = "Maximum epochs to wait for flushing until target"
-  type        = number
-  nullable    = true
-  default     = null
-}

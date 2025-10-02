@@ -208,8 +208,8 @@ export const getRewardBoostConfig = () => {
 
 // Similar to the above, no need for environment variables for this.
 const LocalEntryQueueConfig = {
-  bootstrapValidatorSetSize: 0n,
-  bootstrapFlushSize: 0n,
+  bootstrapValidatorSetSize: 48n,
+  bootstrapFlushSize: 48n,
   normalFlushSizeMin: 48n,
   normalFlushSizeQuotient: 2n,
   maxQueueFlushSize: 32n,
