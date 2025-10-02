@@ -244,6 +244,7 @@ function build {
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
     builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast build_smt_verification)
   fi
+  ensure_zig
   parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${builds[@]}
   build_release
 }
