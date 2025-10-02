@@ -4,6 +4,7 @@
 #include "barretenberg/common/base64.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/common/version.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include <filesystem>
 #include <fstream>
@@ -15,9 +16,6 @@
 // Include avm_transpiler header
 #include <avm_transpiler.h>
 #endif
-
-// Version string updated during release process
-extern const char* const BB_VERSION_PLACEHOLDER;
 
 namespace bb {
 
