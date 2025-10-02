@@ -105,14 +105,6 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     // accumulation claim.
     using VerifierAccumulator = stdlib::recursion::honk::IpaAccumulator<Curve>;
 
-    // // records both a `VerifierAccumulator` and also whether the "running state" of the IPA verifier is true.
-    // // this is relevant when we run the partial verifier, a.k.a. `reduce_verify_internal_recursive`, which itself is
-    // // necesary for our batching.
-    // struct VerifierAccumulatorBool {
-    //     VerifierAccumulator verifier_accumulator;
-    //     bool running_truth_value;
-    // };
-
     // Compute the length of the vector of coefficients of a polynomial being opened.
     static constexpr size_t poly_length = 1UL << log_poly_length;
 
@@ -168,6 +160,9 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                                                const std::shared_ptr<Transcript>& transcript)
     {
         const bb::Polynomial<Fr>& polynomial = opening_claim.polynomial;
+
+        // Step 1.
+        // Done in `add_claim_to_hash_buffer`.
 
         // Step 2.
         // Receive challenge for the auxiliary generator
@@ -367,7 +362,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         requires(!Curve::is_stdlib_type)
     {
         // Step 1
-        // We assume the claim has already been added to the hash buffer. This is done by `add_claim_to_hash_buffer`.
+        // Done by `add_claim_to_hash_buffer`.
 
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
@@ -497,7 +492,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         requires Curve::is_stdlib_type
     {
         // Step 1.
-        // We assume the claim has already been added to the hash buffer. This is done by `add_claim_to_hash_buffer`.
+        // Done by `add_claim_to_hash_buffer`.
 
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
@@ -590,7 +585,10 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      *
      *@remark The verification procedure documentation is in \link IPA::verify_internal verify_internal \endlink
      */
-    static bool reduce_verify(const VK& vk, const OpeningClaim<Curve>& opening_claim, const auto& transcript)
+    template <typename Transcript = NativeTranscript>
+    static bool reduce_verify(const VK& vk,
+                              const OpeningClaim<Curve>& opening_claim,
+                              const std::shared_ptr<Transcript>& transcript)
         requires(!Curve::is_stdlib_type)
     {
         add_claim_to_hash_buffer(opening_claim, transcript);
@@ -632,7 +630,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      * @param transcript
      * @return VerifierAccumulator
      *
-     * @note This methods calls `reduce_verify_internal_recursive` and additionally, computes G_zero, and addsthe
+     * @note This methods calls `reduce_verify_internal_recursive` and additionally, computes G_zero, and adds the
      * _constraint_ that this matches with what the Prover sends.
      */
     static bool full_verify_recursive(const VK& vk, const OpeningClaim<Curve>& opening_claim, auto& transcript)

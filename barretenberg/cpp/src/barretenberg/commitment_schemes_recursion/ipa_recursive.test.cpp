@@ -96,9 +96,9 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
             break;
         }
         case FailureMode::ChangePoly:
-            // instead of calling compute_opening_proof, we first send the prover claim to the hash buffer, then we run
+            // instead of calling compute_opening_proof, we first add the prover claim to the hash buffer, then we run
             // IPA with a _new_ polynomial.
-            NativeIPA::send_claim_to_hash_buffer(this->ck(), prover_claim, prover_transcript);
+            NativeIPA::add_claim_to_hash_buffer(this->ck(), prover_claim, prover_transcript);
             // generate a new polynomial evaluation claim.
             auto [new_poly, new_x] = generate_poly_and_challenge<log_poly_length>();
             auto new_eval = new_poly.evaluate(new_x);
