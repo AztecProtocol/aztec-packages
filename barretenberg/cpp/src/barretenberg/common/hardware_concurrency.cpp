@@ -16,7 +16,11 @@ static uint32_t& _get_num_cores()
 #else
     static thread_local const char* val = std::getenv("HARDWARE_CONCURRENCY");
     static thread_local uint32_t cores =
+<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/common/hardware_concurrency.cpp
         val != nullptr ? static_cast<uint32_t>(std::stoul(val)) : env_hardware_concurrency();
+=======
+        val != nullptr ? static_cast<uint32_t>(std::stoul(val)) : std::thread::hardware_concurrency();
+>>>>>>> 157d3036bd (Add nested parallel_for support and tests):barretenberg/cpp/src/barretenberg/env/hardware_concurrency.cpp
 #endif
     return cores;
 }
