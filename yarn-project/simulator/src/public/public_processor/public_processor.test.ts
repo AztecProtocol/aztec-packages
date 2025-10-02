@@ -13,6 +13,7 @@ import { type MerkleTreeWriteOperations, PublicDataTreeLeaf, PublicDataTreeLeafP
 import { GlobalVariables, StateReference, Tx, type TxValidator } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
+import { strict as assert } from 'assert';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { PublicContractsDB } from '../public_db_sources.js';
@@ -135,6 +136,21 @@ describe('public_processor', () => {
       expect(failed.length).toBe(1);
       expect(failed[0].tx).toEqual(tx);
       expect(failed[0].error).toEqual(new Error(`Failed`));
+
+      expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
+      expect(merkleTree.revertCheckpoint).toHaveBeenCalledTimes(1);
+    });
+
+    it('if a tx errors with assertion failure, public processor returns failed tx with its assertion message', async function () {
+      publicTxSimulator.simulate.mockImplementation(() => assert(false, 'Forced assertion failure') as never);
+
+      const tx = await mockTxWithPublicCalls();
+      const [processed, failed] = await processor.process([tx]);
+
+      expect(processed).toEqual([]);
+      expect(failed.length).toBe(1);
+      expect(failed[0].tx).toEqual(tx);
+      expect(failed[0].error.message).toMatch(/Forced assertion failure/);
 
       expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
       expect(merkleTree.revertCheckpoint).toHaveBeenCalledTimes(1);
