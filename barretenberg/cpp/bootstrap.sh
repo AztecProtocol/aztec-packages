@@ -71,7 +71,6 @@ function build_preset() {
   cmake --fresh --preset "$preset" "${cmake_args[@]}"
   cmake --build --preset "$preset" "$@"
 }
-export -f build_preset
 
 # Build all native binaries, including tests.
 function build_native {
