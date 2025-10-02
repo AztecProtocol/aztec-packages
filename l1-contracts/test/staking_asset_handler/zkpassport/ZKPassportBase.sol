@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 
 import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
 import {IRootRegistry} from "@zkpassport/IRootRegistry.sol";
-import {HonkVerifier as OuterVerifier7} from "@zkpassport/OuterCount7.sol";
+import {HonkVerifier as OuterVerifier7} from "@zkpassport/ultra-honk-verifiers/OuterCount7.sol";
 import {MockRootRegistry} from "./MockRootRegistry.sol";
 import {MockZKPassportVerifier} from "@aztec/mock/staking_asset_handler/MockZKPassportVerifier.sol";
 import {CommittedInputLen} from "@zkpassport/Constants.sol";
@@ -29,8 +29,8 @@ contract ZKPassportBase is Test {
   string constant CORRECT_DOMAIN = "zkpassport.id";
   string constant CORRECT_SCOPE = "bigproof";
 
-  // Time when the proof was generated - Tue Sep 09 2025 13:20:59 UTC
-  uint256 public PROOF_GENERATION_TIMESTAMP = 1_757_424_059;
+  // Time when the proof was generated - 2025-09-26T15:46:45.835Z
+  uint256 public PROOF_GENERATION_TIMESTAMP = 1_758_901_597;
 
   // Using this base contract will make a zkpassport verifier and proof available for testing purposes
   constructor() {
