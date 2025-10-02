@@ -197,7 +197,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
     const wallet = await TestWallet.create(node, PXEConfig);
 
     userLog('Setting up funded test accounts...');
-    const accountManagers = await deployFundedSchnorrAccounts(wallet, initialAccounts);
+    const accountManagers = await deployFundedSchnorrAccounts(wallet, node, initialAccounts);
     const accountsWithSecrets = accountManagers.map((manager, i) => ({
       account: manager,
       secretKey: initialAccounts[i].secret,

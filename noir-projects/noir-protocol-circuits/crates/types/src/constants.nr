@@ -458,6 +458,7 @@ pub global AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = GLOBAL_VARIABLES_LENGTH
     + GAS_SETTINGS_LENGTH
     + GAS_FEES_LENGTH /* effective_gas_fees */
     + 1 /* fee_payer */
+    + 1 /* prover_id */
     + NUM_PUBLIC_CALL_REQUEST_ARRAYS /* public_call_request_array_lengths */
     + (MAX_ENQUEUED_CALLS_PER_TX * PUBLIC_CALL_REQUEST_LENGTH) /* public_setup_call_requests */
     + (MAX_ENQUEUED_CALLS_PER_TX * PUBLIC_CALL_REQUEST_LENGTH) /* public_app_logic_call_requests */
@@ -781,9 +782,12 @@ pub global AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX: u32 =
 pub global AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX: u32 =
     AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX + 1;
 
+// Prover ID
+pub global AVM_PUBLIC_INPUTS_PROVER_ID_ROW_IDX: u32 = AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX + 1;
+
 // Public Call Request Array Lengths
 pub global AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_ROW_IDX: u32 =
-    AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX + 1;
+    AVM_PUBLIC_INPUTS_PROVER_ID_ROW_IDX + 1;
 pub global AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX: u32 =
     AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_ROW_IDX;
 pub global AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX: u32 =
@@ -1114,6 +1118,10 @@ pub global UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE: u32 =
 
 pub global GRUMPKIN_ONE_X: Field = 1;
 pub global GRUMPKIN_ONE_Y: Field = 17631683881184975370165255887551781615748388533673675138860;
+
+// Excessive memory reads due to debug logging can open a DOS vector to nodes that perform public tx simulation for users.
+// This default limit (4MB) can be configured further by node runners via the `RPC_SIMULATE_PUBLIC_MAX_DEBUG_LOG_MEMORY_READS` environment variable.
+pub global DEFAULT_MAX_DEBUG_LOG_MEMORY_READS: u32 = 125000;
 
 mod test {
     use crate::constants::{

@@ -19,7 +19,7 @@ struct EccAddEvent {
 
 struct EccAddMemoryEvent {
     uint32_t execution_clk;
-    uint32_t space_id;
+    uint16_t space_id;
     EmbeddedCurvePoint p;
     EmbeddedCurvePoint q;
     EmbeddedCurvePoint result;

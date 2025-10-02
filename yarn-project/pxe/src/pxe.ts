@@ -666,12 +666,18 @@ export class PXE {
   }
 
   /**
-   * Gets notes registered in this PXE based on the provided filter.
+   * A debugging utility to get notes based on the provided filter.
+   *
+   * Note that this should not be used in production code because the structure of notes is considered to be
+   * an implementation detail of contracts. This is only meant to be used for debugging purposes. If you need to obtain
+   * note-related information in production code, please implement a custom utility function on your contract and call
+   * that function instead (e.g. `get_balance(owner: AztecAddress) -> u128` utility function on a Token contract).
+   *
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
   public async getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
-    // We need to manually trigger private state sync to have a guarantee that all the events are available.
+    // We need to manually trigger private state sync to have a guarantee that all the notes are available.
     await this.simulateUtility('sync_private_state', [], filter.contractAddress);
 
     const noteDaos = await this.noteDataProvider.getNotes(filter);
@@ -1096,10 +1102,6 @@ export class PXE {
     const decodedEvents = events.map((event: Fr[]): T => decodeFromAbi([eventMetadataDef.abiType], event) as T);
 
     return decodedEvents;
-  }
-
-  async resetNoteSyncData() {
-    return await this.taggingDataProvider.resetNoteSyncData();
   }
 
   /**

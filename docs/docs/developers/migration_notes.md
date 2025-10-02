@@ -9,10 +9,27 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [cli-wallet]
+
+The `deploy-account` command now requires the address (or alias) of the account to deploy as an argument, not a parameter
+
+```diff
++aztec-wallet deploy-account main
+-aztec-wallet deploy-account -f main
+```
+
 This release includes a major architectural change to the system.
 The PXE JSON RPC Server has been removed, and PXE is now available only as a library to be used by wallets.
 
+## [Aztec node]
+
+Network config. The node now pulls default configuration from the public repository [AztecProtocol/networks](https://github.com/AztecProtocol/networks) after it applies the configuration it takes from the running environment and the configuration values baked into the source code. See associated [Design document](https://github.com/AztecProtocol/engineering-designs/blob/15415a62a7c8e901acb8e523625e91fc6f71dce4/docs/network-config/dd.md)
+
 ## [Aztec.js]
+
+### Removing Aztec cheatcodes
+
+The Aztec cheatcodes class has been removed. Its functionality can be replaced by using the `getNotes(...)` function directly available on our `TestWallet`, along with the relevant functions available on the Aztec Node interface (note that the cheatcodes were generally just a thin wrapper around the Aztec Node interface).
 
 ### CLI Wallet commands dropped from `aztec` command
 
@@ -1940,7 +1957,7 @@ let historical_header = context.header_at(some_block_number);
 
 ### NoteInterface changes
 
-`compute_note_hash_and_nullifier*` functions were renamed as `compute_nullifier*` and the `compute_nullifier` function now takes `note_hash_for_nullify` as an argument (this allowed us to reduce gate counts and the hash was typically computed before). Also `compute_note_hash_for_consumption` function was renamed as `compute_note_hash_for_nullify`.
+`compute_note_hash_and_nullifier*` functions were renamed as `compute_nullifier*` and the `compute_nullifier` function now takes `note_hash_for_nullify` as an argument (this allowed us to reduce gate counts and the hash was typically computed before). Also `compute_note_hash_for_consumption` function was renamed as `compute_note_hash_for_nullification`.
 
 ```diff
 impl NoteInterface<VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN> for ValueNote {
@@ -1977,7 +1994,7 @@ impl NoteInterface<VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN> for ValueNote {
 +        )
 +    }
 +    fn compute_nullifier_without_context(self) -> Field {
-+        let note_hash_for_nullify = compute_note_hash_for_nullify(self);
++        let note_hash_for_nullify = compute_note_hash_for_nullification(self);
 +        let secret = get_nsk_app(self.npk_m_hash);
 +        poseidon2_hash_with_separator([
 +            note_hash_for_nullify,

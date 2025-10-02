@@ -138,17 +138,17 @@ bool MerkleDB::nullifier_exists_internal(std::optional<AztecAddress> contract_ad
     return present;
 }
 
-bool MerkleDB::nullifier_write(const AztecAddress& contract_address, const FF& nullifier)
+void MerkleDB::nullifier_write(const AztecAddress& contract_address, const FF& nullifier)
 {
     return nullifier_write_internal(contract_address, nullifier);
 }
 
-bool MerkleDB::siloed_nullifier_write(const FF& nullifier)
+void MerkleDB::siloed_nullifier_write(const FF& nullifier)
 {
     return nullifier_write_internal(/*contract_address*/ std::nullopt, nullifier);
 }
 
-bool MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_address, const FF& nullifier)
+void MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_address, const FF& nullifier)
 {
     uint32_t nullifier_counter = tree_counters_stack.top().nullifier_counter;
     FF siloed_nullifier = nullifier;
@@ -191,9 +191,9 @@ bool MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_add
 
     if (!present) {
         tree_counters_stack.top().nullifier_counter++;
+    } else {
+        throw NullifierCollisionException(format("Nullifier ", nullifier, " already exists"));
     }
-
-    return !present;
 }
 
 bool MerkleDB::note_hash_exists(uint64_t leaf_index, const FF& unique_note_hash) const

@@ -59,8 +59,8 @@ done
 aztec-wallet \
   --prover native \
   deploy-account \
+  accounts:main \
   --payment method=fee_juice,claim \
-  -f accounts:main
 
 # We sanity check the account deployment worked and the fee juice was claimed by deploying a token
 # with the new account.

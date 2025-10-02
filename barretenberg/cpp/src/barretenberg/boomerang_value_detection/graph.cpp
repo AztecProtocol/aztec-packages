@@ -1501,6 +1501,14 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_variable_in_one_gate(const uint3
     }
 }
 
+template <typename FF, typename CircuitBuilder>
+std::pair<std::vector<ConnectedComponent>, std::unordered_set<uint32_t>> StaticAnalyzer_<FF, CircuitBuilder>::
+    analyze_circuit()
+{
+    auto connected_components = find_connected_components();
+    auto variables_in_one_gate = get_variables_in_one_gate();
+    return std::make_pair(connected_components, variables_in_one_gate);
+}
 template class StaticAnalyzer_<bb::fr, bb::UltraCircuitBuilder>;
 template class StaticAnalyzer_<bb::fr, bb::MegaCircuitBuilder>;
 

@@ -16,7 +16,7 @@ class PureGreaterThan : public GreaterThanInterface {
 
     bool gt(const FF& a, const FF& b) override { return static_cast<uint256_t>(a) > static_cast<uint256_t>(b); }
     bool gt(const uint128_t& a, const uint128_t& b) override { return a > b; }
-    bool gt(const MemoryValue& a, const MemoryValue& b) override { return b <= a && a != b; }
+    bool gt(const MemoryValue& a, const MemoryValue& b) override { return a > b; }
 };
 
 } // namespace bb::avm2::simulation

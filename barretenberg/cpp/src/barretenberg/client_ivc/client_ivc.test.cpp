@@ -92,6 +92,8 @@ TEST_F(ClientIVCTests, BasicStructured)
  */
 TEST_F(ClientIVCTests, BadProofFailure)
 {
+    BB_DISABLE_ASSERTS(); // Disable assert in PG prover
+
     const size_t NUM_APP_CIRCUITS = 2;
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
     // Confirm that the IVC verifies if nothing is tampered with
@@ -404,6 +406,8 @@ TEST_F(ClientIVCTests, MsgpackProofFromFileOrBuffer)
  */
 TEST_F(ClientIVCTests, DatabusFailure)
 {
+    BB_DISABLE_ASSERTS(); // Disable assert in PG prover
+
     PrivateFunctionExecutionMockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };

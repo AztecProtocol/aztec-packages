@@ -13,7 +13,7 @@ pub fn empty_public_data_tree<let SubtreeWidth: u32, let SubtreeHeight: u32>(
             slot: i as Field,
             value: 0,
             next_slot: (i + 1) as Field,
-            next_index: i + 1,
+            next_index: (i + 1) as Field,
         };
         leaves[i] = leaf.hash();
     }

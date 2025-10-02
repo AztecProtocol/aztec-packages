@@ -211,7 +211,7 @@ class EnqueuedCdConstrainingBuilderTest : public DataCopyConstrainingBuilderTest
         tracegen::CalldataTraceBuilder calldata_builder;
         CalldataEvent cd_event = {
             .context_id = 1,
-            .calldata_length = static_cast<uint32_t>(data.size()),
+            .calldata_size = static_cast<uint32_t>(data.size()),
             .calldata = data,
         };
         calldata_builder.process_retrieval({ cd_event }, trace);
@@ -235,6 +235,7 @@ TEST_F(EnqueuedCdConstrainingBuilderTest, CdZeroCopy)
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
+                      lookup_data_copy_col_read_settings,
                       lookup_data_copy_max_read_index_gt_settings,
                       lookup_data_copy_offset_gt_max_read_index_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
@@ -289,8 +290,7 @@ TEST_F(EnqueuedCdConstrainingBuilderTest, EnqueuedCallCdCopyPadding)
                       lookup_data_copy_max_read_index_gt_settings,
                       lookup_data_copy_offset_gt_max_read_index_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
-                      lookup_data_copy_check_dst_addr_in_range_settings,
-                      lookup_data_copy_col_read_settings>(trace);
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
 
 TEST_F(EnqueuedCdConstrainingBuilderTest, EnqueuedCallCdCopyPartial)
@@ -317,8 +317,7 @@ TEST_F(EnqueuedCdConstrainingBuilderTest, EnqueuedCallCdCopyPartial)
                       lookup_data_copy_max_read_index_gt_settings,
                       lookup_data_copy_offset_gt_max_read_index_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
-                      lookup_data_copy_check_dst_addr_in_range_settings,
-                      lookup_data_copy_col_read_settings>(trace);
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
 
 /////////////////////////////////////////////
@@ -338,7 +337,7 @@ TEST(DataCopyWithExecutionPerm, CdCopy)
     const std::vector<FF> data = { 8, 7, 6, 5, 4, 3, 2, 1 };
 
     // Set up Memory
-    MemoryStore mem(context_id);
+    MemoryStore mem(static_cast<uint16_t>(context_id));
 
     // Execution clk is 0 for this test
     StrictMock<MockExecutionIdManager> execution_id_manager;

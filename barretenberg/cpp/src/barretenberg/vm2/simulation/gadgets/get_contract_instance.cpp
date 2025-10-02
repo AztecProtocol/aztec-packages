@@ -24,7 +24,7 @@ GetContractInstance::GetContractInstance(ExecutionIdManagerInterface& execution_
 {}
 
 void GetContractInstance::get_contract_instance(MemoryInterface& memory,
-                                                AztecAddress contract_address,
+                                                const AztecAddress& contract_address,
                                                 MemoryAddress dst_offset,
                                                 uint8_t member_enum)
 {

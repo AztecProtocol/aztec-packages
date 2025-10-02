@@ -191,7 +191,18 @@ impl BlockRollupPublicInputsComposer {
         let sponge_blob_hash = end_sponge_blob_for_block.squeeze();
 
         // Block number equals the index at which the new block header hash is inserted into the archive tree.
-        let block_number = self.previous_archive.next_available_leaf_index;
+        let block_number = self.previous_archive.next_available_leaf_index as u32;
+
+        // Note: For non-empty blocks, a check is performed in `block_root_rollup_inputs_validator.nr` to ensure that
+        // the leaf index matches the block number (u32) in the tx constants, which implies that the leaf index does not
+        // exceed u32. However, for empty blocks, without the check below, the block number would be truncated to a
+        // smaller value (dropping the high bits) if the leaf index exceeded u32. This would allow the block to follow
+        // a block with a much smaller block number, while `last_archive` would still contain the large index.
+        // This mismatch would make it impossible to provide the correct preimage when proving against this block as an
+        // anchor, since the block header hash cannot be constructed without knowing the full leaf index.
+        // Note: An empty block with a mismatched `last_archive` leaf index could be rolled up if it is in the first
+        // checkpoint of an epoch, since only the `last_archive.root` is output from the root rollup and checked on L1.
+        self.previous_archive.next_available_leaf_index.assert_max_bit_size::<32>();
 
         let global_variables = GlobalVariables {
             chain_id: self.constants.chain_id,

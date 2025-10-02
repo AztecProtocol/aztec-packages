@@ -77,6 +77,7 @@
 #include "relations/lookups_bc_hashing.hpp"
 #include "relations/lookups_bc_retrieval.hpp"
 #include "relations/lookups_bitwise.hpp"
+#include "relations/lookups_calldata.hpp"
 #include "relations/lookups_calldata_hashing.hpp"
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_context.hpp"
@@ -141,10 +142,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3070;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 330;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3092;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 336;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3533;
+    static constexpr size_t NUM_ALL_ENTITIES = 3561;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -265,8 +266,12 @@ struct AvmFlavorVariables {
         lookup_bitwise_byte_operations_relation<FF_>,
         lookup_bitwise_dispatch_exec_bitwise_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
-        lookup_calldata_hashing_cd_hash_relation<FF_>,
-        lookup_calldata_hashing_cd_hash_end_relation<FF_>,
+        lookup_calldata_hashing_check_final_size_relation<FF_>,
+        lookup_calldata_hashing_get_calldata_field_0_relation<FF_>,
+        lookup_calldata_hashing_get_calldata_field_1_relation<FF_>,
+        lookup_calldata_hashing_get_calldata_field_2_relation<FF_>,
+        lookup_calldata_hashing_poseidon2_hash_relation<FF_>,
+        lookup_calldata_range_check_context_id_diff_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_0_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_1_relation<FF_>,
         lookup_context_ctx_stack_call_relation<FF_>,
@@ -608,6 +613,7 @@ struct AvmFlavorVariables {
         lookup_tx_note_hash_append_relation<FF_>,
         lookup_tx_nullifier_append_relation<FF_>,
         lookup_tx_phase_jump_on_revert_relation<FF_>,
+        lookup_tx_read_calldata_hash_relation<FF_>,
         lookup_tx_read_effective_fee_public_inputs_relation<FF_>,
         lookup_tx_read_fee_payer_public_inputs_relation<FF_>,
         lookup_tx_read_l2_l1_msg_relation<FF_>,

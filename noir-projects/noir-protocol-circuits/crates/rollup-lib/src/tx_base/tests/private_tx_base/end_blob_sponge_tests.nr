@@ -83,7 +83,7 @@ unconstrained fn full_tx_effects() {
     offset += MAX_L2_TO_L1_MSGS_PER_TX;
 
     let fee_payer_balance_leaf_preimage =
-        builder.pre_existing_public_data_leaves[builder.fee_payer_balance_leaf_index];
+        builder.pre_existing_public_data_preimages[builder.fee_payer_preimage_index];
     expected_blob_fields[offset] = fee_payer_balance_leaf_preimage.slot;
     expected_blob_fields[offset + 1] = fee_payer_balance_leaf_preimage.value - transaction_fee;
     offset += 2;
@@ -191,7 +191,7 @@ unconstrained fn all_side_effects_non_full() {
     offset += num_l2_to_l1_msgs;
 
     let fee_payer_balance_leaf_preimage =
-        builder.pre_existing_public_data_leaves[builder.fee_payer_balance_leaf_index];
+        builder.pre_existing_public_data_preimages[builder.fee_payer_preimage_index];
     expected_blob_fields[offset] = fee_payer_balance_leaf_preimage.slot;
     expected_blob_fields[offset + 1] = fee_payer_balance_leaf_preimage.value - transaction_fee;
     offset += 2;
@@ -280,7 +280,7 @@ unconstrained fn partially_empty_tx_effects() {
     offset += num_note_hashes;
 
     let fee_payer_balance_leaf_preimage =
-        builder.pre_existing_public_data_leaves[builder.fee_payer_balance_leaf_index];
+        builder.pre_existing_public_data_preimages[builder.fee_payer_preimage_index];
     expected_blob_fields[offset] = fee_payer_balance_leaf_preimage.slot;
     expected_blob_fields[offset + 1] = fee_payer_balance_leaf_preimage.value - transaction_fee;
     offset += 2;

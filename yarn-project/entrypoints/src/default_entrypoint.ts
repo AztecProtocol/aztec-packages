@@ -1,7 +1,8 @@
 import { FunctionType } from '@aztec/stdlib/abi';
+import type { GasSettings } from '@aztec/stdlib/gas';
 import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
-import type { EntrypointInterface, FeeOptions, TxExecutionOptions } from './interfaces.js';
+import type { EntrypointInterface, TxExecutionOptions } from './interfaces.js';
 import type { ExecutionPayload } from './payload.js';
 
 /**
@@ -15,10 +16,10 @@ export class DefaultEntrypoint implements EntrypointInterface {
 
   async createTxExecutionRequest(
     exec: ExecutionPayload,
-    feeOptions: FeeOptions,
+    gasSettings: GasSettings,
     options: TxExecutionOptions,
   ): Promise<TxExecutionRequest> {
-    if (options.txNonce || options.cancellable !== undefined) {
+    if (options.txNonce || options.cancellable !== undefined || options.isFeePayer || options.endSetup) {
       throw new Error('TxExecutionOptions are not supported in DefaultEntrypoint');
     }
     // Initial request with calls, authWitnesses and capsules
@@ -42,7 +43,7 @@ export class DefaultEntrypoint implements EntrypointInterface {
       call.to,
       call.selector,
       hashedArguments[0].hash,
-      new TxContext(this.chainId, this.rollupVersion, feeOptions.gasSettings),
+      new TxContext(this.chainId, this.rollupVersion, gasSettings),
       [...hashedArguments, ...extraHashedArgs],
       authWitnesses,
       capsules,

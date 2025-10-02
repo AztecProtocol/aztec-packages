@@ -50,17 +50,22 @@ template <typename Field> class StdlibCodec {
     }
 
     /**
-     * @brief Convert an `fr` challenge to a target type (fr or fq). Assumes challenge is "short".
+     * @brief  A stdlib Transcript method needed to convert an `fr` challenge to a `bigfield` one. Assumes that
+     * `challenge` is "short".
+     *
+     * @tparam T fr<Builder> or fq<Builder>
+     * @param challenge a 128- or a 126- bit limb of a full challenge
+     * @return T
      */
-    template <typename T> static T convert_challenge(const fr& challenge)
+    template <typename Builder, typename T> inline T convert_challenge(const fr& challenge)
     {
         if constexpr (std::is_same_v<T, fr>) {
             return challenge;
         } else if constexpr (std::is_same_v<T, fq>) {
             // Sanity check that the input challenge fits into the first 2 bigfield limbs.
-            BB_ASSERT_LTE(static_cast<uint256_t>(challenge.get_value()).get_msb(),
-                          T::NUM_LIMB_BITS * 2,
-                          "field_conversion: convert_challenge");
+            BB_ASSERT_LT(static_cast<uint256_t>(challenge.get_value()).get_msb(),
+                         T::NUM_LIMB_BITS * 2,
+                         "field_conversion: convert_challenge");
             Builder* builder = challenge.get_context();
             // All challenges must be circuit witnesses.
             ASSERT(builder);

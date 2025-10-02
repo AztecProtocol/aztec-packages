@@ -1,4 +1,3 @@
-import type { FeePaymentMethod } from '@aztec/entrypoints/interfaces';
 import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
@@ -8,7 +7,15 @@ import { GasSettings } from '@aztec/stdlib/gas';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { SetPublicAuthwitContractInteraction } from '../utils/authwit.js';
 import type { Wallet } from '../wallet/wallet.js';
-import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
+import type { FeePaymentMethod } from './fee_payment_method.js';
+
+/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
+
+/** AppConfigurableFeePaymentMethod branding */
+export interface PublicFeePaymentMethod {
+  /** Brand. */
+  _branding: 'AppConfigurableFeePaymentMethod';
+}
 
 /**
  * Holds information about how the fee for a transaction is to be paid.
@@ -25,11 +32,14 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
      * An auth witness provider to authorize fee payments
      */
     protected sender: AztecAddress,
-
     /**
      * A wallet to perform the simulation to get the accepted asset
      */
     protected wallet: Wallet,
+    /**
+     * Gas settings used to compute the maximum fee the user is willing to pay
+     */
+    protected gasSettings: GasSettings,
   ) {}
 
   /**
@@ -68,7 +78,6 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
         .simulateTx(executionPayload, {
           from: AztecAddress.ZERO,
           skipFeeEnforcement: true,
-          fee: { paymentMethod: new FeeJuicePaymentMethod(AztecAddress.ZERO) },
         })
         .then(simulationResult => {
           const rawReturnValues = simulationResult.getPrivateReturnValues().nested[0].values;
@@ -87,9 +96,9 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
    * @param gasSettings - The gas settings.
    * @returns An execution payload that contains the required function calls.
    */
-  async getExecutionPayload(gasSettings: GasSettings): Promise<ExecutionPayload> {
+  async getExecutionPayload(): Promise<ExecutionPayload> {
     const txNonce = Fr.random();
-    const maxFee = gasSettings.getFeeLimit();
+    const maxFee = this.gasSettings.getFeeLimit();
 
     const intent = {
       caller: this.paymentContract,
@@ -127,5 +136,9 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
       [],
       [],
     );
+  }
+
+  getGasSettings(): GasSettings | undefined {
+    return this.gasSettings;
   }
 }

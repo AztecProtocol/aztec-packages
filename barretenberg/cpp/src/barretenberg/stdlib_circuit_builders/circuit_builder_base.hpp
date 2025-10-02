@@ -119,7 +119,7 @@ template <typename FF_> class CircuitBuilderBase {
      * */
     inline FF get_variable(const uint32_t index) const
     {
-        BB_ASSERT_GT(variables.size(), real_variable_index[index]);
+        ASSERT_DEBUG(variables.size() > real_variable_index[index]);
         return variables[real_variable_index[index]];
     }
 
@@ -136,7 +136,7 @@ template <typename FF_> class CircuitBuilderBase {
      */
     inline void set_variable(const uint32_t index, const FF& value)
     {
-        BB_ASSERT_GT(variables.size(), real_variable_index[index]);
+        ASSERT_DEBUG(variables.size() > real_variable_index[index]);
         variables[real_variable_index[index]] = value;
     }
 
@@ -150,7 +150,7 @@ template <typename FF_> class CircuitBuilderBase {
      * */
     inline const FF& get_variable_reference(const uint32_t index) const
     {
-        BB_ASSERT_GT(variables.size(), index);
+        ASSERT_DEBUG(variables.size() > index);
         return variables[real_variable_index[index]];
     }
 
