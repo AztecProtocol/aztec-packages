@@ -27,7 +27,6 @@ import {
   StateReference,
   Tx,
   TxExecutionPhase,
-  type TxValidator,
   makeProcessedTxFromPrivateOnlyTx,
   makeProcessedTxFromTxWithPublicCalls,
 } from '@aztec/stdlib/tx';
@@ -42,7 +41,11 @@ import {
 import { ForkCheckpoint } from '@aztec/world-state/native';
 
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
-import { type PublicTxSimulator, TelemetryPublicTxSimulator } from '../public_tx_simulator/index.js';
+import {
+  type PublicTxSimulator,
+  type PublicTxSimulatorConfig,
+  TelemetryPublicTxSimulator,
+} from '../public_tx_simulator/index.js';
 import { GuardedMerkleTreeOperations } from './guarded_merkle_tree.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
 
@@ -65,20 +68,23 @@ export class PublicProcessorFactory {
   public create(
     merkleTree: MerkleTreeWriteOperations,
     globalVariables: GlobalVariables,
-    skipFeeEnforcement: boolean,
-    clientInitiatedSimulation: boolean = false,
+    config: {
+      skipFeeEnforcement: boolean;
+      clientInitiatedSimulation: boolean;
+      proverId?: Fr;
+      maxDebugLogMemoryReads?: number;
+    },
   ): PublicProcessor {
     const contractsDB = new PublicContractsDB(this.contractDataSource);
 
     const guardedFork = new GuardedMerkleTreeOperations(merkleTree);
-    const publicTxSimulator = this.createPublicTxSimulator(
-      guardedFork,
-      contractsDB,
-      globalVariables,
-      /*doMerkleOperations=*/ true,
-      skipFeeEnforcement,
-      clientInitiatedSimulation,
-    );
+    const publicTxSimulator = this.createPublicTxSimulator(guardedFork, contractsDB, globalVariables, {
+      proverId: config.proverId,
+      doMerkleOperations: true,
+      skipFeeEnforcement: config.skipFeeEnforcement,
+      clientInitiatedSimulation: config.clientInitiatedSimulation,
+      maxDebugLogMemoryReads: config.maxDebugLogMemoryReads,
+    });
 
     return new PublicProcessor(
       globalVariables,
@@ -94,19 +100,9 @@ export class PublicProcessorFactory {
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
-    doMerkleOperations: boolean,
-    skipFeeEnforcement: boolean,
-    clientInitiatedSimulation: boolean,
+    config?: Partial<PublicTxSimulatorConfig>,
   ): PublicTxSimulator {
-    return new TelemetryPublicTxSimulator(
-      merkleTree,
-      contractsDB,
-      globalVariables,
-      doMerkleOperations,
-      skipFeeEnforcement,
-      clientInitiatedSimulation,
-      this.telemetryClient,
-    );
+    return new TelemetryPublicTxSimulator(merkleTree, contractsDB, globalVariables, this.telemetryClient, config);
   }
 }
 
@@ -384,10 +380,7 @@ export class PublicProcessor implements Traceable {
     return [processedTx, returnValues ?? []];
   }
 
-  private async doTreeInsertionsForPrivateOnlyTx(
-    processedTx: ProcessedTx,
-    txValidator?: TxValidator<ProcessedTx>,
-  ): Promise<void> {
+  private async doTreeInsertionsForPrivateOnlyTx(processedTx: ProcessedTx): Promise<void> {
     const treeInsertionStart = process.hrtime.bigint();
 
     // Update the state so that the next tx in the loop has the correct .startState
@@ -406,14 +399,8 @@ export class PublicProcessor implements Traceable {
         padArrayEnd(processedTx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
         NULLIFIER_SUBTREE_HEIGHT,
       );
-    } catch {
-      if (txValidator) {
-        // Ideally the validator has already caught this above, but just in case:
-        throw new Error(`Transaction ${processedTx.hash} invalid after processing public functions`);
-      } else {
-        // We have no validator and assume this call should blindly process txs with duplicates being caught later
-        this.log.warn(`Detected duplicate nullifier after public processing for: ${processedTx.hash}.`);
-      }
+    } catch (cause) {
+      throw new Error(`Transaction ${processedTx.hash} failed with duplicate nullifiers`, { cause });
     }
 
     const treeInsertionEnd = process.hrtime.bigint();

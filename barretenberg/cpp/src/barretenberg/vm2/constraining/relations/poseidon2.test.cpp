@@ -11,8 +11,8 @@
 #include "barretenberg/vm2/generated/relations/poseidon2_hash.hpp"
 #include "barretenberg/vm2/optimized/relations/poseidon2_perm.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
-#include "barretenberg/vm2/simulation/range_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -22,7 +22,7 @@
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 
 // Temporary imports, see comment in test.
-#include "barretenberg/vm2/simulation/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
@@ -125,8 +125,8 @@ TEST_F(Poseidon2ConstrainingTest, HashWithSinglePermutation)
     // This first row column is set becuase it is used in the relations for Poseidon2Hash.
     // This could be replaced by having the precomputed tables in the trace, but currently that would
     // mean the clk column of length 2^21 -1 will be include :O
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
     Poseidon2TraceBuilder builder;
 
@@ -147,8 +147,8 @@ TEST_F(Poseidon2ConstrainingTest, HashWithMultiplePermutation)
     std::vector<FF> input = { a, b, c, d };
     poseidon2.hash(input);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
     Poseidon2TraceBuilder builder;
 
@@ -170,8 +170,8 @@ TEST_F(Poseidon2ConstrainingTest, MultipleHashInvocations)
     bb_result = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash({ bb_result, 1, 2, 3, 4 });
     EXPECT_EQ(result, bb_result);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
     Poseidon2TraceBuilder builder;
 
@@ -188,8 +188,8 @@ TEST_F(Poseidon2ConstrainingTest, HashPermInteractions)
 
     poseidon2.hash(input);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
     Poseidon2TraceBuilder builder;
 
@@ -210,8 +210,8 @@ TEST_F(Poseidon2ConstrainingTest, NegativeHashPermInteractions)
 
     poseidon2.hash(input);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
     Poseidon2TraceBuilder builder;
 
@@ -389,7 +389,7 @@ TEST_F(Poseidon2MemoryConstrainingTest, PermutationMemoryInvalidTag)
 
 TEST_F(Poseidon2MemoryConstrainingTest, PermutationMemoryInvalidAddressRange)
 {
-    uint32_t src_address = AVM_HIGHEST_MEM_ADDRESS - 2;
+    uint32_t src_address = static_cast<uint32_t>(AVM_HIGHEST_MEM_ADDRESS - 2);
 
     TestTraceContainer trace = TestTraceContainer({
         // Row 0

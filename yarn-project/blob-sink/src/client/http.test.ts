@@ -1,5 +1,5 @@
 import { Blob, type BlobJson } from '@aztec/blob-lib';
-import { makeEncodedBlob, makeUnencodedBlob } from '@aztec/blob-lib/testing';
+import { makeEncodedBlob, makeRandomBlob } from '@aztec/blob-lib/testing';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
@@ -77,7 +77,7 @@ describe('HttpBlobSinkClient', () => {
 
       testBlobIgnore = await makeEncodedBlob(3);
 
-      testNonEncodedBlob = await makeUnencodedBlob(3);
+      testNonEncodedBlob = await makeRandomBlob(3);
       testNonEncodedBlobHash = testNonEncodedBlob.getEthVersionedBlobHash();
 
       blobData = [

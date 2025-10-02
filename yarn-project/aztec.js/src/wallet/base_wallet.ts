@@ -4,28 +4,24 @@ import {
   GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
   GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
 } from '@aztec/constants';
-import type { FeeOptions, TxExecutionOptions, UserFeeOptions } from '@aztec/entrypoints/interfaces';
-import type { ExecutionPayload } from '@aztec/entrypoints/payload';
+import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import type { ContractArtifact } from '@aztec/stdlib/abi';
+import type { ContractArtifact, EventMetadataDefinition } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type ContractClassMetadata,
   type ContractInstanceWithAddress,
   type ContractInstantiationData,
+  type ContractMetadata,
+  computePartialAddress,
   getContractClassFromArtifact,
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
-import type {
-  AztecNode,
-  ContractClassMetadata,
-  ContractMetadata,
-  EventMetadataDefinition,
-  PXE,
-} from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type {
   Tx,
   TxExecutionRequest,
@@ -40,15 +36,38 @@ import type {
 import { inspect } from 'util';
 
 import type { Account } from '../account/account.js';
-import { getGasLimits } from '../contract/get_gas_limits.js';
-import type {
-  ProfileMethodOptions,
-  SendMethodOptions,
-  SimulateMethodOptions,
-} from '../contract/interaction_options.js';
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
+import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 import type { CallIntent, IntentInnerHash } from '../utils/authwit.js';
-import type { Aliased, ChainInfo, ContractInstanceAndArtifact, Wallet } from './wallet.js';
+import type {
+  Aliased,
+  ChainInfo,
+  ContractInstanceAndArtifact,
+  ProfileOptions,
+  SendOptions,
+  SimulateOptions,
+  UserFeeOptions,
+  Wallet,
+} from './wallet.js';
+
+/**
+ * Options to configure fee payment for a transaction
+ */
+export type FeeOptions = {
+  /** Whether to use an specific payment method */
+  paymentMethod?: FeePaymentMethod;
+  /**
+   * Whether the account contract assembling the tx should set itself as fee payer or not
+   */
+  isFeePayer: boolean;
+  /**
+   * In case no external fee payment method is provided, whether the account
+   * contract executing the transaction should end the setup phase
+   */
+  endSetup: boolean;
+  /** The gas settings to use for the transaction */
+  gasSettings: GasSettings;
+};
 
 /**
  * A base class for Wallet implementations
@@ -56,8 +75,14 @@ import type { Aliased, ChainInfo, ContractInstanceAndArtifact, Wallet } from './
 export abstract class BaseWallet implements Wallet {
   protected log = createLogger('aztecjs:base_wallet');
 
-  constructor(
-    protected readonly pxe: PXE,
+  protected baseFeePadding = 0.5;
+  protected cancellableTransactions = false;
+
+  // Protected because we want to force wallets to instantiate their own PXE.
+  protected constructor(
+    // TODO: We cannot type here pxe because we cannot import that package as that would result in a circular
+    // dependency. This will eventually get resolved by the introduction of @aztec/wallet-sdk package.
+    protected readonly pxe: any,
     protected readonly aztecNode: AztecNode,
   ) {}
 
@@ -66,7 +91,7 @@ export abstract class BaseWallet implements Wallet {
   abstract getAccounts(): Promise<Aliased<AztecAddress>[]>;
 
   async getSenders(): Promise<Aliased<AztecAddress>[]> {
-    const senders = await this.pxe.getSenders();
+    const senders: AztecAddress[] = await this.pxe.getSenders();
     return senders.map(sender => ({ item: sender, alias: '' }));
   }
 
@@ -78,12 +103,20 @@ export abstract class BaseWallet implements Wallet {
   protected async createTxExecutionRequestFromPayloadAndFee(
     executionPayload: ExecutionPayload,
     from: AztecAddress,
-    userFee?: UserFeeOptions,
+    feeOptions: FeeOptions,
   ): Promise<TxExecutionRequest> {
-    const executionOptions = { txNonce: Fr.random(), cancellable: false };
+    const feeExecutionPayload = await feeOptions.paymentMethod?.getExecutionPayload();
+    const executionOptions = {
+      txNonce: Fr.random(),
+      cancellable: this.cancellableTransactions,
+      isFeePayer: feeOptions.isFeePayer,
+      endSetup: feeOptions.endSetup,
+    };
+    const finalExecutionPayload = feeExecutionPayload
+      ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
+      : executionPayload;
     const fromAccount = await this.getAccountFromAddress(from);
-    const fee = await this.getFeeOptions(fromAccount, executionPayload, userFee, executionOptions);
-    return await fromAccount.createTxExecutionRequest(executionPayload, fee, executionOptions);
+    return fromAccount.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, executionOptions);
   }
 
   public async createAuthWit(
@@ -94,90 +127,63 @@ export abstract class BaseWallet implements Wallet {
     return account.createAuthWit(messageHashOrIntent);
   }
 
-  // docs:start:estimateGas
   /**
-   * Estimates gas for a given tx request and returns gas limits for it.
-   * @param executionPayload - The execution payload to calculate the gas for
-   * @param opts - Options.
-   * @returns Gas limits.
+   * Returns default values for the transaction fee options
+   * if they were omitted by the user.
+   * @param from - The address where the transaction is being sent from
+   * @param userFeeOptions - User-provided fee options, which might be incomplete
+   * @returns - Populated fee options that can be used to create a transaction execution request
    */
-  public async estimateGas(
-    executionPayload: ExecutionPayload,
-    opts: Omit<SendMethodOptions, 'estimateGas'>,
-  ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
-    // docs:end:estimateGas
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, {
-      ...opts.fee,
-      estimateGas: true,
-    });
+  protected async getDefaultFeeOptions(from: AztecAddress, userFeeOptions?: UserFeeOptions): Promise<FeeOptions> {
+    const maxFeesPerGas =
+      userFeeOptions?.gasSettings?.maxFeesPerGas ??
+      (await this.aztecNode.getCurrentBaseFees()).mul(1 + this.baseFeePadding);
+    let paymentMethod;
+    let endSetup = false;
+    let isFeePayer = false;
+    // The transaction does not include a fee payment method, so we set a default
+    if (!userFeeOptions?.embeddedPaymentMethodFeePayer) {
+      paymentMethod = new FeeJuicePaymentMethod(from);
+      endSetup = true;
+      isFeePayer = true;
+    } else {
+      // The transaction includes fee payment method, so we check if we are the fee payer for it (it could only be FeeJuiceWithClaim)
+      isFeePayer = from.equals(userFeeOptions.embeddedPaymentMethodFeePayer);
+    }
+    const gasSettings: GasSettings = GasSettings.default({ ...userFeeOptions?.gasSettings, maxFeesPerGas });
+    this.log.debug(`Using L2 gas settings`, gasSettings);
     return {
-      gasLimits: txRequest.txContext.gasSettings.gasLimits,
-      teardownGasLimits: txRequest.txContext.gasSettings.teardownGasLimits,
+      gasSettings,
+      paymentMethod,
+      isFeePayer,
+      endSetup,
     };
   }
 
   /**
-   * Returns default fee options based on the user opts without running a simulation for gas estimation.
-   * @param account - The account requesting the fee options
-   * @param fee - User-provided fee options.
+   * Returns unreasonably high gas limits in order to execute a simulation
+   * with the goal of estimating its gas cost. It will otherwise try to respect
+   * the user-specified fee options, filling the gaps with default values as needed.
+   * @param from - The address where the transaction is being sent from
+   * @param userFeeOptions - User-provided fee options to use as a basis for the fully populated `FeeOptions` type.
    */
-  private async getDefaultFeeOptions(account: Account, fee: UserFeeOptions | undefined): Promise<FeeOptions> {
-    const maxFeesPerGas =
-      fee?.gasSettings?.maxFeesPerGas ??
-      (await this.aztecNode.getCurrentBaseFees()).mul(1 + (fee?.baseFeePadding ?? 0.5));
-    const paymentMethod = fee?.paymentMethod ?? new FeeJuicePaymentMethod(account.getAddress());
-    const gasSettings: GasSettings = GasSettings.default({ ...fee?.gasSettings, maxFeesPerGas });
-    this.log.debug(`Using L2 gas settings`, gasSettings);
-    return { gasSettings, paymentMethod };
-  }
-
-  // docs:start:getFeeOptions
-  /**
-   * Return fee options based on the user opts, estimating tx gas if needed.
-   * @param account - The account requesting the fee options
-   * @param executionPayload - Execution payload to get the fee for
-   * @param fee - User-provided fee options.
-   * @param options - Additional options for the transaction. They must faithfully represent the tx to get accurate fee estimates
-   * @returns Fee options for the actual transaction.
-   */
-  protected async getFeeOptions(
-    account: Account,
-    executionPayload: ExecutionPayload,
-    fee: UserFeeOptions = {},
-    options: TxExecutionOptions,
-  ): Promise<FeeOptions> {
-    // docs:end:getFeeOptions
-    const defaultFeeOptions = await this.getDefaultFeeOptions(account, fee);
-    const paymentMethod = defaultFeeOptions.paymentMethod;
-    const maxFeesPerGas = defaultFeeOptions.gasSettings.maxFeesPerGas;
-    const maxPriorityFeesPerGas = defaultFeeOptions.gasSettings.maxPriorityFeesPerGas;
-
-    let gasSettings = defaultFeeOptions.gasSettings;
-    if (fee?.estimateGas) {
-      // Use unrealistically high gas limits for estimation to avoid running out of gas.
-      // They will be tuned down after the simulation.
-      const gasSettingsForEstimation = new GasSettings(
-        new Gas(GAS_ESTIMATION_DA_GAS_LIMIT, GAS_ESTIMATION_L2_GAS_LIMIT),
-        new Gas(GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT, GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT),
-        maxFeesPerGas,
-        maxPriorityFeesPerGas,
-      );
-      const feeForEstimation: FeeOptions = { paymentMethod, gasSettings: gasSettingsForEstimation };
-      const txRequest = await account.createTxExecutionRequest(executionPayload, feeForEstimation, options);
-      const simulationResult = await this.pxe.simulateTx(
-        txRequest,
-        true /*simulatePublic*/,
-        undefined /* skipTxValidation */,
-        true /* skipFeeEnforcement */,
-      );
-      const { gasLimits, teardownGasLimits } = getGasLimits(simulationResult, fee?.estimatedGasPadding);
-      gasSettings = GasSettings.from({ maxFeesPerGas, maxPriorityFeesPerGas, gasLimits, teardownGasLimits });
-      this.log.verbose(
-        `Estimated gas limits for tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
-      );
-    }
-
-    return { gasSettings, paymentMethod };
+  protected async getFeeOptionsForGasEstimation(from: AztecAddress, userFeeOptions?: UserFeeOptions) {
+    const defaultFeeOptions = await this.getDefaultFeeOptions(from, userFeeOptions);
+    const {
+      gasSettings: { maxFeesPerGas, maxPriorityFeesPerGas },
+    } = defaultFeeOptions;
+    // Use unrealistically high gas limits for estimation to avoid running out of gas.
+    // They will be tuned down after the simulation.
+    const gasSettingsForEstimation = new GasSettings(
+      new Gas(GAS_ESTIMATION_DA_GAS_LIMIT, GAS_ESTIMATION_L2_GAS_LIMIT),
+      new Gas(GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT, GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT),
+      maxFeesPerGas,
+      maxPriorityFeesPerGas,
+    );
+    return {
+      ...defaultFeeOptions,
+      gasSettings: gasSettingsForEstimation,
+    };
   }
 
   registerSender(address: AztecAddress, _alias: string = ''): Promise<AztecAddress> {
@@ -187,22 +193,17 @@ export abstract class BaseWallet implements Wallet {
   async registerContract(
     instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
     artifact?: ContractArtifact,
+    secretKey?: Fr,
   ): Promise<ContractInstanceWithAddress> {
-    /**
-     * Determes if the provided instance data is already a contract instance with an address.
-     */
+    /** Determines if the provided instance data is already a contract instance with an address. */
     function isInstanceWithAddress(instanceData: any): instanceData is ContractInstanceWithAddress {
       return (instanceData as ContractInstanceWithAddress).address !== undefined;
     }
-    /**
-     * Determes if the provided instance data is contract instantiation data.
-     */
+    /** Determines if the provided instance data is contract instantiation data */
     function isContractInstantiationData(instanceData: any): instanceData is ContractInstantiationData {
       return (instanceData as ContractInstantiationData).salt !== undefined;
     }
-    /**
-     * Determes if the provided instance data is already a contract.
-     */
+    /** Determines if the provided instance data is already a contract */
     function isContractInstanceAndArtifact(instanceData: any): instanceData is ContractInstanceAndArtifact {
       return (
         (instanceData as ContractInstanceAndArtifact).instance !== undefined &&
@@ -224,7 +225,7 @@ export abstract class BaseWallet implements Wallet {
       await this.pxe.registerContract({ artifact, instance });
     } else {
       if (!artifact) {
-        throw new Error(`Contract artifact must be provided when registering a contract using address`);
+        throw new Error(`Contract artifact must be provided when registering a contract using an address`);
       }
       const { contractInstance: maybeContractInstance } = await this.pxe.getContractMetadata(instanceData);
       if (!maybeContractInstance) {
@@ -238,11 +239,17 @@ export abstract class BaseWallet implements Wallet {
         instance.currentContractClassId = thisContractClass.id;
       }
     }
+    if (secretKey) {
+      await this.pxe.registerAccount(secretKey, await computePartialAddress(instance));
+    }
     return instance;
   }
 
-  async simulateTx(executionPayload: ExecutionPayload, opts: SimulateMethodOptions): Promise<TxSimulationResult> {
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, opts.fee);
+  async simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult> {
+    const feeOptions = opts.fee?.estimateGas
+      ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
+      : await this.getDefaultFeeOptions(opts.from, opts.fee);
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     return this.pxe.simulateTx(
       txRequest,
       true /* simulatePublic */,
@@ -251,13 +258,15 @@ export abstract class BaseWallet implements Wallet {
     );
   }
 
-  async profileTx(executionPayload: ExecutionPayload, opts: ProfileMethodOptions): Promise<TxProfileResult> {
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, opts.fee);
+  async profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult> {
+    const fee = await this.getDefaultFeeOptions(opts.from, opts.fee);
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, fee);
     return this.pxe.profileTx(txRequest, opts.profileMode, opts.skipProofGeneration ?? true);
   }
 
-  async proveTx(exec: ExecutionPayload, opts: SendMethodOptions): Promise<TxProvingResult> {
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(exec, opts.from, opts.fee);
+  async proveTx(exec: ExecutionPayload, opts: SendOptions): Promise<TxProvingResult> {
+    const fee = await this.getDefaultFeeOptions(opts.from, opts.fee);
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(exec, opts.from, fee);
     return this.pxe.proveTx(txRequest);
   }
 

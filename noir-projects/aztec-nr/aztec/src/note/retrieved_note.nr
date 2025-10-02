@@ -1,9 +1,9 @@
 use crate::note::note_metadata::NoteMetadata;
-use protocol_types::{address::AztecAddress, traits::{Packable, Serialize}};
+use protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}};
 
 /// A container of a note and the metadata required to prove its existence, regardless of whether the note is
 /// pending (created in the current transaction) or settled (created in a previous transaction).
-#[derive(Eq, Serialize, Packable)]
+#[derive(Deserialize, Eq, Serialize, Packable)]
 pub struct RetrievedNote<Note> {
     pub note: Note,
     pub contract_address: AztecAddress,

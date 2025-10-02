@@ -1,11 +1,10 @@
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
-import type { GasSettings } from '@aztec/stdlib/gas';
 import type { Capsule, TxProvingResult } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
-import type { RequestMethodOptions, SendMethodOptions } from './interaction_options.js';
+import { type RequestMethodOptions, type SendMethodOptions, sanitizeSendOptions } from './interaction_options.js';
 import { ProvenTx } from './proven_tx.js';
 import { SentTx } from './sent_tx.js';
 
@@ -39,7 +38,8 @@ export abstract class BaseContractInteraction {
    */
   protected async proveInternal(options: SendMethodOptions): Promise<TxProvingResult> {
     const executionPayload = await this.request(options);
-    return await this.wallet.proveTx(executionPayload, options);
+    const proveOptions = await sanitizeSendOptions(options);
+    return await this.wallet.proveTx(executionPayload, proveOptions);
   }
 
   // docs:start:prove
@@ -76,17 +76,5 @@ export abstract class BaseContractInteraction {
       return this.wallet.sendTx(await txProvingResult.toTx());
     };
     return new SentTx(this.wallet, sendTx);
-  }
-
-  /**
-   * Estimates gas for the interaction and returns gas limits for it.
-   * @param options - Options.
-   * @returns Gas limits.
-   */
-  public async estimateGas(
-    options: Omit<SendMethodOptions, 'estimateGas'>,
-  ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
-    const executionPayload = await this.request(options);
-    return this.wallet.estimateGas(executionPayload, options);
   }
 }

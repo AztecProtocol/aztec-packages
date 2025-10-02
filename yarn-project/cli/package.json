@@ -7,7 +7,6 @@
     "./devnet": "./dest/cmds/devnet/index.js",
     "./infrastructure": "./dest/cmds/infrastructure/index.js",
     "./l1": "./dest/cmds/l1/index.js",
-    "./pxe": "./dest/cmds/pxe/index.js",
     "./aztec_node": "./dest/cmds/aztec_node/index.js",
     "./cli-utils": "./dest/utils/index.js",
     "./misc": "./dest/cmds/misc/index.js",

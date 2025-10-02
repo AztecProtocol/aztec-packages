@@ -4,7 +4,7 @@ import { type L1ContractAddresses, l1ContractAddressesMapping } from './l1_contr
 
 /** Configuration of the L1GlobalReader. */
 export interface L1ReaderConfig {
-  /** The RPC Url of the ethereum host. */
+  /** List of URLs of Ethereum RPC nodes that services will connect to (comma separated). */
   l1RpcUrls: string[];
   /** The chain ID of the ethereum host. */
   l1ChainId: number;
@@ -26,7 +26,7 @@ export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = {
   },
   l1RpcUrls: {
     env: 'ETHEREUM_HOSTS',
-    description: 'The RPC Url of the ethereum host.',
+    description: 'List of URLs of Ethereum RPC nodes that services will connect to (comma separated).',
     parseEnv: (val: string) => val.split(',').map(url => url.trim()),
     defaultValue: [],
   },

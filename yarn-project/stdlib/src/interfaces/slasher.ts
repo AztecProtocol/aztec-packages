@@ -24,6 +24,7 @@ export interface SlasherConfig {
   slashOffenseExpirationRounds: number; // Number of rounds after which pending offenses expire
   slashMaxPayloadSize: number; // Maximum number of offenses to include in a single slash payload
   slashGracePeriodL2Slots: number; // Number of L2 slots to wait after genesis before slashing for most offenses
+  slashExecuteRoundsLookBack: number; // How many rounds to look back when searching for a round to execute
 }
 
 export const SlasherConfigSchema = z.object({
@@ -44,5 +45,6 @@ export const SlasherConfigSchema = z.object({
   slashMaxPayloadSize: z.number(),
   slashGracePeriodL2Slots: z.number(),
   slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
+  slashExecuteRoundsLookBack: z.number(),
   slashSelfAllowed: z.boolean().optional(),
 }) satisfies ZodFor<SlasherConfig>;

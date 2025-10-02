@@ -56,6 +56,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         , y(y)
         , _is_infinity(false)
     {}
+    goblin_element(const Fq& x, const Fq& y, const bool_ct is_infinity)
+        : x(x)
+        , y(y)
+        , _is_infinity(is_infinity)
+    {}
     goblin_element(const goblin_element& other) = default;
     goblin_element(goblin_element&& other) noexcept = default;
     goblin_element& operator=(const goblin_element& other) = default;
@@ -241,6 +246,23 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         goblin_element negated = -(*this);
         goblin_element result(*this);
         result.y = Fq::conditional_assign(predicate, negated.y, result.y);
+        return result;
+    }
+
+    /**
+     * @brief Selects `this` if predicate is false, `other` if predicate is true.
+     *
+     * @param other
+     * @param predicate
+     * @return goblin_element
+     */
+    goblin_element conditional_select(const goblin_element& other, const bool_ct& predicate) const
+    {
+        goblin_element result(*this);
+        result.x = Fq::conditional_assign(predicate, other.x, result.x);
+        result.y = Fq::conditional_assign(predicate, other.y, result.y);
+        result._is_infinity =
+            bool_ct::conditional_assign(predicate, other.is_point_at_infinity(), result.is_point_at_infinity());
         return result;
     }
 

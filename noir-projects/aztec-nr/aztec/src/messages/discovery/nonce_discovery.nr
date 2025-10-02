@@ -97,7 +97,7 @@ mod test {
             note_interface::{NoteHash, NoteType},
             note_metadata::SettledNoteMetadata,
             retrieved_note::RetrievedNote,
-            utils::compute_note_hash_for_nullify,
+            utils::compute_note_hash_for_nullification,
         },
         oracle::random::random,
         test::mocks::mock_note::MockNote,
@@ -125,7 +125,7 @@ mod test {
             let note = MockNote::unpack(array::subarray(packed_note.storage(), 0));
             let note_hash = note.compute_note_hash(storage_slot);
 
-            let note_hash_for_nullify = compute_note_hash_for_nullify(
+            let note_hash_for_nullification = compute_note_hash_for_nullification(
                 RetrievedNote {
                     note,
                     contract_address,
@@ -134,7 +134,7 @@ mod test {
                 storage_slot,
             );
 
-            let inner_nullifier = note.compute_nullifier_unconstrained(note_hash_for_nullify);
+            let inner_nullifier = note.compute_nullifier_unconstrained(note_hash_for_nullification);
 
             Option::some(NoteHashAndNullifier { note_hash, inner_nullifier })
         } else {
@@ -206,10 +206,9 @@ mod test {
             note_nonce,
             compute_siloed_note_hash(CONTRACT_ADDRESS, note_hash),
         );
-        let inner_nullifier = note.compute_nullifier_unconstrained(compute_note_hash_for_nullify(
-            retrieved_note,
-            STORAGE_SLOT,
-        ));
+        let inner_nullifier = note.compute_nullifier_unconstrained(
+            compute_note_hash_for_nullification(retrieved_note, STORAGE_SLOT),
+        );
 
         NoteAndData { note, note_nonce, note_hash, unique_note_hash, inner_nullifier }
     }

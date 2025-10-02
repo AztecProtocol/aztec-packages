@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./lazy": "./dest/lazy.js"
+    "./lazy": "./dest/lazy.js",
+    "./server": "./dest/server.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -66,6 +67,7 @@
     "@aztec/entrypoints": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
+    "@aztec/pxe": "workspace:^",
     "@aztec/stdlib": "workspace:^"
   },
   "devDependencies": {
@@ -74,7 +76,7 @@
     "@types/node": "^22.15.17",
     "jest": "^30.0.0",
     "resolve-typescript-plugin": "^2.0.1",
-    "ts-loader": "^9.4.4",
+    "ts-loader": "^9.5.4",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3",
     "util": "^0.12.5"

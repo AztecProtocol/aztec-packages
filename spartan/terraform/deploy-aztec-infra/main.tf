@@ -74,6 +74,8 @@ locals {
     "global.customAztecNetwork.feeAssetHandlerContractAddress" = var.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
     "global.customAztecNetwork.l1ChainId"                      = var.L1_CHAIN_ID
     "global.otelCollectorEndpoint"                             = var.OTEL_COLLECTOR_ENDPOINT
+    "global.sponsoredFPC"                                      = var.SPONSORED_FPC
+    "global.testAccounts"                                      = var.TEST_ACCOUNTS
   }
 
   common_list_settings = {
@@ -151,6 +153,10 @@ locals {
         "validator.node.env.PUBLISHER_KEY_INDEX_START"      = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
         "validator.node.env.VALIDATORS_PER_NODE"            = var.VALIDATORS_PER_NODE
         "validator.node.env.PUBLISHERS_PER_VALIDATOR_KEY"   = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
+        "validator.node.proverRealProofs"                   = var.PROVER_REAL_PROOFS
+        "validator.node.env.SEQ_MIN_TX_PER_BLOCK"           = var.SEQ_MIN_TX_PER_BLOCK
+        "validator.node.env.SEQ_MAX_TX_PER_BLOCK"           = var.SEQ_MAX_TX_PER_BLOCK
+        "validator.node.proverRealProofs"                   = var.PROVER_REAL_PROOFS
       }
       boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
@@ -176,6 +182,7 @@ locals {
         "broker.node.env.NETWORK"                 = var.NETWORK
         "agent.node.proverRealProofs"             = var.PROVER_REAL_PROOFS
         "agent.node.env.NETWORK"                  = var.NETWORK
+        "agent.replicaCount"                      = var.PROVER_REPLICAS
       }
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
@@ -213,12 +220,14 @@ locals {
         }
       })] : []
       custom_settings = {
-        "nodeType"            = "rpc"
-        "node.env.NETWORK"    = var.NETWORK
-        "ingress.rpc.enabled" = var.RPC_INGRESS_ENABLED
-        "ingress.rpc.host"    = var.RPC_INGRESS_HOST
+        "nodeType"                       = "rpc"
+        "node.env.NETWORK"               = var.NETWORK
+        "node.proverRealProofs"          = var.PROVER_REAL_PROOFS
+        "ingress.rpc.enabled"            = var.RPC_INGRESS_ENABLED
+        "ingress.rpc.host"               = var.RPC_INGRESS_HOST
+        "node.env.AWS_ACCESS_KEY_ID"     = var.R2_ACCESS_KEY_ID
+        "node.env.AWS_SECRET_ACCESS_KEY" = var.R2_SECRET_ACCESS_KEY
       }
-      boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
       wait                 = true
     }

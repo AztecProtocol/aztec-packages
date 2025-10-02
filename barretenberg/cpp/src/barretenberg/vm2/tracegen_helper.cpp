@@ -83,10 +83,6 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
                            precomputed_builder.process_wire_instruction_spec(trace));
             AVM_TRACK_TIME("tracegen/precomputed/exec_instruction_spec",
                            precomputed_builder.process_exec_instruction_spec(trace));
-            AVM_TRACK_TIME("tracegen/precomputed/to_radix_safe_limbs",
-                           precomputed_builder.process_to_radix_safe_limbs(trace));
-            AVM_TRACK_TIME("tracegen/precomputed/to_radix_p_decompositions",
-                           precomputed_builder.process_to_radix_p_decompositions(trace));
             AVM_TRACK_TIME("tracegen/precomputed/memory_tag_ranges",
                            precomputed_builder.process_memory_tag_range(trace));
             AVM_TRACK_TIME("tracegen/precomputed/addressing_gas", precomputed_builder.process_addressing_gas(trace));
@@ -95,6 +91,14 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
                            precomputed_builder.process_get_env_var_table(trace));
             AVM_TRACK_TIME("tracegen/precomputed/get_contract_instance_table",
                            precomputed_builder.process_get_contract_instance_table(trace));
+        },
+        [&]() {
+            // ToRadix jobs are relatively expensive, so we process them in a separate job.
+            PrecomputedTraceBuilder precomputed_builder;
+            AVM_TRACK_TIME("tracegen/precomputed/to_radix_safe_limbs",
+                           precomputed_builder.process_to_radix_safe_limbs(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/to_radix_p_decompositions",
+                           precomputed_builder.process_to_radix_p_decompositions(trace));
         },
     };
 }

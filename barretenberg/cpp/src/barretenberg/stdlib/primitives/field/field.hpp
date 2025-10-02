@@ -28,7 +28,7 @@ template <typename T, typename... Ts> T* validate_context(T* first, Ts*... rest)
     if (!tail) {
         return first; // tail is null, use first
     }
-    ASSERT(first == tail && "Pointers refer to different builder objects!");
+    ASSERT(first == tail, "Pointers refer to different builder objects!");
     return first;
 }
 
@@ -396,7 +396,7 @@ template <typename Builder_> class field_t {
 
     Builder* get_context() const { return context; }
 
-    std::pair<field_t<Builder>, field_t<Builder>> split_at(
+    std::pair<field_t<Builder>, field_t<Builder>> no_wrap_split_at(
         const size_t lsb_index, const size_t num_bits = grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH) const;
 
     bool_t<Builder> is_zero() const;

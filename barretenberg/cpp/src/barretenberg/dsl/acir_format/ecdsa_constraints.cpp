@@ -95,8 +95,8 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     // Step 3.
     // Ensure uniqueness of the public key by asserting each of its coordinates is smaller than the modulus of the base
     // field
-    pub_x.assert_is_in_field();
-    pub_y.assert_is_in_field();
+    pub_x.assert_is_in_field("ECDSA input validation: the x coordinate of the public key is larger than Fq::modulus");
+    pub_y.assert_is_in_field("ECDSA input validation: the y coordinate of the public key is larger than Fq::modulus");
 
     // Step 4.
     bool_ct signature_result =

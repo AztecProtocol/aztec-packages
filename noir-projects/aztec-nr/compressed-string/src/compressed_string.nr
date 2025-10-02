@@ -57,17 +57,6 @@ impl<let N: u32, let M: u32> CompressedString<N, M> {
     }
 }
 
-// TODO: Replace this with the derived version. Not done yet as this uncovered a bug in the AVM. See the discussion
-// below for more details:
-// https://aztecprotocol.slack.com/archives/C02M7VC7TN0/p1754463522334449
-impl<let N: u32, let M: u32> Serialize for CompressedString<N, M> {
-    let N: u32 = N;
-
-    fn serialize(self) -> [Field; Self::N] {
-        self.value
-    }
-}
-
 #[test]
 unconstrained fn test_short_string() {
     let i = "Hello world";

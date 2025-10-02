@@ -1,14 +1,14 @@
-import type { FeePaymentMethod } from '@aztec/entrypoints/interfaces';
 import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { GasSettings } from '@aztec/stdlib/gas';
 
-// docs:start:fee_juice_method
+import type { FeePaymentMethod } from './fee_payment_method.js';
+
 /**
  * Pay fee directly in the Fee Juice.
  */
 export class FeeJuicePaymentMethod implements FeePaymentMethod {
-  // docs:end:fee_juice_method
   constructor(protected sender: AztecAddress) {}
 
   getAsset() {
@@ -21,5 +21,9 @@ export class FeeJuicePaymentMethod implements FeePaymentMethod {
 
   getFeePayer(): Promise<AztecAddress> {
     return Promise.resolve(this.sender);
+  }
+
+  getGasSettings(): GasSettings | undefined {
+    return;
   }
 }

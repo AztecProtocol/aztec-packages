@@ -1,13 +1,12 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import {
-  type AztecAddress,
+  AztecAddress,
   type AztecNode,
   BatchCall,
   ContractDeployer,
   ContractFunctionInteraction,
   Fr,
   type Logger,
-  type PXE,
   TxStatus,
   type Wallet,
   retryUntil,
@@ -27,7 +26,7 @@ import { type PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server'
 import { getProofSubmissionDeadlineEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TX_ERROR_EXISTING_NULLIFIER, type Tx } from '@aztec/stdlib/tx';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -38,7 +37,6 @@ import { setup } from './fixtures/utils.js';
 describe('e2e_block_building', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
-  let pxe: PXE;
   let logger: Logger;
   let wallet: Wallet;
 
@@ -63,7 +61,6 @@ describe('e2e_block_building', () => {
       let maybeAztecNodeAdmin: AztecNodeAdmin | undefined;
       ({
         teardown,
-        pxe,
         logger,
         aztecNode,
         aztecNodeAdmin: maybeAztecNodeAdmin,
@@ -178,7 +175,7 @@ describe('e2e_block_building', () => {
 
       // Assert all contracts got deployed
       const isContractDeployed = async (address: AztecAddress) =>
-        !!(await pxe.getContractMetadata(address)).contractInstance;
+        !!(await wallet.getContractMetadata(address)).contractInstance;
       const areDeployed = await Promise.all(receipts.map(r => isContractDeployed(r.contract.address)));
       expect(areDeployed).toEqual(times(TX_COUNT, () => true));
     });
@@ -284,7 +281,6 @@ describe('e2e_block_building', () => {
     beforeAll(async () => {
       ({
         teardown,
-        pxe,
         logger,
         wallet,
         accounts: [ownerAddress],
@@ -411,7 +407,6 @@ describe('e2e_block_building', () => {
     beforeAll(async () => {
       ({
         teardown,
-        pxe,
         logger,
         wallet,
         accounts: [ownerAddress],
@@ -452,7 +447,7 @@ describe('e2e_block_building', () => {
       expect(privateLogs.length).toBe(3);
 
       // The first two logs are encrypted.
-      const events = await pxe.getPrivateEvents(
+      const events = await wallet.getPrivateEvents(
         testContract.address,
         TestContract.events.ExampleEvent,
         rct.blockNumber!,
@@ -481,7 +476,7 @@ describe('e2e_block_building', () => {
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7918
     it('publishes two empty blocks', async () => {
-      ({ teardown, pxe, logger, aztecNode } = await setup(0, {
+      ({ teardown, wallet, logger, aztecNode } = await setup(0, {
         minTxsPerBlock: 0,
         skipProtocolContracts: true,
       }));
@@ -496,19 +491,23 @@ describe('e2e_block_building', () => {
         skipProtocolContracts: true,
         numberOfInitialFundedAccounts: 1,
       });
-      ({ teardown, pxe, logger, aztecNode, wallet } = context);
+      ({ teardown, logger, aztecNode, wallet } = context);
       await sleep(1000);
 
       const [accountData] = context.initialFundedAccounts;
 
       const accountManager = await (wallet as TestWallet).createSchnorrAccount(accountData.secret, accountData.salt);
-      await accountManager.deploy().wait();
+      const deployMethod = await accountManager.getDeployMethod();
+      await deployMethod
+        .send({
+          from: AztecAddress.ZERO,
+        })
+        .wait();
     });
 
     it('can simulate public txs while building a block', async () => {
       ({
         teardown,
-        pxe,
         logger,
         aztecNode,
         wallet,
@@ -550,7 +549,6 @@ describe('e2e_block_building', () => {
       });
       ({
         teardown,
-        pxe,
         logger,
         aztecNode,
         wallet,

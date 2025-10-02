@@ -12,9 +12,7 @@ pub contract Child {
         state_vars::{Map, PrivateSet, PublicMutable},
         utils::comparison::Comparator,
     };
-    // docs:start:import_valuenote
     use dep::value_note::value_note::ValueNote;
-    // docs:end:import_valuenote
 
     #[storage]
     struct Storage<Context> {
@@ -58,9 +56,7 @@ pub contract Child {
 
     #[private]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        // docs:start:valuenote_new
         let note = ValueNote::new(new_value, owner);
-        // docs:end:valuenote_new
 
         storage.a_map_with_private_values.at(owner).insert(note).emit(
             &mut context,

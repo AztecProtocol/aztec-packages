@@ -5,7 +5,7 @@
 #include <stack>
 
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/simulation/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 
 using namespace benchmark;
 using namespace bb::avm2;

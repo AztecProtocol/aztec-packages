@@ -49,10 +49,8 @@ pub contract NFT {
         admin: PublicMutable<AztecAddress, Context>,
         // Addresses that can mint
         minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
-        // docs:start:private_map
         // Contains the NFTs owned by each address in private.
         private_nfts: Map<AztecAddress, PrivateSet<NFTNote, Context>, Context>,
-        // docs:end:private_map
         // A map from token ID to a boolean indicating if the NFT exists.
         nft_exists: Map<Field, PublicMutable<bool, Context>, Context>,
         // A map from token ID to the public owner of the NFT.
@@ -72,13 +70,11 @@ pub contract NFT {
     }
     // docs:end:constructor
 
-    // docs:start:set_admin
     #[public]
     fn set_admin(new_admin: AztecAddress) {
         assert(storage.admin.read().eq(context.msg_sender()), "caller is not an admin");
         storage.admin.write(new_admin);
     }
-    // docs:end:set_admin
 
     // docs:start:set_minter
     #[public]
@@ -88,7 +84,6 @@ pub contract NFT {
     }
     // docs:end:set_minter
 
-    // docs:start:mint
     #[public]
     fn mint(to: AztecAddress, token_id: Field) {
         assert(token_id != 0, "zero token ID not supported");
@@ -99,7 +94,6 @@ pub contract NFT {
 
         storage.public_owners.at(token_id).write(to);
     }
-    // docs:end:mint
 
     #[public]
     #[view]
@@ -125,23 +119,18 @@ pub contract NFT {
         storage.symbol.read()
     }
 
-    // docs:start:admin
     #[public]
     #[view]
     fn get_admin() -> Field {
         storage.admin.read().to_field()
     }
-    // docs:end:admin
 
-    // docs:start:is_minter
     #[public]
     #[view]
     fn is_minter(minter: AztecAddress) -> bool {
         storage.minters.at(minter).read()
     }
-    // docs:end:is_minter
 
-    // docs:start:transfer_in_public
     #[authorize_once("from", "authwit_nonce")]
     #[public]
     fn transfer_in_public(
@@ -155,10 +144,8 @@ pub contract NFT {
 
         public_owners_storage.write(to);
     }
-    // docs:end:transfer_in_public
 
     // Transfers token with `token_id` from public balance of message sender to a private balance of `to`.
-    // docs:start:transfer_to_private
     #[private]
     fn transfer_to_private(to: AztecAddress, token_id: Field) {
         let from = context.msg_sender();
@@ -172,11 +159,9 @@ pub contract NFT {
         // function argument to a message sender, guaranteeing that he can transfer only his own NFTs.
         nft._finalize_transfer_to_private_unsafe(from, token_id, partial_note).enqueue(&mut context);
     }
-    // docs:end:transfer_to_private
 
     /// Prepares an increase of private balance of `to` (partial note). The increase needs to be finalized by calling
     /// `finalize_transfer_to_private` with the returned partial note.
-    // docs:start:prepare_private_balance_increase
     #[private]
     fn prepare_private_balance_increase(to: AztecAddress) -> PartialNFTNote {
         _prepare_private_balance_increase(to, &mut context, storage)
@@ -204,7 +189,6 @@ pub contract NFT {
 
         partial_note
     }
-    // docs:end:prepare_private_balance_increase
 
     /// Finalizes a transfer of NFT with `token_id` from public balance of `msg_sender` to a private balance of `to`.
     /// The transfer must be prepared by calling `prepare_private_balance_increase` from `msg_sender` account and the
@@ -214,7 +198,6 @@ pub contract NFT {
     /// the caller of this function to ensure that it doesn't happen. If the same `partial_note` is used multiple
     /// times, the NFT with `token_id` would most likely get lost (the partial note log processing functionality
     /// would fail to find the pending partial note when trying to complete it).
-    // docs:start:finalize_transfer_to_private
     #[public]
     fn finalize_transfer_to_private(token_id: Field, partial_note: PartialNFTNote) {
         // Completer is the entity that can complete the partial note. In this case, it's the same as the account
@@ -228,9 +211,7 @@ pub contract NFT {
             storage,
         );
     }
-    // docs:end:finalize_transfer_to_private
 
-    // docs:start:finalize_transfer_to_private_unsafe
     /// This is a wrapper around `_finalize_transfer_to_private` placed here so that a call
     /// to `_finalize_transfer_to_private` can be enqueued. Called unsafe as it does not check `from_and_completer`
     /// (this has to be done in the calling function).
@@ -249,7 +230,6 @@ pub contract NFT {
             storage,
         );
     }
-    // docs:end:finalize_transfer_to_private_unsafe
 
     // In all the flows in this contract, `from` (the account from which we're transferring the NFT) and `completer`
     // (the entity that can complete the partial note) are the same so we represent them with a single argument.
@@ -275,16 +255,13 @@ pub contract NFT {
      * Cancel a private authentication witness.
      * @param inner_hash The inner hash of the authwit to cancel.
      */
-    // docs:start:cancel_authwit
     #[private]
     fn cancel_authwit(inner_hash: Field) {
         let on_behalf_of = context.msg_sender();
         let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
         context.push_nullifier(nullifier);
     }
-    // docs:end:cancel_authwit
 
-    // docs:start:transfer_in_private
     #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn transfer_in_private(
@@ -304,9 +281,7 @@ pub contract NFT {
 
         nfts.at(to).insert(new_note).emit(&mut context, to, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
-    // docs:end:transfer_in_private
 
-    // docs:start:transfer_to_public
     #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn transfer_to_public(
@@ -324,15 +299,12 @@ pub contract NFT {
             &mut context,
         );
     }
-    // docs:end:transfer_to_public
 
-    // docs:start:finish_transfer_to_public
     #[public]
     #[internal]
     fn _finish_transfer_to_public(to: AztecAddress, token_id: Field) {
         storage.public_owners.at(token_id).write(to);
     }
-    // docs:end:finish_transfer_to_public
 
     // Returns zero address when the token does not have a public owner. Reverts if the token does not exist.
     #[public]
@@ -345,7 +317,6 @@ pub contract NFT {
     /// Returns an array of token IDs owned by `owner` in private and a flag indicating whether a page limit was
     /// reached. Starts getting the notes from page with index `page_index`. Zero values in the array are placeholder
     /// values for non-existing notes.
-    // docs:start:get_private_nfts
     #[utility]
     unconstrained fn get_private_nfts(
         owner: AztecAddress,
@@ -365,5 +336,4 @@ pub contract NFT {
         let page_limit_reached = notes.len() == options.limit;
         (owned_nft_ids, page_limit_reached)
     }
-    // docs:end:get_private_nfts
 }

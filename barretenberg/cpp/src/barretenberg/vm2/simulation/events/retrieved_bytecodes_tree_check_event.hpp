@@ -5,7 +5,7 @@
 
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/checkpoint_event_type.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/retrieved_bytecodes_tree.hpp"
 
 namespace bb::avm2::simulation {

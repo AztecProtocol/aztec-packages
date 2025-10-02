@@ -1,11 +1,9 @@
 import {
+  type AppConfigurableFeePaymentMethod,
   AztecAddress,
   type AztecNode,
-  FeeJuicePaymentMethod,
   FeeJuicePaymentMethodWithClaim,
-  type FeePaymentMethod,
   type Logger,
-  type PXE,
   PrivateFeePaymentMethod,
   SponsoredFeePaymentMethod,
   type Wallet,
@@ -26,9 +24,10 @@ import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract as BananaCoin, TokenContract } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
-import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
+import { GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 import { MNEMONIC } from '../../fixtures/fixtures.js';
 import {
@@ -50,14 +49,16 @@ import { type ClientFlowsConfig, FULL_FLOWS_CONFIG, KEY_FLOWS_CONFIG } from './c
 const { E2E_DATA_PATH: dataPath, BENCHMARK_CONFIG } = process.env;
 
 export type AccountType = 'ecdsar1' | 'schnorr';
-export type FeePaymentMethodGetter = (wallet: Wallet, sender: AztecAddress) => Promise<FeePaymentMethod>;
+export type FeePaymentMethodGetter = (
+  wallet: Wallet,
+  sender: AztecAddress,
+) => Promise<AppConfigurableFeePaymentMethod | undefined>;
 export type BenchmarkingFeePaymentMethod = 'bridged_fee_juice' | 'private_fpc' | 'sponsored_fpc' | 'fee_juice';
 
 export class ClientFlowsBenchmark {
   private snapshotManager: ISnapshotManager;
 
   public logger: Logger;
-  private pxe!: PXE;
   public aztecNode!: AztecNode;
   public cheatCodes!: CheatCodes;
   public context!: SubsystemsContext;
@@ -88,7 +89,6 @@ export class ClientFlowsBenchmark {
 
   // PXE and Wallet used by the benchmarking user. It can be set up with client-side proving enabled
   public userWallet!: TestWallet;
-  private userPXE!: PXE;
 
   public realProofs = ['true', '1'].includes(process.env.REAL_PROOFS ?? '');
 
@@ -115,7 +115,7 @@ export class ClientFlowsBenchmark {
       },
       // eslint-disable-next-line camelcase
       fee_juice: {
-        forWallet: this.getFeeJuicePaymentMethodForWallet.bind(this),
+        forWallet: () => Promise.resolve(undefined),
         circuits: 0,
       },
     };
@@ -202,12 +202,11 @@ export class ClientFlowsBenchmark {
       deployAccounts(2, this.logger),
       async (
         { deployedAccounts: [{ address: adminAddress }, { address: sequencerAddress }] },
-        { wallet, pxe, aztecNode, aztecNodeConfig },
+        { wallet, aztecNode, cheatCodes },
       ) => {
-        this.pxe = pxe;
         this.adminWallet = wallet;
         this.aztecNode = aztecNode;
-        this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe, aztecNode);
+        this.cheatCodes = cheatCodes;
 
         this.adminAddress = adminAddress;
         this.sequencerAddress = sequencerAddress;
@@ -216,20 +215,17 @@ export class ClientFlowsBenchmark {
         this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.adminWallet);
         this.coinbase = EthAddress.random();
 
-        const userPXEConfig = getPXEServiceConfig();
-        const l1Contracts = await aztecNode.getL1ContractAddresses();
+        const userPXEConfig = getPXEConfig();
         const userPXEConfigWithContracts = {
           ...userPXEConfig,
           proverEnabled: this.realProofs,
-          l1Contracts,
-        } as PXEServiceConfig;
+        } as PXEConfig;
 
-        this.userPXE = await createPXEService(this.aztecNode, userPXEConfigWithContracts, {
+        this.userWallet = await TestWallet.create(this.aztecNode, userPXEConfigWithContracts, {
           loggers: {
             prover: this.proxyLogger.createLogger('pxe:bb:wasm:bundle:proxied'),
           },
         });
-        this.userWallet = new TestWallet(this.userPXE, this.aztecNode);
       },
     );
   }
@@ -246,7 +242,6 @@ export class ClientFlowsBenchmark {
         this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
           aztecNode: context.aztecNode,
           aztecNodeAdmin: context.aztecNode,
-          pxeService: context.pxe,
           l1Client: context.deployL1ContractsValues.l1Client,
           wallet: this.adminWallet,
           logger: this.logger,
@@ -292,7 +287,7 @@ export class ClientFlowsBenchmark {
       'fpc_setup',
       async context => {
         const feeJuiceContract = this.feeJuiceBridgeTestHarness.feeJuice;
-        expect((await context.pxe.getContractMetadata(feeJuiceContract.address)).isContractPublished).toBe(true);
+        expect((await context.wallet.getContractMetadata(feeJuiceContract.address)).isContractPublished).toBe(true);
 
         const bananaCoin = this.bananaCoin;
         const bananaFPC = await FPCContract.deploy(this.adminWallet, bananaCoin.address, this.adminAddress)
@@ -315,7 +310,7 @@ export class ClientFlowsBenchmark {
     await this.snapshotManager.snapshot(
       'deploy_sponsored_fpc',
       async () => {
-        const sponsoredFPC = await setupSponsoredFPC(this.pxe);
+        const sponsoredFPC = await setupSponsoredFPC(this.adminWallet);
         this.logger.info(`SponsoredFPC at ${sponsoredFPC.address}`);
         return { sponsoredFPCAddress: sponsoredFPC.address };
       },
@@ -337,7 +332,6 @@ export class ClientFlowsBenchmark {
     this.logger.verbose(`Setting up cross chain harness...`);
     const crossChainTestHarness = await CrossChainTestHarness.new(
       this.aztecNode,
-      this.pxe,
       l1Client,
       this.adminWallet,
       owner,
@@ -353,17 +347,22 @@ export class ClientFlowsBenchmark {
   public async createAndFundBenchmarkingAccountOnUserWallet(accountType: AccountType) {
     const benchysAccountManager = await this.createBenchmarkingAccountManager(this.adminWallet, accountType);
     const benchysAccount = await benchysAccountManager.getAccount();
-    const benchysAddress = benchysAccountManager.getAddress();
+    const benchysAddress = benchysAccountManager.address;
     const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(benchysAddress);
-    const paymentMethod = new FeeJuicePaymentMethodWithClaim(benchysAddress, claim);
-    await benchysAccountManager.deploy({ fee: { paymentMethod } }).wait();
+    const behchysDeployMethod = await benchysAccountManager.getDeployMethod();
+    await behchysDeployMethod
+      .send({
+        from: AztecAddress.ZERO,
+        fee: { paymentMethod: new FeeJuicePaymentMethodWithClaim(benchysAddress, claim) },
+      })
+      .wait();
     // Register benchy on the user's Wallet, where we're going to be interacting from
     const accountManager = await this.userWallet.createAccount({
       secret: benchysAccount.getSecretKey(),
       salt: new Fr(benchysAccount.salt),
       contract: benchysAccountManager.getAccountContract(),
     });
-    return accountManager.getAddress();
+    return accountManager.address;
   }
 
   public async applyDeployAmmSnapshot() {
@@ -397,15 +396,15 @@ export class ClientFlowsBenchmark {
     return new FeeJuicePaymentMethodWithClaim(sender, claim);
   }
 
-  public getPrivateFPCPaymentMethodForWallet(wallet: Wallet, sender: AztecAddress) {
-    return Promise.resolve(new PrivateFeePaymentMethod(this.bananaFPC.address, sender, wallet));
+  public async getPrivateFPCPaymentMethodForWallet(wallet: Wallet, sender: AztecAddress) {
+    // The private fee paying method assembled on the app side requires knowledge of the maximum
+    // fee the user is willing to pay
+    const maxFeesPerGas = (await this.aztecNode.getCurrentBaseFees()).mul(1.5);
+    const gasSettings = GasSettings.default({ maxFeesPerGas });
+    return new PrivateFeePaymentMethod(this.bananaFPC.address, sender, wallet, gasSettings);
   }
 
   public getSponsoredFPCPaymentMethodForWallet(_wallet: Wallet, _sender: AztecAddress) {
     return Promise.resolve(new SponsoredFeePaymentMethod(this.sponsoredFPC.address));
-  }
-
-  public getFeeJuicePaymentMethodForWallet(_wallet: Wallet, sender: AztecAddress) {
-    return Promise.resolve(new FeeJuicePaymentMethod(sender));
   }
 }

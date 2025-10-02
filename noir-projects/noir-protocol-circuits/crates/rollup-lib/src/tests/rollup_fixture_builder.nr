@@ -7,22 +7,24 @@ use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
         block_header::BlockHeader, checkpoint_constant_data::CheckpointConstantData,
-        epoch_constant_data::EpochConstantData, fee_recipient::FeeRecipient, gas_fees::GasFees,
-        global_variables::GlobalVariables, partial_state_reference::PartialStateReference,
-        sponge_blob::SpongeBlob, state_reference::StateReference,
+        epoch_constant_data::EpochConstantData, fee_recipient::FeeRecipient, gas::Gas,
+        gas_fees::GasFees, gas_settings::GasSettings, global_variables::GlobalVariables,
+        partial_state_reference::PartialStateReference, sponge_blob::SpongeBlob,
+        state_reference::StateReference, transaction::tx_context::TxContext,
+        tree_snapshots::TreeSnapshots, tx_constant_data::TxConstantData,
     },
     address::{AztecAddress, EthAddress},
     constants::{
         ARCHIVE_HEIGHT, AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_BLOCK, L1_TO_L2_MSG_SUBTREE_HEIGHT,
-        L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, L1_TO_L2_MSG_TREE_HEIGHT,
+        L1_TO_L2_MSG_TREE_HEIGHT,
     },
     hash::poseidon2_hash,
     merkle_tree::calculate_empty_tree_root,
-    proof::{proof_data::ProofData, vk_data::VkData},
+    proof::proof_data::ProofData,
     tests::{
-        fixtures::vk_tree::{generate_fake_vk_for_index, VK_MERKLE_TREE},
+        fixtures::{proof_data::make_proof_data, vk_tree::vk_tree_root},
         merkle_tree_utils::SingleSubtreeMerkleTree,
-        utils::{make_fixture, pad_end},
+        utils::make_fixture,
     },
     traits::{Deserialize, Empty, Hash},
 };
@@ -50,10 +52,10 @@ impl RollupFixtureBuilder {
         RollupFixtureBuilder {
             chain_id: 1,
             version: 2,
-            vk_tree_root: VK_MERKLE_TREE.get_root(),
+            vk_tree_root,
             protocol_contract_tree_root: 98765,
             prover_id: 76543,
-            start_block_number: 13,
+            start_block_number: 11,
             start_slot_number: 7,
             end_slot_number: 7,
         }
@@ -63,30 +65,14 @@ impl RollupFixtureBuilder {
         public_inputs: T,
         vk_index: u32,
     ) -> ProofData<T, ProofLen, VkLen> {
-        let value_offset = vk_index as Field * 8976;
-        ProofData {
-            public_inputs,
-            proof: pad_end([
-                value_offset + 79427943,
-                value_offset + 94340,
-                value_offset + 4789150,
-                value_offset + 524,
-            ]),
-            vk_data: Self::get_vk_data(vk_index),
-        }
-    }
-
-    pub fn get_vk_data<let VkLen: u32>(vk_index: u32) -> VkData<VkLen> {
-        let vk = generate_fake_vk_for_index(vk_index);
-        let sibling_path = VK_MERKLE_TREE.get_sibling_path(vk_index);
-        VkData { vk, leaf_index: vk_index, sibling_path }
+        make_proof_data(public_inputs, vk_index)
     }
 
     pub fn build_archive_tree(
         self,
         block_number: u32,
     ) -> (AppendOnlyTreeSnapshot, [Field; ARCHIVE_HEIGHT]) {
-        // Insert header hashes of existing blocks.
+        // Insert header hashes of up to 2 existing blocks.
         let block_header_hashes = if block_number % 2 == 0 {
             [self.get_block_header(block_number).hash(), 0]
         } else {
@@ -95,7 +81,7 @@ impl RollupFixtureBuilder {
                 self.get_block_header(block_number).hash(),
             ]
         };
-        let insert_index = block_number - block_number % 2;
+        let insert_index = (block_number - block_number % 2) as Field;
         let tree = SingleSubtreeMerkleTree::<2, 1, ARCHIVE_HEIGHT>::new_at_index(
             block_header_hashes,
             insert_index,
@@ -103,11 +89,11 @@ impl RollupFixtureBuilder {
 
         let snapshot = AppendOnlyTreeSnapshot {
             root: tree.get_root(),
-            next_available_leaf_index: block_number + 1,
+            next_available_leaf_index: (block_number + 1) as Field,
         };
 
         // Get the sibling path for the current block.
-        let sibling_path = tree.get_sibling_path(block_number);
+        let sibling_path = tree.get_sibling_path(block_number as Field);
 
         (snapshot, sibling_path)
     }
@@ -116,7 +102,7 @@ impl RollupFixtureBuilder {
         self,
         block_number: u32,
     ) -> (AppendOnlyTreeSnapshot, [Field; ARCHIVE_HEIGHT]) {
-        // Insert header hashes of the previous blocks.
+        // Insert header hashes of up to 4 previous blocks.
         let insert_index = block_number - block_number % 4;
         let mut block_header_hashes = [0; 4];
         for i in insert_index..block_number {
@@ -124,16 +110,16 @@ impl RollupFixtureBuilder {
         }
         let tree = SingleSubtreeMerkleTree::<4, 2, ARCHIVE_HEIGHT>::new_at_index(
             block_header_hashes,
-            insert_index,
+            insert_index as Field,
         );
 
         let previous_snapshot = AppendOnlyTreeSnapshot {
             root: tree.get_root(),
-            next_available_leaf_index: block_number,
+            next_available_leaf_index: block_number as Field,
         };
 
         // Get the sibling path for inserting the current block header hash.
-        let sibling_path_for_insertion = tree.get_sibling_path(block_number);
+        let sibling_path_for_insertion = tree.get_sibling_path(block_number as Field);
 
         (previous_snapshot, sibling_path_for_insertion)
     }
@@ -141,9 +127,10 @@ impl RollupFixtureBuilder {
     pub fn build_l1_to_l2_message_subtree_for_insertion(
         self,
         slot_number: Field,
-    ) -> (AppendOnlyTreeSnapshot, [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH], AppendOnlyTreeSnapshot) {
+    ) -> (AppendOnlyTreeSnapshot, [Field; L1_TO_L2_MSG_TREE_HEIGHT - L1_TO_L2_MSG_SUBTREE_HEIGHT], AppendOnlyTreeSnapshot) {
         // Create a subtree of size 4 filled with subtree roots before the current slot.
         let new_slot_index = self.get_l1_to_l2_message_next_available_leaf_index(slot_number - 1)
+             as u32
             >> L1_TO_L2_MSG_SUBTREE_HEIGHT;
         let start_slot_index = new_slot_index - new_slot_index % 4;
         let mut subtree_roots = [0; 4];
@@ -156,7 +143,7 @@ impl RollupFixtureBuilder {
 
         let mut tree = SingleSubtreeMerkleTree::<4, 2, L1_TO_L2_MSG_TREE_HEIGHT - L1_TO_L2_MSG_SUBTREE_HEIGHT>::new_tree_roots_at_index::<L1_TO_L2_MSG_SUBTREE_HEIGHT>(
             subtree_roots,
-            start_slot_index,
+            start_slot_index as Field,
         );
         let previous_snapshot = AppendOnlyTreeSnapshot {
             root: tree.get_root(),
@@ -166,10 +153,13 @@ impl RollupFixtureBuilder {
         };
 
         // Get the sibling path for inserting the current l1-to-l2 messages.
-        let sibling_path_for_insertion = tree.get_sibling_path(new_slot_index);
+        let sibling_path_for_insertion = tree.get_sibling_path(new_slot_index as Field);
 
         // Insert subtree of the current l1-to-l2 messages.
-        tree.update_leaf(new_slot_index, self.get_l1_to_l2_message_subtree_root(slot_number));
+        tree.update_leaf(
+            new_slot_index as Field,
+            self.get_l1_to_l2_message_subtree_root(slot_number),
+        );
         let new_snapshot = AppendOnlyTreeSnapshot {
             root: tree.get_root(),
             next_available_leaf_index: self.get_l1_to_l2_message_next_available_leaf_index(
@@ -240,6 +230,26 @@ impl RollupFixtureBuilder {
         }
     }
 
+    pub fn get_tx_constant_data(self) -> TxConstantData {
+        let slot_number = self.start_slot_number;
+        let block_number = self.start_block_number;
+
+        let gas_settings = GasSettings {
+            // Tx's gas limits are not relevant in rollup circuits.
+            gas_limits: Gas::empty(),
+            teardown_gas_limits: Gas::empty(),
+            max_fees_per_gas: self.get_gas_fees(slot_number),
+            max_priority_fees_per_gas: GasFees::empty(),
+        };
+
+        TxConstantData {
+            anchor_block_header: self.get_block_header(block_number),
+            tx_context: TxContext { chain_id: self.chain_id, version: self.version, gas_settings },
+            vk_tree_root: self.vk_tree_root,
+            protocol_contract_tree_root: self.protocol_contract_tree_root,
+        }
+    }
+
     pub fn get_tx_rollup_public_inputs(self, tx_index: u16) -> TxRollupPublicInputs {
         self.get_merged_tx_rollup_public_inputs(tx_index, tx_index)
     }
@@ -256,8 +266,8 @@ impl RollupFixtureBuilder {
         TxRollupPublicInputs {
             num_txs,
             constants: self.get_block_constant_data(block_number),
-            start_partial_state: self.get_partial_state_reference(start_tx_index as u32 - 1),
-            end_partial_state: self.get_partial_state_reference(end_tx_index as u32),
+            start_tree_snapshots: self.get_tx_state_tree_snapshots(start_tx_index as u32 - 1),
+            end_tree_snapshots: self.get_tx_state_tree_snapshots(end_tx_index as u32),
             start_sponge_blob: self.get_sponge_blob(start_tx_index as u32 - 1),
             end_sponge_blob: self.get_sponge_blob(end_tx_index as u32),
             out_hash: self.get_out_hash(end_tx_index as u32),
@@ -416,14 +426,24 @@ impl RollupFixtureBuilder {
         self.make_fixture(slot_number, 1, 848)
     }
 
-    fn get_partial_state_reference(self, tx_or_block_number: u32) -> PartialStateReference {
-        self.make_fixture(1, tx_or_block_number, 252)
+    fn get_tx_state_tree_snapshots(self, tx_or_block_number: u32) -> PartialStateReference {
+        self.get_state_reference(tx_or_block_number).partial
     }
 
-    fn get_state_reference(self, block_number: u32) -> StateReference {
+    // To be deprecated.
+    fn get_state_reference(self, tx_or_block_number: u32) -> StateReference {
         StateReference {
             l1_to_l2_message_tree: self.get_l1_to_l2_message_tree_snapshot(self.start_slot_number),
-            partial: self.get_partial_state_reference(block_number),
+            partial: self.make_fixture(self.start_slot_number, tx_or_block_number, 252),
+        }
+    }
+
+    pub fn get_tree_snapshots(self, tx_or_block_number: u32) -> TreeSnapshots {
+        TreeSnapshots {
+            l1_to_l2_message_tree: self.get_l1_to_l2_message_tree_snapshot(self.start_slot_number),
+            note_hash_tree: self.make_fixture(self.start_slot_number, tx_or_block_number, 252),
+            nullifier_tree: self.make_fixture(self.start_slot_number, tx_or_block_number, 4783),
+            public_data_tree: self.make_fixture(self.start_slot_number, tx_or_block_number, 19342),
         }
     }
 
@@ -431,8 +451,8 @@ impl RollupFixtureBuilder {
         slot_number * 7639901
     }
 
-    fn get_l1_to_l2_message_next_available_leaf_index(_self: Self, slot_number: Field) -> u32 {
-        (slot_number as u32 + 1) * (1 << L1_TO_L2_MSG_SUBTREE_HEIGHT)
+    fn get_l1_to_l2_message_next_available_leaf_index(_self: Self, slot_number: Field) -> Field {
+        (slot_number + 1) * (1 << L1_TO_L2_MSG_SUBTREE_HEIGHT) as Field
     }
 
     fn get_l1_to_l2_message_tree_snapshot(self, slot_number: Field) -> AppendOnlyTreeSnapshot {
@@ -444,7 +464,7 @@ impl RollupFixtureBuilder {
     fn get_archive(_self: Self, block_number: u32) -> AppendOnlyTreeSnapshot {
         AppendOnlyTreeSnapshot {
             root: block_number as Field * 30785,
-            next_available_leaf_index: block_number + 1,
+            next_available_leaf_index: (block_number + 1) as Field,
         }
     }
 

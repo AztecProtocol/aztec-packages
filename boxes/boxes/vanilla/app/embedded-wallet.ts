@@ -9,23 +9,30 @@ import {
   Account,
   SignerlessAccount,
   AccountManager,
-  SimulateMethodOptions,
+  FeeOptions,
+  UserFeeOptions,
+  DeployAccountOptions,
+  SimulateOptions,
 } from '@aztec/aztec.js';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EcdsaRAccountContract } from '@aztec/accounts/ecdsa/lazy';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr/lazy';
 
-import { getPXEServiceConfig } from '@aztec/pxe/config';
-import { createPXEService } from '@aztec/pxe/client/lazy';
+import { getPXEConfig } from '@aztec/pxe/config';
+import { createPXE } from '@aztec/pxe/client/lazy';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
 import {
   getStubAccountContractArtifact,
   createStubAccount,
 } from '@aztec/accounts/stub/lazy';
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
-import { ExecutionPayload } from '@aztec/entrypoints/payload';
-import { TxProvingResult, TxSimulationResult } from '@aztec/stdlib/tx';
+import {
+  ExecutionPayload,
+  mergeExecutionPayloads,
+} from '@aztec/entrypoints/payload';
+import { TxSimulationResult } from '@aztec/stdlib/tx';
+import { GasSettings } from '@aztec/stdlib/gas';
 
 const PROVER_ENABLED = true;
 
@@ -43,7 +50,7 @@ export class EmbeddedWallet extends BaseWallet {
   ): Promise<Account> {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
-      const {chainId, version} = await this.getChainInfo();
+      const { chainId, version } = await this.getChainInfo();
       account = new SignerlessAccount(
         new DefaultMultiCallEntrypoint(chainId.toNumber(), version.toNumber())
       );
@@ -56,6 +63,49 @@ export class EmbeddedWallet extends BaseWallet {
     }
 
     return account;
+  }
+
+  /**
+   * Returns default values for the transaction fee options
+   * if they were omitted by the user.
+   * This wallet will use the sponsoredFPC payment method
+   * unless otherwise stated
+   * @param from - The address where the transaction is being sent from
+   * @param userFeeOptions - User-provided fee options, which might be incomplete
+   * @returns - Populated fee options that can be used to create a transaction execution request
+   */
+  override async getDefaultFeeOptions(
+    from: AztecAddress,
+    userFeeOptions: UserFeeOptions | undefined
+  ): Promise<FeeOptions> {
+    const maxFeesPerGas =
+      userFeeOptions?.gasSettings?.maxFeesPerGas ??
+      (await this.aztecNode.getCurrentBaseFees()).mul(1 + this.baseFeePadding);
+    const sponsoredFPCContract =
+      await EmbeddedWallet.#getSponsoredPFCContract();
+    let paymentMethod;
+    let endSetup = false;
+    let isFeePayer = false;
+    // The transaction does not include a fee payment method, so we set a default
+    if (!userFeeOptions?.embeddedPaymentMethodFeePayer) {
+      paymentMethod = new SponsoredFeePaymentMethod(
+        sponsoredFPCContract.instance.address
+      );
+    } else {
+      // The transaction includes fee payment method, so we check if we are the fee payer for it (it could only be FeeJuiceWithClaim)
+      isFeePayer = from.equals(userFeeOptions.embeddedPaymentMethodFeePayer);
+    }
+    const gasSettings: GasSettings = GasSettings.default({
+      ...userFeeOptions?.gasSettings,
+      maxFeesPerGas,
+    });
+    this.log.debug(`Using L2 gas settings`, gasSettings);
+    return {
+      gasSettings,
+      paymentMethod,
+      isFeePayer,
+      endSetup,
+    };
   }
 
   getAccounts() {
@@ -71,11 +121,11 @@ export class EmbeddedWallet extends BaseWallet {
     // Create Aztec Node Client
     const aztecNode = createAztecNodeClient(nodeUrl);
 
-    // Create PXE Service
-    const config = getPXEServiceConfig();
+    // Create PXE
+    const config = getPXEConfig();
     config.l1Contracts = await aztecNode.getL1ContractAddresses();
     config.proverEnabled = PROVER_ENABLED;
-    const pxe = await createPXEService(aztecNode, config, {
+    const pxe = await createPXE(aztecNode, config, {
       useLogSuffix: true,
     });
 
@@ -113,25 +163,37 @@ export class EmbeddedWallet extends BaseWallet {
     return this.connectedAccount;
   }
 
+  private async registerAccount(accountManager: AccountManager) {
+    const instance = await accountManager.getInstance();
+    const artifact = await accountManager
+      .getAccountContract()
+      .getContractArtifact();
+
+    await this.pxe.registerContract(
+      instance,
+      artifact,
+      accountManager.getSecretKey()
+    );
+  }
+
   async connectTestAccount(index: number) {
     const testAccounts = await getInitialTestAccountsData();
-    const account = testAccounts[index];
+    const accountData = testAccounts[index];
 
     const accountManager = await AccountManager.create(
       this,
-      this.pxe,
-      account.secret,
-      new SchnorrAccountContract(account.signingKey),
-      account.salt
+      accountData.secret,
+      new SchnorrAccountContract(accountData.signingKey),
+      accountData.salt
     );
 
-    await accountManager.register();
+    await this.registerAccount(accountManager);
     this.accounts.set(
-      accountManager.getAddress().toString(),
+      accountManager.address.toString(),
       await accountManager.getAccount()
     );
 
-    this.connectedAccount = accountManager.getAddress();
+    this.connectedAccount = accountManager.address;
     return this.connectedAccount;
   }
 
@@ -150,7 +212,6 @@ export class EmbeddedWallet extends BaseWallet {
     const contract = new EcdsaRAccountContract(signingKey);
     const accountManager = await AccountManager.create(
       this,
-      this.pxe,
       secretKey,
       contract,
       salt
@@ -160,15 +221,13 @@ export class EmbeddedWallet extends BaseWallet {
     const deployMethod = await accountManager.getDeployMethod();
     const sponsoredPFCContract =
       await EmbeddedWallet.#getSponsoredPFCContract();
-    const deployOpts = {
+    const deployOpts: DeployAccountOptions = {
       from: AztecAddress.ZERO,
-      contractAddressSalt: Fr.fromString(salt.toString()),
       fee: {
-        paymentMethod: await accountManager.getSelfPaymentMethod(
-          new SponsoredFeePaymentMethod(sponsoredPFCContract.instance.address)
+        paymentMethod: new SponsoredFeePaymentMethod(
+          sponsoredPFCContract.instance.address
         ),
       },
-      universalDeploy: true,
       skipClassPublication: true,
       skipInstancePublication: true,
     };
@@ -182,7 +241,7 @@ export class EmbeddedWallet extends BaseWallet {
     localStorage.setItem(
       LocalStorageKey,
       JSON.stringify({
-        address: accountManager.getAddress().toString(),
+        address: accountManager.address.toString(),
         signingKey: signingKey.toString('hex'),
         secretKey: secretKey.toString(),
         salt: salt.toString(),
@@ -190,12 +249,12 @@ export class EmbeddedWallet extends BaseWallet {
     );
 
     // Register the account with PXE
-    await accountManager.register();
+    await this.registerAccount(accountManager);
     this.accounts.set(
-      accountManager.getAddress().toString(),
+      accountManager.address.toString(),
       await accountManager.getAccount()
     );
-    this.connectedAccount = accountManager.getAddress();
+    this.connectedAccount = accountManager.address;
     return this.connectedAccount;
   }
 
@@ -212,18 +271,17 @@ export class EmbeddedWallet extends BaseWallet {
     );
     const accountManager = await AccountManager.create(
       this,
-      this.pxe,
       Fr.fromString(parsed.secretKey),
       contract,
       Fr.fromString(parsed.salt)
     );
 
-    await accountManager.register();
+    await this.registerAccount(accountManager);
     this.accounts.set(
-      accountManager.getAddress().toString(),
+      accountManager.address.toString(),
       await accountManager.getAccount()
     );
-    this.connectedAccount = accountManager.getAddress();
+    this.connectedAccount = accountManager.address;
     return this.connectedAccount;
   }
 
@@ -254,32 +312,30 @@ export class EmbeddedWallet extends BaseWallet {
 
   async simulateTx(
     executionPayload: ExecutionPayload,
-    opts: SimulateMethodOptions
+    opts: SimulateOptions
   ): Promise<TxSimulationResult> {
-    if (!opts.fee) {
-      const sponsoredPFCContract =
-        await EmbeddedWallet.#getSponsoredPFCContract();
-      opts.fee = {
-        paymentMethod: new SponsoredFeePaymentMethod(
-          sponsoredPFCContract.instance.address
-        ),
-      };
-    }
-    const executionOptions = { txNonce: Fr.random(), cancellable: false };
+    const feeOptions = opts.fee?.estimateGas
+      ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
+      : await this.getDefaultFeeOptions(opts.from, opts.fee);
+    const feeExecutionPayload =
+      await feeOptions.paymentMethod?.getExecutionPayload();
+    const executionOptions = {
+      txNonce: Fr.random(),
+      cancellable: this.cancellableTransactions,
+      isFeePayer: feeOptions.isFeePayer,
+      endSetup: feeOptions.endSetup,
+    };
+    const finalExecutionPayload = feeExecutionPayload
+      ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
+      : executionPayload;
     const {
       account: fromAccount,
       instance,
       artifact,
     } = await this.getFakeAccountDataFor(opts.from);
-    const fee = await this.getFeeOptions(
-      fromAccount,
-      executionPayload,
-      opts.fee,
-      executionOptions
-    );
     const txRequest = await fromAccount.createTxExecutionRequest(
-      executionPayload,
-      fee,
+      finalExecutionPayload,
+      feeOptions.gasSettings,
       executionOptions
     );
     const contractOverrides = {
@@ -292,26 +348,5 @@ export class EmbeddedWallet extends BaseWallet {
       true,
       { contracts: contractOverrides }
     );
-  }
-
-  async proveTx(
-    exec: ExecutionPayload,
-    opts: SimulateMethodOptions
-  ): Promise<TxProvingResult> {
-    if (!opts.fee) {
-      const sponsoredPFCContract =
-        await EmbeddedWallet.#getSponsoredPFCContract();
-      opts.fee = {
-        paymentMethod: new SponsoredFeePaymentMethod(
-          sponsoredPFCContract.instance.address
-        ),
-      };
-    }
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(
-      exec,
-      opts.from,
-      opts.fee
-    );
-    return this.pxe.proveTx(txRequest);
   }
 }

@@ -1,12 +1,14 @@
-import { type AztecAddress, BatchCall, SentTx, type Wallet } from '@aztec/aztec.js';
+import { type AztecAddress, BatchCall, SentTx } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import type { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { AztecNode, AztecNodeAdmin, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { BaseBot } from './base_bot.js';
 import type { BotConfig } from './config.js';
 import { BotFactory } from './factory.js';
+import type { BotStore } from './store/index.js';
 import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils.js';
 
 const TRANSFER_AMOUNT = 1;
@@ -14,7 +16,7 @@ const TRANSFER_AMOUNT = 1;
 export class Bot extends BaseBot {
   protected constructor(
     node: AztecNode,
-    wallet: Wallet,
+    wallet: TestWallet,
     defaultAccountAddress: AztecAddress,
     public readonly token: TokenContract | PrivateTokenContract,
     public readonly recipient: AztecAddress,
@@ -25,13 +27,19 @@ export class Bot extends BaseBot {
 
   static async create(
     config: BotConfig,
-    dependencies: { pxe?: PXE; node?: AztecNode; nodeAdmin?: AztecNodeAdmin },
+    wallet: TestWallet,
+    aztecNode: AztecNode,
+    aztecNodeAdmin: AztecNodeAdmin | undefined,
+    store: BotStore,
   ): Promise<Bot> {
-    const { node, wallet, defaultAccountAddress, token, recipient } = await new BotFactory(
+    const { defaultAccountAddress, token, recipient } = await new BotFactory(
       config,
-      dependencies,
+      wallet,
+      store,
+      aztecNode,
+      aztecNodeAdmin,
     ).setup();
-    return new Bot(node, wallet, defaultAccountAddress, token, recipient, config);
+    return new Bot(aztecNode, wallet, defaultAccountAddress, token, recipient, config);
   }
 
   public updateConfig(config: Partial<BotConfig>) {
@@ -59,8 +67,8 @@ export class Bot extends BaseBot {
           token.methods.transfer(TRANSFER_AMOUNT, this.defaultAccountAddress, recipient),
         );
 
-    const opts = this.getSendMethodOpts();
     const batch = new BatchCall(wallet, calls);
+    const opts = await this.getSendMethodOpts(batch);
 
     this.log.verbose(`Simulating transaction with ${calls.length}`, logCtx);
     await batch.simulate({ from: this.defaultAccountAddress });

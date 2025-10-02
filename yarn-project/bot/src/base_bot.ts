@@ -1,17 +1,17 @@
 import {
-  AuthWitness,
   AztecAddress,
-  FeeJuicePaymentMethod,
+  BatchCall,
+  ContractFunctionInteraction,
   type SendMethodOptions,
   SentTx,
   TxHash,
   TxReceipt,
-  type Wallet,
   createLogger,
   waitForProven,
 } from '@aztec/aztec.js';
 import { Gas } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import type { BotConfig } from './config.js';
 
@@ -23,7 +23,7 @@ export abstract class BaseBot {
 
   protected constructor(
     public readonly node: AztecNode,
-    public readonly wallet: Wallet,
+    public readonly wallet: TestWallet,
     public readonly defaultAccountAddress: AztecAddress,
     public config: BotConfig,
   ) {}
@@ -71,24 +71,25 @@ export abstract class BaseBot {
     return Promise.resolve();
   }
 
-  protected getSendMethodOpts(...authWitnesses: AuthWitness[]): SendMethodOptions {
-    const { l2GasLimit, daGasLimit } = this.config;
-    const paymentMethod = new FeeJuicePaymentMethod(this.defaultAccountAddress);
+  protected async getSendMethodOpts(interaction: ContractFunctionInteraction | BatchCall): Promise<SendMethodOptions> {
+    const { l2GasLimit, daGasLimit, baseFeePadding } = this.config;
 
-    let gasSettings, estimateGas;
+    this.wallet.setBaseFeePadding(baseFeePadding);
+
+    let gasSettings;
     if (l2GasLimit !== undefined && l2GasLimit > 0 && daGasLimit !== undefined && daGasLimit > 0) {
       gasSettings = { gasLimits: Gas.from({ l2Gas: l2GasLimit, daGas: daGasLimit }) };
-      estimateGas = false;
       this.log.verbose(`Using gas limits ${l2GasLimit} L2 gas ${daGasLimit} DA gas`);
     } else {
-      estimateGas = true;
       this.log.verbose(`Estimating gas for transaction`);
+      ({ estimatedGas: gasSettings } = await interaction.simulate({
+        fee: { estimateGas: true },
+        from: this.defaultAccountAddress,
+      }));
     }
-    const baseFeePadding = 2; // Send 3x the current base fee
     return {
       from: this.defaultAccountAddress,
-      fee: { estimateGas, paymentMethod, gasSettings, baseFeePadding },
-      authWitnesses,
+      fee: { gasSettings },
     };
   }
 }

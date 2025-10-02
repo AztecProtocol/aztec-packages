@@ -130,6 +130,9 @@ RUN apt update && \
         # C++ stack trace support
         libdw-dev \
         libelf-dev \
+        # Rust
+        pkg-config \
+        libssl-dev \
         # Node
         # WARNING: Need to downgrade to this version in the basebox below as well.
         nodejs=22.16.0-1nodesource1 \
@@ -242,6 +245,7 @@ RUN apt update && \
         python3-venv \
         python3-pip \
         m4 \
+        bison \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install osxcross. Requires developer to mount SDK from their mac host.

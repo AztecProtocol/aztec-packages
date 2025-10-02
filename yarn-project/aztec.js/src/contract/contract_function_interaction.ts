@@ -1,42 +1,20 @@
-import { ExecutionPayload } from '@aztec/entrypoints/payload';
+import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import {
-  type Capsule,
-  type HashedValues,
-  type OffchainEffect,
-  type SimulationStats,
-  type TxProfileResult,
-  collectOffchainEffects,
-} from '@aztec/stdlib/tx';
+import { type Capsule, type HashedValues, type TxProfileResult, collectOffchainEffects } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
-import type { ProfileMethodOptions, RequestMethodOptions, SimulateMethodOptions } from './interaction_options.js';
-
-/**
- * Represents the result type of a simulation.
- * By default, it will just be the return value of the simulated function
- * so contract interfaces behave as plain functions. If `includeMetadata` is set to true in `SimulateMethodOptions` on the input of `simulate(...)`,
- * it will provide extra information.
- */
-export type SimulationReturn<T extends boolean | undefined> = T extends true
-  ? {
-      /**
-       * Additional stats about the simulation
-       */
-      stats: SimulationStats;
-      /**
-       * Offchain effects generated during the simulation
-       */
-      offchainEffects: OffchainEffect[];
-      /**
-       * Return value of the function
-       */
-      result: any;
-    }
-  : any;
+import { getGasLimits } from './get_gas_limits.js';
+import {
+  type ProfileMethodOptions,
+  type RequestMethodOptions,
+  type SimulateMethodOptions,
+  type SimulationReturn,
+  sanitizeProfileOptions,
+  sanitizeSimulateOptions,
+} from './interaction_options.js';
 
 /**
  * This is the class that is returned when calling e.g. `contract.methods.myMethod(arg0, arg1)`.
@@ -76,35 +54,45 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     };
   }
 
-  // docs:start:request
   /**
-   * Returns an execution request that represents this operation.
-   * Can be used as a building block for constructing batch requests.
-   * @param options - An optional object containing additional configuration for the request generation.
-   * @returns An execution payload wrapped in promise.
+   * Returns the execution payload that allows this operation to happen on chain.
+   * @param options - Configuration options.
+   * @returns The execution payload for this operation
    */
   public override async request(options: RequestMethodOptions = {}): Promise<ExecutionPayload> {
-    // docs:end:request
     const calls = [await this.getFunctionCall()];
     const { authWitnesses, capsules } = options;
-    return new ExecutionPayload(
+    const feeExecutionPayload = options.fee?.paymentMethod
+      ? await options.fee.paymentMethod.getExecutionPayload()
+      : undefined;
+    const functionExecutionPayload = new ExecutionPayload(
       calls,
       this.authWitnesses.concat(authWitnesses ?? []),
       this.capsules.concat(capsules ?? []),
       this.extraHashedArgs,
     );
+    const finalExecutionPayload = feeExecutionPayload
+      ? mergeExecutionPayloads([feeExecutionPayload, functionExecutionPayload])
+      : functionExecutionPayload;
+    return finalExecutionPayload;
   }
 
   // docs:start:simulate
   /**
-   * Simulate a transaction and get its return values
+   * Simulate a transaction and get information from its execution.
    * Differs from prove in a few important ways:
-   * 1. It returns the values of the function execution
+   * 1. It returns the values of the function execution, plus additional metadata if requested
    * 2. It supports `utility`, `private` and `public` functions
    *
-   * @param options - An optional object containing additional configuration for the transaction.
-   * @returns The result of the transaction as returned by the contract function.
+   * @param options - An optional object containing additional configuration for the simulation.
+   * @returns Depending on the simulation options, this method directly returns the result value of the executed
+   * function or a rich object containing extra metadata, such as estimated gas costs (if requested via options),
+   * execution statistics and emitted offchain effects
    */
+  public async simulate<T extends SimulateMethodOptions>(
+    options: T,
+  ): Promise<SimulationReturn<Exclude<T['fee'], undefined>['estimateGas']>>;
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public async simulate<T extends SimulateMethodOptions>(options: T): Promise<SimulationReturn<T['includeMetadata']>>;
   // eslint-disable-next-line jsdoc/require-jsdoc
   public async simulate(options: SimulateMethodOptions): Promise<SimulationReturn<typeof options.includeMetadata>> {
@@ -128,7 +116,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
 
     const executionPayload = await this.request(options);
-    const simulatedTx = await this.wallet.simulateTx(executionPayload, options);
+    const simulatedTx = await this.wallet.simulateTx(executionPayload, await sanitizeSimulateOptions(options));
 
     let rawReturnValues;
     if (this.functionDao.functionType == FunctionType.PRIVATE) {
@@ -147,11 +135,16 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
 
     const returnValue = rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
 
-    if (options.includeMetadata) {
+    if (options.includeMetadata || options.fee?.estimateGas) {
+      const { gasLimits, teardownGasLimits } = getGasLimits(simulatedTx, options.fee?.estimatedGasPadding);
+      this.log.verbose(
+        `Estimated gas limits for tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
+      );
       return {
         stats: simulatedTx.stats,
         offchainEffects: collectOffchainEffects(simulatedTx.privateExecutionResult),
         result: returnValue,
+        estimatedGas: { gasLimits, teardownGasLimits },
       };
     } else {
       return returnValue;
@@ -170,7 +163,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
 
     const executionPayload = await this.request(options);
-    return await this.wallet.profileTx(executionPayload, options);
+    return await this.wallet.profileTx(executionPayload, await sanitizeProfileOptions(options));
   }
 
   /**

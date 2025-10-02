@@ -7,12 +7,10 @@
 
 namespace bb::avm2::simulation {
 
-// todo(ilyas): this needs to be re-worked when actually constrained
 struct CalldataEvent {
     uint32_t context_id;
-    uint32_t calldata_length;
+    uint32_t calldata_size;
     std::vector<FF> calldata;
-    FF output_hash;
 };
 
 } // namespace bb::avm2::simulation

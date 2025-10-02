@@ -60,7 +60,7 @@ use crate::{
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
-        AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACT_TREE_ROOT,
+        AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACT_TREE_ROOT, AVM_PUBLIC_INPUTS_PROVER_ID_ROW_IDX,
         AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX,
@@ -72,11 +72,11 @@ use crate::{
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX,
-        AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-        AVM_VK_INDEX, FLAT_PUBLIC_LOGS_HEADER_LENGTH, MAX_ENQUEUED_CALLS_PER_TX, PROOF_TYPE_AVM,
+        AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX, FLAT_PUBLIC_LOGS_HEADER_LENGTH,
+        MAX_ENQUEUED_CALLS_PER_TX,
     },
     messaging::l2_to_l1_message::L2ToL1Message,
-    proof::{avm_proof::AvmProof, traits::Verifiable, vk_data::VkData},
+    proof::traits::SerializeToColumns,
     traits::{Deserialize, Empty, FromField, Serialize, ToField},
 };
 
@@ -93,6 +93,7 @@ pub struct AvmCircuitPublicInputs {
     pub gas_settings: GasSettings,
     pub effective_gas_fees: GasFees,
     pub fee_payer: AztecAddress,
+    pub prover_id: Field,
     pub public_call_request_array_lengths: PublicCallRequestArrayLengths,
     pub public_setup_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
     pub public_app_logic_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
@@ -123,6 +124,7 @@ impl Empty for AvmCircuitPublicInputs {
             gas_settings: GasSettings::empty(),
             effective_gas_fees: GasFees::empty(),
             fee_payer: AztecAddress::zero(),
+            prover_id: 0,
             public_call_request_array_lengths: PublicCallRequestArrayLengths::empty(),
             public_setup_call_requests: [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
             public_app_logic_call_requests: [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
@@ -151,7 +153,7 @@ fn set_snapshot_in_cols(
     row_idx: u32,
 ) {
     cols[0][row_idx] = snapshot.root;
-    cols[1][row_idx] = snapshot.next_available_leaf_index as Field;
+    cols[1][row_idx] = snapshot.next_available_leaf_index;
 }
 fn set_gas_in_cols(
     gas: Gas,
@@ -336,6 +338,9 @@ impl AvmCircuitPublicInputs {
         // Fee payer
         cols[0][AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX] = self.fee_payer.to_field();
 
+        // Prover id
+        cols[0][AVM_PUBLIC_INPUTS_PROVER_ID_ROW_IDX] = self.prover_id;
+
         // Setup, app logic, and teardown call request array lengths
         cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX] =
             self.public_call_request_array_lengths.setup_calls as Field;
@@ -486,8 +491,10 @@ impl AvmCircuitPublicInputs {
         // return
         cols
     }
+}
 
-    pub fn to_columns_flat(self) -> [Field; AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH] {
+impl SerializeToColumns<AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH> for AvmCircuitPublicInputs {
+    fn serialize_to_columns(self) -> [Field; AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH] {
         let mut flat = [0; AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH];
 
         let cols = self.to_columns();
@@ -498,35 +505,6 @@ impl AvmCircuitPublicInputs {
         }
 
         flat
-    }
-}
-
-pub struct AvmProofData {
-    pub public_inputs: AvmCircuitPublicInputs,
-    pub proof: AvmProof,
-    pub vk_data: VkData<AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED>,
-}
-
-impl Verifiable for AvmProofData {
-    /// Verifies the proof against the verification key and public inputs.
-    /// The vk hash is also checked in the backend to match the key.
-    fn verify(self) {
-        std::verify_proof_with_type(
-            self.vk_data.vk.key,
-            self.proof.fields,
-            self.public_inputs.to_columns_flat(),
-            self.vk_data.vk.hash,
-            PROOF_TYPE_AVM,
-        );
-    }
-}
-
-impl AvmProofData {
-    /// Validates that the vk hash exists in the vk tree at the expected index.
-    pub fn validate_vk_in_vk_tree(self, vk_tree_root: Field) {
-        assert_eq(self.vk_data.leaf_index, AVM_VK_INDEX);
-        // Note: The hash of the verification key is checked in `verify_proof_with_type` against the given vk hash.
-        self.vk_data.validate_in_vk_tree(vk_tree_root);
     }
 }
 
@@ -543,7 +521,7 @@ fn serialization_of_empty_avm_circuit_public_inputs() {
 #[test]
 fn flat_columns_of_empty_avm_circuit_public_inputs() {
     let item = AvmCircuitPublicInputs::empty();
-    let flat = item.to_columns_flat();
+    let flat = item.serialize_to_columns();
     // some assertion just to make sure it isn't optimized away
     assert(flat.len() == AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH);
 }
@@ -593,7 +571,7 @@ fn flat_columns_of_avm_circuit_public_inputs() {
     item.reverted = true;
 
     // Serialize to columns
-    let flat = item.to_columns_flat();
+    let flat = item.serialize_to_columns();
 
     // Verify length
     // Define column offsets

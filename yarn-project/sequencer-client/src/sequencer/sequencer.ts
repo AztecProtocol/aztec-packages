@@ -127,15 +127,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   ) {
     super();
 
-    // Set an initial coinbase for metrics purposes, but this will potentially change with each block.
-    const validatorAddresses = this.validatorClient?.getValidatorAddresses() ?? [];
-    const coinbase =
-      validatorAddresses.length === 0
-        ? EthAddress.ZERO
-        : (this.validatorClient?.getCoinbaseForAttestor(validatorAddresses[0]) ?? EthAddress.ZERO);
-
-    this.metrics = new SequencerMetrics(telemetry, () => this.state, coinbase, this.rollupContract, 'Sequencer');
-
+    this.metrics = new SequencerMetrics(telemetry, this.rollupContract, 'Sequencer');
     // Initialize config
     this.updateConfig(this.config);
   }
@@ -220,7 +212,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * Starts the sequencer and moves to IDLE state.
    */
   public start() {
-    this.metrics.start();
     this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.pollingIntervalMs);
     this.setState(SequencerState.IDLE, undefined, { force: true });
     this.runningPromise.start();
@@ -232,7 +223,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    */
   public async stop(): Promise<void> {
     this.log.info(`Stopping sequencer`);
-    this.metrics.stop();
     this.publisher?.interrupt();
     await this.runningPromise?.stop();
     this.setState(SequencerState.STOPPED, undefined, { force: true });
@@ -360,8 +350,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const coinbase = this.validatorClient!.getCoinbaseForAttestor(attestorAddress);
     const feeRecipient = this.validatorClient!.getFeeRecipientForAttestor(attestorAddress);
 
-    this.metrics.setCoinbase(coinbase);
-
     // Prepare invalidation request if the pending chain is invalid (returns undefined if no need)
     const invalidateBlock = await publisher.simulateInvalidateBlock(syncedTo.pendingChainValidationStatus);
     const canProposeCheck = await publisher.canProposeAtNextEthBlock(
@@ -434,6 +422,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
+
+    this.metrics.incOpenSlot(slot, proposerAddressInNextSlot.toString());
     this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
       proposer: proposerInNextSlot?.toString(),
       coinbase,
@@ -493,7 +483,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     if (proposedBlock) {
       this.lastBlockPublished = block;
       this.emit('block-published', { blockNumber: newBlockNumber, slot: Number(slot) });
-      this.metrics.incFilledSlot(publisher.getSenderAddress().toString());
+      await this.metrics.incFilledSlot(publisher.getSenderAddress().toString(), coinbase);
     } else if (block) {
       this.emit('block-publish-failed', l1Response ?? {});
     }
@@ -616,7 +606,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const slot = proposalHeader.slotNumber.toBigInt();
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
 
-    // this.metrics.recordNewBlock(blockNumber, validTxs.length);
     const workTimer = new Timer();
     this.setState(SequencerState.CREATING_BLOCK, slot);
 

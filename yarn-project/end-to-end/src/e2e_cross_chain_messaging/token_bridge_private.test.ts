@@ -1,15 +1,27 @@
-import { Fr } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, EthAddress, Fr, type Logger } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { RollupContract } from '@aztec/ethereum';
+import type { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
+import type { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 describe('e2e_cross_chain_messaging token_bridge_private', () => {
   const t = new CrossChainMessagingTest('token_bridge_private');
 
-  let { crossChainTestHarness, ethAccount, aztecNode, logger, ownerAddress, l2Bridge, l2Token, wallet, user2Address } =
-    t;
+  let crossChainTestHarness: CrossChainTestHarness;
+  let ethAccount: EthAddress;
+  let aztecNode: AztecNode;
+  let logger: Logger;
+  let ownerAddress: AztecAddress;
+  let l2Bridge: TokenBridgeContract;
+  let l2Token: TokenContract;
+  let wallet: TestWallet;
+  let user2Address: AztecAddress;
+
   let rollup: RollupContract;
   let cheatCodes: CheatCodes;
 
@@ -17,27 +29,21 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     await t.applyBaseSnapshots();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ crossChainTestHarness, wallet, user2Address } = t);
+    ({ crossChainTestHarness, ethAccount, aztecNode, logger, ownerAddress, l2Bridge, l2Token, wallet, user2Address } =
+      t);
 
-    ethAccount = crossChainTestHarness.ethAccount;
-    aztecNode = crossChainTestHarness.aztecNode;
-    logger = crossChainTestHarness.logger;
-    ownerAddress = crossChainTestHarness.ownerAddress;
-    l2Bridge = crossChainTestHarness.l2Bridge;
-    l2Token = crossChainTestHarness.l2Token;
     rollup = new RollupContract(
       crossChainTestHarness!.l1Client,
       crossChainTestHarness!.l1ContractAddresses.rollupAddress,
     );
 
-    cheatCodes = await CheatCodes.create(t.aztecNodeConfig.l1RpcUrls, t.pxe, t.aztecNode);
+    cheatCodes = t.ctx.cheatCodes;
   }, 300_000);
 
   afterEach(async () => {
     await t.teardown();
   });
 
-  // docs:start:e2e_private_cross_chain
   it('Privately deposit funds from L1 -> L2 and withdraw back to L1', async () => {
     // Generate a claim secret using pedersen
     const l1TokenBalance = 1000000n;
@@ -59,7 +65,6 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     // time to withdraw the funds again!
     logger.info('Withdrawing funds from L2');
 
-    // docs:start:authwit_to_another_sc
     // 4. Give approval to bridge to burn owner's funds:
     const withdrawAmount = 9n;
     const authwitNonce = Fr.random();
@@ -67,7 +72,6 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
       caller: l2Bridge.address,
       action: l2Token.methods.burn_private(ownerAddress, withdrawAmount, authwitNonce),
     });
-    // docs:end:authwit_to_another_sc
 
     // 5. Withdraw owner's funds from L2 to L1
     const l2ToL1Message = await crossChainTestHarness.getL2ToL1MessageLeaf(withdrawAmount);
@@ -97,7 +101,6 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);
   });
-  // docs:end:e2e_private_cross_chain
 
   // This test checks that it's enough to have the claim secret to claim the funds to whoever we want.
   it('Claim secret is enough to consume the message', async () => {

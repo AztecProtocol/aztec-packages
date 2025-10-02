@@ -163,30 +163,38 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
     vinfo("verified sumcheck: ", (output.verified));
 
+    using C = ColumnAndShifts;
     std::array<FF, AVM_NUM_PUBLIC_INPUT_COLUMNS> claimed_evaluations = {
-        output.claimed_evaluations.public_inputs_cols_0_,
-        output.claimed_evaluations.public_inputs_cols_1_,
-        output.claimed_evaluations.public_inputs_cols_2_,
-        output.claimed_evaluations.public_inputs_cols_3_,
+        output.claimed_evaluations.get(C::public_inputs_cols_0_),
+        output.claimed_evaluations.get(C::public_inputs_cols_1_),
+        output.claimed_evaluations.get(C::public_inputs_cols_2_),
+        output.claimed_evaluations.get(C::public_inputs_cols_3_),
     };
 
     // TODO(#14234)[Unconditional PIs validation]: Inside of loop, replace pi_validation.must_imply() by
     // public_input_evaluation.assert_equal(claimed_evaluations[i]
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
         FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], output.challenge);
-        vinfo("public_input_evaluation failed, public inputs col ", i);
-        pi_validation.must_imply(public_input_evaluation == claimed_evaluations[i], "public_input_evaluation failed");
+        pi_validation.must_imply(public_input_evaluation == claimed_evaluations[i],
+                                 format("public_input_evaluation failed at column ", i));
     }
 
     // Execute Shplemini rounds.
     ClaimBatcher claim_batcher{
-        .unshifted = ClaimBatch{ commitments.get_unshifted(), output.claimed_evaluations.get_unshifted() },
-        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), output.claimed_evaluations.get_shifted() }
+        .unshifted = ClaimBatch{ .commitments = RefVector<Commitment>::from_span(commitments.get_unshifted()),
+                                 .evaluations = RefVector<FF>::from_span(output.claimed_evaluations.get_unshifted()) },
+        .shifted = ClaimBatch{ .commitments = RefVector<Commitment>::from_span(commitments.get_to_be_shifted()),
+                               .evaluations = RefVector<FF>::from_span(output.claimed_evaluations.get_shifted()) }
     };
     const BatchOpeningClaim<Curve> opening_claim = Shplemini::compute_batch_opening_claim(
         padding_indicator_array, claim_batcher, output.challenge, Commitment::one(&builder), transcript);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+
+    if (builder.failed()) {
+        info("AVM Recursive verifier builder failed with error: ", builder.err());
+    }
+
     return pairing_points;
 }
 

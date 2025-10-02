@@ -4,7 +4,6 @@ import {
   EthAddress,
   Fr,
   type Logger,
-  type PXE,
   computeAuthWitMessageHash,
   generateClaimSecret,
 } from '@aztec/aztec.js';
@@ -21,7 +20,7 @@ import { InboxAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-art
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract, parseEther, toFunctionSelector } from 'viem';
@@ -36,15 +35,12 @@ import { CrossChainTestHarness } from './cross_chain_test_harness.js';
 // anvil --fork-url https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c --fork-block-number 17514288 --chain-id 31337
 // For CI, this is configured in `run_tests.sh` and `docker-compose-images.yml`
 
-// docs:start:uniswap_l1_l2_test_setup_const
 const TIMEOUT = 360_000;
 
 /** Objects to be returned by the uniswap setup function */
 export type UniswapSetupContext = {
   /** Aztec Node instance */
   aztecNode: AztecNode;
-  /** The Private eXecution Environment (PXE). */
-  pxe: PXE;
   /** Logger instance named as the current test. */
   logger: Logger;
   /** The L1 wallet client, extended with public actions. */
@@ -60,14 +56,12 @@ export type UniswapSetupContext = {
   /** Cheat codes instance. */
   cheatCodes: CheatCodes;
 };
-// docs:end:uniswap_l1_l2_test_setup_const
 
 export const uniswapL1L2TestSuite = (
   setup: () => Promise<UniswapSetupContext>,
   cleanup: () => Promise<void>,
   expectedForkBlockNumber = 17514288,
 ) => {
-  // docs:start:uniswap_l1_l2_test_beforeAll
   describe('uniswap_trade_on_l1_from_l2', () => {
     jest.setTimeout(TIMEOUT);
 
@@ -75,7 +69,6 @@ export const uniswapL1L2TestSuite = (
     const DAI_ADDRESS: EthAddress = EthAddress.fromString('0x6B175474E89094C44Da98b954EedeAC495271d0F');
 
     let aztecNode: AztecNode;
-    let pxe: PXE;
     let logger: Logger;
 
     let l1Client: ExtendedViemWalletClient;
@@ -102,7 +95,7 @@ export const uniswapL1L2TestSuite = (
     let cheatCodes: CheatCodes;
     let version: number;
     beforeAll(async () => {
-      ({ aztecNode, pxe, logger, l1Client, wallet, ownerAddress, sponsorAddress, deployL1ContractsValues, cheatCodes } =
+      ({ aztecNode, logger, l1Client, wallet, ownerAddress, sponsorAddress, deployL1ContractsValues, cheatCodes } =
         await setup());
 
       if (Number(await l1Client.getBlockNumber()) < expectedForkBlockNumber) {
@@ -121,7 +114,6 @@ export const uniswapL1L2TestSuite = (
       logger.info('Deploying DAI Portal, initializing and deploying l2 contract...');
       daiCrossChainHarness = await CrossChainTestHarness.new(
         aztecNode,
-        pxe,
         deployL1ContractsValues.l1Client,
         wallet,
         ownerAddress,
@@ -132,7 +124,6 @@ export const uniswapL1L2TestSuite = (
       logger.info('Deploying WETH Portal, initializing and deploying l2 contract...');
       wethCrossChainHarness = await CrossChainTestHarness.new(
         aztecNode,
-        pxe,
         l1Client,
         wallet,
         ownerAddress,
@@ -170,7 +161,6 @@ export const uniswapL1L2TestSuite = (
       const wethBalance = await wethCrossChainHarness.getL1BalanceOf(ownerEthAddress);
       expect(wethBalance).toBe(parseEther('1000'));
     });
-    // docs:end:uniswap_l1_l2_test_beforeAll
 
     afterAll(async () => {
       await cleanup();

@@ -5,7 +5,6 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import {
   type EmpireSlashingProposerContract,
   FormattedViemError,
-  type GasPrice,
   type GovernanceProposerContract,
   type IEmpireBase,
   type L1BlobInputs,
@@ -29,7 +28,7 @@ import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import type { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -41,7 +40,6 @@ import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
 import { StateReference } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import pick from 'lodash.pick';
 import { type TransactionReceipt, type TypedDataDefinition, encodeFunctionData, toHex } from 'viem';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
@@ -63,11 +61,6 @@ type L1ProcessArgs = {
   attestationsAndSignersSignature: Signature;
 };
 
-export enum SignalType {
-  GOVERNANCE,
-  SLASHING,
-}
-
 export const Actions = [
   'invalidate-by-invalid-attestation',
   'invalidate-by-insufficient-attestations',
@@ -79,7 +72,10 @@ export const Actions = [
   'vote-offenses',
   'execute-slash',
 ] as const;
+
 export type Action = (typeof Actions)[number];
+
+type GovernanceSignalAction = Extract<Action, 'governance-signal' | 'empire-slashing-signal'>;
 
 // Sorting for actions such that invalidations go before proposals, and proposals go before votes
 export const compareActions = (a: Action, b: Action) => Actions.indexOf(a) - Actions.indexOf(b);
@@ -100,7 +96,7 @@ interface RequestWithExpiry {
   blobConfig?: L1BlobInputs;
   checkSuccess: (
     request: L1TxRequest,
-    result?: { receipt: TransactionReceipt; gasPrice: GasPrice; stats?: TransactionStats; errorMsg?: string },
+    result?: { receipt: TransactionReceipt; stats?: TransactionStats; errorMsg?: string },
   ) => boolean;
 }
 
@@ -112,12 +108,9 @@ export class SequencerPublisher {
   protected governanceLog = createLogger('sequencer:publisher:governance');
   protected slashingLog = createLogger('sequencer:publisher:slashing');
 
-  private myLastSignals: Record<SignalType, bigint> = {
-    [SignalType.GOVERNANCE]: 0n,
-    [SignalType.SLASHING]: 0n,
-  };
+  protected lastActions: Partial<Record<Action, bigint>> = {};
 
-  protected log = createLogger('sequencer:publisher');
+  protected log: Logger;
   protected ethereumSlotDuration: bigint;
 
   private blobSinkClient: BlobSinkClientInterface;
@@ -153,10 +146,14 @@ export class SequencerPublisher {
       epochCache: EpochCache;
       dateProvider: DateProvider;
       metrics: SequencerPublisherMetrics;
+      lastActions: Partial<Record<Action, bigint>>;
+      log?: Logger;
     },
   ) {
+    this.log = deps.log ?? createLogger('sequencer:publisher');
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.epochCache = deps.epochCache;
+    this.lastActions = deps.lastActions;
 
     this.blobSinkClient =
       deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('sequencer:blob-sink:client') });
@@ -286,7 +283,7 @@ export class SequencerPublisher {
 
   private callbackBundledTransactions(
     requests: RequestWithExpiry[],
-    result?: { receipt: TransactionReceipt; gasPrice: GasPrice } | FormattedViemError,
+    result?: { receipt: TransactionReceipt } | FormattedViemError,
   ) {
     const actionsListStr = requests.map(r => r.action).join(', ');
     if (result instanceof FormattedViemError) {
@@ -524,13 +521,14 @@ export class SequencerPublisher {
   private async enqueueCastSignalHelper(
     slotNumber: bigint,
     timestamp: bigint,
-    signalType: SignalType,
+    signalType: GovernanceSignalAction,
     payload: EthAddress,
     base: IEmpireBase,
     signerAddress: EthAddress,
     signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
-    if (this.myLastSignals[signalType] >= slotNumber) {
+    if (this.lastActions[signalType] && this.lastActions[signalType] === slotNumber) {
+      this.log.debug(`Skipping duplicate vote cast signal ${signalType} for slot ${slotNumber}`);
       return false;
     }
     if (payload.equals(EthAddress.ZERO)) {
@@ -547,10 +545,9 @@ export class SequencerPublisher {
       return false;
     }
 
-    const cachedLastVote = this.myLastSignals[signalType];
-    this.myLastSignals[signalType] = slotNumber;
-
-    const action = signalType === SignalType.GOVERNANCE ? 'governance-signal' : 'empire-slashing-signal';
+    const cachedLastVote = this.lastActions[signalType];
+    this.lastActions[signalType] = slotNumber;
+    const action = signalType;
 
     const request = await base.createSignalRequestWithSignature(
       payload.toString(),
@@ -593,7 +590,7 @@ export class SequencerPublisher {
             `Signaling in [${action}] for ${payload} at slot ${slotNumber} in round ${round} failed`,
             logData,
           );
-          this.myLastSignals[signalType] = cachedLastVote;
+          this.lastActions[signalType] = cachedLastVote;
           return false;
         } else {
           this.log.info(
@@ -623,7 +620,7 @@ export class SequencerPublisher {
     return this.enqueueCastSignalHelper(
       slotNumber,
       timestamp,
-      SignalType.GOVERNANCE,
+      'governance-signal',
       governancePayload,
       this.govProposerContract,
       signerAddress,
@@ -657,7 +654,7 @@ export class SequencerPublisher {
           await this.enqueueCastSignalHelper(
             slotNumber,
             timestamp,
-            SignalType.SLASHING,
+            'empire-slashing-signal',
             action.payload,
             this.slashingProposerContract,
             signerAddress,
@@ -810,7 +807,8 @@ export class SequencerPublisher {
     // We issued the simulation against the rollup contract, so we need to account for the overhead of the multicall3
     const gasLimit = this.l1TxUtils.bumpGasLimit(BigInt(Math.ceil((Number(request.gasUsed) * 64) / 63)));
 
-    const logData = { ...pick(request, 'gasUsed', 'blockNumber'), gasLimit, opts };
+    const { gasUsed, blockNumber } = request;
+    const logData = { gasUsed, blockNumber, gasLimit, opts };
     this.log.verbose(`Enqueuing invalidate block request`, logData);
     this.addRequest({
       action: `invalidate-by-${request.reason}`,
@@ -834,16 +832,24 @@ export class SequencerPublisher {
   }
 
   private async simulateAndEnqueueRequest(
-    action: RequestWithExpiry['action'],
+    action: Action,
     request: L1TxRequest,
     checkSuccess: (receipt: TransactionReceipt) => boolean | undefined,
     slotNumber: bigint,
     timestamp: bigint,
   ) {
     const logData = { slotNumber, timestamp, gasLimit: undefined as bigint | undefined };
-    let gasUsed: bigint;
+    if (this.lastActions[action] && this.lastActions[action] === slotNumber) {
+      this.log.debug(`Skipping duplicate action ${action} for slot ${slotNumber}`);
+      return false;
+    }
 
-    this.log.debug(`Simulating ${action}`, logData);
+    const cachedLastActionSlot = this.lastActions[action];
+    this.lastActions[action] = slotNumber;
+
+    this.log.debug(`Simulating ${action} for slot ${slotNumber}`, logData);
+
+    let gasUsed: bigint;
     try {
       ({ gasUsed } = await this.l1TxUtils.simulate(request, { time: timestamp }, [], ErrorsAbi)); // TODO(palla/slash): Check the timestamp logic
       this.log.verbose(`Simulation for ${action} succeeded`, { ...logData, request, gasUsed });
@@ -867,6 +873,7 @@ export class SequencerPublisher {
         const success = result && result.receipt && result.receipt.status === 'success' && checkSuccess(result.receipt);
         if (!success) {
           this.log.warn(`Action ${action} at ${slotNumber} failed`, { ...result, ...logData });
+          this.lastActions[action] = cachedLastActionSlot;
         } else {
           this.log.info(`Action ${action} at ${slotNumber} succeeded`, { ...result, ...logData });
         }
@@ -1071,13 +1078,16 @@ export class SequencerPublisher {
         if (success) {
           const endBlock = receipt.blockNumber;
           const inclusionBlocks = Number(endBlock - startBlock);
+          const { calldataGas, calldataSize, sender } = stats!;
           const publishStats: L1PublishBlockStats = {
             gasPrice: receipt.effectiveGasPrice,
             gasUsed: receipt.gasUsed,
             blobGasUsed: receipt.blobGasUsed ?? 0n,
             blobDataGas: receipt.blobGasPrice ?? 0n,
             transactionHash: receipt.transactionHash,
-            ...pick(stats!, 'calldataGas', 'calldataSize', 'sender'),
+            calldataGas,
+            calldataSize,
+            sender,
             ...block.getStats(),
             eventName: 'rollup-published-to-l1',
             blobCount: encodedData.blobs.length,

@@ -227,6 +227,7 @@ std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase p
              { Column::tx_contract_addr, event.contract_address },
              { Column::tx_fee, event.transaction_fee },
              { Column::tx_is_static, event.is_static },
+             { Column::tx_calldata_size, event.calldata_size },
              { Column::tx_calldata_hash, event.calldata_hash },
              { Column::tx_reverted, !event.success },
              { Column::tx_prev_da_gas_used_sent_to_enqueued_call, event.start_gas.daGas },
@@ -661,6 +662,7 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_read_phase_table_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_phase_jump_on_revert_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_phase_length_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_read_calldata_hash_settings, InteractionType::LookupSequential>()
         .add<lookup_tx_read_public_call_request_phase_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_dispatch_exec_start_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_dispatch_exec_end_settings, InteractionType::LookupGeneric>()

@@ -105,6 +105,12 @@ The keystore defines keys and addresses for sequencer operation:
 
 Replace the placeholder values with your actual keys and addresses.
 
+:::warning
+
+Because the publisher posts block proposals to L1, the account needs to be funded with ETH. Ensure the account holds at least 0.1 ETH during operation of the sequencer to avoid being slashed.
+
+:::
+
 ### Node Configuration
 
 Required environment variables:

@@ -36,7 +36,7 @@ import {TransientSlot} from "@oz/utils/TransientSlot.sol";
  *
  *      1. Committee Selection:
  *         - At the start of each epoch, a committee is sampled from the active validator set
- *         - Committee size is configurable (targetCommitteeSize) but validators must meet this minimum
+ *         - Committee size is configurable at deployment (targetCommitteeSize), and must be met
  *         - Selection uses cryptographic randomness (prevrandao + epoch)
  *         - Committee remains stable throughout the entire epoch for consistency
  *         - Committee commitment is stored onchain and validated against reconstructed committees

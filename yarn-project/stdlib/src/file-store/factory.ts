@@ -4,9 +4,11 @@ import { GoogleCloudFileStore } from './gcs.js';
 import { HttpFileStore } from './http.js';
 import type { FileStore, ReadOnlyFileStore } from './interface.js';
 import { LocalFileStore } from './local.js';
+import { S3FileStore } from './s3.js';
 
 const supportedExamples = [
   `gs://bucket-name/path/to/store`,
+  `s3://bucket-name/path/to/store`,
   `file:///absolute/local/path/to/store`,
   `https://host/path`,
 ];
@@ -38,6 +40,19 @@ export async function createFileStore(
       return store;
     } catch {
       throw new Error(`Invalid google cloud store definition: '${config}'.`);
+    }
+  } else if (config.startsWith('s3://')) {
+    try {
+      const url = new URL(config);
+      const bucket = url.host;
+      const path = url.pathname.replace(/^\/+/, '');
+      const endpoint = url.searchParams.get('endpoint');
+      const publicBaseUrl = url.searchParams.get('publicBaseUrl') ?? undefined;
+      logger.info(`Creating S3 file store at ${bucket} ${path}`);
+      const store = new S3FileStore(bucket, path, { endpoint: endpoint ?? undefined, publicBaseUrl });
+      return store;
+    } catch {
+      throw new Error(`Invalid S3 store definition: '${config}'.`);
     }
   } else {
     throw new Error(`Unknown file store config: '${config}'. Supported values are ${supportedExamples.join(', ')}.`);

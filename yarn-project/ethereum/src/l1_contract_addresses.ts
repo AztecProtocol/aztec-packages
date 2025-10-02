@@ -32,6 +32,7 @@ export type L1ContractAddresses = {
   stakingAssetHandlerAddress?: EthAddress | undefined;
   zkPassportVerifierAddress?: EthAddress | undefined;
   gseAddress?: EthAddress | undefined;
+  dateGatedRelayerAddress?: EthAddress | undefined;
 };
 
 export const L1ContractAddressesSchema = z.object({
@@ -51,12 +52,13 @@ export const L1ContractAddressesSchema = z.object({
   stakingAssetHandlerAddress: schemas.EthAddress.optional(),
   zkPassportVerifierAddress: schemas.EthAddress.optional(),
   gseAddress: schemas.EthAddress.optional(),
+  dateGatedRelayerAddress: schemas.EthAddress.optional(),
 }) satisfies ZodFor<L1ContractAddresses>;
 
 const parseEnv = (val: string) => EthAddress.fromString(val);
 
 export const l1ContractAddressesMapping: ConfigMappingsType<
-  Omit<L1ContractAddresses, 'gseAddress' | 'zkPassportVerifierAddress'>
+  Omit<L1ContractAddresses, 'gseAddress' | 'zkPassportVerifierAddress' | 'dateGatedRelayerAddress'>
 > = {
   registryAddress: {
     env: 'REGISTRY_CONTRACT_ADDRESS',
