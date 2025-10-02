@@ -38,6 +38,8 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
 
     auto g1_path = path / "bn254_g1.dat";
     auto lock_path = path / "crs.lock";
+    // Acquire exclusive lock to prevent simultaneous downloads
+    FileLockGuard lock(lock_path.string());
 
     size_t g1_downloaded_points = get_file_size(g1_path) / sizeof(g1::affine_element);
 
@@ -60,9 +62,6 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
                               num_points,
                               " were requested but download not allowed in this context"));
     }
-
-    // Acquire exclusive lock to prevent simultaneous downloads
-    FileLockGuard lock(lock_path.string());
 
     // Double-check after acquiring lock (another process may have downloaded while we waited)
     g1_downloaded_points = get_file_size(g1_path) / sizeof(g1::affine_element);
