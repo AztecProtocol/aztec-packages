@@ -57,7 +57,7 @@ template <typename Field> class StdlibCodec {
      * @param challenge a 128- or a 126- bit limb of a full challenge
      * @return T
      */
-    template <typename Builder, typename T> inline T convert_challenge(const fr& challenge)
+    template <typename T> static T convert_challenge(const fr& challenge)
     {
         if constexpr (std::is_same_v<T, fr>) {
             return challenge;
