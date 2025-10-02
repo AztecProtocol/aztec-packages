@@ -5,6 +5,8 @@ sidebar_position: 6
 description: Step-by-step guide to implementing authentication witnesses in Aztec.js for delegated transactions.
 ---
 
+<!-- docs:start:use_authwit -->
+
 This guide shows you how to create and use authentication witnesses (authwits) to authorize other accounts to perform actions on your behalf.
 
 :::warning aztec-nr
@@ -31,13 +33,13 @@ Let's also assume we have a contract with functions `some_public_function` and `
 Regardless of its type, you'll want to define what is being delegated (let's call it "action") and the intent ("who intends to act"). For example:
 
 ```typescript
-const nonce = Fr.random()
+const nonce = Fr.random();
 
 // bob creates an authwit that authorizes alice to call the function on his behalf
-const action = contract.methods.some_private_function(bob, 10n, nonce)
+const action = contract.methods.some_private_function(bob, 10n, nonce);
 const intent = {
-    caller: alice.address, // alice "intends" to call the function on bob's behalf
-    action
+  caller: alice.address, // alice "intends" to call the function on bob's behalf
+  action,
 };
 ```
 
@@ -68,13 +70,13 @@ Public authwits mean the authorization is public, so it requires a transaction. 
 ```typescript
 // "true" is specific here... because you may want to revoke it later!
 const authwit = await wallet.setPublicAuthWit(bob.address, intent, true);
-await authwit.send({ from: bob.address }).wait()
+await authwit.send({ from: bob.address }).wait();
 ```
 
 Now that everyone knows about the public authorization, alice can call the function normally:
 
 ```typescript
-await action.send({ from: alice.address }).wait()
+await action.send({ from: alice.address }).wait();
 ```
 
 ## Create arbitrary message authwits
@@ -86,21 +88,20 @@ This is useful when you need to authorize arbitrary data rather than a specific 
 You can use `computeInnerAuthWitHash` to get yourself a hash of arbitrary hash you can use in an authwit:
 
 ```typescript
-import { computeInnerAuthWitHash, computeAuthWitMessageHash } from "@aztec/aztec.js";
+import {
+  computeInnerAuthWitHash,
+  computeAuthWitMessageHash,
+} from "@aztec/aztec.js";
 
 // Create hash of arbitrary data
-const innerHash = computeInnerAuthWitHash([
-    field1,
-    field2,
-    field3
-]);
+const innerHash = computeInnerAuthWitHash([field1, field2, field3]);
 
 // Create full authwit message hash
 const messageHash = computeAuthWitMessageHash(
-    executorAddress,
-    chainId,
-    version,
-    innerHash
+  executorAddress,
+  chainId,
+  version,
+  innerHash
 );
 ```
 
@@ -110,10 +111,15 @@ Because public authwits are... well, public, that means you should be able to re
 
 ```typescript
 // Set authorized to false to revoke
-const revoked = await authorizerWallet.setPublicAuthWit({
-    caller: executorAddress,
-    action: action
-}, false).send({ from: account.address });
+const revoked = await authorizerWallet
+  .setPublicAuthWit(
+    {
+      caller: executorAddress,
+      action: action,
+    },
+    false
+  )
+  .send({ from: account.address });
 ```
 
 ## Next steps
@@ -122,3 +128,5 @@ const revoked = await authorizerWallet.setPublicAuthWit({
 - Understand [authwit concepts](../../concepts/advanced/authwit.md)
 - Explore [account abstraction](../../concepts/accounts/index.md)
 - Implement [cross-chain messaging](../smart_contracts/how_to_communicate_cross_chain.md)
+
+<!-- docs:end:use_authwit -->

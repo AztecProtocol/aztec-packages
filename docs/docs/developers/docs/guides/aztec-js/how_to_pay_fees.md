@@ -5,6 +5,8 @@ sidebar_position: 7
 description: Pay transaction fees on Aztec using different payment methods and fee paying contracts.
 ---
 
+<!-- docs:start:pay_fees -->
+
 import { Fees } from '@site/src/components/Snippets/general_snippets';
 
 This guide shows you how to pay transaction fees on Aztec using various payment methods.
@@ -24,22 +26,23 @@ This guide shows you how to pay transaction fees on Aztec using various payment 
 Fee Juice is the native fee token on Aztec. Fees are paid using this token:
 
 ```typescript
-import { FeeJuicePaymentMethod } from '@aztec/aztec.js';
+import { FeeJuicePaymentMethod } from "@aztec/aztec.js";
 
 // make sure your wallet knows about this account, and that it has funds!
 const paymentMethod = new FeeJuicePaymentMethod(fundedAccount.address);
 
 const tx = await contract.methods
-    .myFunction(param1, param2)
-    .send({
-        from: fundedAccount.address,
-        fee: { // add this
-            paymentMethod
-        }
-    })
-    .wait();
+  .myFunction(param1, param2)
+  .send({
+    from: fundedAccount.address,
+    fee: {
+      // add this
+      paymentMethod,
+    },
+  })
+  .wait();
 
-console.log('Transaction fee:', tx.transactionFee);
+console.log("Transaction fee:", tx.transactionFee);
 ```
 
 ### Sponsored Fee Payment Contracts
@@ -52,21 +55,33 @@ You can derive the Sponsored FPC address just by knowing its deployment paramete
 
 ```typescript
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
-import { getContractInstanceFromInstantiationParams, SponsoredFeePaymentMethod } from '@aztec/aztec.js';
+import {
+  getContractInstanceFromInstantiationParams,
+  SponsoredFeePaymentMethod,
+} from "@aztec/aztec.js";
 
-const sponsoredFPCInstance = await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
-  salt: new Fr(0),
-});
+const sponsoredFPCInstance = await getContractInstanceFromInstantiationParams(
+  SponsoredFPCContract.artifact,
+  {
+    salt: new Fr(0),
+  }
+);
 
 // you need to tell your PXE about this new contract
-await pxe.registerContract({ instance: sponsoredFPCInstance, artifact: SponsoredFPCContract.artifact });
-const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPCInstance.address);
+await pxe.registerContract({
+  instance: sponsoredFPCInstance,
+  artifact: SponsoredFPCContract.artifact,
+});
+const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
+  sponsoredFPCInstance.address
+);
 
 // Deploy account for free
-await yourAccount.deploy({
-    fee: { sponsoredPaymentMethod }
-}).wait();
-
+await yourAccount
+  .deploy({
+    fee: { sponsoredPaymentMethod },
+  })
+  .wait();
 ```
 
 ## Use Other Fee Paying Contracts (FPCs)
@@ -78,38 +93,36 @@ On a different scenario, a third-party would be glad to pay for your fees using 
 Pay fees privately using a private FPC:
 
 ```typescript
-import { PrivateFeePaymentMethod } from '@aztec/aztec.js';
+import { PrivateFeePaymentMethod } from "@aztec/aztec.js";
 
 // Private FPCs enable fee payments without revealing the payer's identity onchain.
 const paymentMethod = new PrivateFeePaymentMethod(
-    fpcAddress,
-    senderAddress,
-    wallet
+  fpcAddress,
+  senderAddress,
+  wallet
 );
 
 const tx = await contract.methods
-    .myFunction(param1)
-    .send({
-        from: wallet.address,
-        fee: {
-            paymentMethod
-        }
-    })
-    .wait();
+  .myFunction(param1)
+  .send({
+    from: wallet.address,
+    fee: {
+      paymentMethod,
+    },
+  })
+  .wait();
 ```
 
 A Public FPC payment method would look something like:
 
 ```typescript
-
-import { PublicFeePaymentMethod } from '@aztec/aztec.js';
+import { PublicFeePaymentMethod } from "@aztec/aztec.js";
 
 const paymentMethod = new PublicFeePaymentMethod(
-    fpcAddress,
-    senderAddress,
-    wallet
+  fpcAddress,
+  senderAddress,
+  wallet
 );
-
 ```
 
 ## Configure gas settings
@@ -119,41 +132,41 @@ const paymentMethod = new PublicFeePaymentMethod(
 You can set custom gas limits easily by importing from the `stdlib`:
 
 ```typescript
-import { GasSettings, Gas, GasFees } from '@aztec/stdlib/gas';
+import { GasSettings, Gas, GasFees } from "@aztec/stdlib/gas";
 
 const gasSettings = new GasSettings(
-    new Gas(100000, 100000),      // gasLimits (DA, L2)
-    new Gas(10000, 10000),         // teardownGasLimits
-    new GasFees(10, 10),           // maxFeesPerGas
-    new GasFees(1, 1)              // maxPriorityFeesPerGas
+  new Gas(100000, 100000), // gasLimits (DA, L2)
+  new Gas(10000, 10000), // teardownGasLimits
+  new GasFees(10, 10), // maxFeesPerGas
+  new GasFees(1, 1) // maxPriorityFeesPerGas
 );
 
 const tx = await contract.methods
-    .myFunction()
-    .send({
-        from: wallet.address,
-        fee: {
-            paymentMethod,
-            gasSettings
-        }
-    })
-    .wait();
+  .myFunction()
+  .send({
+    from: wallet.address,
+    fee: {
+      paymentMethod,
+      gasSettings,
+    },
+  })
+  .wait();
 ```
 
 ### Use automatic gas estimation
 
 ```typescript
 const tx = await contract.methods
-    .myFunction()
-    .send({
-        from: wallet.address,
-        fee: {
-            paymentMethod,
-            estimateGas: true,
-            estimatedGasPadding: 0.2  // 20% padding
-        }
-    })
-    .wait();
+  .myFunction()
+  .send({
+    from: wallet.address,
+    fee: {
+      paymentMethod,
+      estimateGas: true,
+      estimatedGasPadding: 0.2, // 20% padding
+    },
+  })
+  .wait();
 ```
 
 :::tip
@@ -165,3 +178,5 @@ Gas estimation runs a simulation first to determine actual gas usage, then adds 
 - Learn about [fee concepts](../../concepts/fees.md) in detail
 - Explore [authentication witnesses](./how_to_use_authwit.md) for delegated payments
 - See [testing guide](./how_to_test.md) for fee testing strategies
+
+<!-- docs:end:pay_fees -->

@@ -5,6 +5,8 @@ description: Send transactions to Aztec contracts using Aztec.js with various op
 tags: [transactions, contracts, aztec.js]
 ---
 
+<!-- docs:start:send_transaction -->
+
 This guide shows you how to send transactions to smart contracts on Aztec.
 
 ## Prerequisites
@@ -27,7 +29,7 @@ const contract = await Contract.at(contractAddress, artifact, wallet);
 or
 
 ```typescript
-import { MyContract } from './artifacts/MyContract';
+import { MyContract } from "./artifacts/MyContract";
 
 const contract = await MyContract.at(contractAddress, wallet);
 ```
@@ -36,16 +38,16 @@ You should [choose your fee-paying method](./how_to_pay_fees.md) and just call a
 
 ```typescript
 const withFeeJuice = await contract.methods
-    .transfer(recipientAddress, amount)
-    .send({ from: fundedAccount.address }) // if this account has fee-juice
-    .wait();
+  .transfer(recipientAddress, amount)
+  .send({ from: fundedAccount.address }) // if this account has fee-juice
+  .wait();
 
 // or using the Sponsored FPC
 
 const sponsored = await contract.methods
-    .transfer(recipientAddress, amount)
-    .send({ fee: { paymentMethod: sponsoredPaymentMethod } })
-    .wait();
+  .transfer(recipientAddress, amount)
+  .send({ fee: { paymentMethod: sponsoredPaymentMethod } })
+  .wait();
 ```
 
 ### Send without waiting
@@ -53,8 +55,8 @@ const sponsored = await contract.methods
 ```typescript
 // Send transaction and get a SentTx object
 const sentTx = contract.methods
-    .transfer(recipientAddress, amount)
-    .send({ from: fundedAccount.address });
+  .transfer(recipientAddress, amount)
+  .send({ from: fundedAccount.address });
 
 // Get transaction hash immediately
 const txHash = await sentTx.getTxHash();
@@ -70,16 +72,18 @@ console.log(`Transaction mined in block ${receipt.blockNumber}`);
 ### Execute multiple calls atomically
 
 ```typescript
-import { BatchCall } from '@aztec/aztec.js';
+import { BatchCall } from "@aztec/aztec.js";
 
 const batch = new BatchCall(wallet, [
-    token.methods.approve(spender, amount),
-    contract.methods.deposit(amount),
-    contract.methods.updateState()
+  token.methods.approve(spender, amount),
+  contract.methods.deposit(amount),
+  contract.methods.updateState(),
 ]);
 
 const receipt = await batch.send({ from: fundedAccount.address }).wait();
-console.log(`Batch executed in block ${receipt.blockNumber} with fee ${receipt.transactionFee}`);
+console.log(
+  `Batch executed in block ${receipt.blockNumber} with fee ${receipt.transactionFee}`
+);
 ```
 
 :::warning
@@ -102,18 +106,18 @@ const txHash = await sentTx.getTxHash();
 const effect = await pxe.getTxEffect(txHash);
 
 // Access public data writes
-effect.data.publicDataWrites.forEach(write => {
-    console.log(`Wrote ${write.value} to slot ${write.leafSlot}`);
+effect.data.publicDataWrites.forEach((write) => {
+  console.log(`Wrote ${write.value} to slot ${write.leafSlot}`);
 });
 
 // Check note hashes (private note commitments)
-effect.data.noteHashes.forEach(noteHash => {
-    console.log(`Created note: ${noteHash.toString()}`);
+effect.data.noteHashes.forEach((noteHash) => {
+  console.log(`Created note: ${noteHash.toString()}`);
 });
 
 // Check nullifiers (consumed notes)
-effect.data.nullifiers.forEach(nullifier => {
-    console.log(`Nullified: ${nullifier.toString()}`);
+effect.data.nullifiers.forEach((nullifier) => {
+  console.log(`Nullified: ${nullifier.toString()}`);
 });
 ```
 
@@ -123,3 +127,5 @@ effect.data.nullifiers.forEach(nullifier => {
 - Understand [authentication witnesses](./how_to_use_authwit.md) for delegated transactions
 - Configure [gas and fees](./how_to_pay_fees.md) for optimal transaction costs
 - Set up [transaction testing](./how_to_test.md) in your development workflow
+
+<!-- docs:end:send_transaction -->
