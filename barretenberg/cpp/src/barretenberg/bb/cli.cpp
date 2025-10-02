@@ -516,7 +516,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
      * Subcommand: aztec_process_artifact
      ***************************************************************************************************************/
     CLI::App* aztec_process = app.add_subcommand(
-        "aztec_process_artifact",
+        "aztec_process",
         "Process Aztec contract artifacts: transpile and generate verification keys for all private functions");
 
     std::string artifact_input_path;

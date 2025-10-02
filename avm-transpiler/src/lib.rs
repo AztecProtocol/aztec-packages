@@ -61,8 +61,15 @@ fn create_success_result(data: Vec<u8>) -> TranspileResult {
     TranspileResult { success: 1, data: data_ptr, length, error_message: std::ptr::null_mut() }
 }
 
+/// Transpile an Aztec contract from a file.
+///
+/// # Safety
+///
+/// - `input_path` must be a valid pointer to a null-terminated C string
+/// - `output_path` must be a valid pointer to a null-terminated C string
+/// - Both pointers must remain valid for the duration of this call
 #[unsafe(no_mangle)]
-pub extern "C" fn avm_transpile_file(
+pub unsafe extern "C" fn avm_transpile_file(
     input_path: *const c_char,
     output_path: *const c_char,
 ) -> TranspileResult {
@@ -70,11 +77,13 @@ pub extern "C" fn avm_transpile_file(
         return create_error_result("Input or output path is null");
     }
 
+    // SAFETY: Caller ensures input_path is valid null-terminated C string
     let input_path_str = match unsafe { CStr::from_ptr(input_path) }.to_str() {
         Ok(s) => s,
         Err(_) => return create_error_result("Invalid UTF-8 in input path"),
     };
 
+    // SAFETY: Caller ensures output_path is valid null-terminated C string
     let output_path_str = match unsafe { CStr::from_ptr(output_path) }.to_str() {
         Ok(s) => s,
         Err(_) => return create_error_result("Invalid UTF-8 in output path"),
@@ -132,8 +141,14 @@ pub extern "C" fn avm_transpile_file(
     create_success_result(transpiled_json.into_bytes())
 }
 
+/// Transpile an Aztec contract from bytecode.
+///
+/// # Safety
+///
+/// - `input_data` must be a valid pointer to a buffer of `input_length` bytes
+/// - The buffer must remain valid for the duration of this call
 #[unsafe(no_mangle)]
-pub extern "C" fn avm_transpile_bytecode(
+pub unsafe extern "C" fn avm_transpile_bytecode(
     input_data: *const u8,
     input_length: size_t,
 ) -> TranspileResult {
@@ -141,6 +156,7 @@ pub extern "C" fn avm_transpile_bytecode(
         return create_error_result("Input data is null");
     }
 
+    // SAFETY: Caller ensures input_data points to valid memory of input_length bytes
     let input_slice = unsafe { slice::from_raw_parts(input_data, input_length) };
     let contract_json = match String::from_utf8(input_slice.to_vec()) {
         Ok(json) => json,
@@ -172,26 +188,32 @@ pub extern "C" fn avm_transpile_bytecode(
     create_success_result(transpiled_json.into_bytes())
 }
 
+/// Free memory allocated by transpile functions.
+///
+/// # Safety
+///
+/// - `result` must be a valid pointer to a TranspileResult returned by a transpile function
+/// - The result must not be used after calling this function
+/// - This function must be called exactly once per result
 #[unsafe(no_mangle)]
-pub extern "C" fn avm_free_result(result: *mut TranspileResult) {
+pub unsafe extern "C" fn avm_free_result(result: *mut TranspileResult) {
     if result.is_null() {
         return;
     }
 
+    // SAFETY: Caller ensures result is valid
     let result = unsafe { &mut *result };
 
     if !result.data.is_null() && result.length > 0 {
-        unsafe {
-            let _ = Box::from_raw(slice::from_raw_parts_mut(result.data, result.length));
-        }
+        // SAFETY: data and length were created by Box::into_raw in create_success_result
+        let _ = unsafe { Box::from_raw(slice::from_raw_parts_mut(result.data, result.length)) };
         result.data = std::ptr::null_mut();
         result.length = 0;
     }
 
     if !result.error_message.is_null() {
-        unsafe {
-            let _ = CString::from_raw(result.error_message);
-        }
+        // SAFETY: error_message was created by CString::into_raw in create_error_result
+        let _ = unsafe { CString::from_raw(result.error_message) };
         result.error_message = std::ptr::null_mut();
     }
 }
