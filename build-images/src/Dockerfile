@@ -161,6 +161,12 @@ RUN curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v2
     && mv wasmtime-v20.0.2-$(uname -m)-linux/wasmtime /usr/local/bin \
     && rm -rf wasmtime*
 
+# Install zig.
+RUN arch=$(uname -m) && \
+    curl -fsSL https://ziglang.org/download/0.13.0/zig-linux-${arch}-0.13.0.tar.xz | tar xJ && \
+    mv zig-linux-${arch}-0.13.0 /opt/zig && \
+    ln -s /opt/zig/zig /usr/local/bin/zig
+
 # Install yq
 RUN curl -sL https://github.com/mikefarah/yq/releases/download/v4.42.1/yq_linux_$(dpkg --print-architecture) \
         -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq
