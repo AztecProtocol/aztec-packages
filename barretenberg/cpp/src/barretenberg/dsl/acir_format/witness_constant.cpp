@@ -53,12 +53,12 @@ bb::stdlib::cycle_group<Builder> valid_point(const bb::stdlib::cycle_group<Build
     // creates a bool_ct from the index, without adding a boolean gate because a predicate is boolean by definition.
     bool_ct predicate_witness = bool_ct::from_witness_index_unsafe(&builder, predicate.index);
 
-    auto g1 = bb::grumpkin::g1::affine_one;
-    auto point_x = field_t<Builder>::conditional_assign(predicate_witness, input.x, g1.x).normalize();
-    auto point_y = field_t<Builder>::conditional_assign(predicate_witness, input.y, g1.y).normalize();
-    bool_ct g1_infinite = bool_ct(&builder, g1.is_point_at_infinity());
+    auto generator = bb::grumpkin::g1::affine_one;
+    auto point_x = field_t<Builder>::conditional_assign(predicate_witness, input.x, generator.x).normalize();
+    auto point_y = field_t<Builder>::conditional_assign(predicate_witness, input.y, generator.y).normalize();
+    bool_ct generator_is_infinity = bool_ct(&builder, generator.is_point_at_infinity());
     auto infinite =
-        bool_ct::conditional_assign(predicate_witness, input.is_point_at_infinity(), g1_infinite).normalize();
+        bool_ct::conditional_assign(predicate_witness, input.is_point_at_infinity(), generator_is_infinity).normalize();
     cycle_group<Builder> result(point_x, point_y, infinite);
     return result;
 }

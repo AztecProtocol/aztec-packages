@@ -131,7 +131,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         ProofSurgeon<uint256_t>::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
     stdlib::Proof<Builder> proof_fields = RecursionConstraint::fields_from_witnesses(builder, proof_indices);
 
-    // Reucrsion constraints come with a predicate (e.g. when the black-box call is done in an if conditional depending
+    // Recursion constraints come with a predicate (e.g. when the black-box call is done in an if conditional depending
     // on a witness value in a Noir circuit) To keep the circuit constants (selectors and copy constraints) the same
     // independent of value of the conditional, we create a place holder proof, vk and vk_hash and conditionally select
     // between the two (in circuit) depending on the predicate value.

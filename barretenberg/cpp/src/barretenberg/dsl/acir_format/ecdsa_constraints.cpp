@@ -93,7 +93,11 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     G1 public_key(pub_x, pub_y);
     // Update it depending on the predicate
     if (!input.predicate.is_constant) {
-        bool_ct predicate_witness = bool_ct::from_witness_index_unsafe(&builder, input.predicate.index, true);
+        //`pub_x.conditional_select(G1.x, p)` will select pub_x when p is false, and G1.x when it is true
+        // Here the predicate is true when the ECDSA operation is active, i.e when it needs to use pub_x
+        // For this reason, we negate the predicate by setting the witness_inverter parameter to true
+        bool_ct predicate_witness =
+            bool_ct::from_witness_index_unsafe(&builder, input.predicate.index, /*witness_inverted=*/true);
         pub_x = pub_x.conditional_select(Curve::g1::one.x, predicate_witness);
         pub_y = pub_y.conditional_select(Curve::g1::one.y, predicate_witness);
     }

@@ -139,8 +139,8 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
      */
     template <typename BuilderType>
     BuilderType create_outer_circuit(std::vector<InnerBuilder>& inner_circuits,
-                                     bool dummy_witnesses = false,
-                                     bool predicate_val = true)
+                                     bool dummy_witnesses,
+                                     bool predicate_val)
     {
         std::vector<RecursionConstraint> honk_recursion_constraints;
 
@@ -258,7 +258,8 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestHonkRecursionConstraintVKGeneration)
 
     auto layer_2_circuit_with_dummy_witnesses =
         TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_1_circuits,
-                                                                                       /*dummy_witnesses=*/true);
+                                                                                       /*dummy_witnesses=*/true,
+                                                                                       /*predicate_val=*/true);
 
     auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_2_circuit);
     auto verification_key =
@@ -279,7 +280,9 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
     layer_1_circuits.push_back(TestFixture::create_inner_circuit());
 
     auto layer_2_circuit =
-        TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_1_circuits);
+        TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_1_circuits,
+                                                                                       /*dummy_witnesses=*/false,
+                                                                                       /*predicate_val=*/true);
 
     info("estimate finalized circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
@@ -359,11 +362,15 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
     info("created second inner circuit");
 
     layer_2_circuits.push_back(
-        TestFixture::template create_outer_circuit<typename TestFixture::InnerBuilder>(layer_1_circuits));
+        TestFixture::template create_outer_circuit<typename TestFixture::InnerBuilder>(layer_1_circuits,
+                                                                                       /*dummy_witnesses=*/false,
+                                                                                       /*predicate_val=*/true));
     info("created first outer circuit");
 
     auto layer_3_circuit =
-        TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_2_circuits);
+        TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_2_circuits,
+                                                                                       /*dummy_witnesses=*/false,
+                                                                                       /*predicate_val=*/true);
     info("created second outer circuit");
     info("number of gates in layer 3 = ", layer_3_circuit.get_estimated_num_finalized_gates());
 
@@ -406,15 +413,21 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
 
     std::vector<Builder> layer_2_circuits;
     layer_2_circuits.push_back(
-        TestFixture::template create_outer_circuit<typename TestFixture::InnerBuilder>(layer_b_1_circuits));
+        TestFixture::template create_outer_circuit<typename TestFixture::InnerBuilder>(layer_b_1_circuits,
+                                                                                       /*dummy_witnesses=*/false,
+                                                                                       /*predicate_val=*/true));
     info("created first outer circuit");
 
     layer_2_circuits.push_back(
-        TestFixture::template create_outer_circuit<typename TestFixture::InnerBuilder>(layer_b_2_circuits));
+        TestFixture::template create_outer_circuit<typename TestFixture::InnerBuilder>(layer_b_2_circuits,
+                                                                                       /*dummy_witnesses=*/false,
+                                                                                       /*predicate_val=*/true));
     info("created second outer circuit");
 
     auto layer_3_circuit =
-        TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_2_circuits);
+        TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_2_circuits,
+                                                                                       /*dummy_witnesses=*/false,
+                                                                                       /*predicate_val=*/true);
     info("created third outer circuit");
     info("number of gates in layer 3 circuit = ", layer_3_circuit.get_estimated_num_finalized_gates());
 

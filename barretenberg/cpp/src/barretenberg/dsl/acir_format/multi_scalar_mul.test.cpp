@@ -64,7 +64,7 @@ TEST_F(MSMTests, TestMSM)
     // Create a predicate witness or constant which takes the index of the last witness in the array
     auto predicate = WitnessOrConstant<fr>::from_index(static_cast<uint32_t>(witness.size()));
     witness.push_back(fr(0));
-    // Set the predicate in the msm_constrain
+
     msm_constrain.predicate = predicate;
     AcirFormat constraint_system{
         .varnum = 9,
