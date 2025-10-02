@@ -43,7 +43,6 @@ import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
 import { type Message, type MultiaddrConnection, type PeerId, TopicValidatorResult } from '@libp2p/interface';
 import type { ConnectionManager } from '@libp2p/interface-internal';
-import '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
 import { tcp } from '@libp2p/tcp';
 import { createLibp2p } from 'libp2p';
