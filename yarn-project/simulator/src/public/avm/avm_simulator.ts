@@ -6,7 +6,7 @@ import type { GlobalVariables } from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
 
-import { SideEffectLimitReachedError } from '../side_effect_errors.js';
+import { CheckedPublicExecutionError } from '../public_errors.js';
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { AvmContext } from './avm_context.js';
 import { AvmContractCallResult } from './avm_contract_call_result.js';
@@ -14,7 +14,7 @@ import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import type { Gas } from './avm_gas.js';
 import { AvmMachineState } from './avm_machine_state.js';
 import type { AvmSimulatorInterface } from './avm_simulator_interface.js';
-import { AvmExecutionError, AvmRevertReason, InvalidProgramCounterError } from './errors.js';
+import { AvmRevertReason, InvalidProgramCounterError } from './errors.js';
 import type { Instruction } from './opcodes/instruction.js';
 import { revertReasonFromExceptionalHalt, revertReasonFromExplicitRevert } from './revert_reason.js';
 import {
@@ -99,22 +99,13 @@ export class AvmSimulator implements AvmSimulatorInterface {
    * Fetch the bytecode and execute it in the current context.
    */
   public async execute(): Promise<AvmContractCallResult> {
-    let bytecode: Buffer | undefined;
-    try {
-      bytecode = await this.context.persistableState.getBytecode(this.context.environment.address);
-    } catch (err: any) {
-      if (!(err instanceof AvmExecutionError || err instanceof SideEffectLimitReachedError)) {
-        this.log.error(`Unknown error thrown by AVM during bytecode retrieval: ${err}`);
-        throw err;
-      }
-      return await this.handleFailureToRetrieveBytecode(
-        `Bytecode retrieval for contract '${this.context.environment.address}' failed with ${err.message}. Reverting...`,
-      );
-    }
+    const bytecode = await this.context.persistableState.getBytecode(this.context.environment.address);
+    // getBytecode returns undefined if bytecode is not found or if the limit of contract calls to unique class IDs is reached.
+    // If it throws an error that reaches this point, it is a bug.
 
     if (!bytecode) {
       return await this.handleFailureToRetrieveBytecode(
-        `No bytecode found at: ${this.context.environment.address}. Reverting...`,
+        `No bytecode found, or limit encountered for max calls to unique contract class IDs. Contract address: ${this.context.environment.address}. Reverting...`,
       );
     }
 
@@ -214,17 +205,8 @@ export class AvmSimulator implements AvmSimulatorInterface {
       return results;
     } catch (err: any) {
       this.log.verbose('Exceptional halt (revert by something other than REVERT opcode)');
-      // FIXME: weird that we have to do this OutOfGasError check because:
-      // 1. OutOfGasError is an AvmExecutionError, so that check should cover both
-      // 2. We should at least be able to do instanceof OutOfGasError instead of checking the constructor name
-      if (
-        !(
-          err.constructor.name == 'OutOfGasError' ||
-          err instanceof AvmExecutionError ||
-          err instanceof SideEffectLimitReachedError
-        )
-      ) {
-        this.log.error(`Unknown error thrown by AVM: ${err}`);
+      if (!(err instanceof CheckedPublicExecutionError)) {
+        this.log.error(`Unchecked/unknown error thrown by AVM. This is a bug. Error: ${err}`);
         throw err;
       }
 

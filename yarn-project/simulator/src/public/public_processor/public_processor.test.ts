@@ -126,7 +126,7 @@ describe('public_processor', () => {
     });
 
     it('returns failed txs without aborting entire operation', async function () {
-      publicTxSimulator.simulate.mockRejectedValue(new SimulationError(`Failed`, []));
+      publicTxSimulator.simulate.mockRejectedValue(new Error(`Failed`));
 
       const tx = await mockTxWithPublicCalls();
       const [processed, failed] = await processor.process([tx]);
@@ -134,7 +134,7 @@ describe('public_processor', () => {
       expect(processed).toEqual([]);
       expect(failed.length).toBe(1);
       expect(failed[0].tx).toEqual(tx);
-      expect(failed[0].error).toEqual(new SimulationError(`Failed`, []));
+      expect(failed[0].error).toEqual(new Error(`Failed`));
 
       expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
       expect(merkleTree.revertCheckpoint).toHaveBeenCalledTimes(1);
