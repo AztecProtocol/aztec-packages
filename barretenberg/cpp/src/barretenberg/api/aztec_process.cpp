@@ -3,6 +3,7 @@
 #include "barretenberg/bbapi/bbapi_client_ivc.hpp"
 #include "barretenberg/common/base64.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/common/version.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
@@ -116,13 +117,15 @@ std::vector<uint8_t> get_or_generate_cached_vk(const std::filesystem::path& cach
 }
 
 /**
- * @brief Generate VKs for all functions (single-threaded)
+ * @brief Generate VKs for all functions in parallel
  */
 void generate_vks_for_functions(const std::filesystem::path& cache_dir,
                                 std::vector<nlohmann::json*>& functions,
                                 bool force)
 {
-    for (auto* function : functions) {
+    // Generate VKs in parallel
+    parallel_for(functions.size(), [&](size_t i) {
+        auto* function = functions[i];
         std::string fn_name = (*function)["name"].get<std::string>();
 
         info("\n--- ", fn_name, " ---");
@@ -133,10 +136,10 @@ void generate_vks_for_functions(const std::filesystem::path& cache_dir,
 
         // Generate and cache VK
         get_or_generate_cached_vk(cache_dir, fn_name, bytecode, force);
-    }
+    });
     info("");
 
-    // Update JSON with VKs from cache
+    // Update JSON with VKs from cache (sequential is fine here, it's fast)
     for (auto* function : functions) {
         std::string fn_name = (*function)["name"].get<std::string>();
 
