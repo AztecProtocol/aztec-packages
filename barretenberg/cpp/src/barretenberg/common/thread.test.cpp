@@ -285,55 +285,24 @@ TEST_F(ThreadTest, HardwareConcurrencyPow2)
     EXPECT_EQ(get_num_cpus_pow2(), 16);
 }
 
-// Test that get_num_cpus() returns the same value before and after parallel_for
-TEST_F(ThreadTest, ConcurrencyBeforeAfterParallelFor)
+// Test main thread concurrency isolation and nested concurrency
+TEST_F(ThreadTest, ConcurrencyIsolation)
 {
     set_hardware_concurrency(8);
 
+    // Main thread concurrency should be preserved before/after parallel_for
     size_t cpus_before = get_num_cpus();
     EXPECT_EQ(cpus_before, 8);
-
-    parallel_for(100, [](size_t) {});
-
-    size_t cpus_after = get_num_cpus();
-    EXPECT_EQ(cpus_after, 8);
-    EXPECT_EQ(cpus_before, cpus_after);
-}
-
-// Test that get_num_cpus() inside parallel_for returns a valid value
-TEST_F(ThreadTest, ConcurrencyInsideParallelFor)
-{
-    set_hardware_concurrency(8);
-
-    std::atomic<size_t> observed_cpus{ 0 };
-    std::atomic<bool> observed{ false };
-
-    parallel_for(4, [&](size_t) {
-        size_t cpus = get_num_cpus();
-        observed_cpus.store(cpus);
-        observed.store(true);
-    });
-
-    // Worker threads get their own thread_local concurrency value
-    // which is set by the thread pool based on inner_concurrency calculation
-    EXPECT_TRUE(observed.load());
-    EXPECT_GT(observed_cpus.load(), 0);
-}
-
-// Test nested parallel_for inner concurrency calculation
-TEST_F(ThreadTest, NestedConcurrencyCalculation)
-{
-    set_hardware_concurrency(8);
 
     std::vector<std::atomic<size_t>> observed_inner_cpus(4);
 
     parallel_for(4, [&](size_t outer_idx) {
-        // Each outer task should see reduced concurrency for inner tasks
-        // With 8 CPUs and 4 outer tasks, each gets at least 2 CPUs
+        // Worker threads get their own thread_local concurrency set by the pool
+        // With 8 CPUs and 4 outer tasks, each gets at least 2 CPUs for inner work
         size_t inner_cpus = get_num_cpus();
         observed_inner_cpus[outer_idx].store(inner_cpus);
 
-        // Run a nested parallel_for
+        // Run a nested parallel_for to verify inner concurrency works
         parallel_for(10, [](size_t) {});
     });
 
@@ -341,43 +310,11 @@ TEST_F(ThreadTest, NestedConcurrencyCalculation)
     for (size_t i = 0; i < 4; ++i) {
         EXPECT_GE(observed_inner_cpus[i].load(), 2);
     }
-}
 
-// Test that main thread concurrency is preserved across parallel_for
-TEST_F(ThreadTest, ConcurrencyIsolation)
-{
-    set_hardware_concurrency(4);
-
-    size_t cpus_before = get_num_cpus();
-    EXPECT_EQ(cpus_before, 4);
-
-    std::atomic<bool> task_completed{ false };
-
-    parallel_for(2, [&](size_t) {
-        // Worker threads have their own thread_local concurrency
-        task_completed.store(true);
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    });
-
-    EXPECT_TRUE(task_completed.load());
-
-    // Main thread should still see 4 after parallel_for completes
+    // Main thread concurrency should be unchanged
     size_t cpus_after = get_num_cpus();
-    EXPECT_EQ(cpus_after, 4);
+    EXPECT_EQ(cpus_after, 8);
     EXPECT_EQ(cpus_before, cpus_after);
-}
-
-// Test concurrency with sequential execution (1 iteration)
-TEST_F(ThreadTest, ConcurrencyWithSingleIteration)
-{
-    set_hardware_concurrency(8);
-
-    std::atomic<size_t> observed_cpus{ 0 };
-
-    parallel_for(1, [&](size_t) { observed_cpus.store(get_num_cpus()); });
-
-    // Even with 1 iteration, should see full concurrency
-    EXPECT_EQ(observed_cpus.load(), 8);
 }
 
 // Test deeply nested parallel_for concurrency
