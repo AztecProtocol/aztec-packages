@@ -8,7 +8,7 @@ use dep::types::{
     traits::{Deserialize, Empty, Serialize},
     utils::arrays::array_length,
 };
-use blob::blob_batching_public_inputs::{BlobAccumulatorPublicInputs, FinalBlobBatchingChallenges};
+use blob::abis::{BlobAccumulator, FinalBlobBatchingChallenges};
 
 /// Public inputs for the checkpoint root and checkpoint merge rollup circuits.
 #[derive(Deserialize, Eq, Serialize)]
@@ -27,9 +27,9 @@ pub struct CheckpointRollupPublicInputs {
     pub fees: [FeeRecipient; AZTEC_MAX_EPOCH_DURATION],
 
     // Accumulated opening proofs for all blobs before this checkpoint range.
-    pub start_blob_accumulator: BlobAccumulatorPublicInputs,
+    pub start_blob_accumulator: BlobAccumulator,
     // Accumulated opening proofs for all blobs after adding this checkpoint range.
-    pub end_blob_accumulator: BlobAccumulatorPublicInputs,
+    pub end_blob_accumulator: BlobAccumulator,
     // Final values z and gamma. Shared across the epoch.
     pub final_blob_challenges: FinalBlobBatchingChallenges,
 }
@@ -52,8 +52,8 @@ impl Empty for CheckpointRollupPublicInputs {
             new_archive: AppendOnlyTreeSnapshot::empty(),
             checkpoint_header_hashes: [0; AZTEC_MAX_EPOCH_DURATION],
             fees: [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION],
-            start_blob_accumulator: BlobAccumulatorPublicInputs::empty(),
-            end_blob_accumulator: BlobAccumulatorPublicInputs::empty(),
+            start_blob_accumulator: BlobAccumulator::empty(),
+            end_blob_accumulator: BlobAccumulator::empty(),
             final_blob_challenges: FinalBlobBatchingChallenges::empty(),
         }
     }

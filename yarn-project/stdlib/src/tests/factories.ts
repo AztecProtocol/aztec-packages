@@ -1,4 +1,4 @@
-import { BlobAccumulatorPublicInputs, FinalBlobAccumulatorPublicInputs } from '@aztec/blob-lib';
+import { BlobAccumulator, FinalBlobAccumulator } from '@aztec/blob-lib';
 import { makeBatchedBlobAccumulator, makeSpongeBlob } from '@aztec/blob-lib/testing';
 import {
   ARCHIVE_HEIGHT,
@@ -753,8 +753,8 @@ export function makeCheckpointRollupPublicInputs(seed = 0) {
     makeAppendOnlyTreeSnapshot(seed + 0x200),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x700),
-    BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(startBlobAccumulator),
-    BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed + 1)),
+    BlobAccumulator.fromBatchedBlobAccumulator(startBlobAccumulator),
+    BlobAccumulator.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed + 1)),
     startBlobAccumulator.finalBlobChallenges,
   );
 }
@@ -790,7 +790,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x500),
     makeEpochConstantData(seed + 0x600),
-    FinalBlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed)),
+    FinalBlobAccumulator.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed)),
   );
 }
 

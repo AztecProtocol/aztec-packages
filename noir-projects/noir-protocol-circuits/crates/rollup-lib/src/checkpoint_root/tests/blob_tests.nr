@@ -1,6 +1,6 @@
 use super::TestBuilder;
-use bigint::{BigNum, BLS12_381_Fr as F};
-use blob::blob_batching_public_inputs::{BatchingBlobCommitment, BlobAccumulatorPublicInputs};
+use bignum::{BigNum, BLS12_381_Fr};
+use blob::abis::{BatchingBlobCommitment, BlobAccumulator};
 use types::{constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB}, hash::poseidon2_hash, traits::Empty};
 
 impl TestBuilder {
@@ -62,7 +62,7 @@ impl TestBuilder {
         }
 
         builder.hints.blob_commitments[0] = blob_commitment.point;
-        builder.hints.start_blob_accumulator = BlobAccumulatorPublicInputs::empty();
+        builder.hints.start_blob_accumulator = BlobAccumulator::empty();
         builder.hints.final_blob_challenges.z = challenge_z_from_ts;
 
         builder
@@ -219,7 +219,7 @@ fn correct_end_blob_accumulator_with_full_blobs() {
         0x02d6a54e591ada73e5eea35188a02ac87779f4293ea3e7d675fa50ae7ff332ce;
 
     // The final gamma value is injected as hint and checked for correctness in root rollup.
-    builder.hints.final_blob_challenges.gamma = F::from_limbs([
+    builder.hints.final_blob_challenges.gamma = BLS12_381_Fr::from_limbs([
         0x281287a8d44071d216177e06a02327,
         0x16571aa3dcfef75c2447c705c6c68a,
         0x16f2,
