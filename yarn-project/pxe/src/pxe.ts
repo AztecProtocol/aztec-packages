@@ -141,7 +141,7 @@ export class PXE {
       taggingDataProvider,
       tipsStore,
       config,
-      loggerOrSuffix,
+      log,
     );
 
     const jobQueue = new SerialQueue();

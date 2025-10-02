@@ -4,18 +4,13 @@ import { CircularProgress, css, FormControl, IconButton, MenuItem, Select, Typog
 
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import SettingsIcon from '@mui/icons-material/Settings';
-import { useContext, useEffect, useState, type RefObject } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { EmbeddedWallet } from '../../../wallet/embedded_wallet';
-import {
-  AztecAddress,
-  DeployMethod,
-  type ContractFunctionInteraction,
-  type DeployOptions,
-  type Wallet,
-} from '@aztec/aztec.js';
+import { AztecAddress, DeployMethod, type DeployOptions, type Wallet } from '@aztec/aztec.js';
 import { AztecContext } from '../../../aztecContext';
 import { CreateAccountDialog } from '../../../wallet/components/CreateAccountDialog';
 import { useTransaction } from '../../../hooks/useTransaction';
+import { ExtensionWallet } from '../../../wallet/extension_wallet';
 
 const logo = css({
   height: '50px',
@@ -55,6 +50,14 @@ export function WalletHub() {
       callback: () => {
         setIsEmbeddedWalletSelected(true);
         setOpenWalletModal(true);
+        return Promise.resolve();
+      },
+    },
+    {
+      name: 'Aztec keychain',
+      getWallet: (_: string) => Promise.resolve(ExtensionWallet.create()),
+      iconURL: new URL('../../../assets/aztec_small_logo.png', import.meta.url).href,
+      callback: () => {
         return Promise.resolve();
       },
     },
