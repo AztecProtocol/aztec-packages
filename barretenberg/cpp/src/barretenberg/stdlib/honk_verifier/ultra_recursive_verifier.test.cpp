@@ -95,7 +95,6 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         }
 
         InnerIO::add_default(builder);
-        info(builder.get_estimated_num_finalized_gates());
 
         return builder;
     }

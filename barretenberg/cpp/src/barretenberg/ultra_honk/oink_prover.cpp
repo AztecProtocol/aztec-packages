@@ -239,7 +239,6 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
         if constexpr (!std::is_same_v<Flavor, UltraZKFlavor>) {
             polynomial.mask();
         } else {
-            info("masking ", msg);
             for (size_t idx = 1; idx < 4; idx++) {
                 polynomial.at(idx) = FF::random_element();
             }

@@ -321,7 +321,7 @@ template <typename Flavor> class SumcheckProver {
         requires Flavor::HasZK
     {
         CommitmentKey ck;
-        info("running ZK sumcheck prover ");
+
         if constexpr (IsGrumpkinFlavor<Flavor>) {
             ck = CommitmentKey(BATCHED_RELATION_PARTIAL_LENGTH);
             // Compute the vector {0, 1, \ldots, BATCHED_RELATION_PARTIAL_LENGTH-1} needed to transform the round
@@ -432,7 +432,6 @@ template <typename Flavor> class SumcheckProver {
         // If required, extend prover's multilinear polynomials in `multivariate_d` variables by zero to get multilinear
         // polynomials in `virtual_log_n` variables.
         for (size_t k = multivariate_d; k < virtual_log_n; ++k) {
-            info("translator recursive shouldn't enter here");
             // Compute the contribution from the extensions by zero. It is sufficient to evaluate the main constraint at
             // `MAX_PARTIAL_RELATION_LENGTH` points.
             auto virtual_round_univariate = round.compute_virtual_contribution(
@@ -774,7 +773,6 @@ template <typename Flavor> class SumcheckVerifier {
             multivariate_challenge.emplace_back(round_challenge);
 
             const bool checked = round.check_sum(round_univariate);
-            info("checked? ", checked, " rounds index ", round_idx);
             round.compute_next_target_sum(round_univariate, round_challenge);
             gate_separators.partially_evaluate(round_challenge);
 
@@ -820,7 +818,7 @@ template <typename Flavor> class SumcheckVerifier {
             final_check = (full_honk_purported_value == round.target_total_sum);
             verified = verified && final_check;
         }
-        info("sumcheck verified ", verified);
+
         return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
                                        .claimed_evaluations = purported_evaluations,
                                        .verified = verified,

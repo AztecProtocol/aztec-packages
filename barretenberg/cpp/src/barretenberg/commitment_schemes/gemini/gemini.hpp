@@ -330,8 +330,7 @@ template <typename Curve> class GeminiProver_ {
 
     static std::vector<Polynomial> compute_fold_polynomials(const size_t log_n,
                                                             std::span<const Fr> multilinear_challenge,
-                                                            const Polynomial& A_0,
-                                                            const bool& has_zk = false);
+                                                            const Polynomial& A_0);
 
     static std::pair<Polynomial, Polynomial> compute_partially_evaluated_batch_polynomials(
         const size_t log_n,
@@ -597,8 +596,6 @@ template <typename Curve> class GeminiVerifier_ {
             // If current index is bigger than log_n, we propagate `batched_evaluation` to the next
             // round.  Otherwise, current `eval_pos` A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.
             eval_pos_prev = eval_pos;
-            // If current index is bigger than log_n, we emplace 0, which is later multiplied against
-            // Commitment::one().
             fold_pos_evaluations.emplace_back(eval_pos_prev);
         }
 

@@ -55,8 +55,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     const std::shared_ptr<Transcript>& transcript,
     bool has_zk)
 {
-    // To achieve fixed proof size in Ultra and Mega, the multilinear opening challenge is be padded to a fixed
-    // size.
+    // To achieve fixed proof size in Ultra and Mega, the multilinear opening challenge is be padded to a fixed size.
     const size_t virtual_log_n = multilinear_challenge.size();
     const size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
     const size_t n = 1 << log_n;
@@ -85,7 +84,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     Polynomial A_0 = polynomial_batcher.compute_batched(rho, running_scalar);
 
     // Construct the d-1 Gemini foldings of A₀(X)
-    std::vector<Polynomial> fold_polynomials = compute_fold_polynomials(log_n, multilinear_challenge, A_0, has_zk);
+    std::vector<Polynomial> fold_polynomials = compute_fold_polynomials(log_n, multilinear_challenge, A_0);
 
     // If virtual_log_n >= log_n, pad the fold commitments with dummy group elements [1]_1.
     for (size_t l = 0; l < virtual_log_n - 1; l++) {
@@ -142,10 +141,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
  */
 template <typename Curve>
 std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::compute_fold_polynomials(
-    const size_t log_n,
-    std::span<const Fr> multilinear_challenge,
-    const Polynomial& A_0,
-    [[maybe_unused]] const bool& has_zk)
+    const size_t log_n, std::span<const Fr> multilinear_challenge, const Polynomial& A_0)
 {
     const size_t num_threads = get_num_cpus_pow2();
 
@@ -209,7 +205,6 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     const Fr u_last = multilinear_challenge[log_n - 1];
     const Fr final_eval = last.at(0) + u_last * (last.at(1) - last.at(0));
     Polynomial const_fold(1);
-
     const_fold.at(0) = final_eval;
     fold_polynomials.emplace_back(const_fold);
 
@@ -235,8 +230,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
  */
 
 /**
- * @brief Computes/aggragates d+1 univariate polynomial opening claims of the form {polynomial, (challenge,
- * evaluation)}
+ * @brief Computes/aggragates d+1 univariate polynomial opening claims of the form {polynomial, (challenge, evaluation)}
  *
  * @details The d+1 evaluations are A₀₊(r), A₀₋(-r), and Aₗ(−r^{2ˡ}) for l = 1, ..., d-1, where the Aₗ are the fold
  * polynomials.

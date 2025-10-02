@@ -79,8 +79,7 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
                                                &consistency_checked,
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation);
-    info("consistency checked ", consistency_checked);
-    info("verifier comm ", batch_mul_native(opening_claim.commitments, opening_claim.scalars));
+
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     return Output{ sumcheck_output.verified, consistency_checked, { pairing_points[0], pairing_points[1] } };

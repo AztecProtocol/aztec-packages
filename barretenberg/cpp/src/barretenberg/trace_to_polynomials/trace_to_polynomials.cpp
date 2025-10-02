@@ -38,10 +38,12 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
         compute_permutation_argument_polynomials<Flavor>(builder, polynomials, copy_cycles, active_region_data);
     }
 }
+
 template <class Flavor>
 std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_copy_cycles(
     Builder& builder, ProverPolynomials& polynomials, ActiveRegionData& active_region_data)
 {
+
     BB_BENCH_NAME("construct_trace_data");
 
     // Shift only for UltraZKFlavor
@@ -54,10 +56,12 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
     RefArray<Polynomial, NUM_WIRES> wires = polynomials.get_wires();
     auto selectors = polynomials.get_selectors();
 
+    // For each block in the trace, populate wire polys, copy cycles and selector polys
     for (auto& block : builder.blocks.get()) {
         const uint32_t offset = block.trace_offset();
         const uint32_t block_size = static_cast<uint32_t>(block.size());
 
+        // Save ranges over which the blocks are "active" for use in structured commitments
         if (block.size() > 0) {
             // record active region with the shift applied
             active_region_data.add_range(offset + base_shift, offset + base_shift + block.size());
@@ -73,7 +77,6 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
                     uint32_t var_idx = block.wires[wire_idx][block_row_idx]; // an index into the variables array
                     uint32_t real_var_idx = builder.real_variable_index[var_idx];
                     uint32_t trace_row_idx = block_row_idx + offset + base_shift;
-
                     // populate wires at shifted row
                     wires[wire_idx].at(trace_row_idx) = builder.get_variable(var_idx);
                     // Add the address of the witness value to its corresponding copy cycle
@@ -96,6 +99,7 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
 
     return copy_cycles;
 }
+
 template <class Flavor>
 void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_prover_instance(Builder& builder, ProverPolynomials& polynomials)
     requires IsMegaFlavor<Flavor>

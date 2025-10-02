@@ -51,7 +51,6 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relatio
         if constexpr (Flavor::HasZK) {
             static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
             CommitmentKey commitment_key(1 << (log_subgroup_size + 1));
-            info("before libra ", commitment_key.dyadic_size);
             zk_sumcheck_data = ZKData(virtual_log_n, transcript, commitment_key);
             sumcheck_output = sumcheck.prove(zk_sumcheck_data);
         } else {
