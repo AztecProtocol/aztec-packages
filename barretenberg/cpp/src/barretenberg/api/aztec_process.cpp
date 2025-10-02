@@ -123,21 +123,17 @@ void generate_vks_for_functions(const std::filesystem::path& cache_dir,
                                 std::vector<nlohmann::json*>& functions,
                                 bool force)
 {
-    // Generate VKs in parallel
+    // Generate VKs in parallel (logging removed to avoid data races)
     parallel_for(functions.size(), [&](size_t i) {
         auto* function = functions[i];
         std::string fn_name = (*function)["name"].get<std::string>();
 
-        info("\n--- ", fn_name, " ---");
-        info("Processing function: ", fn_name);
-
         // Get bytecode from function
         auto bytecode = extract_bytecode(*function);
 
-        // Generate and cache VK
+        // Generate and cache VK (this will log internally if needed)
         get_or_generate_cached_vk(cache_dir, fn_name, bytecode, force);
     });
-    info("");
 
     // Update JSON with VKs from cache (sequential is fine here, it's fast)
     for (auto* function : functions) {
