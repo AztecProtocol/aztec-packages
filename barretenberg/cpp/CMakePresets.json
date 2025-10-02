@@ -504,7 +504,6 @@
       "cacheVariables": {
         "ENABLE_PIC": "ON",
         "CMAKE_BUILD_TYPE": "Release",
-        "ENABLE_AVM_TRANSPILER": "ON",
         "DISABLE_AZTEC_VM": "ON",
         "CMAKE_AR": "${sourceDir}/scripts/zig-ar.sh",
         "CMAKE_RANLIB": "${sourceDir}/scripts/zig-ranlib.sh"
@@ -524,6 +523,7 @@
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Darwin",
         "CMAKE_SYSTEM_PROCESSOR": "x86_64",
+        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/x86_64-apple-darwin/libavm_transpiler.a",
         "HAVE_STD_REGEX": "ON"
       }
     },
@@ -541,6 +541,7 @@
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Darwin",
         "CMAKE_SYSTEM_PROCESSOR": "aarch64",
+        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/aarch64-apple-darwin/libavm_transpiler.a",
         "HAVE_STD_REGEX": "ON"
       }
     },
