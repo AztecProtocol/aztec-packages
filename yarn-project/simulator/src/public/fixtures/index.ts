@@ -6,3 +6,4 @@ export { TestExecutorMetrics } from '../test_executor_metrics.js';
 export { ammTest } from './amm_test.js';
 export { bulkTest, megaBulkTest } from './bulk_test.js';
 export { tokenTest } from './token_test.js';
+export { getAddressingWithBaseTagIssueTx } from './custom_txs.js';
