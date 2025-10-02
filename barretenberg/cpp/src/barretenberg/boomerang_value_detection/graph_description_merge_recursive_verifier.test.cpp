@@ -96,7 +96,7 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
             verifier.verify_proof(stdlib_merge_proof, recursive_merge_commitments);
 
         // Check for a failure flag in the recursive verifier circuit
-        EXPECT_TRUE(outer_circuit.failed());
+        EXPECT_FALSE(outer_circuit.failed());
         if (run_analyzer) {
             analyze_circuit(outer_circuit);
         }
