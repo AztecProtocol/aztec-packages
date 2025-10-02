@@ -75,11 +75,7 @@ async function generate() {
     const outputPath = join(__dirname, config.outputFile);
     const content = compiler.compile();
     writeFileSync(outputPath, content);
-
-    console.log(`✓ ${config.name}: ${outputPath}`);
   }
-
-  console.log('\nGeneration complete!');
 }
 
 // Run the generator

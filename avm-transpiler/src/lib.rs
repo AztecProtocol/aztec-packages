@@ -1,8 +1,8 @@
 #![warn(clippy::semicolon_if_nothing_returned)]
 #![cfg_attr(not(test), warn(unused_crate_dependencies, unused_extern_crates))]
 
-use noirc_frontend as _;
 use env_logger as _;
+use noirc_frontend as _;
 
 use libc::{c_char, c_int, size_t};
 use std::ffi::{CStr, CString};
@@ -18,8 +18,8 @@ mod transpile;
 mod transpile_contract;
 mod utils;
 
-pub use transpile_contract::*;
 pub use transpile::*;
+pub use transpile_contract::*;
 
 #[repr(C)]
 pub struct TranspileResult {
@@ -58,12 +58,7 @@ fn create_success_result(data: Vec<u8>) -> TranspileResult {
     let length = data.len();
     let data_ptr = Box::into_raw(data.into_boxed_slice()) as *mut u8;
 
-    TranspileResult {
-        success: 1,
-        data: data_ptr,
-        length,
-        error_message: std::ptr::null_mut(),
-    }
+    TranspileResult { success: 1, data: data_ptr, length, error_message: std::ptr::null_mut() }
 }
 
 #[unsafe(no_mangle)]
@@ -93,7 +88,9 @@ pub extern "C" fn avm_transpile_file(
 
     let contract_json = match fs::read_to_string(Path::new(input_path_str)) {
         Ok(content) => content,
-        Err(e) => return create_error_result(&format!("Unable to read file {}: {}", input_path_str, e)),
+        Err(e) => {
+            return create_error_result(&format!("Unable to read file {}: {}", input_path_str, e));
+        }
     };
 
     let raw_json_obj: serde_json::Value = match serde_json::from_str(&contract_json) {
@@ -110,7 +107,10 @@ pub extern "C" fn avm_transpile_file(
             Path::new(output_path_str),
             Path::new(&(output_path_str.to_string() + ".bak")),
         ) {
-            return create_error_result(&format!("Unable to backup file {}: {}", output_path_str, e));
+            return create_error_result(&format!(
+                "Unable to backup file {}: {}",
+                output_path_str, e
+            ));
         }
     }
 
