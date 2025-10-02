@@ -1,7 +1,7 @@
 # cspell: disable
 
 ########################################################################################################################
-# Base build. Used as base in subsequent builds of foundry, wasi-sdk, osxcross, etc.
+# Base build. Used as base in subsequent builds of foundry, wasi-sdk, etc.
 FROM ubuntu:noble AS base-build
 RUN export DEBIAN_FRONTEND="noninteractive" \
     && apt update && apt install --no-install-recommends -y \
@@ -29,38 +29,6 @@ ENV PATH="/opt/rust/cargo/bin:$PATH"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0 && \
     rustup target add wasm32-unknown-unknown wasm32-wasip1 aarch64-apple-darwin && \
     chmod -R a+w /opt/rust
-
-
-########################################################################################################################
-# Build osxcross.
-FROM base-build AS osxcross
-RUN apt update && apt-get install --no-install-recommends -y \
-        binutils-multiarch-dev \
-        libbz2-dev \
-        libmpc-dev \
-        libmpfr-dev \
-        libgmp-dev \
-        liblzma-dev \
-        libpsi3-dev \
-        libssl-dev \
-        libxml2-dev \
-        libz-dev \
-        lzma-dev \
-        patch \
-        uuid-dev \
-        xz-utils \
-        zlib1g-dev \
-    && apt-get -y autoremove \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-RUN git clone https://github.com/tpoechtrager/osxcross.git \
-    && cd /osxcross \
-    && git reset --hard ff8d100f3f026b4ffbe4ce96d8aac4ce06f1278b \
-    && export OSX_SDK="MacOSX14.0.sdk" \
-    && export OSX_SDK_URL="https://github.com/joseluisq/macosx-sdks/releases/download/14.0/${OSX_SDK}.tar.xz" \
-    && curl -sSL "$OSX_SDK_URL" -o "./tarballs/$OSX_SDK.tar.xz" \
-    && OSX_VERSION_MIN=14.0 UNATTENDED=1 ENABLE_COMPILER_RT_INSTALL=1 TARGET_DIR=/opt/osxcross ./build.sh \
-    && rm -rf /osxcross /opt/osxcross/SDK/$OSX_SDK
 
 
 ########################################################################################################################
@@ -247,11 +215,6 @@ RUN apt update && \
         m4 \
         bison \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-# Install osxcross. Requires developer to mount SDK from their mac host.
-COPY --from=osxcross /opt/osxcross /opt/osxcross
-ENV PATH="/opt/osxcross/bin:$PATH"
-ENV LD_LIBRARY_PATH="/opt/osxcross/lib:$LD_LIBRARY_PATH"
 
 # Install gh (github cli).
 RUN mkdir -p -m 755 /etc/apt/keyrings && wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg > /etc/apt/keyrings/githubcli-archive-keyring.gpg \
