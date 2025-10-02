@@ -1,10 +1,10 @@
+#include "get_bytecode.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "base64.hpp"
 #include <string>
 #include <vector>
-#ifndef __wasm__
-#include "base64.hpp"
-#include "get_bytecode.hpp"
 
+#ifndef __wasm__
 #include <fstream>
 #include <libdeflate.h>
 #include <nlohmann/json.hpp>
@@ -56,7 +56,7 @@ std::vector<uint8_t> decode_bytecode(const std::string& base64_bytecode)
     return gzip_decompress(gzipped);
 }
 
-std::vector<uint8_t> get_bytecode_from_json [[maybe_unused]] (const std::string& json_path)
+std::vector<uint8_t> get_bytecode_from_json([[maybe_unused]] const std::string& json_path)
 {
 #ifdef __wasm__
     throw_or_abort("get_bytecode_from_json not supported in WASM");
@@ -73,8 +73,11 @@ std::vector<uint8_t> get_bytecode_from_json [[maybe_unused]] (const std::string&
 #endif
 }
 
-std::vector<uint8_t> gunzip(const std::string& path)
+std::vector<uint8_t> gunzip([[maybe_unused]] const std::string& path)
 {
+#ifdef __wasm__
+    throw_or_abort("gunzip not supported in WASM");
+#else
     std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) {
         throw std::runtime_error("Failed to open file: " + path);
@@ -82,10 +85,14 @@ std::vector<uint8_t> gunzip(const std::string& path)
 
     std::vector<uint8_t> compressed((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     return gzip_decompress(compressed);
+#endif
 }
 
-std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
+std::vector<uint8_t> get_bytecode([[maybe_unused]] const std::string& bytecodePath)
 {
+#ifdef __wasm__
+    throw_or_abort("get_bytecode not supported in WASM");
+#else
     if (bytecodePath == "-") {
         return { (std::istreambuf_iterator<char>(std::cin)), std::istreambuf_iterator<char>() };
     }
@@ -97,4 +104,5 @@ std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
 
     // For other extensions, assume file is a raw ACIR program
     return gunzip(bytecodePath);
+#endif
 }

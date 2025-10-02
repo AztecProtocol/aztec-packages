@@ -200,58 +200,53 @@ bool transpile_artifact(const std::string& input_path, const std::string& output
 
 bool process_aztec_artifact(const std::string& input_path, const std::string& output_path, bool force)
 {
-    try {
-        if (!transpile_artifact(input_path, output_path)) {
-            return false;
-        }
-
-        // Verify output exists
-        if (!std::filesystem::exists(output_path)) {
-            throw_or_abort("Output file does not exist after transpilation");
-        }
-
-        // Step 2: Generate verification keys
-        auto cache_dir = get_cache_dir();
-        info("Generating verification keys for functions in ", std::filesystem::path(output_path).filename().string());
-        info("Cache directory: ", cache_dir.string());
-
-        // Read and parse artifact JSON
-        auto artifact_content = read_file(output_path);
-        std::string artifact_str(artifact_content.begin(), artifact_content.end());
-        auto artifact_json = nlohmann::json::parse(artifact_str);
-
-        if (!artifact_json.contains("functions")) {
-            info("Warning: No functions found in artifact");
-            return true;
-        }
-
-        // Filter to private constrained functions
-        std::vector<nlohmann::json*> private_functions;
-        for (auto& function : artifact_json["functions"]) {
-            if (is_private_constrained_function(function)) {
-                private_functions.push_back(&function);
-            }
-        }
-
-        if (private_functions.empty()) {
-            info("No private constrained functions found");
-            return true;
-        }
-
-        // Generate VKs
-        generate_vks_for_functions(cache_dir, private_functions, force);
-
-        // Write updated JSON back to file
-        std::ofstream out_file(output_path);
-        out_file << artifact_json.dump(2) << std::endl;
-        out_file.close();
-
-        info("Successfully processed: ", input_path, " -> ", output_path);
-        return true;
-    } catch (const std::exception& e) {
-        info("Error processing artifact: ", e.what());
+    if (!transpile_artifact(input_path, output_path)) {
         return false;
     }
+
+    // Verify output exists
+    if (!std::filesystem::exists(output_path)) {
+        throw_or_abort("Output file does not exist after transpilation");
+    }
+
+    // Step 2: Generate verification keys
+    auto cache_dir = get_cache_dir();
+    info("Generating verification keys for functions in ", std::filesystem::path(output_path).filename().string());
+    info("Cache directory: ", cache_dir.string());
+
+    // Read and parse artifact JSON
+    auto artifact_content = read_file(output_path);
+    std::string artifact_str(artifact_content.begin(), artifact_content.end());
+    auto artifact_json = nlohmann::json::parse(artifact_str);
+
+    if (!artifact_json.contains("functions")) {
+        info("Warning: No functions found in artifact");
+        return true;
+    }
+
+    // Filter to private constrained functions
+    std::vector<nlohmann::json*> private_functions;
+    for (auto& function : artifact_json["functions"]) {
+        if (is_private_constrained_function(function)) {
+            private_functions.push_back(&function);
+        }
+    }
+
+    if (private_functions.empty()) {
+        info("No private constrained functions found");
+        return true;
+    }
+
+    // Generate VKs
+    generate_vks_for_functions(cache_dir, private_functions, force);
+
+    // Write updated JSON back to file
+    std::ofstream out_file(output_path);
+    out_file << artifact_json.dump(2) << std::endl;
+    out_file.close();
+
+    info("Successfully processed: ", input_path, " -> ", output_path);
+    return true;
 }
 
 } // namespace bb

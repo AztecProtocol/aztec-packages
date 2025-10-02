@@ -35,20 +35,28 @@ static inline int flock(int fd, int operation)
 struct FileLockGuard {
     int fd;
 
-    explicit FileLockGuard(std::string_view path, int flags = O_RDWR | O_CREAT, mode_t mode = 0644)
+    explicit FileLockGuard([[maybe_unused]] std::string_view path,
+                           [[maybe_unused]] int flags = O_RDWR | O_CREAT,
+                           [[maybe_unused]] mode_t mode = 0644)
     {
+#ifndef __wasm__
         fd = open(std::string(path).c_str(), flags, mode);
         if (fd != -1) {
             flock(fd, LOCK_EX);
         }
+#else
+        fd = -1;
+#endif
     }
 
     ~FileLockGuard()
     {
+#ifndef __wasm__
         if (fd != -1) {
             flock(fd, LOCK_UN);
             close(fd);
         }
+#endif
     }
 
     FileLockGuard(const FileLockGuard&) = delete;
