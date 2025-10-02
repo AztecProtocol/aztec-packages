@@ -16,6 +16,9 @@
 #include <avm_transpiler.h>
 #endif
 
+// Version string updated during release process
+extern const char* const BB_VERSION_PLACEHOLDER;
+
 namespace bb {
 
 namespace {
@@ -47,7 +50,7 @@ std::string compute_bytecode_hash(const std::vector<uint8_t>& bytecode)
 }
 
 /**
- * @brief Get cache directory path (~/.bb/vk_cache)
+ * @brief Get cache directory path (~/.bb/vk_cache/<version>)
  */
 std::filesystem::path get_cache_dir()
 {
@@ -55,7 +58,7 @@ std::filesystem::path get_cache_dir()
     if (!home) {
         home = ".";
     }
-    std::filesystem::path cache_dir = std::filesystem::path(home) / ".bb" / "vk_cache";
+    std::filesystem::path cache_dir = std::filesystem::path(home) / ".bb" / "vk_cache" / BB_VERSION_PLACEHOLDER;
     std::filesystem::create_directories(cache_dir);
     return cache_dir;
 }
@@ -87,17 +90,6 @@ bool is_private_constrained_function(const nlohmann::json& function)
 }
 
 /**
- * @brief Generate VK from bytecode using the C++ API
- */
-std::vector<uint8_t> generate_vk(const std::string& circuit_name, const std::vector<uint8_t>& bytecode)
-{
-    auto response =
-        bbapi::ClientIvcComputeStandaloneVk{ .circuit = { .name = circuit_name, .bytecode = bytecode } }.execute();
-
-    return response.bytes;
-}
-
-/**
  * @brief Get cached VK or generate if missing
  */
 std::vector<uint8_t> get_or_generate_cached_vk(const std::filesystem::path& cache_dir,
@@ -116,12 +108,13 @@ std::vector<uint8_t> get_or_generate_cached_vk(const std::filesystem::path& cach
 
     // Generate new VK
     info("Generating verification key: ", hash_str);
-    auto vk_data = generate_vk(circuit_name, bytecode);
+    auto response =
+        bbapi::ClientIvcComputeStandaloneVk{ .circuit = { .name = circuit_name, .bytecode = bytecode } }.execute();
 
     // Cache the VK
-    write_file(vk_cache_path, vk_data);
+    write_file(vk_cache_path, response.bytes);
 
-    return vk_data;
+    return response.bytes;
 }
 
 /**
@@ -165,45 +158,55 @@ void generate_vks_for_functions(const std::filesystem::path& cache_dir,
 
 } // anonymous namespace
 
-bool process_aztec_artifact(const std::string& input_path, const std::string& output_path, bool force)
+/**
+ * @brief Transpile the artifact file (or copy if transpiler not enabled)
+ */
+bool transpile_artifact(const std::string& input_path, const std::string& output_path)
 {
-    try {
 #ifdef ENABLE_AVM_TRANSPILER
-        // Step 1: Transpile the artifact
-        info("Transpiling: ", input_path, " -> ", output_path);
+    info("Transpiling: ", input_path, " -> ", output_path);
 
-        auto result = avm_transpile_file(input_path.c_str(), output_path.c_str());
+    auto result = avm_transpile_file(input_path.c_str(), output_path.c_str());
 
-        if (result.success == 0) {
-            if (result.error_message) {
-                std::string error_msg(result.error_message);
-                if (error_msg == "Contract already transpiled") {
-                    // Already transpiled, copy if different paths
-                    if (input_path != output_path) {
-                        std::filesystem::copy_file(
-                            input_path, output_path, std::filesystem::copy_options::overwrite_existing);
-                    }
-                } else {
-                    info("Transpilation failed: ", error_msg);
-                    avm_free_result(&result);
-                    return false;
+    if (result.success == 0) {
+        if (result.error_message) {
+            std::string error_msg(result.error_message);
+            if (error_msg == "Contract already transpiled") {
+                // Already transpiled, copy if different paths
+                if (input_path != output_path) {
+                    std::filesystem::copy_file(
+                        input_path, output_path, std::filesystem::copy_options::overwrite_existing);
                 }
             } else {
-                info("Transpilation failed");
+                info("Transpilation failed: ", error_msg);
                 avm_free_result(&result);
                 return false;
             }
+        } else {
+            info("Transpilation failed");
+            avm_free_result(&result);
+            return false;
         }
+    }
 
-        avm_free_result(&result);
+    avm_free_result(&result);
 
-        info("Transpiled: ", input_path, " -> ", output_path);
+    info("Transpiled: ", input_path, " -> ", output_path);
 #else
-        // If transpiler is not enabled, just copy the file
-        if (input_path != output_path) {
-            std::filesystem::copy_file(input_path, output_path, std::filesystem::copy_options::overwrite_existing);
-        }
+    // If transpiler is not enabled, just copy the file
+    if (input_path != output_path) {
+        std::filesystem::copy_file(input_path, output_path, std::filesystem::copy_options::overwrite_existing);
+    }
 #endif
+    return true;
+}
+
+bool process_aztec_artifact(const std::string& input_path, const std::string& output_path, bool force)
+{
+    try {
+        if (!transpile_artifact(input_path, output_path)) {
+            return false;
+        }
 
         // Verify output exists
         if (!std::filesystem::exists(output_path)) {
@@ -248,7 +251,6 @@ bool process_aztec_artifact(const std::string& input_path, const std::string& ou
 
         info("Successfully processed: ", input_path, " -> ", output_path);
         return true;
-
     } catch (const std::exception& e) {
         info("Error processing artifact: ", e.what());
         return false;
