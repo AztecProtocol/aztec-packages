@@ -108,18 +108,18 @@ function build_nodejs_module {
 function build_darwin_arm64 {
   set -eu
   ensure_zig
-  if ! cache_download barretenberg-darwin-arm64-$hash.zst; then
-    build_preset zig-darwin-arm64 --target bb
-    cache_upload barretenberg-darwin-arm64-$hash.zst build-zig-darwin-arm64/bin
+  if ! cache_download barretenberg-arm64-macos-$hash.zst; then
+    build_preset zig-arm64-macos --target bb
+    cache_upload barretenberg-arm64-macos-$hash.zst build-zig-arm64-macos/bin
   fi
 }
 
 function build_darwin_amd64 {
   set -eu
   ensure_zig
-  if ! cache_download barretenberg-darwin-amd64-$hash.zst; then
-    build_preset zig-darwin-amd64 --target bb
-    cache_upload barretenberg-darwin-amd64-$hash.zst build-zig-darwin-amd64/bin
+  if ! cache_download barretenberg-amd64-macos-$hash.zst; then
+    build_preset zig-amd64-macos --target bb
+    cache_upload barretenberg-amd64-macos-$hash.zst build-zig-amd64-macos/bin
   fi
 }
 
@@ -205,27 +205,24 @@ function build_release {
     tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
     tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
 
-    # Package macOS cross-compiled binaries (built in build function)
-    if [ -f build-zig-darwin-arm64/bin/bb ] && [ -f build-zig-darwin-amd64/bin/bb ]; then
-      # Download ldid for code signing
-      if [ ! -f build-release/ldid ]; then
-        echo "Downloading ldid for macOS code signing..."
-        curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 -o build-release/ldid
-        chmod +x build-release/ldid
-      fi
-
-      # Package darwin-arm64
-      cp build-zig-darwin-arm64/bin/bb build-release/bb-darwin-arm64
-      inject_version build-release/bb-darwin-arm64
-      build-release/ldid -S build-release/bb-darwin-arm64
-      tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb-darwin-arm64
-
-      # Package darwin-amd64
-      cp build-zig-darwin-amd64/bin/bb build-release/bb-darwin-amd64
-      inject_version build-release/bb-darwin-amd64
-      build-release/ldid -S build-release/bb-darwin-amd64
-      tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb-darwin-amd64
+    # Download ldid for code signing
+    if [ ! -f build/ldid ]; then
+      echo "Downloading ldid for macOS code signing..."
+      curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 -o build/ldid
+      chmod +x build/ldid
     fi
+
+    # Package arm64-macos
+    cp build-zig-arm64-macos/bin/bb build-release/bb
+    inject_version build-release/bb
+    build/ldid -S build-release/bb
+    tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb
+
+    # Package amd64-macos
+    cp build-zig-amd64-macos/bin/bb build-release/bb
+    inject_version build-release/bb
+    build/ldid -S build-release/bb
+    tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
   fi
 }
 

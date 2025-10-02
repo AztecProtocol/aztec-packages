@@ -210,9 +210,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@msgpackr-extract/msgpackr-extract-darwin-arm64@npm:3.0.3":
+"@msgpackr-extract/msgpackr-extract-arm64-macos@npm:3.0.3":
   version: 3.0.3
-  resolution: "@msgpackr-extract/msgpackr-extract-darwin-arm64@npm:3.0.3"
+  resolution: "@msgpackr-extract/msgpackr-extract-arm64-macos@npm:3.0.3"
   conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: hard
@@ -3470,7 +3470,7 @@ __metadata:
   version: 3.0.3
   resolution: "msgpackr-extract@npm:3.0.3"
   dependencies:
-    "@msgpackr-extract/msgpackr-extract-darwin-arm64": "npm:3.0.3"
+    "@msgpackr-extract/msgpackr-extract-arm64-macos": "npm:3.0.3"
     "@msgpackr-extract/msgpackr-extract-darwin-x64": "npm:3.0.3"
     "@msgpackr-extract/msgpackr-extract-linux-arm": "npm:3.0.3"
     "@msgpackr-extract/msgpackr-extract-linux-arm64": "npm:3.0.3"
@@ -3479,7 +3479,7 @@ __metadata:
     node-gyp: "npm:latest"
     node-gyp-build-optional-packages: "npm:5.2.2"
   dependenciesMeta:
-    "@msgpackr-extract/msgpackr-extract-darwin-arm64":
+    "@msgpackr-extract/msgpackr-extract-arm64-macos":
       optional: true
     "@msgpackr-extract/msgpackr-extract-darwin-x64":
       optional: true

@@ -505,10 +505,10 @@
       }
     },
     {
-      "name": "zig-darwin-amd64",
+      "name": "zig-amd64-macos",
       "displayName": "Build for macOS amd64 with Zig",
       "description": "Cross-compile for intel macOS using Zig",
-      "binaryDir": "build-zig-darwin-amd64",
+      "binaryDir": "build-zig-amd64-macos",
       "generator": "Ninja",
       "inherits": "zig-base",
       "environment": {
@@ -522,10 +522,10 @@
       }
     },
     {
-      "name": "zig-darwin-arm64",
+      "name": "zig-arm64-macos",
       "displayName": "Build for macOS arm64 with Zig",
       "description": "Cross-compile for macOS arm64 (Apple Silicon) using Zig",
-      "binaryDir": "build-zig-darwin-arm64",
+      "binaryDir": "build-zig-arm64-macos",
       "generator": "Ninja",
       "inherits": "zig-base",
       "environment": {
@@ -795,13 +795,13 @@
       "targets": ["nodejs_module"]
     },
     {
-      "name": "zig-darwin-arm64",
-      "configurePreset": "zig-darwin-arm64",
+      "name": "zig-arm64-macos",
+      "configurePreset": "zig-arm64-macos",
       "inheritConfigureEnvironment": true
     },
     {
-      "name": "zig-darwin-amd64",
-      "configurePreset": "zig-darwin-amd64",
+      "name": "zig-amd64-macos",
+      "configurePreset": "zig-amd64-macos",
       "inheritConfigureEnvironment": true
     }
   ],
