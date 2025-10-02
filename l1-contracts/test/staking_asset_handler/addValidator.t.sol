@@ -232,7 +232,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
     vm.warp(revertTimestamp + uint256(_daysInFuture) * 24 * 60 * 60);
 
-    vm.expectRevert("Proof expired or date is invalid");
+    vm.expectRevert("The proof was generated outside the validity period");
     vm.prank(_caller);
     stakingAssetHandler.addValidator(
       attester, validMerkleProof, _proof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
