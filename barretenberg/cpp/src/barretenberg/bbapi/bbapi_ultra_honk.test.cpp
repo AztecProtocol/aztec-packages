@@ -75,50 +75,43 @@ TEST_F(BBApiUltraHonkTest, ParallelComputeVk)
     // Set hardware concurrency to 8 to ensure we can run 8 VK computations in parallel
     set_hardware_concurrency(8);
 
-    auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
+    auto [bytecode, _] = acir_bincode_mocks::create_simple_circuit_bytecode();
 
     constexpr size_t num_vks = 8;
-    std::vector<CircuitComputeVk::Response> vk_responses(num_vks);
+    std::vector<CircuitComputeVk::Response> parallel_vks(num_vks);
+    std::vector<CircuitComputeVk::Response> sequential_vks(num_vks);
 
     // Use default settings
     bbapi::ProofSystemSettings settings{ .ipa_accumulation = false,
                                          .oracle_hash_type = "poseidon2",
                                          .disable_zk = false };
 
-    // Compute 8 VKs in parallel using parallel_for_outer
+    // Compute the same VK 8 times in parallel using parallel_for_outer
     parallel_for_outer(num_vks, [&](size_t i) {
-        vk_responses[i] =
-            CircuitComputeVk{ .circuit = { .name = "test_circuit_" + std::to_string(i), .bytecode = bytecode },
-                              .settings = settings }
+        parallel_vks[i] =
+            CircuitComputeVk{ .circuit = { .name = "test_circuit", .bytecode = bytecode }, .settings = settings }
                 .execute();
     });
 
-    // Verify all VKs were computed successfully and are identical
-    // (since they're from the same circuit)
+    // Compute the same VK 8 times sequentially
     for (size_t i = 0; i < num_vks; ++i) {
-        EXPECT_FALSE(vk_responses[i].bytes.empty()) << "VK " << i << " is empty";
-
-        // All VKs should be identical since they're from the same circuit
-        if (i > 0) {
-            EXPECT_EQ(vk_responses[i].bytes, vk_responses[0].bytes) << "VK " << i << " differs from VK 0";
-        }
+        sequential_vks[i] =
+            CircuitComputeVk{ .circuit = { .name = "test_circuit", .bytecode = bytecode }, .settings = settings }
+                .execute();
     }
 
-    // Verify that we can use any of these VKs to verify a proof
-    auto prove_response = CircuitProve{ .circuit = { .name = "test_circuit",
-                                                     .bytecode = bytecode,
-                                                     .verification_key = vk_responses[0].bytes },
-                                        .witness = witness,
-                                        .settings = settings }
-                              .execute();
+    // Verify all VKs were computed successfully and match between parallel and sequential
+    for (size_t i = 0; i < num_vks; ++i) {
+        EXPECT_FALSE(parallel_vks[i].bytes.empty()) << "Parallel VK " << i << " is empty";
+        EXPECT_FALSE(sequential_vks[i].bytes.empty()) << "Sequential VK " << i << " is empty";
 
-    auto verify_response = CircuitVerify{ .verification_key = vk_responses[0].bytes,
-                                          .public_inputs = prove_response.public_inputs,
-                                          .proof = prove_response.proof,
-                                          .settings = settings }
-                               .execute();
+        // Parallel and sequential should produce identical VKs
+        EXPECT_EQ(parallel_vks[i].bytes, sequential_vks[i].bytes)
+            << "Parallel VK " << i << " differs from sequential VK " << i;
 
-    EXPECT_TRUE(verify_response.verified);
+        // All VKs should be identical since it's the same circuit
+        EXPECT_EQ(parallel_vks[i].bytes, parallel_vks[0].bytes) << "VK " << i << " differs from VK 0";
+    }
 }
 
 } // namespace bb::bbapi

@@ -115,6 +115,13 @@ TEST_F(ThreadTest, CalculateNumThreadsPow2)
 // Test that correct number of threads are actually created
 TEST_F(ThreadTest, ActualThreadCount)
 {
+    // The thread pool is thread_local and persists across tests.
+    // Previous tests may have grown the pool. Reset by setting concurrency to 1 then back to 4.
+    set_hardware_concurrency(1);
+    // Run a dummy parallel_for to reset the pool
+    parallel_for(1, [](size_t) {});
+
+    // Now set to desired concurrency
     set_hardware_concurrency(4);
 
     std::mutex thread_ids_mutex;
@@ -134,7 +141,7 @@ TEST_F(ThreadTest, ActualThreadCount)
 
     size_t unique_thread_count = thread_ids.size();
 
-    // With 4 CPUs and 100 iterations, we should use 4 workers + 1 main thread = 4 threads total
+    // With 4 CPUs and 100 iterations, we should use 3 workers + 1 main thread = 4 threads total
     // (The implementation uses get_num_cpus() - 1 workers, plus main thread participates)
     EXPECT_EQ(unique_thread_count, 4);
 }
