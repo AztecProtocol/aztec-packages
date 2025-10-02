@@ -668,7 +668,7 @@ template <typename DataType_, typename HashFunction> class BaseTranscript {
 };
 
 using NativeTranscript = BaseTranscript<bb::fr, bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>>;
-using KeccakTranscript = BaseTranscript<uint256_t, Keccak>;
+using KeccakTranscript = BaseTranscript<uint256_t, bb::crypto::Keccak>;
 
 template <typename Builder>
 using StdlibTranscript = BaseTranscript<bb::stdlib::field_t<Builder>, bb::stdlib::poseidon2<Builder>>;

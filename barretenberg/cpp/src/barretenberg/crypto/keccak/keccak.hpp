@@ -44,6 +44,7 @@ struct keccak256 hash_field_elements(const uint64_t* limbs, size_t num_elements)
 
 struct keccak256 hash_field_element(const uint64_t* limb);
 
+namespace bb::crypto {
 /**
  * @brief A wrapper class used to construct `KeccakTranscript`.
  *
@@ -74,6 +75,8 @@ class Keccak {
         return from_buffer<bb::fr>(result);
     }
 };
+} // namespace bb::crypto
+
 #ifdef __cplusplus
 }
 #endif
