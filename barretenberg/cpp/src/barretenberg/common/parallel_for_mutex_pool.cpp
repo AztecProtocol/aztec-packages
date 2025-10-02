@@ -7,6 +7,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -45,6 +46,19 @@ class ThreadPool {
             // BB_BENCH_NAME("spinning main thread");
             std::unique_lock<std::mutex> lock(tasks_mutex);
             complete_condition_.wait(lock, [this] { return complete_ == num_iterations_; });
+        }
+    }
+
+    void grow(size_t target_num_threads)
+    {
+        std::unique_lock<std::mutex> lock(tasks_mutex);
+        size_t current_workers = workers.size();
+        if (target_num_threads <= current_workers) {
+            return;
+        }
+        workers.reserve(target_num_threads);
+        for (size_t i = current_workers; i < target_num_threads; ++i) {
+            workers.emplace_back(&ThreadPool::worker_loop, this, i);
         }
     }
 
@@ -143,6 +157,15 @@ namespace bb {
 void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func)
 {
     static thread_local ThreadPool pool(get_num_cpus() - 1);
+
+    // If hardware concurrency has increased, grow the pool with more workers
+    // This is a niche scenario that mostly comes up in testing where we may play with multiple set_hardware_concurrency
+    // values (a pool that is bigger is not an issue as set_hardware_concurrency affects get_num_cpus(), which will
+    // naturally limit concurrency).
+    if (get_num_cpus() > pool.get_num_workers() + 1) {
+        pool.grow(get_num_cpus() - 1);
+    }
+
     if (pool.get_num_workers() == 0 || num_iterations <= 1) {
         for (size_t i = 0; i < num_iterations; ++i) {
             func(i);
