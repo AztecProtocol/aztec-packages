@@ -107,6 +107,7 @@ function build_nodejs_module {
 
 function build_darwin_arm64 {
   set -eu
+  ensure_zig
   if ! cache_download barretenberg-darwin-arm64-$hash.zst; then
     build_preset zig-darwin-arm64 --target bb
     cache_upload barretenberg-darwin-arm64-$hash.zst build-zig-darwin-arm64/bin
@@ -115,6 +116,7 @@ function build_darwin_arm64 {
 
 function build_darwin_amd64 {
   set -eu
+  ensure_zig
   if ! cache_download barretenberg-darwin-amd64-$hash.zst; then
     build_preset zig-darwin-amd64 --target bb
     cache_upload barretenberg-darwin-amd64-$hash.zst build-zig-darwin-amd64/bin
