@@ -250,4 +250,65 @@ bool process_aztec_artifact(const std::string& input_path, const std::string& ou
     return true;
 }
 
+std::vector<std::string> find_contract_artifacts(const std::string& search_path)
+{
+    std::vector<std::string> artifacts;
+
+    // Recursively search for .json files in target/ directories, excluding cache/
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(search_path)) {
+        if (!entry.is_regular_file()) {
+            continue;
+        }
+
+        const auto& path = entry.path();
+
+        // Must be a .json file
+        if (path.extension() != ".json") {
+            continue;
+        }
+
+        // Must be in a target/ directory
+        std::string path_str = path.string();
+        if (path_str.find("/target/") == std::string::npos && path_str.find("\\target\\") == std::string::npos) {
+            continue;
+        }
+
+        // Exclude cache directories and function artifact temporaries
+        if (path_str.find("/cache/") != std::string::npos || path_str.find("\\cache\\") != std::string::npos ||
+            path_str.find(".function_artifact_") != std::string::npos) {
+            continue;
+        }
+
+        artifacts.push_back(path.string());
+    }
+
+    return artifacts;
+}
+
+bool process_all_artifacts(const std::string& search_path, bool force)
+{
+    auto artifacts = find_contract_artifacts(search_path);
+
+    if (artifacts.empty()) {
+        info("No contract artifacts found. Please compile your contracts first with 'nargo compile'.");
+        return false;
+    }
+
+    info("Found ", artifacts.size(), " contract artifact(s) to process");
+
+    bool all_success = true;
+    for (const auto& artifact : artifacts) {
+        // Process in-place (input == output)
+        if (!process_aztec_artifact(artifact, artifact, force)) {
+            all_success = false;
+        }
+    }
+
+    if (all_success) {
+        info("Contract postprocessing complete!");
+    }
+
+    return all_success;
+}
+
 } // namespace bb

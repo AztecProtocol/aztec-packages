@@ -26,7 +26,7 @@ class ThreadPool {
     ThreadPool& operator=(const ThreadPool& other) = delete;
     ThreadPool& operator=(ThreadPool&& other) = delete;
 
-    void start_tasks(size_t num_iterations, const std::function<void(size_t)>& func)
+    void start_tasks(size_t num_iterations, const std::function<void(size_t)>& func, size_t inner_concurrency)
     {
         parent.store(bb::detail::GlobalBenchStatsContainer::parent);
         {
@@ -35,6 +35,7 @@ class ThreadPool {
             num_iterations_ = num_iterations;
             iteration_ = 0;
             complete_ = 0;
+            inner_concurrency_ = inner_concurrency;
         }
         condition.notify_all();
 
@@ -47,11 +48,14 @@ class ThreadPool {
         }
     }
 
+    size_t get_num_workers() const { return workers.size(); }
+
   private:
     std::atomic<bb::detail::TimeStatsEntry*> parent = nullptr;
     std::vector<std::thread> workers;
     std::mutex tasks_mutex;
     std::function<void(size_t)> task_;
+    size_t inner_concurrency_ = 1;
     size_t num_iterations_ = 0;
     size_t iteration_ = 0;
     size_t complete_ = 0;
@@ -120,6 +124,11 @@ void ThreadPool::worker_loop(size_t /*unused*/)
         // Make sure nested stats accounting works under multithreading
         // Note: parent is a thread-local variable.
         bb::detail::GlobalBenchStatsContainer::parent = parent.load();
+        // NOTE: This sets the concurrency for this thread. That is, the amount of threads
+        // that are used when this calls parallel_for_mutex_pool() (including itself).
+        // The current design for nested parallel_for calls still closely follows the original design where it was not
+        // possible, so this has a somewhat awkward name.
+        bb::set_hardware_concurrency(inner_concurrency_);
         do_iterations();
     }
     // info("worker exit ", worker_num);
@@ -134,7 +143,21 @@ namespace bb {
 void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func)
 {
     static thread_local ThreadPool pool(get_num_cpus() - 1);
-    pool.start_tasks(num_iterations, func);
+    if (pool.get_num_workers() == 0 || num_iterations <= 1) {
+        for (size_t i = 0; i < num_iterations; ++i) {
+            func(i);
+        }
+        return;
+    }
+
+    // We compute inner concurrency here.
+    // This controls behavior if parallel_for_mutex_pool is called from within a task that is itself running in
+    // parallel_for_mutex_pool. For the cases where we do want inner concurrency, (e.g. processing contracts in
+    // aztec_process.cpp) having at least some inner concurrency smoothes out the task having uneven times, allowing
+    // more threads to share the work.
+    size_t total_threads = pool.get_num_workers() + 1;
+    size_t inner_concurrency = std::max(size_t{ 2 }, (total_threads + num_iterations - 1) / num_iterations);
+    pool.start_tasks(num_iterations, func, inner_concurrency);
 }
 } // namespace bb
 #endif

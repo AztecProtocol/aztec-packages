@@ -70,21 +70,8 @@ void parallel_for_atomic_pool(size_t num_iterations, const std::function<void(si
 
 void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func);
 
-namespace {
-// Thread-local counter to track parallel_for nesting depth
-thread_local size_t parallel_for_depth = 0;
-} // namespace
-
-void parallel_for_impl(size_t num_iterations, const std::function<void(size_t)>& func, bool check_nesting)
+void parallel_for_impl(size_t num_iterations, const std::function<void(size_t)>& func)
 {
-#ifndef NO_MULTITHREADING
-    if (check_nesting && parallel_for_depth > 0) {
-        throw_or_abort("parallel_for() cannot be called from within another parallel_for() context. Use "
-                       "parallel_for_outer() for the outermost loop if nesting is needed.");
-    }
-    ++parallel_for_depth;
-#endif
-
 #ifdef NO_MULTITHREADING
     for (size_t i = 0; i < num_iterations; ++i) {
         func(i);
@@ -100,20 +87,16 @@ void parallel_for_impl(size_t num_iterations, const std::function<void(size_t)>&
     // parallel_for_queued(num_iterations, func);
 #endif
 #endif
-
-#ifndef NO_MULTITHREADING
-    --parallel_for_depth;
-#endif
 }
 
 void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func)
 {
-    parallel_for_impl(num_iterations, func, true);
+    parallel_for_impl(num_iterations, func);
 }
 
 void parallel_for_outer(size_t num_iterations, const std::function<void(size_t)>& func)
 {
-    parallel_for_impl(num_iterations, func, false);
+    parallel_for_impl(num_iterations, func);
 }
 
 /**
