@@ -124,8 +124,7 @@ void generate_vks_for_functions(const std::filesystem::path& cache_dir,
                                 bool force)
 {
     // Generate VKs in parallel (logging removed to avoid data races)
-    // Use parallel_for_outer since VK generation may call parallel_for internally
-    parallel_for_outer(functions.size(), [&](size_t i) {
+    parallel_for(functions.size(), [&](size_t i) {
         auto* function = functions[i];
         std::string fn_name = (*function)["name"].get<std::string>();
 

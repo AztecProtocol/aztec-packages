@@ -86,8 +86,8 @@ TEST_F(BBApiUltraHonkTest, ParallelComputeVk)
                                          .oracle_hash_type = "poseidon2",
                                          .disable_zk = false };
 
-    // Compute the same VK 8 times in parallel using parallel_for_outer
-    parallel_for_outer(num_vks, [&](size_t i) {
+    // Compute the same VK 8 times in parallel
+    parallel_for(num_vks, [&](size_t i) {
         parallel_vks[i] =
             CircuitComputeVk{ .circuit = { .name = "test_circuit", .bytecode = bytecode }, .settings = settings }
                 .execute();

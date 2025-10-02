@@ -37,30 +37,16 @@ TEST_F(ThreadTest, BasicParallelFor)
     }
 }
 
-// Test that parallel_for_outer works the same as parallel_for for non-nested case
-TEST_F(ThreadTest, ParallelForOuterBasic)
-{
-    constexpr size_t num_iterations = 100;
-    std::vector<bool> flags(num_iterations, false);
-
-    parallel_for_outer(num_iterations, [&](size_t i) { flags[i] = true; });
-
-    // All iterations should have been executed
-    for (size_t i = 0; i < num_iterations; ++i) {
-        EXPECT_TRUE(flags[i]);
-    }
-}
-
-// Test nested parallel_for with parallel_for_outer
-TEST_F(ThreadTest, NestedParallelForWithOuter)
+// Test nested parallel_for
+TEST_F(ThreadTest, NestedParallelFor)
 {
     constexpr size_t outer_iterations = 4;
     constexpr size_t inner_iterations = 10;
 
     std::vector<std::vector<bool>> flags(outer_iterations, std::vector<bool>(inner_iterations, false));
 
-    parallel_for_outer(outer_iterations,
-                       [&](size_t i) { parallel_for(inner_iterations, [&](size_t j) { flags[i][j] = true; }); });
+    parallel_for(outer_iterations,
+                 [&](size_t i) { parallel_for(inner_iterations, [&](size_t j) { flags[i][j] = true; }); });
 
     // All iterations should have been executed
     for (size_t i = 0; i < outer_iterations; ++i) {
@@ -125,7 +111,7 @@ TEST_F(ThreadTest, NestedThreadCount)
     constexpr size_t outer_iterations = 4;
     constexpr size_t inner_iterations = 100;
 
-    parallel_for_outer(outer_iterations, [&](size_t) {
+    parallel_for(outer_iterations, [&](size_t) {
         // Track outer thread
         {
             std::lock_guard<std::mutex> lock(outer_mutex);

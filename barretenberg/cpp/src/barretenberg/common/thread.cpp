@@ -94,11 +94,6 @@ void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func
     parallel_for_impl(num_iterations, func);
 }
 
-void parallel_for_outer(size_t num_iterations, const std::function<void(size_t)>& func)
-{
-    parallel_for_impl(num_iterations, func);
-}
-
 /**
  * @brief Split a loop into several loops running in parallel
  *
