@@ -18,6 +18,7 @@
 #include "barretenberg/api/api_client_ivc.hpp"
 #include "barretenberg/api/api_msgpack.hpp"
 #include "barretenberg/api/api_ultra_honk.hpp"
+#include "barretenberg/api/aztec_process.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/bb/cli11_formatter.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
@@ -25,6 +26,7 @@
 #include "barretenberg/bbapi/c_bind.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/common/version.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -32,9 +34,6 @@
 #include <iostream>
 
 namespace bb {
-// This is updated in-place by bootstrap.sh during the release process. This prevents
-// the version string from needing to be present at build-time, simplifying e.g. caching.
-const char* const BB_VERSION_PLACEHOLDER = "00000000.00000000.00000000";
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1257): Remove unused/seemingly unnecessary flags.
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1258): Improve defaults.
@@ -514,6 +513,28 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_vk_path_option(avm_verify_command);
 
     /***************************************************************************************************************
+     * Subcommand: aztec_process_artifact
+     ***************************************************************************************************************/
+    CLI::App* aztec_process = app.add_subcommand(
+        "aztec_process",
+        "Process Aztec contract artifacts: transpile and generate verification keys for all private functions.\n"
+        "If no input is specified, searches for artifacts in target/ directories.");
+
+    std::string artifact_input_path;
+    std::string artifact_output_path;
+    std::string search_path = ".";
+    bool force_regenerate = false;
+
+    aztec_process->add_option("-i,--input", artifact_input_path, "Input artifact JSON path (optional)");
+    aztec_process->add_option(
+        "-o,--output", artifact_output_path, "Output artifact JSON path (optional, same as input if not specified)");
+    aztec_process->add_option(
+        "-d,--directory", search_path, "Directory to search for artifacts (default: current directory)");
+    aztec_process->add_flag("-f,--force", force_regenerate, "Force regeneration of verification keys");
+    add_verbose_flag(aztec_process);
+    add_debug_flag(aztec_process);
+
+    /***************************************************************************************************************
      * Subcommand: msgpack
      ***************************************************************************************************************/
     CLI::App* msgpack_command = app.add_subcommand("msgpack", "Msgpack API interface.");
@@ -599,6 +620,16 @@ int parse_and_run_cli_command(int argc, char* argv[])
         }
         if (msgpack_run_command->parsed()) {
             return execute_msgpack_run(msgpack_input_file);
+        }
+        if (aztec_process->parsed()) {
+            // If input specified, process single artifact
+            if (!artifact_input_path.empty()) {
+                // Default output to input if not specified
+                std::string output = artifact_output_path.empty() ? artifact_input_path : artifact_output_path;
+                return process_aztec_artifact(artifact_input_path, output, force_regenerate) ? 0 : 1;
+            }
+            // Otherwise, search for all artifacts in directory
+            return process_all_artifacts(search_path, force_regenerate) ? 0 : 1;
         }
         // AVM
 #ifndef DISABLE_AZTEC_VM
