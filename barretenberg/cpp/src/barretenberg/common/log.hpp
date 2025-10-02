@@ -6,6 +6,9 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#ifndef NO_MULTITHREADING
+#include <mutex>
+#endif
 
 #define BENCHMARK_INFO_PREFIX "##BENCHMARK_INFO_PREFIX##"
 #define BENCHMARK_INFO_SEPARATOR "#"
