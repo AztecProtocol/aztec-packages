@@ -9,10 +9,8 @@ unconstrained fn succeeds_on_blocks_after_note_creation() {
     env.private_context_opts(
         PrivateContextOptions::new().at_anchor_block_number(test::NOTE_CREATED_AT),
         |context| {
-            // docs:start:prove_note_inclusion
             let header = context.anchor_block_header;
             header.prove_note_inclusion(retrieved_note, test::NOTE_STORAGE_SLOT);
-            // docs:end:prove_note_inclusion
         },
     );
 }

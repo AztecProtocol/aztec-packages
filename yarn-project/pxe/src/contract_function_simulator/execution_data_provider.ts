@@ -5,7 +5,6 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, NodeStats } from '@aztec/stdlib/tx';
@@ -215,30 +214,13 @@ export interface ExecutionDataProvider {
   assertCompatibleOracleVersion(version: number): void;
 
   /**
-   * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.
-   * Includes the next index to be used used for tagging with this secret.
+   * Returns the next app tag for a given sender and recipient pair.
    * @param contractAddress - The contract address to silo the secret for
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
-   * @returns A tagging secret that can be used to tag notes.
+   * @returns The computed tag.
    */
-  getIndexedTaggingSecretAsSender(
-    contractAddress: AztecAddress,
-    sender: AztecAddress,
-    recipient: AztecAddress,
-  ): Promise<IndexedTaggingSecret>;
-
-  /**
-   * Increments the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.
-   * @param contractAddress - The contract address to silo the secret for
-   * @param sender - The address sending the note
-   * @param recipient - The address receiving the note
-   */
-  incrementAppTaggingSecretIndexAsSender(
-    contractAddress: AztecAddress,
-    sender: AztecAddress,
-    recipient: AztecAddress,
-  ): Promise<void>;
+  getNextAppTagAsSender(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress): Promise<Fr>;
 
   /**
    * Synchronizes the private logs tagged with scoped addresses and all the senders in the address book. Stores the found

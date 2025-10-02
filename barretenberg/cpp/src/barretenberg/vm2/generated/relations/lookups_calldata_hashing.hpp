@@ -11,51 +11,140 @@
 
 namespace bb::avm2 {
 
-/////////////////// lookup_calldata_hashing_cd_hash ///////////////////
+/////////////////// lookup_calldata_hashing_get_calldata_field_0 ///////////////////
 
-struct lookup_calldata_hashing_cd_hash_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_CALLDATA_HASHING_CD_HASH";
+struct lookup_calldata_hashing_get_calldata_field_0_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_CALLDATA_HASHING_GET_CALLDATA_FIELD_0";
     static constexpr std::string_view RELATION_NAME = "calldata_hashing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::cd_hashing_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_sel;
-    static constexpr Column COUNTS = Column::lookup_calldata_hashing_cd_hash_counts;
-    static constexpr Column INVERSES = Column::lookup_calldata_hashing_cd_hash_inv;
+    static constexpr Column SRC_SELECTOR = Column::calldata_hashing_sel_not_start;
+    static constexpr Column DST_SELECTOR = Column::calldata_sel;
+    static constexpr Column COUNTS = Column::lookup_calldata_hashing_get_calldata_field_0_counts;
+    static constexpr Column INVERSES = Column::lookup_calldata_hashing_get_calldata_field_0_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::cd_hashing_input_0_, ColumnAndShifts::cd_hashing_input_1_, ColumnAndShifts::cd_hashing_input_2_
+        ColumnAndShifts::calldata_hashing_index_0_,
+        ColumnAndShifts::calldata_hashing_context_id,
+        ColumnAndShifts::calldata_hashing_input_0_
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,
-        ColumnAndShifts::poseidon2_hash_input_2
+        ColumnAndShifts::calldata_index, ColumnAndShifts::calldata_context_id, ColumnAndShifts::calldata_value
     };
 };
 
-using lookup_calldata_hashing_cd_hash_settings = lookup_settings<lookup_calldata_hashing_cd_hash_settings_>;
+using lookup_calldata_hashing_get_calldata_field_0_settings =
+    lookup_settings<lookup_calldata_hashing_get_calldata_field_0_settings_>;
 template <typename FF_>
-using lookup_calldata_hashing_cd_hash_relation = lookup_relation_base<FF_, lookup_calldata_hashing_cd_hash_settings>;
+using lookup_calldata_hashing_get_calldata_field_0_relation =
+    lookup_relation_base<FF_, lookup_calldata_hashing_get_calldata_field_0_settings>;
 
-/////////////////// lookup_calldata_hashing_cd_hash_end ///////////////////
+/////////////////// lookup_calldata_hashing_get_calldata_field_1 ///////////////////
 
-struct lookup_calldata_hashing_cd_hash_end_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_CALLDATA_HASHING_CD_HASH_END";
+struct lookup_calldata_hashing_get_calldata_field_1_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_CALLDATA_HASHING_GET_CALLDATA_FIELD_1";
     static constexpr std::string_view RELATION_NAME = "calldata_hashing";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr Column SRC_SELECTOR = Column::cd_hashing_latch;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_sel;
-    static constexpr Column COUNTS = Column::lookup_calldata_hashing_cd_hash_end_counts;
-    static constexpr Column INVERSES = Column::lookup_calldata_hashing_cd_hash_end_inv;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr Column SRC_SELECTOR = Column::calldata_hashing_sel_not_padding_1;
+    static constexpr Column DST_SELECTOR = Column::calldata_sel;
+    static constexpr Column COUNTS = Column::lookup_calldata_hashing_get_calldata_field_1_counts;
+    static constexpr Column INVERSES = Column::lookup_calldata_hashing_get_calldata_field_1_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::cd_hashing_output_hash
+        ColumnAndShifts::calldata_hashing_index_1_,
+        ColumnAndShifts::calldata_hashing_context_id,
+        ColumnAndShifts::calldata_hashing_input_1_
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::calldata_index, ColumnAndShifts::calldata_context_id, ColumnAndShifts::calldata_value
+    };
+};
+
+using lookup_calldata_hashing_get_calldata_field_1_settings =
+    lookup_settings<lookup_calldata_hashing_get_calldata_field_1_settings_>;
+template <typename FF_>
+using lookup_calldata_hashing_get_calldata_field_1_relation =
+    lookup_relation_base<FF_, lookup_calldata_hashing_get_calldata_field_1_settings>;
+
+/////////////////// lookup_calldata_hashing_get_calldata_field_2 ///////////////////
+
+struct lookup_calldata_hashing_get_calldata_field_2_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_CALLDATA_HASHING_GET_CALLDATA_FIELD_2";
+    static constexpr std::string_view RELATION_NAME = "calldata_hashing";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr Column SRC_SELECTOR = Column::calldata_hashing_sel_not_padding_2;
+    static constexpr Column DST_SELECTOR = Column::calldata_sel;
+    static constexpr Column COUNTS = Column::lookup_calldata_hashing_get_calldata_field_2_counts;
+    static constexpr Column INVERSES = Column::lookup_calldata_hashing_get_calldata_field_2_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::calldata_hashing_index_2_,
+        ColumnAndShifts::calldata_hashing_context_id,
+        ColumnAndShifts::calldata_hashing_input_2_
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::calldata_index, ColumnAndShifts::calldata_context_id, ColumnAndShifts::calldata_value
+    };
+};
+
+using lookup_calldata_hashing_get_calldata_field_2_settings =
+    lookup_settings<lookup_calldata_hashing_get_calldata_field_2_settings_>;
+template <typename FF_>
+using lookup_calldata_hashing_get_calldata_field_2_relation =
+    lookup_relation_base<FF_, lookup_calldata_hashing_get_calldata_field_2_settings>;
+
+/////////////////// lookup_calldata_hashing_check_final_size ///////////////////
+
+struct lookup_calldata_hashing_check_final_size_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_CALLDATA_HASHING_CHECK_FINAL_SIZE";
+    static constexpr std::string_view RELATION_NAME = "calldata_hashing";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::calldata_hashing_latch;
+    static constexpr Column DST_SELECTOR = Column::calldata_latch;
+    static constexpr Column COUNTS = Column::lookup_calldata_hashing_check_final_size_counts;
+    static constexpr Column INVERSES = Column::lookup_calldata_hashing_check_final_size_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::calldata_hashing_calldata_size, ColumnAndShifts::calldata_hashing_context_id
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::calldata_index, ColumnAndShifts::calldata_context_id
+    };
+};
+
+using lookup_calldata_hashing_check_final_size_settings =
+    lookup_settings<lookup_calldata_hashing_check_final_size_settings_>;
+template <typename FF_>
+using lookup_calldata_hashing_check_final_size_relation =
+    lookup_relation_base<FF_, lookup_calldata_hashing_check_final_size_settings>;
+
+/////////////////// lookup_calldata_hashing_poseidon2_hash ///////////////////
+
+struct lookup_calldata_hashing_poseidon2_hash_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_CALLDATA_HASHING_POSEIDON2_HASH";
+    static constexpr std::string_view RELATION_NAME = "calldata_hashing";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
+    static constexpr Column SRC_SELECTOR = Column::calldata_hashing_sel;
+    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_sel;
+    static constexpr Column COUNTS = Column::lookup_calldata_hashing_poseidon2_hash_counts;
+    static constexpr Column INVERSES = Column::lookup_calldata_hashing_poseidon2_hash_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::calldata_hashing_start,      ColumnAndShifts::calldata_hashing_latch,
+        ColumnAndShifts::calldata_hashing_input_0_,   ColumnAndShifts::calldata_hashing_input_1_,
+        ColumnAndShifts::calldata_hashing_input_2_,   ColumnAndShifts::calldata_hashing_input_len,
+        ColumnAndShifts::calldata_hashing_rounds_rem, ColumnAndShifts::calldata_hashing_output_hash
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::poseidon2_hash_start,
+        ColumnAndShifts::poseidon2_hash_end,
+        ColumnAndShifts::poseidon2_hash_input_0,
+        ColumnAndShifts::poseidon2_hash_input_1,
+        ColumnAndShifts::poseidon2_hash_input_2,
+        ColumnAndShifts::poseidon2_hash_input_len,
+        ColumnAndShifts::poseidon2_hash_num_perm_rounds_rem,
         ColumnAndShifts::poseidon2_hash_output
     };
 };
 
-using lookup_calldata_hashing_cd_hash_end_settings = lookup_settings<lookup_calldata_hashing_cd_hash_end_settings_>;
+using lookup_calldata_hashing_poseidon2_hash_settings =
+    lookup_settings<lookup_calldata_hashing_poseidon2_hash_settings_>;
 template <typename FF_>
-using lookup_calldata_hashing_cd_hash_end_relation =
-    lookup_relation_base<FF_, lookup_calldata_hashing_cd_hash_end_settings>;
+using lookup_calldata_hashing_poseidon2_hash_relation =
+    lookup_relation_base<FF_, lookup_calldata_hashing_poseidon2_hash_settings>;
 
 } // namespace bb::avm2

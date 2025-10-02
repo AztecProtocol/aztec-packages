@@ -1,6 +1,6 @@
 // import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 // import { AztecAddress, Fr, SponsoredFeePaymentMethod, Tx, TxStatus, type Wallet } from '@aztec/aztec.js';
-// import type { UserFeeOptions } from '@aztec/entrypoints/interfaces';
+// import type { InteractionFeeOptions } from '@aztec/entrypoints/interfaces';
 // import { asyncPool } from '@aztec/foundation/async-pool';
 // import { times } from '@aztec/foundation/collection';
 // import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
@@ -45,7 +45,7 @@
 //   let tokenContractAddress: AztecAddress;
 //   let sampleTx: Tx;
 
-//   let userFeeOptions: UserFeeOptions;
+//   let InteractionFeeOptions: InteractionFeeOptions;
 
 //   const forwardProcesses: ChildProcess[] = [];
 

@@ -188,15 +188,15 @@ TEST(BitwiseConstrainingTest, MixedOperationsWithTracegen)
 
 TEST(BitwiseConstrainingTest, NegativeWrongInit)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
+    TestTraceContainer trace({
         {
-            .bitwise_acc_ia = 25,
-            .bitwise_acc_ib = 25,
-            .bitwise_acc_ic = 25,
-            .bitwise_ia_byte = 25,
-            .bitwise_ib_byte = 25,
-            .bitwise_ic_byte = 25,
-            .bitwise_last = 1,
+            { C::bitwise_ia_byte, 25 },
+            { C::bitwise_ib_byte, 25 },
+            { C::bitwise_ic_byte, 25 },
+            { C::bitwise_last, 1 },
+            { C::bitwise_acc_ia, 25 },
+            { C::bitwise_acc_ib, 25 },
+            { C::bitwise_acc_ic, 25 },
         },
     });
 
@@ -213,23 +213,23 @@ TEST(BitwiseConstrainingTest, NegativeWrongInit)
 
 TEST(BitwiseConstrainingTest, NegativeTruncateCtr)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
+    TestTraceContainer trace({
         {
-            .bitwise_ctr = 4,
-            .bitwise_sel = 1,
+            { C::bitwise_sel, 1 },
+            { C::bitwise_ctr, 4 },
         },
         {
-            .bitwise_ctr = 3,
-            .bitwise_sel = 1,
+            { C::bitwise_sel, 1 },
+            { C::bitwise_ctr, 3 },
         },
         {
-            .bitwise_ctr = 2,
-            .bitwise_sel = 1,
+            { C::bitwise_sel, 1 },
+            { C::bitwise_ctr, 2 },
         },
         {
-            .bitwise_ctr = 1,
-            .bitwise_last = 1,
-            .bitwise_sel = 1,
+            { C::bitwise_last, 1 },
+            { C::bitwise_sel, 1 },
+            { C::bitwise_ctr, 1 },
         },
     });
 
@@ -245,15 +245,15 @@ TEST(BitwiseConstrainingTest, NegativeTruncateCtr)
 
 TEST(BitwiseConstrainingTest, NegativeGapCtr)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
+    TestTraceContainer trace({
         {
-            .bitwise_ctr = 4,
-            .bitwise_sel = 1,
+            { C::bitwise_sel, 1 },
+            { C::bitwise_ctr, 4 },
         },
         {
-            .bitwise_ctr = 3,
-            .bitwise_last = 1,
-            .bitwise_sel = 1,
+            { C::bitwise_last, 1 },
+            { C::bitwise_sel, 1 },
+            { C::bitwise_ctr, 3 },
         },
     });
 
@@ -264,22 +264,22 @@ TEST(BitwiseConstrainingTest, NegativeGapCtr)
 
 TEST(BitwiseConstrainingTest, NegativeLastSetBeforeEnd)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
+    TestTraceContainer trace({
         {
-            .bitwise_ctr = 8,
-            .bitwise_ctr_min_one_inv = FF(7).invert(),
-            .bitwise_sel = 1,
+            { C::bitwise_ctr_min_one_inv, FF(7).invert() },
+            { C::bitwise_sel, 1 },
+            { C::bitwise_ctr, 8 },
         },
         {
-            .bitwise_ctr = 7,
-            .bitwise_ctr_min_one_inv = FF(6).invert(),
-            .bitwise_sel = 1,
+            { C::bitwise_ctr_min_one_inv, FF(6).invert() },
+            { C::bitwise_sel, 1 },
+            { C::bitwise_ctr, 7 },
 
         },
         {
-            .bitwise_ctr = 6,
-            .bitwise_ctr_min_one_inv = FF(5).invert(),
-            .bitwise_sel = 1,
+            { C::bitwise_ctr_min_one_inv, FF(5).invert() },
+            { C::bitwise_sel, 1 },
+            { C::bitwise_ctr, 6 },
         },
     });
 
@@ -291,21 +291,21 @@ TEST(BitwiseConstrainingTest, NegativeLastSetBeforeEnd)
 
 TEST(BitwiseConstrainingTest, NegativeDeactivateRow)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
+    TestTraceContainer trace({
         {
-            .bitwise_ctr = 8,
-            .bitwise_ctr_inv = FF(8).invert(),
-            .bitwise_sel = 1,
+            { C::bitwise_ctr_inv, FF(8).invert() },
+            { C::bitwise_sel, 1 },
+            { C::bitwise_ctr, 8 },
         },
         {
-            .bitwise_ctr = 7,
-            .bitwise_ctr_inv = FF(7).invert(),
-            .bitwise_sel = 1,
+            { C::bitwise_ctr_inv, FF(7).invert() },
+            { C::bitwise_sel, 1 },
+            { C::bitwise_ctr, 7 },
         },
         {
-            .bitwise_ctr = 6,
-            .bitwise_ctr_inv = FF(6).invert(),
-            .bitwise_sel = 1,
+            { C::bitwise_ctr_inv, FF(6).invert() },
+            { C::bitwise_sel, 1 },
+            { C::bitwise_ctr, 6 },
         },
     });
 
@@ -317,16 +317,16 @@ TEST(BitwiseConstrainingTest, NegativeDeactivateRow)
 
 TEST(BitwiseConstrainingTest, NegativeChangeOpIDBeforeEnd)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
+    TestTraceContainer trace({
         {
-            .bitwise_op_id = static_cast<uint8_t>(BitwiseOperation::XOR),
+            { C::bitwise_op_id, static_cast<uint8_t>(BitwiseOperation::XOR) },
         },
         {
-            .bitwise_op_id = static_cast<uint8_t>(BitwiseOperation::XOR),
+            { C::bitwise_op_id, static_cast<uint8_t>(BitwiseOperation::XOR) },
         },
         {
-            .bitwise_last = 1,
-            .bitwise_op_id = static_cast<uint8_t>(BitwiseOperation::XOR),
+            { C::bitwise_last, 1 },
+            { C::bitwise_op_id, static_cast<uint8_t>(BitwiseOperation::XOR) },
         },
     });
 
@@ -337,20 +337,20 @@ TEST(BitwiseConstrainingTest, NegativeChangeOpIDBeforeEnd)
 
 TEST(BitwiseConstrainingTest, NegativeWrongAccumulation)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
+    TestTraceContainer trace({
         {
-            .bitwise_acc_ia = 0xaa11,
-            .bitwise_acc_ib = 0xbb22,
-            .bitwise_acc_ic = 0xcc33,
-            .bitwise_ia_byte = 0x11,
-            .bitwise_ib_byte = 0x22,
-            .bitwise_ic_byte = 0x33,
+            { C::bitwise_ia_byte, 0x11 },
+            { C::bitwise_ib_byte, 0x22 },
+            { C::bitwise_ic_byte, 0x33 },
+            { C::bitwise_acc_ia, 0xaa11 },
+            { C::bitwise_acc_ib, 0xbb22 },
+            { C::bitwise_acc_ic, 0xcc33 },
         },
         {
-            .bitwise_acc_ia = 0xaa,
-            .bitwise_acc_ib = 0xbb,
-            .bitwise_acc_ic = 0xcc,
-            .bitwise_last = 1,
+            { C::bitwise_last, 1 },
+            { C::bitwise_acc_ia, 0xaa },
+            { C::bitwise_acc_ib, 0xbb },
+            { C::bitwise_acc_ic, 0xcc },
         },
     });
 
@@ -409,28 +409,27 @@ TEST(BitwiseConstrainingTest, MixedOperationsInteractions)
 
 TEST(BitwiseConstrainingTest, BitwiseExecInteraction)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({ {
+    TestTraceContainer trace({ {
         // Bitwise Entry
-        .bitwise_acc_ia = 0x01,
-        .bitwise_acc_ib = 0x01,
-        .bitwise_acc_ic = 0x00,
-        .bitwise_err = 1,
-        .bitwise_op_id = static_cast<uint8_t>(BitwiseOperation::AND),
-        .bitwise_sel = 1,
-        .bitwise_tag_a = static_cast<uint8_t>(ValueTag::FF),
-        .bitwise_tag_b = static_cast<uint8_t>(ValueTag::U8),
-        .bitwise_tag_c = static_cast<uint8_t>(ValueTag::U8),
-
+        { C::bitwise_err, 1 },
+        { C::bitwise_sel, 1 },
+        { C::bitwise_tag_a, static_cast<uint8_t>(ValueTag::FF) },
+        { C::bitwise_tag_b, static_cast<uint8_t>(ValueTag::U8) },
+        { C::bitwise_acc_ia, 0x01 },
+        { C::bitwise_tag_c, static_cast<uint8_t>(ValueTag::U8) },
+        { C::bitwise_acc_ib, 0x01 },
+        { C::bitwise_acc_ic, 0x00 },
         // Execution Entry
-        .execution_mem_tag_reg_0_ = static_cast<uint8_t>(ValueTag::FF),
-        .execution_mem_tag_reg_1_ = static_cast<uint8_t>(ValueTag::U8),
-        .execution_mem_tag_reg_2_ = static_cast<uint8_t>(ValueTag::U8),
-        .execution_register_0_ = 0x01,
-        .execution_register_1_ = 0x01,
-        .execution_register_2_ = 0x00,
-        .execution_sel_execute_bitwise = 1,
-        .execution_sel_opcode_error = 1,
-        .execution_subtrace_operation_id = static_cast<uint8_t>(BitwiseOperation::AND),
+        { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::FF) },
+        { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(ValueTag::U8) },
+        { C::bitwise_op_id, static_cast<uint8_t>(BitwiseOperation::AND) },
+        { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(ValueTag::U8) },
+        { C::execution_register_0_, 0x01 },
+        { C::execution_register_1_, 0x01 },
+        { C::execution_register_2_, 0x00 },
+        { C::execution_sel_execute_bitwise, 1 },
+        { C::execution_sel_opcode_error, 1 },
+        { C::execution_subtrace_operation_id, static_cast<uint8_t>(BitwiseOperation::AND) },
     } });
 
     check_interaction<BitwiseTraceBuilder, lookup_bitwise_dispatch_exec_bitwise_settings>(trace);
@@ -438,26 +437,26 @@ TEST(BitwiseConstrainingTest, BitwiseExecInteraction)
 
 TEST(BitwiseConstrainingTest, InvalidBitwiseExecInteraction)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({ {
+    TestTraceContainer trace({ {
         // Bitwise Entry
-        .bitwise_acc_ia = 0x01,
-        .bitwise_acc_ib = 0x01,
-        .bitwise_acc_ic = 0x00,
-        .bitwise_op_id = static_cast<uint8_t>(BitwiseOperation::AND),
-        .bitwise_sel = 1,
-        .bitwise_tag_a = static_cast<uint8_t>(ValueTag::U8),
-        .bitwise_tag_b = static_cast<uint8_t>(ValueTag::U8),
-        .bitwise_tag_c = static_cast<uint8_t>(ValueTag::U8),
+        { C::bitwise_sel, 1 },
+        { C::bitwise_acc_ib, 0x01 },
+        { C::bitwise_acc_ia, 0x01 },
+        { C::bitwise_tag_a, static_cast<uint8_t>(ValueTag::U8) },
+        { C::bitwise_tag_b, static_cast<uint8_t>(ValueTag::U8) },
+        { C::bitwise_acc_ic, 0x00 },
+        { C::bitwise_tag_c, static_cast<uint8_t>(ValueTag::U8) },
+        { C::bitwise_op_id, static_cast<uint8_t>(BitwiseOperation::AND) },
 
         // Execution Entry
-        .execution_mem_tag_reg_0_ = static_cast<uint8_t>(ValueTag::U8),
-        .execution_mem_tag_reg_1_ = static_cast<uint8_t>(ValueTag::U16), // Mismatch
-        .execution_mem_tag_reg_2_ = static_cast<uint8_t>(ValueTag::U8),
-        .execution_register_0_ = 0x01,
-        .execution_register_1_ = 0x01,
-        .execution_register_2_ = 0x00,
-        .execution_sel_execute_bitwise = 1,
-        .execution_subtrace_operation_id = static_cast<uint8_t>(BitwiseOperation::AND),
+        { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U8) },
+        { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(ValueTag::U16) }, // Mismatch
+        { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(ValueTag::U8) },
+        { C::execution_register_0_, 0x01 },
+        { C::execution_register_1_, 0x01 },
+        { C::execution_register_2_, 0x00 },
+        { C::execution_sel_execute_bitwise, 1 },
+        { C::execution_subtrace_operation_id, static_cast<uint8_t>(BitwiseOperation::AND) },
     } });
 
     EXPECT_THROW_WITH_MESSAGE(

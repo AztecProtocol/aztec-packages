@@ -322,6 +322,7 @@ void ProverInstance_<Flavor>::move_structured_trace_overflow_to_overflow_block(C
                 }
                 selector.resize(fixed_block_size); // shrink the main block to its max capacity
             }
+
             // Convert duplicated final gate in the main block to a 'dummy' gate by turning off all selectors. This
             // ensures it can be read into by the previous gate but does not itself try to read into the next gate.
             for (auto& selector : block.get_gate_selectors()) {

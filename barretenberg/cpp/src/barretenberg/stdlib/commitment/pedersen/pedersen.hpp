@@ -11,18 +11,21 @@
 
 namespace bb::stdlib {
 
-template <typename CircuitBuilder> class pedersen_commitment {
+/**
+ * @brief In-circuit Pedersen commitment implementation
+ *
+ * @tparam Builder
+ */
+template <typename Builder> class pedersen_commitment {
   private:
-    using bool_t = stdlib::bool_t<CircuitBuilder>;
-    using field_t = stdlib::field_t<CircuitBuilder>;
-    using EmbeddedCurve = typename cycle_group<CircuitBuilder>::Curve;
-    using GeneratorContext = crypto::GeneratorContext<EmbeddedCurve>;
-    using cycle_group = stdlib::cycle_group<CircuitBuilder>;
-    using cycle_scalar = typename stdlib::cycle_group<CircuitBuilder>::cycle_scalar;
+    using field_t = stdlib::field_t<Builder>;                         // BN254 scalar field element
+    using cycle_group = stdlib::cycle_group<Builder>;                 // Grumpkin curve point
+    using EmbeddedCurve = typename cycle_group::Curve;                // Grumpkin curve type
+    using cycle_scalar = typename cycle_group::cycle_scalar;          // Grumpkin scalar field element
+    using GeneratorContext = crypto::GeneratorContext<EmbeddedCurve>; // Generator configuration
 
   public:
     static cycle_group commit(const std::vector<field_t>& inputs, GeneratorContext context = {});
-    static cycle_group commit(const std::vector<std::pair<field_t, GeneratorContext>>& input_pairs);
 };
 
 } // namespace bb::stdlib

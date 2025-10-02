@@ -1,6 +1,6 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
-import type { AztecAddress, WaitOpts } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, type WaitOpts } from '@aztec/aztec.js';
 
 import type { BaseTestWallet } from './wallet/test_wallet.js';
 
@@ -10,6 +10,7 @@ import type { BaseTestWallet } from './wallet/test_wallet.js';
  */
 export async function deployFundedSchnorrAccounts(
   wallet: BaseTestWallet,
+  aztecNode: AztecNode,
   accountsData: InitialAccountData[],
   waitOptions?: WaitOpts,
 ) {
@@ -18,8 +19,10 @@ export async function deployFundedSchnorrAccounts(
   for (let i = 0; i < accountsData.length; i++) {
     const { secret, salt, signingKey } = accountsData[i];
     const accountManager = await wallet.createSchnorrAccount(secret, salt, signingKey);
-    await accountManager
-      .deploy({
+    const deployMethod = await accountManager.getDeployMethod();
+    await deployMethod
+      .send({
+        from: AztecAddress.ZERO,
         skipClassPublication: i !== 0, // Publish the contract class at most once.
       })
       .wait(waitOptions);
@@ -37,7 +40,7 @@ export async function registerInitialSandboxAccountsInWallet(wallet: BaseTestWal
   const testAccounts = await getInitialTestAccountsData();
   return Promise.all(
     testAccounts.map(async account => {
-      return (await wallet.createSchnorrAccount(account.secret, account.salt, account.signingKey)).getAddress();
+      return (await wallet.createSchnorrAccount(account.secret, account.salt, account.signingKey)).address;
     }),
   );
 }

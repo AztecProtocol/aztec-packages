@@ -89,24 +89,32 @@ AvmFlavor::ProvingKey::ProvingKey()
         // AvmComposer::compute_witness(). We should probably refactor this flow.
     };
 
-const AvmFlavor::LazilyExtendedProverUnivariates::data_type& AvmFlavor::LazilyExtendedProverUnivariates::get(
-    ColumnAndShifts c) const
+void AvmFlavor::LazilyExtendedProverUnivariates::set_current_edge(size_t edge_idx)
+{
+    current_edge = edge_idx;
+    // If the current edge changed, we need to clear all the cached univariates.
+    dirty = true;
+}
+
+const bb::Univariate<AvmFlavor::FF, AvmFlavor::MAX_PARTIAL_RELATION_LENGTH>& AvmFlavor::
+    LazilyExtendedProverUnivariates::get(ColumnAndShifts c) const
 {
     const auto& multivariate = multivariates.get(c);
     if (multivariate.is_empty() || multivariate.end_index() < current_edge) {
-        static const auto zero_univariate = data_type::zero();
+        static const auto zero_univariate = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>::zero();
         return zero_univariate;
     } else {
+        auto& mutable_entities = const_cast<decltype(entities)&>(entities);
         if (dirty) {
             // If the current edge changed, we need to clear all the cached univariates.
-            for (auto& extended_ptr : univariates) {
+            for (auto& extended_ptr : mutable_entities) {
                 extended_ptr.reset();
             }
             dirty = false;
         }
-        auto& extended_ptr = univariates[static_cast<size_t>(c)];
+        auto& extended_ptr = mutable_entities[static_cast<size_t>(c)];
         if (extended_ptr.get() == nullptr) {
-            extended_ptr = std::make_unique<data_type>(
+            extended_ptr = std::make_unique<bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>>(
                 bb::Univariate<FF, 2>({ multivariate[current_edge], multivariate[current_edge + 1] })
                     .template extend_to<MAX_PARTIAL_RELATION_LENGTH>());
         }

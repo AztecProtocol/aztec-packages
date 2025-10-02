@@ -20,19 +20,6 @@ TestTraceContainer::TestTraceContainer(const std::vector<std::vector<std::pair<C
     }
 }
 
-TestTraceContainer TestTraceContainer::from_rows(const std::vector<AvmFullRow>& rows)
-{
-    TestTraceContainer container;
-    for (uint32_t row = 0; row < rows.size(); ++row) {
-        const auto& full_row = rows[row];
-        for (size_t i = 0; i < container.num_columns(); ++i) {
-            const auto column = static_cast<Column>(i);
-            container.set(column, row, full_row.get(static_cast<ColumnAndShifts>(column)));
-        }
-    }
-    return container;
-}
-
 AvmFullRowProxy TestTraceContainer::get_row(uint32_t row) const
 {
     return { row, *this };

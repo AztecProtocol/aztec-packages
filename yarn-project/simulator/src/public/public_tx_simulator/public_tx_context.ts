@@ -71,6 +71,7 @@ export class PublicTxContext {
     private readonly startTreeSnapshots: TreeSnapshots,
     private readonly globalVariables: GlobalVariables,
     private readonly protocolContractTreeRoot: Fr,
+    private readonly proverId: Fr,
     private readonly gasSettings: GasSettings,
     private readonly gasUsedByPrivate: Gas,
     private readonly gasAllocatedToPublic: Gas,
@@ -93,6 +94,7 @@ export class PublicTxContext {
     globalVariables: GlobalVariables,
     protocolContractTreeRoot: Fr,
     doMerkleOperations: boolean,
+    proverId: Fr,
   ) {
     const nonRevertibleAccumulatedDataFromPrivate = tx.data.forPublic!.nonRevertibleAccumulatedData;
 
@@ -121,6 +123,7 @@ export class PublicTxContext {
       await txStateManager.getTreeSnapshots(),
       globalVariables,
       protocolContractTreeRoot,
+      proverId,
       gasSettings,
       gasUsedByPrivate,
       gasAllocatedToPublic,
@@ -383,6 +386,7 @@ export class PublicTxContext {
       this.gasSettings,
       computeEffectiveGasFees(this.globalVariables.gasFees, this.gasSettings),
       this.feePayer,
+      this.proverId,
       /*publicCallRequestArrayLengths=*/ new PublicCallRequestArrayLengths(
         this.setupCallRequests.length,
         this.appLogicCallRequests.length,

@@ -64,7 +64,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 
     // Contract class retrieval and class ID validation
     std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(current_class_id);
-    // Note: we don't need to silo and check the class id because the deployer contract guarrantees
+    // Note: we don't need to silo and check the class id because the deployer contract guarantees
     // that if a contract instance exists, the class has been registered.
     assert(maybe_klass.has_value());
     auto& klass = maybe_klass.value();
@@ -82,7 +82,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
         return bytecode_id;
     }
 
-    // First time seeing this bytecode - do hashing and decomposition
+    // First time seeing this bytecode - check hashing and decomposition
     bytecode_hasher.assert_public_bytecode_commitment(
         bytecode_id, klass.packed_bytecode, klass.public_bytecode_commitment);
 

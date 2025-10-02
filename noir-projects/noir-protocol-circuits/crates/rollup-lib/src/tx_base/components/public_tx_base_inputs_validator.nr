@@ -55,7 +55,7 @@ impl PublicTxBaseInputsValidator {
         // `public_tube`. The following two functions verify the public inputs to ensure that the private side was
         // executed correctly and that the data from private is passed to the AVM properly.
         self.validate_private_tail();
-        self.validate_private_tail_against_avm();
+        self.validate_public_tube_against_avm();
     }
 
     fn validate_public_tube_proof_and_vk(self) {
@@ -104,9 +104,19 @@ impl PublicTxBaseInputsValidator {
         );
     }
 
-    fn validate_private_tail_against_avm(self) {
-        let private_tail = self.public_tube_proof_data.public_inputs.private_tail;
+    fn validate_public_tube_against_avm(self) {
         let avm = self.avm_proof_data.public_inputs;
+        let public_tube = self.public_tube_proof_data.public_inputs;
+
+        // --- Prover id ---
+
+        assert_eq(
+            public_tube.prover_id,
+            avm.prover_id,
+            "Mismatched prover_id between private and avm",
+        );
+
+        let private_tail = public_tube.private_tail;
 
         // --- Gas and fees ---
 

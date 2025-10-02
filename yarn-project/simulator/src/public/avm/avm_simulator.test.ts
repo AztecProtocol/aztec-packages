@@ -402,15 +402,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
   });
 
-  it('Logging', async () => {
-    const context = initContext();
-    const bytecode = getAvmTestContractBytecode('debug_logging');
-    const results = await new AvmSimulator(context).executeBytecode(bytecode);
-
-    expect(results.reverted).toBe(false);
-    expect(results.output).toEqual([]);
-  });
-
   it('Assertion message', async () => {
     const calldata: Fr[] = [new Fr(20)];
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
@@ -1115,6 +1106,42 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.output).toEqual([]);
         expect(results.revertReason?.message).toMatch('Reached the limit');
       });
+    });
+
+    it('Logging', async () => {
+      const context = createContext([]);
+      const bytecode = getAvmTestContractBytecode('debug_logging');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(false);
+      expect(results.output).toEqual([]);
+      expect(trace.traceDebugLog).toHaveBeenCalledTimes(6);
+      expect(trace.traceDebugLog).toHaveBeenCalledWith(address, 'debug', 'just text', []);
+      expect(trace.traceDebugLog).toHaveBeenCalledWith(address, 'debug', 'second: {1}', [
+        new Fr(1),
+        new Fr(2),
+        new Fr(3),
+        new Fr(4),
+      ]);
+      expect(trace.traceDebugLog).toHaveBeenCalledWith(address, 'debug', 'whole array: {}', [
+        new Fr(1),
+        new Fr(2),
+        new Fr(3),
+        new Fr(4),
+      ]);
+      expect(trace.traceDebugLog).toHaveBeenCalledWith(
+        address,
+        'debug',
+        'tabs and newlines\n\t- first\n\t- second',
+        [],
+      );
+      expect(trace.traceDebugLog).toHaveBeenCalledWith(address, 'fatal', 'fatal error', []);
+      expect(trace.traceDebugLog).toHaveBeenCalledWith(address, 'trace', 'trace format: {}', [
+        new Fr(1),
+        new Fr(3),
+        new Fr(3),
+        new Fr(7),
+      ]);
     });
   });
 

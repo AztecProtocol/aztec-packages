@@ -1,3 +1,4 @@
+import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import {
   type Account,
   type AccountContract,
@@ -9,17 +10,16 @@ import {
   type IntentInnerHash,
   SetPublicAuthwitContractInteraction,
   SignerlessAccount,
-  type SimulateMethodOptions,
+  type SimulateOptions,
   getMessageHashFromIntent,
   lookupValidity,
 } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
-import type { ExecutionPayload } from '@aztec/entrypoints/payload';
-import { Fq, Fr } from '@aztec/foundation/fields';
-import type { PXE } from '@aztec/pxe/client/lazy';
+import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
+import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { CompleteAddress, ContractInstanceWithAddress, PartialAddress } from '@aztec/stdlib/contract';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import type { TxSimulationResult } from '@aztec/stdlib/tx';
 
@@ -102,18 +102,28 @@ export abstract class BaseTestWallet extends BaseWallet {
     return Promise.resolve(Array.from(this.accounts.values()).map(acc => ({ alias: '', item: acc.getAddress() })));
   }
 
-  async createAccount(accountData: AccountData): Promise<AccountManager> {
-    const accountManager = await AccountManager.create(
-      this,
-      this.pxe,
-      accountData.secret,
-      accountData.contract,
-      accountData.salt,
-    );
+  /**
+   * Creates a new account with the provided account data or generates random values and uses SchnorrAccountContract
+   * if not provided.
+   *
+   * @param accountData - Optional account configuration containing secret, salt and account contract.
+   * @returns A new AccountManager instance for the created account
+   */
+  async createAccount(accountData?: AccountData): Promise<AccountManager> {
+    // Generate random values if not provided
+    const secret = accountData?.secret ?? Fr.random();
+    const salt = accountData?.salt ?? Fr.random();
+    // Use SchnorrAccountContract if not provided
+    const contract = accountData?.contract ?? new SchnorrAccountContract(GrumpkinScalar.random());
 
-    await accountManager.register();
+    const accountManager = await AccountManager.create(this, secret, contract, salt);
 
-    this.accounts.set(accountManager.getAddress().toString(), await accountManager.getAccount());
+    const instance = accountManager.getInstance();
+    const artifact = await contract.getContractArtifact();
+
+    await this.registerContract(instance, artifact, secret);
+
+    this.accounts.set(accountManager.address.toString(), await accountManager.getAccount());
 
     return accountManager;
   }
@@ -182,24 +192,29 @@ export abstract class BaseTestWallet extends BaseWallet {
     address: AztecAddress, // eslint-disable-next-line jsdoc/require-jsdoc
   ): Promise<{ account: Account; instance: ContractInstanceWithAddress; artifact: ContractArtifact }>;
 
-  override async simulateTx(
-    executionPayload: ExecutionPayload,
-    opts: SimulateMethodOptions,
-  ): Promise<TxSimulationResult> {
-    if (this.simulatedSimulations && opts.fee?.estimateGas) {
-      throw new Error(
-        'Simulated simulations potentially skews gas measurements, please disable this feature to estimate gas',
-      );
-    }
+  override async simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult> {
     if (!this.simulatedSimulations) {
       return super.simulateTx(executionPayload, opts);
     } else {
-      const executionOptions = { txNonce: Fr.random(), cancellable: false };
-      const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(opts.from);
       const feeOptions = opts.fee?.estimateGas
         ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
         : await this.getDefaultFeeOptions(opts.from, opts.fee);
-      const txRequest = await fromAccount.createTxExecutionRequest(executionPayload, feeOptions, executionOptions);
+      const feeExecutionPayload = await feeOptions.paymentMethod?.getExecutionPayload();
+      const executionOptions = {
+        txNonce: Fr.random(),
+        cancellable: this.cancellableTransactions,
+        isFeePayer: feeOptions.isFeePayer,
+        endSetup: feeOptions.endSetup,
+      };
+      const finalExecutionPayload = feeExecutionPayload
+        ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
+        : executionPayload;
+      const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(opts.from);
+      const txRequest = await fromAccount.createTxExecutionRequest(
+        finalExecutionPayload,
+        feeOptions.gasSettings,
+        executionOptions,
+      );
       const contractOverrides = {
         [opts.from.toString()]: { instance, artifact },
       };
@@ -207,23 +222,26 @@ export abstract class BaseTestWallet extends BaseWallet {
     }
   }
 
-  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
-  registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
-    return this.pxe.registerAccount(secretKey, partialAddress);
-  }
-
-  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
+  /**
+   * A debugging utility to get notes based on the provided filter.
+   *
+   * Note that this should not be used in production code because the structure of notes is considered to be
+   * an implementation detail of contracts. This is only meant to be used for debugging purposes. If you need to obtain
+   * note-related information in production code, please implement a custom utility function on your contract and call
+   * that function instead (e.g. `get_balance(owner: AztecAddress) -> u128` utility function on a Token contract).
+   *
+   * @param filter - The filter to apply to the notes.
+   * @returns The requested notes.
+   */
   getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
     return this.pxe.getNotes(filter);
   }
 
-  // RECENTLY ADDED TO GET RID OF PXE IN END-TO-END TESTS
-  // Note: This is only used by account manager to because there we call registerAccount. This can be dropped once we
-  // allow Wallet.registerContract accepts secretKey and partialAddress on the input.
-  getPxe(): PXE {
-    return this.pxe;
-  }
-
+  /**
+   * Stops the internal job queue.
+   *
+   * This function is typically used when tearing down tests.
+   */
   stop(): Promise<void> {
     return this.pxe.stop();
   }

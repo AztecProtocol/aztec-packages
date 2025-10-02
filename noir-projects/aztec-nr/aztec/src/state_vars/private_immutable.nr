@@ -61,7 +61,6 @@ pub struct PrivateImmutable<Note, Context> {
     context: Context,
     storage_slot: Field,
 }
-// docs:end:struct
 
 // Private storage slots are not really 'slots' but rather a value in the note hash preimage, so there is no notion of a
 // value spilling over multiple slots. For this reason PrivateImmutable (and all other private state variables) needs
@@ -96,7 +95,6 @@ impl<Note, Context> PrivateImmutable<Note, Context> {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
     }
-    // docs:end:new
 
     /// Computes the nullifier that will be created when this PrivateImmutable is
     /// initialized.
@@ -181,7 +179,6 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
 
         create_note(self.context, self.storage_slot, note)
     }
-    // docs:end:initialize
 
     /// Reads the permanent note of a PrivateImmutable state variable instance.
     ///
@@ -217,7 +214,6 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
         // and skip the additional data in RetrievedNote.
         retrieved_note.note
     }
-    // docs:end:get_note
 }
 
 impl<Note> PrivateImmutable<Note, UtilityContext>
@@ -236,7 +232,6 @@ where
         let nullifier = self.compute_initialization_nullifier();
         check_nullifier_exists(nullifier)
     }
-    // docs:end:is_initialized
 
     /// Returns the permanent note in this PrivateImmutable without consuming it.
     ///
@@ -258,5 +253,4 @@ where
         let mut options = NoteViewerOptions::<Note, <Note as Packable>::N>::new();
         view_notes(self.storage_slot, options.set_limit(1)).get(0)
     }
-    // docs:end:view_note
 }

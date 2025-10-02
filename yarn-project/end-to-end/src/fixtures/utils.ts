@@ -220,7 +220,7 @@ async function setupWithRemoteEnvironment(
   };
   const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls, new DateProvider());
   const wallet = await TestWallet.create(aztecNode);
-  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, wallet, aztecNode, new DateProvider());
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNode, new DateProvider());
   const teardown = () => Promise.resolve();
 
   logger.verbose('Populating wallet from already registered accounts...');
@@ -234,7 +234,7 @@ async function setupWithRemoteEnvironment(
   const testAccounts = await Promise.all(
     initialFundedAccounts.slice(0, numberOfAccounts).map(async account => {
       const accountManager = await wallet.createSchnorrAccount(account.secret, account.salt, account.signingKey);
-      return accountManager.getAddress();
+      return accountManager.address;
     }),
   );
 
@@ -636,7 +636,7 @@ export async function setup(
     logger.verbose('Creating a pxe...');
     const { wallet, teardown: pxeTeardown } = await setupPXEAndGetWallet(aztecNode!, pxeOpts, logger);
 
-    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, wallet, aztecNode, dateProvider);
+    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNode, dateProvider);
 
     if (
       (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
@@ -659,8 +659,8 @@ export async function setup(
         `${numberOfAccounts} accounts are being deployed. Reliably progressing past genesis by setting minTxsPerBlock to 1 and waiting for the accounts to be deployed`,
       );
       const accountsData = initialFundedAccounts.slice(0, numberOfAccounts);
-      const accountManagers = await deployFundedSchnorrAccounts(wallet, accountsData);
-      accounts = accountManagers.map(accountManager => accountManager.getAddress());
+      const accountManagers = await deployFundedSchnorrAccounts(wallet, aztecNode, accountsData);
+      accounts = accountManagers.map(accountManager => accountManager.address);
     }
 
     // Now we restore the original minTxsPerBlock setting.
@@ -733,7 +733,6 @@ export async function setup(
  * @param accountsToDeploy - Which accounts to publicly deploy.
  */
 
-// docs:start:public_deploy_accounts
 export async function ensureAccountContractsPublished(wallet: Wallet, accountsToDeploy: AztecAddress[]) {
   // We have to check whether the accounts are already deployed. This can happen if the test runs against
   // the sandbox and the test accounts exist
@@ -762,7 +761,6 @@ export async function ensureAccountContractsPublished(wallet: Wallet, accountsTo
   const batch = new BatchCall(wallet, requests);
   await batch.send({ from: accountsToDeploy[0] }).wait();
 }
-// docs:end:public_deploy_accounts
 
 /** Returns the job name for the current test. */
 function getJobName() {

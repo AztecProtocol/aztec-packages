@@ -42,7 +42,7 @@ impl IndexedTreeLeafPreimage<Field> for ProtocolContractLeafPreimage {
         self.next_address == 0
     }
 
-    fn update_pointers(self, _next_key: Field, _next_index: u32) -> Self {
+    fn update_pointers(self, _next_key: Field, _next_index: Field) -> Self {
         assert(false, "Tried to update a static protocol contract index");
         Self::empty()
     }

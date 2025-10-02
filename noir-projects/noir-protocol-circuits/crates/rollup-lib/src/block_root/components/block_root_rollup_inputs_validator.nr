@@ -41,7 +41,7 @@ pub fn validate_previous_rollups<let NumPreviousRollups: u32, let NumVkIndices: 
     // header will be inserted at the correct position.
     let constants = previous_rollups[0].public_inputs.constants;
     assert_eq(
-        constants.global_variables.block_number,
+        constants.global_variables.block_number as Field,
         constants.last_archive.next_available_leaf_index,
         "The block number must match the index at which the block header hash is inserted into the archive",
     );

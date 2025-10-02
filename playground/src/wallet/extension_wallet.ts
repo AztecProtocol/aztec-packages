@@ -1,4 +1,4 @@
-import { type Wallet, WalletSchema } from '@aztec/aztec.js/wallet';
+import { WalletSchema, type Wallet } from '@aztec/aztec.js/wallet';
 import { promiseWithResolvers, type PromiseWithResolvers } from '@aztec/foundation/promise';
 import { schemaHasMethod } from '@aztec/foundation/schemas';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
@@ -15,20 +15,20 @@ export class ExtensionWallet {
     window.addEventListener('message', async event => {
       if (event.source !== window) return;
 
-      const { messageId, response } = event.data;
-      if (!response) {
+      const { messageId, result, error } = event.data;
+      if (!messageId) {
         return;
       }
-      const { resolve, reject } = wallet.inFlight.get(messageId);
-      if (!resolve || !reject) {
+      if (!wallet.inFlight.has(messageId)) {
         console.error('No in-flight message for id', messageId);
         return;
       }
-      const { value, error } = response;
+      const { resolve, reject } = wallet.inFlight.get(messageId);
+
       if (error) {
         reject(new Error(error));
       } else {
-        resolve(value);
+        resolve(result);
       }
       wallet.inFlight.delete(messageId);
     });
@@ -36,10 +36,11 @@ export class ExtensionWallet {
       get: (target, prop) => {
         if (schemaHasMethod(WalletSchema, prop.toString())) {
           return async (...args: any[]) => {
-            return await target.postMessage({
+            const result = await target.postMessage({
               type: prop.toString() as keyof FunctionsOf<Wallet>,
               args,
             });
+            return WalletSchema[prop.toString() as keyof typeof WalletSchema].returnType().parseAsync(result);
           };
         } else {
           return target[prop];
