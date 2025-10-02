@@ -2,6 +2,7 @@
 #include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/hardware_concurrency.hpp"
 #include <atomic>
+#include <barretenberg/env/hardware_concurrency.hpp>
 #include <barretenberg/numeric/bitop/get_msb.hpp>
 #include <functional>
 #include <iostream>
