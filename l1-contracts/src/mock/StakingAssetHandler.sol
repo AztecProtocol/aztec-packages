@@ -7,7 +7,7 @@ import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {MerkleProof} from "@oz/utils/cryptography/MerkleProof.sol";
-import {ZKPassportVerifier, ProofVerificationParams, ProofType} from "@zkpassport/ZKPassportVerifier.sol";
+import {ZKPassportVerifier, ProofVerificationParams, BoundData} from "@zkpassport/ZKPassportVerifier.sol";
 
 /**
  * @title StakingAssetHandler
@@ -55,7 +55,6 @@ interface IStakingAssetHandler {
   error InvalidChainId(uint256 _expected, uint256 _received);
   error InvalidAge();
   error InvalidCountry();
-  error InvalidCurrentDate();
   error InvalidValidityPeriod();
   error ExtraDiscloseDataNonZero();
   error SybilDetected(bytes32 _nullifier);
@@ -115,6 +114,12 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     bool skipMerkleCheck;
   }
 
+  // Excluded countries list
+  string internal constant PKR = "PRK";
+  string internal constant UKR = "UKR";
+  string internal constant IRN = "IRN";
+  string internal constant CUB = "CUB";
+
   IMintableERC20 public immutable STAKING_ASSET;
   IRegistry public immutable REGISTRY;
 
@@ -139,14 +144,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   string public validDomain;
   string public validScope;
   uint256 public validValidityPeriodInSeconds = 7 days;
-  uint256 public validMinAge = 18;
-  uint256 public validMaxAge = 0;
-
-  // ZKPassport - Excluded counties
-  bytes32 internal pkr = keccak256(bytes("PRK"));
-  bytes32 internal ukr = keccak256(bytes("UKR"));
-  bytes32 internal irn = keccak256(bytes("IRN"));
-  bytes32 internal cub = keccak256(bytes("CUB"));
+  uint8 public minAge = 18;
+  string[] internal excludedCountries;
 
   constructor(StakingAssetHandlerArgs memory _args) Ownable(_args.owner) {
     require(_args.depositsPerMint > 0, CannotMintZeroAmount());
@@ -181,6 +180,12 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
     validDomain = _args.domain;
     validScope = _args.scope;
+
+    excludedCountries = new string[](4);
+    excludedCountries[0] = CUB;
+    excludedCountries[1] = IRN;
+    excludedCountries[2] = PKR;
+    excludedCountries[3] = UKR;
 
     skipBindCheck = _args.skipBindCheck;
     skipMerkleCheck = _args.skipMerkleCheck;
@@ -329,35 +334,28 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     require(!nullifiers[nullifier], SybilDetected(nullifier));
 
     if (!skipBindCheck) {
-      bytes memory data = zkPassportVerifier.getBindProofInputs(_params.committedInputs, _params.committedInputCounts);
+      BoundData memory boundData = zkPassportVerifier.getBoundData(_params);
 
-      (address boundAddress, uint256 chainId, string memory customData) = zkPassportVerifier.getBoundData(data);
       // Make sure the bound user address is the same as the _attester
-      require(boundAddress == _attester, InvalidBoundAddress(boundAddress, _attester));
+      require(boundData.senderAddress == _attester, InvalidBoundAddress(boundData.senderAddress, _attester));
       // Make sure the chainId is the same as the current chainId
-      require(chainId == block.chainid, InvalidChainId(chainId, block.chainid));
+      require(boundData.chainId == block.chainid, InvalidChainId(boundData.chainId, block.chainid));
       // Make sure the custom data is empty
-      require(bytes(customData).length == 0, ExtraDiscloseDataNonZero());
+      require(bytes(boundData.customData).length == 0, ExtraDiscloseDataNonZero());
 
       // Validity period check
       require(validValidityPeriodInSeconds == _params.validityPeriodInSeconds, InvalidValidityPeriod());
 
       // Age check
-      (uint256 currentDate, uint8 minAge, uint8 maxAge) =
-        zkPassportVerifier.getAgeProofInputs(_params.committedInputs, _params.committedInputCounts);
-      require(block.timestamp >= currentDate, InvalidCurrentDate());
-      require(validMinAge == minAge && validMaxAge == maxAge, InvalidAge());
+      bool isAgeValid = zkPassportVerifier.isAgeAboveOrEqual(minAge, _params);
+      require(isAgeValid, InvalidAge());
 
       // Country exclusion check
-      string[] memory exclusionCountryList = zkPassportVerifier.getCountryProofInputs(
-        _params.committedInputs, _params.committedInputCounts, ProofType.NATIONALITY_EXCLUSION
-      );
-      require(keccak256(bytes(exclusionCountryList[0])) == cub, InvalidCountry());
-      require(keccak256(bytes(exclusionCountryList[1])) == irn, InvalidCountry());
-      require(keccak256(bytes(exclusionCountryList[2])) == pkr, InvalidCountry());
-      require(keccak256(bytes(exclusionCountryList[3])) == ukr, InvalidCountry());
+      bool isCountryValid = zkPassportVerifier.isNationalityOut(excludedCountries, _params);
+      require(isCountryValid, InvalidCountry());
 
-      zkPassportVerifier.enforceSanctionsRoot(_params.committedInputs, _params.committedInputCounts);
+      // Sanctions check
+      zkPassportVerifier.enforceSanctionsRoot(_params);
     }
 
     // Set nullifier to consumed

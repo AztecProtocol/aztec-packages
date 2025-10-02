@@ -8,11 +8,6 @@ namespace bb::avm2::simulation {
 
 FF CalldataHasher::compute_calldata_hash(std::span<const FF> calldata)
 {
-    if (calldata.empty()) {
-        // Based on the noir short circuit, if the calldata is empty we return 0
-        // There is no need to emit an event.
-        return 0;
-    }
     // todo(ilyas): this probably simulates faster at the cost of re-work in tracegen
     std::vector<FF> calldata_with_sep = { GENERATOR_INDEX__PUBLIC_CALLDATA };
     for (const auto& value : calldata) {

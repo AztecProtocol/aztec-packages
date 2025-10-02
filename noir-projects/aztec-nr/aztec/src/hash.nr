@@ -105,20 +105,12 @@ pub fn hash_args(args: [Field]) -> Field {
 
 // Computes the hash of calldata for public functions.
 pub fn hash_calldata_array<let N: u32>(calldata: [Field; N]) -> Field {
-    if calldata.len() == 0 {
-        0
-    } else {
-        poseidon2_hash_with_separator(calldata, GENERATOR_INDEX__PUBLIC_CALLDATA)
-    }
+    poseidon2_hash_with_separator(calldata, GENERATOR_INDEX__PUBLIC_CALLDATA)
 }
 
 // Same as `hash_calldata_array`, but takes a slice instead of an array.
 pub fn hash_calldata(calldata: [Field]) -> Field {
-    if calldata.len() == 0 {
-        0
-    } else {
-        poseidon2_hash_with_separator_slice(calldata, GENERATOR_INDEX__PUBLIC_CALLDATA)
-    }
+    poseidon2_hash_with_separator_slice(calldata, GENERATOR_INDEX__PUBLIC_CALLDATA)
 }
 
 /**

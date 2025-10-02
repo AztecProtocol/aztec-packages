@@ -45,8 +45,26 @@ void CalldataTraceBuilder::process_retrieval(
                           // Note that the diff is shifted by 1 to ensure the context_ids are increasing:
                           { C::calldata_diff_context_id,
                             (is_latch && !is_last) ? sorted_events[j + 1]->context_id - context_id - 1 : 0 },
-
                       } });
+            row++;
+        }
+
+        // Handle empty calldata:
+        if (calldata.size() == 0) {
+            // To ensure that we indicate a certain context_id has been processed, we include a special row
+            // in the calldata trace. This is the only case where sel = 1 and index = 0. Lookups into this trace
+            // to access values always shift by 1, so should never attempt to access a non-existent value:
+            trace.set(
+                row,
+                { {
+                    { C::calldata_sel, 1 },
+                    { C::calldata_context_id, context_id },
+                    { C::calldata_value, 0 },
+                    { C::calldata_index, 0 },
+                    { C::calldata_latch, 1 },
+                    // Note that the diff is shifted by 1 to ensure the context_ids are increasing:
+                    { C::calldata_diff_context_id, !is_last ? sorted_events[j + 1]->context_id - context_id - 1 : 0 },
+                } });
             row++;
         }
     }

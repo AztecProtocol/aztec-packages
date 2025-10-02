@@ -207,6 +207,52 @@ TEST_F(CalldataHashingConstrainingTest, SingleCalldataHashOneElt)
     check_all_interactions<CalldataTraceBuilder>(trace);
 }
 
+TEST_F(CalldataHashingConstrainingTest, EmptyCalldataHash)
+{
+    Poseidon2 poseidon2 =
+        Poseidon2(mock_execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+    std::vector<FF> calldata_fields = {};
+
+    auto hash = poseidon2.hash({ GENERATOR_INDEX__PUBLIC_CALLDATA });
+
+    auto trace = TestTraceContainer({
+        { { C::precomputed_first_row, 1 } },
+        {
+            { C::calldata_hashing_index_1_, 1 },
+            { C::calldata_hashing_index_2_, 2 },
+            { C::calldata_hashing_input_0_, GENERATOR_INDEX__PUBLIC_CALLDATA },
+            { C::calldata_hashing_input_1_, 0 },
+            { C::calldata_hashing_input_2_, 0 },
+            { C::calldata_hashing_input_len, 1 },
+            { C::calldata_hashing_latch, 1 },
+            { C::calldata_hashing_sel_not_padding_1, 0 },
+            { C::calldata_hashing_sel_not_padding_2, 0 },
+            { C::calldata_hashing_sel_not_start, 0 },
+            { C::calldata_hashing_calldata_size, 0 },
+            { C::calldata_hashing_context_id, 1 },
+            { C::calldata_hashing_index_0_, 0 },
+            { C::calldata_hashing_output_hash, hash },
+            { C::calldata_hashing_rounds_rem, 1 },
+            { C::calldata_hashing_sel, 1 },
+            { C::calldata_hashing_start, 1 },
+        },
+    });
+
+    builder.process_retrieval({ { .context_id = 1, .calldata = calldata_fields } }, trace);
+    poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
+
+    check_relation<calldata_hashing>(trace);
+    check_all_interactions<CalldataTraceBuilder>(trace);
+}
+
+TEST_F(CalldataHashingConstrainingTestTraceHelper, EmptyCalldataHash)
+{
+    TestTraceContainer trace = process_calldata_hashing_trace({}, { 1 });
+
+    check_relation<calldata_hashing>(trace);
+    check_all_interactions<CalldataTraceBuilder>(trace);
+}
+
 TEST_F(CalldataHashingConstrainingTestTraceHelper, SingleCalldataHash100Fields)
 {
     // The hardcoded value is taken from noir-projects/aztec-nr/aztec/src/hash.nr:

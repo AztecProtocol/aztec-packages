@@ -6,8 +6,6 @@ import type { EventSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { TxHash } from '@aztec/stdlib/tx';
 
-import type { DataProvider } from '../data_provider.js';
-
 interface PrivateEventEntry {
   msgContent: Buffer;
   blockNumber: number;
@@ -17,7 +15,7 @@ interface PrivateEventEntry {
 /**
  * Stores decrypted private event logs.
  */
-export class PrivateEventDataProvider implements DataProvider {
+export class PrivateEventDataProvider {
   #store: AztecAsyncKVStore;
   /** Array storing the actual private event log entries containing the log content and block number */
   #eventLogs: AztecAsyncArray<PrivateEventEntry>;
@@ -126,9 +124,5 @@ export class PrivateEventDataProvider implements DataProvider {
     events.sort((a, b) => a.eventCommitmentIndex - b.eventCommitmentIndex);
 
     return events.map(e => e.msgContent);
-  }
-
-  getSize(): Promise<number> {
-    return this.#eventLogs.lengthAsync();
   }
 }
