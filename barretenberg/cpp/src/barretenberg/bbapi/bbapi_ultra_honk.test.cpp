@@ -75,9 +75,18 @@ TEST_F(BBApiUltraHonkTest, ParallelComputeVk)
     // Set hardware concurrency to 8 to ensure we can run 8 VK computations in parallel
     set_hardware_concurrency(8);
 
-    auto [bytecode, _] = acir_bincode_mocks::create_simple_circuit_bytecode();
-
     constexpr size_t num_vks = 8;
+
+    // Create different circuits by varying the number of constraints
+    std::vector<std::vector<uint8_t>> bytecodes(num_vks);
+    std::vector<std::vector<uint8_t>> witnesses(num_vks);
+    for (size_t i = 0; i < num_vks; ++i) {
+        // Create circuit with i+1 constraints (so each circuit is different)
+        auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode(i + 1);
+        bytecodes[i] = bytecode;
+        witnesses[i] = witness;
+    }
+
     std::vector<CircuitComputeVk::Response> parallel_vks(num_vks);
     std::vector<CircuitComputeVk::Response> sequential_vks(num_vks);
 
@@ -86,17 +95,19 @@ TEST_F(BBApiUltraHonkTest, ParallelComputeVk)
                                          .oracle_hash_type = "poseidon2",
                                          .disable_zk = false };
 
-    // Compute the same VK 8 times in parallel
+    // Compute VKs in parallel
     parallel_for(num_vks, [&](size_t i) {
         parallel_vks[i] =
-            CircuitComputeVk{ .circuit = { .name = "test_circuit", .bytecode = bytecode }, .settings = settings }
+            CircuitComputeVk{ .circuit = { .name = "test_circuit_" + std::to_string(i), .bytecode = bytecodes[i] },
+                              .settings = settings }
                 .execute();
     });
 
-    // Compute the same VK 8 times sequentially
+    // Compute VKs sequentially
     for (size_t i = 0; i < num_vks; ++i) {
         sequential_vks[i] =
-            CircuitComputeVk{ .circuit = { .name = "test_circuit", .bytecode = bytecode }, .settings = settings }
+            CircuitComputeVk{ .circuit = { .name = "test_circuit_" + std::to_string(i), .bytecode = bytecodes[i] },
+                              .settings = settings }
                 .execute();
     }
 
@@ -105,12 +116,15 @@ TEST_F(BBApiUltraHonkTest, ParallelComputeVk)
         EXPECT_FALSE(parallel_vks[i].bytes.empty()) << "Parallel VK " << i << " is empty";
         EXPECT_FALSE(sequential_vks[i].bytes.empty()) << "Sequential VK " << i << " is empty";
 
-        // Parallel and sequential should produce identical VKs
+        // Parallel and sequential should produce identical VKs for the same circuit
         EXPECT_EQ(parallel_vks[i].bytes, sequential_vks[i].bytes)
             << "Parallel VK " << i << " differs from sequential VK " << i;
 
-        // All VKs should be identical since it's the same circuit
-        EXPECT_EQ(parallel_vks[i].bytes, parallel_vks[0].bytes) << "VK " << i << " differs from VK 0";
+        // Each circuit should have a different VK (different number of constraints)
+        if (i > 0) {
+            EXPECT_NE(parallel_vks[i].bytes, parallel_vks[0].bytes)
+                << "VK " << i << " should differ from VK 0 (different circuits)";
+        }
     }
 }
 
