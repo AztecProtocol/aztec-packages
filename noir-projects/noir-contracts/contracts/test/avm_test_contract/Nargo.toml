@@ -11,3 +11,5 @@ sha256 = { git = "https://github.com/noir-lang/sha256", tag = "v0.2.0" }
 keccak256 = { tag = "v0.1.0", git = "https://github.com/noir-lang/keccak256" }
 poseidon = { tag= "v0.1.1", git = "https://github.com/noir-lang/poseidon" }
 fee_juice = { path = "../../protocol/fee_juice_contract" }
+auth_contract = { path = "../../protocol/auth_registry_contract" }
+instance_contract = { path = "../../protocol/contract_instance_registry" }
