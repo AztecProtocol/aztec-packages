@@ -224,7 +224,7 @@ TEST_F(IPATest, ChallengesAreZero)
         auto new_random_vector = random_vector;
         new_random_vector[i] = Fr::zero();
         transcript->initialize(new_random_vector, lrs, { uint256_t(n) });
-        EXPECT_ANY_THROW(PCS::reduce_verify_internal_native(vk, opening_claim, transcript));
+        EXPECT_ANY_THROW(PCS::reduce_verify(vk, opening_claim, transcript));
     }
 }
 
@@ -264,7 +264,7 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
     transcript->reset_indices();
 
     // Verify
-    EXPECT_TRUE(PCS::reduce_verify_internal_native(vk, opening_claim, transcript));
+    EXPECT_TRUE(PCS::reduce_verify(vk, opening_claim, transcript));
 }
 #endif
 } // namespace bb
