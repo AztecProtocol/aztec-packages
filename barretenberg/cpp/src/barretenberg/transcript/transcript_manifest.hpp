@@ -5,25 +5,11 @@
 // =====================
 
 #pragma once
-// #define LOG_CHALLENGES
-// #define LOG_INTERACTIONS
 
-#include "barretenberg/common/assert.hpp"
-#include "barretenberg/common/debug_log.hpp"
-#include "barretenberg/common/serialize.hpp"
-#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/ecc/curves/bn254/g1.hpp"
-#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/ecc/fields/field_conversion.hpp"
-#include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
-#include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
-
-#include <concepts>
-
-#include <atomic>
-
+#include "barretenberg/common/log.hpp"
+#include <map>
+#include <string>
+#include <vector>
 namespace bb {
 
 class TranscriptManifest {

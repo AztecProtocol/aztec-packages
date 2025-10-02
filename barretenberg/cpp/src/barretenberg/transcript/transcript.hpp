@@ -20,7 +20,6 @@
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "transcript_manifest.hpp"
-
 #include <concepts>
 
 #include <atomic>

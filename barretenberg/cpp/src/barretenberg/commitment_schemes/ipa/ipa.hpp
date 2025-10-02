@@ -862,7 +862,6 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     requires Curve::is_stdlib_type
     {
         using NativeCurve = curve::Grumpkin;
-      ;
         static_assert(IsAnyOf< typename Curve::Builder, UltraCircuitBuilder>);
         // Step 1: Run the verifier for each IPA instance
         VerifierAccumulator pair_1 = reduce_verify(claim_1, transcript_1);

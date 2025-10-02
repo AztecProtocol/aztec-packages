@@ -185,8 +185,7 @@ TEST(RecursiveHonkTranscript, ReturnValuesMatch)
 }
 
 /**
- * @brief Ensure that when encountering an infinity commitment results stay consistent in the recursive and native
- case
+ * @brief Ensure that when encountering an infinity commitment results stay consistent in the recursive and native case
  * for Grumpkin and the native and stdlib transcripts produce the same challenge.
  * @todo(https://github.com/AztecProtocol/barretenberg/issues/1064)  Add more transcript tests for both curves
  */
@@ -225,8 +224,7 @@ TEST(RecursiveTranscript, InfinityConsistencyGrumpkin)
 }
 
 /**
- * @brief Ensure that when encountering an infinity commitment results stay consistent in the recursive and native
- case
+ * @brief Ensure that when encountering an infinity commitment results stay consistent in the recursive and native case
  * for BN254 and the native and stdlib transcripts produce the same challenge.
  * @todo(https://github.com/AztecProtocol/barretenberg/issues/1064)  Add more transcript tests for both curves
  */
