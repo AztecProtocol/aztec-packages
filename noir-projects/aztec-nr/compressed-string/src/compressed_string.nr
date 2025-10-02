@@ -68,18 +68,6 @@ impl<let N: u32, let M: u32> Serialize for CompressedString<N, M> {
     }
 }
 
-impl<let N: u32, let M: u32> Packable for CompressedString<N, M> {
-    let N: u32 = N;
-
-    fn pack(self) -> [Field; Self::N] {
-        self.value
-    }
-
-    fn unpack(fields: [Field; Self::N]) -> Self {
-        Self { value: fields }
-    }
-}
-
 #[test]
 unconstrained fn test_short_string() {
     let i = "Hello world";
