@@ -24,11 +24,8 @@ namespace bb {
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1226): univariates should also be logged
 template <typename T, typename... U>
-concept Loggable =
-    (std::same_as<T, bb::fr> || std::same_as<T, grumpkin::fr> || std::same_as<T, bb::g1::affine_element> ||
-     std::same_as<T, grumpkin::g1::affine_element> || std::same_as<T, uint32_t>);
+concept Loggable = (IsAnyOf<T, bb::fr, grumpkin::fr, bb::g1::affine_element, grumpkin::g1::affine_element, uint32_t>);
 
-// class TranscriptManifest;
 class TranscriptManifest {
     struct RoundData {
         std::vector<std::string> challenge_label;
@@ -92,7 +89,7 @@ struct NativeTranscriptParams {
     using Proof = HonkProof;
 
     static DataType hash(const std::vector<DataType>& data);
-    template <typename T> static inline T convert_challenge(const DataType& challenge)
+    template <typename T> static T convert_challenge(const DataType& challenge)
     {
         return bb::field_conversion::convert_challenge<T>(challenge);
     }
@@ -104,7 +101,7 @@ struct NativeTranscriptParams {
      * @param challenge
      * @return std::array<Fr, 2>
      */
-    static inline std::array<DataType, 2> split_challenge(const DataType& challenge)
+    static std::array<DataType, 2> split_challenge(const DataType& challenge)
     {
         // match the parameter used in stdlib, which is derived from cycle_scalar (is 128)
         static constexpr size_t LO_BITS = DataType::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
@@ -119,17 +116,17 @@ struct NativeTranscriptParams {
     {
         return bb::field_conversion::calc_num_bn254_frs<T>();
     }
-    template <typename T> static inline T deserialize(std::span<const DataType> frs)
+    template <typename T> static T deserialize(std::span<const DataType> frs)
     {
         return bb::field_conversion::convert_from_bn254_frs<T>(frs);
     }
-    template <typename T> static inline std::vector<DataType> serialize(const T& element)
+    template <typename T> static std::vector<DataType> serialize(const T& element)
     {
         return bb::field_conversion::convert_to_bn254_frs(element);
     }
 };
 
-// A template for detecting whether a type is native or in-circuit
+// A concept for detecting whether a type is native or in-circuit
 template <typename T>
 concept InCircuit = !(std::same_as<T, bb::fr> || std::same_as<T, grumpkin::fr> || std::same_as<T, uint256_t>);
 
@@ -576,27 +573,6 @@ template <typename TranscriptParams> class BaseTranscript {
     template <class T> void send_to_verifier(const std::string& label, const T& element)
     {
         DEBUG_LOG(label, element);
-        // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        // It's important to do this before adding the element to the hash buffer, otherwise we might get an origin tag
-        // violation inside the hasher
-        if constexpr (in_circuit) {
-            // The prover is sending data to the verifier. If before this we were in the challenge generation phase,
-            // then we need to increment the round index
-            if (!reception_phase) {
-                reception_phase = true;
-                round_index++;
-            }
-            // If the element is iterable, then we need to assign origin tags to all the elements
-            if constexpr (is_iterable_v<T>) {
-                for (const auto& subelement : element) {
-                    subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-                }
-            } else {
-                // If the element is not iterable, then we need to assign an origin tag to the element
-                element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-            }
-        }
-
         auto element_frs = TranscriptParams::serialize(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
         num_frs_written += element_frs.size();
