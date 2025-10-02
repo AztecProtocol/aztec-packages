@@ -11,7 +11,7 @@ set(AVM_TRANSPILER_INCLUDE "${AVM_TRANSPILER_DIR}")
 
 # Check if the library exists
 if(NOT EXISTS ${AVM_TRANSPILER_LIB})
-    message(FATAL_ERROR "avm-transpiler library not found at ${AVM_TRANSPILER_LIB}\nPlease run './bootstrap.sh release' in ${AVM_TRANSPILER_DIR} to build libraries")
+    message(FATAL_ERROR "avm-transpiler library not found at ${AVM_TRANSPILER_LIB}\nPlease run './bootstrap.sh' in ${AVM_TRANSPILER_DIR} to build libraries")
 endif()
 
 # Create imported library target
