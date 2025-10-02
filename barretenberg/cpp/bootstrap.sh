@@ -199,7 +199,7 @@ function build_release {
 
     # Build and package macOS cross-compiled binaries
     echo "Building macOS cross-compiled binaries..."
-    parallel --line-buffered --tag denoise build_darwin ::: arm64 amd64
+    parallel --line-buffered --tag --halt now,fail=1 denoise ::: "build_darwin arm64" "build_darwin amd64"
 
     # Download ldid for code signing
     if [ ! -f build-release/ldid ]; then
