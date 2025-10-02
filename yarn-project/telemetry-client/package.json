@@ -33,7 +33,7 @@
     "@opentelemetry/exporter-logs-otlp-http": "^0.55.0",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.55.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.55.0",
-    "@opentelemetry/host-metrics": "^0.35.4",
+    "@opentelemetry/host-metrics": "^0.36.2",
     "@opentelemetry/otlp-exporter-base": "^0.55.0",
     "@opentelemetry/resource-detector-gcp": "^0.32.0",
     "@opentelemetry/resources": "^1.28.0",

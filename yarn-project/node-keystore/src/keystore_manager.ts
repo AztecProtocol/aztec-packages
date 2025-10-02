@@ -3,9 +3,11 @@
  *
  * Manages keystore configuration and delegates signing operations to appropriate signers.
  */
+import type { EthSigner } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { Wallet } from '@ethersproject/wallet';
 import { readFileSync, readdirSync, statSync } from 'fs';
@@ -13,13 +15,13 @@ import { extname, join } from 'path';
 import type { TypedDataDefinition } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { LocalSigner, RemoteSigner, type Signer } from './signer.js';
+import { ethPrivateKeySchema } from './schemas.js';
+import { LocalSigner, RemoteSigner } from './signer.js';
 import type {
   EthAccount,
   EthAccounts,
   EthJsonKeyFileV3Config,
   EthMnemonicConfig,
-  EthPrivateKey,
   EthRemoteSignerAccount,
   EthRemoteSignerConfig,
   KeyStore,
@@ -54,6 +56,82 @@ export class KeystoreManager {
   constructor(keystore: KeyStore) {
     this.keystore = keystore;
     this.validateUniqueAttesterAddresses();
+  }
+
+  /**
+   * Validates all remote signers in the keystore are accessible and have the required addresses.
+   * Should be called after construction if validation is needed.
+   */
+  async validateSigners(): Promise<void> {
+    // Collect all remote signers with their addresses grouped by URL
+    const remoteSignersByUrl = new Map<string, Set<string>>();
+
+    // Helper to extract remote signer URL from config
+    const getUrl = (config: EthRemoteSignerConfig): string => {
+      return typeof config === 'string' ? config : config.remoteSignerUrl;
+    };
+
+    // Helper to collect remote signers from accounts
+    const collectRemoteSigners = (accounts: EthAccounts, defaultRemoteSigner?: EthRemoteSignerConfig): void => {
+      const processAccount = (account: EthAccount): void => {
+        if (typeof account === 'object' && !('path' in account) && !('mnemonic' in (account as any))) {
+          // This is a remote signer account
+          const remoteSigner = account as EthRemoteSignerAccount;
+          const address = 'address' in remoteSigner ? remoteSigner.address : remoteSigner;
+
+          let url: string;
+          if ('remoteSignerUrl' in remoteSigner && remoteSigner.remoteSignerUrl) {
+            url = remoteSigner.remoteSignerUrl;
+          } else if (defaultRemoteSigner) {
+            url = getUrl(defaultRemoteSigner);
+          } else {
+            return; // No remote signer URL available
+          }
+
+          if (!remoteSignersByUrl.has(url)) {
+            remoteSignersByUrl.set(url, new Set());
+          }
+          remoteSignersByUrl.get(url)!.add(address.toString());
+        }
+      };
+
+      if (Array.isArray(accounts)) {
+        accounts.forEach(account => collectRemoteSigners(account, defaultRemoteSigner));
+      } else if (typeof accounts === 'object' && 'mnemonic' in accounts) {
+        // Skip mnemonic configs
+      } else {
+        processAccount(accounts as EthAccount);
+      }
+    };
+
+    // Collect from validators
+    const validatorCount = this.getValidatorCount();
+    for (let i = 0; i < validatorCount; i++) {
+      const validator = this.getValidator(i);
+      const remoteSigner = validator.remoteSigner || this.keystore.remoteSigner;
+
+      collectRemoteSigners(validator.attester, remoteSigner);
+      if (validator.publisher) {
+        collectRemoteSigners(validator.publisher, remoteSigner);
+      }
+    }
+
+    // Collect from slasher
+    if (this.keystore.slasher) {
+      collectRemoteSigners(this.keystore.slasher, this.keystore.remoteSigner);
+    }
+
+    // Collect from prover
+    if (this.keystore.prover && typeof this.keystore.prover === 'object' && 'publisher' in this.keystore.prover) {
+      collectRemoteSigners(this.keystore.prover.publisher, this.keystore.remoteSigner);
+    }
+
+    // Validate each remote signer URL with all its addresses
+    for (const [url, addresses] of remoteSignersByUrl.entries()) {
+      if (addresses.size > 0) {
+        await RemoteSigner.validateAccess(url, Array.from(addresses));
+      }
+    }
   }
 
   /**
@@ -93,20 +171,10 @@ export class KeystoreManager {
         if (account.startsWith('0x') && account.length === 66) {
           // Private key -> derive address locally without external deps
           try {
-            const signer = new LocalSigner(Buffer32.fromString(account as EthPrivateKey));
+            const signer = new LocalSigner(Buffer32.fromString(ethPrivateKeySchema.parse(account)));
             results.push(signer.address);
           } catch {
             // Ignore invalid private key at construction time
-          }
-          return;
-        }
-
-        if (account.startsWith('0x') && account.length === 42) {
-          // Address string
-          try {
-            results.push(EthAddress.fromString(account));
-          } catch {
-            // Ignore invalid address format at construction time
           }
           return;
         }
@@ -125,16 +193,13 @@ export class KeystoreManager {
         return;
       }
 
-      // Remote signer account (object form)
-      const remoteSigner = account as EthRemoteSignerAccount;
-      const address = typeof remoteSigner === 'string' ? remoteSigner : remoteSigner.address;
-      if (address) {
-        try {
-          results.push(EthAddress.fromString(address));
-        } catch {
-          // Ignore invalid address format at construction time
-        }
+      // Remote signer account. If it contains 'address' then extract, otherwise it IS the address
+      const remoteSigner: EthRemoteSignerAccount = account;
+      if ('address' in remoteSigner) {
+        results.push(remoteSigner.address);
+        return;
       }
+      results.push(remoteSigner);
     };
 
     if (Array.isArray(accounts)) {
@@ -152,7 +217,7 @@ export class KeystoreManager {
   /**
    * Create signers for validator attester accounts
    */
-  createAttesterSigners(validatorIndex: number): Signer[] {
+  createAttesterSigners(validatorIndex: number): EthSigner[] {
     const validator = this.getValidator(validatorIndex);
     return this.createSignersFromEthAccounts(validator.attester, validator.remoteSigner || this.keystore.remoteSigner);
   }
@@ -160,7 +225,7 @@ export class KeystoreManager {
   /**
    * Create signers for validator publisher accounts (falls back to attester if not specified)
    */
-  createPublisherSigners(validatorIndex: number): Signer[] {
+  createPublisherSigners(validatorIndex: number): EthSigner[] {
     const validator = this.getValidator(validatorIndex);
 
     if (validator.publisher) {
@@ -174,10 +239,21 @@ export class KeystoreManager {
     return this.createAttesterSigners(validatorIndex);
   }
 
+  createAllValidatorPublisherSigners(): EthSigner[] {
+    const numValidators = this.getValidatorCount();
+    const allPublishers = [];
+
+    for (let i = 0; i < numValidators; i++) {
+      allPublishers.push(...this.createPublisherSigners(i));
+    }
+
+    return allPublishers;
+  }
+
   /**
    * Create signers for slasher accounts
    */
-  createSlasherSigners(): Signer[] {
+  createSlasherSigners(): EthSigner[] {
     if (!this.keystore.slasher) {
       return [];
     }
@@ -188,30 +264,38 @@ export class KeystoreManager {
   /**
    * Create signers for prover accounts
    */
-  createProverSigners(): Signer[] {
+  createProverSigners(): { id: EthAddress | undefined; signers: EthSigner[] } | undefined {
     if (!this.keystore.prover) {
-      return [];
+      return undefined;
     }
 
-    // Handle simple prover case (just a private key)
+    // Handle prover being a private key, JSON key store or remote signer with nested address
     if (
       typeof this.keystore.prover === 'string' ||
       'path' in this.keystore.prover ||
       'address' in this.keystore.prover
     ) {
-      return this.createSignersFromEthAccounts(this.keystore.prover as EthAccount, this.keystore.remoteSigner);
+      const signers = this.createSignersFromEthAccounts(this.keystore.prover as EthAccount, this.keystore.remoteSigner);
+      return {
+        id: undefined,
+        signers,
+      };
     }
 
-    // Handle complex prover case with id and publishers
-    const proverConfig = this.keystore.prover;
-    const signers: Signer[] = [];
+    // Handle prover as Id and specified publishers
+    if ('id' in this.keystore.prover) {
+      const id = this.keystore.prover.id;
+      const signers = this.createSignersFromEthAccounts(this.keystore.prover.publisher, this.keystore.remoteSigner);
 
-    for (const publisherAccounts of proverConfig.publisher) {
-      const publisherSigners = this.createSignersFromEthAccounts(publisherAccounts, this.keystore.remoteSigner);
-      signers.push(...publisherSigners);
+      return { id, signers };
     }
 
-    return signers;
+    // Here, prover is just an EthAddress for a remote signer
+    const signers = this.createSignersFromEthAccounts(this.keystore.prover, this.keystore.remoteSigner);
+    return {
+      id: undefined,
+      signers,
+    };
   }
 
   /**
@@ -238,7 +322,7 @@ export class KeystoreManager {
     const validator = this.getValidator(validatorIndex);
 
     if (validator.coinbase) {
-      return EthAddress.fromString(validator.coinbase);
+      return validator.coinbase;
     }
 
     // Fall back to first attester address
@@ -253,7 +337,7 @@ export class KeystoreManager {
   /**
    * Get fee recipient for validator
    */
-  getFeeRecipient(validatorIndex: number): string {
+  getFeeRecipient(validatorIndex: number): AztecAddress {
     const validator = this.getValidator(validatorIndex);
     return validator.feeRecipient;
   }
@@ -302,13 +386,16 @@ export class KeystoreManager {
   /**
    * Create signers from EthAccounts configuration
    */
-  private createSignersFromEthAccounts(accounts: EthAccounts, defaultRemoteSigner?: EthRemoteSignerConfig): Signer[] {
+  private createSignersFromEthAccounts(
+    accounts: EthAccounts,
+    defaultRemoteSigner?: EthRemoteSignerConfig,
+  ): EthSigner[] {
     if (typeof accounts === 'string') {
       return [this.createSignerFromEthAccount(accounts, defaultRemoteSigner)];
     }
 
     if (Array.isArray(accounts)) {
-      const signers: Signer[] = [];
+      const signers: EthSigner[] = [];
       for (const account of accounts) {
         const accountSigners = this.createSignersFromEthAccounts(account, defaultRemoteSigner);
         signers.push(...accountSigners);
@@ -333,18 +420,14 @@ export class KeystoreManager {
   /**
    * Create a signer from a single EthAccount configuration
    */
-  private createSignerFromEthAccount(account: EthAccount, defaultRemoteSigner?: EthRemoteSignerConfig): Signer {
+  private createSignerFromEthAccount(account: EthAccount, defaultRemoteSigner?: EthRemoteSignerConfig): EthSigner {
     // Private key (hex string)
     if (typeof account === 'string') {
       if (account.startsWith('0x') && account.length === 66) {
         // Private key
-        return new LocalSigner(Buffer32.fromString(account as EthPrivateKey));
+        return new LocalSigner(Buffer32.fromString(ethPrivateKeySchema.parse(account)));
       } else {
-        // Remote signer address only - use default remote signer config
-        if (!defaultRemoteSigner) {
-          throw new KeystoreError(`No remote signer configuration found for address ${account}`);
-        }
-        return new RemoteSigner(EthAddress.fromString(account), defaultRemoteSigner);
+        throw new Error(`Invalid private key`);
       }
     }
 
@@ -355,42 +438,42 @@ export class KeystoreManager {
     }
 
     // Remote signer account
-    const remoteSigner = account as EthRemoteSignerAccount;
-    if (typeof remoteSigner === 'string') {
-      // Just an address - use default config
-      if (!defaultRemoteSigner) {
-        throw new KeystoreError(`No remote signer configuration found for address ${remoteSigner}`);
+    const remoteSigner: EthRemoteSignerAccount = account;
+
+    if ('address' in remoteSigner) {
+      // Remote signer with config
+      const config = remoteSigner.remoteSignerUrl
+        ? {
+            remoteSignerUrl: remoteSigner.remoteSignerUrl,
+            certPath: remoteSigner.certPath,
+            certPass: remoteSigner.certPass,
+          }
+        : defaultRemoteSigner;
+      if (!config) {
+        throw new KeystoreError(`No remote signer configuration found for address ${remoteSigner.address}`);
       }
-      return new RemoteSigner(EthAddress.fromString(remoteSigner), defaultRemoteSigner);
+
+      return new RemoteSigner(remoteSigner.address, config);
     }
 
-    // Remote signer with config
-    const config = remoteSigner.remoteSignerUrl
-      ? {
-          remoteSignerUrl: remoteSigner.remoteSignerUrl,
-          certPath: remoteSigner.certPath,
-          certPass: remoteSigner.certPass,
-        }
-      : defaultRemoteSigner;
-
-    if (!config) {
-      throw new KeystoreError(`No remote signer configuration found for address ${remoteSigner.address}`);
+    // Just an address - use default config
+    if (!defaultRemoteSigner) {
+      throw new KeystoreError(`No remote signer configuration found for address ${remoteSigner}`);
     }
-
-    return new RemoteSigner(EthAddress.fromString(remoteSigner.address), config);
+    return new RemoteSigner(remoteSigner, defaultRemoteSigner);
   }
 
   /**
    * Create signer from JSON V3 keystore file or directory
    */
-  private createSignerFromJsonV3(config: EthJsonKeyFileV3Config): Signer[] {
+  private createSignerFromJsonV3(config: EthJsonKeyFileV3Config): EthSigner[] {
     try {
       const stats = statSync(config.path);
 
       if (stats.isDirectory()) {
         // Handle directory - load all JSON files
         const files = readdirSync(config.path);
-        const signers: Signer[] = [];
+        const signers: EthSigner[] = [];
         const seenAddresses = new Map<string, string>(); // address -> file name
 
         for (const file of files) {
@@ -436,7 +519,7 @@ export class KeystoreManager {
   /**
    * Create signer from a single JSON V3 keystore file
    */
-  private createSignerFromSingleJsonV3File(filePath: string, password?: string): Signer {
+  private createSignerFromSingleJsonV3File(filePath: string, password?: string): EthSigner {
     try {
       // Read the keystore file
       const keystoreJson = readFileSync(filePath, 'utf8');
@@ -463,9 +546,9 @@ export class KeystoreManager {
   /**
    * Create signers from mnemonic configuration using BIP44 derivation
    */
-  private createSignersFromMnemonic(config: EthMnemonicConfig): Signer[] {
+  private createSignersFromMnemonic(config: EthMnemonicConfig): EthSigner[] {
     const { mnemonic, addressIndex = 0, accountIndex = 0, addressCount = 1, accountCount = 1 } = config;
-    const signers: Signer[] = [];
+    const signers: EthSigner[] = [];
 
     try {
       // Use viem's mnemonic derivation (imported at top of file)
@@ -496,14 +579,14 @@ export class KeystoreManager {
   /**
    * Sign message with a specific signer
    */
-  async signMessage(signer: Signer, message: Buffer32): Promise<Signature> {
+  async signMessage(signer: EthSigner, message: Buffer32): Promise<Signature> {
     return await signer.signMessage(message);
   }
 
   /**
    * Sign typed data with a specific signer
    */
-  async signTypedData(signer: Signer, typedData: TypedDataDefinition): Promise<Signature> {
+  async signTypedData(signer: EthSigner, typedData: TypedDataDefinition): Promise<Signature> {
     return await signer.signTypedData(typedData);
   }
 
@@ -518,25 +601,18 @@ export class KeystoreManager {
     const validator = this.getValidator(validatorIndex);
 
     // Helper to get address from an account configuration
-    const getAddressFromAccount = (account: EthAccount): EthAddress | EthAddress[] | null => {
+    const getAddressFromAccount = (account: EthAccount): EthAddress | EthAddress[] | undefined => {
       if (typeof account === 'string') {
         if (account.startsWith('0x') && account.length === 66) {
           // This is a private key - derive the address
           try {
-            const signer = new LocalSigner(Buffer32.fromString(account as EthPrivateKey));
+            const signer = new LocalSigner(Buffer32.fromString(ethPrivateKeySchema.parse(account)));
             return signer.address;
           } catch {
-            return null;
-          }
-        } else if (account.startsWith('0x') && account.length === 42) {
-          // This is an address
-          try {
-            return EthAddress.fromString(account);
-          } catch {
-            return null;
+            return undefined;
           }
         }
-        return null;
+        return undefined;
       }
 
       // JSON V3 keystore
@@ -545,18 +621,16 @@ export class KeystoreManager {
           const signers = this.createSignerFromJsonV3(account);
           return signers.map(s => s.address);
         } catch {
-          return null;
+          return undefined;
         }
       }
 
-      // Remote signer account
-      const remoteSigner = account as EthRemoteSignerAccount;
-      const address = typeof remoteSigner === 'string' ? remoteSigner : remoteSigner.address;
-      try {
-        return EthAddress.fromString(address);
-      } catch {
-        return null;
+      // Remote signer account, either it is an address or the address is nested
+      const remoteSigner: EthRemoteSignerAccount = account;
+      if ('address' in remoteSigner) {
+        return remoteSigner.address;
       }
+      return remoteSigner;
     };
 
     // Helper to check if account matches and get its remote signer config
@@ -575,13 +649,7 @@ export class KeystoreManager {
 
       // Found a match - determine the config to return
       if (typeof account === 'string') {
-        if (account.startsWith('0x') && account.length === 66) {
-          // Private key - local signer, no remote config
-          return undefined;
-        } else {
-          // Address only - use defaults
-          return validator.remoteSigner || this.keystore.remoteSigner;
-        }
+        return undefined;
       }
 
       // JSON V3 - local signer, no remote config
@@ -590,23 +658,23 @@ export class KeystoreManager {
       }
 
       // Remote signer account with potential override
-      const remoteSigner = account as EthRemoteSignerAccount;
-      if (typeof remoteSigner === 'string') {
-        // Just an address - use defaults
-        return validator.remoteSigner || this.keystore.remoteSigner;
-      }
+      const remoteSigner: EthRemoteSignerAccount = account;
 
-      // Has inline config
-      if (remoteSigner.remoteSignerUrl) {
-        return {
-          remoteSignerUrl: remoteSigner.remoteSignerUrl,
-          certPath: remoteSigner.certPath,
-          certPass: remoteSigner.certPass,
-        };
-      } else {
-        // No URL specified, use defaults
-        return validator.remoteSigner || this.keystore.remoteSigner;
+      if ('address' in remoteSigner) {
+        // Has inline config
+        if (remoteSigner.remoteSignerUrl) {
+          return {
+            remoteSignerUrl: remoteSigner.remoteSignerUrl,
+            certPath: remoteSigner.certPath,
+            certPass: remoteSigner.certPass,
+          };
+        } else {
+          // No URL specified, use defaults
+          return validator.remoteSigner || this.keystore.remoteSigner;
+        }
       }
+      // Just an address, use defaults
+      return validator.remoteSigner || this.keystore.remoteSigner;
     };
 
     // Check the attester configuration

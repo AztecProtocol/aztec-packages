@@ -13,7 +13,6 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "proof_surgeon.hpp"
 #include "recursion_constraint.hpp"
 
@@ -194,8 +193,7 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_pg_proof()
     populate_field_elements<fr>(proof, CONST_PG_LOG_N, /*value=*/fr::zero());
 
     // Populate mock combiner quotient coefficients
-    size_t NUM_COEFF_COMBINER_QUOTIENT =
-        DeciderProvingKeys_<Flavor>::BATCHED_EXTENDED_LENGTH - DeciderProvingKeys_<Flavor>::NUM;
+    size_t NUM_COEFF_COMBINER_QUOTIENT = computed_batched_extended_length<Flavor>() - NUM_INSTANCES;
     populate_field_elements<fr>(proof, NUM_COEFF_COMBINER_QUOTIENT, /*value=*/fr::zero());
 
     return proof;
@@ -234,6 +232,22 @@ Goblin::MergeProof create_mock_merge_proof()
     populate_field_elements_for_mock_commitments(proof, 1);
 
     BB_ASSERT_EQ(proof.size(), MERGE_PROOF_SIZE);
+
+    return proof;
+}
+
+template <typename Builder> HonkProof create_mock_civc_proof(const size_t inner_public_inputs_size)
+{
+    HonkProof proof;
+
+    HonkProof mega_proof = create_mock_honk_proof<MegaZKFlavor, stdlib::recursion::honk::HidingKernelIO<Builder>>(
+        inner_public_inputs_size);
+    Goblin::MergeProof merge_proof = create_mock_merge_proof();
+    ECCVMProof eccvm_proof{ create_mock_pre_ipa_proof(), create_mock_ipa_proof() };
+    HonkProof translator_proof = create_mock_translator_proof();
+
+    ClientIVC::Proof civc_proof{ mega_proof, { merge_proof, eccvm_proof, translator_proof } };
+    proof = civc_proof.to_field_elements();
 
     return proof;
 }
@@ -423,27 +437,27 @@ std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size
 }
 
 /**
- * @brief Create a mock Decider verification key for initilization of a mock verifier accumulator
+ * @brief Create  a mock instance for initilization of a mock verifier accumulator
  *
  */
-template <typename Flavor> std::shared_ptr<DeciderVerificationKey_<Flavor>> create_mock_decider_vk()
+template <typename Flavor> std::shared_ptr<VerifierInstance_<Flavor>> create_mock_verifier_instance()
 {
     using FF = typename Flavor::FF;
 
     // Set relevant VK metadata and commitments
-    auto decider_verification_key = std::make_shared<DeciderVerificationKey_<Flavor>>();
+    auto verifier_instance = std::make_shared<VerifierInstance_<Flavor>>();
     std::shared_ptr<typename Flavor::VerificationKey> vk =
         create_mock_honk_vk<Flavor, stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>>(
             0, 0); // metadata does not need to be accurate
-    decider_verification_key->vk = vk;
-    decider_verification_key->is_complete = true;
-    decider_verification_key->gate_challenges = std::vector<FF>(static_cast<size_t>(CONST_PG_LOG_N), 0);
+    verifier_instance->vk = vk;
+    verifier_instance->is_complete = true;
+    verifier_instance->gate_challenges = std::vector<FF>(static_cast<size_t>(CONST_PG_LOG_N), FF::random_element());
 
-    for (auto& commitment : decider_verification_key->witness_commitments.get_all()) {
+    for (auto& commitment : verifier_instance->witness_commitments.get_all()) {
         commitment = curve::BN254::AffineElement::one(); // arbitrary mock commitment
     }
 
-    return decider_verification_key;
+    return verifier_instance;
 }
 
 // Explicitly instantiate template functions
@@ -487,6 +501,9 @@ template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::App
 template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>();
 template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>();
 
+template HonkProof create_mock_civc_proof<UltraCircuitBuilder>(const size_t);
+template HonkProof create_mock_civc_proof<MegaCircuitBuilder>(const size_t);
+
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFlavor, stdlib::recursion::honk::AppIO>(
     const size_t, const size_t, const size_t);
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFlavor,
@@ -495,6 +512,9 @@ template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFl
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<
     MegaFlavor,
     stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>(const size_t, const size_t, const size_t);
+template std::shared_ptr<MegaZKFlavor::VerificationKey> create_mock_honk_vk<
+    MegaZKFlavor,
+    stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>(const size_t, const size_t, const size_t);
 
 template std::shared_ptr<UltraFlavor::VerificationKey> create_mock_honk_vk<
     UltraFlavor,
@@ -512,6 +532,6 @@ template std::shared_ptr<UltraRollupFlavor::VerificationKey> create_mock_honk_vk
                                                                                  stdlib::recursion::honk::RollupIO>(
     const size_t, const size_t, const size_t);
 
-template std::shared_ptr<DeciderVerificationKey_<MegaFlavor>> create_mock_decider_vk<MegaFlavor>();
+template std::shared_ptr<VerifierInstance_<MegaFlavor>> create_mock_verifier_instance<MegaFlavor>();
 
 } // namespace acir_format

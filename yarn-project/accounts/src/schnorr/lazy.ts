@@ -4,13 +4,10 @@
  *
  * @packageDocumentation
  */
-import { AccountManager, type Salt, getAccountContractAddress } from '@aztec/aztec.js/account';
-import { type AccountWallet, type AccountWalletWithSecretKey, getWallet } from '@aztec/aztec.js/wallet';
+import { getAccountContractAddress } from '@aztec/aztec.js';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { loadContractArtifact } from '@aztec/stdlib/abi';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { PXE } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { SchnorrBaseAccountContract } from './account_contract.js';
@@ -20,10 +17,10 @@ import { SchnorrBaseAccountContract } from './account_contract.js';
  * @returns The contract artifact for the schnorr account contract
  */
 export async function getSchnorrAccountContractArtifact() {
-  // Cannot assert this import as it's incompatible with browsers
-  // https://caniuse.com/mdn-javascript_statements_import_import_assertions_type_json
-  // Use the new "with" syntax once supported by firefox
-  // https://caniuse.com/mdn-javascript_statements_import_import_attributes_type_json
+  // Cannot assert this import as it's incompatible with bundlers like vite
+  // https://github.com/vitejs/vite/issues/19095#issuecomment-2566074352
+  // Even if now supported by al major browsers, the MIME type is replaced with
+  // "text/javascript"
   // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
   const { default: schnorrAccountContractJson } = await import('../../artifacts/SchnorrAccount.json');
   return loadContractArtifact(schnorrAccountContractJson);
@@ -42,56 +39,6 @@ export class SchnorrAccountContract extends SchnorrBaseAccountContract {
   override getContractArtifact(): Promise<ContractArtifact> {
     return getSchnorrAccountContractArtifact();
   }
-}
-
-/**
- * Creates an Account Manager that relies on a Grumpkin signing key for authentication.
- * @param pxe - An PXE server instance.
- * @param secretKey - Secret key used to derive all the keystore keys.
- * @param signingPrivateKey - Grumpkin key used for signing transactions.
- * @param salt - Deployment salt.
- * @returns An account manager initialized with the account contract and its deployment params
- */
-export function getSchnorrAccount(
-  pxe: PXE,
-  secretKey: Fr,
-  signingPrivateKey: GrumpkinScalar,
-  salt?: Salt,
-): Promise<AccountManager> {
-  return AccountManager.create(pxe, secretKey, new SchnorrAccountContract(signingPrivateKey), salt);
-}
-
-/**
- * Gets a wallet for an already registered account using Schnorr signatures.
- * @param pxe - An PXE server instance.
- * @param address - Address for the account.
- * @param signingPrivateKey - Grumpkin key used for signing transactions.
- * @returns A wallet for this account that can be used to interact with a contract instance.
- */
-export function getSchnorrWallet(
-  pxe: PXE,
-  address: AztecAddress,
-  signingPrivateKey: GrumpkinScalar,
-): Promise<AccountWallet> {
-  return getWallet(pxe, address, new SchnorrAccountContract(signingPrivateKey));
-}
-
-/**
- * Gets a wallet for an already registered account using Schnorr signatures.
- * @param pxe - An PXE server instance.
- * @param secretKey - Secret key used to derive all the keystore keys.
- * @param signingPrivateKey - Grumpkin key used for signing transactions.
- * @param salt - Deployment salt.
- * @returns A wallet for this account that can be used to interact with a contract instance.
- */
-export async function getSchnorrWalletWithSecretKey(
-  pxe: PXE,
-  secretKey: Fr,
-  signingPrivateKey: GrumpkinScalar,
-  salt: Salt,
-): Promise<AccountWalletWithSecretKey> {
-  const account = await getSchnorrAccount(pxe, secretKey, signingPrivateKey, salt);
-  return account.getWallet();
 }
 
 /**

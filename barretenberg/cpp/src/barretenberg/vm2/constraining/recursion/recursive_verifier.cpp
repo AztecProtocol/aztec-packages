@@ -12,6 +12,7 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
 
 namespace bb::avm2 {
 
@@ -31,11 +32,10 @@ AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_p
 AvmRecursiveVerifier::FF AvmRecursiveVerifier::evaluate_public_input_column(const std::vector<FF>& points,
                                                                             const std::vector<FF>& challenges)
 {
-    size_t circuit_size = 1 << CONST_PROOF_SIZE_LOG_N;
     auto coefficients = SharedShiftedVirtualZeroesArray<FF>{
         .start_ = 0,
         .end_ = points.size(),
-        .virtual_size_ = circuit_size,
+        .virtual_size_ = MAX_AVM_TRACE_SIZE,
         .backing_memory_ = BackingMemory<FF>::allocate(points.size()),
     };
 
@@ -82,21 +82,53 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     // TODO(#14234)[Unconditional PIs validation]: Remove the next 3 lines
     StdlibProof stdlib_proof = stdlib_proof_with_pi_flag;
     bool_t<Builder> pi_validation = !bool_t<Builder>(stdlib_proof.at(0));
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/16716) Origin Tag security mechanism is screaming
+    // that there is a free witness affecting proof verificaton. Because it is and this bool allows completely disabling
+    // public input logic. So this has to be removed in the future.
+    pi_validation.unset_free_witness_tag();
     stdlib_proof.erase(stdlib_proof.begin());
 
     if (public_inputs.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {
         throw_or_abort("AvmRecursiveVerifier::verify_proof: public inputs size mismatch");
+    }
+    for (const auto& public_input : public_inputs) {
+        if (public_input.size() != AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH) {
+            throw_or_abort("AvmRecursiveVerifier::verify_proof: public input size mismatch");
+        }
     }
 
     transcript->load_proof(stdlib_proof);
 
     // TODO(#15892): Fiat-Shamir the vk hash by uncommenting the add_to_hash_buffer.
     // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/16716) For now we are unsetting the free witness tags
+    // to stop triggering the Origin Tag security mechanism, but the problem is that the VK is not hashed.
+    for (auto& comm : key->get_all()) {
+        comm.unset_free_witness_tag();
+    }
+
     info("AVM vk hash in recursive verifier: ", vk_hash);
 
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
 
+    // TODO(https://github.com/AztecProtocol/aztec-packages/pull/17045): make the protocols secure at some point
+    // // Add public inputs to transcript
+    // for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
+    //     for (size_t j = 0; j < public_inputs[i].size(); j++) {
+    //         transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
+    //                                        public_inputs[i][j]);
+    //     }
+    // }
+
+    for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
+        for (size_t j = 0; j < public_inputs[i].size(); j++) {
+            // TODO(https://github.com/AztecProtocol/aztec-packages/pull/17045): make the protocols secure at some point
+            // transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
+            //                               public_inputs[i][j]);
+            public_inputs[i][j].unset_free_witness_tag();
+        }
+    }
     // Get commitments to VM wires
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitments.get_wires_labels())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
@@ -114,46 +146,48 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, CONST_PROOF_SIZE_LOG_N);
+    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, key->log_fixed_circuit_size);
 
-    auto gate_challenges = std::vector<FF>(CONST_PROOF_SIZE_LOG_N);
-    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
+    std::vector<FF> gate_challenges =
+        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", key->log_fixed_circuit_size);
 
     // No need to constrain that sumcheck_verified is true as this is guaranteed by the implementation of
     // when called over a "circuit field" types.
     SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges);
     vinfo("verified sumcheck: ", (output.verified));
 
+    using C = ColumnAndShifts;
     std::array<FF, AVM_NUM_PUBLIC_INPUT_COLUMNS> claimed_evaluations = {
-        output.claimed_evaluations.public_inputs_cols_0_,
-        output.claimed_evaluations.public_inputs_cols_1_,
-        output.claimed_evaluations.public_inputs_cols_2_,
-        output.claimed_evaluations.public_inputs_cols_3_,
+        output.claimed_evaluations.get(C::public_inputs_cols_0_),
+        output.claimed_evaluations.get(C::public_inputs_cols_1_),
+        output.claimed_evaluations.get(C::public_inputs_cols_2_),
+        output.claimed_evaluations.get(C::public_inputs_cols_3_),
     };
 
     // TODO(#14234)[Unconditional PIs validation]: Inside of loop, replace pi_validation.must_imply() by
     // public_input_evaluation.assert_equal(claimed_evaluations[i]
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
-        // In-circuit mle evaluation efficiently handles evaluations of polynomials extended by zero, i.e.
-        // public_inputs[i] is of the size bounded by compile-time constant `AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH` but
-        // it is evaluated as a polynomial in fixed number of variables to match the sumcheck claimed evaluation, that
-        // also uses extension by zero.
         FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], output.challenge);
-        vinfo("public_input_evaluation failed, public inputs col ", i);
-        pi_validation.must_imply(public_input_evaluation == claimed_evaluations[i], "public_input_evaluation failed");
+        pi_validation.must_imply(public_input_evaluation == claimed_evaluations[i],
+                                 format("public_input_evaluation failed at column ", i));
     }
 
     // Execute Shplemini rounds.
     ClaimBatcher claim_batcher{
-        .unshifted = ClaimBatch{ commitments.get_unshifted(), output.claimed_evaluations.get_unshifted() },
-        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), output.claimed_evaluations.get_shifted() }
+        .unshifted = ClaimBatch{ .commitments = RefVector<Commitment>::from_span(commitments.get_unshifted()),
+                                 .evaluations = RefVector<FF>::from_span(output.claimed_evaluations.get_unshifted()) },
+        .shifted = ClaimBatch{ .commitments = RefVector<Commitment>::from_span(commitments.get_to_be_shifted()),
+                               .evaluations = RefVector<FF>::from_span(output.claimed_evaluations.get_shifted()) }
     };
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(claim_batcher, output.challenge, Commitment::one(&builder), transcript);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+
+    if (builder.failed()) {
+        info("AVM Recursive verifier builder failed with error: ", builder.err());
+    }
+
     return pairing_points;
 }
 

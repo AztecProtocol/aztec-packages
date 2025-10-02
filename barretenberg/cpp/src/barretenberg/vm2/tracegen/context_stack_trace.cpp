@@ -30,7 +30,7 @@ void ContextStackTraceBuilder::process(
                 { C::context_stack_bytecode_id, event.bytecode_id },
                 { C::context_stack_is_static, event.is_static },
                 { C::context_stack_parent_calldata_addr, event.parent_cd_addr },
-                { C::context_stack_parent_calldata_size, event.parent_cd_size_addr },
+                { C::context_stack_parent_calldata_size, event.parent_cd_size },
                 { C::context_stack_parent_l2_gas_limit, event.parent_gas_limit.l2Gas },
                 { C::context_stack_parent_da_gas_limit, event.parent_gas_limit.daGas },
                 { C::context_stack_parent_l2_gas_used, event.parent_gas_used.l2Gas },
@@ -48,7 +48,7 @@ void ContextStackTraceBuilder::process(
                   event.written_public_data_slots_tree_snapshot.root },
                 { C::context_stack_written_public_data_slots_tree_size,
                   event.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
-                { C::context_stack_num_unencrypted_logs, event.side_effect_states.numUnencryptedLogs },
+                { C::context_stack_num_unencrypted_log_fields, event.side_effect_states.numUnencryptedLogFields },
                 { C::context_stack_num_l2_to_l1_messages, event.side_effect_states.numL2ToL1Messages },
             } });
         row++;

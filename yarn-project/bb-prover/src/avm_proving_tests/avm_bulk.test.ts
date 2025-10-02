@@ -1,4 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { TestExecutorMetrics, bulkTest, defaultGlobals } from '@aztec/simulator/public/fixtures';
 
 import { mkdirSync, writeFileSync } from 'fs';
@@ -24,16 +25,18 @@ describe('AVM proven bulk test', () => {
       writeFileSync(process.env.BENCH_OUTPUT, metrics.toGithubActionBenchmarkJSON());
     } else if (process.env.BENCH_OUTPUT_MD) {
       writeFileSync(process.env.BENCH_OUTPUT_MD, metrics.toPrettyString());
-    } else {
-      logger.info(`\n`); // sometimes jest tests obscure the last line(s)
-      logger.info(metrics.toPrettyString());
     }
+
+    // Always print the metrics.
+    logger.info(`\n`); // sometimes jest tests obscure the last line(s)
+    logger.info(metrics.toPrettyString());
   });
 
   it(
     'Prove and verify',
     async () => {
-      await bulkTest(tester, logger, (b: boolean) => expect(b).toBe(true));
+      const result = await bulkTest(tester, logger, AvmTestContractArtifact);
+      expect(result.revertCode.isOK()).toBe(true);
     },
     TIMEOUT,
   );

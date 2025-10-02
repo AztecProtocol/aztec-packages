@@ -22,28 +22,30 @@ type CompressedStakingQueueConfig is uint256;
  * possible to add validators. This can close the queue even if there are members in the validator set if a very high
  * `normalFlushSizeQuotient` is used.
  *
- * NOTE: We will NEVER flush more than `MAX_QUEUE_FLUSH_SIZE` validators: it is applied as a Max at the end of every
+ * NOTE: We will NEVER flush more than `maxQueueFlushSize` validators: it is applied as a Max at the end of every
  * calculation.
- * This is to prevent a situation where flushing the queue would exceed the block gas limit.
+ * This can be used to prevent a situation where flushing the queue would exceed the block gas limit.
  */
 struct StakingQueueConfig {
   uint256 bootstrapValidatorSetSize;
   uint256 bootstrapFlushSize;
   uint256 normalFlushSizeMin;
   uint256 normalFlushSizeQuotient;
+  uint256 maxQueueFlushSize;
 }
 
 library StakingQueueConfigLib {
   using SafeCast for uint256;
 
-  uint256 private constant MASK_64BIT = 0xFFFFFFFFFFFFFFFF;
+  uint256 private constant MASK_32BIT = 0xFFFFFFFF;
 
   function compress(StakingQueueConfig memory _config) internal pure returns (CompressedStakingQueueConfig) {
     uint256 value = 0;
-    value |= uint256(_config.normalFlushSizeQuotient.toUint64());
-    value |= uint256(_config.normalFlushSizeMin.toUint64()) << 64;
-    value |= uint256(_config.bootstrapFlushSize.toUint64()) << 128;
-    value |= uint256(_config.bootstrapValidatorSetSize.toUint64()) << 192;
+    value |= uint256(_config.maxQueueFlushSize.toUint32());
+    value |= uint256(_config.normalFlushSizeQuotient.toUint32()) << 32;
+    value |= uint256(_config.normalFlushSizeMin.toUint32()) << 64;
+    value |= uint256(_config.bootstrapFlushSize.toUint32()) << 96;
+    value |= uint256(_config.bootstrapValidatorSetSize.toUint32()) << 128;
 
     return CompressedStakingQueueConfig.wrap(value);
   }
@@ -52,10 +54,11 @@ library StakingQueueConfigLib {
     uint256 value = CompressedStakingQueueConfig.unwrap(_compressedConfig);
 
     return StakingQueueConfig({
-      bootstrapValidatorSetSize: (value >> 192) & MASK_64BIT,
-      bootstrapFlushSize: (value >> 128) & MASK_64BIT,
-      normalFlushSizeMin: (value >> 64) & MASK_64BIT,
-      normalFlushSizeQuotient: (value) & MASK_64BIT
+      bootstrapValidatorSetSize: (value >> 128) & MASK_32BIT,
+      bootstrapFlushSize: (value >> 96) & MASK_32BIT,
+      normalFlushSizeMin: (value >> 64) & MASK_32BIT,
+      normalFlushSizeQuotient: (value >> 32) & MASK_32BIT,
+      maxQueueFlushSize: value & MASK_32BIT
     });
   }
 }

@@ -69,6 +69,7 @@ import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
+import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -114,6 +115,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     bytes blobInputs;
     CommitteeAttestation[] attestations;
     address[] signers;
+    Signature attestationsAndSignersSignature;
   }
 
   enum TestSlash {
@@ -131,7 +133,10 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   uint256 internal PROOFS_PER_EPOCH; // given as e2, for simple decimals, e.g., 200 = 2.00
   uint256 internal VOTING_ROUND_SIZE = 500;
 
+  bool internal IS_IGNITION;
+
   Rollup internal rollup;
+  Slasher internal slasher;
 
   address internal coinbase = address(bytes20("MONEY MAKER"));
   TestERC20 internal asset;
@@ -183,19 +188,21 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       uint256 tallyRoundSize = EPOCH_DURATION * 2; // 64; // 2 * EPOCH_DURATION (32) = 64
       uint256 tallyQuorum = tallyRoundSize / 2 + 1; // Must be > ROUND_SIZE / 2
       builder.setSlasherFlavor(SlasherFlavor.TALLY).setSlashingQuorum(tallyQuorum).setSlashingRoundSize(tallyRoundSize)
-        .setSlashingLifetimeInRounds(5).setSlashingExecutionDelayInRounds(1).setSlashingUnit(1e18);
+        .setSlashingLifetimeInRounds(5).setSlashingExecutionDelayInRounds(1).setSlashAmountSmall(1e18)
+        .setSlashAmountMedium(2e18).setSlashAmountLarge(3e18);
     }
 
     builder.deploy();
 
     asset = builder.getConfig().testERC20;
     rollup = builder.getConfig().rollup;
-    slashingProposer = Slasher(rollup.getSlasher()).PROPOSER();
+    slasher = Slasher(rollup.getSlasher());
+    slashingProposer = address(slasher) == address(0) ? address(0) : slasher.PROPOSER();
 
     SlashFactory slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
     address[] memory toSlash = new address[](0);
     uint96[] memory amounts = new uint96[](0);
-    uint256[] memory offenses = new uint256[](0);
+    uint128[][] memory offenses = new uint128[][](0);
     slashPayload = slashFactory.createSlashPayload(toSlash, amounts, offenses);
 
     vm.label(coinbase, "coinbase");
@@ -215,6 +222,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       MANA_TARGET = 0;
       TARGET_COMMITTEE_SIZE = 24;
       PROOFS_PER_EPOCH = 200; // 2.00
+
+      IS_IGNITION = true;
     } else {
       full = load("single_tx_block_1");
 
@@ -223,6 +232,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       MANA_TARGET = 1e8;
       TARGET_COMMITTEE_SIZE = 48;
       PROOFS_PER_EPOCH = 200; // 2.00
+
+      IS_IGNITION = false;
     }
 
     FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
@@ -341,11 +352,20 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       }
     }
 
+    Signature memory attestationsAndSignersSignature;
+    if (proposer != address(0)) {
+      attestationsAndSignersSignature = createAttestation(
+        proposer,
+        AttestationLib.getAttestationsAndSignersDigest(AttestationLibHelper.packAttestations(attestations), signers)
+      ).signature;
+    }
+
     return Block({
       proposeArgs: proposeArgs,
       blobInputs: full.block.blobCommitments,
       attestations: attestations,
-      signers: signers
+      signers: signers,
+      attestationsAndSignersSignature: attestationsAndSignersSignature
     });
   }
 
@@ -433,7 +453,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
   function proposeWithTallyVote(Block memory b, address proposer) internal {
     // First propose the block
-    CommitteeAttestations memory attestations = AttestationLib.packAttestations(b.attestations);
+    CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(b.attestations);
 
     uint256 committeeSize = rollup.getEpochCommittee(rollup.getCurrentEpoch()).length;
     uint256 roundSizeInEpochs = 2;
@@ -443,7 +463,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
     calls[0] = Multicall3.Call3({
       target: address(rollup),
-      callData: abi.encodeCall(rollup.propose, (b.proposeArgs, attestations, b.signers, b.blobInputs)),
+      callData: abi.encodeCall(
+        rollup.propose, (b.proposeArgs, attestations, b.signers, b.attestationsAndSignersSignature, b.blobInputs)
+      ),
       allowFailure: false
     });
     calls[1] = Multicall3.Call3({
@@ -459,9 +481,12 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     Slot nextSlot = Slot.wrap(EPOCH_DURATION * 3 + 1);
     Epoch nextEpoch = Epoch.wrap(4);
     bool warmedUp = false;
+
+    uint256 stopAtBlock = IS_IGNITION ? 200 : 150;
+
     // Loop through all of the L1 metadata
     for (uint256 i = 0; i < l1Metadata.length; i++) {
-      if (rollup.getPendingBlockNumber() >= 200) {
+      if (rollup.getPendingBlockNumber() >= stopAtBlock) {
         break;
       }
 
@@ -487,7 +512,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
         // Store the attestations for the current block number
         uint256 currentBlockNumber = rollup.getPendingBlockNumber() + 1;
-        blockAttestations[currentBlockNumber] = AttestationLib.packAttestations(b.attestations);
+        blockAttestations[currentBlockNumber] = AttestationLibHelper.packAttestations(b.attestations);
 
         if (_slashing == TestSlash.EMPIRE) {
           Signature memory sig = createEmpireSignalSignature(proposer, slashPayload, rollup.getCurrentSlot());
@@ -495,7 +520,14 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           calls[0] = Multicall3.Call3({
             target: address(rollup),
             callData: abi.encodeCall(
-              rollup.propose, (b.proposeArgs, AttestationLib.packAttestations(b.attestations), b.signers, b.blobInputs)
+              rollup.propose,
+              (
+                b.proposeArgs,
+                AttestationLibHelper.packAttestations(b.attestations),
+                b.signers,
+                b.attestationsAndSignersSignature,
+                b.blobInputs
+              )
             ),
             allowFailure: false
           });
@@ -514,20 +546,21 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
             proposeWithTallyVote(b, proposer);
           } else {
             // Before slash offset, just propose normally
-            CommitteeAttestations memory attestations = AttestationLib.packAttestations(b.attestations);
+            CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(b.attestations);
             vm.prank(proposer);
-            rollup.propose(b.proposeArgs, attestations, b.signers, b.blobInputs);
+            rollup.propose(b.proposeArgs, attestations, b.signers, b.attestationsAndSignersSignature, b.blobInputs);
           }
         } else {
-          CommitteeAttestations memory attestations = AttestationLib.packAttestations(b.attestations);
+          CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(b.attestations);
 
           // Emit calldata size for propose
-          bytes memory proposeCalldata =
-            abi.encodeCall(rollup.propose, (b.proposeArgs, attestations, b.signers, b.blobInputs));
+          bytes memory proposeCalldata = abi.encodeCall(
+            rollup.propose, (b.proposeArgs, attestations, b.signers, b.attestationsAndSignersSignature, b.blobInputs)
+          );
           emit log_named_uint("propose_calldata_size", proposeCalldata.length);
 
           vm.prank(proposer);
-          rollup.propose(b.proposeArgs, attestations, b.signers, b.blobInputs);
+          rollup.propose(b.proposeArgs, attestations, b.signers, b.attestationsAndSignersSignature, b.blobInputs);
         }
 
         nextSlot = nextSlot + Slot.wrap(1);

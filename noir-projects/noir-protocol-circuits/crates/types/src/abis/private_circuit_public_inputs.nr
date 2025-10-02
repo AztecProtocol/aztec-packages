@@ -50,9 +50,9 @@ pub struct PrivateCircuitPublicInputs {
     pub end_side_effect_counter: u32,
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
-    pub historical_header: BlockHeader,
+    pub anchor_block_header: BlockHeader,
 
-    // Note: The chain_id and version here are not redundant to the values in self.historical_header.global_variables because
+    // Note: The chain_id and version here are not redundant to the values in self.anchor_block_header.global_variables because
     // they can be different in case of a protocol upgrade. In such a situation we could be using header from a block
     // before the upgrade took place but be using the updated protocol to execute and prove the transaction.
     pub tx_context: TxContext,
@@ -80,7 +80,7 @@ impl Empty for PrivateCircuitPublicInputs {
             contract_class_logs_hashes: ClaimedLengthArray::<Counted<LogHash>, MAX_CONTRACT_CLASS_LOGS_PER_CALL>::empty(),
             start_side_effect_counter: 0 as u32,
             end_side_effect_counter: 0 as u32,
-            historical_header: BlockHeader::empty(),
+            anchor_block_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
         }
     }
@@ -108,7 +108,7 @@ fn test_private_circuit_public_inputs_serialization() {
         contract_class_logs_hashes: ClaimedLengthArray::<Counted<LogHash>, MAX_CONTRACT_CLASS_LOGS_PER_CALL>::empty(),
         start_side_effect_counter: 0,
         end_side_effect_counter: 0,
-        historical_header: BlockHeader::empty(),
+        anchor_block_header: BlockHeader::empty(),
         tx_context: TxContext::empty(),
     };
 

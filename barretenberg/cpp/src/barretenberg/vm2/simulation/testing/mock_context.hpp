@@ -5,8 +5,9 @@
 
 #include <gmock/gmock.h>
 
-#include "barretenberg/vm2/simulation/context.hpp"
-#include "barretenberg/vm2/simulation/memory.hpp"
+#include "barretenberg/vm2/simulation/events/context_events.hpp"
+#include "barretenberg/vm2/simulation/interfaces/context.hpp"
+#include "barretenberg/vm2/simulation/interfaces/memory.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -29,6 +30,7 @@ class MockContext : public ContextInterface {
 
     MOCK_METHOD(uint32_t, get_context_id, (), (const, override));
     MOCK_METHOD(uint32_t, get_parent_id, (), (const, override));
+    MOCK_METHOD(uint32_t, get_last_child_id, (), (const, override));
     MOCK_METHOD(bool, has_parent, (), (const, override));
 
     // Environment.

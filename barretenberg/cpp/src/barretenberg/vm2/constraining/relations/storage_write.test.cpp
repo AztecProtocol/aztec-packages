@@ -8,10 +8,10 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
-#include "barretenberg/vm2/simulation/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
+#include "barretenberg/vm2/simulation/gadgets/concrete_dbs.hpp"
+#include "barretenberg/vm2/simulation/gadgets/public_data_tree_check.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
-#include "barretenberg/vm2/simulation/public_data_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
@@ -212,7 +212,7 @@ TEST(SStoreConstrainingTest, Interactions)
         .root = 42,
         .nextAvailableLeafIndex = 128,
     };
-    AppendOnlyTreeSnapshot written_slots_tree_before = written_public_data_slots_tree_check.snapshot();
+    AppendOnlyTreeSnapshot written_slots_tree_before = written_public_data_slots_tree_check.get_snapshot();
 
     EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& inputs) {
         return RawPoseidon2::hash(inputs);
@@ -242,7 +242,7 @@ TEST(SStoreConstrainingTest, Interactions)
                                                                {},
                                                                false);
     written_public_data_slots_tree_check.insert(contract_address, slot);
-    auto written_slots_tree_after = written_public_data_slots_tree_check.snapshot();
+    auto written_slots_tree_after = written_public_data_slots_tree_check.get_snapshot();
 
     TestTraceContainer trace({
         {

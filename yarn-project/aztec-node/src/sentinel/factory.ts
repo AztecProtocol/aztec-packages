@@ -27,6 +27,10 @@ export async function createSentinel(
     createLogger('node:sentinel:lmdb'),
   );
   const storeHistoryLength = config.sentinelHistoryLengthInEpochs * epochCache.getL1Constants().epochDuration;
-  const sentinelStore = new SentinelStore(kvStore, { historyLength: storeHistoryLength });
+  const storeHistoricProvenPerformanceLength = config.sentinelHistoricProvenPerformanceLengthInEpochs;
+  const sentinelStore = new SentinelStore(kvStore, {
+    historyLength: storeHistoryLength,
+    historicProvenPerformanceLength: storeHistoricProvenPerformanceLength,
+  });
   return new Sentinel(epochCache, archiver, p2p, sentinelStore, config, logger);
 }

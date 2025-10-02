@@ -6,7 +6,7 @@
 
 #include "decider_prover.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -20,9 +20,9 @@ namespace bb {
  * @tparam a type of UltraFlavor
  * */
 template <IsUltraOrMegaHonk Flavor>
-DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<DeciderPK>& proving_key,
+DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<ProverInstance>& prover_instance,
                                        const std::shared_ptr<Transcript>& transcript)
-    : proving_key(std::move(proving_key))
+    : prover_instance(std::move(prover_instance))
     , transcript(transcript)
 {}
 
@@ -33,20 +33,20 @@ DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<DeciderPK>& proving
  */
 template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relation_check_rounds()
 {
-    const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : proving_key->log_dyadic_size();
+    const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : prover_instance->log_dyadic_size();
 
     using Sumcheck = SumcheckProver<Flavor>;
-    size_t polynomial_size = proving_key->dyadic_size();
+    size_t polynomial_size = prover_instance->dyadic_size();
     Sumcheck sumcheck(polynomial_size,
-                      proving_key->polynomials,
+                      prover_instance->polynomials,
                       transcript,
-                      proving_key->alphas,
-                      proving_key->gate_challenges,
-                      proving_key->relation_parameters,
+                      prover_instance->alphas,
+                      prover_instance->gate_challenges,
+                      prover_instance->relation_parameters,
                       virtual_log_n);
     {
 
-        PROFILE_THIS_NAME("sumcheck.prove");
+        BB_BENCH_NAME("sumcheck.prove");
 
         if constexpr (Flavor::HasZK) {
             static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
@@ -71,19 +71,19 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_pcs_rou
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
-    auto& ck = proving_key->commitment_key;
+    auto& ck = prover_instance->commitment_key;
     if (!ck.initialized()) {
-        ck = CommitmentKey(proving_key->dyadic_size());
+        ck = CommitmentKey(prover_instance->dyadic_size());
     }
 
-    PolynomialBatcher polynomial_batcher(proving_key->dyadic_size());
-    polynomial_batcher.set_unshifted(proving_key->polynomials.get_unshifted());
-    polynomial_batcher.set_to_be_shifted_by_one(proving_key->polynomials.get_to_be_shifted());
+    PolynomialBatcher polynomial_batcher(prover_instance->dyadic_size());
+    polynomial_batcher.set_unshifted(prover_instance->polynomials.get_unshifted());
+    polynomial_batcher.set_to_be_shifted_by_one(prover_instance->polynomials.get_to_be_shifted());
 
     OpeningClaim prover_opening_claim;
     if constexpr (!Flavor::HasZK) {
         prover_opening_claim = ShpleminiProver_<Curve>::prove(
-            proving_key->dyadic_size(), polynomial_batcher, sumcheck_output.challenge, ck, transcript);
+            prover_instance->dyadic_size(), polynomial_batcher, sumcheck_output.challenge, ck, transcript);
     } else {
         info("ck dyadic size ", ck.dyadic_size);
         if (ck.dyadic_size < Curve::SUBGROUP_SIZE + 2) {
@@ -94,7 +94,7 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_pcs_rou
             zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
         small_subgroup_ipa_prover.prove();
 
-        prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->dyadic_size(),
+        prover_opening_claim = ShpleminiProver_<Curve>::prove(prover_instance->dyadic_size(),
                                                               polynomial_batcher,
                                                               sumcheck_output.challenge,
                                                               ck,
@@ -115,7 +115,7 @@ template <IsUltraOrMegaHonk Flavor> DeciderProver_<Flavor>::Proof DeciderProver_
 
 template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::construct_proof()
 {
-    PROFILE_THIS_NAME("Decider::construct_proof");
+    BB_BENCH_NAME("Decider::construct_proof");
 
     // Run sumcheck subprotocol.
     execute_relation_check_rounds();

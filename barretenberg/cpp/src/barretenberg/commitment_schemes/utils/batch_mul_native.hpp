@@ -41,17 +41,4 @@ static Commitment batch_mul_native(const std::vector<Commitment>& _points, const
     return result;
 }
 
-/**
- * @brief Utility for native batch multiplication of group elements
- * @note This is used only for native verification and is not optimized for efficiency
- */
-template <typename FF> static FF linear_combination(const std::vector<FF>& as, const std::vector<FF>& bs)
-{
-    FF result = as[0] * bs[0];
-    for (size_t idx = 1; idx < as.size(); ++idx) {
-        result += as[idx] * bs[idx];
-    }
-    return result;
-}
-
 } // namespace bb

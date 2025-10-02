@@ -6,7 +6,7 @@
 
 #pragma once
 #include "barretenberg/common/assert.hpp"
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -378,7 +378,7 @@ template <class T> constexpr field<T> field<T>::pow(const uint64_t exponent) con
 template <class T> constexpr field<T> field<T>::invert() const noexcept
 {
     if (*this == zero()) {
-        throw_or_abort("Trying to invert zero in the field");
+        bb::assert_failure("Trying to invert zero in the field");
     }
     return pow(modulus_minus_two);
 }

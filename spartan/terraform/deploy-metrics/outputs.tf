@@ -9,3 +9,8 @@ output "otel_collector_ip" {
   value       = google_compute_address.otel_collector_ip.address
 }
 
+output "otel_collector_base_url" {
+  description = "OTEL Collector IP"
+  value       = "http://${google_compute_address.otel_collector_ip.address}:4318"
+}
+

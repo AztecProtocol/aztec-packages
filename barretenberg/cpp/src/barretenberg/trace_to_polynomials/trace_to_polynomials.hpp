@@ -39,9 +39,6 @@ template <class Flavor> class TraceToPolynomials {
   private:
     /**
      * @brief Populate wire polynomials, selector polynomials and copy cycles from raw circuit data
-     *
-     * @param builder
-     * @param proving_key
      * @return std::vector<CyclicPermutation> copy cycles describing the copy constraints in the circuit
      */
     static std::vector<CyclicPermutation> populate_wires_and_selectors_and_compute_copy_cycles(Builder& builder,
@@ -52,11 +49,8 @@ template <class Flavor> class TraceToPolynomials {
      * @brief Construct and add the goblin ecc op wires to the proving key
      * @details The ecc op wires vanish everywhere except on the ecc op block, where they contain a copy of the ecc op
      * data assumed already to be present in the corrresponding block of the conventional wires in the proving key.
-     *
-     * @param builder
-     * @param proving_key
      */
-    static void add_ecc_op_wires_to_proving_key(Builder& builder, ProverPolynomials&)
+    static void add_ecc_op_wires_to_prover_instance(Builder& builder, ProverPolynomials&)
         requires IsMegaFlavor<Flavor>;
 };
 

@@ -1,4 +1,3 @@
-// docs:start:balance_set
 use dep::aztec::{
     context::{PrivateContext, UtilityContext},
     note::{
@@ -39,10 +38,8 @@ impl BalanceSet<UtilityContext> {
 
     pub unconstrained fn balance_of_with_offset(self: Self, offset: u32) -> u128 {
         let mut balance = 0 as u128;
-        // docs:start:view_notes
         let mut options = NoteViewerOptions::new();
         let notes = self.set.view_notes(options.set_offset(offset));
-        // docs:end:view_notes
         for i in 0..options.limit {
             if i < notes.len() {
                 balance = balance + notes.get_unchecked(i).get_value();
@@ -64,16 +61,14 @@ impl BalanceSet<&mut PrivateContext> {
             // We fetch the nullifier public key hash from the registry / from our PXE
             let mut addend_note = UintNote::new(addend, owner);
 
-            // docs:start:insert
             OuterNoteEmission::new(Option::some(self.set.insert(addend_note)))
-            // docs:end:insert
         }
     }
 
     pub fn sub(self: Self, owner: AztecAddress, amount: u128) -> OuterNoteEmission<UintNote> {
         let subtracted = self.try_sub(amount, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
 
-        // try_sub may have substracted more or less than amount. We must ensure that we subtracted at least as much as
+        // try_sub may have subtracted more or less than amount. We must ensure that we subtracted at least as much as
         // we needed, and then create a new note for the owner for the change (if any).
         assert(subtracted >= amount, "Balance too low");
         self.add(owner, subtracted - amount)
@@ -135,7 +130,6 @@ pub fn preprocess_notes_min_sum(
     }
     selected
 }
-// docs:end:balance_set
 
 mod test {
     use crate::{test::utils, Token};

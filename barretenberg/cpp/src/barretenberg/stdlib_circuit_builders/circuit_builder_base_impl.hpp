@@ -93,7 +93,7 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_variable(const FF&
 
 template <typename FF_> void CircuitBuilderBase<FF_>::set_variable_name(uint32_t index, const std::string& name)
 {
-    BB_ASSERT_GT(variables.size(), index);
+    ASSERT_DEBUG(variables.size() > index);
     uint32_t first_idx = get_first_variable_in_class(index);
 
     if (variable_names.contains(first_idx)) {
@@ -236,8 +236,8 @@ template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
 {
 #ifndef FUZZING_DISABLE_WARNINGS
     if (!has_dummy_witnesses) {
-        // We have a builder failure when we have real witnesses which is a mistake.
-        info("(Experimental) WARNING: Builder failure when we have real witnesses!"); // not a catch-all error
+        // Not a catch-all error log. We have a builder failure when we have real witnesses which is a mistake.
+        info("(Experimental) WARNING: Builder failure when we have real witnesses! Ignore if writing vk.");
     }
 #endif
     _failed = true;

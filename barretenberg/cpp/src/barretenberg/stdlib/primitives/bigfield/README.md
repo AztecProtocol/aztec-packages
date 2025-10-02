@@ -413,22 +413,22 @@ $$
 >
 > $$
 > \begin{aligned}
-> \textcolor{orange}{D_{\textsf{lo}}} &= (2^{Q} - 1)^2 + 2 \cdot (2^{Q} - 1)^2 \cdot 2^L \ < \ 2^{2Q + L + 1}, \\
-> \textcolor{orange}{D_{\textsf{hi}}} &= 3 \cdot (2^{Q} - 1)^2 + 4 \cdot (2^{Q} - 1)^2 \cdot 2^L \ < \ 2^{2Q + L + 2}.
+> \textcolor{orange}{D_{\textsf{lo}}} &= (2^{Q} - 1)^2 + 2 \cdot (2^{Q} - 1)^2 \cdot 2^L \ < \ 2^{2Q + L + 2}, \\
+> \textcolor{orange}{D_{\textsf{hi}}} &= 3 \cdot (2^{Q} - 1)^2 + 4 \cdot (2^{Q} - 1)^2 \cdot 2^L \ < \ 2^{2Q + L + 3}.
 > \end{aligned}
 > $$
 >
 > Clearly, maximum value of $\textcolor{orange}{D_{\textsf{hi}}}$ determines the overall maximum of the two outputs of multiplication:
 >
 > $$
-> \textsf{max}(\textcolor{orange}{D_{\textsf{lo}}}, \textcolor{orange}{D_{\textsf{hi}}}) < 2^{2Q + L + 2}.
+> \textsf{max}(\textcolor{orange}{D_{\textsf{lo}}}, \textcolor{orange}{D_{\textsf{hi}}}) < 2^{2Q + L + 3}.
 > $$
 >
 > This is the maximum value of the resulting limbs of a single product $d = a \cdot b$. Suppose we have $2^k$ such products, then the maximum value of the limbs of the sum of these products would be:
 >
 > $$
 > \begin{aligned}
-> \sum_{i=1}^{2^k} \textcolor{orange}{D_{\textsf{hi}, i}} & \ < \ 2^{k + 2Q + L + 2}.
+> \sum_{i=1}^{2^k} \textcolor{orange}{D_{\textsf{hi}, i}} & \ < \ 2^{k + 2Q + L + 3}.
 > \end{aligned}
 > $$
 >
@@ -436,11 +436,11 @@ $$
 >
 > $$
 > \begin{aligned}
-> 2^{k + 2Q + L + 2} &< n \quad \implies \quad \boxed{Q < \frac{\text{log}_2(n) - L - k - 2}{2}}.
+> 2^{k + 2Q + L + 3} &< n \quad \implies \quad \boxed{Q < \frac{\text{log}_2(n) - L - k - 3}{2}}.
 > \end{aligned}
 > $$
 >
-> This means that the maximum limb size that must be allowed is $Q = \left\lfloor\frac{253.5 - 68 - 10 - 2}{2}\right\rfloor = 86$.
+> This means that the maximum limb size that must be allowed is $Q = \left\lfloor\frac{253.5 - 68 - 10 - 3}{2}\right\rfloor = 86$.
 >
 > .
 

@@ -69,6 +69,8 @@ import {
   SStore,
   SendL2ToL1Message,
   Set,
+  Shl,
+  Shr,
 } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 import { Opcode } from './serialization/instruction_serialization.js';
@@ -149,7 +151,12 @@ describe('AVM simulator: injected bytecode', () => {
 
 describe('AVM simulator: transpiled Noir contracts', () => {
   it('execution of a non-existent contract immediately reverts and consumes all allocated gas', async () => {
-    const context = initContext();
+    const treesDB = mock<PublicTreesDB>();
+    const persistableState = initPersistableStateManager({ treesDB });
+    const address = AztecAddress.fromNumber(1234);
+    const env = initExecutionEnvironment({ address });
+    const context = initContext({ env, persistableState });
+    mockCheckNullifierExists(treesDB, false);
     const results = await new AvmSimulator(context).execute();
 
     expect(results.reverted).toBe(true);
@@ -395,15 +402,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
   });
 
-  it('Logging', async () => {
-    const context = initContext();
-    const bytecode = getAvmTestContractBytecode('debug_logging');
-    const results = await new AvmSimulator(context).executeBytecode(bytecode);
-
-    expect(results.reverted).toBe(false);
-    expect(results.output).toEqual([]);
-  });
-
   it('Assertion message', async () => {
     const calldata: Fr[] = [new Fr(20)];
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
@@ -462,8 +460,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     ['sha256_hash_256', /*input=*/ randomMemoryBytes(256), /*output=*/ sha256FromMemoryBytes],
     ['sha256_hash_511', /*input=*/ randomMemoryBytes(511), /*output=*/ sha256FromMemoryBytes],
     ['sha256_hash_512', /*input=*/ randomMemoryBytes(512), /*output=*/ sha256FromMemoryBytes],
-    ['sha256_hash_2048', /*input=*/ randomMemoryBytes(2048), /*output=*/ sha256FromMemoryBytes],
-    ['sha256_hash_2500', /*input=*/ randomMemoryBytes(2500), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_1024', /*input=*/ randomMemoryBytes(1024), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_1536', /*input=*/ randomMemoryBytes(1536), /*output=*/ sha256FromMemoryBytes],
     ['keccak_hash', /*input=*/ randomMemoryBytes(10), /*output=*/ keccak256FromMemoryBytes],
     ['keccak_f1600', /*input=*/ randomMemoryUint64s(25), /*output=*/ keccakF1600FromMemoryUint64s],
     ['poseidon2_hash', /*input=*/ randomMemoryFields(10), /*output=*/ poseidon2FromMemoryFields],
@@ -540,17 +538,39 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
   });
 
-  // TODO(#16099): Re-enable this test
-  // it('conversions', async () => {
-  //   const calldata: Fr[] = [new Fr(0b1011101010100)];
-  //   const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+  describe('conversions', () => {
+    it('to le bytes', async () => {
+      const calldata: Fr[] = [new Fr(0x11223344556677)];
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
-  //   const bytecode = getAvmTestContractBytecode('to_radix_le');
-  //   const results = await new AvmSimulator(context).executeBytecode(bytecode);
+      const bytecode = getAvmTestContractBytecode('to_le_bytes');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
-  //   expect(results.reverted).toBe(false);
-  //   expect(results.output.map(f => f.toNumber().toString()).join('')).toEqual('0010101011');
-  // });
+      expect(results.reverted).toBe(false);
+      expect(
+        results.output
+          .reverse()
+          .map(f => f.toNumber().toString(16).padStart(2, '0'))
+          .join(''),
+      ).toEqual('00000011223344556677');
+    });
+
+    it('to le bits', async () => {
+      const calldata: Fr[] = [new Fr(0b1011101010100)];
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+      const bytecode = getAvmTestContractBytecode('to_le_bits');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(false);
+      expect(
+        results.output
+          .reverse()
+          .map(f => f.toNumber().toString())
+          .join(''),
+      ).toEqual('0001011101010100');
+    });
+  });
 
   describe('Side effects, world state, nested calls', () => {
     const address = AztecAddress.fromNumber(1);
@@ -710,9 +730,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.reverted).toBe(true);
         expect(results.revertReason?.message).toMatch(/Attempted to emit duplicate nullifier/);
 
-        // Nullifier should be traced exactly once
-        expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
-        expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier0);
+        // Nullifier should still be traced twice. Fails after second trace.
+        expect(trace.traceNewNullifier).toHaveBeenCalledTimes(2);
+        expect(trace.traceNewNullifier).toHaveBeenNthCalledWith(1, siloedNullifier0);
+        expect(trace.traceNewNullifier).toHaveBeenNthCalledWith(2, siloedNullifier0);
       });
     });
 
@@ -730,11 +751,13 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           '\0A long time ago, in a galaxy fa',
           '\0r far away...\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
         ].map(s => new Fr(Buffer.from(s)));
+        const expectedLargeLog = Array.from({ length: 42 }, (_, i) => new Fr(i + 1));
 
-        expect(trace.tracePublicLog).toHaveBeenCalledTimes(3);
+        expect(trace.tracePublicLog).toHaveBeenCalledTimes(4);
         expect(trace.tracePublicLog).toHaveBeenCalledWith(address, expectedFields);
         expect(trace.tracePublicLog).toHaveBeenCalledWith(address, expectedString);
         expect(trace.tracePublicLog).toHaveBeenCalledWith(address, expectedCompressedString);
+        expect(trace.tracePublicLog).toHaveBeenCalledWith(address, expectedLargeLog);
       });
     });
 
@@ -1055,7 +1078,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         ['Public storage writes', () => new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 0)],
         ['New note hashes', () => new EmitNoteHash(/*indirect=*/ 0, /*noteHashOffset=*/ 0)],
         ['New nullifiers', () => new EmitNullifier(/*indirect=*/ 0, /*noteHashOffset=*/ 0)],
-        ['New unencrypted logs', () => new EmitUnencryptedLog(/*indirect=*/ 0, /*logOffset=*/ 0, /*logSizeOffest=*/ 1)],
+        ['New unencrypted logs', () => new EmitUnencryptedLog(/*indirect=*/ 0, /*logSizeOffest=*/ 1, /*logOffset=*/ 0)],
         [
           'New L1 to L2 messages',
           () => new SendL2ToL1Message(/*indirect=*/ 0, /*recipientOffset=*/ 0, /*contentOffest=*/ 0),
@@ -1083,6 +1106,42 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.output).toEqual([]);
         expect(results.revertReason?.message).toMatch('Reached the limit');
       });
+    });
+
+    it('Logging', async () => {
+      const context = createContext([]);
+      const bytecode = getAvmTestContractBytecode('debug_logging');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(false);
+      expect(results.output).toEqual([]);
+      expect(trace.traceDebugLog).toHaveBeenCalledTimes(6);
+      expect(trace.traceDebugLog).toHaveBeenCalledWith(address, 'debug', 'just text', []);
+      expect(trace.traceDebugLog).toHaveBeenCalledWith(address, 'debug', 'second: {1}', [
+        new Fr(1),
+        new Fr(2),
+        new Fr(3),
+        new Fr(4),
+      ]);
+      expect(trace.traceDebugLog).toHaveBeenCalledWith(address, 'debug', 'whole array: {}', [
+        new Fr(1),
+        new Fr(2),
+        new Fr(3),
+        new Fr(4),
+      ]);
+      expect(trace.traceDebugLog).toHaveBeenCalledWith(
+        address,
+        'debug',
+        'tabs and newlines\n\t- first\n\t- second',
+        [],
+      );
+      expect(trace.traceDebugLog).toHaveBeenCalledWith(address, 'fatal', 'fatal error', []);
+      expect(trace.traceDebugLog).toHaveBeenCalledWith(address, 'trace', 'trace format: {}', [
+        new Fr(1),
+        new Fr(3),
+        new Fr(3),
+        new Fr(7),
+      ]);
     });
   });
 
@@ -1279,6 +1338,138 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         NoteGetterContract.artifact,
       ),
     ).toMatch('No public functions');
+  });
+});
+
+describe('AVM simulator: shift operations with huge amounts', () => {
+  let context: AvmContext;
+
+  beforeEach(() => {
+    context = initContext();
+  });
+
+  describe('SHL (Shift Left)', () => {
+    it('Should handle shift amount greater than bit size (Uint32)', async () => {
+      const bytecode = encodeToBytecode([
+        new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, /*inTag=*/ TypeTag.UINT32, /*value=*/ (1n << 32n) - 1n).as(
+          Opcode.SET_128,
+          Set.wireFormat128,
+        ),
+        new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, /*inTag=*/ TypeTag.UINT32, /*value=*/ (1n << 32n) - 1n).as(
+          Opcode.SET_128,
+          Set.wireFormat128,
+        ),
+        new Set(/*indirect=*/ 0, /*dstOffset=*/ 2, /*inTag=*/ TypeTag.UINT32, /*value=*/ 1).as(
+          Opcode.SET_8,
+          Set.wireFormat8,
+        ), // set a constant specifying the "returnSize" (1) to be used by Return
+        new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 3).as(Opcode.SHL_8, Shl.wireFormat8),
+        new Return(/*indirect=*/ 0, /*returnSizeOffset=*/ 2, /*returnOffset=*/ 3),
+      ]);
+
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(false);
+      expect(results.output).toEqual([new Fr(0)]);
+    });
+
+    it('Should handle shift amount equal to bit size (Uint128)', async () => {
+      const bytecode = encodeToBytecode([
+        new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, /*inTag=*/ TypeTag.UINT128, /*value=*/ (1n << 127n) - 1n).as(
+          Opcode.SET_128,
+          Set.wireFormat128,
+        ),
+        new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, /*inTag=*/ TypeTag.UINT128, /*value=*/ 128n).as(
+          Opcode.SET_128,
+          Set.wireFormat128,
+        ),
+        new Set(/*indirect=*/ 0, /*dstOffset=*/ 2, /*inTag=*/ TypeTag.UINT32, /*value=*/ 1).as(
+          Opcode.SET_8,
+          Set.wireFormat8,
+        ), // set a constant specifying the "returnSize" (1) to be used by Return
+        new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 3).as(Opcode.SHL_8, Shl.wireFormat8),
+        new Return(/*indirect=*/ 0, /*returnSizeOffset=*/ 2, /*returnOffset=*/ 3),
+      ]);
+
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(false);
+      expect(results.output).toEqual([new Fr(0)]);
+    });
+  });
+
+  describe('SHR (Shift Right)', () => {
+    it('Should handle shift amount greater than bit size (Uint32)', async () => {
+      const bytecode = encodeToBytecode([
+        new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, /*inTag=*/ TypeTag.UINT32, /*value=*/ (1n << 32n) - 1n).as(
+          Opcode.SET_128,
+          Set.wireFormat128,
+        ),
+        new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, /*inTag=*/ TypeTag.UINT32, /*value=*/ (1n << 32n) - 1n).as(
+          Opcode.SET_128,
+          Set.wireFormat128,
+        ),
+        new Set(/*indirect=*/ 0, /*dstOffset=*/ 2, /*inTag=*/ TypeTag.UINT32, /*value=*/ 1).as(
+          Opcode.SET_8,
+          Set.wireFormat8,
+        ), // set a constant specifying the "returnSize" (1) to be used by Return
+        new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 3).as(Opcode.SHR_8, Shr.wireFormat8),
+        new Return(/*indirect=*/ 0, /*returnSizeOffset=*/ 2, /*returnOffset=*/ 3),
+      ]);
+
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(false);
+      expect(results.output).toEqual([new Fr(0)]);
+    });
+
+    it('Should handle shift amount equal to bit size (Uint128)', async () => {
+      const bytecode = encodeToBytecode([
+        new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, /*inTag=*/ TypeTag.UINT128, /*value=*/ (1n << 127n) - 1n).as(
+          Opcode.SET_128,
+          Set.wireFormat128,
+        ),
+        new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, /*inTag=*/ TypeTag.UINT128, /*value=*/ 128n).as(
+          Opcode.SET_128,
+          Set.wireFormat128,
+        ),
+        new Set(/*indirect=*/ 0, /*dstOffset=*/ 2, /*inTag=*/ TypeTag.UINT32, /*value=*/ 1).as(
+          Opcode.SET_8,
+          Set.wireFormat8,
+        ), // set a constant specifying the "returnSize" (1) to be used by Return
+        new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 3).as(Opcode.SHR_8, Shr.wireFormat8),
+        new Return(/*indirect=*/ 0, /*returnSizeOffset=*/ 2, /*returnOffset=*/ 3),
+      ]);
+
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(false);
+      expect(results.output).toEqual([new Fr(0)]);
+    });
+
+    it('Should handle shift amount equal to bit size (Uint32)', async () => {
+      const bytecode = encodeToBytecode([
+        new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, /*inTag=*/ TypeTag.UINT32, /*value=*/ (1n << 32n) - 1n).as(
+          Opcode.SET_128,
+          Set.wireFormat128,
+        ),
+        new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, /*inTag=*/ TypeTag.UINT32, /*value=*/ 32).as(
+          Opcode.SET_32,
+          Set.wireFormat32,
+        ),
+        new Set(/*indirect=*/ 0, /*dstOffset=*/ 2, /*inTag=*/ TypeTag.UINT32, /*value=*/ 1).as(
+          Opcode.SET_8,
+          Set.wireFormat8,
+        ), // set a constant specifying the "returnSize" (1) to be used by Return
+        new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 3).as(Opcode.SHR_8, Shr.wireFormat8),
+        new Return(/*indirect=*/ 0, /*returnSizeOffset=*/ 2, /*returnOffset=*/ 3),
+      ]);
+
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(false);
+      expect(results.output).toEqual([new Fr(0)]);
+    });
   });
 });
 

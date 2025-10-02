@@ -1,6 +1,8 @@
 import {
   CoinIssuerAbi,
   CoinIssuerBytecode,
+  DateGatedRelayerAbi,
+  DateGatedRelayerBytecode,
   EmpireSlasherDeploymentExtLibAbi,
   EmpireSlasherDeploymentExtLibBytecode,
   EmpireSlashingProposerAbi,
@@ -48,6 +50,8 @@ import {
   StakingAssetHandlerBytecode,
   TallySlasherDeploymentExtLibAbi,
   TallySlasherDeploymentExtLibBytecode,
+  TallySlashingProposerAbi,
+  TallySlashingProposerBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
   ValidatorOperationsExtLibAbi,
@@ -147,6 +151,12 @@ export const CoinIssuerArtifact = {
   contractBytecode: CoinIssuerBytecode as Hex,
 };
 
+export const DateGatedRelayerArtifact = {
+  name: 'DateGatedRelayer',
+  contractAbi: DateGatedRelayerAbi,
+  contractBytecode: DateGatedRelayerBytecode as Hex,
+};
+
 export const GovernanceProposerArtifact = {
   name: 'GovernanceProposer',
   contractAbi: GovernanceProposerAbi,
@@ -169,6 +179,12 @@ export const EmpireSlashingProposerArtifact = {
   name: 'EmpireSlashingProposer',
   contractAbi: EmpireSlashingProposerAbi,
   contractBytecode: EmpireSlashingProposerBytecode as Hex,
+};
+
+export const TallySlashingProposerArtifact = {
+  name: 'TallySlashingProposer',
+  contractAbi: TallySlashingProposerAbi,
+  contractBytecode: TallySlashingProposerBytecode as Hex,
 };
 
 export const SlashFactoryArtifact = {

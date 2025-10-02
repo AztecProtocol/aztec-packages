@@ -2,7 +2,7 @@ mod test;
 mod test_note;
 
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 // DEPRECATED: This contract is deprecated. If you want to test new features, create a simple new contract used
 // to test only that one feature. See NoConstructor contract for example.
@@ -11,44 +11,48 @@ pub contract Test {
     // Note: If you import a new kind of note you will most likely need to update the test_note_type_id test
     // as the note type ids of current notes might have changed.
 
-    use dep::aztec::messages::logs::note::encode_and_encrypt_note;
-    use dep::aztec::{
-        note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions},
+    use aztec::{
+        // Note related imports
+        note::{
+            constants::MAX_NOTES_PER_PAGE,
+            lifecycle::{create_note, destroy_note_unsafe},
+            note_getter::{get_notes, view_notes},
+            note_getter_options::{NoteGetterOptions, NoteStatus},
+            note_viewer_options::NoteViewerOptions,
+            retrieved_note::RetrievedNote,
+        },
+        // State variable types
         state_vars::{
             DelayedPublicMutable, Map, PrivateImmutable, PrivateMutable, PrivateSet,
             PublicImmutable,
         },
-    };
-
-    use dep::aztec::protocol_types::{
-        abis::function_selector::FunctionSelector,
-        address::{AztecAddress, EthAddress},
-        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
-        traits::{Hash, Packable, Serialize},
-    };
-
-    use dep::aztec::keys::getters::get_public_keys;
-    use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
-
-    use dep::aztec::{
-        event::event_interface::{emit_event_in_private_log, PrivateLogContent},
+        // Protocol types and constants
+        protocol_types::{
+            abis::function_selector::FunctionSelector,
+            address::{AztecAddress, EthAddress},
+            constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
+            traits::{Hash, Packable, Serialize},
+        },
+        // Event related
+        event::event_emission::emit_event_in_private,
+        messages::message_delivery::MessageDelivery,
+        // Hashing
         hash::{ArgsHasher, pedersen_hash},
+        // History and inclusion proofs
         history::note_inclusion::ProveNoteInclusion,
+        // Key management
+        keys::getters::get_public_keys,
+        // Macros
         macros::{
             events::event,
             functions::{initializer, internal, noinitcheck, private, public, utility},
             storage::storage,
         },
-        note::{
-            lifecycle::{create_note, destroy_note_unsafe},
-            note_getter::{get_notes, view_notes},
-            note_getter_options::NoteStatus,
-            retrieved_note::RetrievedNote,
-        },
+        // Contract instance management
         publish_contract_instance::publish_contract_instance_for_public_execution,
     };
-    use dep::token_portal_content_hash_lib::get_mint_to_private_content_hash;
     use std::meta::derive;
+    use token_portal_content_hash_lib::get_mint_to_private_content_hash;
 
     // We are importing different kinds of notes to test the note type ids
     use crate::test_note::TestNote;
@@ -135,13 +139,12 @@ pub contract Test {
         storage_slot: Field,
         make_tx_hybrid: bool,
     ) {
-        // docs:start:create_note
         let note = UintNote::new(value, owner);
-        create_note(&mut context, storage_slot, note).emit(encode_and_encrypt_note(
+        create_note(&mut context, storage_slot, note).emit(
             &mut context,
             owner,
-        ));
-        // docs:end:create_note
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
 
         if make_tx_hybrid {
             Test::at(context.this_address()).dummy_public_call().enqueue(&mut context);
@@ -190,10 +193,8 @@ pub contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        // docs:start:get_note_from_pxe
         let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
-        // docs:end:get_note_from_pxe
 
         retrieved_notes.get(0).note.get_value()
     }
@@ -247,9 +248,7 @@ pub contract Test {
         let retrieved_note = retrieved_notes.get(0);
         let note_hash = note_hashes.get(0);
 
-        // docs:start:nullify_note
         destroy_note_unsafe(&mut context, retrieved_note, note_hash);
-        // docs:end:nullify_note
     }
 
     #[private]
@@ -260,7 +259,7 @@ pub contract Test {
         let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
 
-        let header = context.get_block_header();
+        let header = context.get_anchor_block_header();
 
         header.prove_note_inclusion(retrieved_notes.get(0), storage_slot);
     }
@@ -340,7 +339,12 @@ pub contract Test {
             value4: fields[4],
         };
 
-        emit_event_in_private_log(event, &mut context, owner, PrivateLogContent.NO_CONSTRAINTS);
+        emit_event_in_private(
+            event,
+            &mut context,
+            owner,
+            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+        );
 
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
@@ -357,11 +361,9 @@ pub contract Test {
 
     #[public]
     fn emit_public(value: Field) {
-        // docs:start:emit_public
         context.emit_public_log(/*message=*/ value);
         context.emit_public_log(/*message=*/ [10, 20, 30]);
         context.emit_public_log(/*message=*/ "Hello, world!");
-        // docs:end:emit_public
     }
 
     #[private]
@@ -411,13 +413,13 @@ pub contract Test {
 
     #[private]
     fn assert_header_private(header_hash: Field) {
-        assert(context.historical_header.hash() == header_hash, "Invalid header hash");
+        assert(context.anchor_block_header.hash() == header_hash, "Invalid header hash");
     }
 
     // TODO(4840): add AVM opcodes for getting header (members)
     //#[public]
     //fn assert_header_public(header_hash: Field) {
-    //    assert(context.historical_header.hash() == header_hash, "Invalid header hash");
+    //    assert(context.anchor_block_header.hash() == header_hash, "Invalid header hash");
     //}
 
     #[private]

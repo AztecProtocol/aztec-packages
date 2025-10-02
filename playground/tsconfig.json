@@ -19,10 +19,5 @@
     "verbatimModuleSyntax": true,
     "allowArbitraryExtensions": true
   },
-  "include": [
-    "src/**/*.ts*",
-    "tests/**/*.ts",
-    "src/contracts/target/*.json",
-    "artifacts/**/*.ts"
-  ]
+  "include": ["src/**/*.ts*", "tests/**/*.ts", "src/contracts/target/*.json", "artifacts/**/*.ts"]
 }

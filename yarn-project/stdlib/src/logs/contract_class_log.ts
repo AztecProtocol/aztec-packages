@@ -133,12 +133,11 @@ export class ContractClassLog {
   }
 
   toBlobFields(): Fr[] {
-    return [new Fr(this.emittedLength), this.contractAddress.toField()].concat(this.getEmittedFields());
+    return [this.contractAddress.toField()].concat(this.getEmittedFields());
   }
 
-  static fromBlobFields(fields: Fr[] | FieldReader) {
+  static fromBlobFields(emittedLength: number, fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    const emittedLength = reader.readU32();
     const contractAddress = reader.readObject(AztecAddress);
     const emittedFields = reader.readFieldArray(emittedLength);
     return new ContractClassLog(

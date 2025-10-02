@@ -152,11 +152,11 @@ namespace sha256;
     #[RANGE_COMP_W_LHS]
     sel_compute_w { two_pow_32, computed_w_lhs, /*result = 1*/ sel_compute_w }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_W_RHS]
     sel_compute_w { two_pow_32, computed_w_rhs, /*result = 1*/ sel_compute_w }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
 
     // ========== Compute w_s0 ===================
     // w[i-15] `rotr` 7
@@ -171,7 +171,7 @@ namespace sha256;
     #[RANGE_RHS_W_7]
     sel_compute_w { two_pow_7, rhs_w_7, /*result = 1*/ sel_compute_w }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     ///// End Check rhs_w_7
     // w[i-15] `rotr` 18
     pol commit w_15_rotr_18;
@@ -185,7 +185,7 @@ namespace sha256;
     #[RANGE_RHS_W_18]
     sel_compute_w { two_pow_18, rhs_w_18, /*result = 1*/ sel_compute_w }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     ///// End Check rhs_w_18
     // w[i-15] `rightshift`  3
     pol commit w_15_rshift_3;
@@ -199,20 +199,20 @@ namespace sha256;
     #[RANGE_RHS_W_3]
     sel_compute_w { two_pow_3, rhs_w_3, /*result = 1*/sel_compute_w }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     ///// End Check rhs_w_3
     // s0 := (w[i-15] `rotr` 7) `xor` (w[i-15] `rotr` 18) `xor` (w[i-15] `rightshift`  3)
     pol commit w_15_rotr_7_xor_w_15_rotr_18;
     #[W_S_0_XOR_0]
     sel_compute_w { w_15_rotr_7, w_15_rotr_18, w_15_rotr_7_xor_w_15_rotr_18, xor_sel, u32_tag }
     in
-    bitwise.start { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 
     pol commit w_s_0;
     #[W_S_0_XOR_1]
     sel_compute_w { w_15_rotr_7_xor_w_15_rotr_18, w_15_rshift_3, w_s_0, xor_sel, u32_tag }
     in
-    bitwise.start { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 
     // ========== Compute w_s1 ===================
     // w[i-2] `rotr` 17
@@ -227,7 +227,7 @@ namespace sha256;
     #[RANGE_RHS_W_17]
     sel_compute_w { two_pow_17, rhs_w_17, /*result = 1*/ sel_compute_w }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     ///// End Check rhs_w_17
     // w[i-2] `rotr` 19
     pol commit w_2_rotr_19;
@@ -241,7 +241,7 @@ namespace sha256;
     #[RANGE_RHS_W_19]
     sel_compute_w { two_pow_19, rhs_w_19, /*result = 1*/ sel_compute_w }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     ///// End Check rhs_w_19
     // w[i-2] `rightshift` 10
     pol commit w_2_rshift_10;
@@ -255,20 +255,20 @@ namespace sha256;
     #[RANGE_RHS_W_10]
     sel_compute_w { two_pow_10, rhs_w_10, /*result = 1*/ sel_compute_w }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     ///// End Check rhs_w_10
     // s1 := (w[i-2] `rotr` 17) `xor` (w[i-2] `rotr` 19) `xor` (w[i-2] `rightshift` 10)
     pol commit w_2_rotr_17_xor_w_2_rotr_19;
     #[W_S_1_XOR_0]
     sel_compute_w { w_2_rotr_17, w_2_rotr_19, w_2_rotr_17_xor_w_2_rotr_19, xor_sel, u32_tag }
     in
-    bitwise.start { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 
     pol commit w_s_1;
     #[W_S_1_XOR_1]
     sel_compute_w { w_2_rotr_17_xor_w_2_rotr_19, w_2_rshift_10, w_s_1, xor_sel, u32_tag, u32_tag }
     in
-    bitwise.start { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_a };
 
     // ========== START OF COMPRESSION BLOCK ==================
 
@@ -285,7 +285,7 @@ namespace sha256;
     #[RANGE_RHS_E_6]
     perform_round { two_pow_6, rhs_e_6, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     ///// End Check rhs_e_6
     // e `rotr` 11
     pol commit e_rotr_11;
@@ -299,7 +299,7 @@ namespace sha256;
     #[RANGE_RHS_E_11]
     perform_round { two_pow_11, rhs_e_11, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     ///// End Check rhs_e_11
     // e `rotr` 25
     pol commit e_rotr_25;
@@ -313,7 +313,7 @@ namespace sha256;
     #[RANGE_RHS_E_25]
     perform_round { two_pow_25, rhs_e_25, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     ///// End Check rhs_e_25
     // pol S_1 = (E_0 `rotr` 6) `xor` (E_0 `rotr` 11) `xor` (E_0 `rotr` 25);
 
@@ -321,13 +321,13 @@ namespace sha256;
     #[S_1_XOR_0]
     perform_round { e_rotr_6, e_rotr_11, e_rotr_6_xor_e_rotr_11, xor_sel, u32_tag }
     in
-    bitwise.start { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 
     pol commit s_1;
     #[S_1_XOR_1]
     perform_round { e_rotr_6_xor_e_rotr_11, e_rotr_25, s_1, xor_sel, u32_tag }
     in
-    bitwise.start { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 
     // ==== COMPUTING CH ===========
     // pol CH_0 = (E_0 `and` F_0) `xor` ((`not` E_0) `and` G_0);
@@ -336,7 +336,7 @@ namespace sha256;
     #[CH_AND_0]
     perform_round { e, f, e_and_f, and_sel, u32_tag }
     in
-    bitwise.start { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 
     pol commit not_e;
     perform_round * (e + not_e - (2**32 - 1)) = 0;
@@ -345,13 +345,13 @@ namespace sha256;
     #[CH_AND_1]
     perform_round { not_e, g, not_e_and_g, and_sel, u32_tag }
     in
-    bitwise.start { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 
     pol commit ch;
     #[CH_XOR]
     perform_round { e_and_f, not_e_and_g, ch, xor_sel, u32_tag }
     in
-    bitwise.start { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 
     // ===== COMPUTING TMP 1 ===========
     // Lookup round constants
@@ -377,7 +377,7 @@ namespace sha256;
     #[RANGE_RHS_A_2]
     perform_round { two_pow_2, rhs_a_2, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     ///// End Check rhs_a_2
     // a `rotr` 13
     pol commit a_rotr_13;
@@ -391,7 +391,7 @@ namespace sha256;
     #[RANGE_RHS_A_13]
     perform_round { two_pow_13, rhs_a_13, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     ///// End Check rhs_a_13
     // a `rotr` 22
     pol commit a_rotr_22;
@@ -405,20 +405,20 @@ namespace sha256;
     #[RANGE_RHS_A_22]
     perform_round { two_pow_22, rhs_a_22, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     ///// End Check rhs_a_22
     // (A_0 `rotr` 2) `xor` (A_0 `rotr` 13)
     pol commit a_rotr_2_xor_a_rotr_13;
     #[S_0_XOR_0]
     perform_round { a_rotr_2, a_rotr_13, a_rotr_2_xor_a_rotr_13, xor_sel, u32_tag }
     in
-    bitwise.start { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 
     pol commit s_0;
     #[S_0_XOR_1]
     perform_round { a_rotr_2_xor_a_rotr_13, a_rotr_22, s_0, xor_sel, u32_tag }
     in
-    bitwise.start { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 
     // ====== Computing Maj =========
     // pol MAJ_0 = (A_0 `and` B_0) `xor` (A_0 `and` C_0) `xor` (B_0 `and` C_0);
@@ -426,31 +426,31 @@ namespace sha256;
     #[MAJ_AND_0]
     perform_round { a, b, a_and_b, and_sel, u32_tag }
     in
-    bitwise.start { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 
     pol commit a_and_c;
     #[MAJ_AND_1]
     perform_round { a, c, a_and_c, and_sel, u32_tag }
     in
-    bitwise.start { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 
     pol commit b_and_c;
     #[MAJ_AND_2]
     perform_round { b, c, b_and_c, and_sel, u32_tag }
     in
-    bitwise.start { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 
     pol commit a_and_b_xor_a_and_c;
     #[MAJ_XOR_0]
     perform_round { a_and_b, a_and_c, a_and_b_xor_a_and_c, xor_sel, u32_tag }
     in
-    bitwise.start { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 
     pol commit maj;
     #[MAJ_XOR_1]
     perform_round { a_and_b_xor_a_and_c, b_and_c, maj, xor_sel, u32_tag }
     in
-    bitwise.start { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+    bitwise.start_sha256 { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
 
     // ==== Compute TMP 2 ====
     pol NEXT_A = s_0 + maj + TMP_1;
@@ -462,11 +462,11 @@ namespace sha256;
     #[RANGE_COMP_NEXT_A_LHS]
     perform_round { two_pow_32, next_a_lhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_NEXT_A_RHS]
     perform_round { two_pow_32, next_a_rhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
 
     pol NEXT_E = d + TMP_1;
 
@@ -477,11 +477,11 @@ namespace sha256;
     #[RANGE_COMP_NEXT_E_LHS]
     perform_round { two_pow_32, next_e_lhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_NEXT_E_RHS]
     perform_round { two_pow_32, next_e_rhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
 
     perform_round * (a' - next_a_rhs) = 0;
     perform_round * (b' - a) = 0;
@@ -514,64 +514,64 @@ namespace sha256;
     #[RANGE_COMP_A_LHS]
     perform_round { two_pow_32, output_a_lhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_A_RHS]
     perform_round { two_pow_32, output_a_rhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_B_LHS]
     perform_round { two_pow_32, output_b_lhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_B_RHS]
     perform_round { two_pow_32, output_b_rhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_C_LHS]
     perform_round { two_pow_32, output_c_lhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_C_RHS]
     perform_round { two_pow_32, output_c_rhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_D_LHS]
     perform_round { two_pow_32, output_d_lhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_D_RHS]
     perform_round { two_pow_32, output_d_rhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_E_LHS]
     perform_round { two_pow_32, output_e_lhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_E_RHS]
     perform_round { two_pow_32, output_e_rhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_F_LHS]
     perform_round { two_pow_32, output_f_lhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_F_RHS]
     perform_round { two_pow_32, output_f_rhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_G_LHS]
     perform_round { two_pow_32, output_g_lhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_G_RHS]
     perform_round { two_pow_32, output_g_rhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_H_LHS]
     perform_round { two_pow_32, output_h_lhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };
     #[RANGE_COMP_H_RHS]
     perform_round { two_pow_32, output_h_rhs, /*result = 1*/ perform_round }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_sha256 { gt.input_a, gt.input_b, gt.res };

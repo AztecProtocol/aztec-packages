@@ -89,7 +89,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             pending_note_hash_read_amount: self.dimensions.NOTE_HASH_PENDING_READ_AMOUNT,
             note_hash_tree_root: previous_public_inputs
                 .constants
-                .historical_header
+                .anchor_block_header
                 .state
                 .partial
                 .note_hash_tree
@@ -100,7 +100,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             pending_nullifier_read_amount: self.dimensions.NULLIFIER_PENDING_READ_AMOUNT,
             nullifier_tree_root: previous_public_inputs
                 .constants
-                .historical_header
+                .anchor_block_header
                 .state
                 .partial
                 .nullifier_tree
@@ -817,7 +817,7 @@ mod tests {
         }
             .scope(SIDE_EFFECT_MASKING_ADDRESS)];
         let padded_private_logs = [PrivateLogData {
-            log: PrivateLog { fields: pad_end([22, 33], 0), length: 2 },
+            log: PrivateLog { fields: pad_end([22, 33]), length: 2 },
             note_hash_counter: 0,
             counter: MAX_U32_VALUE,
         }

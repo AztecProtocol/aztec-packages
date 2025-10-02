@@ -9,9 +9,9 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_merkle_check.hpp"
 #include "barretenberg/vm2/generated/relations/merkle_check.hpp"
+#include "barretenberg/vm2/simulation/gadgets/merkle_check.hpp"
+#include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
-#include "barretenberg/vm2/simulation/merkle_check.hpp"
-#include "barretenberg/vm2/simulation/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -494,8 +494,8 @@ TEST(MerkleCheckConstrainingTest, OutputHashIsNotNextRowsCurrentNodeValueForLast
 
 TEST(MerkleCheckConstrainingTest, ReadWithTracegen)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
     MerkleCheckTraceBuilder builder;
 
@@ -528,8 +528,8 @@ TEST(MerkleCheckConstrainingTest, ReadWithTracegen)
 
 TEST(MerkleCheckConstrainingTest, WriteWithTracegen)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
     MerkleCheckTraceBuilder builder;
 
@@ -651,8 +651,8 @@ TEST_F(MerkleCheckPoseidon2Test, WriteWithInteractions)
 
 TEST_F(MerkleCheckPoseidon2Test, MultipleWithTracegen)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
     MerkleCheckTraceBuilder builder;
 

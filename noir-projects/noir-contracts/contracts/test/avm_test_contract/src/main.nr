@@ -1,4 +1,5 @@
 mod note;
+mod fake_public_context;
 use dep::aztec::macros::aztec;
 
 #[aztec]
@@ -11,22 +12,29 @@ pub contract AvmTest {
         0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
 
     // Libs
+    use crate::fake_public_context::{
+        avm_return, avm_revert, call, returndata_copy, returndata_size, success_copy,
+    };
     use dep::aztec::context::gas::GasOpts;
     use dep::aztec::macros::{functions::{private, public}, storage::storage};
     use dep::aztec::oracle::get_contract_instance::{
         get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
         get_contract_instance_initialization_hash_avm,
     };
+    use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
     use dep::aztec::protocol_types::{
         address::{AztecAddress, EthAddress},
         point::Point,
         scalar::Scalar,
     };
     use dep::aztec::protocol_types::{
-        constants::{GRUMPKIN_ONE_X, GRUMPKIN_ONE_Y, MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS},
+        constants::{
+            FEE_JUICE_ADDRESS, GRUMPKIN_ONE_X, GRUMPKIN_ONE_Y,
+            MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
+        },
         contract_class_id::ContractClassId,
         storage::map::derive_storage_slot_in_map,
-        traits::{Empty, FromField},
+        traits::{Empty, FromField, ToField},
     };
     use dep::aztec::state_vars::Map;
     use dep::aztec::state_vars::PublicMutable;
@@ -35,6 +43,7 @@ pub contract AvmTest {
     use aztec::protocol_types::traits::Serialize;
     use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
 
+    use dep::fee_juice::FeeJuice;
     use std::ops::Add;
 
     #[storage]
@@ -203,6 +212,8 @@ pub contract AvmTest {
     fn bitwise_ops(x: u32, y: u32) -> u32 {
         let mut result = x & y;
         result = result | x;
+        result = result >> x;
+        result = result << y;
         result ^ y
     }
 
@@ -227,11 +238,15 @@ pub contract AvmTest {
         x / y
     }
 
-    // TODO(#16099): Re-enable this test
-    // #[public]
-    // fn to_radix_le(input: Field) -> [u8; 10] {
-    //     input.to_le_radix(/*base=*/ 2)
-    // }
+    #[public]
+    fn to_le_bytes(input: Field) -> [u8; 10] {
+        input.to_le_bytes()
+    }
+
+    #[public]
+    fn to_le_bits(input: Field) -> [u1; 16] {
+        input.to_le_bits()
+    }
 
     // Helper functions to demonstrate an internal call stack in error messages
     #[contract_library_method]
@@ -256,44 +271,44 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn divide_by_zero() -> u8 {
-        1 / 0
+    // Must be called with `denominator == 0`
+    fn divide_by_zero(denominator: u8) -> u8 {
+        1 / denominator
     }
 
     #[public]
     fn external_call_to_divide_by_zero() {
-        let _ = AvmTest::at(context.this_address()).divide_by_zero().call(&mut context);
+        let _ = AvmTest::at(context.this_address()).divide_by_zero(0).call(&mut context);
     }
 
-    // TODO(#16099): Re-enable this test
-    // #[public]
-    // fn external_call_to_divide_by_zero_recovers() {
-    //     // Be sure to allocate ~200k+ gas to this function~
+    #[public]
+    fn external_call_to_divide_by_zero_recovers() {
+        // Be sure to allocate ~200k+ gas to this function~
 
-    //     // Get the gas remaining and allocate some smaller amount to nested call.
-    //     // We don't want to allocate too much to the nested call
-    //     // since it will all be consumed on exceptional halt.
-    //     let l2_gas_left = context.l2_gas_left();
-    //     let da_gas_left = context.da_gas_left();
-    //     let selector = FunctionSelector::from_signature("divide_by_zero()");
+        // Get the gas remaining and allocate some smaller amount to nested call.
+        // We don't want to allocate too much to the nested call
+        // since it will all be consumed on exceptional halt.
+        let l2_gas_left = context.l2_gas_left();
+        let da_gas_left = context.da_gas_left();
+        let selector = FunctionSelector::from_signature("divide_by_zero(u8)");
 
-    //     // Call without capturing a return value since call no longer returns success
-    //     call(
-    //         l2_gas_left - 200_000,
-    //         da_gas_left - 200_000,
-    //         context.this_address(),
-    //         &[selector.to_field()],
-    //     );
+        // Call without capturing a return value since call no longer returns success
+        call(
+            l2_gas_left - 200_000,
+            da_gas_left - 200_000,
+            context.this_address(),
+            &[selector.to_field(), 0],
+        );
 
-    //     // Use SUCCESSCOPY to get the success status
-    //     let success = success_copy();
+        // Use SUCCESSCOPY to get the success status
+        let success = success_copy();
 
-    //     assert(!success, "Nested CALL instruction should return failure on exceptional halt");
-    //     assert(
-    //         returndata_size() == 0,
-    //         "Returndata should be empty when nested call exceptionally halts",
-    //     );
-    // }
+        assert(!success, "Nested CALL instruction should return failure on exceptional halt");
+        assert(
+            returndata_size() == 0,
+            "Returndata should be empty when nested call exceptionally halts",
+        );
+    }
 
     #[public]
     fn debug_logging() {
@@ -301,6 +316,15 @@ pub contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log_format("second: {1}", [1, 2, 3, 4]);
         dep::aztec::oracle::debug_log::debug_log_format("whole array: {}", [1, 2, 3, 4]);
         dep::aztec::oracle::debug_log::debug_log("tabs and newlines\n\t- first\n\t- second");
+        dep::aztec::oracle::debug_log::debug_log_with_level(
+            dep::aztec::oracle::debug_log::FATAL_LOG_LEVEL,
+            "fatal error",
+        );
+        dep::aztec::oracle::debug_log::debug_log_format_with_level(
+            dep::aztec::oracle::debug_log::TRACE_LOG_LEVEL,
+            "trace format: {}",
+            [1, 3, 3, 7],
+        );
     }
 
     #[public]
@@ -319,20 +343,20 @@ pub contract AvmTest {
     #[public]
     fn returndata_copy_oracle() {
         let _ = AvmTest::at(context.this_address()).return_oracle().call(&mut context);
-        let returndatasize = dep::aztec::context::public_context::returndata_size();
-        let returndata = dep::aztec::context::public_context::returndata_copy(0, returndatasize);
+        let returndatasize = returndata_size();
+        let returndata = returndata_copy(0, returndatasize);
         assert(returndata == &[1, 2, 3], "Returndata copy failed");
     }
 
     #[public]
     fn return_oracle() -> [Field; 3] {
-        dep::aztec::context::public_context::avm_return([1, 2, 3]);
+        avm_return([1, 2, 3]);
         [4, 5, 6] // Should not get here.
     }
 
     #[public]
     fn revert_oracle() -> [Field; 3] {
-        dep::aztec::context::public_context::avm_revert([1, 2, 3]);
+        avm_revert([1, 2, 3]);
         [4, 5, 6] // Should not get here.
     }
 
@@ -380,6 +404,16 @@ pub contract AvmTest {
         assert(deployer.unwrap().eq(expected_deployer));
         assert(class_id.unwrap().eq(expected_class_id));
         assert(initialization_hash.unwrap().eq(expected_initialization_hash));
+
+        // Get a Protocol Contract and it should exist
+        dep::aztec::oracle::debug_log::debug_log(
+            "Get Contract Instance Protocol Contract Instance",
+        );
+        let fee_juice_class_id = get_contract_instance_class_id_avm(FEE_JUICE_ADDRESS);
+        assert(
+            fee_juice_class_id.is_some(),
+            "Protocol Contract instance not found when getting CLASS_ID!",
+        );
     }
 
     /************************************************************************
@@ -452,6 +486,10 @@ pub contract AvmTest {
         let s: CompressedString<2, 44> =
             CompressedString::from_string("A long time ago, in a galaxy far far away...");
         context.emit_public_log(/*message=*/ s);
+        context.emit_public_log(/*message=*/ [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
+        ]); // Large log
     }
 
     #[public]
@@ -555,17 +593,16 @@ pub contract AvmTest {
         AvmTest::at(garbageAddress).nested_call_to_nothing().call(&mut context)
     }
 
-    // TODO(#16099): Re-enable this test
-    // #[public]
-    // fn nested_call_to_nothing_recovers() {
-    //     let garbageAddress = AztecAddress::from_field(42);
-    //     call(1, 1, garbageAddress, &[]);
-    //     let success = success_copy();
-    //     assert(
-    //         !success,
-    //         "Nested CALL instruction should return failure if target contract does not exist",
-    //     );
-    // }
+    #[public]
+    fn nested_call_to_nothing_recovers() {
+        let garbageAddress = AztecAddress::from_field(42);
+        call(1, 1, garbageAddress, &[]);
+        let success = success_copy();
+        assert(
+            !success,
+            "Nested CALL instruction should return failure if target contract does not exist",
+        );
+    }
 
     #[public]
     fn nested_call_to_add_with_gas(
@@ -645,6 +682,16 @@ pub contract AvmTest {
     fn enqueue_public_from_private() {
         AvmTest::at(context.this_address()).set_opcode_u8().enqueue_view(&mut context);
         AvmTest::at(context.this_address()).set_read_storage_single(5).enqueue(&mut context);
+    }
+
+    /************************************************************************
+     * Protocol Contract Call
+     ************************************************************************/
+    #[public]
+    fn call_fee_juice() {
+        let _ = FeeJuice::at(FEE_JUICE_ADDRESS).balance_of_public(context.this_address()).view(
+            &mut context,
+        );
     }
 
     /************************************************************************
@@ -743,6 +790,14 @@ pub contract AvmTest {
         let _ = nested_call_to_add(1, 2);
         dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
         let _ = nested_static_call_to_add(1, 2);
+        dep::aztec::oracle::debug_log::debug_log("nested_call_to_protocol_contract");
+        let _ = call_fee_juice();
+        dep::aztec::oracle::debug_log::debug_log("to_le_bytes");
+        let first_byte = to_le_bytes(args_field[0])[0];
+        assert(first_byte != 0);
+        dep::aztec::oracle::debug_log::debug_log("to_le_bits");
+        let first_bit = to_le_bits(args_field[0])[0];
+        assert(first_bit != 0);
         //let _ = nested_call_to_nothing_recovers();
     }
 }

@@ -62,7 +62,7 @@ class TranslatorFlavor {
 
     // The fixed  log size of Translator circuit determining the size most polynomials (except the ones
     // involved in the interleaving subprotocol). It should be determined by the size of the EccOpQueue.
-    static constexpr size_t LOG_MINI_CIRCUIT_SIZE = 14;
+    static constexpr size_t LOG_MINI_CIRCUIT_SIZE = CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE;
 
     // Log of size of interleaved_* and ordered_* polynomials
     static constexpr size_t CONST_TRANSLATOR_LOG_N = LOG_MINI_CIRCUIT_SIZE + numeric::get_msb(INTERLEAVING_GROUP_SIZE);
@@ -85,6 +85,13 @@ class TranslatorFlavor {
     // referred to as accumulated_result. This is reconstructed in it's base field form and sent to the verifier
     // responsible for checking it against the evaluations received from ECCVM.
     static constexpr size_t RESULT_ROW = CircuitBuilder::RESULT_ROW;
+
+    // Number of random ops found at he end of Translator trace multiplied by 2 as each accumulation gates occupies two
+    // rows.
+    static constexpr size_t NUM_MASKED_ROWS_END = CircuitBuilder::NUM_RANDOM_OPS_END * 2;
+
+    // Index at which random coefficients start (for zk) within Translator trace
+    static constexpr size_t RANDOMNESS_START = 2 * CircuitBuilder::NUM_NO_OPS_START;
 
     // The bitness of the range constraint
     static constexpr size_t MICRO_LIMB_BITS = CircuitBuilder::MICRO_LIMB_BITS;
@@ -363,8 +370,6 @@ class TranslatorFlavor {
                                WireToBeShiftedEntities<DataType>::get_all());
         };
 
-        auto get_wires_to_be_shifted() { return WireToBeShiftedEntities<DataType>::get_all(); };
-
         /**
          * @brief Witness Entities to which the prover commits and do not require challenges (i.e. not derived).
          */
@@ -612,7 +617,7 @@ class TranslatorFlavor {
          */
         auto get_ordered_range_constraints() { return OrderedRangeConstraints<DataType>::get_all(); };
 
-        auto get_unshifted()
+        auto get_unshifted() const
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_unshifted());
         }
@@ -662,6 +667,7 @@ class TranslatorFlavor {
         {
 
             const size_t circuit_size = 1 << CONST_TRANSLATOR_LOG_N;
+            const size_t circuit_size_without_masking = circuit_size - NUM_MASKED_ROWS_END * INTERLEAVING_GROUP_SIZE;
             for (auto& ordered_range_constraint : get_ordered_range_constraints()) {
                 ordered_range_constraint = Polynomial{ /*size*/ circuit_size - 1,
                                                        /*largest possible index*/ circuit_size,
@@ -675,6 +681,8 @@ class TranslatorFlavor {
                                  /*virtual_size*/ circuit_size,
                                  /*start_index*/ 1 };
 
+            op = Polynomial{ MINI_CIRCUIT_SIZE, circuit_size };
+
             // All to_be_shifted witnesses except the ordered range constraints and z_perm are only non-zero in the mini
             // circuit
             for (auto& poly : get_to_be_shifted()) {
@@ -685,18 +693,33 @@ class TranslatorFlavor {
                 }
             }
 
-            // Initialize some one-off polys with special structure
+            // Initialize lagrange polynomialso and the ordered extra range constraints numerator (the precomputed
+            // polynomials) within the appropriate range they operate on
             lagrange_first = Polynomial{ /*size*/ 1, /*virtual_size*/ circuit_size };
-            lagrange_result_row = Polynomial{ /*size*/ 3, /*virtual_size*/ circuit_size };
-            lagrange_even_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE, /*virtual_size*/ circuit_size };
-            lagrange_odd_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE, /*virtual_size*/ circuit_size };
+            lagrange_result_row = Polynomial{ /*size*/ 1, /*virtual_size*/ circuit_size, /*start_index*/ RESULT_ROW };
+            lagrange_even_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE - RESULT_ROW,
+                                                       /*virtual_size*/ circuit_size,
+                                                       /*start_index=*/RESULT_ROW };
+            lagrange_odd_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE - RESULT_ROW - 1,
+                                                      /*virtual_size*/ circuit_size,
+                                                      /*start_index=*/RESULT_ROW + 1 };
+            lagrange_last_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE,
+                                                       /*virtual_size*/ circuit_size };
+            lagrange_mini_masking = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE - RANDOMNESS_START,
+                                                /*virtual_size*/ circuit_size,
+                                                /*start_index=*/RANDOMNESS_START };
+            lagrange_masking = Polynomial{ /*size*/ circuit_size - circuit_size_without_masking,
+                                           /*virtual_size*/ circuit_size,
+                                           /*start_index*/ circuit_size_without_masking };
+            lagrange_last = Polynomial{ /*size*/ 1,
+                                        /*virtual_size*/ circuit_size,
+                                        /*start_index*/ circuit_size - 1 };
+            lagrange_real_last = Polynomial{ /*size*/ 1,
+                                             /*virtual_size*/ circuit_size,
+                                             /*start_index*/ circuit_size_without_masking - 1 };
+            ordered_extra_range_constraints_numerator =
+                Polynomial{ SORTED_STEPS_COUNT * (NUM_INTERLEAVED_WIRES + 1), circuit_size };
 
-            for (auto& poly : get_unshifted()) {
-                if (poly.is_empty()) {
-                    // Not set above
-                    poly = Polynomial{ circuit_size };
-                }
-            }
             set_shifted();
         }
         ProverPolynomials& operator=(const ProverPolynomials&) = delete;
@@ -704,7 +727,7 @@ class TranslatorFlavor {
         ProverPolynomials(ProverPolynomials&& o) noexcept = default;
         ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
         ~ProverPolynomials() = default;
-        [[nodiscard]] size_t get_polynomial_size() const { return this->op.size(); }
+        [[nodiscard]] static size_t get_polynomial_size() { return 1UL << CONST_TRANSLATOR_LOG_N; }
         /**
          * @brief Returns the evaluations of all prover polynomials at one point on the boolean
          * hypercube, which represents one row in the execution trace.
@@ -753,10 +776,6 @@ class TranslatorFlavor {
      */
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
-        // Serialized Verification Key length in fields
-        static constexpr size_t VERIFICATION_KEY_LENGTH =
-            /* 1. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
-
         // Default constuct the fixed VK based on circuit size 1 << CONST_TRANSLATOR_LOG_N
         VerificationKey()
             : NativeVerificationKey_(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
@@ -783,27 +802,6 @@ class TranslatorFlavor {
         }
 
         /**
-         * @brief Serialize verification key to field elements
-         *
-         * @return std::vector<FF>
-         */
-        std::vector<fr> to_field_elements() const override
-        {
-            using namespace bb::field_conversion;
-
-            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<fr>& buffer) {
-                std::vector<fr> input_fields = convert_to_bn254_frs<T>(input);
-                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-            };
-
-            std::vector<fr> elements;
-            for (const Commitment& commitment : this->get_all()) {
-                serialize_to_field_buffer(commitment, elements);
-            }
-            return elements;
-        }
-
-        /**
          * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
          *
          * @param domain_separator
@@ -814,22 +812,6 @@ class TranslatorFlavor {
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
-
-        // Don't statically check for object completeness.
-        using MSGPACK_NO_STATIC_CHECK = std::true_type;
-
-        MSGPACK_FIELDS(num_public_inputs,
-                       pub_inputs_offset,
-                       ordered_extra_range_constraints_numerator,
-                       lagrange_first,
-                       lagrange_last,
-                       lagrange_odd_in_minicircuit,
-                       lagrange_even_in_minicircuit,
-                       lagrange_result_row,
-                       lagrange_last_in_minicircuit,
-                       lagrange_masking,
-                       lagrange_mini_masking,
-                       lagrange_real_last);
     };
 
     /**
@@ -961,11 +943,12 @@ class TranslatorFlavor {
             this->ordered_range_constraints_2 = "ORDERED_RANGE_CONSTRAINTS_2";
             this->ordered_range_constraints_3 = "ORDERED_RANGE_CONSTRAINTS_3";
             this->ordered_range_constraints_4 = "ORDERED_RANGE_CONSTRAINTS_4";
+            this->z_perm = "Z_PERM";
             this->interleaved_range_constraints_0 = "INTERLEAVED_RANGE_CONSTRAINTS_0";
             this->interleaved_range_constraints_1 = "INTERLEAVED_RANGE_CONSTRAINTS_1";
             this->interleaved_range_constraints_2 = "INTERLEAVED_RANGE_CONSTRAINTS_2";
             this->interleaved_range_constraints_3 = "INTERLEAVED_RANGE_CONSTRAINTS_3";
-            this->z_perm = "Z_PERM";
+
             // "__" are only used for debugging
             this->lagrange_first = "__LAGRANGE_FIRST";
             this->lagrange_last = "__LAGRANGE_LAST";
@@ -1029,4 +1012,5 @@ class TranslatorFlavor {
     }
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 };
+
 } // namespace bb

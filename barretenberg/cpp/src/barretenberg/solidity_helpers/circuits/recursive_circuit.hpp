@@ -15,7 +15,7 @@ class RecursiveCircuit {
     using InnerProver = bb::UltraProver_<InnerFlavor>;
     using InnerVerifier = bb::UltraVerifier_<InnerFlavor>;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
-    using InnerDeciderProvingKey = bb::DeciderProvingKey_<InnerFlavor>;
+    using InnerProverInstance = bb::ProverInstance_<InnerFlavor>;
     using InnerCommitment = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
     using InnerIO = bb::stdlib::recursion::honk::DefaultIO<InnerBuilder>;
@@ -70,10 +70,10 @@ class RecursiveCircuit {
         // Create the outer recursive verifier circuit
         OuterBuilder outer_circuit;
 
-        auto inner_proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
+        auto inner_prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
         auto inner_verification_key =
-            std::make_shared<typename InnerFlavor::VerificationKey>(inner_proving_key->get_precomputed());
-        InnerProver inner_prover(inner_proving_key, inner_verification_key);
+            std::make_shared<typename InnerFlavor::VerificationKey>(inner_prover_instance->get_precomputed());
+        InnerProver inner_prover(inner_prover_instance, inner_verification_key);
         auto inner_proof = inner_prover.construct_proof();
 
         auto stdlib_vk_and_hash =

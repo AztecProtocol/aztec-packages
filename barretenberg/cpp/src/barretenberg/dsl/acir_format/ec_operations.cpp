@@ -44,7 +44,7 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
     if (infinite.is_constant()) {
         builder.fix_witness(input.result_infinite, infinite.get_value());
     } else {
-        builder.assert_equal(infinite.witness_index, input.result_infinite);
+        builder.assert_equal(infinite.get_normalized_witness_index(), input.result_infinite);
     }
 }
 

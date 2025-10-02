@@ -37,6 +37,8 @@ const aztecNetworkDetectorSync: DetectorSync = {
       role = 'prover-node';
     } else if (process.argv.includes('--node')) {
       role = 'node';
+    } else if (process.argv.includes('--p2p-bootstrap')) {
+      role = 'bootnode';
     }
     const aztecAttributes = {
       // this gets overwritten by OTEL_RESOURCE_ATTRIBUTES (if set)

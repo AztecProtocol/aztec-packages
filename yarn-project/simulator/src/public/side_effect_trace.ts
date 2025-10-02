@@ -1,22 +1,20 @@
 import {
+  FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_PUBLIC_LOGS_PER_TX,
   PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  PUBLIC_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
+import { type LogLevel, createLogger } from '@aztec/foundation/log';
 import { PublicDataUpdateRequest } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import { NoteHash, Nullifier } from '@aztec/stdlib/kernel';
-import { PublicLog } from '@aztec/stdlib/logs';
+import { DebugLog, PublicLog } from '@aztec/stdlib/logs';
 import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 
 import { strict as assert } from 'assert';
@@ -45,7 +43,7 @@ export class SideEffectArrayLengths {
     public readonly noteHashes: number,
     public readonly nullifiers: number,
     public readonly l2ToL1Msgs: number,
-    public readonly publicLogs: number,
+    public readonly publicLogFields: number,
   ) {}
 
   static empty() {
@@ -69,7 +67,6 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
   private nullifiers: Nullifier[] = [];
   private l2ToL1Messages: ScopedL2ToL1Message[] = [];
   private publicLogs: PublicLog[] = [];
-
   /** Make sure a forked trace is never merged twice. */
   private alreadyMergedIntoParent = false;
 
@@ -83,6 +80,8 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     /** We need to track the set of class IDs used, to enforce limits. */
     private uniqueClassIds: UniqueClassIds = new UniqueClassIds(),
     private writtenPublicDataSlots: Set<string> = new Set(),
+    private debugLogs: DebugLog[] = [],
+    private debugLogMemoryReads: number = 0,
   ) {
     this.sideEffectCounter = startSideEffectCounter;
   }
@@ -96,10 +95,13 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
         this.previousSideEffectArrayLengths.noteHashes + this.noteHashes.length,
         this.previousSideEffectArrayLengths.nullifiers + this.nullifiers.length,
         this.previousSideEffectArrayLengths.l2ToL1Msgs + this.l2ToL1Messages.length,
-        this.previousSideEffectArrayLengths.publicLogs + this.publicLogs.length,
+        this.previousSideEffectArrayLengths.publicLogFields +
+          this.publicLogs.reduce((acc, log) => acc + log.sizeInFields(), 0),
       ),
       this.uniqueClassIds.fork(),
       new Set(this.writtenPublicDataSlots),
+      this.debugLogs.slice(),
+      this.debugLogMemoryReads,
     );
   }
 
@@ -113,6 +115,8 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
 
     this.sideEffectCounter = forkedTrace.sideEffectCounter;
     this.uniqueClassIds.acceptAndMerge(forkedTrace.uniqueClassIds);
+    this.debugLogs = forkedTrace.debugLogs;
+    this.debugLogMemoryReads = forkedTrace.debugLogMemoryReads;
 
     if (!reverted) {
       this.publicDataWrites.push(...forkedTrace.publicDataWrites);
@@ -224,17 +228,35 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
   }
 
   public tracePublicLog(contractAddress: AztecAddress, log: Fr[]) {
-    if (this.publicLogs.length + this.previousSideEffectArrayLengths.publicLogs >= MAX_PUBLIC_LOGS_PER_TX) {
-      throw new SideEffectLimitReachedError('public log', MAX_PUBLIC_LOGS_PER_TX);
+    const previouslyEmittedPublicLogFieldsCount =
+      this.previousSideEffectArrayLengths.publicLogFields +
+      this.publicLogs.reduce((acc, log) => acc + log.sizeInFields(), 0);
+
+    const publicLog = new PublicLog(contractAddress, log);
+
+    if (previouslyEmittedPublicLogFieldsCount + publicLog.sizeInFields() > FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH) {
+      throw new SideEffectLimitReachedError('public log fields', FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH);
     }
 
-    if (log.length > PUBLIC_LOG_SIZE_IN_FIELDS) {
-      throw new Error(`Emitted public log is too large, max: ${PUBLIC_LOG_SIZE_IN_FIELDS}, passed: ${log.length}`);
-    }
-    const publicLog = new PublicLog(contractAddress, padArrayEnd(log, Fr.ZERO, PUBLIC_LOG_SIZE_IN_FIELDS), log.length);
     this.publicLogs.push(publicLog);
     this.log.trace(`Tracing new public log (counter=${this.sideEffectCounter})`);
     this.incrementSideEffectCounter();
+  }
+
+  public traceDebugLog(contractAddress: AztecAddress, level: LogLevel, message: string, fields: Fr[]) {
+    this.debugLogs.push(new DebugLog(contractAddress, level, message, fields));
+  }
+
+  public getDebugLogs() {
+    return this.debugLogs;
+  }
+
+  public getDebugLogMemoryReads() {
+    return this.debugLogMemoryReads;
+  }
+
+  public traceDebugLogMemoryReads(memoryReads: number) {
+    this.debugLogMemoryReads += memoryReads;
   }
 
   public traceGetContractClass(contractClassId: Fr, exists: boolean) {

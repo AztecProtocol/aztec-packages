@@ -31,10 +31,6 @@ struct StakingQueue {
 }
 
 library StakingQueueLib {
-  // This is a HARD CAP. We will never attempt to flush more than this number of validators,
-  // because it starts to butt up against the block gas limit.
-  uint256 public constant MAX_QUEUE_FLUSH_SIZE = 150;
-
   function init(StakingQueue storage self) internal {
     self.first = 1;
     self.last = 1;
@@ -76,11 +72,7 @@ library StakingQueueLib {
     len = self.last - self.first;
   }
 
-  function getFirst(StakingQueue storage self) internal view returns (uint256) {
-    return self.first;
-  }
-
-  function getLast(StakingQueue storage self) internal view returns (uint256) {
-    return self.last;
+  function at(StakingQueue storage self, uint256 index) internal view returns (DepositArgs memory validator) {
+    validator = self.validators[self.first + index];
   }
 }

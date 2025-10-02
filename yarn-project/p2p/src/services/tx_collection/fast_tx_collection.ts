@@ -5,7 +5,7 @@ import { boundInclusive } from '@aztec/foundation/number';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, elapsed } from '@aztec/foundation/timer';
-import type { BlockInfo } from '@aztec/stdlib/block';
+import type { L2BlockInfo } from '@aztec/stdlib/block';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
@@ -54,7 +54,7 @@ export class FastTxCollection {
       return [];
     }
 
-    const blockInfo: BlockInfo =
+    const blockInfo: L2BlockInfo =
       input.type === 'proposal' ? input.blockProposal.toBlockInfo() : input.block.toBlockInfo();
 
     // This promise is used to await for the collection to finish during the main collectFast method.

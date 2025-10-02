@@ -105,20 +105,12 @@ pub fn hash_args(args: [Field]) -> Field {
 
 // Computes the hash of calldata for public functions.
 pub fn hash_calldata_array<let N: u32>(calldata: [Field; N]) -> Field {
-    if calldata.len() == 0 {
-        0
-    } else {
-        poseidon2_hash_with_separator(calldata, GENERATOR_INDEX__PUBLIC_CALLDATA)
-    }
+    poseidon2_hash_with_separator(calldata, GENERATOR_INDEX__PUBLIC_CALLDATA)
 }
 
 // Same as `hash_calldata_array`, but takes a slice instead of an array.
 pub fn hash_calldata(calldata: [Field]) -> Field {
-    if calldata.len() == 0 {
-        0
-    } else {
-        poseidon2_hash_with_separator_slice(calldata, GENERATOR_INDEX__PUBLIC_CALLDATA)
-    }
+    poseidon2_hash_with_separator_slice(calldata, GENERATOR_INDEX__PUBLIC_CALLDATA)
 }
 
 /**
@@ -163,5 +155,34 @@ unconstrained fn compute_var_args_hash() {
     }
     let hash = input.hash();
     dep::std::println(hash);
+    // Used in yarn-project/stdlib test snapshots:
     assert(hash == 0x19b0d74feb06ebde19edd85a28986c97063e84b3b351a8b666c7cac963ce655f);
+}
+
+#[test]
+unconstrained fn compute_calldata_hash() {
+    let mut input = [0; 100];
+    for i in 0..input.len() {
+        input[i] = i as Field;
+    }
+    let hash = hash_calldata_array(input);
+    dep::std::println(hash);
+    let hash_check = hash_calldata(input.as_slice());
+    assert(hash == hash_check);
+    // Used in cpp vm2 tests:
+    assert(hash == 0x191383c9f8964afd3ea8879a03b7dda65d6724773966d18dcf80e452736fc1f3);
+}
+
+#[test]
+unconstrained fn public_bytecode_commitment() {
+    let mut input = [0; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS];
+    let len = 99;
+    for i in 1..len + 1 {
+        input[i] = i as Field;
+    }
+    input[0] = (len as Field) * 31;
+    let hash = compute_public_bytecode_commitment(input);
+    dep::std::println(hash);
+    // Used in cpp vm2 tests:
+    assert(hash == 0x16d621c3387156ef53754679e7b2c9be8f0bceeb44aa59a74991df3b0b42a0bf);
 }

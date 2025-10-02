@@ -34,6 +34,7 @@ export async function startAnvil(
         blockTime: opts.l1BlockTime,
         stopTimeout: 1000,
         accounts: opts.accounts ?? 20,
+        gasLimit: 45_000_000n,
       });
 
       // Listen to the anvil output to get the port.

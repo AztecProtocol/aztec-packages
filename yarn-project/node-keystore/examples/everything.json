@@ -59,29 +59,25 @@
         "accountCount": 2,
         "addressCount": 1
       },
-      "feeRecipient": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+      "feeRecipient": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+      "fundingAccount": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     }
   ],
   "prover": {
     "id": "0x1234567890123456789012345678901234567890",
     "publisher": [
+      "0x5555555555555555555555555555555555555555555555555555555555555555",
+      "0x6666666666666666666666666666666666666666",
       {
-        "mnemonic": "test test test test test test test test test test test junk",
-        "addressCount": 1
+        "address": "0x7777777777777777777777777777777777777777",
+        "remoteSignerUrl": "https://localhost:9300",
+        "certPath": "/path/to/prover-cert.pem"
       },
-      [
-        "0x5555555555555555555555555555555555555555555555555555555555555555",
-        "0x6666666666666666666666666666666666666666",
-        {
-          "address": "0x7777777777777777777777777777777777777777",
-          "remoteSignerUrl": "https://localhost:9300",
-          "certPath": "/path/to/prover-cert.pem"
-        },
-        {
-          "path": "/tmp/prover-publishers",
-          "password": "prover-pass"
-        }
-      ]
+      {
+        "path": "/tmp/prover-publishers",
+        "password": "prover-pass"
+      }
     ]
-  }
+  },
+  "fundingAccount": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }

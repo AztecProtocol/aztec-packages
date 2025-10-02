@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -16,6 +17,7 @@ AvmProver::ProverPolynomials compute_polynomials(tracegen::TraceContainer& trace
     // Polynomials that will be shifted need special care.
     AVM_TRACK_TIME("proving/init_polys_to_be_shifted", ({
                        auto to_be_shifted = polys.get_to_be_shifted();
+                       assert(to_be_shifted.size() == TO_BE_SHIFTED_COLUMNS_ARRAY.size());
 
                        // NOTE: we can't parallelize because Polynomial construction uses parallelism.
                        for (size_t i = 0; i < to_be_shifted.size(); i++) {
@@ -29,7 +31,7 @@ AvmProver::ProverPolynomials compute_polynomials(tracegen::TraceContainer& trace
 
                            poly = AvmProver::Polynomial(
                                /*memory size*/ allocated_size,
-                               /*largest possible index*/ CIRCUIT_SUBGROUP_SIZE,
+                               /*largest possible index*/ MAX_AVM_TRACE_SIZE, // TODO(#16660): use real size?
                                /*make shiftable with offset*/ 1);
                        }
                    }));
@@ -38,10 +40,7 @@ AvmProver::ProverPolynomials compute_polynomials(tracegen::TraceContainer& trace
     // Note: derived polynomials (i.e., inverses) are not in the trace at this point, because they can only
     // be computed after committing to the other witnesses. Therefore, they will be initialized as empty
     // and they will be not set below. The derived polynomials will be reinitialized and set in the prover
-    // itself mid-proving. (TO BE DONE!).
-    //
-    // NOTE FOR SELF: however, the counts will be known here and the inv have the same size?
-    // think about it and check the formula.
+    // itself mid-proving.
     AVM_TRACK_TIME("proving/init_polys_unshifted", ({
                        auto unshifted = polys.get_unshifted();
                        bb::parallel_for(unshifted.size(), [&](size_t i) {
@@ -55,14 +54,12 @@ AvmProver::ProverPolynomials compute_polynomials(tracegen::TraceContainer& trace
                            // WARNING! Column-Polynomials order matters!
                            Column col = static_cast<Column>(i);
                            const auto num_rows = trace.get_column_rows(col);
-                           poly = AvmProver::Polynomial::create_non_parallel_zero_init(num_rows, CIRCUIT_SUBGROUP_SIZE);
+                           poly = AvmProver::Polynomial::create_non_parallel_zero_init(num_rows, MAX_AVM_TRACE_SIZE);
                        });
                    }));
 
     AVM_TRACK_TIME("proving/set_polys_unshifted", ({
                        auto unshifted = polys.get_unshifted();
-                       // TODO: We are now visiting per-column. Profile if per-row is better.
-                       // This would need changes to the trace container.
                        bb::parallel_for(unshifted.size(), [&](size_t i) {
                            // WARNING! Column-Polynomials order matters!
                            auto& poly = unshifted[i];
@@ -73,7 +70,6 @@ AvmProver::ProverPolynomials compute_polynomials(tracegen::TraceContainer& trace
                                poly.at(row) = value;
                            });
                            // We free columns as we go.
-                           // TODO: If we merge the init with the setting, this would be even more memory efficient.
                            trace.clear_column(col);
                        });
                    }));
@@ -85,6 +81,24 @@ AvmProver::ProverPolynomials compute_polynomials(tracegen::TraceContainer& trace
                    }));
 
     return polys;
+}
+
+void resize_inverses(AvmFlavor::ProverPolynomials& prover_polynomials,
+                     Column inverses_col,
+                     Column src_selector_col,
+                     Column dst_selector_col)
+{
+    auto& inverse_polynomial = prover_polynomials.get(static_cast<ColumnAndShifts>(inverses_col));
+    const auto& src_selector = prover_polynomials.get(static_cast<ColumnAndShifts>(src_selector_col));
+    const auto& dst_selector = prover_polynomials.get(static_cast<ColumnAndShifts>(dst_selector_col));
+
+    if (!inverse_polynomial.is_empty()) {
+        throw std::runtime_error("Inverse polynomial is expected to be empty at this point.");
+    }
+
+    const size_t num_rows = std::max<size_t>(src_selector.end_index(), dst_selector.end_index());
+    inverse_polynomial = AvmProver::Polynomial::create_non_parallel_zero_init(num_rows, MAX_AVM_TRACE_SIZE);
+    assert(prover_polynomials.get(static_cast<ColumnAndShifts>(inverses_col)).size() == num_rows);
 }
 
 } // namespace bb::avm2::constraining

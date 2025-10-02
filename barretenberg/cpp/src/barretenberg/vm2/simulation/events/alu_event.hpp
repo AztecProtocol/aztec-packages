@@ -19,9 +19,9 @@ enum class AluOperation {
     LT,
     LTE,
     NOT,
-    TRUNCATE,
-    SHR,
     SHL,
+    SHR,
+    TRUNCATE,
 };
 
 enum class AluError {
@@ -41,13 +41,6 @@ inline std::string to_string(AluError e)
     // We should be catching all the cases above.
     __builtin_unreachable();
 }
-
-class AluException : public std::runtime_error {
-  public:
-    explicit AluException(const std::string& message)
-        : std::runtime_error("ALU Exception: " + message)
-    {}
-};
 
 // Explanations on default values for b and c:
 // execution.register[X] == 0 and execution.mem_tag_reg[X] == 0 when we throw an error in execution, because

@@ -7,13 +7,13 @@ import {
 } from '@aztec/archiver';
 import { createLogger } from '@aztec/aztec.js';
 import { type BlobSinkConfig, blobSinkConfigMapping, createBlobSinkClient } from '@aztec/blob-sink/client';
+import { getL1Config } from '@aztec/cli/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { ArchiverApiSchema } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
-import { getL1Config } from '../get_l1_config.js';
 import { extractRelevantOptions } from '../util.js';
 
 export type { ArchiverConfig, DataStoreConfig };

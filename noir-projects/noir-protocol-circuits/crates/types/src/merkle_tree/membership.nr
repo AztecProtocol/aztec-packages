@@ -85,66 +85,16 @@ where
 
 mod tests {
     use crate::{
-        merkle_tree::{
-            leaf_preimage::{IndexedTreeLeafPreimage, LeafPreimage},
-            membership::{
-                assert_check_membership, assert_check_non_membership, check_membership,
-                conditionally_assert_check_membership, MembershipWitness,
-            },
+        merkle_tree::leaf_preimage::LeafPreimage,
+        tests::{
+            merkle_tree_utils::single_subtree_merkle_tree::SingleSubtreeMerkleTree,
+            types::test_leaf_preimage::TestLeafPreimage,
         },
-        tests::merkle_tree_utils::NonEmptyMerkleTree,
     };
-    use crate::traits::Empty;
-    use std::hash::pedersen_hash;
-
-    struct TestLeafPreimage {
-        value: Field,
-        next_value: Field,
-    }
-
-    impl Empty for TestLeafPreimage {
-        fn empty() -> Self {
-            TestLeafPreimage { value: 0, next_value: 0 }
-        }
-    }
-
-    impl LeafPreimage for TestLeafPreimage {
-        fn get_key(self) -> Field {
-            self.value
-        }
-
-        fn as_leaf(self) -> Field {
-            pedersen_hash([self.value])
-        }
-    }
-
-    impl Eq for TestLeafPreimage {
-        fn eq(self, other: Self) -> bool {
-            (self.value == other.value) & (self.next_value == other.next_value)
-        }
-    }
-
-    impl IndexedTreeLeafPreimage<Field> for TestLeafPreimage {
-        fn get_next_key(self) -> Field {
-            self.next_value
-        }
-
-        fn points_to_infinity(self) -> bool {
-            (self.next_value == 0)
-        }
-
-        fn update_pointers(self, next_value: Field, _next_index: u32) -> Self {
-            Self { value: self.value, next_value }
-        }
-
-        fn update_value(self, value: Field) -> Self {
-            Self { value, next_value: self.next_value }
-        }
-
-        fn build_insertion_leaf(value: Field, low_leaf: Self) -> Self {
-            Self { value, next_value: low_leaf.next_value }
-        }
-    }
+    use super::{
+        assert_check_membership, assert_check_non_membership, check_membership,
+        conditionally_assert_check_membership, MembershipWitness,
+    };
 
     global leaf_preimages: [TestLeafPreimage; 4] = [
         TestLeafPreimage { value: 20, next_value: 30 },
@@ -153,13 +103,10 @@ mod tests {
         TestLeafPreimage { value: 30, next_value: 40 },
     ];
 
-    fn build_tree() -> NonEmptyMerkleTree<4, 3, 1, 2> {
-        NonEmptyMerkleTree::new(
-            leaf_preimages.map(|leaf_preimage: TestLeafPreimage| leaf_preimage.as_leaf()),
-            [0; 3],
-            [0; 1],
-            [0; 2],
-        )
+    fn build_tree() -> SingleSubtreeMerkleTree<4, 2, 3> {
+        SingleSubtreeMerkleTree::new(leaf_preimages.map(|leaf_preimage: TestLeafPreimage| {
+            leaf_preimage.as_leaf()
+        }))
     }
 
     fn check_membership_at_index(leaf_index: Field, leaf: Field) -> bool {
@@ -169,7 +116,7 @@ mod tests {
         check_membership(
             leaf,
             leaf_index,
-            tree.get_sibling_path(leaf_index as u32),
+            tree.get_sibling_path(leaf_index),
             tree_root,
         )
     }
@@ -181,16 +128,16 @@ mod tests {
         assert_check_membership(
             leaf,
             leaf_index,
-            tree.get_sibling_path(leaf_index as u32),
+            tree.get_sibling_path(leaf_index),
             tree_root,
         );
     }
 
-    fn assert_check_non_membership_at_index(low_leaf_index: u32, key: Field) {
+    fn assert_check_non_membership_at_index(low_leaf_index: Field, key: Field) {
         let tree = build_tree();
         let tree_root = tree.get_root();
-        let leaf_preimage = if low_leaf_index as u32 < leaf_preimages.len() {
-            leaf_preimages[low_leaf_index]
+        let leaf_preimage = if low_leaf_index.lt(leaf_preimages.len() as Field) {
+            leaf_preimages[low_leaf_index as u32]
         } else {
             TestLeafPreimage { value: 0, next_value: 0 }
         };
@@ -199,7 +146,7 @@ mod tests {
             key,
             leaf_preimage,
             MembershipWitness {
-                leaf_index: low_leaf_index as Field,
+                leaf_index: low_leaf_index,
                 sibling_path: tree.get_sibling_path(low_leaf_index),
             },
             tree_root,
@@ -208,13 +155,13 @@ mod tests {
 
     fn conditionally_assert_check_membership_at_index(
         exists: bool,
-        low_leaf_index: u32,
+        low_leaf_index: Field,
         key: Field,
     ) {
         let tree = build_tree();
         let tree_root = tree.get_root();
-        let leaf_preimage = if low_leaf_index as u32 < leaf_preimages.len() {
-            leaf_preimages[low_leaf_index]
+        let leaf_preimage = if low_leaf_index.lt(leaf_preimages.len() as Field) {
+            leaf_preimages[low_leaf_index as u32]
         } else {
             TestLeafPreimage { value: 0, next_value: 0 }
         };
@@ -224,7 +171,7 @@ mod tests {
             exists,
             leaf_preimage,
             MembershipWitness {
-                leaf_index: low_leaf_index as Field,
+                leaf_index: low_leaf_index,
                 sibling_path: tree.get_sibling_path(low_leaf_index),
             },
             tree_root,

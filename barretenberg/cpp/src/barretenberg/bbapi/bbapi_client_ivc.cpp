@@ -5,7 +5,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
-#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
+#include "barretenberg/dsl/acir_format/pg_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
@@ -15,6 +15,7 @@ namespace bb::bbapi {
 
 ClientIvcStart::Response ClientIvcStart::execute(BBApiRequest& request) &&
 {
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     request.ivc_in_progress = std::make_shared<ClientIVC>(num_circuits, request.trace_settings);
     request.ivc_stack_depth = 0;
     return Response{};
@@ -22,6 +23,7 @@ ClientIvcStart::Response ClientIvcStart::execute(BBApiRequest& request) &&
 
 ClientIvcLoad::Response ClientIvcLoad::execute(BBApiRequest& request) &&
 {
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     if (!request.ivc_in_progress) {
         throw_or_abort("ClientIVC not started. Call ClientIvcStart first.");
     }
@@ -37,6 +39,7 @@ ClientIvcLoad::Response ClientIvcLoad::execute(BBApiRequest& request) &&
 
 ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request) &&
 {
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     if (!request.ivc_in_progress) {
         throw_or_abort("ClientIVC not started. Call ClientIvcStart first.");
     }
@@ -53,6 +56,7 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
 
     std::shared_ptr<ClientIVC::MegaVerificationKey> precomputed_vk;
     if (!request.loaded_circuit_vk.empty()) {
+        // Deserialize directly from buffer
         precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
     }
 
@@ -68,6 +72,7 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
 
 ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
 {
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     if (!request.ivc_in_progress) {
         throw_or_abort("ClientIVC not started. Call ClientIvcStart first.");
     }
@@ -81,7 +86,8 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
     // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.
     info("ClientIvcProve - verifying the generated proof as a sanity check");
-    if (!request.ivc_in_progress->verify(proof)) {
+    ClientIVC::VerificationKey vk = request.ivc_in_progress->get_vk();
+    if (!ClientIVC::verify(proof, vk)) {
         throw_or_abort("Failed to verify the generated proof!");
     }
 
@@ -95,8 +101,9 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
 
 ClientIvcVerify::Response ClientIvcVerify::execute(const BBApiRequest& /*request*/) &&
 {
-    // Deserialize the verification key from the byte buffer
-    const auto verification_key = from_buffer<ClientIVC::VerificationKey>(vk);
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    // Deserialize the verification key directly from buffer
+    ClientIVC::VerificationKey verification_key = from_buffer<ClientIVC::VerificationKey>(vk);
 
     // Verify the proof using ClientIVC's static verify method
     const bool verified = ClientIVC::verify(proof, verification_key);
@@ -104,30 +111,32 @@ ClientIvcVerify::Response ClientIvcVerify::execute(const BBApiRequest& /*request
     return { .valid = verified };
 }
 
-static std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_proving_key(
-    const BBApiRequest& request, acir_format::AcirProgram& program)
+static std::shared_ptr<ClientIVC::ProverInstance> get_acir_program_prover_instance(const BBApiRequest& request,
+                                                                                   acir_format::AcirProgram& program)
 {
     ClientIVC::ClientCircuit builder = acir_format::create_circuit<ClientIVC::ClientCircuit>(program);
 
     // Construct the verification key via the prover-constructed proving key with the proper trace settings
-    return std::make_shared<ClientIVC::DeciderProvingKey>(builder, request.trace_settings);
+    return std::make_shared<ClientIVC::ProverInstance>(builder, request.trace_settings);
 }
 
 ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(const BBApiRequest& request) &&
 {
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     info("ClientIvcComputeStandaloneVk - deriving VK for circuit '", circuit.name, "'");
 
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
 
     acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
-    std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(request, program);
-    auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
+    std::shared_ptr<ClientIVC::ProverInstance> prover_instance = get_acir_program_prover_instance(request, program);
+    auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(prover_instance->get_precomputed());
 
     return { .bytes = to_buffer(*verification_key), .fields = verification_key->to_field_elements() };
 }
 
 ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(BB_UNUSED const BBApiRequest& request) &&
 {
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     info("ClientIvcComputeIvcVk - deriving IVC VK for circuit '", circuit.name, "'");
 
     auto standalone_vk_response = bbapi::ClientIvcComputeStandaloneVk{
@@ -150,23 +159,25 @@ ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(BB_UNUSED const B
 
 ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const BBApiRequest& request) &&
 {
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode)),
                                       /*witness=*/{} };
 
-    std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(request, program);
-    auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
+    std::shared_ptr<ClientIVC::ProverInstance> prover_instance = get_acir_program_prover_instance(request, program);
+    auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(prover_instance->get_precomputed());
 
     if (circuit.verification_key.empty()) {
         info("FAIL: Expected precomputed vk for function ", circuit.name);
         throw_or_abort("Missing precomputed VK");
     }
 
+    // Deserialize directly from buffer
     auto precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(circuit.verification_key);
 
     Response response;
     response.valid = true;
     std::string error_message = "Precomputed vk does not match computed vk for function " + circuit.name;
-    if (!msgpack::msgpack_check_eq(*computed_vk, *precomputed_vk, error_message)) {
+    if (*computed_vk != *precomputed_vk) {
         response.valid = false;
         response.actual_vk = to_buffer(computed_vk);
     }
@@ -175,13 +186,14 @@ ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const
 
 ClientIvcStats::Response ClientIvcStats::execute(BBApiRequest& request) &&
 {
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     Response response;
 
     const auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
     acir_format::AcirProgram program{ constraint_system };
 
     // Get IVC constraints if any
-    const auto& ivc_constraints = constraint_system.ivc_recursion_constraints;
+    const auto& ivc_constraints = constraint_system.pg_recursion_constraints;
 
     // Create metadata with appropriate IVC context
     acir_format::ProgramMetadata metadata{
@@ -195,7 +207,7 @@ ClientIvcStats::Response ClientIvcStats::execute(BBApiRequest& request) &&
     builder.finalize_circuit(/*ensure_nonzero=*/true);
 
     // Set response values
-    response.acir_opcodes = static_cast<uint32_t>(program.constraints.num_acir_opcodes);
+    response.acir_opcodes = program.constraints.num_acir_opcodes;
     response.circuit_size = static_cast<uint32_t>(builder.num_gates);
 
     // Optionally include gates per opcode

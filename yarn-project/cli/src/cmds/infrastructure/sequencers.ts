@@ -1,6 +1,6 @@
-import { Fr, createCompatibleClient } from '@aztec/aztec.js';
+import { Fr, createAztecNodeClient } from '@aztec/aztec.js';
 import { GSEContract, RollupContract, createEthereumChain, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
-import type { LogFn, Logger } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import { createPublicClient, createWalletClient, fallback, getContract, http } from 'viem';
@@ -11,15 +11,14 @@ export async function sequencers(opts: {
   who?: string;
   mnemonic?: string;
   bn254SecretKey?: bigint;
-  rpcUrl: string;
+  nodeUrl: string;
   l1RpcUrls: string[];
   chainId: number;
   blockNumber?: number;
   log: LogFn;
-  debugLogger: Logger;
 }) {
-  const { command, who: maybeWho, mnemonic, bn254SecretKey, rpcUrl, l1RpcUrls, chainId, log, debugLogger } = opts;
-  const client = await createCompatibleClient(rpcUrl, debugLogger);
+  const { command, who: maybeWho, mnemonic, bn254SecretKey, nodeUrl, l1RpcUrls, chainId, log } = opts;
+  const client = createAztecNodeClient(nodeUrl);
   const { l1ContractAddresses } = await client.getNodeInfo();
 
   const chain = createEthereumChain(l1RpcUrls, chainId);

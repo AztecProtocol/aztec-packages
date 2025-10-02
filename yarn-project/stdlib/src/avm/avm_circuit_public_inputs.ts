@@ -27,11 +27,13 @@ export class AvmCircuitPublicInputs {
     ///////////////////////////////////
     // Inputs.
     public globalVariables: GlobalVariables,
+    public protocolContractTreeRoot: Fr,
     public startTreeSnapshots: TreeSnapshots,
     public startGasUsed: Gas,
     public gasSettings: GasSettings,
     public effectiveGasFees: GasFees,
     public feePayer: AztecAddress,
+    public proverId: Fr,
     public publicCallRequestArrayLengths: PublicCallRequestArrayLengths,
     public publicSetupCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
     public publicAppLogicCallRequests: Tuple<PublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
@@ -54,11 +56,13 @@ export class AvmCircuitPublicInputs {
     return z
       .object({
         globalVariables: GlobalVariables.schema,
+        protocolContractTreeRoot: schemas.Fr,
         startTreeSnapshots: TreeSnapshots.schema,
         startGasUsed: Gas.schema,
         gasSettings: GasSettings.schema,
         effectiveGasFees: GasFees.schema,
         feePayer: AztecAddress.schema,
+        proverId: Fr.schema,
         publicCallRequestArrayLengths: PublicCallRequestArrayLengths.schema,
         publicSetupCallRequests: PublicCallRequest.schema.array().max(MAX_ENQUEUED_CALLS_PER_TX),
         publicAppLogicCallRequests: PublicCallRequest.schema.array().max(MAX_ENQUEUED_CALLS_PER_TX),
@@ -77,11 +81,13 @@ export class AvmCircuitPublicInputs {
       .transform(
         ({
           globalVariables,
+          protocolContractTreeRoot,
           startTreeSnapshots,
           startGasUsed,
           gasSettings,
           effectiveGasFees,
           feePayer,
+          proverId,
           publicCallRequestArrayLengths,
           publicSetupCallRequests,
           publicAppLogicCallRequests,
@@ -99,11 +105,13 @@ export class AvmCircuitPublicInputs {
         }) =>
           new AvmCircuitPublicInputs(
             globalVariables,
+            protocolContractTreeRoot,
             startTreeSnapshots,
             startGasUsed,
             gasSettings,
             effectiveGasFees,
             feePayer,
+            proverId,
             publicCallRequestArrayLengths,
             assertLength(publicSetupCallRequests, MAX_ENQUEUED_CALLS_PER_TX),
             assertLength(publicAppLogicCallRequests, MAX_ENQUEUED_CALLS_PER_TX),
@@ -126,11 +134,13 @@ export class AvmCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new AvmCircuitPublicInputs(
       reader.readObject(GlobalVariables),
+      reader.readObject(Fr),
       reader.readObject(TreeSnapshots),
       reader.readObject(Gas),
       reader.readObject(GasSettings),
       reader.readObject(GasFees),
       reader.readObject(AztecAddress),
+      reader.readObject(Fr),
       reader.readObject(PublicCallRequestArrayLengths),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
@@ -151,11 +161,13 @@ export class AvmCircuitPublicInputs {
   toBuffer() {
     return serializeToBuffer(
       this.globalVariables,
+      this.protocolContractTreeRoot,
       this.startTreeSnapshots,
       this.startGasUsed,
       this.gasSettings,
       this.effectiveGasFees,
       this.feePayer,
+      this.proverId,
       this.publicCallRequestArrayLengths,
       this.publicSetupCallRequests,
       this.publicAppLogicCallRequests,
@@ -185,11 +197,13 @@ export class AvmCircuitPublicInputs {
     const reader = FieldReader.asReader(fields);
     return new AvmCircuitPublicInputs(
       GlobalVariables.fromFields(reader),
+      reader.readField(),
       TreeSnapshots.fromFields(reader),
       Gas.fromFields(reader),
       GasSettings.fromFields(reader),
       GasFees.fromFields(reader),
       AztecAddress.fromFields(reader),
+      reader.readField(),
       PublicCallRequestArrayLengths.fromFields(reader),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest),
@@ -210,11 +224,13 @@ export class AvmCircuitPublicInputs {
   toFields() {
     return [
       ...this.globalVariables.toFields(),
+      this.protocolContractTreeRoot,
       ...this.startTreeSnapshots.toFields(),
       ...this.startGasUsed.toFields(),
       ...this.gasSettings.toFields(),
       ...this.effectiveGasFees.toFields(),
       this.feePayer,
+      this.proverId,
       ...this.publicCallRequestArrayLengths.toFields(),
       ...this.publicSetupCallRequests.map(request => request.toFields()),
       ...this.publicAppLogicCallRequests.map(request => request.toFields()),
@@ -235,11 +251,13 @@ export class AvmCircuitPublicInputs {
   static empty() {
     return new AvmCircuitPublicInputs(
       GlobalVariables.empty(),
+      Fr.zero(),
       TreeSnapshots.empty(),
       Gas.empty(),
       GasSettings.empty(),
       GasFees.empty(),
       AztecAddress.zero(),
+      Fr.zero(),
       PublicCallRequestArrayLengths.empty(),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
       makeTuple(MAX_ENQUEUED_CALLS_PER_TX, PublicCallRequest.empty),
@@ -264,11 +282,13 @@ export class AvmCircuitPublicInputs {
   [inspect.custom]() {
     return `AvmCircuitPublicInputs {
       globalVariables: ${inspect(this.globalVariables)},
+      protocolContractTreeRoot: ${inspect(this.protocolContractTreeRoot)},
       startTreeSnapshots: ${inspect(this.startTreeSnapshots)},
       startGasUsed: ${inspect(this.startGasUsed)},
       gasSettings: ${inspect(this.gasSettings)},
       effectiveGasFees: ${inspect(this.effectiveGasFees)},
       feePayer: ${inspect(this.feePayer)},
+      proverId: ${inspect(this.proverId)},
       publicCallRequestArrayLengths: ${inspect(this.publicCallRequestArrayLengths)},
       publicSetupCallRequests: [${this.publicSetupCallRequests
         .filter(x => !x.isEmpty())

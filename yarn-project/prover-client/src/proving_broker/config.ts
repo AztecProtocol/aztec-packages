@@ -111,7 +111,7 @@ export const proverAgentConfigMappings: ConfigMappingsType<ProverAgentConfig> = 
   proverAgentPollIntervalMs: {
     env: 'PROVER_AGENT_POLL_INTERVAL_MS',
     description: 'The interval agents poll for jobs at',
-    ...numberConfigHelper(100),
+    ...numberConfigHelper(1000),
   },
   proverAgentProofTypes: {
     env: 'PROVER_AGENT_PROOF_TYPES',

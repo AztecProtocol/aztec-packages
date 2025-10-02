@@ -73,11 +73,6 @@ TRAIN_BRANCH="$1"
 
 # Check if PR has auto-merge enabled
 pr_info=$(get_pr_for_branch "$TRAIN_BRANCH")
-if [[ -z "$pr_info" || "$pr_info" == "null" ]]; then
-  echo "No open PR found for branch $TRAIN_BRANCH, skipping merge"
-  exit 0
-fi
-
 pr_number=$(echo "$pr_info" | jq -r '.number // empty')
 if [[ -n "$pr_number" ]] && pr_has_auto_merge "$pr_number"; then
   echo "PR #$pr_number has auto-merge enabled, skipping merge from next"

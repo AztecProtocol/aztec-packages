@@ -10,9 +10,12 @@ global:
   l1ConsensusHostApiKeyHeaders: []
 
 validator:
+  nodeType: "validator"
   mnemonic: "test test test test test test test test test test test junk"
   mnemonicStartIndex: 2000
   validatorsPerNode: 1
+  publishersPerValidatorKey: 2
+  publisherMnemonicStartIndex: 7000
 
   persistence:
     enabled: false
@@ -28,7 +31,7 @@ validator:
       envEnabled: true
 
     preStartScript: |
-      source /scripts/get-private-key.sh
+      source /scripts/setup-attester-keystore.sh
 
     env:
       OTEL_SERVICE_NAME: "validator"
@@ -40,6 +43,8 @@ validator:
 
     hostNetwork: true
 
+  web3signerUrl: ""
+
   service:
     p2p:
       enabled: true
@@ -48,4 +53,3 @@ validator:
       enabled: true
     headless:
       enabled: true
-

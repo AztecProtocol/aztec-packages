@@ -84,6 +84,7 @@ template <typename FF_> class CircuitBuilderBase {
     virtual size_t get_num_variables() const;
     // TODO(#216)(Adrian): Feels wrong to let the zero_idx be changed.
     uint32_t zero_idx = 0;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1546): Do we need `one_idx`?
     uint32_t one_idx = 1;
 
     virtual void create_add_gate(const add_triple_<FF>& in) = 0;
@@ -118,7 +119,7 @@ template <typename FF_> class CircuitBuilderBase {
      * */
     inline FF get_variable(const uint32_t index) const
     {
-        BB_ASSERT_GT(variables.size(), real_variable_index[index]);
+        ASSERT_DEBUG(variables.size() > real_variable_index[index]);
         return variables[real_variable_index[index]];
     }
 
@@ -135,7 +136,7 @@ template <typename FF_> class CircuitBuilderBase {
      */
     inline void set_variable(const uint32_t index, const FF& value)
     {
-        BB_ASSERT_GT(variables.size(), real_variable_index[index]);
+        ASSERT_DEBUG(variables.size() > real_variable_index[index]);
         variables[real_variable_index[index]] = value;
     }
 
@@ -149,7 +150,7 @@ template <typename FF_> class CircuitBuilderBase {
      * */
     inline const FF& get_variable_reference(const uint32_t index) const
     {
-        BB_ASSERT_GT(variables.size(), index);
+        ASSERT_DEBUG(variables.size() > index);
         return variables[real_variable_index[index]];
     }
 

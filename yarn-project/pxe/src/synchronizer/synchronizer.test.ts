@@ -44,21 +44,18 @@ describe('Synchronizer', () => {
     await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
     const obtainedHeader = await syncDataProvider.getBlockHeader();
-    expect(obtainedHeader).toEqual(block.block.header);
+    expect(obtainedHeader).toEqual(block.block.getBlockHeader());
   });
 
   it('removes notes from db on a reorg', async () => {
-    const removeNotesAfter = jest
-      .spyOn(noteDataProvider, 'removeNotesAfter')
-      .mockImplementation(() => Promise.resolve());
-    const unnullifyNotesAfter = jest
-      .spyOn(noteDataProvider, 'unnullifyNotesAfter')
+    const rollbackNotesAndNullifiers = jest
+      .spyOn(noteDataProvider, 'rollbackNotesAndNullifiers')
       .mockImplementation(() => Promise.resolve());
     const resetNoteSyncData = jest
       .spyOn(taggingDataProvider, 'resetNoteSyncData')
       .mockImplementation(() => Promise.resolve());
-    aztecNode.getBlockHeader.mockImplementation(
-      async blockNumber => (await L2Block.random(blockNumber as number)).header,
+    aztecNode.getBlockHeader.mockImplementation(async blockNumber =>
+      (await L2Block.random(blockNumber as number)).getBlockHeader(),
     );
 
     await synchronizer.handleBlockStreamEvent({
@@ -67,8 +64,7 @@ describe('Synchronizer', () => {
     });
     await synchronizer.handleBlockStreamEvent({ type: 'chain-pruned', block: { number: 3, hash: '0x3' } });
 
-    expect(removeNotesAfter).toHaveBeenCalledWith(3);
-    expect(unnullifyNotesAfter).toHaveBeenCalledWith(3, 4);
+    expect(rollbackNotesAndNullifiers).toHaveBeenCalledWith(3, 4);
     expect(resetNoteSyncData).toHaveBeenCalled();
   });
 });

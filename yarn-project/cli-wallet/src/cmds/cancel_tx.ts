@@ -1,21 +1,28 @@
-import { type AccountWalletWithSecretKey, type FeePaymentMethod, SentTx, type TxHash, TxStatus } from '@aztec/aztec.js';
-import type { FeeOptions } from '@aztec/entrypoints/interfaces';
-import { ExecutionPayload } from '@aztec/entrypoints/payload';
+import {
+  type AppConfigurableFeePaymentMethod,
+  AztecAddress,
+  type FeeOptions,
+  SentTx,
+  type TxHash,
+  TxStatus,
+} from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 
-import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
+import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
+import type { CLIWallet } from '../utils/wallet.js';
 
 export async function cancelTx(
-  wallet: AccountWalletWithSecretKey,
+  wallet: CLIWallet,
+  from: AztecAddress,
   {
     txHash,
     gasSettings: prevTxGasSettings,
     txNonce,
     cancellable,
   }: { txHash: TxHash; gasSettings: GasSettings; txNonce: Fr; cancellable: boolean },
-  paymentMethod: FeePaymentMethod,
+  paymentMethod: AppConfigurableFeePaymentMethod | undefined,
   increasedFees: GasFees,
   maxFeesPerGas: GasFees | undefined,
   log: LogFn,
@@ -31,21 +38,18 @@ export async function cancelTx(
     prevTxGasSettings.maxPriorityFeesPerGas.feePerL2Gas + increasedFees.feePerL2Gas,
   );
 
-  const fee: FeeOptions = {
+  const feeOptions: FeeOptions = {
     paymentMethod,
     gasSettings: GasSettings.from({
       ...prevTxGasSettings,
       maxPriorityFeesPerGas,
       maxFeesPerGas: maxFeesPerGas ?? prevTxGasSettings.maxFeesPerGas,
     }),
+    endSetup: false,
+    isFeePayer: false,
   };
 
-  const txRequest = await wallet.createTxExecutionRequest(ExecutionPayload.empty(), fee, {
-    txNonce,
-    cancellable: true,
-  });
-  const txSimulationResult = await wallet.simulateTx(txRequest, true);
-  const txProvingResult = await wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
+  const txProvingResult = await wallet.proveCancellationTx(from, txNonce, feeOptions);
   const sentTx = new SentTx(wallet, async () => {
     const tx = await txProvingResult.toTx();
     return wallet.sendTx(tx);

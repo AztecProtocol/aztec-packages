@@ -6,29 +6,12 @@
 
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 namespace bb {
-
-/**
- * @brief Verify an IVC proof
- *
- */
-bool verify_ivc(ClientIVC::Proof& proof, ClientIVC& ivc)
-{
-    bool verified = ivc.verify(proof);
-
-    // This is a benchmark, not a test, so just print success or failure to the log
-    if (verified) {
-        info("IVC successfully verified!");
-    } else {
-        info("IVC failed to verify.");
-    }
-    return verified;
-}
 
 /**
  * @brief Perform a specified number of circuit accumulation rounds
@@ -48,7 +31,7 @@ std::pair<ClientIVC::Proof, ClientIVC::VerificationKey> accumulate_and_prove_ivc
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         MegaCircuitBuilder circuit;
         {
-            PROFILE_THIS_NAME("construct_circuits");
+            BB_BENCH_NAME("construct_circuits");
             circuit = circuit_producer.create_next_circuit(ivc);
         }
 

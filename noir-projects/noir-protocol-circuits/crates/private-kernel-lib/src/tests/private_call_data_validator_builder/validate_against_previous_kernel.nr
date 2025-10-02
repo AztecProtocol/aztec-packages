@@ -20,7 +20,7 @@ impl PrivateCallDataValidatorBuilder {
 
     fn make_previous_kernel(self) -> PrivateKernelCircuitPublicInputs {
         let mut builder = FixtureBuilder::new();
-        builder.historical_header = self.private_call.historical_header;
+        builder.anchor_block_header = self.private_call.anchor_block_header;
         builder.to_private_kernel_circuit_public_inputs()
     }
 }
@@ -34,12 +34,12 @@ fn validate_against_previous_kernel_succeeds() {
     builder.validate_against_previous_kernel(previous_kernel);
 }
 
-#[test(should_fail_with = "mismatch historical header")]
+#[test(should_fail_with = "anchor block header mismatch")]
 fn validate_against_previous_kernel_mismatch_header_version_fails() {
     let builder = PrivateCallDataValidatorBuilder::new();
 
     let mut previous_kernel = builder.make_previous_kernel();
-    previous_kernel.constants.historical_header.global_variables.version += 1;
+    previous_kernel.constants.anchor_block_header.global_variables.version += 1;
 
     builder.validate_against_previous_kernel(previous_kernel);
 }

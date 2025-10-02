@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
@@ -10,6 +10,7 @@ import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 export async function tokenTest(
   tester: PublicTxSimulationTester,
   logger: Logger,
+  tokenArtifact: ContractArtifact,
   expectToBeTrue: (x: boolean) => void,
 ) {
   const timer = new Timer();
@@ -18,7 +19,7 @@ export async function tokenTest(
   const sender = AztecAddress.fromNumber(111);
   const receiver = AztecAddress.fromNumber(222);
 
-  const token = await setUpToken(tester, admin, expectToBeTrue);
+  const token = await setUpToken(tester, tokenArtifact, admin, expectToBeTrue);
 
   const mintAmount = 100n;
   // EXECUTE! This means that if using AvmProvingTester subclass, it will PROVE the transaction!
@@ -77,6 +78,7 @@ export async function tokenTest(
 
 export async function setUpToken(
   tester: PublicTxSimulationTester,
+  tokenArtifact: ContractArtifact,
   admin: AztecAddress,
   expectToBeTrue: (x: boolean) => void,
   seed = 0,
@@ -85,7 +87,7 @@ export async function setUpToken(
   const token = await tester.registerAndDeployContract(
     constructorArgs,
     /*deployer=*/ admin,
-    TokenContractArtifact,
+    tokenArtifact,
     /*skipNullifierInsertion=*/ false,
     seed,
   );

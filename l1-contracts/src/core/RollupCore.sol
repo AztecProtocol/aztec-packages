@@ -37,6 +37,8 @@ import {RewardLib, RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.so
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {FeeConfigLib, CompressedFeeConfig} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 
 /**
  * @title RollupCore
@@ -120,8 +122,8 @@ import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
  *         - And pushes messages to the outbox for L1 processing
  *
  *      Unhappy path for invalid attestations:
- *      - Attestations in blocks are not validated on-chain to save gas. Since attestations are still posted to L1,
- *        nodes are expected to verify them off-chain, and skip a block if its attestations are invalid.
+ *      - Attestations in blocks are not validated onchain to save gas. Since attestations are still posted to L1,
+ *        nodes are expected to verify them offchain, and skip a block if its attestations are invalid.
  *      - If a block has invalid attestation signatures, anyone can call `invalidateBadAttestation()`
  *      - If a block has insufficient valid attestations (<= 2/3 of committee), anyone can call
  *        `invalidateInsufficientAttestations()`
@@ -177,6 +179,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   using TimeLib for Slot;
   using TimeLib for Epoch;
   using FeeConfigLib for CompressedFeeConfig;
+  using ChainTipsLib for CompressedChainTips;
 
   /**
    * @notice The L1 block number when this rollup was deployed
@@ -191,7 +194,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
   /**
    * @notice Flag to enable/disable blob verification during simulations
-   * @dev Always true, gets unset only via state overrides during off-chain simulations or in tests
+   * @dev Always true, gets unset only via state overrides during offchain simulations or in tests
    */
   bool public checkBlob = true;
 
@@ -225,6 +228,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     // from the onset). It might be updated later to 0 by governance in order to close the validator set for this
     // instance. For details see `StakingLib.getEntryQueueFlushSize` function.
     require(_config.stakingQueueConfig.normalFlushSizeMin > 0, Errors.Staking__InvalidStakingQueueConfig());
+    require(_config.stakingQueueConfig.normalFlushSizeQuotient > 0, Errors.Staking__InvalidNormalFlushSizeQuotient());
 
     TimeLib.initialize(
       block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration, _config.aztecProofSubmissionEpochs
@@ -237,7 +241,10 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
     // We call one external library or another based on the slasher flavor
     // This allows us to keep the slash flavors in separate external libraries so we do not exceed max contract size
-    if (_config.slasherFlavor == SlasherFlavor.TALLY) {
+    // Note that we do not deploy a slasher if we run with no committees (i.e. targetCommitteeSize == 0)
+    if (_config.targetCommitteeSize == 0 || _config.slasherFlavor == SlasherFlavor.NONE) {
+      slasher = ISlasher(address(0));
+    } else if (_config.slasherFlavor == SlasherFlavor.TALLY) {
       slasher = TallySlasherDeploymentExtLib.deployTallySlasher(
         address(this),
         _config.slashingVetoer,
@@ -246,10 +253,11 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
         _config.slashingRoundSize,
         _config.slashingLifetimeInRounds,
         _config.slashingExecutionDelayInRounds,
-        _config.slashingUnit,
+        _config.slashAmounts,
         _config.targetCommitteeSize,
         _config.aztecEpochDuration,
-        _config.slashingOffsetInRounds
+        _config.slashingOffsetInRounds,
+        _config.slashingDisableDuration
       );
     } else {
       slasher = EmpireSlasherDeploymentExtLib.deployEmpireSlasher(
@@ -259,12 +267,15 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
         _config.slashingQuorum,
         _config.slashingRoundSize,
         _config.slashingLifetimeInRounds,
-        _config.slashingExecutionDelayInRounds
+        _config.slashingExecutionDelayInRounds,
+        _config.slashingDisableDuration
       );
     }
 
-    StakingLib.initialize(_stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig);
-    ValidatorOperationsExtLib.initializeValidatorSelection(_config.targetCommitteeSize);
+    StakingLib.initialize(
+      _stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig, _config.localEjectionThreshold
+    );
+    ValidatorOperationsExtLib.initializeValidatorSelection(_config.targetCommitteeSize, _config.lagInEpochs);
 
     // If no booster is specifically provided, deploy one.
     if (address(_config.rewardConfig.booster) == address(0)) {
@@ -316,6 +327,13 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     uint256 currentManaTarget = FeeLib.getStorage().config.getManaTarget();
     require(_manaTarget >= currentManaTarget, Errors.Rollup__InvalidManaTarget(currentManaTarget, _manaTarget));
     FeeLib.updateManaTarget(_manaTarget);
+
+    // If we are going from 0 to non-zero mana limits, we need to catch up the inbox
+    if (currentManaTarget == 0 && _manaTarget > 0) {
+      RollupStore storage rollupStore = STFLib.getStorage();
+      rollupStore.config.inbox.catchUp(rollupStore.tips.getPendingBlockNumber());
+    }
+
     emit IRollupCore.ManaTargetUpdated(_manaTarget);
   }
 
@@ -336,6 +354,16 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    */
   function setSlasher(address _slasher) external override(IStakingCore) onlyOwner {
     ValidatorOperationsExtLib.setSlasher(_slasher);
+  }
+
+  /**
+   * @notice Updates the local ejection threshold
+   * @dev Only callable by owner. The local ejection threshold is the minimum amount of stake that a validator can have
+   *      after being slashed.
+   * @param _localEjectionThreshold The new local ejection threshold
+   */
+  function setLocalEjectionThreshold(uint256 _localEjectionThreshold) external override(IStakingCore) onlyOwner {
+    ValidatorOperationsExtLib.setLocalEjectionThreshold(_localEjectionThreshold);
   }
 
   /**
@@ -421,9 +449,14 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @notice Processes the validator entry queue to add new validators to the active set
    * @dev Can be called by anyone. The number of validators added is limited by queue configuration.
    *      This helps maintain a controlled growth rate of the validator set.
+   * @param _toAdd - The max number the caller will try to add
    */
+  function flushEntryQueue(uint256 _toAdd) external override(IStakingCore) {
+    ValidatorOperationsExtLib.flushEntryQueue(_toAdd);
+  }
+
   function flushEntryQueue() external override(IStakingCore) {
-    ValidatorOperationsExtLib.flushEntryQueue();
+    ValidatorOperationsExtLib.flushEntryQueue(type(uint256).max);
   }
 
   /**
@@ -495,9 +528,12 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     ProposeArgs calldata _args,
     CommitteeAttestations memory _attestations,
     address[] calldata _signers,
+    Signature calldata _attestationsAndSignersSignature,
     bytes calldata _blobInput
   ) external override(IRollupCore) {
-    RollupOperationsExtLib.propose(_args, _attestations, _signers, _blobInput, checkBlob);
+    RollupOperationsExtLib.propose(
+      _args, _attestations, _signers, _attestationsAndSignersSignature, _blobInput, checkBlob
+    );
   }
 
   /**

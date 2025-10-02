@@ -4,7 +4,7 @@ import { EmpireBaseAbi } from '@aztec/l1-artifacts/EmpireBaseAbi';
 
 import { type Hex, type TypedDataDefinition, encodeFunctionData } from 'viem';
 
-import type { L1TxRequest } from '../l1_tx_utils.js';
+import type { L1TxRequest } from '../l1_tx_utils/index.js';
 
 export interface IEmpireBase {
   get address(): EthAddress;
@@ -64,6 +64,12 @@ export async function signSignalWithSig(
   };
 
   const types = {
+    EIP712Domain: [
+      { name: 'name', type: 'string' },
+      { name: 'version', type: 'string' },
+      { name: 'chainId', type: 'uint256' },
+      { name: 'verifyingContract', type: 'address' },
+    ],
     Signal: [
       { name: 'payload', type: 'address' },
       { name: 'slot', type: 'uint256' },

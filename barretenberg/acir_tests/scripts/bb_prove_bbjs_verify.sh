@@ -22,7 +22,6 @@ $bb prove \
   -b target/program.json \
   -w target/witness.gz \
   -k output-$$/vk \
-  --output_format bytes_and_fields \
   -o output-$$
 
 # Verify the proof with bb.js classes

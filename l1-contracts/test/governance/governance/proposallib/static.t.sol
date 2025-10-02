@@ -3,11 +3,11 @@ pragma solidity >=0.8.27;
 
 import {TestBase} from "@test/base/Base.sol";
 import {Proposal, Configuration} from "@aztec/governance/interfaces/IGovernance.sol";
-import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
+import {UncompressedProposalWrapper} from "@test/governance/helpers/UncompressedProposalTestLib.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 
 contract Static is TestBase {
-  using ProposalLib for Proposal;
+  UncompressedProposalWrapper internal upw = new UncompressedProposalWrapper();
 
   Proposal internal proposal;
 
@@ -24,21 +24,23 @@ contract Static is TestBase {
 
   function test_pendingThrough(Configuration memory _config, uint256 _creation) external limitConfig(_config) {
     proposal.creation = Timestamp.wrap(bound(_creation, 0, type(uint32).max));
-    assertEq(proposal.pendingThrough(), proposal.creation + proposal.config.votingDelay);
+    assertEq(upw.pendingThrough(proposal), proposal.creation + proposal.config.votingDelay);
 
     Proposal memory proposalMemory = proposal;
-    assertEq(proposalMemory.pendingThroughMemory(), proposal.creation + proposal.config.votingDelay);
+    assertEq(upw.pendingThrough(proposalMemory), proposal.creation + proposal.config.votingDelay);
   }
 
   function test_activeThrough(Configuration memory _config, uint256 _creation) external limitConfig(_config) {
     proposal.creation = Timestamp.wrap(bound(_creation, 0, type(uint32).max));
-    assertEq(proposal.activeThrough(), proposal.creation + proposal.config.votingDelay + proposal.config.votingDuration);
+    assertEq(
+      upw.activeThrough(proposal), proposal.creation + proposal.config.votingDelay + proposal.config.votingDuration
+    );
   }
 
   function test_queuedThrough(Configuration memory _config, uint256 _creation) external limitConfig(_config) {
     proposal.creation = Timestamp.wrap(bound(_creation, 0, type(uint32).max));
     assertEq(
-      proposal.queuedThrough(),
+      upw.queuedThrough(proposal),
       proposal.creation + proposal.config.votingDelay + proposal.config.votingDuration + proposal.config.executionDelay
     );
   }
@@ -46,7 +48,7 @@ contract Static is TestBase {
   function test_executableThrough(Configuration memory _config, uint256 _creation) external limitConfig(_config) {
     proposal.creation = Timestamp.wrap(bound(_creation, 0, type(uint32).max));
     assertEq(
-      proposal.executableThrough(),
+      upw.executableThrough(proposal),
       proposal.creation + proposal.config.votingDelay + proposal.config.votingDuration + proposal.config.executionDelay
         + proposal.config.gracePeriod
     );

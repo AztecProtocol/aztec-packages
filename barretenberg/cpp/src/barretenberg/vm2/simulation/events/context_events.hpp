@@ -10,6 +10,7 @@ namespace bb::avm2::simulation {
 struct ContextEvent {
     uint32_t id;
     uint32_t parent_id;
+    uint32_t last_child_id;
 
     // State
     uint32_t pc;
@@ -21,7 +22,7 @@ struct ContextEvent {
 
     // Calldata info from parent context
     uint32_t parent_cd_addr;
-    uint32_t parent_cd_size_addr;
+    uint32_t parent_cd_size;
 
     // Return data info from child context
     uint32_t last_child_rd_addr;
@@ -43,6 +44,7 @@ struct ContextEvent {
     // Tree States
     TreeStates tree_states;
     AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot;
+    AppendOnlyTreeSnapshot retrieved_bytecodes_tree_snapshot;
 
     // Side Effects
     SideEffectStates side_effect_states;
@@ -65,7 +67,7 @@ struct ContextStackEvent {
 
     // Calldata info from parent context
     uint32_t parent_cd_addr;
-    uint32_t parent_cd_size_addr;
+    uint32_t parent_cd_size;
 
     // Gas
     Gas parent_gas_used;

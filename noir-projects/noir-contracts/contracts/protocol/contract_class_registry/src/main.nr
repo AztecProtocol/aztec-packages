@@ -29,9 +29,7 @@ pub contract ContractClassRegistry {
         },
     };
 
-    // docs:start:import_capsules
     use dep::aztec::oracle::capsules;
-    // docs:end:import_capsules
 
     #[private]
     fn publish(
@@ -39,7 +37,6 @@ pub contract ContractClassRegistry {
         private_functions_root: Field,
         public_bytecode_commitment: Field,
     ) {
-        // docs:start:load_capsule
         // Safety: We load the bytecode via a capsule, which is unconstrained. In order to ensure the loaded bytecode
         // matches the expected one, we recompute the commitment and assert it matches the one provided by the caller.
         let mut packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] = unsafe {
@@ -49,7 +46,6 @@ pub contract ContractClassRegistry {
             )
                 .unwrap()
         };
-        // docs:end:load_capsule
         // Compute and check the public bytecode commitment
         let computed_public_bytecode_commitment =
             compute_public_bytecode_commitment(packed_public_bytecode);
@@ -101,7 +97,7 @@ pub contract ContractClassRegistry {
     ) {
         // Safety: The bytecode loaded here is unconstrained, which is acceptable since:
         // 1. Unlike public functions, we don't need execution guarantees for private functions.
-        // 2. This broadcast simply provides convenient bytecode sharing vs off-chain distribution.
+        // 2. This broadcast simply provides convenient bytecode sharing vs offchain distribution.
         // 3. Computing the VK for private bytecode in-circuit is not possible, so we can't do better.
         let private_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS] = unsafe {
             capsules::load(
@@ -151,7 +147,7 @@ pub contract ContractClassRegistry {
     ) {
         // Safety: The bytecode loaded here is unconstrained, which is acceptable since:
         // 1. Unlike public functions, we don't need execution guarantees for utility functions.
-        // 2. This broadcast simply provides convenient bytecode sharing vs off-chain distribution.
+        // 2. This broadcast simply provides convenient bytecode sharing vs offchain distribution.
         let utility_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS] = unsafe {
             capsules::load(
                 context.this_address(),

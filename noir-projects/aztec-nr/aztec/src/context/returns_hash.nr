@@ -45,7 +45,7 @@ mod test {
 
     #[test]
     unconstrained fn retrieves_preimage() {
-        let env = TestEnvironment::_new();
+        let env = TestEnvironment::new();
         env.private_context(|_| {
             let value = MockStruct::new(4, 7);
             let serialized = value.serialize();
@@ -59,7 +59,7 @@ mod test {
 
     #[test]
     unconstrained fn retrieves_empty_preimage() {
-        let env = TestEnvironment::_new();
+        let env = TestEnvironment::new();
         env.private_context(|_| {
             let value = ();
             let serialized = [];

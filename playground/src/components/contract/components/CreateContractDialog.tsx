@@ -31,7 +31,7 @@ import {
   getAllFunctionAbis,
   isAddressStruct,
 } from '@aztec/stdlib/abi';
-import { AztecContext } from '../../../aztecEnv';
+import { AztecContext } from '../../../aztecContext';
 import { FunctionParameter } from '../../common/FnParameter';
 import { FeePaymentSelector } from '../../common/FeePaymentSelector';
 import { dialogBody, form, progressIndicator } from '../../../styles/common';
@@ -58,7 +58,7 @@ export function CreateContractDialog({
   const [alias, setAlias] = useState(defaultContractCreationParams['alias'] as string);
   const [initializer, setInitializer] = useState<FunctionAbi>(null);
   const [parameters, setParameters] = useState([]);
-  const { wallet, walletDB, pxe, node } = useContext(AztecContext);
+  const { wallet, playgroundDB, node, from } = useContext(AztecContext);
   const [functionAbis, setFunctionAbis] = useState<FunctionAbi[]>([]);
 
   const [registerExisting, setRegisterExisting] = useState(false);
@@ -105,11 +105,11 @@ export function CreateContractDialog({
         publicKeys: PublicKeys.default(),
         constructorArtifact: initializer,
         constructorArgs: parameters,
-        deployer: wallet.getAddress(),
+        deployer: from,
         salt,
       });
-      await pxe.registerContract({ instance: contract, artifact: contractArtifact });
-      await walletDB.storeContract(contract.address, contractArtifact, undefined, alias);
+      await wallet.registerContract(contract, contractArtifact);
+      await playgroundDB.storeContract(contract.address, contractArtifact, undefined, alias);
       let deployMethod: DeployMethod;
       let opts: DeployOptions;
       if (publiclyDeploy) {
@@ -124,7 +124,7 @@ export function CreateContractDialog({
           initializer?.name,
         );
         opts = {
-          from: wallet.getAddress(),
+          from,
           contractAddressSalt: salt,
           fee: { paymentMethod: feePaymentMethod },
         };
@@ -144,7 +144,7 @@ export function CreateContractDialog({
       if (!contract) {
         throw new Error('Contract with this address was not found in node');
       }
-      await walletDB.storeContract(contract.address, contractArtifact, undefined, alias);
+      await playgroundDB.storeContract(contract.address, contractArtifact, undefined, alias);
       onClose(contract);
     } catch (e) {
       setError(e.message);
@@ -182,6 +182,7 @@ export function CreateContractDialog({
               <FormControl>
                 <InputLabel>Initializer</InputLabel>
                 <Select
+                  css={{ marginBottom: '1rem' }}
                   value={initializer?.name ?? ''}
                   label="Initializer"
                   disabled={!functionAbis.some(fn => fn.isInitializer)}
@@ -241,7 +242,7 @@ export function CreateContractDialog({
           {!error ? (
             isRegistering ? (
               <div css={progressIndicator}>
-                <Typography variant="body2" sx={{ mr: 1 }}>
+                <Typography variant="body2" sx={{ mr: 1, mt: 1 }}>
                   Registering contract...
                 </Typography>
                 <CircularProgress size={20} />
@@ -267,7 +268,6 @@ export function CreateContractDialog({
             Cancel
           </Button>
         </DialogActions>
-
       </DialogContent>
     </Dialog>
   );

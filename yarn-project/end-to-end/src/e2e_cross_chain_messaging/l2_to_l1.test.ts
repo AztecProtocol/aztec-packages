@@ -23,7 +23,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin;
   let msgSender: EthAddress;
-  let user1Wallet: Wallet;
+  let wallet: Wallet;
   let user1Address: AztecAddress;
   let outbox: any;
 
@@ -33,7 +33,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.setup();
-    ({ crossChainTestHarness, aztecNode, aztecNodeAdmin, user1Wallet, user1Address } = t);
+    ({ crossChainTestHarness, aztecNode, aztecNodeAdmin, wallet, user1Address } = t);
 
     msgSender = EthAddress.fromString(t.deployL1ContractsValues.l1Client.account.address);
 
@@ -50,7 +50,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
       ).getVersion(),
     );
 
-    contract = await TestContract.deploy(user1Wallet).send({ from: user1Address }).deployed();
+    contract = await TestContract.deploy(wallet).send({ from: user1Address }).deployed();
   }, 300_000);
 
   afterAll(async () => {
@@ -122,7 +122,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     // Configure the node be able to rollup only 1 tx.
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
 
-    const call = createBatchCall(user1Wallet, recipients, contents);
+    const call = createBatchCall(wallet, recipients, contents);
     const txReceipt = await call.send({ from: user1Address }).wait();
 
     // Check that the block contains the 2 messages.
@@ -145,7 +145,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     // Configure the node be able to rollup only 1 tx.
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
 
-    const call = createBatchCall(user1Wallet, recipients, contents);
+    const call = createBatchCall(wallet, recipients, contents);
     const txReceipt = await call.send({ from: user1Address }).wait();
 
     // Check that the block contains all the messages.
@@ -181,8 +181,8 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     const tx0 = generateMessages(3);
     const tx1 = generateMessages(4);
 
-    const call0 = createBatchCall(user1Wallet, tx0.recipients, tx0.contents);
-    const call1 = createBatchCall(user1Wallet, tx1.recipients, tx1.contents);
+    const call0 = createBatchCall(wallet, tx0.recipients, tx0.contents);
+    const call1 = createBatchCall(wallet, tx1.recipients, tx1.contents);
 
     const [l2TxReceipt0, l2TxReceipt1] = await Promise.all([
       call0.send({ from: user1Address }).wait(),
@@ -246,9 +246,9 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     const tx1 = generateMessages(1);
     const tx2 = generateMessages(2);
 
-    const call0 = createBatchCall(user1Wallet, tx0.recipients, tx0.contents);
-    const call1 = createBatchCall(user1Wallet, tx1.recipients, tx1.contents);
-    const call2 = createBatchCall(user1Wallet, tx2.recipients, tx2.contents);
+    const call0 = createBatchCall(wallet, tx0.recipients, tx0.contents);
+    const call1 = createBatchCall(wallet, tx1.recipients, tx1.contents);
+    const call2 = createBatchCall(wallet, tx2.recipients, tx2.contents);
 
     const [l2TxReceipt0, l2TxReceipt1, l2TxReceipt2] = await Promise.all([
       call0.send({ from: user1Address }).wait(),

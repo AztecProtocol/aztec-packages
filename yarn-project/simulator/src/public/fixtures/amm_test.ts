@@ -3,7 +3,7 @@ import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { AMMContractArtifact } from '@aztec/noir-contracts.js/AMM';
+import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
@@ -16,22 +16,28 @@ const INITIAL_TOKEN_BALANCE = 1_000_000_000n;
  * `.skip` it or literally just delete it and notify AVM team.
  * You do NOT need permission to remove this test!
  */
-export async function ammTest(tester: PublicTxSimulationTester, logger: Logger, expectToBeTrue: (x: boolean) => void) {
+export async function ammTest(
+  tester: PublicTxSimulationTester,
+  logger: Logger,
+  tokenArtifact: ContractArtifact,
+  ammArtifact: ContractArtifact,
+  expectToBeTrue: (x: boolean) => void,
+) {
   const timer = new Timer();
 
   const admin = AztecAddress.fromNumber(42);
   const sender = AztecAddress.fromNumber(111);
 
   logger.debug(`Deploying tokens`);
-  const token0 = await setUpToken(tester, admin, expectToBeTrue, /*seed=*/ 0);
-  const token1 = await setUpToken(tester, admin, expectToBeTrue, /*seed=*/ 1);
-  const liquidityToken = await setUpToken(tester, admin, expectToBeTrue, /*seed=*/ 2);
+  const token0 = await setUpToken(tester, tokenArtifact, admin, expectToBeTrue, /*seed=*/ 0);
+  const token1 = await setUpToken(tester, tokenArtifact, admin, expectToBeTrue, /*seed=*/ 1);
+  const liquidityToken = await setUpToken(tester, tokenArtifact, admin, expectToBeTrue, /*seed=*/ 2);
   logger.debug(`Deploying AMM`);
   const constructorArgs = [token0, token1, liquidityToken];
   const amm = await tester.registerAndDeployContract(
     constructorArgs,
     /*deployer=*/ admin,
-    AMMContractArtifact,
+    ammArtifact,
     /*skipNullifierInsertion=*/ false,
     /*seed=*/ 3,
   );

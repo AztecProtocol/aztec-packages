@@ -66,7 +66,7 @@ RUN git clone https://github.com/tpoechtrager/osxcross.git \
 ########################################################################################################################
 # Build foundry.
 FROM base-build AS foundry
-ENV FOUNDRY_VERSION=nightly-99634144b6c9371982dcfc551a7975c5dbf9fad8
+ENV FOUNDRY_VERSION=v1.3.3
 ENV FOUNDRY_BIN_DIR="/root/.foundry/bin"
 ENV RUSTUP_HOME=/opt/rust/rustup
 ENV CARGO_HOME=/opt/rust/cargo
@@ -127,6 +127,12 @@ RUN apt update && \
         libc++-dev \
         libomp-dev \
         doxygen \
+        # C++ stack trace support
+        libdw-dev \
+        libelf-dev \
+        # Rust
+        pkg-config \
+        libssl-dev \
         # Node
         # WARNING: Need to downgrade to this version in the basebox below as well.
         nodejs=22.16.0-1nodesource1 \
@@ -235,6 +241,11 @@ RUN apt update && \
         inotify-tools \
         # Annoyingly unminimize upgrades nodejs.
         nodejs=22.16.0-1nodesource1 \
+        # smt_verification dependencies
+        python3-venv \
+        python3-pip \
+        m4 \
+        bison \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install osxcross. Requires developer to mount SDK from their mac host.

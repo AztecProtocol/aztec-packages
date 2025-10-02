@@ -12,8 +12,8 @@ export function useContract() {
     e.preventDefault();
 
     setWait(true);
-    await deployerEnv.init();
     const wallet = await deployerEnv.getWallet();
+    const defaultAccountAddress = deployerEnv.getDefaultAccountAddress();
     const salt = Fr.random();
 
     const { BoxReactContract } = await import("../../artifacts/BoxReact");
@@ -21,9 +21,9 @@ export function useContract() {
     const tx = await BoxReactContract.deploy(
       wallet,
       Fr.random(),
-      wallet.getCompleteAddress().address,
+      defaultAccountAddress,
     ).send({
-      from: wallet.getAddress(),
+      from: defaultAccountAddress,
       contractAddressSalt: salt,
     });
     const contract = await toast.promise(tx.deployed(), {

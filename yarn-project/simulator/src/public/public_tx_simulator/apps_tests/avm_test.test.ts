@@ -1,4 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 
 import { bulkTest } from '../../fixtures/bulk_test.js';
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
@@ -12,6 +13,7 @@ describe('Public TX simulator apps tests: AvmTestContract', () => {
   });
 
   it('bulk testing', async () => {
-    await bulkTest(simTester, logger, (b: boolean) => expect(b).toBe(true));
+    const result = await bulkTest(simTester, logger, AvmTestContractArtifact);
+    expect(result.revertCode.isOK()).toBe(true);
   });
 });

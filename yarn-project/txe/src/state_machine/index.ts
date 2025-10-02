@@ -3,7 +3,7 @@ import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { SyncDataProvider } from '@aztec/pxe/server';
-import type { L2Block } from '@aztec/stdlib/block';
+import { type L2Block, PublishedL2Block } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
@@ -12,6 +12,9 @@ import { DummyP2P } from './dummy_p2p_client.js';
 import { TXEGlobalVariablesBuilder } from './global_variable_builder.js';
 import { MockEpochCache } from './mock_epoch_cache.js';
 import { TXESynchronizer } from './synchronizer.js';
+
+const VERSION = 1;
+const CHAIN_ID = 1;
 
 export class TXEStateMachine {
   constructor(
@@ -41,9 +44,8 @@ export class TXEStateMachine {
       undefined,
       undefined,
       undefined,
-      // version and chainId should match the ones in txe oracle
-      1,
-      1,
+      VERSION,
+      CHAIN_ID,
       new TXEGlobalVariablesBuilder(),
       new MockEpochCache(),
       getPackageVersion() ?? '',
@@ -59,7 +61,7 @@ export class TXEStateMachine {
     await Promise.all([
       this.synchronizer.handleL2Block(block),
       this.archiver.addBlocks([
-        {
+        PublishedL2Block.fromFields({
           block,
           l1: {
             blockHash: block.header.globalVariables.blockNumber.toString(),
@@ -67,9 +69,9 @@ export class TXEStateMachine {
             timestamp: block.header.globalVariables.timestamp,
           },
           attestations: [],
-        },
+        }),
       ]),
-      this.syncDataProvider.setHeader(block.header),
+      this.syncDataProvider.setHeader(block.getBlockHeader()),
     ]);
   }
 }

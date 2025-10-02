@@ -14,9 +14,9 @@ unconstrained fn note_not_nullified_succeeds_in_blocks_before_note_nullification
     let (env, retrieved_note) = test::create_note_and_nullify_it();
 
     env.private_context_opts(
-        PrivateContextOptions::new().at_historical_block_number(test::NOTE_NULLIFIED_AT - 1),
+        PrivateContextOptions::new().at_anchor_block_number(test::NOTE_NULLIFIED_AT - 1),
         |context| {
-            let header = context.historical_header;
+            let header = context.anchor_block_header;
             header.prove_note_not_nullified(retrieved_note, test::NOTE_STORAGE_SLOT, context);
         },
     );
@@ -27,9 +27,9 @@ unconstrained fn note_not_nullified_fails_in_blocks_after_note_nullification_fai
     let (env, retrieved_note) = test::create_note_and_nullify_it();
 
     env.private_context_opts(
-        PrivateContextOptions::new().at_historical_block_number(test::NOTE_NULLIFIED_AT),
+        PrivateContextOptions::new().at_anchor_block_number(test::NOTE_NULLIFIED_AT),
         |context| {
-            let header = context.historical_header;
+            let header = context.anchor_block_header;
             header.prove_note_not_nullified(retrieved_note, test::NOTE_STORAGE_SLOT, context);
         },
     );
@@ -40,7 +40,7 @@ unconstrained fn nullifier_non_inclusion_succeeds_in_blocks_before_nullifier_cre
     let env = TestEnvironment::new();
 
     env.private_context(|context| {
-        let header = context.historical_header;
+        let header = context.anchor_block_header;
         header.prove_nullifier_non_inclusion(random());
     });
 }
@@ -63,9 +63,9 @@ unconstrained fn nullifier_non_inclusion_fails_in_blocks_after_nullifier_creatio
     let nullifier_created_at = env.last_block_number();
 
     env.private_context_opts(
-        PrivateContextOptions::new().at_historical_block_number(nullifier_created_at),
+        PrivateContextOptions::new().at_anchor_block_number(nullifier_created_at),
         |context| {
-            let header = context.historical_header;
+            let header = context.anchor_block_header;
             header.prove_nullifier_non_inclusion(siloed_nullifier);
         },
     );

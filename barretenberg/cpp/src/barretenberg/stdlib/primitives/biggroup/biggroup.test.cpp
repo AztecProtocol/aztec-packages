@@ -343,6 +343,61 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    static void test_conditional_negate()
+    {
+        Builder builder;
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            affine_element input_a(element::random_element());
+            element_ct a = element_ct::from_witness(&builder, input_a);
+            a.set_origin_tag(submitted_value_origin_tag);
+
+            // decide randomly whether to negate or not
+            bool negate = (engine.get_random_uint32() % 2) == 1;
+            bool_ct negate_ct = bool_ct(witness_ct(&builder, negate ? 1 : 0));
+            negate_ct.set_origin_tag(challenge_origin_tag);
+
+            element_ct c = a.conditional_negate(negate_ct);
+
+            // Check the resulting tag is preserved
+            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+
+            affine_element c_expected = negate ? affine_element(-element(input_a)) : input_a;
+            EXPECT_EQ(c.get_value(), c_expected);
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_conditional_select()
+    {
+        Builder builder;
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            affine_element input_a(element::random_element());
+            affine_element input_b(element::random_element());
+            bool select_a = (engine.get_random_uint32() % 2) == 1;
+            bool_ct select_a_ct = bool_ct(witness_ct(&builder, select_a ? 1 : 0));
+            element_ct a = element_ct::from_witness(&builder, input_a);
+            element_ct b = element_ct::from_witness(&builder, input_b);
+
+            // Set different tags in a and b and the predicate
+            a.set_origin_tag(submitted_value_origin_tag);
+            b.set_origin_tag(challenge_origin_tag);
+            select_a_ct.set_origin_tag(next_challenge_tag);
+
+            element_ct c = a.conditional_select(b, select_a_ct);
+
+            // Check that the resulting tag is the union of inputs' tags
+            EXPECT_EQ(c.get_origin_tag(), first_second_third_merged_tag);
+
+            affine_element c_expected = select_a ? input_b : input_a;
+            EXPECT_EQ(c.get_value(), c_expected);
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
     static void test_montgomery_ladder()
     {
         Builder builder;
@@ -1111,9 +1166,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             // scalar = -naf[254] + \sum_{i=0}^{253}(1-2*naf[i]) 2^{253-i}
             fr reconstructed_val(0);
             for (size_t i = 0; i < length; i++) {
-                reconstructed_val += (fr(1) - fr(2) * fr(naf[i].witness_bool)) * fr(uint256_t(1) << (length - 1 - i));
+                reconstructed_val += (fr(1) - fr(2) * fr(naf[i].get_value())) * fr(uint256_t(1) << (length - 1 - i));
             };
-            reconstructed_val -= fr(naf[length].witness_bool);
+            reconstructed_val -= fr(naf[length].get_value());
             EXPECT_EQ(scalar_val, reconstructed_val);
         }
 
@@ -1675,6 +1730,14 @@ TYPED_TEST(stdlib_biggroup, sub_points_at_infinity)
 TYPED_TEST(stdlib_biggroup, dbl)
 {
     TestFixture::test_dbl();
+}
+TYPED_TEST(stdlib_biggroup, conditional_negate)
+{
+    TestFixture::test_conditional_negate();
+}
+TYPED_TEST(stdlib_biggroup, conditional_select)
+{
+    TestFixture::test_conditional_select();
 }
 TYPED_TEST(stdlib_biggroup, montgomery_ladder)
 {

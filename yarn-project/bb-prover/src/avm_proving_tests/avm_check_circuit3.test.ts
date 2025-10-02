@@ -7,7 +7,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 100_000;
 
-describe.skip('AVM check-circuit – unhappy paths 3', () => {
+describe('AVM check-circuit – unhappy paths 3', () => {
   const sender = AztecAddress.fromNumber(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: AvmProvingTester;
@@ -27,7 +27,7 @@ describe.skip('AVM check-circuit – unhappy paths 3', () => {
       await tester.simProveVerify(
         sender,
         /*setupCalls=*/ [],
-        /*appCalls=*/ [{ address: avmTestContractInstance.address, fnName: 'divide_by_zero', args: [] }],
+        /*appCalls=*/ [{ address: avmTestContractInstance.address, fnName: 'divide_by_zero', args: [0] }],
         /*teardownCall=*/ undefined,
         /*expectRevert=*/ true,
       );
@@ -40,7 +40,7 @@ describe.skip('AVM check-circuit – unhappy paths 3', () => {
       await tester.simProveVerify(
         sender,
         /*setupCalls=*/ [],
-        /*appCalls=*/ [{ address: avmTestContractInstance.address, fnName: 'divide_by_zero', args: [] }],
+        /*appCalls=*/ [{ address: avmTestContractInstance.address, fnName: 'divide_by_zero', args: [0] }],
         /*teardownCall=*/ {
           address: avmTestContractInstance.address,
           fnName: 'add_args_return',
@@ -60,7 +60,7 @@ describe.skip('AVM check-circuit – unhappy paths 3', () => {
         /*appCalls=*/ [
           { address: avmTestContractInstance.address, fnName: 'add_args_return', args: [new Fr(1), new Fr(2)] },
         ],
-        /*teardownCall=*/ { address: avmTestContractInstance.address, fnName: 'divide_by_zero', args: [] },
+        /*teardownCall=*/ { address: avmTestContractInstance.address, fnName: 'divide_by_zero', args: [0] },
         /*expectRevert=*/ true,
       );
     },
@@ -77,15 +77,14 @@ describe.skip('AVM check-circuit – unhappy paths 3', () => {
     TIMEOUT,
   );
 
-  // TODO(#16099): Re-enable this test
-  // it(
-  //   'a nested exceptional halt is recovered from in caller',
-  //   async () => {
-  //     await tester.simProveVerifyAppLogic(
-  //       { address: avmTestContractInstance.address, fnName: 'external_call_to_divide_by_zero_recovers', args: [] },
-  //       /*expectRevert=*/ false,
-  //     );
-  //   },
-  //   TIMEOUT,
-  // );
+  it(
+    'a nested exceptional halt is recovered from in caller',
+    async () => {
+      await tester.simProveVerifyAppLogic(
+        { address: avmTestContractInstance.address, fnName: 'external_call_to_divide_by_zero_recovers', args: [] },
+        /*expectRevert=*/ false,
+      );
+    },
+    TIMEOUT,
+  );
 });

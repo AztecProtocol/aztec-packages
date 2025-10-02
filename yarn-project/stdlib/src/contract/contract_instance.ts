@@ -22,6 +22,15 @@ import type { ContractInstance, ContractInstanceWithAddress } from './interfaces
 
 const VERSION = 1 as const;
 
+export type ContractInstantiationData = {
+  constructorArtifact?: FunctionAbi | string;
+  constructorArgs?: any[];
+  skipArgsDecoding?: boolean;
+  salt: Fr;
+  publicKeys?: PublicKeys;
+  deployer?: AztecAddress;
+};
+
 export class SerializableContractInstance {
   public readonly version = VERSION;
   public readonly salt: Fr;
@@ -107,17 +116,9 @@ export class SerializableContractInstance {
  */
 export async function getContractInstanceFromInstantiationParams(
   artifact: ContractArtifact,
-  opts: {
-    constructorArtifact?: FunctionAbi | string;
-    constructorArgs?: any[];
-    skipArgsDecoding?: boolean;
-    salt?: Fr;
-    publicKeys?: PublicKeys;
-    deployer?: AztecAddress;
-  },
+  opts: ContractInstantiationData,
 ): Promise<ContractInstanceWithAddress> {
   const args = opts.constructorArgs ?? [];
-  const salt = opts.salt ?? Fr.random();
   const constructorArtifact = getConstructorArtifact(artifact, opts.constructorArtifact);
   const deployer = opts.deployer ?? AztecAddress.ZERO;
   const contractClass = await getContractClassFromArtifact(artifact);
@@ -135,7 +136,7 @@ export async function getContractInstanceFromInstantiationParams(
     originalContractClassId: contractClass.id,
     initializationHash,
     publicKeys,
-    salt,
+    salt: opts.salt,
     deployer,
     version: 1,
   };

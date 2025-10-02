@@ -14,17 +14,7 @@ node ../../bbjs-test prove \
   -w target/witness.gz \
   -o output-$$
 
-proof_bytes=$(cat output-$$/proof | xxd -p)
-public_inputs=$(cat output-$$/public_inputs_fields.json | jq -r '.[]')
-
-public_inputs_bytes=""
-for input in $public_inputs; do
-  public_inputs_bytes+=$input
-done
-
-# Combine proof header and the proof to a single file
-echo -n $proof_bytes | xxd -r -p > output-$$/proof
-echo -n $public_inputs_bytes | xxd -r -p > output-$$/public_inputs
+# The proof and public_inputs are already in binary format from bbjs-test
 
 bb=$(../../../cpp/scripts/find-bb)
 # Verify the proof with bb cli

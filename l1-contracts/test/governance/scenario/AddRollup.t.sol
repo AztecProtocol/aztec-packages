@@ -29,6 +29,7 @@ import {RegisterNewRollupVersionPayload} from "./RegisterNewRollupVersionPayload
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {UncompressedProposalWrapper} from "@test/governance/helpers/UncompressedProposalTestLib.sol";
 
 contract BadRollup {
   IGSE public immutable gse;
@@ -47,7 +48,7 @@ contract BadRollup {
 }
 
 contract AddRollupTest is TestBase {
-  using ProposalLib for Proposal;
+  UncompressedProposalWrapper internal upw = new UncompressedProposalWrapper();
 
   TestERC20 internal token;
   Registry internal registry;
@@ -136,16 +137,16 @@ contract AddRollupTest is TestBase {
     governance.deposit(EMPEROR, 10_000 ether);
     vm.stopPrank();
 
-    vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.pendingThrough(proposal)) + 1);
     assertTrue(governance.getProposalState(0) == ProposalState.Active);
 
     vm.prank(EMPEROR);
     governance.vote(0, 10_000 ether, true);
 
-    vm.warp(Timestamp.unwrap(proposal.activeThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.activeThrough(proposal)) + 1);
     assertTrue(governance.getProposalState(0) == ProposalState.Queued);
 
-    vm.warp(Timestamp.unwrap(proposal.queuedThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.queuedThrough(proposal)) + 1);
     assertTrue(governance.getProposalState(0) == ProposalState.Executable);
     assertEq(governance.governanceProposer(), address(governanceProposer));
 

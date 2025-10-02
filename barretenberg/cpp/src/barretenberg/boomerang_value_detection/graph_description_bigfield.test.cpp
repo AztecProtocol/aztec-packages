@@ -70,7 +70,7 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_constructors)
     auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 1);
 }
 
@@ -101,7 +101,7 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_addition)
     auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
@@ -133,7 +133,7 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_substraction)
     auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
     for (const auto& elem : variables_in_one_gate) {
         info("elem == ", elem);
@@ -164,7 +164,7 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_multiplication)
     auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
@@ -198,7 +198,7 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_division)
     auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
@@ -251,7 +251,7 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_mix_operations)
     auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
@@ -279,7 +279,7 @@ TEST(boomerang_bigfield, test_graph_description_constructor_high_low_bits_and_op
     auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
@@ -303,7 +303,7 @@ TEST(boomerang_bigfield, test_graph_description_mul_function)
     auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
@@ -325,7 +325,7 @@ TEST(boomerang_bigfield, test_graph_description_sqr_function)
     auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
@@ -351,7 +351,7 @@ TEST(boomerang_bigfield, test_graph_description_madd_function)
     auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
@@ -389,7 +389,7 @@ TEST(boomerang_bigfield, test_graph_description_mult_madd_function)
     fix_bigfield_element(f);
     builder.finalize_circuit(false);
     auto graph = StaticAnalyzer(builder);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
@@ -415,6 +415,6 @@ TEST(boomerang_bigfield, test_graph_description_constructor_high_low_bits)
     builder.finalize_circuit(false);
     auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }

@@ -28,7 +28,7 @@ const config = {
   trailingSlash: false,
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: process.env.ENV === "dev" ? "warn" : "throw",
-  favicon: "img/Aztec_icon_minified.svg",
+  favicon: "img/Aztec_Symbol_Dark.png",
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -52,7 +52,7 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       {
         docs: {
-          path: "processed-docs",
+          path: process.env.ENV === "dev" ? "docs" : "processed-docs",
           sidebarPath: "./sidebars.js",
           editUrl: (params) => {
             return (
@@ -63,7 +63,22 @@ const config = {
           routeBasePath: "/",
           include: ["**/*.{md,mdx}"],
           exclude: ["protocol-specs/**"],
-
+          // Don't show latest since nightlies are published
+          includeCurrentVersion: process.env.ENV === "dev",
+          // There should be 2 versions, nightly and stable
+          // The stable version is second in the list
+          lastVersion: versions[1],
+          versions: {
+            [versions[0]]: {
+              ...(versions[0].includes("nightly") && { path: "nightly" }),
+            },
+            ...(process.env.ENV === "dev" && {
+              current: {
+                label: "dev",
+                path: "dev",
+              },
+            }),
+          },
           remarkPlugins: [math],
           rehypePlugins: [
             [
@@ -75,12 +90,6 @@ const config = {
               },
             ],
           ],
-          versions: {
-            current: {
-              label: "dev",
-              path: "dev",
-            },
-          },
         },
         blog: false,
         theme: {
@@ -127,7 +136,7 @@ const config = {
     // ["./src/plugins/plugin-embed-code", {}],
   ],
   customFields: {
-    MATOMO_ENV: process.env.ENV,
+    ENV: process.env.ENV,
   },
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
@@ -160,9 +169,9 @@ const config = {
       navbar: {
         logo: {
           alt: "Aztec Logo",
-          srcDark: "img/new_logo-01.svg",
+          srcDark: "img/Aztec Wordmark_Light.svg",
           href: "/",
-          src: "img/Aztec_logo_dark-01.svg",
+          src: "img/Aztec Wordmark_Dark.svg",
         },
         items: [
           {
@@ -171,15 +180,8 @@ const config = {
             dropdownActiveClassDisabled: true,
           },
           {
-            type: "doc",
-            docId: "aztec/index",
-            position: "left",
-            label: "Learn",
-          },
-
-          {
             type: "docSidebar",
-            sidebarId: "buildSidebar",
+            sidebarId: "sidebar",
             position: "left",
             label: "Build",
           },
@@ -190,7 +192,7 @@ const config = {
             label: "Run a node",
           },
           {
-            to: "/developers/getting_started",
+            to: "/developers/getting_started_on_sandbox",
             label: "Install Sandbox",
             position: "right",
           },
@@ -243,19 +245,18 @@ const config = {
                 className: "dropdown-subtitle",
               },
               {
-                to: "/migration_notes",
+                to: "/developers/docs/reference/glossary",
+                label: "Glossary",
+                className: "no-external-icon",
+              },
+              {
+                to: "/developers/migration_notes",
                 label: "Migration Notes",
                 className: "no-external-icon",
               },
               {
                 to: "/aztec_connect_sunset",
                 label: "Aztec Connect Sunset",
-                className: "no-external-icon",
-              },
-              {
-                type: "docSidebar",
-                sidebarId: "roadmapSidebar",
-                label: "Roadmap",
                 className: "no-external-icon",
               },
               {
@@ -297,7 +298,7 @@ const config = {
                 to: "/",
               },
               {
-                label: "Developer Getting Started Guide",
+                label: "Developer Getting Started",
                 to: "/developers/getting_started",
               },
               {

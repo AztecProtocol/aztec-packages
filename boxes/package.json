@@ -52,7 +52,8 @@
     "@aztec/testing-utils": "link:../yarn-project/testing-utils",
     "@aztec/archiver": "link:../yarn-project/archiver",
     "@aztec/sequencer-client": "link:../yarn-project/sequencer-client",
-    "@aztec/p2p": "link:../yarn-project/p2p"
+    "@aztec/p2p": "link:../yarn-project/p2p",
+    "@aztec/test-wallet": "link:../yarn-project/test-wallet"
   },
   "dependencies": {
     "@inquirer/confirm": "^3.0.0",

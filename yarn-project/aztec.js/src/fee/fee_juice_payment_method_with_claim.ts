@@ -2,21 +2,28 @@ import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { getFeeJuice } from '../contract/protocol_contracts.js';
 import type { L2AmountClaim } from '../ethereum/portal_manager.js';
-import type { Wallet } from '../wallet/index.js';
 import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
+
+/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
+
+/** AppConfigurableFeePaymentMethod branding */
+export interface FeeJuicePaymentMethodWithClaim {
+  /** Brand. */
+  _branding: 'AppConfigurableFeePaymentMethod';
+}
 
 /**
  * Pay fee directly with Fee Juice claimed on the same tx.
  */
 export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
   constructor(
-    private senderWallet: Wallet,
+    sender: AztecAddress,
     private claim: Pick<L2AmountClaim, 'claimAmount' | 'claimSecret' | 'messageLeafIndex'>,
   ) {
-    super(senderWallet.getAddress());
+    super(sender);
   }
 
   /**
@@ -24,20 +31,17 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
    * @returns An execution payload that just contains the claim function call.
    */
   override async getExecutionPayload(): Promise<ExecutionPayload> {
-    const canonicalFeeJuice = await getFeeJuice(this.senderWallet);
-    const selector = await FunctionSelector.fromNameAndParameters(
-      canonicalFeeJuice.artifact.functions.find(f => f.name === 'claim')!,
-    );
+    const selector = await FunctionSelector.fromSignature('claim_and_end_setup((Field),u128,Field,Field)');
 
     return new ExecutionPayload(
       [
         {
           to: ProtocolContractAddress.FeeJuice,
-          name: 'claim',
+          name: 'claim_and_end_setup',
           selector,
           isStatic: false,
           args: [
-            this.senderWallet.getAddress().toField(),
+            this.sender.toField(),
             new Fr(this.claim.claimAmount),
             this.claim.claimSecret,
             new Fr(this.claim.messageLeafIndex),

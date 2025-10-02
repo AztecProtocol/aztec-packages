@@ -38,6 +38,7 @@ import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {AttestationLib, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
+import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -241,7 +242,13 @@ contract RollupTest is RollupBase {
     });
     bytes32 realBlobHash = this.getBlobHashes(data.blobCommitments)[0];
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0], realBlobHash));
-    rollup.propose(args, AttestationLib.packAttestations(attestations), signers, data.blobCommitments);
+    rollup.propose(
+      args,
+      AttestationLibHelper.packAttestations(attestations),
+      signers,
+      attestationsAndSignersSignature,
+      data.blobCommitments
+    );
   }
 
   function testExtraBlobs() public setUpFor("mixed_block_1") {
@@ -323,7 +330,13 @@ contract RollupTest is RollupBase {
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0)
     });
-    rollup.propose(args, AttestationLib.packAttestations(attestations), signers, data.blobCommitments);
+    rollup.propose(
+      args,
+      AttestationLibHelper.packAttestations(attestations),
+      signers,
+      attestationsAndSignersSignature,
+      data.blobCommitments
+    );
   }
 
   function testInvalidL2Fee() public setUpFor("mixed_block_1") {
@@ -349,7 +362,13 @@ contract RollupTest is RollupBase {
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0)
     });
-    rollup.propose(args, AttestationLib.packAttestations(attestations), signers, data.blobCommitments);
+    rollup.propose(
+      args,
+      AttestationLibHelper.packAttestations(attestations),
+      signers,
+      attestationsAndSignersSignature,
+      data.blobCommitments
+    );
   }
 
   function testProvingFeeUpdates() public setUpFor("mixed_block_1") {
@@ -455,7 +474,13 @@ contract RollupTest is RollupBase {
         stateReference: EMPTY_STATE_REFERENCE,
         oracleInput: OracleInput(0)
       });
-      rollup.propose(args, AttestationLib.packAttestations(attestations), signers, data.blobCommitments);
+      rollup.propose(
+        args,
+        AttestationLibHelper.packAttestations(attestations),
+        signers,
+        attestationsAndSignersSignature,
+        data.blobCommitments
+      );
       assertEq(testERC20.balanceOf(header.coinbase), 0, "invalid coinbase balance");
     }
 
@@ -656,6 +681,7 @@ contract RollupTest is RollupBase {
   function testRevertInvalidTimestamp() public setUpFor("empty_block_1") {
     DecoderBase.Data memory data = load("empty_block_1").block;
     ProposedHeader memory header = data.header;
+    vm.blobhashes(this.getBlobHashes(data.blobCommitments));
     bytes32 archive = data.archive;
 
     Timestamp realTs = header.timestamp;
@@ -674,7 +700,13 @@ contract RollupTest is RollupBase {
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0)
     });
-    rollup.propose(args, AttestationLib.packAttestations(attestations), signers, new bytes(144));
+    rollup.propose(
+      args,
+      AttestationLibHelper.packAttestations(attestations),
+      signers,
+      attestationsAndSignersSignature,
+      data.blobCommitments
+    );
   }
 
   function testRevertInvalidCoinbase() public setUpFor("empty_block_1") {
@@ -689,6 +721,8 @@ contract RollupTest is RollupBase {
     // Tweak the coinbase.
     header.coinbase = address(0);
 
+    bytes32[] memory blobHashes = this.getBlobHashes(data.blobCommitments);
+    vm.blobhashes(blobHashes);
     skipBlobCheck(address(rollup));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidCoinbase.selector));
     ProposeArgs memory args = ProposeArgs({
@@ -697,7 +731,13 @@ contract RollupTest is RollupBase {
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0)
     });
-    rollup.propose(args, AttestationLib.packAttestations(attestations), signers, new bytes(144));
+    rollup.propose(
+      args,
+      AttestationLibHelper.packAttestations(attestations),
+      signers,
+      attestationsAndSignersSignature,
+      data.blobCommitments
+    );
   }
 
   function testSubmitProofNonExistentBlock() public setUpFor("empty_block_1") {
@@ -738,6 +778,33 @@ contract RollupTest is RollupBase {
     BlockLog memory blockLog = rollup.getBlock(0);
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobProof.selector, blobHash));
     _submitEpochProof(1, 1, blockLog.archive, data.archive, blobProofInputs, address(0));
+  }
+
+  function testNoBlob() public setUpFor("empty_block_1") {
+    DecoderBase.Data memory data = load("empty_block_1").block;
+    ProposedHeader memory header = data.header;
+    bytes32 archive = data.archive;
+
+    Timestamp realTs = header.timestamp;
+
+    vm.warp(max(block.timestamp, Timestamp.unwrap(realTs)));
+
+    header.gasFees.feePerL2Gas = uint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NoBlobsInBlock.selector));
+    ProposeArgs memory args = ProposeArgs({
+      header: header,
+      archive: archive,
+      stateReference: EMPTY_STATE_REFERENCE,
+      oracleInput: OracleInput(0)
+    });
+    rollup.propose(
+      args,
+      AttestationLibHelper.packAttestations(attestations),
+      signers,
+      attestationsAndSignersSignature,
+      new bytes(144)
+    );
   }
 
   function testTooManyBlocks() public setUpFor("mixed_block_1") {

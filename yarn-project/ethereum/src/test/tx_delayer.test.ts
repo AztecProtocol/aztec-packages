@@ -2,7 +2,7 @@ import { Blob } from '@aztec/blob-lib';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { TestDateProvider } from '@aztec/foundation/timer';
+import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
 import type { Anvil } from '@viem/anvil';
@@ -29,7 +29,7 @@ describe('tx_delayer', () => {
 
   beforeAll(async () => {
     ({ anvil, rpcUrl } = await startAnvil({ l1BlockTime: ETHEREUM_SLOT_DURATION }));
-    cheatCodes = new EthCheatCodes([rpcUrl]);
+    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
     logger = createLogger('ethereum:test:tx_delayer');
   });
 

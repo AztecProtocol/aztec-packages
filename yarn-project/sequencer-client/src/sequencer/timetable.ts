@@ -141,8 +141,8 @@ export class SequencerTimetable {
       case SequencerState.STOPPED:
       case SequencerState.IDLE:
       case SequencerState.SYNCHRONIZING:
-      case SequencerState.PROPOSER_CHECK:
         return; // We don't really care about times for this states
+      case SequencerState.PROPOSER_CHECK:
       case SequencerState.INITIALIZING_PROPOSAL:
         return this.initializeDeadline;
       case SequencerState.CREATING_BLOCK:

@@ -18,7 +18,7 @@ struct lookup_gt_gt_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "gt";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::gt_sel;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_gt;
     static constexpr Column COUNTS = Column::lookup_gt_gt_range_counts;
     static constexpr Column INVERSES = Column::lookup_gt_gt_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::gt_abs_diff,

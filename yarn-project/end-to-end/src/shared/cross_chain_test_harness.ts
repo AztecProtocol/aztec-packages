@@ -1,6 +1,4 @@
-// docs:start:cross_chain_test_harness
 import {
-  type AccountWallet,
   AuthWitness,
   type AztecAddress,
   type AztecNode,
@@ -12,7 +10,6 @@ import {
   type L2AmountClaim,
   type L2AmountClaimWithRecipient,
   type Logger,
-  type PXE,
   type SiblingPath,
   type TxReceipt,
   type Wallet,
@@ -27,7 +24,6 @@ import { type Hex, getContract } from 'viem';
 
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 
-// docs:start:deployAndInitializeTokenAndBridgeContracts
 /**
  * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract, its L2 bridge contract and attach is to the portal.
  * @param wallet - the wallet instance
@@ -112,7 +108,6 @@ export async function deployAndInitializeTokenAndBridgeContracts(
 
   return { token, bridge, tokenPortalAddress, tokenPortal, underlyingERC20 };
 }
-// docs:end:deployAndInitializeTokenAndBridgeContracts
 
 export type CrossChainContext = {
   l2Token: AztecAddress;
@@ -132,15 +127,14 @@ export type CrossChainContext = {
 export class CrossChainTestHarness {
   static async new(
     aztecNode: AztecNode,
-    pxeService: PXE,
     l1Client: ExtendedViemWalletClient,
-    wallet: AccountWallet,
+    wallet: Wallet,
     ownerAddress: AztecAddress,
     logger: Logger,
     underlyingERC20Address: EthAddress,
   ): Promise<CrossChainTestHarness> {
     const ethAccount = EthAddress.fromString((await l1Client.getAddresses())[0]);
-    const l1ContractAddresses = (await pxeService.getNodeInfo()).l1ContractAddresses;
+    const l1ContractAddresses = (await aztecNode.getNodeInfo()).l1ContractAddresses;
 
     // Deploy and initialize all required contracts
     logger.info('Deploying and initializing token, portal and its bridge...');
@@ -148,14 +142,13 @@ export class CrossChainTestHarness {
       wallet,
       l1Client,
       l1ContractAddresses.registryAddress,
-      wallet.getAddress(),
+      ownerAddress,
       underlyingERC20Address,
     );
     logger.info('Deployed and initialized token, portal and its bridge.');
 
     return new CrossChainTestHarness(
       aztecNode,
-      pxeService,
       logger,
       token,
       bridge,
@@ -175,8 +168,6 @@ export class CrossChainTestHarness {
   constructor(
     /** Aztec node instance. */
     public aztecNode: AztecNode,
-    /** Private eXecution Environment (PXE). */
-    public pxeService: PXE,
     /** Logger. */
     public logger: Logger,
 
@@ -198,8 +189,8 @@ export class CrossChainTestHarness {
     /** Deployment addresses for all L1 contracts */
     public readonly l1ContractAddresses: L1ContractAddresses,
 
-    /** Wallet of the owner. */
-    public readonly ownerWallet: AccountWallet,
+    /** Wallet to simulate and send txs from. */
+    public readonly wallet: Wallet,
 
     /** Owner of the l2 token and bridge */
     public readonly ownerAddress: AztecAddress,
@@ -213,7 +204,6 @@ export class CrossChainTestHarness {
       this.logger,
     );
     this.l1TokenManager = this.l1TokenPortalManager.getTokenManager();
-    this.ownerAddress = this.ownerWallet.getAddress();
   }
 
   async mintTokensOnL1(amount: bigint) {
@@ -246,7 +236,7 @@ export class CrossChainTestHarness {
   }
 
   async mintTokensPrivateOnL2(amount: bigint) {
-    await mintTokensToPrivate(this.l2Token, this.ownerAddress, this.ownerWallet, this.ownerAddress, amount);
+    await mintTokensToPrivate(this.l2Token, this.ownerAddress, this.ownerAddress, amount);
   }
 
   async sendL2PublicTransfer(transferAmount: bigint, receiverAddress: AztecAddress) {
@@ -389,4 +379,3 @@ export class CrossChainTestHarness {
     };
   }
 }
-// docs:end:cross_chain_test_harness

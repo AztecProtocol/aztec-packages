@@ -60,26 +60,28 @@ impl PrivateKernelInnerCircuitPrivateInputs {
             start_private_call_stack_length
                 - 1];
 
-    private_call_data_validator.verify_proof(false /* is_first_app */);
-    private_call_data_validator.validate_common(
-        self.previous_kernel.public_inputs.constants.protocol_contract_tree_root,
-    );
-    private_call_data_validator.validate_against_call_request(call_request);
-    private_call_data_validator.validate_against_previous_kernel(self.previous_kernel.public_inputs);
-
-    // Generate output.
-    // Safety: The output is validated below by PrivateKernelCircuitOutputValidator.
-    let output = unsafe { self.generate_output() };
-
-    // Validate output.
-    if dep::types::validate::should_validate_output() {
-        PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
-            self.previous_kernel.public_inputs,
-            self.private_call,
+        private_call_data_validator.verify_proof(false /* is_first_app */);
+        private_call_data_validator.validate_common(
+            self.previous_kernel.public_inputs.constants.protocol_contract_tree_root,
         );
+        private_call_data_validator.validate_against_call_request(call_request);
+        private_call_data_validator.validate_against_previous_kernel(
+            self.previous_kernel.public_inputs,
+        );
+
+        // Generate output.
+        // Safety: The output is validated below by PrivateKernelCircuitOutputValidator.
+        let output = unsafe { self.generate_output() };
+
+        // Validate output.
+        if dep::types::validate::should_validate_output() {
+            PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
+                self.previous_kernel.public_inputs,
+                self.private_call,
+            );
+        }
+        output
     }
-    output
-}
 }
 
 mod tests {
@@ -114,7 +116,7 @@ mod tests {
             self.private_call.compute_update_tree_and_hints();
             let private_call = self.private_call.to_private_call_data();
             self.previous_kernel.add_private_call_request_for_private_call(private_call);
-            self.previous_kernel.set_historical_header_from_call_data(private_call);
+            self.previous_kernel.set_anchor_block_header_from_call_data(private_call);
             let previous_kernel = self.previous_kernel.to_private_kernel_data();
 
             let kernel = PrivateKernelInnerCircuitPrivateInputs { previous_kernel, private_call };

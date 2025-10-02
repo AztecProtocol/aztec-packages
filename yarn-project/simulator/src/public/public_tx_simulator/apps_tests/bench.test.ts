@@ -1,6 +1,8 @@
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { AMMContractArtifact } from '@aztec/noir-contracts.js/AMM';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { AvmGadgetsTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -39,22 +41,24 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
   it('Token Contract test', async () => {
     tester.setMetricsPrefix('Token contract tests');
-    await tokenTest(tester, logger, (b: boolean) => expect(b).toBe(true));
+    await tokenTest(tester, logger, TokenContractArtifact, (b: boolean) => expect(b).toBe(true));
   });
 
   it('AMM Contract test', async () => {
     tester.setMetricsPrefix('AMM contract tests');
-    await ammTest(tester, logger, (b: boolean) => expect(b).toBe(true));
+    await ammTest(tester, logger, TokenContractArtifact, AMMContractArtifact, (b: boolean) => expect(b).toBe(true));
   });
 
   it('AVM simulator bulk test', async () => {
     tester.setMetricsPrefix('AvmTest contract tests');
-    await bulkTest(tester, logger, (b: boolean) => expect(b).toBe(true));
+    const result = await bulkTest(tester, logger, AvmTestContractArtifact);
+    expect(result.revertCode.isOK()).toBe(true);
   });
 
   it('AVM simulator MEGA bulk test', async () => {
     tester.setMetricsPrefix('AvmTest contract tests');
-    await megaBulkTest(tester, logger, (b: boolean) => expect(b).toBe(true));
+    const result = await megaBulkTest(tester, logger, AvmTestContractArtifact);
+    expect(result.revertCode.isOK()).toBe(true);
   });
 
   it('AVM large calldata test', async () => {
@@ -100,7 +104,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
     describe.each(
       // sha sizes
-      [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 255, 256, 511, 512, 2048, 2500],
+      [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 255, 256, 511, 512, 1024, 1536],
     )('sha256_hash_%s', (length: number) => {
       it(`sha256_hash_${length}`, async () => {
         const result = await tester.executeTxWithLabel(
@@ -135,15 +139,15 @@ describe('Public TX simulator apps tests: benchmarks', () => {
       expect(result.revertCode.isOK()).toBe(true);
     });
 
-    it('keccak_hash_2400', async () => {
+    it('keccak_hash_1400', async () => {
       const result = await tester.executeTxWithLabel(
-        /*txLabel=*/ 'AvmGadgetsTest/keccak_hash_2400',
+        /*txLabel=*/ 'AvmGadgetsTest/keccak_hash_1400',
         /*sender=*/ deployer,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
           {
             address: avmGadgetsTestContract.address,
-            fnName: 'keccak_hash_2400',
+            fnName: 'keccak_hash_1400',
             args: [/*input=*/ Array.from({ length: 2400 }, () => randomInt(2 ** 8))],
           },
         ],
@@ -183,16 +187,16 @@ describe('Public TX simulator apps tests: benchmarks', () => {
       expect(result.revertCode.isOK()).toBe(true);
     });
 
-    it('poseidon2_hash_2000fields', async () => {
+    it('poseidon2_hash_1000fields', async () => {
       const result = await tester.executeTxWithLabel(
-        /*txLabel=*/ 'AvmGadgetsTest/poseidon2_hash_2000fields',
+        /*txLabel=*/ 'AvmGadgetsTest/poseidon2_hash_1000fields',
         /*sender=*/ deployer,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
           {
             address: avmGadgetsTestContract.address,
-            fnName: 'poseidon2_hash_2000fields',
-            args: [/*input=*/ Array.from({ length: 2000 }, () => Fr.random())],
+            fnName: 'poseidon2_hash_1000fields',
+            args: [/*input=*/ Array.from({ length: 1000 }, () => Fr.random())],
           },
         ],
       );

@@ -6,6 +6,7 @@
 
 #include "polynomial.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -33,22 +34,24 @@ SharedShiftedVirtualZeroesArray<Fr> _clone(const SharedShiftedVirtualZeroesArray
                                            size_t left_expansion = 0)
 {
     size_t expanded_size = array.size() + right_expansion + left_expansion;
-    std::shared_ptr<BackingMemory<Fr>> backing_clone = BackingMemory<Fr>::allocate(expanded_size);
+    BackingMemory<Fr> backing_clone = BackingMemory<Fr>::allocate(expanded_size);
     // zero any left extensions to the array
-    memset(static_cast<void*>(backing_clone->raw_data()), 0, sizeof(Fr) * left_expansion);
+    memset(static_cast<void*>(backing_clone.raw_data), 0, sizeof(Fr) * left_expansion);
     // copy our cloned array over
-    memcpy(static_cast<void*>(backing_clone->raw_data() + left_expansion),
+    memcpy(static_cast<void*>(backing_clone.raw_data + left_expansion),
            static_cast<const void*>(array.data()),
            sizeof(Fr) * array.size());
     // zero any right extensions to the array
-    memset(
-        static_cast<void*>(backing_clone->raw_data() + left_expansion + array.size()), 0, sizeof(Fr) * right_expansion);
-    return { array.start_ - left_expansion, array.end_ + right_expansion, array.virtual_size_, backing_clone };
+    memset(static_cast<void*>(backing_clone.raw_data + left_expansion + array.size()), 0, sizeof(Fr) * right_expansion);
+    return {
+        array.start_ - left_expansion, array.end_ + right_expansion, array.virtual_size_, std::move(backing_clone)
+    };
 }
 
 template <typename Fr>
 void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, size_t start_index)
 {
+    BB_BENCH_NAME("Polynomial::allocate_backing_memory");
     BB_ASSERT_LTE(start_index + size, virtual_size);
     coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{
         start_index,        /* start index, used for shifted polynomials and offset 'islands' of non-zeroes */
@@ -69,7 +72,7 @@ void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, s
  */
 template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size, size_t start_index)
 {
-
+    BB_BENCH_NAME("Polynomial::Polynomial(size_t, size_t, size_t)");
     allocate_backing_memory(size, virtual_size, start_index);
 
     size_t num_threads = calculate_num_threads(size);
@@ -280,18 +283,15 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr scaling_factor)
 {
-    const size_t num_threads = calculate_num_threads(size());
-    const size_t range_per_thread = size() / num_threads;
-    const size_t leftovers = size() - (range_per_thread * num_threads);
-    parallel_for(num_threads, [&](size_t j) {
-        const size_t offset = j * range_per_thread;
-        const size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
-        for (size_t i = offset; i < end; ++i) {
-            data()[i] *= scaling_factor;
-        }
-    });
-
+    parallel_for([scaling_factor, this](const ThreadChunk& chunk) { multiply_chunk(chunk, scaling_factor); });
     return *this;
+}
+
+template <typename Fr> void Polynomial<Fr>::multiply_chunk(const ThreadChunk& chunk, const Fr scaling_factor)
+{
+    for (size_t i : chunk.range(size())) {
+        data()[i] *= scaling_factor;
+    }
 }
 
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::create_non_parallel_zero_init(size_t size, size_t virtual_size)
@@ -336,16 +336,18 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> 
 {
     BB_ASSERT_LTE(start_index(), other.start_index);
     BB_ASSERT_GTE(end_index(), other.end_index());
-    const size_t num_threads = calculate_num_threads(other.size());
-    const size_t range_per_thread = other.size() / num_threads;
-    const size_t leftovers = other.size() - (range_per_thread * num_threads);
-    parallel_for(num_threads, [&](size_t j) {
-        const size_t offset = j * range_per_thread + other.start_index;
-        const size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
-        for (size_t i = offset; i < end; ++i) {
-            at(i) += scaling_factor * other[i];
-        }
-    });
+    parallel_for(
+        [&other, scaling_factor, this](const ThreadChunk& chunk) { add_scaled_chunk(chunk, other, scaling_factor); });
+}
+
+template <typename Fr>
+void Polynomial<Fr>::add_scaled_chunk(const ThreadChunk& chunk, PolynomialSpan<const Fr> other, Fr scaling_factor) &
+{
+    // Iterate over the chunk of the other polynomial's range
+    for (size_t offset : chunk.range(other.size())) {
+        size_t index = other.start_index + offset;
+        at(index) += scaling_factor * other[index];
+    }
 }
 
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const

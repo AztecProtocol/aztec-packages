@@ -63,7 +63,6 @@ where
 mod tests {
     use crate::{
         tests::{types::TestValue, utils::pad_end},
-        traits::Empty,
         utils::arrays::assert_exposed_sorted_transformed_value_array::get_order_hints::{
             get_order_hints_asc, get_order_hints_desc, OrderHint,
         },
@@ -86,14 +85,11 @@ mod tests {
 
     impl TestBuilder<5> {
         pub fn new_padded() -> Self {
-            let array = pad_end(
-                [
-                    TestValue { value: 100, counter: 9 },
-                    TestValue { value: 200, counter: 3 },
-                    TestValue { value: 300, counter: 6 },
-                ],
-                TestValue::empty(),
-            );
+            let array = pad_end([
+                TestValue { value: 100, counter: 9 },
+                TestValue { value: 200, counter: 3 },
+                TestValue { value: 300, counter: 6 },
+            ]);
             TestBuilder { array }
         }
     }

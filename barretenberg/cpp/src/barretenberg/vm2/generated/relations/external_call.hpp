@@ -3,7 +3,7 @@
 
 #include <string_view>
 
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,7 +14,7 @@ template <typename FF_> class external_callImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 7> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 3, 4, 4 };
+    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {

@@ -23,6 +23,9 @@ namespace tx;
     // L1 to L2 tree doesn't evolve during execution of the AVM
     pol commit l1_l2_tree_root;
 
+    pol commit prev_retrieved_bytecodes_tree_root;
+    pol commit prev_retrieved_bytecodes_tree_size;
+
     // TODO: Constrain first row read from PI
     pol commit prev_l2_gas_used;
     pol commit prev_da_gas_used;
@@ -32,7 +35,7 @@ namespace tx;
     pol commit da_gas_limit;
 
     // Prev side effect states
-    pol commit prev_num_unencrypted_logs;
+    pol commit prev_num_unencrypted_log_fields;
     pol commit prev_num_l2_to_l1_messages;
 
     // ==== READ START/END STATE FROM PI ====
@@ -120,6 +123,10 @@ namespace tx;
         public_inputs.cols[0]
     };
 
+    // Ensure the retrieved bytecodes tree starts with the expected state on every tx execution.
+    start_tx * (constants.AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT - prev_retrieved_bytecodes_tree_root) = 0;
+    start_tx * (constants.AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE - prev_retrieved_bytecodes_tree_size) = 0;
+
     // Read start/end state of gas used from PI
     pol commit gas_used_pi_offset;
     start_tx * (constants.AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX - gas_used_pi_offset) = 0;
@@ -162,7 +169,7 @@ namespace tx;
     };
 
     // Reset side effect states on start
-    start_tx * prev_num_unencrypted_logs = 0;
+    start_tx * prev_num_unencrypted_log_fields = 0;
     start_tx * prev_num_l2_to_l1_messages = 0;
 
     // Next Tree State
@@ -180,12 +187,15 @@ namespace tx;
     pol commit next_written_public_data_slots_tree_root;
     pol commit next_written_public_data_slots_tree_size;
 
+    pol commit next_retrieved_bytecodes_tree_root;
+    pol commit next_retrieved_bytecodes_tree_size;
+
     // Gas Info
     pol commit next_l2_gas_used;
     pol commit next_da_gas_used;
 
     // Next side effect states
-    pol commit next_num_unencrypted_logs;
+    pol commit next_num_unencrypted_log_fields;
     pol commit next_num_l2_to_l1_messages;
 
     pol NOT_LAST_ROW = sel * sel';
@@ -213,9 +223,13 @@ namespace tx;
     NOT_LAST_ROW * (1 - reverted) * (next_written_public_data_slots_tree_size - prev_written_public_data_slots_tree_size') = 0;
     #[L1_L2_TREE_ROOT_CONTINUITY]
     NOT_LAST_ROW * (l1_l2_tree_root - l1_l2_tree_root') = 0;
+    #[RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY]
+    NOT_LAST_ROW * (next_retrieved_bytecodes_tree_root - prev_retrieved_bytecodes_tree_root') = 0;
+    #[RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY]
+    NOT_LAST_ROW * (next_retrieved_bytecodes_tree_size - prev_retrieved_bytecodes_tree_size') = 0;
 
     #[NUM_UNENCRYPTED_LOGS_CONTINUITY]
-    NOT_LAST_ROW * (1 - reverted) * (next_num_unencrypted_logs - prev_num_unencrypted_logs') = 0;
+    NOT_LAST_ROW * (1 - reverted) * (next_num_unencrypted_log_fields - prev_num_unencrypted_log_fields') = 0;
     #[NUM_L2_TO_L1_MESSAGES_CONTINUITY]
     NOT_LAST_ROW * (1 - reverted) * (next_num_l2_to_l1_messages - prev_num_l2_to_l1_messages') = 0;
 
@@ -236,7 +250,7 @@ namespace tx;
         prev_public_data_tree_size',
         prev_written_public_data_slots_tree_root',
         prev_written_public_data_slots_tree_size',
-        prev_num_unencrypted_logs',
+        prev_num_unencrypted_log_fields',
         prev_num_l2_to_l1_messages'
     } in
     tx.sel {
@@ -252,7 +266,7 @@ namespace tx;
         next_public_data_tree_size,
         next_written_public_data_slots_tree_root,
         next_written_public_data_slots_tree_size,
-        next_num_unencrypted_logs,
+        next_num_unencrypted_log_fields,
         next_num_l2_to_l1_messages
     };
 
@@ -298,10 +312,15 @@ namespace tx;
     sel * (1 - sel_can_write_public_data) * (prev_written_public_data_slots_tree_size - next_written_public_data_slots_tree_size) = 0;
 
     #[UNENCRYPTED_LOG_COUNT_IMMUTABILITY]
-    sel * (1 - sel_can_emit_unencrypted_log) * (prev_num_unencrypted_logs - next_num_unencrypted_logs) = 0;
+    sel * (1 - sel_can_emit_unencrypted_log) * (prev_num_unencrypted_log_fields - next_num_unencrypted_log_fields) = 0;
 
     #[L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY]
     sel * (1 - sel_can_emit_l2_l1_msg) * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
+
+    #[RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY]
+    sel * (1 - should_process_call_request) * (prev_retrieved_bytecodes_tree_root - next_retrieved_bytecodes_tree_root) = 0;
+    #[RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY]
+    sel * (1 - should_process_call_request) * (prev_retrieved_bytecodes_tree_size - next_retrieved_bytecodes_tree_size) = 0;
 
     // Padded rows are not allowed to change the state
     #[NOTE_HASH_ROOT_PADDED_IMMUTABILITY]
@@ -327,8 +346,10 @@ namespace tx;
     #[WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY]
     sel * is_padded * (prev_written_public_data_slots_tree_size - next_written_public_data_slots_tree_size) = 0;
 
+    // The retrieved bytecodes tree is already immutable except for nonpadded call request rows
+
     #[UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY]
-    sel * is_padded * (prev_num_unencrypted_logs - next_num_unencrypted_logs) = 0;
+    sel * is_padded * (prev_num_unencrypted_log_fields - next_num_unencrypted_log_fields) = 0;
     #[L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY]
     sel * is_padded * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
 
@@ -383,15 +404,16 @@ namespace tx;
         public_inputs.cols[0]
     };
 
-    // Write unencrypted log count to PI
-    pol commit array_length_unencrypted_logs_pi_offset;
+    // Write unencrypted log fields count to PI
+    pol commit fields_length_unencrypted_logs_pi_offset;
 
-    is_cleanup * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX - array_length_unencrypted_logs_pi_offset) = 0;
+    // The structure of public logs is [fields_length, ...[log_0_size, log_0_addr, ...log_0_fields, ...]]
+    is_cleanup * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX - fields_length_unencrypted_logs_pi_offset) = 0;
 
     #[PUBLIC_INPUTS_WRITE_UNENCRYPTED_LOG_COUNT]
     is_cleanup {
-        array_length_unencrypted_logs_pi_offset,
-        prev_num_unencrypted_logs
+        fields_length_unencrypted_logs_pi_offset,
+        prev_num_unencrypted_log_fields
     } in public_inputs.sel {
         precomputed.clk,
         public_inputs.cols[0]

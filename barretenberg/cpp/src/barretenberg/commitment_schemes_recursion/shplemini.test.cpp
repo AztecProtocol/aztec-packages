@@ -81,7 +81,11 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
                            commitments.end(),
                            commitments_in_biggroup.begin(),
                            [&builder](const auto& native_commitment) {
-                               return Commitment::from_witness(&builder, native_commitment);
+                               auto comm = Commitment::from_witness(&builder, native_commitment);
+                               // Removing the free witness tag, since the commitment in the full scheme are supposed to
+                               // be fiat-shamirred earlier
+                               comm.unset_free_witness_tag();
+                               return comm;
                            });
             return commitments_in_biggroup;
         };
@@ -89,7 +93,11 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
             std::vector<Fr> elements_in_circuit(elements.size());
             std::transform(
                 elements.begin(), elements.end(), elements_in_circuit.begin(), [&builder](const auto& native_element) {
-                    return Fr::from_witness(&builder, native_element);
+                    auto element = Fr::from_witness(&builder, native_element);
+                    // Removing the free witness tag, since the element in the full scheme are supposed to
+                    // be fiat-shamirred earlier
+                    element.unset_free_witness_tag();
+                    return element;
                 });
             return elements_in_circuit;
         };
@@ -109,6 +117,9 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
 
         for (auto u : u_challenge) {
             u_challenge_in_circuit.emplace_back(Fr::from_witness(&builder, u));
+            // Removing the free witness tag, since the u_challenge in the full scheme are supposed to
+            // be derived from the transcript earlier
+            u_challenge_in_circuit.back().unset_free_witness_tag();
         }
 
         ClaimBatcher claim_batcher{

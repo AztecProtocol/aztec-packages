@@ -1,17 +1,17 @@
 use crate::{
-    blob::barycentric_evaluate_blob_at_z,
-    blob_batching_public_inputs::{
-        BatchingBlobCommitment, BlobAccumulationInputs, BlobAccumulatorPublicInputs, BLSPoint,
-        compress_to_blob_commitment, FinalBlobBatchingChallenges,
+    abis::{
+        BatchingBlobCommitment, BlobAccumulationInputs, BlobAccumulator, BLSPoint,
+        FinalBlobBatchingChallenges,
     },
+    blob::barycentric_evaluate_blob_at_z,
+    utils::compress_to_blob_commitment,
 };
-use bigint::{BigNum, BLS12_381_Fr as F};
+use bignum::BLS12_381_Fr;
 use types::{
-    abis::sponge_blob::SpongeBlob,
-    constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
-    hash::poseidon2_hash_subarray,
+    constants::FIELDS_PER_BLOB,
+    hash::{poseidon2_hash, poseidon2_hash_subarray},
     traits::Empty,
-    utils::arrays::array_splice,
+    utils::arrays::subarray,
 };
 
 // Evaluates a single blob:
@@ -22,46 +22,50 @@ fn evaluate_blob_for_batching(
     kzg_commitment: BatchingBlobCommitment,
     hashed_blobs_fields: Field,
     challenge_z: Field,
-) -> (Field, F) {
-    let challenge_z_as_bignum = F::from(challenge_z);
-    let blob = blob_as_fields.map(|b| F::from(b));
+) -> (Field, BLS12_381_Fr) {
+    let challenge_z_as_bignum = BLS12_381_Fr::from(challenge_z);
+    let blob = blob_as_fields.map(|b| BLS12_381_Fr::from(b));
 
-    let y_i: F = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
-    let z_i: Field =
-        compute_blob_challenge(hashed_blobs_fields, kzg_commitment.to_compressed_fields());
+    let y_i = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
+    let z_i = compute_blob_challenge(hashed_blobs_fields, kzg_commitment);
 
     (z_i, y_i)
 }
 
 // Computes challenge for a single blob:
 // - z_i (= H(H(blob_i), C_i)), where C_i = kzg_commitment, and blob_i = blob_as_fields[i].
-fn compute_blob_challenge(hashed_blobs_fields: Field, kzg_commitment: [Field; 2]) -> Field {
-    let preimage = [hashed_blobs_fields, kzg_commitment[0], kzg_commitment[1]];
-    let challenge = poseidon::poseidon2::Poseidon2::hash(preimage, 3);
+fn compute_blob_challenge(
+    hashed_blobs_fields: Field,
+    kzg_commitment: BatchingBlobCommitment,
+) -> Field {
+    let compressed_fields = kzg_commitment.to_compressed_fields();
+    let preimage = [hashed_blobs_fields, compressed_fields[0], compressed_fields[1]];
+    let challenge = poseidon2_hash(preimage);
     challenge
 }
 
-// Evaluates each blob required for a block:
+// Evaluates each blob required for an L1 block:
 // - Hashes all fields in the block's blobs (to use for the challenges z_i)
+// - Checks that any fields above num_fields are empty (inside poseidon2_hash_subarray()).
 // - Compresses each of the blob's injected commitments (")
 // - Evaluates each blob individually to find its challenge z_i & evaluation y_i
 // - Updates the batched blob accumulator
-pub fn evaluate_blobs_and_batch(
-    blobs_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
-    kzg_commitments_points: [BLSPoint; BLOBS_PER_BLOCK],
-    mut sponge_blob: SpongeBlob,
+pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
+    blobs_as_fields: [Field; FIELDS_PER_BLOB * NumBlobs],
+    num_fields: u32,
+    kzg_commitments_points: [BLSPoint; NumBlobs],
     final_blob_challenges: FinalBlobBatchingChallenges,
-    start_accumulator: BlobAccumulatorPublicInputs,
-) -> BlobAccumulatorPublicInputs {
-    // See components.nr out_sponge definition as to why we copy here:
-    let mut end_accumulator = start_accumulator;
+    start_accumulator: BlobAccumulator,
+) -> (BlobAccumulator, Field) {
     // Note that with multiple blobs per block, each blob uses the same hashed_blobs_fields in:
     // z_i = H(hashed_blobs_fields, kzg_commitment[0], kzg_commitment[1])
     // This is ok, because each commitment is unique to the blob, and we need hashed_blobs_fields to encompass
     // all fields in the blob, which it does.
-    let hashed_blobs_fields = check_block_blob_sponge(blobs_as_fields, sponge_blob);
-    for i in 0..BLOBS_PER_BLOCK {
-        let single_blob_fields = array_splice(blobs_as_fields, i * FIELDS_PER_BLOB);
+    let hashed_blobs_fields = poseidon2_hash_subarray(blobs_as_fields, num_fields);
+
+    let mut end_accumulator = start_accumulator;
+    for i in 0..NumBlobs {
+        let single_blob_fields = subarray(blobs_as_fields, i * FIELDS_PER_BLOB);
         let c_i = compress_to_blob_commitment(kzg_commitments_points[i]);
         let (z_i, y_i) = evaluate_blob_for_batching(
             single_blob_fields,
@@ -69,19 +73,29 @@ pub fn evaluate_blobs_and_batch(
             hashed_blobs_fields,
             final_blob_challenges.z,
         );
-        // TODO(#14646): If the evaluation being zero is sufficient to say the blob i is empty, remove the range check.
-        // The range check exists because we cannot use c_i (it's injected and L1 relies on this circuit to check whether the blob is
-        // empty for c_i = O) or z_i (z_i relies on the hashed_blobs_fields, which is the hash of the items in ALL block blobs, not just i).
-        let is_empty_blob = sponge_blob.fields <= i * FIELDS_PER_BLOB;
-        if (!y_i.is_zero()) & (!is_empty_blob) {
-            // Only accumulate if the blob is non empty
-            if (end_accumulator.is_empty()) & (i == 0) {
-                // Init only if accumulator is empty:
-                //  - This will be checked in root, where the left input's start acc will be constrained to be zero
-                //  - No other accs can be zero since each block_merge checks left's end acc == right's start acc
-                // This can only happen at blob i = 0 for the first block of the epoch. Note: i == 0 was only added above in the hope
-                // that noir would be able to optimize out init gates for i > 0!
-                end_accumulator = BlobAccumulatorPublicInputs::init(
+
+        // Accumulate up to `num_fields`.
+        //
+        // Note:
+        // - We can't rely on `y_i.is_zero()` to decide whether to accumulate. A blob may legitimately contain only
+        //   zeros (e.g. from a contract class log or public log).
+        //   - If we skip such an "empty" blob, the hash check on L1 would fail.
+        //   - If we remove the zeros entirely, it will be difficult to reconstruct the tx effects correctly.
+        // - We can't use `c_i` because it's injected as a hint. Its value should match what's computed from the blobs
+        //   submitted to L1, so it cannot be used here to decide whether to accumulate/submit a blob or not.
+        // - We can't use `z_i` either, because `z_i` relies on the `hashed_blobs_fields`, which is the hash of the
+        //   items in ALL blobs, not just blob `i`.
+        let should_accumulate = i * FIELDS_PER_BLOB < num_fields;
+        if should_accumulate {
+            if (i == 0) & start_accumulator.is_empty() {
+                // Call `init` if it starts from an empty accumulator. This must always occur at blob i = 0 in the first
+                // checkpoint of an epoch (and nowhere else).
+                //  - The root rollup ensures the left input's start accumulator is empty.
+                //  - The end accumulator of the first checkpoint won't be empty, because each checkpoint has at least
+                //    one block, and every block (including empty block) adds a non-zero `block_end_marker` to the blob.
+                //  - No other accumulators can be empty since each checkpoint_merge rollup enforces that left end
+                //    accumulator equals right start accumulator.
+                end_accumulator = BlobAccumulator::init(
                     BlobAccumulationInputs { z_i, y_i, c_i },
                     final_blob_challenges.gamma,
                 );
@@ -93,43 +107,18 @@ pub fn evaluate_blobs_and_batch(
             }
         }
     }
-    end_accumulator
-}
 
-// Validates this block's injected blob fields against the validated sponge propagated from the previous circuits:
-// - Checks that we haven't accumulated too many fields over the rollup
-// - Checks that we have absorbed the exact number of fields we claim to have accumulated
-// - Checks that the injected fields match the tx effects absorbed over the rollup
-// - Checks that any fields above expected_fields are empty (inside poseidon2_hash_subarray())
-fn check_block_blob_sponge(
-    blobs_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
-    mut sponge_blob: SpongeBlob,
-) -> Field {
-    // Check that we haven't overfilled the blobs
-    assert(
-        sponge_blob.expected_fields <= FIELDS_PER_BLOB * BLOBS_PER_BLOCK,
-        "Attempted to overfill blobs",
-    );
-    // Check that the blob is full
-    assert(
-        sponge_blob.expected_fields == sponge_blob.fields,
-        "Incorrect number of tx effects added to blob",
-    );
-    let sponge_hash = sponge_blob.squeeze();
-    let hash = poseidon2_hash_subarray(blobs_as_fields, sponge_blob.fields);
-    assert(hash == sponge_hash, "Mismatched hashed tx effects");
-
-    sponge_hash
+    (end_accumulator, hashed_blobs_fields)
 }
 
 mod tests {
-    use crate::blob_batching_public_inputs::{
-        BatchingBlobCommitment, BlobAccumulatorPublicInputs, compress_to_blob_commitment,
-        FinalBlobBatchingChallenges,
+    use crate::{
+        abis::{BatchingBlobCommitment, BlobAccumulator, FinalBlobBatchingChallenges},
+        utils::{compress_to_blob_commitment, validate_final_blob_batching_challenges},
     };
-    use super::{check_block_blob_sponge, evaluate_blobs_and_batch};
+    use super::evaluate_blobs_and_batch;
     use bigcurve::{BigCurve, curves::bls12_381::BLS12_381 as BLSPoint};
-    use bigint::{BigNum, BLS12_381_Fr as F};
+    use bignum::{BigNum, BLS12_381_Fr};
     use types::{
         abis::sponge_blob::SpongeBlob,
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
@@ -140,7 +129,7 @@ mod tests {
 
     // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob_batching.test.ts -> 'should construct and verify a batched blob of 400 items'
     #[test]
-    unconstrained fn test_400_batched() {
+    unconstrained fn test_1_blob_batched() {
         // We evaluate 1 blob of 400 items using the batch methods.
         // This ensures a block with a single blob will work:
         let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
@@ -149,6 +138,7 @@ mod tests {
         }
         let mut sponge_blob = SpongeBlob::new(400);
         sponge_blob.absorb(blob, 400);
+
         let kzg_commitment_in = BatchingBlobCommitment::from_limbs(
             [
                 0xa971c7e8d8292be943d05bccebcfea,
@@ -171,28 +161,33 @@ mod tests {
             // = z_0
             z: 0x135d767e8b86b949d264be7a6b71d257c538893f3cef60c95d76ba420df18c3c,
             // = H(y_0, z_0)
-            gamma: F::from_limbs([
+            gamma: BLS12_381_Fr::from_limbs([
                 0xda0ebb0c577c62d5954852cf7a8863,
                 0xaac05db8dabf148f011d29f2d308e4,
                 0x0b28,
             ]),
         };
         // Evaluation
-        let res = evaluate_blobs_and_batch(
-            pad_end(blob, 0),
+        let (res, hashed_blobs_fields) = evaluate_blobs_and_batch(
+            pad_end(blob),
+            400,
             kzg_commitments_in,
-            sponge_blob,
             final_challenges,
-            BlobAccumulatorPublicInputs::empty(),
+            BlobAccumulator::empty(),
         );
-        let final_acc = res.finalize_and_validate(final_challenges);
+
+        assert_eq(hashed_blobs_fields, sponge_blob.squeeze());
+
+        validate_final_blob_batching_challenges(res, final_challenges);
+
+        let final_acc = res.finalize();
 
         assert_eq(final_acc.z, final_challenges.z);
         // Since i = 1, gamma_pow = gamma^1 = gamma:
         assert_eq(res.gamma_pow_acc, final_challenges.gamma);
 
         // y is a BLS field with value 0x212c4f0c0ee5e7dd037110686a4639d191dde7b57ab99b51e4b06e7d827b6c4c
-        let expected_y: F = F::from_limbs([
+        let expected_y = BLS12_381_Fr::from_limbs([
             0xdde7b57ab99b51e4b06e7d827b6c4c,
             0x4f0c0ee5e7dd037110686a4639d191,
             0x212c,
@@ -213,16 +208,17 @@ mod tests {
     #[test]
     unconstrained fn test_full_blobs_batched() {
         // Fill three blobs completely with different values (to avoid a constant polynomial)
-        let mut blob: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK] =
+        let mut blob_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK] =
             [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK];
         for j in 0..BLOBS_PER_BLOCK {
             for i in 0..FIELDS_PER_BLOB {
-                blob[j * FIELDS_PER_BLOB + i] = ((j + 3) * (i + 1)) as Field;
+                blob_fields[j * FIELDS_PER_BLOB + i] = ((j + 3) * (i + 1)) as Field;
             }
         }
         // Absorb the values into a sponge
         let mut sponge_blob = SpongeBlob::new(FIELDS_PER_BLOB * BLOBS_PER_BLOCK);
-        sponge_blob.absorb(blob, FIELDS_PER_BLOB * BLOBS_PER_BLOCK);
+        sponge_blob.absorb(blob_fields, FIELDS_PER_BLOB * BLOBS_PER_BLOCK);
+
         // Init. injected values:
         // - Commitments are injected and checked for correctness on L1 via acc.v
         let kzg_commitments_in = [
@@ -277,33 +273,38 @@ mod tests {
             // - The final z value is injected and checked for correctness in root (see below final_acc)
             z: 0x02d6a54e591ada73e5eea35188a02ac87779f4293ea3e7d675fa50ae7ff332ce,
             // - The final gamma value is injected and checked for correctness in root (see below final_acc)
-            gamma: F::from_limbs([
+            gamma: BLS12_381_Fr::from_limbs([
                 0x281287a8d44071d216177e06a02327,
                 0x16571aa3dcfef75c2447c705c6c68a,
                 0x16f2,
             ]),
         };
         // Init. the accumulator
-        let start_acc = BlobAccumulatorPublicInputs::empty();
+        let start_acc = BlobAccumulator::empty();
         // Evaluate all three blobs and iteratively accumulate the results
-        let output = evaluate_blobs_and_batch(
-            blob,
+        let (output, hashed_blobs_fields) = evaluate_blobs_and_batch(
+            blob_fields,
+            blob_fields.len(),
             kzg_commitments_in,
-            sponge_blob,
             final_challenges,
             start_acc,
         );
+
+        assert_eq(hashed_blobs_fields, sponge_blob.squeeze());
+
+        validate_final_blob_batching_challenges(output, final_challenges);
+
         // Finalize the output (actually done in the root circuit)
-        let final_acc = output.finalize_and_validate(final_challenges);
+        let final_acc = output.finalize();
 
         assert_eq(final_acc.z, final_challenges.z);
         assert_eq(
             output.gamma_pow_acc,
-            final_challenges.gamma.__pow(F::from(BLOBS_PER_BLOCK as Field)),
+            final_challenges.gamma.__pow(BLS12_381_Fr::from(BLOBS_PER_BLOCK as Field)),
         );
 
         // y is a BLS Fr field with value 0x0cd2fd9a46ba70fd7f212d08ec7283024b0b1ff9446b1f78a482fb7443e49b57
-        let expected_y = F::from_limbs([
+        let expected_y = BLS12_381_Fr::from_limbs([
             0x0b1ff9446b1f78a482fb7443e49b57,
             0xfd9a46ba70fd7f212d08ec7283024b,
             0x0cd2,
@@ -338,42 +339,34 @@ mod tests {
 
     #[test(should_fail_with = "Found non-zero field after breakpoint")]
     unconstrained fn test_no_extra_blob_fields() {
-        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+        let mut blob = [0; FIELDS_PER_BLOB];
         // Fill fields with 50 inputs...
         for i in 0..50 {
             blob[i] = 3;
         }
         // ...but the rollup's sponge is only expecting 45...
-        let mut sponge_blob = SpongeBlob::new(45);
-        sponge_blob.absorb(blob, 45);
+        let num_fields = 45;
 
         // ...so the below should fail as it detects we are adding effects which did not come from the rollup.
-        let padded_blob_fields = pad_end(blob, 0);
-        let _ = super::check_block_blob_sponge(padded_blob_fields, sponge_blob);
-    }
-
-    #[test(should_fail_with = "Incorrect number of tx effects added to blob")]
-    unconstrained fn test_absorbed_too_few_blob_fields() {
-        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
-        // Fill fields with 50 inputs...
-        for i in 0..50 {
-            blob[i] = 3;
-        }
-        // ...but the rollup's sponge is expecting 100...
-        let mut sponge_blob = SpongeBlob::new(100);
-        sponge_blob.absorb(blob, 50);
-
-        // ...so the below should fail as it detects we have not added all the tx effects.
-        let padded_blob_fields = pad_end(blob, 0);
-        let _ = check_block_blob_sponge(padded_blob_fields, sponge_blob);
+        let _ = evaluate_blobs_and_batch(
+            blob,
+            num_fields,
+            [BLSPoint::point_at_infinity()],
+            FinalBlobBatchingChallenges::empty(),
+            BlobAccumulator::empty(),
+        );
     }
 
     #[test]
     unconstrained fn test_empty_blob() {
-        let mut blob: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK] =
-            [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK];
-        let mut sponge_blob = SpongeBlob::new(0);
+        let blob = [0; FIELDS_PER_BLOB];
         // The below should not throw
-        let _ = check_block_blob_sponge(blob, sponge_blob);
+        let _ = evaluate_blobs_and_batch(
+            blob,
+            0,
+            [BLSPoint::point_at_infinity()],
+            FinalBlobBatchingChallenges::empty(),
+            BlobAccumulator::empty(),
+        );
     }
 }

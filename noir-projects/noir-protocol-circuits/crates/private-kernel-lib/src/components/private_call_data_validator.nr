@@ -12,10 +12,7 @@ use dep::types::{
         transaction::tx_request::TxRequest,
     },
     address::AztecAddress,
-    constants::{
-        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
-        MAX_FIELD_VALUE, PRIVATE_LOG_SIZE_IN_FIELDS,
-    },
+    constants::{CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_FIELD_VALUE, PRIVATE_LOG_SIZE_IN_FIELDS},
     traits::FromField,
     utils::arrays::ClaimedLengthArray,
 };
@@ -200,9 +197,9 @@ impl PrivateCallDataValidator {
         let constants = previous_kernel.constants;
         let public_inputs = self.data.public_inputs;
         assert_eq(
-            public_inputs.historical_header,
-            constants.historical_header,
-            "mismatch historical header",
+            public_inputs.anchor_block_header,
+            constants.anchor_block_header,
+            "anchor block header mismatch",
         );
         assert_eq(public_inputs.tx_context, constants.tx_context, "mismatch tx context");
         // constants.global_variables is not relevant to private functions and is ensured to be empty in PrivateKernelCircuitOutputValidator.
@@ -241,18 +238,6 @@ impl PrivateCallDataValidator {
                 self.data.public_inputs.contract_class_logs_hashes.length,
                 0,
                 "contract_class_logs_hashes must be empty for static calls",
-            );
-        }
-
-        // TODO(#15092): consider removing this assertion.
-        // Would it be bad if we enabled other functions to emit these logs?
-        // Oh, maybe the AVM does stuff with those logs, with the presumption that they
-        // contain avm bytecode that needs to be validated by the avm?
-        if (self.data.public_inputs.contract_class_logs_hashes.length != 0) {
-            assert_eq(
-                call_context.contract_address,
-                CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
-                "only the class registry may emit contract class logs",
             );
         }
     }

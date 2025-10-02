@@ -77,6 +77,7 @@ library RewardLib {
   address public constant BURN_ADDRESS = address(bytes20("CUAUHXICALLI"));
 
   function setConfig(RewardConfig memory _config) internal {
+    require(Bps.unwrap(_config.sequencerBps) <= 10_000, Errors.RewardLib__InvalidSequencerBps());
     RewardStorage storage rewardStorage = getStorage();
     rewardStorage.config = _config;
   }
@@ -86,8 +87,11 @@ library RewardLib {
 
     RollupStore storage rollupStore = STFLib.getStorage();
     uint256 amount = rewardStorage.sequencerRewards[_sequencer];
-    rewardStorage.sequencerRewards[_sequencer] = 0;
-    rollupStore.config.feeAsset.transfer(_sequencer, amount);
+
+    if (amount > 0) {
+      rewardStorage.sequencerRewards[_sequencer] = 0;
+      rollupStore.config.feeAsset.safeTransfer(_sequencer, amount);
+    }
 
     return amount;
   }
@@ -105,10 +109,9 @@ library RewardLib {
         Errors.Rollup__NotPastDeadline(_epochs[i].toDeadlineEpoch(), currentEpoch)
       );
 
-      require(
-        !rewardStorage.proverClaimed[_prover].get(Epoch.unwrap(_epochs[i])),
-        Errors.Rollup__AlreadyClaimed(_prover, _epochs[i])
-      );
+      if (rewardStorage.proverClaimed[_prover].get(Epoch.unwrap(_epochs[i]))) {
+        continue;
+      }
       rewardStorage.proverClaimed[_prover].set(Epoch.unwrap(_epochs[i]));
 
       EpochRewards storage e = rewardStorage.epochRewards[_epochs[i]];
@@ -119,7 +122,9 @@ library RewardLib {
       }
     }
 
-    rollupStore.config.feeAsset.transfer(_prover, accumulatedRewards);
+    if (accumulatedRewards > 0) {
+      rollupStore.config.feeAsset.safeTransfer(_prover, accumulatedRewards);
+    }
 
     return accumulatedRewards;
   }
@@ -172,10 +177,10 @@ library RewardLib {
           }
         }
 
-        uint256 sequencerShare = BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);
-        v.sequencerBlockReward = sequencerShare / added;
+        uint256 sequenceBlockRewards = BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);
+        v.sequencerBlockReward = sequenceBlockRewards / added;
 
-        $er.rewards += (blockRewardsAvailable - sequencerShare).toUint128();
+        $er.rewards += (blockRewardsAvailable - sequenceBlockRewards).toUint128();
       }
 
       bool isTxsEnabled = FeeLib.isTxsEnabled();
@@ -215,7 +220,7 @@ library RewardLib {
       }
 
       if (t.totalBurn > 0) {
-        rollupStore.config.feeAsset.transfer(BURN_ADDRESS, t.totalBurn);
+        rollupStore.config.feeAsset.safeTransfer(BURN_ADDRESS, t.totalBurn);
       }
     }
   }

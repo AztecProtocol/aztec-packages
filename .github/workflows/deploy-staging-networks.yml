@@ -1,0 +1,103 @@
+# Deploy staging networks when CI3 completes for a tagged release, or manually with a semver input.
+# Only runs on v2 releases.
+name: Deploy Staging Networks
+
+on:
+  workflow_run:
+    workflows: ["CI3"]
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      semver:
+        description: Semver version (e.g., 2.3.4)
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-staging-networks-${{ (github.event_name == 'workflow_run' && github.event.workflow_run.head_sha) || (github.event_name == 'workflow_dispatch' && inputs.semver) || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  determine-semver:
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    outputs:
+      semver: ${{ steps.semver.outputs.value }}
+      major_version: ${{ steps.semver.outputs.major_version }}
+      should_deploy: ${{ steps.semver.outputs.should_deploy }}
+      branch: ${{ steps.branch.outputs.value }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Determine branch
+        id: branch
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ github.ref }}" ]]; then
+            echo "value=${{ github.ref }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "value=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "value=${{ github.event.workflow_run.head_branch || github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Determine semver
+        id: semver
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            git fetch --tags --force
+            tag=$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | head -n1)
+            if ! echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+'; then
+              echo "No semver tag found for head_sha: ${{ github.event.workflow_run.head_sha }}. Skipping."
+              echo "should_deploy=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            semver="${tag#v}"
+          else
+            semver="${{ inputs.semver }}"
+          fi
+
+          major_version="${semver%%.*}"
+          echo "value=$semver" >> $GITHUB_OUTPUT
+          echo "major_version=$major_version" >> $GITHUB_OUTPUT
+          echo "should_deploy=true" >> $GITHUB_OUTPUT
+
+  deploy-staging-public:
+    needs: determine-semver
+    if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2'
+    uses: ./.github/workflows/deploy-staging-network.yml
+    with:
+      network: staging-public
+      semver: ${{ needs.determine-semver.outputs.semver }}
+      ref: ${{ needs.determine-semver.outputs.branch }}
+    secrets: inherit
+
+  deploy-staging-ignition:
+    # Depends on staging-public until we are confident in concurrent deployments
+    needs: [determine-semver, deploy-staging-public]
+    if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2'
+    uses: ./.github/workflows/deploy-staging-network.yml
+    with:
+      network: staging-ignition
+      semver: ${{ needs.determine-semver.outputs.semver }}
+      ref: ${{ needs.determine-semver.outputs.branch }}
+    secrets: inherit
+
+  deploy-testnet:
+    # Depends on staging-ignition until we are confident in concurrent deployments
+    needs: [determine-semver, deploy-staging-ignition]
+    # Only deploy testnet if we are not a pre-release (i.e. semver does not contain a hyphen)
+    if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2' && !contains(needs.determine-semver.outputs.semver, '-')
+    uses: ./.github/workflows/deploy-staging-network.yml
+    with:
+      network: testnet
+      semver: ${{ needs.determine-semver.outputs.semver }}
+      ref: ${{ needs.determine-semver.outputs.branch }}
+    secrets: inherit

@@ -2,7 +2,6 @@ import { MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS } from '@aztec/constants'
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
@@ -30,7 +29,8 @@ describe('AVM check-circuit - contract class limits', () => {
     }
     avmTestContractAddress = instances[0].address;
   });
-  it.skip(
+
+  it(
     'call the max number of unique contract classes',
     async () => {
       // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS contract addresses with unique class IDs
@@ -41,14 +41,17 @@ describe('AVM check-circuit - contract class limits', () => {
       // include the first contract again at the end to ensure that we can call it even after the limit is reached
       instanceAddresses.push(instanceAddresses[0]);
 
-      // include another contract address that reuses a class ID to ensure that we can call it even after the limit is reached
-      const instanceSameClassAsFirstContract = await makeContractInstanceFromClassId(
-        instances[0].currentContractClassId,
-        /*seed=*/ 1000,
+      //include another contract address that reuses a class ID to ensure that we can call it even after the limit is reached
+      const seed = 235622342;
+      const instanceSameClassAsFirstContract = await tester.registerAndDeployContract(
+        /*constructorArgs=*/ [],
+        deployer,
+        /*contractArtifact=*/ AvmTestContractArtifact,
+        /*skipNullifierInsertion=*/ false,
+        /*seed=*/ seed,
+        /*contractClassSeed=*/ 0, // to match the first contract seed
       );
       instanceAddresses.push(instanceSameClassAsFirstContract.address);
-      // add it to the contract data source so it is found
-      await tester.addContractInstance(instanceSameClassAsFirstContract);
 
       await tester.simProveVerifyAppLogic(
         {
@@ -61,7 +64,8 @@ describe('AVM check-circuit - contract class limits', () => {
     },
     TIMEOUT,
   );
-  it.skip(
+
+  it(
     'attempt too many calls to unique contract class ids',
     async () => {
       // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS+1 contract addresses with unique class IDs

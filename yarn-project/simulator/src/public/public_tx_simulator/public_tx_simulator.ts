@@ -1,17 +1,26 @@
-import type { Fr } from '@aztec/foundation/fields';
+import { AVM_MAX_PROCESSABLE_L2_GAS, DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import {
+  ProtocolContractAddress,
+  ProtocolContractLeaves,
+  protocolContractNames,
+  protocolContractTreeRoot,
+} from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import {
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
   AvmExecutionHints,
+  AvmProtocolContractAddressHint,
   type AvmProvingRequest,
   AvmTxHint,
   type RevertCode,
 } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { Gas, GasUsed } from '@aztec/stdlib/gas';
+import type { DebugLog } from '@aztec/stdlib/logs';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import {
@@ -46,19 +55,34 @@ export type PublicTxResult = {
   /** Revert reason, if any */
   revertReason?: SimulationError;
   processedPhases: ProcessedPhase[];
+  logs: DebugLog[];
+};
+
+export type PublicTxSimulatorConfig = {
+  proverId: Fr;
+  doMerkleOperations: boolean;
+  skipFeeEnforcement: boolean;
+  clientInitiatedSimulation: boolean;
+  maxDebugLogMemoryReads: number;
 };
 
 export class PublicTxSimulator {
   protected log: Logger;
+  private config: PublicTxSimulatorConfig;
 
   constructor(
     private merkleTree: MerkleTreeWriteOperations,
     private contractsDB: PublicContractsDB,
     private globalVariables: GlobalVariables,
-    private doMerkleOperations: boolean = false,
-    private skipFeeEnforcement: boolean = false,
-    private clientInitiatedSimulation: boolean = false,
+    config?: Partial<PublicTxSimulatorConfig>,
   ) {
+    this.config = {
+      proverId: config?.proverId ?? Fr.ZERO,
+      doMerkleOperations: config?.doMerkleOperations ?? false,
+      skipFeeEnforcement: config?.skipFeeEnforcement ?? false,
+      clientInitiatedSimulation: config?.clientInitiatedSimulation ?? false,
+      maxDebugLogMemoryReads: config?.maxDebugLogMemoryReads ?? DEFAULT_MAX_DEBUG_LOG_MEMORY_READS,
+    };
     this.log = createLogger(`simulator:public_tx_simulator`);
   }
 
@@ -72,8 +96,22 @@ export class PublicTxSimulator {
       const txHash = this.computeTxHash(tx);
       this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
 
+      // These values are technically derivable from the contractsDB. However, since the trees are not persisted
+      // computing them for every tx would be time consuming for this TS simulator. So instead we just import them
+      const protocolContractHints = protocolContractNames.map(
+        name =>
+          new AvmProtocolContractAddressHint(
+            /*Canonical Address=*/ ProtocolContractAddress[name],
+            /*Derived Address=*/ AztecAddress.fromField(ProtocolContractLeaves[name]),
+          ),
+      );
+
       // Create hinting DBs.
-      const hints = new AvmExecutionHints(this.globalVariables, AvmTxHint.fromTx(tx));
+      const hints = new AvmExecutionHints(
+        this.globalVariables,
+        AvmTxHint.fromTx(tx, this.globalVariables.gasFees),
+        protocolContractHints,
+      );
       const hintingMerkleTree = await HintingMerkleWriteOperations.create(this.merkleTree, hints);
       const hintingTreesDB = new PublicTreesDB(hintingMerkleTree);
       const hintingContractsDB = new HintingPublicContractsDB(this.contractsDB, hints);
@@ -83,7 +121,9 @@ export class PublicTxSimulator {
         hintingContractsDB,
         tx,
         this.globalVariables,
-        this.doMerkleOperations,
+        protocolContractTreeRoot, // imported from file
+        this.config.doMerkleOperations,
+        this.config.proverId,
       );
 
       // This will throw if there is a nullifier collision.
@@ -144,6 +184,12 @@ export class PublicTxSimulator {
       }
 
       context.halt();
+
+      if (context.getActualGasUsed().l2Gas > AVM_MAX_PROCESSABLE_L2_GAS) {
+        throw new Error(
+          `Transaction consumes ${context.getActualGasUsed().l2Gas} L2 gas, which exceeds the AVM maximum processable gas of ${AVM_MAX_PROCESSABLE_L2_GAS}`,
+        );
+      }
       await this.payFee(context);
 
       const publicInputs = await context.generateAvmCircuitPublicInputs();
@@ -169,6 +215,7 @@ export class PublicTxSimulator {
         revertCode,
         revertReason: context.revertReason,
         processedPhases: processedPhases,
+        logs: context.state.getActiveStateManager().getLogs(),
       };
     } finally {
       // Make sure there are no new contracts in the tx-level cache.
@@ -301,7 +348,8 @@ export class PublicTxSimulator {
       request.isStaticCall,
       calldata,
       allocatedGas,
-      this.clientInitiatedSimulation,
+      this.config.clientInitiatedSimulation,
+      this.config.maxDebugLogMemoryReads,
     );
     const avmCallResult = await simulator.execute();
     return avmCallResult.finalize();
@@ -395,7 +443,7 @@ export class PublicTxSimulator {
     // When mocking the balance of the fee payer, the circuit should not be able to prove the simulation
 
     if (currentBalance.lt(txFee)) {
-      if (!this.skipFeeEnforcement) {
+      if (!this.config.skipFeeEnforcement) {
         throw new Error(
           `Not enough balance for fee payer to pay for transaction (got ${currentBalance.toBigInt()} needs ${txFee.toBigInt()})`,
         );

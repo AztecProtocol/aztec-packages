@@ -38,7 +38,6 @@ export class Tx extends Gossipable {
     public readonly data: PrivateKernelTailCircuitPublicInputs,
     /**
      * Proof from the private kernel circuit.
-     * TODO(#7368): This client IVC object currently contains various VKs that will eventually be more like static data.
      */
     public readonly clientIvcProof: ClientIvcProof,
     /**
@@ -207,16 +206,6 @@ export class Tx extends Gossipable {
     return this.txHash;
   }
 
-  /**
-   * Allows setting the hash of the Tx.
-   * Use this when you want to skip computing it from the original data.
-   * Don't set a Tx hash received from an untrusted source.
-   * @param hash - The hash to set.
-   */
-  setTxHash(_hash: TxHash) {
-    return this;
-  }
-
   getCalldataMap(): Map<string, Fr[]> {
     if (!this.calldataMap) {
       const calldataMap = new Map();
@@ -238,7 +227,7 @@ export class Tx extends Gossipable {
       classPublishedCount: this.data.getNonEmptyContractClassLogsHashes().length,
       contractClassLogSize: this.data.getEmittedContractClassLogsLength(),
 
-      proofSize: this.clientIvcProof.clientIvcProofBuffer.length,
+      proofSize: this.clientIvcProof.proof.length,
       size: this.toBuffer().length,
 
       feePaymentMethod:
@@ -250,7 +239,7 @@ export class Tx extends Gossipable {
   getSize() {
     return (
       this.data.getSize() +
-      this.clientIvcProof.clientIvcProofBuffer.length +
+      this.clientIvcProof.proof.length * Fr.SIZE_IN_BYTES +
       arraySerializedSizeOfNonEmpty(this.contractClassLogFields) +
       this.publicFunctionCalldata.reduce((accum, cd) => accum + cd.getSize(), 0)
     );

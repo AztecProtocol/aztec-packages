@@ -6,7 +6,7 @@
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
-#include "barretenberg/vm2/simulation/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/gadgets/keccakf1600.hpp"
 #include "barretenberg/vm2/testing/keccakf1600_fixture.test.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/keccakf1600_trace.hpp"
@@ -148,7 +148,7 @@ TEST(KeccakF1600TraceGenTest, MainKeccakTraceWithSimulation)
 
     const MemoryAddress src_addr = 123;
     const MemoryAddress dst_addr = 456;
-    const uint32_t space_id = 23;
+    const uint16_t space_id = 23;
 
     testing::generate_keccak_trace(trace, { dst_addr }, { src_addr }, space_id);
 
@@ -159,12 +159,14 @@ TEST(KeccakF1600TraceGenTest, MainKeccakTraceWithSimulation)
 
     // Specific checks on the first row of the keccakf1600 permutation subtrace.
     // A memory slice read is active.
-    EXPECT_THAT(rows.at(1),
-                AllOf(ROW_FIELD_EQ(keccakf1600_start, 1),
-                      ROW_FIELD_EQ(keccakf1600_sel_slice_read, 1),
-                      ROW_FIELD_EQ(keccakf1600_sel_slice_write, 0),
-                      ROW_FIELD_EQ(keccakf1600_src_addr, src_addr),
-                      ROW_FIELD_EQ(keccakf1600_last, 0)));
+    EXPECT_THAT(
+        rows.at(1),
+        AllOf(ROW_FIELD_EQ(keccakf1600_start, 1),
+              ROW_FIELD_EQ(keccakf1600_highest_slice_address, AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 1),
+              ROW_FIELD_EQ(keccakf1600_sel_slice_read, 1),
+              ROW_FIELD_EQ(keccakf1600_sel_slice_write, 0),
+              ROW_FIELD_EQ(keccakf1600_src_addr, src_addr),
+              ROW_FIELD_EQ(keccakf1600_last, 0)));
 
     // Check values on all rows of the keccakf1600 permutation subtrace.
     for (size_t i = 1; i < AVM_KECCAKF1600_NUM_ROUNDS + 1; i++) {
@@ -177,7 +179,6 @@ TEST(KeccakF1600TraceGenTest, MainKeccakTraceWithSimulation)
                           ROW_FIELD_EQ(keccakf1600_bitwise_and_op_id, static_cast<uint8_t>(BitwiseOperation::AND)),
                           ROW_FIELD_EQ(keccakf1600_tag_u64, static_cast<uint8_t>(MemoryTag::U64)),
                           ROW_FIELD_EQ(keccakf1600_round_cst, simulation::keccak_round_constants[i - 1]),
-                          ROW_FIELD_EQ(keccakf1600_thirty_two, AVM_MEMORY_NUM_BITS),
                           ROW_FIELD_EQ(keccakf1600_src_out_of_range_error, 0),
                           ROW_FIELD_EQ(keccakf1600_dst_out_of_range_error, 0),
                           ROW_FIELD_EQ(keccakf1600_tag_error, 0),
@@ -204,7 +205,7 @@ TEST(KeccakF1600TraceGenTest, TagErrorHandling)
 
     const MemoryAddress src_addr = 0;
     const MemoryAddress dst_addr = 200;
-    const uint32_t space_id = 79;
+    const uint16_t space_id = 79;
 
     // Position (1,2) in the 5x5 matrix corresponds to index 7 in the flattened array
     const size_t error_offset = 7;              // (1 * 5) + 2 = 7
@@ -281,7 +282,7 @@ TEST(KeccakF1600TraceGenTest, SrcAddressOutOfBounds)
 
     const MemoryAddress src_addr = AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 2;
     const MemoryAddress dst_addr = 456;
-    const uint32_t space_id = 23;
+    const uint16_t space_id = 23;
 
     testing::generate_keccak_trace_with_slice_error(trace, dst_addr, src_addr, space_id);
 
@@ -324,7 +325,7 @@ TEST(KeccakF1600TraceGenTest, DstAddressOutOfBounds)
 
     const MemoryAddress src_addr = 123;
     const MemoryAddress dst_addr = AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 2;
-    const uint32_t space_id = 23;
+    const uint16_t space_id = 23;
 
     testing::generate_keccak_trace_with_slice_error(trace, dst_addr, src_addr, space_id);
 

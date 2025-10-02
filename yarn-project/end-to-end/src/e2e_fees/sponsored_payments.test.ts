@@ -1,4 +1,4 @@
-import type { AccountWallet, AztecAddress } from '@aztec/aztec.js';
+import type { AztecAddress, AztecNode } from '@aztec/aztec.js';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee/testing';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -8,7 +8,7 @@ import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees sponsored_public_payment', () => {
-  let aliceWallet: AccountWallet;
+  let aztecNode: AztecNode;
   let aliceAddress: AztecAddress;
   let bobAddress: AztecAddress;
   let sequencerAddress: AztecAddress;
@@ -22,7 +22,7 @@ describe('e2e_fees sponsored_public_payment', () => {
     await t.applyBaseSnapshots();
     await t.applySponsoredFPCSetupSnapshot();
     await t.applyFundAliceWithBananas();
-    ({ aliceWallet, aliceAddress, bobAddress, sequencerAddress, sponsoredFPC, bananaCoin, gasSettings } =
+    ({ aztecNode, aliceAddress, bobAddress, sequencerAddress, sponsoredFPC, bananaCoin, gasSettings } =
       await t.setup());
   });
 
@@ -43,7 +43,7 @@ describe('e2e_fees sponsored_public_payment', () => {
   beforeEach(async () => {
     gasSettings = GasSettings.from({
       ...gasSettings,
-      maxFeesPerGas: await aliceWallet.getCurrentBaseFees(),
+      maxFeesPerGas: await aztecNode.getCurrentBaseFees(),
     });
 
     [[initialAlicePublicBananas, initialBobPublicBananas], [initialAliceGas, initialFPCGas, initialSequencerGas]] =
@@ -55,7 +55,6 @@ describe('e2e_fees sponsored_public_payment', () => {
 
   it('pays fees for tx that makes a public transfer', async () => {
     const bananasToSendToBob = 10n;
-    // docs:start:sponsored_fpc
     const tx = await bananaCoin.methods
       .transfer_in_public(aliceAddress, bobAddress, bananasToSendToBob, 0)
       .send({
@@ -66,7 +65,6 @@ describe('e2e_fees sponsored_public_payment', () => {
         },
       })
       .wait();
-    // docs:end:sponsored_fpc
 
     const feeAmount = tx.transactionFee!;
 

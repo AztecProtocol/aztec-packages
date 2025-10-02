@@ -1,0 +1,170 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: eval-group-30s
+    folder: GrafanaCloud
+    interval: 30s
+    rules:
+      - uid: ceu2oeys0m1a8b
+        title: Pending block height reduced
+        condition: block_height_2m_diff_less_than_0
+        data:
+          - refId: block_height
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: grafanacloud-prom
+            model:
+              disableTextWrap: false
+              editorMode: code
+              exemplar: false
+              expr: rollup_pending_block_number{network=~"$network"}
+              fullMetaSearch: false
+              includeNullMetadata: true
+              instant: true
+              interval: ""
+              intervalMs: 1000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: block_height
+              useBackend: false
+          - refId: block_height_1m_ago
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: grafanacloud-prom
+            model:
+              datasource:
+                type: prometheus
+                uid: grafanacloud-prom
+              editorMode: code
+              expr: rollup_pending_block_number{network=~"$network"} offset 1m
+              instant: true
+              intervalMs: 1000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: block_height_1m_ago
+          - refId: block_height_2m_diff_less_than_0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: []
+                  reducer:
+                    params: []
+                    type: avg
+                  type: query
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              expression: $block_height - $block_height_1m_ago < 0
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: block_height_2m_diff_less_than_0
+              type: math
+        dashboardUid: alpha-testnet-monitor
+        panelId: 3
+        noDataState: NoData
+        execErrState: KeepLast
+        annotations:
+          __dashboardUid__: alpha-testnet-monitor
+          __panelId__: "3"
+          Block height after re-org: "{{ $values.block_height.Value }}"
+          Block height before re-org: "{{ $values.block_height_1m_ago.Value }}"
+          summary: Testnet pending block height was reduced
+        labels:
+          alertname: ReOrg
+          network: "$network"
+        isPaused: false
+        notification_settings:
+          receiver: Testnet On-Call IRM
+  - orgId: 1
+    name: eval-group-5m
+    folder: GrafanaCloud
+    interval: 5m
+    rules:
+      - uid: deq0l9s3xwetcf
+        title: No new blocks (40m)
+        condition: no_block_height_changes_in_40m
+        data:
+          - refId: block_height_changes_40m
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: grafanacloud-prom
+            model:
+              editorMode: code
+              expr: sum without (instance) (changes(rollup_pending_block_number{network=~"$network"}[40m]))
+              instant: true
+              intervalMs: 1000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: block_height_changes_40m
+          - refId: current_pending_block_height
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: grafanacloud-prom
+            model:
+              datasource:
+                type: prometheus
+                uid: grafanacloud-prom
+              editorMode: code
+              expr: sum without (instance)  (rollup_pending_block_number{network=~"$network"})
+              instant: true
+              intervalMs: 1000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: current_pending_block_height
+          - refId: no_block_height_changes_in_40m
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: eq
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: block_height_changes_40m
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: no_block_height_changes_in_40m
+              type: threshold
+        dashboardUid: alpha-testnet-monitor
+        panelId: 3
+        noDataState: NoData
+        execErrState: KeepLast
+        annotations:
+          __dashboardUid__: alpha-testnet-monitor
+          __panelId__: "3"
+          Pending block: "{{ $values.current_pending_block_height.Value }}"
+          summary: Alpha Testnet pending block number hasn't increased for 2 epochs (40 minutes)
+        labels:
+          alertname: NoNewBlocks
+          network: "$network"
+        isPaused: false
+        notification_settings:
+          receiver: Testnet On-Call IRM

@@ -20,6 +20,7 @@ struct EnqueuedCallEvent {
     FF contract_address;
     FF transaction_fee;
     bool is_static;
+    uint32_t calldata_size;
     FF calldata_hash;
     Gas start_gas;
     Gas end_gas;
@@ -48,12 +49,15 @@ struct PadTreesEvent {};
 
 struct CleanupEvent {};
 
+struct EmptyPhaseEvent {};
+
 using TxPhaseEventType = std::variant<EnqueuedCallEvent,
                                       PrivateAppendTreeEvent,
                                       PrivateEmitL2L1MessageEvent,
                                       CollectGasFeeEvent,
                                       PadTreesEvent,
-                                      CleanupEvent>;
+                                      CleanupEvent,
+                                      EmptyPhaseEvent>;
 
 struct TxPhaseEvent {
     TransactionPhase phase;

@@ -5,18 +5,16 @@ import {TestBase} from "@test/base/Base.sol";
 import {
   AttestationLib, CommitteeAttestations, CommitteeAttestation
 } from "@aztec/core/libraries/rollup/AttestationLib.sol";
+import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 contract AttestationLibWrapper {
   using AttestationLib for CommitteeAttestations;
+  using AttestationLibHelper for CommitteeAttestations;
 
   function isEmpty(CommitteeAttestations memory _attestations) external pure returns (bool) {
     return AttestationLib.isEmpty(_attestations);
-  }
-
-  function assertSizes(CommitteeAttestations memory _attestations, uint256 _expectedCount) external pure {
-    AttestationLib.assertSizes(_attestations, _expectedCount);
   }
 
   function reconstructCommitteeFromSigners(
@@ -32,7 +30,7 @@ contract AttestationLibWrapper {
     pure
     returns (CommitteeAttestations memory)
   {
-    return AttestationLib.packAttestations(_attestations);
+    return AttestationLibHelper.packAttestations(_attestations);
   }
 }
 
@@ -74,52 +72,6 @@ contract AttestationLibTest is TestBase {
     $attestations = attestationLibWrapper.packAttestations(attestations);
 
     _;
-  }
-
-  function test_assertSizes(uint256 _signatureCount) public createValidAttestations(_signatureCount) {
-    attestationLibWrapper.assertSizes($attestations, SIZE);
-  }
-
-  function test_assertSizes_wrongBitmapSize(uint256 _signatureCount, bool _over)
-    public
-    createValidAttestations(_signatureCount)
-  {
-    uint256 bitmapSize = $attestations.signatureIndices.length;
-    if (_over) {
-      $attestations.signatureIndices = new bytes(bitmapSize + 1);
-    } else {
-      $attestations.signatureIndices = new bytes(bitmapSize - 1);
-    }
-
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.AttestationLib__SignatureIndicesSizeMismatch.selector, bitmapSize, $attestations.signatureIndices.length
-      )
-    );
-
-    attestationLibWrapper.assertSizes($attestations, SIZE);
-  }
-
-  function test_assertSizes_wrongSignaturesOrAddressesSize(uint256 _signatureCount, bool _over)
-    public
-    createValidAttestations(_signatureCount)
-  {
-    uint256 dataSize = $attestations.signaturesOrAddresses.length;
-    if (_over) {
-      $attestations.signaturesOrAddresses = new bytes(dataSize + 1);
-    } else {
-      $attestations.signaturesOrAddresses = new bytes(dataSize - 1);
-    }
-
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.AttestationLib__SignaturesOrAddressesSizeMismatch.selector,
-        dataSize,
-        $attestations.signaturesOrAddresses.length
-      )
-    );
-
-    attestationLibWrapper.assertSizes($attestations, SIZE);
   }
 
   function test_reconstructCommitteeFromSigners(uint256 _signatureCount)
@@ -166,7 +118,9 @@ contract AttestationLibTest is TestBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.AttestationLib__OutOfBounds.selector, dataSize, $attestations.signaturesOrAddresses.length
+        Errors.AttestationLib__SignaturesOrAddressesSizeMismatch.selector,
+        dataSize,
+        $attestations.signaturesOrAddresses.length
       )
     );
 

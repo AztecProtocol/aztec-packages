@@ -1,5 +1,5 @@
 import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
-import { Fr } from '@aztec/foundation/fields';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { z } from 'zod';
 
@@ -26,7 +26,7 @@ export type ProverConfig = ActualProverConfig & {
   /** The URL to the Aztec node to take proving jobs from */
   nodeUrl?: string;
   /** Identifier of the prover */
-  proverId?: Fr;
+  proverId?: EthAddress;
   /** Number of proving agents to start within the prover. */
   proverAgentCount: number;
   /** Store for failed proof inputs. */
@@ -36,7 +36,7 @@ export type ProverConfig = ActualProverConfig & {
 export const ProverConfigSchema = z.object({
   nodeUrl: z.string().optional(),
   realProofs: z.boolean(),
-  proverId: schemas.Fr.optional(),
+  proverId: schemas.EthAddress.optional(),
   proverTestDelayType: z.enum(['fixed', 'realistic']),
   proverTestDelayMs: z.number(),
   proverTestDelayFactor: z.number(),
@@ -88,7 +88,7 @@ function parseProverId(str?: string) {
   if (!str) {
     return undefined;
   }
-  return Fr.fromHexString(str);
+  return EthAddress.fromString(str);
 }
 
 /**
@@ -104,7 +104,7 @@ export interface EpochProverManager {
 
   getProvingJobSource(): ProvingJobConsumer;
 
-  getProverId(): Fr;
+  getProverId(): EthAddress;
 
   updateProverConfig(config: Partial<ProverConfig>): Promise<void>;
 }

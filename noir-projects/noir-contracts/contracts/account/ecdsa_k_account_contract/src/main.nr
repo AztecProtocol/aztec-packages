@@ -5,10 +5,10 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract EcdsaKAccount {
     use dep::aztec::{
-        authwit::{account::AccountActions, entrypoint::{app::AppPayload, fee::FeePayload}},
+        authwit::{account::AccountActions, entrypoint::app::AppPayload},
         context::PrivateContext,
         macros::{functions::{initializer, noinitcheck, private, view}, storage::storage},
-        messages::logs::note::encode_and_encrypt_note,
+        messages::message_delivery::MessageDelivery,
         oracle::{auth_witness::get_auth_witness, notes::{get_sender_for_tags, set_sender_for_tags}},
         state_vars::PrivateImmutable,
     };
@@ -40,10 +40,11 @@ pub contract EcdsaKAccount {
 
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(this) };
-        storage.signing_public_key.initialize(pub_key_note).emit(encode_and_encrypt_note(
+        storage.signing_public_key.initialize(pub_key_note).emit(
             &mut context,
             this,
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(original_sender) };
     }
@@ -52,14 +53,14 @@ pub contract EcdsaKAccount {
     // using noinitcheck is an optimization, it reduces gates by omitting a check that the contract has been initialized
     #[private]
     #[noinitcheck]
-    fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
+    fn entrypoint(app_payload: AppPayload, is_fee_payer: bool, end_setup: bool, cancellable: bool) {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
         // it is safe to set from a constrained context.
         unsafe { set_sender_for_tags(context.this_address()) };
 
         let actions = AccountActions::init(&mut context, is_valid_impl);
-        actions.entrypoint(app_payload, fee_payload, cancellable);
+        actions.entrypoint(app_payload, is_fee_payer, end_setup, cancellable);
     }
 
     #[private]

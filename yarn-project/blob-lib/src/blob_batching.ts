@@ -89,20 +89,6 @@ export class BatchedBlob {
     return new FinalBlobBatchingChallenges(z, BLS12Fr.fromBN254Fr(gamma));
   }
 
-  static async precomputeEmptyBatchedBlobChallenges(): Promise<FinalBlobBatchingChallenges> {
-    const blobs = [await Blob.fromFields([])];
-    // We need to precompute the final challenge values to evaluate the blobs.
-    const z = blobs[0].challengeZ;
-    // Now we have a shared challenge for all blobs, evaluate them...
-    const proofObjects = blobs.map(b => computeKzgProof(b.data, z.toBuffer()));
-    const evaluations = proofObjects.map(([_, evaluation]) => BLS12Fr.fromBuffer(Buffer.from(evaluation)));
-    // ...and find the challenge for the linear combination of blobs.
-    let gamma = await hashNoirBigNumLimbs(evaluations[0]);
-    gamma = await poseidon2Hash([gamma, z]);
-
-    return new FinalBlobBatchingChallenges(z, BLS12Fr.fromBN254Fr(gamma));
-  }
-
   // Returns ethereum's versioned blob hash, following kzg_to_versioned_hash: https://eips.ethereum.org/EIPS/eip-4844#helpers
   getEthVersionedBlobHash(): Buffer {
     const hash = sha256(this.commitment.compress());
@@ -152,7 +138,7 @@ export class BatchedBlob {
  *    - used such that y = sum_i { gamma^i * y_i }, and C = sum_i { gamma^i * C_i }
  *      for all blob evaluations y_i (see above) and commitments C_i.
  *
- * Iteratively calculated by BlobAccumulatorPublicInputs.accumulate() in nr. See also precomputeBatchedBlobChallenges() above.
+ * Iteratively calculated by BlobAccumulator.accumulate() in nr. See also precomputeBatchedBlobChallenges() above.
  */
 export class FinalBlobBatchingChallenges {
   constructor(
@@ -179,7 +165,7 @@ export class FinalBlobBatchingChallenges {
 }
 
 /**
- * See noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching_public_inputs.nr -> BlobAccumulatorPublicInputs
+ * See noir-projects/noir-protocol-circuits/crates/blob/src/abis/blob_accumulator.nr
  */
 export class BatchedBlobAccumulator {
   constructor(

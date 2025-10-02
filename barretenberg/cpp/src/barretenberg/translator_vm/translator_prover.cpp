@@ -19,7 +19,7 @@ TranslatorProver::TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& 
     : transcript(transcript)
     , key(key)
 {
-    PROFILE_THIS();
+    BB_BENCH();
     if (!key->proving_key->commitment_key.initialized()) {
         key->proving_key->commitment_key = CommitmentKey(key->proving_key->circuit_size);
     }
@@ -52,6 +52,8 @@ void TranslatorProver::execute_preamble_round()
                                                key->proving_key->polynomials.accumulators_binary_limbs_2[RESULT_ROW],
                                                key->proving_key->polynomials.accumulators_binary_limbs_3[RESULT_ROW] };
 
+    // Send the accumulation result to the verifier, this value cannot be linked to the actual content of the op queue
+    // in practice (CIVC scenario) as we add a random, but genuine scalar mul operation to the op queue
     transcript->send_to_verifier("accumulated_result", accumulated_result);
 }
 
@@ -72,19 +74,21 @@ void TranslatorProver::commit_to_witness_polynomial(Polynomial& polynomial, cons
  */
 void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
 {
-
+    BB_BENCH_NAME("TranslatorProver::execute_wire_and_sorted_constraints_commitments_round");
+    auto batch = key->proving_key->commitment_key.start_batch();
     for (const auto& [wire, label] :
          zip_view(key->proving_key->polynomials.get_wires(), commitment_labels.get_wires())) {
 
-        commit_to_witness_polynomial(wire, label);
+        batch.add_to_batch(wire, label, /*mask for zk?*/ false);
     }
 
     // The ordered range constraints are of full circuit size.
     for (const auto& [ordered_range_constraint, label] :
          zip_view(key->proving_key->polynomials.get_ordered_range_constraints(),
                   commitment_labels.get_ordered_range_constraints())) {
-        commit_to_witness_polynomial(ordered_range_constraint, label);
+        batch.add_to_batch(ordered_range_constraint, label, /*mask for zk?*/ false);
     }
+    batch.commit_and_send_to_verifier(transcript);
 }
 
 /**
@@ -216,7 +220,7 @@ HonkProof TranslatorProver::export_proof()
 
 HonkProof TranslatorProver::construct_proof()
 {
-    PROFILE_THIS_NAME("TranslatorProver::construct_proof");
+    BB_BENCH_NAME("TranslatorProver::construct_proof");
 
     // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();

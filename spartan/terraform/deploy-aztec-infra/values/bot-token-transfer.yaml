@@ -1,0 +1,27 @@
+bot:
+  replicaCount: 1
+  ammTxs: false
+  txIntervalSeconds: 10
+  privateTransfersPerTx: 0
+  publicTransfersPerTx: 1
+  followChain: "NONE"
+  feePaymentMethod: "fee_juice"
+  maxErrors: 3
+  stopIfUnhealthy: true
+  botPrivateKey: "0xcafe01"
+
+  persistence:
+    enabled: true
+  statefulSet:
+    volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 2Gi
+
+  service:
+    headless:
+      enabled: false

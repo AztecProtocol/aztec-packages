@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "barretenberg/api/file_io.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 
@@ -135,11 +136,15 @@ TEST(AvmInputsTest, ValuesInColumns)
     pi.accumulatedData.l2ToL1Msgs[1].contractAddress = 9753;
 
     // Set public logs (spans multiple rows per log)
-    pi.accumulatedData.publicLogs[0].contractAddress = 11223;
-    pi.accumulatedData.publicLogs[0].emittedLength = PUBLIC_LOG_SIZE_IN_FIELDS;
-    for (size_t j = 0; j < PUBLIC_LOG_SIZE_IN_FIELDS; ++j) {
-        pi.accumulatedData.publicLogs[0].fields[j] = 10000 + j;
+    std::vector<FF> public_log_fields;
+    public_log_fields.reserve(3);
+    for (size_t j = 0; j < 3; ++j) {
+        public_log_fields.push_back(10000 + j);
     }
+    pi.accumulatedData.publicLogs.add_log({
+        .fields = public_log_fields,
+        .contractAddress = 11223,
+    });
 
     // Set public data writes
     pi.accumulatedData.publicDataWrites[1].leafSlot = 5555;
@@ -166,7 +171,6 @@ TEST(AvmInputsTest, ValuesInColumns)
     pi.accumulatedDataArrayLengths.noteHashes = 3;
     pi.accumulatedDataArrayLengths.nullifiers = 4;
     pi.accumulatedDataArrayLengths.l2ToL1Msgs = 2;
-    pi.accumulatedDataArrayLengths.publicLogs = 1;
     pi.accumulatedDataArrayLengths.publicDataWrites = 5;
 
     // Set reverted flag
@@ -300,8 +304,6 @@ TEST(AvmInputsTest, ValuesInColumns)
               pi.accumulatedDataArrayLengths.nullifiers);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX],
               pi.accumulatedDataArrayLengths.l2ToL1Msgs);
-    EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX],
-              pi.accumulatedDataArrayLengths.publicLogs);
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX],
               pi.accumulatedDataArrayLengths.publicDataWrites);
 
@@ -341,11 +343,13 @@ TEST(AvmInputsTest, ValuesInColumns)
     EXPECT_EQ(flat[col2_offset + acc_l2_to_l1_msg_row], pi.accumulatedData.l2ToL1Msgs[1].contractAddress);
 
     // Test public logs
-    size_t first_log_row = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;
+    size_t public_logs_row = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;
+    // Header
+    EXPECT_EQ(flat[col0_offset + public_logs_row], pi.accumulatedData.publicLogs.length);
+    // Payload
     for (size_t j = 0; j < 3; ++j) {
-        EXPECT_EQ(flat[col0_offset + first_log_row + j], pi.accumulatedData.publicLogs[0].contractAddress);
-        EXPECT_EQ(flat[col1_offset + first_log_row + j], pi.accumulatedData.publicLogs[0].emittedLength);
-        EXPECT_EQ(flat[col2_offset + first_log_row + j], pi.accumulatedData.publicLogs[0].fields[j]);
+        EXPECT_EQ(flat[col0_offset + public_logs_row + FLAT_PUBLIC_LOGS_HEADER_LENGTH + j],
+                  pi.accumulatedData.publicLogs.payload[j]);
     }
 
     // Public data writes (uses 2 columns)

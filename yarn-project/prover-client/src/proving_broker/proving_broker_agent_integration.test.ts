@@ -5,7 +5,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { ProvingJob, makeProvingJobId } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
-import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
+import { makeParityBasePrivateInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
 
 import { jest } from '@jest/globals';
 
@@ -66,7 +66,7 @@ describe('ProvingBroker <-> ProvingAgent integration', () => {
 
     jest.spyOn(prover, 'getBaseParityProof').mockImplementation((inputs, signal) => {
       const inputsHash = sha256(inputs.toBuffer());
-      const id = makeProvingJobId(0, ProvingRequestType.BASE_PARITY, inputsHash.toString('hex'));
+      const id = makeProvingJobId(0, ProvingRequestType.PARITY_BASE, inputsHash.toString('hex'));
       // job was given to two agents
       if (deferreds[id]) {
         duplicateJobs.push(id);
@@ -79,17 +79,17 @@ describe('ProvingBroker <-> ProvingAgent integration', () => {
 
     const enqueueRandomJob = async () => {
       while (true) {
-        const inputs = makeBaseParityInputs(randomInt(Number.MAX_SAFE_INTEGER));
+        const inputs = makeParityBasePrivateInputs(randomInt(Number.MAX_SAFE_INTEGER));
         const inputsHash = sha256(inputs.toBuffer());
-        const id = makeProvingJobId(0, ProvingRequestType.BASE_PARITY, inputsHash.toString('hex'));
+        const id = makeProvingJobId(0, ProvingRequestType.PARITY_BASE, inputsHash.toString('hex'));
         if (jobs[id]) {
           continue;
         }
 
         jobs[id] = {
           id,
-          type: ProvingRequestType.BASE_PARITY,
-          inputsUri: await store.saveProofInput(id, ProvingRequestType.BASE_PARITY, inputs),
+          type: ProvingRequestType.PARITY_BASE,
+          inputsUri: await store.saveProofInput(id, ProvingRequestType.PARITY_BASE, inputs),
           epochNumber: 0,
         };
         await broker.enqueueProvingJob(jobs[id]);

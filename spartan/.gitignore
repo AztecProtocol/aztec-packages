@@ -1,3 +1,13 @@
 *.tgz
 scripts/logs
 scripts/LICENSE
+tfplan
+*_override.tf
+mnemonic.tmp
+environments/*
+!environments/scenario.local.env
+!environments/staging.local.env
+!environments/staging-public.env
+!environments/staging-ignition.env
+!environments/testnet.env
+*.tfvars
