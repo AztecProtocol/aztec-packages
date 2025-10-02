@@ -7,10 +7,27 @@ namespace bb::srs {
 
 /**
  * @brief Expected first G1 element from BN254 CRS
- * @details The first element of the G1 CRS should be the generator point (1, 2).
+ * @details The first element of the G1 CRS is the standard BN254 G1 generator point (1, 2).
  * This is used to verify the integrity of downloaded CRS files.
  */
 inline constexpr g1::affine_element BN254_G1_FIRST_ELEMENT = g1::affine_one;
+
+/**
+ * @brief Expected second G1 element from BN254 CRS
+ * @details This is the second point in the BN254 CRS, corresponding to tau * G where tau is the secret from the
+ * trusted setup. Reference: http://crs.aztec.network/g1.dat (bytes 64-127)
+ */
+inline g1::affine_element get_bn254_g1_second_element()
+{
+    // Hardcoded second G1 element (64 bytes) - see reference URL above
+    static constexpr uint8_t g1_second_data[64] = { 0x2d, 0x36, 0x06, 0x28, 0x28, 0x9f, 0xf9, 0x43, 0xff, 0x6b, 0xd1,
+                                                    0xa8, 0x7b, 0xbe, 0x4e, 0x62, 0xab, 0xe7, 0xfb, 0x61, 0xba, 0x83,
+                                                    0xef, 0xfd, 0x26, 0x6f, 0x22, 0xbd, 0xcf, 0x31, 0xe6, 0xf9, 0x26,
+                                                    0xb9, 0x2a, 0x79, 0xe5, 0x63, 0xc3, 0xf4, 0x82, 0x52, 0xcc, 0xe7,
+                                                    0xfe, 0xec, 0xa2, 0xf0, 0xf8, 0xd3, 0x3d, 0xcb, 0x4e, 0xf7, 0xb0,
+                                                    0x64, 0x3b, 0xf0, 0x7b, 0xd4, 0x05, 0x70, 0x0a, 0xaa };
+    return from_buffer<g1::affine_element>(g1_second_data);
+}
 
 /**
  * @brief Reference BN254 G2 element from the trusted setup CRS
