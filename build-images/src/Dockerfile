@@ -163,8 +163,9 @@ RUN curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v2
 
 # Install zig.
 RUN arch=$(uname -m) && \
-    curl -fsSL https://ziglang.org/download/0.13.0/zig-linux-${arch}-0.13.0.tar.xz | tar xJ && \
-    mv zig-linux-${arch}-0.13.0 /opt/zig && \
+    zig_version=0.15.1 && \
+    curl -fsSL https://ziglang.org/download/${zig_version}/zig-${arch}-linux-${zig_version}.tar.xz | tar xJ && \
+    mv zig-${arch}-linux-${zig_version} /opt/zig && \
     ln -s /opt/zig/zig /usr/local/bin/zig
 
 # Install yq
