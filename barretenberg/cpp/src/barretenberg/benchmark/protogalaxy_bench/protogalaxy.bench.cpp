@@ -56,13 +56,12 @@ void fold(State& state) noexcept
 
     auto log2_num_gates = static_cast<size_t>(state.range(0));
 
-    // Need to use shared_ptrs because builders don't have copy constructors
-    std::vector<std::shared_ptr<Builder>> builders(NUM_INSTANCES, nullptr);
+    std::vector<Builder> builders(NUM_INSTANCES);
     parallel_for([&builders, &log2_num_gates](const ThreadChunk& chunk) {
         for (size_t idx : chunk.range(NUM_INSTANCES)) {
             Builder builder;
             MockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
-            builders[idx] = std::make_shared<Builder>(builder);
+            builders[idx] = std::move(builder);
         }
     });
 

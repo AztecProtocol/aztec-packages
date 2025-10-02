@@ -124,14 +124,13 @@ template <class Flavor> class ProtogalaxyTestUtilities {
                                            TraceSettings trace_settings = TraceSettings{},
                                            bool circuits_of_different_size = false)
     {
-        // Need to use shared_ptrs because builders don't have copy constructors
-        std::vector<std::shared_ptr<Builder>> builders(num_keys, nullptr);
+        std::vector<Builder> builders(num_keys);
         parallel_for([&builders, &num_keys, &circuits_of_different_size](const ThreadChunk& chunk) {
             for (size_t idx : chunk.range(num_keys)) {
                 size_t log_num_gates = circuits_of_different_size ? 9 + std::min(idx, 3UL) : 9;
                 Builder builder;
                 create_function_circuit(builder, log_num_gates, log_num_gates);
-                builders[idx] = std::make_shared<Builder>(builder);
+                builders[idx] = std::move(builder);
             }
         });
 
@@ -139,7 +138,7 @@ template <class Flavor> class ProtogalaxyTestUtilities {
         // parallel_for call and nested parallel_for calls are not allowed
         TupleOfKeys keys;
         for (size_t idx = 0; idx < num_keys; idx++) {
-            construct_instances_and_add_to_tuple(keys, *builders[idx], idx, trace_settings);
+            construct_instances_and_add_to_tuple(keys, builders[idx], idx, trace_settings);
         }
         return keys;
     }

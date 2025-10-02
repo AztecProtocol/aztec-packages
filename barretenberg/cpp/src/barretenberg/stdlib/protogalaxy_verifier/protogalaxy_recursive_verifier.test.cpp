@@ -365,28 +365,33 @@ TEST_F(ProtogalaxyRecursiveTests, FoldCircuitsOfDifferentSize)
 
 TEST_F(ProtogalaxyRecursiveTests, WiresIncomingAccumulator)
 {
+    BB_DISABLE_ASSERTS(); // Disable assert in PG prover
     protogalaxy_testing(AccumulatorTamperingMode::Wires, InstanceTamperingMode::None, AccumulatorTamperingMode::None);
 }
 
 TEST_F(ProtogalaxyRecursiveTests, AlphasIncomingAccumulator)
 {
+    BB_DISABLE_ASSERTS(); // Disable assert in PG prover
     protogalaxy_testing(AccumulatorTamperingMode::Alphas, InstanceTamperingMode::None, AccumulatorTamperingMode::None);
 }
 
 TEST_F(ProtogalaxyRecursiveTests, GateChallengesIncomingAccumulator)
 {
+    BB_DISABLE_ASSERTS(); // Disable assert in PG prover
     protogalaxy_testing(
         AccumulatorTamperingMode::GateChallenges, InstanceTamperingMode::None, AccumulatorTamperingMode::None);
 }
 
 TEST_F(ProtogalaxyRecursiveTests, RelationParametersIncomingAccumulator)
 {
+    BB_DISABLE_ASSERTS(); // Disable assert in PG prover
     protogalaxy_testing(
         AccumulatorTamperingMode::RelationParameters, InstanceTamperingMode::None, AccumulatorTamperingMode::None);
 }
 
 TEST_F(ProtogalaxyRecursiveTests, TargetSumIncomingAccumulator)
 {
+    BB_DISABLE_ASSERTS(); // Disable assert in PG prover
     protogalaxy_testing(
         AccumulatorTamperingMode::TargetSum, InstanceTamperingMode::None, AccumulatorTamperingMode::None);
 }
