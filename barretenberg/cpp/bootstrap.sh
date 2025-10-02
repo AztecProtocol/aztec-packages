@@ -107,19 +107,11 @@ function build_nodejs_module {
 
 function build_darwin {
   set -eu
-  local arch=${1:-$(arch)}
-  if ! cache_download barretenberg-darwin-$hash.zst; then
-    # Download sdk.
-    local osx_sdk="MacOSX14.0.sdk"
-    if ! [ -d "/opt/osxcross/SDK/$osx_sdk" ]; then
-      echo "Downloading $osx_sdk..."
-      local osx_sdk_url="https://github.com/joseluisq/macosx-sdks/releases/download/14.0/${osx_sdk}.tar.xz"
-      curl -sSL "$osx_sdk_url" | sudo tar -xJ -C /opt/osxcross/SDK
-      sudo rm -rf /opt/osxcross/SDK/$osx_sdk/System
-    fi
+  local arch=${1:-arm64}
 
+  if ! cache_download barretenberg-darwin-$arch-$hash.zst; then
     build_preset darwin-$arch --target bb
-    cache_upload barretenberg-darwin-$hash.zst build-darwin-$arch/bin
+    cache_upload barretenberg-darwin-$arch-$hash.zst build-darwin-$arch/bin
   fi
 }
 
@@ -198,12 +190,35 @@ function build_release {
   inject_version build-release/bb
   tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build-release --remove-files bb
 
-  # Only release wasms built on amd64.
+  # Only release wasms and macOS builds on amd64.
   if [ "$arch" == "amd64" ]; then
     tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
     tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
     tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
     tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
+
+    # Build and package macOS cross-compiled binaries
+    echo "Building macOS cross-compiled binaries..."
+    parallel --line-buffered --tag denoise build_darwin ::: arm64 amd64
+
+    # Download ldid for code signing
+    if [ ! -f build-release/ldid ]; then
+      echo "Downloading ldid for macOS code signing..."
+      curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 -o build-release/ldid
+      chmod +x build-release/ldid
+    fi
+
+    # Package darwin-arm64
+    cp build-darwin-arm64/bin/bb build-release/bb-darwin-arm64
+    inject_version build-release/bb-darwin-arm64
+    build-release/ldid -S build-release/bb-darwin-arm64
+    tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb-darwin-arm64
+
+    # Package darwin-amd64
+    cp build-darwin-amd64/bin/bb build-release/bb-darwin-amd64
+    inject_version build-release/bb-darwin-amd64
+    build-release/ldid -S build-release/bb-darwin-amd64
+    tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb-darwin-amd64
   fi
 }
 
