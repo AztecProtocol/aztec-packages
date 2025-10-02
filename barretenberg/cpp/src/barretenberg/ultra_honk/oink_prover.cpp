@@ -230,8 +230,7 @@ template <IsUltraOrMegaHonk Flavor> typename Flavor::SubrelationSeparators OinkP
 template <IsUltraOrMegaHonk Flavor>
 void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial,
                                                       const std::string& label,
-                                                      const CommitmentKey::CommitType type,
-                                                      std::string msg)
+                                                      const CommitmentKey::CommitType type)
 {
     BB_BENCH_NAME("OinkProver::commit_to_witness_polynomial");
     // Mask the polynomial when proving in zero-knowledge
