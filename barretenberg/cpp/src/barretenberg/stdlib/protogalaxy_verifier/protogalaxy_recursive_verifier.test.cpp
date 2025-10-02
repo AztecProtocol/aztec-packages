@@ -68,6 +68,18 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         Wires,
     };
 
+    enum class OutputCommitmentsTamperingMode : uint8_t {
+        None,
+        SetAllInfinity,
+        SetOneInfinity,
+    };
+
+    static constexpr size_t NUM_OUTPUT_COMMITMENTS = 55;
+    static constexpr size_t NUM_WITNESSES_FOR_COMMITMENT = 4;                    // x_lo, x_hi, y_lo, y_hi
+    static constexpr size_t NUM_WITNESSES_TO_SKIP = 3;                           // op, z_1, z_2
+    static constexpr size_t WITNESS_INDEX_X_LO_FIRST_OUTPUT_COMMITMENT = 143629; // Witness index of x_lo
+    static constexpr size_t WITNESS_INDEX_X_FIRST_OUTPUT_COMMITMENT = 114287;    // Witness index of x coordinate
+
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
@@ -76,20 +88,20 @@ class ProtogalaxyRecursiveTests : public testing::Test {
                                         const size_t& log_num_gates = 9,
                                         const size_t& log_num_gates_with_public_inputs = 9)
     {
-        // using FrNative = typename NativeCurve::ScalarFieldNative;
-        // using Fr = typename NativeCurve::ScalarField;
-        // using byte_array_ct = typename NativeCurve::byte_array_ct;
+        using FrNative = typename NativeCurve::ScalarFieldNative;
+        using Fr = typename NativeCurve::ScalarField;
+        using byte_array_ct = typename NativeCurve::byte_array_ct;
 
         ProtogalaxyTestUtils::create_function_circuit(builder, log_num_gates, log_num_gates_with_public_inputs);
 
-        // // Pedersen hash
-        // Fr a = Fr::from_witness(&builder, FrNative::random_element(&engine));
-        // Fr b = Fr::from_witness(&builder, FrNative::random_element(&engine));
-        // [[maybe_unused]] auto ped_hash = pedersen_hash<NativeBuilder>::hash({ a, b });
+        // Pedersen hash
+        Fr a = Fr::from_witness(&builder, FrNative::random_element(&engine));
+        Fr b = Fr::from_witness(&builder, FrNative::random_element(&engine));
+        [[maybe_unused]] auto ped_hash = pedersen_hash<NativeBuilder>::hash({ a, b });
 
-        // // Blake hash
-        // byte_array_ct to_hash(&builder, "nonsense test data");
-        // [[maybe_unused]] auto blake_hash = stdlib::Blake3s<NativeBuilder>::hash(to_hash);
+        // Blake hash
+        byte_array_ct to_hash(&builder, "nonsense test data");
+        [[maybe_unused]] auto blake_hash = stdlib::Blake3s<NativeBuilder>::hash(to_hash);
     };
 
     /**
@@ -254,6 +266,42 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         EXPECT_EQ(is_valid, expected);
     }
 
+    static void tamper_with_builder(NativeBuilder& builder, const OutputCommitmentsTamperingMode& mode)
+    {
+        auto set_to_infinity = [&builder](uint32_t& witness_index_ultra_op, uint32_t& witness_index_output_commitment) {
+            for (size_t j = 0; j < NUM_WITNESSES_FOR_COMMITMENT; j++) {
+                builder.set_variable(witness_index_ultra_op++, NativeFF(0));
+            }
+            witness_index_ultra_op += NUM_WITNESSES_TO_SKIP;
+
+            for (size_t j = 0; j < NUM_WITNESSES_FOR_COMMITMENT; j++) {
+                builder.set_variable(witness_index_output_commitment++, NativeFF(0));
+            }
+            builder.set_variable(witness_index_output_commitment++, NativeFF(1));
+        };
+
+        switch (mode) {
+        case OutputCommitmentsTamperingMode::None:
+            // No tampering
+            break;
+        case OutputCommitmentsTamperingMode::SetAllInfinity: {
+            // Set all output commitments to infinity
+            uint32_t witness_index_ultra_op = WITNESS_INDEX_X_LO_FIRST_OUTPUT_COMMITMENT;
+            uint32_t witness_index_output_commitment = WITNESS_INDEX_X_FIRST_OUTPUT_COMMITMENT;
+            for (size_t idx = 0; idx < NUM_OUTPUT_COMMITMENTS; idx++) {
+                set_to_infinity(witness_index_ultra_op, witness_index_output_commitment);
+            }
+        } break;
+        case OutputCommitmentsTamperingMode::SetOneInfinity: {
+            // Set the first output commitment to infinity
+            uint32_t witness_index_ultra_op = WITNESS_INDEX_X_LO_FIRST_OUTPUT_COMMITMENT;
+            uint32_t witness_index_output_commitment = WITNESS_INDEX_X_FIRST_OUTPUT_COMMITMENT;
+            set_to_infinity(witness_index_ultra_op, witness_index_output_commitment);
+            break;
+        }
+        }
+    }
+
     static void compare_accumulators(const std::shared_ptr<NativeVerifierInstance>& lhs,
                                      const std::shared_ptr<NativeVerifierInstance>& rhs)
     {
@@ -277,19 +325,26 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         BB_ASSERT_EQ(lhs->target_sum, rhs->target_sum, "Mismatch in target sum");
     }
 
+    /**
+     * @brief Testing function for PG recursive verifier.
+     *
+     * @details TO WRITE.
+     */
     static void protogalaxy_testing(const AccumulatorTamperingMode& accumulator_mode,
                                     const InstanceTamperingMode& instance_mode,
                                     const AccumulatorTamperingMode& folded_accumulator_mode,
+                                    const OutputCommitmentsTamperingMode& output_commitments_mode,
                                     const size_t& log_num_gates = 9,
                                     const size_t& log_num_gates_with_public_inputs = 9)
     {
         // Build test data
         TupleOfKeys keys;
-        ProtogalaxyTestUtils::construct_accumulator_and_add_to_tuple(keys, 0);
+        ProtogalaxyTestUtils::construct_accumulator_and_add_to_tuple(keys, 0, TraceSettings{ SMALL_TEST_STRUCTURE });
 
         NativeBuilder native_builder;
         create_function_circuit(native_builder, log_num_gates, log_num_gates_with_public_inputs);
-        ProtogalaxyTestUtils::construct_instances_and_add_to_tuple(keys, native_builder, 1);
+        ProtogalaxyTestUtils::construct_instances_and_add_to_tuple(
+            keys, native_builder, 1, TraceSettings{ SMALL_TEST_STRUCTURE });
 
         // Tampering
         tamper_with_accumulator(ProtogalaxyTestUtils::get_folding_data(keys, 0),
@@ -306,116 +361,186 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         auto [folded_verifier_accumulator, recursive_transcript] =
             create_folding_circuit(builder, get<1>(keys), folding_proof);
 
-        // Check that the circuit is satisfied
-        EXPECT_TRUE(CircuitChecker::check(builder)) << "Builder error: " << builder.err();
+        // Tampering
+        tamper_with_builder(builder, output_commitments_mode);
 
-        // Verify that the native folding result matches the recursive one.
-        auto [native_folded_verifier_accumulator, native_transcript] =
-            ProtogalaxyTestUtils::verify_folding_proof(get<1>(keys), folding_proof, /*hash_accumulator=*/true);
-        compare_accumulators(folded_verifier_accumulator, native_folded_verifier_accumulator);
+        EXPECT_EQ(CircuitChecker::check(builder), output_commitments_mode == OutputCommitmentsTamperingMode::None)
+            << "Builder check failed. Error: " << builder.err();
 
-        // Verify that the transcripts of recursive and native verifiers match
-        auto native_manifest = native_transcript->get_manifest();
-        auto recursive_manifest = recursive_transcript->get_manifest();
-        EXPECT_EQ(native_manifest.size(), recursive_manifest.size());
-        BB_ASSERT_GT(native_manifest.size(), 0UL);
-        for (size_t idx = 0; idx < native_manifest.size(); idx++) {
-            EXPECT_EQ(recursive_manifest[idx], native_manifest[idx])
-                << "Recursive Verifier/Verifier manifest discrepency in round " << idx;
+        // Complete the test depending on whether we tampered the builder or not. If we didn't, we check that native
+        // folding matches the recursive one and that the accumulator is accepted/rejected by the decider based on
+        // tampering. If we did tamper the builder, we check that the UltraVerifier rejects a proof for this builder.
+        if (output_commitments_mode == OutputCommitmentsTamperingMode::None) {
+            // Verify that the native folding result matches the recursive one.
+            auto [native_folded_verifier_accumulator, native_transcript] =
+                ProtogalaxyTestUtils::verify_folding_proof(get<1>(keys), folding_proof, /*hash_accumulator=*/true);
+            compare_accumulators(folded_verifier_accumulator, native_folded_verifier_accumulator);
+
+            // Verify that the transcripts of recursive and native verifiers match
+            auto native_manifest = native_transcript->get_manifest();
+            auto recursive_manifest = recursive_transcript->get_manifest();
+            EXPECT_EQ(native_manifest.size(), recursive_manifest.size());
+            BB_ASSERT_GT(native_manifest.size(), 0UL);
+            for (size_t idx = 0; idx < native_manifest.size(); idx++) {
+                EXPECT_EQ(recursive_manifest[idx], native_manifest[idx])
+                    << "Recursive Verifier/Verifier manifest discrepency in round " << idx;
+            }
+
+            // Tamper with the accumulator. Note that checking whether the target sum of the accumulator is equal to the
+            // sum of the relation contributions across the rows returns false if and only either the incoming instance
+            // was invalid, or if the accumulator itself has been tampered with. This is because a PG prover always
+            // returns an accumulator for which the target sum is equal to the sum of the relation contributions across
+            // the rows unless the incoming instance is invalid (meaning the sum of the relation contributions across
+            // the rows is not zero).
+            tamper_with_accumulator(NativeFoldingData{ folded_accumulator, native_folded_verifier_accumulator },
+                                    folded_accumulator_mode,
+                                    /*expected=*/
+                                    instance_mode == InstanceTamperingMode::None &&
+                                        folded_accumulator_mode == AccumulatorTamperingMode::None);
+
+            // Verify that if one of the accumulated instances was invalid, or if the folded accumulator has
+            // been tampered with, then the decider fails. We use the native folded instance because we have already
+            // checked that the native and in-circuit computed one agree
+            bool is_folded_accumulator_valid =
+                ProtogalaxyTestUtils::run_decider(folded_accumulator, native_folded_verifier_accumulator);
+            EXPECT_EQ(is_folded_accumulator_valid,
+                      accumulator_mode == AccumulatorTamperingMode::None &&
+                          instance_mode == InstanceTamperingMode::None &&
+                          folded_accumulator_mode == AccumulatorTamperingMode::None);
+        } else {
+            stdlib::recursion::honk::DefaultIO<RecursiveBuilder>::add_default(builder);
+
+            auto prover_inst = std::make_shared<NativeProverInstance>(builder);
+            auto honk_vk = std::make_shared<NativeVerificationKey>(prover_inst->get_precomputed());
+            UltraProver_<NativeFlavor> prover(prover_inst, honk_vk);
+            auto proof = prover.construct_proof();
+            UltraVerifier_<NativeFlavor> verifier(honk_vk);
+            bool result = verifier.verify_proof<bb::DefaultIO>(proof).result;
+            EXPECT_FALSE(result) << "UltraVerifier succeeded but it was supposed to fail.";
         }
-
-        // Tamper with the accumulator. Note that checking whether the target sum of the accumulator is equal to the sum
-        // of the relation contributions across the rows returns false if and only either the incoming instance was
-        // invalid, or if the accumulator itself has been tampered with. This is because a PG prover always returns an
-        // accumulator for which the target sum is equal to the sum of the relation contributions across the rows unless
-        // the incoming instance is invalid (meaning the sum of the relation contributions across the rows is not zero).
-        tamper_with_accumulator(NativeFoldingData{ folded_accumulator, native_folded_verifier_accumulator },
-                                folded_accumulator_mode,
-                                /*expected=*/
-                                instance_mode == InstanceTamperingMode::None &&
-                                    folded_accumulator_mode == AccumulatorTamperingMode::None);
-
-        // Verify that if one of the accumulated instances was invalid, or if the folded accumulator has
-        // been tampered with, then the decider fails. We use the native folded instance because we have already checked
-        // that the native and in-circuit computed one agree
-        bool is_folded_accumulator_valid =
-            ProtogalaxyTestUtils::run_decider(folded_accumulator, native_folded_verifier_accumulator);
-        EXPECT_EQ(is_folded_accumulator_valid,
-                  accumulator_mode == AccumulatorTamperingMode::None && instance_mode == InstanceTamperingMode::None &&
-                      folded_accumulator_mode == AccumulatorTamperingMode::None);
     }
 };
 
 TEST_F(ProtogalaxyRecursiveTests, ValidFolding)
 {
-    protogalaxy_testing(AccumulatorTamperingMode::None, InstanceTamperingMode::None, AccumulatorTamperingMode::None);
+    protogalaxy_testing(AccumulatorTamperingMode::None,
+                        InstanceTamperingMode::None,
+                        AccumulatorTamperingMode::None,
+                        OutputCommitmentsTamperingMode::None);
 }
 
 TEST_F(ProtogalaxyRecursiveTests, FoldCircuitsOfDifferentSize)
 {
-    protogalaxy_testing(
-        AccumulatorTamperingMode::None, InstanceTamperingMode::None, AccumulatorTamperingMode::None, 10, 10);
+    protogalaxy_testing(AccumulatorTamperingMode::None,
+                        InstanceTamperingMode::None,
+                        AccumulatorTamperingMode::None,
+                        OutputCommitmentsTamperingMode::None,
+                        10,
+                        10);
 }
 
 TEST_F(ProtogalaxyRecursiveTests, WiresIncomingAccumulator)
 {
-    protogalaxy_testing(AccumulatorTamperingMode::Wires, InstanceTamperingMode::None, AccumulatorTamperingMode::None);
+    protogalaxy_testing(AccumulatorTamperingMode::Wires,
+                        InstanceTamperingMode::None,
+                        AccumulatorTamperingMode::None,
+                        OutputCommitmentsTamperingMode::None);
 }
 
 TEST_F(ProtogalaxyRecursiveTests, AlphasIncomingAccumulator)
 {
-    protogalaxy_testing(AccumulatorTamperingMode::Alphas, InstanceTamperingMode::None, AccumulatorTamperingMode::None);
+    protogalaxy_testing(AccumulatorTamperingMode::Alphas,
+                        InstanceTamperingMode::None,
+                        AccumulatorTamperingMode::None,
+                        OutputCommitmentsTamperingMode::None);
 }
 
 TEST_F(ProtogalaxyRecursiveTests, GateChallengesIncomingAccumulator)
 {
-    protogalaxy_testing(
-        AccumulatorTamperingMode::GateChallenges, InstanceTamperingMode::None, AccumulatorTamperingMode::None);
+    protogalaxy_testing(AccumulatorTamperingMode::GateChallenges,
+                        InstanceTamperingMode::None,
+                        AccumulatorTamperingMode::None,
+                        OutputCommitmentsTamperingMode::None);
 }
 
 TEST_F(ProtogalaxyRecursiveTests, RelationParametersIncomingAccumulator)
 {
-    protogalaxy_testing(
-        AccumulatorTamperingMode::RelationParameters, InstanceTamperingMode::None, AccumulatorTamperingMode::None);
+    protogalaxy_testing(AccumulatorTamperingMode::RelationParameters,
+                        InstanceTamperingMode::None,
+                        AccumulatorTamperingMode::None,
+                        OutputCommitmentsTamperingMode::None);
 }
 
 TEST_F(ProtogalaxyRecursiveTests, TargetSumIncomingAccumulator)
 {
-    protogalaxy_testing(
-        AccumulatorTamperingMode::TargetSum, InstanceTamperingMode::None, AccumulatorTamperingMode::None);
+    protogalaxy_testing(AccumulatorTamperingMode::TargetSum,
+                        InstanceTamperingMode::None,
+                        AccumulatorTamperingMode::None,
+                        OutputCommitmentsTamperingMode::None);
 }
 
 TEST_F(ProtogalaxyRecursiveTests, WiresIncomingInstance)
 {
-    protogalaxy_testing(AccumulatorTamperingMode::None, InstanceTamperingMode::Wires, AccumulatorTamperingMode::None);
+    protogalaxy_testing(AccumulatorTamperingMode::None,
+                        InstanceTamperingMode::Wires,
+                        AccumulatorTamperingMode::None,
+                        OutputCommitmentsTamperingMode::None);
 }
 
 TEST_F(ProtogalaxyRecursiveTests, WiresFoldedAccumulator)
 {
-    protogalaxy_testing(AccumulatorTamperingMode::None, InstanceTamperingMode::None, AccumulatorTamperingMode::Wires);
+    protogalaxy_testing(AccumulatorTamperingMode::None,
+                        InstanceTamperingMode::None,
+                        AccumulatorTamperingMode::Wires,
+                        OutputCommitmentsTamperingMode::None);
 }
 
 TEST_F(ProtogalaxyRecursiveTests, AlphasFoldedAccumulator)
 {
-    protogalaxy_testing(AccumulatorTamperingMode::None, InstanceTamperingMode::None, AccumulatorTamperingMode::Alphas);
+    protogalaxy_testing(AccumulatorTamperingMode::None,
+                        InstanceTamperingMode::None,
+                        AccumulatorTamperingMode::Alphas,
+                        OutputCommitmentsTamperingMode::None);
 }
 
 TEST_F(ProtogalaxyRecursiveTests, GateChallengesFoldedAccumulator)
 {
-    protogalaxy_testing(
-        AccumulatorTamperingMode::None, InstanceTamperingMode::None, AccumulatorTamperingMode::GateChallenges);
+    protogalaxy_testing(AccumulatorTamperingMode::None,
+                        InstanceTamperingMode::None,
+                        AccumulatorTamperingMode::GateChallenges,
+                        OutputCommitmentsTamperingMode::None);
 }
 
 TEST_F(ProtogalaxyRecursiveTests, RelationParametersFoldedAccumulator)
 {
-    protogalaxy_testing(
-        AccumulatorTamperingMode::None, InstanceTamperingMode::None, AccumulatorTamperingMode::RelationParameters);
+    protogalaxy_testing(AccumulatorTamperingMode::None,
+                        InstanceTamperingMode::None,
+                        AccumulatorTamperingMode::RelationParameters,
+                        OutputCommitmentsTamperingMode::None);
 }
 
 TEST_F(ProtogalaxyRecursiveTests, TargetSumFoldedAccumulator)
 {
-    protogalaxy_testing(
-        AccumulatorTamperingMode::None, InstanceTamperingMode::None, AccumulatorTamperingMode::TargetSum);
+    protogalaxy_testing(AccumulatorTamperingMode::None,
+                        InstanceTamperingMode::None,
+                        AccumulatorTamperingMode::TargetSum,
+                        OutputCommitmentsTamperingMode::None);
+}
+
+TEST_F(ProtogalaxyRecursiveTests, AllOutputCommitmentsInfinity)
+{
+    protogalaxy_testing(AccumulatorTamperingMode::None,
+                        InstanceTamperingMode::None,
+                        AccumulatorTamperingMode::None,
+                        OutputCommitmentsTamperingMode::SetAllInfinity);
+}
+
+TEST_F(ProtogalaxyRecursiveTests, OneOutputCommitmentIsInfinity)
+{
+    protogalaxy_testing(AccumulatorTamperingMode::None,
+                        InstanceTamperingMode::None,
+                        AccumulatorTamperingMode::None,
+                        OutputCommitmentsTamperingMode::SetOneInfinity);
 }
 
 } // namespace bb::stdlib::recursion::honk
