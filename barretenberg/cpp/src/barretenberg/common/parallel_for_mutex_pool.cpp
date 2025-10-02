@@ -134,15 +134,15 @@ void ThreadPool::worker_loop(size_t /*unused*/)
             if (stop) {
                 break;
             }
+            // NOTE: This sets the concurrency for this thread. That is, the amount of threads
+            // that are used when this calls parallel_for_mutex_pool() (including itself).
+            // The current design for nested parallel_for calls still closely follows the original design where it was
+            // not possible, so this has a somewhat awkward name.
+            bb::set_hardware_concurrency(inner_concurrency_);
         }
         // Make sure nested stats accounting works under multithreading
         // Note: parent is a thread-local variable.
         bb::detail::GlobalBenchStatsContainer::parent = parent.load();
-        // NOTE: This sets the concurrency for this thread. That is, the amount of threads
-        // that are used when this calls parallel_for_mutex_pool() (including itself).
-        // The current design for nested parallel_for calls still closely follows the original design where it was not
-        // possible, so this has a somewhat awkward name.
-        bb::set_hardware_concurrency(inner_concurrency_);
         do_iterations();
     }
     // info("worker exit ", worker_num);

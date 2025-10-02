@@ -27,9 +27,9 @@ class ThreadTest : public ::testing::Test {
 TEST_F(ThreadTest, BasicParallelFor)
 {
     constexpr size_t num_iterations = 100;
-    std::vector<bool> flags(num_iterations, false);
+    std::vector<char> flags(num_iterations, 0);
 
-    parallel_for(num_iterations, [&](size_t i) { flags[i] = true; });
+    parallel_for(num_iterations, [&](size_t i) { flags[i] = 1; });
 
     // All iterations should have been executed
     for (size_t i = 0; i < num_iterations; ++i) {
@@ -43,10 +43,10 @@ TEST_F(ThreadTest, NestedParallelFor)
     constexpr size_t outer_iterations = 4;
     constexpr size_t inner_iterations = 10;
 
-    std::vector<std::vector<bool>> flags(outer_iterations, std::vector<bool>(inner_iterations, false));
+    std::vector<std::vector<char>> flags(outer_iterations, std::vector<char>(inner_iterations, 0));
 
     parallel_for(outer_iterations,
-                 [&](size_t i) { parallel_for(inner_iterations, [&](size_t j) { flags[i][j] = true; }); });
+                 [&](size_t i) { parallel_for(inner_iterations, [&](size_t j) { flags[i][j] = 1; }); });
 
     // All iterations should have been executed
     for (size_t i = 0; i < outer_iterations; ++i) {
@@ -150,7 +150,7 @@ TEST_F(ThreadTest, NestedThreadCount)
 // Test parallel_for with zero iterations
 TEST_F(ThreadTest, ZeroIterations)
 {
-    std::atomic<size_t> counter{ 0 };
+    size_t counter = 0;
 
     parallel_for(0, [&](size_t) { counter++; });
 
@@ -160,7 +160,7 @@ TEST_F(ThreadTest, ZeroIterations)
 // Test parallel_for with one iteration
 TEST_F(ThreadTest, OneIteration)
 {
-    std::atomic<size_t> counter{ 0 };
+    size_t counter = 0;
 
     parallel_for(1, [&](size_t i) {
         counter++;
@@ -202,11 +202,11 @@ TEST_F(ThreadTest, CalculateThreadDataBounds)
 TEST_F(ThreadTest, ParallelForRange)
 {
     constexpr size_t num_points = 100;
-    std::vector<bool> flags(num_points, false);
+    std::vector<char> flags(num_points, 0);
 
     parallel_for_range(num_points, [&](size_t start, size_t end) {
         for (size_t i = start; i < end; ++i) {
-            flags[i] = true;
+            flags[i] = 1;
         }
     });
 
@@ -220,7 +220,7 @@ TEST_F(ThreadTest, ParallelForRange)
 TEST_F(ThreadTest, ParallelForRangeThreshold)
 {
     constexpr size_t num_points = 10;
-    std::vector<bool> flags(num_points, false);
+    std::vector<char> flags(num_points, 0);
 
     std::atomic<size_t> call_count{ 0 };
 
@@ -230,7 +230,7 @@ TEST_F(ThreadTest, ParallelForRangeThreshold)
         [&](size_t start, size_t end) {
             call_count++;
             for (size_t i = start; i < end; ++i) {
-                flags[i] = true;
+                flags[i] = 1;
             }
         },
         10);
@@ -283,6 +283,126 @@ TEST_F(ThreadTest, HardwareConcurrencyPow2)
 
     set_hardware_concurrency(16);
     EXPECT_EQ(get_num_cpus_pow2(), 16);
+}
+
+// Test that get_num_cpus() returns the same value before and after parallel_for
+TEST_F(ThreadTest, ConcurrencyBeforeAfterParallelFor)
+{
+    set_hardware_concurrency(8);
+
+    size_t cpus_before = get_num_cpus();
+    EXPECT_EQ(cpus_before, 8);
+
+    parallel_for(100, [](size_t) {});
+
+    size_t cpus_after = get_num_cpus();
+    EXPECT_EQ(cpus_after, 8);
+    EXPECT_EQ(cpus_before, cpus_after);
+}
+
+// Test that get_num_cpus() inside parallel_for returns a valid value
+TEST_F(ThreadTest, ConcurrencyInsideParallelFor)
+{
+    set_hardware_concurrency(8);
+
+    std::atomic<size_t> observed_cpus{ 0 };
+    std::atomic<bool> observed{ false };
+
+    parallel_for(4, [&](size_t) {
+        size_t cpus = get_num_cpus();
+        observed_cpus.store(cpus);
+        observed.store(true);
+    });
+
+    // Worker threads get their own thread_local concurrency value
+    // which is set by the thread pool based on inner_concurrency calculation
+    EXPECT_TRUE(observed.load());
+    EXPECT_GT(observed_cpus.load(), 0);
+}
+
+// Test nested parallel_for inner concurrency calculation
+TEST_F(ThreadTest, NestedConcurrencyCalculation)
+{
+    set_hardware_concurrency(8);
+
+    std::vector<std::atomic<size_t>> observed_inner_cpus(4);
+
+    parallel_for(4, [&](size_t outer_idx) {
+        // Each outer task should see reduced concurrency for inner tasks
+        // With 8 CPUs and 4 outer tasks, each gets at least 2 CPUs
+        size_t inner_cpus = get_num_cpus();
+        observed_inner_cpus[outer_idx].store(inner_cpus);
+
+        // Run a nested parallel_for
+        parallel_for(10, [](size_t) {});
+    });
+
+    // All inner parallel_for calls should see at least 2 CPUs
+    for (size_t i = 0; i < 4; ++i) {
+        EXPECT_GE(observed_inner_cpus[i].load(), 2);
+    }
+}
+
+// Test that main thread concurrency is preserved across parallel_for
+TEST_F(ThreadTest, ConcurrencyIsolation)
+{
+    set_hardware_concurrency(4);
+
+    size_t cpus_before = get_num_cpus();
+    EXPECT_EQ(cpus_before, 4);
+
+    std::atomic<bool> task_completed{ false };
+
+    parallel_for(2, [&](size_t) {
+        // Worker threads have their own thread_local concurrency
+        task_completed.store(true);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    });
+
+    EXPECT_TRUE(task_completed.load());
+
+    // Main thread should still see 4 after parallel_for completes
+    size_t cpus_after = get_num_cpus();
+    EXPECT_EQ(cpus_after, 4);
+    EXPECT_EQ(cpus_before, cpus_after);
+}
+
+// Test concurrency with sequential execution (1 iteration)
+TEST_F(ThreadTest, ConcurrencyWithSingleIteration)
+{
+    set_hardware_concurrency(8);
+
+    std::atomic<size_t> observed_cpus{ 0 };
+
+    parallel_for(1, [&](size_t) { observed_cpus.store(get_num_cpus()); });
+
+    // Even with 1 iteration, should see full concurrency
+    EXPECT_EQ(observed_cpus.load(), 8);
+}
+
+// Test deeply nested parallel_for concurrency
+TEST_F(ThreadTest, DeeplyNestedConcurrency)
+{
+    set_hardware_concurrency(16);
+
+    std::atomic<size_t> level1_cpus{ 0 };
+    std::atomic<size_t> level2_cpus{ 0 };
+    std::atomic<size_t> level3_cpus{ 0 };
+
+    parallel_for(2, [&](size_t) {
+        level1_cpus.store(get_num_cpus());
+
+        parallel_for(2, [&](size_t) {
+            level2_cpus.store(get_num_cpus());
+
+            parallel_for(2, [&](size_t) { level3_cpus.store(get_num_cpus()); });
+        });
+    });
+
+    // All levels should see at least 2 CPUs
+    EXPECT_GE(level1_cpus.load(), 2);
+    EXPECT_GE(level2_cpus.load(), 2);
+    EXPECT_GE(level3_cpus.load(), 2);
 }
 
 } // namespace bb
