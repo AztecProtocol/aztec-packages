@@ -23,9 +23,7 @@ template <typename Field> class FieldConversion {
     using bn254_point = curve::BN254::AffineElement;
     using grumpkin_point = curve::Grumpkin::AffineElement;
 
-    // ---------------------------------------------------------------------
     // Size calculators
-    // ---------------------------------------------------------------------
     template <typename T>
     static constexpr size_t calc_num_fields()
         requires(IsAnyOf<Field, bb::fr>)
@@ -50,7 +48,7 @@ template <typename Field> class FieldConversion {
         if constexpr (IsAnyOf<T, uint32_t, uint64_t, uint256_t, bool, fq, bb::fr>) {
             return 1;
         } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
-            // In contrast to bb::fr, bn254 points can be represented only 2 uint256_t elements
+            // In contrast to bb::fr, bn254 points can be represented by only 2 uint256_t elements
             return 2;
         } else {
             // Array or Univariate
@@ -58,9 +56,6 @@ template <typename Field> class FieldConversion {
         }
     }
 
-    // ---------------------------------------------------------------------
-    // grumpkin <-> bn254 fr helpers (integrated from .cpp)
-    // ---------------------------------------------------------------------
     /**
      * @brief Converts 2 bb::fr elements to fq
      * @details Splits into 136-bit lower chunk and 118-bit upper chunk to mirror stdlib bigfield limbs (68-bit each).
@@ -117,19 +112,16 @@ template <typename Field> class FieldConversion {
         requires(IsAnyOf<Field, bb::fr>)
 
     {
+        BB_ASSERT_EQ(fr_vec.size(), calc_num_fields<T>());
         if constexpr (IsAnyOf<T, bool>) {
-            BB_ASSERT_EQ(fr_vec.size(), static_cast<size_t>(1));
             return static_cast<bool>(fr_vec[0]);
         } else if constexpr (IsAnyOf<T, uint32_t, uint64_t, bb::fr>) {
-            BB_ASSERT_EQ(fr_vec.size(), static_cast<size_t>(1));
             return static_cast<T>(fr_vec[0]);
         } else if constexpr (IsAnyOf<T, fq>) {
-            BB_ASSERT_EQ(fr_vec.size(), static_cast<size_t>(2));
             return convert_grumpkin_fr_from_bn254_frs(fr_vec);
         } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
             using BaseField = typename T::Fq;
             constexpr size_t BASE = calc_num_fields<BaseField>();
-            BB_ASSERT_EQ(fr_vec.size(), 2 * BASE);
             T val;
             val.x = deserialize_from_fields<BaseField>(fr_vec.subspan(0, BASE));
             val.y = deserialize_from_fields<BaseField>(fr_vec.subspan(BASE, BASE));
@@ -142,7 +134,6 @@ template <typename Field> class FieldConversion {
             // Array or Univariate
             T val;
             constexpr size_t SZ = calc_num_fields<typename T::value_type>();
-            BB_ASSERT_EQ(fr_vec.size(), SZ * std::tuple_size<T>::value);
             size_t i = 0;
             for (auto& x : val) {
                 x = deserialize_from_fields<typename T::value_type>(fr_vec.subspan(SZ * i, SZ));
@@ -157,16 +148,14 @@ template <typename Field> class FieldConversion {
         requires(IsAnyOf<Field, uint256_t>)
 
     {
+        BB_ASSERT_EQ(vec.size(), calc_num_fields<T>());
         if constexpr (IsAnyOf<T, bool>) {
-            BB_ASSERT_EQ(vec.size(), static_cast<size_t>(1));
             return static_cast<bool>(vec[0]);
         } else if constexpr (IsAnyOf<T, uint32_t, uint64_t, uint256_t, bb::fr, fq>) {
-            BB_ASSERT_EQ(vec.size(), static_cast<size_t>(1));
             return static_cast<T>(vec[0]);
         } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
             using BaseField = typename T::Fq;
             constexpr size_t N = calc_num_fields<BaseField>();
-            BB_ASSERT_EQ(vec.size(), 2 * N);
             T val;
             val.x = deserialize_from_fields<BaseField>(vec.subspan(0, N));
             val.y = deserialize_from_fields<BaseField>(vec.subspan(N, N));
@@ -179,7 +168,6 @@ template <typename Field> class FieldConversion {
             // Array or Univariate
             T val;
             constexpr size_t SZ = calc_num_fields<typename T::value_type>();
-            BB_ASSERT_EQ(vec.size(), SZ * std::tuple_size<T>::value);
             size_t i = 0;
             for (auto& x : val) {
                 x = deserialize_from_fields<typename T::value_type>(vec.subspan(SZ * i, SZ));
@@ -189,9 +177,9 @@ template <typename Field> class FieldConversion {
         }
     }
 
-    // ---------------------------------------------------------------------
-    // Serialize
-    // ---------------------------------------------------------------------
+    /**
+     * @brief Conversion from transcript values to bb::frs
+     */
     template <typename T>
     static std::vector<fr> serialize_to_fields(const T& val)
         requires(IsAnyOf<Field, bb::fr>)
@@ -203,27 +191,32 @@ template <typename Field> class FieldConversion {
             return convert_grumpkin_fr_to_bn254_frs(val);
         } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
             using BaseField = typename T::Fq;
-            std::vector<fr> x, y;
+            std::vector<bb::fr> fr_vec_x;
+            std::vector<bb::fr> fr_vec_y;
             if (val.is_point_at_infinity()) {
-                x = serialize_to_fields(BaseField::zero());
-                y = serialize_to_fields(BaseField::zero());
+                fr_vec_x = serialize_to_fields(BaseField::zero());
+                fr_vec_y = serialize_to_fields(BaseField::zero());
             } else {
-                x = serialize_to_fields(val.x);
-                y = serialize_to_fields(val.y);
+                fr_vec_x = serialize_to_fields(val.x);
+                fr_vec_y = serialize_to_fields(val.y);
             }
-            std::vector<fr> out(x.begin(), x.end());
-            out.insert(out.end(), y.begin(), y.end());
-            return out;
+            std::vector<bb::fr> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
+            fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
+            return fr_vec;
         } else {
             // Array or Univariate
             std::vector<fr> out;
-            for (auto& e : val) {
-                auto tmp = serialize_to_fields(e);
+            for (auto& x : val) {
+                auto tmp = serialize_to_fields(x);
                 out.insert(out.end(), tmp.begin(), tmp.end());
             }
             return out;
         }
     }
+
+    /**
+     * @brief Conversion from transcript values to `uint256_t`s
+     */
 
     template <typename T>
     static std::vector<uint256_t> serialize_to_fields(const T& val)
@@ -233,17 +226,20 @@ template <typename Field> class FieldConversion {
             return { val };
         } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
             using BaseField = typename T::Fq;
-            std::vector<uint256_t> x, y;
+            std::vector<uint256_t> uint256_vec_x;
+            std::vector<uint256_t> uint256_vec_y;
+            // When encountering a point at infinity we pass a zero point in the proof to ensure that on the receiving
+            // size there are no inconsistencies whenre constructing and hashing.
             if (val.is_point_at_infinity()) {
-                x = serialize_to_fields<BaseField>(BaseField::zero());
-                y = serialize_to_fields<BaseField>(BaseField::zero());
+                uint256_vec_x = serialize_to_fields(BaseField::zero());
+                uint256_vec_y = serialize_to_fields(BaseField::zero());
             } else {
-                x = serialize_to_fields<BaseField>(val.x);
-                y = serialize_to_fields<BaseField>(val.y);
+                uint256_vec_x = serialize_to_fields<BaseField>(val.x);
+                uint256_vec_y = serialize_to_fields<BaseField>(val.y);
             }
-            std::vector<uint256_t> out(x.begin(), x.end());
-            out.insert(out.end(), y.begin(), y.end());
-            return out;
+            std::vector<uint256_t> uint256_vec(uint256_vec_x.begin(), uint256_vec_x.end());
+            uint256_vec.insert(uint256_vec.end(), uint256_vec_y.begin(), uint256_vec_y.end());
+            return uint256_vec;
         } else {
             // Array or Univariate
             std::vector<uint256_t> out;
@@ -255,9 +251,14 @@ template <typename Field> class FieldConversion {
         }
     }
 
-    // ---------------------------------------------------------------------
-    // Split challenge (templated to avoid duplication)
-    // ---------------------------------------------------------------------
+    /**
+     * @brief Split a challenge field element into two half-width challenges
+     * @details `lo` is 128 bits and `hi` is 126 bits which should provide significantly more than our security
+     * parameter bound: 100 bits. The decomposition is constrained to be unique.
+     *
+     * @param challenge
+     * @return std::array<DataType, 2>
+     */
     static std::array<Field, 2> split_challenge(const Field& challenge)
     {
         static constexpr size_t LO_BITS = bb::fr::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR; // 128
@@ -270,9 +271,9 @@ template <typename Field> class FieldConversion {
         return { Field(lo), Field(hi) };
     }
 
-    // ---------------------------------------------------------------------
-    // Transcript challenge cast (fr -> target)
-    // ---------------------------------------------------------------------
+    /**
+     * @brief Convert an `fr` challenge to a target type (fr or fq). Assumes challenge is "short".
+     */
     template <typename T> static T convert_challenge(const bb::fr& challenge)
 
     {

@@ -8,10 +8,10 @@ class FieldConversionTest : public ::testing::Test {
   public:
     template <typename T> void check_conversion(T x)
     {
-        size_t len = FrCodec::template calc_num_fields<T>();
+        size_t len = FrCodec::calc_num_fields<T>();
         auto frs = FrCodec::serialize_to_fields(x);
         EXPECT_EQ(len, frs.size());
-        auto y = FrCodec::template deserialize_from_fields<T>(frs);
+        auto y = FrCodec::deserialize_from_fields<T>(frs);
         EXPECT_EQ(x, y);
     }
 };
@@ -158,7 +158,7 @@ TEST_F(FieldConversionTest, ConvertChallengeGrumpkinFr)
 {
     uint256_t chal_raw(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")); // 256 bits
     bb::fr chal(chal_raw.slice(0, 136));
-    auto result = FrCodec::template convert_challenge<grumpkin::fr>(chal);
+    auto result = FrCodec::convert_challenge<grumpkin::fr>(chal);
     auto expected = uint256_t(chal);
     EXPECT_EQ(uint256_t(result), expected);
 }

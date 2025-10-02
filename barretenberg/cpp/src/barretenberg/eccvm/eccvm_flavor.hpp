@@ -109,8 +109,8 @@ class ECCVMFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 2;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
-    static constexpr size_t num_frs_comm = FrCodec::template calc_num_fields<Commitment>();
-    static constexpr size_t num_frs_fq = FrCodec::template calc_num_fields<FF>();
+    static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
+    static constexpr size_t num_frs_fq = FrCodec::calc_num_fields<FF>();
 
     // Proof length formula
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =

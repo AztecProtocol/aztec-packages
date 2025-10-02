@@ -18,8 +18,8 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
     static constexpr bool USE_PADDING = false;
 
     // Override as proof length is different
-    static constexpr size_t num_elements_comm = U256Codec::template calc_num_fields<Commitment>();
-    static constexpr size_t num_elements_fr = U256Codec::template calc_num_fields<FF>();
+    static constexpr size_t num_elements_comm = U256Codec::calc_num_fields<Commitment>();
+    static constexpr size_t num_elements_fr = U256Codec::calc_num_fields<FF>();
 
     // Proof length formula methods
     static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =

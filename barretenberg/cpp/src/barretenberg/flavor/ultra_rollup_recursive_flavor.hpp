@@ -48,8 +48,6 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
     using NativeVerificationKey = NativeFlavor::VerificationKey;
     using Transcript = UltraRecursiveFlavor_<BuilderType>::Transcript;
 
-    using Base = UltraRecursiveFlavor_<BuilderType>;
-
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.

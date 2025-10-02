@@ -118,11 +118,11 @@ void tamper_with_proof(ProofType& inner_proof, bool end_of_proof)
         }
     } else {
         // Manually deserialize, modify, and serialize the last commitment contained in the proof.
-        static constexpr size_t num_frs_comm = FrCodec::template calc_num_fields<Commitment>();
+        static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
         size_t offset = inner_proof.size() - num_frs_comm;
 
         auto element_frs = std::span{ inner_proof }.subspan(offset, num_frs_comm);
-        auto last_commitment = NativeTranscript::template deserialize<Commitment>(element_frs);
+        auto last_commitment = NativeTranscript::deserialize<Commitment>(element_frs);
         last_commitment = last_commitment * FF(2);
         auto last_commitment_reserialized = NativeTranscript::serialize(last_commitment);
         std::copy(last_commitment_reserialized.begin(),

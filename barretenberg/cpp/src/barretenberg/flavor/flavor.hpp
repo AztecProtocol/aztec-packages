@@ -305,7 +305,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     using Builder = Builder_;
     using FF = stdlib::field_t<Builder>;
     using Commitment = typename PrecomputedCommitments::DataType;
-    using Transcript = BaseTranscript<FF, stdlib::poseidon2<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
     FF log_circuit_size;
     FF num_public_inputs;
     FF pub_inputs_offset = 0;

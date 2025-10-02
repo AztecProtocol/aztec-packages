@@ -81,10 +81,11 @@ class AvmRecursiveFlavor {
             using Codec = stdlib::StdlibCodec<FF>;
 
             size_t num_frs_read = 0;
-            size_t num_frs_Comm = Codec::template calc_num_bn254_frs<Commitment>();
+            size_t num_frs_Comm = Codec::template calc_num_fields<Commitment>();
 
             for (Commitment& comm : this->get_all()) {
-                comm = Codec::template convert_from_bn254_frs<Commitment>(elements.subspan(num_frs_read, num_frs_Comm));
+                comm =
+                    Codec::template deserialize_from_fields<Commitment>(elements.subspan(num_frs_read, num_frs_Comm));
                 num_frs_read += num_frs_Comm;
             }
         }

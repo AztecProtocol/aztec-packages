@@ -44,6 +44,10 @@ struct keccak256 hash_field_elements(const uint64_t* limbs, size_t num_elements)
 
 struct keccak256 hash_field_element(const uint64_t* limb);
 
+/**
+ * @brief A wrapper class used to construct `KeccakTranscript`.
+ *
+ */
 class Keccak {
   public:
     static bb::fr hash(std::vector<uint256_t> const& data)

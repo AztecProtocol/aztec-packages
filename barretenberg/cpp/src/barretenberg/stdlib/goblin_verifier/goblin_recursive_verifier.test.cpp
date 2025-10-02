@@ -30,12 +30,12 @@ class GoblinRecursiveVerifierTests : public testing::Test {
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     // Compute the size of a Translator commitment (in bb::fr's)
-    static constexpr size_t comm_frs = FrCodec::template calc_num_fields<Commitment>(); // 4
-    static constexpr size_t eval_frs = FrCodec::template calc_num_fields<FF>();         // 1
+    static constexpr size_t comm_frs = FrCodec::calc_num_fields<Commitment>(); // 4
+    static constexpr size_t eval_frs = FrCodec::calc_num_fields<FF>();         // 1
 
     // The `op` wire commitment is currently the second element of the proof, following the
     // `accumulated_result` which is a BN254 BaseField element.
-    static constexpr size_t offset = FrCodec::template calc_num_fields<BF>();
+    static constexpr size_t offset = FrCodec::calc_num_fields<BF>();
 
     struct ProverOutput {
         GoblinProof proof;

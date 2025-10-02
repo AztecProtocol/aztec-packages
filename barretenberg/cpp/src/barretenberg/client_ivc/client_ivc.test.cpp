@@ -47,10 +47,10 @@ class ClientIVCTests : public ::testing::Test {
     static void tamper_with_proof(FoldProof& proof, size_t public_inputs_offset)
     {
         // Tamper with the commitment in the proof
-        Commitment commitment = FrCodec::template deserialize_from_fields<Commitment>(
+        Commitment commitment = FrCodec::deserialize_from_fields<Commitment>(
             std::span{ proof }.subspan(public_inputs_offset, FrCodec::template calc_num_fields<Commitment>()));
         commitment = commitment + Commitment::one();
-        auto commitment_frs = FrCodec::template serialize_to_fields<Commitment>(commitment);
+        auto commitment_frs = FrCodec::serialize_to_fields<Commitment>(commitment);
         for (size_t idx = 0; idx < 4; ++idx) {
             proof[public_inputs_offset + idx] = commitment_frs[idx];
         }
