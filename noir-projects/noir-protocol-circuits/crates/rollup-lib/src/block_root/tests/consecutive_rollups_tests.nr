@@ -1,11 +1,24 @@
 use super::TestBuilder;
 
-// Note: We only test a few cases here to ensure the code path is triggered. More comprehensive tests for validating
-// consecutive tx rollups can be found in `tx_merge/tests/consecutive_tx_rollups_tests.nr`.
+// Note: We only test a few cases here to ensure the code path is triggered. More comprehensive tests for merging and
+// validating consecutive tx rollups can be found in `tx_merge/tests/consecutive_tx_rollups_tests.nr`.
 
 global IS_FIRST_BLOCK_ROOT: bool = true;
 // Only the block root that has 2 rollups will need to validate that the rollups are consecutive.
 global HAS_SINGLE_TX: bool = false;
+
+#[test]
+fn propagate_right_out_hash_when_left_is_zero() {
+    let mut builder = TestBuilder::default(IS_FIRST_BLOCK_ROOT, HAS_SINGLE_TX);
+
+    builder.left_rollup.out_hash = 0;
+    builder.right_rollup.out_hash = 123;
+
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+
+    assert_eq(pi.out_hash, 123);
+}
 
 #[test(should_fail_with = "Mismatched constants in tx rollups")]
 fn first_mismatch_block_number() {

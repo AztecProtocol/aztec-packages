@@ -1,37 +1,53 @@
-import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
-import type { AsyncHasher } from '@aztec/foundation/trees';
-import { SiblingPath } from '@aztec/foundation/trees';
-
 import { sha256Trunc } from '../crypto/index.js';
+import type { Hasher } from './hasher.js';
+import { SiblingPath } from './sibling_path.js';
+import { type TreeNodeLocation, UnbalancedTreeStore } from './unbalanced_tree_store.js';
 
-const indexToKeyHash = (level: number, index: bigint) => `${level}:${index}`;
+export function computeCompressedUnbalancedMerkleTreeRoot(
+  leaves: Buffer[],
+  valueToCompress = Buffer.alloc(32),
+  hasher?: Hasher['hash'],
+): Buffer {
+  const calculator = UnbalancedMerkleTreeCalculator.create(leaves, valueToCompress, hasher);
+  return calculator.getRoot();
+}
+
+interface TreeNode {
+  value: Buffer;
+  leafIndex?: number;
+}
 
 /**
  * An ephemeral unbalanced Merkle tree implementation.
  * Follows the rollup implementation which greedily hashes pairs of nodes up the tree.
  * Remaining rightmost nodes are shifted up until they can be paired.
+ * The values that match the `valueToCompress` are skipped and the sibling of the compressed leaf are shifted up until
+ * they can be paired.
  * If there is only one leaf, the root is the leaf.
  */
 export class UnbalancedMerkleTreeCalculator {
-  // This map stores index and depth -> value
-  private cache: { [key: string]: Buffer } = {};
-  // This map stores value -> index and depth, since we have variable depth
-  private valueCache: { [key: string]: string } = {};
-  protected size: bigint = 0n;
-
-  root: Buffer = Buffer.alloc(32);
+  private store: UnbalancedTreeStore<TreeNode>;
+  private leafLocations: TreeNodeLocation[] = [];
 
   public constructor(
-    private maxDepth: number,
-    private hasher: AsyncHasher['hash'],
-  ) {}
+    private readonly leaves: Buffer[],
+    private readonly valueToCompress: Buffer,
+    private readonly hasher: Hasher['hash'],
+  ) {
+    if (leaves.length === 0) {
+      throw Error('Cannot create a compressed unbalanced tree with 0 leaves.');
+    }
+
+    this.store = new UnbalancedTreeStore(leaves.length);
+    this.buildTree();
+  }
 
   static create(
-    height: number,
-    hasher = (left: Buffer, right: Buffer) =>
-      Promise.resolve(sha256Trunc(Buffer.concat([left, right])) as Buffer<ArrayBuffer>),
+    leaves: Buffer[],
+    valueToCompress = Buffer.alloc(0),
+    hasher = (left: Buffer, right: Buffer) => sha256Trunc(Buffer.concat([left, right])) as Buffer<ArrayBuffer>,
   ) {
-    return new UnbalancedMerkleTreeCalculator(height, hasher);
+    return new UnbalancedMerkleTreeCalculator(leaves, valueToCompress, hasher);
   }
 
   /**
@@ -39,108 +55,140 @@ export class UnbalancedMerkleTreeCalculator {
    * @returns The root of the tree.
    */
   public getRoot(): Buffer {
-    return this.root;
+    return this.store.getRoot()!.value;
   }
 
   /**
-   * Returns a sibling path for the element at the given index.
+   * Returns a sibling path for the element.
    * @param value - The value of the element.
    * @returns A sibling path for the element.
    * Note: The sibling path is an array of sibling hashes, with the lowest hash (leaf hash) first, and the highest hash last.
    */
-  public getSiblingPath<N extends number>(value: Bufferable): Promise<SiblingPath<N>> {
-    if (this.size === 1n) {
-      return Promise.resolve(new SiblingPath<N>(0 as N, []));
+  public getSiblingPath<N extends number>(value: Buffer): SiblingPath<N> {
+    const leafIndex = this.leaves.findIndex(leaf => leaf.equals(value));
+    if (leafIndex === -1) {
+      throw Error(`Leaf value ${value.toString('hex')} not found in tree.`);
+    }
+
+    return this.getSiblingPathByLeafIndex(leafIndex);
+  }
+
+  /**
+   * Returns a sibling path for the leaf at the given index.
+   * @param leafIndex - The index of the leaf.
+   * @returns A sibling path for the leaf.
+   */
+  public getSiblingPathByLeafIndex<N extends number>(leafIndex: number): SiblingPath<N> {
+    if (leafIndex >= this.leaves.length) {
+      throw Error(`Leaf index ${leafIndex} out of bounds. Tree has ${this.leaves.length} leaves.`);
+    }
+
+    const leaf = this.leaves[leafIndex];
+    if (leaf.equals(this.valueToCompress)) {
+      throw Error(`Leaf at index ${leafIndex} has been compressed.`);
     }
 
     const path: Buffer[] = [];
-    const [depth, _index] = this.valueCache[serializeToBuffer(value).toString('hex')].split(':');
-    let level = parseInt(depth, 10);
-    let index = BigInt(_index);
-    while (level > 0) {
-      const isRight = index & 0x01n;
-      const key = indexToKeyHash(level, isRight ? index - 1n : index + 1n);
-      const sibling = this.cache[key];
-      path.push(sibling);
-      level -= 1;
-      index >>= 1n;
+    let location = this.leafLocations[leafIndex];
+    while (location.level > 0) {
+      const sibling = this.store.getSibling(location)!;
+      path.push(sibling.value);
+      location = this.store.getParentLocation(location);
     }
-    return Promise.resolve(new SiblingPath<N>(parseInt(depth, 10) as N, path));
+
+    return new SiblingPath<N>(path.length as N, path);
+  }
+
+  public getLeafLocation(leafIndex: number) {
+    return this.leafLocations[leafIndex];
   }
 
   /**
-   * Appends the given leaves to the tree.
-   * @param leaves - The leaves to append.
-   * @returns Empty promise.
+   * Adds leaves and nodes to the store. Updates the leafLocations.
+   * @param leaves - The leaves of the tree.
    */
-  public async appendLeaves(leaves: Buffer[]): Promise<void> {
-    if (this.size != BigInt(0)) {
-      throw Error(`Can't re-append to an unbalanced tree. Current has ${this.size} leaves.`);
-    }
-    if (leaves.length === 0) {
-      throw Error(`Can't append 0 leaves to an unbalanced tree.`);
-    }
+  private buildTree() {
+    this.leafLocations = this.leaves.map((value, i) => this.store.setLeaf(i, { value, leafIndex: i }));
 
-    if (leaves.length === 1) {
-      this.root = leaves[0];
-    } else {
-      this.root = await this.batchInsert(leaves);
+    // Start with the leaves that are not compressed.
+    let toProcess = this.leafLocations.filter((_, i) => !this.leaves[i].equals(this.valueToCompress));
+    if (!toProcess.length) {
+      // All leaves are compressed. Set 0 to the root.
+      this.store.setNode({ level: 0, index: 0 }, { value: Buffer.alloc(32) });
+      return;
     }
 
-    this.size = BigInt(leaves.length);
-
-    return Promise.resolve();
-  }
-
-  /**
-   * Calculates root while adding leaves and nodes to the cache.
-   * @param leaves - The leaves to append.
-   * @returns Resulting root of the tree.
-   */
-  private async batchInsert(_leaves: Buffer[]): Promise<Buffer> {
-    // If we have an even number of leaves, hash them all in pairs
-    // Otherwise, store the final leaf to be shifted up to the next odd sized level
-    let [layerWidth, nodeToShift] =
-      _leaves.length & 1
-        ? [_leaves.length - 1, serializeToBuffer(_leaves[_leaves.length - 1])]
-        : [_leaves.length, Buffer.alloc(0)];
-    // Allocate this layer's leaves and init the next layer up
-    let thisLayer = _leaves.slice(0, layerWidth).map(l => serializeToBuffer(l));
-    let nextLayer = [];
-    // Store the bottom level leaves
-    thisLayer.forEach((leaf, i) => this.storeNode(leaf, this.maxDepth, BigInt(i)));
-    for (let i = 0; i < this.maxDepth; i++) {
-      for (let j = 0; j < layerWidth; j += 2) {
-        // Store the hash of each pair one layer up
-        nextLayer[j / 2] = await this.hasher(serializeToBuffer(thisLayer[j]), serializeToBuffer(thisLayer[j + 1]));
-        this.storeNode(nextLayer[j / 2], this.maxDepth - i - 1, BigInt(j >> 1));
-      }
-      layerWidth /= 2;
-      if (layerWidth & 1) {
-        if (nodeToShift.length) {
-          // If the next layer has odd length, and we have a node that needs to be shifted up, add it here
-          nextLayer.push(serializeToBuffer(nodeToShift));
-          this.storeNode(nodeToShift, this.maxDepth - i - 1, BigInt((layerWidth * 2) >> 1));
-          layerWidth += 1;
-          nodeToShift = Buffer.alloc(0);
-        } else {
-          // If we don't have a node waiting to be shifted, store the next layer's final node to be shifted
-          layerWidth -= 1;
-          nodeToShift = nextLayer[layerWidth];
+    const level = toProcess[0].level;
+    for (let i = level; i > 0; i--) {
+      const toProcessNext = [];
+      for (const location of toProcess) {
+        if (location.level !== i) {
+          toProcessNext.push(location);
+          continue;
         }
-      }
-      // reset the layers
-      thisLayer = nextLayer;
-      nextLayer = [];
-    }
 
-    // return the root
-    return thisLayer[0];
+        const parentLocation = this.store.getParentLocation(location);
+        if (this.store.getNode(parentLocation)) {
+          // Parent has been updated by its (left) sibling.
+          continue;
+        }
+
+        const sibling = this.store.getSibling(location);
+        // If sibling is undefined, all its children are compressed.
+        const shouldShiftUp = !sibling || sibling.value.equals(this.valueToCompress);
+        if (shouldShiftUp) {
+          // The node becomes the parent if the sibling is a compressed leaf.
+          const isLeaf = this.shiftNodeUp(location, parentLocation);
+          if (!isLeaf) {
+            this.shiftChildrenUp(location);
+          }
+        } else {
+          // Hash the value with the (right) sibling and update the parent node.
+          const node = this.store.getNode(location)!;
+          const parentValue = this.hasher(node.value, sibling.value);
+          this.store.setNode(parentLocation, { value: parentValue });
+        }
+
+        // Add the parent location to be processed next.
+        toProcessNext.push(parentLocation);
+      }
+
+      toProcess = toProcessNext;
+    }
   }
 
-  private storeNode(value: Buffer, depth: number, index: bigint) {
-    const key = indexToKeyHash(depth, index);
-    this.cache[key] = value;
-    this.valueCache[value.toString('hex')] = key;
+  private shiftNodeUp(fromLocation: TreeNodeLocation, toLocation: TreeNodeLocation): boolean {
+    const node = this.store.getNode(fromLocation)!;
+
+    this.store.setNode(toLocation, node);
+
+    const isLeaf = node.leafIndex !== undefined;
+    if (isLeaf) {
+      // Update the location if the node is a leaf.
+      this.leafLocations[node.leafIndex!] = toLocation;
+    }
+
+    return isLeaf;
+  }
+
+  private shiftChildrenUp(parent: TreeNodeLocation) {
+    const [left, right] = this.store.getChildLocations(parent);
+
+    const level = parent.level;
+    const groupSize = 2 ** level;
+    const computeNewLocation = (index: number) => ({
+      level,
+      index: Math.floor(index / (groupSize * 2)) * groupSize + (index % groupSize),
+    });
+
+    const isLeftLeaf = this.shiftNodeUp(left, computeNewLocation(left.index));
+    const isRightLeaf = this.shiftNodeUp(right, computeNewLocation(right.index));
+
+    if (!isLeftLeaf) {
+      this.shiftChildrenUp(left);
+    }
+    if (!isRightLeaf) {
+      this.shiftChildrenUp(right);
+    }
   }
 }

@@ -139,7 +139,16 @@ impl TestBuilder {
         assert(pi.end_timestamp - pi.start_timestamp + 1 >= num_blocks as u64);
 
         assert_eq(pi.in_hash, left.in_hash);
-        assert_eq(pi.out_hash, accumulate_sha256(left.out_hash, right.out_hash));
+
+        let expected_out_hash = if (left.out_hash != 0) & (right.out_hash != 0) {
+            accumulate_sha256(left.out_hash, right.out_hash)
+        } else if left.out_hash != 0 {
+            left.out_hash
+        } else {
+            right.out_hash
+        };
+        assert_eq(pi.out_hash, expected_out_hash);
+        // The tests to cover all the above scenarios are in `consecutive_block_rollups_tests.nr`.
 
         assert_eq(pi.accumulated_fees, left.accumulated_fees + right.accumulated_fees);
         assert_eq(
