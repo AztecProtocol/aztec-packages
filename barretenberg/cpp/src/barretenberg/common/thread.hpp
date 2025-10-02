@@ -29,8 +29,21 @@ inline size_t get_num_cpus_pow2()
  * @param func Function to run in parallel
  * Observe that num_iterations is NOT the thread pool size.
  * The size will be chosen based on the hardware concurrency (i.e., env or cpus).
+ *
+ * @warning This function cannot be called from within another parallel_for context.
+ * Use parallel_for_outer() for the outermost parallel loop if nesting is needed.
  */
 void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func);
+
+/**
+ * Creates a thread pool and runs the function in parallel (outermost level).
+ * @param num_iterations Number of iterations
+ * @param func Function to run in parallel
+ *
+ * This is identical to parallel_for() but explicitly allows nested parallel_for() calls
+ * within the function. Use this for the outermost parallel loop when you need nesting.
+ */
+void parallel_for_outer(size_t num_iterations, const std::function<void(size_t)>& func);
 void parallel_for_range(size_t num_points,
                         const std::function<void(size_t, size_t)>& func,
                         size_t no_multhreading_if_less_or_equal = 0);
