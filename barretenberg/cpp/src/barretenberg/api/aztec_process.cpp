@@ -1,5 +1,6 @@
 #include "aztec_process.hpp"
 #include "barretenberg/api/file_io.hpp"
+#include "barretenberg/bbapi/bbapi_client_ivc.hpp"
 #include "barretenberg/common/base64.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -9,24 +10,11 @@
 #include <iomanip>
 #include <nlohmann/json.hpp>
 #include <sstream>
-#include <thread>
-
-#ifndef __wasm__
-#include <fcntl.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#endif
 
 #ifdef ENABLE_AVM_TRANSPILER
 // Include avm_transpiler header
 #include <avm_transpiler.h>
 #endif
-
-// External C function for VK generation
-extern "C" int bbapi_compute_standalone_vk(const uint8_t* bytecode,
-                                           size_t bytecode_len,
-                                           uint8_t** out_vk,
-                                           size_t* out_vk_len);
 
 namespace bb {
 
@@ -99,29 +87,21 @@ bool is_private_constrained_function(const nlohmann::json& function)
 }
 
 /**
- * @brief Generate VK from bytecode and return as vector
+ * @brief Generate VK from bytecode using the C++ API
  */
-std::vector<uint8_t> generate_vk(const std::vector<uint8_t>& bytecode)
+std::vector<uint8_t> generate_vk(const std::string& circuit_name, const std::vector<uint8_t>& bytecode)
 {
-    uint8_t* vk_output_ptr = nullptr;
-    size_t vk_output_len = 0;
+    auto response =
+        bbapi::ClientIvcComputeStandaloneVk{ .circuit = { .name = circuit_name, .bytecode = bytecode } }.execute();
 
-    int result = bbapi_compute_standalone_vk(bytecode.data(), bytecode.size(), &vk_output_ptr, &vk_output_len);
-
-    if (result != 0 || vk_output_ptr == nullptr) {
-        throw_or_abort("VK generation failed");
-    }
-
-    std::vector<uint8_t> vk_data(vk_output_ptr, vk_output_ptr + vk_output_len);
-    std::free(vk_output_ptr);
-
-    return vk_data;
+    return response.bytes;
 }
 
 /**
  * @brief Get cached VK or generate if missing
  */
 std::vector<uint8_t> get_or_generate_cached_vk(const std::filesystem::path& cache_dir,
+                                               const std::string& circuit_name,
                                                const std::vector<uint8_t>& bytecode,
                                                bool force)
 {
@@ -136,7 +116,7 @@ std::vector<uint8_t> get_or_generate_cached_vk(const std::filesystem::path& cach
 
     // Generate new VK
     info("Generating verification key: ", hash_str);
-    auto vk_data = generate_vk(bytecode);
+    auto vk_data = generate_vk(circuit_name, bytecode);
 
     // Cache the VK
     write_file(vk_cache_path, vk_data);
@@ -144,145 +124,31 @@ std::vector<uint8_t> get_or_generate_cached_vk(const std::filesystem::path& cach
     return vk_data;
 }
 
-#ifndef __wasm__
 /**
- * @brief Worker process for VK generation
- */
-void vk_worker_process(const std::filesystem::path& cache_dir,
-                       const std::vector<nlohmann::json*>& functions,
-                       size_t start_index,
-                       size_t end_index,
-                       bool force)
-{
-    for (size_t i = start_index; i < end_index; ++i) {
-        const auto& function = *functions[i];
-        std::string fn_name = function["name"].get<std::string>();
-
-        info("\n--- ", fn_name, " ---");
-        info("Processing function: ", fn_name, " (PID: ", getpid(), ")");
-
-        try {
-            // Get bytecode from function
-            auto bytecode = extract_bytecode(function);
-
-            // Generate and cache VK
-            get_or_generate_cached_vk(cache_dir, bytecode, force);
-        } catch (const std::exception& e) {
-            std::cerr << "Error processing " << fn_name << ": " << e.what() << std::endl;
-            std::exit(1);
-        }
-    }
-}
-#endif
-
-/**
- * @brief Generate VKs for all functions (single-threaded or multi-process)
+ * @brief Generate VKs for all functions (single-threaded)
  */
 void generate_vks_for_functions(const std::filesystem::path& cache_dir,
                                 std::vector<nlohmann::json*>& functions,
-                                bool force,
-                                size_t jobs)
+                                bool force)
 {
-#ifdef __wasm__
-    jobs = 1; // Force single-threaded in WASM
-#endif
+    for (auto* function : functions) {
+        std::string fn_name = (*function)["name"].get<std::string>();
 
-    if (jobs == 0) {
-        jobs = std::thread::hardware_concurrency();
-        if (jobs == 0)
-            jobs = 1;
+        info("\n--- ", fn_name, " ---");
+        info("Processing function: ", fn_name);
+
+        // Get bytecode from function
+        auto bytecode = extract_bytecode(*function);
+
+        // Generate and cache VK
+        get_or_generate_cached_vk(cache_dir, fn_name, bytecode, force);
     }
-
-    if (jobs == 1) {
-        // Single-threaded processing
-        for (auto* function : functions) {
-            std::string fn_name = (*function)["name"].get<std::string>();
-
-            info("\n--- ", fn_name, " ---");
-            info("Processing function: ", fn_name, " (single-threaded)");
-
-            // Get bytecode from function
-            auto bytecode = extract_bytecode(*function);
-
-            // Generate and cache VK
-            get_or_generate_cached_vk(cache_dir, bytecode, force);
-        }
-        info("");
-    } else {
-#ifndef __wasm__
-        // Multi-process processing
-        size_t process_count = std::min(jobs, functions.size());
-        size_t functions_per_process = (functions.size() + process_count - 1) / process_count;
-
-        std::vector<std::pair<pid_t, int>> children; // (pid, pipe_read_fd)
-
-        for (size_t i = 0; i < process_count; ++i) {
-            size_t start_index = i * functions_per_process;
-            size_t end_index = std::min((i + 1) * functions_per_process, functions.size());
-
-            if (start_index >= functions.size())
-                break;
-
-            // Create pipe for child output
-            int pipe_fds[2];
-            if (pipe(pipe_fds) == -1) {
-                throw_or_abort("Failed to create pipe");
-            }
-
-            pid_t pid = fork();
-            if (pid == -1) {
-                throw_or_abort("Failed to fork process");
-            }
-
-            if (pid == 0) {
-                // Child process
-                close(pipe_fds[0]); // Close read end
-
-                // Redirect stdout/stderr to pipe
-                dup2(pipe_fds[1], STDOUT_FILENO);
-                dup2(pipe_fds[1], STDERR_FILENO);
-                close(pipe_fds[1]);
-
-                // Do the work
-                vk_worker_process(cache_dir, functions, start_index, end_index, force);
-                std::exit(0);
-            } else {
-                // Parent process
-                close(pipe_fds[1]); // Close write end
-                children.push_back({ pid, pipe_fds[0] });
-            }
-        }
-
-        // Wait for children and collect output
-        for (const auto& [pid, pipe_fd] : children) {
-            // Wait for child
-            int status;
-            waitpid(pid, &status, 0);
-
-            if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-                close(pipe_fd);
-                throw_or_abort("VK generation process failed");
-            }
-
-            // Read and print output
-            char buffer[65536];
-            ssize_t bytes_read = ::read(pipe_fd, buffer, sizeof(buffer) - 1);
-            close(pipe_fd);
-
-            if (bytes_read > 0) {
-                buffer[bytes_read] = '\0';
-                std::cout << buffer;
-                if (buffer[bytes_read - 1] != '\n') {
-                    std::cout << '\n';
-                }
-            }
-        }
-        info("");
-#endif
-    }
+    info("");
 
     // Update JSON with VKs from cache
     for (auto* function : functions) {
+        std::string fn_name = (*function)["name"].get<std::string>();
+
         // Get bytecode to compute hash
         auto bytecode = extract_bytecode(*function);
 
@@ -299,7 +165,7 @@ void generate_vks_for_functions(const std::filesystem::path& cache_dir,
 
 } // anonymous namespace
 
-bool process_aztec_artifact(const std::string& input_path, const std::string& output_path, bool force, size_t jobs)
+bool process_aztec_artifact(const std::string& input_path, const std::string& output_path, bool force)
 {
     try {
 #ifdef ENABLE_AVM_TRANSPILER
@@ -373,7 +239,7 @@ bool process_aztec_artifact(const std::string& input_path, const std::string& ou
         }
 
         // Generate VKs
-        generate_vks_for_functions(cache_dir, private_functions, force, jobs);
+        generate_vks_for_functions(cache_dir, private_functions, force);
 
         // Write updated JSON back to file
         std::ofstream out_file(output_path);
