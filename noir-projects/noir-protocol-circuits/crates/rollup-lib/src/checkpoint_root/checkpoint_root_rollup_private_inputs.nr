@@ -4,9 +4,7 @@ use crate::{
         CheckpointRollupPublicInputsComposer, CheckpointRootInputsValidator,
     },
 };
-use blob::blob_batching_public_inputs::{
-    BlobAccumulatorPublicInputs, BLSPoint, FinalBlobBatchingChallenges,
-};
+use blob::abis::{BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges};
 use types::{
     abis::block_header::BlockHeader,
     constants::{
@@ -44,7 +42,7 @@ pub struct CheckpointRootRollupHints {
     // It will be outputted and checked against the `end_blob_accumulator` of the previous checkpoint in checkpoint
     // merge or root rollup. The start_blob_accumulator of the first checkpoint in an epoch must be empty, which will be
     // checked in the root rollup.
-    pub(crate) start_blob_accumulator: BlobAccumulatorPublicInputs,
+    pub(crate) start_blob_accumulator: BlobAccumulator,
     // Finalized challenges z and gamma for performing blob batching. Shared value across the epoch.
     // It will be outputted and checked against the values in other checkpoints to ensure consistency. It will be
     // confirmed in the root rollup against the last `end_blob_accumulator`.

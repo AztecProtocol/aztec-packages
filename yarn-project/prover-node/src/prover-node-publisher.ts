@@ -1,4 +1,4 @@
-import { type BatchedBlob, FinalBlobAccumulatorPublicInputs } from '@aztec/blob-lib';
+import { type BatchedBlob, FinalBlobAccumulator } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import type { L1TxUtils, RollupContract, ViemCommitteeAttestation } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
@@ -186,9 +186,9 @@ export class ProverNodePublisher {
     }
 
     // Check the batched blob inputs from the root rollup against the batched blob computed in ts
-    if (!publicInputs.blobPublicInputs.equals(FinalBlobAccumulatorPublicInputs.fromBatchedBlob(batchedBlobInputs))) {
+    if (!publicInputs.blobPublicInputs.equals(FinalBlobAccumulator.fromBatchedBlob(batchedBlobInputs))) {
       throw new Error(
-        `Batched blob mismatch: ${inspect(publicInputs.blobPublicInputs)} !== ${inspect(FinalBlobAccumulatorPublicInputs.fromBatchedBlob(batchedBlobInputs))}`,
+        `Batched blob mismatch: ${inspect(publicInputs.blobPublicInputs)} !== ${inspect(FinalBlobAccumulator.fromBatchedBlob(batchedBlobInputs))}`,
       );
     }
 
