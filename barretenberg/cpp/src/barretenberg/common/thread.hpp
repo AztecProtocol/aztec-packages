@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/common/compiler_hints.hpp"
+#include "barretenberg/common/hardware_concurrency.hpp"
 #include <atomic>
 #include <barretenberg/env/hardware_concurrency.hpp>
 #include <barretenberg/numeric/bitop/get_msb.hpp>
@@ -9,9 +10,6 @@
 #include <vector>
 
 namespace bb {
-
-// Useful for programatically benching different thread counts
-void set_hardware_concurrency(size_t num_cores);
 inline size_t get_num_cpus()
 {
     return env_hardware_concurrency();
