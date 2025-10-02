@@ -263,7 +263,7 @@ export class TXESession implements TXESessionStateHandler {
     // we perform this. We therefore search for known nullifiers now, as otherwise notes that were nullified would not
     // be removed from the database.
     // TODO(#12553): make the synchronizer sync here instead and remove this
-    await this.pxeOracleInterface.removeNullifiedNotes(contractAddress);
+    await this.pxeOracleInterface.syncNoteNullifiers(contractAddress);
 
     // Private execution has two associated block numbers: the anchor block (i.e. the historical block that is used to
     // build the proof), and the *next* block, i.e. the one we'll create once the execution ends, and which will contain
@@ -335,7 +335,7 @@ export class TXESession implements TXESessionStateHandler {
     // we perform this. We therefore search for known nullifiers now, as otherwise notes that were nullified would not
     // be removed from the database.
     // TODO(#12553): make the synchronizer sync here instead and remove this
-    await this.pxeOracleInterface.removeNullifiedNotes(contractAddress);
+    await this.pxeOracleInterface.syncNoteNullifiers(contractAddress);
 
     this.oracleHandler = new UtilityExecutionOracle(contractAddress, [], [], this.pxeOracleInterface);
 
