@@ -45,6 +45,7 @@ import { RegistryContract } from './contracts/registry.js';
 import { RollupContract, SlashingProposerType } from './contracts/rollup.js';
 import {
   CoinIssuerArtifact,
+  DateGatedRelayerArtifact,
   FeeAssetArtifact,
   FeeAssetHandlerArtifact,
   GSEArtifact,
@@ -935,21 +936,24 @@ export const handoverToGovernance = async (
     logger.verbose('Skipping fee asset ownership transfer due to external token usage');
   }
 
+  // Either deploy or at least predict the address of the date gated relayer
+  const dateGatedRelayer = await deployer.deploy(DateGatedRelayerArtifact, [
+    governanceAddress.toString(),
+    1798761600n, // 2027-01-01 00:00:00 UTC
+  ]);
+
   // If the owner is not the Governance contract, transfer ownership to the Governance contract
-  if (
-    acceleratedTestDeployments ||
-    (await coinIssuerContract.read.owner()) !== getAddress(governanceAddress.toString())
-  ) {
+  if (acceleratedTestDeployments || (await coinIssuerContract.read.owner()) === deployer.client.account.address) {
     const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
       to: coinIssuerContract.address,
       data: encodeFunctionData({
         abi: CoinIssuerArtifact.contractAbi,
         functionName: 'transferOwnership',
-        args: [getAddress(governanceAddress.toString())],
+        args: [getAddress(dateGatedRelayer.address.toString())],
       }),
     });
     logger.verbose(
-      `Transferring the ownership of the coin issuer contract at ${coinIssuerAddress} to the Governance ${governanceAddress} in tx ${transferOwnershipTxHash}`,
+      `Transferring the ownership of the coin issuer contract at ${coinIssuerAddress} to the DateGatedRelayer ${dateGatedRelayer.address} in tx ${transferOwnershipTxHash}`,
     );
     txHashes.push(transferOwnershipTxHash);
   }
@@ -957,6 +961,8 @@ export const handoverToGovernance = async (
   // Wait for all actions to be mined
   await deployer.waitForDeployments();
   await Promise.all(txHashes.map(txHash => extendedClient.waitForTransactionReceipt({ hash: txHash })));
+
+  return { dateGatedRelayerAddress: dateGatedRelayer.address };
 };
 
 /*
@@ -1249,7 +1255,7 @@ export const deployL1Contracts = async (
   await deployer.waitForDeployments();
 
   // Now that the rollup has been deployed and added to the registry, transfer ownership to governance
-  await handoverToGovernance(
+  const { dateGatedRelayerAddress } = await handoverToGovernance(
     l1Client,
     deployer,
     registryAddress,
@@ -1444,6 +1450,7 @@ export const deployL1Contracts = async (
       stakingAssetHandlerAddress,
       zkPassportVerifierAddress,
       coinIssuerAddress,
+      dateGatedRelayerAddress,
     },
   };
 };
