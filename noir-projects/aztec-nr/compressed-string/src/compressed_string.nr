@@ -8,7 +8,7 @@ use dep::aztec::protocol_types::{traits::{Deserialize, Packable, Serialize}, uti
 /// into 31-byte chunks, with each chunk being put into a field.
 /// Each field can store 31 characters, so N should be M/31 rounded up.
 /// Can be used for longer strings that don't fit into a single field.
-#[derive(Deserialize, Eq)]
+#[derive(Deserialize, Eq, Packable)]
 pub struct CompressedString<let N: u32, let M: u32> {
     value: [Field; N],
 }
