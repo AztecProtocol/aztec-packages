@@ -272,7 +272,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           // The connection attempts to the node on TCP layer are not necessarily valid Aztec peers so we want to have a bit of leeway here
           // If we hit the limit, the connection will be temporarily accepted and immediately dropped.
           // Docs: https://nodejs.org/api/net.html#servermaxconnections
-          maxConnections: Math.ceil(maxPeerCount * 1.5),
+          maxConnections: maxPeerCount * 2,
           // socket option: the maximum length of the queue of pending connections
           // https://nodejs.org/dist/latest-v22.x/docs/api/net.html#serverlisten
           // it's not safe if we increase this number
@@ -283,7 +283,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
             // In case closeAbove is reached, the server stops listening altogether
             // It's important that there is enough difference between closeAbove and listenAbove,
             // otherwise the server.listener will flap between being closed and open potentially degrading perf even more
-            closeAbove: maxPeerCount * 2,
+            closeAbove: maxPeerCount * 3,
             listenBelow: Math.floor(maxPeerCount * 0.9),
           },
         }),
@@ -293,8 +293,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       streamMuxers: [yamux(), mplex()],
       connectionEncryption: [noise()],
       connectionManager: {
-        minConnections: 0,
-        maxConnections: maxPeerCount,
+        minConnections: Math.floor(maxPeerCount * 0.5), // dial peers from the peer book if current connections are below this number.
+        // We set maxConnections above maxPeerCount because if we hit limit of maxPeerCount
+        // libp2p will start aggressively rejecting all new connections, preventing network discovery and crawling.
+        maxConnections: maxPeerCount * 2,
         maxParallelDials: 100,
         dialTimeout: 30_000,
         maxPeerAddrsToDial: 5,
