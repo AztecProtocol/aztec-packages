@@ -884,10 +884,10 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Step 2: Generate the challenges by hashing the pairs
         using StdlibTranscript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
         StdlibTranscript transcript;
-        transcript.send_to_verifier("u_challenges_inv_1", verifier_accumulator_1.u_challenges_inv);
-        transcript.send_to_verifier("U_1", verifier_accumulator_1.comm);
-        transcript.send_to_verifier("u_challenges_inv_2", verifier_accumulator_2.u_challenges_inv);
-        transcript.send_to_verifier("U_2", verifier_accumulator_2.comm);
+        transcript.add_to_hash_buffer("u_challenges_inv_1", verifier_accumulator_1.u_challenges_inv);
+        transcript.add_to_hash_buffer("U_1", verifier_accumulator_1.comm);
+        transcript.add_to_hash_buffer("u_challenges_inv_2", verifier_accumulator_2.u_challenges_inv);
+        transcript.add_to_hash_buffer("U_2", verifier_accumulator_2.comm);
         auto [alpha, r] = transcript.template get_challenges<Fr>("IPA:alpha", "IPA:r");
 
         // Step 3: Compute the new accumulator
