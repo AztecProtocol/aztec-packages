@@ -136,11 +136,7 @@ export class EmbeddedWallet extends BaseWallet {
     const instance = await accountManager.getInstance();
     const artifact = await accountManager.getAccountContract().getContractArtifact();
 
-    await this.pxe.registerContract({ artifact, instance });
-    await this.pxe.registerAccount(
-      accountManager.getSecretKey(),
-      (await accountManager.getCompleteAddress()).partialAddress,
-    );
+    await this.registerContract(instance, artifact, accountManager.getSecretKey());
 
     return accountManager;
   }

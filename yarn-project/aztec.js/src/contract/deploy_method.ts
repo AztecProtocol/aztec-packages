@@ -126,12 +126,6 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   public async request(options?: RequestDeployOptions): Promise<ExecutionPayload> {
     const publication = await this.getPublicationExecutionPayload(options);
 
-    // TODO: Should we add the contracts to the DB here, or once the tx has been sent or mined?
-    // Note that we need to run this registerContract here so it's available when computeFeeOptionsFromEstimatedGas
-    // runs, since it needs the contract to have been registered in order to estimate gas for its initialization,
-    // in case the initializer is public. This hints at the need of having "transient" contracts scoped to a
-    // simulation, so we can run the simulation with a set of contracts, but only "commit" them to the wallet
-    // once this tx has gone through.
     await this.wallet.registerContract(await this.getInstance(options), this.artifact);
 
     const initialization = await this.getInitializationExecutionPayload(options);
