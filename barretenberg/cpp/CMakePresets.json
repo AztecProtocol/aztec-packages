@@ -50,39 +50,6 @@
       }
     },
     {
-      "name": "darwin-arm64",
-      "displayName": "Apple arm64 Cross-compile",
-      "inherits": "default",
-      "binaryDir": "build-darwin-arm64",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_TOOLCHAIN_FILE": "/opt/osxcross/toolchain.cmake",
-        "CMAKE_EXE_LINKER_FLAGS": "-fuse-ld=/opt/osxcross/bin/arm64-apple-darwin23-ld",
-        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/aarch64-apple-darwin/release/libavm_transpiler.a"
-      },
-      "environment": {
-        "CXXFLAGS": "-Wno-deprecated-declarations",
-        "OSXCROSS_HOST": "arm64-apple-darwin23",
-        "OSXCROSS_TARGET_DIR": "/opt/osxcross",
-        "OSXCROSS_TARGET": "darwin23",
-        "OSXCROSS_SDK": "/opt/osxcross/SDK/MacOSX14.0.sdk"
-      }
-    },
-    {
-      "name": "darwin-amd64",
-      "displayName": "Apple amd64 Cross-compile",
-      "inherits": "darwin-arm64",
-      "binaryDir": "build-darwin-amd64",
-      "cacheVariables": {
-        "CMAKE_EXE_LINKER_FLAGS": "-fuse-ld=/opt/osxcross/bin/x86_64-apple-darwin23-ld",
-        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/x86_64-apple-darwin/release/libavm_transpiler.a"
-      },
-      "environment": {
-        "CXXFLAGS": "-Wno-deprecated-declarations",
-        "OSXCROSS_HOST": "x86_64-apple-darwin23"
-      }
-    },
-    {
       "name": "clang20",
       "displayName": "Build with Clang-20",
       "description": "Build with globally installed Clang-20",
