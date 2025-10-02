@@ -2,6 +2,7 @@
 title: Implementing Custom Notes
 tags: [contracts, notes, privacy, smart-contracts]
 description: Learn how to create custom note types for specialized private data storage in your Aztec smart contracts.
+source: "developers/docs/guides/smart_contracts/how_to_implement_custom_notes.md"
 ---
 
 Now that you understand storage and functions, let's explore one of Aztec's most powerful privacy features: **custom notes**. You've already seen notes briefly mentioned when working with `PrivateSet` storage - now it's time to learn how to create your own note types tailored to your specific use case.

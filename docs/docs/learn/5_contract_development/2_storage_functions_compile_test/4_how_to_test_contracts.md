@@ -3,6 +3,7 @@ title: How to Test Contracts
 tags: [contracts, tests, testing, noir]
 keywords: [tests, testing, noir]
 description: Learn how to test your Aztec smart contracts.
+source: "developers/docs/guides/smart_contracts/how_to_test_contracts.md"
 ---
 
 Perfect! You've learned how to define storage, write functions, and compile your contracts. Now it's time to make sure everything works as expected: **testing**. Writing tests might seem like extra work, but it's actually one of the most valuable skills you'll develop as a smart contract developer. Good tests catch bugs before they reach production, give you confidence when refactoring, and serve as living documentation of how your contract should behave.

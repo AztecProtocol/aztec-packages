@@ -2,6 +2,7 @@
 title: How to Compile Contracts
 tags: [contracts, learning journey]
 description: Learn how to compile your Aztec smart contracts.
+source: "developers/docs/guides/smart_contracts/how_to_compile_contract.md"
 ---
 
 Excellent! You now know how to define storage and functions - the two core components of any Aztec smart contract. But before you can deploy and use your contract, there's one crucial step: **compilation**. This is where your human-readable Noir code gets transformed into artifacts that the Aztec network can understand and execute.

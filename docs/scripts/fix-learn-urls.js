@@ -19,11 +19,12 @@
  *
  * STRATEGY:
  * 1. Get the file name of the file with the broken link in /learn/
- * 2. Look for a file with the same name in /developers/docs/ (stripping number prefixes like "2_")
- * 3. Once the source file is found, save the path of the file
- * 4. For every relative link, determine where it points based on the source file's location
- * 5. Update the broken relative URL in the learn file to point to the correct location from its new path
- * 6. Validate that the fixed URL actually resolves to an existing file
+ * 2. Check front-matter for a 'source' field that points to the original file in /developers/
+ * 3. If no front-matter source field, fall back to filename matching (stripping number prefixes like "2_")
+ * 4. Once the source file is found, save the path of the file
+ * 5. For every relative link, determine where it points based on the source file's location
+ * 6. Update the broken relative URL in the learn file to point to the correct location from its new path
+ * 7. Validate that the fixed URL actually resolves to an existing file
  *
  * USAGE:
  * node fix-learn-urls.js [--dry-run] [--verbose|-v]
@@ -92,9 +93,62 @@ function getBaseFilename(filename) {
 }
 
 /**
+ * Parse front-matter from a markdown file
+ */
+function parseFrontMatter(filePath) {
+  try {
+    const content = fs.readFileSync(filePath, "utf8");
+    const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
+    const match = content.match(frontMatterRegex);
+
+    if (!match) {
+      return null;
+    }
+
+    const frontMatter = {};
+    const lines = match[1].split('\n');
+
+    for (const line of lines) {
+      const colonIndex = line.indexOf(':');
+      if (colonIndex === -1) continue;
+
+      const key = line.substring(0, colonIndex).trim();
+      let value = line.substring(colonIndex + 1).trim();
+
+      // Remove quotes if present
+      if ((value.startsWith('"') && value.endsWith('"')) ||
+          (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+
+      frontMatter[key] = value;
+    }
+
+    return frontMatter;
+  } catch (err) {
+    return null;
+  }
+}
+
+/**
  * Find corresponding source file in developers/docs
  */
 function findSourceFile(learnFilePath) {
+  // First, try to find source from front-matter
+  const frontMatter = parseFrontMatter(learnFilePath);
+
+  if (frontMatter && frontMatter.source) {
+    // Source path is relative to processed-docs/
+    const sourcePath = path.join(PROCESSED_DOCS_DIR, frontMatter.source);
+    if (fs.existsSync(sourcePath)) {
+      verboseLog(`Found source from front-matter: ${frontMatter.source}`);
+      return sourcePath;
+    } else {
+      console.warn(`  ⚠️  Front-matter source path not found: ${frontMatter.source}`);
+    }
+  }
+
+  // Fall back to filename matching
   const filename = path.basename(learnFilePath);
   const baseFilename = getBaseFilename(filename);
 
@@ -108,6 +162,7 @@ function findSourceFile(learnFilePath) {
   for (const devFile of developerFiles) {
     const devBasename = getBaseFilename(path.basename(devFile));
     if (devBasename === baseFilename) {
+      verboseLog(`Found source from filename matching: ${path.relative(PROCESSED_DOCS_DIR, devFile)}`);
       return devFile;
     }
   }
@@ -422,4 +477,5 @@ module.exports = {
   findSourceFile,
   calculateRelativePath,
   fixUrlsInFile,
+  parseFrontMatter,
 };

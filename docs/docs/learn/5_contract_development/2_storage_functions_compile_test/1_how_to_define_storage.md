@@ -2,6 +2,7 @@
 title: Declaring Contract Storage
 tags: [contracts, storage, data-types, smart-contracts]
 description: Define and manage storage state in your Aztec smart contracts using various storage types.
+source: "developers/docs/guides/smart_contracts/how_to_define_storage.md"
 ---
 
 Now that you understand the overall structure of Aztec contracts from the previous section, let's dive deeper into one of the most important aspects: **storage**. Remember when we briefly covered storage types like `PublicMutable`, `PrivateSet`, and `Map`? This is where we'll explore them in detail and learn how to use them effectively.
@@ -15,7 +16,5 @@ The following guide shows you how to declare storage and use various storage typ
 The source of the following guide is [the define storage guide](../../../developers/docs/guides/smart_contracts/how_to_define_storage).
 
 ---
-
-<!-- This file must have the same name the file that it is importing code from for the url fixer script to work -->
 
 #include_code define_storage /docs/docs/developers/docs/guides/smart_contracts/how_to_define_storage.md raw
