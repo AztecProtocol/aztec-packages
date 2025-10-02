@@ -194,43 +194,6 @@ describe('PrivateEventDataProvider', () => {
     expect(events).toEqual([]);
   });
 
-  it('tracks size correctly', async () => {
-    expect(await privateEventDataProvider.getSize()).toBe(0);
-
-    await privateEventDataProvider.storePrivateEventLog(
-      contractAddress,
-      recipient,
-      eventSelector,
-      msgContent,
-      txHash,
-      eventCommitmentIndex,
-      blockNumber,
-    );
-    expect(await privateEventDataProvider.getSize()).toBe(1);
-
-    await privateEventDataProvider.storePrivateEventLog(
-      contractAddress,
-      recipient,
-      eventSelector,
-      msgContent,
-      txHash,
-      eventCommitmentIndex,
-      blockNumber,
-    );
-    expect(await privateEventDataProvider.getSize()).toBe(1); // Duplicate event not stored
-
-    await privateEventDataProvider.storePrivateEventLog(
-      contractAddress,
-      recipient,
-      eventSelector,
-      msgContent,
-      TxHash.random(),
-      eventCommitmentIndex + 1,
-      blockNumber,
-    );
-    expect(await privateEventDataProvider.getSize()).toBe(2);
-  });
-
   describe('event ordering', () => {
     let msgContent1: Fr[];
     let msgContent2: Fr[];

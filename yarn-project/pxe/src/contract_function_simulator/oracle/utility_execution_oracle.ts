@@ -266,7 +266,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   public async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
     await this.executionDataProvider.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
 
-    await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);
+    await this.executionDataProvider.syncNoteNullifiers(this.contractAddress);
   }
 
   public async utilityValidateEnqueuedNotesAndEvents(
