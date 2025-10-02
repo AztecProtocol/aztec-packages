@@ -15,6 +15,7 @@ import {
   type ContractInstanceWithAddress,
   type ContractInstantiationData,
   type ContractMetadata,
+  computePartialAddress,
   getContractClassFromArtifact,
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
@@ -192,6 +193,7 @@ export abstract class BaseWallet implements Wallet {
   async registerContract(
     instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
     artifact?: ContractArtifact,
+    secretKey?: Fr,
   ): Promise<ContractInstanceWithAddress> {
     /** Determines if the provided instance data is already a contract instance with an address. */
     function isInstanceWithAddress(instanceData: any): instanceData is ContractInstanceWithAddress {
@@ -223,7 +225,7 @@ export abstract class BaseWallet implements Wallet {
       await this.pxe.registerContract({ artifact, instance });
     } else {
       if (!artifact) {
-        throw new Error(`Contract artifact must be provided when registering a contract using address`);
+        throw new Error(`Contract artifact must be provided when registering a contract using an address`);
       }
       const { contractInstance: maybeContractInstance } = await this.pxe.getContractMetadata(instanceData);
       if (!maybeContractInstance) {
@@ -236,6 +238,9 @@ export abstract class BaseWallet implements Wallet {
         await this.pxe.updateContract(instance.address, artifact);
         instance.currentContractClassId = thisContractClass.id;
       }
+    }
+    if (secretKey) {
+      await this.pxe.registerAccount(secretKey, await computePartialAddress(instance));
     }
     return instance;
   }

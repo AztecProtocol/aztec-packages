@@ -169,10 +169,10 @@ export class EmbeddedWallet extends BaseWallet {
       .getAccountContract()
       .getContractArtifact();
 
-    await this.pxe.registerContract({ artifact, instance });
-    await this.pxe.registerAccount(
-      accountManager.getSecretKey(),
-      (await accountManager.getCompleteAddress()).partialAddress
+    await this.pxe.registerContract(
+      instance,
+      artifact,
+      accountManager.getSecretKey()
     );
   }
 

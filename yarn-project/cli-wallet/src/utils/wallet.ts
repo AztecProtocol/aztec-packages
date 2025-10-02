@@ -113,8 +113,7 @@ export class CLIWallet extends BaseWallet {
     const instance = accountManager.getInstance();
     const artifact = await contract.getContractArtifact();
 
-    await this.pxe.registerContract({ artifact, instance });
-    await this.pxe.registerAccount(secret, (await accountManager.getCompleteAddress()).partialAddress);
+    await this.registerContract(instance, artifact, secret);
     this.accountCache.set(accountManager.address.toString(), await accountManager.getAccount());
     return accountManager;
   }

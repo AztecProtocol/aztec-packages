@@ -134,6 +134,7 @@ export type Wallet = {
   registerContract(
     instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
     artifact?: ContractArtifact,
+    secretKey?: Fr,
   ): Promise<ContractInstanceWithAddress>;
   simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult>;
   simulateUtility(
@@ -275,7 +276,7 @@ export const WalletSchema: ApiSchemaFor<Wallet> = {
   // @ts-expect-error Zod doesn't like optionals
   registerContract: z
     .function()
-    .args(InstanceDataSchema, optional(ContractArtifactSchema))
+    .args(InstanceDataSchema, optional(ContractArtifactSchema), optional(schemas.Fr))
     .returns(ContractInstanceWithAddressSchema),
   simulateTx: z.function().args(ExecutionPayloadSchema, SimulateOptionsSchema).returns(TxSimulationResult.schema),
   simulateUtility: z

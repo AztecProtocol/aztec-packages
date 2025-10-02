@@ -19,7 +19,7 @@ import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/pay
 import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { CompleteAddress, ContractInstanceWithAddress, PartialAddress } from '@aztec/stdlib/contract';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import type { TxSimulationResult } from '@aztec/stdlib/tx';
 
@@ -121,8 +121,7 @@ export abstract class BaseTestWallet extends BaseWallet {
     const instance = accountManager.getInstance();
     const artifact = await contract.getContractArtifact();
 
-    await this.pxe.registerContract({ artifact, instance });
-    await this.pxe.registerAccount(secret, (await accountManager.getCompleteAddress()).partialAddress);
+    await this.registerContract(instance, artifact, secret);
 
     this.accounts.set(accountManager.address.toString(), await accountManager.getAccount());
 
@@ -221,20 +220,6 @@ export abstract class BaseTestWallet extends BaseWallet {
       };
       return this.pxe.simulateTx(txRequest, true /* simulatePublic */, true, true, { contracts: contractOverrides });
     }
-  }
-
-  /**
-   * Adds keys to PXE for an escrow contract.
-   * @param secretKey - Secret key used to derive public keys of the escrow contract.
-   * @param partialAddress - Partial address of the escrow contract.
-   * @deprecated This will be replaced soon with updated registerContract method that will accept secretKey and
-   * partialAddress on the input.
-   *
-   * TODO(#17324): Allow passing on the input secretKey and partialAddress to registerContract and drop this method.
-   * For context this is typically used when registering escrow contracts.
-   */
-  registerKeysForEscrowContract(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
-    return this.pxe.registerAccount(secretKey, partialAddress);
   }
 
   /**
