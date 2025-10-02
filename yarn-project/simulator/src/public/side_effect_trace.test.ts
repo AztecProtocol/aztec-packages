@@ -20,7 +20,7 @@ import { makeContractClassPublic } from '@aztec/stdlib/testing';
 
 import { randomInt } from 'crypto';
 
-import { SideEffectLimitReachedError } from './side_effect_errors.js';
+import { MaxCallsToUniqueContractClassIdsError, SideEffectLimitReachedError } from './side_effect_errors.js';
 import { SideEffectArrayLengths, SideEffectTrace } from './side_effect_trace.js';
 
 describe('Public Side Effect Trace', () => {
@@ -172,7 +172,9 @@ describe('Public Side Effect Trace', () => {
         ...(await makeContractClassPublic(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS)),
         publicBytecodeCommitment: Fr.random(),
       };
-      expect(() => trace.traceGetContractClass(klass.id, /*exists=*/ true)).toThrow(SideEffectLimitReachedError);
+      expect(() => trace.traceGetContractClass(klass.id, /*exists=*/ true)).toThrow(
+        MaxCallsToUniqueContractClassIdsError,
+      );
 
       // can re-trace same first class
       trace.traceGetContractClass(firstClass.id, /*exists=*/ true);
