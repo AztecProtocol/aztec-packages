@@ -197,28 +197,27 @@ function build_release {
     tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
     tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
 
-    # Build and package macOS cross-compiled binaries
-    echo "Building macOS cross-compiled binaries..."
-    parallel --line-buffered --tag --halt now,fail=1 denoise ::: "build_darwin arm64" "build_darwin amd64"
+    # Package macOS cross-compiled binaries (built in build function)
+    if [ -f build-zig-darwin-arm64/bin/bb ] && [ -f build-zig-darwin-amd64/bin/bb ]; then
+      # Download ldid for code signing
+      if [ ! -f build-release/ldid ]; then
+        echo "Downloading ldid for macOS code signing..."
+        curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 -o build-release/ldid
+        chmod +x build-release/ldid
+      fi
 
-    # Download ldid for code signing
-    if [ ! -f build-release/ldid ]; then
-      echo "Downloading ldid for macOS code signing..."
-      curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 -o build-release/ldid
-      chmod +x build-release/ldid
+      # Package darwin-arm64
+      cp build-zig-darwin-arm64/bin/bb build-release/bb-darwin-arm64
+      inject_version build-release/bb-darwin-arm64
+      build-release/ldid -S build-release/bb-darwin-arm64
+      tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb-darwin-arm64
+
+      # Package darwin-amd64
+      cp build-zig-darwin-amd64/bin/bb build-release/bb-darwin-amd64
+      inject_version build-release/bb-darwin-amd64
+      build-release/ldid -S build-release/bb-darwin-amd64
+      tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb-darwin-amd64
     fi
-
-    # Package darwin-arm64
-    cp build-zig-darwin-arm64/bin/bb build-release/bb-darwin-arm64
-    inject_version build-release/bb-darwin-arm64
-    build-release/ldid -S build-release/bb-darwin-arm64
-    tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb-darwin-arm64
-
-    # Package darwin-amd64
-    cp build-zig-darwin-amd64/bin/bb build-release/bb-darwin-amd64
-    inject_version build-release/bb-darwin-amd64
-    build-release/ldid -S build-release/bb-darwin-amd64
-    tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb-darwin-amd64
   fi
 }
 
@@ -235,10 +234,13 @@ function build {
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
     builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast build_smt_verification)
   fi
-  if [ "$CI_FULL" -eq 1 ]; then
-    builds+=(build_darwin)
-  fi
   parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${builds[@]}
+
+  # Build macOS binaries on amd64
+  if [ "$(arch)" == "amd64" ]; then
+    parallel --line-buffered --tag --halt now,fail=1 denoise ::: "build_darwin arm64" "build_darwin amd64"
+  fi
+
   build_release
 }
 

@@ -510,6 +510,7 @@
       "description": "Cross-compile for intel macOS using Zig",
       "binaryDir": "build-zig-darwin-amd64",
       "generator": "Ninja",
+      "inherits": "zig-base",
       "environment": {
         "CC": "zig cc -target x86_64-macos",
         "CXX": "zig c++ -target x86_64-macos"
@@ -526,6 +527,7 @@
       "description": "Cross-compile for macOS arm64 (Apple Silicon) using Zig",
       "binaryDir": "build-zig-darwin-arm64",
       "generator": "Ninja",
+      "inherits": "zig-base",
       "environment": {
         "CC": "zig cc -target aarch64-macos",
         "CXX": "zig c++ -target aarch64-macos"
