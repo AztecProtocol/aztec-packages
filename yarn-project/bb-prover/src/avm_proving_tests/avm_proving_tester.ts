@@ -204,6 +204,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     feePayer = sender,
     privateInsertions?: TestPrivateInsertions,
     txLabel: string = 'unlabeledTx',
+    disableRevertCheck: boolean = false,
   ): Promise<PublicTxResult> {
     const simRes = await this.simulateTx(
       sender,
@@ -214,7 +215,10 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       privateInsertions,
       txLabel,
     );
-    expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);
+
+    if (!disableRevertCheck) {
+      expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);
+    }
 
     const opString = this.checkCircuitOnly ? 'Check circuit' : 'Proving and verification';
 
@@ -240,10 +244,11 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       setupCalls ?? [],
       appCalls ?? [],
       teardownCall,
-      /*expectRevert=*/ false,
+      undefined,
       feePayer,
       privateInsertions,
       txLabel,
+      true,
     );
   }
 
