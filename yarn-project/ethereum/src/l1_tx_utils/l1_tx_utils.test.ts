@@ -10,6 +10,7 @@ import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 
 import { jest } from '@jest/globals';
 import type { Anvil } from '@viem/anvil';
+import { type MockProxy, mock } from 'jest-mock-extended';
 import assert from 'node:assert';
 import {
   type Abi,
@@ -31,6 +32,8 @@ import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import {
+  type IL1TxMetrics,
+  type IL1TxStore,
   type L1TxRequest,
   type L1TxState,
   type L1TxUtilsConfig,
@@ -40,7 +43,7 @@ import {
   createL1TxUtilsFromViemWallet,
   defaultL1TxUtilsConfig,
 } from './index.js';
-import { L1TxUtilsWithBlobs, createL1TxUtilsWithBlobsFromViemWallet } from './l1_tx_utils_with_blobs.js';
+import { L1TxUtilsWithBlobs } from './l1_tx_utils_with_blobs.js';
 import { createViemSigner } from './signer.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
@@ -66,9 +69,10 @@ describe('L1TxUtils', () => {
   let cheatCodes: EthCheatCodes;
   let dateProvider: TestDateProvider;
   let port: number = 8545;
+  let metrics: MockProxy<IL1TxMetrics>;
 
   beforeEach(async () => {
-    ({ anvil, rpcUrl } = await startAnvil({ l1BlockTime: 1, port: port++ }));
+    ({ anvil, rpcUrl } = await startAnvil({ l1BlockTime: 1, port: port++, log: false }));
     cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
     const privKeyRaw = hdAccount.getHdKey().privateKey;
@@ -80,6 +84,7 @@ describe('L1TxUtils', () => {
 
     l1Client = createExtendedL1Client([rpcUrl], account, foundry);
     dateProvider = new TestDateProvider();
+    metrics = mock<IL1TxMetrics>();
 
     await cheatCodes.setNextBlockBaseFeePerGas(initialBaseFee);
     await cheatCodes.evmMine();
@@ -96,9 +101,22 @@ describe('L1TxUtils', () => {
 
     const request = {
       to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
-      data: '0x' as `0x${string}`,
+      data: '0xabcdef' as `0x${string}`,
       value: 1n,
     };
+
+    const createL1TxUtils = () =>
+      new TestL1TxUtilsWithBlobs(
+        l1Client,
+        EthAddress.fromString(l1Client.account.address),
+        createViemSigner(l1Client),
+        logger,
+        dateProvider,
+        config,
+        undefined,
+        undefined,
+        metrics,
+      );
 
     beforeEach(() => {
       config = {
@@ -109,14 +127,7 @@ describe('L1TxUtils', () => {
         stallTimeMs: 1000,
       };
 
-      gasUtils = new TestL1TxUtilsWithBlobs(
-        l1Client,
-        EthAddress.fromString(l1Client.account.address),
-        createViemSigner(l1Client),
-        logger,
-        dateProvider,
-        config,
-      );
+      gasUtils = createL1TxUtils();
     });
 
     afterEach(async () => {
@@ -246,6 +257,7 @@ describe('L1TxUtils', () => {
       const tx = await l1Client.getTransaction({ hash: txHash });
       const now = new Date();
       const testState: L1TxState = {
+        id: tx.nonce,
         txConfigOverrides: config,
         request,
         txHashes: [txHash],
@@ -323,7 +335,7 @@ describe('L1TxUtils', () => {
       await cheatCodes.evmMine();
 
       // First deploy without any buffer
-      const baselineGasUtils = createL1TxUtilsWithBlobsFromViemWallet(l1Client, logger, dateProvider, {
+      gasUtils.updateConfig({
         gasLimitBufferPercentage: 0,
         maxGwei: 500n,
         maxSpeedUpAttempts: 5,
@@ -331,7 +343,7 @@ describe('L1TxUtils', () => {
         stallTimeMs: 1000,
       });
 
-      const { receipt: baselineTx } = await baselineGasUtils.sendAndMonitorTransaction({
+      const { receipt: baselineTx } = await gasUtils.sendAndMonitorTransaction({
         to: EthAddress.ZERO.toString(),
         data: SIMPLE_CONTRACT_BYTECODE,
       });
@@ -342,7 +354,7 @@ describe('L1TxUtils', () => {
       });
 
       // Now deploy with 20% buffer
-      const bufferedGasUtils = createL1TxUtilsWithBlobsFromViemWallet(l1Client, logger, dateProvider, {
+      gasUtils.updateConfig({
         gasLimitBufferPercentage: 20,
         maxGwei: 500n,
         maxSpeedUpAttempts: 3,
@@ -350,7 +362,7 @@ describe('L1TxUtils', () => {
         stallTimeMs: 1000,
       });
 
-      const { receipt: bufferedTx } = await bufferedGasUtils.sendAndMonitorTransaction({
+      const { receipt: bufferedTx } = await gasUtils.sendAndMonitorTransaction({
         to: EthAddress.ZERO.toString(),
         data: SIMPLE_CONTRACT_BYTECODE,
       });
@@ -409,7 +421,7 @@ describe('L1TxUtils', () => {
     });
 
     it('respects minimum gas price bump for replacements', async () => {
-      const gasUtils = createL1TxUtilsWithBlobsFromViemWallet(l1Client, logger, dateProvider, {
+      gasUtils.updateConfig({
         ...defaultL1TxUtilsConfig,
         priorityFeeRetryBumpPercentage: 5, // Set lower than minimum 10%
       });
@@ -691,10 +703,14 @@ describe('L1TxUtils', () => {
       expect(cancelTx).toBeDefined();
       expect(cancelTx!.to!.toLowerCase()).toBe(l1Client.account.address.toLowerCase());
       expect(cancelTx!.value).toBe(0n);
+      expect(cancelTx!.input).toBe('0x');
       expect(cancelTx!.nonce).toBe(nonce);
       expect(cancelTx!.maxFeePerGas).toBeGreaterThan(initialTx.maxFeePerGas!);
       expect(cancelTx!.maxPriorityFeePerGas).toBeGreaterThan(initialTx.maxPriorityFeePerGas!);
       expect(cancelTx!.gas).toBe(21000n);
+      // Non-blob cancellation should not have blob data
+      expect(cancelTx!.blobVersionedHashes).toBeUndefined();
+      expect(cancelTx!.maxFeePerBlobGas).toBeUndefined();
 
       // Mine a block to process the cancellation
       await cheatCodes.evmMine();
@@ -848,8 +864,10 @@ describe('L1TxUtils', () => {
       expect(cancelTx!.nonce).toBe(nonce);
       expect(cancelTx!.to!.toLowerCase()).toBe(l1Client.account.address.toLowerCase());
       expect(cancelTx!.value).toBe(0n);
+      expect(cancelTx!.input).toBe('0x');
       expect(cancelTx!.maxFeePerGas).toBeGreaterThan(initialTx.maxFeePerGas!);
       expect(cancelTx!.maxPriorityFeePerGas).toBeGreaterThan(initialTx.maxPriorityFeePerGas!);
+      // Blob cancellation should have blob gas and blob hashes
       expect(cancelTx!.maxFeePerBlobGas).toBeGreaterThan(initialTx.maxFeePerBlobGas!);
       expect(cancelTx!.blobVersionedHashes).toBeDefined();
       expect(cancelTx!.blobVersionedHashes!.length).toBe(1);
@@ -922,7 +940,7 @@ describe('L1TxUtils', () => {
         ...request,
         to: '0x9876543210987654321098765432109876543210', // Different address
         nonce,
-        gas: 21000n,
+        gas: 30000n,
         maxFeePerGas: WEI_CONST * 10n,
         maxPriorityFeePerGas: WEI_CONST,
       });
@@ -931,6 +949,12 @@ describe('L1TxUtils', () => {
 
       // Mine the replacement
       await cheatCodes.evmMine();
+      await retryUntil(
+        () => l1Client.getTransactionReceipt({ hash: replacementHash }).catch(() => undefined),
+        'replacement',
+        2,
+        0.1,
+      );
 
       // Monitor should detect the nonce was mined but throw UnknownMinedTxError
       await expect(gasUtils.monitorTransaction(state)).rejects.toThrow(UnknownMinedTxError);
@@ -954,6 +978,11 @@ describe('L1TxUtils', () => {
       expect(state.status).toBe(TxUtilsState.MINED);
       expect(state.receipt).toBeDefined();
       expect(state.receipt!.status).toBe('success');
+
+      // Verify metrics were recorded
+      expect(metrics.recordMinedTx).toHaveBeenCalledTimes(1);
+      expect(metrics.recordMinedTx).toHaveBeenCalledWith(state, expect.any(Date));
+      expect(metrics.recordDroppedTx).not.toHaveBeenCalled();
     }, 10_000);
 
     it('transitions from sent to speed_up to mined', async () => {
@@ -1076,6 +1105,13 @@ describe('L1TxUtils', () => {
       await retryUntil(() => state.cancelTxHashes.length > 1, 'cancel speed up', 20, 0.1);
       expect(gasUtils.state).toBe(TxUtilsState.CANCELLED);
 
+      // Verify the sped-up cancellation tx has no data and no value
+      const speedUpCancelTxHash = state.cancelTxHashes[1];
+      const speedUpCancelTx = await l1Client.getTransaction({ hash: speedUpCancelTxHash });
+      expect(speedUpCancelTxHash).not.toBe(cancelTxHash);
+      expect(speedUpCancelTx.input).toBe('0x');
+      expect(speedUpCancelTx.value).toBe(0n);
+
       // Another one no changes
       await cheatCodes.mineEmptyBlock();
       await sleep(500);
@@ -1183,6 +1219,11 @@ describe('L1TxUtils', () => {
       // Verify state transitions to NOT_MINED
       await retryUntil(() => gasUtils.state === TxUtilsState.NOT_MINED, 'wait not-mined', 20, 0.1);
 
+      // Verify metrics were recorded for dropped tx
+      expect(metrics.recordDroppedTx).toHaveBeenCalledTimes(1);
+      expect(metrics.recordDroppedTx).toHaveBeenCalledWith(state);
+      expect(metrics.recordMinedTx).not.toHaveBeenCalled();
+
       // Verify nonce manager is reset (new tx can reuse same nonce)
       const { state: newState } = await gasUtils.sendTransaction({ ...request, value: 3n });
       expect(newState.nonce).toEqual(state.nonce);
@@ -1279,94 +1320,76 @@ describe('L1TxUtils', () => {
       await retryUntil(() => gasUtils.state === TxUtilsState.NOT_MINED, 'wait not-mined', 20, 0.1);
     }, 15_000);
 
-    it('handles interruption during different states', async () => {
+    it('handles interruption during SENT state', async () => {
       await cheatCodes.setAutomine(false);
       await cheatCodes.setIntervalMining(0);
       await cheatCodes.setBlockInterval(12);
 
-      // Test interruption during SENT state
-      const gasUtils1 = new TestL1TxUtilsWithBlobs(
-        l1Client,
-        EthAddress.fromString(l1Client.account.address),
-        createViemSigner(l1Client),
-        logger,
-        dateProvider,
-        config,
-      );
+      const { txHash, state } = await gasUtils.sendTransaction(request);
+      state.txConfigOverrides.checkIntervalMs = 100;
+      expect(gasUtils.state).toBe(TxUtilsState.SENT);
 
-      const { txHash, state: state1 } = await gasUtils1.sendTransaction(request);
-      state1.txConfigOverrides.checkIntervalMs = 100;
-      expect(gasUtils1.state).toBe(TxUtilsState.SENT);
-
-      const monitorPromise1 = gasUtils1.monitorTransaction(state1).catch(err => err);
+      const monitorPromise = gasUtils.monitorTransaction(state).catch(err => err);
       await sleep(50);
 
       // Interrupt during SENT - monitoring should stop with TimeoutError
-      gasUtils1.interrupt();
-      const result1 = await monitorPromise1;
-      expect(result1).toBeInstanceOf(TimeoutError);
+      gasUtils.interrupt();
+      const result = await monitorPromise;
+      expect(result).toBeInstanceOf(TimeoutError);
 
       // Clean up
       await cheatCodes.dropTransaction(txHash).catch(() => {});
-      await gasUtils1.waitMonitoringStopped(2);
+      await gasUtils.waitMonitoringStopped(2);
+    }, 10_000);
 
-      // Test interruption during SPEED_UP state
-      const gasUtils2 = new TestL1TxUtilsWithBlobs(
-        l1Client,
-        EthAddress.fromString(l1Client.account.address),
-        createViemSigner(l1Client),
-        logger,
-        dateProvider,
-        config,
-      );
+    it('handles interruption during SPEED_UP state', async () => {
+      await cheatCodes.setAutomine(false);
+      await cheatCodes.setIntervalMining(0);
+      await cheatCodes.setBlockInterval(12);
 
-      const { state: state2 } = await gasUtils2.sendTransaction({ ...request, value: 2n });
-      state2.txConfigOverrides.stallTimeMs = 24_000;
-      state2.txConfigOverrides.checkIntervalMs = 100;
+      const { state } = await gasUtils.sendTransaction(request);
+      state.txConfigOverrides.stallTimeMs = 24_000;
+      state.txConfigOverrides.checkIntervalMs = 100;
 
-      const monitorPromise2 = gasUtils2.monitorTransaction(state2).catch(err => err);
+      const monitorPromise = gasUtils.monitorTransaction(state).catch(err => err);
 
       // Trigger speed-up
       await cheatCodes.mineEmptyBlock(2);
-      await retryUntil(() => gasUtils2.state === TxUtilsState.SPEED_UP, 'wait speed-up', 20, 0.1);
+      await retryUntil(() => gasUtils.state === TxUtilsState.SPEED_UP, 'wait speed-up', 20, 0.1);
 
       // Interrupt during SPEED_UP - monitoring should stop with TimeoutError
-      gasUtils2.interrupt();
-      const result2 = await monitorPromise2;
-      expect(result2).toBeInstanceOf(TimeoutError);
+      gasUtils.interrupt();
+      const result = await monitorPromise;
+      expect(result).toBeInstanceOf(TimeoutError);
 
-      await gasUtils2.waitMonitoringStopped(2);
+      await gasUtils.waitMonitoringStopped(2);
+    }, 10_000);
 
-      // Test interruption during CANCELLED state
-      const gasUtils3 = new TestL1TxUtilsWithBlobs(
-        l1Client,
-        EthAddress.fromString(l1Client.account.address),
-        createViemSigner(l1Client),
-        logger,
-        dateProvider,
-        config,
-      );
+    it('handles interruption during CANCELLED state', async () => {
+      await cheatCodes.setAutomine(false);
+      await cheatCodes.setIntervalMining(0);
+      await cheatCodes.setBlockInterval(12);
 
-      const { state: state3 } = await gasUtils3.sendTransaction({ ...request, value: 3n });
-      state3.txConfigOverrides.txTimeoutMs = 12_000;
-      state3.txConfigOverrides.checkIntervalMs = 100;
+      const { state } = await gasUtils.sendTransaction(request);
+      state.txConfigOverrides.txTimeoutMs = 12_000;
+      state.txConfigOverrides.checkIntervalMs = 100;
 
-      const monitorPromise3 = gasUtils3.monitorTransaction(state3).catch(err => err);
+      const monitorPromise = gasUtils.monitorTransaction(state).catch(err => err);
 
       // Trigger timeout and cancellation
       await cheatCodes.mineEmptyBlock();
-      await expect(monitorPromise3).resolves.toBeInstanceOf(TimeoutError);
+      await expect(monitorPromise).resolves.toBeInstanceOf(TimeoutError);
 
       // Wait for cancellation to be sent (background monitoring)
-      await retryUntil(() => state3.cancelTxHashes.length > 0, 'cancel sent', 20, 0.1);
-      expect(gasUtils3.state).toBe(TxUtilsState.CANCELLED);
+      await retryUntil(() => state.cancelTxHashes.length > 0, 'cancel sent', 20, 0.1);
+      expect(gasUtils.state).toBe(TxUtilsState.CANCELLED);
 
       // Interrupt during CANCELLED - this will stop the background monitoring of the cancel tx
-      gasUtils3.interrupt();
+      gasUtils.interrupt();
 
       // Verify interruption was effective - background monitoring should stop
-      await gasUtils3.waitMonitoringStopped(2);
-    }, 20_000);
+      await gasUtils.waitMonitoringStopped(2);
+    }, 10_000);
 
     it('transitions from cancelled to mined when cancellation succeeds', async () => {
       await cheatCodes.setAutomine(false);
@@ -1405,6 +1428,49 @@ describe('L1TxUtils', () => {
       expect(state.receipt!.transactionHash).toBe(cancelTxHash);
       expect(state.receipt!.status).toBe('success');
     }, 10_000);
+
+    it('loads state and resumes monitoring', async () => {
+      // We need dynamic imports here since we do NOT depend on this projects
+      // and we need to mark them as non-const so ts does not try to look for them
+      const { openTmpStore } = await import('@aztec/kv-store/lmdb-v2' as string);
+      const { L1TxStore } = await import('@aztec/node-lib/stores' as string);
+
+      const kvStore = await openTmpStore('l1-tx-utils-rehydration-test', true);
+      const store = new L1TxStore(kvStore);
+      gasUtils.setStore(store);
+
+      const { state } = await gasUtils.sendTransaction(request);
+      const txHash = state.txHashes[0];
+
+      // Wait until it's in SENT state
+      await retryUntil(() => gasUtils.state === TxUtilsState.SENT, 'tx sent', 20, 0.1);
+
+      // Interrupt and wait for monitoring to stop
+      gasUtils.interrupt();
+      await gasUtils.waitMonitoringStopped(10);
+
+      // Create a new instance with the same store (simulating a restart)
+      const recreatedUtils = createL1TxUtils();
+      recreatedUtils.setStore(store);
+      await recreatedUtils.loadStateAndResumeMonitoring();
+
+      // Check that state is restored as SENT
+      expect(recreatedUtils.state).toBe(TxUtilsState.SENT);
+      expect(recreatedUtils.txs).toHaveLength(1);
+      expect(recreatedUtils.txs[0].txHashes[0]).toBe(txHash);
+      expect(recreatedUtils.txs[0].status).toBe(TxUtilsState.SENT);
+
+      // Mine some blocks so the transaction gets mined
+      await cheatCodes.evmMine();
+      await cheatCodes.evmMine();
+
+      // Wait for the rehydrated instance to detect the transaction as mined
+      await retryUntil(() => recreatedUtils.state === TxUtilsState.MINED, 'tx mined after rehydration', 30, 0.1);
+
+      // Cleanup
+      await store.close();
+      await kvStore.close();
+    }, 15_000);
   });
 
   describe('L1TxUtils vs ReadOnlyL1TxUtils', () => {
@@ -1430,7 +1496,7 @@ describe('L1TxUtils', () => {
     });
 
     it('L1TxUtils can be instantiated with wallet client and has write methods', () => {
-      const l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, logger);
+      const l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, { logger });
       expect(l1TxUtils).toBeDefined();
       expect(l1TxUtils.client).toBe(walletClient);
 
@@ -1442,7 +1508,7 @@ describe('L1TxUtils', () => {
     });
 
     it('L1TxUtils inherits all read-only methods from ReadOnlyL1TxUtils', () => {
-      const l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, logger);
+      const l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, { logger });
 
       // Verify all read-only methods are available
       expect(l1TxUtils.getBlock).toBeDefined();
@@ -1456,13 +1522,23 @@ describe('L1TxUtils', () => {
 
     it('L1TxUtils cannot be instantiated with public client', () => {
       expect(() => {
-        createL1TxUtilsFromViemWallet(publicClient as any, logger);
+        createL1TxUtilsFromViemWallet(publicClient as any, { logger });
       }).toThrow();
     });
   });
 });
 
 class TestL1TxUtilsWithBlobs extends L1TxUtilsWithBlobs {
+  declare public txs: L1TxState[];
+
+  public setMetrics(metrics: IL1TxMetrics) {
+    this.metrics = metrics;
+  }
+
+  public setStore(store: IL1TxStore) {
+    this.store = store;
+  }
+
   public addTxState(state: L1TxState) {
     this.txs.push(state);
   }
