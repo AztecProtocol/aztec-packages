@@ -603,6 +603,7 @@ HonkProof ClientIVC::construct_honk_proof_for_hiding_kernel(
 {
     // Note: a structured trace is not used for the hiding kernel
     auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit, TraceSettings(), bn254_commitment_key);
+    BB_ASSERT_EQ(hiding_prover_inst->log_dyadic_size(), MegaZKFlavor::VIRTUAL_LOG_N);
 
     // Hiding circuit is proven by a MegaZKProver
     MegaZKProver prover(hiding_prover_inst, verification_key, transcript);

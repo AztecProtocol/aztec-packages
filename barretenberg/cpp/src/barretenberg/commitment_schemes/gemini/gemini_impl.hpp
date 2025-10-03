@@ -198,9 +198,8 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     }
 
     // Perform virtual rounds.
-    // After the first `log_n - 1` rounds, the prover's `fold` univariates stabilize. With ZK, the verifier multiplies
-    // the evaluations by 0, otherwise, when `virtual_log_n > log_n`, the prover honestly computes and sends the
-    // constant folds.
+    // After the first `log_n - 1` rounds, the prover's `fold` univariates stabilize and the prover honestly computes
+    // and sends the constant folds.
     const auto& last = fold_polynomials.back();
     const Fr u_last = multilinear_challenge[log_n - 1];
     const Fr final_eval = last.at(0) + u_last * (last.at(1) - last.at(0));

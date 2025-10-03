@@ -593,8 +593,7 @@ template <typename Curve> class GeminiVerifier_ {
             // Divide by the denominator
             eval_pos *= (challenge_power * (Fr(1) - u) + u).invert();
 
-            // If current index is bigger than log_n, we propagate `batched_evaluation` to the next
-            // round.  Otherwise, current `eval_pos` A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.
+            // Current `eval_pos` A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.
             eval_pos_prev = eval_pos;
             fold_pos_evaluations.emplace_back(eval_pos_prev);
         }
