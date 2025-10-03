@@ -202,6 +202,7 @@ export class SequencerClient {
     await this.validatorClient?.start();
     this.sequencer.start();
     this.l1Metrics?.start();
+    await this.publisherManager.loadState();
   }
 
   /**

@@ -34,7 +34,6 @@ export type L1SubmitEpochProofArgs = {
 };
 
 export class ProverNodePublisher {
-  private enabled: boolean;
   private interrupted = false;
   private metrics: ProverNodePublisherMetrics;
 
@@ -52,8 +51,6 @@ export class ProverNodePublisher {
       telemetry?: TelemetryClient;
     },
   ) {
-    this.enabled = config.publisherEnabled ?? true;
-
     const telemetry = deps.telemetry ?? getTelemetryClient();
 
     this.metrics = new ProverNodePublisherMetrics(telemetry, 'ProverNode');

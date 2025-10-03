@@ -532,10 +532,10 @@ export class EthCheatCodes {
     }
   }
 
-  public async syncDateProvider() {
+  public async syncDateProvider(dateProvider: TestDateProvider) {
     const timestamp = await this.timestamp();
-    if ('setTime' in this.dateProvider) {
-      this.dateProvider.setTime(timestamp * 1000);
+    if ('setTime' in dateProvider) {
+      dateProvider.setTime(timestamp * 1000);
     }
   }
 }

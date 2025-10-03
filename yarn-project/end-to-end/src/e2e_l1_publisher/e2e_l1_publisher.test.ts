@@ -223,7 +223,7 @@ describe('L1Publisher integration', () => {
     await worldStateSynchronizer.start();
 
     const sequencerL1Client = createExtendedL1Client(config.l1RpcUrls, sequencerPK, foundry);
-    const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(sequencerL1Client, logger, dateProvider, config);
+    const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(sequencerL1Client, { logger, dateProvider }, config);
     const rollupContract = new RollupContract(sequencerL1Client, l1ContractAddresses.rollupAddress.toString());
     const slashingProposerContract = await rollupContract.getSlashingProposer();
     governanceProposerContract = new GovernanceProposerContract(
@@ -755,7 +755,7 @@ describe('L1Publisher integration', () => {
       // While we are on the same L2 slot, sendRequests should not resolve.
       while (true) {
         await ethCheatCodes.mineEmptyBlock();
-        await ethCheatCodes.syncDateProvider();
+        await ethCheatCodes.syncDateProvider(dateProvider);
         const currentL2Slot = await rollup.getSlotNumber();
         const { slot: nextL2Slot } = epochCache.getEpochAndSlotInNextL1Slot();
         logger.warn(`L2 slot in next L1 slot is ${nextL2Slot}`, { nextL2Slot, currentL2Slot, initialL2Slot });
@@ -798,7 +798,7 @@ describe('L1Publisher integration', () => {
       const l1SlotsUntilSpeedUp = 1;
       for (let i = 0; i < l1SlotsUntilSpeedUp; i++) {
         await ethCheatCodes.mineEmptyBlock();
-        await ethCheatCodes.syncDateProvider();
+        await ethCheatCodes.syncDateProvider(dateProvider);
       }
 
       // We should now be in speed-up state
@@ -831,7 +831,7 @@ describe('L1Publisher integration', () => {
       // Let the proposal timeout by mining empty blocks until we're past the L2 slot
       while (true) {
         await ethCheatCodes.mineEmptyBlock();
-        await ethCheatCodes.syncDateProvider();
+        await ethCheatCodes.syncDateProvider(dateProvider);
         const { slot: nextL2Slot } = epochCache.getEpochAndSlotInNextL1Slot();
 
         // Wait for state to transition and give the publisher time to process
