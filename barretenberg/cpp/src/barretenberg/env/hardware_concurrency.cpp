@@ -14,8 +14,8 @@ static uint32_t& _get_num_cores()
 #ifdef NO_MULTITHREADING
     static uint32_t cores = 1;
 #else
-    static const char* val = std::getenv("HARDWARE_CONCURRENCY");
-    static uint32_t cores =
+    static thread_local const char* val = std::getenv("HARDWARE_CONCURRENCY");
+    static thread_local uint32_t cores =
         val != nullptr ? static_cast<uint32_t>(std::stoul(val)) : std::thread::hardware_concurrency();
 #endif
     return cores;
