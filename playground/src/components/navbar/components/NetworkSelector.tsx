@@ -65,7 +65,7 @@ export function NetworkSelector() {
   // Connect to the first network automatically
   useEffect(() => {
     if (isContextInitialized && !network) {
-      handleNetworkChange(NETWORKS[0].nodeURL);
+      //handleNetworkChange(NETWORKS[0].nodeURL);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isContextInitialized]);
@@ -101,7 +101,7 @@ export function NetworkSelector() {
       setCurrentContractArtifact(null);
       setShowContractInterface(false);
       setConnecting(true);
-      setNode(await createAztecNodeClient(network.nodeURL));
+      setNode(createAztecNodeClient(network.nodeURL));
     } catch (error) {
       console.error(error);
       setNetwork(null);

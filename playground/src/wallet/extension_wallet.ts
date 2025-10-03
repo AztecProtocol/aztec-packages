@@ -1,4 +1,4 @@
-import { WalletSchema, type Wallet } from '@aztec/aztec.js/wallet';
+import { WalletSchema, type ChainInfo, type Wallet } from '@aztec/aztec.js/wallet';
 import { promiseWithResolvers, type PromiseWithResolvers } from '@aztec/foundation/promise';
 import { schemaHasMethod } from '@aztec/foundation/schemas';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
@@ -8,10 +8,13 @@ type FunctionsOf<T> = { [K in keyof T as T[K] extends Function ? K : never]: T[K
 export class ExtensionWallet {
   private inFlight = new Map<string, PromiseWithResolvers<any>>();
 
-  private constructor() {}
+  private constructor(
+    private chainInfo: ChainInfo,
+    private appId: string,
+  ) {}
 
-  static create() {
-    const wallet = new ExtensionWallet();
+  static create(chainInfo: ChainInfo, appId: string) {
+    const wallet = new ExtensionWallet(chainInfo, appId);
     window.addEventListener('message', async event => {
       if (event.source !== window) return;
 
@@ -51,7 +54,7 @@ export class ExtensionWallet {
 
   private async postMessage({ type, args }: { type: keyof FunctionsOf<Wallet>; args: any[] }) {
     const messageId = globalThis.crypto.randomUUID();
-    window.postMessage(jsonStringify({ type, args, messageId }), '*');
+    window.postMessage(jsonStringify({ type, args, messageId, chainInfo: this.chainInfo, appId: this.appId }), '*');
     const { promise, resolve, reject } = promiseWithResolvers<any>();
     this.inFlight.set(messageId, { promise, resolve, reject });
     return promise;
