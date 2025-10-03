@@ -19,7 +19,7 @@ namespace {
 
 class ThreadPool {
   public:
-    ThreadPool(size_t num_threads);
+    ThreadPool(size_t num_threads = 0);
     ThreadPool(const ThreadPool& other) = delete;
     ThreadPool(ThreadPool&& other) = delete;
     ~ThreadPool();
@@ -156,10 +156,19 @@ namespace bb {
  */
 void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func)
 {
-    static thread_local ThreadPool pool(get_num_cpus() - 1);
+    static thread_local size_t nesting_level = 0;
+    static thread_local std::array<ThreadPool, PARALLEL_FOR_MAX_NESTING> pools;
 
-    // If hardware concurrency has increased, grow the pool with more workers
-    // This is a niche scenario that mostly comes up in testing where we may play with multiple
+    // If we exceed max nesting, throw an error
+    if (nesting_level >= PARALLEL_FOR_MAX_NESTING) {
+        throw_or_abort("parallel_for_mutex_pool: exceeded maximum nesting level");
+    }
+
+    ThreadPool& pool = pools[nesting_level];
+
+    // Initialize the pool if needed, or grow it if hardware concurrency has increased.
+    // The ThreadPool is default-constructed with 0 workers, so grow() will initialize it on first use.
+    // Growing past that is a niche scenario that mostly comes up in testing where we may play with multiple
     // set_parallel_for_concurrency values (a pool that is bigger is not an issue as set_parallel_for_concurrency
     // affects get_num_cpus(), which will naturally limit concurrency).
     if (get_num_cpus() > pool.get_num_workers() + 1) {
@@ -180,7 +189,10 @@ void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(siz
     // more threads to share the work.
     size_t total_threads = pool.get_num_workers() + 1;
     size_t inner_concurrency = std::max(size_t{ 2 }, (total_threads + num_iterations - 1) / num_iterations);
+
+    nesting_level++;
     pool.start_tasks(num_iterations, func, inner_concurrency);
+    nesting_level--;
 }
 } // namespace bb
 #endif
