@@ -4,7 +4,6 @@
 #include "barretenberg/nodejs_module/lmdb_store/lmdb_store_message.hpp"
 #include "napi.h"
 #include <algorithm>
-#include <bits/chrono.h>
 #include <chrono>
 #include <cstdint>
 #include <iterator>

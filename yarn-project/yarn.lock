@@ -1548,10 +1548,8 @@ __metadata:
   dependencies:
     "@aztec/foundation": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
-    "@types/bindings": "npm:^1.5.5"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    bindings: "npm:^1.5.0"
     jest: "npm:^30.0.0"
     msgpackr: "npm:^1.11.2"
     ts-node: "npm:^10.9.1"
@@ -7047,15 +7045,6 @@ __metadata:
   dependencies:
     "@babel/types": "npm:^7.20.7"
   checksum: 10/f0352d537448e1e37f27e6bb8c962d7893720a92fde9d8601a68a93dbc14e15c088b4c0c8f71021d0966d09fba802ef3de11fdb6766c33993f8cf24f1277c6a9
-  languageName: node
-  linkType: hard
-
-"@types/bindings@npm:^1.5.5":
-  version: 1.5.5
-  resolution: "@types/bindings@npm:1.5.5"
-  dependencies:
-    "@types/node": "npm:*"
-  checksum: 10/0205bd031677e9af479437b4f358d4ea96d9d1a7d57132657915201d9a8be968d5f8341f526cc79481142fe9456f82e093cf62a0b2bcf6c3cfd4577962603b22
   languageName: node
   linkType: hard
 

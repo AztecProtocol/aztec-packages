@@ -20,6 +20,22 @@ if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
   export hash="$hash-no-avm"
 fi
 
+function ensure_zig {
+  if command -v zig &>/dev/null; then
+    return
+  fi
+  local arch=$(uname -m)
+  local zig_version=0.15.1
+  local bin_path=/opt/zig-${arch}-linux-${zig_version}
+  if [ -f $bin_path/zig ]; then
+    export PATH="$bin_path:$PATH"
+    return
+  fi
+  echo "Installing zig $zig_version..."
+  curl -sL https://ziglang.org/download/$zig_version/zig-${arch}-linux-$zig_version.tar.xz | sudo tar -xJ -C /opt
+  export PATH="$bin_path:$PATH"
+}
+
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
 function inject_version {
@@ -76,10 +92,15 @@ function build_asan_fast {
 
 function build_nodejs_module {
   set -eu
+  ensure_zig
   (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
   if ! cache_download barretenberg-native-nodejs-module-$hash.zst; then
-    build_preset $pic_preset --target nodejs_module
-    cache_upload barretenberg-native-nodejs-module-$hash.zst build-pic/lib/nodejs_module.node
+    parallel --line-buffered --tag --halt now,fail=1 build_preset ::: \
+      zig-node-amd64-linux \
+      zig-node-arm64-linux \
+      zig-node-amd64-macos \
+      zig-node-arm64-macos
+    cache_upload barretenberg-native-nodejs-module-$hash.zst build-zig-*-*/lib/nodejs_module.node
   fi
 }
 
@@ -156,7 +177,7 @@ function build_smt_verification {
 
   sudo apt update && sudo apt install -y python3-pip python3-venv m4 bison
   cmake --preset smt-verification
- 
+
   cvc5_cmake_hash=$(cache_content_hash ^barretenberg/cpp/src/barretenberg/smt_verification/CMakeLists.txt)
   if ! cache_download barretenberg-cvc5-$cvc5_cmake_hash.zst; then
       cmake --build build-smt --target cvc5
@@ -185,7 +206,7 @@ function build_release {
   fi
 }
 
-export -f build_preset build_native build_asan_fast build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
+export -f ensure_zig build_preset build_native build_asan_fast build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
 
 function build {
   echo_header "bb cpp build"
