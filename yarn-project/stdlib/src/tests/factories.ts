@@ -68,7 +68,6 @@ import {
   AvmGetLeafValueHint,
   AvmGetPreviousValueIndexHint,
   AvmGetSiblingPathHint,
-  AvmProtocolContractAddressHint,
   AvmRevertCheckpointHint,
   AvmSequentialInsertHintNullifierTree,
   AvmSequentialInsertHintPublicDataTree,
@@ -160,6 +159,7 @@ import { FunctionData } from '../tx/function_data.js';
 import { GlobalVariables } from '../tx/global_variables.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
 import { makeProcessedTxFromPrivateOnlyTx, makeProcessedTxFromTxWithPublicCalls } from '../tx/processed_tx.js';
+import { ProtocolContracts } from '../tx/protocol_contracts.js';
 import { PublicCallRequestWithCalldata } from '../tx/public_call_request_with_calldata.js';
 import { StateReference } from '../tx/state_reference.js';
 import { TreeSnapshots } from '../tx/tree_snapshots.js';
@@ -420,6 +420,10 @@ export function makePublicTubePublicInputs(seed = 1) {
   return new PublicTubePublicInputs(makePrivateToPublicKernelCircuitPublicInputs(seed), fr(seed + 0x1000));
 }
 
+export function makeProtocolContracts(seed = 1) {
+  return new ProtocolContracts(makeTuple(MAX_PROTOCOL_CONTRACTS, makeAztecAddress, seed));
+}
+
 /**
  * Creates arbitrary public kernel circuit public inputs.
  * @param seed - The seed to use for generating the kernel circuit public inputs.
@@ -441,7 +445,7 @@ export function makePrivateToRollupKernelCircuitPublicInputs(
 function makeAvmCircuitPublicInputs(seed = 1) {
   return new AvmCircuitPublicInputs(
     makeGlobalVariables(seed),
-    fr(seed + 0x100),
+    makeProtocolContracts(seed + 0x100),
     makeTreeSnapshots(seed + 0x10),
     makeGas(seed + 0x20),
     makeGasSettings(),
@@ -1429,13 +1433,6 @@ export async function makeAvmTxHint(seed = 0): Promise<AvmTxHint> {
   );
 }
 
-export function makeAvmProtocolContractDerivedAddressesHint(seed = 0): AvmProtocolContractAddressHint {
-  return new AvmProtocolContractAddressHint(
-    /*canonicalAddress=*/ new AztecAddress(new Fr(seed + 1)),
-    /*derivedAddress=*/ new AztecAddress(new Fr(seed + 0x1001)),
-  );
-}
-
 /**
  * Creates arbitrary AvmExecutionHints.
  * @param seed - The seed to use for generating the hints.
@@ -1452,11 +1449,7 @@ export async function makeAvmExecutionHints(
   const fields = {
     globalVariables: makeGlobalVariables(seed + 0x4000),
     tx: await makeAvmTxHint(seed + 0x4100),
-    protocolContractDerivedAddresses: makeArray(
-      MAX_PROTOCOL_CONTRACTS,
-      makeAvmProtocolContractDerivedAddressesHint,
-      seed + 0x4600,
-    ),
+    protocolContracts: new ProtocolContracts(makeTuple(MAX_PROTOCOL_CONTRACTS, makeAztecAddress, seed + 0x4600)),
     contractInstances: makeArray(baseLength + 2, makeAvmContractInstanceHint, seed + 0x4700),
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
     bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
@@ -1490,7 +1483,7 @@ export async function makeAvmExecutionHints(
   return new AvmExecutionHints(
     fields.globalVariables,
     fields.tx,
-    fields.protocolContractDerivedAddresses,
+    fields.protocolContracts,
     fields.contractInstances,
     fields.contractClasses,
     fields.bytecodeCommitments,
@@ -1546,7 +1539,7 @@ export async function makeBloatedProcessedTx({
   version = Fr.ZERO,
   gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) }),
   vkTreeRoot = Fr.ZERO,
-  protocolContractTreeRoot = Fr.ZERO,
+  protocolContracts = makeProtocolContracts(seed + 0x100),
   globalVariables = GlobalVariables.empty(),
   newL1ToL2Snapshot = AppendOnlyTreeSnapshot.empty(),
   feePayer,
@@ -1562,7 +1555,7 @@ export async function makeBloatedProcessedTx({
   vkTreeRoot?: Fr;
   globalVariables?: GlobalVariables;
   newL1ToL2Snapshot?: AppendOnlyTreeSnapshot;
-  protocolContractTreeRoot?: Fr;
+  protocolContracts?: ProtocolContracts;
   feePayer?: AztecAddress;
   feePaymentPublicDataWrite?: PublicDataWrite;
   privateOnly?: boolean;
@@ -1577,7 +1570,7 @@ export async function makeBloatedProcessedTx({
   txConstantData.txContext.version = version;
   txConstantData.txContext.gasSettings = gasSettings;
   txConstantData.vkTreeRoot = vkTreeRoot;
-  txConstantData.protocolContractTreeRoot = protocolContractTreeRoot;
+  txConstantData.protocolContractsHash = await protocolContracts.hash();
 
   const tx = !privateOnly
     ? await mockTx(seed, { feePayer })
@@ -1616,7 +1609,7 @@ export async function makeBloatedProcessedTx({
     // Create avm output.
     const avmOutput = AvmCircuitPublicInputs.empty();
     // Assign data from hints.
-    avmOutput.protocolContractTreeRoot = protocolContractTreeRoot;
+    avmOutput.protocolContracts = protocolContracts;
     avmOutput.startTreeSnapshots.l1ToL2MessageTree = newL1ToL2Snapshot;
     avmOutput.endTreeSnapshots.l1ToL2MessageTree = newL1ToL2Snapshot;
     // Assign data from private.

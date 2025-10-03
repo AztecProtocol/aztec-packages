@@ -7,7 +7,6 @@
 #include "barretenberg/vm2/simulation/gadgets/l1_to_l2_message_tree_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/note_hash_tree_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/nullifier_tree_check.hpp"
-#include "barretenberg/vm2/simulation/gadgets/protocol_contracts.hpp"
 #include "barretenberg/vm2/simulation/gadgets/public_data_tree_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
@@ -21,11 +20,11 @@ class ContractDB final : public ContractDBInterface {
     ContractDB(ContractDBInterface& raw_contract_db,
                AddressDerivationInterface& address_derivation,
                ClassIdDerivationInterface& class_id_derivation,
-               ProtocolContractSetInterface& protocol_contracts_set)
+               const ProtocolContracts& protocol_contracts)
         : raw_contract_db(raw_contract_db)
         , address_derivation(address_derivation)
         , class_id_derivation(class_id_derivation)
-        , protocol_contracts_set(protocol_contracts_set)
+        , protocol_contracts(protocol_contracts)
     {}
 
     // Gets an instance from the DB and proves address derivation from the result.
@@ -41,7 +40,7 @@ class ContractDB final : public ContractDBInterface {
     ContractDBInterface& raw_contract_db;
     AddressDerivationInterface& address_derivation;
     ClassIdDerivationInterface& class_id_derivation;
-    ProtocolContractSetInterface& protocol_contracts_set;
+    const ProtocolContracts& protocol_contracts;
 };
 
 // Generates events.

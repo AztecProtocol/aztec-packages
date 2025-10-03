@@ -16,8 +16,8 @@ void public_data_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     using C = ColumnAndShifts;
 
     const auto constants_PUBLIC_DATA_TREE_HEIGHT = FF(40);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX = FF(375);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX = FF(4609);
+    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX = FF(385);
+    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX = FF(4619);
     const auto constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX = FF(23);
     const auto public_data_check_CLK_DIFF = in.get(C::public_data_check_not_end) *
                                             (in.get(C::public_data_check_clk_shift) - in.get(C::public_data_check_clk));

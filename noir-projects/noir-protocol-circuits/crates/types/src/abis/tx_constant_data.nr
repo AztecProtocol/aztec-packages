@@ -1,5 +1,8 @@
 use crate::{
-    abis::{block_header::BlockHeader, transaction::tx_context::TxContext},
+    abis::{
+        block_header::BlockHeader, protocol_contracts::ProtocolContracts,
+        transaction::tx_context::TxContext,
+    },
     traits::{Deserialize, Empty, Serialize},
 };
 use std::meta::derive;
@@ -14,7 +17,7 @@ pub struct TxConstantData {
     // protocol to execute and prove the transaction.
     pub tx_context: TxContext,
     pub vk_tree_root: Field,
-    pub protocol_contract_tree_root: Field,
+    pub protocol_contracts_hash: Field,
 }
 
 impl Empty for TxConstantData {
@@ -23,7 +26,7 @@ impl Empty for TxConstantData {
             anchor_block_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
             vk_tree_root: 0,
-            protocol_contract_tree_root: 0,
+            protocol_contracts_hash: 0,
         }
     }
 }

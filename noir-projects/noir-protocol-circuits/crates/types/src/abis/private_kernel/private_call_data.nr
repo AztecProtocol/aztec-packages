@@ -1,13 +1,7 @@
 use crate::{
-    abis::{
-        private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        protocol_contract_leaf_preimage::ProtocolContractLeafPreimage,
-    },
+    abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
     address::SaltedInitializationHash,
-    constants::{
-        FUNCTION_TREE_HEIGHT, PROOF_TYPE_OINK, PROOF_TYPE_PG, PROTOCOL_CONTRACT_TREE_HEIGHT,
-        PUBLIC_DATA_TREE_HEIGHT,
-    },
+    constants::{FUNCTION_TREE_HEIGHT, PROOF_TYPE_OINK, PROOF_TYPE_PG, PUBLIC_DATA_TREE_HEIGHT},
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     merkle_tree::MembershipWitness,
     proof::verification_key::ClientIVCVerificationKey,
@@ -51,8 +45,6 @@ pub struct PrivateVerificationKeyHints {
     pub contract_class_artifact_hash: Field,
     pub contract_class_public_bytecode_commitment: Field,
     pub function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
-    pub protocol_contract_membership_witness: MembershipWitness<PROTOCOL_CONTRACT_TREE_HEIGHT>,
-    pub protocol_contract_leaf: ProtocolContractLeafPreimage,
     pub updated_class_id_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
     pub updated_class_id_leaf: PublicDataTreeLeafPreimage,
     pub updated_class_id_delayed_public_mutable_values: [Field; 3],

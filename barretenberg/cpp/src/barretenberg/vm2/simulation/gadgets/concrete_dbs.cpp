@@ -1,7 +1,6 @@
 #include "barretenberg/vm2/simulation/gadgets/concrete_dbs.hpp"
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/simulation/gadgets/protocol_contracts.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 
@@ -18,8 +17,11 @@ std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAdd
     }
     // If we did get a contract instance, we need to prove that the address is derived from the instance.
     // For protocol contracts the input address is the canonical address, we need to retrieve the derived address.
-    AztecAddress derived_address =
-        protocol_contracts_set.contains(address) ? protocol_contracts_set.get_derived_address(address) : address;
+    AztecAddress derived_address = is_protocol_contract_address(address)
+                                       ? get_derived_address(protocol_contracts, address)
+                                             .value() /* We can assume that get_derived_address will not return a
+                                                         nullopt, since we have succesfully fetched the instance.*/
+                                       : address;
     address_derivation.assert_derivation(derived_address, instance.value());
     return instance;
 }

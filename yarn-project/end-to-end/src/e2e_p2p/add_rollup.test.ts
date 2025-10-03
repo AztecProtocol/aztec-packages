@@ -24,7 +24,7 @@ import {
 } from '@aztec/l1-artifacts';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { getPXEConfig } from '@aztec/pxe/server';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { computeL2ToL1MembershipWitness, getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
@@ -149,7 +149,7 @@ describe('e2e_p2p_add_rollup', () => {
       {
         salt: Math.floor(Math.random() * 1000000),
         vkTreeRoot: getVKTreeRoot(),
-        protocolContractTreeRoot,
+        protocolContractsHash,
         genesisArchiveRoot,
         ethereumSlotDuration: t.ctx.aztecNodeConfig.ethereumSlotDuration,
         aztecSlotDuration: t.ctx.aztecNodeConfig.aztecSlotDuration,

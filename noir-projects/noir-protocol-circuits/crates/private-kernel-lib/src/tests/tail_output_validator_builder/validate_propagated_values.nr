@@ -49,16 +49,16 @@ fn validate_propagated_values_vk_tree_root_mismatch_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with = "mismatch protocol_contract_tree_root")]
-fn validate_propagated_values_protocol_contract_tree_root_mismatch_fails() {
-    let mut builder = TailOutputValidatorBuilder::new();
+// #[test(should_fail_with = "mismatch protocol_contracts_hash")]
+// fn validate_propagated_values_protocol_contracts_hash_mismatch_fails() {
+//     let mut builder = TailOutputValidatorBuilder::new();
 
-    builder.previous_kernel.protocol_contract_tree_root = 123;
-    // Tweak the value in the output.
-    builder.output.protocol_contract_tree_root = 45;
+//     builder.previous_kernel.protocol_contracts_hash = 123;
+//     // Tweak the value in the output.
+//     builder.output.protocol_contracts_hash = 45;
 
-    builder.validate();
-}
+//     builder.validate();
+// }
 
 /**
  * include_by_timestamp

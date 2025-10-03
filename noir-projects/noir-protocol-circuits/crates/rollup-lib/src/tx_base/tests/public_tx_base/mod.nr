@@ -169,7 +169,7 @@ impl TestBuilder {
             last_archive: self.last_archive,
             l1_to_l2_tree_snapshot: self.avm.end_tree_snapshots.l1_to_l2_message_tree,
             vk_tree_root: self.private_tail.constants.vk_tree_root,
-            protocol_contract_tree_root: self.avm.protocol_contract_tree_root,
+            protocol_contracts_hash: self.private_tail.constants.protocol_contracts_hash,
             prover_id: self.prover_id,
             global_variables: self.avm.global_variables,
         };

@@ -136,6 +136,7 @@ import {
   mapPrivateToPublicAccumulatedDataFromNoir,
   mapPrivateToPublicKernelCircuitPublicInputsToNoir,
   mapPrivateToRollupKernelCircuitPublicInputsToNoir,
+  mapProtocolContractsToNoir,
   mapPublicCallRequestArrayLengthsToNoir,
   mapPublicCallRequestFromNoir,
   mapPublicCallRequestToNoir,
@@ -344,7 +345,7 @@ function mapBlockConstantDataFromNoir(constants: BlockConstantDataNoir) {
     mapAppendOnlyTreeSnapshotFromNoir(constants.last_archive),
     mapAppendOnlyTreeSnapshotFromNoir(constants.l1_to_l2_tree_snapshot),
     mapFieldFromNoir(constants.vk_tree_root),
-    mapFieldFromNoir(constants.protocol_contract_tree_root),
+    mapFieldFromNoir(constants.protocol_contracts_hash),
     mapGlobalVariablesFromNoir(constants.global_variables),
     mapFieldFromNoir(constants.prover_id),
   );
@@ -355,7 +356,7 @@ function mapBlockConstantDataToNoir(constants: BlockConstantData): BlockConstant
     last_archive: mapAppendOnlyTreeSnapshotToNoir(constants.lastArchive),
     l1_to_l2_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(constants.l1ToL2TreeSnapshot),
     vk_tree_root: mapFieldToNoir(constants.vkTreeRoot),
-    protocol_contract_tree_root: mapFieldToNoir(constants.protocolContractTreeRoot),
+    protocol_contracts_hash: mapFieldToNoir(constants.protocolContractsHash),
     global_variables: mapGlobalVariablesToNoir(constants.globalVariables),
     prover_id: mapFieldToNoir(constants.proverId),
   };
@@ -366,7 +367,7 @@ function mapCheckpointConstantDataFromNoir(constants: CheckpointConstantDataNoir
     mapFieldFromNoir(constants.chain_id),
     mapFieldFromNoir(constants.version),
     mapFieldFromNoir(constants.vk_tree_root),
-    mapFieldFromNoir(constants.protocol_contract_tree_root),
+    mapFieldFromNoir(constants.protocol_contracts_hash),
     mapFieldFromNoir(constants.prover_id),
     mapFieldFromNoir(constants.slot_number),
     mapEthAddressFromNoir(constants.coinbase),
@@ -380,7 +381,7 @@ function mapCheckpointConstantDataToNoir(constants: CheckpointConstantData): Che
     chain_id: mapFieldToNoir(constants.chainId),
     version: mapFieldToNoir(constants.version),
     vk_tree_root: mapFieldToNoir(constants.vkTreeRoot),
-    protocol_contract_tree_root: mapFieldToNoir(constants.protocolContractTreeRoot),
+    protocol_contracts_hash: mapFieldToNoir(constants.protocolContractsHash),
     prover_id: mapFieldToNoir(constants.proverId),
     slot_number: mapFieldToNoir(constants.slotNumber),
     coinbase: mapEthAddressToNoir(constants.coinbase),
@@ -394,7 +395,7 @@ function mapEpochConstantDataFromNoir(data: EpochConstantDataNoir) {
     mapFieldFromNoir(data.chain_id),
     mapFieldFromNoir(data.version),
     mapFieldFromNoir(data.vk_tree_root),
-    mapFieldFromNoir(data.protocol_contract_tree_root),
+    mapFieldFromNoir(data.protocol_contracts_hash),
     mapFieldFromNoir(data.prover_id),
   );
 }
@@ -404,7 +405,7 @@ function mapEpochConstantDataToNoir(data: EpochConstantData): EpochConstantDataN
     chain_id: mapFieldToNoir(data.chainId),
     version: mapFieldToNoir(data.version),
     vk_tree_root: mapFieldToNoir(data.vkTreeRoot),
-    protocol_contract_tree_root: mapFieldToNoir(data.protocolContractTreeRoot),
+    protocol_contracts_hash: mapFieldToNoir(data.protocolContractsHash),
     prover_id: mapFieldToNoir(data.proverId),
   };
 }
@@ -555,7 +556,7 @@ function mapAvmAccumulatedDataArrayLengthsToNoir(
 export function mapAvmCircuitPublicInputsToNoir(inputs: AvmCircuitPublicInputs): AvmCircuitPublicInputsNoir {
   return {
     global_variables: mapGlobalVariablesToNoir(inputs.globalVariables),
-    protocol_contract_tree_root: mapFieldToNoir(inputs.protocolContractTreeRoot),
+    protocol_contracts: mapProtocolContractsToNoir(inputs.protocolContracts),
     start_tree_snapshots: mapTreeSnapshotsToNoir(inputs.startTreeSnapshots),
     start_gas_used: mapGasToNoir(inputs.startGasUsed),
     gas_settings: mapGasSettingsToNoir(inputs.gasSettings),

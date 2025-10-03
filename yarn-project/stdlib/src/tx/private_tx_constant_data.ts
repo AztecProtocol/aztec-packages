@@ -4,12 +4,13 @@ import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from 
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { BlockHeader } from './block_header.js';
+import { ProtocolContracts } from './protocol_contracts.js';
 import { TxContext } from './tx_context.js';
 
 /**
  * Data that is constant/not modified by neither of the kernels.
  */
-export class TxConstantData {
+export class PrivateTxConstantData {
   constructor(
     /** Header of a block whose state is used during execution (not the block the transaction is included in). */
     public anchorBlockHeader: BlockHeader,
@@ -27,55 +28,55 @@ export class TxConstantData {
      */
     public vkTreeRoot: Fr,
     /**
-     * Hash of the protocol contracts list.
+     * List of protocol contracts.
      */
-    public protocolContractsHash: Fr,
+    public protocolContracts: ProtocolContracts,
   ) {}
 
-  static from(fields: FieldsOf<TxConstantData>) {
-    return new TxConstantData(...TxConstantData.getFields(fields));
+  static from(fields: FieldsOf<PrivateTxConstantData>) {
+    return new PrivateTxConstantData(...PrivateTxConstantData.getFields(fields));
   }
 
-  static getFields(fields: FieldsOf<TxConstantData>) {
-    return [fields.anchorBlockHeader, fields.txContext, fields.vkTreeRoot, fields.protocolContractsHash] as const;
+  static getFields(fields: FieldsOf<PrivateTxConstantData>) {
+    return [fields.anchorBlockHeader, fields.txContext, fields.vkTreeRoot, fields.protocolContracts] as const;
   }
 
-  static fromFields(fields: Fr[] | FieldReader): TxConstantData {
+  static fromFields(fields: Fr[] | FieldReader): PrivateTxConstantData {
     const reader = FieldReader.asReader(fields);
-    return new TxConstantData(
+    return new PrivateTxConstantData(
       reader.readObject(BlockHeader),
       reader.readObject(TxContext),
       reader.readField(),
-      reader.readField(),
+      reader.readObject(ProtocolContracts),
     );
   }
 
   toFields(): Fr[] {
-    const fields = serializeToFields(...TxConstantData.getFields(this));
+    const fields = serializeToFields(...PrivateTxConstantData.getFields(this));
     if (fields.length !== TX_CONSTANT_DATA_LENGTH) {
       throw new Error(
-        `Invalid number of fields for TxConstantData. Expected ${TX_CONSTANT_DATA_LENGTH}, got ${fields.length}`,
+        `Invalid number of fields for PrivateTxConstantData. Expected ${TX_CONSTANT_DATA_LENGTH}, got ${fields.length}`,
       );
     }
     return fields;
   }
 
-  static fromBuffer(buffer: Buffer | BufferReader): TxConstantData {
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateTxConstantData {
     const reader = BufferReader.asReader(buffer);
-    return new TxConstantData(
+    return new PrivateTxConstantData(
       reader.readObject(BlockHeader),
       reader.readObject(TxContext),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      reader.readObject(ProtocolContracts),
     );
   }
 
   toBuffer() {
-    return serializeToBuffer(...TxConstantData.getFields(this));
+    return serializeToBuffer(...PrivateTxConstantData.getFields(this));
   }
 
   static empty() {
-    return new TxConstantData(BlockHeader.empty(), TxContext.empty(), Fr.ZERO, Fr.ZERO);
+    return new PrivateTxConstantData(BlockHeader.empty(), TxContext.empty(), Fr.ZERO, ProtocolContracts.empty());
   }
 
   getSize() {
@@ -83,11 +84,11 @@ export class TxConstantData {
       this.anchorBlockHeader.getSize() +
       this.txContext.getSize() +
       this.vkTreeRoot.size +
-      this.protocolContractsHash.size
+      this.protocolContracts.getSize()
     );
   }
 
-  clone(): TxConstantData {
-    return TxConstantData.fromBuffer(this.toBuffer());
+  clone(): PrivateTxConstantData {
+    return PrivateTxConstantData.fromBuffer(this.toBuffer());
   }
 }
