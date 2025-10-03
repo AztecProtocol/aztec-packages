@@ -42,6 +42,6 @@ Ignore.
 `ERROR: world-state:database Call SYNC_BLOCK failed: Error: Can't synch block: block state does not match world state`
 
 - Stop aztec
-- Delete current snapshot: `rm -rf ~/.aztec/2.0.2/data/archiver`
+- Delete current snapshot: `rm -rf ~/.aztec/v2.0.2/data/archiver`
 - Update to latest version: `aztec-up -v latest`
 - Start aztec

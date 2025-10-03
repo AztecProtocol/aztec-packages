@@ -1,13 +1,12 @@
 ---
-id: index
 sidebar_position: 0
 title: Introduction
 description: Learn about the Aztec network, node types, roles, best practices, and how to participate in the network.
 ---
 
-## Overview
+## Introduction
 
-The Aztec network is a decentralized privacy-focused rollup on Ethereum. Network nodes work together to process transactions, maintain state, and generate proofs that ensure rollup integrity. This guide provides an overview of node types, their roles, best practices, and how to get started.
+The Aztec network is a decentralized privacy-focused rollup on Ethereum. Nodes in the network work together to process transactions, maintain state, and generate proofs that ensure the integrity of the rollup. This guide provides an overview of the different node types, their roles, best practices for running nodes, and how to get started.
 
 ## Node Types and Roles
 
@@ -30,7 +29,7 @@ Full nodes provide users with the ability to connect and interact with the netwo
 
 ### Sequencer Nodes
 
-Sequencer nodes order transactions and produce blocks. Selected via a proof-of-stake mechanism, they play a critical role in the consensus process.
+Sequencer nodes are responsible for ordering transactions and producing blocks. They are selected via a proof-of-stake mechanism and play a critical role in the consensus process.
 
 **Key responsibilities:**
 - Assemble unprocessed transactions and propose new blocks
@@ -40,11 +39,11 @@ Sequencer nodes order transactions and produce blocks. Selected via a proof-of-s
 
 Before publication, blocks must be validated by a committee of sequencer nodes who re-execute public transactions and verify private function proofs. Committee members attest to validity by signing the block header. Once sufficient attestations are collected (two-thirds of the committee plus one), the block can be submitted to L1.
 
-[Learn more about running a sequencer →](./sequencer_management.md)
+[Learn more about running a sequencer →](./guides/run_nodes/how_to_run_sequencer.md)
 
 ### Prover Nodes
 
-Prover nodes generate cryptographic proofs that attest to transaction correctness. They produce the final rollup proof submitted to Ethereum, ensuring rollup integrity.
+Prover nodes generate cryptographic proofs that attest to transaction correctness. They produce the final rollup proof that gets submitted to Ethereum, ensuring the integrity of the entire rollup.
 
 **Key components:**
 - **Prover node**: Polls L1 for unproven epochs, creates prover jobs, and submits final proofs
@@ -56,7 +55,7 @@ Prover nodes generate cryptographic proofs that attest to transaction correctnes
 - Significant computational resources for proof generation
 - Technical expertise in operating distributed systems
 
-[Learn more about running a prover →](./running_a_prover.md)
+[Learn more about running a prover →](./guides/run_nodes/how_to_run_prover.md)
 
 ## How Nodes Work Together
 
@@ -77,12 +76,12 @@ Nodes can synchronize state in two ways:
 1. **L1 sync**: Queries the rollup and data availability layer for historical state directly from Layer 1
 2. **Snapshot sync**: Downloads pre-built state snapshots from a storage location for faster synchronization
 
-Snapshot sync is significantly faster and reduces L1 infrastructure load, making it the recommended approach for most deployments.
+Snapshot sync is significantly faster and reduces the load on L1 infrastructure, making it the recommended approach for most deployments.
 
 **Configuring sync mode:**
 
 ```bash
-aztec start --node --sync-mode [MODE]
+aztec start --node --sync-mode <MODE>
 ```
 
 Available sync modes:
@@ -97,7 +96,7 @@ Available sync modes:
 Bootnodes facilitate peer discovery by maintaining lists of active peers that new nodes can connect to. To connect your node to a bootnode, pass the bootnode's ENR (Ethereum Node Record) at startup:
 
 ```bash
-aztec start --node --p2p.bootstrapNodes [ENR1],[ENR2],[ENR3]
+aztec start --node --p2p.bootstrapNodes <ENR1>,<ENR2>,<ENR3>
 ```
 
 [Learn more about bootnodes →](./bootnode_operation.md)
@@ -133,21 +132,21 @@ For detailed configuration options and command-line reference, see:
 Get a full node running quickly with this one-liner:
 
 ```bash
-aztec supervised-start --node --archiver --p2p.p2pIp $(curl -s ipv4.icanhazip.com) --network testnet --l1-rpc-urls [YOUR_L1_EXECUTION_RPC] --l1-consensus-host-urls [YOUR_L1_CONSENSUS_RPC]
+aztec supervised-start --node --archiver --p2p.p2pIp $(curl -s ipv4.icanhazip.com) --network testnet --l1-rpc-urls <YOUR_L1_EXECUTION_RPC> --l1-consensus-host-urls <YOUR_L1_CONSENSUS_RPC>
 ```
 
-Replace `[YOUR_L1_EXECUTION_RPC]` and `[YOUR_L1_CONSENSUS_RPC]` with your Ethereum Sepolia endpoints.
+Replace `<YOUR_L1_EXECUTION_RPC>` and `<YOUR_L1_CONSENSUS_RPC>` with your Ethereum Sepolia endpoints.
 
 **Before running this command:**
 - Ensure you've met the [prerequisites](./prerequisites.md) for the CLI method
 - Configure port forwarding for ports 8080 (HTTP) and 40400 (P2P, both TCP/UDP)
 
-[Full installation guide →](./running_a_node.md)
+[Full installation guide →](./index.md)
 
 ## Next Steps
 
 - **Check Prerequisites**: Review the [prerequisites guide](./prerequisites.md) to ensure you have everything needed
-- **Run a Full Node**: Follow the [complete full node guide](./running_a_node.md) for detailed setup instructions
-- **Become a Sequencer**: Learn how to [run a sequencer node](./sequencer_management.md) and join the validator set
-- **Operate a Prover**: Set up [prover infrastructure](./running_a_prover.md) to generate rollup proofs
+- **Run a Full Node**: Follow the [complete full node guide](./index.md) for detailed setup instructions
+- **Become a Sequencer**: Learn how to [run a sequencer node](./guides/run_nodes/how_to_run_sequencer.md) and join the validator set
+- **Operate a Prover**: Set up [prover infrastructure](./guides/run_nodes/how_to_run_prover.md) to generate rollup proofs
 - **Join the Community**: Connect with other operators on [Discord](https://discord.gg/aztec)

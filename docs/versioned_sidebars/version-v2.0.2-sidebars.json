@@ -53,6 +53,10 @@
       "id": "the_aztec_network/index"
     },
     {
+      "type": "doc",
+      "id": "the_aztec_network/prerequisites"
+    },
+    {
       "type": "html",
       "value": "<span class=\"sidebar-divider\" />"
     },
@@ -63,11 +67,56 @@
     },
     {
       "type": "doc",
-      "id": "the_aztec_network/guides/run_nodes/how_to_run_sequencer"
+      "id": "the_aztec_network/running_a_node"
+    },
+    {
+      "type": "html",
+      "value": "<span class=\"sidebar-divider\" />"
     },
     {
       "type": "doc",
-      "id": "the_aztec_network/guides/run_nodes/how_to_run_prover"
+      "id": "the_aztec_network/sequencer_management"
+    },
+    {
+      "type": "doc",
+      "id": "the_aztec_network/advanced_keystore_guide"
+    },
+    {
+      "type": "doc",
+      "id": "the_aztec_network/advanced_sequencer_setup"
+    },
+    {
+      "type": "doc",
+      "id": "the_aztec_network/running_delegated_stake"
+    },
+    {
+      "type": "html",
+      "value": "<span class=\"sidebar-divider\" />"
+    },
+    {
+      "type": "doc",
+      "id": "the_aztec_network/running_a_prover"
+    },
+    {
+      "type": "html",
+      "value": "<span class=\"sidebar-divider\" />"
+    },
+    {
+      "type": "html",
+      "value": "<span class=\"sidebar-title\">Other Guides</span>",
+      "className": "sidebar-title"
+    },
+    {
+      "type": "doc",
+      "id": "the_aztec_network/monitoring"
+    },
+    {
+      "type": "doc",
+      "id": "the_aztec_network/bootnode_operation"
+    },
+    {
+      "type": "doc",
+      "id": "the_aztec_network/syncing_best_practices"
     },
     {
       "type": "html",
@@ -80,7 +129,7 @@
     },
     {
       "type": "doc",
-      "id": "the_aztec_network/reference/operator_faq"
+      "id": "the_aztec_network/cli_changelog_v1_to_v2"
     },
     {
       "type": "doc",
@@ -93,6 +142,18 @@
     {
       "type": "doc",
       "id": "the_aztec_network/reference/cli_reference"
+    },
+    {
+      "type": "doc",
+      "id": "the_aztec_network/node_api_reference"
+    },
+    {
+      "type": "doc",
+      "id": "the_aztec_network/ethereum_rpc_reference"
+    },
+    {
+      "type": "doc",
+      "id": "the_aztec_network/glossary"
     }
   ]
 }
