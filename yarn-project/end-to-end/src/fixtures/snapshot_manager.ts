@@ -379,7 +379,6 @@ async function setupFromFresh(
   });
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.rollupVersion = deployL1ContractsValues.rollupVersion;
-  aztecNodeConfig.l1PublishRetryIntervalMS = 100;
 
   const dateProvider = new TestDateProvider();
 
