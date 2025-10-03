@@ -12,6 +12,7 @@
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
+#include "barretenberg/ultra_honk/oink_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -26,7 +27,6 @@ class ProtogalaxyRecursiveTests : public testing::Test {
     using RecursiveVerifierInstance = RecursiveVerifierInstance_<RecursiveFlavor>;
     using RecursiveVerificationKey = RecursiveVerifierInstance::VerificationKey;
     using RecursiveVKAndHash = RecursiveVerifierInstance::VKAndHash;
-    using RecursiveVerifierInstances = std::array<std::shared_ptr<RecursiveVerifierInstance>, NUM_INSTANCES>;
     using RecursiveFoldingVerifier = ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstance>;
     using RecursiveFF = RecursiveFlavor::FF;
     using RecursiveCommitment = RecursiveFlavor::Commitment;
@@ -112,7 +112,7 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         recursive_folding_data.verifier_inst =
             std::make_shared<RecursiveVerifierInstance>(&builder, verifier_instances[0]);
         recursive_folding_data.verifier_inst->is_complete = true;
-        // If the instance comes from a previous round of folding, we need to populate witness commitments, target
+        // The first instance is always an accumulator, we need to populate witness commitments, target
         // sum, gate challenge, relation parameters, and batching challenges
         for (auto [native_comm, rec_comm] :
              zip_view(verifier_instances[0]->witness_commitments.get_all(),
@@ -159,9 +159,9 @@ class ProtogalaxyRecursiveTests : public testing::Test {
     {
         // Instantiate recursive verifier instances
         auto recursive_folding_data = create_recursive_folding_data(builder, verifier_instances);
-        // Instantiate recursive folding proof
+
         stdlib::Proof<RecursiveBuilder> recursive_folding_proof(builder, folding_proof);
-        // Instantiate folding verifier transcript
+
         auto recursive_transcript = std::make_shared<typename RecursiveFoldingVerifier::Transcript>();
         recursive_transcript->enable_manifest();
         // We need to add the accumulator verifier instance to the transcript to ensure its origin is
@@ -170,10 +170,10 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         auto accumulator_hash =
             recursive_folding_data.verifier_inst->hash_through_transcript("-", *recursive_transcript);
         recursive_transcript->add_to_hash_buffer("accumulator_hash", accumulator_hash);
-        // Instatiate recursive folding verifier
+
         RecursiveFoldingVerifier recursive_folding_verifier(
             &builder, recursive_folding_data.verifier_inst, recursive_folding_data.vk_and_hash, recursive_transcript);
-        // Recursively verify folding proof
+
         auto folded_verifier_instance = recursive_folding_verifier.verify_folding_proof(recursive_folding_proof);
 
         return { std::make_shared<NativeVerifierInstance>(folded_verifier_instance->get_value()),
@@ -516,6 +516,58 @@ TEST_F(ProtogalaxyRecursiveTests, CombinerQuotientCoefficient)
                         InstanceTamperingMode::None,
                         AccumulatorTamperingMode::None,
                         ProofTamperingMode::CombinerQuotient);
+}
+
+TEST_F(ProtogalaxyRecursiveTests, FixedCircuitSize)
+{
+    BB_DISABLE_ASSERTS();
+
+    auto compute_circuit_size = [](const size_t log_num_gates) -> std::pair<size_t, NativeBuilder> {
+        TupleOfKeys keys;
+
+        // First instance
+        TupleOfKeys keys_to_be_accumulated;
+
+        NativeBuilder native_builder_1;
+        create_function_circuit(native_builder_1, log_num_gates, log_num_gates);
+        ProtogalaxyTestUtils::construct_instances_and_add_to_tuple(
+            keys_to_be_accumulated, native_builder_1, 0, TraceSettings{ SMALL_TEST_STRUCTURE });
+
+        NativeBuilder native_builder_2;
+        create_function_circuit(native_builder_2, log_num_gates, log_num_gates);
+        ProtogalaxyTestUtils::construct_instances_and_add_to_tuple(
+            keys_to_be_accumulated, native_builder_2, 1, TraceSettings{ SMALL_TEST_STRUCTURE });
+
+        auto [prover_instance, verifier_instance] =
+            ProtogalaxyTestUtils::fold_and_verify(get<0>(keys_to_be_accumulated), get<1>(keys_to_be_accumulated));
+
+        get<0>(keys)[0] = prover_instance;
+        get<1>(keys)[0] = verifier_instance;
+
+        // Second instance
+        NativeBuilder native_builder_3;
+        create_function_circuit(native_builder_3); // This circuit must be fixed, otherwise the circuit depends on the
+                                                   // size of the Oink proofs
+        ProtogalaxyTestUtils::construct_instances_and_add_to_tuple(
+            keys, native_builder_3, 1, TraceSettings{ SMALL_TEST_STRUCTURE });
+
+        auto [folded_accumulator, folding_proof] =
+            ProtogalaxyTestUtils::fold(get<0>(keys), get<1>(keys), /*hash_accumulator=*/true);
+
+        RecursiveBuilder builder;
+        [[maybe_unused]] auto _ = create_folding_circuit(builder, get<1>(keys), folding_proof);
+
+        EXPECT_TRUE(CircuitChecker::check(builder));
+
+        return { folding_proof.size(), builder };
+    };
+
+    auto [proof_size_1, circuit_1] = compute_circuit_size(11);
+    auto [proof_size_2, circuit_2] = compute_circuit_size(12);
+
+    EXPECT_EQ(proof_size_1, proof_size_2);
+    EXPECT_EQ(circuit_1.get_estimated_num_finalized_gates(), circuit_2.get_estimated_num_finalized_gates());
+    EXPECT_EQ(circuit_1.blocks, circuit_2.blocks);
 }
 
 } // namespace bb::stdlib::recursion::honk
