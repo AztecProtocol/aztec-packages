@@ -16,18 +16,6 @@
 using namespace bb;
 class AcirIntegrationTest : public ::testing::Test {
   public:
-    static std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
-    {
-        std::filesystem::path filePath = bytecodePath;
-        if (filePath.extension() == ".json") {
-            // Try reading json files as if they are a Nargo build artifact
-            return exec_pipe_with_stdin(bytecodePath, "jq -r '.bytecode' - | base64 -d | gunzip -c");
-        }
-
-        // For other extensions, assume file is a raw ACIR program
-        return exec_pipe_with_stdin(bytecodePath, "gunzip -c -");
-    }
-
     // Function to check if a file exists
     static bool file_exists(const std::string& path)
     {
