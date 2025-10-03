@@ -60,6 +60,26 @@ TEST(InstructionSpecTest, CheckAllInstructionsTagInformation)
     }
 }
 
+// Test checking that every wire opcode (except for LAST_OPCODE_SENTINEL) has an entry in WIRE_INSTRUCTION_SPEC
+// and contains a valid exec opcode that this one has an entry in EXEC_INSTRUCTION_SPEC.
+// Check also that the set of these exec opcodes contain all the values defined in the ExecutionOpCode enum.
+TEST(InstructionSpecTest, CheckWireOpCodeAndExecOpcodeConsistency)
+{
+    std::set<ExecutionOpCode> exec_opcodes;
+    for (int i = 0; i < static_cast<int>(WireOpCode::LAST_OPCODE_SENTINEL); i++) {
+        const auto wire_opcode = static_cast<WireOpCode>(i);
+        const auto& wire_instruction_spec = WIRE_INSTRUCTION_SPEC.at(wire_opcode);
+        EXPECT_TRUE(EXEC_INSTRUCTION_SPEC.contains(wire_instruction_spec.exec_opcode));
+
+        exec_opcodes.insert(wire_instruction_spec.exec_opcode);
+    }
+
+    for (int i = 0; i <= static_cast<int>(ExecutionOpCode::MAX); i++) {
+        const auto exec_opcode = static_cast<ExecutionOpCode>(i);
+        EXPECT_TRUE(exec_opcodes.contains(exec_opcode));
+    }
+}
+
 // Compute the maximum size of instruction in bytes and enforces it to be equal to DECOMPOSE_WINDOW_SIZE.
 TEST(InstructionSpecTest, CheckDecomposeWindowSize)
 {
