@@ -7,7 +7,7 @@ import {
   type FunctionAbi,
   ContractFunctionInteraction,
   Contract,
-  type SendMethodOptions,
+  type SendInteractionOptions,
   AztecAddress,
   type ContractArtifact,
 } from '@aztec/aztec.js';
@@ -71,7 +71,7 @@ interface FunctionCardProps {
     name?: string,
     interaction?: ContractFunctionInteraction,
     contractAddress?: AztecAddress,
-    opts?: SendMethodOptions,
+    opts?: SendInteractionOptions,
   ) => void;
 }
 
@@ -119,7 +119,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
   const handleAuthwitCreation = async (
     isPublic?: boolean,
     interaction?: ContractFunctionInteraction,
-    opts?: SendMethodOptions,
+    opts?: SendInteractionOptions,
   ) => {
     setOpenCreateAuthwitDialog(false);
     if (isPublic && interaction && opts) {
@@ -130,7 +130,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
   const handleConfigureInteractionDialogClose = async (
     name?: string,
     interaction?: ContractFunctionInteraction,
-    opts?: SendMethodOptions,
+    opts?: SendInteractionOptions,
   ) => {
     setOpenConfigureInteractionDialog(false);
     if (name && interaction && opts) {

@@ -12,7 +12,6 @@ import {
   type RequestDeployOptions,
   type SimulateDeployOptions,
 } from '../contract/deploy_method.js';
-import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 import { AccountEntrypointMetaPaymentMethod } from './account_entrypoint_meta_payment_method.js';
 import type { Wallet } from './index.js';
@@ -72,7 +71,7 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
       this.artifact,
       'entrypoint',
       this.address,
-      originalPaymentMethod ?? new FeeJuicePaymentMethod(this.address),
+      originalPaymentMethod,
     );
   }
 

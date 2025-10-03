@@ -1,3 +1,4 @@
+import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { Fr } from '@aztec/foundation/fields';
 import {
@@ -39,9 +40,9 @@ import type { Contract } from '../contract/contract.js';
 import type {
   FeeEstimationOptions,
   GasSettingsOption,
-  ProfileMethodOptions,
-  SendMethodOptions,
-  SimulateMethodOptions,
+  ProfileInteractionOptions,
+  SendInteractionOptions,
+  SimulateInteractionOptions,
 } from '../contract/interaction_options.js';
 import type { CallIntent, IntentInnerHash } from '../utils/authwit.js';
 
@@ -64,14 +65,6 @@ export type Aliased<T> = {
  */
 export type ContractInstanceAndArtifact = Pick<Contract, 'artifact' | 'instance'>;
 
-/** Information on the connected chain */
-export type ChainInfo = {
-  /** The L1 chain id */
-  chainId: Fr;
-  /** The version of the rollup  */
-  version: Fr;
-};
-
 /**
  * Options that can be provided to the wallet for configuration of the fee payment.
  */
@@ -88,7 +81,7 @@ export type UserFeeOptions = {
  * a simplified version that only hints at the wallet wether the interaction contains a
  * fee payment method or not
  */
-export type SimulateOptions = Omit<SimulateMethodOptions, 'fee'> & {
+export type SimulateOptions = Omit<SimulateInteractionOptions, 'fee'> & {
   /** The fee options */
   fee?: UserFeeOptions & FeeEstimationOptions;
 };
@@ -98,7 +91,7 @@ export type SimulateOptions = Omit<SimulateMethodOptions, 'fee'> & {
  * a simplified version that only hints at the wallet wether the interaction contains a
  * fee payment method or not
  */
-export type ProfileOptions = Omit<ProfileMethodOptions, 'fee'> & {
+export type ProfileOptions = Omit<ProfileInteractionOptions, 'fee'> & {
   /** The fee options */
   fee?: UserFeeOptions;
 };
@@ -108,7 +101,7 @@ export type ProfileOptions = Omit<ProfileMethodOptions, 'fee'> & {
  * a simplified version that only hints at the wallet wether the interaction contains a
  * fee payment method or not
  */
-export type SendOptions = Omit<SendMethodOptions, 'fee'> & {
+export type SendOptions = Omit<SendInteractionOptions, 'fee'> & {
   /** The fee options */
   fee?: UserFeeOptions;
 };

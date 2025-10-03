@@ -1,4 +1,4 @@
-import { AztecAddress, type AztecNode, Fr, type SimulateMethodOptions, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, Fr, type SimulateInteractionOptions, type Wallet } from '@aztec/aztec.js';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -128,7 +128,7 @@ describe('Transfer benchmark', () => {
 
           it(`${accountType} contract transfers ${amountToSend} tokens using ${recursions} recursions, pays using ${benchmarkingPaymentMethod}`, async () => {
             const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
-            const options: SimulateMethodOptions = {
+            const options: SimulateInteractionOptions = {
               from: benchysAddress,
               fee: { paymentMethod: await paymentMethod.forWallet(userWallet, benchysAddress) },
             };
