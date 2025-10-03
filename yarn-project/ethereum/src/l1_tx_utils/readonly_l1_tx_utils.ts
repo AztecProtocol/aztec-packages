@@ -1,4 +1,4 @@
-import { times } from '@aztec/foundation/collection';
+import { getKeys, merge, pick, times } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -34,7 +34,7 @@ import type { GasPrice, L1BlobInputs, L1TxRequest, TransactionStats } from './ty
 import { getCalldataGasUsage, tryGetCustomErrorNameContractFunction } from './utils.js';
 
 export class ReadOnlyL1TxUtils {
-  public config: L1TxUtilsConfig;
+  public config: Required<L1TxUtilsConfig>;
   protected interrupted = false;
 
   constructor(
@@ -44,10 +44,7 @@ export class ReadOnlyL1TxUtils {
     config?: Partial<L1TxUtilsConfig>,
     protected debugMaxGasLimit: boolean = false,
   ) {
-    this.config = {
-      ...defaultL1TxUtilsConfig,
-      ...(config || {}),
-    };
+    this.config = merge(defaultL1TxUtilsConfig, pick(config || {}, ...getKeys(l1TxUtilsConfigMappings)));
   }
 
   public interrupt() {
@@ -70,12 +67,12 @@ export class ReadOnlyL1TxUtils {
    * Gets the current gas price with bounds checking
    */
   public async getGasPrice(
-    _gasConfig?: L1TxUtilsConfig,
+    gasConfigOverrides?: L1TxUtilsConfig,
     isBlobTx: boolean = false,
     attempt: number = 0,
     previousGasPrice?: typeof attempt extends 0 ? never : GasPrice,
   ): Promise<GasPrice> {
-    const gasConfig = { ...this.config, ..._gasConfig };
+    const gasConfig = merge(this.config, gasConfigOverrides);
     const block = await this.client.getBlock({ blockTag: 'latest' });
     const baseFee = block.baseFeePerGas ?? 0n;
 
@@ -90,7 +87,6 @@ export class ReadOnlyL1TxUtils {
           this.logger,
           true,
         );
-        this.logger?.debug('L1 Blob base fee:', { blobBaseFee: formatGwei(blobBaseFee) });
       } catch {
         this.logger?.warn('Failed to get L1 blob base fee', attempt);
       }
@@ -174,13 +170,17 @@ export class ReadOnlyL1TxUtils {
       maxFeePerBlobGas = maxFeePerBlobGas > minBlobFee ? maxFeePerBlobGas : minBlobFee;
     }
 
-    this.logger?.debug(`Computed L1 gas price`, {
-      attempt,
-      baseFee: formatGwei(baseFee),
-      maxFeePerGas: formatGwei(maxFeePerGas),
-      maxPriorityFeePerGas: formatGwei(maxPriorityFeePerGas),
-      ...(maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(maxFeePerBlobGas) }),
-    });
+    this.logger?.trace(
+      `Computed L1 gas price max fee ${formatGwei(maxFeePerGas)} and max priority fee ${formatGwei(maxPriorityFeePerGas)}`,
+      {
+        attempt,
+        baseFee: formatGwei(baseFee),
+        maxFeePerGas: formatGwei(maxFeePerGas),
+        maxPriorityFeePerGas: formatGwei(maxPriorityFeePerGas),
+        blobBaseFee: formatGwei(blobBaseFee),
+        maxFeePerBlobGas: formatGwei(maxFeePerBlobGas),
+      },
+    );
 
     return {
       maxFeePerGas,
@@ -211,10 +211,10 @@ export class ReadOnlyL1TxUtils {
         gas: LARGE_GAS_LIMIT,
       });
 
-      this.logger?.debug(`L1 gas used in estimateGas by blob tx: ${initialEstimate}`);
+      this.logger?.trace(`Estimated gas for blob tx: ${initialEstimate}`);
     } else {
       initialEstimate = await this.client.estimateGas({ account, ...request, gas: LARGE_GAS_LIMIT });
-      this.logger?.debug(`L1 gas used in estimateGas by non-blob tx: ${initialEstimate}`);
+      this.logger?.trace(`Estimated gas for non-blob tx: ${initialEstimate}`);
     }
 
     // Add buffer based on either fixed amount or percentage
@@ -362,7 +362,11 @@ export class ReadOnlyL1TxUtils {
     const bumpedGasLimit = gasLimit + (gasLimit * BigInt((gasConfig?.gasLimitBufferPercentage || 0) * 1_00)) / 100_00n;
 
     const cleanGasConfig = pickBy(gasConfig, (_, key) => key in l1TxUtilsConfigMappings);
-    this.logger?.debug('Bumping gas limit', { gasLimit, gasConfig: cleanGasConfig, bumpedGasLimit });
+    this.logger?.trace(`Bumping gas limit from ${gasLimit} to ${bumpedGasLimit}`, {
+      gasLimit,
+      gasConfig: cleanGasConfig,
+      bumpedGasLimit,
+    });
     return bumpedGasLimit;
   }
 }
