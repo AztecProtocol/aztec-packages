@@ -863,7 +863,7 @@ describe('L1Publisher integration', () => {
       await ethCheatCodes.mine();
 
       // Wait for completion
-      await retryUntil(() => sendRequestsResult !== null, 'request resolved', 5, 0.1);
+      await retryUntil(() => !!sendRequestsResult, 'request resolved', 5, 0.1);
       await retryUntil(() => publisher.l1TxUtils.state === TxUtilsState.MINED, 'mined', 5, 0.1);
 
       // The second proposal should succeed
