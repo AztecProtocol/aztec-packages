@@ -7,7 +7,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
-import { PublicTxSimulationTester, bulkTest, createAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
+import { PublicTxSimulationTester, bulkTest, simAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
@@ -114,7 +114,7 @@ describe('AVM Integration', () => {
   }, 240_000);
 
   it('Should generate and verify an ultra honk proof from an AVM verification for the minimal TX with skipping public inputs validation', async () => {
-    const result = await createAvmMinimalPublicTx();
+    const result = await simAvmMinimalPublicTx();
     expect(result.revertCode.isOK()).toBe(true);
 
     await proveMockPublicBaseRollup(

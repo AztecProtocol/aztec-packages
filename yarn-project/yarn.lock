@@ -784,7 +784,7 @@ __metadata:
     jest: "npm:^30.0.0"
     koa: "npm:^2.16.1"
     koa-bodyparser: "npm:^4.4.1"
-    koa-router: "npm:^12.0.0"
+    koa-router: "npm:^13.1.1"
     ts-node: "npm:^10.9.1"
     typescript: "npm:^5.3.3"
     viem: "npm:2.23.7"
@@ -827,7 +827,7 @@ __metadata:
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     koa: "npm:^2.16.1"
-    koa-router: "npm:^12.0.0"
+    koa-router: "npm:^13.1.1"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
@@ -851,7 +851,7 @@ __metadata:
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    axios: "npm:^1.8.2"
+    axios: "npm:^1.12.0"
     buffer: "npm:^6.0.3"
     crypto-browserify: "npm:^3.12.1"
     jest: "npm:^30.0.0"
@@ -932,7 +932,7 @@ __metadata:
     commander: "npm:^12.1.0"
     jest: "npm:^30.0.0"
     koa: "npm:^2.16.1"
-    koa-router: "npm:^12.0.0"
+    koa-router: "npm:^13.1.1"
     ts-node: "npm:^10.9.1"
     typescript: "npm:^5.3.3"
     viem: "npm:2.23.7"
@@ -1395,7 +1395,7 @@ __metadata:
     koa: "npm:^2.16.1"
     koa-bodyparser: "npm:^4.4.0"
     koa-compress: "npm:^5.1.0"
-    koa-router: "npm:^12.0.0"
+    koa-router: "npm:^13.1.1"
     leveldown: "npm:^6.1.1"
     lodash.chunk: "npm:^4.2.0"
     lodash.clonedeepwith: "npm:^4.5.0"
@@ -1728,7 +1728,7 @@ __metadata:
     dotenv: "npm:^16.0.3"
     jest: "npm:^30.0.0"
     koa: "npm:^2.16.1"
-    koa-router: "npm:^12.0.1"
+    koa-router: "npm:^13.1.1"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
@@ -1917,7 +1917,7 @@ __metadata:
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     koa: "npm:^2.16.1"
-    koa-router: "npm:^12.0.0"
+    koa-router: "npm:^13.1.1"
     lodash.omit: "npm:^4.5.0"
     lodash.times: "npm:^4.3.2"
     sha3: "npm:^2.1.4"
@@ -2083,7 +2083,7 @@ __metadata:
     "@types/lodash.times": "npm:^4.3.9"
     "@types/node": "npm:^22.15.17"
     "@types/pako": "npm:^2.0.3"
-    axios: "npm:^1.9.0"
+    axios: "npm:^1.12.0"
     eslint: "npm:^9.26.0"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
@@ -2208,7 +2208,7 @@ __metadata:
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     koa: "npm:^2.16.1"
-    koa-router: "npm:^12.0.0"
+    koa-router: "npm:^13.1.1"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
@@ -9403,14 +9403,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"axios@npm:^1.8.2, axios@npm:^1.9.0":
-  version: 1.9.0
-  resolution: "axios@npm:1.9.0"
+"axios@npm:^1.12.0":
+  version: 1.12.2
+  resolution: "axios@npm:1.12.2"
   dependencies:
     follow-redirects: "npm:^1.15.6"
-    form-data: "npm:^4.0.0"
+    form-data: "npm:^4.0.4"
     proxy-from-env: "npm:^1.1.0"
-  checksum: 10/a2f90bba56820883879f32a237e2b9ff25c250365dcafd41cec41b3406a3df334a148f90010182dfdadb4b41dc59f6f0b3e8898ff41b666d1157b5f3f4523497
+  checksum: 10/886a79770594eaad76493fecf90344b567bd956240609b5dcd09bd0afe8d3e6f1ad6d3257a93a483b6192b409d4b673d9515a34619e3e3ed1b2c0ec2a83b20ba
   languageName: node
   linkType: hard
 
@@ -11434,7 +11434,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"debug@npm:4, debug@npm:^4.1.0, debug@npm:^4.1.1, debug@npm:^4.3.1, debug@npm:^4.3.2, debug@npm:^4.3.4, debug@npm:^4.3.5, debug@npm:^4.3.6, debug@npm:^4.3.7, debug@npm:^4.4.0, debug@npm:^4.4.3":
+"debug@npm:4, debug@npm:^4.1.0, debug@npm:^4.1.1, debug@npm:^4.3.1, debug@npm:^4.3.2, debug@npm:^4.3.4, debug@npm:^4.3.5, debug@npm:^4.3.6, debug@npm:^4.3.7, debug@npm:^4.4.0, debug@npm:^4.4.1, debug@npm:^4.4.3":
   version: 4.4.3
   resolution: "debug@npm:4.4.3"
   dependencies:
@@ -13413,7 +13413,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"form-data@npm:^4.0.0":
+"form-data@npm:^4.0.0, form-data@npm:^4.0.4":
   version: 4.0.4
   resolution: "form-data@npm:4.0.4"
   dependencies:
@@ -16283,16 +16283,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"koa-router@npm:^12.0.0, koa-router@npm:^12.0.1":
-  version: 12.0.1
-  resolution: "koa-router@npm:12.0.1"
+"koa-router@npm:^13.1.1":
+  version: 13.1.1
+  resolution: "koa-router@npm:13.1.1"
   dependencies:
-    debug: "npm:^4.3.4"
+    debug: "npm:^4.4.1"
     http-errors: "npm:^2.0.0"
     koa-compose: "npm:^4.1.0"
-    methods: "npm:^1.1.2"
-    path-to-regexp: "npm:^6.2.1"
-  checksum: 10/5c733289f58f74c91e5f9c8925fe369325b650038eafea2fde9d9cd5f9d775df0bd308313c6381995668ad428ca50725a13db002256f7f2232ed0f08b4e1f8a9
+    path-to-regexp: "npm:^6.3.0"
+  checksum: 10/7da93cce5365199d2d5510150cd24b11f3d6830c4cb25cd0d28447307aea2d090e8af695dba1a759858b4014dc7bc43da7ffcf66890722d1f29292f0e53fdafe
   languageName: node
   linkType: hard
 
@@ -18470,10 +18469,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"path-to-regexp@npm:^6.2.1":
-  version: 6.2.2
-  resolution: "path-to-regexp@npm:6.2.2"
-  checksum: 10/f7d11c1a9e02576ce0294f4efdc523c11b73894947afdf7b23a0d0f7c6465d7a7772166e770ddf1495a8017cc0ee99e3e8a15ed7302b6b948b89a6dd4eea895e
+"path-to-regexp@npm:^6.3.0":
+  version: 6.3.0
+  resolution: "path-to-regexp@npm:6.3.0"
+  checksum: 10/6822f686f01556d99538b350722ef761541ec0ce95ca40ce4c29e20a5b492fe8361961f57993c71b2418de12e604478dcf7c430de34b2c31a688363a7a944d9c
   languageName: node
   linkType: hard
 

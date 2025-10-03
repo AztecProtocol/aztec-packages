@@ -118,3 +118,11 @@ export function getProofSubmissionDeadlineTimestamp(
   const [deadlineSlot] = getSlotRangeForEpoch(deadlineEpoch, constants);
   return getTimestampForSlot(deadlineSlot, constants);
 }
+
+/** Returns the timestamp to start building a block for a given L2 slot. Computed as the start timestamp of the slot minus one L1 slot duration. */
+export function getSlotStartBuildTimestamp(
+  slotNumber: number | bigint,
+  constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>,
+): number {
+  return Number(constants.l1GenesisTime) + Number(slotNumber) * constants.slotDuration - constants.ethereumSlotDuration;
+}
