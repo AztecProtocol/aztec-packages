@@ -78,7 +78,7 @@ impl TailOutputValidator {
         assert_eq(
             self.output.constants.protocol_contracts_hash,
             self.previous_kernel.constants.protocol_contracts.hash(),
-            "mismatch protocol_contracts",
+            "mismatch protocol_contracts_hash",
         );
 
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
