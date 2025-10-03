@@ -21,7 +21,7 @@ uint32_t& get_num_cores_ref()
 
 namespace bb {
 // only for testing purposes currently
-void set_hardware_concurrency([[maybe_unused]] size_t num_cores)
+void set_parallel_for_concurrency([[maybe_unused]] size_t num_cores)
 {
 #ifdef NO_MULTITHREADING
     throw_or_abort("Cannot set hardware concurrency when multithreading is disabled.");

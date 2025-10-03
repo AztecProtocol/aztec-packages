@@ -17,7 +17,7 @@ class ThreadTest : public ::testing::Test {
     void TearDown() override
     {
         // Restore original concurrency
-        set_hardware_concurrency(original_concurrency);
+        set_parallel_for_concurrency(original_concurrency);
     }
 
     size_t original_concurrency;
@@ -59,7 +59,7 @@ TEST_F(ThreadTest, NestedParallelFor)
 // Test thread count calculation
 TEST_F(ThreadTest, CalculateNumThreads)
 {
-    set_hardware_concurrency(8);
+    set_parallel_for_concurrency(8);
 
     // With default min iterations per thread (16)
     // 160 iterations / 16 = 10 desired threads, min(10, 8) = 8
@@ -82,7 +82,7 @@ TEST_F(ThreadTest, CalculateNumThreads)
 // Test thread count calculation with power of 2
 TEST_F(ThreadTest, CalculateNumThreadsPow2)
 {
-    set_hardware_concurrency(8);
+    set_parallel_for_concurrency(8);
 
     // With default min iterations per thread (16)
     // 160 iterations / 16 = 10 desired, nearest power of 2 is 8, min(8, 8) = 8
@@ -101,7 +101,7 @@ TEST_F(ThreadTest, CalculateNumThreadsPow2)
 // Test nested parallel_for thread count
 TEST_F(ThreadTest, NestedThreadCount)
 {
-    set_hardware_concurrency(8);
+    set_parallel_for_concurrency(8);
 
     std::atomic<size_t> outer_unique_threads{ 0 };
     std::atomic<size_t> max_inner_unique_threads{ 0 };
@@ -173,7 +173,7 @@ TEST_F(ThreadTest, OneIteration)
 // Test calculate_thread_data bounds
 TEST_F(ThreadTest, CalculateThreadDataBounds)
 {
-    set_hardware_concurrency(4);
+    set_parallel_for_concurrency(4);
 
     auto data = calculate_thread_data(100);
 
@@ -247,48 +247,48 @@ TEST_F(ThreadTest, ParallelForRangeThreshold)
 // Test get_num_cpus with different hardware concurrency values
 TEST_F(ThreadTest, HardwareConcurrency)
 {
-    set_hardware_concurrency(1);
+    set_parallel_for_concurrency(1);
     EXPECT_EQ(get_num_cpus(), 1);
 
-    set_hardware_concurrency(4);
+    set_parallel_for_concurrency(4);
     EXPECT_EQ(get_num_cpus(), 4);
 
-    set_hardware_concurrency(16);
+    set_parallel_for_concurrency(16);
     EXPECT_EQ(get_num_cpus(), 16);
 
-    set_hardware_concurrency(128);
+    set_parallel_for_concurrency(128);
     EXPECT_EQ(get_num_cpus(), 128);
 }
 
 // Test get_num_cpus_pow2
 TEST_F(ThreadTest, HardwareConcurrencyPow2)
 {
-    set_hardware_concurrency(1);
+    set_parallel_for_concurrency(1);
     EXPECT_EQ(get_num_cpus_pow2(), 1);
 
-    set_hardware_concurrency(4);
+    set_parallel_for_concurrency(4);
     EXPECT_EQ(get_num_cpus_pow2(), 4);
 
-    set_hardware_concurrency(5);
+    set_parallel_for_concurrency(5);
     EXPECT_EQ(get_num_cpus_pow2(), 4); // Round down to power of 2
 
-    set_hardware_concurrency(7);
+    set_parallel_for_concurrency(7);
     EXPECT_EQ(get_num_cpus_pow2(), 4); // Round down to power of 2
 
-    set_hardware_concurrency(8);
+    set_parallel_for_concurrency(8);
     EXPECT_EQ(get_num_cpus_pow2(), 8);
 
-    set_hardware_concurrency(15);
+    set_parallel_for_concurrency(15);
     EXPECT_EQ(get_num_cpus_pow2(), 8); // Round down to power of 2
 
-    set_hardware_concurrency(16);
+    set_parallel_for_concurrency(16);
     EXPECT_EQ(get_num_cpus_pow2(), 16);
 }
 
 // Test main thread concurrency isolation and nested concurrency
 TEST_F(ThreadTest, ConcurrencyIsolation)
 {
-    set_hardware_concurrency(8);
+    set_parallel_for_concurrency(8);
 
     // Main thread concurrency should be preserved before/after parallel_for
     size_t cpus_before = get_num_cpus();
@@ -320,7 +320,7 @@ TEST_F(ThreadTest, ConcurrencyIsolation)
 // Test deeply nested parallel_for concurrency
 TEST_F(ThreadTest, DeeplyNestedConcurrency)
 {
-    set_hardware_concurrency(16);
+    set_parallel_for_concurrency(16);
 
     std::atomic<size_t> level1_cpus{ 0 };
     std::atomic<size_t> level2_cpus{ 0 };

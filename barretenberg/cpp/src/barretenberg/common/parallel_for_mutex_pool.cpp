@@ -138,7 +138,7 @@ void ThreadPool::worker_loop(size_t /*unused*/)
             // that are used when this calls parallel_for_mutex_pool() (including itself).
             // The current design for nested parallel_for calls still closely follows the original design where it was
             // not possible, so this has a somewhat awkward name.
-            bb::set_hardware_concurrency(inner_concurrency_);
+            bb::set_parallel_for_concurrency(inner_concurrency_);
         }
         // Make sure nested stats accounting works under multithreading
         // Note: parent is a thread-local variable.
@@ -159,9 +159,9 @@ void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(siz
     static thread_local ThreadPool pool(get_num_cpus() - 1);
 
     // If hardware concurrency has increased, grow the pool with more workers
-    // This is a niche scenario that mostly comes up in testing where we may play with multiple set_hardware_concurrency
-    // values (a pool that is bigger is not an issue as set_hardware_concurrency affects get_num_cpus(), which will
-    // naturally limit concurrency).
+    // This is a niche scenario that mostly comes up in testing where we may play with multiple
+    // set_parallel_for_concurrency values (a pool that is bigger is not an issue as set_parallel_for_concurrency
+    // affects get_num_cpus(), which will naturally limit concurrency).
     if (get_num_cpus() > pool.get_num_workers() + 1) {
         pool.grow(get_num_cpus() - 1);
     }
