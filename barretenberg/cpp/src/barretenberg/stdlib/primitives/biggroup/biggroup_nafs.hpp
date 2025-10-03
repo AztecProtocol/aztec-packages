@@ -337,9 +337,9 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
     constexpr size_t num_bits = 129;
 
     // Decomposes the scalar k into two 129-bit scalars klo, khi such that
-    // k = klo - λ * khi (mod n)
-    // where λ is the cube root of unity mod n and that |klo| < 2^129, |khi| < 2^129.
-    // In some cases, klo or khi may be negative, in which case we have to use -klo or -khi instead.
+    // k = klo + ζ * khi (mod n) = klo - λ * khi (mod n)
+    // where ζ is the primitive sixth root of unity mod n, and λ is the primitive cube root of unity mod n
+    // (note that ζ = -λ). We know that for any scalar k, such a decomposition exists and klo and khi are 128-bits long.
     secp256k1::fr k(uint256_t(scalar.get_value() % Fr::modulus_u512));
     secp256k1::fr klo(0);
     secp256k1::fr khi(0);
@@ -375,12 +375,8 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
 
     Fr reconstructed_scalar = khi_reconstructed.madd(minus_lambda, { klo_reconstructed });
 
-    if ((reconstructed_scalar.get_value() != scalar.get_value()) && !ctx->failed()) {
-        ctx->failure("biggroup_nafs: secp256k1 reconstructed wnaf does not match input!");
-    }
-
     // Validate that the reconstructed scalar matches the original scalar in circuit
-    scalar.assert_equal(reconstructed_scalar);
+    scalar.assert_equal(reconstructed_scalar, "biggroup_nafs: reconstructed scalar does not match reduced input");
 
     return { .klo = klo_out, .khi = khi_out };
 }
