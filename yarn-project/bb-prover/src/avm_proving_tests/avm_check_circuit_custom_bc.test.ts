@@ -1,4 +1,4 @@
-import { getAddressingWithBaseTagIssueTx } from '@aztec/simulator/public/fixtures';
+import { addressingWithBaseTagIssueTest, defaultGlobals } from '@aztec/simulator/public/fixtures';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
@@ -6,24 +6,14 @@ describe('AVM custom bytecodes unhappy paths', () => {
   let tester: AvmProvingTester;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true);
+    tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true, /*globals=*/ defaultGlobals());
   });
 
   it('Base address uninitialized indirect relative', async () => {
-    const result = await getAddressingWithBaseTagIssueTx(/*isIndirect=*/ true);
-    await tester.proveVerifyFromTxResult(
-      result,
-      /*expectRevert=*/ true,
-      /*txLabel=*/ 'Base address uninitialized indirect relative',
-    );
+    await addressingWithBaseTagIssueTest(/*isIndirect=*/ true, tester);
   }, 20_000);
 
   it('Base address uninitialized direct relative', async () => {
-    const result = await getAddressingWithBaseTagIssueTx(/*isIndirect=*/ false);
-    await tester.proveVerifyFromTxResult(
-      result,
-      /*expectRevert=*/ true,
-      /*txLabel=*/ 'Base address uninitialized direct relative',
-    );
+    await addressingWithBaseTagIssueTest(/*isIndirect=*/ false, tester);
   }, 20_000);
 });

@@ -136,7 +136,7 @@ is memory.sel_addressing_base { memory.clk, memory.space_id, memory.address, mem
 
 // This error will be true iff the base address is not valid AND we did actually check it.
 pol commit sel_base_address_failure;
-sel_base_address_failure * ( 1 - sel_base_address_failure) = 0;
+sel_base_address_failure * (1 - sel_base_address_failure) = 0;
 
 // We check the TAG of the base address only. This implies that the value is valid.
 // The following bunch of constraints force

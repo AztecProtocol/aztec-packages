@@ -195,21 +195,6 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     expect(verificationRes.status).toBe(BB_RESULT.SUCCESS);
   }
 
-  public async proveVerifyFromTxResult(
-    txResult: PublicTxResult,
-    expectRevert: boolean | undefined,
-    txLabel: string | undefined,
-  ) {
-    expect(txResult.revertCode.isOK()).toBe(expectRevert ? false : true);
-
-    const opString = this.checkCircuitOnly ? 'Check circuit' : 'Proving and verification';
-
-    const avmCircuitInputs = txResult.avmProvingRequest.inputs;
-    const timer = new Timer();
-    await this.proveVerify(avmCircuitInputs, txLabel);
-    this.logger.info(`${opString} took ${timer.ms()} ms for tx ${txLabel}`);
-  }
-
   public async simProveVerify(
     sender: AztecAddress,
     setupCalls: TestEnqueuedCall[],
@@ -219,6 +204,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     feePayer = sender,
     privateInsertions?: TestPrivateInsertions,
     txLabel: string = 'unlabeledTx',
+    disableRevertCheck: boolean = false,
   ): Promise<PublicTxResult> {
     const simRes = await this.simulateTx(
       sender,
@@ -230,7 +216,16 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       txLabel,
     );
 
-    await this.proveVerifyFromTxResult(simRes, expectRevert, txLabel);
+    if (!disableRevertCheck) {
+      expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);
+    }
+
+    const opString = this.checkCircuitOnly ? 'Check circuit' : 'Proving and verification';
+
+    const avmCircuitInputs = simRes.avmProvingRequest.inputs;
+    const timer = new Timer();
+    await this.proveVerify(avmCircuitInputs, txLabel);
+    this.logger.info(`${opString} took ${timer.ms()} ms for tx ${txLabel}`);
 
     return simRes;
   }
@@ -249,10 +244,11 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       setupCalls ?? [],
       appCalls ?? [],
       teardownCall,
-      /*expectRevert=*/ false,
+      undefined,
       feePayer,
       privateInsertions,
       txLabel,
+      true,
     );
   }
 
