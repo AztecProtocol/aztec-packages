@@ -547,6 +547,84 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenNonExistentIn
         trace);
 }
 
+TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenAddressZero)
+{
+    // Test constants
+    const auto contract_address = FF(0);
+    const auto timestamp = 99999;
+    const auto nullifier_tree_root = FF(0xffffff);
+    const auto public_data_tree_root = FF(0xeeeeee);
+    const auto deployment_nullifier = FF(0x8888);
+
+    // Use real tracegen to generate a valid trace for non-existent instance
+    EventEmitter<ContractInstanceRetrievalEvent> emitter;
+
+    ContractInstanceRetrievalEvent event{
+        .address = contract_address,
+        .contract_instance = {}, // no instance, DNE
+        .nullifier_tree_root = nullifier_tree_root,
+        .public_data_tree_root = public_data_tree_root,
+        .deployment_nullifier = deployment_nullifier,
+        .exists = false,               // Non-existent
+        .is_protocol_contract = false, // Not a protocol contract, since MAX_PROTOCOL_CONTRACTS < (0 - 1)
+    };
+
+    emitter.emit(std::move(event));
+    auto events = emitter.dump_events();
+
+    TestTraceContainer trace;
+    ContractInstanceRetrievalTraceBuilder builder;
+    builder.process(events, trace);
+
+    // Add precomputed table entries
+    PrecomputedTraceBuilder precomputed_builder;
+    precomputed_builder.process_misc(trace, trace.get_num_rows());
+    precomputed_builder.process_get_contract_instance_table(trace);
+    precomputed_builder.process_sel_range_8(trace);
+
+    trace.set(1,
+              { { // For deployment nullifier read lookup
+                  { C::nullifier_check_sel, 1 },
+                  { C::nullifier_check_exists, 0 }, // Non-existent
+                  { C::nullifier_check_nullifier, contract_address },
+                  { C::nullifier_check_root, nullifier_tree_root },
+                  { C::nullifier_check_address, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
+                  { C::nullifier_check_should_silo, 1 },
+                  // For address derivation lookup
+                  { C::address_derivation_sel, 0 }, // Not selected since nullifier doesn't exist
+                  { C::address_derivation_address, contract_address },
+                  { C::address_derivation_salt, 0 },          // zero since nullifier doesn't exist
+                  { C::address_derivation_deployer_addr, 0 }, // zero since nullifier doesn't exist
+                  { C::address_derivation_class_id, 0 },      // zero since nullifier doesn't exist
+                  { C::address_derivation_init_hash, 0 },     // zero since nullifier doesn't exist
+                  { C::address_derivation_nullifier_key_x, 0 },
+                  { C::address_derivation_nullifier_key_y, 0 },
+                  { C::address_derivation_incoming_viewing_key_x, 0 },
+                  { C::address_derivation_incoming_viewing_key_y, 0 },
+                  { C::address_derivation_outgoing_viewing_key_x, 0 },
+                  { C::address_derivation_outgoing_viewing_key_y, 0 },
+                  { C::address_derivation_tagging_key_x, 0 },
+                  { C::address_derivation_tagging_key_y, 0 },
+                  // For update check lookup (only populated when nullifier exists)
+                  { C::update_check_sel, 0 }, // Not selected since nullifier doesn't exist
+                  { C::update_check_address, contract_address },
+                  { C::update_check_current_class_id, 0 },
+                  { C::update_check_original_class_id, 0 },
+                  { C::update_check_public_data_tree_root, public_data_tree_root },
+                  { C::update_check_timestamp, timestamp },
+                  { C::update_check_timestamp_pi_offset, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX } } });
+
+    check_relation<contract_instance_retrieval>(trace);
+
+    // Test lookup interactions
+    check_interaction<ContractInstanceRetrievalTraceBuilder,
+                      lookup_contract_instance_retrieval_deployment_nullifier_read_settings>(trace);
+    check_interaction<ContractInstanceRetrievalTraceBuilder,
+                      lookup_contract_instance_retrieval_address_derivation_settings>(trace);
+    check_interaction<ContractInstanceRetrievalTraceBuilder, lookup_contract_instance_retrieval_update_check_settings>(
+        trace);
+}
+
 TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenMultipleInstances)
 {
     // Test constants
