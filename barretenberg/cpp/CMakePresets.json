@@ -498,6 +498,75 @@
         "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=500 -DXRAY=1"
       },
       "binaryDir": "build-xray"
+    },
+    {
+      "name": "zig-base",
+      "displayName": "Zig (base)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-${presetName}",
+      "environment": {
+        "CC": "zig cc",
+        "CXX": "zig c++"
+      },
+      "cacheVariables": {
+        "ENABLE_PIC": "ON",
+        "CMAKE_BUILD_TYPE": "Release",
+        "DISABLE_AZTEC_VM": "ON",
+        "CMAKE_AR": "${sourceDir}/scripts/zig-ar.sh",
+        "CMAKE_RANLIB": "${sourceDir}/scripts/zig-ranlib.sh"
+      }
+    },
+    {
+      "name": "zig-node-amd64-linux",
+      "inherits": "zig-base",
+      "environment": {
+        "CC": "zig cc -target x86_64-linux-gnu",
+        "CXX": "zig c++ -target x86_64-linux-gnu",
+        "LDFLAGS": "-s"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Linux",
+        "TARGET_ARCH": "skylake"
+      }
+    },
+    {
+      "name": "zig-node-arm64-linux",
+      "inherits": "zig-base",
+      "environment": {
+        "CC": "zig cc -target aarch64-linux-gnu",
+        "CXX": "zig c++ -target aarch64-linux-gnu",
+        "LDFLAGS": "-s"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Linux",
+        "TARGET_ARCH": "generic"
+      }
+    },
+    {
+      "name": "zig-node-amd64-macos",
+      "inherits": "zig-base",
+      "environment": {
+        "CC": "zig cc -target x86_64-macos",
+        "CXX": "zig c++ -target x86_64-macos",
+        "LDFLAGS": "-Wl,-undefined,dynamic_lookup"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Darwin",
+        "TARGET_ARCH": "sandybridge"
+      }
+    },
+    {
+      "name": "zig-node-arm64-macos",
+      "inherits": "zig-base",
+      "environment": {
+        "CC": "zig cc -target aarch64-macos",
+        "CXX": "zig c++ -target aarch64-macos",
+        "LDFLAGS": "-Wl,-undefined,dynamic_lookup"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Darwin",
+        "TARGET_ARCH": "generic"
+      }
     }
   ],
   "buildPresets": [
@@ -688,6 +757,30 @@
       "name": "xray",
       "configurePreset": "xray",
       "inherits": "default"
+    },
+    {
+      "name": "zig-node-amd64-linux",
+      "configurePreset": "zig-node-amd64-linux",
+      "inheritConfigureEnvironment": true,
+      "targets": ["nodejs_module"]
+    },
+    {
+      "name": "zig-node-arm64-linux",
+      "configurePreset": "zig-node-arm64-linux",
+      "inheritConfigureEnvironment": true,
+      "targets": ["nodejs_module"]
+    },
+    {
+      "name": "zig-node-amd64-macos",
+      "configurePreset": "zig-node-amd64-macos",
+      "inheritConfigureEnvironment": true,
+      "targets": ["nodejs_module"]
+    },
+    {
+      "name": "zig-node-arm64-macos",
+      "configurePreset": "zig-node-arm64-macos",
+      "inheritConfigureEnvironment": true,
+      "targets": ["nodejs_module"]
     }
   ],
   "testPresets": [
