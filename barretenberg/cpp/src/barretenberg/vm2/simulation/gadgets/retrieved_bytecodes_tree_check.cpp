@@ -42,6 +42,8 @@ bool RetrievedBytecodesTreeCheck::contains(const FF& class_id)
         .low_leaf_preimage = low_leaf_preimage,
         .low_leaf_hash = low_leaf_hash,
         .low_leaf_index = low_leaf_index,
+        .write = false,
+        .append_data = std::nullopt,
     });
 
     return exists;

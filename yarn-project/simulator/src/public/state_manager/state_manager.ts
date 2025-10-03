@@ -386,7 +386,7 @@ export class PublicPersistableStateManager {
 
     this.log.trace(`Got contract instance (address=${contractAddress}): instance=${jsonStringify(instance!)}`);
 
-    // All that is left is tocheck that the contract updatability information is correct.
+    // All that is left is to check that the contract updatability information is correct.
     // That is, that the current and original contract class ids are correct.
     await this.checkContractUpdateInformation(instanceWithAddress);
 
@@ -407,7 +407,7 @@ export class PublicPersistableStateManager {
       //
       // However, we will also be checking the hash of the delayed public mutable values.
       // This is a bit of a leak of information, since the circuit will use it to prove
-      // one public read insted of N of the delayed public mutable values.
+      // one public read instead of N of the delayed public mutable values.
       const { delayedPublicMutableSlot, delayedPublicMutableHashSlot } =
         await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(instance.address);
       const readDeployerStorage = async (storageSlot: Fr) =>
