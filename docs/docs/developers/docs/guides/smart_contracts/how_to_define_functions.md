@@ -12,7 +12,7 @@ This guide shows you how to define different types of functions in your Aztec co
 ## Prerequisites
 
 - An Aztec contract project set up with `aztec-nr` dependency
-- Basic understanding of Noir programming language
+- Basic understanding of [Noir programming language](https://noir-lang.org/)
 - Familiarity with Aztec's execution model (private vs public)
 
 ## Define private functions

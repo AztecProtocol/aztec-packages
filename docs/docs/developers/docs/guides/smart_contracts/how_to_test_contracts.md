@@ -130,7 +130,7 @@ unconstrained fn test_something() {
 
 ## Calling contract functions
 
-TestEnvironment provides methods for different function types:
+`TestEnvironment` provides methods for different function types:
 
 ### Private functions
 
