@@ -226,6 +226,80 @@ template <class Flavor> class ProtogalaxyTestUtilities {
         bool result = decider_output.check();
         return result;
     }
+
+    /**
+     * @brief Compare two accumulators. Return the result of the comparison and error message.
+     */
+    static std::pair<bool, std::string> compare_accumulators(const std::shared_ptr<VerifierInstance>& lhs,
+                                                             const std::shared_ptr<VerifierInstance>& rhs)
+    {
+        bool equal = true;
+        std::string msg;
+
+        auto compare_iterators = [&equal, &msg]<typename T>(const T& lhs, const T& rhs, const std::string& label) {
+            if (lhs.size() != rhs.size()) {
+                equal = false;
+                msg += "\nMistmatch in the sizes of the ";
+                msg += label;
+            }
+            for (size_t idx = 0; idx < lhs.size(); idx++) {
+                if (lhs[idx] != rhs[idx]) {
+                    equal = false;
+                    msg += "\nMismatch in the ";
+                    msg += label;
+                    msg += " at index ";
+                    msg += std::to_string(idx);
+                }
+            }
+        };
+
+        BB_ASSERT_EQ(lhs->is_complete, rhs->is_complete);
+        BB_ASSERT_EQ(lhs->is_complete, true);
+
+        compare_iterators(lhs->alphas, rhs->alphas, "alphas");
+        compare_iterators(
+            lhs->relation_parameters.get_to_fold(), rhs->relation_parameters.get_to_fold(), "relation paramaters");
+        compare_iterators(lhs->gate_challenges, rhs->gate_challenges, "gate challenges");
+        compare_iterators(
+            lhs->witness_commitments.get_all(), rhs->witness_commitments.get_all(), "witness commitments");
+        compare_iterators(lhs->vk->get_all(), rhs->vk->get_all(), "vk commitments");
+        if (lhs->target_sum != rhs->target_sum) {
+            equal = false;
+            msg += "\nMismatch in target sum";
+        }
+
+        return { equal, msg };
+    }
+
+    /**
+     * @brief Compare a Prover accumulator and a Verifier accumulator. Return the result of the comparison and error
+     * message.
+     */
+    static std::pair<bool, std::string> compare_accumulators(const std::shared_ptr<ProverInstance>& lhs,
+                                                             const std::shared_ptr<VerifierInstance>& rhs)
+    {
+        BB_ASSERT_EQ(lhs->is_complete, rhs->is_complete);
+        BB_ASSERT_EQ(lhs->is_complete, true);
+
+        auto lhs_vk = std::make_shared<VerificationKey>(lhs->get_precomputed());
+        auto lhs_verifier_instance = std::make_shared<VerifierInstance>(lhs_vk);
+        lhs_verifier_instance->is_complete = lhs->is_complete;
+
+        lhs->commitment_key = CommitmentKey<typename Flavor::Curve>(lhs->get_precomputed().metadata.dyadic_size);
+        for (auto [poly, comm] :
+             zip_view(lhs->polynomials.get_witness(), lhs_verifier_instance->witness_commitments.get_all())) {
+            comm = lhs->commitment_key.commit(poly);
+        }
+        lhs_verifier_instance->alphas = lhs->alphas;
+        for (auto [verifier, prover] : zip_view(lhs_verifier_instance->relation_parameters.get_to_fold(),
+                                                lhs->relation_parameters.get_to_fold())) {
+            verifier = prover;
+        };
+        lhs_verifier_instance->gate_challenges = lhs->gate_challenges;
+        lhs_verifier_instance->target_sum = lhs->target_sum;
+
+        return compare_accumulators(lhs_verifier_instance, rhs);
+    }
 };
 
 /**
