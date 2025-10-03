@@ -29,6 +29,8 @@ import { makeAppendOnlyTreeSnapshot, makeGlobalVariables } from '@aztec/stdlib/t
 import { CallContext, GlobalVariables, TxContext } from '@aztec/stdlib/tx';
 import type { UInt32 } from '@aztec/stdlib/types';
 
+import { z } from 'zod';
+
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
@@ -89,7 +91,10 @@ type MethodNames<T> = {
  * The name of an oracle function that TXE supports, which are a combination of PXE oracles, non-transpiled AVM opcodes,
  * and custom TXE oracles.
  */
-export type TXEOracleFunctionName = MethodNames<RPCTranslator>;
+export type TXEOracleFunctionName = Exclude<
+  MethodNames<RPCTranslator>,
+  'constructor' | 'handlerAsMisc' | 'handlerAsUtility' | 'handlerAsPrivate' | 'handlerAsAvm' | 'handlerAsTxe'
+>;
 
 export interface TXESessionStateHandler {
   enterTopLevelState(): Promise<void>;
@@ -199,9 +204,18 @@ export class TXESession implements TXESessionStateHandler {
    */
   processFunction(functionName: TXEOracleFunctionName, inputs: ForeignCallArgs): Promise<ForeignCallResult> {
     try {
-      return (new RPCTranslator(this, this.oracleHandler) as any)[functionName](...inputs);
+      const translator = new RPCTranslator(this, this.oracleHandler) as any;
+      // We perform a runtime validation to check that the function name corresponds to a real oracle handler.
+      const validatedFunctionName = z
+        .string()
+        .refine(fn => typeof translator[fn] === 'function' && !fn.startsWith('handlerAs') && fn !== 'constructor')
+        .parse(functionName) as TXEOracleFunctionName;
+
+      return translator[validatedFunctionName](...inputs);
     } catch (error) {
-      if (error instanceof Error) {
+      if (error instanceof z.ZodError) {
+        throw new Error(`${functionName} does not correspond to any oracle handler available on RPCTranslator`);
+      } else if (error instanceof Error) {
         throw new Error(
           `Execution error while processing function ${functionName} in state ${this.state.name}: ${error.message}`,
         );
