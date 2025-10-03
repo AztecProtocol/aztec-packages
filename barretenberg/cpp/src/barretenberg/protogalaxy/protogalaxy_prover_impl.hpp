@@ -175,7 +175,7 @@ void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
                 "Folding a smaller polynomial into a larger one. This is only allowed when using structured traces.");
             BB_ASSERT_GTE(
                 acc_poly.end_index(),
-                key_poly.start_index(),
+                key_poly.end_index(),
                 "Folding a smaller polynomial into a larger one. This is only allowed when using structured traces.");
             size_t offset = acc_poly.start_index;
             for (size_t idx : chunk.range(acc_poly.size(), offset)) {
