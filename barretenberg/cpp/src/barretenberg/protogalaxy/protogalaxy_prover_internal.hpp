@@ -157,9 +157,6 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
                     using Relation = typename std::tuple_element_t<relation_idx, Relations>;
                     // Accumulate scaled subrelation contribution
                     const Element contribution = element * challenges[idx++];
-                    if (idx == 0) {
-                        BB_ASSERT_EQ(contribution, FF::zero());
-                    }
                     if constexpr (subrelation_is_linearly_independent<Relation, subrelation_idx>()) {
                         linearly_independent_contribution += contribution;
                     } else {
@@ -202,7 +199,7 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
         // Distribute the execution trace rows across threads so that each handles an equal number of active rows
         trace_usage_tracker.construct_thread_ranges(num_threads, polynomial_size, /*use_prev_accumulator=*/true);
 
-        parallel_for(1, [&](size_t thread_idx) {
+        parallel_for(num_threads, [&](size_t thread_idx) {
             for (const ExecutionTraceUsageTracker::Range& range : trace_usage_tracker.thread_ranges[thread_idx]) {
                 for (size_t idx = range.first; idx < range.second; idx++) {
                     const AllValues row = polynomials.get_row(idx);
