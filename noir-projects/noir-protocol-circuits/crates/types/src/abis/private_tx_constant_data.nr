@@ -7,7 +7,7 @@ use crate::{
 };
 use std::meta::derive;
 
-// Constants used throughout the executions of both private and public.
+// Constants used throughout the executions of private functions.
 #[derive(Eq)]
 pub struct PrivateTxConstantData {
     pub anchor_block_header: BlockHeader,
