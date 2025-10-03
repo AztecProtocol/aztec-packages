@@ -139,7 +139,7 @@ While employees want privacy when spending, having public balances during mintin
 
 When deploying the contract, we need to set Giggle as the owner:
 
-```rust title="setup" showLineNumbers 
+```rust title="setup" showLineNumbers
 #[initializer]
 #[public]
 fn setup() {
@@ -156,7 +156,7 @@ The `#[initializer]` decorator ensures this runs once during deployment. Only Gi
 
 Giggle needs a way to allocate mental health tokens to employees:
 
-```rust title="mint_public" showLineNumbers 
+```rust title="mint_public" showLineNumbers
 #[public]
 fn mint_public(employee: AztecAddress, amount: u64) {
     // Only Giggle can mint tokens
@@ -184,7 +184,7 @@ Imagine Giggle allocating 100 BOB tokens to each employee at the start of the ye
 
 While most transfers will be private, we'll add public transfers for cases where transparency is desired:
 
-```rust title="transfer_public" showLineNumbers 
+```rust title="transfer_public" showLineNumbers
 #[public]
 fn transfer_public(to: AztecAddress, amount: u64) {
     let sender = context.msg_sender();
@@ -212,7 +212,7 @@ This might be used when:
 
 In case Giggle's mental health program administration changes:
 
-```rust title="transfer_ownership" showLineNumbers 
+```rust title="transfer_ownership" showLineNumbers
 #[public]
 fn transfer_ownership(new_owner: AztecAddress) {
     assert_eq(context.msg_sender(), storage.owner.read(), "Only current admin can transfer ownership");
@@ -269,9 +269,9 @@ async function main() {
     const aliceAccount = await wallet.createSchnorrAccount(aliceWalletData.secret, aliceWalletData.salt);
     const bobClinicAccount = await wallet.createSchnorrAccount(bobClinicWalletData.secret, bobClinicWalletData.salt);
 
-    const giggleAddress = giggleAccount.getAddress();
-    const aliceAddress = aliceAccount.getAddress();
-    const bobClinicAddress = bobClinicAccount.getAddress();
+    const giggleAddress = (await giggleAccount.getAccount()).getAddress();
+    const aliceAddress = (await aliceAccount.getAccount()).getAddress();
+    const bobClinicAddress = (await bobClinicAccount.getAccount()).getAddress();
 
     const bobToken = await BobTokenContract
         .deploy(
@@ -366,7 +366,7 @@ pub contract BobToken {
 
 We need to update the contract storage to have private balances as well:
 
-```rust title="storage" showLineNumbers 
+```rust title="storage" showLineNumbers
 #[storage]
 struct Storage<Context> {
     // Giggle's admin address
@@ -386,7 +386,7 @@ The `private_balances` use `EasyPrivateUint` which manages encrypted notes autom
 
 Great, now our contract knows about private balances. Let's implement a method to allow users to move their publicly minted tokens there:
 
-```rust title="public_to_private" showLineNumbers 
+```rust title="public_to_private" showLineNumbers
 #[private]
 fn public_to_private(amount: u64) {
     let sender = context.msg_sender();
@@ -401,7 +401,7 @@ fn public_to_private(amount: u64) {
 
 And the helper function:
 
-```rust title="_deduct_public_balance" showLineNumbers 
+```rust title="_deduct_public_balance" showLineNumbers
 #[public]
 #[internal]
 fn _deduct_public_balance(owner: AztecAddress, amount: u64) {
@@ -419,7 +419,7 @@ By calling `public_to_private` we're telling the network "deduct this amount fro
 
 Now for the crucial privacy feature - transferring BOB tokens in privacy. This is actually pretty simple:
 
-```rust title="transfer_private" showLineNumbers 
+```rust title="transfer_private" showLineNumbers
 #[private]
 fn transfer_private(to: AztecAddress, amount: u64) {
     let sender = context.msg_sender();
@@ -448,7 +448,7 @@ When an employee uses 50 BOB tokens at Bob's clinic, this private transfer ensur
 
 Employees can check their BOB token balances without hitting the network by using utility unconstrained functions:
 
-```rust title="check_balances" showLineNumbers 
+```rust title="check_balances" showLineNumbers
 #[utility]
 unconstrained fn private_balance_of(owner: AztecAddress) -> Field {
     storage.private_balances.at(owner).get_value()
@@ -489,7 +489,7 @@ We want Giggle to mint BOB tokens directly to employees' private balances (for m
 
 Let's use a clever pattern where private functions enqueue public validation checks. First we make a little helper function in public. Remember, public functions always run _after_ private functions, since private functions run client-side.
 
-```rust title="_assert_is_owner" showLineNumbers 
+```rust title="_assert_is_owner" showLineNumbers
 #[public]
 #[internal]
 fn _assert_is_owner(address: AztecAddress) {
@@ -501,7 +501,7 @@ fn _assert_is_owner(address: AztecAddress) {
 
 Now we can add a secure private minting function. It looks pretty easy, and it is, since the whole thing will revert if the public function fails:
 
-```rust title="mint_private" showLineNumbers 
+```rust title="mint_private" showLineNumbers
 #[private]
 fn mint_private(employee: AztecAddress, amount: u64) {
     // Enqueue ownership check (will revert if not Giggle)
@@ -527,7 +527,7 @@ This pattern ensures:
 
 For the sake of completeness, let's also have a function that brings the tokens back to publicland:
 
-```rust title="private_to_public" showLineNumbers 
+```rust title="private_to_public" showLineNumbers
 #[private]
 fn private_to_public(amount: u64) {
     let sender = context.msg_sender();
