@@ -58,7 +58,7 @@ case "$cmd" in
     git clean -fdx
     ;;
   "ci")
-    DOCS_WORKING_DIR="$(pwd)" ../noir-projects/noir-contracts/bootstrap.sh compile --
+    DOCS_WORKING_DIR="$(pwd)" ../noir-projects/noir-contracts/bootstrap.sh compile
     build_docs
     test
     ;;
