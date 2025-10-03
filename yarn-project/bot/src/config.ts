@@ -280,7 +280,7 @@ export function getBotDefaultConfig(): BotConfig {
 
 export function getVersions(): Partial<ComponentsVersions> {
   return {
-    l2ProtocolContractsTreeRoot: protocolContractsHash.toString(),
+    l2ProtocolContractsHash: protocolContractsHash.toString(),
     l2CircuitsVkTreeRoot: getVKTreeRoot().toString(),
   };
 }

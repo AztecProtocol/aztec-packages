@@ -8,6 +8,6 @@ export function getVersions(config?: ChainConfig): Partial<ComponentsVersions> {
     ? getComponentsVersionsFromConfig(config, protocolContractsHash, getVKTreeRoot())
     : {
         l2CircuitsVkTreeRoot: getVKTreeRoot().toString(),
-        l2ProtocolContractsTreeRoot: protocolContractsHash.toString(),
+        l2ProtocolContractsHash: protocolContractsHash.toString(),
       };
 }
