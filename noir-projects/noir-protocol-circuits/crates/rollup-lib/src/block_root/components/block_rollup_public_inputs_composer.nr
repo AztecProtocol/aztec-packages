@@ -72,7 +72,7 @@ impl BlockRollupPublicInputsComposer {
             chain_id: global_variables.chain_id,
             version: global_variables.version,
             vk_tree_root: rollup.constants.vk_tree_root,
-            protocol_contract_tree_root: rollup.constants.protocol_contract_tree_root,
+            protocol_contracts_hash: rollup.constants.protocol_contracts_hash,
             prover_id: rollup.constants.prover_id,
             slot_number: global_variables.slot_number,
             coinbase: global_variables.coinbase,

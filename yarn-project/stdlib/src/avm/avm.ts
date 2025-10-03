@@ -15,7 +15,13 @@ import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
-import { GlobalVariables, PublicCallRequestWithCalldata, TreeSnapshots, type Tx } from '../tx/index.js';
+import {
+  GlobalVariables,
+  ProtocolContracts,
+  PublicCallRequestWithCalldata,
+  TreeSnapshots,
+  type Tx,
+} from '../tx/index.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 import { serializeWithMessagePack } from './message_pack.js';
 
@@ -102,23 +108,6 @@ export class AvmContractInstanceHint {
             initializationHash,
             publicKeys,
           ),
-      );
-  }
-}
-
-export class AvmProtocolContractAddressHint {
-  constructor(
-    public readonly canonicalAddress: AztecAddress,
-    public readonly derivedAddress: AztecAddress,
-  ) {}
-  static get schema() {
-    return z
-      .object({
-        canonicalAddress: AztecAddress.schema,
-        derivedAddress: AztecAddress.schema,
-      })
-      .transform(
-        ({ canonicalAddress, derivedAddress }) => new AvmProtocolContractAddressHint(canonicalAddress, derivedAddress),
       );
   }
 }
@@ -527,8 +516,8 @@ export class AvmExecutionHints {
   constructor(
     public readonly globalVariables: GlobalVariables,
     public tx: AvmTxHint,
-    // Protocol contract hints.
-    public protocolContractDerivedAddresses: AvmProtocolContractAddressHint[] = [],
+    // Protocol contracts.
+    public protocolContracts: ProtocolContracts,
     // Contract hints.
     public readonly contractInstances: AvmContractInstanceHint[] = [],
     public readonly contractClasses: AvmContractClassHint[] = [],
@@ -549,7 +538,7 @@ export class AvmExecutionHints {
   ) {}
 
   static empty() {
-    return new AvmExecutionHints(GlobalVariables.empty(), AvmTxHint.empty());
+    return new AvmExecutionHints(GlobalVariables.empty(), AvmTxHint.empty(), ProtocolContracts.empty());
   }
 
   static get schema() {
@@ -557,7 +546,7 @@ export class AvmExecutionHints {
       .object({
         globalVariables: GlobalVariables.schema,
         tx: AvmTxHint.schema,
-        protocolContractDerivedAddresses: AvmProtocolContractAddressHint.schema.array(),
+        protocolContracts: ProtocolContracts.schema,
         contractInstances: AvmContractInstanceHint.schema.array(),
         contractClasses: AvmContractClassHint.schema.array(),
         bytecodeCommitments: AvmBytecodeCommitmentHint.schema.array(),
@@ -578,7 +567,7 @@ export class AvmExecutionHints {
         ({
           globalVariables,
           tx,
-          protocolContractDerivedAddresses,
+          protocolContracts,
           contractInstances,
           contractClasses,
           bytecodeCommitments,
@@ -598,7 +587,7 @@ export class AvmExecutionHints {
           new AvmExecutionHints(
             globalVariables,
             tx,
-            protocolContractDerivedAddresses,
+            protocolContracts,
             contractInstances,
             contractClasses,
             bytecodeCommitments,

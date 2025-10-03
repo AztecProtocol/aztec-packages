@@ -221,7 +221,7 @@ impl PublicTxBaseInputsValidator {
         // consistency across all txs in the block. The `chain_id` and `version` are validated in
         // `private_tail_validator` to ensure they match the values in the private tail.
 
-        // `protocol_contract_tree_root`: included in the block constant data and validated in `private_tail_validator`
+        // `protocol_contracts_hash`: included in the block constant data and validated in `private_tail_validator`
         // to match the value from the private tail.
 
         // `l1_to_l2_message_tree` in `start_tree_snapshots`: part of the block constant data, remains constant for all

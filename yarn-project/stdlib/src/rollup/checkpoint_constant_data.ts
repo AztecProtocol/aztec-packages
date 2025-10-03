@@ -18,7 +18,7 @@ export class CheckpointConstantData {
     /** Root of the verification key tree. */
     public vkTreeRoot: Fr,
     /** Root of the protocol contract tree. */
-    public protocolContractTreeRoot: Fr,
+    public protocolContractsHash: Fr,
     /** Identifier of the prover. */
     public proverId: Fr,
     /** Slot number of the checkpoint. */
@@ -40,7 +40,7 @@ export class CheckpointConstantData {
       fields.chainId,
       fields.version,
       fields.vkTreeRoot,
-      fields.protocolContractTreeRoot,
+      fields.protocolContractsHash,
       fields.proverId,
       fields.slotNumber,
       fields.coinbase,

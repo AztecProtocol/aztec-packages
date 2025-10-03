@@ -19,10 +19,10 @@ fn validate_propagated_from_previous_kernel_constants_mismatch_chain_id_fails() 
 }
 
 #[test(should_fail_with = "mismatch constants")]
-fn validate_propagated_from_previous_kernel_constants_mismatch_protocol_contract_tree_root_fails() {
+fn validate_propagated_from_previous_kernel_constants_mismatch_protocol_contracts_hash_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.output.protocol_contract_tree_root += 1;
+    builder.output.protocol_contracts_hash += 1;
 
     builder.validate_as_inner_call();
 }

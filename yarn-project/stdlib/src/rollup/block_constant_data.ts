@@ -22,7 +22,7 @@ export class BlockConstantData {
     /** Root of the verification key tree. */
     public vkTreeRoot: Fr,
     /** Root of the protocol contract tree. */
-    public protocolContractTreeRoot: Fr,
+    public protocolContractsHash: Fr,
     /** Global variables for the block. */
     public globalVariables: GlobalVariables,
     /** Identifier of the prover. */
@@ -50,7 +50,7 @@ export class BlockConstantData {
       fields.lastArchive,
       fields.l1ToL2TreeSnapshot,
       fields.vkTreeRoot,
-      fields.protocolContractTreeRoot,
+      fields.protocolContractsHash,
       fields.globalVariables,
       fields.proverId,
     ] as const;

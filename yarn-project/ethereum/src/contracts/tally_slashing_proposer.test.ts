@@ -68,7 +68,7 @@ describe('TallySlashingProposer', () => {
       ...DefaultL1ContractsConfig,
       salt: undefined,
       vkTreeRoot: Fr.random(),
-      protocolContractTreeRoot: Fr.random(),
+      protocolContractsHash: Fr.random(),
       genesisArchiveRoot: Fr.random(),
       realVerifier: false,
       slasherFlavor: 'tally' as const,

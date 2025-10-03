@@ -22,7 +22,7 @@ export class EpochConstantData {
     /**
      * Root of the protocol contract tree.
      */
-    public protocolContractTreeRoot: Fr,
+    public protocolContractsHash: Fr,
     /**
      * Identifier of the prover of the epoch.
      */
@@ -34,13 +34,7 @@ export class EpochConstantData {
   }
 
   static getFields(fields: FieldsOf<EpochConstantData>) {
-    return [
-      fields.chainId,
-      fields.version,
-      fields.vkTreeRoot,
-      fields.protocolContractTreeRoot,
-      fields.proverId,
-    ] as const;
+    return [fields.chainId, fields.version, fields.vkTreeRoot, fields.protocolContractsHash, fields.proverId] as const;
   }
 
   toFields(): Fr[] {
