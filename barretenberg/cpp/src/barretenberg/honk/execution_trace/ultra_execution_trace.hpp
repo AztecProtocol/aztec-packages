@@ -10,7 +10,6 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
-#include "barretenberg/honk/types/circuit_type.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 
 namespace bb {
@@ -198,14 +197,13 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData {
     bool has_overflow = false;
 
     UltraExecutionTraceBlocks() = default;
-    template <typename Flavor> void compute_offsets(bool is_structured)
-    {
-        constexpr bool is_ultra_zk = IsAnyOf<Flavor, UltraZKFlavor>;
 
+    void compute_offsets(bool is_structured)
+    {
         if (is_structured) {
             throw_or_abort("Trace is structuring not implemented for UltraHonk");
         }
-        uint32_t offset = !is_ultra_zk ? 1 : 5; // start at 1 because the 0th row is unused for selectors for Honk
+        uint32_t offset = 1; // start at 1 because the 0th row is unused for selectors for Honk
         for (auto& block : this->get()) {
             block.trace_offset_ = offset;
             offset += block.get_fixed_size(is_structured);

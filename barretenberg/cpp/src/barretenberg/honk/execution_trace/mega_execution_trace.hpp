@@ -337,7 +337,7 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData {
         this->overflow.fixed_size = settings.overflow_capacity;
     }
 
-    template <typename Flavor = void> void compute_offsets(bool is_structured)
+    void compute_offsets(bool is_structured)
     {
         uint32_t offset = 1; // start at 1 because the 0th row is unused for selectors for Honk
         for (auto& block : this->get()) {

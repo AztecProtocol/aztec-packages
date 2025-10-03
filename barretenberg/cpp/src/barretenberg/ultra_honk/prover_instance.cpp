@@ -84,6 +84,9 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_selec
 {
     BB_BENCH_NAME("allocate_selectors");
 
+    // Shift only for UltraZKFlavor
+    constexpr bool is_ultra_zk = std::is_same_v<Flavor, UltraZKFlavor>;
+    constexpr uint32_t base_shift = is_ultra_zk ? 4 : 0;
     // Define gate selectors over the block they are isolated to
     for (auto [selector, block] : zip_view(polynomials.get_gate_selectors(), circuit.blocks.get_gate_blocks())) {
 
@@ -92,9 +95,10 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_selec
         if (&block == &circuit.blocks.arithmetic) {
             size_t arith_size = circuit.blocks.memory.trace_offset() - circuit.blocks.arithmetic.trace_offset() +
                                 circuit.blocks.memory.get_fixed_size(is_structured);
-            selector = Polynomial(arith_size, dyadic_size(), circuit.blocks.arithmetic.trace_offset());
+            selector = Polynomial(arith_size, dyadic_size(), circuit.blocks.arithmetic.trace_offset() + base_shift);
         } else {
-            selector = Polynomial(block.get_fixed_size(is_structured), dyadic_size(), block.trace_offset());
+            selector =
+                Polynomial(block.get_fixed_size(is_structured), dyadic_size(), block.trace_offset() + base_shift);
         }
     }
 
@@ -111,24 +115,25 @@ void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& c
 
     size_t table_offset = circuit.blocks.lookup.trace_offset();
     size_t table_start_idx = std::is_same_v<Flavor, UltraZKFlavor> ? 1 : table_offset;
+    size_t zk_offset = std::is_same_v<Flavor, UltraZKFlavor> ? 4 : 0;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): can potentially improve memory footprint
-    const size_t max_tables_size = dyadic_size() - table_offset;
+    const size_t max_tables_size = dyadic_size() - table_offset - zk_offset;
     BB_ASSERT_GT(dyadic_size(), max_tables_size);
 
     // Allocate the polynomials containing the actual table data
     if constexpr (IsUltraOrMegaHonk<Flavor>) {
         for (auto& poly : polynomials.get_tables()) {
-            poly = Polynomial(max_tables_size, dyadic_size(), table_start_idx);
+            poly = Polynomial(max_tables_size + zk_offset, dyadic_size(), table_start_idx);
         }
     }
 
     // Allocate the read counts and tags polynomials
-    polynomials.lookup_read_counts = Polynomial(max_tables_size, dyadic_size(), table_start_idx);
-    polynomials.lookup_read_tags = Polynomial(max_tables_size, dyadic_size(), table_start_idx);
+    polynomials.lookup_read_counts = Polynomial(max_tables_size + zk_offset, dyadic_size(), table_start_idx);
+    polynomials.lookup_read_tags = Polynomial(max_tables_size + zk_offset, dyadic_size(), table_start_idx);
 
     const size_t lookup_block_end =
-        static_cast<size_t>(circuit.blocks.lookup.trace_offset() + circuit.blocks.lookup.get_fixed_size(is_structured));
-    const auto tables_end = circuit.blocks.lookup.trace_offset() + max_tables_size;
+        static_cast<size_t>(table_offset + circuit.blocks.lookup.get_fixed_size(is_structured));
+    const auto tables_end = table_offset + max_tables_size + zk_offset;
 
     // Allocate the lookup_inverses polynomial
 
@@ -261,7 +266,7 @@ void ProverInstance_<Flavor>::move_structured_trace_overflow_to_overflow_block(C
     // Set has_overflow to true if a nonzero fixed size has been prescribed for the overflow block
     blocks.has_overflow = (overflow_block.get_fixed_size() > 0);
 
-    blocks.template compute_offsets<Flavor>(/*is_structured=*/true); // compute the offset of each fixed size block
+    blocks.compute_offsets(/*is_structured=*/true); // compute the offset of each fixed size block
 
     // Check each block for capacity overflow; if necessary move gates into the overflow block
     for (auto& block : blocks.get()) {
@@ -357,6 +362,10 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::populate_memor
 {
     // Store the read/write records as indices into the full trace by accounting for the offset of the memory block.
     uint32_t ram_rom_offset = circuit.blocks.memory.trace_offset();
+    if constexpr (std::is_same_v<Flavor, UltraZKFlavor>) {
+        ram_rom_offset += 4;
+    }
+
     memory_read_records.reserve(circuit.memory_read_records.size());
     for (auto& index : circuit.memory_read_records) {
         memory_read_records.emplace_back(index + ram_rom_offset);
