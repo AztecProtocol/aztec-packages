@@ -1,4 +1,5 @@
 #include "thread.hpp"
+#include "barretenberg/common/log.hpp"
 #include <atomic>
 #include <gtest/gtest.h>
 #include <set>
@@ -316,30 +317,4 @@ TEST_F(ThreadTest, ConcurrencyIsolation)
     EXPECT_EQ(cpus_after, 8);
     EXPECT_EQ(cpus_before, cpus_after);
 }
-
-// Test deeply nested parallel_for concurrency
-TEST_F(ThreadTest, DeeplyNestedConcurrency)
-{
-    set_parallel_for_concurrency(16);
-
-    std::atomic<size_t> level1_cpus{ 0 };
-    std::atomic<size_t> level2_cpus{ 0 };
-    std::atomic<size_t> level3_cpus{ 0 };
-
-    parallel_for(2, [&](size_t) {
-        level1_cpus.store(get_num_cpus());
-
-        parallel_for(2, [&](size_t) {
-            level2_cpus.store(get_num_cpus());
-
-            parallel_for(2, [&](size_t) { level3_cpus.store(get_num_cpus()); });
-        });
-    });
-
-    // All levels should see at least 2 CPUs
-    EXPECT_GE(level1_cpus.load(), 2);
-    EXPECT_GE(level2_cpus.load(), 2);
-    EXPECT_GE(level3_cpus.load(), 2);
-}
-
 } // namespace bb

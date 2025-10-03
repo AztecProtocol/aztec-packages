@@ -40,6 +40,7 @@ class ThreadPool {
         }
         condition.notify_all();
 
+        info("MAIN");
         do_iterations();
 
         {
@@ -156,12 +157,14 @@ namespace bb {
  */
 void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func)
 {
+    static thread_local size_t i = 0;
     static thread_local size_t nesting_level = 0;
     // There is a unique pool for each thread * nesting level.
     // The main thread will have nesting_level one greater than its child threads.
     // This needs to be an array so that when the main thread recurses here, it uses a different thread pool.
     static thread_local std::array<ThreadPool, PARALLEL_FOR_MAX_NESTING> pools;
 
+    info(nesting_level, ": parallel_for_mutex_pool with ", num_iterations, " iterations", i++);
     // If we exceed max nesting, throw an error
     if (nesting_level >= PARALLEL_FOR_MAX_NESTING) {
         throw_or_abort("parallel_for_mutex_pool: exceeded maximum nesting level");
@@ -178,20 +181,14 @@ void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(siz
         pool.grow(get_num_cpus() - 1);
     }
 
-    if (pool.get_num_workers() == 0 || num_iterations <= 1) {
-        for (size_t i = 0; i < num_iterations; ++i) {
-            func(i);
-        }
-        return;
-    }
-
     // We compute inner concurrency here.
     // This controls behavior if parallel_for_mutex_pool is called from within a task that is itself running in
     // parallel_for_mutex_pool. For the cases where we do want inner concurrency, (e.g. processing contracts in
     // aztec_process.cpp) having at least some inner concurrency smoothes out the task having uneven times, allowing
     // more threads to share the work.
     size_t total_threads = pool.get_num_workers() + 1;
-    size_t inner_concurrency = std::max(size_t{ 2 }, (total_threads + num_iterations - 1) / num_iterations);
+    size_t inner_concurrency =
+        std::max(size_t{ 2 }, (total_threads + num_iterations - 1) / std::max(num_iterations, size_t{ 1 }));
 
     nesting_level++;
     pool.start_tasks(num_iterations, func, inner_concurrency);
