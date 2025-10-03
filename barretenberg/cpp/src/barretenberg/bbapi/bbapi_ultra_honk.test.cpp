@@ -23,7 +23,7 @@ class BBApiUltraHonkTest : public ::testing::Test {
     void TearDown() override
     {
         // Restore original concurrency
-        set_hardware_concurrency(original_concurrency);
+        set_parallel_for_concurrency(original_concurrency);
     }
 
     size_t original_concurrency;
@@ -73,7 +73,7 @@ TEST_F(BBApiUltraHonkTest, CircuitProve)
 TEST_F(BBApiUltraHonkTest, ParallelComputeVk)
 {
     // Set hardware concurrency to 8 to ensure we can run 8 VK computations in parallel
-    set_hardware_concurrency(8);
+    set_parallel_for_concurrency(8);
 
     constexpr size_t num_vks = 8;
 
