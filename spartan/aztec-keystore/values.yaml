@@ -4,8 +4,8 @@ global:
     tag: latest
     pullPolicy: IfNotPresent
   kubectlImage:
-    repository: bitnami/kubectl
-    tag: 1.33.4
+    repository: registry.suse.com/suse/kubectl
+    tag: 1.33
     pullPolicy: Always
 
 mnemonic:
