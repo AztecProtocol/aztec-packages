@@ -125,7 +125,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
             }
         }
 
-        circuit.blocks.compute_offsets(is_structured); // compute offset of each block within the trace
+        circuit.blocks.template compute_offsets<Flavor>(is_structured); // compute offset of each block within the trace
 
         // Find index of last non-trivial wire value in the trace
         for (auto& block : circuit.blocks.get()) {
@@ -203,8 +203,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         }
         { // Public inputs handling
             metadata.num_public_inputs = circuit.blocks.pub_inputs.size();
-            metadata.pub_inputs_offset =
-                circuit.blocks.pub_inputs.trace_offset() + ((std::is_same_v<Flavor, UltraZKFlavor>) ? 4 : 0);
+            metadata.pub_inputs_offset = circuit.blocks.pub_inputs.trace_offset();
             for (size_t i = 0; i < metadata.num_public_inputs; ++i) {
                 size_t idx = i + metadata.pub_inputs_offset;
                 public_inputs.emplace_back(polynomials.w_r[idx]);
