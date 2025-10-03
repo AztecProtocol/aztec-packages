@@ -57,6 +57,10 @@ This guide assumes you are using a standard Linux distribution (Debian or Ubuntu
 - Docker Compose ([installation guide](https://docs.docker.com/compose/install/))
 - Access to L1 node endpoints (execution and consensus clients). See [Eth Docker's guide](https://ethdocker.com/Usage/QuickStart) if you need to set these up.
 
+:::warning
+Your L1 nodes must be connected to **Sepolia testnet**, as the Aztec testnet runs on Ethereum Sepolia.
+:::
+
 ## Configure the Sequencer
 
 Setting up a sequencer involves configuring keys, environment variables, and Docker Compose.
@@ -78,19 +82,21 @@ touch .env
 
 ### Define Private Keys and Accounts
 
-Sequencers require private keys to identify themselves as valid proposers or attesters. Configure these through a keystore file.
+Sequencers require private keys to identify themselves as valid proposers and attesters. The attester key's corresponding Ethereum address serves as your sequencer's unique identity on the network. Configure these through a keystore file.
 
-Create a `keystore.json` file in your `aztec-sequencer/keys` folder:
+#### Step 1: Understand the Keystore Structure
+
+Create a `keystore.json` file in your `aztec-sequencer/keys` folder with the following structure:
 
 ```json
 {
   "schemaVersion": 1,
   "validators": [
     {
-      "attester": ["ETH_PRIVATE_KEY_0"],
-      "publisher": ["ETH_PRIVATE_KEY_1"],
-      "coinbase": "ETH_ADDRESS_2",
-      "feeRecipient": "AZTEC_ADDRESS_0"
+      "attester": ["ETH_PRIVATE_KEY_0"],      // YOUR SEQUENCER IDENTITY: This address identifies your sequencer on the network
+      "publisher": ["ETH_PRIVATE_KEY_1"],     // Optional: Private key for submitting blocks to L1 (defaults to attester if not set)
+      "coinbase": "ETH_ADDRESS_2",            // Optional: Ethereum address to receive L1 rewards (defaults to attester address)
+      "feeRecipient": "AZTEC_ADDRESS_0"       // Aztec address to receive transaction fees from blocks you produce
     }
   ]
 }
@@ -98,12 +104,46 @@ Create a `keystore.json` file in your `aztec-sequencer/keys` folder:
 
 The keystore defines keys and addresses for sequencer operation:
 
-- `attester`: Private key for signing block proposals and attestations. The corresponding Ethereum address identifies the sequencer.
-- `publisher`: Private key for sending block proposals to L1. Defaults to attester key if not set.
-- `coinbase`: Ethereum address receiving L1 rewards and fees. Defaults to attester address if not set.
-- `feeRecipient`: Aztec address receiving unburnt transaction fees from blocks.
+- **`attester`** (required): **This is your sequencer's identity.** The Ethereum address derived from this private key uniquely identifies your sequencer in the network. This key is used to sign block proposals and attestations.
+- **`publisher`** (optional): Private key for sending block proposals to L1. This account needs ETH funding to pay for L1 gas. If not set, defaults to the attester key.
+- **`coinbase`** (optional): Ethereum address receiving L1 rewards and fees. If not set, defaults to the attester address.
+- **`feeRecipient`** (required): Aztec address receiving unburnt transaction fees from blocks you produce.
 
-Replace the placeholder values with your actual keys and addresses.
+#### Step 2: Generate Ethereum Private Keys
+
+Generate the required Ethereum private keys using Foundry's `cast` tool:
+
+```sh
+# Generate a new wallet with a 24-word mnemonic
+cast wallet new-mnemonic --words 24
+
+# This outputs a mnemonic phrase, a derived address, and private key
+# Save these securely - you'll need the private key for the attester field
+```
+
+At minimum, you need one Ethereum private key for the `attester` field. You can optionally generate a separate key for the `publisher` field, or leave it undefined to use the same key as the attester.
+
+:::tip
+If you're using the same key for both attester and publisher, you can omit the `publisher` field entirely from your keystore.
+:::
+
+#### Step 3: Generate the Fee Recipient (Aztec Address)
+
+The `feeRecipient` is an Aztec address that receives unburnt transaction fees from blocks you produce.
+
+Follow the [Getting Started on Testnet](../../../developers/getting_started_on_testnet.md#getting-started-on-testnet) guide to create and deploy an Aztec account, then use that account's address as your `feeRecipient`.
+
+:::warning
+**Save your account recovery information**: When you create your Aztec account, make sure to save:
+- The contract artifact version you used for deployment
+- The deployment information (address, secret key, etc.)
+
+This information is required to recover your account in the future and access your sequencer fees.
+:::
+
+#### Step 4: Complete the Keystore File
+
+Replace the placeholder values in your `keystore.json` with the actual keys and addresses from Steps 2 and 3.
 
 :::warning
 
