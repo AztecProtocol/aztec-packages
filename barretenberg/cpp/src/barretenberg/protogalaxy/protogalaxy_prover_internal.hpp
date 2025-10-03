@@ -213,6 +213,7 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
                 }
             }
         });
+
         aggregated_relation_evaluations.at(0) += sum(linearly_dependent_contribution_accumulators);
 
         return aggregated_relation_evaluations;
