@@ -1,6 +1,5 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #ifndef __wasm__
-#include "barretenberg/api/exec_pipe.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/client_ivc/private_execution_steps.hpp"
 #include "barretenberg/common/streams.hpp"
