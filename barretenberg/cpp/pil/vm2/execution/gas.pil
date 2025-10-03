@@ -64,7 +64,7 @@ namespace execution;
 
     // TODO: Once we support expression in lookup, we can replace this column by an alias.
     pol commit total_gas_l2;
-    total_gas_l2 = prev_l2_gas_used + L2_GAS_USED;
+    sel_should_check_gas * (prev_l2_gas_used + L2_GAS_USED - total_gas_l2) = 0;
     // Assumes l2_gas_limit is 32 bit and total_gas_l2 is 64 bit.
 
     #[IS_OUT_OF_GAS_L2]
@@ -72,7 +72,7 @@ namespace execution;
 
     // TODO: Once we support expression in lookup, we can replace this column by an alias.
     pol commit total_gas_da;
-    total_gas_da = prev_da_gas_used + DA_GAS_USED;
+    sel_should_check_gas * (prev_da_gas_used + DA_GAS_USED - total_gas_da) = 0;
     // Assumes da_gas_limit is 32 bit and total_gas_da is 64 bit.
 
     #[IS_OUT_OF_GAS_DA]
