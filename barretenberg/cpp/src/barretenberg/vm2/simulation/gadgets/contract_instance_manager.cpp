@@ -42,7 +42,7 @@ std::optional<ContractInstance> ContractInstanceManager::get_contract_instance(c
         // Handle protocol contract addresses
         std::optional<AztecAddress> derived_address = get_derived_address(protocol_contracts, contract_address);
         assert(derived_address.has_value() == maybe_instance.has_value() &&
-               "Derived address should be found if the protocol contract exists and vice versa");
+               "Derived address should be found if the instance was retrieved and vice versa");
         const ContractInstance& instance = maybe_instance.value();
         event_emitter.emit({
             .address = contract_address,
