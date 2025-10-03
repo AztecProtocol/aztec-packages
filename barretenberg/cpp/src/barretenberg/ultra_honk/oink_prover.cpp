@@ -85,9 +85,18 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
     // Commit to the first three wire polynomials
     // We only commit to the fourth wire polynomial after adding memory records
 
-    batch.add_to_batch(prover_instance->polynomials.w_l, commitment_labels.w_l, /*mask?*/ Flavor::HasZK);
-    batch.add_to_batch(prover_instance->polynomials.w_r, commitment_labels.w_r, /*mask?*/ Flavor::HasZK);
-    batch.add_to_batch(prover_instance->polynomials.w_o, commitment_labels.w_o, /*mask?*/ Flavor::HasZK);
+    batch.add_to_batch(prover_instance->polynomials.w_l,
+                       commitment_labels.w_l,
+                       /*mask?*/ Flavor::HasZK,
+                       /*top rows?*/ is_ultra_zk);
+    batch.add_to_batch(prover_instance->polynomials.w_r,
+                       commitment_labels.w_r,
+                       /*mask?*/ Flavor::HasZK,
+                       /*top rows?*/ is_ultra_zk);
+    batch.add_to_batch(prover_instance->polynomials.w_o,
+                       commitment_labels.w_o,
+                       /*mask?*/ Flavor::HasZK,
+                       /*top rows?*/ is_ultra_zk);
 
     if constexpr (IsMegaFlavor<Flavor>) {
 
@@ -140,12 +149,18 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list
 
     // Commit to lookup argument polynomials and the finalized (i.e. with memory records) fourth wire polynomial
     auto batch = prover_instance->commitment_key.start_batch();
-    batch.add_to_batch(
-        prover_instance->polynomials.lookup_read_counts, commitment_labels.lookup_read_counts, /*mask?*/ Flavor::HasZK);
-    batch.add_to_batch(
-        prover_instance->polynomials.lookup_read_tags, commitment_labels.lookup_read_tags, /*mask?*/ Flavor::HasZK);
-    batch.add_to_batch(
-        prover_instance->polynomials.w_4, domain_separator + commitment_labels.w_4, /*mask?*/ Flavor::HasZK);
+    batch.add_to_batch(prover_instance->polynomials.lookup_read_counts,
+                       commitment_labels.lookup_read_counts,
+                       /*mask?*/ Flavor::HasZK,
+                       /*top rows?*/ is_ultra_zk);
+    batch.add_to_batch(prover_instance->polynomials.lookup_read_tags,
+                       commitment_labels.lookup_read_tags,
+                       /*mask?*/ Flavor::HasZK,
+                       /*top rows?*/ is_ultra_zk);
+    batch.add_to_batch(prover_instance->polynomials.w_4,
+                       domain_separator + commitment_labels.w_4,
+                       /*mask?*/ Flavor::HasZK,
+                       /*top rows?*/ is_ultra_zk);
     batch.commit_and_send_to_verifier(transcript);
 }
 
@@ -167,7 +182,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
     auto batch = prover_instance->commitment_key.start_batch();
     batch.add_to_batch(prover_instance->polynomials.lookup_inverses,
                        commitment_labels.lookup_inverses,
-                       /*mask?*/ Flavor::HasZK);
+                       /*mask?*/ Flavor::HasZK,
+                       /*top rows?*/ is_ultra_zk);
 
     // If Mega, commit to the databus inverse polynomials and send
     if constexpr (IsMegaFlavor<Flavor>) {
@@ -235,13 +251,7 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
     BB_BENCH_NAME("OinkProver::commit_to_witness_polynomial");
     // Mask the polynomial when proving in zero-knowledge
     if constexpr (Flavor::HasZK) {
-        if constexpr (!std::is_same_v<Flavor, UltraZKFlavor>) {
-            polynomial.mask();
-        } else {
-            for (size_t idx = 1; idx < 4; idx++) {
-                polynomial.at(idx) = FF::random_element();
-            }
-        }
+        polynomial.mask(is_ultra_zk);
     };
 
     typename Flavor::Commitment commitment;

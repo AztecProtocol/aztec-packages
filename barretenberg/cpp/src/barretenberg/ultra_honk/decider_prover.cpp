@@ -84,10 +84,6 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_pcs_rou
         prover_opening_claim = ShpleminiProver_<Curve>::prove(
             prover_instance->dyadic_size(), polynomial_batcher, sumcheck_output.challenge, ck, transcript);
     } else {
-        info("ck dyadic size ", ck.dyadic_size);
-        if (ck.dyadic_size < Curve::SUBGROUP_SIZE + 2) {
-            ck = CommitmentKey(512);
-        }
 
         SmallSubgroupIPA small_subgroup_ipa_prover(
             zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
@@ -101,8 +97,6 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_pcs_rou
                                                               small_subgroup_ipa_prover.get_witness_polynomials());
     }
     vinfo("executed multivariate-to-univariate reduction");
-    info("prover eval ", prover_opening_claim.polynomial.evaluate(prover_opening_claim.opening_pair.challenge));
-    info("prover comm ", ck.commit(prover_opening_claim.polynomial));
     PCS::compute_opening_proof(ck, prover_opening_claim, transcript);
     vinfo("computed opening proof");
 }

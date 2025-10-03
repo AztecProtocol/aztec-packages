@@ -279,14 +279,20 @@ template <typename Fr> class Polynomial {
      * commitment and evaluation of a polynomial don't leak information about the coefficients in the context of zero
      * knowledge.
      */
-    void mask()
+    void mask(const bool top_rows = false)
     {
         // Ensure there is sufficient space to add masking and also that we have memory allocated up to the virtual_size
         BB_ASSERT_GTE(virtual_size(), NUM_MASKED_ROWS);
-        BB_ASSERT_EQ(virtual_size(), end_index());
-
-        for (size_t i = virtual_size() - NUM_MASKED_ROWS; i < virtual_size(); ++i) {
-            at(i) = FF::random_element();
+        if (!top_rows) {
+            BB_ASSERT_EQ(virtual_size(), end_index());
+            for (size_t i = virtual_size() - NUM_MASKED_ROWS; i < virtual_size(); ++i) {
+                at(i) = FF::random_element();
+            }
+        } else {
+            size_t start = 1;
+            for (size_t idx = start; idx < start + NUM_MASKED_ROWS; idx++) {
+                at(idx) = FF::random_element();
+            }
         }
     }
 

@@ -168,10 +168,10 @@ template <class Curve> class CommitmentKey {
             }
         }
 
-        void add_to_batch(Polynomial<Fr>& poly, const std::string& label, bool mask)
+        void add_to_batch(Polynomial<Fr>& poly, const std::string& label, bool mask, bool top_rows = false)
         {
             if (mask) {
-                poly.mask();
+                poly.mask(top_rows);
             }
             wires.push_back(poly);
             labels.push_back(label);

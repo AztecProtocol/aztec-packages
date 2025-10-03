@@ -32,7 +32,6 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
     BB_ASSERT_GT(dyadic_circuit_size, tables_size + additional_offset);
 
     size_t offset = std::is_same_v<Flavor, UltraZKFlavor> ? 5 : circuit.blocks.lookup.trace_offset();
-    info("lookup offset ", offset);
     for (const auto& table : circuit.lookup_tables) {
         const fr table_index(table.table_index);
 

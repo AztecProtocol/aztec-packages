@@ -148,13 +148,7 @@ template <typename Flavor> struct RowDisablingPolynomial {
     FF eval_at_0{ 1 };
     FF eval_at_1{ 1 };
 
-    RowDisablingPolynomial()
-    {
-        if constexpr (is_ultra_zk) {
-            eval_at_0 = 1;
-            eval_at_1 = 1;
-        }
-    };
+    RowDisablingPolynomial() = default;
     /**
      * @brief Compute the evaluations of L^{(i)} at 0 and 1.
      *

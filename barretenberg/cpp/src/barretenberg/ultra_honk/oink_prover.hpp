@@ -54,6 +54,7 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
 
     typename Flavor::CommitmentLabels commitment_labels;
     using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    static constexpr bool is_ultra_zk = IsAnyOf<Flavor, UltraZKFlavor>;
 
     OinkProver(std::shared_ptr<ProverInstance> prover_instance,
                std::shared_ptr<HonkVK> honk_vk,
