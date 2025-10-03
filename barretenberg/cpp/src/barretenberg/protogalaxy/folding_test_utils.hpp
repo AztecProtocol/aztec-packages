@@ -8,8 +8,6 @@
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
-#include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
-#include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
@@ -127,7 +125,7 @@ template <class Flavor> class ProtogalaxyTestUtilities {
         std::vector<Builder> builders(num_keys);
         parallel_for([&builders, &num_keys, &circuits_of_different_size](const ThreadChunk& chunk) {
             for (size_t idx : chunk.range(num_keys)) {
-                size_t log_num_gates = circuits_of_different_size ? 9 + std::min(idx, 3UL) : 9;
+                size_t log_num_gates = circuits_of_different_size ? 9 + (idx & 1) : 9;
                 Builder builder;
                 create_function_circuit(builder, log_num_gates, log_num_gates);
                 builders[idx] = std::move(builder);

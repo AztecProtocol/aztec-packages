@@ -169,6 +169,14 @@ void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
 
     parallel_for([&acc_spans, &key_spans, &lagranges, &combiner_challenge, &swap_polys](const ThreadChunk& chunk) {
         for (auto [acc_poly, key_poly] : zip_view(acc_spans, key_spans)) {
+            BB_ASSERT_LTE(
+                acc_poly.start_index,
+                key_poly.start_index,
+                "Folding a smaller polynomial into a larger one. This is only allowed when using structured traces.");
+            BB_ASSERT_GTE(
+                acc_poly.end_index(),
+                key_poly.start_index(),
+                "Folding a smaller polynomial into a larger one. This is only allowed when using structured traces.");
             size_t offset = acc_poly.start_index;
             for (size_t idx : chunk.range(acc_poly.size(), offset)) {
                 if ((idx < key_poly.start_index) || (idx >= key_poly.end_index())) {
