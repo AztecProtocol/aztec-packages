@@ -108,7 +108,7 @@ void parallel_for_atomic_pool(size_t num_iterations, const std::function<void(si
 
 void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func);
 
-void parallel_for_impl(size_t num_iterations, const std::function<void(size_t)>& func)
+void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func)
 {
 #ifdef NO_MULTITHREADING
     for (size_t i = 0; i < num_iterations; ++i) {
@@ -125,11 +125,6 @@ void parallel_for_impl(size_t num_iterations, const std::function<void(size_t)>&
     // parallel_for_queued(num_iterations, func);
 #endif
 #endif
-}
-
-void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func)
-{
-    parallel_for_impl(num_iterations, func);
 }
 
 /**
