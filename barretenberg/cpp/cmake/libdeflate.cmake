@@ -8,7 +8,7 @@ set(LIBDEFLATE_BUILD_SHARED_LIB OFF CACHE BOOL "Don't build shared libdeflate li
 set(LIBDEFLATE_BUILD_GZIP OFF CACHE BOOL "Don't build libdeflate gzip program")
 
 # required for macos cross build
-# add_definitions(-DLIBDEFLATE_ASSEMBLER_DOES_NOT_SUPPORT_SHA3)
+add_definitions(-DLIBDEFLATE_ASSEMBLER_DOES_NOT_SUPPORT_SHA3)
 
 FetchContent_Declare(
   libdeflate

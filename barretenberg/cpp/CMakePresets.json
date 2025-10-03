@@ -517,8 +517,8 @@
       "generator": "Ninja",
       "inherits": "zig-base",
       "environment": {
-      "CC": "zig cc -target x86_64-macos -mcpu=baseline",
-      "CXX": "zig c++ -target x86_64-macos -mcpu=baseline"
+      "CC": "zig cc -target x86_64-macos",
+      "CXX": "zig c++ -target x86_64-macos"
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Darwin",
@@ -588,8 +588,8 @@
       "name": "zig-node-arm64-macos",
       "inherits": "zig-base",
       "environment": {
-        "CC": "zig cc -target aarch64-macos",
-        "CXX": "zig c++ -target aarch64-macos",
+        "CC": "zig cc -target aarch64-macos -mcpu=apple_a14",
+        "CXX": "zig c++ -target aarch64-macos -mcpu=apple_a14",
         "LDFLAGS": "-Wl,-undefined,dynamic_lookup"
       },
       "cacheVariables": {
