@@ -7,7 +7,7 @@ import {
   ContractFunctionInteraction,
   Fr,
   SetPublicAuthwitContractInteraction,
-  type SendMethodOptions,
+  type SendInteractionOptions,
 } from '@aztec/aztec.js';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -46,7 +46,7 @@ interface CreateAuthwitDialogProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any[];
   isPrivate: boolean;
-  onClose: (isPublic?: boolean, interaction?: ContractFunctionInteraction, opts?: SendMethodOptions) => void;
+  onClose: (isPublic?: boolean, interaction?: ContractFunctionInteraction, opts?: SendInteractionOptions) => void;
 }
 
 export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, onClose }: CreateAuthwitDialogProps) {
@@ -78,7 +78,7 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
         onClose();
       } else {
         const validateActionInteraction = await SetPublicAuthwitContractInteraction.create(wallet, from, intent, true);
-        const opts: SendMethodOptions = { from, fee: { paymentMethod: feePaymentMethod } };
+        const opts: SendInteractionOptions = { from, fee: { paymentMethod: feePaymentMethod } };
         onClose(true, validateActionInteraction, opts);
       }
     } catch (e) {

@@ -24,13 +24,3 @@ export interface FeePaymentMethod {
    */
   getGasSettings(): GasSettings | undefined;
 }
-
-/**
- * Only a subset of fee payment methods can be defined by an app and bundled with
- * transactions set to the wallet. Use this type to represent them, rather than the
- * more generic FeePaymentMethod.
- */
-export interface AppConfigurableFeePaymentMethod extends FeePaymentMethod {
-  /** Branded type */
-  _branding: 'AppConfigurableFeePaymentMethod';
-}

@@ -26,13 +26,16 @@ import {
   getStubAccountContractArtifact,
   createStubAccount,
 } from '@aztec/accounts/stub/lazy';
-import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import {
   ExecutionPayload,
   mergeExecutionPayloads,
 } from '@aztec/entrypoints/payload';
 import { TxSimulationResult } from '@aztec/stdlib/tx';
 import { GasSettings } from '@aztec/stdlib/gas';
+import {
+  AccountFeePaymentMethodOptions,
+  DefaultAccountEntrypointOptions,
+} from '@aztec/entrypoints/account';
 
 const PROVER_ENABLED = true;
 
@@ -50,10 +53,8 @@ export class EmbeddedWallet extends BaseWallet {
   ): Promise<Account> {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
-      const { chainId, version } = await this.getChainInfo();
-      account = new SignerlessAccount(
-        new DefaultMultiCallEntrypoint(chainId.toNumber(), version.toNumber())
-      );
+      const chainInfo = await this.getChainInfo();
+      account = new SignerlessAccount(chainInfo);
     } else {
       account = this.accounts.get(address?.toString() ?? '');
     }
@@ -81,19 +82,24 @@ export class EmbeddedWallet extends BaseWallet {
     const maxFeesPerGas =
       userFeeOptions?.gasSettings?.maxFeesPerGas ??
       (await this.aztecNode.getCurrentBaseFees()).mul(1 + this.baseFeePadding);
-    const sponsoredFPCContract =
-      await EmbeddedWallet.#getSponsoredPFCContract();
-    let paymentMethod;
-    let endSetup = false;
-    let isFeePayer = false;
+    let walletFeePaymentMethod;
+    let accountFeePaymentMethodOptions;
     // The transaction does not include a fee payment method, so we set a default
     if (!userFeeOptions?.embeddedPaymentMethodFeePayer) {
-      paymentMethod = new SponsoredFeePaymentMethod(
+      const sponsoredFPCContract =
+        await EmbeddedWallet.#getSponsoredPFCContract();
+      walletFeePaymentMethod = new SponsoredFeePaymentMethod(
         sponsoredFPCContract.instance.address
       );
+      accountFeePaymentMethodOptions = AccountFeePaymentMethodOptions.EXTERNAL;
     } else {
-      // The transaction includes fee payment method, so we check if we are the fee payer for it (it could only be FeeJuiceWithClaim)
-      isFeePayer = from.equals(userFeeOptions.embeddedPaymentMethodFeePayer);
+      // The transaction includes fee payment method, so we check if we are the fee payer for it
+      // (this can only happen if the embedded payment method is FeeJuiceWithClaim)
+      accountFeePaymentMethodOptions = from.equals(
+        userFeeOptions.embeddedPaymentMethodFeePayer
+      )
+        ? AccountFeePaymentMethodOptions.FEE_JUICE_WITH_CLAIM
+        : AccountFeePaymentMethodOptions.EXTERNAL;
     }
     const gasSettings: GasSettings = GasSettings.default({
       ...userFeeOptions?.gasSettings,
@@ -102,9 +108,8 @@ export class EmbeddedWallet extends BaseWallet {
     this.log.debug(`Using L2 gas settings`, gasSettings);
     return {
       gasSettings,
-      paymentMethod,
-      isFeePayer,
-      endSetup,
+      walletFeePaymentMethod,
+      accountFeePaymentMethodOptions,
     };
   }
 
@@ -318,12 +323,11 @@ export class EmbeddedWallet extends BaseWallet {
       ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
       : await this.getDefaultFeeOptions(opts.from, opts.fee);
     const feeExecutionPayload =
-      await feeOptions.paymentMethod?.getExecutionPayload();
-    const executionOptions = {
+      await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
+    const executionOptions: DefaultAccountEntrypointOptions = {
       txNonce: Fr.random(),
       cancellable: this.cancellableTransactions,
-      isFeePayer: feeOptions.isFeePayer,
-      endSetup: feeOptions.endSetup,
+      feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions,
     };
     const finalExecutionPayload = feeExecutionPayload
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
