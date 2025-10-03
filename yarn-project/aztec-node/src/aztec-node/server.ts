@@ -18,7 +18,6 @@ import {
   createEthereumChain,
   getPublicClient,
 } from '@aztec/ethereum';
-import { createL1TxUtilsWithBlobsFromEthSigner } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { compactArray, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -30,6 +29,7 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
+import { createL1TxUtilsWithBlobsFromEthSigner } from '@aztec/node-lib/factories';
 import { type P2P, type P2PClientDeps, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
@@ -421,9 +421,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       );
       await slasherClient.start();
 
-      const l1TxUtils = keyStoreManager!.createAllValidatorPublisherSigners().map((signer: EthSigner) => {
-        return createL1TxUtilsWithBlobsFromEthSigner(publicClient, signer, log, dateProvider, config);
-      });
+      const l1TxUtils = await Promise.all(
+        keyStoreManager!
+          .createAllValidatorPublisherSigners()
+          .map((signer: EthSigner) =>
+            createL1TxUtilsWithBlobsFromEthSigner(
+              publicClient,
+              signer,
+              { ...config, scope: 'sequencer' },
+              { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+            ),
+          ),
+      );
 
       sequencer = await SequencerClient.new(config, {
         // if deps were provided, they should override the defaults,

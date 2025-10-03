@@ -1,6 +1,6 @@
 import { Blob } from '@aztec/blob-lib';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 
 import type { TransactionSerializable } from 'viem';
@@ -8,6 +8,7 @@ import type { TransactionSerializable } from 'viem';
 import type { EthSigner } from '../eth-signer/eth-signer.js';
 import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
 import type { L1TxUtilsConfig } from './config.js';
+import type { IL1TxMetrics, IL1TxStore } from './interfaces.js';
 import { L1TxUtils } from './l1_tx_utils.js';
 import { createViemSigner } from './signer.js';
 import type { L1BlobInputs, SigningCallback } from './types.js';
@@ -24,33 +25,53 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
 
 export function createL1TxUtilsWithBlobsFromViemWallet(
   client: ExtendedViemWalletClient,
-  logger: Logger = createLogger('L1TxUtils'),
-  dateProvider: DateProvider = new DateProvider(),
-  config?: Partial<L1TxUtilsConfig>,
+  deps: {
+    logger?: Logger;
+    dateProvider?: DateProvider;
+    store?: IL1TxStore;
+    metrics?: IL1TxMetrics;
+  } = {},
+  config: Partial<L1TxUtilsConfig> = {},
   debugMaxGasLimit: boolean = false,
 ) {
   return new L1TxUtilsWithBlobs(
     client,
     EthAddress.fromString(client.account.address),
     createViemSigner(client),
-    logger,
-    dateProvider,
+    deps.logger,
+    deps.dateProvider,
     config,
     debugMaxGasLimit,
+    deps.store,
+    deps.metrics,
   );
 }
 
 export function createL1TxUtilsWithBlobsFromEthSigner(
   client: ViemClient,
   signer: EthSigner,
-  logger: Logger = createLogger('L1TxUtils'),
-  dateProvider: DateProvider = new DateProvider(),
-  config?: Partial<L1TxUtilsConfig>,
+  deps: {
+    logger?: Logger;
+    dateProvider?: DateProvider;
+    store?: IL1TxStore;
+    metrics?: IL1TxMetrics;
+  } = {},
+  config: Partial<L1TxUtilsConfig> = {},
   debugMaxGasLimit: boolean = false,
 ) {
   const callback: SigningCallback = async (transaction: TransactionSerializable, _signingAddress) => {
     return (await signer.signTransaction(transaction)).toViemTransactionSignature();
   };
 
-  return new L1TxUtilsWithBlobs(client, signer.address, callback, logger, dateProvider, config, debugMaxGasLimit);
+  return new L1TxUtilsWithBlobs(
+    client,
+    signer.address,
+    callback,
+    deps.logger,
+    deps.dateProvider,
+    config,
+    debugMaxGasLimit,
+    deps.store,
+    deps.metrics,
+  );
 }

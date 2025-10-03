@@ -40,6 +40,11 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
     this.config = pick(config, 'publisherAllowInvalidStates');
   }
 
+  /** Loads the state of all publishers and resumes monitoring any pending txs */
+  public async loadState(): Promise<void> {
+    await Promise.all(this.publishers.map(pub => pub.loadStateAndResumeMonitoring()));
+  }
+
   // Finds and prioritises available publishers based on
   // 1. Validity as per the provided filter function
   // 2. Validity based on the state the publisher is in
