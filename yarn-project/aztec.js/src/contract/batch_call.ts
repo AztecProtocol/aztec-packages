@@ -13,7 +13,7 @@ import {
 export class BatchCall extends BaseContractInteraction {
   constructor(
     wallet: Wallet,
-    protected interactions: BaseContractInteraction[],
+    protected interactions: (BaseContractInteraction | ExecutionPayload)[],
   ) {
     super(wallet);
   }
@@ -32,13 +32,13 @@ export class BatchCall extends BaseContractInteraction {
    * @returns An execution payload wrapped in promise.
    */
   public async request(options: RequestInteractionOptions = {}): Promise<ExecutionPayload> {
-    const requests = await this.getRequests();
+    const executionPayloads = await this.getExecutionPayloads();
     const feeExecutionPayload = options.fee?.paymentMethod
       ? await options.fee.paymentMethod.getExecutionPayload()
       : undefined;
     const finalExecutionPayload = feeExecutionPayload
-      ? mergeExecutionPayloads([feeExecutionPayload, ...requests])
-      : mergeExecutionPayloads([...requests]);
+      ? mergeExecutionPayloads([feeExecutionPayload, ...executionPayloads])
+      : mergeExecutionPayloads([...executionPayloads]);
     return finalExecutionPayload;
   }
 
@@ -52,7 +52,7 @@ export class BatchCall extends BaseContractInteraction {
    * @returns The result of the transaction as returned by the contract function.
    */
   public async simulate(options: SimulateInteractionOptions): Promise<any> {
-    const { indexedExecutionPayloads, utility } = (await this.getRequests()).reduce<{
+    const { indexedExecutionPayloads, utility } = (await this.getExecutionPayloads()).reduce<{
       /** Keep track of the number of private calls to retrieve the return values */
       privateIndex: 0;
       /** Keep track of the number of public calls to retrieve the return values */
@@ -117,7 +117,15 @@ export class BatchCall extends BaseContractInteraction {
     return results;
   }
 
-  protected async getRequests() {
-    return await Promise.all(this.interactions.map(i => i.request()));
+  protected async getExecutionPayloads() {
+    return await Promise.all(
+      this.interactions.map(i => {
+        if ('request' in i) {
+          return i.request();
+        } else {
+          return i;
+        }
+      }),
+    );
   }
 }
