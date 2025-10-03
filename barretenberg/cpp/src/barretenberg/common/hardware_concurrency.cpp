@@ -7,19 +7,15 @@
 
 #ifndef NO_MULTITHREADING
 #include <thread>
-#endif
 
 static uint32_t& _get_num_cores()
 {
-#ifdef NO_MULTITHREADING
-    static uint32_t cores = 1;
-#else
     static thread_local const char* val = std::getenv("HARDWARE_CONCURRENCY");
     static thread_local uint32_t cores =
         val != nullptr ? static_cast<uint32_t>(std::stoul(val)) : env_hardware_concurrency();
-#endif
     return cores;
 }
+#endif
 
 namespace bb {
 // only for testing purposes currently
