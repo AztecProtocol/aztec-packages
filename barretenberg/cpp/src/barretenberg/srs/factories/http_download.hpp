@@ -2,17 +2,25 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <cstdint>
 
+#ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-literal-operator"
 #pragma clang diagnostic ignored "-Wunused-parameter"
+#endif
+#ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-literal-operator"
 #pragma GCC diagnostic ignored "-Wunused-parameter"
+#endif
 #ifndef __wasm__
 #include <httplib.h>
 #endif
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
+#endif
+#ifdef __clang__
 #pragma clang diagnostic pop
+#endif
 
 #include <string>
 #include <vector>
