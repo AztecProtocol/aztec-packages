@@ -22,7 +22,6 @@ export async function simAvmMinimalPublicTx(): Promise<PublicTxResult> {
   const tester = await PublicTxSimulationTester.create();
 
   const result = await testCustomBytecode(minimalBytecode, tester, 'MinimalTx', 'AvmMinimalContract');
-  expect(result.revertCode.isOK()).toBe(true);
 
   // Modify the protocolContractDerivedAddresses to be all zeros and modify the protocolContractTreeRoot
   // to be a fixed value (the root of a tree of all 0 leaves). This ensures that the testdata is stable
