@@ -6,20 +6,12 @@ import type { GasSettings } from '@aztec/stdlib/gas';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import type { Wallet } from '../wallet/wallet.js';
-import type { AppConfigurableFeePaymentMethod } from './fee_payment_method.js';
-
-/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
-
-/** AppConfigurableFeePaymentMethod branding */
-export interface PrivateFeePaymentMethod {
-  /** Brand. */
-  _branding: 'AppConfigurableFeePaymentMethod';
-}
+import type { FeePaymentMethod } from './fee_payment_method.js';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.
  */
-export class PrivateFeePaymentMethod implements AppConfigurableFeePaymentMethod {
+export class PrivateFeePaymentMethod implements FeePaymentMethod {
   private assetPromise: Promise<AztecAddress> | null = null;
 
   constructor(

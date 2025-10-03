@@ -1,9 +1,9 @@
-import { Blob, BlobAccumulatorPublicInputs, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
+import { Blob, BlobAccumulator, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import {
-  BLOB_ACCUMULATOR_PUBLIC_INPUTS,
+  BLOB_ACCUMULATOR_LENGTH,
   BLS12_FQ_LIMBS,
   BLS12_FR_LIMBS,
-  BLS12_POINT,
+  BLS12_POINT_LENGTH,
   FIELDS_PER_BLOB,
 } from '@aztec/constants';
 import { chunk } from '@aztec/foundation/collection';
@@ -54,7 +54,10 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
 
     //  - args[4] is an array of numBlobs commitments, which are BLS12_381 points: {x: bignum, y: bignum, is_inf: bool}
     // TODO(#14646): Omit/compress some fields to reduce number of public inputs & outputs here?
-    const kzgCommitmentsFields = chunk(flattenedArgs.slice(offset, (offset += BLS12_POINT * numBlobs)), BLS12_POINT);
+    const kzgCommitmentsFields = chunk(
+      flattenedArgs.slice(offset, (offset += BLS12_POINT_LENGTH * numBlobs)),
+      BLS12_POINT_LENGTH,
+    );
     const kzgCommitments = kzgCommitmentsFields.map(fields => {
       const x = BLS12Fq.fromNoirBigNum({ limbs: fields.slice(0, BLS12_FQ_LIMBS) });
       const y = BLS12Fq.fromNoirBigNum({
@@ -73,8 +76,8 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
 
     // - args[6] is the start blob batching accumulator
     // TODO(#14646): Omit/compress some fields to reduce number of public inputs & outputs here?
-    const startBlobAccumulatorFields = flattenedArgs.slice(offset, (offset += BLOB_ACCUMULATOR_PUBLIC_INPUTS));
-    const startBlobAccumulator = BlobAccumulatorPublicInputs.fromFields(startBlobAccumulatorFields.map(Fr.fromString));
+    const startBlobAccumulatorFields = flattenedArgs.slice(offset, (offset += BLOB_ACCUMULATOR_LENGTH));
+    const startBlobAccumulator = BlobAccumulator.fromFields(startBlobAccumulatorFields.map(Fr.fromString));
 
     const blobsAsFr = paddedBlobsAsFr.slice(0, numBlobFields);
     const blobs = await Blob.getBlobsPerBlock(blobsAsFr);

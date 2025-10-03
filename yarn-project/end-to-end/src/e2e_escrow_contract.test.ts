@@ -1,7 +1,6 @@
 import { type AztecAddress, BatchCall, Fr, type Logger, deriveKeys } from '@aztec/aztec.js';
 import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { computePartialAddress } from '@aztec/stdlib/contract';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 import type { TestWallet } from '@aztec/test-wallet/server';
 
@@ -37,7 +36,7 @@ describe('e2e_escrow_contract', () => {
     escrowPublicKeys = (await deriveKeys(escrowSecretKey)).publicKeys;
     const escrowDeployment = EscrowContract.deployWithPublicKeys(escrowPublicKeys, wallet, owner);
     const escrowInstance = await escrowDeployment.getInstance();
-    await wallet.registerKeysForEscrowContract(escrowSecretKey, await computePartialAddress(escrowInstance));
+    await wallet.registerContract(escrowInstance, EscrowContract.artifact, escrowSecretKey);
     escrowContract = await escrowDeployment.send({ from: owner }).deployed();
     logger.info(`Escrow contract deployed at ${escrowContract.address}`);
 

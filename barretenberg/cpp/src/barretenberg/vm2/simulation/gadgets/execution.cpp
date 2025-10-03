@@ -797,11 +797,11 @@ void Execution::emit_nullifier(ContextInterface& context, MemoryAddress nullifie
         throw OpcodeExecutionException("EMITNULLIFIER: Maximum number of nullifiers reached");
     }
 
-    // Emit nullifier via MerkleDB
-    // (and tag check nullifier as FF)
-    bool success = merkle_db.nullifier_write(context.get_address(), nullifier.as<FF>());
-    if (!success) {
-        throw OpcodeExecutionException("EMITNULLIFIER: Nullifier collision");
+    // Emit nullifier via MerkleDB.
+    try {
+        merkle_db.nullifier_write(context.get_address(), nullifier.as<FF>());
+    } catch (const NullifierCollisionException& e) {
+        throw OpcodeExecutionException(format("EMITNULLIFIER: ", e.what()));
     }
 }
 

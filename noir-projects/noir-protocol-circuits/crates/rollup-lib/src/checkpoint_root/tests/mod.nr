@@ -13,6 +13,7 @@ use crate::{
         checkpoint_root_single_block_rollup_private_inputs::CheckpointRootSingleBlockRollupPrivateInputs,
     },
     tests::RollupFixtureBuilder,
+    tx_merge::accumulate_out_hash,
 };
 use std::test::OracleMock;
 use types::{
@@ -26,7 +27,6 @@ use types::{
         BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
     },
     content_commitment::ContentCommitment,
-    hash::accumulate_sha256,
     tests::utils::{assert_array_eq, make_fixture, pad_end},
     traits::{Hash, Serialize},
 };
@@ -249,6 +249,41 @@ impl TestBuilder {
         (self.execute(), evaluate_blobs_and_batch_mock)
     }
 
+    pub fn get_expected_checkpoint_header(self) -> CheckpointHeader {
+        let left = self.left_rollup;
+        let right = if self.is_single_block {
+            self.left_rollup
+        } else {
+            self.right_rollup
+        };
+
+        let out_hash = if self.is_single_block {
+            left.out_hash
+        } else {
+            accumulate_out_hash(left.out_hash, right.out_hash)
+        };
+        let total_mana_used = if self.is_single_block {
+            left.accumulated_mana_used
+        } else {
+            left.accumulated_mana_used + right.accumulated_mana_used
+        };
+
+        CheckpointHeader {
+            last_archive_root: left.previous_archive.root,
+            content_commitment: ContentCommitment {
+                blobs_hash: self.hints.blobs_hash,
+                in_hash: left.in_hash,
+                out_hash,
+            },
+            slot_number: left.constants.slot_number,
+            timestamp: right.end_timestamp,
+            coinbase: left.constants.coinbase,
+            fee_recipient: left.constants.fee_recipient,
+            gas_fees: left.constants.gas_fees,
+            total_mana_used,
+        }
+    }
+
     pub fn assert_expected_public_inputs(self, pi: CheckpointRollupPublicInputs) {
         let left = self.left_rollup;
         let right = if self.is_single_block {
@@ -274,30 +309,7 @@ impl TestBuilder {
         assert_eq(pi.new_archive, right.new_archive);
         assert(pi.previous_archive != pi.new_archive);
 
-        let out_hash = if self.is_single_block {
-            left.out_hash
-        } else {
-            accumulate_sha256(left.out_hash, right.out_hash)
-        };
-        let total_mana_used = if self.is_single_block {
-            left.accumulated_mana_used
-        } else {
-            left.accumulated_mana_used + right.accumulated_mana_used
-        };
-        let expected_checkpoint_header = CheckpointHeader {
-            last_archive_root: left.previous_archive.root,
-            content_commitment: ContentCommitment {
-                blobs_hash: hints.blobs_hash,
-                in_hash: left.in_hash,
-                out_hash,
-            },
-            slot_number: left.constants.slot_number,
-            timestamp: right.end_timestamp,
-            coinbase: left.constants.coinbase,
-            fee_recipient: left.constants.fee_recipient,
-            gas_fees: left.constants.gas_fees,
-            total_mana_used,
-        };
+        let expected_checkpoint_header = self.get_expected_checkpoint_header();
         assert_array_eq(
             pi.checkpoint_header_hashes,
             [expected_checkpoint_header.hash()],

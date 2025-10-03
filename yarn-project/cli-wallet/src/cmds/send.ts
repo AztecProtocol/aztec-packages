@@ -1,4 +1,11 @@
-import { AuthWitness, type AztecAddress, type AztecNode, Contract, Fr, type SendMethodOptions } from '@aztec/aztec.js';
+import {
+  AuthWitness,
+  type AztecAddress,
+  type AztecNode,
+  Contract,
+  Fr,
+  type SendInteractionOptions,
+} from '@aztec/aztec.js';
 import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
 import { GasSettings } from '@aztec/stdlib/gas';
@@ -31,7 +38,7 @@ export async function send(
   const txNonce = Fr.random();
 
   const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(node, wallet, from);
-  const sendOptions: SendMethodOptions = {
+  const sendOptions: SendInteractionOptions = {
     fee: { paymentMethod, gasSettings },
     from,
     authWitnesses,

@@ -2,6 +2,7 @@ use crate::{
     abis::{CheckpointRollupPublicInputs, RootRollupPublicInputs},
     checkpoint_merge::{merge_checkpoint_rollups, validate_consecutive_checkpoint_rollups},
 };
+use blob::utils::validate_final_blob_batching_challenges;
 use types::{
     constants::{
         CHECKPOINT_MERGE_ROLLUP_VK_INDEX, CHECKPOINT_PADDING_ROLLUP_VK_INDEX,
@@ -68,20 +69,21 @@ impl RootRollupPrivateInputs {
             merge_checkpoint_rollups(left, right)
         };
 
-        // Note: for blob batching, in validate_consecutive_block_rollups > assert_prev_block_rollups_follow_on_from_each_other we have checked:
+        // Note: for blob batching, in `validate_consecutive_checkpoint_rollups` we have checked:
         // - left.end_blob_accumulator == right.start_blob_accumulator
-        // - left.challenge_z == right.challenge_z
-        // - left.challenge_gamma == right.challenge_gamma
+        // - left.final_blob_challenges == right.final_blob_challenges
+        //
         // Below we check:
-        // - first (left.start_blob_accumulator) acc is empty
-        // Finally, we call finalize_and_validate() on the end_blob_accumulator which calculates final_gamma and checks:
-        // - end_blob_accumulator.z == injected.challenge_z
-        // - final_gamma == injected.challenge_gamma
-        // => Validated public inputs from acc are: FinalBlobAccumulatorPublicInputs { blob_commitments_hash, z, y, C } (gamma is not required)
+        // 1. The first accumulator of the entire epoch (left.start_blob_accumulator) is empty.
         merged.start_blob_accumulator.assert_empty("Epoch did not start with empty blob state.");
+        // 2. The `final_blob_challenges` matches the final state of the accumulator.
+        validate_final_blob_batching_challenges(
+            merged.end_blob_accumulator,
+            merged.final_blob_challenges,
+        );
 
-        let blob_public_inputs =
-            merged.end_blob_accumulator.finalize_and_validate(merged.final_blob_challenges);
+        // Finalize the `end_blob_accumulator`.
+        let blob_public_inputs = merged.end_blob_accumulator.finalize();
 
         RootRollupPublicInputs {
             previous_archive_root: merged.previous_archive.root,

@@ -22,13 +22,10 @@ export type L2ChainConfig = L1ContractsConfig &
     sponsoredFPC: boolean;
     p2pEnabled: boolean;
     p2pBootstrapNodes: string[];
-    registryAddress: string;
-    slashFactoryAddress: string;
-    feeAssetHandlerAddress: string;
     seqMinTxsPerBlock: number;
     seqMaxTxsPerBlock: number;
     realProofs: boolean;
-    snapshotsUrl: string;
+    snapshotsUrls: string[];
     autoUpdate: SharedNodeConfig['autoUpdate'];
     autoUpdateUrl?: string;
     maxTxPoolSize: number;
@@ -99,13 +96,10 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: false,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '0x53e2c2148da04fd0e8dd282f016f627a187c292c',
-  slashFactoryAddress: '0x56448efb139ef440438dfa445333734ea5ed60a0',
-  feeAssetHandlerAddress: '0x3613b834544030c166a4d47eca14b910f4816f57',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
-  snapshotsUrl: `${SNAPSHOT_URL}/staging-ignition/`,
+  snapshotsUrls: [`${SNAPSHOT_URL}/staging-ignition/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-ignition.json',
   maxTxPoolSize: 100_000_000, // 100MB
@@ -182,13 +176,10 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: true,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '0xe83067689f3cf837ccbf8a3966f0e0fe985dcb3e',
-  slashFactoryAddress: '0x8b87a1812162d4890f01bb40f410047f37d3ceb8',
-  feeAssetHandlerAddress: '0xa8159159a9e2a57c6e8c59fd5b3dd94c6dbddfe3',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
-  snapshotsUrl: `${SNAPSHOT_URL}/staging-public/`,
+  snapshotsUrls: [`${SNAPSHOT_URL}/staging-public/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-public.json',
   publicIncludeMetrics,
@@ -237,13 +228,10 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: true,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '0xcfe61b2574984326679cd15c6566fbd4a724f3b4',
-  slashFactoryAddress: '0x58dc5b14f9d3085c9106f5b8208a1026f94614f0',
-  feeAssetHandlerAddress: '0x7abdec6e68ae27c37feb6a77371382a109ec4763',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
-  snapshotsUrl: `${SNAPSHOT_URL}/testnet/`,
+  snapshotsUrls: [`${SNAPSHOT_URL}/testnet/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/testnet.json',
   maxTxPoolSize: 100_000_000, // 100MB
@@ -294,13 +282,10 @@ export const ignitionL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: false,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '',
-  slashFactoryAddress: '',
-  feeAssetHandlerAddress: '',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
-  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/ignition/',
+  snapshotsUrls: ['https://storage.googleapis.com/aztec-testnet/snapshots/ignition/'],
   autoUpdate: 'notify',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/ignition.json',
   maxTxPoolSize: 100_000_000, // 100MB
@@ -436,7 +421,7 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('SEQ_MAX_TX_PER_BLOCK', config.seqMaxTxsPerBlock.toString());
   enrichVar('PROVER_REAL_PROOFS', config.realProofs.toString());
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
-  enrichVar('SYNC_SNAPSHOTS_URL', config.snapshotsUrl);
+  enrichVar('SYNC_SNAPSHOTS_URLS', config.snapshotsUrls.join(','));
   enrichVar('P2P_MAX_TX_POOL_SIZE', config.maxTxPoolSize.toString());
 
   enrichVar('DATA_STORE_MAP_SIZE_KB', config.dbMapSizeKb.toString());
@@ -464,10 +449,6 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   if (config.publicMetricsCollectFrom) {
     enrichVar('PUBLIC_OTEL_COLLECT_FROM', config.publicMetricsCollectFrom.join(','));
   }
-
-  enrichEthAddressVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);
-  enrichEthAddressVar('SLASH_FACTORY_CONTRACT_ADDRESS', config.slashFactoryAddress);
-  enrichEthAddressVar('FEE_ASSET_HANDLER_CONTRACT_ADDRESS', config.feeAssetHandlerAddress);
 
   // Deployment stuff
   enrichVar('ETHEREUM_SLOT_DURATION', config.ethereumSlotDuration.toString());

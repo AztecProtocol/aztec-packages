@@ -161,10 +161,11 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       const [proofTx] = proverDelayer.getCancelledTxs();
       expect(proofTx).toBeDefined();
       await proverNode.stop();
+      logger.warn(`Prover node stopped.`);
 
       // Wait for the node to prune
       const syncTimeout = L2_SLOT_DURATION_IN_S * 2;
-      await retryUntil(() => node.getBlockNumber().then(b => b <= 1), 'node sync', syncTimeout, 0.1);
+      await retryUntil(() => node.getBlockNumber().then(b => b <= 1), 'node prune', syncTimeout, 0.1);
       expect(monitor.l2ProvenBlockNumber).toEqual(0);
       expect(await node.getProvenBlockNumber()).toEqual(0);
 
@@ -180,7 +181,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       expect(l2ProvenBlockNumber).toBeGreaterThan(0);
 
       // And so the node undoes its reorg
-      await retryUntil(() => node.getBlockNumber().then(b => b >= l2BlockNumber), 'node sync', syncTimeout, 0.1);
+      await retryUntil(() => node.getBlockNumber().then(b => b >= l2BlockNumber), 'node resync', syncTimeout, 0.1);
       await retryUntil(() => node.getProvenBlockNumber().then(b => b >= l2ProvenBlockNumber), 'proof sync', 1, 0.1);
 
       logger.warn(`Test succeeded`);

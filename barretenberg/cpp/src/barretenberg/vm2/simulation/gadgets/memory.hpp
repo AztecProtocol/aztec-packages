@@ -14,7 +14,7 @@ namespace bb::avm2::simulation {
 
 class Memory : public MemoryInterface {
   public:
-    Memory(uint32_t space_id,
+    Memory(uint16_t space_id,
            RangeCheckInterface& range_check,
            ExecutionIdGetterInterface& execution_id_manager,
            EventEmitterInterface<MemoryEvent>& event_emitter)
@@ -27,14 +27,14 @@ class Memory : public MemoryInterface {
     const MemoryValue& get(MemoryAddress index) const override;
     void set(MemoryAddress index, MemoryValue value) override;
 
-    uint32_t get_space_id() const override { return space_id; }
+    uint16_t get_space_id() const override { return space_id; }
 
     // Only used in debug logging.
     const MemoryValue& unconstrained_get(MemoryAddress index) const;
 
   private:
-    uint32_t space_id;
-    unordered_flat_map<size_t, MemoryValue> memory;
+    uint16_t space_id;
+    unordered_flat_map<MemoryAddress, MemoryValue> memory;
 
     RangeCheckInterface& range_check;
     ExecutionIdGetterInterface& execution_id_manager;
@@ -54,7 +54,7 @@ class MemoryProvider : public MemoryProviderInterface {
         , events(event_emitter)
     {}
 
-    std::unique_ptr<MemoryInterface> make_memory(uint32_t space_id) override
+    std::unique_ptr<MemoryInterface> make_memory(uint16_t space_id) override
     {
         return std::make_unique<Memory>(space_id, range_check, execution_id_manager, events);
     }

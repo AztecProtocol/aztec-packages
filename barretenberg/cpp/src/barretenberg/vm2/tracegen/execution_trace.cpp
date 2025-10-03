@@ -34,6 +34,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_send_l2_to_l1_msg.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
+#include "barretenberg/vm2/generated/relations/perms_data_copy.hpp"
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -1174,6 +1175,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
             Column::gt_sel)
         // Dispatch to gadget sub-traces
         .add<perm_execution_dispatch_keccakf1600_settings, InteractionType::Permutation>()
+        .add<perm_data_copy_dispatch_cd_copy_settings, InteractionType::Permutation>()
+        .add<perm_data_copy_dispatch_rd_copy_settings, InteractionType::Permutation>()
         // GetEnvVar opcode
         .add<lookup_get_env_var_precomputed_info_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_get_env_var_read_from_public_inputs_col0_settings, InteractionType::LookupIntoIndexedByClk>()

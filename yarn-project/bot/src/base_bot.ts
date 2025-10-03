@@ -2,7 +2,7 @@ import {
   AztecAddress,
   BatchCall,
   ContractFunctionInteraction,
-  type SendMethodOptions,
+  type SendInteractionOptions,
   SentTx,
   TxHash,
   TxReceipt,
@@ -71,7 +71,9 @@ export abstract class BaseBot {
     return Promise.resolve();
   }
 
-  protected async getSendMethodOpts(interaction: ContractFunctionInteraction | BatchCall): Promise<SendMethodOptions> {
+  protected async getSendMethodOpts(
+    interaction: ContractFunctionInteraction | BatchCall,
+  ): Promise<SendInteractionOptions> {
     const { l2GasLimit, daGasLimit, baseFeePadding } = this.config;
 
     this.wallet.setBaseFeePadding(baseFeePadding);

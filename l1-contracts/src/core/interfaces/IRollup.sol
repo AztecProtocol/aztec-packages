@@ -142,6 +142,7 @@ interface IRollupCore {
   function setRewardConfig(RewardConfig memory _config) external;
   function updateManaTarget(uint256 _manaTarget) external;
 
+  function isRewardsClaimable() external view returns (bool);
   // solhint-disable-next-line func-name-mixedcase
   function L1_BLOCK_AT_GENESIS() external view returns (uint256);
 }

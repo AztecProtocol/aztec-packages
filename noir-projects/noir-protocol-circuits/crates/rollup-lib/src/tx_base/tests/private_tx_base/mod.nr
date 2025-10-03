@@ -153,7 +153,7 @@ impl TestBuilder {
             public_data_tree: std::mem::zeroed(),
         };
 
-        // Insert the pre-existing note hashes at a non-zero index by default.
+        // Insert the pre-existing note hashes at a random non-zero index by default.
         let note_hash_start_index = (MAX_NOTE_HASHES_PER_TX * 26) as Field;
         builder.build_note_hash_tree(note_hash_start_index);
         // Insert the pre-existing nullifiers at index 0 by default.

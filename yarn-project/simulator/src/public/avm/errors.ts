@@ -1,23 +1,16 @@
 import type { Point } from '@aztec/foundation/fields';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { FailingFunction, NoirCallStack } from '@aztec/stdlib/errors';
 
 import { ExecutionError } from '../../common/errors.js';
+import { CheckedPublicExecutionError } from '../public_errors.js';
 
 /**
  * Avm-specific errors should derive from this
  */
-export abstract class AvmExecutionError extends Error {
+export abstract class AvmExecutionError extends CheckedPublicExecutionError {
   constructor(message: string) {
     super(message);
     this.name = 'AvmExecutionError';
-  }
-}
-
-export class NoBytecodeForContractError extends AvmExecutionError {
-  constructor(contractAddress: AztecAddress) {
-    super(`No bytecode found at: ${contractAddress}`);
-    this.name = 'NoBytecodeFoundInterpreterError';
   }
 }
 
@@ -129,22 +122,12 @@ export class OutOfGasError extends AvmExecutionError {
 }
 
 /**
- * Error is thrown when the supplied points length is not a multiple of 3. Specific for MSM opcode.
+ * Error is thrown when one of the supplied points does not lie on the Grumpkin curve. Specific for ECADD opcode.
  */
-export class MSMPointsLengthError extends AvmExecutionError {
-  constructor(pointsReadLength: number) {
-    super(`Points vector length should be a multiple of 3, was ${pointsReadLength}`);
-    this.name = 'MSMPointsLengthError';
-  }
-}
-
-/**
- * Error is thrown when one of the supplied points does not lie on the Grumpkin curve. Specific for MSM opcode.
- */
-export class MSMPointNotOnCurveError extends AvmExecutionError {
-  constructor(point: Point) {
-    super(`Point ${point.toString()} is not on the curve.`);
-    this.name = 'MSMPointNotOnCurveError';
+export class EcAddPointNotOnCurveError extends AvmExecutionError {
+  constructor(pointIndex: number, point: Point) {
+    super(`EcAdd point${pointIndex} (${point.toString()}) is not on the curve.`);
+    this.name = 'EcAddPointNotOnCurveError';
   }
 }
 

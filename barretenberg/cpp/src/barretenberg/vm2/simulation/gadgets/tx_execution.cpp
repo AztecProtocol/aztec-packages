@@ -68,6 +68,7 @@ void TxExecution::simulate(const Tx& tx)
         .state = tx_context.serialize_tx_context_event(),
         .gas_limit = gas_limit,
         .teardown_gas_limit = teardown_gas_limit,
+        .phase_lengths = PhaseLengths::from_tx(tx), // extract lengths of each phase at start
     });
 
     info("Simulating tx ",
@@ -247,9 +248,11 @@ void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)
         if (prev_nullifier_count == MAX_NULLIFIERS_PER_TX) {
             throw TxExecutionException("Maximum number of nullifiers reached");
         }
-        bool success = merkle_db.siloed_nullifier_write(nullifier);
-        if (!success) {
-            throw TxExecutionException("Nullifier collision");
+
+        try {
+            merkle_db.siloed_nullifier_write(nullifier);
+        } catch (const NullifierCollisionException& e) {
+            throw TxExecutionException(e.what());
         }
 
         events.emit(TxPhaseEvent{ .phase = phase,

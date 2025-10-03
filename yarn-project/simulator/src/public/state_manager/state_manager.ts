@@ -28,8 +28,9 @@ import type { AvmExecutionEnvironment } from '../avm/avm_execution_environment.j
 import type { PublicContractsDBInterface } from '../db_interfaces.js';
 import { getPublicFunctionDebugName } from '../debug_fn_name.js';
 import type { PublicTreesDB } from '../public_db_sources.js';
+import { MaxCallsToUniqueContractClassIdsError, NullifierCollisionError } from '../side_effect_errors.js';
 import type { PublicSideEffectTraceInterface } from '../side_effect_trace_interface.js';
-import { NullifierCollisionError, NullifierManager } from './nullifiers.js';
+import { NullifierManager } from './nullifiers.js';
 import { PublicStorage } from './public_storage.js';
 
 /**
@@ -455,7 +456,7 @@ export class PublicPersistableStateManager {
    * @param classId - class id to retrieve.
    * @returns the contract class or undefined if it does not exist.
    */
-  public async getContractClass(classId: Fr): Promise<ContractClassPublicWithCommitment | undefined> {
+  private async getContractClass(classId: Fr): Promise<ContractClassPublicWithCommitment | undefined> {
     this.log.trace(`Getting contract class for id ${classId}`);
     const contractClass = await this.contractsDB.getContractClass(classId);
     const exists = contractClass !== undefined;
@@ -476,7 +477,7 @@ export class PublicPersistableStateManager {
         publicBytecodeCommitment: bytecodeCommitment,
       };
     } else {
-      this.log.debug(`Contract instance NOT FOUND (id=${classId})`);
+      this.log.debug(`Contract class NOT FOUND (id=${classId})`);
     }
 
     // TODO(dbanks12): does this need to be moved to before the DB accesses as was done with writeNullifier?
@@ -495,13 +496,20 @@ export class PublicPersistableStateManager {
       return undefined;
     }
 
-    const contractClass = await this.getContractClass(contractInstance.currentContractClassId);
-    assert(
-      contractClass,
-      `Contract class not found in DB, but a contract instance was found with this class ID (${contractInstance.currentContractClassId}). This should not happen!`,
-    );
-
-    return contractClass.packedBytecode;
+    try {
+      const contractClass = await this.getContractClass(contractInstance.currentContractClassId);
+      assert(
+        contractClass,
+        `Contract class not found in DB, but a contract instance was found with this class ID (${contractInstance.currentContractClassId}). This should not happen!`,
+      );
+      return contractClass.packedBytecode;
+    } catch (error) {
+      if (error instanceof MaxCallsToUniqueContractClassIdsError) {
+        return undefined;
+      }
+      // Otherwise, unknown error. This is a bug.
+      throw error;
+    }
   }
 
   public async getPublicFunctionDebugName(avmEnvironment: AvmExecutionEnvironment): Promise<string> {

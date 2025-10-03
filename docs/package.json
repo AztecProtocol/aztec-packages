@@ -78,5 +78,8 @@
       "last 1 safari version"
     ]
   },
+  "resolutions": {
+    "tar-fs": "^3.1.1"
+  },
   "packageManager": "yarn@4.5.2"
 }

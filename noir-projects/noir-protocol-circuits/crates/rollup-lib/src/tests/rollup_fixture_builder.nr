@@ -1,7 +1,6 @@
 use crate::abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs, TxRollupPublicInputs};
-use blob::blob_batching_public_inputs::{
-    BatchingBlobCommitment, BlobAccumulatorPublicInputs, BLSPoint, FinalBlobBatchingChallenges,
-};
+use bignum::BigNum;
+use blob::abis::{BatchingBlobCommitment, BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges};
 use parity_lib::ParityPublicInputs;
 use types::{
     abis::{
@@ -360,10 +359,10 @@ impl RollupFixtureBuilder {
         sponge
     }
 
-    pub fn get_blob_accumulator(self, slot_number: Field) -> BlobAccumulatorPublicInputs {
+    pub fn get_blob_accumulator(self, slot_number: Field) -> BlobAccumulator {
         if slot_number == (self.start_slot_number - 1) {
             // The first checkpoint in an epoch should start with an empty blob accumulator.
-            BlobAccumulatorPublicInputs::empty()
+            BlobAccumulator::empty()
         } else {
             self.make_fixture(slot_number, 0, 1)
         }
@@ -385,7 +384,7 @@ impl RollupFixtureBuilder {
         let z = end_block_accumulator.z_acc;
         // Safety: This is only for testing.
         let gamma = unsafe { __from_field(poseidon2_hash([end_block_accumulator.gamma_acc, z])) };
-        FinalBlobBatchingChallenges { z, gamma: bigint::bignum::BigNum::from_limbs(gamma) }
+        FinalBlobBatchingChallenges { z, gamma: BigNum::from_limbs(gamma) }
     }
 
     fn get_fee(_self: Self, tx_or_block_number: u32) -> Field {

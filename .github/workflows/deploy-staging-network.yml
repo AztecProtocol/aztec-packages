@@ -138,3 +138,21 @@ jobs:
         run: |
           echo "Updating monitoring app for testnet deployment..."
           ./spartan/metrics/testnet-monitor/scripts/update-monitoring.sh testnet ${{ env.MONITORING_NAMESPACE }}
+
+      - name: Notify Slack on failure
+        if: failure() && env.MAJOR_VERSION == '2'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          if [ -n "${SLACK_BOT_TOKEN}" ]; then
+            read -r -d '' data <<EOF || true
+            {
+              "channel": "#alerts-${{ inputs.network }}",
+              "text": "Deploy Staging Network workflow FAILED for *${{ inputs.network }}* (version ${{ inputs.semver }}): <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
+            }
+          EOF
+            curl -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-type: application/json" \
+              --data "$data"
+          fi
