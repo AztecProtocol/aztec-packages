@@ -58,13 +58,12 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
 
     // For each block in the trace, populate wire polys, copy cycles and selector polys
     for (auto& block : builder.blocks.get()) {
-        const uint32_t offset = block.trace_offset();
+        const uint32_t offset = block.trace_offset() + base_shift;
         const uint32_t block_size = static_cast<uint32_t>(block.size());
 
         // Save ranges over which the blocks are "active" for use in structured commitments
         if (block.size() > 0) {
-            // record active region with the shift applied
-            active_region_data.add_range(offset + base_shift, offset + base_shift + block.size());
+            active_region_data.add_range(offset, offset + block.size());
         }
 
         // Update wire polynomials and copy cycles
@@ -76,8 +75,8 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
                 for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
                     uint32_t var_idx = block.wires[wire_idx][block_row_idx]; // an index into the variables array
                     uint32_t real_var_idx = builder.real_variable_index[var_idx];
-                    uint32_t trace_row_idx = block_row_idx + offset + base_shift;
-                    // populate wires at shifted row
+                    uint32_t trace_row_idx = block_row_idx + offset;
+                    // Insert the real witness values from this block into the wire polys at the correct offset
                     wires[wire_idx].at(trace_row_idx) = builder.get_variable(var_idx);
                     // Add the address of the witness value to its corresponding copy cycle
                     copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, trace_row_idx });
@@ -91,7 +90,7 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
         for (size_t selector_idx = 0; selector_idx < block_selectors.size(); selector_idx++) {
             auto& selector = block_selectors[selector_idx];
             for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
-                size_t trace_row_idx = row_idx + offset + base_shift;
+                size_t trace_row_idx = row_idx + offset;
                 selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);
             }
         }

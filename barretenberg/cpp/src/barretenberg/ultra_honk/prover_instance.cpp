@@ -84,9 +84,6 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_selec
 {
     BB_BENCH_NAME("allocate_selectors");
 
-    // Shift only for UltraZKFlavor
-    constexpr bool is_ultra_zk = std::is_same_v<Flavor, UltraZKFlavor>;
-    constexpr uint32_t base_shift = is_ultra_zk ? 4 : 0;
     // Define gate selectors over the block they are isolated to
     for (auto [selector, block] : zip_view(polynomials.get_gate_selectors(), circuit.blocks.get_gate_blocks())) {
 
@@ -113,27 +110,26 @@ void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& c
 {
     BB_BENCH_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
-    size_t table_offset = circuit.blocks.lookup.trace_offset();
+    size_t table_offset = circuit.blocks.lookup.trace_offset() + base_shift;
     size_t table_start_idx = std::is_same_v<Flavor, UltraZKFlavor> ? 1 : table_offset;
-    size_t zk_offset = std::is_same_v<Flavor, UltraZKFlavor> ? 4 : 0;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): can potentially improve memory footprint
-    const size_t max_tables_size = dyadic_size() - table_offset - zk_offset;
+    const size_t max_tables_size = dyadic_size() - table_offset;
     BB_ASSERT_GT(dyadic_size(), max_tables_size);
 
     // Allocate the polynomials containing the actual table data
     if constexpr (IsUltraOrMegaHonk<Flavor>) {
         for (auto& poly : polynomials.get_tables()) {
-            poly = Polynomial(max_tables_size + zk_offset, dyadic_size(), table_start_idx);
+            poly = Polynomial(max_tables_size + base_shift, dyadic_size(), table_start_idx);
         }
     }
 
     // Allocate the read counts and tags polynomials
-    polynomials.lookup_read_counts = Polynomial(max_tables_size + zk_offset, dyadic_size(), table_start_idx);
-    polynomials.lookup_read_tags = Polynomial(max_tables_size + zk_offset, dyadic_size(), table_start_idx);
+    polynomials.lookup_read_counts = Polynomial(max_tables_size + base_shift, dyadic_size(), table_start_idx);
+    polynomials.lookup_read_tags = Polynomial(max_tables_size + base_shift, dyadic_size(), table_start_idx);
 
     const size_t lookup_block_end =
         static_cast<size_t>(table_offset + circuit.blocks.lookup.get_fixed_size(is_structured));
-    const auto tables_end = table_offset + max_tables_size + zk_offset;
+    const auto tables_end = table_offset + max_tables_size;
 
     // Allocate the lookup_inverses polynomial
 
@@ -361,10 +357,7 @@ void ProverInstance_<Flavor>::move_structured_trace_overflow_to_overflow_block(C
 template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::populate_memory_records(const Circuit& circuit)
 {
     // Store the read/write records as indices into the full trace by accounting for the offset of the memory block.
-    uint32_t ram_rom_offset = circuit.blocks.memory.trace_offset();
-    if constexpr (std::is_same_v<Flavor, UltraZKFlavor>) {
-        ram_rom_offset += 4;
-    }
+    uint32_t ram_rom_offset = circuit.blocks.memory.trace_offset() + base_shift;
 
     memory_read_records.reserve(circuit.memory_read_records.size());
     for (auto& index : circuit.memory_read_records) {

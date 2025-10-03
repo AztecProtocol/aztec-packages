@@ -37,6 +37,8 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
   public:
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
+    static constexpr bool is_ultra_zk = std::is_same_v<Flavor, UltraZKFlavor>;
+    static constexpr uint32_t base_shift = is_ultra_zk ? 4 : 0;
 
   private:
     using Circuit = typename Flavor::CircuitBuilder;
@@ -184,9 +186,8 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
             }
         }
         // Set the lagrange polynomials
-        size_t lagrange_first_idx = std::is_same_v<Flavor, UltraZKFlavor> ? 4 : 0;
-        polynomials.lagrange_first.at(lagrange_first_idx) = 1;
-        polynomials.lagrange_last.at(final_active_wire_idx + lagrange_first_idx) = 1;
+        polynomials.lagrange_first.at(base_shift) = 1;
+        polynomials.lagrange_last.at(final_active_wire_idx + base_shift) = 1;
 
         {
             BB_BENCH_NAME("constructing lookup table polynomials");
@@ -203,8 +204,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         }
         { // Public inputs handling
             metadata.num_public_inputs = circuit.blocks.pub_inputs.size();
-            metadata.pub_inputs_offset =
-                circuit.blocks.pub_inputs.trace_offset() + ((std::is_same_v<Flavor, UltraZKFlavor>) ? 4 : 0);
+            metadata.pub_inputs_offset = circuit.blocks.pub_inputs.trace_offset() + base_shift;
             for (size_t i = 0; i < metadata.num_public_inputs; ++i) {
                 size_t idx = i + metadata.pub_inputs_offset;
                 public_inputs.emplace_back(polynomials.w_r[idx]);
