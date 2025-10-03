@@ -71,7 +71,7 @@ pub contract Counter {
 }
 ```
 
-```rust title="imports" showLineNumbers 
+```rust title="imports" showLineNumbers
 use aztec::{
     macros::{functions::{initializer, private, utility}, storage::storage},
     oracle::debug_log::debug_log_format, protocol_types::{address::AztecAddress, traits::ToField},
@@ -98,7 +98,7 @@ use easy_private_state::EasyPrivateUint;
 
 Add this below the imports. It declares the storage variables for our contract. We are going to store a mapping of values for each `AztecAddress`.
 
-```rust title="storage_struct" showLineNumbers 
+```rust title="storage_struct" showLineNumbers
 #[storage]
 struct Storage<Context> {
     counters: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
@@ -113,7 +113,7 @@ Now we’ve got a mechanism for storing our private state, we can start using it
 
 Let’s create a constructor method to run on deployment that assigns an initial count to a specified owner. This function is called `initialize`, but behaves like a constructor. It is the `#[initializer]` decorator that specifies that this function behaves like a constructor. Write this:
 
-```rust title="constructor" showLineNumbers 
+```rust title="constructor" showLineNumbers
 #[initializer]
 #[private]
 // We can name our initializer anything we want as long as it's marked as aztec(initializer)
@@ -133,7 +133,7 @@ We have annotated this and other functions with `#[private]` which are ABI macro
 
 Now let’s implement the `increment` function we defined in the first step.
 
-```rust title="increment" showLineNumbers 
+```rust title="increment" showLineNumbers
 #[private]
 fn increment(owner: AztecAddress) {
     debug_log_format("Incrementing counter for owner {0}", [owner.to_field()]);
@@ -150,7 +150,7 @@ The `increment` function works very similarly to the `constructor`, but instead 
 
 The last thing we need to implement is the function in order to retrieve a counter. In the `getCounter` we defined in the first step, write this:
 
-```rust title="get_counter" showLineNumbers 
+```rust title="get_counter" showLineNumbers
 #[utility]
 unconstrained fn get_counter(owner: AztecAddress) -> Field {
     storage.counters.at(owner).get_value()
@@ -185,26 +185,6 @@ aztec codegen -o src/artifacts target
 ```
 
 You can now use the artifact and/or the TS class in your Aztec.js!
-
-## Investigate the `increment` function
-
-Private functions in Aztec contracts are executed client-side, to maintain privacy. Developers need to be mindful of how computationally expensive it is to generate client side proofs for the private functions in the contract they write. To help understand the cost, we can use the Aztec flamegraph tool. The tool takes a contract artifact and function and generates an SVG file that shows the constraint count of each step in the function.
-
-Run it for the `increment` function:
-
-```bash
-SERVE=1 aztec flamegraph target/counter-Counter.json increment
-```
-
-`SERVE=1` will start a local server to view the flamegraph in the browser. You can also run it without this flag and open the generated SVG file in your browser manually.
-
-<Image img={require('/img/flamegraph-counter.png')} />
-
-Note the total gate count at the bottom of the image. The image is interactive; you can hover over different parts of the graph to see the full function name of the execution step and its gate count. This tool also provides insight into the low-level operations that are performed in the private function. Don't worry about the details of the internals of the function right now, just be aware that the more complex the function, the more gates it will use and try out the flamegraph tool on your own functions.
-
-Read more about [profiling transactions with the flamegraph tool](../../guides/smart_contracts/advanced/how_to_profile_transactions.md).
-
-For more information about writing efficient private functions, see [this page](https://noir-lang.org/docs/explainers/explainer-writing-noir) of the Noir documentation.
 
 ## Next Steps
 
