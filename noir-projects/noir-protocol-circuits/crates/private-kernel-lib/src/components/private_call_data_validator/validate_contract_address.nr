@@ -94,7 +94,7 @@ pub fn validate_contract_address(
     };
 
     let protocol_contract_check = is_protocol_contract
-        & (expected_protocol_contract_derived_address == computed_address)
+        & (expected_protocol_contract_derived_address == computed_address) // If the protocol contract doesn't exist yet, its derived address will be zero and a proof won't be generated.
         & !is_updated_contract;
 
     // We can have a normal contract address, which must match the calculated address, an updated contract so the class id used must be the updated one, or
