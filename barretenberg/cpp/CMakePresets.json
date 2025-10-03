@@ -564,8 +564,7 @@
         "LDFLAGS": "-Wl,-undefined,dynamic_lookup"
       },
       "cacheVariables": {
-        "CMAKE_SYSTEM_NAME": "Darwin",
-        "TARGET_ARCH": "generic"
+        "CMAKE_SYSTEM_NAME": "Darwin"
       }
     }
   ],
