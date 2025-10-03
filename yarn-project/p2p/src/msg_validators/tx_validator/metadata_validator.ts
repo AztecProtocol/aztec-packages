@@ -65,7 +65,7 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
   #hasCorrectprotocolContractsHash(tx: T): boolean {
     if (!tx.data.constants.protocolContractsHash.equals(this.values.protocolContractsHash)) {
       this.#log.verbose(
-        `Rejecting tx ${'txHash' in tx ? tx.txHash : tx.hash} because of incorrect protocol contract tree root ${tx.data.constants.protocolContractsHash.toString()} != ${this.values.protocolContractsHash.toString()}`,
+        `Rejecting tx ${'txHash' in tx ? tx.txHash : tx.hash} because of incorrect protocol contracts hash ${tx.data.constants.protocolContractsHash.toString()} != ${this.values.protocolContractsHash.toString()}`,
       );
       return false;
     }

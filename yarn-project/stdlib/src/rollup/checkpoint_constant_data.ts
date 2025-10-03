@@ -17,7 +17,7 @@ export class CheckpointConstantData {
     public version: Fr,
     /** Root of the verification key tree. */
     public vkTreeRoot: Fr,
-    /** Root of the protocol contract tree. */
+    /** Hash of the protocol contracts list. */
     public protocolContractsHash: Fr,
     /** Identifier of the prover. */
     public proverId: Fr,

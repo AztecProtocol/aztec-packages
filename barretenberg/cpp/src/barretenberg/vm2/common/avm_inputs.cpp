@@ -147,7 +147,7 @@ std::vector<std::vector<FF>> PublicInputs::to_columns() const
     cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_FEE_RECIPIENT_ROW_IDX] = globalVariables.feeRecipient;
     set_gas_fees_in_cols(globalVariables.gasFees, cols, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX);
 
-    // Protocol Contract Tree Root
+    // Protocol contracts
     set_protocol_contracts_in_cols(protocolContracts, cols, AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACTS_ROW_IDX);
 
     // Start tree snapshots

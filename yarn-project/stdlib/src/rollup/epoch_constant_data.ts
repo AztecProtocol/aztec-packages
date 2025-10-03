@@ -20,7 +20,7 @@ export class EpochConstantData {
      */
     public vkTreeRoot: Fr,
     /**
-     * Root of the protocol contract tree.
+     * Hash of the protocol contracts list.
      */
     public protocolContractsHash: Fr,
     /**
