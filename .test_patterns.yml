@@ -287,6 +287,9 @@ tests:
     error_regex: "ContractFunctionExecutionError: The contract function"
     owners:
       - *mitch
+  - regex: "e2e_p2p/inactivity_slash.test.ts"
+    owners:
+      - *palla
   - regex: "e2e_p2p/inactivity_slash_with_consecutive_epochs.test.ts"
     error_regex: "only slashes validator inactive for N consecutive epochs"
     owners:
