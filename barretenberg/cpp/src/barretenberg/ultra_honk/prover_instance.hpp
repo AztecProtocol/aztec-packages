@@ -33,14 +33,14 @@ namespace bb {
  *
  * @details A ProverInstance is the equivalent of \f$\omega\f$ in the Protogalaxy paper.
  *
- * Our arithmetisation works as follows. The Flavor defines \f$M\f$ (Flavor::NUM_ALL_ENTITIES) and a series of
+ * Our arithmetization works as follows. The Flavor defines \f$fM\f$ (Flavor::NUM_ALL_ENTITIES) and a series of
  * relations
  * \f$R_1, \dots, R_n\f$ (Flavor::Relations_). Each relation is made up by a series of subrelations: \f$R_i =
  * (R_{i,1}, \dots, R_{i,r_i})\f$.
  *
  * Write \f$p_1, \dots, p_M\f$ for the prover polynomials and \f$p_{i,k}\f$ for the \f$k\f$-th coefficient of \f$p_i\f$.
  * Write \f$\theta_1, \dots, \theta_6\f$ for the relation parameters. Let \f$n\f$ be the max degree of the prover
- * polynomials. A non-relaxed ProverInstance is valid if for all \f$i, j, k\f$ we have \f$R_{i,j}(p_{1,k}, \dots,
+ * polynomials. A pure ProverInstance is valid if for all \f$i, j, k\f$ we have \f$R_{i,j}(p_{1,k}, \dots,
  * p_{M,k}, \theta_1, \dots, \theta_6) = 0\f$.
  *
  * Instead of checking each equality separately, we batch them using challenges that we call `alphas`. Thus, a

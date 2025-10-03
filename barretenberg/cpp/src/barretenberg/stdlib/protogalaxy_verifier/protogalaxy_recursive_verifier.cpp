@@ -20,7 +20,7 @@ void ProtogalaxyRecursiveVerifier_<VerifierInstance>::run_oink_verifier_on_each_
     auto key = insts_to_fold[0];
     auto domain_separator = std::to_string(0);
 
-    // If the first instance to be folded is non-relaxed we need to complete it and generate the gate challenges
+    // If the first instance to be folded in pure we need to complete it and generate the gate challenges
     if (!key->is_complete) {
         OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
         oink_verifier.verify();
@@ -42,8 +42,8 @@ std::shared_ptr<VerifierInstance> ProtogalaxyRecursiveVerifier_<VerifierInstance
     const stdlib::Proof<Builder>& proof)
 {
     // The degree of the combiner quotient (K in the paper) is equal to deg(G) - deg(Z), where Z is the  vanishing
-    // polynomial of the domain 0, .., NUM_INSTANCES-1. Hence, deg(K) = deg(G) - NUM_INSTANCES and we need deg(G) + 1 -
-    // NUM_INSTANCES = BATCHED_EXTENDED_LENGTH - NUM_INSTANCES evaluations to represent it
+    // polynomial of the domain 0, .., NUM_INSTANCES-1. Hence, deg(K) = deg(G) - NUM_INSTANCES and we need
+    // deg(G) + 1 - NUM_INSTANCES = BATCHED_EXTENDED_LENGTH - NUM_INSTANCES evaluations to represent it
     static constexpr size_t COMBINER_QUOTIENT_LENGTH = BATCHED_EXTENDED_LENGTH - NUM_INSTANCES;
 
     // Step 1
