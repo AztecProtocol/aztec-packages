@@ -59,7 +59,7 @@
     "@inquirer/confirm": "^3.0.0",
     "@inquirer/input": "^2.0.0",
     "@inquirer/select": "^2.0.0",
-    "axios": "^1.8.2",
+    "axios": "^1.12.0",
     "commander": "^12.1.0",
     "ora": "^8.0.1",
     "pino": "^9.5.0",
