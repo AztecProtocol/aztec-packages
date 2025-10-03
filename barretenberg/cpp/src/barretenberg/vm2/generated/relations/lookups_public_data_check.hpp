@@ -144,7 +144,7 @@ using lookup_public_data_check_low_leaf_next_slot_validation_relation =
 struct lookup_public_data_check_low_leaf_poseidon2_0_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_PUBLIC_DATA_CHECK_LOW_LEAF_POSEIDON2_0";
     static constexpr std::string_view RELATION_NAME = "public_data_check";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr Column SRC_SELECTOR = Column::public_data_check_sel;
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_start;
     static constexpr Column COUNTS = Column::lookup_public_data_check_low_leaf_poseidon2_0_counts;
@@ -153,13 +153,15 @@ struct lookup_public_data_check_low_leaf_poseidon2_0_settings_ {
         ColumnAndShifts::public_data_check_low_leaf_slot,
         ColumnAndShifts::public_data_check_low_leaf_value,
         ColumnAndShifts::public_data_check_low_leaf_next_index,
-        ColumnAndShifts::public_data_check_low_leaf_hash
+        ColumnAndShifts::public_data_check_low_leaf_hash,
+        ColumnAndShifts::public_data_check_const_two
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::poseidon2_hash_input_0,
         ColumnAndShifts::poseidon2_hash_input_1,
         ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output
+        ColumnAndShifts::poseidon2_hash_output,
+        ColumnAndShifts::poseidon2_hash_num_perm_rounds_rem
     };
 };
 
@@ -204,7 +206,7 @@ using lookup_public_data_check_low_leaf_poseidon2_1_relation =
 struct lookup_public_data_check_updated_low_leaf_poseidon2_0_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_PUBLIC_DATA_CHECK_UPDATED_LOW_LEAF_POSEIDON2_0";
     static constexpr std::string_view RELATION_NAME = "public_data_check";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr Column SRC_SELECTOR = Column::public_data_check_write;
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_start;
     static constexpr Column COUNTS = Column::lookup_public_data_check_updated_low_leaf_poseidon2_0_counts;
@@ -213,13 +215,15 @@ struct lookup_public_data_check_updated_low_leaf_poseidon2_0_settings_ {
         ColumnAndShifts::public_data_check_low_leaf_slot,
         ColumnAndShifts::public_data_check_updated_low_leaf_value,
         ColumnAndShifts::public_data_check_updated_low_leaf_next_index,
-        ColumnAndShifts::public_data_check_updated_low_leaf_hash
+        ColumnAndShifts::public_data_check_updated_low_leaf_hash,
+        ColumnAndShifts::public_data_check_const_two
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::poseidon2_hash_input_0,
         ColumnAndShifts::poseidon2_hash_input_1,
         ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output
+        ColumnAndShifts::poseidon2_hash_output,
+        ColumnAndShifts::poseidon2_hash_num_perm_rounds_rem
     };
 };
 
@@ -297,7 +301,7 @@ using lookup_public_data_check_low_leaf_merkle_check_relation =
 struct lookup_public_data_check_new_leaf_poseidon2_0_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_PUBLIC_DATA_CHECK_NEW_LEAF_POSEIDON2_0";
     static constexpr std::string_view RELATION_NAME = "public_data_check";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr Column SRC_SELECTOR = Column::public_data_check_should_insert;
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_start;
     static constexpr Column COUNTS = Column::lookup_public_data_check_new_leaf_poseidon2_0_counts;
@@ -306,13 +310,15 @@ struct lookup_public_data_check_new_leaf_poseidon2_0_settings_ {
         ColumnAndShifts::public_data_check_leaf_slot,
         ColumnAndShifts::public_data_check_value,
         ColumnAndShifts::public_data_check_low_leaf_next_index,
-        ColumnAndShifts::public_data_check_new_leaf_hash
+        ColumnAndShifts::public_data_check_new_leaf_hash,
+        ColumnAndShifts::public_data_check_const_two
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::poseidon2_hash_input_0,
         ColumnAndShifts::poseidon2_hash_input_1,
         ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output
+        ColumnAndShifts::poseidon2_hash_output,
+        ColumnAndShifts::poseidon2_hash_num_perm_rounds_rem
     };
 };
 

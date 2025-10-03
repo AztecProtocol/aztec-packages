@@ -38,28 +38,52 @@ void address_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
-                   (static_cast<View>(in.get(C::address_derivation_public_keys_hash_domain_separator)) -
-                    CView(constants_GENERATOR_INDEX__PUBLIC_KEYS_HASH));
+                   (static_cast<View>(in.get(C::address_derivation_const_two)) - FF(2));
         std::get<2>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
-                   (static_cast<View>(in.get(C::address_derivation_preaddress_domain_separator)) -
-                    CView(constants_GENERATOR_INDEX__CONTRACT_ADDRESS_V1));
+                   (static_cast<View>(in.get(C::address_derivation_const_three)) - FF(3));
         std::get<3>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
-                   (static_cast<View>(in.get(C::address_derivation_g1_x)) - CView(constants_GRUMPKIN_ONE_X));
+                   (static_cast<View>(in.get(C::address_derivation_const_four)) - FF(4));
         std::get<4>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
-                   (static_cast<View>(in.get(C::address_derivation_g1_y)) - CView(constants_GRUMPKIN_ONE_Y));
+                   (static_cast<View>(in.get(C::address_derivation_const_five)) - FF(5));
         std::get<5>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
+                   (static_cast<View>(in.get(C::address_derivation_public_keys_hash_domain_separator)) -
+                    CView(constants_GENERATOR_INDEX__PUBLIC_KEYS_HASH));
+        std::get<6>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
+                   (static_cast<View>(in.get(C::address_derivation_preaddress_domain_separator)) -
+                    CView(constants_GENERATOR_INDEX__CONTRACT_ADDRESS_V1));
+        std::get<7>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
+                   (static_cast<View>(in.get(C::address_derivation_g1_x)) - CView(constants_GRUMPKIN_ONE_X));
+        std::get<8>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
+                   (static_cast<View>(in.get(C::address_derivation_g1_y)) - CView(constants_GRUMPKIN_ONE_Y));
+        std::get<9>(evals) += (tmp * scaling_factor);
     }
 }
 
