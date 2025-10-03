@@ -47,18 +47,20 @@ using lookup_nullifier_check_silo_poseidon2_relation =
 struct lookup_nullifier_check_low_leaf_poseidon2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NULLIFIER_CHECK_LOW_LEAF_POSEIDON2";
     static constexpr std::string_view RELATION_NAME = "nullifier_check";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr Column SRC_SELECTOR = Column::nullifier_check_sel;
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
     static constexpr Column COUNTS = Column::lookup_nullifier_check_low_leaf_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_nullifier_check_low_leaf_poseidon2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::nullifier_check_sel,
         ColumnAndShifts::nullifier_check_low_leaf_nullifier,
         ColumnAndShifts::nullifier_check_low_leaf_next_nullifier,
         ColumnAndShifts::nullifier_check_low_leaf_next_index,
         ColumnAndShifts::nullifier_check_low_leaf_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::poseidon2_hash_start,
         ColumnAndShifts::poseidon2_hash_input_0,
         ColumnAndShifts::poseidon2_hash_input_1,
         ColumnAndShifts::poseidon2_hash_input_2,
@@ -77,18 +79,20 @@ using lookup_nullifier_check_low_leaf_poseidon2_relation =
 struct lookup_nullifier_check_updated_low_leaf_poseidon2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NULLIFIER_CHECK_UPDATED_LOW_LEAF_POSEIDON2";
     static constexpr std::string_view RELATION_NAME = "nullifier_check";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr Column SRC_SELECTOR = Column::nullifier_check_should_insert;
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
     static constexpr Column COUNTS = Column::lookup_nullifier_check_updated_low_leaf_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_nullifier_check_updated_low_leaf_poseidon2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::nullifier_check_sel,
         ColumnAndShifts::nullifier_check_low_leaf_nullifier,
         ColumnAndShifts::nullifier_check_updated_low_leaf_next_nullifier,
         ColumnAndShifts::nullifier_check_updated_low_leaf_next_index,
         ColumnAndShifts::nullifier_check_updated_low_leaf_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::poseidon2_hash_start,
         ColumnAndShifts::poseidon2_hash_input_0,
         ColumnAndShifts::poseidon2_hash_input_1,
         ColumnAndShifts::poseidon2_hash_input_2,
@@ -189,18 +193,20 @@ using lookup_nullifier_check_low_leaf_next_nullifier_validation_relation =
 struct lookup_nullifier_check_new_leaf_poseidon2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NULLIFIER_CHECK_NEW_LEAF_POSEIDON2";
     static constexpr std::string_view RELATION_NAME = "nullifier_check";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr Column SRC_SELECTOR = Column::nullifier_check_should_insert;
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
     static constexpr Column COUNTS = Column::lookup_nullifier_check_new_leaf_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_nullifier_check_new_leaf_poseidon2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::nullifier_check_sel,
         ColumnAndShifts::nullifier_check_siloed_nullifier,
         ColumnAndShifts::nullifier_check_low_leaf_next_nullifier,
         ColumnAndShifts::nullifier_check_low_leaf_next_index,
         ColumnAndShifts::nullifier_check_new_leaf_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::poseidon2_hash_start,
         ColumnAndShifts::poseidon2_hash_input_0,
         ColumnAndShifts::poseidon2_hash_input_1,
         ColumnAndShifts::poseidon2_hash_input_2,

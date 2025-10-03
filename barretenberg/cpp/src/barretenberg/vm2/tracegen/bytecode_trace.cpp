@@ -156,6 +156,7 @@ void BytecodeTraceBuilder::process_hashing(
             uint32_t pc_index_1 = start_of_bytecode ? 0 : pc_index + 31;
             trace.set(row,
                       { { { C::bc_hashing_sel, 1 },
+                          { C::bc_hashing_start, start_of_bytecode },
                           { C::bc_hashing_sel_not_start, !start_of_bytecode },
                           { C::bc_hashing_latch, end_of_bytecode },
                           { C::bc_hashing_bytecode_id, id },

@@ -164,37 +164,31 @@ void merkle_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                     static_cast<View>(in.get(C::merkle_check_sibling)));
         std::get<19>(evals) += (tmp * scaling_factor);
     }
-    {
-        using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::merkle_check_sel)) *
-                   (static_cast<View>(in.get(C::merkle_check_constant_2)) - FF(2));
-        std::get<20>(evals) += (tmp * scaling_factor);
-    }
     { // OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE
-        using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
         auto tmp = CView(merkle_check_NOT_END) * (static_cast<View>(in.get(C::merkle_check_read_node_shift)) -
                                                   static_cast<View>(in.get(C::merkle_check_read_output_hash)));
-        std::get<21>(evals) += (tmp * scaling_factor);
+        std::get<20>(evals) += (tmp * scaling_factor);
     }
     { // OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE
-        using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
         auto tmp = CView(merkle_check_NOT_END) * (static_cast<View>(in.get(C::merkle_check_write_node_shift)) -
                                                   static_cast<View>(in.get(C::merkle_check_write_output_hash)));
-        std::get<22>(evals) += (tmp * scaling_factor);
+        std::get<21>(evals) += (tmp * scaling_factor);
     }
     { // READ_OUTPUT_HASH_IS_READ_ROOT
-        using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::merkle_check_end)) *
                    (static_cast<View>(in.get(C::merkle_check_read_output_hash)) -
                     static_cast<View>(in.get(C::merkle_check_read_root)));
-        std::get<23>(evals) += (tmp * scaling_factor);
+        std::get<22>(evals) += (tmp * scaling_factor);
     }
     { // WRITE_OUTPUT_HASH_IS_WRITE_ROOT
-        using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::merkle_check_end)) *
                    (static_cast<View>(in.get(C::merkle_check_write_output_hash)) -
                     static_cast<View>(in.get(C::merkle_check_write_root)));
-        std::get<24>(evals) += (tmp * scaling_factor);
+        std::get<23>(evals) += (tmp * scaling_factor);
     }
 }
 
