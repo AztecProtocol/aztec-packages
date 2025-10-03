@@ -191,6 +191,7 @@ bool transpile_artifact(const std::string& input_path, const std::string& output
     info("Transpiled: ", input_path, " -> ", output_path);
 #else
     // If transpiler is not enabled, just copy the file
+    info("Warning: AVM Transpiler is not enabled. Skipping transpilation.");
     if (input_path != output_path) {
         std::filesystem::copy_file(input_path, output_path, std::filesystem::copy_options::overwrite_existing);
     }

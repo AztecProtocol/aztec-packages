@@ -109,6 +109,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
 #else
     name += "\nAztec Virtual Machine (AVM): enabled";
 #endif
+#ifdef ENABLE_AVM_TRANSPILER
+    name += "\nAVM Transpiler: enabled";
+#else
+    name += "\nAVM Transpiler: disabled";
+#endif
 #ifdef STARKNET_GARAGA_FLAVORS
     name += "\nStarknet Garaga Extensions: enabled";
 #else
