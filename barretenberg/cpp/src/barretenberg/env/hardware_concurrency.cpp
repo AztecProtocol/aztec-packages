@@ -13,6 +13,10 @@ extern "C" {
 
 uint32_t env_hardware_concurrency()
 {
+#ifdef NO_MULTITHREADING
+    return 1;
+#else
     return std::thread::hardware_concurrency();
+#endif
 }
 }
