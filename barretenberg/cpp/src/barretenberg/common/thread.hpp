@@ -9,8 +9,12 @@
 #include <vector>
 
 namespace bb {
-
+#ifdef __wasm__
+// Fixed number of workers in WASM environment
+constexpr size_t PARALLEL_FOR_MAX_NESTING = 1;
+#else
 constexpr size_t PARALLEL_FOR_MAX_NESTING = 2;
+#endif
 
 // Useful for programatically benching different thread counts
 // Note this is threadsafe and affects parallel_for's just in that thread if so.
