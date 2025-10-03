@@ -40,7 +40,6 @@ class ThreadPool {
         }
         condition.notify_all();
 
-        info("MAIN");
         do_iterations();
 
         {
@@ -157,14 +156,12 @@ namespace bb {
  */
 void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func)
 {
-    static thread_local size_t i = 0;
     static thread_local size_t nesting_level = 0;
     // There is a unique pool for each thread * nesting level.
     // The main thread will have nesting_level one greater than its child threads.
     // This needs to be an array so that when the main thread recurses here, it uses a different thread pool.
     static thread_local std::array<ThreadPool, PARALLEL_FOR_MAX_NESTING> pools;
 
-    info(nesting_level, ": parallel_for_mutex_pool with ", num_iterations, " iterations", i++);
     // If we exceed max nesting, throw an error
     if (nesting_level >= PARALLEL_FOR_MAX_NESTING) {
         throw_or_abort("parallel_for_mutex_pool: exceeded maximum nesting level");
