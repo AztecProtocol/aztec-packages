@@ -17,7 +17,6 @@ if (NOT(FUZZING))
     )
     # Link avm_transpiler when library is provided
     if(AVM_TRANSPILER_LIB)
-        add_definitions(-DENABLE_AVM_TRANSPILER)
         target_link_libraries(bb PRIVATE ${AVM_TRANSPILER_LIB})
     endif()
     if(NOT DISABLE_AZTEC_VM)

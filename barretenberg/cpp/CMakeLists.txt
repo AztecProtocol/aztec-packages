@@ -153,6 +153,11 @@ if (NOT WASM)
 else()
     set(DISABLE_AZTEC_VM ON)
 endif()
+
+if(AVM_TRANSPILER_LIB)
+    include(cmake/avm-transpiler.cmake)
+endif()
+
 if(DISABLE_AZTEC_VM)
     add_definitions(-DDISABLE_AZTEC_VM=1)
 endif()
