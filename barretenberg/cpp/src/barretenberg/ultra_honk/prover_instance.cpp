@@ -69,9 +69,10 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_lagra
     BB_BENCH_NAME("allocate_lagrange_polynomials");
 
     // First and last lagrange polynomials (in the full circuit size)
-    size_t lagrange_first_idx = std::is_same_v<Flavor, UltraZKFlavor> ? 4 : 0;
     polynomials.lagrange_first = Polynomial(
-        /* size=*/1 + lagrange_first_idx, /*virtual size=*/dyadic_size(), /*start_index=*/lagrange_first_idx);
+        /* size=*/1 + lagrange_first_start_idx,
+        /*virtual size=*/dyadic_size(),
+        /*start_index=*/lagrange_first_start_idx);
 
     // Even though lagrange_last has a single non-zero element, we cannot set its size to 0 as different
     // instances being folded might have lagrange_last set at different indexes and folding does not work
@@ -110,6 +111,7 @@ void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& c
     BB_BENCH_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
     size_t table_offset = circuit.blocks.lookup.trace_offset();
+    // In UltraZK, we mask the top coefficients of polynomials, hence the start idx needs to be 1.
     size_t table_start_idx = std::is_same_v<Flavor, UltraZKFlavor> ? 1 : table_offset;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): can potentially improve memory footprint
     const size_t max_tables_size = dyadic_size() - table_offset;

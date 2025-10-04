@@ -31,15 +31,13 @@ template <typename FF_> class UltraPermutationRelationImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
-        6, // grand product construction sub-relation
-        3  // left-shiftable polynomial sub-relation
-    };
+    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS{ 6, // grand product construction sub-relation
+                                                                        3, // left-shiftable polynomial sub-relation
+                                                                        3 };
 
-    static constexpr std::array<size_t, 2> TOTAL_LENGTH_ADJUSTMENTS{
-        5, // grand product construction sub-relation
-        0  // left-shiftable polynomial sub-relation
-    };
+    static constexpr std::array<size_t, 3> TOTAL_LENGTH_ADJUSTMENTS{ 5, // grand product construction sub-relation
+                                                                     0, // left-shiftable polynomial sub-relation
+                                                                     0 };
 
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
@@ -200,6 +198,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
         using ShortAccumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
 
         std::get<1>(accumulators) += ShortAccumulator((lagrange_last_m * z_perm_shift_m) * scaling_factor);
+        std::get<2>(accumulators) += ShortAccumulator((lagrange_first_m * z_perm_m) * scaling_factor);
     };
 };
 

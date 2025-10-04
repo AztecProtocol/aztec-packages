@@ -38,7 +38,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
     static constexpr bool is_ultra_zk = std::is_same_v<Flavor, UltraZKFlavor>;
-    static constexpr uint32_t offset = is_ultra_zk ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
+    static constexpr uint32_t lagrange_first_start_idx = is_ultra_zk ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
 
   private:
     using Circuit = typename Flavor::CircuitBuilder;
@@ -186,7 +186,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
             }
         }
         // Set the lagrange polynomials
-        polynomials.lagrange_first.at(offset) = 1;
+        polynomials.lagrange_first.at(lagrange_first_start_idx) = 1;
         polynomials.lagrange_last.at(final_active_wire_idx) = 1;
 
         {
