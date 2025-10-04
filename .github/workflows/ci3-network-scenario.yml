@@ -1,0 +1,190 @@
+# CI for Aztec Network Scenarios on Pull Requests.
+# Triggered by adding the 'ci-network-scenario' label to a PR.
+#
+name: CI3 Network Scenario
+
+on:
+  pull_request:
+    types: [labeled]
+
+concurrency:
+  group: network-scenario-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  deploy-and-test-scenarios:
+    if: contains(github.event.pull_request.labels.*.name, 'ci-network-scenario')
+    # need to set environment to get access to the dockerhub secrets
+    runs-on: ubuntu-latest
+    env:
+      NETWORK_ENV_FILE: /tmp/network.env
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+    steps:
+      #############
+      # Prepare Env
+      #############
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Remove label to prevent re-runs
+        run: |
+          # Remove the ci-network-scenario label to prevent accidental re-runs on every push
+          GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} gh pr edit ${{ github.event.pull_request.number }} --remove-label "ci-network-scenario"
+
+      # note: it is fine to log the mnemonic here. this is an internal,
+      # throwaway test network, which you can see gets destroyed before it is created each time.
+      - name: Setup SSH and dependencies
+        run: |
+          # Ensure we can SSH into the spot instances we request.
+          mkdir -p ~/.ssh
+          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends redis-tools parallel
+
+      - name: Setup GCP Authentication
+        uses: ./.github/actions/setup-gcp-auth
+        with:
+          gcp-key: ${{ secrets.GCP_SA_KEY }}
+          gcp-project-id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Write network env file
+        run: |
+          cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
+          RUN_TESTS=true
+          DESTROY_NAMESPACE=true
+          DESTROY_ETH_DEVNET=true
+          CREATE_ETH_DEVNET=true
+          DESTROY_ROLLUP_CONTRACTS=true
+          DESTROY_AZTEC_INFRA=true
+          GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
+          GCP_REGION=us-west1-a
+          CLUSTER=aztec-gke-private
+          SALT=1757186002
+          NAMESPACE=pr-${{ github.event.pull_request.number }}-scenario
+          AZTEC_DOCKER_IMAGE="aztecprotocol/aztecdev:pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}"
+          AZTEC_EPOCH_DURATION=8
+          AZTEC_LAG_IN_EPOCHS=1
+          ETHEREUM_CHAIN_ID=1337
+          LABS_INFRA_MNEMONIC="test test test test test test test test test test test junk"
+          OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}
+          EOF
+
+      - name: Set namespace in env
+        run: echo "NAMESPACE=pr-${{ github.event.pull_request.number }}-scenario" >> $GITHUB_ENV
+
+      - name: Get Tree Hash
+        run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV
+
+      - name: Check CI Cache
+        id: ci_cache
+        uses: actions/cache@v3
+        with:
+          path: ci-success.txt
+          key: ci-network-scenario-pr-${{ env.TREE_HASH }}
+
+      #############
+      # Run
+      #############
+      - name: Run
+        if: steps.ci_cache.outputs.cache-hit != 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          NETWORK_ENV_FILE: ${{ env.NETWORK_ENV_FILE }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          NAMESPACE: ${{ env.NAMESPACE }}
+          REF_NAME: "pr-${{ github.event.pull_request.number }}"
+          PR_DOCKER_TAG: pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+        run: |
+          # the network env file and gcp credentials file are mounted into the ec2 instance
+          # see ci3/bootstrap_ec2
+          exec ./ci.sh network-scenario-pr
+
+      - name: Save CI Success
+        if: steps.ci_cache.outputs.cache-hit != 'true'
+        run: echo "success" > ci-success.txt
+
+  cleanup:
+    if: always() && contains(github.event.pull_request.labels.*.name, 'ci-network-scenario')
+    needs: [deploy-and-test-scenarios]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup GCP Authentication with kubectl
+        uses: ./.github/actions/setup-gcp-auth
+        with:
+          gcp-key: ${{ secrets.GCP_SA_KEY }}
+          gcp-project-id: ${{ secrets.GCP_PROJECT_ID }}
+          setup-kubectl: "true"
+
+      - name: Cleanup namespace
+        run: |
+          NAMESPACE="pr-${{ github.event.pull_request.number }}-scenario"
+          echo "Cleaning up namespace: $NAMESPACE"
+          ./spartan/bootstrap.sh
+          ./spartan/scripts/cleanup_network.sh "$NAMESPACE" || {
+            echo "::warning::Cleanup failed for namespace $NAMESPACE"
+            echo "Manual cleanup may be required: kubectl delete namespace $NAMESPACE"
+            exit 0  # Don't fail the workflow on cleanup failure
+          }
+
+      - name: Post test results comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const namespace = `pr-${{ github.event.pull_request.number }}-scenario`;
+            const testJob = '${{ needs.deploy-and-test-scenarios.result }}';
+            const cleanupJob = '${{ job.status }}';
+            const runUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+
+            let statusEmoji = testJob === 'success' ? '✅' : '❌';
+            let statusText = testJob === 'success' ? 'passed' : 'failed';
+            let cleanupText = cleanupJob === 'success' ? '✅ Cleaned up successfully' : '⚠️ Cleanup may have failed';
+
+            let body = `## ${statusEmoji} Network Scenario Tests ${statusText.toUpperCase()}\n\n`;
+            body += `**Test Status**: ${statusText}\n`;
+            body += `**Namespace**: \`${namespace}\`\n`;
+            body += `**Cleanup Status**: ${cleanupText}\n`;
+            body += `**Workflow Run**: [View logs](${runUrl})\n\n`;
+
+            if (testJob !== 'success') {
+              body += `### ⚠️ Tests Failed\n\nPlease check the [workflow logs](${runUrl}) for details.\n\n`;
+            }
+
+            if (cleanupJob !== 'success') {
+              body += `### Manual Cleanup Required\n\nIf cleanup failed, you may need to manually delete the namespace:\n\`\`\`bash\nkubectl delete namespace ${namespace}\n\`\`\`\n`;
+            }
+
+            body += `\n---\n*To re-run tests, add the \`ci-network-scenario\` label again*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

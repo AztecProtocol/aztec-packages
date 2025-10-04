@@ -91,6 +91,20 @@ case "$cmd" in
       docker manifest push aztecprotocol/aztec:$(dist_tag)
     fi
     ;;
+  "push-pr")
+    echo_header "release-image push-pr"
+    if [ -z "${DOCKERHUB_PASSWORD:-}" ]; then
+      echo "Missing DOCKERHUB_PASSWORD."
+      exit 1
+    fi
+    if [ -z "${PR_DOCKER_TAG:-}" ]; then
+      echo "Missing PR_DOCKER_TAG."
+      exit 1
+    fi
+    echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-adamaztec} --password-stdin
+    docker tag aztecprotocol/aztec:$COMMIT_HASH aztecprotocol/aztecdev:$PR_DOCKER_TAG
+    do_or_dryrun docker push aztecprotocol/aztecdev:$PR_DOCKER_TAG
+    ;;
   build)
     $cmd
     ;;

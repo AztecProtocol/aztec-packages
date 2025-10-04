@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 
 echo "Deploying network..."
 spartan=$(git rev-parse --show-toplevel)/spartan

@@ -152,13 +152,13 @@ tf_run() {
   local destroy_flag="$2"
   local create_flag="$3"
 
-  terraform -chdir="${dir}" init -reconfigure
+  terraform -chdir="${dir}" init -reconfigure || die "Terraform init failed in ${dir}"
   if [[ "${destroy_flag}" == "true" ]]; then
-    terraform -chdir="${dir}" destroy -auto-approve
+    terraform -chdir="${dir}" destroy -auto-approve || die "Terraform destroy failed in ${dir}"
   fi
   if [[ "${create_flag}" == "true" ]]; then
-    terraform -chdir="${dir}" plan -out=tfplan
-    terraform -chdir="${dir}" apply tfplan
+    terraform -chdir="${dir}" plan -out=tfplan || die "Terraform plan failed in ${dir}"
+    terraform -chdir="${dir}" apply tfplan || die "Terraform apply failed in ${dir}"
   fi
 }
 

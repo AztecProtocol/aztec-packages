@@ -452,6 +452,16 @@ case "$cmd" in
     build
     spartan/bootstrap.sh network_tests $NETWORK_ENV_FILE
     ;;
+  "ci-network-cleanup")
+    export CI=1
+    spartan/bootstrap.sh network_cleanup $NETWORK_ENV_FILE
+    ;;
+  "ci-network-scenario-pr")
+    export CI=1
+    build  # Builds all artifacts + creates aztecprotocol/aztec:$COMMIT_HASH
+    release-image/bootstrap.sh push-pr  # Tags and pushes PR-specific image
+    spartan/bootstrap.sh network_deploy $NETWORK_ENV_FILE
+    ;;
   "ci-release")
     export CI=1
     export USE_TEST_CACHE=1

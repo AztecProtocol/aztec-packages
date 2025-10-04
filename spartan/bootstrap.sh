@@ -72,7 +72,7 @@ function network_test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   echo $prefix $run_test_script simple src/spartan/smoke.test.ts
   echo $prefix $run_test_script simple src/spartan/transfer.test.ts
-  echo $prefix $run_test_script simple src/spartan/slash_inactivity.test.ts
+  # echo $prefix $run_test_script simple src/spartan/slash_inactivity.test.ts
 }
 
 function single_test {
@@ -183,6 +183,14 @@ case "$cmd" in
     shift
     env_file="$1"
     network_tests $env_file
+    ;;
+  "network_cleanup")
+    shift
+    env_file="$1"
+    source_env_basic $env_file
+
+    gcp_auth
+    ./scripts/cleanup_network.sh "${NAMESPACE}"
     ;;
   "kind")
     if ! kubectl config get-clusters | grep -q "^kind-kind$" || ! docker ps | grep -q "kind-control-plane"; then

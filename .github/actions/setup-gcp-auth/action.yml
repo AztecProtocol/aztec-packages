@@ -1,0 +1,56 @@
+name: Setup GCP Authentication
+description: Setup GCP service account authentication and optionally configure kubectl
+
+inputs:
+  gcp-key:
+    description: "GCP service account key (base64 encoded JSON)"
+    required: true
+  gcp-project-id:
+    description: "GCP project ID"
+    required: true
+  setup-kubectl:
+    description: "Whether to setup kubectl access to GKE cluster"
+    required: false
+    default: "false"
+  gke-cluster:
+    description: "GKE cluster name (required if setup-kubectl is true)"
+    required: false
+    default: "aztec-gke-private"
+  gke-region:
+    description: "GKE cluster region (required if setup-kubectl is true)"
+    required: false
+    default: "us-west1-a"
+
+outputs:
+  credentials-file:
+    description: "Path to the GCP credentials file"
+    value: ${{ steps.setup.outputs.credentials-file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Store the GCP key in a file
+      id: setup
+      shell: bash
+      env:
+        GCP_SA_KEY: ${{ inputs.gcp-key }}
+      run: |
+        set +x
+        CREDENTIALS_FILE="/tmp/gcp-key.json"
+        umask 077
+        printf '%s' "$GCP_SA_KEY" > "$CREDENTIALS_FILE"
+        jq -e . "$CREDENTIALS_FILE" >/dev/null
+        echo "credentials-file=$CREDENTIALS_FILE" >> $GITHUB_OUTPUT
+        echo "GOOGLE_APPLICATION_CREDENTIALS=$CREDENTIALS_FILE" >> $GITHUB_ENV
+
+    - name: Authenticate with GCP
+      shell: bash
+      run: |
+        gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+        gcloud config set project ${{ inputs.gcp-project-id }}
+
+    - name: Setup kubectl for GKE
+      if: inputs.setup-kubectl == 'true'
+      shell: bash
+      run: |
+        gcloud container clusters get-credentials ${{ inputs.gke-cluster }} --region=${{ inputs.gke-region }}
