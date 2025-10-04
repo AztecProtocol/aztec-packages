@@ -100,7 +100,7 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_prover_instance(Builder& bu
     requires IsMegaFlavor<Flavor>
 {
     auto& ecc_op_selector = polynomials.lagrange_ecc_op;
-    const size_t wire_idx_offset = Flavor::has_zero_row ? 1 : 0;
+    const size_t wire_idx_offset = Flavor::num_zero_rows;
 
     // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates. The data is
     // stored in the ecc op wires starting from index 0, whereas the wires contain the data offset by a zero row.

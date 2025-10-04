@@ -117,12 +117,12 @@ void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& c
 
     // Allocate the polynomials containing the actual table data
     for (auto& poly : polynomials.get_tables()) {
-        poly = Polynomial(max_tables_size + base_shift, dyadic_size(), table_start_idx);
+        poly = Polynomial(max_tables_size, dyadic_size(), table_start_idx);
     }
 
     // Allocate the read counts and tags polynomials
-    polynomials.lookup_read_counts = Polynomial(max_tables_size + base_shift, dyadic_size(), table_start_idx);
-    polynomials.lookup_read_tags = Polynomial(max_tables_size + base_shift, dyadic_size(), table_start_idx);
+    polynomials.lookup_read_counts = Polynomial(max_tables_size, dyadic_size(), table_start_idx);
+    polynomials.lookup_read_tags = Polynomial(max_tables_size, dyadic_size(), table_start_idx);
 
     const size_t lookup_block_end =
         static_cast<size_t>(table_offset + circuit.blocks.lookup.get_fixed_size(is_structured));

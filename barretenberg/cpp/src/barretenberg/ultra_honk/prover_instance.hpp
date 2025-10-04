@@ -38,7 +38,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
     static constexpr bool is_ultra_zk = std::is_same_v<Flavor, UltraZKFlavor>;
-    static constexpr uint32_t base_shift = is_ultra_zk ? 4 : 0;
+    static constexpr uint32_t offset = is_ultra_zk ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
 
   private:
     using Circuit = typename Flavor::CircuitBuilder;
@@ -186,7 +186,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
             }
         }
         // Set the lagrange polynomials
-        polynomials.lagrange_first.at(base_shift) = 1;
+        polynomials.lagrange_first.at(offset) = 1;
         polynomials.lagrange_last.at(final_active_wire_idx) = 1;
 
         {
@@ -229,7 +229,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     bool get_is_structured() { return is_structured; }
 
   private:
-    static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
+    static constexpr size_t num_zero_rows = Flavor::num_zero_rows;
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
 
     size_t compute_dyadic_size(Circuit&);
