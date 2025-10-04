@@ -198,12 +198,14 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData {
 
     UltraExecutionTraceBlocks() = default;
 
-    void compute_offsets(bool is_structured)
+    template <typename Flavor = void> void compute_offsets(bool is_structured)
     {
         if (is_structured) {
             throw_or_abort("Trace is structuring not implemented for UltraHonk");
         }
-        uint32_t offset = 1; // start at 1 because the 0th row is unused for selectors for Honk
+        uint32_t offset = std::is_same_v<Flavor, UltraZKFlavor>
+                              ? 5
+                              : 1; // start at 1 because the 0th row is unused for selectors for Honk
         for (auto& block : this->get()) {
             block.trace_offset_ = offset;
             offset += block.get_fixed_size(is_structured);

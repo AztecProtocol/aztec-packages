@@ -46,10 +46,6 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
 
     BB_BENCH_NAME("construct_trace_data");
 
-    // Shift only for UltraZKFlavor
-    constexpr bool is_ultra_zk = std::is_same_v<Flavor, UltraZKFlavor>;
-    constexpr uint32_t base_shift = is_ultra_zk ? 4 : 0;
-
     std::vector<CyclicPermutation> copy_cycles;
     copy_cycles.resize(builder.get_num_variables()); // at most one copy cycle per variable
 
@@ -58,7 +54,7 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
 
     // For each block in the trace, populate wire polys, copy cycles and selector polys
     for (auto& block : builder.blocks.get()) {
-        const uint32_t offset = block.trace_offset() + base_shift;
+        const uint32_t offset = block.trace_offset();
         const uint32_t block_size = static_cast<uint32_t>(block.size());
 
         // Save ranges over which the blocks are "active" for use in structured commitments

@@ -92,10 +92,9 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_selec
         if (&block == &circuit.blocks.arithmetic) {
             size_t arith_size = circuit.blocks.memory.trace_offset() - circuit.blocks.arithmetic.trace_offset() +
                                 circuit.blocks.memory.get_fixed_size(is_structured);
-            selector = Polynomial(arith_size, dyadic_size(), circuit.blocks.arithmetic.trace_offset() + base_shift);
+            selector = Polynomial(arith_size, dyadic_size(), circuit.blocks.arithmetic.trace_offset());
         } else {
-            selector =
-                Polynomial(block.get_fixed_size(is_structured), dyadic_size(), block.trace_offset() + base_shift);
+            selector = Polynomial(block.get_fixed_size(is_structured), dyadic_size(), block.trace_offset());
         }
     }
 
@@ -110,17 +109,15 @@ void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& c
 {
     BB_BENCH_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
-    size_t table_offset = circuit.blocks.lookup.trace_offset() + base_shift;
+    size_t table_offset = circuit.blocks.lookup.trace_offset();
     size_t table_start_idx = std::is_same_v<Flavor, UltraZKFlavor> ? 1 : table_offset;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): can potentially improve memory footprint
     const size_t max_tables_size = dyadic_size() - table_offset;
     BB_ASSERT_GT(dyadic_size(), max_tables_size);
 
     // Allocate the polynomials containing the actual table data
-    if constexpr (IsUltraOrMegaHonk<Flavor>) {
-        for (auto& poly : polynomials.get_tables()) {
-            poly = Polynomial(max_tables_size + base_shift, dyadic_size(), table_start_idx);
-        }
+    for (auto& poly : polynomials.get_tables()) {
+        poly = Polynomial(max_tables_size + base_shift, dyadic_size(), table_start_idx);
     }
 
     // Allocate the read counts and tags polynomials
@@ -357,8 +354,7 @@ void ProverInstance_<Flavor>::move_structured_trace_overflow_to_overflow_block(C
 template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::populate_memory_records(const Circuit& circuit)
 {
     // Store the read/write records as indices into the full trace by accounting for the offset of the memory block.
-    uint32_t ram_rom_offset = circuit.blocks.memory.trace_offset() + base_shift;
-
+    uint32_t ram_rom_offset = circuit.blocks.memory.trace_offset();
     memory_read_records.reserve(circuit.memory_read_records.size());
     for (auto& index : circuit.memory_read_records) {
         memory_read_records.emplace_back(index + ram_rom_offset);
