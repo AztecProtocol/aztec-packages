@@ -1,5 +1,6 @@
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ipc/mpsc_shm.h"
 #include "barretenberg/ipc/spsc_shm.h"
 #include <benchmark/benchmark.h>
 #include <cstring>
@@ -150,7 +151,7 @@ class Poseidon2IPCFixture : public Fixture {
     }
 };
 
-BENCHMARK_DEFINE_F(Poseidon2IPCFixture, poseiden_hash_ipc_bench)(benchmark::State& state)
+BENCHMARK_DEFINE_F(Poseidon2IPCFixture, poseiden_hash_spsc_roundtrip)(benchmark::State& state)
 {
     for (auto _ : state) {
         // Send request
@@ -187,6 +188,206 @@ BENCHMARK_DEFINE_F(Poseidon2IPCFixture, poseiden_hash_ipc_bench)(benchmark::Stat
         DoNotOptimize(result);
     }
 }
-BENCHMARK_REGISTER_F(Poseidon2IPCFixture, poseiden_hash_ipc_bench)->Unit(benchmark::kMicrosecond);
+BENCHMARK_REGISTER_F(Poseidon2IPCFixture, poseiden_hash_spsc_roundtrip)->Unit(benchmark::kMicrosecond);
+
+// MPSC benchmark: Multiple producers, single consumer (hybrid: forked consumer + thread producers)
+class Poseidon2MPSCFixture : public Fixture {
+  public:
+    static constexpr size_t NUM_PRODUCERS = 3;
+    struct mpsc_producer* producers[NUM_PRODUCERS];
+    struct spsc_shm* response_ring; // Response ring for benchmark thread (producer 0) only
+    pid_t consumer_pid;
+    std::thread background_threads[NUM_PRODUCERS - 1]; // All but benchmark thread
+    std::atomic<bool> stop_background;
+    grumpkin::fq x, y;
+
+    const char* mpsc_name = "poseidon_mpsc_bench";
+    const char* response_ring_name = "poseidon_mpsc_bench_response";
+
+    void SetUp(const ::benchmark::State&) override
+    {
+        // Clean up any leftover shared memory
+        mpsc_unlink(mpsc_name, NUM_PRODUCERS);
+        spsc_shm_unlink(response_ring_name);
+
+        // Fork consumer process
+        consumer_pid = fork();
+        if (consumer_pid == 0) {
+            // Child process - close output to prevent benchmark framework noise
+            close(STDOUT_FILENO);
+            close(STDERR_FILENO);
+
+            struct mpsc_consumer* consumer = mpsc_consumer_create(mpsc_name, NUM_PRODUCERS, 1 << 20);
+            if (!consumer) {
+                _exit(1);
+            }
+
+            // Create response ring for producer 0 (benchmark thread)
+            struct spsc_shm* resp_ring = spsc_shm_create(response_ring_name, 1 << 20);
+            if (!resp_ring) {
+                mpsc_consumer_close(consumer);
+                _exit(1);
+            }
+
+            // Consumer loop: process requests from all producers
+            while (true) {
+                int ring_idx = mpsc_wait_for_data(consumer, 100000);
+                if (ring_idx < 0)
+                    continue;
+
+                size_t n;
+                void* data = mpsc_peek(consumer, static_cast<size_t>(ring_idx), &n);
+                if (n >= 2 * sizeof(grumpkin::fq)) {
+                    grumpkin::fq x, y;
+                    std::memcpy(&x, data, sizeof(grumpkin::fq));
+                    std::memcpy(&y, static_cast<uint8_t*>(data) + sizeof(grumpkin::fq), sizeof(grumpkin::fq));
+
+                    // Process the hash
+                    grumpkin::fq result = poseiden_hash_impl(x, y);
+
+                    // Only send response for ring 0 (benchmark thread)
+                    if (ring_idx == 0) {
+                        while (true) {
+                            if (spsc_wait_for_space(resp_ring, sizeof(grumpkin::fq), 100000)) {
+                                size_t granted;
+                                void* buf = spsc_claim(resp_ring, sizeof(grumpkin::fq), &granted);
+                                if (granted >= sizeof(grumpkin::fq)) {
+                                    std::memcpy(buf, &result, sizeof(grumpkin::fq));
+                                    spsc_publish(resp_ring, sizeof(grumpkin::fq));
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                mpsc_release(consumer, static_cast<size_t>(ring_idx), n);
+            }
+
+            spsc_shm_close(resp_ring);
+            mpsc_consumer_close(consumer);
+            _exit(0);
+        }
+
+        // Wait for consumer to create rings
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        // Connect all producers
+        for (size_t i = 0; i < NUM_PRODUCERS; i++) {
+            producers[i] = mpsc_producer_connect(mpsc_name, i);
+            if (!producers[i]) {
+                throw std::runtime_error("Failed to connect MPSC producer");
+            }
+        }
+
+        // Connect to response ring (for benchmark thread only)
+        response_ring = spsc_shm_connect(response_ring_name);
+        if (!response_ring) {
+            throw std::runtime_error("Failed to connect to response ring");
+        }
+
+        // Spawn background producer threads (all except producer 0 which is the benchmark thread)
+        stop_background.store(false, std::memory_order_relaxed);
+        for (size_t i = 0; i < NUM_PRODUCERS - 1; i++) {
+            background_threads[i] = std::thread([this, i]() {
+                struct mpsc_producer* p = producers[i + 1]; // Producers 1 and 2
+                grumpkin::fq bx = grumpkin::fq::random_element();
+                grumpkin::fq by = grumpkin::fq::random_element();
+
+                while (!stop_background.load(std::memory_order_relaxed)) {
+                    // Send request at maximum rate to create contention
+                    size_t input_size = 2 * sizeof(grumpkin::fq);
+                    if (mpsc_wait_for_space(p, input_size, 20000)) {
+                        size_t granted;
+                        void* buf = mpsc_claim(p, input_size, &granted);
+                        if (granted >= input_size) {
+                            std::memcpy(buf, &bx, sizeof(grumpkin::fq));
+                            std::memcpy(static_cast<uint8_t*>(buf) + sizeof(grumpkin::fq), &by, sizeof(grumpkin::fq));
+                            mpsc_publish(p, input_size);
+                        }
+                    }
+                }
+            });
+        }
+
+        // Pre-generate test inputs for benchmark thread
+        x = grumpkin::fq::random_element();
+        y = grumpkin::fq::random_element();
+    }
+
+    void TearDown(const ::benchmark::State&) override
+    {
+        // Stop background threads
+        stop_background.store(true, std::memory_order_relaxed);
+        for (auto& background_thread : background_threads) {
+            if (background_thread.joinable()) {
+                background_thread.join();
+            }
+        }
+
+        // Close all producers
+        for (auto& producer : producers) {
+            if (producer) {
+                mpsc_producer_close(producer);
+            }
+        }
+
+        // Close response ring
+        if (response_ring) {
+            spsc_shm_close(response_ring);
+        }
+
+        // Kill consumer process
+        kill(consumer_pid, SIGTERM);
+        waitpid(consumer_pid, nullptr, 0);
+
+        // Cleanup shared memory
+        mpsc_unlink(mpsc_name, NUM_PRODUCERS);
+        spsc_shm_unlink(response_ring_name);
+    }
+};
+
+BENCHMARK_DEFINE_F(Poseidon2MPSCFixture, poseiden_hash_mpsc_roundtrip)(benchmark::State& state)
+{
+    struct mpsc_producer* p = producers[0]; // Benchmark thread uses producer 0
+
+    for (auto _ : state) {
+        // Measure full roundtrip latency under multi-producer contention
+        // (Background threads are sending via producers 1 & 2 concurrently)
+
+        // Send request via MPSC
+        size_t input_size = 2 * sizeof(grumpkin::fq);
+        while (true) {
+            if (mpsc_wait_for_space(p, input_size, 20000)) {
+                size_t granted;
+                void* buf = mpsc_claim(p, input_size, &granted);
+                if (granted >= input_size) {
+                    std::memcpy(buf, &x, sizeof(grumpkin::fq));
+                    std::memcpy(static_cast<uint8_t*>(buf) + sizeof(grumpkin::fq), &y, sizeof(grumpkin::fq));
+                    mpsc_publish(p, input_size);
+                    break;
+                }
+            }
+        }
+
+        // Receive response via SPSC response ring
+        grumpkin::fq result;
+        while (true) {
+            if (spsc_wait_for_data(response_ring, 20000)) {
+                size_t n;
+                void* data = spsc_peek(response_ring, &n);
+                if (n >= sizeof(grumpkin::fq)) {
+                    std::memcpy(&result, data, sizeof(grumpkin::fq));
+                    spsc_release(response_ring, n);
+                    break;
+                } else if (n > 0) {
+                    spsc_release(response_ring, n);
+                }
+            }
+        }
+
+        DoNotOptimize(result);
+    }
+}
+BENCHMARK_REGISTER_F(Poseidon2MPSCFixture, poseiden_hash_mpsc_roundtrip)->Unit(benchmark::kMicrosecond);
 
 BENCHMARK_MAIN();
