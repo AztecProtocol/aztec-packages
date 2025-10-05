@@ -3,7 +3,10 @@
 #include "barretenberg/ipc/spsc_shm.h"
 #include <benchmark/benchmark.h>
 #include <cstring>
+#include <signal.h>
+#include <sys/wait.h>
 #include <thread>
+#include <unistd.h>
 
 using namespace benchmark;
 using namespace bb;
@@ -48,8 +51,7 @@ BENCHMARK(poseiden_hash_bench)->Unit(benchmark::kMicrosecond);
 class Poseidon2IPCFixture : public Fixture {
   public:
     struct spsc_shm *req_producer, *resp_consumer;
-    std::thread worker_thread;
-    std::atomic<bool> stop_worker;
+    pid_t worker_pid;
     grumpkin::fq x, y;
 
     const char* request_ring = "/poseidon2_bench_req";
@@ -69,10 +71,13 @@ class Poseidon2IPCFixture : public Fixture {
             throw std::runtime_error("Failed to create SPSC rings");
         }
 
-        stop_worker.store(false, std::memory_order_relaxed);
+        // Fork worker process
+        pid_t pid = fork();
+        if (pid == 0) {
+            // Child process - close output to prevent benchmark framework noise
+            close(STDOUT_FILENO);
+            close(STDERR_FILENO);
 
-        // Spawn worker thread
-        worker_thread = std::thread([this]() {
             struct spsc_shm* req_consumer = spsc_shm_connect(request_ring);
             struct spsc_shm* resp_producer = spsc_shm_connect(response_ring);
 
@@ -81,11 +86,12 @@ class Poseidon2IPCFixture : public Fixture {
                     spsc_shm_close(req_consumer);
                 if (resp_producer)
                     spsc_shm_close(resp_producer);
-                return;
+                _exit(1);
             }
 
-            while (!stop_worker.load(std::memory_order_relaxed)) {
-                if (!spsc_wait_for_data(req_consumer, 20000)) {
+            // Worker loop
+            while (true) {
+                if (!spsc_wait_for_data(req_consumer, 100000)) {
                     continue;
                 }
 
@@ -100,8 +106,8 @@ class Poseidon2IPCFixture : public Fixture {
                     grumpkin::fq result = poseiden_hash_impl(x, y);
 
                     // Send response
-                    while (!stop_worker.load(std::memory_order_relaxed)) {
-                        if (spsc_wait_for_space(resp_producer, sizeof(grumpkin::fq), 20000)) {
+                    while (true) {
+                        if (spsc_wait_for_space(resp_producer, sizeof(grumpkin::fq), 100000)) {
                             size_t granted;
                             void* buf = spsc_claim(resp_producer, sizeof(grumpkin::fq), &granted);
                             if (granted >= sizeof(grumpkin::fq)) {
@@ -118,7 +124,10 @@ class Poseidon2IPCFixture : public Fixture {
 
             spsc_shm_close(req_consumer);
             spsc_shm_close(resp_producer);
-        });
+            _exit(0);
+        }
+
+        worker_pid = pid;
 
         // Wait for worker to be ready
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -130,16 +139,10 @@ class Poseidon2IPCFixture : public Fixture {
 
     void TearDown(const ::benchmark::State&) override
     {
-        stop_worker.store(true, std::memory_order_relaxed);
+        // Kill worker process
+        kill(worker_pid, SIGTERM);
+        waitpid(worker_pid, nullptr, 0);
 
-        // Send a dummy byte to wake up the worker from futex_wait
-        size_t n;
-        void* buf = spsc_claim(req_producer, 1, &n);
-        if (buf) {
-            spsc_publish(req_producer, 1);
-        }
-
-        worker_thread.join();
         spsc_shm_close(req_producer);
         spsc_shm_close(resp_consumer);
         spsc_shm_unlink(request_ring);
@@ -147,7 +150,7 @@ class Poseidon2IPCFixture : public Fixture {
     }
 };
 
-BENCHMARK_DEFINE_F(Poseidon2IPCFixture, ipc_roundtrip)(benchmark::State& state)
+BENCHMARK_DEFINE_F(Poseidon2IPCFixture, poseiden_hash_ipc_bench)(benchmark::State& state)
 {
     for (auto _ : state) {
         // Send request
@@ -184,6 +187,6 @@ BENCHMARK_DEFINE_F(Poseidon2IPCFixture, ipc_roundtrip)(benchmark::State& state)
         DoNotOptimize(result);
     }
 }
-BENCHMARK_REGISTER_F(Poseidon2IPCFixture, ipc_roundtrip)->Unit(benchmark::kMicrosecond);
+BENCHMARK_REGISTER_F(Poseidon2IPCFixture, poseiden_hash_ipc_bench)->Unit(benchmark::kMicrosecond);
 
 BENCHMARK_MAIN();
