@@ -297,12 +297,12 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
     };
 
     // TODO(#225): make the inputs to this test more interesting, e.g. non-trivial permutations
-    void test_zk_prover_verifier_flow()
+    void test_ultra_zk_prover_verifier_flow()
     {
         const size_t multivariate_d(3);
         const size_t multivariate_n(1 << multivariate_d);
 
-        const size_t virtual_log_n = 24;
+        const size_t virtual_log_n = UltraZKFlavor::VIRTUAL_LOG_N;
         // Construct prover polynomials where each is the zero polynomial.
         // Note: ProverPolynomials are defined as spans so the polynomials they point to need to exist in memory.
         std::vector<Polynomial<FF>> zero_polynomials(NUM_POLYNOMIALS);
@@ -312,8 +312,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         auto full_polynomials = construct_ultra_full_polynomials(zero_polynomials);
 
         // Add some non-trivial values to certain polynomials so that the arithmetic relation will have non-trivial
-        // contribution. Note: since all other polynomials are set to 0, all other relations are trivially
-        // satisfied.
+        // contribution. Add some values that don't satisfy constraints at the top of the trace - at row indices 1,
+        // 2, 3.
         std::array<FF, multivariate_n> w_l = { 0, 0, 0, 7, 0, 1, 2, 0 };
         std::array<FF, multivariate_n> w_r = { 0, 53, 2, 4, 0, 1, 2, 0 };
         std::array<FF, multivariate_n> w_o = { 0, 10, 0, 2, 0, 2, 4, 0 };
@@ -521,10 +521,10 @@ TYPED_TEST(SumcheckTests, ProverAndVerifierSimple)
     this->test_prover_verifier_flow();
 }
 
-TYPED_TEST(SumcheckTests, ZKFlow)
+TYPED_TEST(SumcheckTests, UltraZKFlow)
 {
     if constexpr (std::is_same_v<TypeParam, UltraZKFlavor>) {
-        this->test_zk_prover_verifier_flow();
+        this->test_ultra_zk_prover_verifier_flow();
     } else {
         GTEST_SKIP() << "Skipping test for ZK-enabled flavors";
     }
