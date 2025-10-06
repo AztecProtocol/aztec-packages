@@ -138,7 +138,7 @@ Aztec's Aggregated Transaction Cost:
 └── Total: Affordable! 😊
 ```
 
-The key here is that other rollups use ZK proofs and batching transactions purely for succinct verification. But, Aztec uses it also for private state whiilst _still_ maintaining cheaper transaction costs.
+The key here is that other rollups use ZK proofs and batching transactions purely for succinct verification. But, Aztec uses it also for private state whilst _still_ maintaining cheaper transaction costs.
 
 The more people use Aztec, the cheaper it becomes for everyone. It's like carpooling for blockchain transactions!
 
@@ -234,7 +234,7 @@ It's like having a referee that's actually a robot - it can't be bribed, intimid
 
 ## Core Value #4: Compliance
 
-Previously, you could have privacy OR compliance on the blockchain, but not both". With Atec, you can have privacy AND selective, programmable compliance".
+Previously, you could have privacy OR compliance on the blockchain, but not both". With Aztec, you can have privacy AND selective, programmable compliance".
 
 Aztec lets developers build compliance directly into applications while preserving user privacy.
 
@@ -290,7 +290,7 @@ Regulators get the assurance they need, users keep their privacy. Everyone wins!
 
 Let's explore how this enables previously impossible applications:
 
-- **Private But Auditable Business Operations**: Companies can keep trade secrets while proving regulatory complianc and auditors can verify correctness without seeing sensitive data.
+- **Private But Auditable Business Operations**: Companies can keep trade secrets while proving regulatory compliance and auditors can verify correctness without seeing sensitive data.
 - **Age Verification**: Prove you're over 18 without revealing your birthdate or any personal details. This enables compliance with age-verification laws such as age-restricted access, without storing personal details, such as government ID, in a database.
 - **Tax Compliance**: Prove you paid the correct taxes without revealing your entire financial history. This enables automatic reporting without manual disclosure
 
@@ -357,7 +357,7 @@ You now understand:
 
 **Feeling inspired?** You should be! You're about to learn how to build applications that were literally impossible before Aztec.
 
-- [TODO] maybe add a link to cretae a tweet to say you're on the learning journey? Could be good for our metric tracking?
+- [TODO] maybe add a link to create a tweet to say you're on the learning journey? Could be good for our metric tracking?
 :::
 
 ---

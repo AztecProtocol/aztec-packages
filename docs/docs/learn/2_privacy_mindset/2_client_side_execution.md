@@ -17,7 +17,7 @@ By the end of this lesson, you'll understand:
 
 ## Aztec smart contracts
 
-You can write and deploy smart contracts to Aztec, just like Ethereum. Exect they work a litle differently:
+You can write and deploy smart contracts to Aztec, just like Ethereum. Expect they work a little differently:
 
 - Smart contracts are written in [Noir](https://noir-lang.org/) using the [Aztec.nr](https://github.com/AztecProtocol/aztec-packages/tree/next/noir-projects/aztec-nr) framework
 - Functions can be **public** or **private**. This is _different_ from function visibility for Solidity smart contracts. Instead of controlling just **who can call the function** as in Solidity, on Aztec, a function being public or private controls **who and how** the function executes. It affects privacy not just access.
@@ -42,7 +42,7 @@ Think about traditional blockchains like Ethereum. When you execute a smart cont
 
 Instead of everyone executing your transaction, you execute it privately on your own device, then **provide mathematical proof that you did it correctly**. It's like solving a complex puzzle in private, then showing everyone a certificate that proves you solved it, without revealing the solution itself.
 
-This is exactly what a zero-knowledge proof is. It is a mathematical way of proving that you know something, or did some computation correctly, without revealing anything about the thing you know or the compution.
+This is exactly what a zero-knowledge proof is. It is a mathematical way of proving that you know something, or did some computation correctly, without revealing anything about the thing you know or the computation.
 
 ## Understanding zero-knowledge proofs
 
@@ -261,7 +261,7 @@ Let's trace through what happens when you make a private token transfer:
 
 3. **The proof journey begins**:
 
-   - Your application circuit proof is wrapped by kernel circuits (the mega, outer circuir)
+   - Your application circuit proof is wrapped by kernel circuits (the mega, outer circuit)
    - The wrapped proof is sent to the network
    - Sequencers verify it using the verification key
    - Multiple transactions are batched together

@@ -86,7 +86,7 @@ By following this guided learning journey, you will get a hands-on practical und
 
 **Progressive Complexity** - We start with simple concepts and gradually introduce advanced topics, ensuring each module builds on previous knowledge.
 
-**Hands-On Practice** - Every concept is reinforced with practical examples, interactive tutorials, and real-world scenarios you can experiment with in the Aztec Sandbox. [TODO] link her uppppp
+**Hands-On Practice** - Every concept is reinforced with practical examples, interactive tutorials, and real-world scenarios you can experiment with in the Aztec Sandbox. [TODO] link here
 
 **Privacy-First** - Learn to think about application design from a privacy perspective, understanding the trade-offs and opportunities unique to Aztec.
 
@@ -101,7 +101,7 @@ Before beginning, ensure you have:
 - [Node.js (version 18 or higher)](https://nodejs.org/en)
 - Basic command line familiarity
 - A code editor ([VS Code](https://code.visualstudio.com/) recommended)
-- Excitement for jumping down fun rabit holes into the awesome world of privacy :)
+- Excitement for jumping down fun rabbit holes into the awesome world of privacy :)
 
 ### Next Steps
 

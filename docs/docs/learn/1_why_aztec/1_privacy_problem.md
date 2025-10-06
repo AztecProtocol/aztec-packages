@@ -25,9 +25,9 @@ By the end of this section, you'll understand:
 
 ### Problem 1: Blockchain Transparency
 
-Blockchains are transparent by design. This is what makes them so useful: no one can act dishonestly because every transaction is visible on-chain.
+Blockchains are transparent by design. This is what makes them so useful: no one can act dishonestly because every transaction is visible onchain.
 
-Historically, transparency was the only way to ensure blockchain security. There _was_ no way to verify that transactions were valid without making all the data public. Blockchains either had to trust centralized intermediaries (like banks) to validate transactions privately, or make everything transparent so the network could collectively verify correctness. Transparency created a trust minimizedf, decentralized system that didn't rely on trusted third parties. But this transparency also comes at a cost: lack of privacy.
+Historically, transparency was the only way to ensure blockchain security. There _was_ no way to verify that transactions were valid without making all the data public. Blockchains either had to trust centralized intermediaries (like banks) to validate transactions privately, or make everything transparent so the network could collectively verify correctness. Transparency created a trust minimized, decentralized system that didn't rely on trusted third parties. But this transparency also comes at a cost: lack of privacy.
 
 Think about your traditional bank account for a moment. When you buy coffee with your credit card, who can see that transaction? Just you, your bank, and the coffee shop. Now imagine if every time you bought coffee, everyone in the world could see:
 
@@ -38,7 +38,7 @@ Think about your traditional bank account for a moment. When you buy coffee with
 
 That's how most blockchains work today. Every transaction is permanently recorded on a public ledger that _anyone_ can read. Forever.
 
-In this state, blockchains are unusable for many financial applications, because it leaks sensistive data.
+In this state, blockchains are unusable for many financial applications, because it leaks sensitive data.
 
 ### Problem 2: Blockchain Immutability
 
@@ -121,7 +121,7 @@ Blockchain Access Levels:
 └── Public (everything, always, forever)
 ```
 
-### Web2 Priavcy Regulation
+### Web2 Privacy Regulation
 
 In many jurisdictions, Web2 companies must comply with privacy regulations like GDPR, which includes:
 
@@ -203,7 +203,7 @@ By solving the privacy problem, entirely new categories of applications become p
 
 **Healthcare**: Private medical records with patient control, confidential insurance claims, private research participation, private prescription management.
 
-**Legal and Compliance**: Confidential legal documents on-chain, private arbitration systems, sealed records until disclosure needed, compliant data handling.
+**Legal and Compliance**: Confidential legal documents onchain, private arbitration systems, sealed records until disclosure needed, compliant data handling.
 
 :::tip Try This Mental Exercise
 Think about your favorite Web2 application. Now imagine rebuilding it on blockchain. What features would be impossible without privacy? What new features could you add with cryptographic privacy guarantees?

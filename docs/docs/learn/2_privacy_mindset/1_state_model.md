@@ -57,7 +57,7 @@ This is how **public state** works on Aztec. This public data, which follows thi
 
 When we send a transaction, it will modify this specific slot directly. So, even if the key and value themselves are encrypted, the data location is leaked. Using correlation techniques, this would expose information and break the privacy assumption.
 
-Therefore, we use a different model that breaks the link between the user and their balance. This means that balances can be updated whilst keeping the account and their associated data seperate and private.
+Therefore, we use a different model that breaks the link between the user and their balance. This means that balances can be updated whilst keeping the account and their associated data separate and private.
 
 Enter UTXO-based private state using **notes**, which we will go through shortly. For now, just think of them as a sealed envelope that contains the data (e.g. a balance) sealed inside.
 
@@ -84,7 +84,7 @@ Alice consumes (this is called nullifying) both her existing notes and creates t
 Result: Bob has a 25-token note, Alice has a 5-token note.
 ```
 
-Only the people involved in the transaction know their respective amounts and identities (Alice knows how much she sent to Bob and her remaining balance and Bob only knows that he recieved 25 tokens _not_ Alice's remaining balance). Everyone else just sees "some transaction happened" without knowing who, what, or how much. There's no "Alice has 30 tokens" stored anywhere, only individual hashed notes that _only she can knows the preimage for_. Each note is commited to (hashed) and stored separately, rather than the balance being stored in a single note. This allows the connection between a user and their total balance to be broken.
+Only the people involved in the transaction know their respective amounts and identities (Alice knows how much she sent to Bob and her remaining balance and Bob only knows that he received 25 tokens _not_ Alice's remaining balance). Everyone else just sees "some transaction happened" without knowing who, what, or how much. There's no "Alice has 30 tokens" stored anywhere, only individual hashed notes that _only she can knows the preimage for_. Each note is committed to (hashed) and stored separately, rather than the balance being stored in a single note. This allows the connection between a user and their total balance to be broken.
 
 But what actually is a note?
 
@@ -92,7 +92,7 @@ But what actually is a note?
 
 ## Notes
 
-A note is a piece of private data that can optionally be encrypted to share with other users. Notes are fundamental building blocks of private state. They are hased to create commitments which are stored in a Merkle tree and may be posted onchain to make the data easily retrievable by their intended owner, but it is not required.
+A note is a piece of private data that can optionally be encrypted to share with other users. Notes are fundamental building blocks of private state. They are hashed to create commitments which are stored in a Merkle tree and may be posted onchain to make the data easily retrievable by their intended owner, but it is not required.
 
 Think of a note as an envelope or sealed box that contains tokens inside, and only the note owner has the key to open:
 
@@ -123,7 +123,7 @@ Note commitments are stored in an _append-only_ **Note hash Merkle tree** (one o
 
 Commitments have **two key properties**:
 - **Hiding**: The commitment reveals nothing about the note contents or owner.
-- **Binding**: The data (the note) cannot be modified once it has been commited to.
+- **Binding**: The data (the note) cannot be modified once it has been committed to.
 
 Note commitments let users prove note ownership, and the protocol check that a note exists without revealing its data.
 
@@ -142,7 +142,7 @@ Together, commitments say "a note was created", and nullifiers say "a note was c
 
 **Public data** is stored in a Merkle tree using an **account-based model** with key-value pairs, in the same way that Ethereum manages state.
 
-**Private data** is stored in a **note**, which is a UTXO-like envelope that contains the private data. These notes are hased to produce a **commitment** and stored in an **append-only** note hash Merkle tree.
+**Private data** is stored in a **note**, which is a UTXO-like envelope that contains the private data. These notes are hashed to produce a **commitment** and stored in an **append-only** note hash Merkle tree.
 
 To "spend" a note, the user must prove that they know the **preimage** to the commitment without revealing it (this is done using zero-knowledge proofs, which will be explained in the next lesson). Then, a **nullifier** is created and stored in the nullifier Merkle tree to mark it as used.
 
