@@ -549,13 +549,13 @@
       "name": "zig-node-arm64-macos",
       "inherits": "zig-base",
       "environment": {
-        "CC": "zig cc -target aarch64-macos",
-        "CXX": "zig c++ -target aarch64-macos",
+        "CC": "zig cc -target aarch64-macos -mcpu=apple_a14",
+        "CXX": "zig c++ -target aarch64-macos -mcpu=apple_a14",
         "LDFLAGS": "-Wl,-undefined,dynamic_lookup"
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Darwin",
-        "TARGET_ARCH": "generic"
+        "CMAKE_SYSTEM_PROCESSOR": "aarch64"
       }
     }
   ],
