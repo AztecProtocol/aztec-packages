@@ -82,11 +82,11 @@ export class SimpleContractDataSource implements ContractDataSource {
   async getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
     const contractInstance = await this.getContract(address);
     if (!contractInstance) {
-      this.logger.warn(`Contract not found at address: ${address}`);
+      this.logger.warn('Contract not found at address: %s', address);
       return undefined;
     }
-    this.logger.debug(`Retrieved contract artifact for address: ${address}`);
-    this.logger.debug(`Contract class ID: ${contractInstance.currentContractClassId}`);
+    this.logger.debug('Retrieved contract artifact for address: %s', address);
+    this.logger.debug('Contract class ID: %s', contractInstance.currentContractClassId);
     return this.contractArtifacts.get(contractInstance!.currentContractClassId.toString());
   }
 
@@ -101,7 +101,7 @@ export class SimpleContractDataSource implements ContractDataSource {
     const key = `${contractInstance.currentContractClassId.toString()}:${selector.toString()}`;
     const fnName = this.debugFunctionName.get(key);
     if (!fnName) {
-      this.logger.warn(`Couldn't get fn name for debugging. Using selector:${selector} instead...`);
+      this.logger.warn('Couldn\'t get fn name for debugging. Using selector:%s instead...', selector);
       return selector.toString();
     }
     return fnName;
