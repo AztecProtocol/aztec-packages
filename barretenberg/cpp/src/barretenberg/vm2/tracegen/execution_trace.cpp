@@ -84,13 +84,12 @@ constexpr std::array<Column, AVM_MAX_OPERANDS> OPERAND_RELATIVE_OVERFLOW_COLUMNS
     C::execution_sel_relative_overflow_3_, C::execution_sel_relative_overflow_4_, C::execution_sel_relative_overflow_5_,
     C::execution_sel_relative_overflow_6_,
 };
-constexpr std::array<Column, AVM_MAX_OPERANDS> OPERAND_IS_RELATIVE_EFFECTIVE_COLUMNS = {
-    C::execution_sel_op_is_relative_effective_0_, C::execution_sel_op_is_relative_effective_1_,
-    C::execution_sel_op_is_relative_effective_2_, C::execution_sel_op_is_relative_effective_3_,
-    C::execution_sel_op_is_relative_effective_4_, C::execution_sel_op_is_relative_effective_5_,
-    C::execution_sel_op_is_relative_effective_6_,
+constexpr std::array<Column, AVM_MAX_OPERANDS> OPERAND_IS_RELATIVE_VALID_BASE_COLUMNS = {
+    C::execution_sel_op_do_overflow_check_0_, C::execution_sel_op_do_overflow_check_1_,
+    C::execution_sel_op_do_overflow_check_2_, C::execution_sel_op_do_overflow_check_3_,
+    C::execution_sel_op_do_overflow_check_4_, C::execution_sel_op_do_overflow_check_5_,
+    C::execution_sel_op_do_overflow_check_6_,
 };
-
 constexpr size_t TOTAL_INDIRECT_BITS = 16;
 static_assert(AVM_MAX_OPERANDS * 2 <= TOTAL_INDIRECT_BITS);
 constexpr std::array<Column, TOTAL_INDIRECT_BITS / 2> OPERAND_IS_RELATIVE_WIRE_COLUMNS = {
@@ -916,19 +915,26 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     std::array<uint8_t, AVM_MAX_OPERANDS> resolved_operand_tag{};
     uint8_t num_relative_operands = 0;
 
+    bool base_address_invalid = false;
+    bool do_base_check = false;
+
     // Gather operand information.
     for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
         const auto& resolution_info = resolution_info_vec.at(i);
         bool op_is_address = i < ex_spec.num_addresses;
         relative_oob[i] = resolution_info.error.has_value() &&
                           *resolution_info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB;
+        base_address_invalid =
+            base_address_invalid ||
+            (resolution_info.error.has_value() && *resolution_info.error == AddressingEventError::BASE_ADDRESS_INVALID);
         is_indirect_effective[i] = op_is_address && is_operand_indirect(instruction.indirect, i);
         is_relative_effective[i] = op_is_address && is_operand_relative(instruction.indirect, i);
-        should_apply_indirection[i] = is_indirect_effective[i] && !relative_oob[i];
+        should_apply_indirection[i] = is_indirect_effective[i] && !relative_oob[i] && !base_address_invalid;
         resolved_operand_tag[i] = static_cast<uint8_t>(resolution_info.resolved_operand.get_tag());
         after_relative[i] = resolution_info.after_relative;
         resolved_operand[i] = resolution_info.resolved_operand;
         if (is_relative_effective[i]) {
+            do_base_check = true;
             num_relative_operands++;
         }
     }
@@ -940,7 +946,8 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                       { OPERAND_RELATIVE_OVERFLOW_COLUMNS[i], relative_oob[i] ? 1 : 0 },
                       { OPERAND_AFTER_RELATIVE_COLUMNS[i], after_relative[i] },
                       { OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS[i], should_apply_indirection[i] ? 1 : 0 },
-                      { OPERAND_IS_RELATIVE_EFFECTIVE_COLUMNS[i], is_relative_effective[i] ? 1 : 0 },
+                      { OPERAND_IS_RELATIVE_VALID_BASE_COLUMNS[i],
+                        is_relative_effective[i] && !base_address_invalid ? 1 : 0 },
                       { RESOLVED_OPERAND_COLUMNS[i], resolved_operand[i] },
                       { RESOLVED_OPERAND_TAG_COLUMNS[i], resolved_operand_tag[i] },
                   } });
@@ -958,9 +965,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                   } });
     }
 
-    // Base address check.
-    bool do_base_check = num_relative_operands != 0;
-    bool base_address_invalid = do_base_check && addr_event.base_address.get_tag() != MemoryTag::U32;
+    // Inverse when base address is invalid.
     FF base_address_tag_diff_inv =
         base_address_invalid
             ? (FF(static_cast<uint8_t>(addr_event.base_address.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::U32)))

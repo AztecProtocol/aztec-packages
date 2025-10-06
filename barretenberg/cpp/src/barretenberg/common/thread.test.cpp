@@ -197,6 +197,7 @@ TEST_F(ThreadTest, CalculateThreadDataBounds)
         EXPECT_EQ(data.end[i], data.start[i + 1]);
         EXPECT_LT(data.start[i], data.end[i]);
     }
+    EXPECT_LT(data.start[data.num_threads - 1], data.end[data.num_threads - 1]);
 }
 
 // Test parallel_for_range

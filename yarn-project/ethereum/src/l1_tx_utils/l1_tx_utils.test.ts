@@ -1,5 +1,6 @@
 import { Blob } from '@aztec/blob-lib';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
@@ -9,6 +10,7 @@ import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 
 import { jest } from '@jest/globals';
 import type { Anvil } from '@viem/anvil';
+import assert from 'node:assert';
 import {
   type Abi,
   type BlockTag,
@@ -17,6 +19,7 @@ import {
   TransactionNotFoundError,
   type TransactionSerializable,
   createPublicClient,
+  encodeFunctionData,
   http,
 } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
@@ -33,6 +36,7 @@ import {
   type L1TxUtilsConfig,
   ReadOnlyL1TxUtils,
   TxUtilsState,
+  UnknownMinedTxError,
   createL1TxUtilsFromViemWallet,
   defaultL1TxUtilsConfig,
 } from './index.js';
@@ -44,6 +48,8 @@ const WEI_CONST = 1_000_000_000n;
 const logger = createLogger('ethereum:test:l1_tx_utils');
 // Simple contract that just returns 42
 const SIMPLE_CONTRACT_BYTECODE = '0x69602a60005260206000f3600052600a6016f3';
+
+const CHECK_INTERVAL_MS = process.env.TEST_CHECK_INTERVAL_MS ? parseInt(process.env.TEST_CHECK_INTERVAL_MS) : 100;
 
 export type PendingTransaction = {
   hash: `0x${string}`;
@@ -88,12 +94,18 @@ describe('L1TxUtils', () => {
     let gasUtils: TestL1TxUtilsWithBlobs;
     let config: Partial<L1TxUtilsConfig>;
 
+    const request = {
+      to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      data: '0x' as `0x${string}`,
+      value: 1n,
+    };
+
     beforeEach(() => {
       config = {
         gasLimitBufferPercentage: 20,
         maxGwei: 500n,
-        maxAttempts: 3,
-        checkIntervalMs: 100,
+        maxSpeedUpAttempts: 3,
+        checkIntervalMs: CHECK_INTERVAL_MS,
         stallTimeMs: 1000,
       };
 
@@ -107,11 +119,18 @@ describe('L1TxUtils', () => {
       );
     });
 
-    it('regression: speed-up of blob tx sets non-zero maxFeePerBlobGas', async () => {
+    afterEach(async () => {
+      gasUtils.interrupt();
+      await gasUtils.waitMonitoringStopped(1);
+    });
+
+    // Regression for TMNT-312
+    it('speed-up of blob tx sets non-zero maxFeePerBlobGas', async () => {
       await cheatCodes.setAutomine(false);
       await cheatCodes.setIntervalMining(0);
+      await cheatCodes.setBlockInterval(12);
 
-      gasUtils.updateConfig({ maxAttempts: 1, checkIntervalMs: 50, stallTimeMs: 300 });
+      gasUtils.updateConfig({ maxSpeedUpAttempts: 1, checkIntervalMs: 100, stallTimeMs: 1000 });
 
       const blobData = new Uint8Array(131072).fill(1);
       const kzg = Blob.getViemKzgInstance();
@@ -142,6 +161,8 @@ describe('L1TxUtils', () => {
       const monitorPromise = gasUtils.monitorTransaction(state);
 
       // Wait until a speed-up is attempted
+      logger.warn('Waiting for speed-up to be detected');
+      await cheatCodes.mineEmptyBlock();
       await retryUntil(
         () => gasUtils.state === TxUtilsState.SPEED_UP && signedTxs.length > 0,
         'waiting for speed-up',
@@ -150,6 +171,7 @@ describe('L1TxUtils', () => {
       );
 
       // Interrupt to stop the monitor loop and avoid hanging the test
+      logger.warn('Interrupting publisher');
       gasUtils.interrupt();
       await expect(monitorPromise).rejects.toThrow();
 
@@ -177,6 +199,7 @@ describe('L1TxUtils', () => {
       // Disable all forms of mining
       await cheatCodes.setAutomine(false);
       await cheatCodes.setIntervalMining(0);
+      await cheatCodes.setBlockInterval(12);
 
       // Add blob data
       const blobData = new Uint8Array(131072).fill(1);
@@ -221,8 +244,9 @@ describe('L1TxUtils', () => {
 
       // Monitor should detect stall and replace with higher gas price
       const tx = await l1Client.getTransaction({ hash: txHash });
+      const now = new Date();
       const testState: L1TxState = {
-        txConfig: config,
+        txConfigOverrides: config,
         request,
         txHashes: [txHash],
         cancelTxHashes: [],
@@ -234,6 +258,8 @@ describe('L1TxUtils', () => {
           maxFeePerBlobGas: WEI_CONST * 20n,
         },
         nonce: tx.nonce,
+        sentAtL1Ts: now,
+        lastSentAtL1Ts: now,
         blobInputs: {
           blobs: [blobData],
           kzg,
@@ -246,7 +272,7 @@ describe('L1TxUtils', () => {
 
       const monitorFn = gasUtils.monitorTransaction(testState);
 
-      await sleep(2000);
+      await sleep(1000);
       expect(gasUtils.state).toBe(TxUtilsState.SPEED_UP);
       logger.warn(`Tx has been speed-up`);
 
@@ -300,7 +326,7 @@ describe('L1TxUtils', () => {
       const baselineGasUtils = createL1TxUtilsWithBlobsFromViemWallet(l1Client, logger, dateProvider, {
         gasLimitBufferPercentage: 0,
         maxGwei: 500n,
-        maxAttempts: 5,
+        maxSpeedUpAttempts: 5,
         checkIntervalMs: 100,
         stallTimeMs: 1000,
       });
@@ -319,7 +345,7 @@ describe('L1TxUtils', () => {
       const bufferedGasUtils = createL1TxUtilsWithBlobsFromViemWallet(l1Client, logger, dateProvider, {
         gasLimitBufferPercentage: 20,
         maxGwei: 500n,
-        maxAttempts: 3,
+        maxSpeedUpAttempts: 3,
         checkIntervalMs: 100,
         stallTimeMs: 1000,
       });
@@ -543,7 +569,7 @@ describe('L1TxUtils', () => {
       }
     }, 10_000);
 
-    it('handles custom errors', async () => {
+    it('handles custom errors in simulation and receipts', async () => {
       // We're deploying this contract:
       // pragma solidity >=0.8.27;
 
@@ -556,68 +582,56 @@ describe('L1TxUtils', () => {
       //         require(false, Errors.Test_Error(num));
       //     }
       // }
-      const abi = [
+      const abi: Abi = [
         {
-          inputs: [
-            {
-              internalType: 'uint256',
-              name: 'val',
-              type: 'uint256',
-            },
-          ],
+          inputs: [{ internalType: 'uint256', name: 'val', type: 'uint256' }],
           name: 'Test_Error',
           type: 'error',
         },
         {
-          inputs: [
-            {
-              internalType: 'uint256',
-              name: 'num',
-              type: 'uint256',
-            },
-          ],
+          inputs: [{ internalType: 'uint256', name: 'num', type: 'uint256' }],
           name: 'triggerError',
           outputs: [],
           stateMutability: 'pure',
           type: 'function',
         },
-      ] as Abi;
-      const deployHash = await l1Client.deployContract({
-        abi,
-        bytecode:
-          // contract bytecode
-          '0x6080604052348015600e575f5ffd5b506101508061001c5f395ff3fe608060405234801561000f575f5ffd5b5060043610610029575f3560e01c80638291d6871461002d575b5f5ffd5b610047600480360381019061004291906100c7565b610049565b005b5f819061008c576040517fcdae48f50000000000000000000000000000000000000000000000000000000081526004016100839190610101565b60405180910390fd5b5050565b5f5ffd5b5f819050919050565b6100a681610094565b81146100b0575f5ffd5b50565b5f813590506100c18161009d565b92915050565b5f602082840312156100dc576100db610090565b5b5f6100e9848285016100b3565b91505092915050565b6100fb81610094565b82525050565b5f6020820190506101145f8301846100f2565b9291505056fea264697066735822122011972815480b23be1e371aa7c11caa30281e61b164209ae84edcd3fee026278364736f6c634300081b0033',
-      });
+      ];
 
-      const receipt = await l1Client.waitForTransactionReceipt({ hash: deployHash });
-      if (!receipt.contractAddress) {
-        throw new Error('No contract address');
-      }
-      const contractAddress = receipt.contractAddress;
+      const bytecode =
+        '0x6080604052348015600e575f5ffd5b506101508061001c5f395ff3fe608060405234801561000f575f5ffd5b5060043610610029575f3560e01c80638291d6871461002d575b5f5ffd5b610047600480360381019061004291906100c7565b610049565b005b5f819061008c576040517fcdae48f50000000000000000000000000000000000000000000000000000000081526004016100839190610101565b60405180910390fd5b5050565b5f5ffd5b5f819050919050565b6100a681610094565b81146100b0575f5ffd5b50565b5f813590506100c18161009d565b92915050565b5f602082840312156100dc576100db610090565b5b5f6100e9848285016100b3565b91505092915050565b6100fb81610094565b82525050565b5f6020820190506101145f8301846100f2565b9291505056fea264697066735822122011972815480b23be1e371aa7c11caa30281e61b164209ae84edcd3fee026278364736f6c634300081b0033';
 
+      const deployHash = await l1Client.deployContract({ abi, bytecode });
+      const { contractAddress: address } = await l1Client.waitForTransactionReceipt({ hash: deployHash });
+      assert(address, 'No contract address');
+      const request: L1TxRequest = {
+        to: address,
+        data: encodeFunctionData({ abi, functionName: 'triggerError', args: [33] }),
+        value: 0n,
+      };
+
+      // Test that simulation throws and returns the error message
       try {
-        await l1Client.simulateContract({
-          address: contractAddress!,
-          abi,
-          functionName: 'triggerError',
-          args: [33],
-        });
+        await gasUtils.simulate(request, undefined, undefined, abi);
       } catch (err: any) {
         const { message } = formatViemError(err, abi);
-        expect(message).toBe('Test_Error(33)');
+        expect(message).toContain('Test_Error(33)');
       }
+
+      // Test that we can send and monitor a tx that reverts if we skip simulation
+      const result = await gasUtils.sendAndMonitorTransaction(request, { gasLimit: 100_000n });
+      expect(gasUtils.state).toBe(TxUtilsState.MINED);
+      expect(result.receipt.status).toBe('reverted');
     });
 
     it('stops trying after timeout once block is mined', async () => {
       await cheatCodes.setAutomine(false);
       await cheatCodes.setIntervalMining(0);
-      gasUtils.config.txPropagationMaxQueryAttempts = 0;
 
       const now = dateProvider.nowInSeconds() * 1000;
       const txTimeoutAt = new Date(now + 1000);
       const txRequest: L1TxRequest = { to: '0x1234567890123456789012345678901234567890', data: '0x', value: 0n };
       const { txHash, state } = await gasUtils.sendTransaction(txRequest);
-      const testState = { ...state, txConfig: { ...state.txConfig, txTimeoutAt } };
+      const testState: L1TxState = { ...state, txConfigOverrides: { ...state.txConfigOverrides, txTimeoutAt } };
       const monitorPromise = gasUtils.monitorTransaction(testState);
 
       await sleep(100);
@@ -632,6 +646,7 @@ describe('L1TxUtils', () => {
       // Disable auto-mining to control block production
       await cheatCodes.setIntervalMining(0);
       await cheatCodes.setAutomine(false);
+      await cheatCodes.setBlockInterval(1);
 
       const request = {
         to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
@@ -642,15 +657,23 @@ describe('L1TxUtils', () => {
       // Send initial transaction
       const { txHash, state } = await gasUtils.sendTransaction(request);
       const initialTx = await l1Client.getTransaction({ hash: txHash });
-
       expect(gasUtils.state).toBe(TxUtilsState.SENT);
+      logger.warn(`Tx ${txHash} has been sent`);
 
       // Try to monitor with a short timeout
-      const testState = { ...state, txConfig: { ...state.txConfig, txTimeoutMs: 100, checkIntervalMs: 10 } };
+      const testState: L1TxState = {
+        ...state,
+        txConfigOverrides: { ...state.txConfigOverrides, txTimeoutMs: 100 },
+      };
       const monitorPromise = gasUtils.monitorTransaction(testState);
+      logger.warn(`Monitoring tx ${txHash}`);
+
+      // Mine a block to advance the timestamp and trigger the timeout
+      await cheatCodes.mineEmptyBlock();
 
       // Wait for timeout and catch the error
       await expect(monitorPromise).rejects.toThrow('timed out');
+      logger.warn(`Tx monitor has timed out`);
 
       // Wait for cancellation tx to be sent
       await sleep(100);
@@ -662,6 +685,7 @@ describe('L1TxUtils', () => {
       const pendingBlock = await l1Client.getBlock({ blockTag: 'pending' });
       const pendingTxHash = pendingBlock.transactions[0];
       const cancelTx = await l1Client.getTransaction({ hash: pendingTxHash });
+      logger.warn(`Got cancel tx ${pendingTxHash}`);
 
       // Verify cancellation tx
       expect(cancelTx).toBeDefined();
@@ -683,12 +707,7 @@ describe('L1TxUtils', () => {
       // Disable auto-mining to control block production
       await cheatCodes.setIntervalMining(0);
       await cheatCodes.setAutomine(false);
-
-      const request = {
-        to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
-        data: '0x' as `0x${string}`,
-        value: 1n,
-      };
+      await cheatCodes.setBlockInterval(1);
 
       const originalSendRawTransaction = l1Client.sendRawTransaction;
       let cancellationSent = false;
@@ -740,11 +759,13 @@ describe('L1TxUtils', () => {
       logger.warn('Tx has been sent');
 
       // Monitor the tx. We will think it has timed out and submit a cancellation.
-      state.txConfig.txTimeoutMs = 100;
-      state.txConfig.checkIntervalMs = 10;
+      state.txConfigOverrides.txTimeoutMs = 200;
+      state.txConfigOverrides.checkIntervalMs = 100;
       const monitorPromise = gasUtils.monitorTransaction(state);
 
       // Wait for timeout and catch the error
+      await sleep(100);
+      await cheatCodes.mineEmptyBlock();
       await expect(monitorPromise).rejects.toThrow('timed out');
       logger.warn('Monitor has thrown for timeout');
 
@@ -770,6 +791,7 @@ describe('L1TxUtils', () => {
       // Disable auto-mining to control block production
       await cheatCodes.setAutomine(false);
       await cheatCodes.setIntervalMining(0);
+      await cheatCodes.setBlockInterval(12);
 
       // Create blob data
       const blobData = new Uint8Array(131072).fill(1);
@@ -788,13 +810,19 @@ describe('L1TxUtils', () => {
         maxFeePerBlobGas: 100n * WEI_CONST, // 100 gwei
       });
       const initialTx = await l1Client.getTransaction({ hash: txHash });
+      logger.warn('Initial blob tx has been sent', { txHash });
 
       // Try to monitor with a short timeout
-      const testState = { ...state, txConfig: { ...state.txConfig, txTimeoutMs: 100, checkIntervalMs: 10 } };
-      const monitorPromise = gasUtils.monitorTransaction(testState);
+      state.txConfigOverrides.txTimeoutMs = 200;
+      state.txConfigOverrides.checkIntervalMs = 100;
+      const monitorPromise = gasUtils.monitorTransaction(state).catch(err => err);
 
       // Wait for timeout and catch the error
-      await expect(monitorPromise).rejects.toThrow('timed out');
+      await sleep(100);
+      await cheatCodes.mineEmptyBlock();
+      logger.warn('Awaiting for tx to time out');
+      await expect(monitorPromise).resolves.toBeInstanceOf(TimeoutError);
+      logger.warn('Tx has timed out');
 
       // Wait for cancellation tx to be sent
       await sleep(500);
@@ -803,6 +831,7 @@ describe('L1TxUtils', () => {
       const nonce = initialTx.nonce;
 
       // Get pending transactions
+      logger.warn('Trying to get cancel tx');
       const cancelTx = await retryUntil(
         async () => {
           const pendingBlock = await l1Client.getBlock({ blockTag: 'pending' });
@@ -828,11 +857,18 @@ describe('L1TxUtils', () => {
       // Mine a block to process the cancellation
       await cheatCodes.evmMine();
 
-      // Verify the original transaction is no longer present
+      // Verify the original transaction is no longer present and the cancellation was mined
       await expect(l1Client.getTransaction({ hash: txHash })).rejects.toThrow(TransactionNotFoundError);
+      expect(await l1Client.getTransactionReceipt({ hash: cancelTx!.hash })).toBeDefined();
+      await retryUntil(() => gasUtils.state === TxUtilsState.MINED, 'wait mined', 2, 0.1);
     }, 20_000);
 
     it('does not attempt to cancel a timed out tx when cancelTxOnTimeout is false', async () => {
+      // Disable auto-mining to control block production
+      await cheatCodes.setAutomine(false);
+      await cheatCodes.setIntervalMining(0);
+      await cheatCodes.setBlockInterval(12);
+
       const request = {
         to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
         data: '0x' as `0x${string}`,
@@ -843,41 +879,228 @@ describe('L1TxUtils', () => {
       const initialTx = await l1Client.getTransaction({ hash: txHash });
 
       // monitor with a short timeout and cancellation disabled
-      const testState = {
-        ...state,
-        txConfig: { ...state.txConfig, txTimeoutMs: 100, checkIntervalMs: 10, cancelTxOnTimeout: false },
-      };
-      const monitorPromise = gasUtils.monitorTransaction(testState);
+      const now = dateProvider.nowInSeconds() * 1000;
+      const txTimeoutAt = new Date(now + 200);
+      state.txConfigOverrides.txTimeoutMs = 200;
+      state.txConfigOverrides.checkIntervalMs = 100;
+      state.txConfigOverrides.cancelTxOnTimeout = false;
+      const monitorPromise = gasUtils.monitorTransaction(state).catch(err => err);
+
+      // Drop the transaction and advance the block timestamp to trigger the timeout
+      await sleep(50);
+      await cheatCodes.dropTransaction(txHash);
+      await cheatCodes.setNextBlockTimestamp(txTimeoutAt);
+
+      // Mine several blocks to ensure the monitoring loop checks the timeout
+      for (let i = 0; i < 5; i++) {
+        await cheatCodes.mine();
+        await sleep(20);
+      }
 
       // Wait for timeout and catch the error
-      await expect(monitorPromise).rejects.toThrow('timed out');
+      await expect(monitorPromise).resolves.toBeInstanceOf(TimeoutError);
 
-      // Wait to ensure no cancellation tx is sent
+      // Ensure no txs were sent
+      const nonce = await l1Client.getTransactionCount({ blockTag: 'pending', address: l1Client.account.address });
+      expect(nonce).toBe(initialTx.nonce);
+    }, 20_000);
+
+    it('detects when nonce is mined by unknown transaction', async () => {
+      await cheatCodes.setAutomine(false);
+      await cheatCodes.setIntervalMining(0);
+
+      // Send initial transaction
+      const { txHash, state } = await gasUtils.sendTransaction(request);
+      const nonce = state.nonce;
+      logger.warn('Initial tx sent', { txHash, nonce });
+
+      // Drop the original transaction
+      await cheatCodes.dropTransaction(txHash);
+
+      // Send a different transaction with the same nonce (simulating external replacement)
+      const replacementHash = await l1Client.sendTransaction({
+        ...request,
+        to: '0x9876543210987654321098765432109876543210', // Different address
+        nonce,
+        gas: 21000n,
+        maxFeePerGas: WEI_CONST * 10n,
+        maxPriorityFeePerGas: WEI_CONST,
+      });
+
+      logger.warn('Replacement tx sent', { replacementHash, nonce });
+
+      // Mine the replacement
+      await cheatCodes.evmMine();
+
+      // Monitor should detect the nonce was mined but throw UnknownMinedTxError
+      await expect(gasUtils.monitorTransaction(state)).rejects.toThrow(UnknownMinedTxError);
+      expect(gasUtils.state).toBe(TxUtilsState.MINED);
+    }, 10_000);
+
+    it('transitions from sent to mined', async () => {
+      // Initially IDLE
+      expect(gasUtils.state).toBe(TxUtilsState.IDLE);
+
+      // Send transaction - should become SENT
+      const { state } = await gasUtils.sendTransaction(request);
+      expect(gasUtils.state).toBe(TxUtilsState.SENT);
+      expect(state.status).toBe(TxUtilsState.SENT);
+
+      // Monitor and wait for mining
+      await gasUtils.monitorTransaction(state);
+
+      // Should be MINED
+      expect(gasUtils.state).toBe(TxUtilsState.MINED);
+      expect(state.status).toBe(TxUtilsState.MINED);
+      expect(state.receipt).toBeDefined();
+      expect(state.receipt!.status).toBe('success');
+    }, 10_000);
+
+    it('transitions from sent to speed_up to mined', async () => {
+      await cheatCodes.setAutomine(false);
+      await cheatCodes.setIntervalMining(0);
+      await cheatCodes.setBlockInterval(12);
+
+      const { state } = await gasUtils.sendTransaction(request);
+      state.txConfigOverrides.stallTimeMs = 24_000;
+      state.txConfigOverrides.checkIntervalMs = 100;
+      state.txConfigOverrides.txTimeoutMs = 72_000;
+
+      expect(gasUtils.state).toBe(TxUtilsState.SENT);
+
+      // Start monitoring
+      const monitorPromise = gasUtils.monitorTransaction(state);
+
+      // Mine an empty block, should not be enough to trigger speed-up
+      await cheatCodes.mineEmptyBlock();
+      await sleep(500);
+      expect(gasUtils.state).toBe(TxUtilsState.SENT);
+
+      // But now yes
+      await cheatCodes.mineEmptyBlock();
+      await retryUntil(() => gasUtils.state === TxUtilsState.SPEED_UP, 'wait for speed-up', 10, 0.1);
+      expect(state.txHashes.length).toBeGreaterThan(1);
+
+      // Wait for completion
+      await cheatCodes.mine();
+      await monitorPromise;
+
+      expect(gasUtils.state).toBe(TxUtilsState.MINED);
+      expect(state.status).toBe(TxUtilsState.MINED);
+      expect(state.receipt).toBeDefined();
+    }, 10_000);
+
+    it('handles dropped cancellation transaction', async () => {
+      await cheatCodes.setAutomine(false);
+      await cheatCodes.setIntervalMining(0);
+      await cheatCodes.setBlockInterval(12);
+
+      // Send tx that will timeout
+      const { state } = await gasUtils.sendTransaction(request);
+      state.txConfigOverrides.txTimeoutMs = 12_000;
+      state.txConfigOverrides.checkIntervalMs = 100;
+      state.txConfigOverrides.txUnseenConsideredDroppedMs = 24_000;
+      state.txConfigOverrides.stallTimeMs = 36_000; // no speed-ups
+
+      // Monitor (will timeout and send cancel)
+      const monitorPromise = gasUtils.monitorTransaction(state).catch(err => err);
+
+      // Trigger timeout
       await sleep(100);
+      await cheatCodes.mineEmptyBlock();
 
-      // Get the nonce that was used
-      const nonce = initialTx.nonce;
+      // Wait for timeout
+      await expect(monitorPromise).resolves.toBeInstanceOf(TimeoutError);
 
-      // Get pending transactions
-      const pendingBlock = await l1Client.getBlock({ blockTag: 'pending' });
+      // Wait for cancellation to be sent
+      await retryUntil(() => state.cancelTxHashes.length > 0, 'cancel sent', 20, 0.1);
+      expect(gasUtils.state).toBe(TxUtilsState.CANCELLED);
+      const [cancelTxHash] = state.cancelTxHashes;
+      logger.warn('Cancel tx sent', { cancelTxHash });
 
-      // Check no additional transactions were sent (only the initial tx should be present)
-      expect(pendingBlock.transactions.length).toBe(1);
-      expect(pendingBlock.transactions[0]).toBe(txHash);
+      // Drop the cancellation tx as well
+      await cheatCodes.dropTransaction(cancelTxHash);
 
-      // Original tx should still be available
-      const tx = await l1Client.getTransaction({ hash: txHash });
-      expect(tx).toBeDefined();
-      expect(tx!.nonce).toBe(nonce);
+      // After a while the cancellation should be considered dropped
+      await cheatCodes.mine();
+      await sleep(500);
+      expect(gasUtils.state).toBe(TxUtilsState.CANCELLED);
+      await cheatCodes.mine();
+      await retryUntil(() => gasUtils.state === TxUtilsState.NOT_MINED, 'cancel dropped', 20, 0.1);
+
+      // And a new tx should be able to be sent taking the same nonce
+      const { state: newState } = await gasUtils.sendTransaction({ ...request, value: 5n });
+      const monitorPromise2 = gasUtils.monitorTransaction(newState).catch(err => err);
+      expect(newState.nonce).toEqual(state.nonce);
+
+      // And mined
+      await cheatCodes.mine();
+      await retryUntil(() => gasUtils.state === TxUtilsState.MINED, 'new tx mined', 20, 0.1);
+      const receipt = await monitorPromise2;
+      expect(newState.receipt).toEqual(receipt);
+      expect(newState.receipt!.status).toBe('success');
+    }, 10_000);
+
+    it('handles not-mined cancellation transaction', async () => {
+      await cheatCodes.setAutomine(false);
+      await cheatCodes.setIntervalMining(0);
+      await cheatCodes.setBlockInterval(12);
+
+      // Send tx that will timeout
+      const { state } = await gasUtils.sendTransaction(request);
+      state.txConfigOverrides.txTimeoutMs = 12_000;
+      state.txConfigOverrides.checkIntervalMs = 100;
+      state.txConfigOverrides.maxSpeedUpAttempts = 1;
+      state.txConfigOverrides.stallTimeMs = 24_000; // We'll speed up cancellation once
+      state.txConfigOverrides.txCancellationFinalTimeoutMs = 24_000;
+
+      // Monitor (will timeout and send cancel)
+      const monitorPromise = gasUtils.monitorTransaction(state).catch(err => err);
+
+      // Trigger timeout
+      await sleep(100);
+      await cheatCodes.mineEmptyBlock();
+
+      // Wait for timeout
+      await expect(monitorPromise).resolves.toBeInstanceOf(TimeoutError);
+
+      // Wait for cancellation to be sent
+      await retryUntil(() => state.cancelTxHashes.length > 0, 'cancel sent', 20, 0.1);
+      expect(gasUtils.state).toBe(TxUtilsState.CANCELLED);
+      const [cancelTxHash] = state.cancelTxHashes;
+      logger.warn('Cancel tx sent', { cancelTxHash });
+
+      // After a while we give up on the cancellation
+      // First two L1 blocks will trigger speed up
+      await cheatCodes.mineEmptyBlock(2);
+      await retryUntil(() => state.cancelTxHashes.length > 1, 'cancel speed up', 20, 0.1);
+      expect(gasUtils.state).toBe(TxUtilsState.CANCELLED);
+
+      // Another one no changes
+      await cheatCodes.mineEmptyBlock();
+      await sleep(500);
+      expect(gasUtils.state).toBe(TxUtilsState.CANCELLED);
+
+      // And the last one will cause the final time out
+      await cheatCodes.mineEmptyBlock();
+      logger.warn('Waiting for cancel to be considered not-mined');
+      await retryUntil(() => gasUtils.state === TxUtilsState.NOT_MINED, 'cancel not mined', 20, 0.1);
+
+      // A new tx should be able to be sent taking the following nonce
+      const { state: newState } = await gasUtils.sendTransaction({ ...request, value: 5n });
+      const monitorPromise2 = gasUtils.monitorTransaction(newState).catch(err => err);
+      expect(newState.nonce).toEqual(state.nonce + 1);
+
+      // And mined, along with the previous cancellation
+      await cheatCodes.mine();
+      await cheatCodes.mine();
+      await retryUntil(() => gasUtils.state === TxUtilsState.MINED, 'new tx mined', 20, 0.1);
+      const receipt = await monitorPromise2;
+      expect(newState.receipt).toEqual(receipt);
+      expect(newState.receipt!.status).toBe('success');
     }, 10_000);
 
     it('ensures block gas limit is set when using LARGE_GAS_LIMIT', async () => {
-      const request = {
-        to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
-        data: '0x' as `0x${string}`,
-        value: 0n,
-      };
-
       let capturedBlockOverrides: any = {};
       const originalSimulate = gasUtils['_simulate'].bind(gasUtils);
 
@@ -908,12 +1131,6 @@ describe('L1TxUtils', () => {
     });
 
     it('ensures block gas limit is set when using LARGE_GAS_LIMIT with custom block overrides', async () => {
-      const request = {
-        to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
-        data: '0x' as `0x${string}`,
-        value: 0n,
-      };
-
       let capturedBlockOverrides: any = {};
       const originalSimulate = gasUtils['_simulate'].bind(gasUtils);
 
@@ -936,6 +1153,258 @@ describe('L1TxUtils', () => {
         spy.mockRestore();
       }
     });
+
+    it('transitions from sent to not-mined when tx drops without cancellation', async () => {
+      await cheatCodes.setAutomine(false);
+      await cheatCodes.setIntervalMining(0);
+      await cheatCodes.setBlockInterval(12);
+
+      // Send transaction with cancelTxOnTimeout: false
+      const { txHash, state } = await gasUtils.sendTransaction(request);
+      state.txConfigOverrides.txTimeoutMs = 12_000;
+      state.txConfigOverrides.checkIntervalMs = 100;
+      state.txConfigOverrides.cancelTxOnTimeout = false;
+
+      expect(gasUtils.state).toBe(TxUtilsState.SENT);
+
+      // Monitor the tx
+      const monitorPromise = gasUtils.monitorTransaction(state).catch(err => err);
+
+      // Drop the transaction from mempool
+      await sleep(50);
+      await cheatCodes.dropTransaction(txHash);
+
+      // Mine a block to trigger timeout
+      await cheatCodes.mineEmptyBlock();
+
+      // Wait for timeout
+      await expect(monitorPromise).resolves.toBeInstanceOf(TimeoutError);
+
+      // Verify state transitions to NOT_MINED
+      await retryUntil(() => gasUtils.state === TxUtilsState.NOT_MINED, 'wait not-mined', 20, 0.1);
+
+      // Verify nonce manager is reset (new tx can reuse same nonce)
+      const { state: newState } = await gasUtils.sendTransaction({ ...request, value: 3n });
+      expect(newState.nonce).toEqual(state.nonce);
+
+      // Mine and verify new tx succeeds
+      const monitorPromise2 = gasUtils.monitorTransaction(newState);
+      await cheatCodes.mine();
+      await retryUntil(() => gasUtils.state === TxUtilsState.MINED, 'new tx mined', 20, 0.1);
+      const receipt = await monitorPromise2;
+      expect(receipt.status).toBe('success');
+    }, 10_000);
+
+    it('transitions from speed-up to not-mined on timeout', async () => {
+      await cheatCodes.setAutomine(false);
+      await cheatCodes.setIntervalMining(0);
+      await cheatCodes.setBlockInterval(12);
+
+      // Send transaction
+      const { state } = await gasUtils.sendTransaction(request);
+      state.txConfigOverrides.stallTimeMs = 24_000;
+      state.txConfigOverrides.checkIntervalMs = 100;
+      state.txConfigOverrides.txTimeoutMs = 60_000;
+      state.txConfigOverrides.cancelTxOnTimeout = false;
+
+      expect(gasUtils.state).toBe(TxUtilsState.SENT);
+
+      // Start monitoring
+      const monitorPromise = gasUtils.monitorTransaction(state).catch(err => err);
+
+      // Trigger speed-up
+      await cheatCodes.mineEmptyBlock();
+      await sleep(200);
+      await cheatCodes.mineEmptyBlock();
+      await retryUntil(() => gasUtils.state === TxUtilsState.SPEED_UP, 'wait for speed-up', 20, 0.1);
+      expect(state.txHashes.length).toBeGreaterThan(1);
+
+      // Drop all tx hashes after speed-up
+      for (const hash of state.txHashes) {
+        await cheatCodes.dropTransaction(hash);
+      }
+
+      // Continue with timeout - mine more blocks to trigger timeout
+      await cheatCodes.mineEmptyBlock(3);
+
+      // Wait for timeout
+      await expect(monitorPromise).resolves.toBeInstanceOf(TimeoutError);
+
+      // Verify state goes to NOT_MINED
+      await retryUntil(() => gasUtils.state === TxUtilsState.NOT_MINED, 'wait not-mined', 20, 0.1);
+
+      // Verify nonce manager reset - new tx can reuse nonce
+      const { state: newState } = await gasUtils.sendTransaction({ ...request, value: 4n });
+      expect(newState.nonce).toEqual(state.nonce);
+    }, 15_000);
+
+    it('reaches max speed-up attempts and continues waiting', async () => {
+      await cheatCodes.setAutomine(false);
+      await cheatCodes.setIntervalMining(0);
+      await cheatCodes.setBlockInterval(12);
+
+      // Set max speed-up attempts to 2, short stall time
+      const { state } = await gasUtils.sendTransaction(request);
+      state.txConfigOverrides.maxSpeedUpAttempts = 2;
+      state.txConfigOverrides.stallTimeMs = 24_000;
+      state.txConfigOverrides.checkIntervalMs = 100;
+      state.txConfigOverrides.txTimeoutMs = 96_000; // Long enough to allow speed-ups
+      state.txConfigOverrides.cancelTxOnTimeout = false;
+
+      expect(gasUtils.state).toBe(TxUtilsState.SENT);
+
+      // Start monitoring
+      const monitorPromise = gasUtils.monitorTransaction(state).catch(err => err);
+
+      // Trigger first speed-up (attempt 1)
+      await cheatCodes.mineEmptyBlock(2);
+      await retryUntil(() => state.txHashes.length === 2, 'first speed-up', 20, 0.1);
+      expect(gasUtils.state).toBe(TxUtilsState.SPEED_UP);
+
+      // Trigger second speed-up (attempt 2)
+      await cheatCodes.mineEmptyBlock(2);
+      await retryUntil(() => state.txHashes.length === 3, 'second speed-up', 20, 0.1);
+      expect(gasUtils.state).toBe(TxUtilsState.SPEED_UP);
+
+      // Try to trigger third speed-up - should not happen (max reached)
+      await cheatCodes.mineEmptyBlock(2);
+      await sleep(500);
+      expect(state.txHashes.length).toBe(3); // No new speed-up
+
+      // Continue mining to trigger timeout
+      await cheatCodes.mineEmptyBlock(2);
+
+      // Eventually timeout to NOT_MINED
+      await expect(monitorPromise).resolves.toBeInstanceOf(TimeoutError);
+      await retryUntil(() => gasUtils.state === TxUtilsState.NOT_MINED, 'wait not-mined', 20, 0.1);
+    }, 15_000);
+
+    it('handles interruption during different states', async () => {
+      await cheatCodes.setAutomine(false);
+      await cheatCodes.setIntervalMining(0);
+      await cheatCodes.setBlockInterval(12);
+
+      // Test interruption during SENT state
+      const gasUtils1 = new TestL1TxUtilsWithBlobs(
+        l1Client,
+        EthAddress.fromString(l1Client.account.address),
+        createViemSigner(l1Client),
+        logger,
+        dateProvider,
+        config,
+      );
+
+      const { txHash, state: state1 } = await gasUtils1.sendTransaction(request);
+      state1.txConfigOverrides.checkIntervalMs = 100;
+      expect(gasUtils1.state).toBe(TxUtilsState.SENT);
+
+      const monitorPromise1 = gasUtils1.monitorTransaction(state1).catch(err => err);
+      await sleep(50);
+
+      // Interrupt during SENT - monitoring should stop with TimeoutError
+      gasUtils1.interrupt();
+      const result1 = await monitorPromise1;
+      expect(result1).toBeInstanceOf(TimeoutError);
+
+      // Clean up
+      await cheatCodes.dropTransaction(txHash).catch(() => {});
+      await gasUtils1.waitMonitoringStopped(2);
+
+      // Test interruption during SPEED_UP state
+      const gasUtils2 = new TestL1TxUtilsWithBlobs(
+        l1Client,
+        EthAddress.fromString(l1Client.account.address),
+        createViemSigner(l1Client),
+        logger,
+        dateProvider,
+        config,
+      );
+
+      const { state: state2 } = await gasUtils2.sendTransaction({ ...request, value: 2n });
+      state2.txConfigOverrides.stallTimeMs = 24_000;
+      state2.txConfigOverrides.checkIntervalMs = 100;
+
+      const monitorPromise2 = gasUtils2.monitorTransaction(state2).catch(err => err);
+
+      // Trigger speed-up
+      await cheatCodes.mineEmptyBlock(2);
+      await retryUntil(() => gasUtils2.state === TxUtilsState.SPEED_UP, 'wait speed-up', 20, 0.1);
+
+      // Interrupt during SPEED_UP - monitoring should stop with TimeoutError
+      gasUtils2.interrupt();
+      const result2 = await monitorPromise2;
+      expect(result2).toBeInstanceOf(TimeoutError);
+
+      await gasUtils2.waitMonitoringStopped(2);
+
+      // Test interruption during CANCELLED state
+      const gasUtils3 = new TestL1TxUtilsWithBlobs(
+        l1Client,
+        EthAddress.fromString(l1Client.account.address),
+        createViemSigner(l1Client),
+        logger,
+        dateProvider,
+        config,
+      );
+
+      const { state: state3 } = await gasUtils3.sendTransaction({ ...request, value: 3n });
+      state3.txConfigOverrides.txTimeoutMs = 12_000;
+      state3.txConfigOverrides.checkIntervalMs = 100;
+
+      const monitorPromise3 = gasUtils3.monitorTransaction(state3).catch(err => err);
+
+      // Trigger timeout and cancellation
+      await cheatCodes.mineEmptyBlock();
+      await expect(monitorPromise3).resolves.toBeInstanceOf(TimeoutError);
+
+      // Wait for cancellation to be sent (background monitoring)
+      await retryUntil(() => state3.cancelTxHashes.length > 0, 'cancel sent', 20, 0.1);
+      expect(gasUtils3.state).toBe(TxUtilsState.CANCELLED);
+
+      // Interrupt during CANCELLED - this will stop the background monitoring of the cancel tx
+      gasUtils3.interrupt();
+
+      // Verify interruption was effective - background monitoring should stop
+      await gasUtils3.waitMonitoringStopped(2);
+    }, 20_000);
+
+    it('transitions from cancelled to mined when cancellation succeeds', async () => {
+      await cheatCodes.setAutomine(false);
+      await cheatCodes.setIntervalMining(0);
+      await cheatCodes.setBlockInterval(12);
+
+      // Send tx that will timeout
+      const { state } = await gasUtils.sendTransaction(request);
+      state.txConfigOverrides.txTimeoutMs = 12_000;
+      state.txConfigOverrides.checkIntervalMs = 100;
+
+      // Monitor (will timeout and send cancel)
+      const monitorPromise = gasUtils.monitorTransaction(state).catch(err => err);
+
+      // Trigger timeout
+      await sleep(100);
+      await cheatCodes.mineEmptyBlock();
+
+      // Wait for timeout
+      await expect(monitorPromise).resolves.toBeInstanceOf(TimeoutError);
+
+      // Wait for cancellation to be sent
+      await retryUntil(() => state.cancelTxHashes.length > 0, 'cancel sent', 20, 0.1);
+      expect(gasUtils.state).toBe(TxUtilsState.CANCELLED);
+      const [cancelTxHash] = state.cancelTxHashes;
+      logger.warn('Cancel tx sent', { cancelTxHash });
+
+      // Mine the cancellation tx (don't drop it)
+      await cheatCodes.mine();
+
+      // Verify state goes CANCELLED -> MINED
+      await retryUntil(() => gasUtils.state === TxUtilsState.MINED, 'cancel mined', 20, 0.1);
+
+      // Verify the cancel tx receipt is stored
+      expect(state.receipt).toBeDefined();
+      expect(state.receipt!.transactionHash).toBe(cancelTxHash);
+      expect(state.receipt!.status).toBe('success');
+    }, 10_000);
   });
 
   describe('L1TxUtils vs ReadOnlyL1TxUtils', () => {

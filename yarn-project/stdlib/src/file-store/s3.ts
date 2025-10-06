@@ -8,8 +8,9 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { createReadStream, createWriteStream } from 'fs';
-import { mkdir } from 'fs/promises';
-import { dirname, join } from 'path';
+import { mkdir, mkdtemp, stat, unlink } from 'fs/promises';
+import { tmpdir } from 'os';
+import { basename, dirname, join } from 'path';
 import { Readable } from 'stream';
 import { finished } from 'stream/promises';
 import { createGzip } from 'zlib';
@@ -49,15 +50,19 @@ export class S3FileStore implements FileStore {
 
   public async save(path: string, data: Buffer, opts: FileStoreSaveOptions = {}): Promise<string> {
     const key = this.getFullPath(path);
-    const shouldCompress = !opts.compress;
+    const shouldCompress = !!opts.compress;
+
     const body = shouldCompress ? (await import('zlib')).gzipSync(data) : data;
+    const contentLength = body.length;
+    const contentType = this.detectContentType(key, shouldCompress);
     const put = new PutObjectCommand({
       Bucket: this.bucketName,
       Key: key,
       Body: body,
-      ContentEncoding: shouldCompress ? 'gzip' : undefined,
+      ContentType: contentType,
       CacheControl: opts.metadata?.['Cache-control'],
       Metadata: this.extractUserMetadata(opts.metadata),
+      ContentLength: contentLength,
     });
     await this.s3.send(put);
     return this.buildReturnedUrl(key, !!opts.public);
@@ -68,18 +73,59 @@ export class S3FileStore implements FileStore {
     const shouldCompress = opts.compress !== false; // default true like GCS impl
 
     await mkdir(dirname(srcPath), { recursive: true }).catch(() => undefined);
+    let contentLength: number | undefined;
+    let bodyPath = srcPath;
 
-    const source = createReadStream(srcPath);
-    const bodyStream = shouldCompress ? source.pipe(createGzip()) : source;
-    const put = new PutObjectCommand({
-      Bucket: this.bucketName,
-      Key: key,
-      Body: bodyStream as any,
-      ContentEncoding: shouldCompress ? 'gzip' : undefined,
-      CacheControl: opts.metadata?.['Cache-control'],
-      Metadata: this.extractUserMetadata(opts.metadata),
-    });
-    await this.s3.send(put);
+    // We don't set Content-Encoding and we avoid SigV4 streaming (aws-chunked).
+    // With AWS SigV4 streaming uploads (Content-Encoding: aws-chunked[,gzip]), servers require
+    // x-amz-decoded-content-length (the size of the decoded payload) and an exact Content-Length
+    // that includes chunk metadata. For on-the-fly compression, providing
+    // those values without buffering or a pre-pass is impractical. Instead, we pre-gzip to a temp file
+    // to know ContentLength up-front and upload the gzipped bytes as-is, omitting Content-Encoding.
+    // Reference: AWS SigV4 streaming (chunked upload) requirements —
+    // https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html
+    if (shouldCompress) {
+      // Pre-gzip to a temp file so we know the exact length for R2/S3 headers
+      const tmpDir = await mkdtemp(join(tmpdir(), 's3-upload-'));
+      const gzPath = join(tmpDir, `${basename(srcPath)}.gz`);
+      const source = createReadStream(srcPath);
+      const gz = createGzip();
+      const out = createWriteStream(gzPath);
+      try {
+        await finished(source.pipe(gz).pipe(out));
+        const st = await stat(gzPath);
+        contentLength = st.size;
+        bodyPath = gzPath;
+      } catch (err) {
+        // Ensure temp file is removed on failure
+        await unlink(gzPath).catch(() => undefined);
+        throw err;
+      }
+    } else {
+      const st = await stat(srcPath);
+      contentLength = st.size;
+      bodyPath = srcPath;
+    }
+
+    const bodyStream = createReadStream(bodyPath);
+    const contentType = this.detectContentType(key, shouldCompress);
+    try {
+      const put = new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+        Body: bodyStream as any,
+        ContentType: contentType,
+        CacheControl: opts.metadata?.['Cache-control'],
+        Metadata: this.extractUserMetadata(opts.metadata),
+        // Explicitly set ContentLength so R2 can compute x-amz-decoded-content-length correctly
+        ContentLength: contentLength,
+      } as any);
+      await this.s3.send(put);
+    } finally {
+      if (shouldCompress && bodyPath !== srcPath) {
+        await unlink(bodyPath).catch(() => undefined);
+      }
+    }
     return this.buildReturnedUrl(key, !!opts.public);
   }
 
@@ -123,6 +169,28 @@ export class S3FileStore implements FileStore {
     }
     const { ['Cache-control']: _ignored, ...rest } = meta;
     return Object.keys(rest).length ? rest : undefined;
+  }
+
+  private detectContentType(key: string, isCompressed: boolean | undefined): string | undefined {
+    // Basic content type inference
+    const lower = key.toLowerCase();
+    if (lower.endsWith('.json') || lower.endsWith('.json.gz')) {
+      return 'application/json';
+    }
+    if (lower.endsWith('.txt') || lower.endsWith('.log') || lower.endsWith('.csv') || lower.endsWith('.md')) {
+      return 'text/plain; charset=utf-8';
+    }
+    if (lower.endsWith('.db') || lower.endsWith('.sqlite') || lower.endsWith('.bin')) {
+      return 'application/octet-stream';
+    }
+    if (lower.endsWith('.wasm') || lower.endsWith('.wasm.gz')) {
+      return 'application/wasm';
+    }
+    // If compressed, prefer octet-stream unless known
+    if (isCompressed) {
+      return 'application/octet-stream';
+    }
+    return undefined;
   }
 
   private buildReturnedUrl(key: string, makePublic: boolean): string {

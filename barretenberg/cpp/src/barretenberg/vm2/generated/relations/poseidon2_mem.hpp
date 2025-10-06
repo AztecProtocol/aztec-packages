@@ -14,7 +14,7 @@ template <typename FF_> class poseidon2_memImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 11> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 3 };
+    static constexpr std::array<size_t, 12> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 4, 3, 4, 4, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -37,7 +37,7 @@ template <typename FF> class poseidon2_mem : public Relation<poseidon2_memImpl<F
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_READ_ADDR_INCR = 0;
     static constexpr size_t SR_WRITE_ADDR_INCR = 3;
-    static constexpr size_t SR_BATCH_ZERO_CHECK = 8;
+    static constexpr size_t SR_BATCH_ZERO_CHECK = 9;
 
     static std::string get_subrelation_label(size_t index)
     {
