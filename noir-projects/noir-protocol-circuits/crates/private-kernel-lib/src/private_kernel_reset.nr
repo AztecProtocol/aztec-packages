@@ -384,7 +384,7 @@ mod tests {
     fn correct_private_kernel_reset_output_propagated_values() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
 
-        let constants = builder.previous_kernel.to_tx_constant_data();
+        let constants = builder.previous_kernel.to_private_tx_constant_data();
         builder.previous_kernel.min_revertible_side_effect_counter = 246;
         let public_teardown_call_request = make_fixture(999);
         builder.previous_kernel.public_teardown_call_request = public_teardown_call_request;

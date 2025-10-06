@@ -76,12 +76,13 @@ TEST(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
                                 .bytecode_length = bytecode_size,
                                 .bytecode_fields = bytecode_fields } },
                             trace);
-    contract_instance_retrieval_builder.process({ { .address = instance.deployer_addr,
+    contract_instance_retrieval_builder.process({ {
+                                                    .address = instance.deployer_addr,
                                                     .contract_instance = { instance },
                                                     .nullifier_tree_root = nullifier_root,
                                                     .public_data_tree_root = public_data_tree_root,
                                                     .exists = true,
-                                                    .error = false } },
+                                                } },
                                                 trace);
     class_id_builder.process({ { .class_id = instance.current_class_id, .klass = klass } }, trace);
 

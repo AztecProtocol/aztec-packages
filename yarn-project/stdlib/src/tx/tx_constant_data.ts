@@ -7,29 +7,16 @@ import { BlockHeader } from './block_header.js';
 import { TxContext } from './tx_context.js';
 
 /**
- * Data that is constant/not modified by neither of the kernels.
+ * Version of `PrivateTxConstantData` exposed by the tail circuits
+ * It compresses the protocol contracts list to a hash to minimize the number of public inputs.
+ * Refer to `PrivateTxConstantData` for more details.
  */
 export class TxConstantData {
   constructor(
-    /** Header of a block whose state is used during execution (not the block the transaction is included in). */
     public anchorBlockHeader: BlockHeader,
-    /**
-     * Context of the transaction.
-     *
-     * Note: `chainId` and `version` in txContext are not redundant to the values in
-     * self.anchor_block_header.global_variables because they can be different in case of a protocol upgrade. In such
-     * a situation we could be using header from a block before the upgrade took place but be using the updated
-     * protocol to execute and prove the transaction.
-     */
     public txContext: TxContext,
-    /**
-     * Root of the vk tree for the protocol circuits.
-     */
     public vkTreeRoot: Fr,
-    /**
-     * Root of the tree for the protocol contracts.
-     */
-    public protocolContractTreeRoot: Fr,
+    public protocolContractsHash: Fr,
   ) {}
 
   static from(fields: FieldsOf<TxConstantData>) {
@@ -37,7 +24,7 @@ export class TxConstantData {
   }
 
   static getFields(fields: FieldsOf<TxConstantData>) {
-    return [fields.anchorBlockHeader, fields.txContext, fields.vkTreeRoot, fields.protocolContractTreeRoot] as const;
+    return [fields.anchorBlockHeader, fields.txContext, fields.vkTreeRoot, fields.protocolContractsHash] as const;
   }
 
   static fromFields(fields: Fr[] | FieldReader): TxConstantData {
@@ -83,7 +70,7 @@ export class TxConstantData {
       this.anchorBlockHeader.getSize() +
       this.txContext.getSize() +
       this.vkTreeRoot.size +
-      this.protocolContractTreeRoot.size
+      this.protocolContractsHash.size
     );
   }
 

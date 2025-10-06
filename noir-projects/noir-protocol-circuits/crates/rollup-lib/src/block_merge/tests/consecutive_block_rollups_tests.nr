@@ -84,11 +84,11 @@ fn mismatch_vk_tree_root() {
 }
 
 #[test(should_fail_with = "Mismatched constants in block rollups")]
-fn mismatch_protocol_contract_tree_root() {
+fn mismatch_protocol_contracts_hash() {
     let mut builder = TestBuilder::default();
 
-    // Tweak the protocol_contract_tree_root of the right rollup.
-    builder.right_rollup.constants.protocol_contract_tree_root += 1;
+    // Tweak the protocol_contracts_hash of the right rollup.
+    builder.right_rollup.constants.protocol_contracts_hash += 1;
 
     builder.execute_and_fail();
 }

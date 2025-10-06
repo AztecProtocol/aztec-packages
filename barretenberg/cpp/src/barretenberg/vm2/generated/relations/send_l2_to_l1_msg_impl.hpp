@@ -16,7 +16,7 @@ void send_l2_to_l1_msgImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     using C = ColumnAndShifts;
 
     const auto constants_MAX_L2_TO_L1_MSGS_PER_TX = FF(8);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX = FF(504);
+    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX = FF(514);
     const auto execution_REMAINING_L2_TO_L1_MSG_WRITES =
         (constants_MAX_L2_TO_L1_MSGS_PER_TX - in.get(C::execution_prev_num_l2_to_l1_messages));
 

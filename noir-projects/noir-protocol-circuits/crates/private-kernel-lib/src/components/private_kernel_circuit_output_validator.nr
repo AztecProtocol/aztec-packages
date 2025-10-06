@@ -5,7 +5,8 @@ use crate::components::private_kernel_circuit_public_inputs_composer::{
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        private_kernel::private_call_data::PrivateCallData, transaction::tx_request::TxRequest,
+        private_kernel::private_call_data::PrivateCallData, protocol_contracts::ProtocolContracts,
+        transaction::tx_request::TxRequest,
     },
     address::AztecAddress,
     traits::Empty,
@@ -33,7 +34,7 @@ impl PrivateKernelCircuitOutputValidator {
         tx_request: TxRequest,
         private_call: PrivateCallData,
         vk_tree_root: Field,
-        protocol_contract_tree_root: Field,
+        protocol_contracts: ProtocolContracts,
         is_private_only: bool,
         first_nullifier_hint: Field,
     ) {
@@ -41,7 +42,7 @@ impl PrivateKernelCircuitOutputValidator {
             tx_request,
             private_call,
             vk_tree_root,
-            protocol_contract_tree_root,
+            protocol_contracts,
             is_private_only,
             first_nullifier_hint,
         );
@@ -76,7 +77,7 @@ impl PrivateKernelCircuitOutputValidator {
         tx_request: TxRequest,
         private_call: PrivateCallData,
         vk_tree_root: Field,
-        protocol_contract_tree_root: Field,
+        protocol_contracts: ProtocolContracts,
         is_private_only: bool,
         first_nullifier_hint: Field,
     ) {
@@ -90,9 +91,9 @@ impl PrivateKernelCircuitOutputValidator {
         );
         assert_eq(self.output.constants.vk_tree_root, vk_tree_root, "mismatch vk_tree_root");
         assert_eq(
-            self.output.constants.protocol_contract_tree_root,
-            protocol_contract_tree_root,
-            "mismatch protocol_contract_tree_root",
+            self.output.constants.protocol_contracts,
+            protocol_contracts,
+            "mismatch protocol_contracts",
         );
 
         let protocol_nullifier = create_protocol_nullifier(tx_request);
