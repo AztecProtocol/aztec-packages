@@ -366,7 +366,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     publisher: ProverNodePublisher,
     opts: { skipEpochCheck?: boolean } = {},
   ) {
-    const { proverNodeMaxParallelBlocksPerEpoch: parallelBlockLimit } = this.config;
+    const { proverNodeMaxParallelBlocksPerEpoch: parallelBlockLimit, proverNodeDisableProofPublish } = this.config;
     return new EpochProvingJob(
       data,
       this.worldState,
@@ -376,7 +376,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.l2BlockSource,
       this.jobMetrics,
       deadline,
-      { parallelBlockLimit, ...opts },
+      { parallelBlockLimit, skipSubmitProof: proverNodeDisableProofPublish, ...opts },
     );
   }
 

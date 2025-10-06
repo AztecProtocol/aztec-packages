@@ -93,7 +93,7 @@ export async function enrichEnvironmentWithNetworkConfig(networkName: NetworkNam
 
   enrichVar('BOOTSTRAP_NODES', networkConfig.bootnodes.join(','));
   enrichVar('L1_CHAIN_ID', String(networkConfig.l1ChainId));
-  enrichVar('SYNC_SNAPSHOTS_URL', networkConfig.snapshots.join(','));
+  enrichVar('SYNC_SNAPSHOTS_URLS', networkConfig.snapshots.join(','));
 
   enrichEthAddressVar('REGISTRY_CONTRACT_ADDRESS', networkConfig.registryAddress.toString());
   if (networkConfig.feeAssetHandlerAddress) {
