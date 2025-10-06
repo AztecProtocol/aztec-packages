@@ -413,50 +413,50 @@ pol commit dyn_gas_id;
 // Each of these selectors takes into account both which opcode we are considering executing
 // and whether there was any error before the actual execution step. Therefore, the
 // selector can be used to gate the execution of the opcode/dispatching logic (which comes after gas, etc).
+pol commit sel_exec_dispatch_execution;
 pol commit sel_exec_dispatch_alu;
 pol commit sel_exec_dispatch_bitwise;
 pol commit sel_exec_dispatch_cast;
-pol commit sel_exec_dispatch_set;
-pol commit sel_exec_dispatch_to_radix;
-pol commit sel_exec_dispatch_poseidon2_perm;
-pol commit sel_exec_dispatch_ecc_add;
-pol commit sel_exec_dispatch_execution;
 pol commit sel_exec_dispatch_calldata_copy;
 pol commit sel_exec_dispatch_returndata_copy;
-pol commit sel_exec_dispatch_keccakf1600;
+pol commit sel_exec_dispatch_set;
 pol commit sel_exec_dispatch_get_contract_instance;
 pol commit sel_exec_dispatch_emit_unencrypted_log;
+pol commit sel_exec_dispatch_poseidon2_perm;
 pol commit sel_exec_dispatch_sha256_compression;
+pol commit sel_exec_dispatch_keccakf1600;
+pol commit sel_exec_dispatch_ecc_add;
+pol commit sel_exec_dispatch_to_radix;
+sel_exec_dispatch_execution * (1 - sel_exec_dispatch_execution) = 0;
 sel_exec_dispatch_alu * (1 - sel_exec_dispatch_alu) = 0;
 sel_exec_dispatch_bitwise * (1 - sel_exec_dispatch_bitwise) = 0;
 sel_exec_dispatch_cast * (1 - sel_exec_dispatch_cast) = 0;
-sel_exec_dispatch_set * (1 - sel_exec_dispatch_set) = 0;
-sel_exec_dispatch_to_radix * (1 - sel_exec_dispatch_to_radix) = 0;
-sel_exec_dispatch_poseidon2_perm * (1 - sel_exec_dispatch_poseidon2_perm) = 0;
-sel_exec_dispatch_ecc_add * (1 - sel_exec_dispatch_ecc_add) = 0;
-sel_exec_dispatch_execution * (1 - sel_exec_dispatch_execution) = 0;
 sel_exec_dispatch_calldata_copy * (1 - sel_exec_dispatch_calldata_copy) = 0;
 sel_exec_dispatch_returndata_copy * (1 - sel_exec_dispatch_returndata_copy) = 0;
-sel_exec_dispatch_keccakf1600 * (1 - sel_exec_dispatch_keccakf1600) = 0;
+sel_exec_dispatch_set * (1 - sel_exec_dispatch_set) = 0;
 sel_exec_dispatch_get_contract_instance * (1 - sel_exec_dispatch_get_contract_instance) = 0;
 sel_exec_dispatch_emit_unencrypted_log * (1 - sel_exec_dispatch_emit_unencrypted_log) = 0;
+sel_exec_dispatch_poseidon2_perm * (1 - sel_exec_dispatch_poseidon2_perm) = 0;
 sel_exec_dispatch_sha256_compression * (1 - sel_exec_dispatch_sha256_compression) = 0;
+sel_exec_dispatch_keccakf1600 * (1 - sel_exec_dispatch_keccakf1600) = 0;
+sel_exec_dispatch_ecc_add * (1 - sel_exec_dispatch_ecc_add) = 0;
+sel_exec_dispatch_to_radix * (1 - sel_exec_dispatch_to_radix) = 0;
 
 #[SUBTRACE_ID_DECOMPOSITION]
 sel_exec_dispatch_execution * constants.AVM_SUBTRACE_ID_EXECUTION +
 sel_exec_dispatch_alu * constants.AVM_SUBTRACE_ID_ALU +
-sel_exec_dispatch_cast * constants.AVM_SUBTRACE_ID_CAST +
-sel_exec_dispatch_set * constants.AVM_SUBTRACE_ID_SET +
 sel_exec_dispatch_bitwise * constants.AVM_SUBTRACE_ID_BITWISE +
-sel_exec_dispatch_poseidon2_perm * constants.AVM_SUBTRACE_ID_POSEIDON_PERM +
-sel_exec_dispatch_to_radix * constants.AVM_SUBTRACE_ID_TO_RADIX +
-sel_exec_dispatch_ecc_add * constants.AVM_SUBTRACE_ID_ECC +
-sel_exec_dispatch_keccakf1600 * constants.AVM_SUBTRACE_ID_KECCAKF1600 +
+sel_exec_dispatch_cast * constants.AVM_SUBTRACE_ID_CAST +
 sel_exec_dispatch_calldata_copy * constants.AVM_SUBTRACE_ID_CALLDATA_COPY +
+sel_exec_dispatch_returndata_copy * constants.AVM_SUBTRACE_ID_RETURNDATA_COPY +
+sel_exec_dispatch_set * constants.AVM_SUBTRACE_ID_SET +
 sel_exec_dispatch_get_contract_instance * constants.AVM_SUBTRACE_ID_GETCONTRACTINSTANCE +
 sel_exec_dispatch_emit_unencrypted_log * constants.AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG +
+sel_exec_dispatch_poseidon2_perm * constants.AVM_SUBTRACE_ID_POSEIDON2_PERM +
 sel_exec_dispatch_sha256_compression * constants.AVM_SUBTRACE_ID_SHA256_COMPRESSION +
-sel_exec_dispatch_returndata_copy * constants.AVM_SUBTRACE_ID_RETURNDATA_COPY
+sel_exec_dispatch_keccakf1600 * constants.AVM_SUBTRACE_ID_KECCAKF1600 +
+sel_exec_dispatch_ecc_add * constants.AVM_SUBTRACE_ID_ECC +
+sel_exec_dispatch_to_radix * constants.AVM_SUBTRACE_ID_TO_RADIX
 // We force the selectors to be 0 if we are not executing an opcode.
 = sel_should_execute_opcode * subtrace_id;
 

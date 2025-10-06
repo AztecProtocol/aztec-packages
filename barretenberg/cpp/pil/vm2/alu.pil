@@ -90,7 +90,7 @@ execution.sel_exec_dispatch_alu {
     ia, ia_tag, ib, ib_tag, ic, ic_tag, op_id, sel_err
 };
 
-// MW Note: No need to range check values fit in their tag's max bits. Inputs a and b are reads (already checked), and c is checked in memory.
+// Note: No need to range check values fit in their tag's max bits. Inputs a and b are reads (already checked), and c is checked in memory.
 // Though in this circuit we could incorrectly set cf = false when we would overflow, the memory range check would catch that c is too large.
 
 // IS_FF CHECKING
