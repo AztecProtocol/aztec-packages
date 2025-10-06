@@ -1,4 +1,4 @@
-import { createAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
+import { simAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
@@ -10,7 +10,7 @@ describe('AVM proven minimal tx', () => {
   });
 
   it('Proving minimal public tx', async () => {
-    const result = await createAvmMinimalPublicTx();
+    const result = await simAvmMinimalPublicTx();
     expect(result.revertCode.isOK()).toBe(true);
 
     await tester.proveVerify(result.avmProvingRequest.inputs);

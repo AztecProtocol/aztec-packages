@@ -87,7 +87,7 @@
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
-    "axios": "^1.8.2",
+    "axios": "^1.12.0",
     "tslib": "^2.4.0",
     "viem": "2.23.7",
     "zod": "^3.23.8"

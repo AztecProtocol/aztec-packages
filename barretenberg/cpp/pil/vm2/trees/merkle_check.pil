@@ -161,17 +161,14 @@ namespace merkle_check;
     pol commit read_output_hash;
     pol commit write_output_hash;
 
-    pol commit constant_2;
-    sel * (constant_2 - 2) = 0;
-
     // Lookup to the full poseidon2 gadget
     #[MERKLE_POSEIDON2_READ]
-    sel { read_left_node, read_right_node, /*input_2=*/ precomputed.zero, /*input_len=*/ constant_2, read_output_hash }
-    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.input_len, poseidon2_hash.output };
+    sel { read_left_node, read_right_node, /*input_2=*/ precomputed.zero, /*start=1=*/ sel, read_output_hash }
+    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.start, poseidon2_hash.output };
 
     #[MERKLE_POSEIDON2_WRITE]
-    write { write_left_node, write_right_node, /*input_2=*/ precomputed.zero, /*input_len=*/ constant_2, write_output_hash }
-    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.input_len, poseidon2_hash.output };
+    write { write_left_node, write_right_node, /*input_2=*/ precomputed.zero, /*start=1=*/ sel, write_output_hash }
+    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.start, poseidon2_hash.output };
 
     // If we are not done, this row's output_hash is the next row's node
     #[OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE]

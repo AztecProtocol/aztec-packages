@@ -110,6 +110,7 @@ instance_exists {
     retrieved_bytecodes_tree_check.root
 };
 
+// Enforce is_new_class == 0 if the instance does not exist.
 sel * (1 - instance_exists) * is_new_class = 0;
 
 pol TOO_MANY_BYTECODES = no_remaining_bytecodes * is_new_class;
@@ -174,7 +175,3 @@ error * (next_retrieved_bytecodes_tree_size - prev_retrieved_bytecodes_tree_size
 
 // Note: we don't need to silo and check the class id because the deployer contract guarrantees
 // that if a contract instance exists, the class has been registered.
-
-// TODO: To ensure bytecode_id unicity inside of bc_decomposition.pil, we will have to introduce
-// a permutation of the form: sel_XXX {bytecode_id} is bc_decomposition.last_of_contract {bc_decomposition.id}
-// sel_XXX will have to be picked so that it selects a bytecode_id iff it has an entry in bc_decomposition

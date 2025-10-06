@@ -89,15 +89,14 @@ pol commit sel_op_is_address[7];
 // This is because simulation only considers the bits that can be addresses, and will not
 // attempt to resolve any other even if the indirect flag says so. Therefore, in particular it
 // will never error on those operands.
-// NOTE: we could avoid this committed column if the lookups could take pol aliases.
-pol commit sel_op_is_relative_effective[7];
-sel_op_is_relative_effective[0] = sel_op_is_relative_wire[0] * sel_op_is_address[0];
-sel_op_is_relative_effective[1] = sel_op_is_relative_wire[1] * sel_op_is_address[1];
-sel_op_is_relative_effective[2] = sel_op_is_relative_wire[2] * sel_op_is_address[2];
-sel_op_is_relative_effective[3] = sel_op_is_relative_wire[3] * sel_op_is_address[3];
-sel_op_is_relative_effective[4] = sel_op_is_relative_wire[4] * sel_op_is_address[4];
-sel_op_is_relative_effective[5] = sel_op_is_relative_wire[5] * sel_op_is_address[5];
-sel_op_is_relative_effective[6] = sel_op_is_relative_wire[6] * sel_op_is_address[6];
+pol SEL_OP_IS_RELATIVE_EFFECTIVE_0_ = sel_op_is_relative_wire[0] * sel_op_is_address[0];
+pol SEL_OP_IS_RELATIVE_EFFECTIVE_1_ = sel_op_is_relative_wire[1] * sel_op_is_address[1];
+pol SEL_OP_IS_RELATIVE_EFFECTIVE_2_ = sel_op_is_relative_wire[2] * sel_op_is_address[2];
+pol SEL_OP_IS_RELATIVE_EFFECTIVE_3_ = sel_op_is_relative_wire[3] * sel_op_is_address[3];
+pol SEL_OP_IS_RELATIVE_EFFECTIVE_4_ = sel_op_is_relative_wire[4] * sel_op_is_address[4];
+pol SEL_OP_IS_RELATIVE_EFFECTIVE_5_ = sel_op_is_relative_wire[5] * sel_op_is_address[5];
+pol SEL_OP_IS_RELATIVE_EFFECTIVE_6_ = sel_op_is_relative_wire[6] * sel_op_is_address[6];
+
 pol SEL_OP_IS_INDIRECT_EFFECTIVE_0_ = sel_op_is_indirect_wire[0] * sel_op_is_address[0];
 pol SEL_OP_IS_INDIRECT_EFFECTIVE_1_ = sel_op_is_indirect_wire[1] * sel_op_is_address[1];
 pol SEL_OP_IS_INDIRECT_EFFECTIVE_2_ = sel_op_is_indirect_wire[2] * sel_op_is_address[2];
@@ -119,9 +118,10 @@ pol commit base_address_tag;
 
 // If any operand requires relative resolution, we check the base address.
 pol commit sel_do_base_check;
-// We do a bit of extra work to check if the sum of sel_op_is_relative_effective[i] is non-zero.
-pol NUM_RELATIVE_OPERANDS = sel_op_is_relative_effective[0] + sel_op_is_relative_effective[1] + sel_op_is_relative_effective[2] + sel_op_is_relative_effective[3]
-                          + sel_op_is_relative_effective[4] + sel_op_is_relative_effective[5] + sel_op_is_relative_effective[6];
+sel_do_base_check * (1 - sel_do_base_check) = 0;
+// We do a bit of extra work to check if the sum of SEL_OP_IS_RELATIVE_EFFECTIVE[i] is non-zero.
+pol NUM_RELATIVE_OPERANDS = SEL_OP_IS_RELATIVE_EFFECTIVE_0_ + SEL_OP_IS_RELATIVE_EFFECTIVE_1_ + SEL_OP_IS_RELATIVE_EFFECTIVE_2_ + SEL_OP_IS_RELATIVE_EFFECTIVE_3_
+                          + SEL_OP_IS_RELATIVE_EFFECTIVE_4_ + SEL_OP_IS_RELATIVE_EFFECTIVE_5_ + SEL_OP_IS_RELATIVE_EFFECTIVE_6_;
 pol commit num_relative_operands_inv;
 // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw#With-Error-Support.
 pol NUM_RELATIVE_X = NUM_RELATIVE_OPERANDS;
@@ -136,6 +136,7 @@ is memory.sel_addressing_base { memory.clk, memory.space_id, memory.address, mem
 
 // This error will be true iff the base address is not valid AND we did actually check it.
 pol commit sel_base_address_failure;
+sel_base_address_failure * (1 - sel_base_address_failure) = 0;
 
 // We check the TAG of the base address only. This implies that the value is valid.
 // The following bunch of constraints force
@@ -158,42 +159,54 @@ pol commit op_after_relative[7];
 // Whether relative resolution overflowed the address space.
 pol commit sel_relative_overflow[7];
 // sel_relative_overflow[i] is a boolean value:
-// - sel_op_is_relative_effective[i] == 0, we enforce below that sel_relative_overflow[i] == 0 (see #[NOT_RELATIVE_NO_OVERFLOW_i]).
-// - sel_op_is_relative_effective[i] == 1, we enforce through the lookup #[RELATIVE_OVERFLOW_RESULT_i] that sel_relative_overflow[i]
-//   is boolean. This is enforced by the gt gadget.
+// - SEL_OP_IS_RELATIVE_EFFECTIVE[i] == 0, we enforce below that sel_relative_overflow[i] == 0 (see #[NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_i]).
+// - sel_base_address_failure == 1, we enforce below that sel_relative_overflow[i] == 0 (see #[NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_i]).
+// - SEL_OP_IS_RELATIVE_EFFECTIVE[i] == 1 and sel_base_address_failure == 0, we enforce through
+//   the lookup #[RELATIVE_OVERFLOW_RESULT_i] that sel_relative_overflow[i] is boolean. This is enforced by the gt gadget.
 
-// If sel_op_is_relative_effective[i] == 0, then sel_relative_overflow[i] must be 0.
-#[NOT_RELATIVE_NO_OVERFLOW_0]
-sel_relative_overflow[0] * (1 - sel_op_is_relative_effective[0]) = 0;
-#[NOT_RELATIVE_NO_OVERFLOW_1]
-sel_relative_overflow[1] * (1 - sel_op_is_relative_effective[1]) = 0;
-#[NOT_RELATIVE_NO_OVERFLOW_2]
-sel_relative_overflow[2] * (1 - sel_op_is_relative_effective[2]) = 0;
-#[NOT_RELATIVE_NO_OVERFLOW_3]
-sel_relative_overflow[3] * (1 - sel_op_is_relative_effective[3]) = 0;
-#[NOT_RELATIVE_NO_OVERFLOW_4]
-sel_relative_overflow[4] * (1 - sel_op_is_relative_effective[4]) = 0;
-#[NOT_RELATIVE_NO_OVERFLOW_5]
-sel_relative_overflow[5] * (1 - sel_op_is_relative_effective[5]) = 0;
-#[NOT_RELATIVE_NO_OVERFLOW_6]
-sel_relative_overflow[6] * (1 - sel_op_is_relative_effective[6]) = 0;
+// If SEL_OP_IS_RELATIVE_EFFECTIVE[i] == 0 OR sel_base_address_failure == 1, then sel_relative_overflow[i] must be 0.
+// The factor 1 - SEL_OP_IS_RELATIVE_EFFECTIVE_0_ + 2 * sel_base_address_failure == 0 iff
+// SEL_OP_IS_RELATIVE_EFFECTIVE_0_ == 1 AND sel_base_address_failure == 0 (because both values are boolean).
+#[NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_0]
+sel_relative_overflow[0] * (1 - SEL_OP_IS_RELATIVE_EFFECTIVE_0_ + 2 * sel_base_address_failure) = 0;
+#[NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_1]
+sel_relative_overflow[1] * (1 - SEL_OP_IS_RELATIVE_EFFECTIVE_1_ + 2 * sel_base_address_failure) = 0;
+#[NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_2]
+sel_relative_overflow[2] * (1 - SEL_OP_IS_RELATIVE_EFFECTIVE_2_ + 2 * sel_base_address_failure) = 0;
+#[NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_3]
+sel_relative_overflow[3] * (1 - SEL_OP_IS_RELATIVE_EFFECTIVE_3_ + 2 * sel_base_address_failure) = 0;
+#[NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_4]
+sel_relative_overflow[4] * (1 - SEL_OP_IS_RELATIVE_EFFECTIVE_4_ + 2 * sel_base_address_failure) = 0;
+#[NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_5]
+sel_relative_overflow[5] * (1 - SEL_OP_IS_RELATIVE_EFFECTIVE_5_ + 2 * sel_base_address_failure) = 0;
+#[NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_6]
+sel_relative_overflow[6] * (1 - SEL_OP_IS_RELATIVE_EFFECTIVE_6_ + 2 * sel_base_address_failure) = 0;
 
 // Note that we will not add the base address if there was a failure.
 pol RELATIVE_RESOLUTION_FILTER = (1 - sel_base_address_failure) * base_address_val;  // Alias for performance.
 #[RELATIVE_RESOLUTION_0]
-op_after_relative[0] = op[0] + sel_op_is_relative_effective[0] * RELATIVE_RESOLUTION_FILTER;
+op_after_relative[0] = op[0] + SEL_OP_IS_RELATIVE_EFFECTIVE_0_ * RELATIVE_RESOLUTION_FILTER;
 #[RELATIVE_RESOLUTION_1]
-op_after_relative[1] = op[1] + sel_op_is_relative_effective[1] * RELATIVE_RESOLUTION_FILTER;
+op_after_relative[1] = op[1] + SEL_OP_IS_RELATIVE_EFFECTIVE_1_ * RELATIVE_RESOLUTION_FILTER;
 #[RELATIVE_RESOLUTION_2]
-op_after_relative[2] = op[2] + sel_op_is_relative_effective[2] * RELATIVE_RESOLUTION_FILTER;
+op_after_relative[2] = op[2] + SEL_OP_IS_RELATIVE_EFFECTIVE_2_ * RELATIVE_RESOLUTION_FILTER;
 #[RELATIVE_RESOLUTION_3]
-op_after_relative[3] = op[3] + sel_op_is_relative_effective[3] * RELATIVE_RESOLUTION_FILTER;
+op_after_relative[3] = op[3] + SEL_OP_IS_RELATIVE_EFFECTIVE_3_ * RELATIVE_RESOLUTION_FILTER;
 #[RELATIVE_RESOLUTION_4]
-op_after_relative[4] = op[4] + sel_op_is_relative_effective[4] * RELATIVE_RESOLUTION_FILTER;
+op_after_relative[4] = op[4] + SEL_OP_IS_RELATIVE_EFFECTIVE_4_ * RELATIVE_RESOLUTION_FILTER;
 #[RELATIVE_RESOLUTION_5]
-op_after_relative[5] = op[5] + sel_op_is_relative_effective[5] * RELATIVE_RESOLUTION_FILTER;
+op_after_relative[5] = op[5] + SEL_OP_IS_RELATIVE_EFFECTIVE_5_ * RELATIVE_RESOLUTION_FILTER;
 #[RELATIVE_RESOLUTION_6]
-op_after_relative[6] = op[6] + sel_op_is_relative_effective[6] * RELATIVE_RESOLUTION_FILTER;
+op_after_relative[6] = op[6] + SEL_OP_IS_RELATIVE_EFFECTIVE_6_ * RELATIVE_RESOLUTION_FILTER;
+
+pol commit sel_op_do_overflow_check[7];
+sel_op_do_overflow_check[0] = SEL_OP_IS_RELATIVE_EFFECTIVE_0_ * (1 - sel_base_address_failure);
+sel_op_do_overflow_check[1] = SEL_OP_IS_RELATIVE_EFFECTIVE_1_ * (1 - sel_base_address_failure);
+sel_op_do_overflow_check[2] = SEL_OP_IS_RELATIVE_EFFECTIVE_2_ * (1 - sel_base_address_failure);
+sel_op_do_overflow_check[3] = SEL_OP_IS_RELATIVE_EFFECTIVE_3_ * (1 - sel_base_address_failure);
+sel_op_do_overflow_check[4] = SEL_OP_IS_RELATIVE_EFFECTIVE_4_ * (1 - sel_base_address_failure);
+sel_op_do_overflow_check[5] = SEL_OP_IS_RELATIVE_EFFECTIVE_5_ * (1 - sel_base_address_failure);
+sel_op_do_overflow_check[6] = SEL_OP_IS_RELATIVE_EFFECTIVE_6_ * (1 - sel_base_address_failure);
 
 // Helper columns for overflow range check.
 pol commit highest_address;
@@ -201,19 +214,19 @@ pol commit highest_address;
 SEL_SHOULD_RESOLVE_ADDRESS * (highest_address - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
 // sel_relative_overflow[i] == 1 iff op_after_relative[i] > highest_address.
 #[RELATIVE_OVERFLOW_RESULT_0]
-sel_op_is_relative_effective[0] { op_after_relative[0], highest_address, sel_relative_overflow[0] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
+sel_op_do_overflow_check[0] { op_after_relative[0], highest_address, sel_relative_overflow[0] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
 #[RELATIVE_OVERFLOW_RESULT_1]
-sel_op_is_relative_effective[1] { op_after_relative[1], highest_address, sel_relative_overflow[1] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
+sel_op_do_overflow_check[1] { op_after_relative[1], highest_address, sel_relative_overflow[1] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
 #[RELATIVE_OVERFLOW_RESULT_2]
-sel_op_is_relative_effective[2] { op_after_relative[2], highest_address, sel_relative_overflow[2] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
+sel_op_do_overflow_check[2] { op_after_relative[2], highest_address, sel_relative_overflow[2] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
 #[RELATIVE_OVERFLOW_RESULT_3]
-sel_op_is_relative_effective[3] { op_after_relative[3], highest_address, sel_relative_overflow[3] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
+sel_op_do_overflow_check[3] { op_after_relative[3], highest_address, sel_relative_overflow[3] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
 #[RELATIVE_OVERFLOW_RESULT_4]
-sel_op_is_relative_effective[4] { op_after_relative[4], highest_address, sel_relative_overflow[4] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
+sel_op_do_overflow_check[4] { op_after_relative[4], highest_address, sel_relative_overflow[4] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
 #[RELATIVE_OVERFLOW_RESULT_5]
-sel_op_is_relative_effective[5] { op_after_relative[5], highest_address, sel_relative_overflow[5] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
+sel_op_do_overflow_check[5] { op_after_relative[5], highest_address, sel_relative_overflow[5] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
 #[RELATIVE_OVERFLOW_RESULT_6]
-sel_op_is_relative_effective[6] { op_after_relative[6], highest_address, sel_relative_overflow[6] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
+sel_op_do_overflow_check[6] { op_after_relative[6], highest_address, sel_relative_overflow[6] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
 
 /**************************************************************************************************
  *  Indirection Resolution
@@ -291,6 +304,7 @@ is memory.sel_addressing_indirect[6] { memory.clk, memory.space_id, memory.addre
 // Observe that we don't need to know exactly which one failed.
 // We use this fact to "batch" the checks and do only 1 comparison against 0 (inverse check).
 pol commit sel_some_final_check_failed;
+sel_some_final_check_failed * (1 - sel_some_final_check_failed) = 0;
 // Each tag takes at most 3 bits (guaranteed by mem lookup!), we can encode all of them in a field.
 // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw?both#Batching-comparison-of-n-bit-numbers.
 // This diff will be 0 iff all tags are U32.
@@ -316,6 +330,7 @@ BATCHED_TAGS_DIFF_EQ = 0;
 // Whether there was any error resolving any of the operands.
 // I.e., the OR of all other error selectors.
 pol commit sel_addressing_error;
+sel_addressing_error * (1 - sel_addressing_error) = 0;
 pol ADDRESSING_ERROR_COLLECTION = sel_base_address_failure
                                 + sel_relative_overflow[0] + sel_relative_overflow[1] + sel_relative_overflow[2] + sel_relative_overflow[3]
                                 + sel_relative_overflow[4] + sel_relative_overflow[5] + sel_relative_overflow[6]

@@ -106,6 +106,7 @@ class BytecodeHashingConstrainingTestTraceHelper : public BytecodeHashingConstra
                               { C::bc_hashing_sel_not_padding_1, end && padding_amount == 2 ? 0 : 1 },
                               { C::bc_hashing_sel_not_padding_2, end && padding_amount > 0 ? 0 : 1 },
                               { C::bc_hashing_sel_not_start, !start },
+                              { C::bc_hashing_start, start },
                           } });
                 if (end) {
                     // TODO(MW): Cleanup: below sets the pc at which the final field starts.
@@ -166,6 +167,7 @@ TEST_F(BytecodeHashingConstrainingTest, SingleBytecodeHashOneRow)
             { C::bc_hashing_pc_index, 0 },
             { C::bc_hashing_rounds_rem, 1 },
             { C::bc_hashing_sel, 1 },
+            { C::bc_hashing_start, 1 },
         },
     });
 
@@ -294,7 +296,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeInvalidStartAfterLatch)
     check_relation<bc_hashing>(trace, bc_hashing::SR_START_AFTER_LATCH);
 
     // Row = 2 is the start of the hashing for bytecode id = 2
-    trace.set(Column::bc_hashing_sel_not_start, 2, 1);
+    trace.set(Column::bc_hashing_start, 2, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_START_AFTER_LATCH), "START_AFTER_LATCH");
 }
 
@@ -546,6 +548,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashIncrements)
             { C::bc_hashing_pc_index, 31 },
             { C::bc_hashing_sel, 1 },
             { C::bc_hashing_sel_not_start, 0 },
+            { C::bc_hashing_start, 1 },
         },
     });
 
@@ -590,6 +593,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashLength)
             { C::bc_hashing_pc_index, 0 },
             { C::bc_hashing_rounds_rem, 2 },
             { C::bc_hashing_sel, 1 },
+            { C::bc_hashing_start, 1 },
         },
         {
             { C::bc_hashing_input_len, 7 },
@@ -614,10 +618,12 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashLength)
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
 
-    // The correct rows (for input chunks [sep, 1, 2] and [3, 0, 0]) will exist in the poseidon trace, so the lookups
-    // will pass...
-    check_all_interactions<BytecodeTraceBuilder>(trace);
-    // ...but at the final row, the length check will fail:
+    // The correct rows (for input chunks [sep, 1, 2] and [3, 0, 0]) will exist in the poseidon trace, but the start
+    // rows do not line up:
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_poseidon2_hash_settings>(trace)),
+        "LOOKUP_BC_HASHING_POSEIDON2_HASH");
+    // At the final row, the length check will fail:
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_BYTECODE_LENGTH_FIELDS),
                               "BYTECODE_LENGTH_FIELDS");
 }
@@ -655,6 +661,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashOutputConsiste
             { C::bc_hashing_pc_index, 0 },
             { C::bc_hashing_rounds_rem, 2 },
             { C::bc_hashing_sel, 1 },
+            { C::bc_hashing_start, 1 },
         },
         {
             { C::bc_hashing_input_len, 6 },

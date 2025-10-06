@@ -228,12 +228,8 @@ bytes_pc_plus_36 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_35';
 // does not choose at least the minimum amount of rows, the lookup will fail.
 // NOTE: The bytecode hashing trace will constrain itself that every 31st pc is packed.
 
-// TODO: We need to ensure that there is a single row per pair (pc, bytecode_id) in
-// this subtrace (otherwise, a malicious prover might copy wrong values).
-// This is ensured by #[SEL_TOGGLED_AT_PACKED] and #[BC_DEC_PC_INCREMENT] relations but
-// still have to implement the unicity on bytecode_id. The current plan is to
-// add a permutation between this sub-trace and bc_retrieval.pil of the form:
-// last_of_contract {id} is bc_retrieval.sel_XXX {bc_retrieval.bytecode_id}
+// TODO: We need to ensure that every active row contains a byte which is accounted for
+// in the bytecode hashing trace. See https://github.com/AztecProtocol/aztec-packages/issues/17428
 
 pol commit sel_packed;
 sel_packed * (1 - sel_packed) = 0;

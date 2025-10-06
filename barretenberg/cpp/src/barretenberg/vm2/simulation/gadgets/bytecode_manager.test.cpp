@@ -9,13 +9,17 @@
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/gadgets/bytecode_hashing.hpp"
+#include "barretenberg/vm2/simulation/gadgets/contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_protocol_contracts.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_retrieved_bytecodes_tree_check.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_update_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 
@@ -208,6 +212,55 @@ TEST_F(BytecodeManagerTest, TooManyBytecodes)
     EXPECT_EQ(retrieval_events_dump[0].bytecode_id, 0);
     EXPECT_FALSE(retrieval_events_dump[0].instance_not_found_error);
     EXPECT_TRUE(retrieval_events_dump[0].limit_error);
+}
+
+// Test about a contract address nullifier not found error (contract address not in nullifier tree)
+TEST_F(BytecodeManagerTest, ContractAddressNullifierNotFoundError)
+{
+    StrictMock<MockUpdateCheck> update_check;
+    StrictMock<MockProtocolContractSet> protocol_contracts_set;
+    EventEmitter<ContractInstanceRetrievalEvent> contract_retrieval_events;
+
+    ContractInstanceManager real_contract_instance_manager(
+        contract_db, merkle_db, update_check, protocol_contracts_set, contract_retrieval_events);
+
+    TxBytecodeManager tx_bytecode_manager(contract_db,
+                                          merkle_db,
+                                          bytecode_hasher,
+                                          range_check,
+                                          real_contract_instance_manager,
+                                          retrieved_bytecodes_tree_check,
+                                          retrieval_events,
+                                          decomposition_events,
+                                          instruction_fetching_events);
+
+    AztecAddress address = AztecAddress::random_element();
+    ContractInstance instance = testing::random_contract_instance();
+    EXPECT_CALL(contract_db, get_contract_instance(address)).WillOnce(Return(instance));
+    EXPECT_CALL(protocol_contracts_set, contains(address)).WillOnce(Return(false));
+    EXPECT_CALL(retrieved_bytecodes_tree_check, get_snapshot());
+    EXPECT_CALL(merkle_db, get_tree_state()).Times(2);
+    EXPECT_CALL(merkle_db, nullifier_exists(FF(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), address))
+        .WillOnce(Return(false));
+
+    EXPECT_THROW_WITH_MESSAGE(tx_bytecode_manager.get_bytecode(address),
+                              "Contract " + field_to_string(address) + " is not deployed");
+
+    auto retrieval_events_dump = retrieval_events.dump_events();
+    EXPECT_THAT(retrieval_events_dump, SizeIs(1));
+    EXPECT_EQ(retrieval_events_dump[0].address, address);
+    EXPECT_EQ(retrieval_events_dump[0].bytecode_id, 0);
+    EXPECT_TRUE(retrieval_events_dump[0].instance_not_found_error);
+    EXPECT_FALSE(retrieval_events_dump[0].limit_error);
+
+    auto contract_retrieval_events_dump = contract_retrieval_events.dump_events();
+    EXPECT_THAT(contract_retrieval_events_dump, SizeIs(1));
+    EXPECT_EQ(contract_retrieval_events_dump[0].address, address);
+    EXPECT_FALSE(contract_retrieval_events_dump[0].exists);
+    EXPECT_TRUE(contract_retrieval_events_dump[0].error);
+    EXPECT_FALSE(contract_retrieval_events_dump[0].is_protocol_contract);
+    EXPECT_EQ(contract_retrieval_events_dump[0].deployment_nullifier, address);
+    EXPECT_EQ(contract_retrieval_events_dump[0].contract_instance, ContractInstance{});
 }
 
 } // namespace

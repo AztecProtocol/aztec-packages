@@ -293,7 +293,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       streamMuxers: [yamux(), mplex()],
       connectionEncryption: [noise()],
       connectionManager: {
-        minConnections: Math.floor(maxPeerCount * 0.5), // dial peers from the peer book if current connections are below this number.
+        minConnections: 0, // Disable libp2p peer dialing, we do it manually
         // We set maxConnections above maxPeerCount because if we hit limit of maxPeerCount
         // libp2p will start aggressively rejecting all new connections, preventing network discovery and crawling.
         maxConnections: maxPeerCount * 2,
