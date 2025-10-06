@@ -169,7 +169,7 @@ export function withDelayer<T extends ViemClient>(
 
           // Cancel tx outright if instructed
           if ('indefinitely' in waitUntil && waitUntil.indefinitely) {
-            logger.info(`Cancelling tx ${txHash}`);
+            logger.info('Cancelling tx %s', txHash);
             delayer.cancelledTxs.push(serializedTransaction);
             return Promise.resolve(txHash);
           }
@@ -182,7 +182,7 @@ export function withDelayer<T extends ViemClient>(
                 ? waitUntilL1Timestamp(publicClient, waitUntil.l1Timestamp - delayer.ethereumSlotDuration, logger)
                 : undefined;
 
-          logger.info(`Delaying tx ${txHash} until ${inspect(waitUntil)}`, {
+          logger.info('Delaying tx %s until %s', txHash, inspect(waitUntil), {
             argsLen: args.length,
             ...omit(parseTransaction(serializedTransaction), 'data', 'sidecars'),
           });
@@ -203,7 +203,7 @@ export function withDelayer<T extends ViemClient>(
           if (now / 1000 - Number(lastBlockTimestamp) > delayer.maxInclusionTimeIntoSlot) {
             // If the last block was mined more than `maxInclusionTimeIntoSlot` seconds ago, then we cannot include
             // any txs in the current slot, so we delay the tx until the next slot.
-            logger.info(`Delaying inclusion of tx ${txHash} until the next slot since it was sent too late`, logData);
+            logger.info('Delaying inclusion of tx %s until the next slot since it was sent too late', txHash, logData);
             wait = waitUntilBlock(publicClient, number + 1n, logger);
           } else {
             logger.debug(`Immediately sending tx ${txHash} as it was received early enough in the slot`, logData);
