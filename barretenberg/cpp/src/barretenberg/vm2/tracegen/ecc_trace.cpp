@@ -250,8 +250,6 @@ const InteractionDefinition EccTraceBuilder::interactions =
         // Comparison
         .add<lookup_ecc_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         // Lookup into ECC Add Subtrace
-        .add<lookup_ecc_mem_input_output_ecc_add_settings, InteractionType::LookupGeneric>()
-        // Dispatch Permutation
-        .add<perm_ecc_mem_dispatch_exec_ecc_add_settings, InteractionType::Permutation>();
+        .add<lookup_ecc_mem_input_output_ecc_add_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

@@ -12,6 +12,7 @@
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bitwise_trace.hpp"
+#include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -19,6 +20,7 @@ namespace bb::avm2::constraining {
 namespace {
 
 using tracegen::BitwiseTraceBuilder;
+using tracegen::ExecutionTraceBuilder;
 using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
@@ -432,7 +434,7 @@ TEST(BitwiseConstrainingTest, BitwiseExecInteraction)
         { C::execution_subtrace_operation_id, static_cast<uint8_t>(BitwiseOperation::AND) },
     } });
 
-    check_interaction<BitwiseTraceBuilder, lookup_bitwise_dispatch_exec_bitwise_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_bitwise_settings>(trace);
 }
 
 TEST(BitwiseConstrainingTest, InvalidBitwiseExecInteraction)
@@ -460,8 +462,8 @@ TEST(BitwiseConstrainingTest, InvalidBitwiseExecInteraction)
     } });
 
     EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<BitwiseTraceBuilder, lookup_bitwise_dispatch_exec_bitwise_settings>(trace)),
-        "Failed.*BITWISE_DISPATCH_EXEC_BITWISE. Could not find tuple in destination.");
+        (check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_bitwise_settings>(trace)),
+        "Failed.*EXECUTION_DISPATCH_TO_BITWISE. Could not find tuple in destination.");
 }
 
 TEST(BitwiseConstrainingTest, ErrorHandlingInputFF)

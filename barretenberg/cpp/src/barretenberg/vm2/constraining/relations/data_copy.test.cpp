@@ -448,8 +448,8 @@ TEST(DataCopyWithExecutionPerm, CdCopy)
 
     check_relation<data_copy>(trace);
     check_interaction<ExecutionTraceBuilder,
-                      perm_data_copy_dispatch_cd_copy_settings,
-                      perm_data_copy_dispatch_rd_copy_settings>(trace);
+                      perm_execution_dispatch_to_cd_copy_settings,
+                      perm_execution_dispatch_to_rd_copy_settings>(trace);
 }
 
 class NestedRdConstrainingBuilderTest : public DataCopyConstrainingBuilderTest {
@@ -542,8 +542,8 @@ TEST(DataCopyWithExecutionPerm, RdCopy)
 
     check_relation<data_copy>(trace);
     check_interaction<ExecutionTraceBuilder,
-                      perm_data_copy_dispatch_cd_copy_settings,
-                      perm_data_copy_dispatch_rd_copy_settings>(trace);
+                      perm_execution_dispatch_to_cd_copy_settings,
+                      perm_execution_dispatch_to_rd_copy_settings>(trace);
 }
 
 TEST(DataCopyWithExecutionPerm, ErrorPropagation)
@@ -600,8 +600,8 @@ TEST(DataCopyWithExecutionPerm, ErrorPropagation)
 
     check_relation<data_copy>(trace);
     check_interaction<ExecutionTraceBuilder,
-                      perm_data_copy_dispatch_cd_copy_settings,
-                      perm_data_copy_dispatch_rd_copy_settings>(trace);
+                      perm_execution_dispatch_to_cd_copy_settings,
+                      perm_execution_dispatch_to_rd_copy_settings>(trace);
 }
 
 } // namespace

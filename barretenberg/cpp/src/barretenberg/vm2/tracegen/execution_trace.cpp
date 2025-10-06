@@ -1197,10 +1197,6 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
             Column::gt_sel)
         .add<lookup_external_call_call_is_da_gas_allocated_lt_left_settings, InteractionType::LookupGeneric>(
             Column::gt_sel)
-        // Dispatch to gadget sub-traces
-        .add<perm_execution_dispatch_keccakf1600_settings, InteractionType::Permutation>()
-        .add<perm_data_copy_dispatch_cd_copy_settings, InteractionType::Permutation>()
-        .add<perm_data_copy_dispatch_rd_copy_settings, InteractionType::Permutation>()
         // GetEnvVar opcode
         .add<lookup_get_env_var_precomputed_info_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_get_env_var_read_from_public_inputs_col0_settings, InteractionType::LookupIntoIndexedByClk>()
@@ -1217,18 +1213,26 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_nullifier_exists_nullifier_exists_check_settings, InteractionType::LookupSequential>()
         // EmitNullifier
         .add<lookup_emit_nullifier_write_nullifier_settings, InteractionType::LookupSequential>()
-        // GetContractInstance opcode
-        .add<perm_execution_dispatch_get_contract_instance_settings, InteractionType::Permutation>()
         // EmitNoteHash
         .add<lookup_emit_notehash_notehash_tree_write_settings, InteractionType::LookupSequential>()
         // L1ToL2MsgExists
         .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_settings, InteractionType::LookupGeneric>(
             Column::gt_sel)
         .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_settings, InteractionType::LookupSequential>()
-        // Alu dispatching
-        .add<lookup_alu_register_tag_value_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_exec_dispatching_cast_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_exec_dispatching_set_settings, InteractionType::LookupGeneric>()
+        // Dispatching to other sub-traces
+        .add<lookup_execution_dispatch_to_alu_settings, InteractionType::LookupGeneric>()
+        .add<lookup_execution_dispatch_to_bitwise_settings, InteractionType::LookupGeneric>()
+        .add<perm_execution_dispatch_to_cd_copy_settings, InteractionType::Permutation>()
+        .add<perm_execution_dispatch_to_rd_copy_settings, InteractionType::Permutation>()
+        .add<lookup_execution_dispatch_to_cast_settings, InteractionType::LookupGeneric>()
+        .add<lookup_execution_dispatch_to_set_settings, InteractionType::LookupGeneric>()
+        .add<perm_execution_dispatch_to_get_contract_instance_settings, InteractionType::Permutation>()
+        .add<lookup_execution_dispatch_to_emit_unencrypted_log_settings, InteractionType::LookupGeneric>()
+        .add<perm_execution_dispatch_to_poseidon2_perm_settings, InteractionType::Permutation>()
+        .add<perm_execution_dispatch_to_sha256_compression_settings, InteractionType::Permutation>()
+        .add<perm_execution_dispatch_to_keccakf1600_settings, InteractionType::Permutation>()
+        .add<perm_execution_dispatch_to_ecc_add_settings, InteractionType::Permutation>()
+        .add<perm_execution_dispatch_to_to_radix_settings, InteractionType::Permutation>()
         // SendL2ToL1Msg
         .add<lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_settings, InteractionType::LookupIntoIndexedByClk>();
 
