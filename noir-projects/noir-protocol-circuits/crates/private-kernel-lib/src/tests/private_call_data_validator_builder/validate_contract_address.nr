@@ -129,7 +129,7 @@ fn validate_contract_address_protocol_contract_wrong_index_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with = "Key does not match the key of the leaf preimage")]
+#[test(should_fail_with = "computed contract address does not match expected one")]
 fn validate_contract_address_protocol_contract_wrong_computed_address_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_protocol_contract();
 

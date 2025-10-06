@@ -103,6 +103,7 @@ namespace contract_instance_retrieval;
 
     // Constrain exists and derived address for protocol contracts
 
+    // Compute the protocol contract derived address index in the PI column as `base_offset + contract_index = base_offset + protocol_address - 1`
     pol commit derived_address_pi_index;
     is_protocol_contract * (constants.AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACTS_ROW_IDX + address_sub_one - derived_address_pi_index) = 0;
 
@@ -118,6 +119,7 @@ namespace contract_instance_retrieval;
     pol commit protocol_contract_derived_address_inv;
     pol NOT_EXISTS = 1 - exists;
 
+    // If the protocol contract derived address is zero, the protocol contract does not exist. Otherwise, it exists.
     is_protocol_contract * (derived_address * (NOT_EXISTS * (1 - protocol_contract_derived_address_inv) + protocol_contract_derived_address_inv) - 1 + NOT_EXISTS) = 0;
 
     // Constrain exists and derived address for non-protocol contracts via nullifier check

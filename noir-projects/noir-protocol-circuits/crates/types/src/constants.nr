@@ -1123,11 +1123,14 @@ pub global GRUMPKIN_ONE_Y: Field = 176316838811849753701652558875517816157483885
 pub global DEFAULT_MAX_DEBUG_LOG_MEMORY_READS: u32 = 125000;
 
 mod test {
+    use crate::address::aztec_address::AztecAddress;
     use crate::constants::{
         AVM_RETRIEVED_BYTECODES_TREE_HEIGHT, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT,
-        MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        MAX_PROTOCOL_CONTRACTS, MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        SIDE_EFFECT_MASKING_ADDRESS,
     };
+    use crate::traits::FromField;
 
     #[test]
     unconstrained fn test_constants() {
@@ -1163,6 +1166,14 @@ mod test {
         assert(
             1 << (AVM_RETRIEVED_BYTECODES_TREE_HEIGHT - 1)
                 < MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1,
+        );
+    }
+
+    #[test]
+    unconstrained fn test_side_effect_masking_address() {
+        assert_eq(
+            SIDE_EFFECT_MASKING_ADDRESS,
+            AztecAddress::from_field(MAX_PROTOCOL_CONTRACTS as Field + 1),
         );
     }
 
