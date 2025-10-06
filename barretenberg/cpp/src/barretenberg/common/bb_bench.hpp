@@ -195,14 +195,14 @@ struct BenchReporter {
 #define BB_BENCH_ONLY_NAME(name) (void)0
 #define BB_BENCH_ENABLE_NESTING() (void)0
 #define BB_BENCH_ONLY() (void)0
-#elif defined __wasm__
-#define BB_TRACY() (void)0
-#define BB_TRACY_NAME(name) (void)0
-#define BB_BENCH_TRACY() (void)0
-#define BB_BENCH_TRACY_NAME(name) (void)0
-#define BB_BENCH_ONLY_NAME(name) (void)0
-#define BB_BENCH_ENABLE_NESTING() (void)0
-#define BB_BENCH_ONLY() (void)0
+// #elif defined __wasm__
+// #define BB_TRACY() (void)0
+// #define BB_TRACY_NAME(name) (void)0
+// #define BB_BENCH_TRACY() (void)0
+// #define BB_BENCH_TRACY_NAME(name) (void)0
+// #define BB_BENCH_ONLY_NAME(name) (void)0
+// #define BB_BENCH_ENABLE_NESTING() (void)0
+// #define BB_BENCH_ONLY() (void)0
 #else
 #define BB_TRACY() (void)0
 #define BB_TRACY_NAME(name) (void)0
