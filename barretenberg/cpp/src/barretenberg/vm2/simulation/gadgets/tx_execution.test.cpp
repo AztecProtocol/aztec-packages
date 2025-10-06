@@ -76,7 +76,7 @@ TEST_F(TxExecutionTest, simulateTx)
         .publicDataTree = { .tree = dummy_snapshot, .counter = 0 },
     };
     ON_CALL(merkle_db, get_tree_state()).WillByDefault([&]() { return tree_state; });
-    ON_CALL(merkle_db, siloed_nullifier_write(_)).WillByDefault(Return(true));
+    ON_CALL(merkle_db, siloed_nullifier_write(_)).WillByDefault(Return());
     // Number of Enqueued Calls in the transaction : 1 setup, 1 app logic, and 1 teardown
 
     auto setup_context = std::make_unique<NiceMock<MockContext>>();
@@ -183,7 +183,6 @@ TEST_F(TxExecutionTest, NoteHashLimitReached)
     ON_CALL(merkle_db, get_tree_state()).WillByDefault([&]() { return tree_state; });
     ON_CALL(merkle_db, siloed_nullifier_write(_)).WillByDefault([&](const auto& /*nullifier*/) {
         tree_state.nullifierTree.counter++;
-        return true;
     });
     ON_CALL(merkle_db, siloed_note_hash_write(_)).WillByDefault([&](const auto& /*note_hash*/) {
         tree_state.noteHashTree.counter++;

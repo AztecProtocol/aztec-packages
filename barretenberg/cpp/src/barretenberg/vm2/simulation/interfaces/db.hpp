@@ -70,6 +70,13 @@ class LowLevelMerkleDBInterface {
     virtual uint32_t get_checkpoint_id() const = 0;
 };
 
+class NullifierCollisionException : public std::runtime_error {
+  public:
+    NullifierCollisionException(const std::string& message)
+        : std::runtime_error(message)
+    {}
+};
+
 // High level access to a merkle db. In general these will be constrained.
 class HighLevelMerkleDBInterface {
   public:
@@ -86,8 +93,9 @@ class HighLevelMerkleDBInterface {
 
     virtual bool nullifier_exists(const AztecAddress& contract_address, const FF& nullifier) const = 0;
     virtual bool siloed_nullifier_exists(const FF& nullifier) const = 0;
-    virtual bool nullifier_write(const AztecAddress& contract_address, const FF& nullifier) = 0;
-    virtual bool siloed_nullifier_write(const FF& nullifier) = 0;
+    // Throws a NullifierCollisionException if the nullifier already exists.
+    virtual void nullifier_write(const AztecAddress& contract_address, const FF& nullifier) = 0;
+    virtual void siloed_nullifier_write(const FF& nullifier) = 0;
 
     virtual bool note_hash_exists(uint64_t leaf_index, const FF& unique_note_hash) const = 0;
     virtual void note_hash_write(const AztecAddress& contract_address, const FF& note_hash) = 0;

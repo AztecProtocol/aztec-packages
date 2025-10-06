@@ -63,6 +63,10 @@ const config: Config = {
     defaultLocale: "en",
     locales: ["en"],
   },
+
+  customFields: {
+    ENV: process.env.ENV,
+  },
   presets: [
     [
       "classic",

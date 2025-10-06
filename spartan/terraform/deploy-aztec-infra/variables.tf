@@ -1,3 +1,15 @@
+variable "R2_ACCESS_KEY_ID" {
+  description = "Cloudflare R2 access key id for RPC node snapshot uploads"
+  type        = string
+  default     = null
+}
+
+variable "R2_SECRET_ACCESS_KEY" {
+  description = "Cloudflare R2 secret access key for RPC node snapshot uploads"
+  type        = string
+  default     = null
+}
+
 variable "GCP_PROJECT_ID" {
   description = "GCP project id"
   type        = string
@@ -191,6 +203,12 @@ variable "PROVER_MNEMONIC_START_INDEX" {
   description = "The prover mnemonic start index"
   type        = string
   default     = 1000
+}
+
+variable "PROVER_REPLICAS" {
+  description = "The number of prover replicas"
+  type        = string
+  default     = 4
 }
 
 variable "OTEL_COLLECTOR_ENDPOINT" {

@@ -1,6 +1,6 @@
-import { generateSchnorrAccounts, getDeployedTestAccounts } from '@aztec/accounts/testing';
+import { generateSchnorrAccounts } from '@aztec/accounts/testing';
 import {
-  type AztecAddress,
+  AztecAddress,
   type AztecNode,
   FeeJuicePaymentMethodWithClaim,
   type FeePaymentMethod,
@@ -9,15 +9,14 @@ import {
   SponsoredFeePaymentMethod,
   type Wallet,
   createAztecNodeClient,
-  createCompatibleClient,
   retryUntil,
 } from '@aztec/aztec.js';
 import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import type { Logger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { createPXEService } from '@aztec/pxe/server';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { TestWallet } from '@aztec/test-wallet';
+import { registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
@@ -39,39 +38,33 @@ const TOKEN_SYMBOL = 'USD';
 const TOKEN_DECIMALS = 18n;
 
 export async function setupTestAccountsWithTokens(
-  pxeUrl: string,
   nodeUrl: string,
   mintAmount: bigint,
   logger: Logger,
 ): Promise<TestAccounts> {
   const ACCOUNT_COUNT = 1; // TODO fix this to allow for 16 wallets again
 
-  const pxe = await createCompatibleClient(pxeUrl, logger);
   const aztecNode = createAztecNodeClient(nodeUrl);
-  const wallet = new TestWallet(pxe, aztecNode);
+  const wallet = await TestWallet.create(aztecNode);
 
-  const [recipientAccount, ...accounts] = (await getDeployedTestAccounts(wallet)).slice(0, ACCOUNT_COUNT + 1);
+  const [recipientAccount, ...accounts] = (await registerInitialSandboxAccountsInWallet(wallet)).slice(
+    0,
+    ACCOUNT_COUNT + 1,
+  );
 
   const tokenAdmin = accounts[0];
-  const tokenAddress = await deployTokenAndMint(
-    wallet,
-    accounts.map(acc => acc.address),
-    tokenAdmin.address,
-    mintAmount,
-    undefined,
-    logger,
-  );
+  const tokenAddress = await deployTokenAndMint(wallet, accounts, tokenAdmin, mintAmount, undefined, logger);
   const tokenContract = await TokenContract.at(tokenAddress, wallet);
 
   return {
     aztecNode,
-    accounts: accounts.map(acc => acc.address),
+    accounts,
     wallet,
-    tokenAdminAddress: tokenAdmin.address,
+    tokenAdminAddress: tokenAdmin,
     tokenName: TOKEN_NAME,
     tokenAddress,
     tokenContract,
-    recipientAddress: recipientAccount.address,
+    recipientAddress: recipientAccount,
   };
 }
 
@@ -89,19 +82,21 @@ export async function deploySponsoredTestAccounts(
   await registerSponsoredFPC(wallet);
 
   const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
-  await recipientAccount.deploy({ fee: { paymentMethod } }).wait({ timeout: 2400 });
+  const recipientDeployMethod = await recipientAccount.getDeployMethod();
+  await recipientDeployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } }).wait({ timeout: 2400 });
   await Promise.all(
     fundedAccounts.map(async a => {
-      await a.deploy({ fee: { paymentMethod } }).wait({ timeout: 2400 }); // increase timeout on purpose in order to account for two empty epochs
-      logger.info(`Account deployed at ${a.getAddress()}`);
+      const deployMethod = await a.getDeployMethod();
+      await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } }).wait({ timeout: 2400 }); // increase timeout on purpose in order to account for two empty epochs
+      logger.info(`Account deployed at ${a.address}`);
     }),
   );
 
   const tokenAdmin = fundedAccounts[0];
   const tokenAddress = await deployTokenAndMint(
     wallet,
-    fundedAccounts.map(acc => acc.getAddress()),
-    tokenAdmin.getAddress(),
+    fundedAccounts.map(acc => acc.address),
+    tokenAdmin.address,
     mintAmount,
     new SponsoredFeePaymentMethod(await getSponsoredFPCAddress()),
     logger,
@@ -111,17 +106,16 @@ export async function deploySponsoredTestAccounts(
   return {
     aztecNode,
     wallet,
-    accounts: fundedAccounts.map(acc => acc.getAddress()),
-    tokenAdminAddress: tokenAdmin.getAddress(),
+    accounts: fundedAccounts.map(acc => acc.address),
+    tokenAdminAddress: tokenAdmin.address,
     tokenName: TOKEN_NAME,
     tokenAddress,
     tokenContract,
-    recipientAddress: recipientAccount.getAddress(),
+    recipientAddress: recipientAccount.address,
   };
 }
 
 export async function deployTestAccountsWithTokens(
-  pxeUrl: string,
   nodeUrl: string,
   l1RpcUrls: string[],
   mnemonicOrPrivateKey: string,
@@ -129,18 +123,15 @@ export async function deployTestAccountsWithTokens(
   logger: Logger,
   numberOfFundedWallets = 1,
 ): Promise<TestAccounts> {
-  const pxe = await createCompatibleClient(pxeUrl, logger);
   const aztecNode = createAztecNodeClient(nodeUrl);
-  const wallet = new TestWallet(pxe, aztecNode);
+  const wallet = await TestWallet.create(aztecNode);
 
   const [recipient, ...funded] = await generateSchnorrAccounts(numberOfFundedWallets + 1);
   const recipientAccount = await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
   const fundedAccounts = await Promise.all(funded.map(a => wallet.createSchnorrAccount(a.secret, a.salt)));
 
   const claims = await Promise.all(
-    fundedAccounts.map(a =>
-      bridgeL1FeeJuice(l1RpcUrls, mnemonicOrPrivateKey, aztecNode, a.getAddress(), undefined, logger),
-    ),
+    fundedAccounts.map(a => bridgeL1FeeJuice(l1RpcUrls, mnemonicOrPrivateKey, aztecNode, a.address, undefined, logger)),
   );
 
   // Progress by 3 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
@@ -150,17 +141,18 @@ export async function deployTestAccountsWithTokens(
 
   await Promise.all(
     fundedAccounts.map(async (a, i) => {
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(a.getAddress(), claims[i]);
-      await a.deploy({ fee: { paymentMethod } }).wait();
-      logger.info(`Account deployed at ${a.getAddress()}`);
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(a.address, claims[i]);
+      const deployMethod = await a.getDeployMethod();
+      await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } }).wait();
+      logger.info(`Account deployed at ${a.address}`);
     }),
   );
 
   const tokenAdmin = fundedAccounts[0];
   const tokenAddress = await deployTokenAndMint(
     wallet,
-    fundedAccounts.map(acc => acc.getAddress()),
-    tokenAdmin.getAddress(),
+    fundedAccounts.map(acc => acc.address),
+    tokenAdmin.address,
     mintAmount,
     undefined,
     logger,
@@ -170,12 +162,12 @@ export async function deployTestAccountsWithTokens(
   return {
     aztecNode,
     wallet,
-    accounts: fundedAccounts.map(acc => acc.getAddress()),
-    tokenAdminAddress: tokenAdmin.getAddress(),
+    accounts: fundedAccounts.map(acc => acc.address),
+    tokenAdminAddress: tokenAdmin.address,
     tokenName: TOKEN_NAME,
     tokenAddress,
     tokenContract,
-    recipientAddress: recipientAccount.getAddress(),
+    recipientAddress: recipientAccount.address,
   };
 }
 
@@ -191,10 +183,8 @@ async function bridgeL1FeeJuice(
   const chain = createEthereumChain(l1RpcUrls, l1ChainId);
   const l1Client = createExtendedL1Client(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
-  // docs:start:bridge_fee_juice
   const portal = await L1FeeJuicePortalManager.new(aztecNode, l1Client, log);
   const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
-  // docs:end:bridge_fee_juice
 
   const isSynced = async () =>
     (await aztecNode.getL1ToL2MessageBlock(Fr.fromHexString(claim.messageHash))) !== undefined;
@@ -294,20 +284,20 @@ export async function createWalletAndAztecNodeClient(
 ): Promise<{ wallet: TestWallet; aztecNode: AztecNode; cleanup: () => Promise<void> }> {
   const aztecNode = createAztecNodeClient(nodeUrl);
   const [bbConfig, acvmConfig] = await Promise.all([getBBConfig(logger), getACVMConfig(logger)]);
-  const pxe = await createPXEService(aztecNode, {
+  const pxeConfig = {
     dataDirectory: undefined,
     dataStoreMapSizeKB: 1024 * 1024,
     ...bbConfig,
     ...acvmConfig,
     proverEnabled,
-  });
-  const wallet = new TestWallet(pxe, aztecNode);
+  };
+  const wallet = await TestWallet.create(aztecNode, pxeConfig);
 
   return {
     wallet,
     aztecNode,
     async cleanup() {
-      await pxe.stop();
+      await wallet.stop();
       await bbConfig?.cleanup();
       await acvmConfig?.cleanup();
     },

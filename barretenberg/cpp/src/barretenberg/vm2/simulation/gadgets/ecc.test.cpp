@@ -2,6 +2,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <stdexcept>
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
@@ -78,7 +79,7 @@ TEST(AvmSimulationEccTest, ScalarMul)
         bits[i] = scalar_num.get_bit(i);
     }
 
-    EXPECT_CALL(to_radix, to_le_bits(scalar, 254)).WillOnce(Return(bits));
+    EXPECT_CALL(to_radix, to_le_bits(scalar, 254)).WillOnce(Return(std::make_pair(bits, false)));
 
     FF p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
     FF p_y("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
@@ -131,7 +132,8 @@ TEST(AvmSimulationEccDeathTest, ScalarMulNotOnCurve)
 
     FF scalar("0x009242167ec31949c00cbe441cd36757607406e87844fa2c8c4364a4403e66d7");
 
-    ASSERT_DEATH(ecc.scalar_mul(p, scalar), "Point must be on the curve for scalar multiplication");
+    // prints: Point must be on the curve for scalar multiplication
+    ASSERT_THROW(ecc.scalar_mul(p, scalar), std::runtime_error);
 }
 
 TEST(AvmSimulationEccTest, AddWithMemory)

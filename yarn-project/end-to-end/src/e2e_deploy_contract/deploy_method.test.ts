@@ -6,15 +6,13 @@ import {
   type Logger,
   type Wallet,
   createAztecNodeClient,
-  createPXEClient,
-  makeFetch,
 } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
 import { NoConstructorContract } from '@aztec/noir-test-contracts.js/NoConstructor';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { GasFees } from '@aztec/stdlib/gas';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 import { DeployTest } from './deploy_test.js';
 
@@ -161,13 +159,12 @@ describe('e2e_deploy_contract deploy method', () => {
 
   describe('regressions', () => {
     it('fails properly when trying to deploy a contract with a failing constructor with a pxe client with retries', async () => {
-      const { PXE_URL, AZTEC_NODE_URL } = process.env;
-      if (!PXE_URL || !AZTEC_NODE_URL) {
+      const { AZTEC_NODE_URL } = process.env;
+      if (!AZTEC_NODE_URL) {
         return;
       }
-      const pxeClient = createPXEClient(PXE_URL, {}, makeFetch([1, 2, 3], false));
       const aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
-      const retryingWallet = new TestWallet(pxeClient, aztecNode);
+      const retryingWallet = await TestWallet.create(aztecNode);
       await expect(
         StatefulTestContract.deployWithOpts({ wallet: retryingWallet, method: 'wrong_constructor' })
           .send({ from: defaultAccountAddress })

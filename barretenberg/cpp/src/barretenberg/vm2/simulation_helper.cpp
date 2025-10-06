@@ -7,6 +7,13 @@
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+
+#include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
+#include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
+#include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
+
+// Events.
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/alu_event.hpp"
@@ -31,6 +38,8 @@
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
 #include "barretenberg/vm2/simulation/events/tx_events.hpp"
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
+
+// Gadgets.
 #include "barretenberg/vm2/simulation/gadgets/addressing.hpp"
 #include "barretenberg/vm2/simulation/gadgets/alu.hpp"
 #include "barretenberg/vm2/simulation/gadgets/bitwise.hpp"
@@ -56,15 +65,16 @@
 #include "barretenberg/vm2/simulation/gadgets/tx_execution.hpp"
 #include "barretenberg/vm2/simulation/gadgets/update_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/written_public_data_slots_tree_check.hpp"
-#include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
-#include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
-#include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
+
+// Standalone.
 #include "barretenberg/vm2/simulation/standalone/concrete_dbs.hpp"
+#include "barretenberg/vm2/simulation/standalone/debug_log.hpp"
 #include "barretenberg/vm2/simulation/standalone/hybrid_execution.hpp"
 #include "barretenberg/vm2/simulation/standalone/noop_update_check.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_alu.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_bitwise.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_execution_components.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_gt.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_poseidon2.hpp"
@@ -76,7 +86,8 @@ namespace bb::avm2 {
 
 using namespace bb::avm2::simulation;
 
-EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& hints)
+EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& hints,
+                                                         std::vector<PublicDataWrite> public_data_writes)
 {
     BB_BENCH_NAME("AvmSimulationHelper::simulate_for_witgen");
 
@@ -208,6 +219,8 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
     GetContractInstance get_contract_instance(
         execution_id_manager, merkle_db, get_contract_instance_emitter, contract_instance_manager);
 
+    NoopDebugLogger debug_log_component;
+
     Execution execution(alu,
                         bitwise,
                         data_copy,
@@ -225,7 +238,9 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
                         greater_than,
                         get_contract_instance,
                         emit_unencrypted_log_component,
+                        debug_log_component,
                         merkle_db);
+
     TxExecution tx_execution(execution,
                              context_provider,
                              merkle_db,
@@ -236,6 +251,8 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
                              tx_event_emitter);
 
     tx_execution.simulate(hints.tx);
+
+    public_data_tree_check.generate_ff_gt_events_for_squashing(public_data_writes);
 
     return {
         tx_event_emitter.dump_events(),
@@ -285,6 +302,11 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
 void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints)
 {
     BB_BENCH_NAME("AvmSimulationHelper::simulate_fast");
+
+    // TODO(fcarreiro): These should come from the simulate call.
+    bool user_requested_simulation = false;
+    DebugLogLevel debug_log_level = DebugLogLevel::INFO;
+    uint32_t max_debug_log_memory_reads = DEFAULT_MAX_DEBUG_LOG_MEMORY_READS;
 
     NoopEventEmitter<ExecutionEvent> execution_emitter;
     NoopEventEmitter<DataCopyEvent> data_copy_emitter;
@@ -359,6 +381,14 @@ void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints)
     GetContractInstance get_contract_instance(
         execution_id_manager, merkle_db, get_contract_instance_emitter, contract_instance_manager);
 
+    std::unique_ptr<DebugLoggerInterface> debug_log_component;
+    if (user_requested_simulation) {
+        debug_log_component = std::make_unique<DebugLogger>(
+            debug_log_level, max_debug_log_memory_reads, [](const std::string& message) { info(message); });
+    } else {
+        debug_log_component = std::make_unique<NoopDebugLogger>();
+    }
+
     HybridExecution execution(alu,
                               bitwise,
                               data_copy,
@@ -376,6 +406,7 @@ void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints)
                               greater_than,
                               get_contract_instance,
                               emit_unencrypted_log_component,
+                              *debug_log_component,
                               merkle_db);
     TxExecution tx_execution(execution,
                              context_provider,

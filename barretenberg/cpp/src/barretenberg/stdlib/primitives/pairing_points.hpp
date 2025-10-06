@@ -70,10 +70,10 @@ template <typename Builder_> struct PairingPoints {
         BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>> transcript{};
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1375): Sometimes unnecesarily hashing constants
 
-        transcript.send_to_verifier("Accumulator_P0", P0);
-        transcript.send_to_verifier("Accumulator_P1", P1);
-        transcript.send_to_verifier("Aggregated_P0", other.P0);
-        transcript.send_to_verifier("Aggregated_P1", other.P1);
+        transcript.add_to_hash_buffer("Accumulator_P0", P0);
+        transcript.add_to_hash_buffer("Accumulator_P1", P1);
+        transcript.add_to_hash_buffer("Aggregated_P0", other.P0);
+        transcript.add_to_hash_buffer("Aggregated_P1", other.P1);
         auto recursion_separator =
             transcript.template get_challenge<typename Curve::ScalarField>("recursion_separator");
         // If Mega Builder is in use, the EC operations are deferred via Goblin

@@ -46,21 +46,28 @@ template <typename Builder, typename T> bool_t<Builder> check_point_at_infinity(
     }
 }
 
-template <typename Builder> fq<Builder> convert_to_grumpkin_fr(Builder& builder, const fr<Builder>& f);
-
 /**
- * @brief A stdlib Transcript method needed to convert an `fr` challenge to a `bigfield` one. Splits an `fr` into limbs
- * that are fed into the bigfield constructor.
- * TODO(https://github.com/AztecProtocol/barretenberg/issues/1541): Remove redundant constraints caused by splitting and
- * conversion to bigfield.
+ * @brief  A stdlib Transcript method needed to convert an `fr` challenge to a `bigfield` one. Assumes that `challenge`
+ * is "short".
  *
+ * @tparam T fr<Builder> or fq<Builder>
+ * @param challenge a 128- or a 126- bit limb of a full challenge
+ * @return T
  */
-template <typename Builder, typename T> inline T convert_challenge(Builder& builder, const fr<Builder>& challenge)
+template <typename Builder, typename T> inline T convert_challenge(const fr<Builder>& challenge)
 {
     if constexpr (std::is_same_v<T, fr<Builder>>) {
         return challenge;
     } else if constexpr (std::is_same_v<T, fq<Builder>>) {
-        return convert_to_grumpkin_fr(builder, challenge);
+        // Sanity check that the input challenge fits into the first 2 bigfield limbs.
+        BB_ASSERT_LT(static_cast<uint256_t>(challenge.get_value()).get_msb(),
+                     T::NUM_LIMB_BITS * 2,
+                     "field_conversion: convert_challenge");
+        Builder* builder = challenge.get_context();
+        // All challenges must be circuit witnesses.
+        ASSERT(builder);
+        ASSERT(!challenge.is_constant());
+        return T(challenge, fr<Builder>::from_witness_index(builder, builder->zero_idx));
     }
 }
 

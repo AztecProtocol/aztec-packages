@@ -1,5 +1,5 @@
 use super::TestBuilder;
-use bigint::bignum::BigNum;
+use bignum::bignum::BigNum;
 
 #[test(should_fail_with = "Epoch did not start with empty blob state.")]
 fn start_blob_accumulator_is_not_empty() {

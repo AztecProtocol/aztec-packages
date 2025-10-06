@@ -1,6 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import {
-  type AztecAddress,
+  AztecAddress,
   type AztecNode,
   BatchCall,
   ContractDeployer,
@@ -26,7 +26,7 @@ import { type PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server'
 import { getProofSubmissionDeadlineEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TX_ERROR_EXISTING_NULLIFIER, type Tx } from '@aztec/stdlib/tx';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -497,7 +497,12 @@ describe('e2e_block_building', () => {
       const [accountData] = context.initialFundedAccounts;
 
       const accountManager = await (wallet as TestWallet).createSchnorrAccount(accountData.secret, accountData.salt);
-      await accountManager.deploy().wait();
+      const deployMethod = await accountManager.getDeployMethod();
+      await deployMethod
+        .send({
+          from: AztecAddress.ZERO,
+        })
+        .wait();
     });
 
     it('can simulate public txs while building a block', async () => {

@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Configuration, ProposeConfiguration} from "@aztec/governance/interfaces/IGovernance.sol";
+import {Configuration, ProposeWithLockConfiguration} from "@aztec/governance/interfaces/IGovernance.sol";
 import {CompressedTimestamp, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -48,9 +48,10 @@ library CompressedConfigurationLib {
   function getProposeConfig(CompressedConfiguration storage _compressed)
     internal
     view
-    returns (ProposeConfiguration memory)
+    returns (ProposeWithLockConfiguration memory)
   {
-    return ProposeConfiguration({lockDelay: _compressed.lockDelay.decompress(), lockAmount: _compressed.lockAmount});
+    return
+      ProposeWithLockConfiguration({lockDelay: _compressed.lockDelay.decompress(), lockAmount: _compressed.lockAmount});
   }
 
   /**
@@ -87,7 +88,7 @@ library CompressedConfigurationLib {
    */
   function decompress(CompressedConfiguration memory _compressed) internal pure returns (Configuration memory) {
     return Configuration({
-      proposeConfig: ProposeConfiguration({
+      proposeConfig: ProposeWithLockConfiguration({
         lockDelay: _compressed.lockDelay.decompress(),
         lockAmount: _compressed.lockAmount
       }),

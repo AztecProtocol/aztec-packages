@@ -5,7 +5,7 @@ authors = [""]
 compiler_version = ">=0.18.0"
 
 [dependencies]
-bigint = { tag = "v0.8.0", git = "https://github.com/noir-lang/noir-bignum" }
+bignum = { tag = "v0.8.0", git = "https://github.com/noir-lang/noir-bignum" }
 types = { path = "../types" }
 parity_lib = { path = "../parity-lib" }
 blob = { path = "../blob" }

@@ -1,3 +1,4 @@
+mod child_proof_vk_tests;
 mod consecutive_tx_rollups_tests;
 mod rollup_structure_tests;
 
@@ -25,7 +26,7 @@ impl TestBuilder {
     pub fn default() -> Self {
         // Both rollups have a single tx.
         Self::new(
-            PUBLIC_TX_BASE_ROLLUP_VK_INDEX,
+            PRIVATE_TX_BASE_ROLLUP_VK_INDEX,
             1,
             PUBLIC_TX_BASE_ROLLUP_VK_INDEX,
             1,
@@ -97,15 +98,23 @@ impl TestBuilder {
         assert_eq(pi.constants, left.constants);
         assert_eq(pi.constants, right.constants);
 
-        assert_eq(pi.start_partial_state, left.start_partial_state);
-        assert_eq(pi.end_partial_state, right.end_partial_state);
-        assert(pi.start_partial_state != pi.end_partial_state);
+        assert_eq(pi.start_tree_snapshots, left.start_tree_snapshots);
+        assert_eq(pi.end_tree_snapshots, right.end_tree_snapshots);
+        assert(pi.start_tree_snapshots != pi.end_tree_snapshots);
 
         assert_eq(pi.start_sponge_blob, left.start_sponge_blob);
         assert_eq(pi.end_sponge_blob, right.end_sponge_blob);
         assert(pi.start_sponge_blob != pi.end_sponge_blob);
 
-        assert_eq(pi.out_hash, accumulate_sha256(left.out_hash, right.out_hash));
+        let expected_out_hash = if (left.out_hash != 0) & (right.out_hash != 0) {
+            accumulate_sha256(left.out_hash, right.out_hash)
+        } else if left.out_hash != 0 {
+            left.out_hash
+        } else {
+            right.out_hash
+        };
+        assert_eq(pi.out_hash, expected_out_hash);
+        // The tests to cover all the above scenarios are in `consecutive_tx_rollups_tests.nr`.
 
         assert_eq(pi.accumulated_fees, left.accumulated_fees + right.accumulated_fees);
         assert_eq(

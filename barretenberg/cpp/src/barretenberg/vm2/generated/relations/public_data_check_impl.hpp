@@ -16,9 +16,11 @@ void public_data_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     using C = ColumnAndShifts;
 
     const auto constants_PUBLIC_DATA_TREE_HEIGHT = FF(40);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX = FF(374);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX = FF(4608);
+    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX = FF(375);
+    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX = FF(4609);
     const auto constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX = FF(23);
+    const auto public_data_check_CLK_DIFF = in.get(C::public_data_check_not_end) *
+                                            (in.get(C::public_data_check_clk_shift) - in.get(C::public_data_check_clk));
     const auto public_data_check_LEAF_EXISTS = (FF(1) - in.get(C::public_data_check_leaf_not_exists));
     const auto public_data_check_LEAF_SLOT_LOW_LEAF_SLOT_DIFF =
         (in.get(C::public_data_check_leaf_slot) - in.get(C::public_data_check_low_leaf_slot));
@@ -64,41 +66,34 @@ void public_data_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    (FF(1) - static_cast<View>(in.get(C::public_data_check_sel)));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // CLK_DIFF_DECOMP
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::public_data_check_clk_diff)) -
-                    static_cast<View>(in.get(C::public_data_check_not_end)) *
-                        (static_cast<View>(in.get(C::public_data_check_clk_shift)) -
-                         static_cast<View>(in.get(C::public_data_check_clk))));
+        auto tmp = (CView(public_data_check_CLK_DIFF) -
+                    (static_cast<View>(in.get(C::public_data_check_clk_diff_lo)) +
+                     FF(65536) * static_cast<View>(in.get(C::public_data_check_clk_diff_hi))));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::public_data_check_sel)) *
-                   (FF(32) - static_cast<View>(in.get(C::public_data_check_constant_32)));
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::public_data_check_write))) *
+                   static_cast<View>(in.get(C::public_data_check_clk));
         std::get<7>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - static_cast<View>(in.get(C::public_data_check_write))) *
-                   static_cast<View>(in.get(C::public_data_check_clk));
+        auto tmp = static_cast<View>(in.get(C::public_data_check_sel)) *
+                   (CView(constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX) -
+                    static_cast<View>(in.get(C::public_data_check_siloing_separator)));
         std::get<8>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::public_data_check_sel)) *
-                   (CView(constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX) -
-                    static_cast<View>(in.get(C::public_data_check_siloing_separator)));
-        std::get<9>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::public_data_check_leaf_not_exists)) *
                    (FF(1) - static_cast<View>(in.get(C::public_data_check_leaf_not_exists)));
-        std::get<10>(evals) += (tmp * scaling_factor);
+        std::get<9>(evals) += (tmp * scaling_factor);
     }
     { // EXISTS_FLAG_CHECK
-        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::public_data_check_sel)) *
             ((CView(public_data_check_LEAF_SLOT_LOW_LEAF_SLOT_DIFF) *
@@ -107,16 +102,16 @@ void public_data_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    static_cast<View>(in.get(C::public_data_check_leaf_slot_low_leaf_slot_diff_inv))) -
               FF(1)) +
              CView(public_data_check_LEAF_EXISTS));
-        std::get<11>(evals) += (tmp * scaling_factor);
+        std::get<10>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::public_data_check_next_slot_is_nonzero)) *
                    (FF(1) - static_cast<View>(in.get(C::public_data_check_next_slot_is_nonzero)));
-        std::get<12>(evals) += (tmp * scaling_factor);
+        std::get<11>(evals) += (tmp * scaling_factor);
     }
     { // NEXT_SLOT_IS_ZERO_CHECK
-        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::public_data_check_leaf_not_exists)) *
                    ((static_cast<View>(in.get(C::public_data_check_low_leaf_next_slot)) *
                          (CView(public_data_check_NEXT_SLOT_IS_ZERO) *
@@ -124,43 +119,49 @@ void public_data_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                           static_cast<View>(in.get(C::public_data_check_next_slot_inv))) -
                      FF(1)) +
                     CView(public_data_check_NEXT_SLOT_IS_ZERO));
-        std::get<13>(evals) += (tmp * scaling_factor);
+        std::get<12>(evals) += (tmp * scaling_factor);
     }
     { // LOW_LEAF_VALUE_UPDATE
-        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::public_data_check_write)) *
                    (((static_cast<View>(in.get(C::public_data_check_low_leaf_value)) -
                       static_cast<View>(in.get(C::public_data_check_value))) *
                          static_cast<View>(in.get(C::public_data_check_leaf_not_exists)) +
                      static_cast<View>(in.get(C::public_data_check_value))) -
                     static_cast<View>(in.get(C::public_data_check_updated_low_leaf_value)));
-        std::get<14>(evals) += (tmp * scaling_factor);
+        std::get<13>(evals) += (tmp * scaling_factor);
     }
     { // LOW_LEAF_NEXT_INDEX_UPDATE
-        using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::public_data_check_write)) *
                    (((static_cast<View>(in.get(C::public_data_check_tree_size_before_write)) -
                       static_cast<View>(in.get(C::public_data_check_low_leaf_next_index))) *
                          static_cast<View>(in.get(C::public_data_check_leaf_not_exists)) +
                      static_cast<View>(in.get(C::public_data_check_low_leaf_next_index))) -
                     static_cast<View>(in.get(C::public_data_check_updated_low_leaf_next_index)));
-        std::get<15>(evals) += (tmp * scaling_factor);
+        std::get<14>(evals) += (tmp * scaling_factor);
     }
     { // LOW_LEAF_NEXT_SLOT_UPDATE
-        using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::public_data_check_write)) *
                    (((static_cast<View>(in.get(C::public_data_check_leaf_slot)) -
                       static_cast<View>(in.get(C::public_data_check_low_leaf_next_slot))) *
                          static_cast<View>(in.get(C::public_data_check_leaf_not_exists)) +
                      static_cast<View>(in.get(C::public_data_check_low_leaf_next_slot))) -
                     static_cast<View>(in.get(C::public_data_check_updated_low_leaf_next_slot)));
+        std::get<15>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::public_data_check_sel)) *
+            (static_cast<View>(in.get(C::public_data_check_tree_height)) - CView(constants_PUBLIC_DATA_TREE_HEIGHT));
         std::get<16>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::public_data_check_sel)) *
-            (static_cast<View>(in.get(C::public_data_check_tree_height)) - CView(constants_PUBLIC_DATA_TREE_HEIGHT));
+        auto tmp = static_cast<View>(in.get(C::public_data_check_sel)) *
+                   (static_cast<View>(in.get(C::public_data_check_const_two)) - FF(2));
         std::get<17>(evals) += (tmp * scaling_factor);
     }
     { // VALUE_IS_CORRECT
@@ -202,14 +203,14 @@ void public_data_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::public_data_check_nondiscaded_write)) -
+        auto tmp = (static_cast<View>(in.get(C::public_data_check_non_discarded_write)) -
                     static_cast<View>(in.get(C::public_data_check_write)) *
                         (FF(1) - static_cast<View>(in.get(C::public_data_check_discard))));
         std::get<23>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - static_cast<View>(in.get(C::public_data_check_nondiscaded_write))) *
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::public_data_check_non_discarded_write))) *
                    static_cast<View>(in.get(C::public_data_check_should_write_to_public_inputs));
         std::get<24>(evals) += (tmp * scaling_factor);
     }

@@ -301,19 +301,4 @@ TYPED_TEST(stdlib_field_conversion, FieldConversionUnivariateGrumpkinFr)
     this->check_conversion_iterable(univariate);
 }
 
-/**
- * @brief Convert challenge test for fq<Builder>
- *
- */
-TYPED_TEST(stdlib_field_conversion, ConvertChallengeGrumpkinFr)
-{
-    using Builder = TypeParam;
-    Builder builder;
-
-    bb::fr chal_val(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")); // 256 bits
-    auto chal = fr<Builder>::from_witness(&builder, chal_val);
-    auto result = bb::stdlib::field_conversion::convert_challenge<Builder, fq<Builder>>(builder, chal);
-    auto expected = uint256_t(chal.get_value());
-    EXPECT_EQ(uint256_t(result.get_value()), expected);
-}
 } // namespace bb::stdlib::field_conversion_tests

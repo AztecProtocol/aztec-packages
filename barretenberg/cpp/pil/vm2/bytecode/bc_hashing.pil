@@ -75,15 +75,16 @@ namespace bc_hashing;
     pol LATCH_CONDITION = latch + precomputed.first_row;
 
     // The start of a new bytecode id and new set of hashing runs:
-    pol START = sel * (1 - sel_not_start);
+    pol commit start;
+    start * (1 - start) = 0;
 
     // Needs to be a committed column as it is used in the lookup:
     pol commit sel_not_start;
-    sel_not_start * (1 - sel_not_start) = 0;
+    sel_not_start = sel * (1 - start);
 
-    // If the current row is a latch or the first row, the next row should be a start (if it's active)
+    // If the current row is a latch or the first row, the next row should be a start (if it's active):
     #[START_AFTER_LATCH]
-    sel' * ((1 - sel_not_start') - LATCH_CONDITION) = 0;
+    sel' * (start' - LATCH_CONDITION) = 0;
 
     // Used as part of the lookup into bytecode decomposition
     pol commit pc_index, pc_index_1, pc_index_2;
@@ -94,7 +95,7 @@ namespace bc_hashing;
     (sel + precomputed.first_row) * (pc_index' - ((1 - LATCH_CONDITION) * (62 + pc_index + sel_not_start * 31))) = 0;
     // At start, we need packed_fields[0] = sep:
     #[PC_INCREMENTS_1]
-    sel * ( pc_index_1 - START * pc_index - sel_not_start * ( pc_index + 31 )) = 0;
+    sel * ( pc_index_1 - start * pc_index - sel_not_start * ( pc_index + 31 )) = 0;
     #[PC_INCREMENTS_2]
     sel * ( pc_index_2 - (pc_index_1 + 31) ) = 0;
 
@@ -107,7 +108,7 @@ namespace bc_hashing;
 
     // At the start of a new bytecode hash, the initial field has to be the separator, and we skip the lookup:
     #[START_IS_SEPARATOR]
-    START * (packed_fields_0 - constants.GENERATOR_INDEX__PUBLIC_BYTECODE) = 0;
+    start * (packed_fields_0 - constants.GENERATOR_INDEX__PUBLIC_BYTECODE) = 0;
 
     #[GET_PACKED_FIELD_0]
     sel_not_start { pc_index, bytecode_id, packed_fields_0 }
@@ -242,8 +243,8 @@ namespace bc_hashing;
     (1 - LATCH_CONDITION) * (output_hash' - output_hash) = 0;
 
     #[POSEIDON2_HASH]
-    sel { latch, packed_fields_0, packed_fields_1, packed_fields_2, input_len, rounds_rem, output_hash }
-    in poseidon2_hash.sel { poseidon2_hash.end, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.input_len, poseidon2_hash.num_perm_rounds_rem, poseidon2_hash.output };
+    sel { start, latch, packed_fields_0, packed_fields_1, packed_fields_2, input_len, rounds_rem, output_hash }
+    in poseidon2_hash.sel { poseidon2_hash.start, poseidon2_hash.end, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.input_len, poseidon2_hash.num_perm_rounds_rem, poseidon2_hash.output };
 
 
     // #########################################################################################

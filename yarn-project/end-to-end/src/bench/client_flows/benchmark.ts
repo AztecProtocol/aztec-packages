@@ -3,7 +3,7 @@ import type {
   DeployMethod,
   DeployOptions,
   Logger,
-  ProfileMethodOptions,
+  ProfileInteractionOptions,
 } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 import { type PrivateExecutionStep, serializePrivateExecutionSteps } from '@aztec/stdlib/kernel';
@@ -301,7 +301,7 @@ export function convertProfileToGHBenchmark(benchmark: ClientFlowBenchmark): Git
 export async function captureProfile(
   label: string,
   interaction: ContractFunctionInteraction | DeployMethod,
-  opts: Omit<ProfileMethodOptions & DeployOptions, 'profileMode'>,
+  opts: Omit<ProfileInteractionOptions & DeployOptions, 'profileMode'>,
   expectedSteps?: number,
 ) {
   // Make sure the proxy logger starts from a clean slate

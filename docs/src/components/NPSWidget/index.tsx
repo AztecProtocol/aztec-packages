@@ -45,11 +45,7 @@ export default function NPSWidget({
       setTimeout(() => setIsAnimatingIn(true), 50);
       
       // Track as debug event
-      analytics.trackNPSWidgetEvent('shown', {
-        debug: true,
-        forced: true,
-        timestamp: Date.now()
-      });
+      analytics.trackEvent('NPS Widget', 'Forced Show', window.location.pathname, 1);
     };
 
     window.addEventListener('forceShowNPS', handleForceNPS);
@@ -117,11 +113,7 @@ export default function NPSWidget({
       setIsVisible(true);
       
       // Track widget shown event
-      analytics.trackNPSWidgetEvent('shown', {
-        pageViews: newPageViews,
-        timeOnSite: Math.round((Date.now() - startTime) / 1000),
-        scrollPercentage: Math.round((window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100)
-      });
+      analytics.trackEvent('NPS Widget', 'Shown', window.location.pathname, newPageViews);
       
       // Add animation delay
       setTimeout(() => {
@@ -204,10 +196,7 @@ export default function NPSWidget({
 
   const handleClose = () => {
     // Track dismissal
-    analytics.trackNPSWidgetEvent('dismissed', {
-      hadScore: score !== null,
-      hadFeedback: feedback.length > 0
-    });
+    analytics.trackEvent('NPS Widget', 'Dismissed', window.location.pathname, score || 0);
     
     // Store dismissal to prevent showing for a week
     localStorage.setItem(`nps-dismissed-${siteId}`, Date.now().toString());
@@ -220,9 +209,49 @@ export default function NPSWidget({
     }, 300);
   };
 
-  // Send NPS data using improved analytics
+  // Get NPS category from score
+  const getNPSCategory = (score: number): 'promoter' | 'passive' | 'detractor' => {
+    if (score >= 9) return 'promoter';
+    if (score >= 7) return 'passive';
+    return 'detractor';
+  };
+
+  // Send NPS data using generic analytics
   const sendNPSData = (data: NPSData) => {
-    analytics.trackNPSResponse(data);
+    const category = getNPSCategory(data.score);
+
+    // Console logging (for development and debugging)
+    console.group('📊 NPS Response Tracked');
+    console.table({
+      Score: data.score,
+      Category: category,
+      'Has Feedback': data.feedback.length > 0,
+      URL: data.url,
+      Timestamp: new Date(data.timestamp).toISOString()
+    });
+    if (data.feedback) {
+      console.log('💬 Feedback:', data.feedback);
+    }
+    console.groupEnd();
+
+    // Track using generic analytics methods
+    analytics.trackEvent('NPS Survey', 'Score Submitted', `Score ${data.score} (${category})`, data.score);
+    analytics.trackEvent('NPS Category', category.charAt(0).toUpperCase() + category.slice(1), window.location.pathname, data.score);
+
+    // Track feedback if provided
+    if (data.feedback && data.feedback.trim().length > 0) {
+      analytics.trackEvent('NPS Feedback', 'Feedback Provided', `${category} - ${data.feedback.slice(0, 100)}...`, data.feedback.length);
+    }
+
+    // Set custom dimensions for better analysis
+    // Dimension 1 = NPS Score
+    // Dimension 2 = NPS Category
+    analytics.trackCustomDimension(1, data.score.toString());
+    analytics.trackCustomDimension(2, category);
+
+    if (category === 'promoter') {
+      analytics.trackGoal(2);
+    }
   };
 
   if (!isVisible || isDismissed) return null;

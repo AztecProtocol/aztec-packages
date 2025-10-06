@@ -20,6 +20,9 @@ void public_data_squashImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto public_data_squash_END =
         in.get(C::public_data_squash_sel) * (FF(1) - in.get(C::public_data_squash_sel_shift));
     const auto public_data_squash_NOT_END = in.get(C::public_data_squash_sel) * in.get(C::public_data_squash_sel_shift);
+    const auto public_data_squash_CLK_DIFF =
+        in.get(C::public_data_squash_check_clock) *
+        (in.get(C::public_data_squash_clk_shift) - in.get(C::public_data_squash_clk));
     const auto public_data_squash_LEAF_SLOT_END =
         in.get(C::public_data_squash_leaf_slot_increase) + public_data_squash_END;
 
@@ -61,40 +64,33 @@ void public_data_squashImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                         (FF(1) - static_cast<View>(in.get(C::public_data_squash_leaf_slot_increase))));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // CLK_DIFF_DECOMP
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::public_data_squash_clk_diff)) -
-                    static_cast<View>(in.get(C::public_data_squash_check_clock)) *
-                        (static_cast<View>(in.get(C::public_data_squash_clk_shift)) -
-                         static_cast<View>(in.get(C::public_data_squash_clk))));
+        auto tmp = (CView(public_data_squash_CLK_DIFF) -
+                    (static_cast<View>(in.get(C::public_data_squash_clk_diff_lo)) +
+                     FF(65536) * static_cast<View>(in.get(C::public_data_squash_clk_diff_hi))));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::public_data_squash_sel)) *
-                   (FF(32) - static_cast<View>(in.get(C::public_data_squash_constant_32)));
-        std::get<7>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
         auto tmp =
             (static_cast<View>(in.get(C::public_data_squash_write_to_public_inputs_shift)) -
              (static_cast<View>(in.get(C::public_data_squash_leaf_slot_increase)) + CView(public_data_squash_START)));
-        std::get<8>(evals) += (tmp * scaling_factor);
+        std::get<7>(evals) += (tmp * scaling_factor);
     }
     { // FINAL_VALUE_PROPAGATION
-        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::public_data_squash_check_clock)) *
                    (static_cast<View>(in.get(C::public_data_squash_final_value)) -
                     static_cast<View>(in.get(C::public_data_squash_final_value_shift)));
-        std::get<9>(evals) += (tmp * scaling_factor);
+        std::get<8>(evals) += (tmp * scaling_factor);
     }
     { // FINAL_VALUE_CHECK
-        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
         auto tmp =
             CView(public_data_squash_LEAF_SLOT_END) * (static_cast<View>(in.get(C::public_data_squash_final_value)) -
                                                        static_cast<View>(in.get(C::public_data_squash_value)));
-        std::get<10>(evals) += (tmp * scaling_factor);
+        std::get<9>(evals) += (tmp * scaling_factor);
     }
 }
 

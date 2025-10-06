@@ -3,10 +3,8 @@ use crate::{
     block_merge::merge_block_rollups,
 };
 use blob::{
+    abis::{BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges},
     blob_batching::evaluate_blobs_and_batch,
-    blob_batching_public_inputs::{
-        BlobAccumulatorPublicInputs, BLSPoint, FinalBlobBatchingChallenges,
-    },
 };
 use types::{
     abis::{
@@ -20,7 +18,7 @@ use types::{
 
 pub struct CheckpointRollupPublicInputsComposer<let NumBlobs: u32> {
     merged_rollup: BlockRollupPublicInputs,
-    start_blob_accumulator: BlobAccumulatorPublicInputs,
+    start_blob_accumulator: BlobAccumulator,
     final_blob_challenges: FinalBlobBatchingChallenges,
     blobs_fields: [Field; FIELDS_PER_BLOB * NumBlobs],
     blob_commitments: [BLSPoint; NumBlobs],
@@ -30,7 +28,7 @@ pub struct CheckpointRollupPublicInputsComposer<let NumBlobs: u32> {
 impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
     pub fn new<let NumPreviousRollups: u32>(
         previous_rollups: [BlockRollupPublicInputs; NumPreviousRollups],
-        start_blob_accumulator: BlobAccumulatorPublicInputs,
+        start_blob_accumulator: BlobAccumulator,
         final_blob_challenges: FinalBlobBatchingChallenges,
         blobs_fields: [Field; NumBlobs * FIELDS_PER_BLOB],
         blob_commitments: [BLSPoint; NumBlobs],
@@ -107,7 +105,7 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
         }
     }
 
-    fn get_end_blob_accumulator(self) -> BlobAccumulatorPublicInputs {
+    fn get_end_blob_accumulator(self) -> BlobAccumulator {
         let mut end_sponge_blob = self.merged_rollup.end_sponge_blob;
         let sponge_blob_hash = end_sponge_blob.squeeze();
 

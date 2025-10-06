@@ -60,10 +60,6 @@ imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
 
 
 
-{{- define "aztec-network.pxeUrl" -}}
-http://{{ include "aztec-network.fullname" . }}-pxe.{{ .Release.Namespace }}:{{ .Values.pxe.service.nodePort }}
-{{- end -}}
-
 {{- define "aztec-network.bootNodeUrl" -}}
 http://{{ include "aztec-network.fullname" . }}-boot-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.bootNode.service.nodePort }}
 {{- end -}}
@@ -257,30 +253,27 @@ Combined wait-for-services and configure-env container for full nodes
       # If we already have a registry address, and the bootstrap nodes are set, then we don't need to wait for the services
       if [ -n "{{ .Values.aztec.contracts.registryAddress }}" ] && [ -n "{{ .Values.aztec.bootstrapENRs }}" ]; then
         echo "Registry address and bootstrap nodes already set, skipping wait for services"
-        echo "{{ include "aztec-network.pxeUrl" . }}" > /shared/pxe/pxe_url
       else
         source /shared/config/service-addresses
         cat /shared/config/service-addresses
         {{- include "aztec-network.waitForEthereum" . | nindent 8 }}
 
-        if [ "{{ .Values.validator.dynamicBootNode }}" = "true" ]; then
-          echo "{{ include "aztec-network.pxeUrl" . }}" > /shared/pxe/pxe_url
-        else
+        if [ "{{ .Values.validator.dynamicBootNode }}" != "true" ]; then
           until curl --silent --head --fail "${BOOT_NODE_HOST}/status" > /dev/null; do
             echo "Waiting for boot node..."
             sleep 5
           done
           echo "Boot node is ready!"
-          echo "${BOOT_NODE_HOST}" > /shared/pxe/pxe_url
+          echo "${BOOT_NODE_HOST}" > /shared/aztec_node/aztec_node_url
         fi
       fi
 
       # Configure environment
       source /shared/config/service-addresses
-      /scripts/configure-full-node-env.sh "$(cat /shared/pxe/pxe_url)"
+      /scripts/configure-full-node-env.sh "$(cat /shared/aztec_node/aztec_node_url)"
   volumeMounts:
-    - name: pxe-url
-      mountPath: /shared/pxe
+    - name: aztec-node-url
+      mountPath: /shared/aztec_node
     - name: scripts
       mountPath: /scripts
     - name: config

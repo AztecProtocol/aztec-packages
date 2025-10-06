@@ -4,10 +4,16 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
-import { mkdir, readFile, stat, writeFile } from 'fs/promises';
-import path, { dirname, join } from 'path';
+import path, { join } from 'path';
 
 import publicIncludeMetrics from '../../public_include_metric_prefixes.json' with { type: 'json' };
+import { cachedFetch } from './cached_fetch.js';
+import { enrichEthAddressVar, enrichVar } from './enrich_env.js';
+
+const SNAPSHOT_URL = 'https://pub-f4a8c34d4bb7441ebf8f48d904512180.r2.dev/snapshots';
+
+const defaultDBMapSizeKb = 128 * 1_024 * 1_024; // 128 GB
+const tbMapSizeKb = 1_024 * 1_024 * 1_024; // 1 TB
 
 export type L2ChainConfig = L1ContractsConfig &
   Omit<SlasherConfig, 'slashValidatorsNever' | 'slashValidatorsAlways'> & {
@@ -16,19 +22,24 @@ export type L2ChainConfig = L1ContractsConfig &
     sponsoredFPC: boolean;
     p2pEnabled: boolean;
     p2pBootstrapNodes: string[];
-    registryAddress: string;
-    slashFactoryAddress: string;
-    feeAssetHandlerAddress: string;
     seqMinTxsPerBlock: number;
     seqMaxTxsPerBlock: number;
     realProofs: boolean;
-    snapshotsUrl: string;
+    snapshotsUrls: string[];
     autoUpdate: SharedNodeConfig['autoUpdate'];
     autoUpdateUrl?: string;
     maxTxPoolSize: number;
     publicIncludeMetrics?: string[];
     publicMetricsCollectorUrl?: string;
     publicMetricsCollectFrom?: string[];
+
+    // Setting the dbMapSize provides the default for every DB in the node.
+    // Then we explicitly override the sizes for the archiver and the larger trees.
+    dbMapSizeKb: number;
+    archiverStoreMapSizeKb: number;
+    noteHashTreeMapSizeKb: number;
+    nullifierTreeMapSizeKb: number;
+    publicDataTreeMapSizeKb: number;
 
     // Control whether sentinel is enabled or not. Needed for slashing
     sentinelEnabled: boolean;
@@ -63,11 +74,20 @@ const DefaultSlashConfig = {
   slashProposeInvalidAttestationsPenalty: DefaultL1ContractsConfig.slashAmountLarge,
   slashAttestDescendantOfInvalidPenalty: DefaultL1ContractsConfig.slashAmountLarge,
   slashUnknownPenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashBroadcastedInvalidBlockPenalty: DefaultL1ContractsConfig.slashAmountMedium,
+  slashBroadcastedInvalidBlockPenalty: 0n, // DefaultL1ContractsConfig.slashAmountSmall // Disabled until further testing
   slashMaxPayloadSize: 50,
   slashGracePeriodL2Slots: 32 * 2, // Two epochs from genesis
   slashOffenseExpirationRounds: 8,
   sentinelEnabled: true,
+  slashExecuteRoundsLookBack: 4,
+} satisfies Partial<L2ChainConfig>;
+
+const DefaultNetworkDBMapSizeConfig = {
+  dbMapSizeKb: defaultDBMapSizeKb,
+  archiverStoreMapSizeKb: tbMapSizeKb,
+  noteHashTreeMapSizeKb: tbMapSizeKb,
+  nullifierTreeMapSizeKb: tbMapSizeKb,
+  publicDataTreeMapSizeKb: tbMapSizeKb,
 } satisfies Partial<L2ChainConfig>;
 
 export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
@@ -76,13 +96,10 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: false,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '0xa2ed20f46dc58e5af6035ec61d463ac85a6d52d3',
-  slashFactoryAddress: '0x2c03d596f4b5f0c1d0d2dbf92a5964dfc658763c',
-  feeAssetHandlerAddress: '0x48be40187f2932bd14cd4d111fba26646da96c36',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
-  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/staging-ignition/',
+  snapshotsUrls: [`${SNAPSHOT_URL}/staging-ignition/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-ignition.json',
   maxTxPoolSize: 100_000_000, // 100MB
@@ -142,12 +159,15 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   slashProposeInvalidAttestationsPenalty: 50_000n * 10n ** 18n,
   slashAttestDescendantOfInvalidPenalty: 50_000n * 10n ** 18n,
   slashUnknownPenalty: 2_000n * 10n ** 18n,
-  slashBroadcastedInvalidBlockPenalty: 10_000n * 10n ** 18n,
+  slashBroadcastedInvalidBlockPenalty: 0n, // 10_000n * 10n ** 18n, Disabled for now until further testing
   slashMaxPayloadSize: 50,
   slashGracePeriodL2Slots: 32 * 4, // One round from genesis
   slashOffenseExpirationRounds: 8,
   sentinelEnabled: true,
   slashingDisableDuration: 5 * 24 * 60 * 60,
+  slashExecuteRoundsLookBack: 4,
+
+  ...DefaultNetworkDBMapSizeConfig,
 };
 
 export const stagingPublicL2ChainConfig: L2ChainConfig = {
@@ -156,13 +176,10 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: true,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '0x2e48addca360da61e4d6c21ff2b1961af56eb83b',
-  slashFactoryAddress: '0xe19410632fd00695bc5a08dd82044b7b26317742',
-  feeAssetHandlerAddress: '0xb46dc3d91f849999330b6dd93473fa29fc45b076',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
-  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/staging-public/',
+  snapshotsUrls: [`${SNAPSHOT_URL}/staging-public/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-public.json',
   publicIncludeMetrics,
@@ -201,6 +218,8 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
 
   ...DefaultSlashConfig,
+
+  ...DefaultNetworkDBMapSizeConfig,
 };
 
 export const testnetL2ChainConfig: L2ChainConfig = {
@@ -209,13 +228,10 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: true,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '0xcfe61b2574984326679cd15c6566fbd4a724f3b4',
-  slashFactoryAddress: '0x58dc5b14f9d3085c9106f5b8208a1026f94614f0',
-  feeAssetHandlerAddress: '0x7abdec6e68ae27c37feb6a77371382a109ec4763',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
-  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/testnet/',
+  snapshotsUrls: [`${SNAPSHOT_URL}/testnet/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/testnet.json',
   maxTxPoolSize: 100_000_000, // 100MB
@@ -256,42 +272,102 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   ...DefaultSlashConfig,
   slashPrunePenalty: 0n,
   slashDataWithholdingPenalty: 0n,
+
+  ...DefaultNetworkDBMapSizeConfig,
+};
+
+export const ignitionL2ChainConfig: L2ChainConfig = {
+  l1ChainId: 1,
+  testAccounts: false,
+  sponsoredFPC: false,
+  p2pEnabled: true,
+  p2pBootstrapNodes: [],
+  seqMinTxsPerBlock: 0,
+  seqMaxTxsPerBlock: 0,
+  realProofs: true,
+  snapshotsUrls: ['https://storage.googleapis.com/aztec-testnet/snapshots/ignition/'],
+  autoUpdate: 'notify',
+  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/ignition.json',
+  maxTxPoolSize: 100_000_000, // 100MB
+  publicIncludeMetrics,
+  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
+  publicMetricsCollectFrom: ['sequencer'],
+
+  /** How many seconds an L1 slot lasts. */
+  ethereumSlotDuration: 12,
+  /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
+  aztecSlotDuration: 72,
+  /** How many L2 slots an epoch lasts. */
+  aztecEpochDuration: 32,
+  /** The target validator committee size. */
+  aztecTargetCommitteeSize: 24,
+  /** The number of epochs after an epoch ends that proofs are still accepted. */
+  aztecProofSubmissionEpochs: 1,
+  /** How many sequencers must agree with a slash for it to be executed. */
+  slashingQuorum: 65,
+
+  /** The number of epochs to lag behind the current epoch for validator selection. */
+  lagInEpochs: 2,
+
+  localEjectionThreshold: 196_000n * 10n ** 18n,
+  slashingDisableDuration: 5 * 24 * 60 * 60,
+
+  slashingRoundSizeInEpochs: 4,
+  slashingLifetimeInRounds: 40,
+  slashingExecutionDelayInRounds: 28,
+  slashAmountSmall: 2_000n * 10n ** 18n,
+  slashAmountMedium: 10_000n * 10n ** 18n,
+  slashAmountLarge: 50_000n * 10n ** 18n,
+  slashingOffsetInRounds: 2,
+  slasherFlavor: 'tally',
+  slashingVetoer: EthAddress.ZERO, // TODO TMNT-329
+
+  /** The mana target for the rollup */
+  manaTarget: 0n,
+
+  exitDelaySeconds: 5 * 24 * 60 * 60,
+
+  /** The proving cost per mana */
+  provingCostPerMana: 0n,
+
+  ejectionThreshold: 100_000n * 10n ** 18n,
+  activationThreshold: 200_000n * 10n ** 18n,
+
+  governanceProposerRoundSize: 300, // TODO TMNT-322
+  governanceProposerQuorum: 151, // TODO TMNT-322
+
+  // Node slashing config
+  // TODO TMNT-330
+  slashMinPenaltyPercentage: 0.5,
+  slashMaxPenaltyPercentage: 2.0,
+  slashInactivityTargetPercentage: 0.7,
+  slashInactivityConsecutiveEpochThreshold: 2,
+  slashInactivityPenalty: 2_000n * 10n ** 18n,
+  slashPrunePenalty: 0n, // 2_000n * 10n ** 18n, We disable slashing for prune offenses right now
+  slashDataWithholdingPenalty: 0n, // 2_000n * 10n ** 18n, We disable slashing for data withholding offenses right now
+  slashProposeInvalidAttestationsPenalty: 50_000n * 10n ** 18n,
+  slashAttestDescendantOfInvalidPenalty: 50_000n * 10n ** 18n,
+  slashUnknownPenalty: 2_000n * 10n ** 18n,
+  slashBroadcastedInvalidBlockPenalty: 0n, // 10_000n * 10n ** 18n, Disabled for now until further testing
+  slashMaxPayloadSize: 50,
+  slashGracePeriodL2Slots: 32 * 4, // One round from genesis
+  slashOffenseExpirationRounds: 8,
+  sentinelEnabled: true,
+  slashExecuteRoundsLookBack: 4,
+
+  ...DefaultNetworkDBMapSizeConfig,
 };
 
 const BOOTNODE_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour;
 
 export async function getBootnodes(networkName: NetworkNames, cacheDir?: string) {
-  const cacheFile = cacheDir ? join(cacheDir, networkName, 'bootnodes.json') : undefined;
-  try {
-    if (cacheFile) {
-      const info = await stat(cacheFile);
-      if (info.mtimeMs + BOOTNODE_CACHE_DURATION_MS > Date.now()) {
-        return JSON.parse(await readFile(cacheFile, 'utf-8'))['bootnodes'];
-      }
-    }
-  } catch {
-    // no-op. Get the remote-file
-  }
-
   const url = `http://static.aztec.network/${networkName}/bootnodes.json`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch basic contract addresses from ${url}. Check you are using a correct network name.`,
-    );
-  }
-  const json = await response.json();
+  const data = await cachedFetch(url, {
+    cacheDurationMs: BOOTNODE_CACHE_DURATION_MS,
+    cacheFile: cacheDir ? join(cacheDir, networkName, 'bootnodes.json') : undefined,
+  });
 
-  try {
-    if (cacheFile) {
-      await mkdir(dirname(cacheFile), { recursive: true });
-      await writeFile(cacheFile, JSON.stringify(json), 'utf-8');
-    }
-  } catch {
-    // no-op
-  }
-
-  return json['bootnodes'];
+  return data?.bootnodes;
 }
 
 export async function getL2ChainConfig(
@@ -305,6 +381,8 @@ export async function getL2ChainConfig(
     config = { ...testnetL2ChainConfig };
   } else if (networkName === 'staging-ignition') {
     config = { ...stagingIgnitionL2ChainConfig };
+  } else if (networkName === 'ignition') {
+    config = { ...ignitionL2ChainConfig };
   }
   if (!config) {
     return undefined;
@@ -315,23 +393,6 @@ export async function getL2ChainConfig(
     config.p2pBootstrapNodes = await getBootnodes(networkName, cacheDir);
   }
   return config;
-}
-
-function enrichVar(envVar: EnvVar, value: string | undefined) {
-  // Don't override
-  if (process.env[envVar] || value === undefined) {
-    return;
-  }
-  process.env[envVar] = value;
-}
-
-function enrichEthAddressVar(envVar: EnvVar, value: string) {
-  // EthAddress doesn't like being given empty strings
-  if (value === '') {
-    enrichVar(envVar, EthAddress.ZERO.toString());
-    return;
-  }
-  enrichVar(envVar, value);
 }
 
 function getDefaultDataDir(networkName: NetworkNames): string {
@@ -360,8 +421,14 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('SEQ_MAX_TX_PER_BLOCK', config.seqMaxTxsPerBlock.toString());
   enrichVar('PROVER_REAL_PROOFS', config.realProofs.toString());
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
-  enrichVar('SYNC_SNAPSHOTS_URL', config.snapshotsUrl);
+  enrichVar('SYNC_SNAPSHOTS_URLS', config.snapshotsUrls.join(','));
   enrichVar('P2P_MAX_TX_POOL_SIZE', config.maxTxPoolSize.toString());
+
+  enrichVar('DATA_STORE_MAP_SIZE_KB', config.dbMapSizeKb.toString());
+  enrichVar('ARCHIVER_STORE_MAP_SIZE_KB', config.archiverStoreMapSizeKb.toString());
+  enrichVar('NOTE_HASH_TREE_MAP_SIZE_KB', config.noteHashTreeMapSizeKb.toString());
+  enrichVar('NULLIFIER_TREE_MAP_SIZE_KB', config.nullifierTreeMapSizeKb.toString());
+  enrichVar('PUBLIC_DATA_TREE_MAP_SIZE_KB', config.publicDataTreeMapSizeKb.toString());
 
   if (config.autoUpdate) {
     enrichVar('AUTO_UPDATE', config.autoUpdate?.toString());
@@ -382,10 +449,6 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   if (config.publicMetricsCollectFrom) {
     enrichVar('PUBLIC_OTEL_COLLECT_FROM', config.publicMetricsCollectFrom.join(','));
   }
-
-  enrichEthAddressVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);
-  enrichEthAddressVar('SLASH_FACTORY_CONTRACT_ADDRESS', config.slashFactoryAddress);
-  enrichEthAddressVar('FEE_ASSET_HANDLER_CONTRACT_ADDRESS', config.feeAssetHandlerAddress);
 
   // Deployment stuff
   enrichVar('ETHEREUM_SLOT_DURATION', config.ethereumSlotDuration.toString());

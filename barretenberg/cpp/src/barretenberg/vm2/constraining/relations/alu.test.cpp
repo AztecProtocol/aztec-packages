@@ -130,10 +130,10 @@ TEST_F(AluConstrainingTest, EmptyRow)
 
 TEST_F(AluConstrainingTest, NegativeAluWrongOpId)
 {
-    auto trace = TestTraceContainer::from_rows({
+    auto trace = TestTraceContainer({
         {
-            .alu_op_id = AVM_EXEC_OP_ID_ALU_ADD + 1,
-            .alu_sel_op_add = 1,
+            { C::alu_op_id, AVM_EXEC_OP_ID_ALU_ADD + 1 },
+            { C::alu_sel_op_add, 1 },
         },
     });
 
@@ -161,27 +161,27 @@ class AluAddConstrainingTest : public AluConstrainingTest,
     {
         auto [a, b, c] = params;
         auto tag = static_cast<uint8_t>(a.get_tag());
-        auto trace = TestTraceContainer::from_rows({
+        auto trace = TestTraceContainer({
             {
-                .alu_ia = a,
-                .alu_ia_tag = tag,
-                .alu_ib = b,
-                .alu_ib_tag = tag,
-                .alu_ic = c,
-                .alu_ic_tag = tag,
-                .alu_max_bits = get_tag_bits(a.get_tag()),
-                .alu_max_value = get_tag_max_value(a.get_tag()),
-                .alu_op_id = AVM_EXEC_OP_ID_ALU_ADD,
-                .alu_sel = 1,
-                .alu_sel_op_add = 1,
-                .execution_mem_tag_reg_0_ = tag,                           // = ia_tag
-                .execution_mem_tag_reg_1_ = tag,                           // = ib_tag
-                .execution_mem_tag_reg_2_ = tag,                           // = ic_tag
-                .execution_register_0_ = a,                                // = ia
-                .execution_register_1_ = b,                                // = ib
-                .execution_register_2_ = c,                                // = ic
-                .execution_sel_execute_alu = 1,                            // = sel
-                .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_ADD, // = alu_op_id
+                { C::alu_ia, a },
+                { C::alu_ia_tag, tag },
+                { C::alu_ib, b },
+                { C::alu_ib_tag, tag },
+                { C::alu_ic, c },
+                { C::alu_ic_tag, tag },
+                { C::alu_max_bits, get_tag_bits(a.get_tag()) },
+                { C::alu_max_value, get_tag_max_value(a.get_tag()) },
+                { C::alu_op_id, AVM_EXEC_OP_ID_ALU_ADD },
+                { C::alu_sel, 1 },
+                { C::alu_sel_op_add, 1 },
+                { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
+                { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
+                { C::execution_mem_tag_reg_2_, tag },                           // = ic_tag
+                { C::execution_register_0_, a },                                // = ia
+                { C::execution_register_1_, b },                                // = ib
+                { C::execution_register_2_, c },                                // = ic
+                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_ADD }, // = alu_op_id
             },
         });
 
@@ -217,28 +217,28 @@ class AluAddConstrainingTest : public AluConstrainingTest,
         b = MemoryValue::from_tag(mem_tag, get_tag_max_value(mem_tag));
         c = a - MemoryValue::from_tag(mem_tag, 1);
         auto tag = static_cast<uint8_t>(mem_tag);
-        auto trace = TestTraceContainer::from_rows({
+        auto trace = TestTraceContainer({
             {
-                .alu_cf = 1,
-                .alu_ia = a,
-                .alu_ia_tag = tag,
-                .alu_ib = b,
-                .alu_ib_tag = tag,
-                .alu_ic = c,
-                .alu_ic_tag = tag,
-                .alu_max_bits = get_tag_bits(mem_tag),
-                .alu_max_value = get_tag_max_value(mem_tag),
-                .alu_op_id = AVM_EXEC_OP_ID_ALU_ADD,
-                .alu_sel = 1,
-                .alu_sel_op_add = 1,
-                .execution_mem_tag_reg_0_ = tag,                           // = ia_tag
-                .execution_mem_tag_reg_1_ = tag,                           // = ib_tag
-                .execution_mem_tag_reg_2_ = tag,                           // = ic_tag
-                .execution_register_0_ = a,                                // = ia
-                .execution_register_1_ = b,                                // = ib
-                .execution_register_2_ = c,                                // = ic
-                .execution_sel_execute_alu = 1,                            // = sel
-                .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_ADD, // = alu_op_id
+                { C::alu_cf, 1 },
+                { C::alu_ia, a },
+                { C::alu_ia_tag, tag },
+                { C::alu_ib, b },
+                { C::alu_ib_tag, tag },
+                { C::alu_ic, c },
+                { C::alu_ic_tag, tag },
+                { C::alu_max_bits, get_tag_bits(mem_tag) },
+                { C::alu_max_value, get_tag_max_value(mem_tag) },
+                { C::alu_op_id, AVM_EXEC_OP_ID_ALU_ADD },
+                { C::alu_sel, 1 },
+                { C::alu_sel_op_add, 1 },
+                { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
+                { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
+                { C::execution_mem_tag_reg_2_, tag },                           // = ic_tag
+                { C::execution_register_0_, a },                                // = ia
+                { C::execution_register_1_, b },                                // = ib
+                { C::execution_register_2_, c },                                // = ic
+                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_ADD }, // = alu_op_id
             },
         });
 
@@ -407,28 +407,28 @@ class AluSubConstrainingTest : public AluConstrainingTest,
     {
         auto [a, b, c] = params;
         auto tag = static_cast<uint8_t>(a.get_tag());
-        auto trace = TestTraceContainer::from_rows({
+        auto trace = TestTraceContainer({
             {
-                .alu_cf = a.as_ff() - b.as_ff() != c.as_ff() ? 1 : 0,
-                .alu_ia = a,
-                .alu_ia_tag = tag,
-                .alu_ib = b,
-                .alu_ib_tag = tag,
-                .alu_ic = c,
-                .alu_ic_tag = tag,
-                .alu_max_bits = get_tag_bits(a.get_tag()),
-                .alu_max_value = get_tag_max_value(a.get_tag()),
-                .alu_op_id = AVM_EXEC_OP_ID_ALU_SUB,
-                .alu_sel = 1,
-                .alu_sel_op_sub = 1,
-                .execution_mem_tag_reg_0_ = tag,                           // = ia_tag
-                .execution_mem_tag_reg_1_ = tag,                           // = ib_tag
-                .execution_mem_tag_reg_2_ = tag,                           // = ic_tag
-                .execution_register_0_ = a,                                // = ia
-                .execution_register_1_ = b,                                // = ib
-                .execution_register_2_ = c,                                // = ic
-                .execution_sel_execute_alu = 1,                            // = sel
-                .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_SUB, // = alu_op_id
+                { C::alu_cf, a.as_ff() - b.as_ff() != c.as_ff() ? 1 : 0 },
+                { C::alu_ia, a },
+                { C::alu_ia_tag, tag },
+                { C::alu_ib, b },
+                { C::alu_ib_tag, tag },
+                { C::alu_ic, c },
+                { C::alu_ic_tag, tag },
+                { C::alu_max_bits, get_tag_bits(a.get_tag()) },
+                { C::alu_max_value, get_tag_max_value(a.get_tag()) },
+                { C::alu_op_id, AVM_EXEC_OP_ID_ALU_SUB },
+                { C::alu_sel, 1 },
+                { C::alu_sel_op_sub, 1 },
+                { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
+                { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
+                { C::execution_mem_tag_reg_2_, tag },                           // = ic_tag
+                { C::execution_register_0_, a },                                // = ia
+                { C::execution_register_1_, b },                                // = ib
+                { C::execution_register_2_, c },                                // = ic
+                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_SUB }, // = alu_op_id
             },
         });
 
@@ -524,34 +524,34 @@ class AluMulConstrainingTest : public AluConstrainingTest,
         auto c_int = static_cast<uint256_t>(a.as_ff()) * static_cast<uint256_t>(b.as_ff());
         auto c_hi = mem_tag == MemoryTag::FF ? 0 : c_int >> get_tag_bits(mem_tag);
 
-        auto trace = TestTraceContainer::from_rows({
+        auto trace = TestTraceContainer({
             {
-                .alu_c_hi = c_hi,
-                .alu_constant_64 = 64,
-                .alu_ia = a,
-                .alu_ia_tag = tag,
-                .alu_ib = b,
-                .alu_ib_tag = tag,
-                .alu_ic = c,
-                .alu_ic_tag = tag,
-                .alu_max_bits = get_tag_bits(mem_tag),
-                .alu_max_value = get_tag_max_value(mem_tag),
-                .alu_op_id = AVM_EXEC_OP_ID_ALU_MUL,
-                .alu_sel = 1,
-                .alu_sel_decompose_a = is_u128 ? 1 : 0,
-                .alu_sel_is_u128 = is_u128 ? 1 : 0,
-                .alu_sel_mul_div_u128 = is_u128 ? 1 : 0,
-                .alu_sel_mul_u128 = is_u128 ? 1 : 0,
-                .alu_sel_op_mul = 1,
-                .alu_tag_u128_diff_inv = is_u128 ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert(),
-                .execution_mem_tag_reg_0_ = tag,                           // = ia_tag
-                .execution_mem_tag_reg_1_ = tag,                           // = ib_tag
-                .execution_mem_tag_reg_2_ = tag,                           // = ic_tag
-                .execution_register_0_ = a,                                // = ia
-                .execution_register_1_ = b,                                // = ib
-                .execution_register_2_ = c,                                // = ic
-                .execution_sel_execute_alu = 1,                            // = sel
-                .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_MUL, // = alu_op_id
+                { C::alu_c_hi, c_hi },
+                { C::alu_constant_64, 64 },
+                { C::alu_ia, a },
+                { C::alu_ia_tag, tag },
+                { C::alu_ib, b },
+                { C::alu_ib_tag, tag },
+                { C::alu_ic, c },
+                { C::alu_ic_tag, tag },
+                { C::alu_max_bits, get_tag_bits(mem_tag) },
+                { C::alu_max_value, get_tag_max_value(mem_tag) },
+                { C::alu_op_id, AVM_EXEC_OP_ID_ALU_MUL },
+                { C::alu_sel, 1 },
+                { C::alu_sel_decompose_a, is_u128 ? 1 : 0 },
+                { C::alu_sel_is_u128, is_u128 ? 1 : 0 },
+                { C::alu_sel_mul_div_u128, is_u128 ? 1 : 0 },
+                { C::alu_sel_mul_u128, is_u128 ? 1 : 0 },
+                { C::alu_sel_op_mul, 1 },
+                { C::alu_tag_u128_diff_inv, is_u128 ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert() },
+                { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
+                { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
+                { C::execution_mem_tag_reg_2_, tag },                           // = ic_tag
+                { C::execution_register_0_, a },                                // = ia
+                { C::execution_register_1_, b },                                // = ib
+                { C::execution_register_2_, c },                                // = ic
+                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_MUL }, // = alu_op_id
             },
         });
 
@@ -654,41 +654,41 @@ TEST_F(AluConstrainingTest, AluMulU128Carry)
     // c_hi = old_c_hi - a_hi * b_hi % 2^64
     auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
     auto c_hi = ((overflow_c_int >> 128) - hi_operand) % (uint256_t(1) << 64);
-    auto trace = TestTraceContainer::from_rows({
+    auto trace = TestTraceContainer({
         {
-            .alu_a_hi = a_decomp.hi,
-            .alu_a_hi_bits = 64,
-            .alu_a_lo = a_decomp.lo,
-            .alu_a_lo_bits = 64,
-            .alu_b_hi = b_decomp.hi,
-            .alu_b_lo = b_decomp.lo,
-            .alu_c_hi = c_hi,
-            .alu_cf = 1, // a * b overflows
-            .alu_constant_64 = 64,
-            .alu_ia = a,
-            .alu_ia_tag = tag,
-            .alu_ib = b,
-            .alu_ib_tag = tag,
-            .alu_ic = c,
-            .alu_ic_tag = tag,
-            .alu_max_bits = get_tag_bits(MemoryTag::U128),
-            .alu_max_value = get_tag_max_value(MemoryTag::U128),
-            .alu_op_id = AVM_EXEC_OP_ID_ALU_MUL,
-            .alu_sel = 1,
-            .alu_sel_decompose_a = 1,
-            .alu_sel_is_u128 = 1,
-            .alu_sel_mul_div_u128 = 1,
-            .alu_sel_mul_u128 = 1,
-            .alu_sel_op_mul = 1,
-            .alu_tag_u128_diff_inv = 0,
-            .execution_mem_tag_reg_0_ = tag,                           // = ia_tag
-            .execution_mem_tag_reg_1_ = tag,                           // = ib_tag
-            .execution_mem_tag_reg_2_ = tag,                           // = ic_tag
-            .execution_register_0_ = a,                                // = ia
-            .execution_register_1_ = b,                                // = ib
-            .execution_register_2_ = c,                                // = ic
-            .execution_sel_execute_alu = 1,                            // = sel
-            .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_MUL, // = alu_op_id
+            { C::alu_a_hi, a_decomp.hi },
+            { C::alu_a_hi_bits, 64 },
+            { C::alu_a_lo, a_decomp.lo },
+            { C::alu_a_lo_bits, 64 },
+            { C::alu_b_hi, b_decomp.hi },
+            { C::alu_b_lo, b_decomp.lo },
+            { C::alu_c_hi, c_hi },
+            { C::alu_cf, 1 }, // a * b overflows
+            { C::alu_constant_64, 64 },
+            { C::alu_ia, a },
+            { C::alu_ia_tag, tag },
+            { C::alu_ib, b },
+            { C::alu_ib_tag, tag },
+            { C::alu_ic, c },
+            { C::alu_ic_tag, tag },
+            { C::alu_max_bits, get_tag_bits(MemoryTag::U128) },
+            { C::alu_max_value, get_tag_max_value(MemoryTag::U128) },
+            { C::alu_op_id, AVM_EXEC_OP_ID_ALU_MUL },
+            { C::alu_sel, 1 },
+            { C::alu_sel_decompose_a, 1 },
+            { C::alu_sel_is_u128, 1 },
+            { C::alu_sel_mul_div_u128, 1 },
+            { C::alu_sel_mul_u128, 1 },
+            { C::alu_sel_op_mul, 1 },
+            { C::alu_tag_u128_diff_inv, 0 },
+            { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
+            { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
+            { C::execution_mem_tag_reg_2_, tag },                           // = ic_tag
+            { C::execution_register_0_, a },                                // = ia
+            { C::execution_register_1_, b },                                // = ib
+            { C::execution_register_2_, c },                                // = ic
+            { C::execution_sel_execute_alu, 1 },                            // = sel
+            { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_MUL }, // = alu_op_id
         },
     });
 
@@ -747,39 +747,39 @@ class AluDivConstrainingTest : public AluConstrainingTest,
         auto div_0_error = b.as_ff() == FF(0);
         auto is_u128 = mem_tag == MemoryTag::U128;
 
-        auto trace = TestTraceContainer::from_rows({
+        auto trace = TestTraceContainer({
             {
-                .alu_b_inv = div_0_error ? 0 : b.as_ff().invert(),
-                .alu_constant_64 = 64,
-                .alu_helper1 = div_0_error ? 0 : remainder.as_ff(),
-                .alu_ia = a,
-                .alu_ia_tag = tag,
-                .alu_ib = b,
-                .alu_ib_tag = tag,
-                .alu_ic = c,
-                .alu_ic_tag = tag,
-                .alu_max_bits = get_tag_bits(mem_tag),
-                .alu_max_value = get_tag_max_value(mem_tag),
-                .alu_op_id = AVM_EXEC_OP_ID_ALU_DIV,
-                .alu_sel = 1,
-                .alu_sel_decompose_a = is_u128 ? 1 : 0,
-                .alu_sel_div_0_err = div_0_error ? 1 : 0,
-                .alu_sel_div_no_0_err = div_0_error ? 0 : 1,
-                .alu_sel_err = div_0_error ? 1 : 0,
-                .alu_sel_is_u128 = is_u128 ? 1 : 0,
-                .alu_sel_mul_div_u128 = is_u128 ? 1 : 0,
-                .alu_sel_op_div = 1,
-                .alu_tag_ff_diff_inv = FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert(),
-                .alu_tag_u128_diff_inv = is_u128 ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert(),
-                .execution_mem_tag_reg_0_ = tag,                           // = ia_tag
-                .execution_mem_tag_reg_1_ = tag,                           // = ib_tag
-                .execution_mem_tag_reg_2_ = tag,                           // = ic_tag
-                .execution_register_0_ = a,                                // = ia
-                .execution_register_1_ = b,                                // = ib
-                .execution_register_2_ = c,                                // = ic
-                .execution_sel_execute_alu = 1,                            // = sel
-                .execution_sel_opcode_error = div_0_error ? 1 : 0,         // = sel_err
-                .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_DIV, // = alu_op_id
+                { C::alu_b_inv, div_0_error ? 0 : b.as_ff().invert() },
+                { C::alu_constant_64, 64 },
+                { C::alu_helper1, div_0_error ? 0 : remainder.as_ff() },
+                { C::alu_ia, a },
+                { C::alu_ia_tag, tag },
+                { C::alu_ib, b },
+                { C::alu_ib_tag, tag },
+                { C::alu_ic, c },
+                { C::alu_ic_tag, tag },
+                { C::alu_max_bits, get_tag_bits(mem_tag) },
+                { C::alu_max_value, get_tag_max_value(mem_tag) },
+                { C::alu_op_id, AVM_EXEC_OP_ID_ALU_DIV },
+                { C::alu_sel, 1 },
+                { C::alu_sel_decompose_a, is_u128 ? 1 : 0 },
+                { C::alu_sel_div_0_err, div_0_error ? 1 : 0 },
+                { C::alu_sel_div_no_0_err, div_0_error ? 0 : 1 },
+                { C::alu_sel_err, div_0_error ? 1 : 0 },
+                { C::alu_sel_is_u128, is_u128 ? 1 : 0 },
+                { C::alu_sel_mul_div_u128, is_u128 ? 1 : 0 },
+                { C::alu_sel_op_div, 1 },
+                { C::alu_tag_ff_diff_inv, FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert() },
+                { C::alu_tag_u128_diff_inv, is_u128 ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert() },
+                { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
+                { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
+                { C::execution_mem_tag_reg_2_, tag },                           // = ic_tag
+                { C::execution_register_0_, a },                                // = ia
+                { C::execution_register_1_, b },                                // = ib
+                { C::execution_register_2_, c },                                // = ic
+                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_sel_opcode_error, div_0_error ? 1 : 0 },         // = sel_err
+                { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_DIV }, // = alu_op_id
             },
         });
 
@@ -1066,32 +1066,32 @@ class AluFDivConstrainingTest : public AluConstrainingTest,
         auto mem_tag = a.get_tag();
         auto tag = static_cast<uint8_t>(mem_tag);
 
-        auto trace = TestTraceContainer::from_rows({
+        auto trace = TestTraceContainer({
             {
-                .alu_b_inv = div_0_error ? 0 : b.as_ff().invert(),
-                .alu_ia = a,
-                .alu_ia_tag = tag,
-                .alu_ib = b,
-                .alu_ib_tag = tag,
-                .alu_ic = c,
-                .alu_ic_tag = tag,
-                .alu_max_bits = get_tag_bits(mem_tag),
-                .alu_max_value = get_tag_max_value(mem_tag),
-                .alu_op_id = AVM_EXEC_OP_ID_ALU_FDIV,
-                .alu_sel = 1,
-                .alu_sel_div_0_err = div_0_error ? 1 : 0,
-                .alu_sel_err = div_0_error ? 1 : 0,
-                .alu_sel_is_ff = 1,
-                .alu_sel_op_fdiv = 1,
-                .execution_mem_tag_reg_0_ = tag,                            // = ia_tag
-                .execution_mem_tag_reg_1_ = tag,                            // = ib_tag
-                .execution_mem_tag_reg_2_ = tag,                            // = ic_tag
-                .execution_register_0_ = a,                                 // = ia
-                .execution_register_1_ = b,                                 // = ib
-                .execution_register_2_ = c,                                 // = ic
-                .execution_sel_execute_alu = 1,                             // = sel
-                .execution_sel_opcode_error = div_0_error ? 1 : 0,          // = sel_err
-                .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_FDIV, // = alu_op_id
+                { C::alu_b_inv, div_0_error ? 0 : b.as_ff().invert() },
+                { C::alu_ia, a },
+                { C::alu_ia_tag, tag },
+                { C::alu_ib, b },
+                { C::alu_ib_tag, tag },
+                { C::alu_ic, c },
+                { C::alu_ic_tag, tag },
+                { C::alu_max_bits, get_tag_bits(mem_tag) },
+                { C::alu_max_value, get_tag_max_value(mem_tag) },
+                { C::alu_op_id, AVM_EXEC_OP_ID_ALU_FDIV },
+                { C::alu_sel, 1 },
+                { C::alu_sel_div_0_err, div_0_error ? 1 : 0 },
+                { C::alu_sel_err, div_0_error ? 1 : 0 },
+                { C::alu_sel_is_ff, 1 },
+                { C::alu_sel_op_fdiv, 1 },
+                { C::execution_mem_tag_reg_0_, tag },                            // = ia_tag
+                { C::execution_mem_tag_reg_1_, tag },                            // = ib_tag
+                { C::execution_mem_tag_reg_2_, tag },                            // = ic_tag
+                { C::execution_register_0_, a },                                 // = ia
+                { C::execution_register_1_, b },                                 // = ib
+                { C::execution_register_2_, c },                                 // = ic
+                { C::execution_sel_execute_alu, 1 },                             // = sel
+                { C::execution_sel_opcode_error, div_0_error ? 1 : 0 },          // = sel_err
+                { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_FDIV }, // = alu_op_id
             },
         });
 
@@ -1182,28 +1182,28 @@ TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZeroNonFFTagMismatch)
     auto c = MemoryValue::from_tag(MemoryTag::FF, 2);
     auto tag = static_cast<uint8_t>(MemoryTag::U8);
 
-    auto trace = TestTraceContainer::from_rows({
+    auto trace = TestTraceContainer({
         {
-            .alu_b_inv = b.as_ff().invert(),
-            .alu_ia = a,
-            .alu_ia_tag = tag,
-            .alu_ib = b,
-            .alu_ib_tag = tag,
-            .alu_ic = c,
-            .alu_ic_tag = static_cast<uint8_t>(MemoryTag::FF),
-            .alu_max_bits = get_tag_bits(MemoryTag::U8),
-            .alu_max_value = get_tag_max_value(MemoryTag::U8),
-            .alu_op_id = AVM_EXEC_OP_ID_ALU_FDIV,
-            .alu_sel = 1,
-            .alu_sel_op_fdiv = 1,
-            .execution_mem_tag_reg_0_ = tag,                                 // = ia_tag
-            .execution_mem_tag_reg_1_ = tag,                                 // = ib_tag
-            .execution_mem_tag_reg_2_ = static_cast<uint8_t>(MemoryTag::FF), // = ic_tag
-            .execution_register_0_ = a,                                      // = ia
-            .execution_register_1_ = b,                                      // = ib
-            .execution_register_2_ = c,                                      // = ic
-            .execution_sel_execute_alu = 1,                                  // = sel
-            .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_FDIV,      // = alu_op_id
+            { C::alu_b_inv, b.as_ff().invert() },
+            { C::alu_ia, a },
+            { C::alu_ia_tag, tag },
+            { C::alu_ib, b },
+            { C::alu_ib_tag, tag },
+            { C::alu_ic, c },
+            { C::alu_ic_tag, static_cast<uint8_t>(MemoryTag::FF) },
+            { C::alu_max_bits, get_tag_bits(MemoryTag::U8) },
+            { C::alu_max_value, get_tag_max_value(MemoryTag::U8) },
+            { C::alu_op_id, AVM_EXEC_OP_ID_ALU_FDIV },
+            { C::alu_sel, 1 },
+            { C::alu_sel_op_fdiv, 1 },
+            { C::execution_mem_tag_reg_0_, tag },                                 // = ia_tag
+            { C::execution_mem_tag_reg_1_, tag },                                 // = ib_tag
+            { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::FF) }, // = ic_tag
+            { C::execution_register_0_, a },                                      // = ia
+            { C::execution_register_1_, b },                                      // = ib
+            { C::execution_register_2_, c },                                      // = ic
+            { C::execution_sel_execute_alu, 1 },                                  // = sel
+            { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_FDIV },      // = alu_op_id
         },
     });
 
@@ -1333,35 +1333,35 @@ class AluLTConstrainingTest : public AluConstrainingTest, public ::testing::With
         auto tag = static_cast<uint8_t>(mem_tag);
         auto is_ff = mem_tag == MemoryTag::FF;
 
-        auto trace = TestTraceContainer::from_rows({
+        auto trace = TestTraceContainer({
             {
-                .alu_ia = a,
-                .alu_ia_tag = tag,
-                .alu_ib = b,
-                .alu_ib_tag = tag,
-                .alu_ic = c,
-                .alu_ic_tag = static_cast<uint8_t>(MemoryTag::U1),
-                .alu_lt_ops_input_a = b,
-                .alu_lt_ops_input_b = a,
-                .alu_lt_ops_result_c = c,
-                .alu_max_bits = get_tag_bits(mem_tag),
-                .alu_max_value = get_tag_max_value(mem_tag),
-                .alu_op_id = AVM_EXEC_OP_ID_ALU_LT,
-                .alu_sel = 1,
-                .alu_sel_ff_lt_ops = static_cast<uint8_t>(is_ff),
-                .alu_sel_int_lt_ops = static_cast<uint8_t>(!is_ff),
-                .alu_sel_is_ff = static_cast<uint8_t>(is_ff),
-                .alu_sel_lt_ops = 1,
-                .alu_sel_op_lt = 1,
-                .alu_tag_ff_diff_inv = is_ff ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert(),
-                .execution_mem_tag_reg_0_ = tag,                                 // = ia_tag
-                .execution_mem_tag_reg_1_ = tag,                                 // = ib_tag
-                .execution_mem_tag_reg_2_ = static_cast<uint8_t>(MemoryTag::U1), // = ic_tag
-                .execution_register_0_ = a,                                      // = ia
-                .execution_register_1_ = b,                                      // = ib
-                .execution_register_2_ = c,                                      // = ic
-                .execution_sel_execute_alu = 1,                                  // = sel
-                .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_LT,        // = alu_op_id
+                { C::alu_ia, a },
+                { C::alu_ia_tag, tag },
+                { C::alu_ib, b },
+                { C::alu_ib_tag, tag },
+                { C::alu_ic, c },
+                { C::alu_ic_tag, static_cast<uint8_t>(MemoryTag::U1) },
+                { C::alu_lt_ops_input_a, b },
+                { C::alu_lt_ops_input_b, a },
+                { C::alu_lt_ops_result_c, c },
+                { C::alu_max_bits, get_tag_bits(mem_tag) },
+                { C::alu_max_value, get_tag_max_value(mem_tag) },
+                { C::alu_op_id, AVM_EXEC_OP_ID_ALU_LT },
+                { C::alu_sel, 1 },
+                { C::alu_sel_ff_lt_ops, static_cast<uint8_t>(is_ff) },
+                { C::alu_sel_int_lt_ops, static_cast<uint8_t>(!is_ff) },
+                { C::alu_sel_is_ff, static_cast<uint8_t>(is_ff) },
+                { C::alu_sel_lt_ops, 1 },
+                { C::alu_sel_op_lt, 1 },
+                { C::alu_tag_ff_diff_inv, is_ff ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert() },
+                { C::execution_mem_tag_reg_0_, tag },                                 // = ia_tag
+                { C::execution_mem_tag_reg_1_, tag },                                 // = ib_tag
+                { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U1) }, // = ic_tag
+                { C::execution_register_0_, a },                                      // = ia
+                { C::execution_register_1_, b },                                      // = ib
+                { C::execution_register_2_, c },                                      // = ic
+                { C::execution_sel_execute_alu, 1 },                                  // = sel
+                { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_LT },        // = alu_op_id
             },
         });
 
@@ -1462,35 +1462,35 @@ class AluLTEConstrainingTest : public AluConstrainingTest,
         b = eq ? a : b;
         c = eq ? MemoryValue::from_tag(MemoryTag::U1, 1) : c;
 
-        auto trace = TestTraceContainer::from_rows({
+        auto trace = TestTraceContainer({
             {
-                .alu_ia = a,
-                .alu_ia_tag = tag,
-                .alu_ib = b,
-                .alu_ib_tag = tag,
-                .alu_ic = c,
-                .alu_ic_tag = static_cast<uint8_t>(MemoryTag::U1),
-                .alu_lt_ops_input_a = a,
-                .alu_lt_ops_input_b = b,
-                .alu_lt_ops_result_c = c.as_ff() == 0 ? 1 : 0,
-                .alu_max_bits = get_tag_bits(mem_tag),
-                .alu_max_value = get_tag_max_value(mem_tag),
-                .alu_op_id = AVM_EXEC_OP_ID_ALU_LTE,
-                .alu_sel = 1,
-                .alu_sel_ff_lt_ops = static_cast<uint8_t>(is_ff),
-                .alu_sel_int_lt_ops = static_cast<uint8_t>(!is_ff),
-                .alu_sel_is_ff = static_cast<uint8_t>(is_ff),
-                .alu_sel_lt_ops = 1,
-                .alu_sel_op_lte = 1,
-                .alu_tag_ff_diff_inv = is_ff ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert(),
-                .execution_mem_tag_reg_0_ = tag,                                 // = ia_tag
-                .execution_mem_tag_reg_1_ = tag,                                 // = ib_tag
-                .execution_mem_tag_reg_2_ = static_cast<uint8_t>(MemoryTag::U1), // = ic_tag
-                .execution_register_0_ = a,                                      // = ia
-                .execution_register_1_ = b,                                      // = ib
-                .execution_register_2_ = c,                                      // = ic
-                .execution_sel_execute_alu = 1,                                  // = sel
-                .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_LTE,       // = alu_op_id
+                { C::alu_ia, a },
+                { C::alu_ia_tag, tag },
+                { C::alu_ib, b },
+                { C::alu_ib_tag, tag },
+                { C::alu_ic, c },
+                { C::alu_ic_tag, static_cast<uint8_t>(MemoryTag::U1) },
+                { C::alu_lt_ops_input_a, a },
+                { C::alu_lt_ops_input_b, b },
+                { C::alu_lt_ops_result_c, c.as_ff() == 0 ? 1 : 0 },
+                { C::alu_max_bits, get_tag_bits(mem_tag) },
+                { C::alu_max_value, get_tag_max_value(mem_tag) },
+                { C::alu_op_id, AVM_EXEC_OP_ID_ALU_LTE },
+                { C::alu_sel, 1 },
+                { C::alu_sel_ff_lt_ops, static_cast<uint8_t>(is_ff) },
+                { C::alu_sel_int_lt_ops, static_cast<uint8_t>(!is_ff) },
+                { C::alu_sel_is_ff, static_cast<uint8_t>(is_ff) },
+                { C::alu_sel_lt_ops, 1 },
+                { C::alu_sel_op_lte, 1 },
+                { C::alu_tag_ff_diff_inv, is_ff ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert() },
+                { C::execution_mem_tag_reg_0_, tag },                                 // = ia_tag
+                { C::execution_mem_tag_reg_1_, tag },                                 // = ib_tag
+                { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U1) }, // = ic_tag
+                { C::execution_register_0_, a },                                      // = ia
+                { C::execution_register_1_, b },                                      // = ib
+                { C::execution_register_2_, c },                                      // = ic
+                { C::execution_sel_execute_alu, 1 },                                  // = sel
+                { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_LTE },       // = alu_op_id
             },
         });
 
@@ -1729,38 +1729,38 @@ class AluShlConstrainingTest : public AluConstrainingTest,
         auto a_lo = overflow ? b_num - tag_bits : a_num % two_pow_shift_lo_bits;
         auto a_hi = a_num >> shift_lo_bits;
 
-        auto trace = TestTraceContainer::from_rows({
+        auto trace = TestTraceContainer({
             {
-                .alu_a_hi = a_hi,
-                .alu_a_hi_bits = shift_hi_bits,
-                .alu_a_lo = a_lo,
-                .alu_a_lo_bits = shift_lo_bits,
-                .alu_helper1 = static_cast<uint128_t>(1) << b_num,
-                .alu_ia = a,
-                .alu_ia_tag = tag,
-                .alu_ib = b,
-                .alu_ib_tag = tag,
-                .alu_ic = c,
-                .alu_ic_tag = tag,
-                .alu_max_bits = tag_bits,
-                .alu_max_value = get_tag_max_value(mem_tag),
-                .alu_op_id = AVM_EXEC_OP_ID_ALU_SHL,
-                .alu_sel = 1,
-                .alu_sel_decompose_a = 1,
-                .alu_sel_op_shl = 1,
-                .alu_sel_shift_ops = 1,
-                .alu_sel_shift_ops_no_overflow = overflow ? 0 : 1,
-                .alu_shift_lo_bits = shift_lo_bits,
-                .alu_tag_ff_diff_inv = FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert(),
-                .alu_two_pow_shift_lo_bits = two_pow_shift_lo_bits,
-                .execution_mem_tag_reg_0_ = tag,                           // = ia_tag
-                .execution_mem_tag_reg_1_ = tag,                           // = ib_tag
-                .execution_mem_tag_reg_2_ = tag,                           // = ic_tag
-                .execution_register_0_ = a,                                // = ia
-                .execution_register_1_ = b,                                // = ib
-                .execution_register_2_ = c,                                // = ic
-                .execution_sel_execute_alu = 1,                            // = sel
-                .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_SHL, // = alu_op_id
+                { C::alu_a_hi, a_hi },
+                { C::alu_a_hi_bits, shift_hi_bits },
+                { C::alu_a_lo, a_lo },
+                { C::alu_a_lo_bits, shift_lo_bits },
+                { C::alu_helper1, static_cast<uint128_t>(1) << b_num },
+                { C::alu_ia, a },
+                { C::alu_ia_tag, tag },
+                { C::alu_ib, b },
+                { C::alu_ib_tag, tag },
+                { C::alu_ic, c },
+                { C::alu_ic_tag, tag },
+                { C::alu_max_bits, tag_bits },
+                { C::alu_max_value, get_tag_max_value(mem_tag) },
+                { C::alu_op_id, AVM_EXEC_OP_ID_ALU_SHL },
+                { C::alu_sel, 1 },
+                { C::alu_sel_decompose_a, 1 },
+                { C::alu_sel_op_shl, 1 },
+                { C::alu_sel_shift_ops, 1 },
+                { C::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
+                { C::alu_shift_lo_bits, shift_lo_bits },
+                { C::alu_tag_ff_diff_inv, FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert() },
+                { C::alu_two_pow_shift_lo_bits, two_pow_shift_lo_bits },
+                { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
+                { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
+                { C::execution_mem_tag_reg_2_, tag },                           // = ic_tag
+                { C::execution_register_0_, a },                                // = ia
+                { C::execution_register_1_, b },                                // = ib
+                { C::execution_register_2_, c },                                // = ic
+                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_SHL }, // = alu_op_id
 
             },
         });
@@ -1895,37 +1895,37 @@ class AluShrConstrainingTest : public AluConstrainingTest,
         auto a_lo = overflow ? b_num - tag_bits : a_num % two_pow_shift_lo_bits;
         auto a_hi = a_num >> shift_lo_bits;
 
-        auto trace = TestTraceContainer::from_rows({
+        auto trace = TestTraceContainer({
             {
-                .alu_a_hi = a_hi,
-                .alu_a_hi_bits = shift_hi_bits,
-                .alu_a_lo = a_lo,
-                .alu_a_lo_bits = shift_lo_bits,
-                .alu_ia = a,
-                .alu_ia_tag = tag,
-                .alu_ib = b,
-                .alu_ib_tag = tag,
-                .alu_ic = c,
-                .alu_ic_tag = tag,
-                .alu_max_bits = tag_bits,
-                .alu_max_value = get_tag_max_value(mem_tag),
-                .alu_op_id = AVM_EXEC_OP_ID_ALU_SHR,
-                .alu_sel = 1,
-                .alu_sel_decompose_a = 1,
-                .alu_sel_op_shr = 1,
-                .alu_sel_shift_ops = 1,
-                .alu_sel_shift_ops_no_overflow = overflow ? 0 : 1,
-                .alu_shift_lo_bits = shift_lo_bits,
-                .alu_tag_ff_diff_inv = FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert(),
-                .alu_two_pow_shift_lo_bits = two_pow_shift_lo_bits,
-                .execution_mem_tag_reg_0_ = tag,                           // = ia_tag
-                .execution_mem_tag_reg_1_ = tag,                           // = ib_tag
-                .execution_mem_tag_reg_2_ = tag,                           // = ic_tag
-                .execution_register_0_ = a,                                // = ia
-                .execution_register_1_ = b,                                // = ib
-                .execution_register_2_ = c,                                // = ic
-                .execution_sel_execute_alu = 1,                            // = sel
-                .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_SHR, // = alu_op_id
+                { C::alu_a_hi, a_hi },
+                { C::alu_a_hi_bits, shift_hi_bits },
+                { C::alu_a_lo, a_lo },
+                { C::alu_a_lo_bits, shift_lo_bits },
+                { C::alu_ia, a },
+                { C::alu_ia_tag, tag },
+                { C::alu_ib, b },
+                { C::alu_ib_tag, tag },
+                { C::alu_ic, c },
+                { C::alu_ic_tag, tag },
+                { C::alu_max_bits, tag_bits },
+                { C::alu_max_value, get_tag_max_value(mem_tag) },
+                { C::alu_op_id, AVM_EXEC_OP_ID_ALU_SHR },
+                { C::alu_sel, 1 },
+                { C::alu_sel_decompose_a, 1 },
+                { C::alu_sel_op_shr, 1 },
+                { C::alu_sel_shift_ops, 1 },
+                { C::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
+                { C::alu_shift_lo_bits, shift_lo_bits },
+                { C::alu_tag_ff_diff_inv, FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert() },
+                { C::alu_two_pow_shift_lo_bits, two_pow_shift_lo_bits },
+                { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
+                { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
+                { C::execution_mem_tag_reg_2_, tag },                           // = ic_tag
+                { C::execution_register_0_, a },                                // = ia
+                { C::execution_register_1_, b },                                // = ib
+                { C::execution_register_2_, c },                                // = ic
+                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_SHR }, // = alu_op_id
 
             },
         });

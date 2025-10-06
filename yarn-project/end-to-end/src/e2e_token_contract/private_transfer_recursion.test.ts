@@ -22,10 +22,8 @@ describe('e2e_token_contract private transfer recursion', () => {
     // itself to consume them all (since it retrieves 2 notes on the first pass and 8 in each subsequent pass).
     const totalNotes = 16;
     const totalBalance = await mintNotes(wallet, adminAddress, adminAddress, asset, Array(totalNotes).fill(10n));
-    // docs:start:debug
     const tx = await asset.methods.transfer(account1Address, totalBalance).send({ from: adminAddress }).wait();
     const txEffects = await node.getTxEffect(tx.txHash);
-    // docs:end:debug
 
     // We should have nullified all notes, plus an extra nullifier for the transaction and one for the event commitment.
     expect(txEffects!.data.nullifiers.length).toBe(totalNotes + 1 + 1);

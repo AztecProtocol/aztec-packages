@@ -6,7 +6,7 @@ import { Fr } from '@aztec/foundation/fields';
 // implements TransparentNote shield flow.
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import { mkdtemp } from 'fs/promises';
@@ -172,7 +172,7 @@ describe('Aztec persistence', () => {
     it('allows spending of private notes', async () => {
       const account = initialFundedAccounts[1]; // Not the owner account.
       const otherAccount = await context.wallet.createSchnorrAccount(account.secret, account.salt);
-      const otherAddress = otherAccount.getAddress();
+      const otherAddress = otherAccount.address;
 
       const initialOwnerBalance = await contract.methods
         .balance_of_private(ownerAddress)
@@ -354,7 +354,6 @@ async function addPendingShieldNoteToPXE(
   txHash: TxHash,
   aztecNode: AztecNode,
 ) {
-  // docs:start:offchain_delivery
   const txEffects = await aztecNode.getTxEffect(txHash);
   await contract.methods
     .deliver_transparent_note(
@@ -367,5 +366,4 @@ async function addPendingShieldNoteToPXE(
       recipient,
     )
     .simulate({ from: recipient });
-  // docs:end:offchain_delivery
 }

@@ -78,7 +78,7 @@ template <typename LeafType> struct LeafUpdateWitnessData {
 template <typename LeafValueType> struct AddIndexedDataResponse {
     AddDataResponse add_data_result;
     fr_sibling_path subtree_path;
-    std::shared_ptr<std::vector<std::pair<LeafValueType, size_t>>> sorted_leaves;
+    std::shared_ptr<std::vector<std::pair<LeafValueType, index_t>>> sorted_leaves;
     std::shared_ptr<std::vector<LeafUpdateWitnessData<LeafValueType>>> low_leaf_witness_data;
 
     AddIndexedDataResponse() = default;

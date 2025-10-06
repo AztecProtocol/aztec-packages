@@ -8,9 +8,9 @@ import { Blob } from './blob.js';
 import { BatchedBlob, BatchedBlobAccumulator, FinalBlobBatchingChallenges } from './blob_batching.js';
 
 /**
- * See nr BlobAccumulatorPublicInputs and ts BatchedBlobAccumulator for documentation.
+ * See nr BlobAccumulator and ts BatchedBlobAccumulator for documentation.
  */
-export class BlobAccumulatorPublicInputs {
+export class BlobAccumulator {
   constructor(
     public blobCommitmentsHashAcc: Fr,
     public zAcc: Fr,
@@ -20,11 +20,11 @@ export class BlobAccumulatorPublicInputs {
     public gammaPowAcc: BLS12Fr,
   ) {}
 
-  static empty(): BlobAccumulatorPublicInputs {
-    return new BlobAccumulatorPublicInputs(Fr.ZERO, Fr.ZERO, BLS12Fr.ZERO, BLS12Point.ZERO, Fr.ZERO, BLS12Fr.ZERO);
+  static empty(): BlobAccumulator {
+    return new BlobAccumulator(Fr.ZERO, Fr.ZERO, BLS12Fr.ZERO, BLS12Point.ZERO, Fr.ZERO, BLS12Fr.ZERO);
   }
 
-  equals(other: BlobAccumulatorPublicInputs) {
+  equals(other: BlobAccumulator) {
     return (
       this.blobCommitmentsHashAcc.equals(other.blobCommitmentsHashAcc) &&
       this.zAcc.equals(other.zAcc) &&
@@ -35,9 +35,9 @@ export class BlobAccumulatorPublicInputs {
     );
   }
 
-  static fromBuffer(buffer: Buffer | BufferReader): BlobAccumulatorPublicInputs {
+  static fromBuffer(buffer: Buffer | BufferReader): BlobAccumulator {
     const reader = BufferReader.asReader(buffer);
-    return new BlobAccumulatorPublicInputs(
+    return new BlobAccumulator(
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       BLS12Fr.fromBuffer(reader),
@@ -77,14 +77,7 @@ export class BlobAccumulatorPublicInputs {
       finalBlobChallenges,
     );
     acc = await acc.accumulateBlobs(blobs);
-    return new BlobAccumulatorPublicInputs(
-      acc.blobCommitmentsHashAcc,
-      acc.zAcc,
-      acc.yAcc,
-      acc.cAcc,
-      acc.gammaAcc,
-      acc.gammaPow,
-    );
+    return new BlobAccumulator(acc.blobCommitmentsHashAcc, acc.zAcc, acc.yAcc, acc.cAcc, acc.gammaAcc, acc.gammaPow);
   }
 
   toFields() {
@@ -100,9 +93,9 @@ export class BlobAccumulatorPublicInputs {
     ];
   }
 
-  static fromFields(fields: Fr[] | FieldReader): BlobAccumulatorPublicInputs {
+  static fromFields(fields: Fr[] | FieldReader): BlobAccumulator {
     const reader = FieldReader.asReader(fields);
-    return new BlobAccumulatorPublicInputs(
+    return new BlobAccumulator(
       reader.readField(),
       reader.readField(),
       BLS12Fr.fromNoirBigNum({ limbs: reader.readFieldArray(BLS12_FR_LIMBS).map(f => f.toString()) }),
@@ -118,10 +111,10 @@ export class BlobAccumulatorPublicInputs {
 
   /**
    * Converts from an accumulator to a struct for the public inputs of our rollup circuits.
-   * @returns A BlobAccumulatorPublicInputs instance.
+   * @returns A BlobAccumulator instance.
    */
   static fromBatchedBlobAccumulator(accumulator: BatchedBlobAccumulator) {
-    return new BlobAccumulatorPublicInputs(
+    return new BlobAccumulator(
       accumulator.blobCommitmentsHashAcc,
       accumulator.zAcc,
       accumulator.yAcc,
@@ -133,9 +126,9 @@ export class BlobAccumulatorPublicInputs {
 }
 
 /**
- * See nr FinalBlobAccumulatorPublicInputs and ts BatchedBlobAccumulator for documentation.
+ * See nr FinalBlobAccumulator and ts BatchedBlobAccumulator for documentation.
  */
-export class FinalBlobAccumulatorPublicInputs {
+export class FinalBlobAccumulator {
   constructor(
     public blobCommitmentsHash: Fr,
     public z: Fr,
@@ -143,13 +136,13 @@ export class FinalBlobAccumulatorPublicInputs {
     public c: BLS12Point,
   ) {}
 
-  static empty(): FinalBlobAccumulatorPublicInputs {
-    return new FinalBlobAccumulatorPublicInputs(Fr.ZERO, Fr.ZERO, BLS12Fr.ZERO, BLS12Point.ZERO);
+  static empty(): FinalBlobAccumulator {
+    return new FinalBlobAccumulator(Fr.ZERO, Fr.ZERO, BLS12Fr.ZERO, BLS12Point.ZERO);
   }
 
-  static fromBuffer(buffer: Buffer | BufferReader): FinalBlobAccumulatorPublicInputs {
+  static fromBuffer(buffer: Buffer | BufferReader): FinalBlobAccumulator {
     const reader = BufferReader.asReader(buffer);
-    return new FinalBlobAccumulatorPublicInputs(
+    return new FinalBlobAccumulator(
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       BLS12Fr.fromBuffer(reader),
@@ -162,7 +155,7 @@ export class FinalBlobAccumulatorPublicInputs {
   }
 
   static fromBatchedBlob(blob: BatchedBlob) {
-    return new FinalBlobAccumulatorPublicInputs(blob.blobCommitmentsHash, blob.z, blob.y, blob.commitment);
+    return new FinalBlobAccumulator(blob.blobCommitmentsHash, blob.z, blob.y, blob.commitment);
   }
 
   toFields() {
@@ -183,7 +176,7 @@ export class FinalBlobAccumulatorPublicInputs {
     return buf.toString('hex');
   }
 
-  equals(other: FinalBlobAccumulatorPublicInputs) {
+  equals(other: FinalBlobAccumulator) {
     return (
       this.blobCommitmentsHash.equals(other.blobCommitmentsHash) &&
       this.z.equals(other.z) &&
@@ -194,12 +187,12 @@ export class FinalBlobAccumulatorPublicInputs {
 
   // Creates a random instance. Used for testing only - will not prove/verify.
   static random() {
-    return new FinalBlobAccumulatorPublicInputs(Fr.random(), Fr.random(), BLS12Fr.random(), BLS12Point.random());
+    return new FinalBlobAccumulator(Fr.random(), Fr.random(), BLS12Fr.random(), BLS12Point.random());
   }
 
   // Warning: MUST be final accumulator state.
   static fromBatchedBlobAccumulator(accumulator: BatchedBlobAccumulator) {
-    return new FinalBlobAccumulatorPublicInputs(
+    return new FinalBlobAccumulator(
       accumulator.blobCommitmentsHashAcc,
       accumulator.zAcc,
       accumulator.yAcc,
@@ -208,7 +201,7 @@ export class FinalBlobAccumulatorPublicInputs {
   }
 
   [inspect.custom]() {
-    return `FinalBlobAccumulatorPublicInputs {
+    return `FinalBlobAccumulator {
       blobCommitmentsHash: ${inspect(this.blobCommitmentsHash)},
       z: ${inspect(this.z)},
       y: ${inspect(this.y)},

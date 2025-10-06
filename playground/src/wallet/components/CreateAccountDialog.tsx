@@ -155,10 +155,7 @@ export function CreateAccountDialog({
                 <CircularProgress size={20} />
               </div>
             ) : (
-              <Button
-                disabled={alias === '' || (publiclyDeploy && !feePaymentMethod) || isRegistering}
-                onClick={createAccount}
-              >
+              <Button disabled={alias === '' || isRegistering} onClick={createAccount}>
                 {publiclyDeploy ? 'Create and deploy' : 'Create'}
               </Button>
             )

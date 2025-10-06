@@ -6,9 +6,9 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NOTE_HASH_SUBTREE_HEIGHT,
-  NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
+  NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_HEIGHT,
-  NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
+  NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PUBLIC_DATA_TREE_HEIGHT,
@@ -18,11 +18,14 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256ToField, sha256Trunc } from '@aztec/foundation/crypto';
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import { type Bufferable, type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
-import { MembershipWitness, MerkleTreeCalculator, computeUnbalancedMerkleTreeRoot } from '@aztec/foundation/trees';
+import {
+  MembershipWitness,
+  MerkleTreeCalculator,
+  computeCompressedUnbalancedMerkleTreeRoot,
+} from '@aztec/foundation/trees';
 import { getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
-import { PublicDataHint } from '@aztec/stdlib/avm';
 import { Body, L2BlockHeader, getBlockBlobFields } from '@aztec/stdlib/block';
 import type { MerkleTreeWriteOperations, PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import { ContractClassLogFields } from '@aztec/stdlib/logs';
@@ -31,9 +34,9 @@ import {
   BlockConstantData,
   BlockRollupPublicInputs,
   PrivateBaseRollupHints,
-  PrivateBaseStateDiffHints,
   PublicBaseRollupHints,
   PublicTubePrivateInputs,
+  TreeSnapshotDiffHints,
 } from '@aztec/stdlib/rollup';
 import {
   AppendOnlyTreeSnapshot,
@@ -85,25 +88,17 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
       await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE, db),
       await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE, db),
     );
-    // Get the subtree sibling paths for the circuit
-    const noteHashSubtreeSiblingPathArray = await getSubtreeSiblingPath(
-      MerkleTreeId.NOTE_HASH_TREE,
-      NOTE_HASH_SUBTREE_HEIGHT,
-      db,
-    );
 
-    const noteHashSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, i =>
-      i < noteHashSubtreeSiblingPathArray.length ? noteHashSubtreeSiblingPathArray[i] : Fr.ZERO,
+    // Get the note hash subtree root sibling path for insertion.
+    const noteHashSubtreeRootSiblingPath = assertLength(
+      await getSubtreeSiblingPath(MerkleTreeId.NOTE_HASH_TREE, NOTE_HASH_SUBTREE_HEIGHT, db),
+      NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
     );
 
     // Update the note hash trees with the new items being inserted to get the new roots
     // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
     const noteHashes = padArrayEnd(tx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX);
     await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashes);
-
-    // Create data hint for reading fee payer initial balance in Fee Juice
-    const leafSlot = await computeFeePayerBalanceLeafSlot(tx.data.feePayer);
-    const feePayerFeeJuiceBalanceReadHint = await getPublicDataHint(db, leafSlot.toBigInt());
 
     // The read witnesses for a given TX should be generated before the writes of the same TX are applied.
     // All reads that refer to writes in the same tx are transient and can be simplified out.
@@ -112,8 +107,8 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
     // Update the nullifier tree, capturing the low nullifier info for each individual operation
     const {
       lowLeavesWitnessData: nullifierWitnessLeaves,
-      newSubtreeSiblingPath: nullifiersSubtreeSiblingPath,
-      sortedNewLeaves: sortednullifiers,
+      newSubtreeSiblingPath: nullifiersSubtreeRootSiblingPath,
+      sortedNewLeaves: sortedNullifiers,
       sortedNewLeavesIndexes,
     } = await db.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
@@ -125,17 +120,10 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
       throw new Error(`Could not craft nullifier batch insertion proofs`);
     }
 
-    // Extract witness objects from returned data
-    const nullifierPredecessorMembershipWitnessesWithoutPadding: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>[] =
-      nullifierWitnessLeaves.map(l =>
-        MembershipWitness.fromBufferArray(l.index, assertLength(l.siblingPath.toBufferArray(), NULLIFIER_TREE_HEIGHT)),
-      );
-
-    const nullifierSubtreeSiblingPathArray = nullifiersSubtreeSiblingPath.toFields();
-
-    const nullifierSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, i =>
-      i < nullifierSubtreeSiblingPathArray.length ? nullifierSubtreeSiblingPathArray[i] : Fr.ZERO,
-    );
+    const blockHash = await tx.data.constants.anchorBlockHeader.hash();
+    const anchorBlockArchiveSiblingPath = (
+      await getMembershipWitnessFor(blockHash, MerkleTreeId.ARCHIVE, ARCHIVE_HEIGHT, db)
+    ).siblingPath;
 
     const contractClassLogsFields = makeTuple(
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
@@ -143,20 +131,11 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
     );
 
     if (tx.avmProvingRequest) {
-      const blockHash = await tx.data.constants.anchorBlockHeader.hash();
-      const archiveRootMembershipWitness = await getMembershipWitnessFor(
-        blockHash,
-        MerkleTreeId.ARCHIVE,
-        ARCHIVE_HEIGHT,
-        db,
-      );
-
       return PublicBaseRollupHints.from({
         startSpongeBlob,
         lastArchive,
-        archiveRootMembershipWitness,
+        anchorBlockArchiveSiblingPath,
         contractClassLogsFields,
-        proverId,
       });
     } else {
       if (
@@ -167,42 +146,46 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
         throw new Error(`More than one public data write in a private only tx`);
       }
 
-      const feeWriteLowLeafPreimage =
-        txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages[0] || PublicDataTreeLeafPreimage.empty();
-      const feeWriteLowLeafMembershipWitness =
-        txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses[0] ||
-        MembershipWitness.empty<typeof PUBLIC_DATA_TREE_HEIGHT>(PUBLIC_DATA_TREE_HEIGHT);
-      const feeWriteSiblingPath =
-        txPublicDataUpdateRequestInfo.publicDataWritesSiblingPaths[0] ||
-        makeTuple(PUBLIC_DATA_TREE_HEIGHT, () => Fr.ZERO);
+      // Get hints for reading fee payer's balance in the public data tree.
+      const feePayerBalanceMembershipWitness = txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses[0];
+      const feePayerBalanceLeafPreimage = txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages[0];
+      const leafSlot = await computeFeePayerBalanceLeafSlot(tx.data.feePayer);
+      if (!feePayerBalanceMembershipWitness || !leafSlot.equals(feePayerBalanceLeafPreimage?.leaf.slot)) {
+        throw new Error(`Cannot find the public data tree leaf for the fee payer's balance`);
+      }
 
-      const stateDiffHints = PrivateBaseStateDiffHints.from({
-        nullifierPredecessorPreimages: makeTuple(MAX_NULLIFIERS_PER_TX, i =>
-          i < nullifierWitnessLeaves.length
-            ? (nullifierWitnessLeaves[i].leafPreimage as NullifierLeafPreimage)
-            : NullifierLeafPreimage.empty(),
+      // Extract witness objects from returned data
+      const nullifierPredecessorMembershipWitnessesWithoutPadding: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>[] =
+        nullifierWitnessLeaves.map(l =>
+          MembershipWitness.fromBufferArray(
+            l.index,
+            assertLength(l.siblingPath.toBufferArray(), NULLIFIER_TREE_HEIGHT),
+          ),
+        );
+
+      const treeSnapshotDiffHints = TreeSnapshotDiffHints.from({
+        noteHashSubtreeRootSiblingPath,
+        nullifierPredecessorPreimages: padArrayEnd(
+          nullifierWitnessLeaves.map(l => l.leafPreimage as NullifierLeafPreimage),
+          NullifierLeafPreimage.empty(),
+          MAX_NULLIFIERS_PER_TX,
         ),
         nullifierPredecessorMembershipWitnesses: makeTuple(MAX_NULLIFIERS_PER_TX, i =>
           i < nullifierPredecessorMembershipWitnessesWithoutPadding.length
             ? nullifierPredecessorMembershipWitnessesWithoutPadding[i]
             : makeEmptyMembershipWitness(NULLIFIER_TREE_HEIGHT),
         ),
-        sortedNullifiers: makeTuple(MAX_NULLIFIERS_PER_TX, i => Fr.fromBuffer(sortednullifiers[i])),
-        sortedNullifierIndexes: makeTuple(MAX_NULLIFIERS_PER_TX, i => sortedNewLeavesIndexes[i]),
-        noteHashSubtreeSiblingPath,
-        nullifierSubtreeSiblingPath,
-        feeWriteLowLeafPreimage,
-        feeWriteLowLeafMembershipWitness,
-        feeWriteSiblingPath,
+        sortedNullifiers: assertLength(
+          sortedNullifiers.map(n => Fr.fromBuffer(n)),
+          MAX_NULLIFIERS_PER_TX,
+        ),
+        sortedNullifierIndexes: assertLength(sortedNewLeavesIndexes, MAX_NULLIFIERS_PER_TX),
+        nullifierSubtreeRootSiblingPath: assertLength(
+          nullifiersSubtreeRootSiblingPath.toFields(),
+          NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
+        ),
+        feePayerBalanceMembershipWitness,
       });
-
-      const blockHash = await tx.data.constants.anchorBlockHeader.hash();
-      const archiveRootMembershipWitness = await getMembershipWitnessFor(
-        blockHash,
-        MerkleTreeId.ARCHIVE,
-        ARCHIVE_HEIGHT,
-        db,
-      );
 
       const constants = BlockConstantData.from({
         lastArchive,
@@ -216,35 +199,15 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
       return PrivateBaseRollupHints.from({
         start,
         startSpongeBlob,
-        stateDiffHints,
-        feePayerFeeJuiceBalanceReadHint,
-        archiveRootMembershipWitness,
+        treeSnapshotDiffHints,
+        feePayerBalanceLeafPreimage,
+        anchorBlockArchiveSiblingPath,
         contractClassLogsFields,
         constants,
       });
     }
   },
 );
-
-export async function getPublicDataHint(db: MerkleTreeWriteOperations, leafSlot: bigint) {
-  const { index } = (await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot)) ?? {};
-  if (index === undefined) {
-    throw new Error(`Cannot find the previous value index for public data ${leafSlot}.`);
-  }
-
-  const siblingPath = await db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, index);
-  const membershipWitness = new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, index, siblingPath.toTuple());
-
-  const leafPreimage = (await db.getLeafPreimage(MerkleTreeId.PUBLIC_DATA_TREE, index)) as PublicDataTreeLeafPreimage;
-  if (!leafPreimage) {
-    throw new Error(`Cannot find the leaf preimage for public data tree at index ${index}.`);
-  }
-
-  const exists = leafPreimage.leaf.slot.toBigInt() === leafSlot;
-  const value = exists ? leafPreimage.leaf.value : Fr.ZERO;
-
-  return new PublicDataHint(new Fr(leafSlot), value, membershipWitness, leafPreimage);
-}
 
 export function getCivcProofFromTx(tx: Tx | ProcessedTx) {
   const proofFields = tx.clientIvcProof.proof;
@@ -254,13 +217,13 @@ export function getCivcProofFromTx(tx: Tx | ProcessedTx) {
   return new RecursiveProof(proofFieldsWithoutPublicInputs, binaryProof, true, CIVC_PROOF_LENGTH);
 }
 
-export function getPublicTubePrivateInputsFromTx(tx: Tx | ProcessedTx) {
+export function getPublicTubePrivateInputsFromTx(tx: Tx | ProcessedTx, proverId: Fr) {
   const proofData = new ProofData(
     tx.data.toPrivateToPublicKernelCircuitPublicInputs(),
     getCivcProofFromTx(tx),
     getVkData('HidingKernelToPublic'),
   );
-  return new PublicTubePrivateInputs(proofData);
+  return new PublicTubePrivateInputs(proofData, proverId);
 }
 
 // Build "hints" as the private inputs for the checkpoint root rollup circuit.
@@ -360,7 +323,7 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     const body = new Body(txEffects);
 
     const txOutHashes = txEffects.map(tx => tx.txOutHash());
-    const outHash = txOutHashes.length === 0 ? Fr.ZERO : new Fr(computeUnbalancedMerkleTreeRoot(txOutHashes));
+    const outHash = txOutHashes.length === 0 ? Fr.ZERO : new Fr(computeCompressedUnbalancedMerkleTreeRoot(txOutHashes));
 
     const parityShaRoot = await computeInHashFromL1ToL2Messages(l1ToL2Messages);
     const blobFields = body.toBlobFields();

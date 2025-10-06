@@ -10,7 +10,7 @@ import {
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
-import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './l1_tx_utils.js';
+import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './l1_tx_utils/index.js';
 
 export type GenesisStateConfig = {
   /** Whether to populate the genesis state with initial fee juice for the test accounts */
@@ -212,7 +212,7 @@ const LocalEntryQueueConfig = {
   bootstrapFlushSize: 0n,
   normalFlushSizeMin: 48n,
   normalFlushSizeQuotient: 2n,
-  maxQueueFlushSize: 32n,
+  maxQueueFlushSize: 48n,
 };
 
 const StagingPublicEntryQueueConfig = {
@@ -232,11 +232,11 @@ const TestnetEntryQueueConfig = {
 };
 
 const StagingIgnitionEntryQueueConfig = {
-  bootstrapValidatorSetSize: 1250n,
-  bootstrapFlushSize: 8n,
+  bootstrapValidatorSetSize: 48n,
+  bootstrapFlushSize: 48n,
   normalFlushSizeMin: 1n,
   normalFlushSizeQuotient: 2048n,
-  maxQueueFlushSize: 8n,
+  maxQueueFlushSize: 24n,
 };
 
 export const getEntryQueueConfig = (networkName: NetworkNames) => {

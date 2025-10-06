@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, SentTx, TxReceipt, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, Fr, SentTx, TxReceipt } from '@aztec/aztec.js';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -8,6 +8,7 @@ import type { TestWallet } from '@aztec/test-wallet';
 import { BaseBot } from './base_bot.js';
 import type { BotConfig } from './config.js';
 import { BotFactory } from './factory.js';
+import type { BotStore } from './store/index.js';
 
 const TRANSFER_BASE_AMOUNT = 1_000;
 const TRANSFER_VARIANCE = 200;
@@ -17,7 +18,7 @@ type Balances = { token0: bigint; token1: bigint };
 export class AmmBot extends BaseBot {
   protected constructor(
     node: AztecNode,
-    wallet: Wallet,
+    wallet: TestWallet,
     defaultAccountAddress: AztecAddress,
     public readonly amm: AMMContract,
     public readonly token0: TokenContract,
@@ -32,10 +33,12 @@ export class AmmBot extends BaseBot {
     wallet: TestWallet,
     aztecNode: AztecNode,
     aztecNodeAdmin: AztecNodeAdmin | undefined,
+    store: BotStore,
   ): Promise<AmmBot> {
     const { defaultAccountAddress, token0, token1, amm } = await new BotFactory(
       config,
       wallet,
+      store,
       aztecNode,
       aztecNodeAdmin,
     ).setupAmm();

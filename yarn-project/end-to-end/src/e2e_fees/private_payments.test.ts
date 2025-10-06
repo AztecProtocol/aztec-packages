@@ -102,8 +102,7 @@ describe('e2e_fees private_payment', () => {
     const settings = {
       from: aliceAddress,
       fee: {
-        gasSettings,
-        paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet),
+        paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
       },
     };
     const localTx = await interaction.prove(settings);
@@ -167,8 +166,7 @@ describe('e2e_fees private_payment', () => {
       .send({
         from: aliceAddress,
         fee: {
-          gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet),
+          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
         },
       })
       .wait();
@@ -216,8 +214,7 @@ describe('e2e_fees private_payment', () => {
       .send({
         from: aliceAddress,
         fee: {
-          gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet),
+          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
         },
       })
       .wait();
@@ -271,8 +268,7 @@ describe('e2e_fees private_payment', () => {
       .send({
         from: aliceAddress,
         fee: {
-          gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet),
+          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
         },
       })
       .wait();
@@ -313,8 +309,7 @@ describe('e2e_fees private_payment', () => {
         .send({
           from: aliceAddress,
           fee: {
-            gasSettings,
-            paymentMethod: new PrivateFeePaymentMethod(bankruptFPC.address, aliceAddress, wallet),
+            paymentMethod: new PrivateFeePaymentMethod(bankruptFPC.address, aliceAddress, wallet, gasSettings),
           },
         })
         .wait(),
@@ -333,6 +328,7 @@ describe('e2e_fees private_payment', () => {
             bananaFPC.address,
             aliceAddress,
             wallet,
+            gasSettings,
             true, // We set max fee/funded amount to 1 to trigger the error.
           ),
         },

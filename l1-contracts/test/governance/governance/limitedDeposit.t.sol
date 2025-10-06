@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 import {TestBase} from "@test/base/Base.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
+import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
@@ -94,5 +95,33 @@ contract LimitedDepositTest is TestBase {
     governance.deposit(_depositor, 1000);
 
     assertEq(governance.powerNow(_depositor), 1000);
+  }
+
+  function test_WhenBeneficiaryIsAddressZeroInConstructor(address _caller, address _depositor) external {
+    // it opens the floodgates
+    // it emits FloodGatesOpened event
+    // it sets allBeneficiariesAllowed to true
+    // it allows anyone to deposit for any beneficiary
+
+    vm.assume(_caller != address(0) && _depositor != address(0) && _caller != address(governance));
+
+    vm.expectEmit(true, true, true, true);
+    emit IGovernance.FloodGatesOpened();
+
+    Governance gov =
+      new Governance(token, address(governanceProposer), address(0), TestConstants.getGovernanceConfiguration());
+
+    assertTrue(gov.isAllBeneficiariesAllowed(), "allBeneficiariesAllowed should be true");
+    assertFalse(gov.isPermittedInGovernance(address(0)), "address(0) should not be explicitly permitted");
+
+    // Test that anyone can deposit for any beneficiary
+    token.mint(_caller, 1000);
+
+    vm.startPrank(_caller);
+    token.approve(address(gov), 1000);
+    gov.deposit(_depositor, 1000);
+    vm.stopPrank();
+
+    assertEq(gov.powerNow(_depositor), 1000, "depositor should have power");
   }
 }

@@ -14,10 +14,8 @@ pub unconstrained fn get_balance_with_offset(
     offset: u32,
 ) -> Field {
     let mut balance = 0;
-    // docs:start:view_notes
     let mut options = NoteViewerOptions::new();
     let notes = set.view_notes(options.set_offset(offset));
-    // docs:end:view_notes
     for i in 0..options.limit {
         if i < notes.len() {
             balance += notes.get_unchecked(i).value();

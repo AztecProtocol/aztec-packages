@@ -44,6 +44,19 @@
       ],
     },
     {
+      // Debug acir test
+      "name": "Debug acir test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-fast-no-avm/bin/bb",
+      "args": ["prove", "--scheme", "ultra_honk", "--output_path", ".", "-b", "$./target/witness.gz"],
+      // replace __test_name__ with the intended test
+      "cwd": "${workspaceFolder}/barretenberg/acir_tests/acir_tests/__test__name__",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    },
+    {
       "name": "Debug test_graph_for_arithmetic_gates",
       "type": "lldb",
       "request": "launch",

@@ -114,9 +114,7 @@ export abstract class Instruction {
    */
   public get type(): string {
     const type = 'type' in this.constructor && (this.constructor.type as string);
-    if (!type) {
-      throw new Error(`Instruction class ${this.constructor.name} does not have a static 'type' property defined.`);
-    }
+    assert(!!type, `Instruction class ${this.constructor.name} does not have a static 'type' property defined.`);
     return type;
   }
 
@@ -126,9 +124,11 @@ export abstract class Instruction {
    */
   public get opcode(): Opcode {
     const opcode = 'opcode' in this.constructor ? (this.constructor.opcode as Opcode) : undefined;
-    if (opcode === undefined || Opcode[opcode] === undefined) {
-      throw new Error(`Instruction class ${this.constructor.name} does not have a static 'opcode' property defined.`);
-    }
+    assert(
+      opcode !== undefined,
+      `Instruction class ${this.constructor.name} does not have a static 'opcode' property defined.`,
+    );
+    assert(Opcode[opcode] !== undefined, `Invalid opcode ${opcode} for instruction class ${this.constructor.name}.`);
     return opcode;
   }
 }

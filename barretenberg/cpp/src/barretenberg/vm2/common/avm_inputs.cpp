@@ -170,6 +170,9 @@ std::vector<std::vector<FF>> PublicInputs::to_columns() const
     // Fee payer
     cols[0][AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX] = feePayer;
 
+    // Prover id
+    cols[0][AVM_PUBLIC_INPUTS_PROVER_ID_ROW_IDX] = proverId;
+
     // Public Call Request Array Lengths
     cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX] =
         publicCallRequestArrayLengths.setupCalls;

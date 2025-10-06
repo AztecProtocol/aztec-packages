@@ -278,19 +278,19 @@ CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiReques
     return { .bytes = std::move(vk_bytes), .fields = std::move(vk_fields), .hash = std::move(vk_hash_bytes) };
 }
 
-CircuitStats::Response CircuitStats::execute(BB_UNUSED const BBApiRequest& request) &&
+template <typename Flavor, typename Circuit = typename Flavor::CircuitBuilder>
+CircuitStats::Response _stats(std::vector<uint8_t>&& bytecode, bool include_gates_per_opcode)
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     // Parse the circuit to get gate count information
-    auto constraint_system = acir_format::circuit_buf_to_acir_format(std::vector<uint8_t>(circuit.bytecode));
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(bytecode));
 
-    acir_format::ProgramMetadata metadata = _create_program_metadata<UltraCircuitBuilder>();
+    acir_format::ProgramMetadata metadata = _create_program_metadata<Flavor>();
     metadata.collect_gates_per_opcode = include_gates_per_opcode;
     CircuitStats::Response response;
     response.num_acir_opcodes = static_cast<uint32_t>(constraint_system.num_acir_opcodes);
 
     acir_format::AcirProgram program{ std::move(constraint_system) };
-    auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+    auto builder = acir_format::create_circuit<Circuit>(program, metadata);
     builder.finalize_circuit(/*ensure_nonzero=*/true);
 
     response.num_gates = static_cast<uint32_t>(builder.get_finalized_total_circuit_size());
@@ -299,6 +299,39 @@ CircuitStats::Response CircuitStats::execute(BB_UNUSED const BBApiRequest& reque
     response.gates_per_opcode = std::move(program.constraints.gates_per_opcode);
 
     return response;
+}
+
+CircuitStats::Response CircuitStats::execute(BB_UNUSED const BBApiRequest& request) &&
+{
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    // if the ipa accumulation flag is set we are using the UltraRollupFlavor
+    if (settings.ipa_accumulation) {
+        return _stats<UltraRollupFlavor>(std::move(circuit.bytecode), include_gates_per_opcode);
+    }
+    if (settings.oracle_hash_type == "poseidon2" && !settings.disable_zk) {
+        // if we are not disabling ZK and the oracle hash type is poseidon2, we are using the UltraZKFlavor
+        return _stats<UltraZKFlavor>(std::move(circuit.bytecode), include_gates_per_opcode);
+    }
+    if (settings.oracle_hash_type == "poseidon2" && settings.disable_zk) {
+        // if we are disabling ZK and the oracle hash type is poseidon2, we are using the UltraFlavor
+        return _stats<UltraFlavor>(std::move(circuit.bytecode), include_gates_per_opcode);
+    }
+    if (settings.oracle_hash_type == "keccak" && !settings.disable_zk) {
+        // if we are not disabling ZK and the oracle hash type is keccak, we are using the UltraKeccakZKFlavor
+        return _stats<UltraKeccakZKFlavor>(std::move(circuit.bytecode), include_gates_per_opcode);
+    }
+    if (settings.oracle_hash_type == "keccak" && settings.disable_zk) {
+        return _stats<UltraKeccakFlavor>(std::move(circuit.bytecode), include_gates_per_opcode);
+#ifdef STARKNET_GARAGA_FLAVORS
+    }
+    if (settings.oracle_hash_type == "starknet" && settings.disable_zk) {
+        return _stats<UltraStarknetFlavor>(std::move(circuit.bytecode), include_gates_per_opcode);
+    }
+    if (settings.oracle_hash_type == "starknet" && !settings.disable_zk) {
+        return _stats<UltraStarknetZKFlavor>(std::move(circuit.bytecode), include_gates_per_opcode);
+#endif
+    }
+    throw_or_abort("Invalid proving options specified in CircuitStats!");
 }
 
 CircuitVerify::Response CircuitVerify::execute(BB_UNUSED const BBApiRequest& request) &&

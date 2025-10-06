@@ -1,5 +1,7 @@
 #include "barretenberg/vm2/constraining/prover.hpp"
 
+#include <cstdlib>
+
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
@@ -14,6 +16,10 @@
 #include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb::avm2 {
+
+// Maximum number of polynomials to batch commit at once.
+const size_t AVM_MAX_MSM_BATCH_SIZE =
+    getenv("AVM_MAX_MSM_BATCH_SIZE") != nullptr ? std::stoul(getenv("AVM_MAX_MSM_BATCH_SIZE")) : 32;
 
 using Flavor = AvmFlavor;
 using FF = Flavor::FF;
@@ -53,11 +59,14 @@ void AvmProver::execute_preamble_round()
  */
 void AvmProver::execute_public_inputs_round()
 {
+    BB_BENCH_NAME("AvmProver::execute_public_inputs_round");
+
+    using C = ColumnAndShifts;
     // We take the starting values of the public inputs polynomials to add to the transcript
-    const auto public_inputs_cols = std::vector({ &prover_polynomials.public_inputs_cols_0_,
-                                                  &prover_polynomials.public_inputs_cols_1_,
-                                                  &prover_polynomials.public_inputs_cols_2_,
-                                                  &prover_polynomials.public_inputs_cols_3_ });
+    const auto public_inputs_cols = std::vector({ &prover_polynomials.get(C::public_inputs_cols_0_),
+                                                  &prover_polynomials.get(C::public_inputs_cols_1_),
+                                                  &prover_polynomials.get(C::public_inputs_cols_2_),
+                                                  &prover_polynomials.get(C::public_inputs_cols_3_) });
     for (size_t i = 0; i < public_inputs_cols.size(); ++i) {
         for (size_t j = 0; j < AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH; ++j) {
             // The public inputs are added to the hash buffer, but do not increase the size of the proof
@@ -72,18 +81,22 @@ void AvmProver::execute_public_inputs_round()
  */
 void AvmProver::execute_wire_commitments_round()
 {
+    BB_BENCH_NAME("AvmProver::execute_wire_commitments_round");
     // Commit to all polynomials (apart from logderivative inverse polynomials, which are committed to in the later
     // logderivative phase)
     auto wire_polys = prover_polynomials.get_wires();
     const auto& labels = prover_polynomials.get_wires_labels();
+    auto batch = commitment_key.start_batch();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-        auto comm = commitment_key.commit(wire_polys[idx]);
-        transcript->send_to_verifier(labels[idx], comm);
+        batch.add_to_batch(wire_polys[idx], labels[idx], /*mask for zk?*/ false);
     }
+    batch.commit_and_send_to_verifier(transcript, AVM_MAX_MSM_BATCH_SIZE);
 }
 
 void AvmProver::execute_log_derivative_inverse_round()
 {
+    BB_BENCH_NAME("AvmProver::execute_log_derivative_inverse_round");
+
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
@@ -109,13 +122,16 @@ void AvmProver::execute_log_derivative_inverse_round()
 
 void AvmProver::execute_log_derivative_inverse_commitments_round()
 {
+    BB_BENCH_NAME("AvmProver::execute_log_derivative_inverse_commitments_round");
+    auto batch = commitment_key.start_batch();
     // Commit to all logderivative inverse polynomials and send to verifier
     for (auto [derived_poly, commitment, label] : zip_view(prover_polynomials.get_derived(),
                                                            witness_commitments.get_derived(),
                                                            prover_polynomials.get_derived_labels())) {
-        commitment = commitment_key.commit(derived_poly);
-        transcript->send_to_verifier(label, commitment);
+
+        batch.add_to_batch(derived_poly, label, /*mask for zk?*/ false);
     }
+    batch.commit_and_send_to_verifier(transcript, AVM_MAX_MSM_BATCH_SIZE);
 }
 
 /**
@@ -124,6 +140,7 @@ void AvmProver::execute_log_derivative_inverse_commitments_round()
  */
 void AvmProver::execute_relation_check_rounds()
 {
+    BB_BENCH_NAME("AvmProver::execute_relation_check_rounds");
     using Sumcheck = SumcheckProver<Flavor>;
 
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
@@ -146,12 +163,15 @@ void AvmProver::execute_relation_check_rounds()
 
 void AvmProver::execute_pcs_rounds()
 {
+    BB_BENCH_NAME("AvmProver::execute_pcs_rounds");
+
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
     PolynomialBatcher polynomial_batcher(key->circuit_size);
-    polynomial_batcher.set_unshifted(prover_polynomials.get_unshifted());
-    polynomial_batcher.set_to_be_shifted_by_one(prover_polynomials.get_to_be_shifted());
+    polynomial_batcher.set_unshifted(RefVector<Polynomial>::from_span(prover_polynomials.get_unshifted()));
+    polynomial_batcher.set_to_be_shifted_by_one(
+        RefVector<Polynomial>::from_span(prover_polynomials.get_to_be_shifted()));
 
     const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(
         key->circuit_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);
