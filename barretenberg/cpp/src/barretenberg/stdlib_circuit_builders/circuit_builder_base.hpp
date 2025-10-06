@@ -557,7 +557,7 @@ template <typename FF> struct CircuitSchemaInternal {
  *
  *
  *
- * The (subgroup.size() * program_width) elements of sigma_mappings are of the form:
+ * The (subgroup.size() * num_wires) elements of sigma_mappings are of the form:
  * {
  *     row_index: j, // iterates over all rows in the subgroup
  *     column_index: i, // l,r,o,4

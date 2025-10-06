@@ -46,11 +46,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     using RomRamLogic = RomRamLogic_<ExecutionTrace>;
 
     static constexpr size_t NUM_WIRES = ExecutionTrace::NUM_WIRES;
-    // Keeping NUM_WIRES, at least temporarily, for backward compatibility
-    static constexpr size_t program_width = ExecutionTrace::NUM_WIRES;
 
     static constexpr std::string_view NAME_STRING = "UltraCircuitBuilder";
-    static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr merkle::HashType merkle_hash_type = merkle::HashType::LOOKUP_PEDERSEN;
     static constexpr size_t UINT_LOG2_BASE = 6; // DOCTODO: explain what this is, or rename.
     // The plookup range proof requires work linear in range size, thus cannot be used directly for
