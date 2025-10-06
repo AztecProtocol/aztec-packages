@@ -1,7 +1,7 @@
 #include "barretenberg/common/assert.hpp"
 #include <cstdint>
 #include <sys/types.h>
-// #ifndef __wasm__
+#ifndef __wasm__
 #include "bb_bench.hpp"
 #include <algorithm>
 #include <cassert>
@@ -467,8 +467,8 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         if (should_add_other && keys_to_parents[key].size() <= 1) {
             AggregateEntry other_entry;
             other_entry.key = "(other)";
-            other_entry.time = static_cast<std::size_t>(other_time);
-            other_entry.time_max = static_cast<std::size_t>(other_time);
+            other_entry.time = other_time;
+            other_entry.time_max = other_time;
             other_entry.count = 1;
             other_entry.num_threads = 1;
             print_entry(other_entry, indent_level + 1, true, parent_total_time); // always last
@@ -580,7 +580,7 @@ BenchReporter::BenchReporter(TimeStatsEntry* entry)
     parent = GlobalBenchStatsContainer::parent;
     auto now = std::chrono::high_resolution_clock::now();
     auto now_ns = std::chrono::time_point_cast<std::chrono::nanoseconds>(now);
-    time = static_cast<size_t>(now_ns.time_since_epoch().count());
+    time = static_cast<uint64_t>(now_ns.time_since_epoch().count());
 }
 BenchReporter::~BenchReporter()
 {
@@ -590,10 +590,10 @@ BenchReporter::~BenchReporter()
     auto now = std::chrono::high_resolution_clock::now();
     auto now_ns = std::chrono::time_point_cast<std::chrono::nanoseconds>(now);
     // Add, taking advantage of our parent context
-    stats->count.track(parent, static_cast<size_t>(static_cast<uint64_t>(now_ns.time_since_epoch().count()) - time));
+    stats->count.track(parent, static_cast<uint64_t>(now_ns.time_since_epoch().count()) - time);
 
     // Unwind to previous parent
     GlobalBenchStatsContainer::parent = parent;
 }
 } // namespace bb::detail
-// #endif
+#endif
