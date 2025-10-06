@@ -175,7 +175,9 @@ function build_smt_verification {
     return
   fi
 
-  sudo apt update && sudo apt install -y python3-pip python3-venv m4 bison
+  if ! dpkg -l python3-pip python3-venv m4 bison >/dev/null 2>&1; then
+    sudo apt update && sudo apt install -y python3-pip python3-venv m4 bison
+  fi
   cmake --preset smt-verification
 
   cvc5_cmake_hash=$(cache_content_hash ^barretenberg/cpp/src/barretenberg/smt_verification/CMakeLists.txt)
