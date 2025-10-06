@@ -127,85 +127,63 @@ void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
     // At this point the virtual sizes of the polynomials should already agree
     BB_ASSERT_EQ(accumulator->polynomials.w_l.virtual_size(), incoming->polynomials.w_l.virtual_size());
 
-    FF combiner_challenge;
-    {
-        BB_BENCH_NAME("ProtogalaxyProver_::update_target_sum_and_fold::get_combiner_challenge");
-        combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
-    }
+    const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
 
     // Compute the next target sum (for its own use; verifier must compute its own values)
-    {
-        BB_BENCH_NAME("ProtogalaxyProver_::update_target_sum_and_fold::compute_target_sum");
-        auto [vanishing_polynomial_at_challenge, lagranges] =
-            PGInternal::compute_vanishing_polynomial_and_lagranges(combiner_challenge);
-        accumulator->target_sum = perturbator_evaluation * lagranges[0] +
-                                  vanishing_polynomial_at_challenge * combiner_quotient.evaluate(combiner_challenge);
-    }
+    auto [vanishing_polynomial_at_challenge, lagranges] =
+        PGInternal::compute_vanishing_polynomial_and_lagranges(combiner_challenge);
+    accumulator->target_sum = perturbator_evaluation * lagranges[0] +
+                              vanishing_polynomial_at_challenge * combiner_quotient.evaluate(combiner_challenge);
 
     // Check whether the incoming key has a larger trace overflow than the accumulator. If so, the memory structure of
     // the accumulator polynomials will not be sufficient to contain the contribution from the incoming polynomials. The
     // solution is to simply reverse the order or the terms in the linear combination by swapping the polynomials and
     // the lagrange coefficients between the accumulator and the incoming key.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1417): make this swapping logic more robust.
-    std::array<FF, NUM_INSTANCES> lagranges;
-    {
-        BB_BENCH_NAME("ProtogalaxyProver_::update_target_sum_and_fold::compute_lagranges_and_swap");
-        auto [vanishing_polynomial_at_challenge, lag] =
-            PGInternal::compute_vanishing_polynomial_and_lagranges(combiner_challenge);
-        lagranges = std::move(lag);
-
-        bool swap_polys = incoming->get_overflow_size() > accumulator->get_overflow_size();
-        if (swap_polys) {
-            std::swap(accumulator->polynomials, incoming->polynomials); // swap the polys
-            std::swap(lagranges[0], lagranges[1]); // swap the lagrange coefficients so the sum is unchanged
-            accumulator->set_dyadic_size(incoming->dyadic_size());         // update dyadic size of accumulator
-            accumulator->set_overflow_size(incoming->get_overflow_size()); // swap overflow size
-        }
+    bool swap_polys = incoming->get_overflow_size() > accumulator->get_overflow_size();
+    if (swap_polys) {
+        std::swap(accumulator->polynomials, incoming->polynomials); // swap the polys
+        std::swap(lagranges[0], lagranges[1]);                 // swap the lagrange coefficients so the sum is unchanged
+        accumulator->set_dyadic_size(incoming->dyadic_size()); // update dyadic size of accumulator
+        accumulator->set_overflow_size(incoming->get_overflow_size()); // swap overflow size
     }
 
     // Fold the prover polynomials
-    bool swap_polys = incoming->get_overflow_size() > accumulator->get_overflow_size();
 
     // Convert the polynomials into spans to remove boundary checks and if checks that normally apply when calling
     // getter/setters in Polynomial (see SharedShiftedVirtualZeroesArray::get)
+    auto accumulator_polys = accumulator->polynomials.get_unshifted();
+    auto key_polys = incoming->polynomials.get_unshifted();
+    const size_t num_polys = key_polys.size();
+
     std::vector<PolynomialSpan<FF>> acc_spans;
     std::vector<PolynomialSpan<FF>> key_spans;
-    {
-        BB_BENCH_NAME("ProtogalaxyProver_::update_target_sum_and_fold::create_polynomial_spans");
-        auto accumulator_polys = accumulator->polynomials.get_unshifted();
-        auto key_polys = incoming->polynomials.get_unshifted();
-        const size_t num_polys = key_polys.size();
-
-        acc_spans.reserve(num_polys);
-        key_spans.reserve(num_polys);
-        for (size_t i = 0; i < num_polys; ++i) {
-            acc_spans.emplace_back(static_cast<PolynomialSpan<FF>>(accumulator_polys[i]));
-            key_spans.emplace_back(static_cast<PolynomialSpan<FF>>(key_polys[i]));
-        }
+    acc_spans.reserve(num_polys);
+    key_spans.reserve(num_polys);
+    for (size_t i = 0; i < num_polys; ++i) {
+        acc_spans.emplace_back(static_cast<PolynomialSpan<FF>>(accumulator_polys[i]));
+        key_spans.emplace_back(static_cast<PolynomialSpan<FF>>(key_polys[i]));
     }
 
-    {
-        BB_BENCH_NAME("ProtogalaxyProver_::update_target_sum_and_fold::fold_polynomials");
-        parallel_for([&acc_spans, &key_spans, &lagranges, &combiner_challenge, &swap_polys](const ThreadChunk& chunk) {
-            for (auto [acc_poly, key_poly] : zip_view(acc_spans, key_spans)) {
-                size_t offset = acc_poly.start_index;
-                for (size_t idx : chunk.range(acc_poly.size(), offset)) {
-                    if ((idx < key_poly.start_index) || (idx >= key_poly.end_index())) {
-                        acc_poly[idx] *= lagranges[0];
+    parallel_for([&acc_spans, &key_spans, &lagranges, &combiner_challenge, &swap_polys](const ThreadChunk& chunk) {
+        for (auto [acc_poly, key_poly] : zip_view(acc_spans, key_spans)) {
+            size_t offset = acc_poly.start_index;
+            for (size_t idx : chunk.range(acc_poly.size(), offset)) {
+                if ((idx < key_poly.start_index) || (idx >= key_poly.end_index())) {
+                    acc_poly[idx] *= lagranges[0];
+                } else {
+                    // acc * lagranges[0] + key * lagranges[1] =
+                    // acc + (key - acc) * combiner_challenge (if !swap_polys)
+                    // key + (acc - key) * combiner_challenge (if swap_polys)
+                    if (swap_polys) {
+                        acc_poly[idx] = key_poly[idx] + (acc_poly[idx] - key_poly[idx]) * combiner_challenge;
                     } else {
-                        // acc * lagranges[0] + key * lagranges[1] =
-                        // acc + (key - acc) * combiner_challenge (if !swap_polys)
-                        // key + (acc - key) * combiner_challenge (if swap_polys)
-                        if (swap_polys) {
-                            acc_poly[idx] = key_poly[idx] + (acc_poly[idx] - key_poly[idx]) * combiner_challenge;
-                        } else {
-                            acc_poly[idx] = acc_poly[idx] + (key_poly[idx] - acc_poly[idx]) * combiner_challenge;
-                        }
+                        acc_poly[idx] = acc_poly[idx] + (key_poly[idx] - acc_poly[idx]) * combiner_challenge;
                     }
                 }
             }
-        });
-    }
+        }
+    });
 
     {
         BB_BENCH_NAME("ProtogalaxyProver_::update_target_sum_and_fold::update_alphas_and_relation_parameters");
@@ -220,7 +198,6 @@ void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
 
         auto univariate_params_to_fold = univariate_relation_parameters.get_to_fold();
         auto accumulator_params_to_fold = accumulator->relation_parameters.get_to_fold();
-
         parallel_for([&](const ThreadChunk& chunk) {
             // // Evaluate each relation parameter univariate at challenge to obtain the folded relation parameters.
             // for (auto [univariate, value] : zip_view(univariate_relation_parameters.get_to_fold(),
