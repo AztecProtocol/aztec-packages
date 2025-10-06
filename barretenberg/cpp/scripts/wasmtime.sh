@@ -9,7 +9,6 @@ exec wasmtime run \
   ${HARDWARE_CONCURRENCY:+--env HARDWARE_CONCURRENCY} \
   --env HOME \
   ${MAIN_ARGS:+--env MAIN_ARGS} \
-  --env BB_BENCH=1 \
   --dir=$HOME/.bb-crs \
   --dir=. \
   "$@"
