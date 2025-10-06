@@ -16,11 +16,12 @@ provider "google" {
   region  = var.region
 }
 
-import {
-  id = "projects/${var.project}/locations/${var.import_blockchain_node_region}/blockchainNodes/${var.import_blockchain_node_id}"
-  to = google_blockchain_node_engine_blockchain_nodes.default
-}
+# import {
+#   id = "projects/${var.project}/locations/${var.import_blockchain_node_region}/blockchainNodes/${var.import_blockchain_node_id}"
+#   to = google_blockchain_node_engine_blockchain_nodes.default
+# }
 
+# Sepolia Node
 resource "google_blockchain_node_engine_blockchain_nodes" "default" {
   location           = var.import_blockchain_node_region
   blockchain_node_id = var.import_blockchain_node_id
@@ -31,6 +32,21 @@ resource "google_blockchain_node_engine_blockchain_nodes" "default" {
     consensus_client = "LIGHTHOUSE"
     execution_client = "GETH"
     network          = "TESTNET_SEPOLIA"
+    node_type        = "FULL"
+  }
+}
+
+# Mainnet Node
+resource "google_blockchain_node_engine_blockchain_nodes" "mainnet" {
+  location           = var.mainnet_blockchain_node_region
+  blockchain_node_id = var.mainnet_blockchain_node_id
+  blockchain_type    = "ETHEREUM"
+  ethereum_details {
+    api_enable_admin = false
+    api_enable_debug = false
+    consensus_client = "LIGHTHOUSE"
+    execution_client = "GETH"
+    network          = "MAINNET"
     node_type        = "FULL"
   }
 }

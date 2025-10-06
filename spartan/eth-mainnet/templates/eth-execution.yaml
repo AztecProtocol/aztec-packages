@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "eth-mainnet.fullname" . }}-eth-execution
+  labels:
+    {{- include "eth-mainnet.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  serviceName: {{ include "eth-mainnet.fullname" . }}-eth-execution
+  selector:
+    matchLabels:
+      {{- include "eth-mainnet.selectorLabels" . | nindent 6 }}
+      app: eth-execution
+  template:
+    metadata:
+      labels:
+        {{- include "eth-mainnet.selectorLabels" . | nindent 8 }}
+        app: eth-execution
+    spec:
+      {{- if .Values.ethereum.execution.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.ethereum.execution.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.ethereum.execution.hostNetwork }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- end }}
+      containers:
+        - name: ethereum
+          image: "{{ .Values.images.reth.image }}"
+          imagePullPolicy: {{ .Values.images.reth.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              exec /entrypoints/eth-execution.sh
+          env:
+            - name: HTTP_PORT
+              value: "{{ .Values.ethereum.execution.service.port }}"
+            - name: WS_PORT
+              value: "{{ .Values.ethereum.execution.service.wsPort }}"
+          ports:
+            - containerPort: {{ .Values.ethereum.execution.service.port }}
+              name: eth-execution
+            - containerPort: {{ .Values.ethereum.execution.service.wsPort }}
+              name: eth-exec-ws
+            - containerPort: 8551
+              name: engine
+          volumeMounts:
+            - name: shared-volume
+              mountPath: /data
+            - name: entrypoint-scripts
+              mountPath: /entrypoints
+            - name: jwt
+              mountPath: /jwt
+          resources:
+            {{- toYaml .Values.ethereum.execution.resources | nindent 12 }}
+      volumes:
+        - name: shared-volume
+          persistentVolumeClaim:
+            claimName: shared-volume
+        - name: entrypoint-scripts
+          configMap:
+            name: {{ include "eth-mainnet.fullname" . }}-entrypoint-scripts
+            defaultMode: 0755
+        - name: jwt
+          secret:
+            secretName: {{ include "eth-mainnet.fullname" . }}-jwt
+  volumeClaimTemplates:
+  - metadata:
+      name: shared-volume
+      labels:
+        {{- include "eth-mainnet.labels" . | nindent 8 }}
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: {{ .Values.ethereum.execution.storageSize }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "eth-mainnet.fullname" . }}-eth-execution
+  labels:
+    {{- include "eth-mainnet.labels" . | nindent 4 }}
+    app: eth-execution
+  {{- if .Values.ethereum.execution.service.annotations }}
+  annotations:
+    {{- toYaml .Values.ethereum.execution.service.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.ethereum.execution.service.type }}
+  {{- if .Values.ethereum.execution.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.ethereum.execution.service.loadBalancerIP }}
+  {{- end }}
+  selector:
+    {{- include "eth-mainnet.selectorLabels" . | nindent 4 }}
+    app: eth-execution
+  ports:
+    - name: jsonrpc
+      protocol: TCP
+      port: {{ .Values.ethereum.execution.service.port }}
+      targetPort: {{ .Values.ethereum.execution.service.targetPort }}
+    - name: ws
+      protocol: TCP
+      port: {{ .Values.ethereum.execution.service.wsPort }}
+      targetPort: {{ .Values.ethereum.execution.service.wsTargetPort }}
+    - name: engine
+      protocol: TCP
+      port: 8551
+      targetPort: 8551
+---
+
+

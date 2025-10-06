@@ -1,0 +1,43 @@
+nameOverride: ""
+fullnameOverride: ""
+
+images:
+  reth:
+    image: ghcr.io/paradigmxyz/reth:v1.6.0
+    pullPolicy: IfNotPresent
+  lighthouse:
+    image: sigp/lighthouse:v7.1.0
+    pullPolicy: IfNotPresent
+
+ethereum:
+  # mainnet no custom genesis
+  execution:
+    hostNetwork: false
+    nodeSelector: {}
+    service:
+      type: LoadBalancer
+      loadBalancerIP: null
+      annotations: {}
+      port: 8545
+      targetPort: 8545
+      wsPort: 8546
+      wsTargetPort: 8546
+    storageSize: "1Ti"
+    resources: {}
+
+  beacon:
+    hostNetwork: false
+    nodeSelector: {}
+    checkpointSyncUrl: "https://sync-mainnet.beaconcha.in"
+    service:
+      type: LoadBalancer
+      loadBalancerIP: null
+      annotations: {}
+      port: 5052
+      targetPort: 5052
+    storageSize: "100Gi"
+    resources: {}
+
+  jwt:
+    # 32-byte hex string prefixed with 0x
+    secret: "0x61e1dd9539e8cc37b3d71dcf8ce372f0e119cc1c73426ee80472a4214f2a41a1"
