@@ -698,7 +698,6 @@ TEST_F(MerkleCheckPoseidon2Test, MultipleWithTracegen)
     trace.set(Column::merkle_check_read_right_node, after_last_row_index, 0);
     trace.set(Column::merkle_check_write_left_node, after_last_row_index, 0);
     trace.set(Column::merkle_check_write_right_node, after_last_row_index, 0);
-    trace.set(Column::merkle_check_constant_2, after_last_row_index, 0);
     trace.set(Column::merkle_check_read_output_hash, after_last_row_index, 0);
     trace.set(Column::merkle_check_write_output_hash, after_last_row_index, 0);
 

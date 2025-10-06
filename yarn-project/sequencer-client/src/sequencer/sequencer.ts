@@ -18,7 +18,7 @@ import {
   type L2BlockSource,
   type ValidateBlockResult,
 } from '@aztec/stdlib/block';
-import { type L1RollupConstants, getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, getSlotAtTimestamp, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
   type IFullNodeBlockBuilder,
@@ -45,8 +45,9 @@ import type { GlobalVariableBuilder } from '../global_variable_builder/global_bu
 import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import type { Action, InvalidateBlockRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
 import type { SequencerConfig } from './config.js';
+import { SequencerInterruptedError, SequencerTooSlowError } from './errors.js';
 import { SequencerMetrics } from './metrics.js';
-import { SequencerTimetable, SequencerTooSlowError } from './timetable.js';
+import { SequencerTimetable } from './timetable.js';
 import { SequencerState, type SequencerStateWithSlot } from './utils.js';
 
 export { SequencerState };
@@ -223,6 +224,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    */
   public async stop(): Promise<void> {
     this.log.info(`Stopping sequencer`);
+    this.setState(SequencerState.STOPPING, undefined, { force: true });
     this.publisher?.interrupt();
     await this.runningPromise?.stop();
     this.setState(SequencerState.STOPPED, undefined, { force: true });
@@ -524,6 +526,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     opts?: { force?: boolean },
   ): void;
   setState(proposedState: SequencerState, slotNumber: bigint | undefined, opts: { force?: boolean } = {}): void {
+    if (this.state === SequencerState.STOPPING && proposedState !== SequencerState.STOPPED && !opts.force) {
+      this.log.warn(`Cannot set sequencer to ${proposedState} as it is stopping.`);
+      throw new SequencerInterruptedError();
+    }
     if (this.state === SequencerState.STOPPED && !opts.force) {
       this.log.warn(`Cannot set sequencer from ${this.state} to ${proposedState} as it is stopped.`);
       return;
@@ -954,11 +960,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   private getSlotStartBuildTimestamp(slotNumber: number | bigint): number {
-    return (
-      Number(this.l1Constants.l1GenesisTime) +
-      Number(slotNumber) * this.l1Constants.slotDuration -
-      this.l1Constants.ethereumSlotDuration
-    );
+    return getSlotStartBuildTimestamp(slotNumber, this.l1Constants);
   }
 
   private getSecondsIntoSlot(slotNumber: number | bigint): number {

@@ -137,21 +137,25 @@ using lookup_bc_hashing_check_final_bytes_remaining_relation =
 struct lookup_bc_hashing_poseidon2_hash_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_BC_HASHING_POSEIDON2_HASH";
     static constexpr std::string_view RELATION_NAME = "bc_hashing";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 7;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
     static constexpr Column SRC_SELECTOR = Column::bc_hashing_sel;
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_sel;
     static constexpr Column COUNTS = Column::lookup_bc_hashing_poseidon2_hash_counts;
     static constexpr Column INVERSES = Column::lookup_bc_hashing_poseidon2_hash_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::bc_hashing_latch,           ColumnAndShifts::bc_hashing_packed_fields_0,
-        ColumnAndShifts::bc_hashing_packed_fields_1, ColumnAndShifts::bc_hashing_packed_fields_2,
-        ColumnAndShifts::bc_hashing_input_len,       ColumnAndShifts::bc_hashing_rounds_rem,
-        ColumnAndShifts::bc_hashing_output_hash
+        ColumnAndShifts::bc_hashing_start,           ColumnAndShifts::bc_hashing_latch,
+        ColumnAndShifts::bc_hashing_packed_fields_0, ColumnAndShifts::bc_hashing_packed_fields_1,
+        ColumnAndShifts::bc_hashing_packed_fields_2, ColumnAndShifts::bc_hashing_input_len,
+        ColumnAndShifts::bc_hashing_rounds_rem,      ColumnAndShifts::bc_hashing_output_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_end,       ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,   ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_input_len, ColumnAndShifts::poseidon2_hash_num_perm_rounds_rem,
+        ColumnAndShifts::poseidon2_hash_start,
+        ColumnAndShifts::poseidon2_hash_end,
+        ColumnAndShifts::poseidon2_hash_input_0,
+        ColumnAndShifts::poseidon2_hash_input_1,
+        ColumnAndShifts::poseidon2_hash_input_2,
+        ColumnAndShifts::poseidon2_hash_input_len,
+        ColumnAndShifts::poseidon2_hash_num_perm_rounds_rem,
         ColumnAndShifts::poseidon2_hash_output
     };
 };
