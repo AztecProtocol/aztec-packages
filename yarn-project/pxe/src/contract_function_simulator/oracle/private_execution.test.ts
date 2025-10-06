@@ -551,8 +551,8 @@ describe('Private Execution test suite', () => {
       const childSelector = await FunctionSelector.fromNameAndParameters(childArtifact.name, childArtifact.parameters);
 
       await mockContractInstance(ChildContractArtifact, childAddress);
-      logger.info(`Parent deployed at ${parentAddress.toString()}`);
-      logger.info(`Calling child function ${childSelector.toString()} at ${childAddress.toString()}`);
+      logger.info('Parent deployed at %s', parentAddress.toString());
+      logger.info('Calling child function %s at %s', childSelector.toString(), childAddress.toString());
 
       const args = [childAddress, childSelector];
       const { entrypoint: result } = await runSimulator({
