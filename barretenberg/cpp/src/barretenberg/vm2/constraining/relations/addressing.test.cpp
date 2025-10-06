@@ -38,7 +38,7 @@ TEST(AddressingConstrainingTest, EmptyRow)
 
 TEST(AddressingConstrainingTest, BaseAddressGating)
 {
-    // If the are no relative operands, it's ok that sel_do_base_check is 0.
+    // If there are no relative operands, it's ok that sel_do_base_check is 0.
     TestTraceContainer trace({ {
         // These set pol SEL_SHOULD_RESOLVE_ADDRESS.
         // If this is off the whole subrelation is unconstrained.
@@ -65,14 +65,6 @@ TEST(AddressingConstrainingTest, BaseAddressGating)
                   { C::execution_sel_op_is_relative_wire_4_, 1 }, // not an address
                   { C::execution_sel_op_is_relative_wire_5_, 0 },
                   { C::execution_sel_op_is_relative_wire_6_, 0 },
-                  // Derived.
-                  { C::execution_sel_op_is_relative_effective_0_, 1 },
-                  { C::execution_sel_op_is_relative_effective_1_, 0 },
-                  { C::execution_sel_op_is_relative_effective_2_, 1 },
-                  { C::execution_sel_op_is_relative_effective_3_, 0 },
-                  { C::execution_sel_op_is_relative_effective_4_, 0 },
-                  { C::execution_sel_op_is_relative_effective_5_, 0 },
-                  { C::execution_sel_op_is_relative_effective_6_, 0 },
                   // should be 1
                   { C::execution_sel_do_base_check, 0 },
               } });
@@ -234,14 +226,6 @@ TEST(AddressingConstrainingTest, RelativeAddressPropagation)
             { C::execution_sel_op_is_address_4_, 1 },
             { C::execution_sel_op_is_address_5_, 1 },
             { C::execution_sel_op_is_address_6_, 1 },
-            // Derived.
-            { C::execution_sel_op_is_relative_effective_0_, 1 },
-            { C::execution_sel_op_is_relative_effective_1_, 0 },
-            { C::execution_sel_op_is_relative_effective_2_, 1 },
-            { C::execution_sel_op_is_relative_effective_3_, 0 },
-            { C::execution_sel_op_is_relative_effective_4_, 1 },
-            { C::execution_sel_op_is_relative_effective_5_, 0 },
-            { C::execution_sel_op_is_relative_effective_6_, 1 },
             // Selectors that enable the subrelation.
             { C::execution_sel_op_is_relative_wire_0_, 1 },
             { C::execution_sel_op_is_relative_wire_1_, 0 },
@@ -361,14 +345,19 @@ TEST(AddressingConstrainingTest, RelativeOverflowCheck)
 
     TestTraceContainer trace({
         {
-            // Derived.
-            { C::execution_sel_op_is_relative_effective_0_, 1 },
-            { C::execution_sel_op_is_relative_effective_1_, 0 },
-            { C::execution_sel_op_is_relative_effective_2_, 1 },
-            { C::execution_sel_op_is_relative_effective_3_, 0 },
-            { C::execution_sel_op_is_relative_effective_4_, 1 },
-            { C::execution_sel_op_is_relative_effective_5_, 0 },
-            { C::execution_sel_op_is_relative_effective_6_, 1 },
+            // The operands which are "relative effective" are 0, 2, 4, 6.
+            { C::execution_sel_op_is_relative_wire_0_, 1 },
+            { C::execution_sel_op_is_relative_wire_2_, 1 },
+            { C::execution_sel_op_is_relative_wire_4_, 1 },
+            { C::execution_sel_op_is_relative_wire_6_, 1 },
+            { C::execution_sel_op_is_address_0_, 1 },
+            { C::execution_sel_op_is_address_2_, 1 },
+            { C::execution_sel_op_is_address_4_, 1 },
+            { C::execution_sel_op_is_address_6_, 1 },
+            { C::execution_sel_op_do_overflow_check_0_, 1 },
+            { C::execution_sel_op_do_overflow_check_2_, 1 },
+            { C::execution_sel_op_do_overflow_check_4_, 1 },
+            { C::execution_sel_op_do_overflow_check_6_, 1 },
             // After relative step. Base address was added when applicable.
             { C::execution_op_after_relative_0_, resolved_addrs[0] },
             { C::execution_op_after_relative_1_, resolved_addrs[1] },
@@ -399,13 +388,13 @@ TEST(AddressingConstrainingTest, RelativeOverflowCheck)
     }
 
     check_relation<addressing>(trace,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_0,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_1,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_2,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_3,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_4,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_5,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_6);
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_0,
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_1,
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_2,
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_3,
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_4,
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_5,
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_6);
 
     check_interaction<ExecutionTraceBuilder,
                       lookup_addressing_relative_overflow_result_0_settings,
@@ -416,7 +405,7 @@ TEST(AddressingConstrainingTest, RelativeOverflowCheck)
                       lookup_addressing_relative_overflow_result_5_settings,
                       lookup_addressing_relative_overflow_result_6_settings>(trace);
 
-    // If we swap bits a a lookup or a relation should fail.
+    // If we swap bits, a lookup or a relation should fail.
     // If the address was not relative effective, the relation should fail. (lookup is inactive)
     trace.set(0,
               { {
@@ -432,18 +421,21 @@ TEST(AddressingConstrainingTest, RelativeOverflowCheck)
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<ExecutionTraceBuilder, lookup_addressing_relative_overflow_result_0_settings>(trace)),
         "Failed.*LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_0.*Could not find tuple in destination.");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_NO_OVERFLOW_1),
-                              "NOT_RELATIVE_NO_OVERFLOW_1");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_1),
+        "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_1");
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<ExecutionTraceBuilder, lookup_addressing_relative_overflow_result_2_settings>(trace)),
         "Failed.*LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_2.*Could not find tuple in destination.");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_NO_OVERFLOW_3),
-                              "NOT_RELATIVE_NO_OVERFLOW_3");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_3),
+        "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_3");
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<ExecutionTraceBuilder, lookup_addressing_relative_overflow_result_4_settings>(trace)),
         "Failed.*LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_4.*Could not find tuple in destination.");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_NO_OVERFLOW_5),
-                              "NOT_RELATIVE_NO_OVERFLOW_5");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_5),
+        "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_5");
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<ExecutionTraceBuilder, lookup_addressing_relative_overflow_result_6_settings>(trace)),
         "Failed.*LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_6.*Could not find tuple in destination.");

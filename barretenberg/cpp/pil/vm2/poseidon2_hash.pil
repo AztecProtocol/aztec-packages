@@ -2,6 +2,14 @@ include "poseidon2_perm.pil";
 
 // Performs the poseidon2 full hash
 // It is **mostly** well-constrained
+// === Usage Tips ===
+//    - To constrain the result of a poseidon hash over a single row (i.e. 3 or fewer inputs), lookup the inputs,
+//      output, end (= 1), and start (= 1). This trace constrains that when start = end = 1, we have a single row.
+//    - Over multiple rows, use num_perm_rounds_rem against the decrementing counter to ensure that each round is
+//      computed in the correct order (at end = 1, num_perm_rounds_rem is constrained to be 1 => can equivalently
+//      lookup the end selector for the final row).
+//    - Over multiple rows, lookup the start selector at the expected first row to ensure no extra rows are prepended.
+//      Note that input_len is only constrained at the start row, so it cannot be relied on for intermediate rows.
 namespace poseidon2_hash;
 
     pol commit sel;

@@ -268,7 +268,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const incFailedAttestation = (reason: string) => this.metrics.incFailedAttestations(1, reason, partOfCommittee);
 
     const proposalInfo = { ...proposal.toBlockInfo(), proposer: proposer.toString() };
-    this.log.info(`Received proposal for slot ${slotNumber}`, {
+    this.log.info(`Received proposal for block ${proposal.blockNumber} at slot ${slotNumber}`, {
       ...proposalInfo,
       txHashes: proposal.txHashes.map(t => t.toString()),
     });
@@ -310,7 +310,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     // Provided all of the above checks pass, we can attest to the proposal
-    this.log.info(`Attesting to proposal for slot ${slotNumber}`, proposalInfo);
+    this.log.info(`Attesting to proposal for block ${proposal.blockNumber} at slot ${slotNumber}`, proposalInfo);
     this.metrics.incAttestations(inCommittee.length);
 
     // If the above function does not throw an error, then we can attest to the proposal

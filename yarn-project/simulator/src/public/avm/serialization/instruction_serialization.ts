@@ -124,6 +124,18 @@ const OPERAND_SPEC = new Map<OperandType, [number, (offset: number) => OperandNa
   [OperandType.TAG, [1, Buffer.prototype.readUint8, Buffer.prototype.writeUint8]],
 ]);
 
+/**
+ * Returns the size of an operand in bytes.
+ * Should not be called with unknown operand types.
+ * @param operandType
+ * @returns number size in bytes
+ * @throws AssertionError if the operand type is unknown
+ */
+export function getOperandSize(operandType: OperandType): number {
+  assert(OPERAND_SPEC.has(operandType), `Unknown operand type: ${operandType}`);
+  return OPERAND_SPEC.get(operandType)![0];
+}
+
 function readUintBE(buf: Buffer, offset: number, totalBytes: number): bigint {
   let value: bigint = 0n;
   for (let i = 0; i < totalBytes; ++i) {

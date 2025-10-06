@@ -1642,9 +1642,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@cookbookdev/docsbot@npm:^4.25.11":
-  version: 4.25.11
-  resolution: "@cookbookdev/docsbot@npm:4.25.11"
+"@cookbookdev/docsbot@npm:^4.25.15":
+  version: 4.25.15
+  resolution: "@cookbookdev/docsbot@npm:4.25.15"
   dependencies:
     "@cookbookdev/sonner": "npm:1.5.1"
     "@floating-ui/devtools": "npm:^0.2.2"
@@ -1712,7 +1712,7 @@ __metadata:
   peerDependencies:
     react: ^16.8 || ^17.0 || ^18.0 || ^19.0
     react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0
-  checksum: 10c0/1b5d330b7f20508b69c3ff6302aad2ea222aa58cd1684aa45db15dbae068f3af4c705d133b540b31167ab6a617d7cccdc3884bdf6205f01858dfd7d0df1885f8
+  checksum: 10c0/2103f423daf3db1cb39deaf1fa2f7cb97bf90a95c2a3698a9dff28e881f0a38b1fc8d96b038f101b6b1982cf91c4945b2e3e6da639d1c688f4c7c95603bacdc6
   languageName: node
   linkType: hard
 
@@ -9057,7 +9057,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "aztec-docs@workspace:."
   dependencies:
-    "@cookbookdev/docsbot": "npm:^4.25.11"
+    "@cookbookdev/docsbot": "npm:^4.25.15"
     "@docusaurus/core": "npm:3.8.1"
     "@docusaurus/plugin-content-docs": "npm:3.8.1"
     "@docusaurus/plugin-ideal-image": "npm:3.8.1"
@@ -18853,19 +18853,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"path-to-regexp@npm:1.9.0":
+  version: 1.9.0
+  resolution: "path-to-regexp@npm:1.9.0"
+  dependencies:
+    isarray: "npm:0.0.1"
+  checksum: 10c0/de9ddb01b84d9c2c8e2bed18630d8d039e2d6f60a6538595750fa08c7a6482512257464c8da50616f266ab2cdd2428387e85f3b089e4c3f25d0c537e898a0751
+  languageName: node
+  linkType: hard
+
 "path-to-regexp@npm:3.3.0":
   version: 3.3.0
   resolution: "path-to-regexp@npm:3.3.0"
   checksum: 10c0/ffa0ebe7088d38d435a8d08b0fe6e8c93ceb2a81a65d4dd1d9a538f52e09d5e3474ed5f553cb3b180d894b0caa10698a68737ab599fd1e56b4663d1a64c9f77b
-  languageName: node
-  linkType: hard
-
-"path-to-regexp@npm:^1.7.0":
-  version: 1.8.0
-  resolution: "path-to-regexp@npm:1.8.0"
-  dependencies:
-    isarray: "npm:0.0.1"
-  checksum: 10c0/7b25d6f27a8de03f49406d16195450f5ced694398adea1510b0f949d9660600d1769c5c6c83668583b7e6b503f3caf1ede8ffc08135dbe3e982f034f356fbb5c
   languageName: node
   linkType: hard
 
@@ -24401,9 +24401,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ws@npm:8.13.0":
-  version: 8.13.0
-  resolution: "ws@npm:8.13.0"
+"ws@npm:8.17.1":
+  version: 8.17.1
+  resolution: "ws@npm:8.17.1"
   peerDependencies:
     bufferutil: ^4.0.1
     utf-8-validate: ">=5.0.2"
@@ -24412,7 +24412,7 @@ __metadata:
       optional: true
     utf-8-validate:
       optional: true
-  checksum: 10c0/579817dbbab3ee46669129c220cfd81ba6cdb9ab5c3e9a105702dd045743c4ab72e33bb384573827c0c481213417cc880e41bc097e0fc541a0b79fa3eb38207d
+  checksum: 10c0/f4a49064afae4500be772abdc2211c8518f39e1c959640457dcee15d4488628620625c783902a52af2dd02f68558da2868fd06e6fd0e67ebcd09e6881b1b5bfe
   languageName: node
   linkType: hard
 

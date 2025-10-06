@@ -30,6 +30,12 @@ void class_id_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                     CView(constants_GENERATOR_INDEX__CONTRACT_LEAF));
         std::get<1>(evals) += (tmp * scaling_factor);
     }
+    {
+        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::class_id_derivation_sel)) *
+                   (static_cast<View>(in.get(C::class_id_derivation_const_two)) - FF(2));
+        std::get<2>(evals) += (tmp * scaling_factor);
+    }
 }
 
 } // namespace bb::avm2

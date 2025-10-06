@@ -14,7 +14,7 @@ template <typename FF_> class registersImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS = { 4, 4, 4, 4, 4, 4, 4, 6 };
+    static constexpr std::array<size_t, 9> SUBRELATION_PARTIAL_LENGTHS = { 4, 4, 4, 4, 4, 4, 4, 3, 6 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -43,7 +43,7 @@ template <typename FF> class registers : public Relation<registersImpl<FF>> {
     static constexpr size_t SR_SEL_OP_REG_EFFECTIVE_4 = 4;
     static constexpr size_t SR_SEL_OP_REG_EFFECTIVE_5 = 5;
     static constexpr size_t SR_SEL_OP_REG_EFFECTIVE_6 = 6;
-    static constexpr size_t SR_REGISTER_READ_TAG_CHECK = 7;
+    static constexpr size_t SR_REGISTER_READ_TAG_CHECK = 8;
 
     static std::string get_subrelation_label(size_t index)
     {

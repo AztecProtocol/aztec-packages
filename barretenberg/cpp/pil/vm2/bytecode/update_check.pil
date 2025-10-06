@@ -61,8 +61,8 @@ namespace update_check;
     pol commit delayed_public_mutable_slot;
 
     #[DELAYED_PUBLIC_MUTABLE_SLOT_POSEIDON2]
-    sel { updated_class_ids_slot, address, precomputed.zero, delayed_public_mutable_slot }
-    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+    sel { sel /* =1 */, updated_class_ids_slot, address, precomputed.zero, delayed_public_mutable_slot }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     pol commit delayed_public_mutable_hash_slot;
     sel * (delayed_public_mutable_slot + constants.UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN - delayed_public_mutable_hash_slot) = 0;
@@ -108,8 +108,8 @@ namespace update_check;
     pol commit update_preimage_post_class_id;
 
     #[UPDATE_HASH_POSEIDON2]
-    hash_not_zero { update_preimage_metadata, update_preimage_pre_class_id, update_preimage_post_class_id, update_hash }
-    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+    hash_not_zero { sel /* =1 */, update_preimage_metadata, update_preimage_pre_class_id, update_preimage_post_class_id, update_hash }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     // ======== TIMESTAMP OF CHANGE READ ========
 
