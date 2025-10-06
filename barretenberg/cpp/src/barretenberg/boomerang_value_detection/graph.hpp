@@ -102,9 +102,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
 
     void process_execution_trace();
 
-    std::vector<std::vector<uint32_t>> get_arithmetic_gate_connected_component(size_t index,
-                                                                               size_t block_idx,
-                                                                               auto& blk);
+    std::vector<uint32_t> get_arithmetic_gate_connected_component(size_t index, size_t block_idx, auto& blk);
     std::vector<uint32_t> get_elliptic_gate_connected_component(size_t index, size_t block_idx, auto& blk);
     std::vector<uint32_t> get_plookup_gate_connected_component(size_t index, size_t block_idx, auto& blk);
     std::vector<uint32_t> get_sort_constraint_connected_component(size_t index, size_t block_idx, auto& blk);
@@ -144,11 +142,18 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     void remove_unnecessary_sha256_plookup_variables(bb::plookup::BasicTableId& table_id, size_t gate_index);
     void remove_record_witness_variables();
 
+    std::pair<std::vector<ConnectedComponent>, std::unordered_set<uint32_t>> analyze_circuit();
+
     void print_connected_components_info();
     void print_variables_gate_counts();
-    void print_variable_in_one_gate(const uint32_t real_idx);
-
-    std::pair<std::vector<ConnectedComponent>, std::unordered_set<uint32_t>> analyze_circuit();
+    void print_arithmetic_gate_info(size_t gate_idx, auto& block);
+    void print_elliptic_gate_info(size_t gate_idx, auto& block);
+    void print_plookup_gate_info(size_t gate_idx, auto& block);
+    void print_poseidon2s_gate_info(size_t gate_idx, auto& block);
+    void print_nnf_gate_info(size_t gate_idx, auto& block);
+    void print_memory_gate_info(size_t gate_idx, auto& block);
+    void print_delta_range_gate_info(size_t gate_idx, auto& block);
+    void print_variable_info(const uint32_t real_idx);
     ~StaticAnalyzer_() = default;
 
   private:
