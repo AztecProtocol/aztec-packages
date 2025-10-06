@@ -110,9 +110,9 @@ void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& c
 {
     BB_BENCH_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
-    size_t table_offset = circuit.blocks.lookup.trace_offset();
+    const size_t table_offset = circuit.blocks.lookup.trace_offset();
     // In UltraZK, we mask the top coefficients of polynomials, hence the start idx needs to be 1.
-    size_t table_start_idx = std::is_same_v<Flavor, UltraZKFlavor> ? 1 : table_offset;
+    size_t table_start_idx = is_ultra_zk ? Flavor::num_zero_rows : table_offset;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): can potentially improve memory footprint
     const size_t max_tables_size = dyadic_size() - table_offset;
     BB_ASSERT_GT(dyadic_size(), max_tables_size);

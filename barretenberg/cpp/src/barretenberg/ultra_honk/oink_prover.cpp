@@ -88,15 +88,15 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
     batch.add_to_batch(prover_instance->polynomials.w_l,
                        commitment_labels.w_l,
                        /*mask?*/ Flavor::HasZK,
-                       /*top rows?*/ is_ultra_zk);
+                       /*top rows?*/ mask_top_rows);
     batch.add_to_batch(prover_instance->polynomials.w_r,
                        commitment_labels.w_r,
                        /*mask?*/ Flavor::HasZK,
-                       /*top rows?*/ is_ultra_zk);
+                       /*top rows?*/ mask_top_rows);
     batch.add_to_batch(prover_instance->polynomials.w_o,
                        commitment_labels.w_o,
                        /*mask?*/ Flavor::HasZK,
-                       /*top rows?*/ is_ultra_zk);
+                       /*top rows?*/ mask_top_rows);
 
     if constexpr (IsMegaFlavor<Flavor>) {
 
@@ -152,15 +152,15 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list
     batch.add_to_batch(prover_instance->polynomials.lookup_read_counts,
                        commitment_labels.lookup_read_counts,
                        /*mask?*/ Flavor::HasZK,
-                       /*top rows?*/ is_ultra_zk);
+                       /*top rows?*/ mask_top_rows);
     batch.add_to_batch(prover_instance->polynomials.lookup_read_tags,
                        commitment_labels.lookup_read_tags,
                        /*mask?*/ Flavor::HasZK,
-                       /*top rows?*/ is_ultra_zk);
+                       /*top rows?*/ mask_top_rows);
     batch.add_to_batch(prover_instance->polynomials.w_4,
                        domain_separator + commitment_labels.w_4,
                        /*mask?*/ Flavor::HasZK,
-                       /*top rows?*/ is_ultra_zk);
+                       /*top rows?*/ mask_top_rows);
     batch.commit_and_send_to_verifier(transcript);
 }
 
@@ -183,7 +183,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
     batch.add_to_batch(prover_instance->polynomials.lookup_inverses,
                        commitment_labels.lookup_inverses,
                        /*mask?*/ Flavor::HasZK,
-                       /*top rows?*/ is_ultra_zk);
+                       /*top rows?*/ mask_top_rows);
 
     // If Mega, commit to the databus inverse polynomials and send
     if constexpr (IsMegaFlavor<Flavor>) {
@@ -251,7 +251,7 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
     BB_BENCH_NAME("OinkProver::commit_to_witness_polynomial");
     // Mask the polynomial when proving in zero-knowledge
     if constexpr (Flavor::HasZK) {
-        polynomial.mask(is_ultra_zk);
+        polynomial.mask(mask_top_rows);
     };
 
     typename Flavor::Commitment commitment;

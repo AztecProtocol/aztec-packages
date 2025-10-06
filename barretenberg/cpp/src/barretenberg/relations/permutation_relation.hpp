@@ -31,9 +31,11 @@ template <typename FF_> class UltraPermutationRelationImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS{ 6, // grand product construction sub-relation
-                                                                        3, // left-shiftable polynomial sub-relation
-                                                                        3 };
+    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS{
+        6, // grand product construction sub-relation
+        3, // left-shiftable polynomial sub-relation
+        3  // ensure that the first coefficient of z_perm is 0
+    };
 
     static constexpr std::array<size_t, 3> TOTAL_LENGTH_ADJUSTMENTS{ 5, // grand product construction sub-relation
                                                                      0, // left-shiftable polynomial sub-relation
