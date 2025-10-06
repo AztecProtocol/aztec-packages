@@ -40,9 +40,9 @@ namespace bb {
  *
  *  (2) \sum_{i=0}^{n-1} [q_{logderiv_lookup} * I_i * write_term_i + read_count_i * I_i * read_term_i] = 0
  *
- * To not compute the inverse terms packed in I_i for indexes that not included in the sum we introduce a
+ * To not compute the inverse terms packed in I_i for indices not included in the sum we introduce a
  * witness called inverse_exists, which is zero when either read_count_i is nonzero (a boolean called read_tag) or we
- * have a read gate. This is represented by setting inveser_exists = 1- (1- read_tag)*(1- is_read_gate). Since
+ * have a read gate. This is represented by setting inverse_exists = 1- (1- read_tag)*(1- is_read_gate). Since
  * is_read_gate is only dependent on selector values, we can assume that the verifier can check that it is boolean.
  * However, if read_tag (which is a derived witness), is not constrained to be boolean, one can set the inverse_exists
  * to 0, even when is_read_gate is 1, because inverse_exists is a linear function of read_tag then. Thus we have a third
@@ -306,7 +306,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         tmp *= inverses;                 // degree 4(5)
         std::get<1>(accumulator) += tmp; // Deg 4 (5)
 
-        // we should make sure that the read_tag is a boolean value
+        // We should make sure that the read_tag is a boolean value
         const auto read_tag_m = CoefficientAccumulator(in.lookup_read_tags);
         const auto read_tag = BooleanCheckerAccumulator(read_tag_m);
         // degree                          1         1                       0(1) =  2(3)
