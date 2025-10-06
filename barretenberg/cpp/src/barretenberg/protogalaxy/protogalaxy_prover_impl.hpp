@@ -199,11 +199,6 @@ void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
         auto univariate_params_to_fold = univariate_relation_parameters.get_to_fold();
         auto accumulator_params_to_fold = accumulator->relation_parameters.get_to_fold();
         parallel_for([&](const ThreadChunk& chunk) {
-            // // Evaluate each relation parameter univariate at challenge to obtain the folded relation parameters.
-            // for (auto [univariate, value] : zip_view(univariate_relation_parameters.get_to_fold(),
-            //                                          accumulator->relation_parameters.get_to_fold())) {
-            //     value = univariate.evaluate(combiner_challenge);
-            // }
             // Evaluate each relation parameter univariate at challenge to obtain the folded relation parameters.
             for (size_t i : chunk.range(univariate_params_to_fold.size())) {
                 accumulator_params_to_fold[i] = univariate_params_to_fold[i].evaluate(combiner_challenge);
