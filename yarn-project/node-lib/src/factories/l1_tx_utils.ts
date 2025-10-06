@@ -7,7 +7,8 @@ import {
   createL1TxUtilsWithBlobsFromEthSigner as createL1TxUtilsWithBlobsFromEthSignerBase,
   createL1TxUtilsWithBlobsFromViemWallet as createL1TxUtilsWithBlobsFromViemWalletBase,
 } from '@aztec/ethereum/l1-tx-utils-with-blobs';
-import { createLogger } from '@aztec/foundation/log';
+import { omit } from '@aztec/foundation/collection';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
@@ -27,24 +28,13 @@ export async function createL1TxUtilsWithBlobsFromViemWallet(
   config: DataStoreConfig & Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope },
   deps: {
     telemetry: TelemetryClient;
-    logger?: ReturnType<typeof createLogger>;
+    logger?: Logger;
     dateProvider?: DateProvider;
   },
 ) {
-  const logger = deps.logger ?? createLogger('l1-tx-utils');
-  const kvStore = await createStore(L1_TX_STORE_NAME, L1TxStore.SCHEMA_VERSION, config, logger);
-  const store = new L1TxStore(kvStore, logger);
-  const meter = deps.telemetry.getMeter('L1TxUtils');
-  const metrics = new L1TxMetrics(meter, config.scope ?? 'other', logger);
-
   return createL1TxUtilsWithBlobsFromViemWalletBase(
     client,
-    {
-      logger,
-      dateProvider: deps.dateProvider,
-      store,
-      metrics,
-    },
+    await createDependencies(config, deps),
     config,
     config.debugMaxGasLimit,
   );
@@ -59,25 +49,14 @@ export async function createL1TxUtilsWithBlobsFromEthSigner(
   config: DataStoreConfig & Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope },
   deps: {
     telemetry: TelemetryClient;
-    logger?: ReturnType<typeof createLogger>;
+    logger?: Logger;
     dateProvider?: DateProvider;
   },
 ) {
-  const logger = deps.logger ?? createLogger('l1-tx-utils');
-  const kvStore = await createStore(L1_TX_STORE_NAME, L1TxStore.SCHEMA_VERSION, config, logger);
-  const store = new L1TxStore(kvStore, logger);
-  const meter = deps.telemetry.getMeter('L1TxUtils');
-  const metrics = new L1TxMetrics(meter, config.scope ?? 'other', logger);
-
   return createL1TxUtilsWithBlobsFromEthSignerBase(
     client,
     signer,
-    {
-      logger,
-      dateProvider: deps.dateProvider,
-      store,
-      metrics,
-    },
+    await createDependencies(config, deps),
     config,
     config.debugMaxGasLimit,
   );
@@ -91,18 +70,11 @@ export async function createL1TxUtilsFromViemWalletWithStore(
   config: DataStoreConfig & Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope },
   deps: {
     telemetry: TelemetryClient;
-    logger?: ReturnType<typeof createLogger>;
+    logger?: Logger;
     dateProvider?: DateProvider;
-    scope?: L1TxScope;
   },
 ) {
-  const logger = deps.logger ?? createLogger('l1-tx-utils');
-  const kvStore = await createStore(L1_TX_STORE_NAME, L1TxStore.SCHEMA_VERSION, config, logger);
-  const store = new L1TxStore(kvStore, logger);
-  const meter = deps.telemetry.getMeter('L1TxUtils');
-  const metrics = new L1TxMetrics(meter, config.scope ?? 'other', logger);
-
-  return createL1TxUtilsFromViemWalletBase(client, { logger, dateProvider: deps.dateProvider, store, metrics }, config);
+  return createL1TxUtilsFromViemWalletBase(client, await createDependencies(config, deps), config);
 }
 
 /**
@@ -114,21 +86,24 @@ export async function createL1TxUtilsFromEthSignerWithStore(
   config: DataStoreConfig & Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope },
   deps: {
     telemetry: TelemetryClient;
-    logger?: ReturnType<typeof createLogger>;
+    logger?: Logger;
     dateProvider?: DateProvider;
-    scope?: L1TxScope;
   },
 ) {
+  return createL1TxUtilsFromEthSignerBase(client, signer, await createDependencies(config, deps), config);
+}
+
+async function createDependencies(
+  config: DataStoreConfig & Partial<L1TxUtilsConfig> & { scope?: L1TxScope },
+  deps: { telemetry: TelemetryClient; logger?: Logger; dateProvider?: DateProvider },
+) {
   const logger = deps.logger ?? createLogger('l1-tx-utils');
-  const kvStore = await createStore(L1_TX_STORE_NAME, L1TxStore.SCHEMA_VERSION, config, logger);
+  // Do not mix in rollup address from config (we do not want to reset sent txs if rollup address changes)
+  const noRollupConfig = omit(config, 'l1Contracts');
+  const kvStore = await createStore(L1_TX_STORE_NAME, L1TxStore.SCHEMA_VERSION, noRollupConfig, logger);
   const store = new L1TxStore(kvStore, logger);
   const meter = deps.telemetry.getMeter('L1TxUtils');
   const metrics = new L1TxMetrics(meter, config.scope ?? 'other', logger);
 
-  return createL1TxUtilsFromEthSignerBase(
-    client,
-    signer,
-    { logger, dateProvider: deps.dateProvider, store, metrics },
-    config,
-  );
+  return { logger, store, metrics, dateProvider: deps.dateProvider };
 }
