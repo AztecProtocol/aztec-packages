@@ -78,6 +78,7 @@ is memory.sel_register_op[6] { memory.clk,      memory.space_id, memory.address,
 // Observe that we don't need to know exactly which one failed.
 // We use this fact to "batch" the checks and do only 1 comparison against 0 (inverse check).
 pol commit sel_register_read_error;
+sel_register_read_error * (1 - sel_register_read_error) = 0;
 // Each tag takes at most 3 bits, we can encode all of them in a field.
 // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw?both#Batching-comparison-of-n-bit-numbers.
 // This diff will be 0 iff all tags are the expected one.

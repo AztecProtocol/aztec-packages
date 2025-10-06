@@ -6,13 +6,17 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { z } from 'zod';
 
-import type { EthPrivateKey } from './types.js';
+import type { BLSPrivateKey, EthPrivateKey } from './types.js';
 
 // Use Aztec's validation functions but return string types to match our TypeScript interfaces
 export const ethPrivateKeySchema = z
   .string()
   .regex(/^0x[0-9a-fA-F]{64}$/, 'Invalid private key (must be 32 bytes with 0x prefix)')
   .transform(s => s as EthPrivateKey);
+export const blsPrivateKeySchema = z
+  .string()
+  .regex(/^0x[0-9a-fA-F]{64}$/, 'Invalid BLS private key (must be 32 bytes with 0x prefix)')
+  .transform(s => s as BLSPrivateKey);
 const urlSchema = z.string().url('Invalid URL');
 
 // Remote signer config schema
@@ -30,7 +34,7 @@ const remoteSignerAccountSchema = z.union([
   schemas.EthAddress,
   z.object({
     address: schemas.EthAddress,
-    remoteSignerUrl: optional(urlSchema),
+    remoteSignerUrl: urlSchema,
     certPath: optional(z.string()),
     certPass: optional(z.string()),
   }),
@@ -57,6 +61,21 @@ const ethAccountSchema = z.union([ethPrivateKeySchema, remoteSignerAccountSchema
 // EthAccounts schema
 const ethAccountsSchema = z.union([ethAccountSchema, z.array(ethAccountSchema), mnemonicConfigSchema]);
 
+// BLSAccount schema
+const blsAccountSchema = z.union([blsPrivateKeySchema, jsonKeyFileV3Schema]);
+
+// AttesterAccount schema: either EthAccount or { eth: EthAccount, bls?: BLSAccount }
+const attesterAccountSchema = z.union([
+  ethAccountSchema,
+  z.object({
+    eth: ethAccountSchema,
+    bls: optional(blsAccountSchema),
+  }),
+]);
+
+// AttesterAccounts schema: AttesterAccount | AttesterAccount[] | MnemonicConfig
+const attesterAccountsSchema = z.union([attesterAccountSchema, z.array(attesterAccountSchema), mnemonicConfigSchema]);
+
 // Prover keystore schema
 const proverKeyStoreSchema = z.union([
   ethAccountSchema,
@@ -68,7 +87,7 @@ const proverKeyStoreSchema = z.union([
 
 // Validator keystore schema
 const validatorKeyStoreSchema = z.object({
-  attester: ethAccountsSchema,
+  attester: attesterAccountsSchema,
   coinbase: optional(schemas.EthAddress),
   publisher: optional(ethAccountsSchema),
   feeRecipient: AztecAddress.schema,

@@ -1,7 +1,6 @@
 import type { AccountInterface, AuthWitnessProvider } from '@aztec/aztec.js/account';
-import type { ChainInfo } from '@aztec/aztec.js/wallet';
-import { DefaultAccountEntrypoint } from '@aztec/entrypoints/account';
-import type { EntrypointInterface, TxExecutionOptions } from '@aztec/entrypoints/interfaces';
+import { DefaultAccountEntrypoint, type DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
+import type { ChainInfo, EntrypointInterface } from '@aztec/entrypoints/interfaces';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -38,7 +37,7 @@ export class DefaultAccountInterface implements AccountInterface {
   createTxExecutionRequest(
     exec: ExecutionPayload,
     gasSettings: GasSettings,
-    options: TxExecutionOptions,
+    options: DefaultAccountEntrypointOptions,
   ): Promise<TxExecutionRequest> {
     return this.entrypoint.createTxExecutionRequest(exec, gasSettings, options);
   }

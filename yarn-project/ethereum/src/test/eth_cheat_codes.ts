@@ -3,9 +3,10 @@ import { keccak256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
+import { pluralize } from '@aztec/foundation/string';
 import type { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 
-import { type Hex, createPublicClient, fallback, http } from 'viem';
+import { type Hex, type Transaction, createPublicClient, fallback, hexToNumber, http } from 'viem';
 
 import type { ViemPublicClient } from '../types.js';
 
@@ -33,9 +34,12 @@ export class EthCheatCodes {
     });
   }
 
-  async rpcCall(method: string, params: any[]) {
-    const paramsString = jsonStringify(params);
-    this.logger.debug(`Calling ${method} with params: ${paramsString} on ${this.rpcUrls.join(', ')}`);
+  public rpcCall(method: string, params: any[]) {
+    this.logger.debug(`Calling ${method} with params: ${jsonStringify(params)} on ${this.rpcUrls.join(', ')}`);
+    return this.doRpcCall(method, params);
+  }
+
+  private async doRpcCall(method: string, params: any[]) {
     return (await this.publicClient.transport.request({
       method,
       params,
@@ -48,7 +52,7 @@ export class EthCheatCodes {
    */
   public async isAutoMining(): Promise<boolean> {
     try {
-      const res = await this.rpcCall('anvil_getAutomine', []);
+      const res = await this.doRpcCall('anvil_getAutomine', []);
       return res;
     } catch (err) {
       this.logger.error(`Calling "anvil_getAutomine" failed with:`, err);
@@ -61,7 +65,7 @@ export class EthCheatCodes {
    * @returns The current block number
    */
   public async blockNumber(): Promise<number> {
-    const res = await this.rpcCall('eth_blockNumber', []);
+    const res = await this.doRpcCall('eth_blockNumber', []);
     return parseInt(res, 16);
   }
 
@@ -70,7 +74,7 @@ export class EthCheatCodes {
    * @returns The current chainId
    */
   public async chainId(): Promise<number> {
-    const res = await this.rpcCall('eth_chainId', []);
+    const res = await this.doRpcCall('eth_chainId', []);
     return parseInt(res, 16);
   }
 
@@ -79,7 +83,7 @@ export class EthCheatCodes {
    * @returns The current timestamp
    */
   public async timestamp(): Promise<number> {
-    const res = await this.rpcCall('eth_getBlockByNumber', ['latest', true]);
+    const res = await this.doRpcCall('eth_getBlockByNumber', ['latest', true]);
     return parseInt(res.timestamp, 16);
   }
 
@@ -94,7 +98,7 @@ export class EthCheatCodes {
 
   private async doMine(numberOfBlocks = 1): Promise<void> {
     try {
-      await this.rpcCall('hardhat_mine', [numberOfBlocks]);
+      await this.doRpcCall('hardhat_mine', [numberOfBlocks]);
     } catch (err) {
       throw new Error(`Error mining: ${err}`);
     }
@@ -105,7 +109,8 @@ export class EthCheatCodes {
    */
   public async evmMine(): Promise<void> {
     try {
-      await this.rpcCall('evm_mine', []);
+      await this.doRpcCall('evm_mine', []);
+      this.logger.warn(`Mined 1 L1 block with evm_mine`);
     } catch (err) {
       throw new Error(`Error mining: ${err}`);
     }
@@ -126,7 +131,7 @@ export class EthCheatCodes {
   }
 
   public async getBalance(account: EthAddress | Hex): Promise<bigint> {
-    const res = await this.rpcCall('eth_getBalance', [account.toString(), 'latest']);
+    const res = await this.doRpcCall('eth_getBalance', [account.toString(), 'latest']);
     return BigInt(res);
   }
 
@@ -162,7 +167,7 @@ export class EthCheatCodes {
    */
   public getIntervalMining(): Promise<number | null> {
     try {
-      return this.rpcCall('anvil_getIntervalMining', []);
+      return this.doRpcCall('anvil_getIntervalMining', []);
     } catch (err) {
       throw new Error(`Error getting interval mining: ${err}`);
     }
@@ -363,8 +368,7 @@ export class EthCheatCodes {
    * @returns The bytecode for the contract
    */
   public async getBytecode(contract: EthAddress): Promise<`0x${string}`> {
-    const res = await this.rpcCall('eth_getCode', [contract.toString(), 'latest']);
-    return res;
+    return await this.doRpcCall('eth_getCode', [contract.toString(), 'latest']);
   }
 
   /**
@@ -373,8 +377,7 @@ export class EthCheatCodes {
    * @returns The raw transaction
    */
   public async getRawTransaction(txHash: Hex): Promise<`0x${string}`> {
-    const res = await this.rpcCall('debug_getRawTransaction', [txHash]);
-    return res;
+    return await this.doRpcCall('debug_getRawTransaction', [txHash]);
   }
 
   /**
@@ -383,8 +386,7 @@ export class EthCheatCodes {
    * @returns The trace
    */
   public async debugTraceTransaction(txHash: Hex): Promise<any> {
-    const res = await this.rpcCall('debug_traceTransaction', [txHash]);
-    return res;
+    return await this.doRpcCall('debug_traceTransaction', [txHash]);
   }
 
   /**
@@ -402,7 +404,6 @@ export class EthCheatCodes {
    * @param blockNumber - The block number that's going to be the new tip
    */
   public reorgTo(blockNumber: number): Promise<void> {
-    this.logger.info('reorgTo', { blockNumber });
     if (blockNumber <= 0) {
       throw new Error(`Can't reorg to block before genesis: ${blockNumber}`);
     }
@@ -418,6 +419,7 @@ export class EthCheatCodes {
 
       const depth = Number(currentTip - BigInt(blockNumber) + 1n);
       await this.rpcCall('anvil_rollback', [depth]);
+      this.logger.warn(`Reorged L1 chain to block number ${blockNumber} (depth ${depth})`);
     });
   }
 
@@ -444,7 +446,70 @@ export class EthCheatCodes {
   }
 
   public traceTransaction(txHash: Hex): Promise<any> {
-    return this.rpcCall('trace_transaction', [txHash]);
+    return this.doRpcCall('trace_transaction', [txHash]);
+  }
+
+  public async getTxPoolStatus(): Promise<{ pending: number; queued: number }> {
+    const { pending, queued } = await this.doRpcCall('txpool_status', []);
+    return { pending: hexToNumber(pending), queued: hexToNumber(queued) };
+  }
+
+  public async getTxPoolContents(): Promise<TxPoolTransaction[]> {
+    const txpoolContent = await this.doRpcCall('txpool_content', []);
+    return mapTxPoolContent(txpoolContent);
+  }
+
+  /**
+   * Mines an empty block by temporarily removing all pending transactions from the mempool,
+   * mining a block, and then re-adding the transactions back to the pool.
+   */
+  public async mineEmptyBlock(blockCount: number = 1): Promise<void> {
+    await this.execWithPausedAnvil(async () => {
+      // Get all pending and queued transactions from the pool
+      const txs = await this.getTxPoolContents();
+
+      this.logger.debug(`Found ${txs.length} transactions in pool`);
+
+      // Get raw transactions before dropping them
+      const rawTxs: Hex[] = [];
+      for (const tx of txs) {
+        try {
+          const rawTx = await this.doRpcCall('debug_getRawTransaction', [tx.hash]);
+          if (rawTx) {
+            rawTxs.push(rawTx);
+            this.logger.debug(`Got raw tx for ${tx.hash}`);
+          } else {
+            this.logger.warn(`No raw tx found for ${tx.hash}`);
+          }
+        } catch {
+          this.logger.warn(`Failed to get raw transaction for ${tx.hash}`);
+        }
+      }
+
+      this.logger.debug(`Retrieved ${rawTxs.length} raw transactions`);
+
+      // Drop all transactions from the mempool
+      await this.doRpcCall('anvil_dropAllTransactions', []);
+
+      // Mine an empty block
+      await this.doMine(blockCount);
+
+      // Re-add the transactions to the pool
+      for (const rawTx of rawTxs) {
+        try {
+          const txHash = await this.doRpcCall('eth_sendRawTransaction', [rawTx]);
+          this.logger.debug(`Re-added transaction ${txHash}`);
+        } catch (err) {
+          this.logger.warn(`Failed to re-add transaction: ${err}`);
+        }
+      }
+
+      if (rawTxs.length !== txs.length) {
+        this.logger.warn(`Failed to add all txs back: had ${txs.length} but re-added ${rawTxs.length}`);
+      }
+    });
+
+    this.logger.warn(`Mined ${blockCount} empty L1 ${pluralize('block', blockCount)}`);
   }
 
   public async execWithPausedAnvil<T>(fn: () => Promise<T>): Promise<T> {
@@ -479,4 +544,39 @@ export class EthCheatCodes {
       }
     }
   }
+
+  public async syncDateProvider() {
+    const timestamp = await this.timestamp();
+    if ('setTime' in this.dateProvider) {
+      this.dateProvider.setTime(timestamp * 1000);
+    }
+  }
+}
+
+type TxPoolState = 'pending' | 'queued';
+
+interface TxPoolContent {
+  pending: Record<Hex, Record<string, Transaction>>;
+  queued: Record<Hex, Record<string, Transaction>>;
+}
+
+export type TxPoolTransaction = Transaction & {
+  poolState: TxPoolState;
+};
+
+function mapTxPoolContent(content: TxPoolContent): TxPoolTransaction[] {
+  const result: TxPoolTransaction[] = [];
+
+  const processPool = (pool: Record<Hex, Record<string, Transaction>>, poolState: TxPoolState) => {
+    for (const txsByNonce of Object.values(pool)) {
+      for (const tx of Object.values(txsByNonce)) {
+        result.push({ ...tx, poolState });
+      }
+    }
+  };
+
+  processPool(content.pending, 'pending');
+  processPool(content.queued, 'queued');
+
+  return result;
 }

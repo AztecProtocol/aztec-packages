@@ -1,5 +1,5 @@
 import { times } from '@aztec/foundation/collection';
-import { SecretValue } from '@aztec/foundation/config';
+import { SecretValue, getActiveNetworkName } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -11,7 +11,7 @@ import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { createEthereumChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
-import { DefaultL1ContractsConfig } from './config.js';
+import { DefaultL1ContractsConfig, getEntryQueueConfig } from './config.js';
 import { GovernanceContract } from './contracts/governance.js';
 import { GSEContract } from './contracts/gse.js';
 import { RegistryContract } from './contracts/registry.js';
@@ -259,9 +259,14 @@ describe('deploy_l1_contracts', () => {
     expect(await rollup.getActiveAttesterCount()).toEqual(BigInt(initialValidators.length));
   });
 
-  it('deploys 48 validators and flushes 32', async () => {
-    // Adds 48 validators. We will repeatedly flush during the same epoch up till the limit.
-    const initialValidators = times(48, () => {
+  it('deploys validators and flushes up to maxQueueFlushSize', async () => {
+    // Determine flush cap from active network configuration
+    const networkName = getActiveNetworkName();
+    const { maxQueueFlushSize } = getEntryQueueConfig(networkName);
+
+    // We will repeatedly flush during the same epoch up till the limit.
+    const totalValidators = Number(48);
+    const initialValidators = times(totalValidators, () => {
       const addr = EthAddress.random();
       const bn254SecretKey = new SecretValue(Fr.random().toBigInt());
       return { attester: addr, withdrawer: addr, bn254SecretKey };
@@ -273,8 +278,8 @@ describe('deploy_l1_contracts', () => {
     });
     const rollup = new RollupContract(client, info.l1ContractAddresses.rollupAddress);
 
-    expect(await rollup.getEntryQueueLength()).toEqual(48n - 32n);
-    expect(await rollup.getActiveAttesterCount()).toEqual(BigInt(32n));
+    expect(await rollup.getEntryQueueLength()).toEqual(BigInt(totalValidators) - maxQueueFlushSize);
+    expect(await rollup.getActiveAttesterCount()).toEqual(maxQueueFlushSize);
   });
 
   it('ensure governance is the owner', async () => {

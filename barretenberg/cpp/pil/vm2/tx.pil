@@ -68,9 +68,12 @@ namespace tx;
     // end_phase = 1, remaining_phase - 1 = 0;
     pol commit is_revertible;
     pol commit reverted;
+    reverted * (1 - reverted) = 0;
+    #[END_PHASE_ON_REVERT]
+    sel * reverted * (1 - end_phase) = 0;
     // phase_value stays the same unless we are at end_phase or reverted
     #[PHASE_VALUE_CONTINUITY]
-    NOT_PHASE_END * (1 - reverted) * (1 - precomputed.first_row) * (phase_value' - phase_value) = 0;
+    NOT_PHASE_END * (1 - precomputed.first_row) * (phase_value' - phase_value) = 0;
     // At the start of a new phase, we need to increment the phase value
     #[INCR_PHASE_VALUE_ON_END]
     NOT_LAST * (1 - reverted) * end_phase * (phase_value' - (phase_value + 1)) = 0;
@@ -95,7 +98,7 @@ namespace tx;
     pol REM_COUNT_MINUS_1 = remaining_phase_counter - 1;
     // If remaining_phase_counter == 1, end_phase = 1
     #[REM_COUNT_IS_ONE]
-    sel * (1 - is_padded) * (REM_COUNT_MINUS_1 * (end_phase * (1 - remaining_phase_minus_one_inv) + remaining_phase_minus_one_inv) - 1 + end_phase) = 0;
+    sel * (1 - reverted) * (1 - is_padded) * (REM_COUNT_MINUS_1 * (end_phase * (1 - remaining_phase_minus_one_inv) + remaining_phase_minus_one_inv) - 1 + end_phase) = 0;
 
     // TODO: Add constraints to propagate down the things read from precomputed
     // while NOT_PHASE_END

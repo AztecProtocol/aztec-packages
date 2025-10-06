@@ -8,7 +8,7 @@ import {
   AccountManager,
   BaseWallet,
   SignerlessAccount,
-  type SimulateMethodOptions,
+  type SimulateInteractionOptions,
   createAztecNodeClient,
   type Aliased,
   type AztecNode,
@@ -21,11 +21,11 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import type { TxSimulationResult } from '@aztec/stdlib/tx';
-import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import { WalletDB, type AccountType } from './wallet_db';
 import { convertFromUTF8BufferAsString } from '../utils/conversion';
 import { WebLogger } from '../utils/web_logger';
 import { createStore } from '@aztec/kv-store/indexeddb';
+import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 
 /**
  * Data for generating an account.
@@ -90,8 +90,8 @@ export class EmbeddedWallet extends BaseWallet {
   protected async getAccountFromAddress(address: AztecAddress): Promise<Account> {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
-      const { l1ChainId: chainId, rollupVersion } = await this.aztecNode.getNodeInfo();
-      account = new SignerlessAccount(new DefaultMultiCallEntrypoint(chainId, rollupVersion));
+      const chainInfo = await this.getChainInfo();
+      account = new SignerlessAccount(chainInfo);
     } else {
       const { secretKey, salt, signingKey, type } = await this.walletDB.retrieveAccount(address);
       const parsedType = convertFromUTF8BufferAsString(type) as AccountType;
@@ -231,17 +231,16 @@ export class EmbeddedWallet extends BaseWallet {
 
   override async simulateTx(
     executionPayload: ExecutionPayload,
-    opts: SimulateMethodOptions,
+    opts: SimulateInteractionOptions,
   ): Promise<TxSimulationResult> {
     const feeOptions = opts.fee?.estimateGas
       ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
       : await this.getDefaultFeeOptions(opts.from, opts.fee);
-    const feeExecutionPayload = await feeOptions.paymentMethod?.getExecutionPayload();
-    const executionOptions = {
+    const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
+    const executionOptions: DefaultAccountEntrypointOptions = {
       txNonce: Fr.random(),
       cancellable: this.cancellableTransactions,
-      isFeePayer: feeOptions.isFeePayer,
-      endSetup: feeOptions.endSetup,
+      feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions,
     };
     const finalExecutionPayload = feeExecutionPayload
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])

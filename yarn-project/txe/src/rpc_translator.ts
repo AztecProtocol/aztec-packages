@@ -54,6 +54,9 @@ export class RPCTranslator {
       | ITxeExecutionOracle,
   ) {}
 
+  // Note: If you rename the following functions to not start with "handlerAs", you must also update the validation
+  // check in `TXESession.processFunction`.
+
   private handlerAsMisc(): IMiscOracle {
     if (!('isMisc' in this.oracleHandler)) {
       throw new UnavailableOracleError('Misc');

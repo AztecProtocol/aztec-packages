@@ -14,7 +14,7 @@ template <typename FF_> class gasImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS = { 4, 4, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {

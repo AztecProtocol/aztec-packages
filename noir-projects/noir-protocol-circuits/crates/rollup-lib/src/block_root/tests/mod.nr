@@ -234,6 +234,9 @@ impl TestBuilder {
             self.right_rollup
         };
 
+        let is_empty_block = self.num_left_txs == 0;
+        let is_single_tx_block = self.num_right_txs == 0;
+
         assert_eq(pi.num_blocks(), 1);
 
         // --- Constants ---
@@ -292,7 +295,7 @@ impl TestBuilder {
 
         assert_eq(pi.start_state.partial, left.start_tree_snapshots);
         assert_eq(pi.end_state.partial, right.end_tree_snapshots);
-        if self.num_left_txs == 0 {
+        if is_empty_block {
             assert_eq(pi.start_state.partial, pi.end_state.partial);
         } else {
             assert(pi.start_state.partial != pi.end_state.partial);
@@ -326,20 +329,31 @@ impl TestBuilder {
         };
         assert_eq(pi.in_hash, expected_in_hash);
 
-        // --- Out hash / fees / mana used ---
+        // --- Out hash --
 
-        let (expected_out_hash, expected_fees, expected_mana_used) = if self.num_left_txs == 0 {
-            (0, 0, 0)
-        } else if self.num_right_txs == 0 {
-            (left.out_hash, left.accumulated_fees, left.accumulated_mana_used)
+        let expected_out_hash = if is_empty_block {
+            0
+        } else if is_single_tx_block | (right.out_hash == 0) {
+            left.out_hash
+        } else if left.out_hash == 0 {
+            right.out_hash
+        } else {
+            accumulate_sha256(left.out_hash, right.out_hash)
+        };
+        assert_eq(pi.out_hash, expected_out_hash);
+
+        // --- fees / mana used ---
+
+        let (expected_fees, expected_mana_used) = if is_empty_block {
+            (0, 0)
+        } else if is_single_tx_block {
+            (left.accumulated_fees, left.accumulated_mana_used)
         } else {
             (
-                accumulate_sha256(left.out_hash, right.out_hash),
                 left.accumulated_fees + right.accumulated_fees,
                 left.accumulated_mana_used + right.accumulated_mana_used,
             )
         };
-        assert_eq(pi.out_hash, expected_out_hash);
         assert_eq(pi.accumulated_fees, expected_fees);
         assert_eq(pi.accumulated_mana_used, expected_mana_used);
     }

@@ -35,7 +35,7 @@ export interface L1TxUtilsConfig {
   /**
    * Maximum number of speed-up attempts
    */
-  maxAttempts?: number;
+  maxSpeedUpAttempts?: number;
   /**
    * How often to check tx status
    */
@@ -49,14 +49,17 @@ export interface L1TxUtilsConfig {
    */
   txTimeoutMs?: number;
   /**
-   * How many attempts will be done to get a tx after it was sent?
-   * First attempt is done at 1s, second at 2s, third at 3s, etc.
-   */
-  txPropagationMaxQueryAttempts?: number;
-  /**
    * Whether to attempt to cancel a tx if it's not mined after txTimeoutMs
    */
   cancelTxOnTimeout?: boolean;
+  /**
+   * How long to wait for a cancellation tx to be mined after its last attempt before giving up
+   */
+  txCancellationFinalTimeoutMs?: number;
+  /**
+   * How long a tx nonce can be unseen in the mempool before considering it dropped
+   */
+  txUnseenConsideredDroppedMs?: number;
 }
 
 export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
@@ -90,7 +93,7 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     env: 'L1_FIXED_PRIORITY_FEE_PER_GAS',
     ...numberConfigHelper(0),
   },
-  maxAttempts: {
+  maxSpeedUpAttempts: {
     description: 'Maximum number of speed-up attempts',
     env: 'L1_TX_MONITOR_MAX_ATTEMPTS',
     ...numberConfigHelper(3),
@@ -110,19 +113,27 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     env: 'L1_TX_MONITOR_TX_TIMEOUT_MS',
     ...numberConfigHelper(120_000), // 2 mins
   },
-  txPropagationMaxQueryAttempts: {
-    description: 'How many attempts will be done to get a tx after it was sent',
-    env: 'L1_TX_PROPAGATION_MAX_QUERY_ATTEMPTS',
-    ...numberConfigHelper(3),
-  },
   cancelTxOnTimeout: {
     description: "Whether to attempt to cancel a tx if it's not mined after txTimeoutMs",
     env: 'L1_TX_MONITOR_CANCEL_TX_ON_TIMEOUT',
     ...booleanConfigHelper(true),
   },
+  txCancellationFinalTimeoutMs: {
+    description: 'How long to wait for a cancellation tx after its last attempt before giving up',
+    env: 'L1_TX_MONITOR_TX_CANCELLATION_TIMEOUT_MS',
+    ...numberConfigHelper(24 * 12 * 1000), // 24 L1 blocks
+  },
+  txUnseenConsideredDroppedMs: {
+    description: 'How long a tx nonce can be unseen in the mempool before considering it dropped',
+    env: 'L1_TX_MONITOR_TX_UNSEEN_CONSIDERED_DROPPED_MS',
+    ...numberConfigHelper(6 * 12 * 1000), // 6 L1 blocks
+  },
 };
 
-export const defaultL1TxUtilsConfig = getDefaultConfig<L1TxUtilsConfig>(l1TxUtilsConfigMappings);
+// We abuse the fact that all mappings above have a non null default value and force-type this to Required
+export const defaultL1TxUtilsConfig = getDefaultConfig<L1TxUtilsConfig>(
+  l1TxUtilsConfigMappings,
+) as Required<L1TxUtilsConfig>;
 
 export function getL1TxUtilsConfigEnvVars(): L1TxUtilsConfig {
   return getConfigFromMappings(l1TxUtilsConfigMappings);

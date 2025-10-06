@@ -129,13 +129,6 @@ Instruction TxBytecodeManager::read_instruction(const BytecodeId& bytecode_id,
         instr_fetching_event.error = error;
     }
 
-    // FIXME: remove this once all execution opcodes are supported.
-    if (!instr_fetching_event.error.has_value() &&
-        !EXEC_INSTRUCTION_SPEC.contains(instr_fetching_event.instruction.get_exec_opcode())) {
-        vinfo("Invalid execution opcode: ", instr_fetching_event.instruction.get_exec_opcode(), " at pc: ", pc);
-        instr_fetching_event.error = InstrDeserializationError::INVALID_EXECUTION_OPCODE;
-    }
-
     // We are showing whether bytecode_size > pc or not. If there is no fetching error,
     // we always have bytecode_size > pc.
     const auto bytecode_size = bytecode.size();

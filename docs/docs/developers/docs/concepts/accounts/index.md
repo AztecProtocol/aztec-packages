@@ -2,170 +2,358 @@
 title: Accounts
 sidebar_position: 1
 tags: [accounts]
-description: Learn about Aztec's native account abstraction, where every account is a smart contract, and how wallets interact with account contracts for authentication and transaction execution.
+description: Deep dive into Aztec's native account abstraction system - understanding how smart contract accounts work, their architecture, key management, and authorization mechanisms in a privacy-preserving blockchain.
 ---
 
-Aztec has native account abstraction. Every account in Aztec is a smart contract.
+# Understanding Accounts in Aztec
 
-In this section, you'll learn about Aztec's account abstraction, Aztec accounts and address derivation, how wallets relate to accounts, and how the entrypoints are defined.
+This page provides a comprehensive understanding of how accounts work in Aztec. We'll explore the architecture, implementation details, and the powerful features enabled by Aztec's native account abstraction.
 
-## Account Abstraction (AA)
+## What is Account Abstraction?
 
-With account abstraction, the identity of a user is usually represented by a smart contract. That makes user's onchain identity more flexible than simply using private/public keys. For example, Bitcoin has rigid accounts that must be a private key, whereas a user might want their onchain identity to be controlled by a physical passport.
+Account abstraction fundamentally changes how we think about blockchain accounts. Instead of accounts being simple key pairs (like in Bitcoin or traditional Ethereum EOAs), accounts become programmable smart contracts that can define their own rules for authentication, authorization, and transaction execution.
 
-Among the account parts to be abstracted are authentication (“Who I am”), authorization (“What I am allowed to do”), replay protection, fee payment, and execution.
+### Why Account Abstraction Matters
 
-Some account features unlocked by account abstraction are account recovery, gas sponsorship, and support of signatures other than ECDSA, such as more efficient signatures (e.g. Schnorr, BLS), or more user-friendly ones (e.g. smartphone secure enclave).
+Traditional blockchain accounts have significant limitations:
+- **Rigid authentication**: You lose your private key, you lose everything
+- **Limited authorization**: Can't easily implement multi-signature schemes or time-locked transactions
+- **Fixed fee payment**: Must pay fees in the native token from the same account
+- **No customization**: Can't adapt to different security requirements or use cases
 
-### Protocol vs application level
+Account abstraction solves these problems by making accounts programmable. This enables:
+- **Recovery mechanisms**: Social recovery, hardware wallet backups, time-delayed recovery
+- **Flexible authentication**: Biometrics, passkeys, multi-factor authentication, custom signature schemes
+- **Fee abstraction**: Pay fees in any token, or have someone else pay for you
+- **Custom authorization**: Complex permission systems, spending limits, automated transactions
 
-AA can be implemented at the protocol level is called native Account Abstraction. In this case, all the accounts on the network are smart contracts. AA can also be implemented at the smart-contract level, then we call it non-native Account Abstraction. In this case, there might be both EOAs and accounts controlled by smart contracts.
+## Aztec's Native Account Abstraction
 
-In the case of Aztec, we have native Account Abstraction.
+Unlike Ethereum where account abstraction is implemented at the application layer (ex. ERC-4337), Aztec has **native account abstraction** at the protocol level. This means:
 
-## Aztec Account Abstraction
+1. **Every account is a smart contract** - There are no externally owned accounts (EOAs)
+2. **Unified experience** - All accounts have the same capabilities and flexibility
+3. **Protocol-level support** - The entire network is designed around smart contract accounts
+4. **Privacy-first design** - Account abstraction works seamlessly with Aztec's privacy features
 
-### Authorization abstraction and DoS attacks
+### Breaking the DoS Attack Problem
 
-While we talk about “arbitrary verification logic” describing the intuition behind AA, the logic is usually not really arbitrary. The verification logic (i.e. what is checked as an authorization) is limited to make the verification time fast and bounded. If it is not bounded, an attacker can flood the mempool with expensive invalid transactions, clogging the network. That is the case for all chains where transaction validity is checked by the sequencer.
+One of the biggest challenges in account abstraction is preventing denial-of-service (DoS) attacks. If accounts can have arbitrary validation logic, malicious actors could flood the network with transactions that are expensive to validate but ultimately invalid.
 
-On Aztec, there is no limitation on the complexity of verification logic (what does it mean for the transaction to be valid). Whatever conditions it checks, the proof (that the sequencer needs to verify) is independent of its complexity.
+#### The Traditional Problem
 
-This unlocks a whole universe of new use cases and optimization of existing ones. Whenever the dapp can benefit from moving expensive computations offchain, Aztec will provide a unique chance for an optimization. That is to say, on traditional chains users pay for each executed opcode, hence more complex operations (e.g. alternative signature verification) are quite expensive. In the case of Aztec, it can be moved offchain so that it becomes almost free. The user pays for the operations in terms of client-side prover time. However, this refers to Aztec's client-side proving feature and not directly AA.
+In traditional chains with account abstraction, the sequencer must execute all validation logic onchain:
 
-Couple of examples:
-
-- Multisig contract with an arbitrary number of parties that can verify any number of signatures for free.
-- Oracle contract with an arbitrary number of data providers that can verify any number of data entries for free.
-
-## Aztec account
-
-Smart contracts on Aztec are represented by an "address", which is a hexadecimal number that uniquely represents an entity on the Aztec network. An address is derived by hashing information specific to the entity represented by the address. This information includes contract bytecode and the public keys used in private execution for encryption and nullification. This means addresses are deterministic.
-
-Aztec has no concept of EOAs (Externally Owned Accounts). Every account is implemented as a contract.
-
-### Entrypoints
-
-Account contracts usually have a specific function called `entrypoint`. It serves as the interface for interaction with the smart contract and can be called by external users or other smart contracts.
-
-An `entrypoint` function receives the actions to be carried out and an authentication payload. In pseudocode:
-
-```text
-publicKey: PublicKey;
-
-def entryPoint(payload):
-    let { privateCalls, publicCalls, nonce, signature } = payload;
-    let payloadHash = hash(privateCalls, publicCalls, nonce);
-    validateSignature(this.publicKey, signature, payloadHash);
-
-    foreach privateCall in privateCalls:
-        let { to, data, value } = privateCall;
-        call(to, data, value);
-
-    foreach publicCall in publicCalls:
-        let { to, data, value, gasLimit } = publicCall;
-        enqueueCall(to, data, value, gasLimit);
+```mermaid
+graph LR
+    A[Transaction] --> B[Sequencer validates]
+    B --> C[Run complex logic onchain]
+    C --> D[Check signatures]
+    C --> E[Verify conditions]
 ```
 
-A request for executing an action requires:
+This creates a fundamental vulnerability: attackers can submit transactions with extremely complex validation logic that consumes significant computational resources, even if the transactions ultimately fail. The sequencer pays the computational cost for every check, making DoS attacks economically viable.
 
-- The `origin` contract to execute as the first step.
-- The initial function to call (usually `entrypoint`).
-- The arguments (which encode the private and public calls to run as well as any signatures).
+#### Aztec's Solution
 
-### Non-standard entrypoints
+Aztec solves this uniquely through zero-knowledge proofs. Instead of executing validation onchain, validation happens client-side:
 
-Since the `entrypoint` interface is not enshrined, there is nothing that differentiates an account contract from an application contract. This allows implementing functions that can be called by any user and are just intended to advance the state of a contract.
+```mermaid
+graph LR
+    A[Transaction] --> B[Client validates]
+    B --> C[Generate ZK proof]
+    C --> D[Sequencer verifies proof]
+```
 
-For example, a lottery contract, where at some point a prize needs to be paid out to its winners. This `pay` action does not require authentication and does not need to be executed by any user in particular, so anyone could submit a transaction that defines the lottery contract itself as `origin` and `pay` as `entrypoint` function. However, it's on the contract to define how fees for the prize claim will be paid as they won't be paid by the account contract.
+With this approach:
+- **Client performs validation**: All complex logic runs on the user's device
+- **Proof generation**: The client generates a succinct ZK proof that validation succeeded
+- **Constant verification cost**: The sequencer only verifies the proof - a constant-time operation regardless of validation complexity
 
-For an example of this behavior see our [e2e_crowdfunding_and_claim test](https://github.com/AztecProtocol/aztec-packages/blob/88b5878dd4b95d691b855cd84153ba884adf25f8/yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts#L322) and the [SignerLess wallet](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/wallet/signerless_wallet.ts) implementation. Notice that the Signerless wallet doesn't invoke an `entrypoint` function of an account contract but instead invokes the target contract function directly.
+This means we can have:
+
+- **Unlimited validation complexity** without affecting network performance
+- **Free complex operations** like verifying 100 signatures or checking complex conditions
+- **Better privacy** as validation logic isn't visible onchain
+
+## How Aztec Accounts Work
+
+### Account Architecture
+
+Every Aztec account is a smart contract with a specific structure. At its core, an account contract must:
+
+1. **Authenticate transactions** - Verify that the transaction is authorized by the account owner
+2. **Execute calls** - Perform the requested operations (transfers, contract calls, etc.)
+3. **Manage keys** - Handle the various keys used for privacy and authentication
+4. **Handle fees** - Determine how transaction fees are paid
+
+### The Account Contract Structure
+
+Here's the essential structure of an Aztec account contract:
+
+```mermaid
+graph TD
+    A[Transaction Request] --> B[Entrypoint Function]
+    B --> C{Authenticate}
+    C -->|Valid| D[Execute Fee Payments]
+    C -->|Invalid| E[Reject Transaction]
+    D --> F[Execute App Calls]
+    F --> G{Cancellable?}
+    G -->|Yes| H[Emit Cancellation Nullifier]
+    G -->|No| I[Complete]
+    H --> I
+
+    style C fill:#f9f,stroke:#333
+    style E fill:#f66,stroke:#333
+    style I fill:#6f6,stroke:#333
+```
+
+The entrypoint function follows this pattern:
+
+1. **Authentication** - Verify the transaction is authorized (signatures, multisig, etc.)
+2. **Fee Payment** - Execute fee payment calls through the fee payload
+3. **Application Execution** - Execute the actual application calls
+4. **Cancellation Handling** - Optionally emit a nullifier for transaction cancellation
+
+### Address Derivation
+
+Aztec addresses are **deterministic** - they can be computed before deployment. An address is derived from:
+
+```
+Address = hash(
+    public_keys_hash,    // All the account's public keys
+    partial_address      // Contract deployment information
+)
+```
+
+Where:
+
+- **public_keys_hash** = Combined hash of nullifier, incoming viewing, and other keys
+- **partial_address** = Hash of the contract code and deployment parameters
+
+This deterministic addressing enables powerful features:
+
+- **Pre-funding**: Send funds to an address before the account is deployed
+- **Counterfactual deployment**: Interact with an account as if it exists, deploy it later
+- **Address recovery**: Recompute addresses from known keys
+
+#### Complete Address
+
+While an address alone is sufficient for receiving funds, spending notes requires a **complete address** which includes:
+
+- All the user's public keys (nullifier, incoming viewing, etc.)
+- The partial address (contract deployment information)
+- The contract address itself
+
+The complete address proves that the nullifier key inside the address is correct, enabling the user to spend their notes.
+
+## Keys and Privacy
+
+Aztec accounts use multiple specialized key pairs instead of a single key like traditional blockchains. This separation enables powerful privacy features:
+
+- Different keys for different purposes (spending, viewing, authorization)
+- Per-application key isolation for damage limitation
+- Flexible permission models without compromising security
+
+For detailed information about the four key types (nullifier, incoming viewing, address, and signing keys) and how they work together, see the [Keys documentation](./keys.md).
+
+## The Entrypoint Pattern
+
+The entrypoint is the gateway to your account. When someone wants to execute a transaction from your account, they call the entrypoint with a payload describing what to do.
+
+### Transaction Flow
+
+Here's how a transaction flows through an account:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Wallet
+    participant Account Contract
+    participant Target Contracts
+
+    User->>Wallet: Request transaction (transfer, swap, etc.)
+    Wallet->>Wallet: Create payload & sign
+    Wallet->>Account Contract: Call entrypoint(payload, signature)
+    Account Contract->>Account Contract: Verify signature
+    Account Contract->>Target Contracts: Execute requested calls
+    Account Contract->>Account Contract: Pay fees
+    Account Contract->>Account Contract: Emit cancellation nullifier (if cancellable)
+    Account Contract-->>User: Transaction complete
+```
+
+### Non-Standard Entrypoints
+
+The beauty of account abstraction is that not every contract needs authentication. Some contracts can have **permissionless entrypoints**.
+
+For example, a lottery contract where anyone can trigger the payout:
+
+- No authentication required
+- Anyone can call the function
+- The contract itself handles the logic and constraints
+
+This pattern is useful for:
+
+- **Automated operations**: Keepers can trigger time-based actions
+- **Public goods**: Anyone can advance the state of a protocol
+- **Gasless transactions**: Users don't need to hold fee tokens
 
 :::info
-
-Entrypoints for the following cases:
-
-- If no contract `entrypoint` is used `msg_sender` is set to `Field.max`.
-- In a private to public `entrypoint`, `msg_sender` is the contract making the private to public call.
-- When calling the `entrypoint` on an account contract, `msg_sender` is set to the account contract address.
-
+**msg_sender behavior in different entrypoint contexts:**
+- If no contract `entrypoint` is used: `msg_sender` is set to `Field.max`
+- In a private to public `entrypoint`: `msg_sender` is the contract making the private to public call
+- When calling the `entrypoint` on an account contract: `msg_sender` is set to the account contract address
 :::
 
-### Account contracts and wallets
+## Account Lifecycle
 
-Account contracts are tightly coupled to the wallet software that users use to interact with the protocol. Dapps submit to the wallet software one or more function calls to be executed (e.g. "call swap in X contract"), and the wallet encodes and signs the request as a valid payload for the user's account contract. The account contract then validates the request encoded and signed by the wallet, and executes the function calls requested by the dapp.
+### 1. Pre-deployment (Counterfactual State)
 
-### Account Initialization
+Before deployment, an account exists in a **counterfactual state**:
+- The address can be computed deterministically
+- Can receive funds (notes can be encrypted to the address)
+- Cannot send transactions (no code deployed)
 
-When a user wants to interact with the network's **public** state, they need to deploy their account contract. A contract instance is considered to be publicly deployed when it has been broadcasted to the network via the canonical `ContractInstanceRegistry` contract, which also emits a deployment nullifier associated to the deployed instance.
+### 2. Deployment
 
-However, to send fully **private** transactions, it's enough to initialize the account contract (public deployment is not needed). The default state for any given address is to be uninitialized, meaning a function with the initializer annotation has not been called. The contract is initialized when one of the functions marked with the `#[initializer]` annotation has been invoked. Multiple functions in the contract can be marked as initializers. Contracts may have functions that skip the initialization check (marked with `#[noinitcheck]`).
+Deploying an account involves:
+1. Submitting the account contract code
+2. Registering in the `ContractInstanceRegistry`
+3. Paying deployment fees (either self-funded or sponsored)
 
-Account deployment and initialization are not required to receive notes. The user address is deterministically derived from the encryption public key and the account contract they intend to deploy, so that funds can be sent to an account that hasn't been deployed yet.
+```typescript
+// Deploy with own fees
+await account.deploy().wait();
 
-Users will need to pay transaction fees in order to deploy their account contract. This can be done by sending fee juice to their account contract address (which can be derived deterministically, as mentioned above), so that the account has funds to pay for its own deployment. Alternatively, the fee can be paid for by another account, using [fee abstraction](#fee-abstraction).
+// Deploy with sponsored fees
+await account.deploy({
+    fee: { paymentMethod: sponsoredFeePayment }
+}).wait();
+```
 
-## What is an account address
+### 3. Initialization
 
-Address is derived from the [address keys](keys.md#address-keys). While the AddressPublicKey is an elliptic curve point of the form (x,y) on the [Grumpkin elliptic curve](https://github.com/AztecProtocol/aztec-connect/blob/9374aae687ec5ea01adeb651e7b9ab0d69a1b33b/markdown/specs/aztec-connect/src/primitives.md), the address is its x coordinate. The corresponding y coordinate can be derived if needed. For x to be a legitimate address, address there should exist a corresponding y that satisfies the curve equation. Any field element cannot work as an address.
+Accounts can be initialized for different purposes:
 
-### Complete address
+- **Private-only**: Just needs initialization, no public deployment
+- **Public interaction**: Requires both initialization and deployment
 
-Because of the contract address derivation scheme, you can check that a given set of public [keys](keys.md) corresponds to a given address by trying to recompute it.
+The contract is initialized when one of the functions marked with the `#[initializer]` annotation has been invoked. Multiple functions in the contract can be marked as initializers. Contracts may have functions that skip the initialization check (marked with `#[noinitcheck]`).
 
-If Alice wants Bob to send her a note, it's enough to share with him her address (x coordinate of the AddressPublicKey).
-
-However, if Alice wants to spend her notes (i.e. to prove that the nullifier key inside her address is correct) she needs her complete address. It is represented by:
-
-- all the user's public keys,
-- [partial address](keys.md#address-keys),
-- contract address.
-
-## Authorizing actions
-
-Account contracts are also expected, though not required by the protocol, to implement a set of methods for authorizing actions on behalf of the user. During a transaction, a contract may call into the account contract and request the user authorization for a given action, identified by a hash. This pattern is used, for instance, for transferring tokens from an account that is not the caller.
-
-When executing a private function, this authorization is checked by requesting an authentication witness from the execution oracle, which is usually a signed message. Authentication Witness is a scheme for authenticating actions on Aztec, so users can allow third-parties (e.g. contracts) to execute an action on their behalf.
-
-The user's [Private eXecution Environment (PXE)](../pxe/index.md) is responsible for storing these auth witnesses and returning them to the requesting account contract. Auth witnesses can belong to the current user executing the local transaction, or to another user who shared it offchain.
-
-However, during a public function execution, it is not possible to retrieve a value from the local [oracle](../smart_contracts/oracles/index.md). To support authorizations in public functions, account contracts should save in a public authwit registry what actions have been pre-authorized by their owner.
-
-These two patterns combined allow an account contract to answer whether an action `is_valid_impl` for a given user both in private and public contexts.
-
-You can read more about authorizing actions with authorization witnesses on [this page](../advanced/authwit.md).
-
-:::info
-
-Transaction simulations in the PXE are not currently simulated, this is future work described [here](https://github.com/AztecProtocol/aztec-packages/issues/9133). This means that any transaction simulations that call into a function requiring an authwit will require the user to provide an authwit. Without simulating simulations, the PXE can't anticipate what authwits a transaction may need, so developers will need to manually request these authwits from users. In the future, transactions requiring authwits will be smart enough to ask the user for the correct authwits automatically.
-
+:::note
+Account deployment and initialization are not required to receive notes. The user address is deterministically derived, so funds can be sent to an account that hasn't been deployed yet.
 :::
 
-## Nonce and fee abstraction
+### 4. Active Use
 
-Beyond the authentication logic abstraction, there are nonce abstraction and fee abstraction.
+Once deployed and initialized, accounts can:
+- Send and receive private notes
+- Interact with public and private functions
+- Authorize actions via authentication witnesses
+- Pay fees in various ways
 
-### Nonce abstraction
+## Authentication Witnesses (AuthWit)
 
-Nonce is a unique number and it is utilized for replay protection (i.e. preventing users from executing a transaction more than once and unauthorized reordering).
+Aztec replaces Ethereum's dangerous "infinite approval" pattern with **Authentication Witnesses** - a more secure authorization scheme where users sign specific actions rather than granting blanket permissions.
 
-In particular, nonce management defines what it means for a transaction to be canceled, the rules of transaction ordering, and replay protection. In Ethereum, nonce is enshrined into the protocol. On the Aztec network, nonce is abstracted i.e. if a developer wants to customize it, they get to decide how they handle replay protection, transaction cancellation, as well as ordering.
+Instead of approving unlimited token transfers, users authorize exact actions with precise parameters. This eliminates persistent security risks while enabling better UX through batched operations.
 
-Take as an example the transaction cancellation logic. It can be done through managing nullifiers. Even though we usually refer to a nullifier as a creature utilized to consume a note, in essence, a nullifier is an emitted value whose uniqueness is guaranteed by the protocol. If we want to cancel a transaction before it was mined, we can send another transaction with higher gas price that emits the same nullifier (i.e. nullifier with the same value, for example, 5). The second transaction will invalidate the original one, since nullifiers cannot be repeated.
+For detailed information about how AuthWit works in both private and public contexts, see the [Authentication Witness documentation](../advanced/authwit.md).
 
-Nonce abstraction is mostly relevant to those building wallets. For example, a developer can design a wallet that allows sending big transactions with very low priority fees because the transactions are not time sensitive (i.e. the preference is that a transaction is cheap and doesn't matter if it is slow). If one tries to apply this logic today on Ethereum (under sequential nonces), when they send a large, slow transaction they can't send any other transactions until that first large, slow transaction is processed.
+## Transaction Abstractions
 
-### Fee abstraction
+Aztec abstracts two critical components of transactions that are typically rigid in other blockchains: nonces and fees.
 
-It doesn't have to be the transaction sender who pays the transaction fees. Wallets or dapp developers can choose any payment logic they want using a paymaster. To learn more about fees on Aztec – check [this page](../fees.md).
+### Nonce Abstraction
 
-Paymaster is a contract that can pay for transactions on behalf of users. It is invoked during the private execution stage and set as the fee payer.
+Unlike Ethereum where nonces are sequential counters enforced by the protocol, Aztec lets account contracts implement their own replay protection.
 
-- It can be managed by a dapp itself (e.g. a DEX can have its own paymaster) or operate as a third party service available for everyone.
-- Fees can be paid publicly or privately.
-- Fees can be paid in any token that a paymaster accepts.
+**Different nonce strategies possible:**
 
-Fee abstraction unlocks use cases like:
+| Strategy | How it Works | Benefits |
+|----------|--------------|----------|
+| **Sequential** (like Ethereum) | Must use nonces in order (1, 2, 3...) | Simple, predictable ordering |
+| **Unordered** (like Bitcoin) | Any unused nonce is valid | Parallel transactions, no blocking |
+| **Time-windowed** | Nonces valid only in specific time periods | Automatic expiration, batching |
+| **Merkle-tree based** | Nonces from a pre-committed set | Privacy, batch pre-authorization |
 
-- Sponsored transactions (e.g. the dapp's business model might assume revenue from other streams besides transaction fees or the dapp might utilize sponsored transaction mechanics for marketing purposes). For example, sponsoring the first ten transactions for every user.
-- Flexibility in the currency used in transaction payments (e.g. users can pay for transactions in ERC-20 token).
+This enables:
+- **Parallel transactions**: No need to wait for one tx to complete before sending another
+- **Custom cancellation**: Define your own rules for replacing/cancelling transactions
+- **Flexible ordering**: Implement priority queues, batching, or time-based ordering
+
+### Fee Abstraction
+
+Unlike traditional blockchains where users must pay fees in the native token, Aztec accounts can implement custom fee payment logic:
+
+- **Pay with any token** through integrated swaps
+- **Sponsored transactions** where applications pay for users
+- **Meta-transactions** with relayer networks
+- **Custom payment models** like subscriptions or paymasters
+
+This flexibility is crucial for user onboarding and enables gasless experiences. For detailed information about fee mechanics and payment options, see the [Fees documentation](../fees.md).
+
+## Practical Implementation Patterns
+
+Here are conceptual patterns for different types of accounts:
+
+### Simple Signature Account
+
+**Pattern**: Single key controls the account
+- Verify one signature against a stored public key
+- Execute transaction if signature is valid
+- Similar to traditional EOA but programmable
+
+### Multisig Account
+
+**Pattern**: Multiple keys with threshold requirement
+- Store multiple owner public keys
+- Require M-of-N signatures to authorize
+- Count valid signatures and check threshold
+- Useful for shared treasuries or high-security accounts
+
+### Social Recovery Account
+
+**Pattern**: Main key with backup recovery mechanism
+- Primary key for normal operations
+- Set of recovery keys held by trusted parties
+- Recovery process with time delay for security
+- Protects against key loss while preventing immediate takeover
+
+### Time-Locked Account
+
+**Pattern**: Transactions with mandatory delay
+- Queue transactions with future execution time
+- Allow cancellation during waiting period
+- Useful for high-value operations or governance
+
+### Session Key Account
+
+**Pattern**: Temporary keys with limited permissions
+- Main key delegates limited authority to session keys
+- Restrictions on amount, time, or function calls
+- Ideal for gaming or automated transactions
+
+## How-to Guides
+
+Ready to implement accounts in your application? Check out these guides:
+
+- [Create an account](../../guides/aztec-js/how_to_create_account.md) - Step-by-step account creation
+- [Deploy contracts](../../guides/aztec-js/how_to_deploy_contract.md) - Using your account to deploy contracts
+- [Use authentication witnesses](../../guides/aztec-js/how_to_use_authwit.md) - Implement authorization patterns
+- [Pay fees](../../guides/aztec-js/how_to_pay_fees.md) - Different fee payment methods
+- [Send transactions](../../guides/aztec-js/how_to_send_transaction.md) - Execute transactions from your account
+
+## Summary
+
+Aztec's account abstraction represents a fundamental redesign of how blockchain accounts work:
+
+- **Every account is a smart contract** with customizable logic
+- **Multiple specialized keys** provide privacy and security separation
+- **Flexible authentication** supports any signature scheme or validation logic
+- **Authentication witnesses** replace dangerous approval patterns
+- **Abstracted nonces and fees** enable parallel transactions and flexible payment
+
+This creates a platform where users can have accounts that match their security needs, from simple single-signature accounts to complex multi-party governance structures, all while maintaining privacy through zero-knowledge proofs.
+
+The beauty of Aztec's approach is that complexity in validation doesn't increase network costs - whether you're checking one signature or one hundred, the network only verifies a single proof. This opens up possibilities that simply aren't practical on other blockchains.

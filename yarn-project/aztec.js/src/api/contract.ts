@@ -39,10 +39,10 @@ export { Contract } from '../contract/contract.js';
 export { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 
 export {
-  type RequestMethodOptions,
-  type SendMethodOptions,
-  type ProfileMethodOptions,
-  type SimulateMethodOptions,
+  type RequestInteractionOptions,
+  type SendInteractionOptions,
+  type ProfileInteractionOptions,
+  type SimulateInteractionOptions,
   type InteractionFeeOptions,
 } from '../contract/interaction_options.js';
 

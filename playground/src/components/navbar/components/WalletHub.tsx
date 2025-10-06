@@ -42,7 +42,6 @@ export function WalletHub() {
       getWallet: (_chainInfo: ChainInfo) => EmbeddedWallet.create(network.nodeURL),
       iconURL: new URL('../../../assets/aztec_small_logo.png', import.meta.url).href,
       callback: () => {
-        setIsEmbeddedWalletSelected(true);
         setOpenWalletModal(true);
         return Promise.resolve();
       },

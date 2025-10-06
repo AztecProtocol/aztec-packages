@@ -34,6 +34,7 @@ TEST(TxTraceGenTest, EnqueuedCallEvent)
         .state = { .gas_used = { 500, 1000 }, .tree_states = {}, .written_public_data_slots_tree_snapshot = {} },
         .gas_limit = { 1000, 2000 },
         .teardown_gas_limit = { 0, 0 },
+        .phase_lengths = { .setup = 1 },
     };
 
     simulation::TxPhaseEvent tx_event = {
@@ -46,6 +47,7 @@ TEST(TxTraceGenTest, EnqueuedCallEvent)
                 .msg_sender = msg_sender,
                 .contract_address = contract_address,
                 .is_static = false,
+                .calldata_size = 2,
                 .calldata_hash = calldata_hash,
                 .success = true,
             },
@@ -68,6 +70,7 @@ TEST(TxTraceGenTest, EnqueuedCallEvent)
                       ROW_FIELD_EQ(tx_remaining_phase_inv, 1),
                       ROW_FIELD_EQ(tx_msg_sender, msg_sender),
                       ROW_FIELD_EQ(tx_contract_addr, contract_address),
+                      ROW_FIELD_EQ(tx_calldata_size, 2),
                       ROW_FIELD_EQ(tx_calldata_hash, calldata_hash),
                       ROW_FIELD_EQ(tx_end_phase, 1),
                       ROW_FIELD_EQ(tx_is_static, false)));

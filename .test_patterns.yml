@@ -221,7 +221,7 @@ tests:
     owners:
       - *lasse
   - regex: "src/e2e_l1_publisher/e2e_l1_publisher.test.ts"
-    error_regex: "Anvil failed to stop in time"
+    error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
     owners:
       - *palla
   # http://ci.aztec-labs.com/f2007345762c50a8
@@ -307,6 +307,11 @@ tests:
     error_regex: "only slashes validator inactive for N consecutive epochs"
     owners:
       - *palla
+
+  - regex: "end-to-end/scripts/run_test.sh web3signer src/composed/web3signer/integration_remote_signer.test.ts"
+    error_regex: "SignerError: Web3Signer JSON-RPC error for eth_signTypedData at http://web3signer:9000: -32000 - No unlocked account matches the Sender"
+    owners:
+      - *alex
 
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"

@@ -9,8 +9,19 @@ include "calldata_hashing.pil";
 // increments by one each row until we begin a new calldata instance, where the context_id must
 // increase and latch must indicate the final row.
 //
-// The size and hash of the calldata is constrained by calldata_hashing.pil. These values should be
-// looked up via calldata_hashing.pil's latch.
+// The values in the calldata columns are really hints. Their correctness is constrained by calldata_hashing.pil,
+// where the size and hash of the calldata is validated. The hash is looked up in the tx and matched to
+// the one in a tx's public inputs, and the size is looked up for each call. These values should be
+// looked up via calldata_hashing.pil's latch against the context_id.
+//
+// For empty calldata, we have a special case where no value exists, but should have a row in this
+// trace to indicate that a certain context_id has been processed:
+//  index |  value | context_id | latch |
+// -------+--------+------------+-------+
+//    0   |    0   |     id     |   1   |
+// This is the only case in which index = 0 and sel = 1. Note that no lookups should access this trace
+// with index = 0 unless to confirm that the calldata is empty (data_copy and calldata_hashing lookup
+// all existing values with a +1).
 //
 // e.g. calldata: [0x111, 0x222, 0x333, 0x444]
 // calldata.pil:
@@ -26,7 +37,7 @@ include "calldata_hashing.pil";
 //   index_0_ |  index_1_ | index_2_ | context_id | input_0_ | input_1_ | input_2_ | output_hash | latch | start | rounds_rem | padding | calldata_size |
 // -----------+-----------+----------+------------+----------+----------+----------+-------------+-------+-------+------------+---------+---------------+
 //     0      |     1     |     2    |      1     |    sep   |   0x111  |   0x222  |  cd_hash_0  |   0   |   1   |     2      |    0    |       4       |
-//     3      |     4     |     5    |      1     |   0x444  |     0    |     0    |  cd_hash_0  |   1   |   0   |     1      |    2    |       4       |
+//     3      |     4     |     5    |      1     |   0x333  |   0x444  |     0    |  cd_hash_0  |   1   |   0   |     1      |    1    |       4       |
 
 namespace calldata;
 
@@ -36,7 +47,22 @@ namespace calldata;
     pol commit sel;
     pol commit value;
     pol commit context_id;
-    // Index starts at one:
+    // **NOTE** The index starts at one in this trace (see above comment for special case of empty calldata and index = 0):
+    // We do not currently constrain this (or the existence of a 'start' column) since calldata_hashing constrains it
+    // and all looked up calldata values are basically hints which must also go through calldata_hashing.
+    //      e.g. data_copy will look up values in this trace by context_id. We know that these values are valid (and
+    //      start at index=1) because data_copy also looks up the calldata size by the same context_id, constrained by
+    //      calldata_hashing, which itself constrains the index.
+    // We could constrain this here by introducing a start column:
+    //      pol commit start;
+    // Adding relations like (see calldata_hashing.pil's):
+    //      #[START_AFTER_LATCH]
+    //      sel' * (start' - FIRST_OR_LAST_CALLDATA) = 0;
+    //      #[START_INDEX_IS_ONE]
+    //      sel * start * (is_not_empty * (index - 1) + is_empty * index) = 0;
+    // If start = 1, #[START_INDEX_IS_ONE] should constrain that index = 1 unless we have empty calldata. In that case
+    // the 'special' row must have latch = 1, index = 0, value = 0, and will be constrained by calldata_hashing to have
+    // size = 0. This is a different case to a calldata of one field of value 0, where index = 1.
     pol commit index;
     // Designates end of calldata for that context_id
     pol commit latch;

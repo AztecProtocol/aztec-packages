@@ -270,6 +270,7 @@ TEST(BytecodeTraceGenTest, BasicHashing)
     // One extra empty row is prepended.
     EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(bc_hashing_sel, 1),
+                      ROW_FIELD_EQ(bc_hashing_start, 1),
                       ROW_FIELD_EQ(bc_hashing_sel_not_start, 0),
                       ROW_FIELD_EQ(bc_hashing_sel_not_padding_1, 1),
                       ROW_FIELD_EQ(bc_hashing_sel_not_padding_2, 1),
@@ -291,6 +292,7 @@ TEST(BytecodeTraceGenTest, BasicHashing)
     // Latched row
     EXPECT_THAT(rows.at(2),
                 AllOf(ROW_FIELD_EQ(bc_hashing_sel, 1),
+                      ROW_FIELD_EQ(bc_hashing_start, 0),
                       ROW_FIELD_EQ(bc_hashing_sel_not_start, 1),
                       ROW_FIELD_EQ(bc_hashing_sel_not_padding_1, 0),
                       ROW_FIELD_EQ(bc_hashing_sel_not_padding_2, 0),

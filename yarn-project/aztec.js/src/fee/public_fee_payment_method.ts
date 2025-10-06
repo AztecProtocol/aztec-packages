@@ -9,14 +9,6 @@ import { SetPublicAuthwitContractInteraction } from '../utils/authwit.js';
 import type { Wallet } from '../wallet/wallet.js';
 import type { FeePaymentMethod } from './fee_payment_method.js';
 
-/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
-
-/** AppConfigurableFeePaymentMethod branding */
-export interface PublicFeePaymentMethod {
-  /** Brand. */
-  _branding: 'AppConfigurableFeePaymentMethod';
-}
-
 /**
  * Holds information about how the fee for a transaction is to be paid.
  */

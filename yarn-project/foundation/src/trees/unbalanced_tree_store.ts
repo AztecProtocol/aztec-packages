@@ -68,7 +68,7 @@ export class UnbalancedTreeStore<T> {
     return [left, right];
   }
 
-  getLeaf(leafIndex: number) {
+  getLeaf(leafIndex: number): T | undefined {
     const { level, indexAtLevel } = findLeafLevelAndIndex(this.#numLeaves, leafIndex);
     const location = {
       level,
@@ -79,6 +79,10 @@ export class UnbalancedTreeStore<T> {
 
   getNode(location: TreeNodeLocation): T | undefined {
     return this.#nodeMapping.get(this.#getKey(location))?.value;
+  }
+
+  getRoot(): T | undefined {
+    return this.getNode({ level: 0, index: 0 });
   }
 
   getParent(location: TreeNodeLocation): T | undefined {

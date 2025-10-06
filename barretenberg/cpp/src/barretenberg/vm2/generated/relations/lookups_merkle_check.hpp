@@ -25,14 +25,14 @@ struct lookup_merkle_check_merkle_poseidon2_read_settings_ {
         ColumnAndShifts::merkle_check_read_left_node,
         ColumnAndShifts::merkle_check_read_right_node,
         ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::merkle_check_constant_2,
+        ColumnAndShifts::merkle_check_sel,
         ColumnAndShifts::merkle_check_read_output_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::poseidon2_hash_input_0,
         ColumnAndShifts::poseidon2_hash_input_1,
         ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_input_len,
+        ColumnAndShifts::poseidon2_hash_start,
         ColumnAndShifts::poseidon2_hash_output
     };
 };
@@ -57,14 +57,14 @@ struct lookup_merkle_check_merkle_poseidon2_write_settings_ {
         ColumnAndShifts::merkle_check_write_left_node,
         ColumnAndShifts::merkle_check_write_right_node,
         ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::merkle_check_constant_2,
+        ColumnAndShifts::merkle_check_sel,
         ColumnAndShifts::merkle_check_write_output_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::poseidon2_hash_input_0,
         ColumnAndShifts::poseidon2_hash_input_1,
         ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_input_len,
+        ColumnAndShifts::poseidon2_hash_start,
         ColumnAndShifts::poseidon2_hash_output
     };
 };

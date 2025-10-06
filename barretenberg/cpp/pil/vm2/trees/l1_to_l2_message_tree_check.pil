@@ -1,6 +1,5 @@
 include "merkle_check.pil";
 include "../constants_gen.pil";
-include "../poseidon2_hash.pil";
 
 /**
  * This gadget checks if a message exists in the L1 to L2 message tree.

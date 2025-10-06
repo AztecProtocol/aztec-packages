@@ -1,4 +1,4 @@
-import type { TxExecutionOptions } from '@aztec/entrypoints/interfaces';
+import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -37,7 +37,7 @@ export class BaseAccount implements Account {
   createTxExecutionRequest(
     exec: ExecutionPayload,
     gasSettings: GasSettings,
-    options: TxExecutionOptions,
+    options: DefaultAccountEntrypointOptions,
   ): Promise<TxExecutionRequest> {
     return this.account.createTxExecutionRequest(exec, gasSettings, options);
   }

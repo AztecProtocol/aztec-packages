@@ -4,14 +4,14 @@ import FormControl from '@mui/material/FormControl';
 import { CircularProgress, MenuItem } from '@mui/material';
 import { useContext, useEffect, useState } from 'react';
 import Typography from '@mui/material/Typography';
-import { FeeJuicePaymentMethod, type FeePaymentMethod } from '@aztec/aztec.js';
+import { type FeePaymentMethod } from '@aztec/aztec.js';
 import { AztecContext } from '../../aztecContext';
 import { progressIndicator, select } from '../../styles/common';
 import { INFO_TEXT } from '../../constants';
 import { InfoText } from './InfoText';
 import { prepareForFeePayment } from '../../utils/sponsoredFPC';
 
-const FeePaymentMethods = ['sponsored_fpc', 'private_fpc', 'public_fpc', 'fee_juice', 'bridged_fee_juice'] as const;
+const FeePaymentMethods = ['sponsored_fpc', 'private_fpc', 'public_fpc', 'none', 'bridged_fee_juice'] as const;
 type FeePaymentMethodType = (typeof FeePaymentMethods)[number];
 
 interface FeePaymentSelectorProps {
@@ -19,11 +19,11 @@ interface FeePaymentSelectorProps {
 }
 
 export function FeePaymentSelector({ setFeePaymentMethod }: FeePaymentSelectorProps) {
-  const { network, wallet, from } = useContext(AztecContext);
+  const { network, wallet, embeddedWalletSelected } = useContext(AztecContext);
 
   const [isMethodChanging, setIsMethodChanging] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<FeePaymentMethodType | undefined>(
-    network.hasSponsoredFPC ? 'sponsored_fpc' : 'fee_juice',
+    network.hasSponsoredFPC ? 'sponsored_fpc' : 'none',
   );
 
   useEffect(() => {
@@ -43,13 +43,8 @@ export function FeePaymentSelector({ setFeePaymentMethod }: FeePaymentSelectorPr
         setFeePaymentMethod(feePaymentMethod);
         break;
       }
-      case 'fee_juice': {
-        const feePaymentMethod = new FeeJuicePaymentMethod(from);
-        setFeePaymentMethod(feePaymentMethod);
-        break;
-      }
       default: {
-        throw new Error('Unimplemented fee payment method');
+        setFeePaymentMethod(undefined);
       }
     }
     setIsMethodChanging(false);
@@ -68,7 +63,7 @@ export function FeePaymentSelector({ setFeePaymentMethod }: FeePaymentSelectorPr
           size="small"
         >
           {network.hasSponsoredFPC && <MenuItem value="sponsored_fpc">Sponsored Fee Paying Contract</MenuItem>}
-          {wallet && <MenuItem value="fee_juice">Fee Juice</MenuItem>}
+          {wallet && embeddedWalletSelected && <MenuItem value="none">Fee Juice</MenuItem>}
         </Select>
       </FormControl>
       {isMethodChanging && (
