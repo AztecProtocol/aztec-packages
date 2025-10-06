@@ -4788,7 +4788,7 @@
 
 "@types/bonjour@^3.5.9":
   version "3.5.13"
-  resolved "https://registry.npmjs.org/@types/bonjour/-/bonjour-3.5.13.tgz"
+  resolved "https://registry.yarnpkg.com/@types/bonjour/-/bonjour-3.5.13.tgz#adf90ce1a105e81dd1f9c61fdc5afda1bfb92956"
   integrity sha512-z9fJ5Im06zvUL548KvYNecEVlA7cVDkGUi6kZusb04mpyEFKCIZJvloCcmpmLaIahDpOQGHaHmG6imtPMmPXGQ==
   dependencies:
     "@types/node" "*"
@@ -4800,7 +4800,7 @@
 
 "@types/connect-history-api-fallback@^1.3.5":
   version "1.5.4"
-  resolved "https://registry.npmjs.org/@types/connect-history-api-fallback/-/connect-history-api-fallback-1.5.4.tgz"
+  resolved "https://registry.yarnpkg.com/@types/connect-history-api-fallback/-/connect-history-api-fallback-1.5.4.tgz#7de71645a103056b48ac3ce07b3520b819c1d5b3"
   integrity sha512-n6Cr2xS1h4uAulPRdlw6Jl6s1oG8KrVilPN2yUITEs+K48EzMJJ3W1xy8K5eWuFvjp3R74AOIGSmp2UfBJ8HFw==
   dependencies:
     "@types/express-serve-static-core" "*"
@@ -5099,7 +5099,7 @@
 
 "@types/serve-index@^1.9.1":
   version "1.9.4"
-  resolved "https://registry.npmjs.org/@types/serve-index/-/serve-index-1.9.4.tgz"
+  resolved "https://registry.yarnpkg.com/@types/serve-index/-/serve-index-1.9.4.tgz#e6ae13d5053cb06ed36392110b4f9a49ac4ec898"
   integrity sha512-qLpGZ/c2fhSs5gnYsQxtDEq3Oy8SXPClIXkW5ghvAvsNuVSA8k+gCONcUCS/UjLEYvYps+e8uBtfgXgvhwfNug==
   dependencies:
     "@types/express" "*"
@@ -5115,7 +5115,7 @@
 
 "@types/sockjs@^0.3.33":
   version "0.3.36"
-  resolved "https://registry.npmjs.org/@types/sockjs/-/sockjs-0.3.36.tgz"
+  resolved "https://registry.yarnpkg.com/@types/sockjs/-/sockjs-0.3.36.tgz#ce322cf07bcc119d4cbf7f88954f3a3bd0f67535"
   integrity sha512-MK9V6NzAS1+Ud7JV9lJLFqW85VbC9dq3LmwZCuBe4wBDgKC0Kj/jd8Xl+nSviU+Qc3+m7umHHyHg//2KSa0a0Q==
   dependencies:
     "@types/node" "*"
@@ -6081,22 +6081,13 @@ avvio@^8.3.0:
     "@fastify/error" "^3.3.0"
     fastq "^1.17.1"
 
-axios@^1.6.8:
+axios@^1.12.0, axios@^1.6.8:
   version "1.12.2"
   resolved "https://registry.yarnpkg.com/axios/-/axios-1.12.2.tgz#6c307390136cf7a2278d09cec63b136dfc6e6da7"
   integrity sha512-vMJzPewAlRyOgxV2dU0Cuz2O8zzzx9VYtbJOaBgXFeLc4IV/Eg50n4LowmehOOR61S8ZMpc2K5Sa7g6A4jfkUw==
   dependencies:
     follow-redirects "^1.15.6"
     form-data "^4.0.4"
-    proxy-from-env "^1.1.0"
-
-axios@^1.8.3:
-  version "1.8.3"
-  resolved "https://registry.npmjs.org/axios/-/axios-1.8.3.tgz"
-  integrity sha512-iP4DebzoNlP/YN2dpwCgb8zoCmhtkajzS48JvwmkSkXvPI3DHc7m+XYL5tGnSlJtR6nImXZmdCuN5aP8dh1d8A==
-  dependencies:
-    follow-redirects "^1.15.6"
-    form-data "^4.0.0"
     proxy-from-env "^1.1.0"
 
 b4a@^1.6.4:
@@ -6287,7 +6278,7 @@ body-parser@1.20.3:
 
 bonjour-service@^1.0.11:
   version "1.3.0"
-  resolved "https://registry.npmjs.org/bonjour-service/-/bonjour-service-1.3.0.tgz"
+  resolved "https://registry.yarnpkg.com/bonjour-service/-/bonjour-service-1.3.0.tgz#80d867430b5a0da64e82a8047fc1e355bdb71722"
   integrity sha512-3YuAUiSkWykd+2Azjgyxei8OWf8thdn8AITIog2M4UICzoqfjlqr64WIjEXZllf/W6vK1goqleSR6brGomxQqA==
   dependencies:
     fast-deep-equal "^3.1.3"
@@ -7377,7 +7368,7 @@ css-has-pseudo@^7.0.2:
 
 css-loader@^6.8.1:
   version "6.11.0"
-  resolved "https://registry.npmjs.org/css-loader/-/css-loader-6.11.0.tgz"
+  resolved "https://registry.yarnpkg.com/css-loader/-/css-loader-6.11.0.tgz#33bae3bf6363d0a7c2cf9031c96c744ff54d85ba"
   integrity sha512-CTJ+AEQJjq5NzLga5pE39qdiSV56F8ywCIsqNIRF0r7BDgWsN25aazToqAFg7ZrtA/U016xudB3ffgweORxX7g==
   dependencies:
     icss-utils "^5.1.0"
@@ -8820,7 +8811,7 @@ express-logging@1.1.1:
 
 express@4.21.2, express@^4.17.3:
   version "4.21.2"
-  resolved "https://registry.npmjs.org/express/-/express-4.21.2.tgz"
+  resolved "https://registry.yarnpkg.com/express/-/express-4.21.2.tgz#cf250e48362174ead6cea4a566abef0162c1ec32"
   integrity sha512-28HqgMZAmih1Czt9ny7qr6ek2qddF4FclbMzwhCREB6OFfH+rXAnuNCwo1/wFvrtbgsQDb4kSbX9de9lFbrXnA==
   dependencies:
     accepts "~1.3.8"
@@ -9366,7 +9357,7 @@ form-data-encoder@^2.1.2:
   resolved "https://registry.npmjs.org/form-data-encoder/-/form-data-encoder-2.1.4.tgz"
   integrity sha512-yDYSgNMraqvnxiEXO4hi88+YZxaHC6QKzb5N84iRCTDeRO7ZALpir/lVmf/uXUhnwUr2O4HU8s/n6x+yNjQkHw==
 
-form-data@^4.0.0, form-data@^4.0.4:
+form-data@^4.0.4:
   version "4.0.4"
   resolved "https://registry.yarnpkg.com/form-data/-/form-data-4.0.4.tgz#784cdcce0669a9d68e94d11ac4eea98088edd2c4"
   integrity sha512-KrGhL9Q4zjj0kiUt5OO4Mr/A/jlI2jDYs5eHBpYHPcBEVSiipAvn2Ko2HnPe20rmcuuvMHNdZFp+4IlGTMF0Ow==
@@ -10407,6 +10398,13 @@ image-meta@^0.2.0:
   resolved "https://registry.yarnpkg.com/image-meta/-/image-meta-0.2.1.tgz#3a9eb9f0bfd2f767ca2b0720623c2e03742aa29f"
   integrity sha512-K6acvFaelNxx8wc2VjbIzXKDVB0Khs0QT35U6NkGfTdCmjLNcO2945m7RFNR9/RPVFm48hq7QPzK8uGH18HCGw==
 
+image-size@1.2.1:
+  version "1.2.1"
+  resolved "https://registry.yarnpkg.com/image-size/-/image-size-1.2.1.tgz#ee118aedfe666db1a6ee12bed5821cde3740276d"
+  integrity sha512-rH+46sQJ2dlwfjfhCyNx5thzrv+dtmBIhPHk0zgRUukHzZ/kRueTJXoYYsclBaKcSMBWuGbOFXtioLpzTb5euw==
+  dependencies:
+    queue "6.0.2"
+
 image-size@^1.0.2:
   version "1.2.0"
   resolved "https://registry.npmjs.org/image-size/-/image-size-1.2.0.tgz"
@@ -10577,7 +10575,7 @@ ipaddr.js@1.9.1:
 
 ipaddr.js@^2.0.1:
   version "2.2.0"
-  resolved "https://registry.npmjs.org/ipaddr.js/-/ipaddr.js-2.2.0.tgz"
+  resolved "https://registry.yarnpkg.com/ipaddr.js/-/ipaddr.js-2.2.0.tgz#d33fa7bac284f4de7af949638c9d68157c6b92e8"
   integrity sha512-Ag3wB2o37wslZS19hZqorUnrnzSkpOVy+IiiDEiTqNubEYpYuHWIf6K4psgN2ZWKExS4xhVCrRVfb/wfW8fWJA==
 
 ipx@2.1.0:
@@ -14191,7 +14189,7 @@ postcss-lab-function@^7.0.10:
 
 postcss-loader@^7.3.3:
   version "7.3.4"
-  resolved "https://registry.npmjs.org/postcss-loader/-/postcss-loader-7.3.4.tgz"
+  resolved "https://registry.yarnpkg.com/postcss-loader/-/postcss-loader-7.3.4.tgz#aed9b79ce4ed7e9e89e56199d25ad1ec8f606209"
   integrity sha512-iW5WTTBSC5BfsBJ9daFMPVrLT36MrNiC6fqOZTTaHjBNX6Pfd5p+hSBqe/fEeNd7pc13QiAyGt7VdGMw4eRC4A==
   dependencies:
     cosmiconfig "^8.3.5"
@@ -15690,7 +15688,7 @@ select-hose@^2.0.0:
 
 selfsigned@^2.1.1:
   version "2.4.1"
-  resolved "https://registry.npmjs.org/selfsigned/-/selfsigned-2.4.1.tgz"
+  resolved "https://registry.yarnpkg.com/selfsigned/-/selfsigned-2.4.1.tgz#560d90565442a3ed35b674034cec4e95dceb4ae0"
   integrity sha512-th5B4L2U+eGLq1TVh7zNRGBapioSORUeymIydxgFpwww9d2qyKvtuPU2jJuHvYAwwqi2Y596QBL3eEqcPEYL8Q==
   dependencies:
     "@types/node-forge" "^1.3.0"

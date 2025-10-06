@@ -111,6 +111,7 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
                       { C::public_data_check_low_leaf_hash, event.low_leaf_hash },
                       { C::public_data_check_intermediate_root, intermediate_root },
                       { C::public_data_check_tree_height, PUBLIC_DATA_TREE_HEIGHT },
+                      { C::public_data_check_const_two, 2 },
                       { C::public_data_check_updated_low_leaf_hash, updated_low_leaf_hash },
                       { C::public_data_check_should_insert, should_insert },
                       { C::public_data_check_new_leaf_hash, new_leaf_hash },

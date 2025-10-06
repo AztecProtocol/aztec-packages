@@ -64,7 +64,7 @@ import {
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import {
   type GasPrice,
-  type L1GasConfig,
+  type L1TxConfig,
   type L1TxRequest,
   L1TxUtils,
   type L1TxUtilsConfig,
@@ -1556,7 +1556,7 @@ export class L1Deployer {
 
   sendTransaction(
     tx: L1TxRequest,
-    options?: L1GasConfig,
+    options?: L1TxConfig,
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
     return this.l1TxUtils.sendTransaction(tx, options).then(({ txHash, state }) => ({
       txHash,

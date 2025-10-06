@@ -212,7 +212,7 @@ const LocalEntryQueueConfig = {
   bootstrapFlushSize: 0n,
   normalFlushSizeMin: 48n,
   normalFlushSizeQuotient: 2n,
-  maxQueueFlushSize: 32n,
+  maxQueueFlushSize: 48n,
 };
 
 const StagingPublicEntryQueueConfig = {

@@ -672,8 +672,12 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     auto result_x = field_t::conditional_assign(double_predicate, dbl_result.x, sub_result.x);
     auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, sub_result.y);
 
-    context->update_used_witnesses(result_x.witness_index);
-    context->update_used_witnesses(result_y.witness_index);
+    if (!result_x.is_constant()) {
+        context->update_used_witnesses(result_x.witness_index);
+    }
+    if (!result_y.is_constant()) {
+        context->update_used_witnesses(result_y.witness_index);
+    }
 
     // If the lhs is the point at infinity, return -rhs
     const bool_t lhs_infinity = is_point_at_infinity();
