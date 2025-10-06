@@ -111,10 +111,16 @@ void registersImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                              static_cast<View>(in.get(C::execution_rw_reg_6_))));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
-    { // REGISTER_READ_TAG_CHECK
+    {
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp = CView(execution_BATCHED_TAGS_DIFF_EQ_REG);
+        auto tmp = static_cast<View>(in.get(C::execution_sel_register_read_error)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_register_read_error)));
         std::get<7>(evals) += (tmp * scaling_factor);
+    }
+    { // REGISTER_READ_TAG_CHECK
+        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
+        auto tmp = CView(execution_BATCHED_TAGS_DIFF_EQ_REG);
+        std::get<8>(evals) += (tmp * scaling_factor);
     }
 }
 

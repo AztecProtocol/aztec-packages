@@ -76,7 +76,6 @@ void MerkleCheckTraceBuilder::process(
                           { C::merkle_check_read_right_node, read_right_node },
                           { C::merkle_check_write_left_node, write_left_node },
                           { C::merkle_check_write_right_node, write_right_node },
-                          { C::merkle_check_constant_2, 2 },
                           { C::merkle_check_read_output_hash, read_output_hash },
                           { C::merkle_check_write_output_hash, write_output_hash } } });
 

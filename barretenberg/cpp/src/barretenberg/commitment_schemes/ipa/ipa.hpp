@@ -105,14 +105,6 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     // accumulation claim.
     using VerifierAccumulator = stdlib::recursion::honk::IpaAccumulator<Curve>;
 
-    // // records both a `VerifierAccumulator` and also whether the "running state" of the IPA verifier is true.
-    // // this is relevant when we run the partial verifier, a.k.a. `reduce_verify_internal_recursive`, which itself is
-    // // necesary for our batching.
-    // struct VerifierAccumulatorBool {
-    //     VerifierAccumulator verifier_accumulator;
-    //     bool running_truth_value;
-    // };
-
     // Compute the length of the vector of coefficients of a polynomial being opened.
     static constexpr size_t poly_length = 1UL << log_poly_length;
 
@@ -140,7 +132,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      *\f$\vec{v}_{low}=(v_0,v_1,...,v_{n-1})\f$ and \f$\vec{v}_{high}=(v_{n},v_{n+1},...v_{2n-1})\f$. The procedure runs
      *as follows:
      *
-     *1. Send the degree of \f$f(x)\f$ plus one, equal to \f$d\f$ to the verifier
+     *1. We assume that the hash buffer has been populated by the opening claim. (This is done in a different method.)
      *2. Receive the generator challenge \f$u\f$ from the verifier. If it is zero, abort
      *3. Compute the auxiliary generator \f$U=u\cdot G\f$, where \f$G\f$ is a generator of \f$E(\mathbb{F}_p)\f$​
      *4. Set \f$\vec{G}_{k}=\vec{G}\f$, \f$\vec{a}_{k}=\vec{p}\f$ where \f$vec{p}\f$ represent the polynomial's
@@ -170,17 +162,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         const bb::Polynomial<Fr>& polynomial = opening_claim.polynomial;
 
         // Step 1.
-        // Add the commitment, challenge, and evaluation to the hash buffer.
-        // NOTE:
-        //      a. This is a bit inefficient, as the prover otherwise doesn't need this commitment.
-        //      However, the effect to performance of this MSM (in practice of size 2^16) is tiny.
-        //      b. Note that we add these three pieces of information to the hash buffer, as opposed to
-        //      calling the `send_to_verifier` method, as the verifier knows them.
-
-        const auto commitment = ck.commit(polynomial);
-        transcript->add_to_hash_buffer("IPA:commitment", commitment);
-        transcript->add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
-        transcript->add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
+        // Done in `add_claim_to_hash_buffer`.
 
         // Step 2.
         // Receive challenge for the auxiliary generator
@@ -191,6 +173,9 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         }
 
         // Step 3.
+        // Compute auxiliary generator U, which is used to bind together the inner product claim and the commitment.
+        // This yields the binding property because we assume it is computationally difficult to find a linear relation
+        // between the CRS and `Commitment::one()`.
         // Compute auxiliary generator U, which is used to bind together the inner product claim and the commitment.
         // This yields the binding property because we assume it is computationally difficult to find a linear relation
         // between the CRS and `Commitment::one()`.
@@ -316,6 +301,37 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Send a_0 to the verifier
         transcript->send_to_verifier("IPA:a_0", a_vec[0]);
     }
+    /**
+     * @brief Add the opening claim to the hash buffer.
+     *
+     * @details We add the commitment, challenge, and claimed evaluation to the hash buffer.
+     * @tparam Transcript
+     * @param ck
+     * @param opening_claim
+     * @param transcript
+     * @note This requires us to explicitly compute the commitment.
+     * @note We enact this separation to allow for more ergonomic failure tests.
+     */
+    template <typename Transcript>
+    static void add_claim_to_hash_buffer(const CK& ck,
+                                         const ProverOpeningClaim<Curve>& opening_claim,
+                                         const std::shared_ptr<Transcript>& transcript)
+    {
+        const bb::Polynomial<Fr>& polynomial = opening_claim.polynomial;
+
+        // Step 1.
+        // Add the commitment, challenge, and evaluation to the hash buffer.
+        // NOTE:
+        //      a. This is a bit inefficient, as the prover otherwise doesn't need this commitment.
+        //      However, the effect to performance of this MSM (in practice of size 2^16) is tiny.
+        //      b. Note that we add these three pieces of information to the hash buffer, as opposed to
+        //      calling the `send_to_verifier` method, as the verifier knows them.
+
+        const auto commitment = ck.commit(polynomial);
+        transcript->add_to_hash_buffer("IPA:commitment", commitment);
+        transcript->add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
+        transcript->add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
+    }
 
     /**
      * @brief Natively verify the correctness of a Proof
@@ -345,11 +361,8 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     static bool reduce_verify_internal_native(const VK& vk, const OpeningClaim<Curve>& opening_claim, auto& transcript)
         requires(!Curve::is_stdlib_type)
     {
-        // Step 1.
-        // Add the commitment, challenge, and evaluation to the hash buffer.
-        transcript->add_to_hash_buffer("IPA:commitment", opening_claim.commitment);
-        transcript->add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
-        transcript->add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
+        // Step 1
+        // Done by `add_claim_to_hash_buffer`.
 
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
@@ -434,6 +447,29 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Check if C_right == C_zero
         return (C_zero.normalize() == right_hand_side.normalize());
     }
+
+    /**
+     * @brief Add the opening claim to the hash buffer.
+     *
+     * @details We add the commitment, challenge, and claimed evaluation to the hash buffer.
+     * @tparam Transcript
+     * @param opening_claim
+     * @param transcript
+     * @note This requires us to explicitly compute the commitment.
+     * @note We enact this separation to allow for more ergonomic failure tests.
+     */
+    template <typename Transcript>
+    static void add_claim_to_hash_buffer(const OpeningClaim<Curve>& opening_claim,
+                                         const std::shared_ptr<Transcript>& transcript)
+    {
+
+        // Step 1.
+        // Add the commitment, challenge, and evaluation to the hash buffer.
+
+        transcript->add_to_hash_buffer("IPA:commitment", opening_claim.commitment);
+        transcript->add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
+        transcript->add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
+    }
     /**
      * @brief  Recursively verify the correctness of an IPA proof, without computing G_0. This is therefore a "partial
      * verification", where the verifier takes the Prover's G_0 "at face value".
@@ -456,10 +492,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         requires Curve::is_stdlib_type
     {
         // Step 1.
-        // Add the commitment, challenge, and evaluation to the hash buffer.
-        transcript->add_to_hash_buffer("IPA:commitment", opening_claim.commitment);
-        transcript->add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
-        transcript->add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
+        // Done by `add_claim_to_hash_buffer`.
 
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
@@ -532,10 +565,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      * @remark Detailed documentation can be found in \link IPA::compute_opening_proof_internal
      * compute_opening_proof_internal \endlink.
      */
+    template <typename Transcript = NativeTranscript>
     static void compute_opening_proof(const CK& ck,
                                       const ProverOpeningClaim<Curve>& opening_claim,
-                                      const std::shared_ptr<NativeTranscript>& transcript)
+                                      const std::shared_ptr<Transcript>& transcript)
     {
+        add_claim_to_hash_buffer(ck, opening_claim, transcript);
         compute_opening_proof_internal(ck, opening_claim, transcript);
     }
 
@@ -550,14 +585,18 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      *
      *@remark The verification procedure documentation is in \link IPA::verify_internal verify_internal \endlink
      */
-    static bool reduce_verify(const VK& vk, const OpeningClaim<Curve>& opening_claim, const auto& transcript)
+    template <typename Transcript = NativeTranscript>
+    static bool reduce_verify(const VK& vk,
+                              const OpeningClaim<Curve>& opening_claim,
+                              const std::shared_ptr<Transcript>& transcript)
         requires(!Curve::is_stdlib_type)
     {
+        add_claim_to_hash_buffer(opening_claim, transcript);
         return reduce_verify_internal_native(vk, opening_claim, transcript);
     }
 
     /**
-     * @brief Recursively verify the correctness of a proof
+     * @brief Recursively _partially_ verify the correctness of an IPA proof.
      *
      * @param vk Verification_key containing srs
      * @param opening_claim Contains the commitment C and opening pair \f$(\beta, f(\beta))\f$
@@ -573,6 +612,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // The output of `reduce_verify_internal_recursive` consists of a `VerifierAccumulator` and a boolean, recording
         // the truth value of the last verifier-compatibility check. This simply forgets the boolean and returns the
         // `VerifierAccumulator`.
+        add_claim_to_hash_buffer(opening_claim, transcript);
         return reduce_verify_internal_recursive(opening_claim, transcript);
     }
 
@@ -590,12 +630,13 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      * @param transcript
      * @return VerifierAccumulator
      *
-     * @note This methods calls `reduce_verify_internal_recursive` and additionally, computes G_zero, and addsthe
+     * @note This methods calls `reduce_verify_internal_recursive` and additionally, computes G_zero, and adds the
      * _constraint_ that this matches with what the Prover sends.
      */
     static bool full_verify_recursive(const VK& vk, const OpeningClaim<Curve>& opening_claim, auto& transcript)
         requires Curve::is_stdlib_type
     {
+        add_claim_to_hash_buffer(opening_claim, transcript);
         VerifierAccumulator verifier_accumulator = reduce_verify_internal_recursive(opening_claim, transcript);
         auto round_challenges_inv = verifier_accumulator.u_challenges_inv;
         auto claimed_G_zero = verifier_accumulator.comm;
@@ -683,6 +724,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         requires(!Curve::is_stdlib_type)
     {
         const auto opening_claim = reduce_batch_opening_claim(batch_opening_claim);
+        add_claim_to_hash_buffer(opening_claim, transcript);
         return reduce_verify_internal_native(vk, opening_claim, transcript);
     }
 
@@ -700,6 +742,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         requires(Curve::is_stdlib_type)
     {
         const auto opening_claim = reduce_batch_opening_claim(batch_opening_claim);
+        add_claim_to_hash_buffer(opening_claim, transcript);
         return reduce_verify_internal_recursive(opening_claim, transcript).verifier_accumulator;
     }
 
@@ -841,10 +884,10 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Step 2: Generate the challenges by hashing the pairs
         using StdlibTranscript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
         StdlibTranscript transcript;
-        transcript.send_to_verifier("u_challenges_inv_1", verifier_accumulator_1.u_challenges_inv);
-        transcript.send_to_verifier("U_1", verifier_accumulator_1.comm);
-        transcript.send_to_verifier("u_challenges_inv_2", verifier_accumulator_2.u_challenges_inv);
-        transcript.send_to_verifier("U_2", verifier_accumulator_2.comm);
+        transcript.add_to_hash_buffer("u_challenges_inv_1", verifier_accumulator_1.u_challenges_inv);
+        transcript.add_to_hash_buffer("U_1", verifier_accumulator_1.comm);
+        transcript.add_to_hash_buffer("u_challenges_inv_2", verifier_accumulator_2.u_challenges_inv);
+        transcript.add_to_hash_buffer("U_2", verifier_accumulator_2.comm);
         auto [alpha, r] = transcript.template get_challenges<Fr>("IPA:alpha", "IPA:r");
 
         // Step 3: Compute the new accumulator
