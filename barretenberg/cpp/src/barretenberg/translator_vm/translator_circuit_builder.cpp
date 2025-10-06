@@ -527,10 +527,10 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         return;
     }
 
-    // Process the first UltraOp - a no-op - and populate with zeros the beginning of all other wires to ensure all wire
-    // polynomials in translator start with 0 (required for shifted polynomials in the proving system). Technically,
-    // we'd need only first index to be a zero but, given each "real" UltraOp populates two indices in a polynomial we
-    // add two zeros for consistency.
+    // Handle the initial UltraOp (a no-op) by filling the start of all other wire polynomials with zeros. This ensures
+    // all translator wire polynomials begin with 0, which is necessary for shifted polynomials in the proving system.
+    // Although only the first index needs to be zero, we add two zeros to maintain consistency since each actual
+    // UltraOp populates two polynomial indices.
     for (auto& wire : wires) {
         wire.push_back(zero_idx);
         wire.push_back(zero_idx);
@@ -548,7 +548,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         num_gates += 2;
     };
 
-    // When encountering the random operation in the op queue, populate the op wire without creating accumulation gates
+    // When encountering the random operations in the op queue, populate the op wire without creating accumulation gates
     // These are present in the op queue at the beginning and end to ensure commitments and evaluations to op queue
     // polynomials do not reveal information about data in the op queue
     // The position and number of these random ops are explained in ClientIVC::hide_op_queue_content_tail_kernel and
@@ -561,14 +561,13 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     std::span ultra_ops_span(ultra_ops.begin() + static_cast<std::ptrdiff_t>(NUM_NO_OPS_START + NUM_RANDOM_OPS_START),
                              ultra_ops.begin() + static_cast<std::ptrdiff_t>(ops_end));
 
-    // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
-    // from the later indices and we need to know the previous accumulator to create the gate. Both when computing the
-    // accumulator and the actual accumulation gates, we skip the beginning and end of the op queue (where first no-op
-    // and random ops exist) as they should not affect the computation of the accumulation result. However, given the
-    // accumulation result (i.e. value at index RESULT_ROW) is sent as part of the proof, we also need to hide its
-    // context. However, we achieve this by ensuring a genuine operation, but with values generated randomly, is added
-    // to the op queue during the CIVC processing.
-    // Processes the range of actual ecc ops in reverse order
+    // Pre-compute accumulator values for each step since the circuit processes values in reverse order
+    // and requires knowledge of the previous accumulator to construct each gate. Both accumulator computation
+    // and gate creation skip the initial no-ops and also the random operations at the beginning and end of the oqueue ,
+    // as these should not influence the final accumulation result (located at index RESULT_ROW). The accumulation
+    // result is sent as part of the CIVC proof, and so we add a genuine operation with randomly generated values during
+    // CIVC execution to ensure no information about the rest of the ops is leaked.
+    // Acccumulator pre-computation is achieved by processing the queue in reverse order.
     for (const auto& ultra_op : std::ranges::reverse_view(ultra_ops_span)) {
         if (ultra_op.op_code.value() == 0) {
             //  Skip no-ops as they should not affect the computation of the accumulator
@@ -585,7 +584,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         accumulator_trace.push_back(current_accumulator);
     }
 
-    // Accumulator final value,recomputed during witness generation and expected at RESULT_ROW
+    // Accumulator final value, recomputed during witness generation and expected at RESULT_ROW
     Fq final_accumulator_state = accumulator_trace.back();
     accumulator_trace.pop_back();
 
@@ -593,11 +592,11 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // Generate witness values and accumulation gates from all the actual UltraOps, starting from beginning
     for (const auto& ultra_op : ultra_ops_span) {
         if (ultra_op.op_code.value() == 0) {
-            // Within the no-op range the translator trace is empty except for the accumulator binary limbs which gets
-            // copied from the last row k where an op happened (i.e. the op wire the even index has a non-zero value).
-            // Then, during proving we perform all the checks to estabilish wires at k are well formed and that we
-            // appropriately transfered the accumulator value at k across the entire no-op range, both in even and odd
-            // indices.
+            // For no-op operations, the translator trace remains empty except for accumulator binary limbs,
+            // which are copied from the previous row where a real operation occurred (i.e., where the op wire
+            // at an even index contains a non-zero value). During proving, we verify that the wires at that
+            // previous row are well-formed and that the accumulator value is correctly propagated throughout
+            // the entire no-op range for both even and odd indices.
             for (size_t j = 0; j < ACCUMULATORS_BINARY_LIMBS_0; j++) {
                 wires[j].push_back(zero_idx);
                 wires[j].push_back(zero_idx);

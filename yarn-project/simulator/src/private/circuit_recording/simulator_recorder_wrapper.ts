@@ -1,4 +1,4 @@
-import type { ForeignCallHandler } from '@aztec/noir-protocol-circuits-types/types';
+import type { ForeignCallHandler } from '@aztec/noir-acvm_js';
 import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
 import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 

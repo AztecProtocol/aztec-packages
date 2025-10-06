@@ -55,6 +55,8 @@ resource "helm_release" "aztec-gke-cluster" {
   namespace        = var.RELEASE_NAME
   create_namespace = true
   upgrade_install  = true
+  reuse_values     = false
+  reset_values     = true
 
   # base values and resources file - defaults to gcloud.yaml
   values = [
@@ -141,7 +143,6 @@ resource "helm_release" "aztec-gke-cluster" {
 
   # Setting timeout and wait conditions
   timeout       = 600
-  wait          = true
-  wait_for_jobs = true
-
+  wait          = false
+  wait_for_jobs = false
 }

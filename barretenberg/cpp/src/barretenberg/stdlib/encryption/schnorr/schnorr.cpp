@@ -29,8 +29,8 @@ schnorr_signature_bits<C> schnorr_convert_signature(C* context, const crypto::sc
     const uint8_t* e_ptr = &signature.e[0];
     numeric::read(s_ptr, s_bigint);
     numeric::read(e_ptr, e_bigint);
-    schnorr_signature_bits<C> sig{ .s = cycle_scalar::from_witness_bitstring(context, s_bigint, 256),
-                                   .e = cycle_scalar::from_witness_bitstring(context, e_bigint, 256) };
+    schnorr_signature_bits<C> sig{ .s = cycle_scalar::from_u256_witness(context, s_bigint),
+                                   .e = cycle_scalar::from_u256_witness(context, e_bigint) };
     return sig;
 }
 

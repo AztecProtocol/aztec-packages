@@ -21,7 +21,7 @@ import { getPublicClient } from '../client.js';
 import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { L1ReaderConfig } from '../l1_reader.js';
-import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
+import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { EmpireSlashingProposerContract } from './empire_slashing_proposer.js';
@@ -268,8 +268,7 @@ export class RollupContract {
 
   @memoize
   async getGenesisArchiveTreeRoot(): Promise<`0x${string}`> {
-    const block = await this.rollup.read.getBlock([0n]);
-    return block.archive;
+    return await this.rollup.read.archiveAt([0n]);
   }
 
   /**
@@ -440,6 +439,10 @@ export class RollupContract {
 
   getEntryQueueLength() {
     return this.rollup.read.getEntryQueueLength();
+  }
+
+  getAvailableValidatorFlushes() {
+    return this.rollup.read.getAvailableValidatorFlushes();
   }
 
   getNextFlushableEpoch() {
@@ -711,6 +714,10 @@ export class RollupContract {
 
   getStakingAsset() {
     return this.rollup.read.getStakingAsset();
+  }
+
+  getRewardConfig() {
+    return this.rollup.read.getRewardConfig();
   }
 
   setupEpoch(l1TxUtils: L1TxUtils) {

@@ -77,6 +77,7 @@ export class ProverNodePublisher {
   public interrupt() {
     this.interrupted = true;
     this.interruptibleSleep.interrupt();
+    this.l1TxUtils.interrupt();
   }
 
   /** Restarts the publisher after calling `interrupt`. */
@@ -99,6 +100,7 @@ export class ProverNodePublisher {
   }): Promise<boolean> {
     const { epochNumber, fromBlock, toBlock } = args;
     const ctx = { epochNumber, fromBlock, toBlock };
+
     if (!this.interrupted) {
       const timer = new Timer();
       // Validate epoch proof range and hashes are correct before submitting
@@ -259,7 +261,7 @@ export class ProverNodePublisher {
       {
         previousArchive: args.publicInputs.previousArchiveRoot.toString(),
         endArchive: args.publicInputs.endArchiveRoot.toString(),
-        proverId: EthAddress.fromField(args.publicInputs.proverId).toString(),
+        proverId: EthAddress.fromField(args.publicInputs.constants.proverId).toString(),
       } /*_args*/,
       makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>
         i % 2 === 0

@@ -1,4 +1,5 @@
 import { getL1Config } from '@aztec/cli/config';
+import { getPublicClient } from '@aztec/ethereum';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
 import {
@@ -11,7 +12,7 @@ import { getProverNodeBrokerConfigFromEnv } from '@aztec/prover-node';
 import type { ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
-import { extractRelevantOptions } from '../util.js';
+import { extractRelevantOptions, setupUpdateMonitor } from '../util.js';
 
 export async function startProverBroker(
   options: any,
@@ -33,6 +34,7 @@ export async function startProverBroker(
     throw new Error('L1 registry address is required to start Aztec Node without --deploy-aztec-contracts option');
   }
 
+  const followsCanonicalRollup = typeof config.rollupVersion !== 'number';
   const { addresses, config: rollupConfig } = await getL1Config(
     config.l1Contracts.registryAddress,
     config.l1RpcUrls,
@@ -45,6 +47,18 @@ export async function startProverBroker(
 
   const client = initTelemetryClient(getTelemetryClientConfig());
   const broker = await createAndStartProvingBroker(config, client);
+
+  if (options.autoUpdate !== 'disabled' && options.autoUpdateUrl) {
+    await setupUpdateMonitor(
+      options.autoUpdate,
+      new URL(options.autoUpdateUrl),
+      followsCanonicalRollup,
+      getPublicClient(config),
+      config.l1Contracts.registryAddress,
+      signalHandlers,
+    );
+  }
+
   services.proverBroker = [broker, ProvingJobBrokerSchema];
   signalHandlers.push(() => broker.stop());
 

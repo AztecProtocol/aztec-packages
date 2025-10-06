@@ -15,8 +15,6 @@ void get_env_varImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/get_env_var");
-
     { // FROM_PUBLIC_INPUTS
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_get_env_var)) *

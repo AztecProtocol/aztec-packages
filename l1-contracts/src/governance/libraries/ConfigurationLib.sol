@@ -46,7 +46,7 @@ library ConfigurationLib {
    * @dev     We specify `memory` here since it is called on outside import for validation
    *          before writing it to state.
    */
-  function assertValid(Configuration memory _self) internal pure returns (bool) {
+  function assertValid(Configuration memory _self) internal pure {
     require(_self.quorum >= QUORUM_LOWER, Errors.Governance__ConfigurationLib__QuorumTooSmall());
     require(_self.quorum <= QUORUM_UPPER, Errors.Governance__ConfigurationLib__QuorumTooBig());
 
@@ -85,7 +85,5 @@ library ConfigurationLib {
 
     require(_self.gracePeriod >= TIME_LOWER, Errors.Governance__ConfigurationLib__TimeTooSmall("GracePeriod"));
     require(_self.gracePeriod <= TIME_UPPER, Errors.Governance__ConfigurationLib__TimeTooBig("GracePeriod"));
-
-    return true;
   }
 }

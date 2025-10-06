@@ -3,7 +3,6 @@ import {
   type AztecNode,
   Fr,
   type Logger,
-  type PXE,
   type TxHash,
   computeSecretHash,
   createLogger,
@@ -13,7 +12,7 @@ import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
 import type { SequencerClient } from '@aztec/sequencer-client';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
@@ -62,7 +61,6 @@ export class BlacklistTokenContractTest {
   private snapshotManager: ISnapshotManager;
   logger: Logger;
   wallet!: TestWallet;
-  pxe!: PXE;
   asset!: TokenBlacklistContract;
   tokenSim!: TokenSimulator;
   badAccount!: InvalidAccountContract;
@@ -99,8 +97,7 @@ export class BlacklistTokenContractTest {
     await this.snapshotManager.snapshot(
       '3_accounts',
       deployAccounts(3, this.logger),
-      ({ deployedAccounts }, { pxe, cheatCodes, aztecNode, sequencer, wallet }) => {
-        this.pxe = pxe;
+      ({ deployedAccounts }, { cheatCodes, aztecNode, sequencer, wallet }) => {
         this.cheatCodes = cheatCodes;
         this.aztecNode = aztecNode;
         this.sequencer = sequencer;
@@ -178,7 +175,7 @@ export class BlacklistTokenContractTest {
     secretHash: Fr,
     txHash: TxHash,
   ) {
-    const txEffects = await this.pxe.getTxEffect(txHash);
+    const txEffects = await this.aztecNode.getTxEffect(txHash);
     await contract.methods
       .deliver_transparent_note(
         contract.address,

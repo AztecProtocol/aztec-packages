@@ -9,13 +9,14 @@ import {
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { createLogger } from '@aztec/foundation/log';
+import { type LogLevel, createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublicWithCommitment, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { SerializableContractInstance } from '@aztec/stdlib/contract';
 import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '@aztec/stdlib/delayed-public-mutable';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
+import type { DebugLog } from '@aztec/stdlib/logs';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TreeSnapshots } from '@aztec/stdlib/tx';
@@ -317,6 +318,22 @@ export class PublicPersistableStateManager {
       l2ToL1Message.message.recipient.toField(),
       l2ToL1Message.message.content,
     );
+  }
+
+  public writeDebugLog(contractAddress: AztecAddress, level: LogLevel, message: string, fields: Fr[]) {
+    this.trace.traceDebugLog(contractAddress, level, message, fields);
+  }
+
+  public writeDebugLogMemoryReads(memoryReads: number) {
+    this.trace.traceDebugLogMemoryReads(memoryReads);
+  }
+
+  public getDebugLogMemoryReads() {
+    return this.trace.getDebugLogMemoryReads();
+  }
+
+  public getLogs(): DebugLog[] {
+    return this.trace.getDebugLogs();
   }
 
   /**

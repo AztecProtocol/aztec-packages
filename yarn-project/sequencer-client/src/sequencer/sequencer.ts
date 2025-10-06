@@ -1,5 +1,5 @@
 import type { L2Block } from '@aztec/aztec.js';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { FormattedViemError, NoCommitteeError, type RollupContract } from '@aztec/ethereum';
 import { omit, pick } from '@aztec/foundation/collection';
@@ -27,11 +27,13 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { type BlockProposalOptions, orderAttestations } from '@aztec/stdlib/p2p';
+import type { BlockProposalOptions } from '@aztec/stdlib/p2p';
+import { orderAttestations } from '@aztec/stdlib/p2p';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
 import type { L2BlockBuiltStats } from '@aztec/stdlib/stats';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import { ContentCommitment, type FailedTx, GlobalVariables, ProposedBlockHeader, Tx } from '@aztec/stdlib/tx';
+import { ContentCommitment, type FailedTx, GlobalVariables, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 import type { ValidatorClient } from '@aztec/validator-client';
@@ -125,15 +127,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   ) {
     super();
 
-    // Set an initial coinbase for metrics purposes, but this will potentially change with each block.
-    const validatorAddresses = this.validatorClient?.getValidatorAddresses() ?? [];
-    const coinbase =
-      validatorAddresses.length === 0
-        ? EthAddress.ZERO
-        : (this.validatorClient?.getCoinbaseForAttestor(validatorAddresses[0]) ?? EthAddress.ZERO);
-
-    this.metrics = new SequencerMetrics(telemetry, () => this.state, coinbase, this.rollupContract, 'Sequencer');
-
+    this.metrics = new SequencerMetrics(telemetry, this.rollupContract, 'Sequencer');
     // Initialize config
     this.updateConfig(this.config);
   }
@@ -218,7 +212,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * Starts the sequencer and moves to IDLE state.
    */
   public start() {
-    this.metrics.start();
     this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.pollingIntervalMs);
     this.setState(SequencerState.IDLE, undefined, { force: true });
     this.runningPromise.start();
@@ -230,7 +223,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    */
   public async stop(): Promise<void> {
     this.log.info(`Stopping sequencer`);
-    this.metrics.stop();
     this.publisher?.interrupt();
     await this.runningPromise?.stop();
     this.setState(SequencerState.STOPPED, undefined, { force: true });
@@ -358,8 +350,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const coinbase = this.validatorClient!.getCoinbaseForAttestor(attestorAddress);
     const feeRecipient = this.validatorClient!.getFeeRecipientForAttestor(attestorAddress);
 
-    this.metrics.setCoinbase(coinbase);
-
     // Prepare invalidation request if the pending chain is invalid (returns undefined if no need)
     const invalidateBlock = await publisher.simulateInvalidateBlock(syncedTo.pendingChainValidationStatus);
     const canProposeCheck = await publisher.canProposeAtNextEthBlock(
@@ -432,6 +422,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
+
+    this.metrics.incOpenSlot(slot, proposerAddressInNextSlot.toString());
     this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
       proposer: proposerInNextSlot?.toString(),
       coinbase,
@@ -444,7 +436,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     });
 
     // If I created a "partial" header here that should make our job much easier.
-    const proposalHeader = ProposedBlockHeader.from({
+    const proposalHeader = CheckpointHeader.from({
       ...newGlobalVariables,
       timestamp: newGlobalVariables.timestamp,
       lastArchiveRoot: chainTipArchive,
@@ -491,7 +483,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     if (proposedBlock) {
       this.lastBlockPublished = block;
       this.emit('block-published', { blockNumber: newBlockNumber, slot: Number(slot) });
-      this.metrics.incFilledSlot(publisher.getSenderAddress().toString());
+      await this.metrics.incFilledSlot(publisher.getSenderAddress().toString(), coinbase);
     } else if (block) {
       this.emit('block-publish-failed', l1Response ?? {});
     }
@@ -581,6 +573,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       maxTransactions: this.maxTxsPerBlock,
       maxBlockSize: this.maxBlockSizeInBytes,
       maxBlockGas: this.maxBlockGas,
+      maxBlobFields: BLOBS_PER_BLOCK * FIELDS_PER_BLOB,
       deadline,
     };
   }
@@ -601,7 +594,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }))
   private async buildBlockAndEnqueuePublish(
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
-    proposalHeader: ProposedBlockHeader,
+    proposalHeader: CheckpointHeader,
     newGlobalVariables: GlobalVariables,
     proposerAddress: EthAddress | undefined,
     invalidateBlock: InvalidateBlockRequest | undefined,
@@ -613,7 +606,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const slot = proposalHeader.slotNumber.toBigInt();
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
 
-    // this.metrics.recordNewBlock(blockNumber, validTxs.length);
     const workTimer = new Timer();
     this.setState(SequencerState.CREATING_BLOCK, slot);
 
@@ -641,7 +633,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
       // TODO(@PhilWindle) We should probably periodically check for things like another
       // block being published before ours instead of just waiting on our block
-      await publisher.validateBlockHeader(block.header.toPropose(), invalidateBlock);
+      await publisher.validateBlockHeader(block.getCheckpointHeader(), invalidateBlock);
 
       const blockStats: L2BlockBuiltStats = {
         eventName: 'l2-block-built',
@@ -734,7 +726,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const blockProposalOptions: BlockProposalOptions = { publishFullTxs: !!this.config.publishTxsWithProposals };
     const proposal = await this.validatorClient.createBlockProposal(
       block.header.globalVariables.blockNumber,
-      block.header.toPropose(),
+      block.getCheckpointHeader(),
       block.archive.root,
       block.header.state,
       txs,

@@ -74,7 +74,7 @@ void test_poseidon2s_circuit(size_t num_inputs = 5)
     auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     std::unordered_set<uint32_t> outputs{
         result.witness_index, result.witness_index + 1, result.witness_index + 2, result.witness_index + 3
     };
@@ -114,7 +114,7 @@ void test_poseidon2s_hash_repeated_pairs(size_t num_inputs = 5)
     auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     for (const auto& elem : variables_in_one_gate) {
         EXPECT_EQ(outputs.contains(elem), true);
     }
@@ -145,7 +145,7 @@ TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_one_permutation)
     auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
@@ -181,7 +181,7 @@ TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_two_permutations)
     auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 2);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 

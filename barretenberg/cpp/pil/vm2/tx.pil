@@ -3,6 +3,7 @@ include "execution.pil";
 include "precomputed.pil";
 include "trees/note_hash_tree_check.pil";
 include "poseidon2_hash.pil";
+include "calldata_hashing.pil";
 include "tx_context.pil";
 include "tx_discard.pil";
 
@@ -180,7 +181,20 @@ namespace tx;
     pol commit msg_sender;
     pol commit contract_addr;
     pol commit is_static;
+    pol commit calldata_size;
     pol commit calldata_hash;
+
+    // TODO: Consider if a permutation is preferable here, and whether that work work with gas:
+    #[READ_CALLDATA_HASH]
+    should_process_call_request {
+        calldata_hash,
+        calldata_size,
+        next_context_id
+    } in calldata_hashing.latch {
+        calldata_hashing.output_hash,
+        calldata_hashing.calldata_size,
+        calldata_hashing.context_id
+    };
 
     // Read information relating to the public call request from public inputs
     #[READ_PUBLIC_CALL_REQUEST_PHASE]
@@ -228,6 +242,7 @@ namespace tx;
         contract_addr,
         fee,
         is_static,
+        calldata_size,
         // Tree State
         prev_note_hash_tree_root,
         prev_note_hash_tree_size,
@@ -243,7 +258,7 @@ namespace tx;
         prev_retrieved_bytecodes_tree_root,
         prev_retrieved_bytecodes_tree_size,
         // Side Effect States
-        prev_num_unencrypted_logs,
+        prev_num_unencrypted_log_fields,
         prev_num_l2_to_l1_messages,
         // Gas Info
         prev_l2_gas_used_sent_to_enqueued_call,
@@ -258,6 +273,7 @@ namespace tx;
         execution.contract_address,
         execution.transaction_fee,
         execution.is_static,
+        execution.parent_calldata_size,
         // Tree State
         execution.prev_note_hash_tree_root,
         execution.prev_note_hash_tree_size,
@@ -273,7 +289,7 @@ namespace tx;
         execution.prev_retrieved_bytecodes_tree_root,
         execution.prev_retrieved_bytecodes_tree_size,
         // Side Effect States
-        execution.prev_num_unencrypted_logs,
+        execution.prev_num_unencrypted_log_fields,
         execution.prev_num_l2_to_l1_messages,
         // Gas Info
         execution.prev_l2_gas_used,
@@ -304,7 +320,7 @@ namespace tx;
        next_retrieved_bytecodes_tree_root,
        next_retrieved_bytecodes_tree_size,
        // Side Effect States
-       next_num_unencrypted_logs,
+       next_num_unencrypted_log_fields,
        next_num_l2_to_l1_messages,
        // Gas Info
        next_l2_gas_used_sent_to_enqueued_call,
@@ -330,7 +346,7 @@ namespace tx;
        execution.retrieved_bytecodes_tree_root,
        execution.retrieved_bytecodes_tree_size,
        // Side Effect States
-       execution.num_unencrypted_logs,
+       execution.num_unencrypted_log_fields,
        execution.num_l2_to_l1_messages,
        // Gas Info
        execution.l2_gas_used,
@@ -562,6 +578,7 @@ namespace tx;
         fee_payer_new_balance,
         fee_juice_contract_address,
         fee_juice_balance_slot,
+        discard,
         prev_public_data_tree_root,
         next_public_data_tree_root,
         prev_public_data_tree_size,
@@ -571,6 +588,7 @@ namespace tx;
         public_data_check.value,
         public_data_check.address,
         public_data_check.slot,
+        public_data_check.discard,
         public_data_check.root,
         public_data_check.write_root,
         public_data_check.tree_size_before_write,

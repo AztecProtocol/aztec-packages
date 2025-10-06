@@ -2,7 +2,7 @@ import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { Fr, type Logger, sleep } from '@aztec/aztec.js';
 import { Fq } from '@aztec/foundation/fields';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import type { Hex } from 'viem';
@@ -48,7 +48,7 @@ describe('e2e_fees bridging_race', () => {
       salt: bobsSalt,
       contract: new SchnorrAccountContract(bobsPrivateSigningKey),
     });
-    bobsAddress = bobsAccountManager.getAddress();
+    bobsAddress = bobsAccountManager.address;
   });
 
   it('Alice bridges funds to Bob', async () => {

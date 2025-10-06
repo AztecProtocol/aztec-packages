@@ -123,7 +123,7 @@ mod tests {
             PrivateKernelInitCircuitPrivateInputs {
                 tx_request: self.tx_request,
                 private_call,
-                vk_tree_root: FixtureBuilder::vk_tree_root(),
+                vk_tree_root: self.private_call.vk_tree_root,
                 protocol_contract_tree_root: self.private_call.protocol_contract_tree_root,
                 is_private_only: false,
                 first_nullifier_hint: 0,

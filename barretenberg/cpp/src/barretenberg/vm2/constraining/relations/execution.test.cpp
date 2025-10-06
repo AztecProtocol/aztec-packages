@@ -218,9 +218,9 @@ TEST(ExecutionConstrainingTest, SideEffectStateNotChanged)
         },
         {
             { C::execution_sel, 1 },
-            { C::execution_prev_num_unencrypted_logs, 10 },
+            { C::execution_prev_num_unencrypted_log_fields, 10 },
             { C::execution_prev_num_l2_to_l1_messages, 11 },
-            { C::execution_num_unencrypted_logs, 10 },
+            { C::execution_num_unencrypted_log_fields, 10 },
             { C::execution_num_l2_to_l1_messages, 11 },
         },
     });
@@ -229,7 +229,7 @@ TEST(ExecutionConstrainingTest, SideEffectStateNotChanged)
         trace, execution::SR_NUM_UNENCRYPTED_LOGS_NOT_CHANGED, execution::SR_NUM_L2_TO_L1_MESSAGES_NOT_CHANGED);
 
     // Negative test: change num unencrypted logs
-    trace.set(C::execution_num_unencrypted_logs, 1, 100);
+    trace.set(C::execution_num_unencrypted_log_fields, 1, 100);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_NUM_UNENCRYPTED_LOGS_NOT_CHANGED),
                               "NUM_UNENCRYPTED_LOGS_NOT_CHANGED");
 

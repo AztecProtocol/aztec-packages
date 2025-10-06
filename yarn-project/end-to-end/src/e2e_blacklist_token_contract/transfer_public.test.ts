@@ -48,7 +48,6 @@ describe('e2e_blacklist_token_contract transfer public', () => {
     expect(amount).toBeGreaterThan(0n);
     const authwitNonce = Fr.random();
 
-    // docs:start:authwit_public_transfer_example
     const action = asset.methods.transfer_public(adminAddress, otherAddress, amount, authwitNonce);
 
     const validateActionInteraction = await wallet.setPublicAuthWit(
@@ -56,8 +55,7 @@ describe('e2e_blacklist_token_contract transfer public', () => {
       { caller: otherAddress, action },
       true,
     );
-    await validateActionInteraction.send({ from: adminAddress }).wait();
-    // docs:end:authwit_public_transfer_example
+    await validateActionInteraction.send().wait();
 
     // Perform the transfer
     await action.send({ from: otherAddress }).wait();
@@ -115,14 +113,12 @@ describe('e2e_blacklist_token_contract transfer public', () => {
       const action = asset.methods.transfer_public(adminAddress, otherAddress, amount, authwitNonce);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      // docs:start:set_public_authwit
       const validateActionInteraction = await wallet.setPublicAuthWit(
         adminAddress,
         { caller: otherAddress, action },
         true,
       );
-      await validateActionInteraction.send({ from: adminAddress }).wait();
-      // docs:end:set_public_authwit
+      await validateActionInteraction.send().wait();
       // Perform the transfer
       await expect(action.simulate({ from: otherAddress })).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
@@ -145,7 +141,7 @@ describe('e2e_blacklist_token_contract transfer public', () => {
         { caller: adminAddress, action },
         true,
       );
-      await validateActionInteraction.send({ from: adminAddress }).wait();
+      await validateActionInteraction.send().wait();
 
       // Perform the transfer
       await expect(action.simulate({ from: otherAddress })).rejects.toThrow(/unauthorized/);

@@ -101,7 +101,7 @@ export function NetworkSelector() {
       setCurrentContractArtifact(null);
       setShowContractInterface(false);
       setConnecting(true);
-      setNode(await createAztecNodeClient(network.nodeURL));
+      setNode(createAztecNodeClient(network.nodeURL));
     } catch (error) {
       console.error(error);
       setNetwork(null);

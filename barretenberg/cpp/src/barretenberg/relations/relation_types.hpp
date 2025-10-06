@@ -74,22 +74,22 @@ consteval std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> c
 /**
  * @brief Get the subrelation accumulators for the Protogalaxy combiner calculation.
  * @details A subrelation of degree D, when evaluated on polynomials of degree N, gives a polynomial of degree D
- * * N. In the context of Protogalaxy, N = NUM_KEYS-1. Hence, given a subrelation of length x, its
- * evaluation on such polynomials will have degree (x-1) * (NUM_KEYS-1), and the length of this evaluation
+ * * N. In the context of Protogalaxy, N = NUM_INSTANCES-1. Hence, given a subrelation of length x, its
+ * evaluation on such polynomials will have degree (x-1) * (NUM_INSTANCES-1), and the length of this evaluation
  * will be one greater than this.
- * @tparam NUM_KEYS
+ * @tparam NUM_INSTANCES
  * @tparam NUM_SUBRELATIONS
  * @param SUBRELATION_PARTIAL_LENGTHS The array of subrelation lengths supplied by a relation.
  * @return The transformed subrelation lenths
  */
-template <size_t NUM_KEYS, size_t NUM_SUBRELATIONS>
+template <size_t NUM_INSTANCES, size_t NUM_SUBRELATIONS>
 consteval std::array<size_t, NUM_SUBRELATIONS> compute_composed_subrelation_partial_lengths(
     std::array<size_t, NUM_SUBRELATIONS> SUBRELATION_PARTIAL_LENGTHS)
 {
     std::transform(SUBRELATION_PARTIAL_LENGTHS.begin(),
                    SUBRELATION_PARTIAL_LENGTHS.end(),
                    SUBRELATION_PARTIAL_LENGTHS.begin(),
-                   [](const size_t x) { return (x - 1) * (NUM_KEYS - 1) + 1; });
+                   [](const size_t x) { return (x - 1) * (NUM_INSTANCES - 1) + 1; });
     return SUBRELATION_PARTIAL_LENGTHS;
 };
 
@@ -163,15 +163,15 @@ template <typename RelationImpl> class Relation : public RelationImpl {
     static constexpr size_t TOTAL_RELATION_LENGTH =
         *std::max_element(SUBRELATION_TOTAL_LENGTHS.begin(), SUBRELATION_TOTAL_LENGTHS.end());
 
-    template <size_t NUM_KEYS>
+    template <size_t NUM_INSTANCES>
     using ProtogalaxyTupleOfUnivariatesOverSubrelationsNoOptimisticSkipping =
-        TupleOfUnivariates<FF, compute_composed_subrelation_partial_lengths<NUM_KEYS>(SUBRELATION_TOTAL_LENGTHS)>;
-    template <size_t NUM_KEYS>
+        TupleOfUnivariates<FF, compute_composed_subrelation_partial_lengths<NUM_INSTANCES>(SUBRELATION_TOTAL_LENGTHS)>;
+    template <size_t NUM_INSTANCES>
     using ProtogalaxyTupleOfUnivariatesOverSubrelations =
         TupleOfUnivariatesWithOptimisticSkipping<FF,
-                                                 compute_composed_subrelation_partial_lengths<NUM_KEYS>(
+                                                 compute_composed_subrelation_partial_lengths<NUM_INSTANCES>(
                                                      SUBRELATION_TOTAL_LENGTHS),
-                                                 NUM_KEYS - 1>;
+                                                 NUM_INSTANCES - 1>;
     using SumcheckTupleOfUnivariatesOverSubrelations =
         TupleOfUnivariates<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
 

@@ -127,11 +127,11 @@ export class PrivateCircuitPublicInputs {
     /**
      * Header of a block whose state is used during private execution (not the block the transaction is included in).
      */
-    public historicalHeader: BlockHeader,
+    public anchorBlockHeader: BlockHeader,
     /**
      * Transaction context.
      *
-     * Note: The chainId and version in the txContext are not redundant to the values in self.historical_header.global_variables because
+     * Note: The chainId and version in the txContext are not redundant to the values in self.anchor_block_header.global_variables because
      * they can be different in case of a protocol upgrade. In such a situation we could be using header from a block
      * before the upgrade took place but be using the updated protocol to execute and prove the transaction.
      */
@@ -261,7 +261,7 @@ export class PrivateCircuitPublicInputs {
       this.contractClassLogsHashes.isEmpty() &&
       this.startSideEffectCounter.isZero() &&
       this.endSideEffectCounter.isZero() &&
-      this.historicalHeader.isEmpty() &&
+      this.anchorBlockHeader.isEmpty() &&
       this.txContext.isEmpty()
     );
   }
@@ -292,7 +292,7 @@ export class PrivateCircuitPublicInputs {
       fields.contractClassLogsHashes,
       fields.startSideEffectCounter,
       fields.endSideEffectCounter,
-      fields.historicalHeader,
+      fields.anchorBlockHeader,
       fields.txContext,
     ] as const;
   }
@@ -324,7 +324,7 @@ export class PrivateCircuitPublicInputs {
       this.contractClassLogsHashes,
       this.startSideEffectCounter,
       this.endSideEffectCounter,
-      this.historicalHeader,
+      this.anchorBlockHeader,
       this.txContext,
     ]);
   }

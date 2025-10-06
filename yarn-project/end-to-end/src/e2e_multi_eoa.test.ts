@@ -8,7 +8,7 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import type { AztecNodeAdmin, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -37,7 +37,7 @@ const createPublisherKeysAndAddresses = () => {
 describe('e2e_multi_eoa', () => {
   jest.setTimeout(5 * 60 * 1000); // 5 minutes
 
-  let pxe: PXE;
+  let aztecNode: AztecNode;
   let logger: Logger;
   let wallet: Wallet;
   let defaultAccountAddress: AztecAddress;
@@ -63,7 +63,7 @@ describe('e2e_multi_eoa', () => {
 
       ({
         teardown,
-        pxe,
+        aztecNode,
         logger,
         aztecNodeAdmin: maybeAztecNodeAdmin,
         wallet,
@@ -183,7 +183,7 @@ describe('e2e_multi_eoa', () => {
       };
 
       // We should be at L2 block 2
-      const blockNumber = await pxe.getBlockNumber();
+      const blockNumber = await aztecNode.getBlockNumber();
       expect(blockNumber).toBe(2);
 
       // This means that 2 of our accounts have been used to send blocks to L1.

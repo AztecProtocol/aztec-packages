@@ -15,8 +15,6 @@ void internal_callImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/internal_call");
-
     const auto execution_NOT_LAST_EXEC = in.get(C::execution_sel) * in.get(C::execution_sel_shift);
     const auto execution_RESET_NEXT_CALL_ID =
         in.get(C::execution_sel_enter_call) + in.get(C::execution_enqueued_call_start_shift);

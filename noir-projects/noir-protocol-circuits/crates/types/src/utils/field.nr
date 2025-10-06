@@ -1,3 +1,5 @@
+global KNOWN_NON_RESIDUE: Field = 5; // This is a non-residue in Noir's native Field.
+
 pub fn field_from_bytes<let N: u32>(bytes: [u8; N], big_endian: bool) -> Field {
     assert(bytes.len() < 32, "field_from_bytes: N must be less than 32");
     let mut as_field = 0;
@@ -67,7 +69,7 @@ global C1: u32 = 28;
 global C3: Field = 40770029410420498293352137776570907027550720424234931066070132305055;
 global C5: Field = 19103219067921713944291392827692070036145651957329286315305642004821462161904;
 
-pub(crate) fn pow(x: Field, y: Field) -> Field {
+pub fn pow(x: Field, y: Field) -> Field {
     let mut r = 1 as Field;
     let b: [u1; 254] = y.to_le_bits();
 
@@ -79,12 +81,36 @@ pub(crate) fn pow(x: Field, y: Field) -> Field {
     r
 }
 
+/// Returns Option::some(sqrt) if there is a square root, and Option::none() if there isn't.
+pub fn sqrt(x: Field) -> Option<Field> {
+    // Safety: if the hint returns the square root of x, then we simply square it
+    // check the result equals x. If x is not square, we return a value that
+    // enables us to prove that fact (see the `else` clause below).
+    let (is_sq, maybe_sqrt) = unsafe { __sqrt(x) };
+
+    if is_sq {
+        let sqrt = maybe_sqrt;
+        validate_sqrt_hint(x, sqrt);
+        Option::some(sqrt)
+    } else {
+        let not_sqrt_hint = maybe_sqrt;
+        validate_not_sqrt_hint(x, not_sqrt_hint);
+        Option::none()
+    }
+}
+
+// Boolean indicating whether Field element is a square, i.e. whether there exists a y in Field s.t. x = y*y.
+unconstrained fn is_square(x: Field) -> bool {
+    let v = pow(x, -1 / 2);
+    v * (v - 1) == 0
+}
+
 // Tonelli-Shanks algorithm for computing the square root of a Field element.
 // Requires C1 = max{c: 2^c divides (p-1)}, where p is the order of Field
 // as well as C3 = (C2 - 1)/2, where C2 = (p-1)/(2^c1),
 // and C5 = ZETA^C2, where ZETA is a non-square element of Field.
 // These are pre-computed above as globals.
-pub(crate) fn sqrt(x: Field) -> Field {
+unconstrained fn tonelli_shanks_sqrt(x: Field) -> Field {
     let mut z = pow(x, C3);
     let mut t = z * z * x;
     z *= x;
@@ -106,6 +132,71 @@ pub(crate) fn sqrt(x: Field) -> Field {
     }
 
     z
+}
+
+// NB: this doesn't return an option, because in the case of there _not_ being a square root, we still want to return a field element that allows us to then assert in the _constrained_ sqrt function that there is no sqrt.
+unconstrained fn __sqrt(x: Field) -> (bool, Field) {
+    let is_sq = is_square(x);
+    if is_sq {
+        let sqrt = tonelli_shanks_sqrt(x);
+        (true, sqrt)
+    } else {
+        // Demonstrate that x is not a square (a.k.a. a "quadratic non-residue").
+        // Facts:
+        // The Legendre symbol ("LS") of x, is x^((p-1)/2) (mod p).
+        // - If x is a square, LS(x) = 1
+        // - If x is not a square, LS(x) = -1
+        // - If x = 0, LS(x) = 0.
+        //
+        // Hence:
+        // sq * sq = sq // 1 * 1 = 1
+        // non-sq * non-sq = sq // -1 * -1 = 1
+        // sq * non-sq = non-sq // -1 * 1 = -1
+        //
+        // See: https://en.wikipedia.org/wiki/Legendre_symbol
+        let demo_x_not_square = x * KNOWN_NON_RESIDUE;
+        let not_sqrt = tonelli_shanks_sqrt(demo_x_not_square);
+        (false, not_sqrt)
+    }
+}
+
+fn validate_sqrt_hint(x: Field, hint: Field) {
+    assert(hint * hint == x, f"The claimed_sqrt {hint} is not the sqrt of x {x}");
+}
+
+fn validate_not_sqrt_hint(x: Field, hint: Field) {
+    // We need this assertion, because x = 0 would pass the other assertions in this
+    // function, and we don't want people to be able to prove that 0 is not square!
+    assert(x != 0, "0 has a square root; you cannot claim it is not square");
+    // Demonstrate that x is not a square (a.k.a. a "quadratic non-residue").
+    //
+    // Facts:
+    // The Legendre symbol ("LS") of x, is x^((p-1)/2) (mod p).
+    // - If x is a square, LS(x) = 1
+    // - If x is not a square, LS(x) = -1
+    // - If x = 0, LS(x) = 0.
+    //
+    // Hence:
+    // 1. sq * sq = sq // 1 * 1 = 1
+    // 2. non-sq * non-sq = sq // -1 * -1 = 1
+    // 3. sq * non-sq = non-sq // -1 * 1 = -1
+    //
+    // See: https://en.wikipedia.org/wiki/Legendre_symbol
+    //
+    // We want to demonstrate that this below multiplication falls under bullet-point (2):
+    let demo_x_not_square = x * KNOWN_NON_RESIDUE;
+    // I.e. we want to demonstrate that `demo_x_not_square` has Legendre symbol 1
+    // (i.e. that it is a square), so we prove that it is square below.
+    // Why do we want to prove that it has LS 1?
+    // Well, since it was computed with a known-non-residue, its squareness implies we're
+    // in case 2 (something multiplied by a known-non-residue yielding a result which
+    // has a LS of 1), which implies that x must be a non-square. The unconstrained
+    // function gave us the sqrt of demo_x_not_square, so all we need to do is
+    // assert its squareness:
+    assert(
+        hint * hint == demo_x_not_square,
+        f"The hint {hint} does not demonstrate that {x} is not a square",
+    );
 }
 
 #[test]
@@ -144,4 +235,19 @@ unconstrained fn max_field_test() {
         assert_eq(max_bytes[i], mod_bytes[i]);
     }
     assert_eq(max_bytes[31], mod_bytes[31] - 1);
+}
+
+#[test]
+unconstrained fn sqrt_valid_test() {
+    let x = 16; // examples: 16, 9, 25, 81
+    let result = sqrt(x);
+    assert(result.is_some());
+    assert_eq(result.unwrap() * result.unwrap(), x);
+}
+
+#[test]
+unconstrained fn sqrt_invalid_test() {
+    let x = KNOWN_NON_RESIDUE; // has no square root in the field
+    let result = sqrt(x);
+    assert(result.is_none());
 }

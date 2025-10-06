@@ -53,6 +53,7 @@ import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import type { TxValidationResult } from '../tx/validator/tx_validator.js';
 import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.js';
+import type { AllowedElement } from './allowed_element.js';
 import { MAX_RPC_LEN } from './api_limit.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 import type { SequencerConfig } from './configs.js';
@@ -117,6 +118,11 @@ describe('AztecNodeApiSchema', () => {
   it('getL1ToL2MessageMembershipWitness', async () => {
     const response = await context.client.getL1ToL2MessageMembershipWitness(1, Fr.random());
     expect(response).toEqual([1n, expect.any(SiblingPath)]);
+  });
+
+  it('getL1ToL2MessageBlock', async () => {
+    const response = await context.client.getL1ToL2MessageBlock(Fr.random());
+    expect(response).toEqual(5);
   });
 
   it('isL1ToL2MessageSynced', async () => {
@@ -459,6 +465,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBe('enr:-');
   });
 
+  it('getAllowedPublicSetup', async () => {
+    const response = await context.client.getAllowedPublicSetup();
+    expect(response).toEqual([]);
+  });
+
   it('getWorldStateSyncStatus', async () => {
     const response = await context.client.getWorldStateSyncStatus();
     expect(response).toEqual(await handler.getWorldStateSyncStatus());
@@ -533,6 +544,10 @@ class MockAztecNode implements AztecNode {
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
     expect(noteHash).toBeInstanceOf(Fr);
     return Promise.resolve(MembershipWitness.random(NOTE_HASH_TREE_HEIGHT));
+  }
+  getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<number | undefined> {
+    expect(l1ToL2Message).toBeInstanceOf(Fr);
+    return Promise.resolve(5);
   }
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
@@ -749,5 +764,8 @@ class MockAztecNode implements AztecNode {
   }
   getEncodedEnr(): Promise<string | undefined> {
     return Promise.resolve('enr:-');
+  }
+  getAllowedPublicSetup(): Promise<AllowedElement[]> {
+    return Promise.resolve([]);
   }
 }

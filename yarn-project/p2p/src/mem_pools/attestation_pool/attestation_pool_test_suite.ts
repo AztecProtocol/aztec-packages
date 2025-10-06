@@ -7,7 +7,7 @@ import {
   SignatureDomainSeparator,
   getHashedSignaturePayloadEthSignedMessage,
 } from '@aztec/stdlib/p2p';
-import { makeHeader } from '@aztec/stdlib/testing';
+import { makeL2BlockHeader } from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -42,8 +42,8 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
   const mockBlockProposal = (signer: Secp256k1Signer, slotNumber: number, archive: Fr = Fr.random()): BlockProposal => {
     const blockNumber = 1;
-    const header = makeHeader(1, 2, slotNumber);
-    const payload = new ConsensusPayload(header.toPropose(), archive, header.state);
+    const header = makeL2BlockHeader(1, 2, slotNumber);
+    const payload = new ConsensusPayload(header.toCheckpointHeader(), archive, header.state);
 
     const hash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockProposal);
     const signature = signer.sign(hash);

@@ -20,7 +20,7 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
     using OuterFlavor = UltraFlavor;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
-    using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
+    using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using Commitment = MergeVerifier::Commitment;
     using MergeCommitments = MergeVerifier::InputCommitments;
@@ -88,9 +88,10 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     output.points_accumulator.set_public();
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {
-        auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
-        auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->get_precomputed());
-        OuterProver prover(proving_key, verification_key);
+        auto prover_instance = std::make_shared<OuterProverInstance>(builder);
+        auto verification_key =
+            std::make_shared<typename OuterFlavor::VerificationKey>(prover_instance->get_precomputed());
+        OuterProver prover(prover_instance, verification_key);
         OuterVerifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.template verify_proof<bb::DefaultIO>(proof).result;
@@ -104,7 +105,7 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     translator_pairing_points.P1.y.fix_witness();
     info("Recursive Verifier: num gates = ", builder.num_gates);
     auto graph = cdg::StaticAnalyzer(builder, false);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 

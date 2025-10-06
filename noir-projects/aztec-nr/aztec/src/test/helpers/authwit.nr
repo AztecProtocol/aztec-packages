@@ -2,7 +2,6 @@ use crate::{
     authwit::auth::{compute_authwit_message_hash, compute_inner_authwit_hash},
     context::call_interfaces::{CallInterface, PublicCallInterface},
     hash::hash_args,
-    oracle::execution::get_utility_context,
     test::helpers::{test_environment::TestEnvironment, txe_oracles},
 };
 
@@ -12,6 +11,7 @@ use protocol_types::{
 };
 
 pub unconstrained fn add_private_authwit_from_call_interface<C, let M: u32>(
+    env: TestEnvironment,
     on_behalf_of: AztecAddress,
     caller: AztecAddress,
     call_interface: C,
@@ -19,11 +19,12 @@ pub unconstrained fn add_private_authwit_from_call_interface<C, let M: u32>(
 where
     C: CallInterface<M>,
 {
-    // Note that in top-level context only chain_id and version are populated on the utility context so make sure to
-    // not use the other fields. This is a tech debt.
-    let utility_context = get_utility_context();
-    let chain_id = utility_context.chain_id();
-    let version = utility_context.version();
+    // The creation of this utility context results in the TXE session needing to keep track of authwits over its
+    // lifetime, as we'd otherwise be unable to store more than one authwit due to them getting reset when restoring the
+    // top-level TXE context.
+    // Ideally authwits would be passed alongside a contract call instead of pre-seeded.
+    let (chain_id, version) =
+        env.utility_context(|context| (context.chain_id(), context.version()));
 
     let target = call_interface.get_contract_address();
     let args_hash = hash_args(call_interface.get_args());
@@ -43,11 +44,8 @@ pub unconstrained fn add_public_authwit_from_call_interface<C, let M: u32>(
 where
     C: CallInterface<M>,
 {
-    // Note that in top-level context only chain_id and version are populated on the utility context so make sure to
-    // not use the other fields. This is a tech debt.
-    let utility_context = get_utility_context();
-    let chain_id = utility_context.chain_id();
-    let version = utility_context.version();
+    let (chain_id, version) =
+        env.utility_context(|context| (context.chain_id(), context.version()));
 
     let target = call_interface.get_contract_address();
     let args_hash = hash_args(call_interface.get_args());

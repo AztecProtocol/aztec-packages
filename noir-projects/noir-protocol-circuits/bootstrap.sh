@@ -146,7 +146,7 @@ function compile {
   # VK was downloaded from cache, update the JSON artifact with VK information
   jq -s '.[0] * .[1]' "$json_path" "$key_path" > "${json_path}.tmp"
   mv "${json_path}.tmp" "$json_path"
-  # remove temporary json file
+  # Remove temporary json file
   rm $key_path
 }
 export -f hex_to_fields_json compile
@@ -195,11 +195,19 @@ function test_cmds {
     private-kernel-reset
     private-kernel-tail-to-public
     private-kernel-tail
-    rollup-base-private
-    rollup-base-public
+    rollup-tx-base-private
+    rollup-tx-base-public
+    rollup-tx-merge
+    rollup-block-root-first
+    rollup-block-root-first-single-tx
+    rollup-block-root-first-empty-tx
     rollup-block-root
+    rollup-block-root-single-tx
     rollup-block-merge
-    rollup-merge rollup-root
+    rollup-checkpoint-root
+    rollup-checkpoint-root-single-block
+    rollup-checkpoint-merge
+    rollup-root
   "
   nargo_root_rel=$(realpath --relative-to=$root $NARGO)
   for circuit in $circuits_to_execute; do

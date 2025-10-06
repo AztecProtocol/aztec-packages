@@ -51,7 +51,7 @@ function compile_all {
     return
   fi
 
-  compile_project ::: constants foundation stdlib builder ethereum l1-artifacts
+  compile_project ::: constants foundation stdlib blob-lib builder ethereum l1-artifacts
 
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
@@ -155,7 +155,7 @@ function test_cmds {
   echo "$hash cd yarn-project/kv-store && yarn test"
   echo "$hash cd yarn-project/ivc-integration && yarn test:browser"
 
-  if [[ "${TARGET_BRANCH:-}" == "master" || "${TARGET_BRANCH:-}" == "staging" ]]; then
+  if [[ "${TARGET_BRANCH:-}" =~ ^v[0-9]+$ ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
   fi
 }

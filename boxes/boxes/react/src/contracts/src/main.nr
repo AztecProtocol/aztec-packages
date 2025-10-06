@@ -31,14 +31,18 @@ contract BoxReact {
     #[private]
     fn setNumber(number: Field, owner: AztecAddress) {
         let numbers = storage.numbers;
-        let new_number = ValueNote::new(number, owner);
 
-        numbers.at(owner).replace(new_number).emit(
-            &mut context,
-            owner,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
-        );
+        numbers.at(owner)
+            .replace(|_old| {
+                ValueNote::new(number, owner)
+            }) 
+            .emit(
+                &mut context,
+                owner,
+                MessageDelivery.CONSTRAINED_ONCHAIN,
+            );
     }
+
 
     #[utility]
     unconstrained fn getNumber(owner: AztecAddress) -> ValueNote {

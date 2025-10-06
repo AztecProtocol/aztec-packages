@@ -138,11 +138,11 @@ std::vector<std::pair<Column, FF>> insert_state(const TxContextEvent& prev_state
           next_state.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
 
         // Prev sideffect state
-        { Column::tx_prev_num_unencrypted_logs, prev_state.side_effect_states.numUnencryptedLogs },
+        { Column::tx_prev_num_unencrypted_log_fields, prev_state.side_effect_states.numUnencryptedLogFields },
         { Column::tx_prev_num_l2_to_l1_messages, prev_state.side_effect_states.numL2ToL1Messages },
 
         // Next sideffect state
-        { Column::tx_next_num_unencrypted_logs, next_state.side_effect_states.numUnencryptedLogs },
+        { Column::tx_next_num_unencrypted_log_fields, next_state.side_effect_states.numUnencryptedLogFields },
         { Column::tx_next_num_l2_to_l1_messages, next_state.side_effect_states.numL2ToL1Messages },
 
         // Execution context
@@ -155,16 +155,16 @@ std::vector<std::pair<Column, FF>> insert_side_effect_states(const SideEffectSta
 {
     return {
         {
-            Column::tx_prev_num_unencrypted_logs,
-            prev_side_effect_states.numUnencryptedLogs,
+            Column::tx_prev_num_unencrypted_log_fields,
+            prev_side_effect_states.numUnencryptedLogFields,
         },
         {
             Column::tx_prev_num_l2_to_l1_messages,
             prev_side_effect_states.numL2ToL1Messages,
         },
         {
-            Column::tx_next_num_unencrypted_logs,
-            next_side_effect_states.numUnencryptedLogs,
+            Column::tx_next_num_unencrypted_log_fields,
+            next_side_effect_states.numUnencryptedLogFields,
         },
         {
             Column::tx_next_num_l2_to_l1_messages,
@@ -227,6 +227,7 @@ std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase p
              { Column::tx_contract_addr, event.contract_address },
              { Column::tx_fee, event.transaction_fee },
              { Column::tx_is_static, event.is_static },
+             { Column::tx_calldata_size, event.calldata_size },
              { Column::tx_calldata_hash, event.calldata_hash },
              { Column::tx_reverted, !event.success },
              { Column::tx_prev_da_gas_used_sent_to_enqueued_call, event.start_gas.daGas },
@@ -380,8 +381,8 @@ std::vector<std::pair<Column, FF>> handle_cleanup()
         // Public data write counter is handled by the public data check trace due to squashing.
         { Column::tx_array_length_l2_to_l1_messages_pi_offset,
           AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX },
-        { Column::tx_array_length_unencrypted_logs_pi_offset,
-          AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX },
+        { Column::tx_fields_length_unencrypted_logs_pi_offset,
+          AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX },
     };
 }
 
@@ -661,6 +662,7 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_read_phase_table_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_phase_jump_on_revert_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_phase_length_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_read_calldata_hash_settings, InteractionType::LookupSequential>()
         .add<lookup_tx_read_public_call_request_phase_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_dispatch_exec_start_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_dispatch_exec_end_settings, InteractionType::LookupGeneric>()

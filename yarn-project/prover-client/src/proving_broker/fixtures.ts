@@ -3,7 +3,7 @@ import { type ProofUri, type ProvingJobId, makeProvingJobId } from '@aztec/stdli
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 export function makeRandomProvingJobId(epochNumber?: number): ProvingJobId {
-  return makeProvingJobId(epochNumber ?? 1, ProvingRequestType.BASE_PARITY, randomBytes(8).toString('hex'));
+  return makeProvingJobId(epochNumber ?? 1, ProvingRequestType.PARITY_BASE, randomBytes(8).toString('hex'));
 }
 
 export function makeInputsUri(): ProofUri {

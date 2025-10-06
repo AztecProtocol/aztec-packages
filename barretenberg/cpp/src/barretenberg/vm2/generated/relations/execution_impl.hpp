@@ -15,8 +15,6 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/execution");
-
     const auto constants_MEM_TAG_U1 = FF(1);
     const auto constants_MEM_TAG_U32 = FF(4);
     const auto constants_AVM_SUBTRACE_ID_EXECUTION = FF(1);
@@ -178,13 +176,14 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log)) *
-                   static_cast<View>(in.get(C::execution_dynamic_l2_gas_factor));
+                   (static_cast<View>(in.get(C::execution_register_0_)) -
+                    static_cast<View>(in.get(C::execution_dynamic_l2_gas_factor)));
         std::get<16>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log)) *
-                   (static_cast<View>(in.get(C::execution_register_1_)) -
+                   (static_cast<View>(in.get(C::execution_register_0_)) -
                     static_cast<View>(in.get(C::execution_dynamic_da_gas_factor)));
         std::get<17>(evals) += (tmp * scaling_factor);
     }
@@ -681,8 +680,8 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         using View = typename std::tuple_element_t<83, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel)) *
                    (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_unencrypted_log))) *
-                   (static_cast<View>(in.get(C::execution_prev_num_unencrypted_logs)) -
-                    static_cast<View>(in.get(C::execution_num_unencrypted_logs)));
+                   (static_cast<View>(in.get(C::execution_prev_num_unencrypted_log_fields)) -
+                    static_cast<View>(in.get(C::execution_num_unencrypted_log_fields)));
         std::get<83>(evals) += (tmp * scaling_factor);
     }
     { // NUM_L2_TO_L1_MESSAGES_NOT_CHANGED

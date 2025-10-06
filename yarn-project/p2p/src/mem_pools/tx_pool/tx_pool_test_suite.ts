@@ -54,14 +54,24 @@ export function describeTxPool(getTxPool: () => TxPool) {
     expect(txsFromEvent).toEqual(expect.arrayContaining([tx2, tx3]));
   });
 
-  it('removes txs from the pool', async () => {
-    const tx1 = await mockTx();
+  it('permanently deletes pending txs and soft-deletes mined txs', async () => {
+    const pendingTx = await mockTx(1);
+    const minedTx = await mockTx(2);
 
-    await pool.addTxs([tx1]);
-    await pool.deleteTxs([tx1.getTxHash()]);
+    await pool.addTxs([pendingTx, minedTx]);
+    await pool.markAsMined([minedTx.getTxHash()], minedBlockHeader);
 
-    await expect(pool.getTxByHash(tx1.getTxHash())).resolves.toBeFalsy();
-    await expect(pool.getTxStatus(tx1.getTxHash())).resolves.toBeUndefined();
+    // Delete a pending tx - should be permanently deleted
+    await pool.deleteTxs([pendingTx.getTxHash()]);
+    await expect(pool.getTxByHash(pendingTx.getTxHash())).resolves.toBeUndefined();
+    await expect(pool.getTxStatus(pendingTx.getTxHash())).resolves.toBeUndefined();
+
+    // Delete a mined tx - should be soft-deleted (still in storage)
+    await pool.deleteTxs([minedTx.getTxHash()]);
+    await expect(pool.getTxByHash(minedTx.getTxHash())).resolves.toBeDefined();
+    await expect(pool.getTxStatus(minedTx.getTxHash())).resolves.toEqual('deleted');
+    await expect(pool.getMinedTxHashes()).resolves.toEqual([]);
+
     await expect(pool.getPendingTxCount()).resolves.toEqual(0);
   });
 
@@ -202,5 +212,102 @@ export function describeTxPool(getTxPool: () => TxPool) {
     const poolTxHashes = await pool.getPendingTxHashes();
     expect(poolTxHashes).toHaveLength(4);
     expect(poolTxHashes).toEqual([tx4, tx1, tx3, tx2].map(tx => tx.getTxHash()));
+  });
+
+  describe('soft-delete', () => {
+    it('soft-deletes mined txs and keeps them in storage', async () => {
+      const txs = await Promise.all([mockTx(1), mockTx(2), mockTx(3)]);
+      await pool.addTxs(txs);
+
+      // Mark first tx as mined
+      await pool.markAsMined([txs[0].getTxHash()], minedBlockHeader);
+
+      // Verify initial state
+      await expect(pool.getPendingTxCount()).resolves.toBe(2);
+      await expect(pool.getTxByHash(txs[0].getTxHash())).resolves.toBeDefined();
+      await expect(pool.getTxByHash(txs[1].getTxHash())).resolves.toBeDefined();
+
+      // Delete mined tx - should be soft-deleted
+      await pool.deleteTxs([txs[0].getTxHash()]);
+
+      // Delete pending tx - should be permanently deleted
+      await pool.deleteTxs([txs[1].getTxHash()]);
+
+      // Verify mined tx still exists in storage but has 'deleted' status
+      await expect(pool.getTxByHash(txs[0].getTxHash())).resolves.toBeDefined();
+      await expect(pool.getTxStatus(txs[0].getTxHash())).resolves.toEqual('deleted');
+
+      // Verify pending tx is permanently deleted
+      await expect(pool.getTxByHash(txs[1].getTxHash())).resolves.toBeUndefined();
+      await expect(pool.getTxStatus(txs[1].getTxHash())).resolves.toBeUndefined();
+
+      // Verify remaining pending count
+      await expect(pool.getPendingTxCount()).resolves.toBe(1);
+
+      // Verify pending hashes don't include deleted txs
+      const pendingHashes = await pool.getPendingTxHashes();
+      expect(pendingHashes).toHaveLength(1);
+      expect(pendingHashes.map(h => h.toString())).toContain(txs[2].getTxHash().toString());
+    });
+
+    it('cleans up old deleted mined transactions', async () => {
+      const txs = await Promise.all([mockTx(1), mockTx(2), mockTx(3)]);
+      await pool.addTxs(txs);
+
+      // Mark first two as mined in block 1
+      await pool.markAsMined([txs[0].getTxHash(), txs[1].getTxHash()], minedBlockHeader);
+
+      // Soft-delete mined transactions
+      await pool.deleteTxs([txs[0].getTxHash(), txs[1].getTxHash()]);
+
+      // Clean up deleted mined txs from block 1 and earlier
+      const deletedCount = await pool.cleanupDeletedMinedTxs(1);
+
+      // Verify old transactions are permanently deleted
+      expect(deletedCount).toBe(2);
+      await expect(pool.getTxByHash(txs[0].getTxHash())).resolves.toBeUndefined();
+      await expect(pool.getTxByHash(txs[1].getTxHash())).resolves.toBeUndefined();
+      await expect(pool.getTxByHash(txs[2].getTxHash())).resolves.toBeDefined();
+    });
+
+    it('does not clean up recent deleted mined transactions', async () => {
+      const txs = await Promise.all([mockTx(1), mockTx(2)]);
+      await pool.addTxs(txs);
+
+      // Mark as mined in block 2
+      const laterBlockHeader = BlockHeader.empty({
+        globalVariables: GlobalVariables.empty({ blockNumber: 2, timestamp: 0n }),
+      });
+      await pool.markAsMined([txs[0].getTxHash()], laterBlockHeader);
+
+      // Soft-delete a mined transaction
+      await pool.deleteTxs([txs[0].getTxHash()]);
+
+      // Try to clean up with block 1 (before the mined block)
+      const deletedCount = await pool.cleanupDeletedMinedTxs(1);
+
+      // Verify no transactions were cleaned up
+      expect(deletedCount).toBe(0);
+      await expect(pool.getTxByHash(txs[0].getTxHash())).resolves.toBeDefined();
+    });
+
+    it('restores deleted mined tx when it is mined again', async () => {
+      const tx = await mockTx(1);
+      await pool.addTxs([tx]);
+
+      // Mark as mined
+      await pool.markAsMined([tx.getTxHash()], minedBlockHeader);
+
+      // Soft-delete it
+      await pool.deleteTxs([tx.getTxHash()]);
+      await expect(pool.getTxStatus(tx.getTxHash())).resolves.toEqual('deleted');
+
+      // Mark as mined again (e.g., after a reorg)
+      await pool.markAsMined([tx.getTxHash()], minedBlockHeader);
+
+      // Should be back to mined status
+      await expect(pool.getTxStatus(tx.getTxHash())).resolves.toEqual('mined');
+      await expect(pool.getTxByHash(tx.getTxHash())).resolves.toBeDefined();
+    });
   });
 }

@@ -5,6 +5,7 @@
   "scripts": {
     "docs": "yarn preprocess && docusaurus start --host ${HOST:-localhost}",
     "dev": "HOST=0.0.0.0 ENV=dev yarn run docs",
+    "dev:netlify": "yarn netlify dev",
     "build": "yarn clear && yarn preprocess && ./scripts/build_docs.sh && docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
@@ -21,6 +22,7 @@
     "@docusaurus/plugin-client-redirects": "3.7.0",
     "@docusaurus/plugin-ideal-image": "^3.7.0",
     "@docusaurus/preset-classic": "3.7.0",
+    "@getbrevo/brevo": "^3.0.1",
     "@mdx-js/react": "^3.0.0",
     "@noir-lang/noir_js": "1.0.0-beta.8",
     "axios": "^1.8.3",
@@ -64,6 +66,9 @@
   },
   "engines": {
     "node": ">=18.0"
+  },
+  "resolutions": {
+    "tar-fs": "^3.1.1"
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

@@ -27,7 +27,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
     using InnerProver = UltraProver_<InnerFlavor>;
     using InnerVerifier = UltraVerifier_<InnerFlavor>;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
-    using InnerDeciderProvingKey = DeciderProvingKey_<InnerFlavor>;
+    using InnerProverInstance = ProverInstance_<InnerFlavor>;
     using InnerCurve = bn254<InnerBuilder>;
     using InnerCommitment = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
@@ -40,7 +40,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
                            std::conditional_t<HasIPAAccumulator<RecursiveFlavor>, UltraRollupFlavor, UltraFlavor>>;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
-    using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
+    using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
@@ -82,7 +82,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
 
         if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
-                IPA<grumpkin<InnerBuilder>>::create_fake_ipa_claim_and_proof(builder);
+                IPA<grumpkin<InnerBuilder>>::create_random_valid_ipa_claim_and_proof(builder);
             stdlib_opening_claim.set_public();
             builder.ipa_proof = ipa_proof;
         }
@@ -102,9 +102,10 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         auto inner_circuit = create_inner_circuit();
 
         // Generate a proof over the inner circuit
-        auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
-        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(proving_key->get_precomputed());
-        InnerProver inner_prover(proving_key, verification_key);
+        auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
+        auto verification_key =
+            std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
+        InnerProver inner_prover(prover_instance, verification_key);
         auto inner_proof = inner_prover.construct_proof();
 
         // Create a recursive verification circuit for the proof of the inner circuit
@@ -112,10 +113,10 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         auto stdlib_vk_and_hash =
             std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, verification_key);
         RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
-        verifier.key->vk_and_hash->vk->num_public_inputs.fix_witness();
-        verifier.key->vk_and_hash->vk->pub_inputs_offset.fix_witness();
+        verifier.verifier_instance->vk_and_hash->vk->num_public_inputs.fix_witness();
+        verifier.verifier_instance->vk_and_hash->vk->pub_inputs_offset.fix_witness();
         // It's currently un-used
-        verifier.key->vk_and_hash->vk->log_circuit_size.fix_witness();
+        verifier.verifier_instance->vk_and_hash->vk->log_circuit_size.fix_witness();
 
         StdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
         VerifierOutput output = verifier.template verify_proof<DefaultIO<OuterBuilder>>(stdlib_inner_proof);
@@ -136,9 +137,9 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         outer_circuit.finalize_circuit(false);
         auto graph = cdg::StaticAnalyzer(outer_circuit);
         auto connected_components = graph.find_connected_components();
-        EXPECT_EQ(connected_components.size(), 2);
+        EXPECT_EQ(connected_components.size(), 1);
         info("Connected components: ", connected_components.size());
-        auto variables_in_one_gate = graph.show_variables_in_one_gate(outer_circuit);
+        auto variables_in_one_gate = graph.get_variables_in_one_gate();
         EXPECT_EQ(variables_in_one_gate.size(), 2);
     }
 };

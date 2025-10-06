@@ -6,7 +6,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import cKzg from 'c-kzg';
 import type { Blob as BlobBuffer } from 'c-kzg';
 
-import { deserializeEncodedBlobToFields, extractBlobFieldsFromBuffer } from './encoding.js';
+import { deserializeEncodedBlobToFields, extractBlobFieldsFromBuffer } from './deserialize.js';
 import { BlobDeserializationError } from './errors.js';
 import type { BlobJson } from './interface.js';
 

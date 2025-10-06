@@ -4,7 +4,9 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
+import { MockVerifierAbi, MockVerifierBytecode, TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
+import type { Hex } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { createEthereumChain } from './chain.js';
@@ -14,8 +16,12 @@ import { GovernanceContract } from './contracts/governance.js';
 import { GSEContract } from './contracts/gse.js';
 import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
-import { type DeployL1ContractsArgs, type Operator, deployL1Contracts } from './deploy_l1_contracts.js';
-import { EthCheatCodes } from './test/eth_cheat_codes.js';
+import {
+  type DeployL1ContractsArgs,
+  type Operator,
+  deployL1Contract,
+  deployL1Contracts,
+} from './deploy_l1_contracts.js';
 import { startAnvil } from './test/start_anvil.js';
 import type { ExtendedViemWalletClient } from './types.js';
 
@@ -27,7 +33,6 @@ describe('deploy_l1_contracts', () => {
   let protocolContractTreeRoot: Fr;
   let genesisArchiveRoot: Fr;
   let initialValidators: Operator[];
-  let timeout: NodeJS.Timeout;
 
   // Use these environment variables to run against a live node. Eg to test against spartan's eth-devnet:
   // BLOCK_TIME=1 spartan/aztec-network/eth-devnet/run-locally.sh
@@ -36,7 +41,6 @@ describe('deploy_l1_contracts', () => {
 
   let rpcUrl = process.env.L1_RPC_URL;
   let client: ExtendedViemWalletClient;
-  let cheat: EthCheatCodes;
   let stop: () => Promise<void> = () => Promise.resolve();
 
   beforeAll(async () => {
@@ -53,18 +57,13 @@ describe('deploy_l1_contracts', () => {
     }));
 
     if (!rpcUrl) {
-      ({ stop, rpcUrl } = await startAnvil());
+      ({ stop, rpcUrl } = await startAnvil({ port: 8546 }));
     }
 
     client = createExtendedL1Client([rpcUrl], privateKey, createEthereumChain([rpcUrl], chainId).chainInfo);
-    cheat = new EthCheatCodes([rpcUrl]);
   });
 
   afterAll(async () => {
-    if (timeout) {
-      clearTimeout(timeout);
-    }
-
     if (stop) {
       try {
         await stop();
@@ -74,7 +73,7 @@ describe('deploy_l1_contracts', () => {
     }
   });
 
-  const deploy = (args: Partial<DeployL1ContractsArgs> & { flushEntryQueue?: boolean } = {}) =>
+  const deploy = (args: Partial<DeployL1ContractsArgs> = {}) =>
     deployL1Contracts(
       [rpcUrl!],
       privateKey,
@@ -92,7 +91,6 @@ describe('deploy_l1_contracts', () => {
       },
       undefined,
       false,
-      args.flushEntryQueue ?? true,
     );
 
   const getRollup = (deployed: Awaited<ReturnType<typeof deploy>>) =>
@@ -107,6 +105,62 @@ describe('deploy_l1_contracts', () => {
   it('deploys without salt', async () => {
     const deployed = await deploy();
     await checkRollupDeploy(deployed);
+  });
+
+  it('deploys using an existing external token for fee and staking', async () => {
+    const { address: externalTokenAddress } = await deployL1Contract(client, TestERC20Abi, TestERC20Bytecode as Hex, [
+      'TEST',
+      'TEST',
+      client.account.address,
+    ]);
+
+    const deployed = await deploy({ existingTokenAddress: externalTokenAddress });
+
+    await checkRollupDeploy(deployed);
+
+    expect(deployed.l1ContractAddresses.feeJuiceAddress).toEqual(externalTokenAddress);
+    expect(deployed.l1ContractAddresses.stakingAssetAddress).toEqual(externalTokenAddress);
+
+    expect(deployed.l1ContractAddresses.feeAssetHandlerAddress).toBeUndefined();
+    expect(deployed.l1ContractAddresses.stakingAssetHandlerAddress).toBeUndefined();
+
+    // Ownership of the external token should remain with the deployer, not CoinIssuer
+    expect(await getOwner(deployed.l1ContractAddresses.feeJuiceAddress)).toEqual(
+      EthAddress.fromString(client.account.address),
+    );
+  });
+
+  it('fails when deploying with an address that has no contract code', async () => {
+    const randomAddress = EthAddress.random();
+    await expect(deploy({ existingTokenAddress: randomAddress })).rejects.toThrow(
+      `No contract code found at provided token address ${randomAddress.toString()}`,
+    );
+  });
+
+  it('fails when deploying with a non-ERC20 contract address', async () => {
+    // Deploy a MockVerifier contract (has code but no ERC20 methods)
+    const { address: nonTokenAddress } = await deployL1Contract(
+      client,
+      MockVerifierAbi,
+      MockVerifierBytecode as Hex,
+      [],
+    );
+
+    await expect(deploy({ existingTokenAddress: nonTokenAddress })).rejects.toThrow(
+      `Address ${nonTokenAddress.toString()} does not appear to implement ERC20 view methods`,
+    );
+  });
+
+  it('fails when deploying with both initialValidators and existingTokenAddress', async () => {
+    const { address: externalTokenAddress } = await deployL1Contract(client, TestERC20Abi, TestERC20Bytecode as Hex, [
+      'TEST',
+      'TEST',
+      client.account.address,
+    ]);
+
+    await expect(deploy({ existingTokenAddress: externalTokenAddress, initialValidators })).rejects.toThrow(
+      'Cannot deploy with both initialValidators and existingTokenAddress',
+    );
   });
 
   it('deploys initializing validators', async () => {
@@ -175,7 +229,6 @@ describe('deploy_l1_contracts', () => {
     const info = await deploy({
       initialValidators,
       aztecTargetCommitteeSize: initialValidators.length,
-      flushEntryQueue: false,
     });
 
     const rollup = new RollupContract(client, info.l1ContractAddresses.rollupAddress);
@@ -185,26 +238,43 @@ describe('deploy_l1_contracts', () => {
   });
 
   it('deploys and flushes 48 initialValidators', async () => {
-    // Adds 48 validators. This time we flush the entry queue so we can verify that the flushing logic works as expected.
+    // Adds 48 validators. We will repeatedly flush during the same epoch up till the the bootstrap flush size.
     const initialValidators = times(48, () => {
       const addr = EthAddress.random();
       const bn254SecretKey = new SecretValue(Fr.random().toBigInt());
       return { attester: addr, withdrawer: addr, bn254SecretKey };
     });
 
-    // Set an interval to advance the chain, otherwise we get stuck in "Waiting for next flushable epoch"
-    let timestamp = await client.getBlock({ includeTransactions: false }).then(b => b.timestamp);
-    timeout = setInterval(() => void cheat.warp((timestamp += 60n * 60n)), 1000);
-
+    // Use the `staging-public` network (48 bootstrap set size with 48 bootstrap flush)
+    process.env.NETWORK = 'staging-public';
     const info = await deploy({
       initialValidators,
       aztecTargetCommitteeSize: initialValidators.length,
-      flushEntryQueue: true,
     });
+    process.env.NETWORK = '';
+
     const rollup = new RollupContract(client, info.l1ContractAddresses.rollupAddress);
 
     expect(await rollup.getEntryQueueLength()).toEqual(0n);
     expect(await rollup.getActiveAttesterCount()).toEqual(BigInt(initialValidators.length));
+  });
+
+  it('deploys 48 validators and flushes 32', async () => {
+    // Adds 48 validators. We will repeatedly flush during the same epoch up till the limit.
+    const initialValidators = times(48, () => {
+      const addr = EthAddress.random();
+      const bn254SecretKey = new SecretValue(Fr.random().toBigInt());
+      return { attester: addr, withdrawer: addr, bn254SecretKey };
+    });
+
+    const info = await deploy({
+      initialValidators,
+      aztecTargetCommitteeSize: initialValidators.length,
+    });
+    const rollup = new RollupContract(client, info.l1ContractAddresses.rollupAddress);
+
+    expect(await rollup.getEntryQueueLength()).toEqual(48n - 32n);
+    expect(await rollup.getActiveAttesterCount()).toEqual(BigInt(32n));
   });
 
   it('ensure governance is the owner', async () => {
@@ -230,6 +300,7 @@ describe('deploy_l1_contracts', () => {
     const registry = new RegistryContract(client, deployment.l1ContractAddresses.registryAddress);
     const rollup = new RollupContract(client, deployment.l1ContractAddresses.rollupAddress);
     const gse = new GSEContract(client, await rollup.getGSE());
+    const dateGatedRelayerAddress = deployment.l1ContractAddresses.dateGatedRelayerAddress!;
 
     // Checking the shared
     expect(await registry.getOwner()).toEqual(governance.address);
@@ -238,7 +309,10 @@ describe('deploy_l1_contracts', () => {
     expect(await getOwner(deployment.l1ContractAddresses.rewardDistributorAddress, 'REGISTRY')).toEqual(
       registry.address,
     );
-    expect(await getOwner(deployment.l1ContractAddresses.coinIssuerAddress)).toEqual(governance.address);
+
+    // The coin issuer should be owned by governance, but indirectly through the date gated relayer
+    expect(await getOwner(deployment.l1ContractAddresses.coinIssuerAddress)).toEqual(dateGatedRelayerAddress);
+    expect(await getOwner(dateGatedRelayerAddress)).toEqual(governance.address);
 
     expect(await getOwner(deployment.l1ContractAddresses.feeJuiceAddress)).toEqual(
       deployment.l1ContractAddresses.coinIssuerAddress,

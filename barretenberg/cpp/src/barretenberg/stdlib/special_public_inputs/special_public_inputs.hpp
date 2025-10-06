@@ -370,7 +370,8 @@ class RollupIO {
     static void add_default(Builder& builder)
     {
         PairingInputs::add_default_to_public_inputs(builder);
-        auto [stdlib_opening_claim, ipa_proof] = IPA<grumpkin<Builder>>::create_fake_ipa_claim_and_proof(builder);
+        auto [stdlib_opening_claim, ipa_proof] =
+            IPA<grumpkin<Builder>>::create_random_valid_ipa_claim_and_proof(builder);
         stdlib_opening_claim.set_public();
         builder.ipa_proof = ipa_proof;
     };

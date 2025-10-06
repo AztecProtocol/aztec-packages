@@ -132,47 +132,67 @@ export class ProvingJobController {
         return await this.circuitProver.getPublicTubeProof(inputs, signal, this.epochNumber);
       }
 
-      case ProvingRequestType.PRIVATE_BASE_ROLLUP: {
-        return await this.circuitProver.getPrivateBaseRollupProof(inputs, signal, this.epochNumber);
+      case ProvingRequestType.PRIVATE_TX_BASE_ROLLUP: {
+        return await this.circuitProver.getPrivateTxBaseRollupProof(inputs, signal, this.epochNumber);
       }
 
-      case ProvingRequestType.PUBLIC_BASE_ROLLUP: {
-        return await this.circuitProver.getPublicBaseRollupProof(inputs, signal, this.epochNumber);
+      case ProvingRequestType.PUBLIC_TX_BASE_ROLLUP: {
+        return await this.circuitProver.getPublicTxBaseRollupProof(inputs, signal, this.epochNumber);
       }
 
-      case ProvingRequestType.MERGE_ROLLUP: {
-        return await this.circuitProver.getMergeRollupProof(inputs, signal, this.epochNumber);
+      case ProvingRequestType.TX_MERGE_ROLLUP: {
+        return await this.circuitProver.getTxMergeRollupProof(inputs, signal, this.epochNumber);
       }
 
-      case ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP: {
-        return await this.circuitProver.getEmptyBlockRootRollupProof(inputs, signal, this.epochNumber);
+      case ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP: {
+        return await this.circuitProver.getBlockRootFirstRollupProof(inputs, signal, this.epochNumber);
       }
 
-      case ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP: {
-        return await this.circuitProver.getPaddingBlockRootRollupProof(inputs, signal, this.epochNumber);
+      case ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP: {
+        return await this.circuitProver.getBlockRootSingleTxFirstRollupProof(inputs, signal, this.epochNumber);
+      }
+
+      case ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP: {
+        return await this.circuitProver.getBlockRootEmptyTxFirstRollupProof(inputs, signal, this.epochNumber);
       }
 
       case ProvingRequestType.BLOCK_ROOT_ROLLUP: {
         return await this.circuitProver.getBlockRootRollupProof(inputs, signal, this.epochNumber);
       }
 
-      case ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP: {
-        return await this.circuitProver.getSingleTxBlockRootRollupProof(inputs, signal, this.epochNumber);
+      case ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP: {
+        return await this.circuitProver.getBlockRootSingleTxRollupProof(inputs, signal, this.epochNumber);
       }
 
       case ProvingRequestType.BLOCK_MERGE_ROLLUP: {
         return await this.circuitProver.getBlockMergeRollupProof(inputs, signal, this.epochNumber);
       }
 
+      case ProvingRequestType.CHECKPOINT_ROOT_ROLLUP: {
+        return await this.circuitProver.getCheckpointRootRollupProof(inputs, signal, this.epochNumber);
+      }
+
+      case ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP: {
+        return await this.circuitProver.getCheckpointRootSingleBlockRollupProof(inputs, signal, this.epochNumber);
+      }
+
+      case ProvingRequestType.CHECKPOINT_PADDING_ROLLUP: {
+        return await this.circuitProver.getCheckpointPaddingRollupProof(inputs, signal, this.epochNumber);
+      }
+
+      case ProvingRequestType.CHECKPOINT_MERGE_ROLLUP: {
+        return await this.circuitProver.getCheckpointMergeRollupProof(inputs, signal, this.epochNumber);
+      }
+
       case ProvingRequestType.ROOT_ROLLUP: {
         return await this.circuitProver.getRootRollupProof(inputs, signal, this.epochNumber);
       }
 
-      case ProvingRequestType.BASE_PARITY: {
+      case ProvingRequestType.PARITY_BASE: {
         return await this.circuitProver.getBaseParityProof(inputs, signal, this.epochNumber);
       }
 
-      case ProvingRequestType.ROOT_PARITY: {
+      case ProvingRequestType.PARITY_ROOT: {
         return await this.circuitProver.getRootParityProof(inputs, signal, this.epochNumber);
       }
 

@@ -11,7 +11,8 @@ import {
   ConsensusPayload,
   SignatureDomainSeparator,
 } from '@aztec/stdlib/p2p';
-import type { ProposedBlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
+import type { CheckpointHeader } from '@aztec/stdlib/rollup';
+import type { StateReference, Tx } from '@aztec/stdlib/tx';
 
 import type { ValidatorKeyStore } from '../key_store/interface.js';
 
@@ -30,7 +31,7 @@ export class ValidationService {
    */
   async createBlockProposal(
     blockNumber: number,
-    header: ProposedBlockHeader,
+    header: CheckpointHeader,
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],

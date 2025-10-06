@@ -1,7 +1,6 @@
 // Usage:
-//   node scripts/unravel_struct.js target/rollup_base_private.json PrivateBaseRollupInputs
-//   node scripts/unravel_struct.js target/rollup_base_private.json --all <-- all params and returns.
-
+//   node scripts/unravel_struct.js target/rollup_tx_base_private.json PrivateTxBaseRollupPrivateInputs
+//   node scripts/unravel_struct.js target/rollup_tx_base_private.json --all <-- all params and returns.
 
 // Many protocol structs are huge, and span lots of files. That's fine. But sometimes
 // humans like me want to read those structs in one go, when auditing.

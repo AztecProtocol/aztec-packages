@@ -1,30 +1,27 @@
 import type { UserFeeOptions } from '@aztec/entrypoints/interfaces';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { Fr } from '@aztec/foundation/fields';
-import type { ZodFor, ZodNullableOptional } from '@aztec/foundation/schemas';
 import {
   AbiTypeSchema,
   type ContractArtifact,
   ContractArtifactSchema,
+  type EventMetadataDefinition,
   FunctionAbiSchema,
   FunctionType,
 } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type ContractClassMetadata,
+  ContractClassWithIdSchema,
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
   type ContractInstantiationData,
+  type ContractMetadata,
 } from '@aztec/stdlib/contract';
-import { Gas, GasSettings } from '@aztec/stdlib/gas';
-import {
-  ContractClassMetadataSchema,
-  ContractMetadataSchema,
-  EventMetadataDefinitionSchema,
-  type PXE,
-} from '@aztec/stdlib/interfaces/client';
+import { Gas } from '@aztec/stdlib/gas';
 import { PublicKeys } from '@aztec/stdlib/keys';
-import { AbiDecodedSchema, type ApiSchemaFor, optional, schemas } from '@aztec/stdlib/schemas';
+import { AbiDecodedSchema, type ApiSchemaFor, type ZodFor, optional, schemas } from '@aztec/stdlib/schemas';
 import {
   Capsule,
   HashedValues,
@@ -40,13 +37,14 @@ import {
 import { z } from 'zod';
 
 import type { Contract } from '../contract/contract.js';
-import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import type {
+  FeeEstimationOptions,
+  GasSettingsOption,
   ProfileMethodOptions,
   SendMethodOptions,
   SimulateMethodOptions,
 } from '../contract/interaction_options.js';
-import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
+import type { CallIntent, IntentInnerHash } from '../utils/authwit.js';
 
 /**
  * A wrapper type that allows any item to be associated with an alias.
@@ -67,43 +65,92 @@ export type Aliased<T> = {
  */
 export type ContractInstanceAndArtifact = Pick<Contract, 'artifact' | 'instance'>;
 
+/** Information on the connected chain */
+export type ChainInfo = {
+  /** The L1 chain id */
+  chainId: Fr;
+  /** The version of the rollup  */
+  version: Fr;
+};
+
+/**
+ * Options that can be provided to the wallet for configuration of the fee payment.
+ */
+export type UserFeeOptions = {
+  /**
+   * Informs the wallet that the crafted tx already contains the necessary calls to pay for its fee
+   * and who is paying
+   */
+  embeddedPaymentMethodFeePayer?: AztecAddress;
+} & GasSettingsOption;
+
+/**
+ * Options for simulating interactions with the wallet. Overrides the fee settings of an interaction with
+ * a simplified version that only hints at the wallet wether the interaction contains a
+ * fee payment method or not
+ */
+export type SimulateOptions = Omit<SimulateMethodOptions, 'fee'> & {
+  /** The fee options */
+  fee?: UserFeeOptions & FeeEstimationOptions;
+};
+
+/**
+ * Options for profiling interactions with the wallet. Overrides the fee settings of an interaction with
+ * a simplified version that only hints at the wallet wether the interaction contains a
+ * fee payment method or not
+ */
+export type ProfileOptions = Omit<ProfileMethodOptions, 'fee'> & {
+  /** The fee options */
+  fee?: UserFeeOptions;
+};
+
+/**
+ * Options for sending/proving interactions with the wallet. Overrides the fee settings of an interaction with
+ * a simplified version that only hints at the wallet wether the interaction contains a
+ * fee payment method or not
+ */
+export type SendOptions = Omit<SendMethodOptions, 'fee'> & {
+  /** The fee options */
+  fee?: UserFeeOptions;
+};
+
 /**
  * The wallet interface.
  */
-export type Wallet = Pick<
-  PXE,
-  'getContractClassMetadata' | 'getContractMetadata' | 'getTxReceipt' | 'getPrivateEvents' | 'getPublicEvents'
-> & {
+export type Wallet = {
+  getContractClassMetadata(id: Fr, includeArtifact?: boolean): Promise<ContractClassMetadata>;
+  getContractMetadata(address: AztecAddress): Promise<ContractMetadata>;
+  getPrivateEvents<T>(
+    contractAddress: AztecAddress,
+    eventMetadata: EventMetadataDefinition,
+    from: number,
+    numBlocks: number,
+    recipients: AztecAddress[],
+  ): Promise<T[]>;
+  getChainInfo(): Promise<ChainInfo>;
+  getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
   registerSender(address: AztecAddress, alias?: string): Promise<AztecAddress>;
   getSenders(): Promise<Aliased<AztecAddress>[]>;
   getAccounts(): Promise<Aliased<AztecAddress>[]>;
   registerContract(
     instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
     artifact?: ContractArtifact,
+    secretKey?: Fr,
   ): Promise<ContractInstanceWithAddress>;
-  estimateGas(
-    exec: ExecutionPayload,
-    opts: Omit<SendMethodOptions, 'estimateGas'>,
-  ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>>;
-  simulateTx(exec: ExecutionPayload, opts: SimulateMethodOptions): Promise<TxSimulationResult>;
+  simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult>;
   simulateUtility(
     functionName: string,
     args: any[],
     to: AztecAddress,
     authwits?: AuthWitness[],
   ): Promise<UtilitySimulationResult>;
-  profileTx(exec: ExecutionPayload, opts: ProfileMethodOptions): Promise<TxProfileResult>;
-  proveTx(exec: ExecutionPayload, opts: SendMethodOptions): Promise<TxProvingResult>;
+  profileTx(exec: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult>;
+  proveTx(exec: ExecutionPayload, opts: SendOptions): Promise<TxProvingResult>;
   sendTx(tx: Tx): Promise<TxHash>;
   createAuthWit(
     from: AztecAddress,
-    messageHashOrIntent: Fr | Buffer<ArrayBuffer> | IntentInnerHash | IntentAction,
+    messageHashOrIntent: Fr | Buffer<ArrayBuffer> | IntentInnerHash | CallIntent,
   ): Promise<AuthWitness>;
-  setPublicAuthWit(
-    from: AztecAddress,
-    messageHashOrIntent: Fr | Buffer<ArrayBuffer> | IntentInnerHash | IntentAction,
-    authorized: boolean,
-  ): Promise<ContractFunctionInteraction>;
 };
 
 const ContractInstantiationDataSchema = z.object({
@@ -141,36 +188,32 @@ const UserFeeOptionsSchema = z.object({
       maxPriorityFeePerGas: optional(z.object({ feePerDaGas: schemas.BigInt, feePerL2Gas: schemas.BigInt })),
     }),
   ),
-  baseFeePadding: optional(z.number()),
+  embeddedPaymentMethodFeePayer: optional(schemas.AztecAddress),
+});
+
+const WalletSimulationFeeOptionschema = UserFeeOptionsSchema.extend({
+  estimatedGasPadding: optional(z.number()),
   estimateGas: optional(z.boolean()),
-  estimateGasPadding: optional(z.number()),
 });
 
-const SendMethodOptionsSchema = z.object({
+const SendOptionsSchema = z.object({
   from: schemas.AztecAddress,
   authWitnesses: optional(z.array(AuthWitness.schema)),
   capsules: optional(z.array(Capsule.schema)),
   fee: optional(UserFeeOptionsSchema),
 });
 
-const EstimateGasOptionSchema = z.object({
+const SimulateOptionsSchema = z.object({
   from: schemas.AztecAddress,
   authWitnesses: optional(z.array(AuthWitness.schema)),
   capsules: optional(z.array(Capsule.schema)),
-  fee: optional(UserFeeOptionsSchema.omit({ estimateGas: true })),
-});
-
-const SimulateMethodOptionsSchema = z.object({
-  from: schemas.AztecAddress,
-  authWitnesses: optional(z.array(AuthWitness.schema)),
-  capsules: optional(z.array(Capsule.schema)),
-  fee: optional(UserFeeOptionsSchema),
+  fee: optional(WalletSimulationFeeOptionschema),
   skipTxValidation: optional(z.boolean()),
   skipFeeEnforcement: optional(z.boolean()),
   includeMetadata: optional(z.boolean()),
 });
 
-const ProfileMethodOptionsSchema = SimulateMethodOptionsSchema.extend({
+const ProfileOptionsSchema = SimulateOptionsSchema.extend({
   profileMode: z.enum(['gates', 'execution-steps', 'full']),
   skipProofGeneration: optional(z.boolean()),
 });
@@ -182,83 +225,67 @@ const InstanceDataSchema = z.union([
   z.object({ instance: ContractInstanceWithAddressSchema, artifact: ContractArtifactSchema }),
 ]);
 
-// @ts-expect-error Zod doesn't understand the registerContract method schema, but it is correct.
-export const generateWalletSchema: (wallet: Wallet) => ApiSchemaFor<Wallet> = wallet => {
-  const ContractFunctionInteractionSchema = z
-    .object({
-      contractAddress: schemas.AztecAddress,
-      functionDao: FunctionAbiSchema,
-      args: z.array(z.any()),
-      authWitnesses: z.array(AuthWitness.schema),
-      capsules: z.array(Capsule.schema),
-      extraHashedArgs: z.array(HashedValues.schema),
-    })
-    .transform(
-      obj =>
-        new ContractFunctionInteraction(
-          wallet,
-          obj.contractAddress,
-          obj.functionDao,
-          obj.args,
-          obj.authWitnesses,
-          obj.capsules,
-          obj.extraHashedArgs,
-        ),
-    );
+const MessageHashOrIntentSchema = z.union([
+  schemas.Fr,
+  schemas.Buffer,
+  z.object({ consumer: schemas.AztecAddress, innerHash: z.union([schemas.Buffer, schemas.Fr]) }),
+  z.object({
+    caller: schemas.AztecAddress,
+    call: FunctionCallSchema,
+  }),
+]);
 
-  const MessageHashOrIntentSchema = z.union([
-    schemas.Fr,
-    schemas.Buffer,
-    z.object({ consumer: schemas.AztecAddress, innerHash: z.union([schemas.Buffer, schemas.Fr]) }),
-    z.object({
-      caller: schemas.AztecAddress,
-      action: z.union([FunctionCallSchema, ContractFunctionInteractionSchema]),
-    }),
-  ]);
-  return {
-    getContractClassMetadata: z.function().args(schemas.Fr, optional(z.boolean())).returns(ContractClassMetadataSchema),
-    getContractMetadata: z.function().args(schemas.AztecAddress).returns(ContractMetadataSchema),
-    getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
-    getPrivateEvents: z
-      .function()
-      .args(schemas.AztecAddress, EventMetadataDefinitionSchema, z.number(), z.number(), z.array(schemas.AztecAddress))
-      .returns(z.array(AbiDecodedSchema)),
-    getPublicEvents: z
-      .function()
-      .args(EventMetadataDefinitionSchema, z.number(), z.number())
-      .returns(z.array(AbiDecodedSchema)),
-    registerSender: z.function().args(schemas.AztecAddress, optional(z.string())).returns(schemas.AztecAddress),
-    getSenders: z
-      .function()
-      .args()
-      .returns(z.array(z.object({ alias: z.string(), item: schemas.AztecAddress }))),
-    getAccounts: z
-      .function()
-      .args()
-      .returns(z.array(z.object({ alias: z.string(), item: schemas.AztecAddress }))),
-    registerContract: z
-      .function()
-      .args(InstanceDataSchema, optional(ContractArtifactSchema))
-      .returns(ContractInstanceWithAddressSchema),
-    estimateGas: z
-      .function()
-      .args(ExecutionPayloadSchema, EstimateGasOptionSchema)
-      .returns(z.object({ gasLimits: Gas.schema, teardownGasLimits: Gas.schema })),
-    simulateTx: z
-      .function()
-      .args(ExecutionPayloadSchema, SimulateMethodOptionsSchema)
-      .returns(TxSimulationResult.schema),
-    simulateUtility: z
-      .function()
-      .args(z.string(), z.array(z.any()), schemas.AztecAddress, optional(z.array(AuthWitness.schema)))
-      .returns(UtilitySimulationResult.schema),
-    profileTx: z.function().args(ExecutionPayloadSchema, ProfileMethodOptionsSchema).returns(TxProfileResult.schema),
-    proveTx: z.function().args(ExecutionPayloadSchema, SendMethodOptionsSchema).returns(TxProvingResult.schema),
-    sendTx: z.function().args(Tx.schema).returns(TxHash.schema),
-    createAuthWit: z.function().args(schemas.AztecAddress, MessageHashOrIntentSchema).returns(AuthWitness.schema),
-    setPublicAuthWit: z
-      .function()
-      .args(schemas.AztecAddress, MessageHashOrIntentSchema, z.boolean())
-      .returns(ContractFunctionInteractionSchema),
-  };
+const ContractMetadataSchema = z.object({
+  contractInstance: z.union([ContractInstanceWithAddressSchema, z.undefined()]),
+  isContractInitialized: z.boolean(),
+  isContractPublished: z.boolean(),
+}) satisfies ZodFor<ContractMetadata>;
+
+const ContractClassMetadataSchema = z.object({
+  contractClass: z.union([ContractClassWithIdSchema, z.undefined()]),
+  isContractClassPubliclyRegistered: z.boolean(),
+  artifact: z.union([ContractArtifactSchema, z.undefined()]),
+}) satisfies ZodFor<ContractClassMetadata>;
+
+export const EventMetadataDefinitionSchema = z.object({
+  eventSelector: schemas.EventSelector,
+  abiType: AbiTypeSchema,
+  fieldNames: z.array(z.string()),
+});
+
+export const WalletSchema: ApiSchemaFor<Wallet> = {
+  getChainInfo: z
+    .function()
+    .args()
+    .returns(z.object({ chainId: schemas.Fr, version: schemas.Fr })),
+  getContractClassMetadata: z.function().args(schemas.Fr, optional(z.boolean())).returns(ContractClassMetadataSchema),
+  getContractMetadata: z.function().args(schemas.AztecAddress).returns(ContractMetadataSchema),
+  getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
+  getPrivateEvents: z
+    .function()
+    .args(schemas.AztecAddress, EventMetadataDefinitionSchema, z.number(), z.number(), z.array(schemas.AztecAddress))
+    .returns(z.array(AbiDecodedSchema)),
+  registerSender: z.function().args(schemas.AztecAddress, optional(z.string())).returns(schemas.AztecAddress),
+  getSenders: z
+    .function()
+    .args()
+    .returns(z.array(z.object({ alias: z.string(), item: schemas.AztecAddress }))),
+  getAccounts: z
+    .function()
+    .args()
+    .returns(z.array(z.object({ alias: z.string(), item: schemas.AztecAddress }))),
+  // @ts-expect-error Zod doesn't like optionals
+  registerContract: z
+    .function()
+    .args(InstanceDataSchema, optional(ContractArtifactSchema), optional(schemas.Fr))
+    .returns(ContractInstanceWithAddressSchema),
+  simulateTx: z.function().args(ExecutionPayloadSchema, SimulateOptionsSchema).returns(TxSimulationResult.schema),
+  simulateUtility: z
+    .function()
+    .args(z.string(), z.array(z.any()), schemas.AztecAddress, optional(z.array(AuthWitness.schema)))
+    .returns(UtilitySimulationResult.schema),
+  profileTx: z.function().args(ExecutionPayloadSchema, ProfileOptionsSchema).returns(TxProfileResult.schema),
+  proveTx: z.function().args(ExecutionPayloadSchema, SendOptionsSchema).returns(TxProvingResult.schema),
+  sendTx: z.function().args(Tx.schema).returns(TxHash.schema),
+  createAuthWit: z.function().args(schemas.AztecAddress, MessageHashOrIntentSchema).returns(AuthWitness.schema),
 };

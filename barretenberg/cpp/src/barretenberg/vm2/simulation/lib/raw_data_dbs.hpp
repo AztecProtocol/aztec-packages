@@ -11,7 +11,7 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/written_slots_tree.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state.hpp"

@@ -26,7 +26,7 @@ impl NoteHash for TestNote {
     fn compute_nullifier(
         _self: Self,
         _context: &mut PrivateContext,
-        _note_hash_for_nullify: Field,
+        _note_hash_for_nullification: Field,
     ) -> Field {
         // This note's nullifier is never used for any meaningful purpose so we don't care about having a real
         // implementation here.
@@ -35,7 +35,7 @@ impl NoteHash for TestNote {
 
     unconstrained fn compute_nullifier_unconstrained(
         _self: Self,
-        _note_hash_for_nullify: Field,
+        _note_hash_for_nullification: Field,
     ) -> Field {
         // This note's nullifier is never used for any meaningful purpose so we don't care about having a real
         // implementation here.

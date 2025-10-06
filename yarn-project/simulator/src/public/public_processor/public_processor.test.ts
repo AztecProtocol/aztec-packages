@@ -59,6 +59,7 @@ describe('public_processor', () => {
       },
       revertCode: RevertCode.OK,
       processedPhases: [],
+      logs: [],
     };
 
     merkleTree.getPreviousValueIndex.mockResolvedValue({
@@ -145,6 +146,28 @@ describe('public_processor', () => {
       // We are passing 3 txs but only 2 can fit in the block
       const [processed, failed] = await processor.process(txs, { maxTransactions: 2 });
 
+      expect(processed.length).toBe(2);
+      expect(processed[0].hash).toEqual(txs[0].getTxHash());
+      expect(processed[1].hash).toEqual(txs[1].getTxHash());
+      expect(failed).toEqual([]);
+    });
+
+    it('does not exceed max blob fields limit', async function () {
+      // Create 3 private-only transactions
+      const txs = await Promise.all(Array.from([1, 2, 3], seed => mockPrivateOnlyTx({ seed })));
+
+      // First, let's process one transaction to see how many blob fields it actually has
+      const [testProcessed] = await processor.process([txs[0]]);
+      const actualBlobFields = testProcessed[0].txEffect.toBlobFields().length;
+
+      // Set the limit to allow only 2 transactions
+      // If each tx has `actualBlobFields` fields, we set limit to allow 2 but not 3
+      const maxBlobFields = actualBlobFields * 2;
+
+      // Process all 3 transactions with the blob field limit
+      const [processed, failed] = await processor.process(txs, { maxBlobFields });
+
+      // Should only process 2 transactions due to blob field limit
       expect(processed.length).toBe(2);
       expect(processed[0].hash).toEqual(txs[0].getTxHash());
       expect(processed[1].hash).toEqual(txs[1].getTxHash());

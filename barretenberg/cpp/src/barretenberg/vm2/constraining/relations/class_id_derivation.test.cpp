@@ -7,10 +7,10 @@
 #include "barretenberg/vm2/generated/relations/class_id_derivation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_retrieval.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_class_id_derivation.hpp"
-#include "barretenberg/vm2/simulation/class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/gadgets/class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
-#include "barretenberg/vm2/simulation/testing/fakes/fake_poseidon2.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_poseidon2.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -33,7 +33,6 @@ using simulation::ClassIdDerivation;
 using simulation::ClassIdDerivationEvent;
 using simulation::compute_contract_class_id;
 using simulation::EventEmitter;
-using simulation::FakePoseidon2;
 using simulation::MockExecutionIdManager;
 using simulation::MockGreaterThan;
 using simulation::NoopEventEmitter;
@@ -41,6 +40,7 @@ using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
 using simulation::Poseidon2PermutationMemoryEvent;
+using simulation::PurePoseidon2;
 
 using FF = AvmFlavorSettings::FF;
 using C = Column;
@@ -111,7 +111,7 @@ TEST(ClassIdDerivationPoseidonTest, WithHashInteraction)
 // TODO: This should probably be refined and moved to bc_retrieval test file once that exists
 TEST(ClassIdDerivationPoseidonTest, WithRetrievalInteraction)
 {
-    FakePoseidon2 poseidon2 = FakePoseidon2();
+    PurePoseidon2 poseidon2 = PurePoseidon2();
 
     EventEmitter<ClassIdDerivationEvent> event_emitter;
     ClassIdDerivation class_id_derivation(poseidon2, event_emitter);

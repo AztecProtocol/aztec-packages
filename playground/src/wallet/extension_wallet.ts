@@ -1,5 +1,4 @@
-import { generateWalletSchema } from '@aztec/aztec.js';
-import type { Wallet } from '@aztec/aztec.js/wallet';
+import { WalletSchema, type ChainInfo, type Wallet } from '@aztec/aztec.js/wallet';
 import { promiseWithResolvers, type PromiseWithResolvers } from '@aztec/foundation/promise';
 import { schemaHasMethod } from '@aztec/foundation/schemas';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
@@ -9,39 +8,42 @@ type FunctionsOf<T> = { [K in keyof T as T[K] extends Function ? K : never]: T[K
 export class ExtensionWallet {
   private inFlight = new Map<string, PromiseWithResolvers<any>>();
 
-  private constructor() {}
+  private constructor(
+    private chainInfo: ChainInfo,
+    private appId: string,
+  ) {}
 
-  static create() {
-    const wallet = new ExtensionWallet();
+  static create(chainInfo: ChainInfo, appId: string) {
+    const wallet = new ExtensionWallet(chainInfo, appId);
     window.addEventListener('message', async event => {
       if (event.source !== window) return;
 
-      const { messageId, response } = event.data;
-      if (!response) {
+      const { messageId, result, error } = event.data;
+      if (!messageId) {
         return;
       }
-      const { resolve, reject } = wallet.inFlight.get(messageId);
-      if (!resolve || !reject) {
+      if (!wallet.inFlight.has(messageId)) {
         console.error('No in-flight message for id', messageId);
         return;
       }
-      const { value, error } = response;
+      const { resolve, reject } = wallet.inFlight.get(messageId);
+
       if (error) {
         reject(new Error(error));
       } else {
-        resolve(value);
+        resolve(result);
       }
       wallet.inFlight.delete(messageId);
     });
     return new Proxy(wallet, {
-      get: (target, prop, receiver) => {
-        const schema = generateWalletSchema(receiver);
-        if (schemaHasMethod(schema, prop.toString())) {
+      get: (target, prop) => {
+        if (schemaHasMethod(WalletSchema, prop.toString())) {
           return async (...args: any[]) => {
-            return await target.postMessage({
+            const result = await target.postMessage({
               type: prop.toString() as keyof FunctionsOf<Wallet>,
               args,
             });
+            return WalletSchema[prop.toString() as keyof typeof WalletSchema].returnType().parseAsync(result);
           };
         } else {
           return target[prop];
@@ -52,7 +54,7 @@ export class ExtensionWallet {
 
   private async postMessage({ type, args }: { type: keyof FunctionsOf<Wallet>; args: any[] }) {
     const messageId = globalThis.crypto.randomUUID();
-    window.postMessage(jsonStringify({ type, args, messageId }), '*');
+    window.postMessage(jsonStringify({ type, args, messageId, chainInfo: this.chainInfo, appId: this.appId }), '*');
     const { promise, resolve, reject } = promiseWithResolvers<any>();
     this.inFlight.set(messageId, { promise, resolve, reject });
     return promise;

@@ -106,7 +106,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     configToFlag('--auto-update-url', sharedNodeConfigMappings.autoUpdateUrl),
 
     configToFlag('--sync-mode', sharedNodeConfigMappings.syncMode),
-    configToFlag('--snapshots-url', sharedNodeConfigMappings.snapshotsUrl),
+    configToFlag('--snapshots-urls', sharedNodeConfigMappings.snapshotsUrls),
   ],
   SANDBOX: [
     {
@@ -114,12 +114,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Starts Aztec Sandbox',
       defaultValue: undefined,
       env: undefined,
-    },
-    {
-      flag: '--sandbox.noPXE',
-      description: 'Do not expose PXE service on sandbox start',
-      env: 'NO_PXE',
-      ...booleanConfigHelper(),
     },
     {
       flag: '--sandbox.l1Mnemonic <value>',
@@ -146,7 +140,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     {
       flag: '--admin-port <value>',
-      description: 'Port to run admin APIs of Aztec Services on on',
+      description: 'Port to run admin APIs of Aztec Services on',
       defaultValue: 8880,
       env: 'AZTEC_ADMIN_PORT',
       parseVal: val => parseInt(val, 10),
@@ -168,7 +162,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   ],
   'L1 CONTRACTS': [
     configToFlag('--registry-address', l1ContractAddressesMapping.registryAddress),
-    configToFlag('--rollup-version', chainConfigMappings.rollupVersion, 'canonical'),
+    configToFlag('--rollup-version', chainConfigMappings.rollupVersion),
   ],
   STORAGE: [
     configToFlag('--data-directory', dataConfigMappings.dataDirectory),

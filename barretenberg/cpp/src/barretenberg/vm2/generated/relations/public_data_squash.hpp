@@ -14,7 +14,7 @@ template <typename FF_> class public_data_squashImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 11> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 5, 4, 3, 3, 3, 3, 4 };
+    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 5, 4, 3, 3, 3, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -37,8 +37,9 @@ template <typename FF> class public_data_squash : public Relation<public_data_sq
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_START_CONDITION = 1;
     static constexpr size_t SR_CHECK_SAME_LEAF_SLOT = 4;
-    static constexpr size_t SR_FINAL_VALUE_PROPAGATION = 9;
-    static constexpr size_t SR_FINAL_VALUE_CHECK = 10;
+    static constexpr size_t SR_CLK_DIFF_DECOMP = 6;
+    static constexpr size_t SR_FINAL_VALUE_PROPAGATION = 8;
+    static constexpr size_t SR_FINAL_VALUE_CHECK = 9;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -47,6 +48,8 @@ template <typename FF> class public_data_squash : public Relation<public_data_sq
             return "START_CONDITION";
         case SR_CHECK_SAME_LEAF_SLOT:
             return "CHECK_SAME_LEAF_SLOT";
+        case SR_CLK_DIFF_DECOMP:
+            return "CLK_DIFF_DECOMP";
         case SR_FINAL_VALUE_PROPAGATION:
             return "FINAL_VALUE_PROPAGATION";
         case SR_FINAL_VALUE_CHECK:

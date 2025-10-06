@@ -1,8 +1,10 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import type { PXE, TxReceipt } from '@aztec/aztec.js';
-import { Bot, type BotConfig, getBotDefaultConfig } from '@aztec/bot';
+import type { AztecNode, TxReceipt } from '@aztec/aztec.js';
+import { Bot, type BotConfig, BotStore, getBotDefaultConfig } from '@aztec/bot';
 import type { Logger } from '@aztec/foundation/log';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { SequencerClient } from '@aztec/sequencer-client';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -16,7 +18,8 @@ describe('e2e_sequencer_config', () => {
   let sequencer: SequencerClient | undefined;
   let config: BotConfig;
   let bot: Bot;
-  let pxe: PXE;
+  let wallet: TestWallet;
+  let aztecNode: AztecNode;
   let logger: Logger;
 
   afterEach(() => {
@@ -28,7 +31,7 @@ describe('e2e_sequencer_config', () => {
     const manaTarget = 21e10;
     beforeAll(async () => {
       const initialFundedAccounts = await getInitialTestAccountsData();
-      ({ teardown, sequencer, pxe, logger } = await setup(1, {
+      ({ teardown, sequencer, aztecNode, logger, wallet } = await setup(1, {
         maxL2BlockGas: manaTarget * 2,
         manaTarget: BigInt(manaTarget),
         initialFundedAccounts,
@@ -39,7 +42,7 @@ describe('e2e_sequencer_config', () => {
         ammTxs: false,
         txMinedWaitSeconds: 12,
       };
-      bot = await Bot.create(config, { pxe });
+      bot = await Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
     });
 
     afterAll(() => teardown());
@@ -61,7 +64,7 @@ describe('e2e_sequencer_config', () => {
       const receipt: TxReceipt = (await bot.run()) as TxReceipt;
       expect(receipt).toBeDefined();
       expect(receipt.status).toBe('success');
-      const block = await pxe.getBlock(receipt.blockNumber!);
+      const block = await aztecNode.getBlock(receipt.blockNumber!);
       expect(block).toBeDefined();
       const totalManaUsed = block?.header.totalManaUsed!.toBigInt();
 

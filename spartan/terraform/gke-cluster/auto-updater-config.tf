@@ -47,7 +47,7 @@ resource "google_storage_bucket_object" "staging_public" {
   content = jsonencode({
     version = ""
     config = {
-      governanceProposerPayload = "0x3fe8bFFd590d57E39281596433F1d95249f5d469"
+      governanceProposerPayload = "0x0972CE94b1AC39Ecf737e8221cD290A84bA63921"
     }
   })
 }

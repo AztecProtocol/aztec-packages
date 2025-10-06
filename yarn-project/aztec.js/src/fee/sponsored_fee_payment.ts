@@ -2,7 +2,15 @@ import type { FeePaymentMethod } from '@aztec/aztec.js/fee';
 import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { GasSettings } from '@aztec/stdlib/gas';
 
+/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
+
+/** AppConfigurableFeePaymentMethod branding */
+export interface SponsoredFeePaymentMethod {
+  /** Brand. */
+  _branding: 'AppConfigurableFeePaymentMethod';
+}
 /**
  * A fee payment method that uses a contract that blindly sponsors transactions.
  * This contract is expected to be prefunded in testing environments.
@@ -34,5 +42,9 @@ export class SponsoredFeePaymentMethod implements FeePaymentMethod {
       [],
       [],
     );
+  }
+
+  getGasSettings(): GasSettings | undefined {
+    return;
   }
 }

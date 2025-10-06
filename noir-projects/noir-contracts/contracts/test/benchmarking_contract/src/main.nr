@@ -3,18 +3,18 @@
 // would alter the metrics we're capturing in the benchmarks, and we want to keep the
 // subject being tested as unmodified as possible so we can detect metric changes that
 
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract Benchmarking {
-    use dep::aztec::{
+    use aztec::{
+        macros::{functions::{private, public}, storage::storage},
+        messages::message_delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
         protocol_types::address::AztecAddress,
         state_vars::{Map, PrivateSet, PublicMutable},
     };
-    use dep::value_note::{utils::increment, value_note::ValueNote};
-
-    use dep::aztec::macros::{functions::{private, public}, storage::storage};
+    use value_note::value_note::ValueNote;
 
     #[storage]
     struct Storage<Context> {
@@ -25,9 +25,12 @@ pub contract Benchmarking {
     // Creates a new value note for the target owner. Use this method to seed an initial set of notes.
     #[private]
     fn create_note(owner: AztecAddress, value: Field) {
-        // docs:start:increment_valuenote
-        increment(storage.notes.at(owner), value, owner);
-        // docs:end:increment_valuenote
+        let note = ValueNote::new(value, owner);
+        storage.notes.at(owner).insert(note).emit(
+            &mut context,
+            owner,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
     // Deletes a note at a specific index in the set and creates a new one with the same value.
     // We explicitly pass in the note index so we can ensure we consume different notes when sending
@@ -40,7 +43,7 @@ pub contract Benchmarking {
         let mut getter_options = NoteGetterOptions::new();
         let notes = owner_notes.pop_notes(getter_options.set_limit(1).set_offset(index));
         let note = notes.get(0);
-        increment(owner_notes, note.value(), owner);
+        owner_notes.insert(note).emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     // Reads and writes to public storage and enqueues a call to another public function.

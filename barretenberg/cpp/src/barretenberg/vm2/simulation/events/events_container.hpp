@@ -24,6 +24,7 @@
 #include "barretenberg/vm2/simulation/events/note_hash_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/nullifier_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
+#include "barretenberg/vm2/simulation/events/protocol_contract_event.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/retrieved_bytecodes_tree_check_event.hpp"
@@ -77,6 +78,7 @@ struct EventsContainer {
     EventEmitterInterface<L1ToL2MessageTreeCheckEvent>::Container l1_to_l2_msg_tree_check_events;
     EventEmitterInterface<EmitUnencryptedLogEvent>::Container emit_unencrypted_log_events;
     EventEmitterInterface<RetrievedBytecodesTreeCheckEvent>::Container retrieved_bytecodes_tree_check_events;
+    EventEmitterInterface<GetProtocolContractDerivedAddressEvent>::Container protocol_contract_events;
 };
 
 } // namespace bb::avm2::simulation

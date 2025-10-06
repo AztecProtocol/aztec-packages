@@ -193,7 +193,7 @@ pub struct PrivateContext {
     // docs:end:private-context
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
-    pub historical_header: BlockHeader,
+    pub anchor_block_header: BlockHeader,
 
     pub private_logs: BoundedVec<PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL>,
     pub contract_class_logs_hashes: BoundedVec<Counted<LogHash>, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
@@ -206,8 +206,8 @@ pub struct PrivateContext {
 
 impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
-        let max_allowed_include_by_timestamp =
-            inputs.historical_header.global_variables.timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
+        let max_allowed_include_by_timestamp = inputs.anchor_block_header.global_variables.timestamp
+            + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
         PrivateContext {
             inputs,
             side_effect_counter: inputs.start_side_effect_counter + 1,
@@ -221,7 +221,7 @@ impl PrivateContext {
             key_validation_requests_and_generators: BoundedVec::new(),
             note_hashes: BoundedVec::new(),
             nullifiers: BoundedVec::new(),
-            historical_header: inputs.historical_header,
+            anchor_block_header: inputs.anchor_block_header,
             private_call_requests: BoundedVec::new(),
             public_call_requests: BoundedVec::new(),
             public_teardown_call_request: PublicCallRequest::empty(),
@@ -489,7 +489,7 @@ impl PrivateContext {
     /// private function is reading from.
     ///
     /// A private function CANNOT read from the "current" block header,
-    /// but must read from some historical block header, because as soon as
+    /// but must read from some older block header, because as soon as
     /// private function execution begins (asynchronously, on a user's device),
     /// the public state of the chain (the "current state") will have progressed
     /// forward.
@@ -505,8 +505,8 @@ impl PrivateContext {
     ///   from the mempool. Therefore, the chosen block header _must_ be one
     ///   from within the last 24 hours.
     ///
-    pub fn get_block_header(self) -> BlockHeader {
-        self.historical_header
+    pub fn get_anchor_block_header(self) -> BlockHeader {
+        self.anchor_block_header
     }
 
     /// Returns the header of any historical block at or before the anchor
@@ -600,7 +600,7 @@ impl PrivateContext {
             contract_class_logs_hashes: ClaimedLengthArray::from_bounded_vec(
                 self.contract_class_logs_hashes,
             ),
-            historical_header: self.historical_header,
+            anchor_block_header: self.anchor_block_header,
             tx_context: self.inputs.tx_context,
         }
     }
@@ -945,7 +945,6 @@ impl PrivateContext {
     ///               This content has a very specific layout.
     /// docs:start:context_message_portal
     pub fn message_portal(&mut self, recipient: EthAddress, content: Field) {
-        // docs:end:context_message_portal
         let message = L2ToL1Message { recipient, content };
         self.l2_to_l1_msgs.push(message.count(self.next_counter()));
     }
@@ -982,8 +981,6 @@ impl PrivateContext {
     /// Validates message existence in the L1-to-L2 message tree and nullifies
     /// the message to prevent double-consumption.
     ///
-    // docs:start:context_consume_l1_to_l2_message
-    // docs:start:consume_l1_to_l2_message
     pub fn consume_l1_to_l2_message(
         &mut self,
         content: Field,
@@ -991,9 +988,8 @@ impl PrivateContext {
         sender: EthAddress,
         leaf_index: Field,
     ) {
-        // docs:end:context_consume_l1_to_l2_message
         let nullifier = process_l1_to_l2_message(
-            self.historical_header.state.l1_to_l2_message_tree.root,
+            self.anchor_block_header.state.l1_to_l2_message_tree.root,
             self.this_address(),
             sender,
             self.chain_id(),
@@ -1006,7 +1002,6 @@ impl PrivateContext {
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
         self.push_nullifier(nullifier)
     }
-    // docs:end:consume_l1_to_l2_message
 
     /// Emits a private log (an array of Fields) that will be published to an
     /// Ethereum blob.
@@ -1698,7 +1693,7 @@ impl Empty for PrivateContext {
             public_call_requests: BoundedVec::new(),
             public_teardown_call_request: PublicCallRequest::empty(),
             l2_to_l1_msgs: BoundedVec::new(),
-            historical_header: BlockHeader::empty(),
+            anchor_block_header: BlockHeader::empty(),
             private_logs: BoundedVec::new(),
             contract_class_logs_hashes: BoundedVec::new(),
             last_key_validation_requests: [Option::none(); NUM_KEY_TYPES],

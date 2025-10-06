@@ -2,7 +2,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
-import { makeBlockProposal, makeHeader } from '@aztec/stdlib/testing';
+import { makeBlockProposal, makeL2BlockHeader } from '@aztec/stdlib/testing';
 
 import { mock } from 'jest-mock-extended';
 
@@ -20,7 +20,7 @@ describe('BlockProposalValidator', () => {
   it('returns high tolerance error if slot number is not current or next slot', async () => {
     // Create a block proposal for slot 97
     const mockProposal = makeBlockProposal({
-      header: makeHeader(1, 97, 97),
+      header: makeL2BlockHeader(1, 97, 97),
     });
 
     // Mock epoch cache to return different slot numbers
@@ -42,7 +42,7 @@ describe('BlockProposalValidator', () => {
 
     // Create a block proposal for current slot but with wrong proposer
     const mockProposal = makeBlockProposal({
-      header: makeHeader(1, 100, 100),
+      header: makeL2BlockHeader(1, 100, 100),
       signer: invalidProposer,
     });
 
@@ -65,7 +65,7 @@ describe('BlockProposalValidator', () => {
 
     // Create a block proposal for next slot but with wrong proposer
     const mockProposal = makeBlockProposal({
-      header: makeHeader(1, 101, 101),
+      header: makeL2BlockHeader(1, 101, 101),
       signer: invalidProposer,
     });
 
@@ -87,7 +87,7 @@ describe('BlockProposalValidator', () => {
 
     // Create a block proposal for next slot but with wrong proposer
     const mockProposal = makeBlockProposal({
-      header: makeHeader(1, 101, 101),
+      header: makeL2BlockHeader(1, 101, 101),
       signer: currentProposer,
     });
 
@@ -109,7 +109,7 @@ describe('BlockProposalValidator', () => {
 
     // Create a block proposal for current slot with correct proposer
     const mockProposal = makeBlockProposal({
-      header: makeHeader(1, 100, 100),
+      header: makeL2BlockHeader(1, 100, 100),
       signer: currentProposer,
     });
 
@@ -131,7 +131,7 @@ describe('BlockProposalValidator', () => {
 
     // Create a block proposal for next slot with correct proposer
     const mockProposal = makeBlockProposal({
-      header: makeHeader(1, 101, 101),
+      header: makeL2BlockHeader(1, 101, 101),
       signer: nextProposer,
     });
 

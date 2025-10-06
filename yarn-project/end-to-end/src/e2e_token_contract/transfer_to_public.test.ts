@@ -5,14 +5,14 @@ import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract transfer_to_public', () => {
   const t = new TokenContractTest('transfer_to_public');
-  let { asset, node, wallet, adminAddress, account1Address, account2Address, tokenSim } = t;
+  let { asset, wallet, adminAddress, account1Address, account2Address, tokenSim } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ asset, node, wallet, adminAddress, account1Address, account2Address, tokenSim } = t);
+    ({ asset, wallet, adminAddress, account1Address, account2Address, tokenSim } = t);
   });
 
   afterAll(async () => {
@@ -106,8 +106,8 @@ describe('e2e_token_contract transfer_to_public', () => {
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset.methods.transfer_to_public(adminAddress, account1Address, amount, authwitNonce);
       const expectedMessageHash = await computeAuthWitMessageHash(
-        { caller: account2Address, action },
-        { chainId: new Fr(await node.getChainId()), version: new Fr(await node.getVersion()) },
+        { caller: account2Address, call: await action.getFunctionCall() },
+        await wallet.getChainInfo(),
       );
 
       // Both wallets are connected to same node and PXE so we could just insert directly

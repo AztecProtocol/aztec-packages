@@ -106,6 +106,23 @@ export class AvmContractInstanceHint {
   }
 }
 
+export class AvmProtocolContractAddressHint {
+  constructor(
+    public readonly canonicalAddress: AztecAddress,
+    public readonly derivedAddress: AztecAddress,
+  ) {}
+  static get schema() {
+    return z
+      .object({
+        canonicalAddress: AztecAddress.schema,
+        derivedAddress: AztecAddress.schema,
+      })
+      .transform(
+        ({ canonicalAddress, derivedAddress }) => new AvmProtocolContractAddressHint(canonicalAddress, derivedAddress),
+      );
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Hints (merkle db)
 ////////////////////////////////////////////////////////////////////////////
@@ -510,6 +527,8 @@ export class AvmExecutionHints {
   constructor(
     public readonly globalVariables: GlobalVariables,
     public tx: AvmTxHint,
+    // Protocol contract hints.
+    public protocolContractDerivedAddresses: AvmProtocolContractAddressHint[] = [],
     // Contract hints.
     public readonly contractInstances: AvmContractInstanceHint[] = [],
     public readonly contractClasses: AvmContractClassHint[] = [],
@@ -538,6 +557,7 @@ export class AvmExecutionHints {
       .object({
         globalVariables: GlobalVariables.schema,
         tx: AvmTxHint.schema,
+        protocolContractDerivedAddresses: AvmProtocolContractAddressHint.schema.array(),
         contractInstances: AvmContractInstanceHint.schema.array(),
         contractClasses: AvmContractClassHint.schema.array(),
         bytecodeCommitments: AvmBytecodeCommitmentHint.schema.array(),
@@ -558,6 +578,7 @@ export class AvmExecutionHints {
         ({
           globalVariables,
           tx,
+          protocolContractDerivedAddresses,
           contractInstances,
           contractClasses,
           bytecodeCommitments,
@@ -577,6 +598,7 @@ export class AvmExecutionHints {
           new AvmExecutionHints(
             globalVariables,
             tx,
+            protocolContractDerivedAddresses,
             contractInstances,
             contractClasses,
             bytecodeCommitments,

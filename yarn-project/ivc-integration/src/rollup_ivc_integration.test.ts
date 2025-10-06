@@ -23,17 +23,17 @@ import { getWorkingDirectory } from './bb_working_directory.js';
 import { proveAvm, proveClientIVC, proveRollupHonk } from './prove_native.js';
 import type { KernelPublicInputs } from './types/index.js';
 import {
-  MockRollupBasePrivateCircuit,
-  MockRollupBasePublicCircuit,
-  MockRollupMergeCircuit,
+  MockRollupTxBasePrivateCircuit,
+  MockRollupTxBasePublicCircuit,
+  MockRollupTxMergeCircuit,
   generateTestingIVCStack,
   mapAvmProofToNoir,
   mapRecursiveProofToNoir,
   mapVerificationKeyToNoir,
   witnessGenMockPublicBaseCircuit,
-  witnessGenMockRollupBasePrivateCircuit,
-  witnessGenMockRollupMergeCircuit,
   witnessGenMockRollupRootCircuit,
+  witnessGenMockRollupTxBasePrivateCircuit,
+  witnessGenMockRollupTxMergeCircuit,
 } from './witgen.js';
 
 /* eslint-disable camelcase */
@@ -95,7 +95,7 @@ describe('Rollup IVC Integration', () => {
       MockHidingJson.verificationKey.fields.map((str: string) => Fr.fromHexString(str)),
     );
 
-    const privateBaseRollupWitnessResult = await witnessGenMockRollupBasePrivateCircuit({
+    const privateBaseRollupWitnessResult = await witnessGenMockRollupTxBasePrivateCircuit({
       civc_proof_data: {
         public_inputs: clientIVCPublicInputs,
         proof: mapRecursiveProofToNoir(ivcProof.proof),
@@ -104,10 +104,10 @@ describe('Rollup IVC Integration', () => {
     });
 
     const privateBaseProof = await proveRollupHonk(
-      'MockRollupBasePrivateCircuit',
+      'MockRollupTxBasePrivateCircuit',
       bbBinaryPath,
       workingDirectory,
-      MockRollupBasePrivateCircuit,
+      MockRollupTxBasePrivateCircuit,
       privateBaseRollupWitnessResult.witness,
       logger,
     );
@@ -130,10 +130,10 @@ describe('Rollup IVC Integration', () => {
     });
 
     const publicBaseProof = await proveRollupHonk(
-      'MockRollupBasePublicCircuit',
+      'MockRollupTxBasePublicCircuit',
       bbBinaryPath,
       workingDirectory,
-      MockRollupBasePublicCircuit,
+      MockRollupTxBasePublicCircuit,
       publicBaseRollupWitnessResult.witness,
       logger,
     );
@@ -144,16 +144,16 @@ describe('Rollup IVC Integration', () => {
       vk: mapVerificationKeyToNoir(publicBaseProof.verificationKey.keyAsFields, ULTRA_VK_LENGTH_IN_FIELDS),
     };
 
-    const mergeWitnessResult = await witnessGenMockRollupMergeCircuit({
+    const mergeWitnessResult = await witnessGenMockRollupTxMergeCircuit({
       a: privateBaseRollupData,
       b: publicBaseRollupData,
     });
 
     const mergeProof = await proveRollupHonk(
-      'MockRollupMergeCircuit',
+      'MockRollupTxMergeCircuit',
       bbBinaryPath,
       workingDirectory,
-      MockRollupMergeCircuit,
+      MockRollupTxMergeCircuit,
       mergeWitnessResult.witness,
       logger,
     );

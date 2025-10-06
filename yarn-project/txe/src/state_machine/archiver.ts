@@ -63,8 +63,8 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
    * @param number - The block number to return (inclusive).
    * @returns The requested L2 block.
    */
-  public getBlock(number: number): Promise<L2Block | undefined> {
-    return this.getPublishedBlock(number).then(block => block?.block);
+  public getBlock(number: number | 'latest'): Promise<L2Block | undefined> {
+    return this.getPublishedBlock(number != 'latest' ? number : -1).then(block => block?.block);
   }
 
   /**

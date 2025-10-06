@@ -1,11 +1,7 @@
 import { keccak256String } from '@aztec/foundation/crypto';
 
 import { Oracle } from '../contract_function_simulator/oracle/oracle.js';
-import { TypedOracle } from '../contract_function_simulator/oracle/typed_oracle.js';
 import { ORACLE_INTERFACE_HASH } from '../oracle_version.js';
-
-// Create a minimal mock implementation of TypedOracle to instantiate the Oracle class for interface verification.
-class OracleMock extends TypedOracle {}
 
 /**
  * Verifies that the Oracle interface matches the expected interface hash.
@@ -20,18 +16,33 @@ class OracleMock extends TypedOracle {}
  * oracle interface like we do in PXE (i.e., there is no single Oracle class that contains only the oracles).
  */
 function assertOracleInterfaceMatches(): void {
-  const oracle = new Oracle(new OracleMock('OracleMock'));
-  const acirCallback = oracle.toACIRCallback();
+  const excludedProps = [
+    'handler',
+    'constructor',
+    'toACIRCallback',
+    'handlerAsMisc',
+    'handlerAsUtility',
+    'handlerAsPrivate',
+  ] as const;
+
   // Create a hashable representation of the oracle interface by concatenating its method names. Return values are
   // excluded from the hash calculation since they are typically arrays of fields and I didn't manage to reliably
   // stringify them.
-  const oracleInterfaceMethodNames = Object.keys(acirCallback).sort().join('');
+  // TODO(#16581): we're only checking the functions implemented by the Oracle object, which is really an ACVM
+  // translator, akin to TXE's RPC translator. This is correct in that it is ultimately the foreign interface that
+  // matters, but incorrect in that it does not take into consideration TXE's extended interface. An improvement would
+  // be to check RPCTranslator from TXE, though that still seems a bit fragile.
+  const oracleInterfaceMethodNames = Object.getOwnPropertyNames(Oracle.prototype)
+    .filter(name => !excludedProps.includes(name as (typeof excludedProps)[number]))
+    .sort()
+    .join('');
+
   // We use keccak256 here just because we already have it in the dependencies.
   const oracleInterfaceHash = keccak256String(oracleInterfaceMethodNames);
   if (oracleInterfaceHash !== ORACLE_INTERFACE_HASH) {
     // This check exists only to notify you when you need to update the ORACLE_VERSION constant.
     throw new Error(
-      `The TypedOracle interface has changed, which implies a breaking change in the aztec.nr/PXE oracle interface. Update ORACLE_INTERFACE_HASH to ${oracleInterfaceHash} and bump ORACLE_VERSION in pxe/src/oracle_version.ts.`,
+      `The Oracle interface has changed, which implies a breaking change in the aztec.nr/PXE oracle interface. Update ORACLE_INTERFACE_HASH to ${oracleInterfaceHash} and bump ORACLE_VERSION in pxe/src/oracle_version.ts.`,
     );
   }
 }

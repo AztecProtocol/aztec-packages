@@ -3,7 +3,7 @@
 #include <array>
 #include <gmock/gmock.h>
 
-#include "barretenberg/vm2/simulation/field_gt.hpp"
+#include "barretenberg/vm2/simulation/interfaces/field_gt.hpp"
 
 namespace bb::avm2::simulation {
 

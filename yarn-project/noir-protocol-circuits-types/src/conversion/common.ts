@@ -6,7 +6,6 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
   PRIVATE_LOG_SIZE_IN_FIELDS,
-  PUBLIC_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
@@ -30,7 +29,7 @@ import {
   ScopedCountedLogHash,
   ScopedLogHash,
 } from '@aztec/stdlib/kernel';
-import { PrivateLog, PublicLog } from '@aztec/stdlib/logs';
+import { PrivateLog } from '@aztec/stdlib/logs';
 import {
   CountedL2ToL1Message,
   L2ToL1Message,
@@ -45,7 +44,6 @@ import {
 } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
-  ContentCommitment,
   GlobalVariables,
   PartialStateReference,
   StateReference,
@@ -59,7 +57,6 @@ import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
   BlockHeader as BlockHeaderNoir,
   ClaimedLengthArray as ClaimedLengthArrayNoir,
-  ContentCommitment as ContentCommitmentNoir,
   Counted,
   FixedLengthArray,
   FunctionSelector as FunctionSelectorNoir,
@@ -70,7 +67,6 @@ import type {
   EmbeddedCurveScalar as GrumpkinScalarNoir,
   L2ToL1Message as L2ToL1MessageNoir,
   LogHash as LogHashNoir,
-  Log as LogNoir,
   MembershipWitness as MembershipWitnessNoir,
   AztecAddress as NoirAztecAddress,
   EthAddress as NoirEthAddress,
@@ -79,6 +75,7 @@ import type {
   NullifierLeafPreimage as NullifierLeafPreimageNoir,
   Option as OptionalNumberNoir,
   PartialStateReference as PartialStateReferenceNoir,
+  Log as PrivateLogNoir,
   PrivateToPublicAccumulatedData as PrivateToPublicAccumulatedDataNoir,
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
   PrivateToRollupAccumulatedData as PrivateToRollupAccumulatedDataNoir,
@@ -88,7 +85,6 @@ import type {
   PublicCallRequest as PublicCallRequestNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
   PublicDataWrite as PublicDataWriteNoir,
-  PublicLog as PublicLogNoir,
   Scoped,
   StateReference as StateReferenceNoir,
   TxConstantData as TxConstantDataNoir,
@@ -293,35 +289,17 @@ export function mapGasFeesFromNoir(gasFees: GasFeesNoir): GasFees {
   return new GasFees(mapBigIntFromNoir(gasFees.fee_per_da_gas), mapBigIntFromNoir(gasFees.fee_per_l2_gas));
 }
 
-export function mapPrivateLogToNoir(log: PrivateLog): LogNoir<typeof PRIVATE_LOG_SIZE_IN_FIELDS> {
+export function mapPrivateLogToNoir(log: PrivateLog): PrivateLogNoir {
   return {
     fields: mapTuple(log.fields, mapFieldToNoir),
     length: mapNumberToNoir(log.emittedLength),
   };
 }
 
-export function mapPrivateLogFromNoir(log: LogNoir<typeof PRIVATE_LOG_SIZE_IN_FIELDS>) {
+export function mapPrivateLogFromNoir(log: PrivateLogNoir) {
   return new PrivateLog(
     mapTupleFromNoir(log.fields, PRIVATE_LOG_SIZE_IN_FIELDS, mapFieldFromNoir),
     mapNumberFromNoir(log.length),
-  );
-}
-
-export function mapPublicLogToNoir(log: PublicLog): PublicLogNoir {
-  return {
-    contract_address: mapAztecAddressToNoir(log.contractAddress),
-    log: {
-      fields: mapTuple(log.fields, mapFieldToNoir),
-      length: mapNumberToNoir(log.emittedLength),
-    },
-  };
-}
-
-export function mapPublicLogFromNoir(log: PublicLogNoir) {
-  return new PublicLog(
-    mapAztecAddressFromNoir(log.contract_address),
-    mapTupleFromNoir(log.log.fields, PUBLIC_LOG_SIZE_IN_FIELDS, mapFieldFromNoir),
-    mapNumberFromNoir(log.log.length),
   );
 }
 
@@ -401,39 +379,15 @@ export function mapAppendOnlyTreeSnapshotToNoir(snapshot: AppendOnlyTreeSnapshot
 }
 
 /**
- * Maps a content commitment to Noir
- *
- */
-export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment): ContentCommitmentNoir {
-  return {
-    blobs_hash: mapFieldToNoir(contentCommitment.blobsHash),
-    in_hash: mapFieldToNoir(contentCommitment.inHash),
-    out_hash: mapFieldToNoir(contentCommitment.outHash),
-  };
-}
-
-/**
- * Maps a content commitment to Noir
- *
- */
-export function mapContentCommitmentFromNoir(contentCommitment: ContentCommitmentNoir): ContentCommitment {
-  return new ContentCommitment(
-    mapFieldFromNoir(contentCommitment.blobs_hash),
-    mapFieldFromNoir(contentCommitment.in_hash),
-    mapFieldFromNoir(contentCommitment.out_hash),
-  );
-}
-
-/**
  * Maps a block header to Noir
  * @param header - The block header.
  * @returns BlockHeader.
  */
-export function mapHeaderToNoir(header: BlockHeader): BlockHeaderNoir {
+export function mapBlockHeaderToNoir(header: BlockHeader): BlockHeaderNoir {
   return {
     last_archive: mapAppendOnlyTreeSnapshotToNoir(header.lastArchive),
-    content_commitment: mapContentCommitmentToNoir(header.contentCommitment),
     state: mapStateReferenceToNoir(header.state),
+    sponge_blob_hash: mapFieldToNoir(header.spongeBlobHash),
     global_variables: mapGlobalVariablesToNoir(header.globalVariables),
     total_fees: mapFieldToNoir(header.totalFees),
     total_mana_used: mapFieldToNoir(header.totalManaUsed),
@@ -445,11 +399,11 @@ export function mapHeaderToNoir(header: BlockHeader): BlockHeaderNoir {
  * @param header - The block header.
  * @returns BlockHeader.
  */
-export function mapHeaderFromNoir(header: BlockHeaderNoir): BlockHeader {
+export function mapBlockHeaderFromNoir(header: BlockHeaderNoir): BlockHeader {
   return new BlockHeader(
     mapAppendOnlyTreeSnapshotFromNoir(header.last_archive),
-    mapContentCommitmentFromNoir(header.content_commitment),
     mapStateReferenceFromNoir(header.state),
+    mapFieldFromNoir(header.sponge_blob_hash),
     mapGlobalVariablesFromNoir(header.global_variables),
     mapFieldFromNoir(header.total_fees),
     mapFieldFromNoir(header.total_mana_used),
@@ -908,7 +862,7 @@ export function mapTxContextFromNoir(txContext: TxContextNoir): TxContext {
 
 export function mapTxConstantDataFromNoir(data: TxConstantDataNoir) {
   return new TxConstantData(
-    mapHeaderFromNoir(data.historical_header),
+    mapBlockHeaderFromNoir(data.anchor_block_header),
     mapTxContextFromNoir(data.tx_context),
     mapFieldFromNoir(data.vk_tree_root),
     mapFieldFromNoir(data.protocol_contract_tree_root),
@@ -917,7 +871,7 @@ export function mapTxConstantDataFromNoir(data: TxConstantDataNoir) {
 
 export function mapTxConstantDataToNoir(data: TxConstantData): TxConstantDataNoir {
   return {
-    historical_header: mapHeaderToNoir(data.historicalHeader),
+    anchor_block_header: mapBlockHeaderToNoir(data.anchorBlockHeader),
     tx_context: mapTxContextToNoir(data.txContext),
     vk_tree_root: mapFieldToNoir(data.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(data.protocolContractTreeRoot),

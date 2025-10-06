@@ -15,8 +15,6 @@ void data_copyImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/data_copy");
-
     const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
     const auto data_copy_SEL = in.get(C::data_copy_sel_rd_copy) + in.get(C::data_copy_sel_cd_copy);
     const auto data_copy_MAX_READ_ADDR = in.get(C::data_copy_src_addr) + in.get(C::data_copy_max_read_index);
@@ -262,17 +260,24 @@ void data_copyImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<31, ContainerOverSubrelations>::View;
-        auto tmp =
-            (static_cast<View>(in.get(C::data_copy_sel_cd_copy_start)) -
-             static_cast<View>(in.get(C::data_copy_sel_start)) * static_cast<View>(in.get(C::data_copy_sel_cd_copy)));
+        auto tmp = (static_cast<View>(in.get(C::data_copy_read_addr_plus_one)) -
+                    static_cast<View>(in.get(C::data_copy_cd_copy_col_read)) *
+                        (static_cast<View>(in.get(C::data_copy_read_addr)) + FF(1)));
         std::get<31>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<32, ContainerOverSubrelations>::View;
         auto tmp =
+            (static_cast<View>(in.get(C::data_copy_sel_cd_copy_start)) -
+             static_cast<View>(in.get(C::data_copy_sel_start)) * static_cast<View>(in.get(C::data_copy_sel_cd_copy)));
+        std::get<32>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<33, ContainerOverSubrelations>::View;
+        auto tmp =
             (static_cast<View>(in.get(C::data_copy_sel_rd_copy_start)) -
              static_cast<View>(in.get(C::data_copy_sel_start)) * static_cast<View>(in.get(C::data_copy_sel_rd_copy)));
-        std::get<32>(evals) += (tmp * scaling_factor);
+        std::get<33>(evals) += (tmp * scaling_factor);
     }
 }
 

@@ -1,4 +1,4 @@
-import { AztecAddress, type Logger, type PXE, type Wallet, createLogger } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, type Logger, type Wallet, createLogger } from '@aztec/aztec.js';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
 
@@ -17,7 +17,7 @@ export class NestedContractTest {
   logger: Logger;
   wallet!: Wallet;
   defaultAccountAddress!: AztecAddress;
-  pxe!: PXE;
+  aztecNode!: AztecNode;
 
   parentContract!: ParentContract;
   childContract!: ChildContract;
@@ -39,10 +39,10 @@ export class NestedContractTest {
     await this.snapshotManager.snapshot(
       'accounts',
       deployAccounts(this.numberOfAccounts, this.logger),
-      ({ deployedAccounts }, { pxe, wallet }) => {
+      ({ deployedAccounts }, { wallet, aztecNode }) => {
         this.wallet = wallet;
         [{ address: this.defaultAccountAddress }] = deployedAccounts;
-        this.pxe = pxe;
+        this.aztecNode = aztecNode;
         return Promise.resolve();
       },
     );

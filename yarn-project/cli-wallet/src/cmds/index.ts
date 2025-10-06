@@ -1,5 +1,4 @@
 import { getIdentities } from '@aztec/accounts/utils';
-import { createCompatibleClient } from '@aztec/aztec.js/rpc';
 import { TxHash } from '@aztec/aztec.js/tx_hash';
 import {
   ETHEREUM_HOSTS,
@@ -7,24 +6,21 @@ import {
   addOptions,
   createSecretKeyOption,
   l1ChainIdOption,
-  logJson,
   parseBigint,
   parseFieldFromHexString,
   parsePublicKey,
-  pxeOption,
 } from '@aztec/cli/utils';
 import type { LogFn, Logger } from '@aztec/foundation/log';
-import { GasFees } from '@aztec/stdlib/gas';
-import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
+import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 
 import { type Command, Option } from 'commander';
 import inquirer from 'inquirer';
 
 import type { WalletDB } from '../storage/wallet_db.js';
+import type { CliWalletAndNodeWrapper } from '../utils/cli_wallet_and_node_wrapper.js';
 import {
   ARTIFACT_DESCRIPTION,
   CLIFeeArgs,
-  CLIFeeArgsWithFeePayer,
   aliasedAddressParser,
   aliasedSecretKeyParser,
   aliasedTxHashParser,
@@ -45,31 +41,25 @@ import {
   parseGasFees,
   parsePaymentMethod,
 } from '../utils/options/index.js';
-import type { PXEWrapper } from '../utils/pxe_wrapper.js';
-import { type AccountType, CLIWallet } from '../utils/wallet.js';
+import type { AccountType } from '../utils/wallet.js';
 
+// TODO: This function is only used in 1 place so we could just inline this
 export function injectCommands(
   program: Command,
   log: LogFn,
   debugLogger: Logger,
-  db?: WalletDB,
-  pxeWrapper?: PXEWrapper,
+  walletAndNodeWrapper: CliWalletAndNodeWrapper,
+  db: WalletDB,
 ) {
   program
     .command('import-test-accounts')
     .description('Import test accounts from pxe.')
-    .addOption(pxeOption)
     .option('--json', 'Emit output as json')
     .action(async options => {
-      if (!db) {
-        throw new Error(`A db is required to store the imported test accounts.`);
-      }
-
+      const { json } = options;
+      const wallet = walletAndNodeWrapper.wallet;
       const { importTestAccounts } = await import('./import_test_accounts.js');
-      const { rpcUrl, json } = options;
 
-      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
-      const wallet = new CLIWallet(client, log, db);
       await importTestAccounts(wallet, db, json, log);
     });
 
@@ -79,6 +69,7 @@ export function injectCommands(
       'Creates an aztec account that can be used for sending transactions. Registers the account on the PXE and deploys an account contract. Uses a Schnorr single-key account which uses the same key for encryption and authentication (not secure for production usage).',
     )
     .summary('Creates an aztec account that can be used for sending transactions.')
+    .addOption(createAccountOption('Alias or address of the account performing the deployment', !db, db))
     .option(
       '--skip-initialization',
       'Skip initializing the account contract. Useful for publicly deploying an existing account.',
@@ -88,10 +79,13 @@ export function injectCommands(
       'Publishes the account contract instance (and the class, if needed). Needed if the contract contains public functions.',
     )
     .option(
+      '--register-class',
+      'Register the contract class (useful for when the contract class has not been deployed yet).',
+    )
+    .option(
       '-p, --public-key <string>',
       'Public key that identifies a private signing key stored outside of the wallet. Used for ECDSA SSH accounts over the secp256r1 curve.',
     )
-    .addOption(pxeOption)
     .addOption(
       createSecretKeyOption('Secret key for account. Uses random by default.', false, sk =>
         aliasedSecretKeyParser(sk, db),
@@ -101,7 +95,7 @@ export function injectCommands(
     .addOption(createTypeOption(true))
     .option(
       '--register-only',
-      'Just register the account on the PXE. Do not deploy or initialize the account contract.',
+      'Just register the account on the Wallet. Do not deploy or initialize the account contract.',
     )
     .option('--json', 'Emit output as json')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
@@ -109,11 +103,22 @@ export function injectCommands(
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
     .addOption(createVerboseOption());
 
-  addOptions(createAccountCommand, CLIFeeArgsWithFeePayer.getOptions()).action(async (_options, command) => {
+  addOptions(createAccountCommand, CLIFeeArgs.getOptions()).action(async (_options, command) => {
     const { createAccount } = await import('./create_account.js');
     const options = command.optsWithGlobals();
-    const { type, secretKey, wait, registerOnly, skipInitialization, publicDeploy, rpcUrl, alias, json, verbose } =
-      options;
+    const {
+      type,
+      from: parsedFromAddress,
+      secretKey,
+      wait,
+      registerOnly,
+      skipInitialization,
+      publicDeploy,
+      registerClass,
+      alias,
+      json,
+      verbose,
+    } = options;
     let { publicKey } = options;
     if ((type as AccountType) === 'ecdsasecp256r1ssh' && !publicKey) {
       const identities = await getIdentities();
@@ -128,19 +133,22 @@ export function injectCommands(
       ]);
       publicKey = answers.identity.split(' ')[1];
     }
-    const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
-    const wallet = new CLIWallet(client, log, db);
+
+    const { wallet, node } = walletAndNodeWrapper;
     const accountCreationResult = await createAccount(
       wallet,
+      node,
       type,
       secretKey,
       publicKey,
       alias,
+      parsedFromAddress,
       registerOnly,
       skipInitialization,
       publicDeploy,
+      registerClass,
       wait,
-      CLIFeeArgsWithFeePayer.parse(options, log, db),
+      CLIFeeArgs.parse(options, log, db),
       json,
       verbose,
       debugLogger,
@@ -155,8 +163,10 @@ export function injectCommands(
   const deployAccountCommand = program
     .command('deploy-account')
     .description('Deploys an already registered aztec account that can be used for sending transactions.')
-    .addOption(createAccountOption('Alias or address of the account to deploy', !db, db))
-    .addOption(pxeOption)
+    .argument('<address>', 'The address of the contract to register', address =>
+      aliasedAddressParser('accounts', address, db),
+    )
+    .addOption(createAccountOption('Alias or address of the account performing the deployment', !db, db))
     .option('--json', 'Emit output as json')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
@@ -169,23 +179,29 @@ export function injectCommands(
       '--public-deploy',
       'Publishes the account contract instance (and the class, if needed). Needed if the contract contains public functions.',
     )
+    .option(
+      '--skip-initialization',
+      'Skip initializing the account contract. Useful for publicly deploying an existing account.',
+    )
     .addOption(createVerboseOption());
 
-  addOptions(deployAccountCommand, CLIFeeArgsWithFeePayer.getOptions()).action(async (_options, command) => {
+  addOptions(deployAccountCommand, CLIFeeArgs.getOptions()).action(async (parsedAccount, _options, command) => {
     const { deployAccount } = await import('./deploy_account.js');
     const options = command.optsWithGlobals();
-    const { rpcUrl, wait, from: parsedFromAddress, json, registerClass, publicDeploy, verbose } = options;
+    const { wait, from: parsedFromAddress, json, registerClass, skipInitialization, publicDeploy, verbose } = options;
 
-    const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
-    const wallet = new CLIWallet(client, log, db);
+    const { wallet, node } = walletAndNodeWrapper;
 
     await deployAccount(
       wallet,
-      parsedFromAddress,
+      node,
+      parsedAccount,
       wait,
+      parsedFromAddress,
       registerClass,
       publicDeploy,
-      CLIFeeArgsWithFeePayer.parse(options, log, db),
+      skipInitialization,
+      CLIFeeArgs.parse(options, log, db),
       json,
       verbose,
       debugLogger,
@@ -210,7 +226,6 @@ export function injectCommands(
       parseFieldFromHexString,
     )
     .option('--universal', 'Do not mix the sender address into the deployment.')
-    .addOption(pxeOption)
     .addOption(createArgsOption(true, db))
     .addOption(createAccountOption('Alias or address of the account to deploy from', !db, db))
     .addOption(createAliasOption('Alias for the contract. Used for easy reference subsequent commands.', !db))
@@ -241,20 +256,20 @@ export function injectCommands(
       init,
       publicDeployment,
       universal,
-      rpcUrl,
       from: parsedFromAddress,
       alias,
       timeout,
       verbose,
     } = options;
-    const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
-    const wallet = new CLIWallet(client, log, db);
+
+    const { wallet, node } = walletAndNodeWrapper;
     const artifactPath = await artifactPathPromise;
 
     debugLogger.info(`Using wallet with address ${parsedFromAddress.toString()}`);
 
     const address = await deploy(
       wallet,
+      node,
       universal ? undefined : parsedFromAddress,
       artifactPath,
       json,
@@ -271,7 +286,6 @@ export function injectCommands(
       verbose,
       debugLogger,
       log,
-      logJson(log),
     );
     if (db && address) {
       await db.storeContract(address, artifactPath, log, alias);
@@ -282,7 +296,6 @@ export function injectCommands(
     .command('send')
     .description('Calls a function on an Aztec contract.')
     .argument('<functionName>', 'Name of function to execute')
-    .addOption(pxeOption)
     .addOption(createArgsOption(false, db))
     .addOption(createArtifactOption(db))
     .addOption(createContractAddressOption(db))
@@ -310,14 +323,13 @@ export function injectCommands(
       contractAddress,
       from: parsedFromAddress,
       wait,
-      rpcUrl,
       alias,
       cancel,
       authWitness: authWitnessArray,
       verbose,
     } = options;
-    const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
-    const wallet = new CLIWallet(client, log, db);
+
+    const { wallet, node } = walletAndNodeWrapper;
     const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
 
     debugLogger.info(`Using wallet with address ${parsedFromAddress.toString()}`);
@@ -325,6 +337,7 @@ export function injectCommands(
     const authWitnesses = cleanupAuthWitnesses(authWitnessArray);
     const sentTx = await send(
       wallet,
+      node,
       parsedFromAddress,
       functionName,
       args,
@@ -347,7 +360,6 @@ export function injectCommands(
     .command('simulate')
     .description('Simulates the execution of a function on an Aztec contract.')
     .argument('<functionName>', 'Name of function to simulate')
-    .addOption(pxeOption)
     .addOption(createArgsOption(false, db))
     .addOption(createContractAddressOption(db))
     .addOption(createArtifactOption(db))
@@ -366,18 +378,17 @@ export function injectCommands(
       contractArtifact: artifactPathPromise,
       contractAddress,
       from: parsedFromAddress,
-      rpcUrl,
       verbose,
       authWitness,
     } = options;
 
-    const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
-    const wallet = new CLIWallet(client, log, db);
+    const { wallet, node } = walletAndNodeWrapper;
 
     const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
     const authWitnesses = cleanupAuthWitnesses(authWitness);
     await simulate(
       wallet,
+      node,
       parsedFromAddress,
       functionName,
       args,
@@ -394,7 +405,6 @@ export function injectCommands(
     .command('profile')
     .description('Profiles a private function by counting the unconditional operations in its execution steps')
     .argument('<functionName>', 'Name of function to simulate')
-    .addOption(pxeOption)
     .addOption(createArgsOption(false, db))
     .addOption(createContractAddressOption(db))
     .addOption(createArtifactOption(db))
@@ -410,18 +420,17 @@ export function injectCommands(
       contractArtifact: artifactPathPromise,
       contractAddress,
       from: parsedFromAddress,
-      rpcUrl,
       debugExecutionStepsDir,
       authWitness,
     } = options;
 
-    const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
-    const wallet = new CLIWallet(client, log, db);
+    const { wallet, node } = walletAndNodeWrapper;
 
     const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
     const authWitnesses = cleanupAuthWitnesses(authWitness);
     await profile(
       wallet,
+      node,
       parsedFromAddress,
       functionName,
       args,
@@ -454,12 +463,11 @@ export function injectCommands(
     )
     .option('--mint', 'Mint the tokens on L1', false)
     .option('--l1-private-key <string>', 'The private key to the eth account bridging', PRIVATE_KEY)
-    .addOption(pxeOption)
     .addOption(l1ChainIdOption)
     .option('--json', 'Output the claim in JSON format')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
-    .option('--no-wait', 'Wait for the brigded funds to be available in L2, polling every 60 seconds')
+    .option('--no-wait', 'Wait for the bridged funds to be available in L2, polling every 60 seconds')
     .addOption(
       new Option('--interval <number>', 'The polling interval in seconds for the bridged funds')
         .default('60')
@@ -467,13 +475,12 @@ export function injectCommands(
     )
     .action(async (amount, recipient, options) => {
       const { bridgeL1FeeJuice } = await import('./bridge_fee_juice.js');
-      const { rpcUrl, l1ChainId, l1RpcUrls, l1PrivateKey, mnemonic, mint, json, wait, interval: intervalS } = options;
-      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
+      const { l1ChainId, l1RpcUrls, l1PrivateKey, mnemonic, mint, json, wait, interval: intervalS } = options;
 
       const [secret, messageLeafIndex] = await bridgeL1FeeJuice(
         amount,
         recipient,
-        client,
+        walletAndNodeWrapper.node,
         l1RpcUrls,
         l1ChainId,
         l1PrivateKey,
@@ -499,7 +506,6 @@ export function injectCommands(
     .argument('<caller>', 'Account to be authorized to perform the action', address =>
       aliasedAddressParser('accounts', address, db),
     )
-    .addOption(pxeOption)
     .addOption(createArgsOption(false, db))
     .addOption(createContractAddressOption(db))
     .addOption(createArtifactOption(db))
@@ -510,17 +516,9 @@ export function injectCommands(
     .action(async (functionName, caller, _options, command) => {
       const { createAuthwit } = await import('./create_authwit.js');
       const options = command.optsWithGlobals();
-      const {
-        args,
-        contractArtifact: artifactPathPromise,
-        contractAddress,
-        from: parsedFromAddress,
-        rpcUrl,
-        alias,
-      } = options;
+      const { args, contractArtifact: artifactPathPromise, contractAddress, from: parsedFromAddress, alias } = options;
 
-      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
-      const wallet = new CLIWallet(client, log, db);
+      const wallet = walletAndNodeWrapper.wallet;
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
       const witness = await createAuthwit(
         wallet,
@@ -547,7 +545,6 @@ export function injectCommands(
     .argument('<caller>', 'Account to be authorized to perform the action', address =>
       aliasedAddressParser('accounts', address, db),
     )
-    .addOption(pxeOption)
     .addOption(createArgsOption(false, db))
     .addOption(createContractAddressOption(db))
     .addOption(createArtifactOption(db))
@@ -555,10 +552,9 @@ export function injectCommands(
     .action(async (functionName, caller, _options, command) => {
       const { authorizeAction } = await import('./authorize_action.js');
       const options = command.optsWithGlobals();
-      const { args, contractArtifact: artifactPathPromise, contractAddress, from: parsedFromAddress, rpcUrl } = options;
+      const { args, contractArtifact: artifactPathPromise, contractAddress, from: parsedFromAddress } = options;
 
-      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
-      const wallet = new CLIWallet(client, log, db);
+      const wallet = walletAndNodeWrapper.wallet;
 
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
       await authorizeAction(wallet, parsedFromAddress, functionName, caller, args, artifactPath, contractAddress, log);
@@ -568,7 +564,6 @@ export function injectCommands(
     .command('get-tx')
     .description('Gets the status of the recent txs, or a detailed view if a specific transaction hash is provided')
     .argument('[txHash]', 'A transaction hash to get the receipt for.', txHash => aliasedTxHashParser(txHash, db))
-    .addOption(pxeOption)
     .option('-p, --page <number>', 'The page number to display', value => integerArgParser(value, '--page', 1), 1)
     .option(
       '-s, --page-size <number>',
@@ -578,12 +573,14 @@ export function injectCommands(
     )
     .action(async (txHash, options) => {
       const { checkTx } = await import('./check_tx.js');
-      const { rpcUrl, pageSize } = options;
+      const { pageSize } = options;
       let { page } = options;
-      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
+
+      const wallet = walletAndNodeWrapper.wallet;
+      const node = walletAndNodeWrapper.node;
 
       if (txHash) {
-        await checkTx(client, txHash, false, log);
+        await checkTx(wallet, node, txHash, false, log);
       } else if (db) {
         const aliases = await db.listAliases('transactions');
         const totalPages = Math.ceil(aliases.length / pageSize);
@@ -593,7 +590,7 @@ export function injectCommands(
             alias: key,
             txHash: value,
             cancellable: (await db.retrieveTxData(TxHash.fromString(value))).cancellable,
-            status: await checkTx(client, TxHash.fromString(value), true, log),
+            status: await checkTx(wallet, node, TxHash.fromString(value), true, log),
           })),
         );
         log(`Recent transactions:`);
@@ -614,7 +611,6 @@ export function injectCommands(
     .command('cancel-tx')
     .description('Cancels a pending tx by reusing its nonce with a higher fee and an empty payload')
     .argument('<txHash>', 'A transaction hash to cancel.', txHash => aliasedTxHashParser(txHash, db))
-    .addOption(pxeOption)
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
     .addOption(getPaymentMethodOption().default('method=fee_juice'))
     .option(
@@ -628,16 +624,16 @@ export function injectCommands(
     )
     .action(async (txHash, options) => {
       const { cancelTx } = await import('./cancel_tx.js');
-      const { from: parsedFromAddress, rpcUrl, payment, increasedFees, maxFeesPerGas } = options;
-      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
-      const wallet = new CLIWallet(client, log, db);
+      const { from: parsedFromAddress, payment, increasedFees, maxFeesPerGas } = options;
+
+      const { wallet } = walletAndNodeWrapper;
 
       const txData = await db?.retrieveTxData(txHash);
       if (!txData) {
         throw new Error('Transaction data not found in the database, cannot reuse nonce');
       }
-
-      const paymentMethod = await parsePaymentMethod(payment, false, log, db)(wallet, parsedFromAddress);
+      const gasSettings = GasSettings.default({ maxFeesPerGas });
+      const paymentMethod = await parsePaymentMethod(payment, log, db)(wallet, parsedFromAddress, gasSettings);
 
       await cancelTx(wallet, parsedFromAddress, txData, paymentMethod, increasedFees, maxFeesPerGas, log);
     });
@@ -650,13 +646,12 @@ export function injectCommands(
     .argument('[address]', 'The address of the sender to register', address =>
       aliasedAddressParser('accounts', address, db),
     )
-    .addOption(pxeOption)
     .addOption(createAliasOption('Alias for the sender. Used for easy reference in subsequent commands.', !db))
     .action(async (address, options) => {
       const { registerSender } = await import('./register_sender.js');
-      const { rpcUrl, alias } = options;
-      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
-      const wallet = new CLIWallet(client, log, db);
+      const { alias } = options;
+
+      const wallet = walletAndNodeWrapper.wallet;
 
       await registerSender(wallet, address, log);
 
@@ -687,14 +682,13 @@ export function injectCommands(
       aliasedAddressParser('accounts', address, db),
     )
     .addOption(createArgsOption(true, db))
-    .addOption(pxeOption)
     .addOption(createAliasOption('Alias for the contact. Used for easy reference in subsequent commands.', !db))
     .action(async (address, artifactPathPromise, _options, command) => {
       const { registerContract } = await import('./register_contract.js');
-      const { rpcUrl, nodeUrl, alias, init, publicKey, salt, deployer, args } = command.optsWithGlobals();
-      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
-      const node = pxeWrapper?.getNode() ?? createAztecNodeClient(nodeUrl);
-      const wallet = new CLIWallet(client, log, db);
+      const { alias, init, publicKey, salt, deployer, args } = command.optsWithGlobals();
+
+      const wallet = walletAndNodeWrapper.wallet;
+      const node = walletAndNodeWrapper.node;
 
       const artifactPath = await artifactPathPromise;
 

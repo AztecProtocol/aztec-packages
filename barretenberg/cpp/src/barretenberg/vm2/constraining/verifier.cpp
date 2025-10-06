@@ -58,7 +58,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     // TODO(#15892): Fiat-Shamir the vk hash by uncommenting the line below.
     FF vk_hash = key->hash();
     // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
-    info("AVM vk hash in verifier: ", vk_hash);
+    vinfo("AVM vk hash in verifier: ", vk_hash);
 
     // Check public inputs size.
     if (public_inputs.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {
@@ -71,10 +71,11 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
             vinfo("Public input size mismatch");
             return false;
         }
-        for (size_t j = 0; j < public_inputs[i].size(); j++) {
-            transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
-                                           public_inputs[i][j]);
-        }
+        // TODO(https://github.com/AztecProtocol/aztec-packages/pull/17045): make the protocols secure at some point
+        // for (size_t j = 0; j < public_inputs[i].size(); j++) {
+        //     transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
+        //                                    public_inputs[i][j]);
+        // }
     }
     VerifierCommitments commitments{ key };
     // Get commitments to VM wires
@@ -111,11 +112,12 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         return false;
     }
 
+    using C = ColumnAndShifts;
     std::array<FF, AVM_NUM_PUBLIC_INPUT_COLUMNS> claimed_evaluations = {
-        output.claimed_evaluations.public_inputs_cols_0_,
-        output.claimed_evaluations.public_inputs_cols_1_,
-        output.claimed_evaluations.public_inputs_cols_2_,
-        output.claimed_evaluations.public_inputs_cols_3_,
+        output.claimed_evaluations.get(C::public_inputs_cols_0_),
+        output.claimed_evaluations.get(C::public_inputs_cols_1_),
+        output.claimed_evaluations.get(C::public_inputs_cols_2_),
+        output.claimed_evaluations.get(C::public_inputs_cols_3_),
     };
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
         FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], output.challenge);
@@ -126,8 +128,10 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     }
 
     ClaimBatcher claim_batcher{
-        .unshifted = ClaimBatch{ commitments.get_unshifted(), output.claimed_evaluations.get_unshifted() },
-        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), output.claimed_evaluations.get_shifted() }
+        .unshifted = ClaimBatch{ .commitments = RefVector<Commitment>::from_span(commitments.get_unshifted()),
+                                 .evaluations = RefVector<FF>::from_span(output.claimed_evaluations.get_unshifted()) },
+        .shifted = ClaimBatch{ .commitments = RefVector<Commitment>::from_span(commitments.get_to_be_shifted()),
+                               .evaluations = RefVector<FF>::from_span(output.claimed_evaluations.get_shifted()) }
     };
     const BatchOpeningClaim<Curve> opening_claim = Shplemini::compute_batch_opening_claim(
         padding_indicator_array, claim_batcher, output.challenge, Commitment::one(), transcript);

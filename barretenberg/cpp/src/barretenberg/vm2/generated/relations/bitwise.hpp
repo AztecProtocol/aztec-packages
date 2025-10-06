@@ -21,7 +21,7 @@ template <typename FF_> class bitwiseImpl {
     {
         using C = ColumnAndShifts;
 
-        return ((in.get(C::bitwise_sel) + in.get(C::bitwise_last))).is_zero();
+        return (in.get(C::bitwise_sel)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>

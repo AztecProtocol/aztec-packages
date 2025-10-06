@@ -123,8 +123,8 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
     // Lagrange ensuring the accumulator result is validated at the correct row
     auto lagrange_result_row = View(in.lagrange_result_row);
 
-    // Lagrange at index (size of minicircuit - 1) is used to enforce that the accumulator is initialized to zero in
-    // the circuit
+    // Lagrange at index (size of minicircuit without masking - 1) is used to enforce that the accumulator starts from
+    // zero
     auto lagrange_last_in_minicircuit = View(in.lagrange_last_in_minicircuit);
 
     // Locations of randomness in the minicircuit

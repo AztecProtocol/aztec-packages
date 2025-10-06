@@ -25,10 +25,11 @@ describe('AVM proven bulk test', () => {
       writeFileSync(process.env.BENCH_OUTPUT, metrics.toGithubActionBenchmarkJSON());
     } else if (process.env.BENCH_OUTPUT_MD) {
       writeFileSync(process.env.BENCH_OUTPUT_MD, metrics.toPrettyString());
-    } else {
-      logger.info(`\n`); // sometimes jest tests obscure the last line(s)
-      logger.info(metrics.toPrettyString());
     }
+
+    // Always print the metrics.
+    logger.info(`\n`); // sometimes jest tests obscure the last line(s)
+    logger.info(metrics.toPrettyString());
   });
 
   it(

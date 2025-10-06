@@ -14,7 +14,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import { ProvingRequestType, makeRecursiveProof } from '@aztec/stdlib/proofs';
-import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
+import { makeParityBasePrivateInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { jest } from '@jest/globals';
@@ -48,7 +48,7 @@ describe('ProvingAgent', () => {
       saveProofOutput: jest.fn(() => Promise.resolve('' as ProofUri)),
     };
 
-    allowList = [ProvingRequestType.BASE_PARITY];
+    allowList = [ProvingRequestType.PARITY_BASE];
     agent = new ProvingAgent(jobSource, proofDB, prover, allowList, agentPollIntervalMs);
   });
 
@@ -58,7 +58,7 @@ describe('ProvingAgent', () => {
 
   it('polls for jobs passing the permitted list of proofs', () => {
     agent.start();
-    expect(jobSource.getProvingJob).toHaveBeenCalledWith({ allowList: [ProvingRequestType.BASE_PARITY] });
+    expect(jobSource.getProvingJob).toHaveBeenCalledWith({ allowList: [ProvingRequestType.PARITY_BASE] });
   });
 
   it('only takes a single job from the source at a time', async () => {
@@ -156,12 +156,12 @@ describe('ProvingAgent', () => {
 
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
     expect(jobSource.reportProvingJobProgress).toHaveBeenCalledWith(job.id, time, {
-      allowList: [ProvingRequestType.BASE_PARITY],
+      allowList: [ProvingRequestType.PARITY_BASE],
     });
 
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
     expect(jobSource.reportProvingJobProgress).toHaveBeenCalledWith(job.id, time, {
-      allowList: [ProvingRequestType.BASE_PARITY],
+      allowList: [ProvingRequestType.PARITY_BASE],
     });
 
     resolve(makeBaseParityResult());
@@ -190,7 +190,7 @@ describe('ProvingAgent', () => {
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
     expect(jobSource.reportProvingJobProgress).toHaveBeenCalledTimes(1);
     expect(jobSource.reportProvingJobProgress).toHaveBeenCalledWith(firstJob.job.id, firstJob.time, {
-      allowList: [ProvingRequestType.BASE_PARITY],
+      allowList: [ProvingRequestType.PARITY_BASE],
     });
 
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
@@ -211,14 +211,14 @@ describe('ProvingAgent', () => {
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
     expect(jobSource.reportProvingJobProgress).toHaveBeenCalledTimes(4);
     expect(jobSource.reportProvingJobProgress).toHaveBeenNthCalledWith(3, firstJob.job.id, firstJob.time, {
-      allowList: [ProvingRequestType.BASE_PARITY],
+      allowList: [ProvingRequestType.PARITY_BASE],
     });
     expect(jobSource.reportProvingJobProgress).toHaveBeenNthCalledWith(
       4,
       secondJobResponse.job.id,
       secondJobResponse.time,
       {
-        allowList: [ProvingRequestType.BASE_PARITY],
+        allowList: [ProvingRequestType.PARITY_BASE],
       },
     );
     expect(firstProofAborted).toBe(true);
@@ -230,7 +230,7 @@ describe('ProvingAgent', () => {
       secondJobResponse.job.id,
       secondJobResponse.time,
       {
-        allowList: [ProvingRequestType.BASE_PARITY],
+        allowList: [ProvingRequestType.PARITY_BASE],
       },
     );
   });
@@ -296,11 +296,11 @@ describe('ProvingAgent', () => {
 
   function makeBaseParityJob(): { job: ProvingJob; time: number; inputs: ProvingJobInputs } {
     const time = jest.now();
-    const inputs: ProvingJobInputs = { type: ProvingRequestType.BASE_PARITY, inputs: makeBaseParityInputs() };
+    const inputs: ProvingJobInputs = { type: ProvingRequestType.PARITY_BASE, inputs: makeParityBasePrivateInputs() };
     const job: ProvingJob = {
       id: randomBytes(8).toString('hex') as ProvingJobId,
       epochNumber: 1,
-      type: ProvingRequestType.BASE_PARITY,
+      type: ProvingRequestType.PARITY_BASE,
       inputsUri: randomBytes(8).toString('hex') as ProofUri,
     };
 

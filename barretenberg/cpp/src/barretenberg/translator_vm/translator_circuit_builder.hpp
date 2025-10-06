@@ -238,7 +238,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // Maximum size of 2 higher limbs concatenated
     static constexpr auto MAX_HIGH_WIDE_LIMB_SIZE = (uint256_t(1) << (NUM_LIMB_BITS + NUM_LAST_LIMB_BITS)) - 1;
 
-    // Index at which the evaluation result is stored in the circuit, preceeded by one no-op that ensures translator
+    // Index at which the accumulation result is stored in the circuit, preceeded by one no-op that ensures translator
     // polynomials are shiftable and three random ops that contribute to ensuring the Translator proof does not leak
     // information about the op queue content linked to the circuits being proven
     static constexpr size_t RESULT_ROW = 8;
@@ -398,7 +398,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      * @brief Ensures the accumulation input is well-formed and can be used to create a gate.
      * @details There are two main types of checks: that members of the AccumulationInput are within the appropriate
      * ranges and that the members containing `*limbs` have been constructed appropriately from the original values,
-     * also present in the input.
+     *  present in the AccumulationInput.
      *
      * @param acc_step
      */
@@ -407,8 +407,8 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     /**
      * @brief Create a single accumulation gate
      *
-     * @details An accumulation gate adds 2 rows from the op queue computing the accumulation of a single EccOpQueue
-     * step
+     * @details An accumulation gate is used to process one UltraOp from the op queue and adds 2 rows in the Translator
+     * "trace" (or circuit).
      *
      * @param acc_step
      */
@@ -424,10 +424,9 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     }
 
     /**
-     * @brief Generate all the gates required to prove the correctness of batched evalution of polynomials
-     * representing commitments to ECCOpQueue
+     * @brief Generate all the gates required to prove the correctness of batched evalution of column polynomials
+     * representing the ECCOpQueue.
      *
-     * @param ecc_op_queue The queue
      */
     void feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue>& ecc_op_queue);
 

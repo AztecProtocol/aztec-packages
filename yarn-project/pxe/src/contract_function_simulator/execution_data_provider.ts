@@ -5,13 +5,12 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, NodeStats } from '@aztec/stdlib/tx';
 
+import type { NoteData } from './oracle/interfaces.js';
 import type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
-import type { NoteData } from './oracle/typed_oracle.js';
 
 /**
  * Error thrown when a contract is not found in the database.
@@ -145,10 +144,12 @@ export interface ExecutionDataProvider {
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
 
   /**
-   * Retrieve the latest block header synchronized by the execution data provider.
-   * @returns The BlockHeader object.
+   * Retrieve the latest block header synchronized by the execution data provider. This block header is referred
+   * to as the anchor block header in Aztec terminology and it defines the state that is used during private function
+   * execution.
+   * @returns The anchor block header.
    */
-  getBlockHeader(): Promise<BlockHeader>;
+  getAnchorBlockHeader(): Promise<BlockHeader>;
 
   /**
    * Fetches the index and sibling path of a leaf at a given block from a given tree.
@@ -213,30 +214,13 @@ export interface ExecutionDataProvider {
   assertCompatibleOracleVersion(version: number): void;
 
   /**
-   * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.
-   * Includes the next index to be used used for tagging with this secret.
+   * Returns the next app tag for a given sender and recipient pair.
    * @param contractAddress - The contract address to silo the secret for
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
-   * @returns A tagging secret that can be used to tag notes.
+   * @returns The computed tag.
    */
-  getIndexedTaggingSecretAsSender(
-    contractAddress: AztecAddress,
-    sender: AztecAddress,
-    recipient: AztecAddress,
-  ): Promise<IndexedTaggingSecret>;
-
-  /**
-   * Increments the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.
-   * @param contractAddress - The contract address to silo the secret for
-   * @param sender - The address sending the note
-   * @param recipient - The address receiving the note
-   */
-  incrementAppTaggingSecretIndexAsSender(
-    contractAddress: AztecAddress,
-    sender: AztecAddress,
-    recipient: AztecAddress,
-  ): Promise<void>;
+  getNextAppTagAsSender(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress): Promise<Fr>;
 
   /**
    * Synchronizes the private logs tagged with scoped addresses and all the senders in the address book. Stores the found

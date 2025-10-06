@@ -1,13 +1,14 @@
-import type { EntrypointInterface, FeeOptions, TxExecutionOptions } from '@aztec/entrypoints/interfaces';
+import type { EntrypointInterface, TxExecutionOptions } from '@aztec/entrypoints/interfaces';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { Fr } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
+import type { GasSettings } from '@aztec/stdlib/gas';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import type { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
+import type { CallIntent, IntentInnerHash } from '../utils/authwit.js';
 import type { Wallet } from '../wallet/wallet.js';
 import type { Account } from './account.js';
 
@@ -18,11 +19,11 @@ export class SignerlessAccount implements Account {
   constructor(private entrypoint: EntrypointInterface) {}
 
   createTxExecutionRequest(
-    execution: ExecutionPayload,
-    fee: FeeOptions,
+    exec: ExecutionPayload,
+    gasSettings: GasSettings,
     options: TxExecutionOptions,
   ): Promise<TxExecutionRequest> {
-    return this.entrypoint.createTxExecutionRequest(execution, fee, options);
+    return this.entrypoint.createTxExecutionRequest(exec, gasSettings, options);
   }
 
   getChainId(): Fr {
@@ -45,13 +46,13 @@ export class SignerlessAccount implements Account {
     throw new Error('SignerlessAccount: Method getAddress not implemented.');
   }
 
-  createAuthWit(_intent: Fr | Buffer | IntentInnerHash | IntentAction): Promise<AuthWitness> {
+  createAuthWit(_intent: Fr | Buffer | IntentInnerHash | CallIntent): Promise<AuthWitness> {
     throw new Error('SignerlessAccount: Method createAuthWit not implemented.');
   }
 
   setPublicAuthWit(
     _wallet: Wallet,
-    _messageHashOrIntent: Fr | Buffer | IntentInnerHash | IntentAction,
+    _messageHashOrIntent: Fr | Buffer | IntentInnerHash | CallIntent,
     _authorized: boolean,
   ): Promise<ContractFunctionInteraction> {
     throw new Error('SignerlessAccount: Method setPublicAuthWit not implemented.');

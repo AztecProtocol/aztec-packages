@@ -1,3 +1,4 @@
+import type { Observable } from '@opentelemetry/api';
 import { type EventLoopUtilization, type IntervalHistogram, monitorEventLoopDelay, performance } from 'node:perf_hooks';
 
 import * as Attributes from './attributes.js';
@@ -142,17 +143,26 @@ export class NodejsMetricsMonitor {
     // - https://youtu.be/WetXnEPraYM
     obs.observe(this.eventLoopUilization, delta.utilization);
 
-    this.eventLoopTime.add(Math.floor(delta.idle), { [Attributes.NODEJS_EVENT_LOOP_STATE]: 'idle' });
-    this.eventLoopTime.add(Math.floor(delta.active), { [Attributes.NODEJS_EVENT_LOOP_STATE]: 'active' });
+    this.eventLoopTime.add(Math.trunc(delta.idle), { [Attributes.NODEJS_EVENT_LOOP_STATE]: 'idle' });
+    this.eventLoopTime.add(Math.trunc(delta.active), { [Attributes.NODEJS_EVENT_LOOP_STATE]: 'active' });
 
-    obs.observe(this.eventLoopDelayGauges.min, Math.floor(this.eventLoopDelay.min));
-    obs.observe(this.eventLoopDelayGauges.mean, Math.floor(this.eventLoopDelay.mean));
-    obs.observe(this.eventLoopDelayGauges.max, Math.floor(this.eventLoopDelay.max));
-    obs.observe(this.eventLoopDelayGauges.stddev, Math.floor(this.eventLoopDelay.stddev));
-    obs.observe(this.eventLoopDelayGauges.p50, Math.floor(this.eventLoopDelay.percentile(50)));
-    obs.observe(this.eventLoopDelayGauges.p90, Math.floor(this.eventLoopDelay.percentile(90)));
-    obs.observe(this.eventLoopDelayGauges.p99, Math.floor(this.eventLoopDelay.percentile(99)));
+    safeObserveInt(obs, this.eventLoopDelayGauges.min, this.eventLoopDelay.min);
+    safeObserveInt(obs, this.eventLoopDelayGauges.mean, this.eventLoopDelay.mean);
+    safeObserveInt(obs, this.eventLoopDelayGauges.max, this.eventLoopDelay.max);
+    safeObserveInt(obs, this.eventLoopDelayGauges.stddev, this.eventLoopDelay.stddev);
+    safeObserveInt(obs, this.eventLoopDelayGauges.p50, this.eventLoopDelay.percentile(50));
+    safeObserveInt(obs, this.eventLoopDelayGauges.p90, this.eventLoopDelay.percentile(90));
+    safeObserveInt(obs, this.eventLoopDelayGauges.p99, this.eventLoopDelay.percentile(99));
 
     this.eventLoopDelay.reset();
   };
+}
+
+function safeObserveInt(observer: BatchObservableResult, metric: Observable, value: number, attrs?: object) {
+  // discard NaN, Infinity, -Infinity
+  if (!Number.isFinite(value)) {
+    return;
+  }
+
+  observer.observe(metric, Math.trunc(value), attrs);
 }

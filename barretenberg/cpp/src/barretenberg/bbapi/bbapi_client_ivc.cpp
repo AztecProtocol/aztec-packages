@@ -111,13 +111,13 @@ ClientIvcVerify::Response ClientIvcVerify::execute(const BBApiRequest& /*request
     return { .valid = verified };
 }
 
-static std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_proving_key(
-    const BBApiRequest& request, acir_format::AcirProgram& program)
+static std::shared_ptr<ClientIVC::ProverInstance> get_acir_program_prover_instance(const BBApiRequest& request,
+                                                                                   acir_format::AcirProgram& program)
 {
     ClientIVC::ClientCircuit builder = acir_format::create_circuit<ClientIVC::ClientCircuit>(program);
 
     // Construct the verification key via the prover-constructed proving key with the proper trace settings
-    return std::make_shared<ClientIVC::DeciderProvingKey>(builder, request.trace_settings);
+    return std::make_shared<ClientIVC::ProverInstance>(builder, request.trace_settings);
 }
 
 ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(const BBApiRequest& request) &&
@@ -128,8 +128,8 @@ ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(con
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
 
     acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
-    std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(request, program);
-    auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
+    std::shared_ptr<ClientIVC::ProverInstance> prover_instance = get_acir_program_prover_instance(request, program);
+    auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(prover_instance->get_precomputed());
 
     return { .bytes = to_buffer(*verification_key), .fields = verification_key->to_field_elements() };
 }
@@ -163,8 +163,8 @@ ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode)),
                                       /*witness=*/{} };
 
-    std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(request, program);
-    auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
+    std::shared_ptr<ClientIVC::ProverInstance> prover_instance = get_acir_program_prover_instance(request, program);
+    auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(prover_instance->get_precomputed());
 
     if (circuit.verification_key.empty()) {
         info("FAIL: Expected precomputed vk for function ", circuit.name);
