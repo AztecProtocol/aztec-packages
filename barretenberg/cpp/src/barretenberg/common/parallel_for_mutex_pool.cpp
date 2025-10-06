@@ -171,9 +171,9 @@ void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(siz
 
     // Initialize the pool if needed, or grow it if hardware concurrency has increased.
     // The ThreadPool is default-constructed with 0 workers, so grow() will initialize it on first use.
-    // Growing past that is a niche scenario that mostly comes up in testing where we may have multiple
-    // set_parallel_for_concurrency values (a pool that is bigger is not an issue as set_parallel_for_concurrency
-    // affects get_num_cpus(), which will naturally limit concurrency).
+    // Growing past the first initialization, however, is a niche scenario that mostly comes up in testing 
+    // where we may have multiple set_parallel_for_concurrency values (a pool that is bigger is not an issue 
+    // as set_parallel_for_concurrency affects get_num_cpus(), which will naturally limit concurrency).
     if (get_num_cpus() > pool.get_num_workers() + 1) {
         pool.grow(get_num_cpus() - 1);
     }
