@@ -110,7 +110,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
              zip_view(prover_instance->polynomials.get_databus_entities(), commitment_labels.get_databus_entities())) {
             {
                 BB_BENCH_NAME("COMMIT::databus");
-                batch.add_to_batch(polynomial, label, /*mask?*/ Flavor::HasZK);
+                batch.add_to_batch(polynomial, label, /*mask?*/ false);
             }
         }
     }
@@ -196,7 +196,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
     if constexpr (IsMegaFlavor<Flavor>) {
         for (auto [polynomial, label] :
              zip_view(prover_instance->polynomials.get_databus_inverses(), commitment_labels.get_databus_inverses())) {
-            batch.add_to_batch(polynomial, label, /*mask?*/ Flavor::HasZK);
+            batch.add_to_batch(polynomial, label, /*mask?*/ false);
         };
     }
     auto computed_commitments = batch.commit_and_send_to_verifier(transcript);

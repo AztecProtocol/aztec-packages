@@ -30,6 +30,7 @@ template <typename Flavor> class UltraVerifier_ {
     struct UltraVerifierOutput {
       public:
         bool result;
+        Commitment kernel_return_data;
         std::array<Commitment, Flavor::NUM_WIRES> ecc_op_tables;
 
         UltraVerifierOutput() = default;
