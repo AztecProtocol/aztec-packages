@@ -106,7 +106,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     configToFlag('--auto-update-url', sharedNodeConfigMappings.autoUpdateUrl),
 
     configToFlag('--sync-mode', sharedNodeConfigMappings.syncMode),
-    configToFlag('--snapshots-url', sharedNodeConfigMappings.snapshotsUrl),
+    configToFlag('--snapshots-urls', sharedNodeConfigMappings.snapshotsUrls),
   ],
   SANDBOX: [
     {
