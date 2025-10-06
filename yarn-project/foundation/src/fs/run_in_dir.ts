@@ -26,7 +26,7 @@ export async function runInDirectory<T>(
       try {
         await fs.rm(workingDirectory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
       } catch (err) {
-        logger.warn(`Failed to cleanup temporary directory ${workingDirectory}: ${err}`, { err });
+        logger.warn('Failed to cleanup temporary directory %s: %s', workingDirectory, err, { err });
       }
     }
   }
