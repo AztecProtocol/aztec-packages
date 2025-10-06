@@ -25,7 +25,7 @@ class ContractInstanceManager : public ContractInstanceManagerInterface {
     ContractInstanceManager(ContractDBInterface& contract_db,
                             HighLevelMerkleDBInterface& merkle_db,
                             UpdateCheckInterface& update_check,
-                            FieldGreaterThan& ff_gt,
+                            FieldGreaterThanInterface& ff_gt,
                             const ProtocolContracts& protocol_contracts,
                             EventEmitterInterface<ContractInstanceRetrievalEvent>& event_emitter);
 
@@ -36,7 +36,7 @@ class ContractInstanceManager : public ContractInstanceManagerInterface {
     HighLevelMerkleDBInterface& merkle_db;
     UpdateCheckInterface& update_check;
     const ProtocolContracts& protocol_contracts;
-    FieldGreaterThan& ff_gt;
+    FieldGreaterThanInterface& ff_gt;
     EventEmitterInterface<ContractInstanceRetrievalEvent>& event_emitter;
 };
 

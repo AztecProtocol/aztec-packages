@@ -1,13 +1,14 @@
 #include "barretenberg/vm2/simulation/gadgets/contract_instance_manager.hpp"
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/simulation/interfaces/field_gt.hpp"
 
 namespace bb::avm2::simulation {
 
 ContractInstanceManager::ContractInstanceManager(ContractDBInterface& contract_db,
                                                  HighLevelMerkleDBInterface& merkle_db,
                                                  UpdateCheckInterface& update_check,
-                                                 FieldGreaterThan& ff_gt,
+                                                 FieldGreaterThanInterface& ff_gt,
                                                  const ProtocolContracts& protocol_contracts,
                                                  EventEmitterInterface<ContractInstanceRetrievalEvent>& event_emitter)
     : contract_db(contract_db)

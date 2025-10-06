@@ -1,9 +1,0 @@
-// This is not a test file but we need to use .test.cpp so that it is not included in non-test builds.
-#include "barretenberg/vm2/simulation/testing/mock_protocol_contracts.hpp"
-
-namespace bb::avm2::simulation {
-
-MockProtocolContractSet::MockProtocolContractSet() = default;
-MockProtocolContractSet::~MockProtocolContractSet() = default;
-
-} // namespace bb::avm2::simulation
