@@ -1,7 +1,9 @@
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/ipc/mpsc_shm.h"
-#include "barretenberg/ipc/spsc_shm.h"
+#include "barretenberg/ipc/shm/mpsc_shm.h"
+#include "barretenberg/ipc/shm/spsc_shm.h"
+#include "barretenberg/ipc/socket/uds_client.h"
+#include "barretenberg/ipc/socket/uds_server.h"
 #include <benchmark/benchmark.h>
 #include <cstring>
 #include <signal.h>
@@ -389,5 +391,272 @@ BENCHMARK_DEFINE_F(Poseidon2MPSCFixture, poseiden_hash_mpsc_roundtrip)(benchmark
     }
 }
 BENCHMARK_REGISTER_F(Poseidon2MPSCFixture, poseiden_hash_mpsc_roundtrip)->Unit(benchmark::kMicrosecond);
+
+// Unix Domain Socket SPSC benchmark: Single client, single server
+class Poseidon2SocketSPSCFixture : public Fixture {
+  public:
+    struct uds_client* client;
+    pid_t server_pid;
+    grumpkin::fq x, y;
+
+    const char* socket_path = "/tmp/poseidon_socket_spsc_bench";
+
+    void SetUp(const ::benchmark::State&) override
+    {
+        // Clean up any leftover socket
+        unlink(socket_path);
+
+        // Fork server process
+        server_pid = fork();
+        if (server_pid == 0) {
+            // Child process - server
+            close(STDOUT_FILENO);
+            close(STDERR_FILENO);
+
+            struct uds_server* server = uds_server_create(socket_path, 1);
+            if (!server) {
+                _exit(1);
+            }
+
+            // Accept single client
+            int client_id = uds_server_accept(server, -1);
+            if (client_id < 0) {
+                uds_server_close(server);
+                _exit(1);
+            }
+
+            // Server loop: process requests from single client
+            while (true) {
+                int cid = uds_server_wait_for_data(server, 100000);
+                if (cid < 0)
+                    continue;
+
+                uint8_t req_buf[64];
+                ssize_t n = uds_server_recv(server, cid, req_buf, sizeof(req_buf));
+                if (n >= 64) {
+                    grumpkin::fq x, y;
+                    std::memcpy(&x, req_buf, 32);
+                    std::memcpy(&y, req_buf + 32, 32);
+
+                    // Process hash
+                    grumpkin::fq result = poseiden_hash_impl(x, y);
+
+                    // Send response
+                    uint8_t resp_buf[32];
+                    std::memcpy(resp_buf, &result, 32);
+                    uds_server_send(server, cid, resp_buf, 32);
+                }
+            }
+
+            uds_server_close(server);
+            _exit(0);
+        }
+
+        // Wait for server to start
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        // Connect client
+        client = uds_client_connect(socket_path);
+        if (!client) {
+            throw std::runtime_error("Failed to connect socket client");
+        }
+
+        // Pre-generate test inputs
+        x = grumpkin::fq::random_element();
+        y = grumpkin::fq::random_element();
+    }
+
+    void TearDown(const ::benchmark::State&) override
+    {
+        if (client) {
+            uds_client_close(client);
+        }
+
+        // Kill server process
+        kill(server_pid, SIGTERM);
+        waitpid(server_pid, nullptr, 0);
+
+        // Cleanup socket
+        unlink(socket_path);
+    }
+};
+
+BENCHMARK_DEFINE_F(Poseidon2SocketSPSCFixture, poseiden_hash_socket_spsc_roundtrip)(benchmark::State& state)
+{
+    uint8_t req_buf[64];
+    uint8_t resp_buf[32];
+
+    for (auto _ : state) {
+        // Measure full roundtrip latency with single client (no contention)
+
+        // Send request via socket
+        std::memcpy(req_buf, &x, 32);
+        std::memcpy(req_buf + 32, &y, 32);
+        uds_client_send(client, req_buf, 64);
+
+        // Receive response
+        grumpkin::fq result;
+        uds_client_recv(client, resp_buf, 32);
+        std::memcpy(&result, resp_buf, 32);
+
+        DoNotOptimize(result);
+    }
+}
+BENCHMARK_REGISTER_F(Poseidon2SocketSPSCFixture, poseiden_hash_socket_spsc_roundtrip)->Unit(benchmark::kMicrosecond);
+
+// Unix Domain Socket MPSC benchmark: Multiple clients, single server
+class Poseidon2SocketFixture : public Fixture {
+  public:
+    static constexpr size_t NUM_CLIENTS = 3;
+    struct uds_client* clients[NUM_CLIENTS];
+    pid_t server_pid;
+    std::thread background_threads[NUM_CLIENTS - 1];
+    std::atomic<bool> stop_background;
+    grumpkin::fq x, y;
+
+    const char* socket_path = "/tmp/poseidon_socket_bench";
+
+    void SetUp(const ::benchmark::State&) override
+    {
+        // Clean up any leftover socket
+        unlink(socket_path);
+
+        // Fork server process
+        server_pid = fork();
+        if (server_pid == 0) {
+            // Child process - server
+            close(STDOUT_FILENO);
+            close(STDERR_FILENO);
+
+            struct uds_server* server = uds_server_create(socket_path, NUM_CLIENTS);
+            if (!server) {
+                _exit(1);
+            }
+
+            // Accept NUM_CLIENTS connections
+            for (size_t i = 0; i < NUM_CLIENTS; i++) {
+                int client_id = uds_server_accept(server, -1); // Blocking accept
+                if (client_id < 0) {
+                    uds_server_close(server);
+                    _exit(1);
+                }
+            }
+
+            // Server loop: process requests from all clients
+            while (true) {
+                int client_id = uds_server_wait_for_data(server, 100000);
+                if (client_id < 0)
+                    continue;
+
+                uint8_t req_buf[64];
+                ssize_t n = uds_server_recv(server, client_id, req_buf, sizeof(req_buf));
+                if (n >= 64) {
+                    grumpkin::fq x, y;
+                    std::memcpy(&x, req_buf, 32);
+                    std::memcpy(&y, req_buf + 32, 32);
+
+                    // Process hash
+                    grumpkin::fq result = poseiden_hash_impl(x, y);
+
+                    // Send response
+                    uint8_t resp_buf[32];
+                    std::memcpy(resp_buf, &result, 32);
+                    uds_server_send(server, client_id, resp_buf, 32);
+                }
+            }
+
+            uds_server_close(server);
+            _exit(0);
+        }
+
+        // Wait for server to start
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        // Connect all clients
+        for (size_t i = 0; i < NUM_CLIENTS; i++) {
+            clients[i] = uds_client_connect(socket_path);
+            if (!clients[i]) {
+                throw std::runtime_error("Failed to connect socket client");
+            }
+        }
+
+        // Spawn background client threads (all except client 0)
+        stop_background.store(false, std::memory_order_relaxed);
+        for (size_t i = 0; i < NUM_CLIENTS - 1; i++) {
+            background_threads[i] = std::thread([this, i]() {
+                struct uds_client* c = clients[i + 1]; // Clients 1 and 2
+                grumpkin::fq bx = grumpkin::fq::random_element();
+                grumpkin::fq by = grumpkin::fq::random_element();
+
+                uint8_t req_buf[64];
+                uint8_t resp_buf[32];
+
+                while (!stop_background.load(std::memory_order_relaxed)) {
+                    // Send request at max rate
+                    std::memcpy(req_buf, &bx, 32);
+                    std::memcpy(req_buf + 32, &by, 32);
+
+                    if (uds_client_send(c, req_buf, 64) > 0) {
+                        uds_client_recv(c, resp_buf, 32);
+                    }
+                }
+            });
+        }
+
+        // Pre-generate test inputs for benchmark thread
+        x = grumpkin::fq::random_element();
+        y = grumpkin::fq::random_element();
+    }
+
+    void TearDown(const ::benchmark::State&) override
+    {
+        // Stop background threads
+        stop_background.store(true, std::memory_order_relaxed);
+        for (auto& background_thread : background_threads) {
+            if (background_thread.joinable()) {
+                background_thread.join();
+            }
+        }
+
+        // Close all clients
+        for (auto& client : clients) {
+            if (client) {
+                uds_client_close(client);
+            }
+        }
+
+        // Kill server process
+        kill(server_pid, SIGTERM);
+        waitpid(server_pid, nullptr, 0);
+
+        // Cleanup socket
+        unlink(socket_path);
+    }
+};
+
+BENCHMARK_DEFINE_F(Poseidon2SocketFixture, poseiden_hash_socket_roundtrip)(benchmark::State& state)
+{
+    struct uds_client* c = clients[0]; // Benchmark thread uses client 0
+    uint8_t req_buf[64];
+    uint8_t resp_buf[32];
+
+    for (auto _ : state) {
+        // Measure full roundtrip latency under multi-client contention
+        // (Background threads are sending via clients 1 & 2 concurrently)
+
+        // Send request via socket
+        std::memcpy(req_buf, &x, 32);
+        std::memcpy(req_buf + 32, &y, 32);
+        uds_client_send(c, req_buf, 64);
+
+        // Receive response
+        grumpkin::fq result;
+        uds_client_recv(c, resp_buf, 32);
+        std::memcpy(&result, resp_buf, 32);
+
+        DoNotOptimize(result);
+    }
+}
+BENCHMARK_REGISTER_F(Poseidon2SocketFixture, poseiden_hash_socket_roundtrip)->Unit(benchmark::kMicrosecond);
 
 BENCHMARK_MAIN();
