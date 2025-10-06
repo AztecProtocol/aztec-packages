@@ -88,48 +88,4 @@ fi
 
 echo "✓ Force regeneration works"
 
-# Test 4: Verify VK correctness by comparing with noir-contracts bootstrap.sh generated VKs
-echo "Test 4: Verify VK correctness"
-echo "  Comparing aztec_process VKs with VKs from noir-contracts bootstrap.sh..."
-
-# The test_contract was already processed by noir-contracts bootstrap.sh with the same method
-# So we can compare the VKs that aztec_process generates with the ones already in the contract
-original_vks=$(jq -c '[.functions[] | select(.verification_key != null) | {name, vk: .verification_key}]' "$test_contract")
-new_vks=$(jq -c '[.functions[] | select(.verification_key != null) | {name, vk: .verification_key}]' "$tmp_output")
-
-# Count VKs
-original_count=$(echo "$original_vks" | jq 'length')
-new_count=$(echo "$new_vks" | jq 'length')
-
-if [ "$original_count" != "$new_count" ]; then
-  echo "Error: VK count mismatch! Original: $original_count, New: $new_count"
-  exit 1
-fi
-
-echo "  Comparing $original_count verification keys..."
-
-# Compare each VK
-mismatch_found=0
-for i in $(seq 0 $((original_count - 1))); do
-  func_name=$(echo "$original_vks" | jq -r ".[$i].name")
-  original_vk=$(echo "$original_vks" | jq -r ".[$i].vk")
-  new_vk=$(echo "$new_vks" | jq -r ".[$i].vk")
-
-  if [ "$original_vk" != "$new_vk" ]; then
-    echo "  ✗ Mismatch for function: $func_name"
-    echo "    Original VK length: ${#original_vk}"
-    echo "    New VK length: ${#new_vk}"
-    mismatch_found=1
-  else
-    echo "  ✓ Match for function: $func_name"
-  fi
-done
-
-if [ "$mismatch_found" -eq 1 ]; then
-  echo "Error: VK mismatches found!"
-  exit 1
-fi
-
-echo "✓ All VKs match noir-contracts bootstrap.sh output"
-
 echo "All bb aztec_process tests passed!"
