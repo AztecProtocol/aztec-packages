@@ -186,11 +186,11 @@ Here's how Aztec ensures no single entity can compromise your privacy or censor 
 ```
 Your Transaction
     ↓
-Encrypted & Sent to Multiple Sequencers
+Encrypted & Sent to Sequencers (mempool)
     ↓
 Sequencers (stake tokens to participate):
 ├── Sequencer A ─┐
-├── Sequencer B ─┼─→ Compete to include your transaction
+├── Sequencer B ─┼─> Include your transaction
 ├── Sequencer C ─┤
 └── Sequencer D ─┘
     ↓
@@ -244,6 +244,7 @@ Aztec lets developers build compliance directly into applications while preservi
 
 ```rust
 contract PrivateLender {
+
     #[private]
     fn borrow(
         amount: Field,
@@ -255,7 +256,7 @@ contract PrivateLender {
         // - Identity or personal details
         // - Transaction history
 
-        //verify two proofs using std:verify_proof_with_type
+        // verify two proofs using std:verify_proof_with_type
 
         // Approve loan based on zero-knowledge proofs
         mint_loan_tokens(amount);
@@ -314,9 +315,9 @@ When you combine privacy with programmable compliance on the blockchain, new bus
 These four core values don't exist in isolation; they reinforce each other:
 
 ```
-Privacy ←→ Accessibility
-   ↑            ↓
-   ↑            ↓
+Privacy    ←→     Accessibility
+   ↑                     ↓
+   ↑                     ↓
 Trust Minimization ←→ Compliance
 ```
 
@@ -327,7 +328,7 @@ Trust Minimization ←→ Compliance
 
 ### What This Means for You
 
-As a developer learning Aztec, you're not just learning another blockchain platform. You're learning to build on-chain privacy applications that:
+As a developer learning Aztec, you're not just learning another blockchain platform. You're learning to build onchain privacy applications that:
 
 - Protect user privacy by default
 - Cost less through proof aggregation
