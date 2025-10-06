@@ -45,7 +45,7 @@ async function main() {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   const httpServer = http.createServer(app.callback());
   httpServer.listen(+AZTEC_NODE_PORT);
-  logger.info(`Aztec Node JSON-RPC Server listening on port ${AZTEC_NODE_PORT}`);
+  logger.info('Aztec Node JSON-RPC Server listening on port %s', AZTEC_NODE_PORT);
 }
 
 main().catch(err => {
