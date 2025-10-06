@@ -215,17 +215,19 @@ function build_release {
       chmod +x build/ldid
     fi
 
-    # Package arm64-macos
-    cp build-zig-arm64-macos/bin/bb build-release/bb
-    inject_version build-release/bb
-    build/ldid -S build-release/bb
-    tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb
+    if [ "${DISABLE_AZTEC_VM:-0}" -eq 0 ]; then
+      # Package arm64-macos
+      cp build-zig-arm64-macos/bin/bb build-release/bb
+      inject_version build-release/bb
+      build/ldid -S build-release/bb
+      tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb
 
-    # Package amd64-macos
-    cp build-zig-amd64-macos/bin/bb build-release/bb
-    inject_version build-release/bb
-    build/ldid -S build-release/bb
-    tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
+      # Package amd64-macos
+      cp build-zig-amd64-macos/bin/bb build-release/bb
+      inject_version build-release/bb
+      build/ldid -S build-release/bb
+      tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
+    fi
   fi
 }
 
