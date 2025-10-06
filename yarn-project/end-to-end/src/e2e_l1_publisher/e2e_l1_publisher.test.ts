@@ -223,7 +223,7 @@ describe('L1Publisher integration', () => {
     await worldStateSynchronizer.start();
 
     const sequencerL1Client = createExtendedL1Client(config.l1RpcUrls, sequencerPK, foundry);
-    const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(sequencerL1Client, logger, dateProvider, config);
+    const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(sequencerL1Client, { logger, dateProvider }, config);
     const rollupContract = new RollupContract(sequencerL1Client, l1ContractAddresses.rollupAddress.toString());
     const slashingProposerContract = await rollupContract.getSlashingProposer();
     governanceProposerContract = new GovernanceProposerContract(

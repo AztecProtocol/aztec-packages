@@ -1473,10 +1473,8 @@ export class L1Deployer {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
     this.l1TxUtils = createL1TxUtilsFromViemWallet(
       this.client,
-      this.logger,
-      dateProvider,
-      this.txUtilsConfig,
-      this.acceleratedTestDeployments,
+      { logger: this.logger, dateProvider },
+      { ...this.txUtilsConfig, debugMaxGasLimit: acceleratedTestDeployments },
     );
   }
 
@@ -1604,7 +1602,11 @@ export async function deployL1Contract(
 
   if (!l1TxUtils) {
     const config = getL1TxUtilsConfigEnvVars();
-    l1TxUtils = createL1TxUtilsFromViemWallet(extendedClient, logger, undefined, config, acceleratedTestDeployments);
+    l1TxUtils = createL1TxUtilsFromViemWallet(
+      extendedClient,
+      { logger },
+      { ...config, debugMaxGasLimit: acceleratedTestDeployments },
+    );
   }
 
   if (libraries) {

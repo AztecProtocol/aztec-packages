@@ -49,7 +49,7 @@ describe('FeeAssetHandler', () => {
     });
     // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
     const deployedAddresses = omit(deployed.l1ContractAddresses, 'slashFactoryAddress');
-    const txUtils = createL1TxUtilsFromViemWallet(l1Client, logger);
+    const txUtils = createL1TxUtilsFromViemWallet(l1Client, { logger });
     feeAssetHandler = new FeeAssetHandlerContract(deployedAddresses.feeAssetHandlerAddress!.toString(), txUtils);
     feeAsset = getContract({
       address: deployedAddresses.feeJuiceAddress!.toString(),
