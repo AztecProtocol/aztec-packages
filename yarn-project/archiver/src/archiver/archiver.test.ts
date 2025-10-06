@@ -425,9 +425,9 @@ describe('Archiver', () => {
       Promise.resolve((args[0] === 2n ? badBlock2 : blocks[Number(args[0] - 1n)]).archive.root.toString()),
     );
 
-    blocks.forEach(b => logger.warn(`Created valid block ${b.number} with root ${b.archive.root.toString()}`));
-    logger.warn(`Created invalid block 2 with root ${badBlock2.archive.root.toString()}`);
-    logger.warn(`Created invalid block 3 with root ${badBlock3.archive.root.toString()}`);
+    blocks.forEach(b => logger.warn('Created valid block %d with root %s', b.number, b.archive.root.toString()));
+    logger.warn('Created invalid block 2 with root %s', badBlock2.archive.root.toString());
+    logger.warn('Created invalid block 3 with root %s', badBlock3.archive.root.toString());
 
     // During the first archiver loop, we fetch block 1 and the block 2 with bad attestations
     publicClient.getBlockNumber.mockResolvedValue(82n);
@@ -715,7 +715,7 @@ describe('Archiver', () => {
     const l1BlockForL2Block = l1StartBlock + BigInt((notLastL2SlotInEpoch * slotDuration) / ethereumSlotDuration);
     expect(notLastL2SlotInEpoch).toEqual(2);
 
-    logger.info(`Syncing L2 block on slot ${notLastL2SlotInEpoch} mined in L1 block ${l1BlockForL2Block}`);
+    logger.info('Syncing L2 block on slot %d mined in L1 block %d', notLastL2SlotInEpoch, l1BlockForL2Block);
     const l2Block = blocks[0];
     l2Block.header.globalVariables.slotNumber = new Fr(notLastL2SlotInEpoch);
     blocks = [l2Block];
