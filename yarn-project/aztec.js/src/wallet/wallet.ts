@@ -1,4 +1,3 @@
-import type { UserFeeOptions } from '@aztec/entrypoints/interfaces';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { Fr } from '@aztec/foundation/fields';
 import {
