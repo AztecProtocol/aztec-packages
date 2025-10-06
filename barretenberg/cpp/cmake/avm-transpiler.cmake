@@ -21,5 +21,8 @@ set_target_properties(avm_transpiler PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES ${AVM_TRANSPILER_INCLUDE}
 )
 
+# Define ENABLE_AVM_TRANSPILER globally when transpiler is available
+add_definitions(-DENABLE_AVM_TRANSPILER)
+
 message(STATUS "avm-transpiler library: ${AVM_TRANSPILER_LIB}")
 message(STATUS "avm-transpiler include: ${AVM_TRANSPILER_INCLUDE}")
