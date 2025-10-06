@@ -215,14 +215,14 @@ async function processL2BlockProposedLogs(
       };
 
       retrievedBlocks.push({ ...block, l1, chainId, version });
-      logger.trace(`Retrieved L2 block ${l2BlockNumber} from L1 tx ${log.transactionHash}`, {
+      logger.trace('Retrieved L2 block %d from L1 tx %s', l2BlockNumber, log.transactionHash, {
         l1BlockNumber: log.blockNumber,
         l2BlockNumber,
         archive: archive.toString(),
         attestations: block.attestations,
       });
     } else {
-      logger.warn(`Ignoring L2 block ${l2BlockNumber} due to archive root mismatch`, {
+      logger.warn('Ignoring L2 block %d due to archive root mismatch', l2BlockNumber, {
         actual: archive,
         expected: archiveFromChain,
       });
@@ -336,7 +336,7 @@ async function getBlockFromRollupTx(
 
   const attestations = CommitteeAttestation.fromPacked(packedAttestations, targetCommitteeSize);
 
-  logger.trace(`Recovered propose calldata from tx ${txHash}`, {
+  logger.trace('Recovered propose calldata from tx %s', txHash, {
     l2BlockNumber,
     archive: decodedArgs.archive,
     stateReference: decodedArgs.stateReference,
