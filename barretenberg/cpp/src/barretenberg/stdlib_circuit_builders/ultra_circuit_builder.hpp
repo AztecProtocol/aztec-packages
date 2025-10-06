@@ -9,7 +9,6 @@
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/honk/execution_trace/ultra_execution_trace.hpp"
 #include "barretenberg/honk/types/circuit_type.hpp"
-#include "barretenberg/honk/types/merkle_hash_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 
@@ -48,7 +47,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     static constexpr size_t NUM_WIRES = ExecutionTrace::NUM_WIRES;
 
     static constexpr std::string_view NAME_STRING = "UltraCircuitBuilder";
-    static constexpr merkle::HashType merkle_hash_type = merkle::HashType::LOOKUP_PEDERSEN;
     static constexpr size_t UINT_LOG2_BASE = 6; // DOCTODO: explain what this is, or rename.
     // The plookup range proof requires work linear in range size, thus cannot be used directly for
     // large ranges such as 2^64. For such ranges the element will be decomposed into smaller
