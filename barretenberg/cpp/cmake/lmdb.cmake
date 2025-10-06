@@ -13,7 +13,7 @@ ExternalProject_Add(
     GIT_TAG ddd0a773e2f44d38e4e31ec9ed81af81f4e4ccbb
     BUILD_IN_SOURCE YES
     CONFIGURE_COMMAND "" # No configure step
-    BUILD_COMMAND make -C libraries/liblmdb -e XCFLAGS=-fPIC liblmdb.a
+    BUILD_COMMAND ${CMAKE_COMMAND} -E env CC=${CMAKE_C_COMPILER}${CMAKE_C_COMPILER_ARG1} AR=${CMAKE_AR} make -e -C libraries/liblmdb XCFLAGS=-fPIC liblmdb.a
     INSTALL_COMMAND ""
     UPDATE_COMMAND "" # No update step
     BUILD_BYPRODUCTS ${LMDB_LIB}
