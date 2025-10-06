@@ -55,11 +55,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_STEP_SIZE = 3;
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_SIZE = (1 << DEFAULT_PLOOKUP_RANGE_BITNUM) - 1;
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS = 68;
-    static constexpr uint32_t UNINITIALIZED_MEMORY_RECORD = UINT32_MAX;
-    static constexpr size_t NUMBER_OF_GATES_PER_RAM_ACCESS = 2;
-    static constexpr size_t NUMBER_OF_ARITHMETIC_GATES_PER_RAM_ARRAY = 1;
-    // number of gates created per non-native field operation in process_non_native_field_multiplications
-    static constexpr size_t GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC = 7;
 
     enum MEMORY_SELECTORS {
         MEM_NONE,
@@ -234,6 +229,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         this->zero_idx = put_constant_variable(FF::zero());
         this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
     };
+
     /**
      * @brief Constructor from data generated from ACIR
      *
@@ -417,6 +413,11 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void get_num_estimated_gates_split_into_components(
         size_t& count, size_t& rangecount, size_t& romcount, size_t& ramcount, size_t& nnfcount) const
     {
+        static constexpr uint32_t UNINITIALIZED_MEMORY_RECORD = UINT32_MAX;
+        static constexpr size_t NUMBER_OF_GATES_PER_RAM_ACCESS = 2;
+        static constexpr size_t NUMBER_OF_ARITHMETIC_GATES_PER_RAM_ARRAY = 1;
+        // number of gates created per non-native field operation in process_non_native_field_multiplications
+        static constexpr size_t GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC = 7;
         count = this->num_gates;
 
         // each ROM gate adds +1 extra gate due to the rom reads being copied to a sorted list set
