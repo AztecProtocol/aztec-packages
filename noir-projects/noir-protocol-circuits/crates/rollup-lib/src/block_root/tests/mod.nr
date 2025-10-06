@@ -245,7 +245,7 @@ impl TestBuilder {
             chain_id: left.constants.global_variables.chain_id,
             version: left.constants.global_variables.version,
             vk_tree_root: left.constants.vk_tree_root,
-            protocol_contract_tree_root: left.constants.protocol_contract_tree_root,
+            protocol_contracts_hash: left.constants.protocol_contracts_hash,
             prover_id: left.constants.prover_id,
             slot_number: left.constants.global_variables.slot_number,
             coinbase: left.constants.global_variables.coinbase,

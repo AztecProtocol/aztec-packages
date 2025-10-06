@@ -20,9 +20,9 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_MAX_L2_TO_L1_MSGS_PER_TX = FF(8);
     const auto constants_FEE_JUICE_ADDRESS = FF(5);
     const auto constants_FEE_JUICE_BALANCES_SLOT = FF(1);
-    const auto constants_AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX = FF(19);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX = FF(504);
-    const auto constants_AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX = FF(4673);
+    const auto constants_AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX = FF(29);
+    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX = FF(514);
+    const auto constants_AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX = FF(4683);
     const auto tx_NOT_LAST = in.get(C::tx_sel_shift) * in.get(C::tx_sel);
     const auto tx_NOT_PHASE_END = tx_NOT_LAST * (FF(1) - in.get(C::tx_end_phase));
     const auto tx_REM_COUNT_MINUS_1 = (in.get(C::tx_remaining_phase_counter) - FF(1));

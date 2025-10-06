@@ -147,8 +147,8 @@ export type VerificationRecord = {
 export interface DeployL1ContractsArgs extends Omit<L1ContractsConfig, keyof L1TxUtilsConfig> {
   /** The vk tree root. */
   vkTreeRoot: Fr;
-  /** The protocol contract tree root. */
-  protocolContractTreeRoot: Fr;
+  /** The hash of the protocol contracts. */
+  protocolContractsHash: Fr;
   /** The genesis root of the archive tree. */
   genesisArchiveRoot: Fr;
   /** The salt for CREATE2 deployment. */
@@ -657,7 +657,7 @@ export const deployRollup = async (
 
   const genesisStateArgs = {
     vkTreeRoot: args.vkTreeRoot.toString(),
-    protocolContractTreeRoot: args.protocolContractTreeRoot.toString(),
+    protocolContractsHash: args.protocolContractsHash.toString(),
     genesisArchiveRoot: args.genesisArchiveRoot.toString(),
   };
 

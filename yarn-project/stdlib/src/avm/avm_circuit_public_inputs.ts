@@ -16,6 +16,7 @@ import {
 } from '../kernel/private_to_avm_accumulated_data.js';
 import { PublicCallRequest, PublicCallRequestArrayLengths } from '../kernel/public_call_request.js';
 import { GlobalVariables } from '../tx/global_variables.js';
+import { ProtocolContracts } from '../tx/protocol_contracts.js';
 import { TreeSnapshots } from '../tx/tree_snapshots.js';
 import { AvmAccumulatedData, AvmAccumulatedDataArrayLengths } from './avm_accumulated_data.js';
 import { serializeWithMessagePack } from './message_pack.js';
@@ -27,7 +28,7 @@ export class AvmCircuitPublicInputs {
     ///////////////////////////////////
     // Inputs.
     public globalVariables: GlobalVariables,
-    public protocolContractTreeRoot: Fr,
+    public protocolContracts: ProtocolContracts,
     public startTreeSnapshots: TreeSnapshots,
     public startGasUsed: Gas,
     public gasSettings: GasSettings,
@@ -56,7 +57,7 @@ export class AvmCircuitPublicInputs {
     return z
       .object({
         globalVariables: GlobalVariables.schema,
-        protocolContractTreeRoot: schemas.Fr,
+        protocolContracts: ProtocolContracts.schema,
         startTreeSnapshots: TreeSnapshots.schema,
         startGasUsed: Gas.schema,
         gasSettings: GasSettings.schema,
@@ -81,7 +82,7 @@ export class AvmCircuitPublicInputs {
       .transform(
         ({
           globalVariables,
-          protocolContractTreeRoot,
+          protocolContracts,
           startTreeSnapshots,
           startGasUsed,
           gasSettings,
@@ -105,7 +106,7 @@ export class AvmCircuitPublicInputs {
         }) =>
           new AvmCircuitPublicInputs(
             globalVariables,
-            protocolContractTreeRoot,
+            protocolContracts,
             startTreeSnapshots,
             startGasUsed,
             gasSettings,
@@ -134,7 +135,7 @@ export class AvmCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new AvmCircuitPublicInputs(
       reader.readObject(GlobalVariables),
-      reader.readObject(Fr),
+      reader.readObject(ProtocolContracts),
       reader.readObject(TreeSnapshots),
       reader.readObject(Gas),
       reader.readObject(GasSettings),
@@ -161,7 +162,7 @@ export class AvmCircuitPublicInputs {
   toBuffer() {
     return serializeToBuffer(
       this.globalVariables,
-      this.protocolContractTreeRoot,
+      this.protocolContracts,
       this.startTreeSnapshots,
       this.startGasUsed,
       this.gasSettings,
@@ -197,7 +198,7 @@ export class AvmCircuitPublicInputs {
     const reader = FieldReader.asReader(fields);
     return new AvmCircuitPublicInputs(
       GlobalVariables.fromFields(reader),
-      reader.readField(),
+      ProtocolContracts.fromFields(reader),
       TreeSnapshots.fromFields(reader),
       Gas.fromFields(reader),
       GasSettings.fromFields(reader),
@@ -224,7 +225,7 @@ export class AvmCircuitPublicInputs {
   toFields() {
     return [
       ...this.globalVariables.toFields(),
-      this.protocolContractTreeRoot,
+      ...this.protocolContracts.toFields(),
       ...this.startTreeSnapshots.toFields(),
       ...this.startGasUsed.toFields(),
       ...this.gasSettings.toFields(),
@@ -251,7 +252,7 @@ export class AvmCircuitPublicInputs {
   static empty() {
     return new AvmCircuitPublicInputs(
       GlobalVariables.empty(),
-      Fr.zero(),
+      ProtocolContracts.empty(),
       TreeSnapshots.empty(),
       Gas.empty(),
       GasSettings.empty(),
@@ -282,7 +283,7 @@ export class AvmCircuitPublicInputs {
   [inspect.custom]() {
     return `AvmCircuitPublicInputs {
       globalVariables: ${inspect(this.globalVariables)},
-      protocolContractTreeRoot: ${inspect(this.protocolContractTreeRoot)},
+      protocolContracts: ${inspect(this.protocolContracts)},
       startTreeSnapshots: ${inspect(this.startTreeSnapshots)},
       startGasUsed: ${inspect(this.startGasUsed)},
       gasSettings: ${inspect(this.gasSettings)},

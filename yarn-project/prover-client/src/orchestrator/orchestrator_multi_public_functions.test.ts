@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import {
   PublicTxSimulationTester,
   SimpleContractDataSource,
@@ -98,7 +98,7 @@ describe('prover/orchestrator/public-functions', () => {
         for (const tx of txs) {
           tx.data.constants.anchorBlockHeader = context.getBlockHeader(0);
           tx.data.constants.vkTreeRoot = getVKTreeRoot();
-          tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
+          tx.data.constants.protocolContractsHash = protocolContractsHash;
           await tx.recomputeHash();
         }
 

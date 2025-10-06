@@ -30,7 +30,7 @@ describe('deploy_l1_contracts', () => {
   let logger: Logger;
 
   let vkTreeRoot: Fr;
-  let protocolContractTreeRoot: Fr;
+  let protocolContractsHash: Fr;
   let genesisArchiveRoot: Fr;
   let initialValidators: Operator[];
 
@@ -47,7 +47,7 @@ describe('deploy_l1_contracts', () => {
     logger = createLogger('ethereum:test:deploy_l1_contracts');
     privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
     vkTreeRoot = Fr.random();
-    protocolContractTreeRoot = Fr.random();
+    protocolContractsHash = Fr.random();
     genesisArchiveRoot = Fr.random();
 
     initialValidators = times(3, () => ({
@@ -83,7 +83,7 @@ describe('deploy_l1_contracts', () => {
         ...DefaultL1ContractsConfig,
         salt: undefined,
         vkTreeRoot,
-        protocolContractTreeRoot,
+        protocolContractsHash,
         genesisArchiveRoot,
         l1TxConfig: { checkIntervalMs: 100 },
         realVerifier: false,
@@ -294,7 +294,7 @@ describe('deploy_l1_contracts', () => {
         ...DefaultL1ContractsConfig,
         salt: undefined,
         vkTreeRoot,
-        protocolContractTreeRoot,
+        protocolContractsHash,
         genesisArchiveRoot,
         l1TxConfig: { checkIntervalMs: 100 },
         realVerifier: false,

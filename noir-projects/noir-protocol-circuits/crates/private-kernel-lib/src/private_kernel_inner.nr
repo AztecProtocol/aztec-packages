@@ -62,7 +62,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
 
         private_call_data_validator.verify_proof(false /* is_first_app */);
         private_call_data_validator.validate_common(
-            self.previous_kernel.public_inputs.constants.protocol_contract_tree_root,
+            self.previous_kernel.public_inputs.constants.protocol_contracts,
         );
         private_call_data_validator.validate_against_call_request(call_request);
         private_call_data_validator.validate_against_previous_kernel(

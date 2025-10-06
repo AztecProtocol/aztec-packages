@@ -32,7 +32,7 @@ pub fn validate_tx_constant_data(
     let tx_version = tx_constants.tx_context.version;
     let tx_gas_settings = tx_constants.tx_context.gas_settings;
     let tx_vk_tree_root = tx_constants.vk_tree_root;
-    let tx_protocol_contract_tree_root = tx_constants.protocol_contract_tree_root;
+    let protocol_contracts_hash = tx_constants.protocol_contracts_hash;
 
     // Values from `block_constants` to be checked against those from `tx_constants`:
     let block_last_archive_root = block_constants.last_archive.root;
@@ -40,7 +40,7 @@ pub fn validate_tx_constant_data(
     let block_version = block_constants.global_variables.version;
     let block_gas_fees = block_constants.global_variables.gas_fees;
     let block_vk_tree_root = block_constants.vk_tree_root;
-    let block_protocol_contract_tree_root = block_constants.protocol_contract_tree_root;
+    let block_protocol_contracts_hash = block_constants.protocol_contracts_hash;
 
     // Perform a membership check to ensure that the anchor block header used during tx execution exists within the
     // archive tree.
@@ -75,9 +75,9 @@ pub fn validate_tx_constant_data(
     );
 
     assert_eq(
-        tx_protocol_contract_tree_root,
-        block_protocol_contract_tree_root,
-        "Mismatched protocol_contract_tree_root between kernel and rollup",
+        protocol_contracts_hash,
+        block_protocol_contracts_hash,
+        "Mismatched protocol_contracts_hash between kernel and rollup",
     );
 
     // Ensure that the `max_fees_per_gas` specified by the tx is greater than or equal to the `gas_fees` for the block.
