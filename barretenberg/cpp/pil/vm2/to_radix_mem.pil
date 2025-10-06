@@ -289,7 +289,7 @@ namespace to_radix_mem;
     // Dispatch from execution trace to TO RADIX
     ////////////////////////////////////////////////
     #[DISPATCH_EXEC_TO_RADIX]
-    execution.sel_execute_to_radix {
+    execution.sel_exec_dispatch_to_radix {
         precomputed.clk,
         execution.context_id,
         execution.register[0],

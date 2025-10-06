@@ -221,7 +221,7 @@ namespace poseidon2_perm_mem;
     // Dispatch from execution trace
     ////////////////////////////////////////////////
     #[DISPATCH_EXEC_POS2]
-    execution.sel_execute_poseidon2_perm {
+    execution.sel_exec_dispatch_poseidon2_perm {
         precomputed.clk,
         execution.context_id,
         execution.rop[0],

@@ -229,7 +229,7 @@ struct perm_poseidon2_mem_dispatch_exec_pos2_settings_ {
     static constexpr std::string_view NAME = "PERM_POSEIDON2_MEM_DISPATCH_EXEC_POS2";
     static constexpr std::string_view RELATION_NAME = "poseidon2_mem";
     static constexpr size_t COLUMNS_PER_SET = 5;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_poseidon2_perm;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_exec_dispatch_poseidon2_perm;
     static constexpr Column DST_SELECTOR = Column::poseidon2_perm_mem_sel;
     static constexpr Column INVERSES = Column::perm_poseidon2_mem_dispatch_exec_pos2_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {

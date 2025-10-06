@@ -156,33 +156,33 @@ Column get_subtrace_selector(SubtraceSel subtrace_sel)
 
     switch (subtrace_sel) {
     case SubtraceSel::ALU:
-        return C::execution_sel_execute_alu;
+        return C::execution_sel_exec_dispatch_alu;
     case SubtraceSel::CAST:
-        return C::execution_sel_execute_cast;
+        return C::execution_sel_exec_dispatch_cast;
     case SubtraceSel::SET:
-        return C::execution_sel_execute_set;
+        return C::execution_sel_exec_dispatch_set;
     case SubtraceSel::BITWISE:
-        return C::execution_sel_execute_bitwise;
+        return C::execution_sel_exec_dispatch_bitwise;
     case SubtraceSel::TORADIXBE:
-        return C::execution_sel_execute_to_radix;
+        return C::execution_sel_exec_dispatch_to_radix;
     case SubtraceSel::POSEIDON2PERM:
-        return C::execution_sel_execute_poseidon2_perm;
+        return C::execution_sel_exec_dispatch_poseidon2_perm;
     case SubtraceSel::ECC:
-        return C::execution_sel_execute_ecc_add;
+        return C::execution_sel_exec_dispatch_ecc_add;
     case SubtraceSel::CALLDATACOPY:
-        return C::execution_sel_execute_calldata_copy;
+        return C::execution_sel_exec_dispatch_calldata_copy;
     case SubtraceSel::RETURNDATACOPY:
-        return C::execution_sel_execute_returndata_copy;
+        return C::execution_sel_exec_dispatch_returndata_copy;
     case SubtraceSel::EXECUTION:
-        return C::execution_sel_execute_execution;
+        return C::execution_sel_exec_dispatch_execution;
     case SubtraceSel::KECCAKF1600:
-        return C::execution_sel_execute_keccakf1600;
+        return C::execution_sel_exec_dispatch_keccakf1600;
     case SubtraceSel::GETCONTRACTINSTANCE:
-        return C::execution_sel_execute_get_contract_instance;
+        return C::execution_sel_exec_dispatch_get_contract_instance;
     case SubtraceSel::EMITUNENCRYPTEDLOG:
-        return C::execution_sel_execute_emit_unencrypted_log;
+        return C::execution_sel_exec_dispatch_emit_unencrypted_log;
     case SubtraceSel::SHA256COMPRESSION:
-        return C::execution_sel_execute_sha256_compression;
+        return C::execution_sel_exec_dispatch_sha256_compression;
     }
 
     // clangd will complain if we miss a case.

@@ -296,7 +296,7 @@ namespace emit_unencrypted_log;
     // Dispatch from execution trace to Emit Unencrypted Log
     ////////////////////////////////////////////////////////
     #[DISPATCH_EXEC_EMIT_UNENCRYPTED_LOG]
-    execution.sel_execute_emit_unencrypted_log {
+    execution.sel_exec_dispatch_emit_unencrypted_log {
         precomputed.clk,
         execution.context_id,
         // Message offset

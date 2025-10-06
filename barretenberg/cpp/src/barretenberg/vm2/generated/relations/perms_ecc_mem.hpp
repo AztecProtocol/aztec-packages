@@ -89,7 +89,7 @@ struct perm_ecc_mem_dispatch_exec_ecc_add_settings_ {
     static constexpr std::string_view NAME = "PERM_ECC_MEM_DISPATCH_EXEC_ECC_ADD";
     static constexpr std::string_view RELATION_NAME = "ecc_mem";
     static constexpr size_t COLUMNS_PER_SET = 10;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_ecc_add;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_exec_dispatch_ecc_add;
     static constexpr Column DST_SELECTOR = Column::ecc_add_mem_sel;
     static constexpr Column INVERSES = Column::perm_ecc_mem_dispatch_exec_ecc_add_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {

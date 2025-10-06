@@ -41,7 +41,7 @@ struct perm_to_radix_mem_dispatch_exec_to_radix_settings_ {
     static constexpr std::string_view NAME = "PERM_TO_RADIX_MEM_DISPATCH_EXEC_TO_RADIX";
     static constexpr std::string_view RELATION_NAME = "to_radix_mem";
     static constexpr size_t COLUMNS_PER_SET = 8;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_to_radix;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_exec_dispatch_to_radix;
     static constexpr Column DST_SELECTOR = Column::to_radix_mem_start;
     static constexpr Column INVERSES = Column::perm_to_radix_mem_dispatch_exec_to_radix_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {

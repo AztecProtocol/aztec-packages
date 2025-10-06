@@ -17,7 +17,7 @@ struct lookup_alu_register_tag_value_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ALU_REGISTER_TAG_VALUE";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_alu;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_exec_dispatch_alu;
     static constexpr Column DST_SELECTOR = Column::alu_sel;
     static constexpr Column COUNTS = Column::lookup_alu_register_tag_value_counts;
     static constexpr Column INVERSES = Column::lookup_alu_register_tag_value_inv;
@@ -267,7 +267,7 @@ struct lookup_alu_exec_dispatching_cast_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ALU_EXEC_DISPATCHING_CAST";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_cast;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_exec_dispatch_cast;
     static constexpr Column DST_SELECTOR = Column::alu_sel_op_truncate;
     static constexpr Column COUNTS = Column::lookup_alu_exec_dispatching_cast_counts;
     static constexpr Column INVERSES = Column::lookup_alu_exec_dispatching_cast_inv;
@@ -292,7 +292,7 @@ struct lookup_alu_exec_dispatching_set_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ALU_EXEC_DISPATCHING_SET";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_set;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_exec_dispatch_set;
     static constexpr Column DST_SELECTOR = Column::alu_sel_op_truncate;
     static constexpr Column COUNTS = Column::lookup_alu_exec_dispatching_set_counts;
     static constexpr Column INVERSES = Column::lookup_alu_exec_dispatching_set_inv;

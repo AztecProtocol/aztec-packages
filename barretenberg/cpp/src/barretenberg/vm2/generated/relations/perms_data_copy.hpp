@@ -65,7 +65,7 @@ struct perm_data_copy_dispatch_cd_copy_settings_ {
     static constexpr std::string_view NAME = "PERM_DATA_COPY_DISPATCH_CD_COPY";
     static constexpr std::string_view RELATION_NAME = "data_copy";
     static constexpr size_t COLUMNS_PER_SET = 10;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_calldata_copy;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_exec_dispatch_calldata_copy;
     static constexpr Column DST_SELECTOR = Column::data_copy_sel_cd_copy_start;
     static constexpr Column INVERSES = Column::perm_data_copy_dispatch_cd_copy_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
@@ -77,7 +77,7 @@ struct perm_data_copy_dispatch_cd_copy_settings_ {
         ColumnAndShifts::execution_rop_2_,
         ColumnAndShifts::execution_parent_calldata_addr,
         ColumnAndShifts::execution_parent_calldata_size,
-        ColumnAndShifts::execution_sel_execute_calldata_copy,
+        ColumnAndShifts::execution_sel_exec_dispatch_calldata_copy,
         ColumnAndShifts::execution_sel_opcode_error
     };
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
@@ -105,7 +105,7 @@ struct perm_data_copy_dispatch_rd_copy_settings_ {
     static constexpr std::string_view NAME = "PERM_DATA_COPY_DISPATCH_RD_COPY";
     static constexpr std::string_view RELATION_NAME = "data_copy";
     static constexpr size_t COLUMNS_PER_SET = 10;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_returndata_copy;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_exec_dispatch_returndata_copy;
     static constexpr Column DST_SELECTOR = Column::data_copy_sel_rd_copy_start;
     static constexpr Column INVERSES = Column::perm_data_copy_dispatch_rd_copy_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
@@ -117,7 +117,7 @@ struct perm_data_copy_dispatch_rd_copy_settings_ {
         ColumnAndShifts::execution_rop_2_,
         ColumnAndShifts::execution_last_child_returndata_addr,
         ColumnAndShifts::execution_last_child_returndata_size,
-        ColumnAndShifts::execution_sel_execute_returndata_copy,
+        ColumnAndShifts::execution_sel_exec_dispatch_returndata_copy,
         ColumnAndShifts::execution_sel_opcode_error
     };
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {

@@ -232,7 +232,7 @@ struct perm_sha256_mem_dispatch_sha256_settings_ {
     static constexpr std::string_view NAME = "PERM_SHA256_MEM_DISPATCH_SHA256";
     static constexpr std::string_view RELATION_NAME = "sha256_mem";
     static constexpr size_t COLUMNS_PER_SET = 6;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_sha256_compression;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_exec_dispatch_sha256_compression;
     static constexpr Column DST_SELECTOR = Column::sha256_start;
     static constexpr Column INVERSES = Column::perm_sha256_mem_dispatch_sha256_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {

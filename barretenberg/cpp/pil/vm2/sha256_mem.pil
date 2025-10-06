@@ -10,7 +10,7 @@ include "execution.pil";
  * that is read from memory. The 65th row contains the output hash state that will be written to memory.
  *
  * USAGE - Permutation
- * sel_execute_sha256_compression { clk, space_id, output_addr, state_addr, input_addr, err }
+ * sel_exec_dispatch_sha256_compression { clk, space_id, output_addr, state_addr, input_addr, err }
  * is
  * sha256.start { sha256.execution_clk, sha256.space_id, sha256.output_addr, sha256.state_addr, sha256.input_addr, sha256.err };
  *
@@ -447,7 +447,7 @@ namespace sha256;
     // Dispatch Permutation
     ////////////////////////////////////////////////
     #[DISPATCH_SHA256]
-    execution.sel_execute_sha256_compression { precomputed.clk, execution.context_id, execution.rop[0], execution.rop[1], execution.rop[2], execution.sel_opcode_error }
+    execution.sel_exec_dispatch_sha256_compression { precomputed.clk, execution.context_id, execution.rop[0], execution.rop[1], execution.rop[2], execution.sel_opcode_error }
     is
     start { execution_clk, space_id, output_addr, state_addr, input_addr, err };
 

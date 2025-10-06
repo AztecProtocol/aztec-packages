@@ -420,7 +420,7 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::gt_res, 0 }, // GT should return true
             // Execution Trace (No gas)
             { C::execution_sel, 1 },
-            { C::execution_sel_execute_to_radix, 1 },
+            { C::execution_sel_exec_dispatch_to_radix, 1 },
             { C::execution_register_0_, value },
             { C::execution_register_1_, radix },
             { C::execution_register_2_, num_limbs },
@@ -624,7 +624,7 @@ TEST(ToRadixMemoryConstrainingTest, DstOutOfRange)
         {
             // Execution Trace (No gas)
             { C::execution_sel, 1 },
-            { C::execution_sel_execute_to_radix, 1 },
+            { C::execution_sel_exec_dispatch_to_radix, 1 },
             { C::execution_register_0_, value },
             { C::execution_register_1_, radix },
             { C::execution_register_2_, num_limbs },

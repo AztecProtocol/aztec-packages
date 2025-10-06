@@ -331,12 +331,12 @@ namespace data_copy;
     pol commit sel_cd_copy_start;
     sel_cd_copy_start = sel_start * sel_cd_copy;
     #[DISPATCH_CD_COPY]
-    execution.sel_execute_calldata_copy {
+    execution.sel_exec_dispatch_calldata_copy {
         precomputed.clk,
         execution.parent_id, execution.context_id,
         execution.register[0], execution.register[1], execution.rop[2],
         execution.parent_calldata_addr, execution.parent_calldata_size,
-        execution.sel_execute_calldata_copy/*=1*/, execution.sel_opcode_error
+        execution.sel_exec_dispatch_calldata_copy/*=1*/, execution.sel_opcode_error
     }
     is
     sel_cd_copy_start {
@@ -350,12 +350,12 @@ namespace data_copy;
     pol commit sel_rd_copy_start;
     sel_rd_copy_start = sel_start * sel_rd_copy;
     #[DISPATCH_RD_COPY]
-    execution.sel_execute_returndata_copy {
+    execution.sel_exec_dispatch_returndata_copy {
         precomputed.clk,
         execution.last_child_id, execution.context_id,
         execution.register[0], execution.register[1], execution.rop[2],
         execution.last_child_returndata_addr, execution.last_child_returndata_size,
-        execution.sel_execute_returndata_copy/*=1*/, execution.sel_opcode_error
+        execution.sel_exec_dispatch_returndata_copy/*=1*/, execution.sel_opcode_error
     }
     is
     sel_rd_copy_start {

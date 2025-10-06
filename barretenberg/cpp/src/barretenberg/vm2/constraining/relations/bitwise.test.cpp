@@ -427,7 +427,7 @@ TEST(BitwiseConstrainingTest, BitwiseExecInteraction)
         { C::execution_register_0_, 0x01 },
         { C::execution_register_1_, 0x01 },
         { C::execution_register_2_, 0x00 },
-        { C::execution_sel_execute_bitwise, 1 },
+        { C::execution_sel_exec_dispatch_bitwise, 1 },
         { C::execution_sel_opcode_error, 1 },
         { C::execution_subtrace_operation_id, static_cast<uint8_t>(BitwiseOperation::AND) },
     } });
@@ -455,7 +455,7 @@ TEST(BitwiseConstrainingTest, InvalidBitwiseExecInteraction)
         { C::execution_register_0_, 0x01 },
         { C::execution_register_1_, 0x01 },
         { C::execution_register_2_, 0x00 },
-        { C::execution_sel_execute_bitwise, 1 },
+        { C::execution_sel_exec_dispatch_bitwise, 1 },
         { C::execution_subtrace_operation_id, static_cast<uint8_t>(BitwiseOperation::AND) },
     } });
 

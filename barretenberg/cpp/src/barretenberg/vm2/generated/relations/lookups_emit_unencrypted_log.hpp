@@ -94,7 +94,7 @@ struct lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_settings_ 
     static constexpr std::string_view NAME = "LOOKUP_EMIT_UNENCRYPTED_LOG_DISPATCH_EXEC_EMIT_UNENCRYPTED_LOG";
     static constexpr std::string_view RELATION_NAME = "emit_unencrypted_log";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 10;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_emit_unencrypted_log;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_exec_dispatch_emit_unencrypted_log;
     static constexpr Column DST_SELECTOR = Column::emit_unencrypted_log_start;
     static constexpr Column COUNTS = Column::lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_counts;
     static constexpr Column INVERSES = Column::lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_inv;

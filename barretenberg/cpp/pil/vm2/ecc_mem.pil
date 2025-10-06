@@ -170,7 +170,7 @@ namespace ecc_add_mem;
     // Dispatch from execution trace to ECC Add
     ////////////////////////////////////////////////
     #[DISPATCH_EXEC_ECC_ADD]
-    execution.sel_execute_ecc_add {
+    execution.sel_exec_dispatch_ecc_add {
         precomputed.clk,
         execution.context_id,
         // Point P

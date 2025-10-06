@@ -180,7 +180,7 @@ class AluAddConstrainingTest : public AluConstrainingTest,
                 { C::execution_register_0_, a },                                // = ia
                 { C::execution_register_1_, b },                                // = ib
                 { C::execution_register_2_, c },                                // = ic
-                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                      // = sel
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_ADD }, // = alu_op_id
             },
         });
@@ -237,7 +237,7 @@ class AluAddConstrainingTest : public AluConstrainingTest,
                 { C::execution_register_0_, a },                                // = ia
                 { C::execution_register_1_, b },                                // = ib
                 { C::execution_register_2_, c },                                // = ic
-                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                      // = sel
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_ADD }, // = alu_op_id
             },
         });
@@ -427,7 +427,7 @@ class AluSubConstrainingTest : public AluConstrainingTest,
                 { C::execution_register_0_, a },                                // = ia
                 { C::execution_register_1_, b },                                // = ib
                 { C::execution_register_2_, c },                                // = ic
-                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                      // = sel
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_SUB }, // = alu_op_id
             },
         });
@@ -550,7 +550,7 @@ class AluMulConstrainingTest : public AluConstrainingTest,
                 { C::execution_register_0_, a },                                // = ia
                 { C::execution_register_1_, b },                                // = ib
                 { C::execution_register_2_, c },                                // = ic
-                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                      // = sel
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_MUL }, // = alu_op_id
             },
         });
@@ -687,7 +687,7 @@ TEST_F(AluConstrainingTest, AluMulU128Carry)
             { C::execution_register_0_, a },                                // = ia
             { C::execution_register_1_, b },                                // = ib
             { C::execution_register_2_, c },                                // = ic
-            { C::execution_sel_execute_alu, 1 },                            // = sel
+            { C::execution_sel_exec_dispatch_alu, 1 },                      // = sel
             { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_MUL }, // = alu_op_id
         },
     });
@@ -777,7 +777,7 @@ class AluDivConstrainingTest : public AluConstrainingTest,
                 { C::execution_register_0_, a },                                // = ia
                 { C::execution_register_1_, b },                                // = ib
                 { C::execution_register_2_, c },                                // = ic
-                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                      // = sel
                 { C::execution_sel_opcode_error, div_0_error ? 1 : 0 },         // = sel_err
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_DIV }, // = alu_op_id
             },
@@ -1089,7 +1089,7 @@ class AluFDivConstrainingTest : public AluConstrainingTest,
                 { C::execution_register_0_, a },                                 // = ia
                 { C::execution_register_1_, b },                                 // = ib
                 { C::execution_register_2_, c },                                 // = ic
-                { C::execution_sel_execute_alu, 1 },                             // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                       // = sel
                 { C::execution_sel_opcode_error, div_0_error ? 1 : 0 },          // = sel_err
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_FDIV }, // = alu_op_id
             },
@@ -1202,7 +1202,7 @@ TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZeroNonFFTagMismatch)
             { C::execution_register_0_, a },                                      // = ia
             { C::execution_register_1_, b },                                      // = ib
             { C::execution_register_2_, c },                                      // = ic
-            { C::execution_sel_execute_alu, 1 },                                  // = sel
+            { C::execution_sel_exec_dispatch_alu, 1 },                            // = sel
             { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_FDIV },      // = alu_op_id
         },
     });
@@ -1360,7 +1360,7 @@ class AluLTConstrainingTest : public AluConstrainingTest, public ::testing::With
                 { C::execution_register_0_, a },                                      // = ia
                 { C::execution_register_1_, b },                                      // = ib
                 { C::execution_register_2_, c },                                      // = ic
-                { C::execution_sel_execute_alu, 1 },                                  // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                            // = sel
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_LT },        // = alu_op_id
             },
         });
@@ -1489,7 +1489,7 @@ class AluLTEConstrainingTest : public AluConstrainingTest,
                 { C::execution_register_0_, a },                                      // = ia
                 { C::execution_register_1_, b },                                      // = ib
                 { C::execution_register_2_, c },                                      // = ic
-                { C::execution_sel_execute_alu, 1 },                                  // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                            // = sel
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_LTE },       // = alu_op_id
             },
         });
@@ -1759,7 +1759,7 @@ class AluShlConstrainingTest : public AluConstrainingTest,
                 { C::execution_register_0_, a },                                // = ia
                 { C::execution_register_1_, b },                                // = ib
                 { C::execution_register_2_, c },                                // = ic
-                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                      // = sel
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_SHL }, // = alu_op_id
 
             },
@@ -1924,7 +1924,7 @@ class AluShrConstrainingTest : public AluConstrainingTest,
                 { C::execution_register_0_, a },                                // = ia
                 { C::execution_register_1_, b },                                // = ib
                 { C::execution_register_2_, c },                                // = ic
-                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                      // = sel
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_SHR }, // = alu_op_id
 
             },
@@ -2139,7 +2139,7 @@ class AluTruncateConstrainingTest : public AluConstrainingTest,
         auto c = MemoryValue::from_tag_truncating(dst_tag, a);
         trace.set(0,
                   { {
-                      { Column::execution_sel_execute_set, 1 },
+                      { Column::execution_sel_exec_dispatch_set, 1 },
                       { Column::execution_rop_2_, a },
                       { Column::execution_rop_1_, static_cast<uint8_t>(dst_tag) },
                       { Column::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_TRUNCATE },
@@ -2160,7 +2160,7 @@ class AluTruncateConstrainingTest : public AluConstrainingTest,
         auto c = MemoryValue::from_tag_truncating(dst_tag, a);
         trace.set(0,
                   { {
-                      { Column::execution_sel_execute_cast, 1 },
+                      { Column::execution_sel_exec_dispatch_cast, 1 },
                       { Column::execution_register_0_, a },
                       { Column::execution_rop_2_, static_cast<uint8_t>(dst_tag) },
                       { Column::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_TRUNCATE },
