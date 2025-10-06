@@ -195,6 +195,8 @@ TEST_F(UltraRelationConsistency, UltraPermutationRelation)
         auto contribution_2 = z_perm_shift * lagrange_last;
         expected_values[1] = contribution_2;
 
+        expected_values[2] = z_perm * lagrange_first;
+
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
     run_test(/*random_inputs=*/false);

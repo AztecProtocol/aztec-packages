@@ -139,11 +139,6 @@ class UltraFlavor {
                                                                    NUM_INSTANCES,
                                                                    /*optimized=*/true>());
 
-    // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
-    static constexpr size_t num_zero_rows = 1;
-
-    static constexpr bool is_decider = true;
-
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.

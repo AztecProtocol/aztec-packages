@@ -63,7 +63,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS());
 
     size_t num_inner_public_inputs = public_inputs_size - IO::PUBLIC_INPUTS_SIZE;
-    uint32_t pub_inputs_offset = NativeFlavor::num_zero_rows;
+    uint32_t pub_inputs_offset = NUM_ZERO_ROWS;
 
     // Generate mock honk vk
     auto honk_vk = create_mock_honk_vk<typename Flavor::NativeFlavor, IO>(

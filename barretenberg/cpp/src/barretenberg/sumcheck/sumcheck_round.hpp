@@ -502,10 +502,10 @@ template <typename Flavor> class SumcheckProverRound {
         ExtendedEdges extended_edges;
         SumcheckRoundUnivariate result;
 
-        // In Round 0, we have to compute the contribution from 2 edges: (1, 1,..., 1) and (0, 1, ..., 1) (as points on
-        // (d-1) - dimensional Boolean hypercube).
-        size_t start_edge_idx{ 0 };
-        size_t end_edge_idx{ 0 };
+        // In Round 0, we have to compute the contribution from 2 first edges if we put masking scalars at the top of
+        // the trace, and 2 last edges if we put masking scalars at the bottom of the trace.
+        size_t start_edge_idx;
+        size_t end_edge_idx;
 
         if constexpr (!std::is_same_v<Flavor, UltraZKFlavor>) {
             start_edge_idx = (round_idx == 0) ? round_size - 4 : round_size - 2;
@@ -514,6 +514,7 @@ template <typename Flavor> class SumcheckProverRound {
             start_edge_idx = 0;
             end_edge_idx = (round_idx == 0) ? 4 : 2;
         }
+
         for (size_t edge_idx = start_edge_idx; edge_idx < end_edge_idx; edge_idx += 2) {
             extend_edges(extended_edges, polynomials, edge_idx);
 

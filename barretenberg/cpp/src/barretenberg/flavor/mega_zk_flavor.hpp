@@ -16,6 +16,7 @@ namespace bb {
 */
 class MegaZKFlavor : public bb::MegaFlavor {
   public:
+    // Fixed to match
     static constexpr size_t VIRTUAL_LOG_N = 18;
     static constexpr bool USE_PADDING = true;
     // Indicates that this flavor runs with non-ZK Sumcheck.

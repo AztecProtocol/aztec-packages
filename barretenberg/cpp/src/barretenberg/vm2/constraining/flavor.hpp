@@ -95,8 +95,6 @@ class AvmFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    static constexpr size_t num_zero_rows = 1;
-
     static constexpr size_t NUM_FRS_COM = field_conversion::calc_num_bn254_frs<Commitment>();
     static constexpr size_t NUM_FRS_FR = field_conversion::calc_num_bn254_frs<FF>();
 

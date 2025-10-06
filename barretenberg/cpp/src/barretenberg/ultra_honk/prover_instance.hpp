@@ -229,7 +229,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     bool get_is_structured() { return is_structured; }
 
   private:
-    static constexpr size_t num_zero_rows = Flavor::num_zero_rows;
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
 
     size_t compute_dyadic_size(Circuit&);

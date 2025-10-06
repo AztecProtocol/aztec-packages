@@ -45,7 +45,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
     BB_ASSERT_EQ(proof_size, ClientIVCRecursiveVerifier::StdlibProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS());
 
     size_t num_inner_public_inputs = public_inputs_size - IO::PUBLIC_INPUTS_SIZE;
-    uint32_t pub_inputs_offset = MegaZKFlavor::num_zero_rows;
+    uint32_t pub_inputs_offset = NUM_ZERO_ROWS;
 
     // Generate mock honk vk
     // Note: log_circuit_size = VIRTUAL_LOG_N

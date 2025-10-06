@@ -30,7 +30,7 @@ template <IsUltraOrMegaHonk Flavor> size_t ProverInstance_<Flavor>::compute_dyad
     // The number of gates is the maximum required by the lookup argument or everything else, plus an optional zero row
     // to allow for shifts.
     size_t total_num_gates =
-        NUM_DISABLED_ROWS_IN_SUMCHECK + num_zero_rows + std::max(min_size_due_to_lookups, min_size_of_execution_trace);
+        NUM_DISABLED_ROWS_IN_SUMCHECK + NUM_ZERO_ROWS + std::max(min_size_due_to_lookups, min_size_of_execution_trace);
 
     // Next power of 2 (dyadic circuit size)
     size_t out = circuit.get_circuit_subgroup_size(total_num_gates);
@@ -112,7 +112,7 @@ void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& c
 
     const size_t table_offset = circuit.blocks.lookup.trace_offset();
     // In UltraZK, we mask the top coefficients of polynomials, hence the start idx needs to be 1.
-    size_t table_start_idx = is_ultra_zk ? Flavor::num_zero_rows : table_offset;
+    size_t table_start_idx = is_ultra_zk ? NUM_ZERO_ROWS : table_offset;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): can potentially improve memory footprint
     const size_t max_tables_size = dyadic_size() - table_offset;
     BB_ASSERT_GT(dyadic_size(), max_tables_size);
