@@ -13,7 +13,7 @@ export function createProofStore(config: string | undefined, logger = createLogg
       const url = new URL(config);
       const bucket = url.host;
       const path = url.pathname.replace(/^\/+/, '');
-      logger.info(`Creating google cloud proof store at ${bucket}`, { bucket, path });
+      logger.info('Creating google cloud proof store at %s', bucket, { bucket, path });
       return new GoogleCloudStorageProofStore(bucket, path);
     } catch {
       throw new Error(
