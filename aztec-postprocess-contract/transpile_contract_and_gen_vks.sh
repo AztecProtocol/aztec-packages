@@ -10,16 +10,8 @@ set -euo pipefail
 dir=$(dirname $0)
 BB=${BB:-"$dir/../barretenberg/cpp/build/bin/bb"}
 
-# If artifact paths are provided as arguments, process each one
-if [ $# -gt 0 ]; then
-  for artifact in "$@"; do
-    echo "Processing artifact: $artifact"
-    $BB aztec_process -i "$artifact" -o "$artifact"
-  done
-else
-  # No arguments provided - let bb auto-discover and process all artifacts
-  echo "Searching for contract artifacts in target/ directories..."
-  $BB aztec_process
-fi
+# No arguments provided - let bb auto-discover and process all artifacts
+echo "Searching for contract artifacts in target/ directories..."
+$BB aztec_process
 
 echo "Contract postprocessing complete!"
