@@ -269,7 +269,9 @@ BENCHMARK_DEFINE_F(Poseidon2ShmSPSC, poseiden_hash_roundtrip)(benchmark::State& 
         DoNotOptimize(result);
     }
 }
-BENCHMARK_REGISTER_F(Poseidon2ShmSPSC, poseiden_hash_roundtrip)->Unit(benchmark::kMicrosecond);
+BENCHMARK_REGISTER_F(Poseidon2ShmSPSC, poseiden_hash_roundtrip)
+    ->Unit(benchmark::kMicrosecond)
+    ->Iterations(10000); // Fixed iterations to avoid expensive warmup phase with process forking
 
 // MPSC benchmark using unified template
 BENCHMARK_DEFINE_F(Poseidon2ShmMPSC, poseiden_hash_roundtrip)(benchmark::State& state)
@@ -310,7 +312,9 @@ BENCHMARK_DEFINE_F(Poseidon2ShmMPSC, poseiden_hash_roundtrip)(benchmark::State& 
         DoNotOptimize(result);
     }
 }
-BENCHMARK_REGISTER_F(Poseidon2ShmMPSC, poseiden_hash_roundtrip)->Unit(benchmark::kMicrosecond);
+BENCHMARK_REGISTER_F(Poseidon2ShmMPSC, poseiden_hash_roundtrip)
+    ->Unit(benchmark::kMicrosecond)
+    ->Iterations(10000); // Fixed iterations to avoid expensive warmup phase with process forking
 
 // Unified Unix Domain Socket fixture template: supports both SPSC (NumClients=1) and MPSC (NumClients>1)
 template <size_t NumClients> class Poseidon2SocketFixture : public Fixture {
@@ -477,7 +481,9 @@ BENCHMARK_DEFINE_F(Poseidon2SocketSPSC, poseiden_hash_roundtrip)(benchmark::Stat
         DoNotOptimize(result);
     }
 }
-BENCHMARK_REGISTER_F(Poseidon2SocketSPSC, poseiden_hash_roundtrip)->Unit(benchmark::kMicrosecond);
+BENCHMARK_REGISTER_F(Poseidon2SocketSPSC, poseiden_hash_roundtrip)
+    ->Unit(benchmark::kMicrosecond)
+    ->Iterations(10000); // Fixed iterations to avoid expensive warmup phase with process forking
 
 // MPSC benchmark using unified template
 BENCHMARK_DEFINE_F(Poseidon2SocketMPSC, poseiden_hash_roundtrip)(benchmark::State& state)
@@ -502,7 +508,9 @@ BENCHMARK_DEFINE_F(Poseidon2SocketMPSC, poseiden_hash_roundtrip)(benchmark::Stat
         DoNotOptimize(result);
     }
 }
-BENCHMARK_REGISTER_F(Poseidon2SocketMPSC, poseiden_hash_roundtrip)->Unit(benchmark::kMicrosecond);
+BENCHMARK_REGISTER_F(Poseidon2SocketMPSC, poseiden_hash_roundtrip)
+    ->Unit(benchmark::kMicrosecond)
+    ->Iterations(10000); // Fixed iterations to avoid expensive warmup phase with process forking
 
 // Helper: Spawn bb binary for msgpack benchmarks
 static pid_t spawn_bb_msgpack_server(const std::string& path)
@@ -667,15 +675,12 @@ class Poseidon2BBMsgpackShmFixture : public Fixture {
     struct mpsc_producer* producer;
     struct spsc_shm* response_ring;
     grumpkin::fq x, y;
-    std::string base_name;
+
+    const std::string base_name = "/poseidon_bb_msgpack_shm_bench";
 
     void SetUp(const ::benchmark::State&) override
     {
-        // Create unique name for this benchmark run to avoid conflicts with multiple SetUp() calls
-        base_name = "/poseidon_bb_msgpack_shm_bench_" + std::to_string(getpid()) + "_" +
-                    std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
-
-        // Clean up any leftover shared memory from previous runs
+        // Clean up any leftover shared memory
         mpsc_unlink(base_name.c_str(), 10);
         for (int i = 0; i < 10; i++) {
             std::string resp_name = base_name + "_response_" + std::to_string(i);
