@@ -5,12 +5,11 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import {
   type EmpireSlashingProposerContract,
   FormattedViemError,
-  type GasPrice,
   type GovernanceProposerContract,
   type IEmpireBase,
   type L1BlobInputs,
   type L1ContractsConfig,
-  type L1GasConfig,
+  type L1TxConfig,
   type L1TxRequest,
   MULTI_CALL_3_ADDRESS,
   Multicall3,
@@ -92,11 +91,11 @@ interface RequestWithExpiry {
   action: Action;
   request: L1TxRequest;
   lastValidL2Slot: bigint;
-  gasConfig?: Pick<L1GasConfig, 'txTimeoutAt' | 'gasLimit'>;
+  gasConfig?: Pick<L1TxConfig, 'txTimeoutAt' | 'gasLimit'>;
   blobConfig?: L1BlobInputs;
   checkSuccess: (
     request: L1TxRequest,
-    result?: { receipt: TransactionReceipt; gasPrice: GasPrice; stats?: TransactionStats; errorMsg?: string },
+    result?: { receipt: TransactionReceipt; stats?: TransactionStats; errorMsg?: string },
   ) => boolean;
 }
 
@@ -247,18 +246,21 @@ export class SequencerPublisher {
     const gasLimit = gasLimits.length > 0 ? sumBigint(gasLimits) : undefined; // sum
     const txTimeoutAts = gasConfigs.map(g => g?.txTimeoutAt).filter((g): g is Date => g !== undefined);
     const txTimeoutAt = txTimeoutAts.length > 0 ? new Date(Math.min(...txTimeoutAts.map(g => g.getTime()))) : undefined; // earliest
-    const gasConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
+    const txConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
 
     // Sort the requests so that proposals always go first
     // This ensures the committee gets precomputed correctly
     validRequests.sort((a, b) => compareActions(a.action, b.action));
 
     try {
-      this.log.debug('Forwarding transactions', { validRequests: validRequests.map(request => request.action) });
+      this.log.debug('Forwarding transactions', {
+        validRequests: validRequests.map(request => request.action),
+        txConfig,
+      });
       const result = await Multicall3.forward(
         validRequests.map(request => request.request),
         this.l1TxUtils,
-        gasConfig,
+        txConfig,
         blobConfig,
         this.rollupContract.address,
         this.log,
@@ -283,7 +285,7 @@ export class SequencerPublisher {
 
   private callbackBundledTransactions(
     requests: RequestWithExpiry[],
-    result?: { receipt: TransactionReceipt; gasPrice: GasPrice } | FormattedViemError,
+    result?: { receipt: TransactionReceipt } | FormattedViemError,
   ) {
     const actionsListStr = requests.map(r => r.action).join(', ');
     if (result instanceof FormattedViemError) {
