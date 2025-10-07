@@ -545,7 +545,7 @@ static pid_t spawn_bb_msgpack_server(const std::string& path)
 }
 
 // BB Binary Msgpack Benchmark: Full stack test with actual bb binary
-class Poseidon2BBMsgpackFixture : public Fixture {
+class Poseidon2BBMsgpackSocket : public Fixture {
   public:
     struct uds_client* client;
     pid_t bb_pid;
@@ -626,7 +626,7 @@ class Poseidon2BBMsgpackFixture : public Fixture {
     }
 };
 
-BENCHMARK_DEFINE_F(Poseidon2BBMsgpackFixture, poseiden_hash_roundtrip)(benchmark::State& state)
+BENCHMARK_DEFINE_F(Poseidon2BBMsgpackSocket, poseiden_hash_roundtrip)(benchmark::State& state)
 {
     // Pre-allocate buffer for responses
     std::vector<uint8_t> resp_buffer(1024 * 1024); // 1MB should be enough for hash response
@@ -671,12 +671,12 @@ BENCHMARK_DEFINE_F(Poseidon2BBMsgpackFixture, poseiden_hash_roundtrip)(benchmark
         DoNotOptimize(hash_response->hash);
     }
 }
-BENCHMARK_REGISTER_F(Poseidon2BBMsgpackFixture, poseiden_hash_roundtrip)
+BENCHMARK_REGISTER_F(Poseidon2BBMsgpackSocket, poseiden_hash_roundtrip)
     ->Unit(benchmark::kMicrosecond)
     ->Iterations(10000); // Fixed iterations to avoid expensive warmup phase with process forking
 
 // BB Binary Msgpack Shared Memory Benchmark: Full stack test with bb binary using shared memory IPC
-class Poseidon2BBMsgpackShmFixture : public Fixture {
+class Poseidon2BBMsgpackShm : public Fixture {
   public:
     pid_t bb_pid;
     uint32_t client_id;
@@ -784,7 +784,7 @@ class Poseidon2BBMsgpackShmFixture : public Fixture {
     }
 };
 
-BENCHMARK_DEFINE_F(Poseidon2BBMsgpackShmFixture, poseiden_hash_roundtrip)(benchmark::State& state)
+BENCHMARK_DEFINE_F(Poseidon2BBMsgpackShm, poseiden_hash_roundtrip)(benchmark::State& state)
 {
     for (auto _ : state) {
         bool error = false;
@@ -852,7 +852,7 @@ BENCHMARK_DEFINE_F(Poseidon2BBMsgpackShmFixture, poseiden_hash_roundtrip)(benchm
         DoNotOptimize(hash_response->hash);
     }
 }
-BENCHMARK_REGISTER_F(Poseidon2BBMsgpackShmFixture, poseiden_hash_roundtrip)
+BENCHMARK_REGISTER_F(Poseidon2BBMsgpackShm, poseiden_hash_roundtrip)
     ->Unit(benchmark::kMicrosecond)
     ->Iterations(10000); // Fixed iterations to avoid expensive warmup phase with process forking
 
