@@ -242,6 +242,7 @@ TEST(ExecutionConstrainingTest, SideEffectStateNotChanged)
 
 TEST(ExecutionConstrainingTest, SubtraceIdDecomposition)
 {
+    using tracegen::get_subtrace_id;
     using tracegen::get_subtrace_selector;
     using tracegen::SubtraceSel;
 
@@ -250,7 +251,7 @@ TEST(ExecutionConstrainingTest, SubtraceIdDecomposition)
 
     for (uint8_t i = 0; i < enum_length; i++) {
         SubtraceSel subtrace_sel = static_cast<SubtraceSel>(i);
-        const auto subtrace_id = tracegen::get_subtrace_id(subtrace_sel);
+        const auto subtrace_id = get_subtrace_id(subtrace_sel);
         const auto subtrace_selector = get_subtrace_selector(subtrace_sel);
 
         trace.set(i,
