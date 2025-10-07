@@ -21,7 +21,7 @@ import {
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
-import { registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet';
+import { registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet/server';
 import { TestWallet } from '@aztec/test-wallet/server';
 
 import { getContract } from 'viem';
