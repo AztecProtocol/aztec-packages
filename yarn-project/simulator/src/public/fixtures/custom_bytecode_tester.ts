@@ -18,6 +18,7 @@ export async function testCustomBytecode(
   tester: PublicTxSimulationTester,
   txLabel: string,
   contractName: string = 'CustomBytecodeContract',
+  calldata: any[] = [],
 ): Promise<PublicTxResult> {
   const deployer = AztecAddress.fromNumber(42);
 
@@ -42,8 +43,7 @@ export async function testCustomBytecode(
     /*appCalls=*/ [
       {
         address: testContract.address,
-        fnName: 'public_dispatch',
-        args: [],
+        args: calldata,
       },
     ],
   );

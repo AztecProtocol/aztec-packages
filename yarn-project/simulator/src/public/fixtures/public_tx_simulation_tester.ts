@@ -31,7 +31,7 @@ const DEFAULT_GAS_FEES = new GasFees(2, 3);
 export type TestEnqueuedCall = {
   sender?: AztecAddress;
   address: AztecAddress;
-  fnName: string;
+  fnName?: string;
   args: any[];
   isStaticCall?: boolean;
   contractArtifact?: ContractArtifact;
@@ -235,10 +235,24 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       throw new Error(`Contract artifact not found for address: ${address}`);
     }
 
-    const fnSelector = await getFunctionSelector(call.fnName, contractArtifact);
-    const fnAbi = getContractFunctionAbi(call.fnName, contractArtifact)!;
-    const encodedArgs = encodeArguments(fnAbi, call.args);
-    const calldata = [fnSelector.toField(), ...encodedArgs];
+    let calldata: Fr[] = [];
+    if (!call.fnName) {
+      this.logger.warn(
+        `No function name specified for call to contract ${call.address.toString()}. Assuming this is a custom bytecode with no public_dispatch function.`,
+      );
+      this.logger.warn(`Not using ABI to encode arguments. Not prepending fn selector to calldata.`);
+      try {
+        calldata = call.args.map(arg => new Fr(arg));
+      } catch (error) {
+        this.logger.warn(`Tried assuming that all arguments are Field-like. Failed. Error: ${error}`);
+        throw error;
+      }
+    } else {
+      const fnSelector = await getFunctionSelector(call.fnName, contractArtifact);
+      const fnAbi = getContractFunctionAbi(call.fnName, contractArtifact)!;
+      const encodedArgs = encodeArguments(fnAbi, call.args);
+      calldata = [fnSelector.toField(), ...encodedArgs];
+    }
     const isStaticCall = call.isStaticCall ?? false;
     const request = await PublicCallRequest.fromCalldata(sender, address, isStaticCall, calldata);
 
