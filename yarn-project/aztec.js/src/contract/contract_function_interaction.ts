@@ -23,12 +23,12 @@ import {
 export class ContractFunctionInteraction extends BaseContractInteraction {
   constructor(
     wallet: Wallet,
-    public contractAddress: AztecAddress,
-    public functionDao: FunctionAbi,
-    public args: any[],
+    protected contractAddress: AztecAddress,
+    protected functionDao: FunctionAbi,
+    protected args: any[],
     authWitnesses: AuthWitness[] = [],
     capsules: Capsule[] = [],
-    public extraHashedArgs: HashedValues[] = [],
+    private extraHashedArgs: HashedValues[] = [],
   ) {
     super(wallet, authWitnesses, capsules);
     if (args.some(arg => arg === undefined || arg === null)) {
