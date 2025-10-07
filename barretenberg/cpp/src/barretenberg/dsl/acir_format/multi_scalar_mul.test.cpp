@@ -135,7 +135,7 @@ TEST_F(MSMTests, TestMSMConstantPredicate)
 
         fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
         fr("0x0bff8247aa94b08d1c680d7a3e10831bd8c8cf2ea2c756b0d1d89acdcad877ad"),
-        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"), // 4
+        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"),
         fr(0),
     };
     // Create a predicate witness or constant which takes the index of the last witness in the array
@@ -159,7 +159,7 @@ TEST_F(MSMTests, TestMSMConstant)
 
         fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
         fr("0x0bff8247aa94b08d1c680d7a3e10831bd8c8cf2ea2c756b0d1d89acdcad877ad"),
-        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"), // 4
+        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"),
         fr(0),
     };
     // Create a predicate witness or constant which takes the index of the last witness in the array
@@ -179,7 +179,7 @@ TEST_F(MSMTests, TestMSMWitnessPredicate)
         fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
         // output
         fr("0x0bff8247aa94b08d1c680d7a3e10831bd8c8cf2ea2c756b0d1d89acdcad877ad"),
-        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"), // 4
+        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"),
         fr(0),
         // point
         fr(1),
@@ -207,7 +207,7 @@ TEST_F(MSMTests, TestMSMWitness)
         fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
         // output
         fr("0x0bff8247aa94b08d1c680d7a3e10831bd8c8cf2ea2c756b0d1d89acdcad877ad"),
-        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"), // 4
+        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"),
         fr(0),
         // point
         fr(1),
@@ -235,7 +235,7 @@ TEST_F(MSMTests, TestMSMConstantBad)
 
         fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
         fr("0x0bff8247aa94b08d1c680d7a3e10831bd8c8cf2ea2c756b0d1d89acdcad877ad"),
-        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"), // 4
+        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"),
         fr(0),
     };
     // Create a predicate witness or constant which takes the index of the last witness in the array
@@ -245,7 +245,7 @@ TEST_F(MSMTests, TestMSMConstantBad)
     msm_constrain.predicate = predicate;
     // Modify the MSM inputs to be invalid
     msm_constrain.points[0].value = fr(0);
-    msm_constrain.points[1].value = fr(2);
+
     auto check = check_msm(msm_constrain, witness);
     EXPECT_FALSE(check.first);
     EXPECT_FALSE(check.second);
@@ -258,7 +258,7 @@ TEST_F(MSMTests, TestMSMConstantPredicateBad)
 
         fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
         fr("0x0bff8247aa94b08d1c680d7a3e10831bd8c8cf2ea2c756b0d1d89acdcad877ad"),
-        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"), // 4
+        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"),
         fr(0),
     };
     // Create a predicate witness or constant which takes the index of the last witness in the array
