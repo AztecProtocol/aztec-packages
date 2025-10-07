@@ -242,25 +242,4 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
     std::cout << format(functions_string, "\n]}");
 }
 
-void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem::path& output_dir)
-{
-    BB_BENCH_NAME("write_arbitrary_valid_client_ivc_proof_and_vk_to_file");
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
-    const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
-
-    // Construct and accumulate a series of mocked private function execution circuits
-    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        circuit_producer.construct_and_accumulate_next_circuit(ivc);
-    }
-
-    ClientIVC::Proof proof = ivc.prove();
-
-    // Write the proof and verification keys into the working directory in 'binary' format
-    vinfo("writing ClientIVC proof and vk...");
-    proof.to_file_msgpack(output_dir / "proof");
-
-    write_file(output_dir / "vk", to_buffer(ivc.get_vk()));
-}
-
 } // namespace bb

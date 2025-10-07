@@ -1,3 +1,4 @@
+#ifndef __wasm__
 #include "aztec_process.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/bbapi/bbapi_client_ivc.hpp"
@@ -312,3 +313,4 @@ bool process_all_artifacts(const std::string& search_path, bool force)
 }
 
 } // namespace bb
+#endif
