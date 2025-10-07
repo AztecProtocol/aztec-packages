@@ -291,6 +291,7 @@ export function createBootstrapNodeConfig(privateKey: string, port: number, chai
     dataStoreMapSizeKB: 0,
     bootstrapNodes: [],
     listenAddress: '127.0.0.1',
+    queryForIp: false,
   };
 }
 
