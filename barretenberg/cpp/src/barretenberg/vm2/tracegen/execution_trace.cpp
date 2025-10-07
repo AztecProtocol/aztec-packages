@@ -1160,9 +1160,8 @@ void ExecutionTraceBuilder::process_get_env_var_opcode(TaggedValue envvar_enum,
 
 const InteractionDefinition ExecutionTraceBuilder::interactions =
     InteractionDefinition()
-        // Execution
+        // Execution specification (precomputed)
         .add<lookup_execution_exec_spec_read_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_execution_check_written_storage_slot_settings, InteractionType::LookupSequential>()
         // Bytecode retrieval
         .add<lookup_execution_bytecode_retrieval_result_settings, InteractionType::LookupGeneric>()
         // Instruction fetching
@@ -1188,6 +1187,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_execution_check_radix_gt_256_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_execution_get_p_limbs_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_get_max_limbs_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        // Dynamic Gas - SStore
+        .add<lookup_execution_check_written_storage_slot_settings, InteractionType::LookupSequential>()
         // Context Stack
         .add<lookup_context_ctx_stack_call_settings, InteractionType::LookupGeneric>()
         .add<lookup_context_ctx_stack_rollback_settings, InteractionType::LookupGeneric>()
