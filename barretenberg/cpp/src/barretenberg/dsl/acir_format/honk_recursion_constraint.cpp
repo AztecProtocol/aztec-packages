@@ -29,7 +29,6 @@ namespace acir_format {
 using namespace bb;
 using namespace bb::stdlib::recursion::honk;
 template <typename Builder> using field_ct = stdlib::field_t<Builder>;
-template <typename Builder> using witness_ct = stdlib::witness_t<Builder>;
 template <typename Builder> using bn254 = stdlib::bn254<Builder>;
 template <typename Builder> using PairingPoints = bb::stdlib::recursion::PairingPoints<Builder>;
 
@@ -217,7 +216,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         // Replace the proof by the placeholder proof in case the predicate is 1
         for (uint32_t i = 0; i < proof_fields.size(); ++i) {
             field_ct<Builder> place_holder_proof_witness =
-                field_ct<Builder>(witness_ct<Builder>(&builder, place_holder_proof[i]));
+                field_ct<Builder>::from_witness(&builder, place_holder_proof[i]);
             // Note: we have essentially created a dangling witness. However, this is not a problem given the
             // context. When this witness is being conditionally assigned, we are in a scenario where we are using
             // an place holder proof instead of the real proof. Hence, it is not a soundness issue if we use the
@@ -233,7 +232,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         // Replace the VK with the placeholder vk in case the predicate is 1
         for (uint32_t i = 0; i < vk_fields.size(); ++i) {
             field_ct<Builder> place_holder_vk_witness =
-                field_ct<Builder>(witness_ct<Builder>(&builder, place_holder_vk_fields[i]));
+                field_ct<Builder>::from_witness(&builder, place_holder_vk_fields[i]);
             // Same as above. This witness being a free witness is not a soundness issue
             place_holder_vk_witness.unset_free_witness_tag();
             auto valid_vk =
