@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "eth-mainnet.fullname" . }}-entrypoint-scripts
+  labels:
+    {{- include "eth-mainnet.labels" . | nindent 4 }}
+data:
+  eth-beacon.sh: {{ .Files.Get "entrypoints/eth-beacon.sh" | quote }}
+  eth-execution.sh: {{ .Files.Get "entrypoints/eth-execution.sh" | quote }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "eth-mainnet.fullname" . }}-jwt
+  labels:
+    {{- include "eth-mainnet.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  jwt-secret.hex: {{ .Values.ethereum.jwt.secret | quote }}
+
+
