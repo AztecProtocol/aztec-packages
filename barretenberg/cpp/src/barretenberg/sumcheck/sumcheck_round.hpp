@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/get_by_index.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
 #include "barretenberg/polynomials/row_disabling_polynomial.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -127,8 +128,8 @@ template <typename Flavor> class SumcheckProverRound {
     {
         // Loop through all entities, accessing them via runtime index
         for (size_t idx = 0; idx < Flavor::NUM_ALL_ENTITIES; ++idx) {
-            const auto& multivariate = multivariates.get_by_index(idx);
-            auto& extended_edge = extended_edges.get_by_index(idx);
+            const auto& multivariate = get_by_index(multivariates, idx);
+            auto& extended_edge = get_by_index(extended_edges, idx);
 
             if constexpr (Flavor::USE_SHORT_MONOMIALS) {
                 extended_edge = bb::Univariate<FF, 2>({ multivariate[edge_idx], multivariate[edge_idx + 1] });

@@ -8,9 +8,9 @@
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
-#include "barretenberg/flavor/entities_base.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/flavor/get_by_index.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
@@ -247,8 +247,7 @@ class UltraFlavor {
     template <typename DataType>
     class AllEntities : public PrecomputedEntities<DataType>,
                         public WitnessEntities<DataType>,
-                        public ShiftedEntities<DataType>,
-                        public EntitiesBase<AllEntities<DataType>, DataType, NUM_ALL_ENTITIES> {
+                        public ShiftedEntities<DataType> {
       public:
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 

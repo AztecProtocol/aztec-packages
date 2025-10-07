@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include "barretenberg/flavor/entities_base.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
@@ -16,6 +15,7 @@
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/flavor/get_by_index.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -401,8 +401,7 @@ class ECCVMFlavor {
     template <typename DataType>
     class AllEntities : public PrecomputedEntities<DataType>,
                         public WitnessEntities<DataType>,
-                        public ShiftedEntities<DataType>,
-                        public EntitiesBase<AllEntities<DataType>, DataType, NUM_ALL_ENTITIES> {
+                        public ShiftedEntities<DataType> {
       public:
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
         auto get_unshifted()

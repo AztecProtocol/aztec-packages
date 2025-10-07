@@ -22,8 +22,8 @@ template <typename Flavor> void test_get_by_index_completeness()
     // Verify that get_by_index(i) returns the same entity as get_all()[i]
     std::set<uintptr_t> addresses_seen;
     for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; i++) {
-        // Get entity via runtime-indexed get_by_index
-        const auto& entity_by_index = entities.get_by_index(i);
+        // Get entity via runtime-indexed get_by_index utility function
+        const auto& entity_by_index = bb::get_by_index(entities, i);
 
         // Get entity via get_all()
         const auto& entity_from_get_all = all_entities[i];

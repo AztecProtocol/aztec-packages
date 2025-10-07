@@ -5,7 +5,7 @@
 // =====================
 
 #pragma once
-#include "barretenberg/flavor/entities_base.hpp"
+#include "barretenberg/flavor/get_by_index.hpp"
 #include <utility>
 
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
@@ -333,8 +333,7 @@ class MegaFlavor {
     template <typename DataType>
     class AllEntities : public PrecomputedEntities<DataType>,
                         public WitnessEntities<DataType>,
-                        public ShiftedEntities<DataType>,
-                        public EntitiesBase<AllEntities<DataType>, DataType, NUM_ALL_ENTITIES> {
+                        public ShiftedEntities<DataType> {
       public:
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
