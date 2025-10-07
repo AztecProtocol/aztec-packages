@@ -1,20 +1,13 @@
-import {
-  MEGA_VK_LENGTH_IN_FIELDS,
-  type NOTE_HASH_TREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
-  UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN,
-} from '@aztec/constants';
+import { MEGA_VK_LENGTH_IN_FIELDS, UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { assertLength, mapTuple } from '@aztec/foundation/serialize';
+import { type Bufferable, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import {
   CountedPublicCallRequest,
   KeyValidationHint,
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
   NoteHash,
-  type NoteHashReadRequestHints,
   Nullifier,
-  type NullifierReadRequestHints,
   PaddedSideEffectAmounts,
   PaddedSideEffects,
   PartialPrivateTailPublicInputsForPublic,
@@ -33,6 +26,7 @@ import {
   type PrivateVerificationKeyHints,
   ReadRequest,
   ReadRequestAction,
+  ReadRequestResetHints,
   ScopedKeyValidationRequestAndGenerator,
   ScopedNoteHash,
   ScopedNullifier,
@@ -42,7 +36,6 @@ import {
   TransientDataSquashingHint,
 } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import type { NullifierLeafPreimage } from '@aztec/stdlib/trees';
 import { CallContext, FunctionData, TxRequest } from '@aztec/stdlib/tx';
 
 import type {
@@ -55,11 +48,7 @@ import type {
   KeyValidationRequest as KeyValidationRequestsNoir,
   NoteHashLeafPreimage as NoteHashLeafPreimageNoir,
   NoteHash as NoteHashNoir,
-  NoteHashReadRequestHints as NoteHashReadRequestHintsNoir,
-  NoteHashSettledReadHint as NoteHashSettledReadHintNoir,
   Nullifier as NullifierNoir,
-  NullifierReadRequestHints as NullifierReadRequestHintsNoir,
-  NullifierSettledReadHint as NullifierSettledReadHintNoir,
   PaddedSideEffectAmounts as PaddedSideEffectAmountsNoir,
   PaddedSideEffects as PaddedSideEffectsNoir,
   PendingReadHint as PendingReadHintNoir,
@@ -78,12 +67,14 @@ import type {
   PublicCallRequest as PublicCallRequestNoir,
   PublicKeys as PublicKeysNoir,
   ReadRequestAction as ReadRequestActionNoir,
+  ReadRequestHints as ReadRequestHintsNoir,
   ReadRequest as ReadRequestNoir,
   Scoped,
   ScopedKeyValidationRequestAndGenerator as ScopedKeyValidationRequestAndGeneratorNoir,
   ScopedNoteHash as ScopedNoteHashNoir,
   ScopedNullifier as ScopedNullifierNoir,
   ScopedReadRequest as ScopedReadRequestNoir,
+  SettledReadHint as SettledReadHintNoir,
   TransientDataSquashingHint as TransientDataSquashingHintNoir,
   TxRequest as TxRequestNoir,
 } from '../types/index.js';
@@ -699,56 +690,50 @@ function mapNoteHashLeafPreimageToNoir(noteHashLeafValue: Fr): NoteHashLeafPreim
   };
 }
 
-function mapNoteHashSettledReadHintToNoir(
-  hint: SettledReadHint<typeof NOTE_HASH_TREE_HEIGHT, Fr>,
-): NoteHashSettledReadHintNoir {
+function mapSettledReadHintToNoir<TREE_HEIGHT extends number, LEAF_PREIMAGE extends Bufferable, LEAF_PREIMAGE_NOIR>(
+  hint: SettledReadHint<TREE_HEIGHT, LEAF_PREIMAGE>,
+  mapLeafPreimageToNoir: (preimage: LEAF_PREIMAGE) => LEAF_PREIMAGE_NOIR,
+): SettledReadHintNoir<LEAF_PREIMAGE_NOIR> {
   return {
     read_request_index: mapNumberToNoir(hint.readRequestIndex),
-    membership_witness: mapMembershipWitnessToNoir(hint.membershipWitness),
-    leaf_preimage: mapNoteHashLeafPreimageToNoir(hint.leafPreimage),
+    // Hard code the size to 40 because it's only used in noir for trees of height 40, so it's not generated with a generic.
+    membership_witness: mapMembershipWitnessToNoir(
+      hint.membershipWitness,
+    ) as SettledReadHintNoir<LEAF_PREIMAGE_NOIR>['membership_witness'],
+    leaf_preimage: mapLeafPreimageToNoir(hint.leafPreimage),
   };
 }
 
-function mapNullifierSettledReadHintToNoir(
-  hint: SettledReadHint<typeof NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage>,
-): NullifierSettledReadHintNoir {
+function mapReadRequestHintsToNoir<
+  READ_REQUEST_LEN extends number,
+  PENDING_READ_HINTS_LEN extends number,
+  SETTLED_READ_HINTS_LEN extends number,
+  TREE_HEIGHT extends number,
+  LEAF_PREIMAGE extends Bufferable,
+  LEAF_PREIMAGE_NOIR,
+>(
+  hints: ReadRequestResetHints<
+    READ_REQUEST_LEN,
+    PENDING_READ_HINTS_LEN,
+    SETTLED_READ_HINTS_LEN,
+    TREE_HEIGHT,
+    LEAF_PREIMAGE
+  >,
+  mapLeafPreimageToNoir: (preimage: LEAF_PREIMAGE) => LEAF_PREIMAGE_NOIR,
+): ReadRequestHintsNoir<PENDING_READ_HINTS_LEN, SETTLED_READ_HINTS_LEN, LEAF_PREIMAGE_NOIR> {
   return {
-    read_request_index: mapNumberToNoir(hint.readRequestIndex),
-    membership_witness: mapMembershipWitnessToNoir(hint.membershipWitness),
-    leaf_preimage: mapNullifierLeafPreimageToNoir(hint.leafPreimage),
-  };
-}
-
-function mapNoteHashReadRequestHintsToNoir<PENDING extends number, SETTLED extends number>(
-  hints: NoteHashReadRequestHints<PENDING, SETTLED>,
-): NoteHashReadRequestHintsNoir<PENDING, SETTLED> {
-  return {
-    read_request_actions: mapTuple(hints.readRequestActions, mapReadRequestActionToNoir),
+    read_request_actions: mapTuple(hints.readRequestActions, mapReadRequestActionToNoir) as ReadRequestHintsNoir<
+      READ_REQUEST_LEN,
+      PENDING_READ_HINTS_LEN,
+      LEAF_PREIMAGE_NOIR
+    >['read_request_actions'],
     pending_read_hints: hints.pendingReadHints.map(mapPendingReadHintToNoir) as FixedLengthArray<
       PendingReadHintNoir,
-      PENDING
+      PENDING_READ_HINTS_LEN
     >,
-    settled_read_hints: hints.settledReadHints.map(mapNoteHashSettledReadHintToNoir) as FixedLengthArray<
-      NoteHashSettledReadHintNoir,
-      SETTLED
-    >,
-  };
-}
-
-function mapNullifierReadRequestHintsToNoir<PENDING extends number, SETTLED extends number>(
-  hints: NullifierReadRequestHints<PENDING, SETTLED>,
-): NullifierReadRequestHintsNoir<PENDING, SETTLED> {
-  return {
-    read_request_actions: mapTuple(hints.readRequestActions, mapReadRequestActionToNoir),
-    pending_read_hints: hints.pendingReadHints.map(mapPendingReadHintToNoir) as FixedLengthArray<
-      PendingReadHintNoir,
-      PENDING
-    >,
-    settled_read_hints: hints.settledReadHints.map(settledHint =>
-      mapNullifierSettledReadHintToNoir(
-        settledHint as SettledReadHint<typeof NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage>,
-      ),
-    ) as FixedLengthArray<NullifierSettledReadHintNoir, SETTLED>,
+    settled_read_hints: hints.settledReadHints.map(h =>
+      mapSettledReadHintToNoir(h, mapLeafPreimageToNoir),
+    ) as FixedLengthArray<SettledReadHintNoir<LEAF_PREIMAGE_NOIR>, SETTLED_READ_HINTS_LEN>,
   };
 }
 
@@ -788,8 +773,14 @@ export function mapPrivateKernelResetHintsToNoir<
   TRANSIENT_DATA_HINTS_LEN
 > {
   return {
-    note_hash_read_request_hints: mapNoteHashReadRequestHintsToNoir(inputs.noteHashReadRequestHints),
-    nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
+    note_hash_read_request_hints: mapReadRequestHintsToNoir(
+      inputs.noteHashReadRequestHints,
+      mapNoteHashLeafPreimageToNoir,
+    ),
+    nullifier_read_request_hints: mapReadRequestHintsToNoir(
+      inputs.nullifierReadRequestHints,
+      mapNullifierLeafPreimageToNoir,
+    ),
     key_validation_hints: mapTuple(inputs.keyValidationHints, mapKeyValidationHintToNoir) as FixedLengthArray<
       KeyValidationHintNoir,
       KEY_VALIDATION_HINTS_LEN
@@ -797,6 +788,6 @@ export function mapPrivateKernelResetHintsToNoir<
     transient_data_squashing_hints: inputs.transientDataSquashingHints.map(
       mapTransientDataSquashingHintToNoir,
     ) as FixedLengthArray<TransientDataSquashingHintNoir, TRANSIENT_DATA_HINTS_LEN>,
-    validation_requests_split_counter: mapNumberToNoir(inputs.validationRequestsSplitCounter),
+    min_revertible_side_effect_counter: mapNumberToNoir(inputs.validationRequestsSplitCounter),
   };
 }

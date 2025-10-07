@@ -930,13 +930,17 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u32) -> u32 {
+    pub fn add_note_hash_read_request(&mut self, value: Field) -> u32 {
         let read_request_index = self.note_hash_read_requests.len();
-        let value = self.mock_note_hash_value(note_hash_index);
         let read_request =
             ReadRequest { value, counter: self.next_counter() }.scope(self.contract_address);
         self.note_hash_read_requests.push(read_request);
         read_request_index
+    }
+
+    pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u32) -> u32 {
+        let value = self.mock_note_hash_value(note_hash_index);
+        self.add_note_hash_read_request(value)
     }
 
     pub fn append_note_hash_read_requests(&mut self, num_reads: u32) {
@@ -944,22 +948,22 @@ impl FixtureBuilder {
         for i in 0..self.note_hash_read_requests.max_len() {
             if i < num_reads {
                 let value = self.mock_note_hash_read_value(index_offset + i);
-                let read_request = ReadRequest { value, counter: self.next_counter() }.scope(
-                    self.contract_address,
-                );
-                self.note_hash_read_requests.push(read_request);
+                let _ = self.add_note_hash_read_request(value);
             }
         }
     }
 
-    pub fn add_read_request_for_pending_nullifier(&mut self, nullifier_index: u32) -> u32 {
+    pub fn add_nullifier_read_request(&mut self, value: Field) -> u32 {
         let read_request_index = self.nullifier_read_requests.len();
-        let nullifier = self.mock_nullifier_value(nullifier_index);
-        let read_request = ReadRequest { value: nullifier, counter: self.next_counter() }.scope(
-            self.contract_address,
-        );
+        let read_request =
+            ReadRequest { value, counter: self.next_counter() }.scope(self.contract_address);
         self.nullifier_read_requests.push(read_request);
         read_request_index
+    }
+
+    pub fn add_read_request_for_pending_nullifier(&mut self, nullifier_index: u32) -> u32 {
+        let value = self.mock_nullifier_value(nullifier_index);
+        self.add_nullifier_read_request(value)
     }
 
     pub fn append_nullifier_read_requests(&mut self, num_reads: u32) {
@@ -967,10 +971,7 @@ impl FixtureBuilder {
         for i in 0..self.nullifier_read_requests.max_len() {
             if i < num_reads {
                 let value = self.mock_nullifier_read_value(index_offset + i);
-                let read_request = ReadRequest { value, counter: self.next_counter() }.scope(
-                    self.contract_address,
-                );
-                self.nullifier_read_requests.push(read_request);
+                let _ = self.add_nullifier_read_request(value);
             }
         }
     }

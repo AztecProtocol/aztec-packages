@@ -3,112 +3,113 @@ use super::ClaimedLengthArray;
 
 // This function ensures that the `sorted_transformed_padded_array` is sorted in ascending order by counter and that all
 // transformations and padding are correctly applied.
-// The expected structure of `sorted_transformed_padded_array` is:
-// [...sorted_original_array, ...padded_items, ...empty_items]
+//
+// Expected structure of `sorted_transformed_padded_array`:
+//   [...sorted_items_from_original_array, ...padded_items, ...empty_items]
 //
 // Argument requirements:
-// - `original_array` must be valid, i.e. validate_array(original_array) == true
-// - The items to be padded should start at index array_length(original_array) in `padded_items`.
+// - The items to be padded should start at index `original_array.length` in `padded_items`.
 // - Counters of the non-empty items in `original_array` must *not* be MAX_U32_VALUE, This is checked in this function.
 // - Counters of the non-empty items in `padded_items` must be MAX_U32_VALUE. This is *not* checked in this function.
+//   It must be constrained before passing to this function.
+// - Items after `CappedSize` in `sorted_transformed_padded_array` must be empty. This is checked in this function.
 //
-// original: [?, ?, ?, ?, ? | ?, ?, ?, ?, ? | ?, ?, ?]
-// padded:   [0, 0, 0, 0, 0 | p, p, p, p, p | ?, ?, ?]
-//                          ^               ^
-//                          |               |
-//                    original length       |
-//                                          |
-//                                     capped_size ???
-//                                     I think it's the number of items to silo (i.e. all items)
+// Example:
+// original: [v, v, v, v | ?, ?, ?, ?, ? | ?, ?, ?]
+// padded:   [0, 0, 0, 0 | p, p, p, p, p | ?, ?, ?]
+//                       ^               ^
+//                       |               |
+//                 original length       |
+//                                       |
+//                                   CappedSize
+// output:   [v, v, v, v | p, p, p, p, p | 0, 0, 0]
 //
 // Notes:
-// - Items in `padded_items` with index < array_length(original_array) and >= capped_size are ignored.
-// - Any non-empty items after the first empty items in `padded_items` within the valid range will be added, but they
-//   will not be included in blobs. Q: ???
-// - `is_transformed` doesn't need to check the counters. This function makes sure that the item in
-//   `sorted_transformed_padded_array` has the same counter as its corresponding item in `original_array` or `padded_items`.
-pub fn assert_sorted_transformed_padded_array<T, S, let N: u32, Env>(
-    original_array: ClaimedLengthArray<T, N>,
-    padded_items: [T; N],
-    sorted_transformed_padded_array: ClaimedLengthArray<S, N>,
-    assert_transformed: fn[Env](T, S) -> (),
-    sorted_indexes: [u32; N],
+// - Items in `padded_items` with index < `original_array.length` or >= `CappedSize` are ignored.
+// - Any non-empty items appearing after the first empty item in `padded_items` (within the valid range) will be added,
+//   but they will not be included in blobs. This is because the tx base rollup uses `array_length` (the index of the
+//   first empty item) to determine how many items are added to blobs. This behavior is acceptable, since these
+//   misconfigured padded items only serve as a means to hide the actual number of items emitted from private execution.
+// - `is_transformed` does not need to validate counters. This function ensures that each item in
+//   `sorted_transformed_padded_array` has the same counter as its corresponding item in either `original_array` or
+//   `padded_items`.
+pub fn assert_sorted_transformed_padded_array<Value, TransformedValue, let N: u32, Env>(
+    original_array: ClaimedLengthArray<Value, N>,
+    padded_items: [Value; N],
+    sorted_transformed_padded_array: ClaimedLengthArray<TransformedValue, N>,
+    assert_transformed: fn[Env](Value, TransformedValue) -> (),
+    sorted_index_hints: [u32; N],
 )
 where
-    T: Ordered + Empty,
-    S: Ordered + Empty,
+    Value: Ordered + Empty,
+    TransformedValue: Ordered + Empty,
 {
-    assert_sorted_transformed_padded_array_capped_size(
+    assert_sorted_transformed_padded_array_capped_size::<_, _, _, _, N>(
         original_array,
         padded_items,
         sorted_transformed_padded_array,
         assert_transformed,
-        sorted_indexes,
-        N,
+        sorted_index_hints,
     );
 }
 
-// Same as assert_sorted_transformed_padded_array, but with an additional argument `capped_size`.
-// `capped_size` should be a known constant at compile time and must be large enough to process all non-empty items in
+// Same as assert_sorted_transformed_padded_array, but with an additional argument `CappedSize`.
+// `CappedSize` is a known constant at compile time and must be large enough to process all non-empty items in
 // `original_array` and `padded_items`. Padding and transformation rules still apply.
-pub fn assert_sorted_transformed_padded_array_capped_size<T, S, let N: u32, Env>(
-    original_array: ClaimedLengthArray<T, N>,
-    padded_items: [T; N],
-    output_array: ClaimedLengthArray<S, N>,
-    assert_transformed: fn[Env](T, S) -> (),
-    sorted_indexes: [u32; N],
-    capped_size: u32,
+pub fn assert_sorted_transformed_padded_array_capped_size<Value, TransformedValue, let N: u32, Env, let CappedSize: u32>(
+    original_array: ClaimedLengthArray<Value, N>,
+    padded_items: [Value; N],
+    output_array: ClaimedLengthArray<TransformedValue, N>,
+    assert_transformed: fn[Env](Value, TransformedValue) -> (),
+    sorted_index_hints: [u32; N],
 )
 where
-    T: Ordered + Empty,
-    S: Ordered + Empty,
+    Value: Ordered + Empty,
+    TransformedValue: Ordered + Empty,
 {
-    assert_sorted_transformed_i_padded_array_capped_size(
+    assert_sorted_transformed_i_padded_array_capped_size::<_, _, _, _, CappedSize>(
         original_array,
         padded_items,
         output_array,
         |prev, out, _i| assert_transformed(prev, out),
-        sorted_indexes,
-        capped_size,
+        sorted_index_hints,
     );
 }
 
-// Same as assert_sorted_transformed_padded_array_capped_size, but the callback is_transformed_i has an additional
+// Same as assert_sorted_transformed_padded_array_capped_size, but the callback `is_transformed_i` has an additional
 // index argument.
 // Useful for note hashes to use the index to compute the unique note hash.
 //
 // "Transformed" here, usually means: "assert siloed" or "assert siloed & unique-ified".
-pub fn assert_sorted_transformed_i_padded_array_capped_size<T, S, let N: u32, Env>(
-    original_array: ClaimedLengthArray<T, N>, // "kept" values (after squashing)
-    padded_items: [T; N], // padding
-    // Q: Why is this a different type S, instead of T?
-    output_array: ClaimedLengthArray<S, N>, // output
-    assert_transformed_i: fn[Env](T, S, u32) -> (),
+pub fn assert_sorted_transformed_i_padded_array_capped_size<Value, TransformedValue, let N: u32, Env, let CappedSize: u32>(
+    original_array: ClaimedLengthArray<Value, N>, // "kept" values (after squashing)
+    padded_items: [Value; N],
+    output_array: ClaimedLengthArray<TransformedValue, N>,
+    assert_transformed_i: fn[Env](Value, TransformedValue, u32) -> (),
     sorted_index_hints: [u32; N],
-    capped_size: u32, // TODO: shouldn't we be looping over this, to reduce constraints?
 )
 where
-    T: Ordered + Empty,
-    S: Ordered + Empty,
+    Value: Ordered + Empty,
+    TransformedValue: Ordered + Empty,
 {
     let original_array_length = original_array.length;
 
     // assert(original_array_length <= capped_size, "capped_size does not cover all non-empty items");
     // We need the padding_length, so instead of doing the above assertion, we do this:
     // This will fail if original_array_length > capped_size, because u32 cannot underflow.
-    let _padding_length = capped_size - original_array_length;
+    let _padding_length = CappedSize - original_array_length;
 
     let mut should_be_padded = false;
     for i in 0..N {
         let output_item = output_array.array[i];
 
         // TODO: might not need these empty assertions yet, given the new Arrays. Maybe wait until the Tail circuit?
-        // Note: because capped_size is known at compile-time, Noir is clever enough
-        // to only compute the `else` block `capped_size` number of times, instead of `N` times.
+        // Note: because `CappedSize` is known at compile-time, Noir is clever enough
+        // to only compute the `else` block `CappedSize` number of times, instead of `N` times.
         // This is why we do sorting, siloing and padding in the reset circuit instead
         // of the tail: we can iterate over much smaller arrays in the reset, whereas
         // in the tail
-        if i >= capped_size {
+        if i >= CappedSize {
             // We've reached the end of the amount of padding we wanted to add.
             // Thereafter, all should be empty.
             output_item.assert_empty("array must be appended with empty items");
@@ -172,18 +173,17 @@ where
         }
     }
 
-    // TODO: reinstate once I can figure out how to make the Builder add padding that corresponds to the capped_size (when setting up tests)
+    // TODO: reinstate once I can figure out how to make the Builder add padding that corresponds to the CappedSize (when setting up tests)
     // E.g. noir-projects/noir-protocol-circuits/crates/private-kernel-lib/src/private_kernel_reset.nr:768:29
     // assert_eq(output_array.length, original_array.length + padding_length);
 }
 
-// A util to validate padded items, make sure that all are empty outside of the range [num_original_items, capped_size).
-// And the non-empty items within the range are consecutive.
-// They dont necessarily need to be empty outside of this range, those values will simply be ignored.
-// But triggering an error if they are not can help avoiding any confusion or bugs where the array is not configured
-// correctly by mistake.
-// Maybe rename to `check_...`, because maybe we should adopt strict naming that `validate` always means "check something in a constrained way"?
-pub unconstrained fn validate_padded_items<T, let N: u32>(
+// Utility to check the padded items provided by the user.
+// - Checks that all items outside the range [num_original_items, CappedSize) are empty.
+// - Checks that non-empty items within the range are consecutive.
+// Note: Technically, values outside this range could be non-empty, since they are ignored. However, enforcing emptiness
+// helps prevent unexpected output if the array is misconfigured.
+pub unconstrained fn check_padded_items<T, let N: u32>(
     padded_items: [T; N],
     num_original_items: u32,
     capped_size: u32,
@@ -217,7 +217,7 @@ mod tests {
         utils::arrays::{
             assert_sorted_transformed_padded_array::{
                 assert_sorted_transformed_padded_array,
-                assert_sorted_transformed_padded_array_capped_size, validate_padded_items,
+                assert_sorted_transformed_padded_array_capped_size, check_padded_items,
             },
             ClaimedLengthArray,
         },
@@ -231,7 +231,7 @@ mod tests {
         original_array: ClaimedLengthArray<TestTwoValues, N>,
         padded_items: [TestTwoValues; N],
         sorted_transformed_padded_array: ClaimedLengthArray<TestValue, N>,
-        sorted_indexes: [u32; N],
+        sorted_index_hints: [u32; N],
         padded_start_index: u32,
     }
 
@@ -276,13 +276,13 @@ mod tests {
                 length: 5,
             };
 
-            let sorted_indexes = [2, 1, 0, 3, 4, 5, 6, 7];
+            let sorted_index_hints = [2, 1, 0, 3, 4, 5, 6, 7];
 
             TestDataBuilder {
                 original_array,
                 padded_items,
                 sorted_transformed_padded_array,
-                sorted_indexes,
+                sorted_index_hints,
                 padded_start_index: 3,
             }
         }
@@ -311,7 +311,7 @@ mod tests {
             self.sorted_transformed_padded_array.array = pad_end([prev[3], prev[4]]);
             self.sorted_transformed_padded_array.length = 2;
 
-            self.sorted_indexes = [0, 1, 2, 3, 4, 5, 6, 7];
+            self.sorted_index_hints = [0, 1, 2, 3, 4, 5, 6, 7];
 
             self.padded_start_index = 0;
 
@@ -324,18 +324,17 @@ mod tests {
                 self.padded_items,
                 self.sorted_transformed_padded_array,
                 assert_summed_from_two_values,
-                self.sorted_indexes,
+                self.sorted_index_hints,
             );
         }
 
-        pub fn execute_capped(self, capped_size: u32) {
-            assert_sorted_transformed_padded_array_capped_size(
+        pub fn execute_capped<let CappedSize: u32>(self) {
+            assert_sorted_transformed_padded_array_capped_size::<_, _, _, _, CappedSize>(
                 self.original_array,
                 self.padded_items,
                 self.sorted_transformed_padded_array,
                 assert_summed_from_two_values,
-                self.sorted_indexes,
-                capped_size,
+                self.sorted_index_hints,
             );
         }
     }
@@ -387,9 +386,9 @@ mod tests {
         // Update sorted indexes.
         // Original: 44, 22, 11
         // Tweaked result: 11, 44, 22
-        builder.sorted_indexes[0] = 1;
-        builder.sorted_indexes[1] = 2;
-        builder.sorted_indexes[2] = 0;
+        builder.sorted_index_hints[0] = 1;
+        builder.sorted_index_hints[1] = 2;
+        builder.sorted_index_hints[2] = 0;
 
         builder.execute();
     }
@@ -433,7 +432,7 @@ mod tests {
         builder.sorted_transformed_padded_array.array[5] =
             builder.sorted_transformed_padded_array.array[4];
         // Change the hint to point to the new item.
-        builder.sorted_indexes[4] = 5;
+        builder.sorted_index_hints[4] = 5;
 
         builder.execute();
     }
@@ -492,8 +491,8 @@ mod tests {
         builder.sorted_transformed_padded_array.array[1].value = tmp;
 
         // Update the indexes to point to the new items.
-        builder.sorted_indexes[1] = 0;
-        builder.sorted_indexes[2] = 1;
+        builder.sorted_index_hints[1] = 0;
+        builder.sorted_index_hints[2] = 1;
 
         builder.execute();
     }
@@ -564,7 +563,7 @@ mod tests {
         builder.sorted_transformed_padded_array.length += 4;
 
         // Map the padded item in the original array to the new padded item: sorted_index[2] = 3
-        builder.sorted_indexes = [2, 0, 3, 3, 4, 5, 6, 7];
+        builder.sorted_index_hints = [2, 0, 3, 3, 4, 5, 6, 7];
 
         builder.execute();
     }
@@ -576,32 +575,32 @@ mod tests {
     #[test]
     fn assert_sorted_transformed_padded_array_capped_size__succeeds() {
         let builder = TestDataBuilder::new();
-        builder.execute_capped(6);
+        builder.execute_capped::<6>();
     }
 
     #[test]
     fn assert_sorted_transformed_padded_array_capped_size__without_original_succeeds() {
         let builder = TestDataBuilder::new().without_original();
-        builder.execute_capped(6);
+        builder.execute_capped::<6>();
     }
 
     #[test]
     fn assert_sorted_transformed_padded_array_capped_size__without_padding_succeeds() {
         let builder = TestDataBuilder::new().without_padding();
-        builder.execute_capped(6);
+        builder.execute_capped::<6>();
     }
 
     #[test]
     fn assert_sorted_transformed_padded_array_capped_size__without_original_and_padding_succeeds() {
         let builder = TestDataBuilder::new().without_original().without_padding();
-        builder.execute_capped(6);
+        builder.execute_capped::<6>();
     }
 
     // #[test(should_fail_with = "capped_size does not cover all non-empty items")]
     #[test(should_fail_with = "attempt to subtract with overflow")]
     fn assert_sorted_transformed_padded_array_capped_size__chopped_original_fails() {
         let builder = TestDataBuilder::new();
-        builder.execute_capped(2);
+        builder.execute_capped::<2>();
     }
 
     #[test]
@@ -612,7 +611,7 @@ mod tests {
         builder.sorted_transformed_padded_array.array[4] = TestValue::empty();
 
         // Keep 3 original items and 1 padded item.
-        builder.execute_capped(4);
+        builder.execute_capped::<4>();
     }
 
     #[test(should_fail_with = "array must be appended with empty items")]
@@ -622,7 +621,7 @@ mod tests {
         // Add an item outside of capped_size to the result at index capped_size.
         builder.sorted_transformed_padded_array.array[5].value = 1;
 
-        builder.execute_capped(5);
+        builder.execute_capped::<5>();
     }
 
     #[test(should_fail_with = "array must be appended with empty items")]
@@ -632,7 +631,7 @@ mod tests {
         // Add an item outside of capped_size to the result at index capped_size + 1.
         builder.sorted_transformed_padded_array.array[6].value = 1;
 
-        builder.execute_capped(5);
+        builder.execute_capped::<5>();
     }
 
     #[test(should_fail_with = "array must be appended with empty items")]
@@ -642,11 +641,11 @@ mod tests {
         // Set the counter of an item outside of capped_size to MAX_U32_VALUE.
         builder.sorted_transformed_padded_array.array[6].counter = MAX_U32_VALUE;
 
-        builder.execute_capped(5);
+        builder.execute_capped::<5>();
     }
 
     ///////////////////////////////
-    // validate_padded_items
+    // check_padded_items
     ///////////////////////////////
 
     struct PaddedItemsBuilder {
@@ -665,15 +664,15 @@ mod tests {
         }
 
         pub fn execute(self) {
-            // Safety: `validate_padded_items` is supposed to be called only in unconstrained functions.
+            // Safety: `check_padded_items` is supposed to be called only in unconstrained functions.
             unsafe {
-                validate_padded_items(self.padded_items, self.num_original_items, self.capped_size);
+                check_padded_items(self.padded_items, self.num_original_items, self.capped_size);
             }
         }
     }
 
     #[test]
-    fn validate_padded_items__succeeds() {
+    fn check_padded_items__succeeds() {
         let mut builder = PaddedItemsBuilder::new();
 
         builder.execute();
@@ -689,7 +688,7 @@ mod tests {
     }
 
     #[test(should_fail_with = "padded items should be empty outside of the range [num_original_items, capped_size)")]
-    fn validate_padded_items__non_empty_before_range_fails() {
+    fn check_padded_items__non_empty_before_range_fails() {
         let mut builder = PaddedItemsBuilder::new();
 
         builder.padded_items[0] = 99;
@@ -698,7 +697,7 @@ mod tests {
     }
 
     #[test(should_fail_with = "padded items should be empty outside of the range [num_original_items, capped_size)")]
-    fn validate_padded_items__capped_size_too_small_fails() {
+    fn check_padded_items__capped_size_too_small_fails() {
         let mut builder = PaddedItemsBuilder::new();
 
         builder.capped_size = 4;
@@ -707,7 +706,7 @@ mod tests {
     }
 
     #[test(should_fail_with = "padded items should be empty outside of the range [num_original_items, capped_size)")]
-    fn validate_padded_items__non_empty_after_range_fails() {
+    fn check_padded_items__non_empty_after_range_fails() {
         let mut builder = PaddedItemsBuilder::new();
 
         builder.padded_items[6] = 99;
@@ -716,7 +715,7 @@ mod tests {
     }
 
     #[test(should_fail_with = "non-empty padded items should be consecutive within the range [num_original_items, capped_size)")]
-    fn validate_padded_items__empty_first_in_range_fails() {
+    fn check_padded_items__empty_first_in_range_fails() {
         let mut builder = PaddedItemsBuilder::new();
 
         builder.padded_items[2] = 0;
@@ -725,7 +724,7 @@ mod tests {
     }
 
     #[test(should_fail_with = "non-empty padded items should be consecutive within the range [num_original_items, capped_size)")]
-    fn validate_padded_items__empty_middle_in_range_fails() {
+    fn check_padded_items__empty_middle_in_range_fails() {
         let mut builder = PaddedItemsBuilder::new();
 
         builder.padded_items[3] = 0;

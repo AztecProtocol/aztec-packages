@@ -74,10 +74,6 @@ impl Readable<ScopedReadRequest> for ScopedNoteHash {
             read_request.contract_address,
             "Contract address of the note hash does not match read request",
         );
-        assert(
-            read_request.counter() > self.note_hash.counter,
-            "Read request counter must be greater than the counter of the note hash",
-        );
     }
 }
 
