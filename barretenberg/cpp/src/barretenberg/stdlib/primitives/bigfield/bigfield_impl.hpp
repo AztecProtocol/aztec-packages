@@ -1933,7 +1933,8 @@ void bigfield<Builder, T>::unsafe_assert_less_than(const uint256_t& upper_limit,
 // When one of the elements is a constant and another is a witness we check equality of limbs, so if the witness
 // bigfield element is in an unreduced form, it needs to be reduced first. We don't have automatice reduced form
 // detection for now, so it is up to the circuit writer to detect this
-template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(const bigfield& other) const
+template <typename Builder, typename T>
+void bigfield<Builder, T>::assert_equal(const bigfield& other, std::string const& msg) const
 {
     Builder* ctx = this->context ? this->context : other.context;
     if (is_constant() && other.is_constant()) {
@@ -1961,9 +1962,15 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
         t4.assert_is_zero();
         return;
     } else if (is_constant()) {
-        other.assert_equal(*this);
+        other.assert_equal(*this, msg);
         return;
     } else {
+        // Catch the error if the reduced value of the two elements are not equal
+        uint512_t lhs_reduced_value = get_value() % modulus_u512;
+        uint512_t rhs_reduced_value = other.get_value() % modulus_u512;
+        if ((lhs_reduced_value != rhs_reduced_value) && !get_context()->failed()) {
+            get_context()->failure(msg);
+        }
 
         // Remove tags, we don't want to cause violations on assert_equal
         const auto original_tag = get_origin_tag();
