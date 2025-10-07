@@ -1,12 +1,16 @@
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ipc/shm/mpsc_shm.h"
 #include "barretenberg/ipc/shm/spsc_shm.h"
 #include "barretenberg/ipc/socket/uds_client.h"
 #include "barretenberg/ipc/socket/uds_server.h"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include <benchmark/benchmark.h>
 #include <cstring>
+#include <fcntl.h>
 #include <signal.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
@@ -658,5 +662,165 @@ BENCHMARK_DEFINE_F(Poseidon2SocketFixture, poseiden_hash_socket_roundtrip)(bench
     }
 }
 BENCHMARK_REGISTER_F(Poseidon2SocketFixture, poseiden_hash_socket_roundtrip)->Unit(benchmark::kMicrosecond);
+
+// BB Binary Msgpack Benchmark: Full stack test with actual bb binary
+class Poseidon2BBMsgpackFixture : public Fixture {
+  public:
+    struct uds_client* client;
+    pid_t bb_pid;
+    grumpkin::fq x, y;
+
+    const char* socket_path = "/tmp/poseidon_bb_msgpack_bench.sock";
+
+    // Helper to check if socket file exists
+    bool socket_exists(const char* path, int max_attempts = 20)
+    {
+        for (int i = 0; i < max_attempts; i++) {
+            struct stat st;
+            if (stat(path, &st) == 0 && S_ISSOCK(st.st_mode)) {
+                return true;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+        return false;
+    }
+
+    void SetUp(const ::benchmark::State&) override
+    {
+        // Clean up any leftover socket
+        unlink(socket_path);
+
+        // Spawn bb binary in socket server mode
+        bb_pid = fork();
+        if (bb_pid == 0) {
+            // Child process - run bb binary
+            // Redirect stdout/stderr to /dev/null to prevent noise in benchmark output
+            int devnull = open("/dev/null", O_WRONLY);
+            if (devnull >= 0) {
+                dup2(devnull, STDOUT_FILENO);
+                dup2(devnull, STDERR_FILENO);
+                close(devnull);
+            }
+
+            // Execute bb binary with msgpack socket server
+            // Use absolute path - bb binary is in ../bin/bb relative to benchmark executable
+            // or we can search in known locations
+            const char* bb_paths[] = {
+                "./build-no-avm/bin/bb", // Relative to repo root
+                "./build/bin/bb",        // Alternative build dir
+                "../bin/bb",             // Relative to benchmark location
+                "bb"                     // Fall back to PATH
+            };
+
+            for (const char* bb_path : bb_paths) {
+                execl(bb_path, bb_path, "msgpack", "run", "--input", socket_path, nullptr);
+            }
+
+            // If all exec attempts fail, try execlp as last resort
+            execlp("bb", "bb", "msgpack", "run", "--input", socket_path, nullptr);
+
+            // If execlp fails, exit
+            _exit(1);
+        }
+
+        if (bb_pid < 0) {
+            throw std::runtime_error("Failed to fork bb process");
+        }
+
+        // Wait for socket server to start (socket file to be created)
+        if (!socket_exists(socket_path)) {
+            kill(bb_pid, SIGKILL);
+            waitpid(bb_pid, nullptr, 0);
+            throw std::runtime_error("BB binary failed to create socket within timeout");
+        }
+
+        // Give server a bit more time to be fully ready
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+        // Connect client with retries
+        int retry_count = 0;
+        while (retry_count < 5) {
+            client = uds_client_connect(socket_path);
+            if (client) {
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            retry_count++;
+        }
+
+        if (!client) {
+            kill(bb_pid, SIGKILL);
+            waitpid(bb_pid, nullptr, 0);
+            throw std::runtime_error("Failed to connect to BB msgpack socket server after retries");
+        }
+
+        // Pre-generate test inputs
+        x = grumpkin::fq::random_element();
+        y = grumpkin::fq::random_element();
+    }
+
+    void TearDown(const ::benchmark::State&) override
+    {
+        if (client) {
+            uds_client_close(client);
+        }
+
+        // Kill bb process
+        if (bb_pid > 0) {
+            kill(bb_pid, SIGTERM);
+            waitpid(bb_pid, nullptr, 0);
+        }
+
+        // Cleanup socket
+        unlink(socket_path);
+    }
+};
+
+BENCHMARK_DEFINE_F(Poseidon2BBMsgpackFixture, poseiden_hash_bb_msgpack_roundtrip)(benchmark::State& state)
+{
+    // Pre-allocate buffer for responses
+    std::vector<uint8_t> resp_buffer(1024 * 1024); // 1MB should be enough for hash response
+
+    for (auto _ : state) {
+        // Create Poseidon2Hash command wrapped in Command NamedUnion
+        bb::bbapi::Poseidon2Hash hash_cmd;
+        hash_cmd.inputs = { uint256_t(x), uint256_t(y) };
+        bb::bbapi::Command command{ std::move(hash_cmd) };
+
+        // Serialize command to msgpack
+        msgpack::sbuffer cmd_buffer;
+        msgpack::pack(cmd_buffer, command);
+
+        // Send command (uds_client_send handles length prefix automatically)
+        ssize_t sent = uds_client_send(client, cmd_buffer.data(), cmd_buffer.size());
+        if (sent < 0) {
+            state.SkipWithError("Failed to send command");
+            break;
+        }
+
+        // Receive response (uds_client_recv handles length prefix automatically)
+        ssize_t n = uds_client_recv(client, resp_buffer.data(), resp_buffer.size());
+        if (n < 0) {
+            state.SkipWithError("Failed to receive response");
+            break;
+        }
+
+        // Deserialize response
+        auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(resp_buffer.data()), static_cast<size_t>(n));
+        bb::bbapi::CommandResponse response;
+        unpacked.get().convert(response);
+
+        // Extract hash from response (NamedUnion has conversion operator to variant)
+        const auto& response_variant = static_cast<const bb::bbapi::CommandResponse::VariantType&>(response);
+        auto* hash_response = std::get_if<bb::bbapi::Poseidon2Hash::Response>(&response_variant);
+        if (!hash_response) {
+            state.SkipWithError("Invalid response type");
+            break;
+        }
+
+        DoNotOptimize(hash_response->hash);
+    }
+}
+BENCHMARK_REGISTER_F(Poseidon2BBMsgpackFixture, poseiden_hash_bb_msgpack_roundtrip)->Unit(benchmark::kMicrosecond);
 
 BENCHMARK_MAIN();

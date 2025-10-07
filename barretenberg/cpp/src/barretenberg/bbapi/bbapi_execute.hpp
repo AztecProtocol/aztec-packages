@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/bbapi/bbapi_client_ivc.hpp"
+#include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -22,7 +23,8 @@ using Command = NamedUnion<CircuitProve,
                            VkAsFields,
                            CircuitWriteSolidityVerifier,
                            ClientIvcCheckPrecomputedVk,
-                           ClientIvcStats>;
+                           ClientIvcStats,
+                           Poseidon2Hash>;
 
 using CommandResponse = NamedUnion<CircuitProve::Response,
                                    CircuitComputeVk::Response,
@@ -38,7 +40,8 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
                                    VkAsFields::Response,
                                    CircuitWriteSolidityVerifier::Response,
                                    ClientIvcCheckPrecomputedVk::Response,
-                                   ClientIvcStats::Response>;
+                                   ClientIvcStats::Response,
+                                   Poseidon2Hash::Response>;
 
 /**
  * @brief Executes a command by visiting a variant of all possible commands.
