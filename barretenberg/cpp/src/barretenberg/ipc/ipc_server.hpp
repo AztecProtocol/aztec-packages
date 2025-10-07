@@ -65,6 +65,19 @@ class IpcServer {
     using Handler = std::function<std::vector<uint8_t>(int client_id, std::span<const uint8_t> request)>;
 
     /**
+     * @brief Accept a new client connection (optional for some transports)
+     * @param timeout_ns Timeout in nanoseconds (0 = non-blocking, <0 = infinite)
+     * @return Client ID if successful, -1 if no pending connection or error
+     *
+     * Note: Some transports (like shared memory) may not need explicit accept calls.
+     */
+    virtual int accept(uint64_t timeout_ns = 0)
+    {
+        (void)timeout_ns;
+        return -1;
+    }
+
+    /**
      * @brief Run server event loop with handler
      *
      * Continuously waits for client requests and invokes handler.
@@ -79,6 +92,9 @@ class IpcServer {
         std::vector<uint8_t> buffer(max_message_size);
 
         while (true) {
+            // Try to accept new clients (non-blocking for socket servers)
+            accept(0);
+
             int client_id = wait_for_data(100000000); // 100ms timeout
             if (client_id < 0) {
                 continue;

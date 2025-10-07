@@ -63,6 +63,7 @@ BENCHMARK(poseiden_hash_bench)->Unit(benchmark::kMicrosecond);
 template <size_t NumProducers> class Poseidon2ShmFixture : public Fixture {
   public:
     static_assert(NumProducers >= 1, "Must have at least 1 producer");
+    static constexpr size_t MAX_PRODUCERS = 3; // Maximum across all benchmark variants
 
     std::array<struct mpsc_producer*, NumProducers> producers{};
     struct spsc_shm* response_ring; // Only for producer 0 (benchmark thread)
@@ -78,8 +79,8 @@ template <size_t NumProducers> class Poseidon2ShmFixture : public Fixture {
     {
         stop_background.store(false);
 
-        // Clean up any leftover rings
-        mpsc_unlink(request_ring, NumProducers);
+        // Clean up any leftover rings (use MAX_PRODUCERS to handle all variants)
+        mpsc_unlink(request_ring, MAX_PRODUCERS);
         spsc_shm_unlink(response_name);
 
         // Create MPSC consumer for requests
@@ -228,7 +229,7 @@ template <size_t NumProducers> class Poseidon2ShmFixture : public Fixture {
         }
 
         spsc_shm_close(response_ring);
-        mpsc_unlink(request_ring, NumProducers);
+        mpsc_unlink(request_ring, MAX_PRODUCERS);
         spsc_shm_unlink(response_name);
     }
 };
@@ -535,11 +536,16 @@ static pid_t spawn_bb_msgpack_server(const std::string& path)
         }
 
         // Try multiple bb binary paths
-        const char* bb_paths[] = { "./build-no-avm/bin/bb", "./build/bin/bb", "../bin/bb", "bb" };
+        const char* bb_paths[] = {
+            "./bin/bb",              // From build-no-avm/ or build/
+            "./build-no-avm/bin/bb", // From cpp/
+            "./build/bin/bb",        // From cpp/
+            "../bin/bb",             // From subdirectory
+            "bb"                     // From PATH
+        };
         for (const char* bb_path : bb_paths) {
             execl(bb_path, bb_path, "msgpack", "run", "--input", path.c_str(), nullptr);
         }
-        execlp("bb", "bb", "msgpack", "run", "--input", path.c_str(), nullptr);
         _exit(1);
     }
     return bb_pid;
@@ -590,16 +596,16 @@ class Poseidon2BBMsgpackSocket : public Fixture {
 
         // Create and connect client with retries
         client = ipc::IpcClient::create_socket(socket_path);
-        int retry_count = 0;
-        while (retry_count < 5) {
+        bool connected = false;
+        for (int retry_count = 0; retry_count < 5; retry_count++) {
             if (client->connect()) {
+                connected = true;
                 break;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            retry_count++;
         }
 
-        if (!client) {
+        if (!connected) {
             kill(bb_pid, SIGKILL);
             waitpid(bb_pid, nullptr, 0);
             throw std::runtime_error("Failed to connect to BB msgpack socket server after retries");

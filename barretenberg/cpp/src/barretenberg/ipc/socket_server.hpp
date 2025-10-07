@@ -32,6 +32,17 @@ class SocketServer : public IpcServer {
         return server_ != nullptr;
     }
 
+    int accept(uint64_t timeout_ns) override
+    {
+        if (!server_) {
+            return -1;
+        }
+
+        // Convert nanoseconds to microseconds
+        int timeout_us = timeout_ns > 0 ? static_cast<int>(timeout_ns / 1000) : (timeout_ns == 0 ? 0 : -1);
+        return uds_server_accept(server_, timeout_us);
+    }
+
     int wait_for_data(uint64_t timeout_ns) override
     {
         if (!server_) {
