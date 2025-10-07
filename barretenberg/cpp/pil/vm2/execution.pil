@@ -187,8 +187,6 @@ sel_instruction_fetching_success {
  *  - Addressing
  **************************************************************************************************/
 
-// TODO(fcarreiro): Ideally we would use this one as selector for readability, but it's not supported yet.
-// pol SEL_SHOULD_READ_EXEC_SPEC = sel_instruction_fetching_success;
 #[EXEC_SPEC_READ]
 sel_instruction_fetching_success {
     ex_opcode,
@@ -264,8 +262,9 @@ precomputed.sel_exec_spec {
 
 //////// ADDRESSING ////////
 
-// This is an "input" to addressing.pil.
-pol SEL_SHOULD_RESOLVE_ADDRESS = /*should do instruction fetching*/sel_bytecode_retrieval_success * sel_instruction_fetching_success;
+// We run "addressing" whenever sel_instruction_fetching_success is 1.
+// For readability we alias it to SEL_SHOULD_RESOLVE_ADDRESS.
+pol SEL_SHOULD_RESOLVE_ADDRESS = sel_instruction_fetching_success;
 
 // resolved operands
 pol commit rop[7];

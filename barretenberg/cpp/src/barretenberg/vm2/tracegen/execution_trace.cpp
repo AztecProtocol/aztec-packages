@@ -455,10 +455,10 @@ void ExecutionTraceBuilder::process(
 
         // This will only have a value if instruction fetching succeeded.
         std::optional<ExecutionOpCode> exec_opcode;
-        bool process_instruction_fetching = !bytecode_retrieval_failed;
         bool instruction_fetching_failed = ex_event.error == ExecutionError::INSTRUCTION_FETCHING;
+        bool instruction_fetching_success = !bytecode_retrieval_failed && !instruction_fetching_failed;
         trace.set(C::execution_sel_instruction_fetching_failure, row, instruction_fetching_failed ? 1 : 0);
-        if (process_instruction_fetching && !instruction_fetching_failed) {
+        if (instruction_fetching_success) {
             exec_opcode = ex_event.wire_instruction.get_exec_opcode();
             process_instr_fetching(ex_event.wire_instruction, trace, row);
             // If we fetched an instruction successfully, we can set the next PC.
@@ -474,14 +474,11 @@ void ExecutionTraceBuilder::process(
          **************************************************************************************************/
 
         // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
-        bool should_read_exec_spec = process_instruction_fetching && !instruction_fetching_failed;
-        if (should_read_exec_spec) {
+        if (instruction_fetching_success) {
             process_execution_spec(ex_event, trace, row);
         }
 
-        bool should_resolve_address = should_read_exec_spec;
-        // pol SEL_SHOULD_RESOLVE_ADDRESS = sel_bytecode_retrieval_success * sel_instruction_fetching_success;
-        if (should_resolve_address) {
+        if (instruction_fetching_success) {
             process_addressing(ex_event.addressing_event, ex_event.wire_instruction, trace, row);
         }
         bool addressing_failed = ex_event.error == ExecutionError::ADDRESSING;
@@ -492,8 +489,8 @@ void ExecutionTraceBuilder::process(
 
         // Note that if addressing did not fail, register reading will not fail.
         std::array<TaggedValue, AVM_MAX_REGISTERS> registers;
-        std::fill(registers.begin(), registers.end(), TaggedValue::from<FF>(0));
-        bool should_process_registers = should_resolve_address && !addressing_failed;
+        std::ranges::fill(registers.begin(), registers.end(), TaggedValue::from<FF>(0));
+        bool should_process_registers = instruction_fetching_success && !addressing_failed;
         bool register_processing_failed = ex_event.error == ExecutionError::REGISTER_READ;
         if (should_process_registers) {
             process_registers(*exec_opcode, ex_event.inputs, ex_event.output, registers, trace, row);

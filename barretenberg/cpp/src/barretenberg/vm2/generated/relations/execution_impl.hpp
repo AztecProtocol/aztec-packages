@@ -59,8 +59,7 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_AVM_EXEC_OP_ID_EMIT_NULLIFIER = FF(524288);
     const auto constants_AVM_EXEC_OP_ID_SENDL2TOL1MSG = FF(1048576);
     const auto execution_NOT_LAST_EXEC = in.get(C::execution_sel) * in.get(C::execution_sel_shift);
-    const auto execution_SEL_SHOULD_RESOLVE_ADDRESS =
-        in.get(C::execution_sel_bytecode_retrieval_success) * in.get(C::execution_sel_instruction_fetching_success);
+    const auto execution_SEL_SHOULD_RESOLVE_ADDRESS = in.get(C::execution_sel_instruction_fetching_success);
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;

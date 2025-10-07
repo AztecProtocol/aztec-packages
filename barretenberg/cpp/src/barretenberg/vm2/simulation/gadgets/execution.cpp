@@ -27,6 +27,16 @@
 
 namespace bb::avm2::simulation {
 
+// For every opcode execution method (e.g. Execution::add(), Execution::sub(), etc), it is crucial to preserve the
+// following order of operations (temporality groups 3,4,5,6):
+// 1. Set the inputs and validate them. (RegisterValidationException might be thrown.)
+// 2. Consume gas. (OutOfGasException might be thrown.)
+// 3. Execute the opcode. (OpcodeExecutionException might be thrown.)
+// 4. Set the output.
+
+// This order is crucial for the completeness of the circuit. In tracegen, we rely on this order to correctly
+// populate the execution trace. In particular, we stop processing if any of the above exceptions are thrown.
+
 void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::add");
@@ -1094,13 +1104,17 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             debug("@", pc, " ", instruction.to_string());
             context.set_next_pc(pc + static_cast<uint32_t>(instruction.size_in_bytes()));
 
-            //// Temporality group 4 starts ////
-
             // Resolve the operands.
             auto addressing = execution_components.make_addressing(ex_event.addressing_event);
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
 
-            //// Temporality group 5+ starts ////
+            //// Temporality group 3+ starts ////
+            //  Temporality group 3: Registers read. (triggered in each opcode (dispatch_opcode()) with
+            //                                        set_and_validate_inputs(opcode, { ... });)
+            //  Temporality group 4: Gas. (triggered in each opcode (dispatch_opcode()) with
+            //                             get_gas_tracker().consume_gas();)
+            //  Temporality group 5: Opcode execution. (in dispatch_opcode())
+            //  Temporality group 6: Register write. (in dispatch_opcode())
 
             gas_tracker = execution_components.make_gas_tracker(ex_event.gas_event, instruction, context);
             dispatch_opcode(instruction.get_exec_opcode(), context, resolved_operands);
