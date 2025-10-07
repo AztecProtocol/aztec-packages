@@ -398,27 +398,60 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    static void test_incomplete_assert_equal()
+    static void test_incomplete_assert_equal_success()
     {
-        Builder builder;
-        size_t num_repetitions = 10;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            affine_element input_a(element::random_element());
-            element_ct a = element_ct::from_witness(&builder, input_a);
-            element_ct b = element_ct::from_witness(&builder, input_a);
+        // Case 1: Should pass because the points are identical
+        {
+            Builder builder;
+            size_t num_repetitions = 10;
+            for (size_t i = 0; i < num_repetitions; ++i) {
+                affine_element input_a(element::random_element());
+                element_ct a = element_ct::from_witness(&builder, input_a);
+                element_ct b = element_ct::from_witness(&builder, input_a);
 
-            // Set different tags in a and b
-            a.set_origin_tag(submitted_value_origin_tag);
-            b.set_origin_tag(challenge_origin_tag);
+                // Set different tags in a and b
+                a.set_origin_tag(submitted_value_origin_tag);
+                b.set_origin_tag(challenge_origin_tag);
 
-            a.incomplete_assert_equal(b, "elements don't match");
+                a.incomplete_assert_equal(b, "elements don't match");
+            }
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
         }
+        // Case 2: Should pass because the points are identical and at infinity
+        {
+            Builder builder;
+            size_t num_repetitions = 10;
+            for (size_t i = 0; i < num_repetitions; ++i) {
+                affine_element input_a(element::random_element());
+                element_ct a = element_ct::from_witness(&builder, input_a);
+                element_ct b = element_ct::from_witness(&builder, input_a);
 
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
+                // Set different tags in a and b
+                a.set_origin_tag(submitted_value_origin_tag);
+                b.set_origin_tag(challenge_origin_tag);
+
+                a.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
+                b.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
+
+                a.incomplete_assert_equal(b, "elements don't match");
+            }
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
+        // Case 3: Self-assertion (point equals itself)
+        {
+            Builder builder;
+            affine_element input(element::random_element());
+            element_ct a = element_ct::from_witness(&builder, input);
+
+            a.incomplete_assert_equal(a, "self assertion test");
+
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
     }
 
     static void test_incomplete_assert_equal_failure()
     {
+        // Case 1: Should fail because the points are different
         {
             Builder builder;
             affine_element input_a(element::random_element());
@@ -441,6 +474,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             EXPECT_EQ(builder.failed(), true);
             EXPECT_EQ(builder.err(), "elements don't match (x coordinate)");
         }
+        // Case 2: Should fail because the points have same x but different y
         {
             Builder builder;
             affine_element input_a(element::random_element());
@@ -463,6 +497,24 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             // Circuit should fail
             EXPECT_EQ(builder.failed(), true);
             EXPECT_EQ(builder.err(), "elements don't match (y coordinate)");
+        }
+        // Case 3: Infinity flag mismatch (one point at infinity, one not)
+        {
+            Builder builder;
+            affine_element input_a(element::random_element());
+            affine_element input_b(element::random_element());
+
+            element_ct a = element_ct::from_witness(&builder, input_a);
+            element_ct b = element_ct::from_witness(&builder, input_b);
+
+            // Set only one point at infinity
+            a.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));  // at infinity
+            b.set_point_at_infinity(bool_ct(witness_ct(&builder, false))); // not at infinity
+
+            a.incomplete_assert_equal(b, "infinity flag mismatch test");
+
+            EXPECT_EQ(builder.failed(), true);
+            EXPECT_EQ(builder.err(), "infinity flag mismatch test (infinity flag)");
         }
     }
 
@@ -1838,7 +1890,7 @@ TYPED_TEST(stdlib_biggroup, conditional_select)
 }
 TYPED_TEST(stdlib_biggroup, incomplete_assert_equal)
 {
-    TestFixture::test_incomplete_assert_equal();
+    TestFixture::test_incomplete_assert_equal_success();
 }
 TYPED_TEST(stdlib_biggroup, incomplete_assert_equal_fails)
 {
