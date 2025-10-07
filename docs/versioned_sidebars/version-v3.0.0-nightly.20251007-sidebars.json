@@ -88,10 +88,6 @@
     },
     {
       "type": "doc",
-      "id": "the_aztec_network/reference/reacting_to_upgrades"
-    },
-    {
-      "type": "doc",
       "id": "the_aztec_network/reference/cli_reference"
     }
   ]

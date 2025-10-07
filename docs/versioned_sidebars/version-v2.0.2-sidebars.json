@@ -80,15 +80,15 @@
     },
     {
       "type": "doc",
+      "id": "the_aztec_network/creating_and_voting_on_proposals"
+    },
+    {
+      "type": "doc",
       "id": "the_aztec_network/reference/operator_faq"
     },
     {
       "type": "doc",
       "id": "the_aztec_network/reference/useful_commands"
-    },
-    {
-      "type": "doc",
-      "id": "the_aztec_network/reference/reacting_to_upgrades"
     },
     {
       "type": "doc",
