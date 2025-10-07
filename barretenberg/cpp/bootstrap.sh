@@ -24,21 +24,37 @@ function ensure_zig {
   if command -v zig &>/dev/null; then
     return
   fi
+  export PATH="$bin_path:$PATH"
   local arch=$(uname -m)
   local zig_version=0.15.1
   local bin_path=/opt/zig-${arch}-linux-${zig_version}
   if [ -f $bin_path/zig ]; then
-    export PATH="$bin_path:$PATH"
     return
   fi
   echo "Installing zig $zig_version..."
   curl -sL https://ziglang.org/download/$zig_version/zig-${arch}-linux-$zig_version.tar.xz | sudo tar -xJ -C /opt
+}
+
+function ensure_ldid {
+  if command -v ldid &>/dev/null; then
+    return
+  fi
   export PATH="$bin_path:$PATH"
+  local arch=$(uname -m)
+  local version=v2.1.5-procursus7
+  local bin_path=/opt/ldid-${version}
+  if [ -f $bin_path/ldid ]; then
+    return
+  fi
+  echo "Installing ldid $version..."
+  sudo mkdir -p $bin_path
+  sudo curl -sL https://github.com/ProcursusTeam/ldid/releases/download/${version}/ldid_linux_${arch} -o $bin_path/ldid
+  sudo chmod +x $bin_path/ldid
 }
 
 # Injects version number into a given bb binary.
-# This is now also called at build time by CMake, but we keep it for re-injecting
-# versions when needed (e.g., when REF_NAME changes after build).
+# The version is either taken from REF_NAME (if it is a valid semver, with leading 'v' stripped),
+# or from the current commit hash.
 function inject_version {
   local binary=$1
   if semver check "$REF_NAME"; then
@@ -64,9 +80,10 @@ function inject_version {
 function build_preset() {
   local preset=$1
   shift
-  # DISABLE_AZTEC_VM is set to 1 in CI for arm64, or in dev usage if you export DISABLE_AZTEC_VM=1
   local cmake_args=()
   if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
+    # Disables AVM for merge-train/barretenberg PRs via DISABLE_AZTEC_VM. This env var can be used in development, as well
+    # (and typically is for the barretenberg core team).
     cmake_args+=(-DDISABLE_AZTEC_VM=1 -DAVM_TRANSPILER_LIB="")
   fi
   cmake --fresh --preset "$preset" "${cmake_args[@]}"
@@ -79,7 +96,6 @@ function build_native {
   if ! cache_download barretenberg-$native_preset-$hash.zst; then
     ./format.sh check
     build_preset $native_preset
-    # Inject version immediately after build
     inject_version build/bin/bb
     cache_upload barretenberg-$native_preset-$hash.zst build/bin
   fi
@@ -218,12 +234,10 @@ function build_release {
     tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
 
     if [ "${DISABLE_AZTEC_VM:-0}" -eq 0 ]; then
-      # Version already injected and signed in build(), just copy and tar
-      cp build-zig-arm64-macos/bin/bb build-release/bb
-      tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb
-
-      cp build-zig-amd64-macos/bin/bb build-release/bb
-      tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
+      # We only build these with AVM transpiler linked, and disable them if not building AVM.
+      # This coupling is mostly arbitrary.
+      tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-zig-arm64-macos/bin bb
+      tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-zig-amd64-macos/bin bb
     fi
   fi
 }
@@ -244,6 +258,8 @@ function build {
     # macOS builds require the avm-transpiler linked.
     # We build them using zig cross-compilation.
     if [ "${DISABLE_AZTEC_VM:-0}" -eq 0 ]; then
+      # We only build these with AVM transpiler linked, and disable them if not building AVM.
+      # This coupling is mostly arbitrary.
       builds+=(build_darwin_arm64 build_darwin_amd64)
     fi
   fi
@@ -251,15 +267,9 @@ function build {
 
   # Sign macOS builds if built (version already injected in build functions)
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ] && [ "${DISABLE_AZTEC_VM:-0}" -eq 0 ]; then
-    # Download ldid for code signing
-    if [ ! -f build/ldid ]; then
-      echo "Downloading ldid for macOS code signing..."
-      curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 -o build/ldid
-      chmod +x build/ldid
-    fi
-
-    build/ldid -S build-zig-arm64-macos/bin/bb
-    build/ldid -S build-zig-amd64-macos/bin/bb
+    ensure_ldid
+    ldid -S build-zig-arm64-macos/bin/bb
+    ldid -S build-zig-amd64-macos/bin/bb
   fi
 
   build_release
