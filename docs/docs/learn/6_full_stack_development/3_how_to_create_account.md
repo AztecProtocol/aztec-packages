@@ -2,7 +2,6 @@
 title: "Creating Accounts"
 description: "Learn how to create and deploy user accounts in Aztec, including generating keys, creating wallets, and deploying account contracts for your full-stack applications"
 tags: [accounts, typescript, development, full-stack]
-sidebar_position: 3
 source: "developers/docs/guides/aztec-js/how_to_create_account.md"
 ---
 

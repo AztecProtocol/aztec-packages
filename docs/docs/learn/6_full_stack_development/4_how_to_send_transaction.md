@@ -2,7 +2,6 @@
 title: "Sending Transactions"
 description: "Learn how to send transactions to Aztec contracts using Aztec.js"
 tags: [transactions, contracts, aztec.js]
-sidebar_position: 4
 source: "developers/docs/guides/aztec-js/how_to_send_transaction.md"
 ---
 

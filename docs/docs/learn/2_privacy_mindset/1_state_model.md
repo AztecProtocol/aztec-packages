@@ -29,11 +29,13 @@ For deeper technical references, see:
 
 ## The privacy mindset
 
-Public state can be directly updated and read by everyone.
+Public state can be directly updated and read by everyone. This is the familiar **account-based model** used by Ethereum and most smart contract platforms. In this model, each account has a balance stored in a specific location, and when you send funds, you simply update two numbers: subtract from sender's balance, add to recipient's balance. It's straightforward and efficient for transparent systems.
 
-[TODO] add more detail about the account-based model and the UTXO model
+However, this approach has a fundamental privacy flaw. Even if we encrypted the balance values, the simple act of updating a storage location reveals that *something happened*. Observers could see "account A's balance was modified in block 100, then again in block 105" - that's a metadata leak that can reveal patterns about who's transacting and when.
 
-Private state can't: updating "the same place" would reveal that something changed, even if the value is encrypted. So in Aztec, private data follows a different pattern:
+Private state requires a completely different approach. Instead of the account-based model, Aztec uses a **UTXO (Unspent Transaction Output) model** similar to Bitcoin, but enhanced with encryption and zero-knowledge proofs. In the UTXO model, funds aren't stored as balances in accounts - instead, they exist as discrete "notes" that can be spent as units. Think of it like physical cash: instead of a bank balance that changes, you have individual bills that you give away and receive as change.
+
+Private state can't use the account-based approach: updating "the same place" would reveal that something changed, even if the value is encrypted. So in Aztec, private data follows a different pattern:
 
 - We append new encrypted records rather than "edit in place".
 - We hide contents with commitments (hashes).
@@ -109,7 +111,27 @@ Updating a specific slot would leak that "something changed here". Append‑only
 
 ## Public state
 
-[TODO: add more detail about public state. mention that it is similar to traditional blockchains. Aztec enables interactivity between private and public state, more on this in a future section.]
+Public state in Aztec works similarly to traditional blockchains like Ethereum. It uses the account-based model where data is stored in specific storage slots that can be directly read and updated by anyone. When a public function modifies state, the change is transparent and verifiable by all network participants.
+
+### Why have public state at all?
+
+You might wonder: "If Aztec is focused on privacy, why include public state?" Great question! The answer is flexibility and interoperability. Some parts of your application might need to be transparent:
+
+- **Token total supply**: Users might want to verify the total supply is fixed or follows known rules
+- **AMM pool reserves**: Decentralized exchanges need transparent liquidity information for price discovery
+- **Governance vote counts**: Final vote tallies might be public even if individual votes are private
+- **Global counters or timestamps**: Some coordination mechanisms require shared, visible state
+
+### The hybrid advantage
+
+What makes Aztec powerful is that private and public state can interact seamlessly within a single transaction. A private function can enqueue public function calls, allowing you to:
+
+- Make a private payment that updates a public counter
+- Privately transfer tokens while updating the public total supply
+- Cast a private vote that contributes to a public tally
+- Swap private tokens against a public AMM pool
+
+This hybrid model gives you the best of both worlds: privacy where you need it, transparency where it matters. We'll explore these interaction patterns in depth in Module 3 when we cover the transaction lifecycle and in Module 5 when you start writing contracts that use both private and public state.
 
 ## Developer mindset tips
 

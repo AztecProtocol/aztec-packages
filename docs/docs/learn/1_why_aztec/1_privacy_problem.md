@@ -7,7 +7,9 @@ description: "Understanding why privacy matters in blockchain, how Web2 handles 
 
 Welcome to one of the most important topics in blockchain technology - privacy.
 
-- [TODO] add point about how important financial privacy is
+Financial privacy is a fundamental human right, not a luxury. Throughout history, societies have recognized that individuals need the ability to conduct economic activities without constant surveillance. In the physical world, cash provides this privacy - when you buy groceries, the cashier doesn't get to see your entire banking history, your employer doesn't know how you spend your paycheck, and strangers can't track every purchase you've ever made.
+
+Yet in the blockchain space, we've somehow accepted that all financial activity should be permanently public. This isn't just uncomfortable - it's dangerous. Without financial privacy, we expose individuals to targeting, discrimination, and exploitation. Businesses can't protect trade secrets, activists can't safely receive donations, and ordinary people can't make purchases without creating a permanent public record of their economic choices.
 
 Let's explore why privacy is such a critical challenge in blockchain, and more importantly, why solving it opens up incredible opportunities for innovation.
 
@@ -27,7 +29,9 @@ By the end of this section, you'll understand:
 
 Here's something that might surprise you: blockchain's greatest strength - transparency - is also one of its biggest weaknesses when it comes to privacy.
 
-- [TODO] add a point about how historically transparency is critical for the security if blockchains, before private verifiable computation was a thing
+It's important to understand that transparency wasn't an arbitrary choice - it was absolutely necessary for early blockchains. Bitcoin and Ethereum needed every node to see every transaction to verify that the rules were being followed: that no one was double-spending coins, that balances added up correctly, and that the network state was valid. Before the advent of zero-knowledge proofs and other cryptographic techniques for private verifiable computation, transparency was the only way to achieve decentralized consensus and security.
+
+But now we have the technology to verify correctness without revealing data. Zero-knowledge proofs allow us to prove that transactions are valid - that you have sufficient balance, that you're following the rules, that the math adds up - all without exposing the actual transaction details. This is the breakthrough that makes Aztec possible: we can finally have both the security guarantees of blockchain AND the privacy of traditional financial systems.
 
 Think about your traditional bank account for a moment. When you buy coffee with your credit card, who can see that transaction? Just you, your bank, and the coffee shop. Now imagine if every time you bought coffee, everyone in the world could see:
 

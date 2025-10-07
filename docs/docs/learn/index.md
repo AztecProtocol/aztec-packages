@@ -12,21 +12,29 @@ Welcome to the Aztec Learning Journey - your comprehensive guide to mastering pr
 
 ## What You'll Learn
 
-This learning journey takes you from foundational concepts to advanced development techniques across five progressive modules. Whether you're new to blockchain privacy or an experienced developer looking to build on Aztec, this path provides the knowledge and hands-on experience you need.
+This learning journey takes you from foundational concepts to advanced development techniques across nine progressive modules. Whether you're new to blockchain privacy or an experienced developer looking to build on Aztec, this path provides the knowledge and hands-on experience you need.
 
 ### Journey Overview
 
-The learning path is structured as a progression through five key areas:
+The learning path is structured as a progression through nine comprehensive modules:
 
-**Module 1: Foundations** - Build your understanding of Aztec's core architecture, including its hybrid state model, privacy mechanisms using zero-knowledge proofs, and the unique execution environments (PXE and AVM).
+**Module 1: Why Aztec** - Understand the privacy problem in blockchain, why Web2 often handles privacy better, and how Aztec's vision addresses these challenges through programmable privacy, accessibility, trustlessness, and compliance.
 
-**Module 2: Smart Contract Development** - Master writing smart contracts in Noir, Aztec's domain-specific language. You'll learn to work with both private and public state, understand the execution flow between private and public contexts, and implement secure contract patterns.
+**Module 2: Privacy Mindset** - Learn to think about state differently with Aztec's note-based UTXO model, commitments, and nullifiers. Discover how client-side execution with zero-knowledge proofs enables true privacy while maintaining verifiability.
 
-**Module 3: Security & Privacy** - Deep dive into privacy preservation techniques, understand common vulnerabilities in private smart contracts, and learn best practices for maintaining confidentiality while ensuring contract functionality.
+**Module 3: Hybrid Execution Model** - Follow the complete lifecycle of an Aztec transaction from local execution through network submission to L1 finality. Understand how private and public execution work together in a single transaction.
 
-**Module 4: Testing & Deployment** - Gain practical experience with the Aztec Sandbox, write comprehensive tests for private functions, deploy contracts to test networks, and debug privacy-preserving applications.
+**Module 4: Development Environment Setup** - Get hands-on by setting up your Aztec development environment, including the Sandbox, Noir language support, and essential tooling to start building.
 
-**Module 5: Advanced Patterns** - Explore sophisticated contract architectures, cross-contract private interactions, optimized proof generation, and integration with existing Ethereum infrastructure.
+**Module 5: Contract Development** - Master writing Aztec smart contracts in Noir. Learn contract structure, storage management, function types, custom notes, cross-contract calls, events, and deployment strategies.
+
+**Module 6: Full-Stack Development** - Build complete decentralized applications by connecting frontend interfaces to your Aztec contracts. Learn wallet integration, account management, transaction sending, and fee payment patterns.
+
+**Module 7: Testnet and Aztec Starter** - Take your development to the next level by deploying to the Aztec testnet and exploring the aztec-starter repository for production-ready patterns and examples.
+
+**Module 8: Advanced Topics** - Dive deep into advanced concepts including account abstraction, the four-key system, authentication witnesses (AuthWit), and cross-chain communication with Ethereum L1.
+
+**Module 9: Network Architecture** - Understand the infrastructure powering Aztec: full nodes for privacy, sequencers for coordination, provers for integrity, and how these components work together to create a decentralized privacy network.
 
 ## The Aztec Stack
 
