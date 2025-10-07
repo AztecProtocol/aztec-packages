@@ -37,7 +37,8 @@ function ensure_zig {
 }
 
 # Injects version number into a given bb binary.
-# Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
+# This is now also called at build time by CMake, but we keep it for re-injecting
+# versions when needed (e.g., when REF_NAME changes after build).
 function inject_version {
   local binary=$1
   if semver check "$REF_NAME"; then
@@ -78,6 +79,8 @@ function build_native {
   if ! cache_download barretenberg-$native_preset-$hash.zst; then
     ./format.sh check
     build_preset $native_preset
+    # Inject version immediately after build
+    inject_version build/bin/bb
     cache_upload barretenberg-$native_preset-$hash.zst build/bin
   fi
 }
@@ -113,6 +116,8 @@ function build_darwin_arm64 {
   ensure_zig
   if ! cache_download barretenberg-arm64-macos-$hash.zst; then
     build_preset zig-arm64-macos --target bb
+    # Inject version immediately after build
+    inject_version build-zig-arm64-macos/bin/bb
     cache_upload barretenberg-arm64-macos-$hash.zst build-zig-arm64-macos/bin
   fi
 }
@@ -122,6 +127,8 @@ function build_darwin_amd64 {
   ensure_zig
   if ! cache_download barretenberg-amd64-macos-$hash.zst; then
     build_preset zig-amd64-macos --target bb
+    # Inject version immediately after build
+    inject_version build-zig-amd64-macos/bin/bb
     cache_upload barretenberg-amd64-macos-$hash.zst build-zig-amd64-macos/bin
   fi
 }
@@ -197,8 +204,8 @@ function build_release {
   rm -rf build-release
   mkdir build-release
 
+  # Version already injected in build(), just copy and tar
   cp build/bin/bb build-release/bb
-  inject_version build-release/bb
   tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build-release --remove-files bb
 
   # Only release wasms and macOS builds on amd64.
@@ -208,24 +215,12 @@ function build_release {
     tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
     tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
 
-    # Download ldid for code signing
-    if [ ! -f build/ldid ]; then
-      echo "Downloading ldid for macOS code signing..."
-      curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 -o build/ldid
-      chmod +x build/ldid
-    fi
-
     if [ "${DISABLE_AZTEC_VM:-0}" -eq 0 ]; then
-      # Package arm64-macos
+      # Version already injected and signed in build(), just copy and tar
       cp build-zig-arm64-macos/bin/bb build-release/bb
-      inject_version build-release/bb
-      build/ldid -S build-release/bb
       tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb
 
-      # Package amd64-macos
       cp build-zig-amd64-macos/bin/bb build-release/bb
-      inject_version build-release/bb
-      build/ldid -S build-release/bb
       tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
     fi
   fi
@@ -251,6 +246,20 @@ function build {
     fi
   fi
   parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${builds[@]}
+
+  # Sign macOS builds if built (version already injected in build functions)
+  if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ] && [ "${DISABLE_AZTEC_VM:-0}" -eq 0 ]; then
+    # Download ldid for code signing
+    if [ ! -f build/ldid ]; then
+      echo "Downloading ldid for macOS code signing..."
+      curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 -o build/ldid
+      chmod +x build/ldid
+    fi
+
+    build/ldid -S build-zig-arm64-macos/bin/bb
+    build/ldid -S build-zig-amd64-macos/bin/bb
+  fi
+
   build_release
 }
 
