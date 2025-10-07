@@ -21,10 +21,12 @@ cmd=${1:-}
 # entrypoint for docs
 if [ -n "${DOCS_WORKING_DIR:-}" ]; then
   cd "$DOCS_WORKING_DIR"
+  export folder_name="examples"
+else
+  export folder_name="contracts"
 fi
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
-export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export PLATFORM_TAG=any
 
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
@@ -32,7 +34,7 @@ export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=${BB_HASH:-$(../../barretenberg/cpp/bootstrap.sh hash)}
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
 # Get BB version for aztec_process cache key
-export BB_VERSION=${BB_VERSION:-$($BB --version 2>/dev/null || echo "00000000.00000000.00000000")}
+bb_version=$($BB --version)
 
 export tmp_dir=./target/tmp
 
@@ -126,15 +128,9 @@ export -f compile
 # Otherwise parse out all relevant contracts from the root Nargo.toml and process them in parallel.
 function build {
   echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
-  local folder_name
-  if [ -n "${DOCS_WORKING_DIR:-}" ]; then
-    folder_name="examples"
-  else
-    folder_name="contracts"
-  fi
 
   # Download VK cache before building
-  local vk_cache_dir="$HOME/.bb/$BB_VERSION/vk_cache"
+  local vk_cache_dir="$HOME/.bb/$bb_version/vk_cache"
   mkdir -p "$vk_cache_dir"
   # Create a hash for the vk cache based on all contracts and bb version
   local all_contracts_hash
@@ -168,12 +164,6 @@ function build {
 
 function test_cmds {
   local -A cache
-  local folder_name
-  if [ -n "${DOCS_WORKING_DIR:-}" ]; then
-    folder_name="examples"
-  else
-    folder_name="contracts"
-  fi
 
   i=0
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
@@ -206,13 +196,6 @@ function format {
 case "$cmd" in
   "clean")
     git clean -fdx
-    ;;
-  "clean-keys")
-    for artifact in target/*.json; do
-      echo_stderr "Scrubbing vk from $artifact..."
-      jq '.functions |= map(del(.verification_key))' "$artifact" > "${artifact}.tmp"
-      mv "${artifact}.tmp" "$artifact"
-    done
     ;;
   ""|"fast"|"full")
     build
