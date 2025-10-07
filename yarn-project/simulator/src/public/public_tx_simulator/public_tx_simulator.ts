@@ -303,7 +303,9 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     );
 
     if (result.reverted) {
-      const culprit = `${contractAddress}:${callRequest.functionSelector}`;
+      const fnLabel =
+        fnName !== undefined ? '<no-selector/no-calldata[0]>' : `${fnName}/${callRequest.functionSelector}`;
+      const culprit = `${contractAddress}:${fnLabel}`;
       context.revert(phase, result.revertReason, culprit);
     }
 
