@@ -278,5 +278,5 @@ Complete the onboarding process at [testnet.aztec.network](https://testnet.aztec
 
 - Monitor your sequencer's performance and attestation rate
 - Join the [Aztec Discord](https://discord.gg/aztec) for operator support
-- Review [Reacting to Upgrades](../../reference/reacting_to_upgrades.md) guide
+- Review the [Governance and Proposal Process](../../creating_and_voting_on_proposals.md) guide
 - Consider implementing monitoring and alerting for production deployments
