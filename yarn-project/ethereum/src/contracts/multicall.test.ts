@@ -66,7 +66,7 @@ describe('Multicall3', () => {
       client: walletClient,
     });
 
-    l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, logger);
+    l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, { logger });
 
     const addMinterHash = await tokenContract.write.addMinter([MULTI_CALL_3_ADDRESS], { account: privateKey });
     await walletClient.waitForTransactionReceipt({ hash: addMinterHash });

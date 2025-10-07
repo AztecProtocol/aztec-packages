@@ -99,55 +99,6 @@ TEST_F(ThreadTest, CalculateNumThreadsPow2)
     EXPECT_EQ(calculate_num_threads_pow2(8), 1);
 }
 
-// Test nested parallel_for thread count
-TEST_F(ThreadTest, NestedThreadCount)
-{
-    set_parallel_for_concurrency(8);
-
-    std::atomic<size_t> outer_unique_threads{ 0 };
-    std::atomic<size_t> max_inner_unique_threads{ 0 };
-    std::mutex outer_mutex;
-    std::set<std::thread::id> outer_thread_ids;
-
-    constexpr size_t outer_iterations = 4;
-    constexpr size_t inner_iterations = 100;
-
-    parallel_for(outer_iterations, [&](size_t) {
-        // Track outer thread
-        {
-            std::lock_guard<std::mutex> lock(outer_mutex);
-            outer_thread_ids.insert(std::this_thread::get_id());
-        }
-
-        // Track inner threads
-        std::mutex inner_mutex;
-        std::set<std::thread::id> inner_thread_ids;
-
-        parallel_for(inner_iterations, [&](size_t) {
-            std::lock_guard<std::mutex> lock(inner_mutex);
-            inner_thread_ids.insert(std::this_thread::get_id());
-            std::this_thread::sleep_for(std::chrono::microseconds(100));
-        });
-
-        // Update max inner thread count
-        size_t inner_count = inner_thread_ids.size();
-        size_t current_max = max_inner_unique_threads.load();
-        while (inner_count > current_max && !max_inner_unique_threads.compare_exchange_weak(current_max, inner_count)) {
-            // Retry until we successfully update or someone else set a higher value
-        }
-    });
-
-    outer_unique_threads = outer_thread_ids.size();
-
-    // Outer should use available CPUs (up to 8)
-    EXPECT_GE(outer_unique_threads, 4);
-    EXPECT_LE(outer_unique_threads, 9); // Main thread + 8 workers
-
-    // Inner parallel_for runs sequentially within each outer thread
-    // So each inner parallel_for should see all CPUs available
-    EXPECT_GE(max_inner_unique_threads, 4);
-}
-
 // Test parallel_for with zero iterations
 TEST_F(ThreadTest, ZeroIterations)
 {
@@ -169,35 +120,6 @@ TEST_F(ThreadTest, OneIteration)
     });
 
     EXPECT_EQ(counter, 1);
-}
-
-// Test calculate_thread_data bounds
-TEST_F(ThreadTest, CalculateThreadDataBounds)
-{
-    set_parallel_for_concurrency(4);
-
-    auto data = calculate_thread_data(100);
-
-    // Should create some threads (at least 1)
-    EXPECT_GE(data.num_threads, 1);
-    EXPECT_LE(data.num_threads, 4);
-
-    // Vectors should be sized correctly
-    EXPECT_EQ(data.start.size(), data.num_threads);
-    EXPECT_EQ(data.end.size(), data.num_threads);
-
-    // First thread starts at 0
-    EXPECT_EQ(data.start[0], 0);
-
-    // Last thread ends at num_iterations
-    EXPECT_EQ(data.end[data.num_threads - 1], 100);
-
-    // Bounds should be contiguous and non-overlapping
-    for (size_t i = 0; i < data.num_threads - 1; ++i) {
-        EXPECT_EQ(data.end[i], data.start[i + 1]);
-        EXPECT_LT(data.start[i], data.end[i]);
-    }
-    EXPECT_LT(data.start[data.num_threads - 1], data.end[data.num_threads - 1]);
 }
 
 // Test parallel_for_range

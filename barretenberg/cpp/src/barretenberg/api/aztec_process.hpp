@@ -1,3 +1,4 @@
+#ifndef __wasm__
 #pragma once
 #include <cstddef>
 #include <cstdint>
@@ -34,3 +35,4 @@ std::vector<std::string> find_contract_artifacts(const std::string& search_path 
 bool process_all_artifacts(const std::string& search_path = ".", bool force = false);
 
 } // namespace bb
+#endif
