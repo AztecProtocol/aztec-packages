@@ -77,6 +77,7 @@ describe('e2e_multi_eoa', () => {
         blockCheckIntervalMS: 200,
         publisherPrivateKeys: sequencerKeysAndAddresses.map(k => k.key),
         l1PublisherKey: allKeysAndAddresses[0].key,
+        maxSpeedUpAttempts: 0, // Disable speed ups, so that cancellation txs never make it through
       }));
       sequencer = sequencerClient! as TestSequencerClient;
       publisherManager = sequencer.publisherManager;
@@ -117,6 +118,10 @@ describe('e2e_multi_eoa', () => {
       const fallbackSender = l1Utils[expectedSecondSender].getSenderAddress();
       const fallbackTxs: Hex[] = [];
 
+      logger.warn(
+        `Testing account rotation with blocked sender ${blockedSender} and fallback sender ${fallbackSender}`,
+      );
+
       // NOTE: we only need to spy on a single client because all l1Utils use the same ViemClient instance
       const originalSendRawTransaction = l1Utils[expectedFirstSender].client.sendRawTransaction;
 
@@ -133,23 +138,30 @@ describe('e2e_multi_eoa', () => {
           if (blockedSender.equals(signerAddress)) {
             const txHash = randomEthTxHash(); // block this sender/ Its txs don't actually reach any L1 nodes
             blockedTxs.push(txHash);
+            logger.warn(`Blocking tx from sender ${signerAddress.toString()} with hash ${txHash}`);
             return txHash;
           } else {
             const txHash = await originalSendRawTransaction.call(this, arg);
             if (fallbackSender.equals(signerAddress)) {
+              logger.warn(`Found fallback tx from signer ${signerAddress.toString()} with hash ${txHash}`);
               fallbackTxs.push(txHash);
+            } else {
+              logger.warn(`Found fallback tx from unexpected sender ${signerAddress.toString()} with hash ${txHash}`);
             }
             return txHash;
           }
         });
 
       const tx = deployMethodTx.send();
-      logger.info(`L2 Tx sent with hash: ${(await tx.getTxHash()).toString()} `);
+      logger.warn(`L2 deploy tx sent with hash ${(await tx.getTxHash()).toString()}`);
 
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.SUCCESS);
 
+      logger.warn(`Got ${blockedTxs.length} blocked txs for ${blockedSender}`);
       expect(blockedTxs.length).toBeGreaterThan(0);
+
+      logger.warn(`Got ${fallbackTxs.length} fallback txs for ${fallbackSender}`);
       expect(fallbackTxs.length).toBeGreaterThan(0);
 
       const transactionHashToKeep = fallbackTxs.at(-1)!;
@@ -198,7 +210,13 @@ describe('e2e_multi_eoa', () => {
 
       // The first sender used above will now be out of action as it is unable to get anything MINED.
       const validAddresses = sortedAddresses.slice(1);
+      logger.warn(`Removing invalidated publisher ${sortedAddresses[0].address}`, {
+        validAddresses,
+        invalidAddress: sortedAddresses[0],
+      });
+
       const sortedValidAddresses = await getSortedAddressesByBalance(validAddresses);
+      logger.warn(`Re-sorted valid addresses by balance`, { sortedValidAddresses });
 
       // All of our valid addresses have published transactions so will be in MINED state
       // the sequencer should select the 2 highest balance accounts in this next test
