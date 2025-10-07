@@ -408,7 +408,7 @@ inline std::optional<AztecAddress> get_derived_address(const ProtocolContracts& 
                                                        const AztecAddress& canonical_address)
 {
     assert(is_protocol_contract_address(canonical_address) && "Protocol contract canonical address out of bounds");
-    AztecAddress derived_address = protocol_contracts.derivedAddresses.at(static_cast<size_t>(canonical_address) - 1);
+    AztecAddress derived_address = protocol_contracts.derivedAddresses.at(static_cast<uint32_t>(canonical_address) - 1);
     if (derived_address.is_zero()) {
         return std::nullopt;
     }
