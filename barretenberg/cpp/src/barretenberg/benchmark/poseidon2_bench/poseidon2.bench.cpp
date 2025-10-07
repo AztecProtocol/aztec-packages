@@ -6,6 +6,7 @@
 #include "barretenberg/ipc/socket/uds_client.h"
 #include "barretenberg/ipc/socket/uds_server.h"
 #include "barretenberg/serialize/msgpack_impl.hpp"
+#include <array>
 #include <benchmark/benchmark.h>
 #include <chrono>
 #include <cstring>
@@ -18,6 +19,8 @@
 
 using namespace benchmark;
 using namespace bb;
+
+namespace {
 
 grumpkin::fq poseidon_function(const size_t count)
 {
@@ -37,6 +40,7 @@ void native_poseidon2_commitment_bench(State& state) noexcept
         (poseidon_function(count));
     }
 }
+
 BENCHMARK(native_poseidon2_commitment_bench)->Arg(10)->Arg(1000)->Arg(10000);
 
 grumpkin::fq poseiden_hash_impl(const grumpkin::fq& x, const grumpkin::fq& y)
@@ -55,22 +59,21 @@ void poseiden_hash_bench(State& state) noexcept
 }
 BENCHMARK(poseiden_hash_bench)->Unit(benchmark::kMicrosecond);
 
-// Unified shared memory fixture template: supports both SPSC (NumProducers=1) and MPSC (NumProducers>1)
 template <size_t NumProducers> class Poseidon2ShmFixture : public Fixture {
   public:
     static_assert(NumProducers >= 1, "Must have at least 1 producer");
 
-    struct mpsc_producer* producers[NumProducers];
+    std::array<struct mpsc_producer*, NumProducers> producers{};
     struct spsc_shm* response_ring; // Only for producer 0 (benchmark thread)
     pid_t worker_pid;
-    std::thread background_threads[NumProducers > 1 ? NumProducers - 1 : 1]; // Avoid zero-size array
+    std::array<std::thread, (NumProducers > 1 ? NumProducers - 1 : 1)> background_threads{}; // Avoid zero-size array
     std::atomic<bool> stop_background;
     grumpkin::fq x, y;
 
     const char* request_ring = "/poseidon2_bench_req";
     const char* response_name = "/poseidon2_bench_resp";
 
-    void SetUp(const ::benchmark::State&) override
+    void SetUp(const ::benchmark::State& /*unused*/) override
     {
         stop_background.store(false);
 
@@ -112,10 +115,11 @@ template <size_t NumProducers> class Poseidon2ShmFixture : public Fixture {
                     continue;
                 }
 
-                size_t n;
+                size_t n = 0;
                 void* data = mpsc_peek(req_consumer, static_cast<size_t>(ring_idx), &n);
                 if (n >= 2 * sizeof(grumpkin::fq)) {
-                    grumpkin::fq x, y;
+                    grumpkin::fq x;
+                    grumpkin::fq y;
                     std::memcpy(&x, data, sizeof(grumpkin::fq));
                     std::memcpy(&y, static_cast<uint8_t*>(data) + sizeof(grumpkin::fq), sizeof(grumpkin::fq));
                     mpsc_release(req_consumer, static_cast<size_t>(ring_idx), n);
@@ -125,8 +129,8 @@ template <size_t NumProducers> class Poseidon2ShmFixture : public Fixture {
                     // Only send response for ring 0 (benchmark thread)
                     if (ring_idx == 0) {
                         while (true) {
-                            if (spsc_wait_for_space(resp_producer, sizeof(grumpkin::fq), 100000)) {
-                                size_t granted;
+                            if (spsc_wait_for_space(resp_producer, sizeof(grumpkin::fq), 100000) > 0) {
+                                size_t granted = 0;
                                 void* buf = spsc_claim(resp_producer, sizeof(grumpkin::fq), &granted);
                                 if (granted >= sizeof(grumpkin::fq)) {
                                     std::memcpy(buf, &result, sizeof(grumpkin::fq));
@@ -179,7 +183,7 @@ template <size_t NumProducers> class Poseidon2ShmFixture : public Fixture {
                         // Send requests continuously to create contention
                         size_t input_size = 2 * sizeof(grumpkin::fq);
                         if (mpsc_wait_for_space(producers[i], input_size, 1000000)) {
-                            size_t granted;
+                            size_t granted = 0;
                             void* buf = mpsc_claim(producers[i], input_size, &granted);
                             if (granted >= input_size) {
                                 std::memcpy(buf, &x, sizeof(grumpkin::fq));
@@ -201,7 +205,7 @@ template <size_t NumProducers> class Poseidon2ShmFixture : public Fixture {
         y = grumpkin::fq::random_element();
     }
 
-    void TearDown(const ::benchmark::State&) override
+    void TearDown(const ::benchmark::State& /*unused*/) override
     {
         // Stop background threads if any
         if constexpr (NumProducers > 1) {
@@ -238,8 +242,8 @@ BENCHMARK_DEFINE_F(Poseidon2ShmSPSC, poseiden_hash_roundtrip)(benchmark::State& 
         // Send request via producer 0
         size_t input_size = 2 * sizeof(grumpkin::fq);
         while (true) {
-            if (mpsc_wait_for_space(producers[0], input_size, 20000000)) {
-                size_t granted;
+            if (mpsc_wait_for_space(producers[0], input_size, 20000000) > 0) {
+                size_t granted = 0;
                 void* buf = mpsc_claim(producers[0], input_size, &granted);
                 if (granted >= input_size) {
                     std::memcpy(buf, &x, sizeof(grumpkin::fq));
@@ -254,13 +258,14 @@ BENCHMARK_DEFINE_F(Poseidon2ShmSPSC, poseiden_hash_roundtrip)(benchmark::State& 
         grumpkin::fq result;
         while (true) {
             if (spsc_wait_for_data(response_ring, 20000)) {
-                size_t n;
+                size_t n = 0;
                 void* data = spsc_peek(response_ring, &n);
                 if (n >= sizeof(grumpkin::fq)) {
                     std::memcpy(&result, data, sizeof(grumpkin::fq));
                     spsc_release(response_ring, n);
                     break;
-                } else if (n > 0) {
+                }
+                if (n > 0) {
                     spsc_release(response_ring, n);
                 }
             }
@@ -282,7 +287,7 @@ BENCHMARK_DEFINE_F(Poseidon2ShmMPSC, poseiden_hash_roundtrip)(benchmark::State& 
         size_t input_size = 2 * sizeof(grumpkin::fq);
         while (true) {
             if (mpsc_wait_for_space(producers[0], input_size, 20000000)) {
-                size_t granted;
+                size_t granted = 0;
                 void* buf = mpsc_claim(producers[0], input_size, &granted);
                 if (granted >= input_size) {
                     std::memcpy(buf, &x, sizeof(grumpkin::fq));
@@ -297,13 +302,14 @@ BENCHMARK_DEFINE_F(Poseidon2ShmMPSC, poseiden_hash_roundtrip)(benchmark::State& 
         grumpkin::fq result;
         while (true) {
             if (spsc_wait_for_data(response_ring, 20000)) {
-                size_t n;
+                size_t n = 0;
                 void* data = spsc_peek(response_ring, &n);
                 if (n >= sizeof(grumpkin::fq)) {
                     std::memcpy(&result, data, sizeof(grumpkin::fq));
                     spsc_release(response_ring, n);
                     break;
-                } else if (n > 0) {
+                }
+                if (n > 0) {
                     spsc_release(response_ring, n);
                 }
             }
@@ -321,15 +327,15 @@ template <size_t NumClients> class Poseidon2SocketFixture : public Fixture {
   public:
     static_assert(NumClients >= 1, "Must have at least 1 client");
 
-    struct uds_client* clients[NumClients];
+    std::array<struct uds_client*, NumClients> clients;
     pid_t server_pid;
-    std::thread background_threads[NumClients > 1 ? NumClients - 1 : 1];
+    std::array<std::thread, (NumClients > 1 ? NumClients - 1 : 1)> background_threads;
     std::atomic<bool> stop_background;
     grumpkin::fq x, y;
 
     const char* socket_path = "/tmp/poseidon_socket_bench";
 
-    void SetUp(const ::benchmark::State&) override
+    void SetUp(const ::benchmark::State& /*unused*/) override
     {
         stop_background.store(false);
 
@@ -360,23 +366,25 @@ template <size_t NumClients> class Poseidon2SocketFixture : public Fixture {
             // Server loop: process requests from all clients
             while (true) {
                 int client_id = uds_server_wait_for_data(server, 100000);
-                if (client_id < 0)
+                if (client_id < 0) {
                     continue;
+                }
 
-                uint8_t req_buf[64];
-                ssize_t n = uds_server_recv(server, client_id, req_buf, sizeof(req_buf));
+                std::array<uint8_t, 64> req_buf;
+                ssize_t n = uds_server_recv(server, client_id, req_buf.data(), sizeof(req_buf));
                 if (n >= 64) {
-                    grumpkin::fq x, y;
-                    std::memcpy(&x, req_buf, 32);
-                    std::memcpy(&y, req_buf + 32, 32);
+                    grumpkin::fq x;
+                    grumpkin::fq y;
+                    std::memcpy(&x, req_buf.data(), 32);
+                    std::memcpy(&y, req_buf.data() + 32, 32);
 
                     // Process hash
                     grumpkin::fq result = poseiden_hash_impl(x, y);
 
                     // Send response
-                    uint8_t resp_buf[32];
-                    std::memcpy(resp_buf, &result, 32);
-                    uds_server_send(server, client_id, resp_buf, 32);
+                    std::array<uint8_t, 32> resp_buf;
+                    std::memcpy(resp_buf.data(), &result, 32);
+                    uds_server_send(server, client_id, resp_buf.data(), 32);
                 }
             }
 
@@ -654,7 +662,7 @@ BENCHMARK_DEFINE_F(Poseidon2BBMsgpackFixture, poseiden_hash_roundtrip)(benchmark
 
         // Extract hash from response (NamedUnion has conversion operator to variant)
         const auto& response_variant = static_cast<const bb::bbapi::CommandResponse::VariantType&>(response);
-        auto* hash_response = std::get_if<bb::bbapi::Poseidon2Hash::Response>(&response_variant);
+        const auto* hash_response = std::get_if<bb::bbapi::Poseidon2Hash::Response>(&response_variant);
         if (!hash_response) {
             state.SkipWithError("Invalid response type");
             break;
@@ -793,7 +801,7 @@ BENCHMARK_DEFINE_F(Poseidon2BBMsgpackShmFixture, poseiden_hash_roundtrip)(benchm
         // Send request via MPSC (retry until we get enough space)
         while (true) {
             if (mpsc_wait_for_space(producer, cmd_buffer.size(), 1000000000)) {
-                size_t granted;
+                size_t granted = 0;
                 void* buf = mpsc_claim(producer, cmd_buffer.size(), &granted);
                 if (granted >= cmd_buffer.size()) {
                     std::memcpy(buf, cmd_buffer.data(), cmd_buffer.size());
@@ -807,8 +815,9 @@ BENCHMARK_DEFINE_F(Poseidon2BBMsgpackShmFixture, poseiden_hash_roundtrip)(benchm
             }
         }
 
-        if (error)
+        if (error) {
             break;
+        }
 
         // Receive response via SPSC
         if (!spsc_wait_for_data(response_ring, 1000000000)) {
@@ -816,7 +825,7 @@ BENCHMARK_DEFINE_F(Poseidon2BBMsgpackShmFixture, poseiden_hash_roundtrip)(benchm
             break;
         }
 
-        size_t n;
+        size_t n = 0;
         void* data = spsc_peek(response_ring, &n);
         if (!data || n == 0) {
             spsc_release(response_ring, n);
@@ -834,7 +843,7 @@ BENCHMARK_DEFINE_F(Poseidon2BBMsgpackShmFixture, poseiden_hash_roundtrip)(benchm
 
         // Extract hash from response
         const auto& response_variant = static_cast<const bb::bbapi::CommandResponse::VariantType&>(response);
-        auto* hash_response = std::get_if<bb::bbapi::Poseidon2Hash::Response>(&response_variant);
+        const auto* hash_response = std::get_if<bb::bbapi::Poseidon2Hash::Response>(&response_variant);
         if (!hash_response) {
             state.SkipWithError("Invalid response type");
             break;
@@ -846,5 +855,7 @@ BENCHMARK_DEFINE_F(Poseidon2BBMsgpackShmFixture, poseiden_hash_roundtrip)(benchm
 BENCHMARK_REGISTER_F(Poseidon2BBMsgpackShmFixture, poseiden_hash_roundtrip)
     ->Unit(benchmark::kMicrosecond)
     ->Iterations(10000); // Fixed iterations to avoid expensive warmup phase with process forking
+
+} // namespace
 
 BENCHMARK_MAIN();
