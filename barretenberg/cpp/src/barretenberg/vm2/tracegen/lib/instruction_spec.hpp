@@ -27,6 +27,7 @@ enum class SubtraceSel : uint8_t {
     KECCAKF1600,
     ECC,
     TORADIXBE,
+    MAX = TORADIXBE, // Keep this at the end. Serves looping over all values.
 };
 
 struct SubtraceInfo {
