@@ -15,7 +15,6 @@
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
-#include "barretenberg/flavor/get_by_index.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -411,14 +410,6 @@ class ECCVMFlavor {
         auto get_to_be_shifted() { return ECCVMFlavor::get_to_be_shifted<DataType>(*this); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
-
-        // Direct indexed access - avoids concatenation overhead in extend_edges
-        // IMPORTANT: Must handle all NUM_ALL_ENTITIES (currently 116 for ECCVMFlavor).
-        // The order doesn't need to match get_all(), but you MUST add a case for every entity.
-        // If you add/remove entities, update NUM_ALL_ENTITIES and add/remove the corresponding case here.
-        // A static_assert below verifies that get_by_index<NUM_ALL_ENTITIES - 1> compiles.
-        // WARNING: This cannot detect if you accidentally return the same entity for multiple indices.
-        // Please be careful when adding cases to avoid duplicates.
     };
 
     /**
@@ -514,29 +505,25 @@ class ECCVMFlavor {
          *          transcript_base_x_inverse: to check transcript_add_x_equal (if x-vals not equal inverse exists)
          *          transcript_base_y_inverse: to check transcript_add_x_equal (if y-vals not equal inverse exists)
          *          transcript_add_lambda: if adding a point into the accumulator, contains the lambda gradient
-         *          transcript_msm_intermediate_x: if add MSM result into accumulator, is msm_output -
-         offset_generator
-         *          transcript_msm_intermediate_y: if add MSM result into accumulator, is msm_output -
-         offset_generator
+         *          transcript_msm_intermediate_x: if add MSM result into accumulator, is msm_output - offset_generator
+         *          transcript_msm_intermediate_y: if add MSM result into accumulator, is msm_output - offset_generator
          *          transcript_msm_infinity: is MSM result the point at infinity?
          *          transcript_msm_x_inverse: used to validate transcript_msm_infinity correct
-         *          transcript_msm_count_zero_at_transition: does an MSM only contain points at infinity/zero
-         scalars
-         *          transcript_msm_count_at_transition_inverse: used to validate
-         transcript_msm_count_zero_at_transition
+         *          transcript_msm_count_zero_at_transition: does an MSM only contain points at infinity/zero scalars
+         *          transcript_msm_count_at_transition_inverse: used to validate transcript_msm_count_zero_at_transition
          *          precompute_pc: point counter for Straus precomputation columns
          *          precompute_select: if 1, evaluate Straus precomputation algorithm at current row
          *          precompute_point_transition: 1 if next row operating on a different point than current row.
          *          precompute_round: round counter for Straus precomputation algorithm
          *          precompute_scalar_sum: accumulating sum of Straus scalar slices
          *          precompute_s1hi/lo: 2-bit hi/lo components of a Straus 4-bit scalar slice
-         *          precompute_s2hilo/precompute_s3hi/loprecompute_s4hi/lo: same as above but for a total of 4
-         Straus 4-bit scalar slices
+         *          precompute_s2hilo/precompute_s3hi/loprecompute_s4hi/lo: same as above but for a total of 4 Straus
+         4-bit scalar slices
          *          precompute_skew: Straus WNAF skew parameter for a single scalar multiplier
-         *          precompute_tx: x-coordinate of point accumulator used to generate Straus lookup table for an
-         input point (from transcript)
-         *          precompute_tx: x-coordinate of point accumulator used to generate Straus lookup table for an
-         input point (from transcript)
+         *          precompute_tx: x-coordinate of point accumulator used to generate Straus lookup table for an input
+         point (from transcript)
+         *          precompute_tx: x-coordinate of point accumulator used to generate Straus lookup table for an input
+         point (from transcript)
          *          precompute_dx: x-coordinate of D = 2 * input point we are evaluating Straus over
          *          precompute_dy: y-coordinate of D
          *          msm_pc: point counter for Straus MSM columns
@@ -567,14 +554,10 @@ class ECCVMFlavor {
          *          msm_slice2: wNAF digit/slice for second add
          *          msm_slice3: wNAF digit/slice for third add
          *          msm_slice4: wNAF digit/slice for fourth add
-         *          msm_collision_x1: used to ensure incomplete ecc addition exceptions not triggered if msm_add1 =
-         1
-         *          msm_collision_x2: used to ensure incomplete ecc addition exceptions not triggered if msm_add2 =
-         1
-         *          msm_collision_x3: used to ensure incomplete ecc addition exceptions not triggered if msm_add3 =
-         1
-         *          msm_collision_x4: used to ensure incomplete ecc addition exceptions not triggered if msm_add4 =
-         1
+         *          msm_collision_x1: used to ensure incomplete ecc addition exceptions not triggered if msm_add1 = 1
+         *          msm_collision_x2: used to ensure incomplete ecc addition exceptions not triggered if msm_add2 = 1
+         *          msm_collision_x3: used to ensure incomplete ecc addition exceptions not triggered if msm_add3 = 1
+         *          msm_collision_x4: used to ensure incomplete ecc addition exceptions not triggered if msm_add4 = 1
          *          lookup_read_counts_0: stores number of times a point has been read from a Straus precomputation
          table (reads come from msm_x/y1, msm_x/y2)
          *          lookup_read_counts_1: stores number of times a point has been read from a Straus precomputation
@@ -632,12 +615,11 @@ class ECCVMFlavor {
             lagrange_last.at(unmasked_witness_size - 1) = 1;
             for (size_t i = 0; i < point_table_read_counts[0].size(); ++i) {
                 // Explanation of off-by-one offset:
-                // When computing the WNAF slice for a point at point counter value `pc` and a round index `round`,
-                // the row number that computes the slice can be derived. This row number is then mapped to the
-                // index of `lookup_read_counts`. We do this mapping in `ecc_msm_relation`. We are off-by-one
-                // because we add an empty row at the start of the WNAF columns that is not accounted for (index of
-                // lookup_read_counts maps to the row in our WNAF columns that computes a slice for a given value of
-                // pc and round)
+                // When computing the WNAF slice for a point at point counter value `pc` and a round index `round`, the
+                // row number that computes the slice can be derived. This row number is then mapped to the index of
+                // `lookup_read_counts`. We do this mapping in `ecc_msm_relation`. We are off-by-one because we add an
+                // empty row at the start of the WNAF columns that is not accounted for (index of lookup_read_counts
+                // maps to the row in our WNAF columns that computes a slice for a given value of pc and round)
                 lookup_read_counts_0.at(i + 1) = point_table_read_counts[0][i];
                 lookup_read_counts_1.at(i + 1) = point_table_read_counts[1][i];
             }
@@ -703,8 +685,8 @@ class ECCVMFlavor {
                     precompute_s4hi.set_if_valid_index(i, point_table_rows[i].s7);
                     precompute_s4lo.set_if_valid_index(i, point_table_rows[i].s8);
                     // If skew is active (i.e. we need to subtract a base point from the msm result),
-                    // write `7` into rows.precompute_skew. `7`, in binary representation, equals `-1` when
-                    // converted into WNAF form
+                    // write `7` into rows.precompute_skew. `7`, in binary representation, equals `-1` when converted
+                    // into WNAF form
                     precompute_skew.set_if_valid_index(i, point_table_rows[i].skew ? 7 : 0);
                     precompute_dx.set_if_valid_index(i, point_table_rows[i].precompute_double.x);
                     precompute_dy.set_if_valid_index(i, point_table_rows[i].precompute_double.y);
@@ -859,8 +841,8 @@ class ECCVMFlavor {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and
-        // `log_circuit_size` from the verification key.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
+        // from the verification key.
     };
 
     /**
@@ -1037,23 +1019,23 @@ class ECCVMFlavor {
     };
 
     /**
-     * @brief   When evaluating the sumcheck protocol - can we skip evaluation of _all_ relations for a given row?
-     *This is purely a prover-side optimization.
+     * @brief   When evaluating the sumcheck protocol - can we skip evaluation of _all_ relations for a given row? This
+     *          is purely a prover-side optimization.
      *
      * @details When used in ClientIVC, the ECCVM has a large fixed size, which is often not fully utilized.
      *          If a row is completely empty, the values of `z_perm` and `z_perm_shift` will match,
-     *          we can use this as a proxy to determine if we can skip
-     *`Sumcheck::compute_univariate_with_row_skipping`. In fact, here are several other conditions that need to be
-     *checked to see if we can skip the computation of all relations in the row.
+     *          we can use this as a proxy to determine if we can skip `Sumcheck::compute_univariate_with_row_skipping`.
+     *          In fact, here are several other conditions that need to be checked to see if we can skip the computation
+     *          of all relations in the row.
      **/
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
     static bool skip_entire_row([[maybe_unused]] const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
                                 [[maybe_unused]] const EdgeType edge_idx)
     {
         // SKIP CONDITIONS:
-        // The most important skip condition is that `z_perm == z_perm_shift`. This implies that none of the wire
-        // values for the present input are involved in non-trivial copy constraints. Edge cases where nonzero rows
-        // do not contribute to permutation:
+        // The most important skip condition is that `z_perm == z_perm_shift`. This implies that none of the wire values
+        // for the present input are involved in non-trivial copy constraints. Edge cases where nonzero rows do not
+        // contribute to permutation:
         //
         // 1: If `lagrange_last != 0`, the permutation polynomial identity is updated even if
         //    z_perm == z_perm_shift. Therefore, we must force it to be zero.
