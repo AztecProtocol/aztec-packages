@@ -12,7 +12,7 @@ pub contract Spam {
             address::AztecAddress,
             constants::{
                 GENERATOR_INDEX__NOTE_NULLIFIER, MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL,
-                MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+                MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
             },
             hash::poseidon2_hash_with_separator,
         },
@@ -51,11 +51,11 @@ pub contract Spam {
 
         if (call_public) {
             Spam::at(context.this_address())
-                .public_spam(0, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL)
+                .public_spam(0, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
                 .enqueue(&mut context);
             Spam::at(context.this_address())
                 .public_spam(
-                    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+                    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
                     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
                 )
                 .enqueue(&mut context);
