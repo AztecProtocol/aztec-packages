@@ -1,5 +1,5 @@
-#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/flavor/get_by_index.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
