@@ -449,6 +449,7 @@ export type BootnodeConfig = Pick<
   | 'peerIdPrivateKeyPath'
   | 'bootstrapNodes'
   | 'listenAddress'
+  | 'queryForIp'
 > &
   Required<Pick<P2PConfig, 'p2pIp' | 'p2pPort'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'> &
@@ -465,6 +466,7 @@ const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'dataStoreMapSizeKB',
   'bootstrapNodes',
   'l1ChainId',
+  'queryForIp',
 ];
 
 export const bootnodeConfigMappings = pickConfigMappings(
