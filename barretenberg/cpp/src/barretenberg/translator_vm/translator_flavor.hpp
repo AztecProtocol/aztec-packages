@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include "barretenberg/flavor/get_by_index.hpp"
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
@@ -630,14 +629,6 @@ class TranslatorFlavor {
         }
 
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
-
-        // Direct indexed access - avoids concatenation overhead in extend_edges
-        // IMPORTANT: Must handle all NUM_ALL_ENTITIES (currently 187 for TranslatorFlavor).
-        // The order doesn't need to match get_all(), but you MUST add a case for every entity.
-        // If you add/remove entities, update NUM_ALL_ENTITIES and add/remove the corresponding case here.
-        // A static_assert below verifies that get_by_index<NUM_ALL_ENTITIES - 1> compiles.
-        // WARNING: This cannot detect if you accidentally return the same entity for multiple indices.
-        // Please be careful when adding cases to avoid duplicates.
 
         friend std::ostream& operator<<(std::ostream& os, const AllEntities& a)
         {
