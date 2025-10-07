@@ -93,9 +93,7 @@ bool_t<Builder>::bool_t(bool_t<Builder>&& other)
  * @warning The witness value **is not** constrained to be boolean. We simply perform an out-of-circuit sanity check.
  */
 template <typename Builder>
-bool_t<Builder> bool_t<Builder>::from_witness_index_unsafe(Builder* ctx,
-                                                           const uint32_t witness_index,
-                                                           const bool witness_inverted)
+bool_t<Builder> bool_t<Builder>::from_witness_index_unsafe(Builder* ctx, const uint32_t witness_index)
 {
     ASSERT(witness_index != IS_CONSTANT);
     bool_t<Builder> result(ctx);
@@ -104,7 +102,7 @@ bool_t<Builder> bool_t<Builder>::from_witness_index_unsafe(Builder* ctx,
     // It does not create a constraint.
     BB_ASSERT_EQ(value * value - value, 0, "bool_t: creating a witness bool from a non-boolean value");
     result.witness_bool = (value == 1);
-    result.witness_inverted = witness_inverted;
+    result.witness_inverted = false;
     return result;
 }
 
