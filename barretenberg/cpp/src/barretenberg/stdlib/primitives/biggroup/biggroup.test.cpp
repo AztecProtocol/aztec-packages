@@ -398,7 +398,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    static void test_assert_equal()
+    static void test_incomplete_assert_equal()
     {
         Builder builder;
         size_t num_repetitions = 10;
@@ -411,13 +411,13 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             a.set_origin_tag(submitted_value_origin_tag);
             b.set_origin_tag(challenge_origin_tag);
 
-            a.assert_equal(b, "elements don't match");
+            a.incomplete_assert_equal(b, "elements don't match");
         }
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    static void test_assert_equal_failure()
+    static void test_incomplete_assert_equal_failure()
     {
         {
             Builder builder;
@@ -434,7 +434,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             a.set_origin_tag(submitted_value_origin_tag);
             b.set_origin_tag(challenge_origin_tag);
 
-            a.assert_equal(b, "elements don't match");
+            a.incomplete_assert_equal(b, "elements don't match");
 
             // Circuit should fail (Circuit checker doesn't fail because it doesn't actually check copy constraints,
             // it only checks gate constraints)
@@ -458,7 +458,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             // Make the x-coordinates equal, so we should get an error message about y-coordinates
             b.x = a.x;
-            a.assert_equal(b, "elements don't match");
+            a.incomplete_assert_equal(b, "elements don't match");
 
             // Circuit should fail
             EXPECT_EQ(builder.failed(), true);
@@ -466,7 +466,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         }
     }
 
-    static void test_assert_equal_edge_cases()
+    static void test_incomplete_assert_equal_edge_cases()
     {
         Builder builder;
         // Check that two points at infinity with different x,y coords fail the equality check
@@ -488,7 +488,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         a.set_origin_tag(submitted_value_origin_tag);
         b.set_origin_tag(challenge_origin_tag);
 
-        a.assert_equal(b, "points at infinity with different x,y should not be equal");
+        a.incomplete_assert_equal(b, "points at infinity with different x,y should not be equal");
 
         // Circuit should fail
         EXPECT_EQ(builder.failed(), true);
@@ -1836,17 +1836,17 @@ TYPED_TEST(stdlib_biggroup, conditional_select)
 {
     TestFixture::test_conditional_select();
 }
-TYPED_TEST(stdlib_biggroup, assert_equal)
+TYPED_TEST(stdlib_biggroup, incomplete_assert_equal)
 {
-    TestFixture::test_assert_equal();
+    TestFixture::test_incomplete_assert_equal();
 }
-TYPED_TEST(stdlib_biggroup, assert_equal_fails)
+TYPED_TEST(stdlib_biggroup, incomplete_assert_equal_fails)
 {
-    TestFixture::test_assert_equal_failure();
+    TestFixture::test_incomplete_assert_equal_failure();
 }
-TYPED_TEST(stdlib_biggroup, assert_equal_edge_cases)
+TYPED_TEST(stdlib_biggroup, incomplete_assert_equal_edge_cases)
 {
-    TestFixture::test_assert_equal_edge_cases();
+    TestFixture::test_incomplete_assert_equal_edge_cases();
 }
 TYPED_TEST(stdlib_biggroup, montgomery_ladder)
 {
