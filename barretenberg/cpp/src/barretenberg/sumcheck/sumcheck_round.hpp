@@ -119,12 +119,17 @@ template <typename Flavor> class SumcheckProverRound {
      * @param extended_edges Container for the evaluations of \f$P_j(u_0,\ldots, u_{i-1}, k, \vec \ell) \f$ for
      \f$k=0,\ldots, D\f$ and \f$j=1,\ldots,N\f$.
      */
+    // Extend edges using runtime-indexed access
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     void extend_edges(ExtendedEdges& extended_edges,
                       const ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
                       const size_t edge_idx)
     {
-        for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
+        // Loop through all entities, accessing them via runtime index
+        for (size_t idx = 0; idx < Flavor::NUM_ALL_ENTITIES; ++idx) {
+            const auto& multivariate = multivariates.get_by_index(idx);
+            auto& extended_edge = extended_edges.get_by_index(idx);
+
             if constexpr (Flavor::USE_SHORT_MONOMIALS) {
                 extended_edge = bb::Univariate<FF, 2>({ multivariate[edge_idx], multivariate[edge_idx + 1] });
             } else {

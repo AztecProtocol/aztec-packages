@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/flavor/entities_base.hpp"
 #include <utility>
 
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
@@ -332,7 +333,8 @@ class MegaFlavor {
     template <typename DataType>
     class AllEntities : public PrecomputedEntities<DataType>,
                         public WitnessEntities<DataType>,
-                        public ShiftedEntities<DataType> {
+                        public ShiftedEntities<DataType>,
+                        public EntitiesBase<AllEntities<DataType>, DataType, NUM_ALL_ENTITIES> {
       public:
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
@@ -343,6 +345,14 @@ class MegaFlavor {
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+
+        // Direct indexed access - avoids concatenation overhead in extend_edges
+        // IMPORTANT: Must handle all NUM_ALL_ENTITIES (currently 60 for MegaFlavor).
+        // The order doesn't need to match get_all(), but you MUST add a case for every entity.
+        // If you add/remove entities, update NUM_ALL_ENTITIES and add/remove the corresponding case here.
+        // A static_assert below verifies that get_by_index<NUM_ALL_ENTITIES - 1> compiles.
+        // WARNING: This cannot detect if you accidentally return the same entity for multiple indices.
+        // Please be careful when adding cases to avoid duplicates.
     };
 
     /**
