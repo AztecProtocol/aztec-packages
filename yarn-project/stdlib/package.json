@@ -69,6 +69,7 @@
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.892.0",
     "@aztec/bb.js": "portal:../../barretenberg/ts",
     "@aztec/blob-lib": "workspace:^",
     "@aztec/constants": "workspace:^",

@@ -11,6 +11,8 @@ import publicIncludeMetrics from '../../public_include_metric_prefixes.json' wit
 import { cachedFetch } from './cached_fetch.js';
 import { enrichEthAddressVar, enrichVar } from './enrich_env.js';
 
+const SNAPSHOTS_URL = 'https://aztec-labs-snapshots.com';
+
 const defaultDBMapSizeKb = 128 * 1_024 * 1_024; // 128 GB
 const tbMapSizeKb = 1_024 * 1_024 * 1_024; // 1 TB
 
@@ -99,7 +101,7 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
-  snapshotsUrls: ['https://storage.googleapis.com/aztec-testnet/snapshots/staging-ignition/'],
+  snapshotsUrls: [`${SNAPSHOTS_URL}/staging-ignition/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-ignition.json',
   maxTxPoolSize: 100_000_000, // 100MB
@@ -180,7 +182,7 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
-  snapshotsUrls: ['https://storage.googleapis.com/aztec-testnet/snapshots/staging-public/'],
+  snapshotsUrls: [`${SNAPSHOTS_URL}/staging-public/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-public.json',
   publicIncludeMetrics,
@@ -233,7 +235,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
-  snapshotsUrls: ['https://storage.googleapis.com/aztec-testnet/snapshots/testnet/'],
+  snapshotsUrls: [`${SNAPSHOTS_URL}/testnet/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/testnet.json',
   maxTxPoolSize: 100_000_000, // 100MB
@@ -289,7 +291,7 @@ export const ignitionL2ChainConfig: L2ChainConfig = {
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
-  snapshotsUrls: ['https://storage.googleapis.com/aztec-testnet/snapshots/ignition/'],
+  snapshotsUrls: [`${SNAPSHOTS_URL}/ignition/`],
   autoUpdate: 'notify',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/ignition.json',
   maxTxPoolSize: 100_000_000, // 100MB

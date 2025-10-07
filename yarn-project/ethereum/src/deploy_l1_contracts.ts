@@ -64,13 +64,13 @@ import {
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import {
   type GasPrice,
-  type L1GasConfig,
+  type L1TxConfig,
   type L1TxRequest,
   L1TxUtils,
   type L1TxUtilsConfig,
   createL1TxUtilsFromViemWallet,
   getL1TxUtilsConfigEnvVars,
-} from './l1_tx_utils.js';
+} from './l1_tx_utils/index.js';
 import type { ExtendedViemWalletClient } from './types.js';
 import { formatViemError } from './utils.js';
 import { ZK_PASSPORT_DOMAIN, ZK_PASSPORT_SCOPE, ZK_PASSPORT_VERIFIER_ADDRESS } from './zkPassportVerifierAddress.js';
@@ -1473,10 +1473,8 @@ export class L1Deployer {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
     this.l1TxUtils = createL1TxUtilsFromViemWallet(
       this.client,
-      this.logger,
-      dateProvider,
-      this.txUtilsConfig,
-      this.acceleratedTestDeployments,
+      { logger: this.logger, dateProvider },
+      { ...this.txUtilsConfig, debugMaxGasLimit: acceleratedTestDeployments },
     );
   }
 
@@ -1556,9 +1554,13 @@ export class L1Deployer {
 
   sendTransaction(
     tx: L1TxRequest,
-    options?: L1GasConfig,
+    options?: L1TxConfig,
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
-    return this.l1TxUtils.sendTransaction(tx, options);
+    return this.l1TxUtils.sendTransaction(tx, options).then(({ txHash, state }) => ({
+      txHash,
+      gasLimit: state.gasLimit,
+      gasPrice: state.gasPrice,
+    }));
   }
 }
 
@@ -1601,7 +1603,11 @@ export async function deployL1Contract(
 
   if (!l1TxUtils) {
     const config = getL1TxUtilsConfigEnvVars();
-    l1TxUtils = createL1TxUtilsFromViemWallet(extendedClient, logger, undefined, config, acceleratedTestDeployments);
+    l1TxUtils = createL1TxUtilsFromViemWallet(
+      extendedClient,
+      { logger },
+      { ...config, debugMaxGasLimit: acceleratedTestDeployments },
+    );
   }
 
   if (libraries) {

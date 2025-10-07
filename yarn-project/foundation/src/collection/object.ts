@@ -83,7 +83,7 @@ export function assertRequired<T extends object>(obj: T): Required<T> {
 /** Returns the result of merging two objects ignoring properties with undefined values. */
 export function merge<T extends object, U extends object>(
   obj1: T,
-  obj2: U,
+  obj2: U | undefined,
 ): T & { [P in keyof U]+?: Exclude<U[P], undefined> } {
-  return { ...obj1, ...compact(obj2) };
+  return { ...obj1, ...compact(obj2 ?? {}) };
 }
