@@ -822,7 +822,9 @@ BENCHMARK_DEFINE_F(Poseidon2BBMsgpackFixture, poseiden_hash_bb_msgpack_roundtrip
         DoNotOptimize(hash_response->hash);
     }
 }
-BENCHMARK_REGISTER_F(Poseidon2BBMsgpackFixture, poseiden_hash_bb_msgpack_roundtrip)->Unit(benchmark::kMicrosecond);
+BENCHMARK_REGISTER_F(Poseidon2BBMsgpackFixture, poseiden_hash_bb_msgpack_roundtrip)
+    ->Unit(benchmark::kMicrosecond)
+    ->Iterations(10000); // Fixed iterations to avoid expensive warmup phase with process forking
 
 // BB Binary Msgpack Shared Memory Benchmark: Full stack test with bb binary using shared memory IPC
 class Poseidon2BBMsgpackShmFixture : public Fixture {
