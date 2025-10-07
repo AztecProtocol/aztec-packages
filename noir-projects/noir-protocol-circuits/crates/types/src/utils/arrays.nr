@@ -27,7 +27,7 @@ pub use assert_exposed_sorted_transformed_value_array::{
 pub use assert_sorted_array::assert_sorted_array;
 pub use assert_sorted_transformed_padded_array::{
     assert_sorted_transformed_i_padded_array_capped_size,
-    assert_sorted_transformed_padded_array_capped_size, validate_padded_items,
+    assert_sorted_transformed_padded_array_capped_size, check_padded_items,
 };
 pub use assert_split_sorted_transformed_value_arrays::{
     assert_split_sorted_transformed_value_arrays_asc,
