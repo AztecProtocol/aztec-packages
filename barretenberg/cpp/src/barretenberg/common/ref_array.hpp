@@ -48,7 +48,7 @@ template <typename T, std::size_t N> class RefArray {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
 #endif
-        BB_ASSERT_LT(idx, N);
+        ASSERT_DEBUG(idx < N);
         return *storage[idx];
 #if !defined(__clang__) && defined(__GNUC__)
 #pragma GCC diagnostic pop

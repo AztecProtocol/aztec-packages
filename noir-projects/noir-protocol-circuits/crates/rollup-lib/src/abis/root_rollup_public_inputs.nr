@@ -1,4 +1,4 @@
-use blob::blob_batching_public_inputs::FinalBlobAccumulatorPublicInputs;
+use blob::abis::FinalBlobAccumulator;
 use types::{
     abis::{epoch_constant_data::EpochConstantData, fee_recipient::FeeRecipient},
     constants::AZTEC_MAX_EPOCH_DURATION,
@@ -11,5 +11,5 @@ pub struct RootRollupPublicInputs {
     pub checkpoint_header_hashes: [Field; AZTEC_MAX_EPOCH_DURATION],
     pub fees: [FeeRecipient; AZTEC_MAX_EPOCH_DURATION],
     pub constants: EpochConstantData,
-    pub blob_public_inputs: FinalBlobAccumulatorPublicInputs,
+    pub blob_public_inputs: FinalBlobAccumulator,
 }

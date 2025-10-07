@@ -17,6 +17,7 @@ AvmProver::ProverPolynomials compute_polynomials(tracegen::TraceContainer& trace
     // Polynomials that will be shifted need special care.
     AVM_TRACK_TIME("proving/init_polys_to_be_shifted", ({
                        auto to_be_shifted = polys.get_to_be_shifted();
+                       assert(to_be_shifted.size() == TO_BE_SHIFTED_COLUMNS_ARRAY.size());
 
                        // NOTE: we can't parallelize because Polynomial construction uses parallelism.
                        for (size_t i = 0; i < to_be_shifted.size(); i++) {
@@ -39,10 +40,7 @@ AvmProver::ProverPolynomials compute_polynomials(tracegen::TraceContainer& trace
     // Note: derived polynomials (i.e., inverses) are not in the trace at this point, because they can only
     // be computed after committing to the other witnesses. Therefore, they will be initialized as empty
     // and they will be not set below. The derived polynomials will be reinitialized and set in the prover
-    // itself mid-proving. (TO BE DONE!).
-    //
-    // NOTE FOR SELF: however, the counts will be known here and the inv have the same size?
-    // think about it and check the formula.
+    // itself mid-proving.
     AVM_TRACK_TIME("proving/init_polys_unshifted", ({
                        auto unshifted = polys.get_unshifted();
                        bb::parallel_for(unshifted.size(), [&](size_t i) {
@@ -62,8 +60,6 @@ AvmProver::ProverPolynomials compute_polynomials(tracegen::TraceContainer& trace
 
     AVM_TRACK_TIME("proving/set_polys_unshifted", ({
                        auto unshifted = polys.get_unshifted();
-                       // TODO: We are now visiting per-column. Profile if per-row is better.
-                       // This would need changes to the trace container.
                        bb::parallel_for(unshifted.size(), [&](size_t i) {
                            // WARNING! Column-Polynomials order matters!
                            auto& poly = unshifted[i];
@@ -74,7 +70,6 @@ AvmProver::ProverPolynomials compute_polynomials(tracegen::TraceContainer& trace
                                poly.at(row) = value;
                            });
                            // We free columns as we go.
-                           // TODO: If we merge the init with the setting, this would be even more memory efficient.
                            trace.clear_column(col);
                        });
                    }));

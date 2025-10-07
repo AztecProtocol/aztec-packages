@@ -1,6 +1,7 @@
 import { createLogger } from '@aztec/aztec.js';
 
 import { DEFAULT_ATTESTATION_PROPAGATION_TIME } from '../config.js';
+import { SequencerTooSlowError } from './errors.js';
 import type { SequencerMetrics } from './metrics.js';
 import { SequencerState } from './utils.js';
 
@@ -139,6 +140,7 @@ export class SequencerTimetable {
   public getMaxAllowedTime(state: SequencerState): number | undefined {
     switch (state) {
       case SequencerState.STOPPED:
+      case SequencerState.STOPPING:
       case SequencerState.IDLE:
       case SequencerState.SYNCHRONIZING:
         return; // We don't really care about times for this states
@@ -175,18 +177,5 @@ export class SequencerTimetable {
 
     this.metrics?.recordStateTransitionBufferMs(Math.floor(bufferSeconds * 1000), newState);
     this.log.trace(`Enough time to transition to ${newState}`, { maxAllowedTime, secondsIntoSlot });
-  }
-}
-
-export class SequencerTooSlowError extends Error {
-  constructor(
-    public readonly proposedState: SequencerState,
-    public readonly maxAllowedTime: number,
-    public readonly currentTime: number,
-  ) {
-    super(
-      `Too far into slot for ${proposedState} (time into slot ${currentTime}s greater than ${maxAllowedTime}s allowance)`,
-    );
-    this.name = 'SequencerTooSlowError';
   }
 }

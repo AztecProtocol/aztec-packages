@@ -61,7 +61,11 @@ impl TailToPublicOutputValidator {
     }
 
     fn validate_propagated_values(self) {
-        assert_eq(self.output.constants, self.previous_kernel.constants, "mismatch constants");
+        assert_eq(
+            self.output.constants,
+            self.previous_kernel.constants.to_tx_constant_data(),
+            "mismatch constants",
+        );
 
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
 

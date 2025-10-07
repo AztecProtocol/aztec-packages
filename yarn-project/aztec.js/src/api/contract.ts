@@ -26,7 +26,7 @@
  * or obtaining the `request` for aggregating into a {@link BatchCall}.
  *
  * The result of `send`ing a transaction is a {@link SentTx} object, from which you can get the
- * transaction hash, or simply `wait` until the transaction is mined and the local PXE Service
+ * transaction hash, or simply `wait` until the transaction is mined and the local PXE
  * has synchronized its changes.
  *
  * @remarks If you are using typescript, consider using the
@@ -39,10 +39,11 @@ export { Contract } from '../contract/contract.js';
 export { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 
 export {
-  type RequestMethodOptions,
-  type SendMethodOptions,
-  type ProfileMethodOptions,
-  type SimulateMethodOptions,
+  type RequestInteractionOptions,
+  type SendInteractionOptions,
+  type ProfileInteractionOptions,
+  type SimulateInteractionOptions,
+  type InteractionFeeOptions,
 } from '../contract/interaction_options.js';
 
 export { TxProfileResult } from '@aztec/stdlib/tx';

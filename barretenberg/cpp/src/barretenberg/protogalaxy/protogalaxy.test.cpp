@@ -668,6 +668,7 @@ TYPED_TEST(ProtogalaxyTests, TamperedCommitment)
 
 TYPED_TEST(ProtogalaxyTests, TamperedAccumulatorPolynomial)
 {
+    BB_DISABLE_ASSERTS(); // Disable assert in PG prover
     TestFixture::test_tampered_accumulator_polynomial();
 }
 

@@ -20,7 +20,7 @@ struct EmitUnencryptedLogException : public std::runtime_error {
 struct EmitUnencryptedLogWriteEvent {
     uint32_t execution_clk;
     AztecAddress contract_address;
-    uint32_t space_id;
+    uint16_t space_id;
     MemoryAddress log_address;
     uint32_t log_size;
     uint32_t prev_num_unencrypted_log_fields;

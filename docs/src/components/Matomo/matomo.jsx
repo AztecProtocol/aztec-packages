@@ -21,7 +21,7 @@ export default function useMatomo() {
   const [showBanner, setShowBanner] = useState(false);
   const location = useLocation();
 
-  const env = siteConfig.customFields.MATOMO_ENV;
+  const env = siteConfig.customFields.ENV;
   const urlBase = "https://noirlang.matomo.cloud/";
   const trackerUrl = `${urlBase}matomo.php`;
   const srcUrl = `${urlBase}matomo.js`;
@@ -64,11 +64,6 @@ export default function useMatomo() {
     pushInstruction("rememberConsentGiven");
     localStorage.setItem("matomoConsent", true);
     setShowBanner(false);
-    
-    // Sync any pending analytics events
-    if (typeof window !== 'undefined' && window.analytics) {
-      setTimeout(() => window.analytics.syncFallbackEvents(), 1000);
-    }
   };
 
   const optOut = () => {
@@ -85,7 +80,7 @@ export default function useMatomo() {
         window.dispatchEvent(event);
         console.log('🔧 Forcing NPS widget to show');
       };
-      
+
       // Clean up on unmount
       return () => {
         delete window.forceNPS;

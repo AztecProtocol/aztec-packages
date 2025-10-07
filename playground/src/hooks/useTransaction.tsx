@@ -7,7 +7,7 @@ import {
   type ContractFunctionInteraction,
   type DeployMethod,
   type DeployOptions,
-  type SendMethodOptions,
+  type SendInteractionOptions,
 } from '@aztec/aztec.js';
 import { TimeoutError } from '@aztec/foundation/error';
 import { useNotifications } from '@toolpad/core/useNotifications';
@@ -21,7 +21,7 @@ export function useTransaction() {
     name: string,
     interaction: ContractFunctionInteraction | DeployMethod,
     contractAddress: AztecAddress,
-    opts: SendMethodOptions | DeployOptions,
+    opts: SendInteractionOptions | DeployOptions,
     displayOptions?: {
       showNotifications?: boolean;
     },

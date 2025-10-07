@@ -935,3 +935,68 @@ groups:
           labels:
             <<: *common_labels
           isPaused: false
+    - orgId: 1
+      name: Bootnodes
+      folder: Aztec
+      interval: 1m
+      rules:
+        - uid: cezjxssj1y2v4a
+          title: Bootnode Availability
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: count by(network)(discv5_kad_table_size{network!=""})
+                instant: true
+                intervalMs: 1000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 3
+                        type: lt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: bexge5lz3e51cd
+          panelId: 5
+          noDataState: NoData
+          execErrState: Error
+          for: 1m
+          annotations:
+            __dashboardUid__: bexge5lz3e51cd
+            __panelId__: "5"
+            description: ""
+            runbook_url: ""
+            summary: One or more bootnodes for {{ ` {{ $labels.network }} ` }} may have stopped.
+          labels:
+            "": ""
+          isPaused: false

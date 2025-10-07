@@ -182,6 +182,7 @@ locals {
         "broker.node.env.NETWORK"                 = var.NETWORK
         "agent.node.proverRealProofs"             = var.PROVER_REAL_PROOFS
         "agent.node.env.NETWORK"                  = var.NETWORK
+        "agent.replicaCount"                      = var.PROVER_REPLICAS
       }
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
@@ -227,6 +228,7 @@ locals {
         "node.env.AWS_ACCESS_KEY_ID"     = var.R2_ACCESS_KEY_ID
         "node.env.AWS_SECRET_ACCESS_KEY" = var.R2_SECRET_ACCESS_KEY
       }
+      boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
       wait                 = true
     }

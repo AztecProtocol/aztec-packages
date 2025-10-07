@@ -1,4 +1,4 @@
-import { type AztecNode, L1FeeJuicePortalManager } from '@aztec/aztec.js';
+import { type AztecNode, L1FeeJuicePortalManager, ProtocolContractAddress } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/utils';
 import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
@@ -6,12 +6,9 @@ import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 
-import type { CLIWallet } from '../utils/wallet.js';
-
 export async function bridgeL1FeeJuice(
   amount: bigint,
   recipient: AztecAddress,
-  wallet: CLIWallet,
   node: AztecNode,
   l1RpcUrls: string[],
   chainId: number,
@@ -27,10 +24,6 @@ export async function bridgeL1FeeJuice(
   // Prepare L1 client
   const chain = createEthereumChain(l1RpcUrls, chainId);
   const client = createExtendedL1Client(chain.rpcUrls, privateKey ?? mnemonic, chain.chainInfo);
-
-  const {
-    protocolContractAddresses: { feeJuice: feeJuiceAddress },
-  } = await wallet.getPXEInfo();
 
   // Setup portal manager
   const portal = await L1FeeJuicePortalManager.new(node, client, debugLogger);
@@ -70,7 +63,12 @@ export async function bridgeL1FeeJuice(
     const delayedCheck = (delay: number) => {
       return new Promise((resolve, reject) => {
         setTimeout(() => {
-          void getNonNullifiedL1ToL2MessageWitness(node, feeJuiceAddress, Fr.fromHexString(messageHash), claimSecret)
+          void getNonNullifiedL1ToL2MessageWitness(
+            node,
+            ProtocolContractAddress.FeeJuice,
+            Fr.fromHexString(messageHash),
+            claimSecret,
+          )
             .then(witness => resolve(witness))
             .catch(err => reject(err));
         }, delay);

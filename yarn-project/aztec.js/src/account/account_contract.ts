@@ -1,14 +1,12 @@
-import type { AuthWitnessProvider } from '@aztec/entrypoints/interfaces';
+import type { AuthWitnessProvider, ChainInfo } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/fields';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { deriveKeys } from '@aztec/stdlib/keys';
 
-import type { ChainInfo } from '../wallet/index.js';
 import type { AccountInterface } from './interface.js';
 
-// docs:start:account-contract-interface
 /**
  * An account contract instance. Knows its artifact, deployment arguments, how to create
  * transaction execution requests out of function calls, and how to authorize actions.
@@ -48,7 +46,6 @@ export interface AccountContract {
    */
   getAuthWitnessProvider(address: CompleteAddress): AuthWitnessProvider;
 }
-// docs:end:account-contract-interface
 
 /**
  * Compute the address of an account contract from secret and salt.

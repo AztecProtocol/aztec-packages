@@ -195,7 +195,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
       },
       true,
     );
-    await authwit.send({ from: ownerAztecAddress }).wait();
+    await authwit.send().wait();
     // docs:end:setup-withdrawal
 
     // docs:start:l2-withdraw

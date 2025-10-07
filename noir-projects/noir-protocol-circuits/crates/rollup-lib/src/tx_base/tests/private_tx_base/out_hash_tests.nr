@@ -1,20 +1,5 @@
 use super::TestBuilder;
-use types::{
-    constants::{MAX_L2_TO_L1_MSG_SUBTREES_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX},
-    hash::silo_l2_to_l1_message,
-    merkle_tree::{MerkleTree, UnbalancedMerkleTree},
-    tests::FixtureBuilder,
-};
-
-impl TestBuilder {
-    pub fn get_siloed_l2_to_l1_msgs(self) -> [Field; MAX_L2_TO_L1_MSGS_PER_TX] {
-        self.private_tail.end.l2_to_l1_msgs.map(|msg| silo_l2_to_l1_message(
-            msg,
-            self.constants.global_variables.version,
-            self.constants.global_variables.chain_id,
-        ))
-    }
-}
+use types::{constants::MAX_L2_TO_L1_MSGS_PER_TX, merkle_tree::MerkleTree, tests::FixtureBuilder};
 
 #[test]
 unconstrained fn empty_l2_to_l1_msgs() {
@@ -38,11 +23,7 @@ unconstrained fn max_l2_to_l1_msgs() {
     builder.assert_expected_public_inputs(pi);
 
     let siloed_l2_to_l1_msgs = builder.get_siloed_l2_to_l1_msgs();
-    let expected_out_hash = UnbalancedMerkleTree::new_sha::<MAX_L2_TO_L1_MSGS_PER_TX, MAX_L2_TO_L1_MSG_SUBTREES_PER_TX>(
-        siloed_l2_to_l1_msgs,
-        MAX_L2_TO_L1_MSGS_PER_TX,
-    )
-        .get_root();
+    let expected_out_hash = MerkleTree::new_sha(siloed_l2_to_l1_msgs).get_root();
     assert_eq(pi.out_hash, expected_out_hash);
 }
 

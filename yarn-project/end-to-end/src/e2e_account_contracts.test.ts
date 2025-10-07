@@ -5,12 +5,10 @@ import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
 import {
   type Account,
   type AccountContract,
-  AccountManager,
   AztecAddress,
   type AztecNode,
   BaseAccount,
   CompleteAddress,
-  FeeJuicePaymentMethod,
   Fr,
   GrumpkinScalar,
   type Logger,
@@ -18,7 +16,7 @@ import {
 } from '@aztec/aztec.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
-import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import { createPXE, getPXEConfig } from '@aztec/pxe/server';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { TestWallet } from '@aztec/test-wallet/server';
 
@@ -26,9 +24,9 @@ import { setup } from './fixtures/utils.js';
 
 export class TestWalletInternals extends TestWallet {
   static override async create(node: AztecNode): Promise<TestWalletInternals> {
-    const pxeConfig = getPXEServiceConfig();
+    const pxeConfig = getPXEConfig();
     pxeConfig.proverEnabled = false;
-    const pxe = await createPXEService(node, pxeConfig);
+    const pxe = await createPXE(node, pxeConfig);
     return new TestWalletInternals(pxe, node);
   }
 
@@ -52,8 +50,8 @@ const itShouldBehaveLikeAnAccountContract = (
       const secret = Fr.random();
       const salt = Fr.random();
       const signingKey = deriveSigningKey(secret);
-      const accountContract = getAccountContract(signingKey);
-      const address = await getAccountContractAddress(accountContract, secret, salt);
+      const contract = getAccountContract(signingKey);
+      const address = await getAccountContractAddress(contract, secret, salt);
       const accountData = {
         secret,
         signingKey,
@@ -64,17 +62,13 @@ const itShouldBehaveLikeAnAccountContract = (
       ({ logger, teardown, aztecNode } = await setup(0, { initialFundedAccounts: [accountData] }));
       wallet = await TestWalletInternals.create(aztecNode);
 
-      const accountManager = await AccountManager.create(wallet, wallet.getPxe(), secret, accountContract, salt);
+      const accountManager = await wallet.createAccount({ secret, contract, salt });
       completeAddress = await accountManager.getCompleteAddress();
       if (await accountManager.hasInitializer()) {
         // The account is pre-funded and can pay for its own fee.
-        const paymentMethod = new FeeJuicePaymentMethod(address);
-        await accountManager.deploy({ fee: { paymentMethod } }).wait();
-      } else {
-        await accountManager.register();
+        const deployMethod = await accountManager.getDeployMethod();
+        await deployMethod.send({ from: AztecAddress.ZERO }).wait();
       }
-
-      wallet.replaceAccountAt(await accountManager.getAccount(), address);
 
       child = await ChildContract.deploy(wallet).send({ from: address }).deployed();
     });

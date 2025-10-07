@@ -1,5 +1,11 @@
-import { AztecAddress, type FeePaymentMethod, SentTx, type TxHash, TxStatus } from '@aztec/aztec.js';
-import type { FeeOptions } from '@aztec/entrypoints/interfaces';
+import {
+  AztecAddress,
+  type FeePaymentMethod,
+  type InteractionFeeOptions,
+  SentTx,
+  type TxHash,
+  TxStatus,
+} from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
@@ -15,8 +21,13 @@ export async function cancelTx(
     gasSettings: prevTxGasSettings,
     txNonce,
     cancellable,
-  }: { txHash: TxHash; gasSettings: GasSettings; txNonce: Fr; cancellable: boolean },
-  paymentMethod: FeePaymentMethod,
+  }: {
+    txHash: TxHash;
+    gasSettings: GasSettings;
+    txNonce: Fr;
+    cancellable: boolean;
+  },
+  paymentMethod: FeePaymentMethod | undefined,
   increasedFees: GasFees,
   maxFeesPerGas: GasFees | undefined,
   log: LogFn,
@@ -32,7 +43,7 @@ export async function cancelTx(
     prevTxGasSettings.maxPriorityFeesPerGas.feePerL2Gas + increasedFees.feePerL2Gas,
   );
 
-  const feeOptions: FeeOptions = {
+  const feeOptions: InteractionFeeOptions = {
     paymentMethod,
     gasSettings: GasSettings.from({
       ...prevTxGasSettings,

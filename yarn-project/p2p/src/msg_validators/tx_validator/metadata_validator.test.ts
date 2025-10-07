@@ -3,7 +3,7 @@ import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
 import type { AnyTx, Tx } from '@aztec/stdlib/tx';
 import {
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
-  TX_ERROR_INCORRECT_PROTOCOL_CONTRACT_TREE_ROOT,
+  TX_ERROR_INCORRECT_PROTOCOL_CONTRACTS_HASH,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
   TX_ERROR_INCORRECT_VK_TREE_ROOT,
   TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP,
@@ -16,7 +16,7 @@ describe('MetadataTxValidator', () => {
   let chainId: Fr;
   let rollupVersion: Fr;
   let vkTreeRoot: Fr;
-  let protocolContractTreeRoot: Fr;
+  let protocolContractsHash: Fr;
 
   let seed = 1;
 
@@ -27,14 +27,14 @@ describe('MetadataTxValidator', () => {
     timestamp = 10n;
     rollupVersion = new Fr(2);
     vkTreeRoot = new Fr(3);
-    protocolContractTreeRoot = new Fr(4);
+    protocolContractsHash = new Fr(4);
     validator = new MetadataTxValidator({
       l1ChainId: chainId,
       rollupVersion,
       timestamp,
       blockNumber,
       vkTreeRoot,
-      protocolContractTreeRoot,
+      protocolContractsHash,
     });
   };
 
@@ -51,7 +51,7 @@ describe('MetadataTxValidator', () => {
   };
 
   const makeTxs = async () => {
-    const opts = { chainId, version: rollupVersion, vkTreeRoot, protocolContractTreeRoot };
+    const opts = { chainId, version: rollupVersion, vkTreeRoot, protocolContractsHash };
     const tx1 = await mockTx(seed++, opts);
     const tx2 = await mockTxForRollup(seed++, opts);
 
@@ -91,12 +91,12 @@ describe('MetadataTxValidator', () => {
     const badTxs = await makeTxs();
 
     badTxs[0].data.constants.vkTreeRoot = vkTreeRoot.add(new Fr(1));
-    badTxs[1].data.constants.protocolContractTreeRoot = protocolContractTreeRoot.add(new Fr(1));
+    badTxs[1].data.constants.protocolContractsHash = protocolContractsHash.add(new Fr(1));
 
     await expectValid(goodTxs[0]);
     await expectValid(goodTxs[1]);
     await expectInvalid(badTxs[0], TX_ERROR_INCORRECT_VK_TREE_ROOT);
-    await expectInvalid(badTxs[1], TX_ERROR_INCORRECT_PROTOCOL_CONTRACT_TREE_ROOT);
+    await expectInvalid(badTxs[1], TX_ERROR_INCORRECT_PROTOCOL_CONTRACTS_HASH);
   });
 
   it.each([10n, 11n])('allows txs with valid expiration timestamp', async includeByTimestamp => {

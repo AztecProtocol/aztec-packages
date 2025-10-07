@@ -18,7 +18,7 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { withLogNameSuffix } from '@aztec/foundation/log';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
-import { ProverNode, ProverNodePublisher } from '@aztec/prover-node';
+import { ProverNode, type ProverNodeConfig, ProverNodePublisher } from '@aztec/prover-node';
 import type { TestProverNode } from '@aztec/prover-node/test';
 import {
   type SequencerClient,
@@ -128,9 +128,6 @@ export class EpochsTestContext {
       // using the prover's eth address if the proverId is used for something in the rollup contract
       // Use numeric EthAddress for deterministic prover id
       proverId: EthAddress.fromNumber(1),
-      // This must be enough so that the tx from the prover is delayed properly,
-      // but not so much to hang the sequencer and timeout the teardown
-      txPropagationMaxQueryAttempts: opts.txPropagationMaxQueryAttempts ?? 12,
       worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
       exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
       slasherFlavor: 'none',
@@ -187,7 +184,7 @@ export class EpochsTestContext {
     await this.context.teardown();
   }
 
-  public async createProverNode() {
+  public async createProverNode(opts: { dontStart?: boolean } & Partial<ProverNodeConfig> = {}) {
     this.logger.warn('Creating and syncing a simulated prover node...');
     const proverNodePrivateKey = this.getNextPrivateKey();
     const suffix = (this.proverNodes.length + 1).toString();
@@ -198,6 +195,8 @@ export class EpochsTestContext {
         {
           dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
           proverId: EthAddress.fromNumber(parseInt(suffix, 10)),
+          dontStart: opts.dontStart,
+          ...opts,
         },
         this.context.aztecNode,
         undefined,
@@ -430,7 +429,7 @@ export class EpochsTestContext {
         sequencer.getSequencer().on(eventName, (args: Parameters<SequencerEvents[typeof eventName]>[0]) => {
           const evt = makeEvent(i, eventName, args);
           failEvents.push(evt);
-          this.logger.error(`Failed event ${eventName} from sequencer ${sequencerIndex}`, evt);
+          this.logger.error(`Failed event ${eventName} from sequencer ${sequencerIndex}`, undefined, evt);
         });
       });
     });

@@ -499,6 +499,10 @@ library StakingLib {
     return getStorage().gse.getAttesterFromIndexAtTime(address(this), _index, Timestamp.wrap(block.timestamp));
   }
 
+  function getEntryQueueAt(uint256 _index) internal view returns (DepositArgs memory) {
+    return getStorage().entryQueue.at(_index);
+  }
+
   function getAttesterFromIndexAtTime(uint256 _index, Timestamp _timestamp) internal view returns (address) {
     return getStorage().gse.getAttesterFromIndexAtTime(address(this), _index, _timestamp);
   }

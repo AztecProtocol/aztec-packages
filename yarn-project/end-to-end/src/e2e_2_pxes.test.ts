@@ -1,15 +1,13 @@
-// docs:start:import_aztecjs
 import type { InitialAccountData } from '@aztec/accounts/testing';
-import { type AztecAddress, type AztecNode, Fr, type Logger, sleep } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, Fr, type Logger, sleep } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-// docs:end:import_aztecjs
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { TestWallet } from '@aztec/test-wallet/server';
 
 import { expect, jest } from '@jest/globals';
 
 import { deployToken, expectTokenBalance, mintTokensToPrivate } from './fixtures/token_utils.js';
-import { setup, setupPXEServiceAndGetWallet } from './fixtures/utils.js';
+import { setup, setupPXEAndGetWallet } from './fixtures/utils.js';
 
 const TIMEOUT = 300_000;
 
@@ -39,10 +37,14 @@ describe('e2e_2_pxes', () => {
     // Account A is already deployed in setup
 
     // Deploy accountB via walletB.
-    ({ wallet: walletB, teardown: teardownB } = await setupPXEServiceAndGetWallet(aztecNode, {}, undefined, true));
-    const accountB = await walletB.createSchnorrAccount(initialFundedAccounts[1].secret, initialFundedAccounts[1].salt);
-    accountBAddress = accountB.getAddress();
-    await accountB.deploy().wait();
+    ({ wallet: walletB, teardown: teardownB } = await setupPXEAndGetWallet(aztecNode, {}, undefined, true));
+    const accountBManager = await walletB.createSchnorrAccount(
+      initialFundedAccounts[1].secret,
+      initialFundedAccounts[1].salt,
+    );
+    accountBAddress = accountBManager.address;
+    const accountBDeployMethod = await accountBManager.getDeployMethod();
+    await accountBDeployMethod.send({ from: AztecAddress.ZERO }).wait();
 
     /*TODO(post-honk): We wait 5 seconds for a race condition in setting up two nodes.
      What is a more robust solution? */
@@ -183,9 +185,10 @@ describe('e2e_2_pxes', () => {
 
     // setup an account that is shared across PXEs
     const sharedAccount = initialFundedAccounts[2];
-    const sharedAccountOnA = await walletA.createSchnorrAccount(sharedAccount.secret, sharedAccount.salt);
-    await sharedAccountOnA.deploy().wait();
-    const sharedAccountAddress = sharedAccountOnA.getAddress();
+    const sharedAccountOnAManager = await walletA.createSchnorrAccount(sharedAccount.secret, sharedAccount.salt);
+    const sharedAccountOnADeployMethod = await sharedAccountOnAManager.getDeployMethod();
+    await sharedAccountOnADeployMethod.send({ from: AztecAddress.ZERO }).wait();
+    const sharedAccountAddress = sharedAccountOnAManager.address;
 
     // Register the shared account on walletB.
     await walletB.createSchnorrAccount(sharedAccount.secret, sharedAccount.salt);

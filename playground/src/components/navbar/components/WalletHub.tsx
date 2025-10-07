@@ -53,7 +53,6 @@ export function WalletHub() {
       getWallet: (nodeUrl: string) => EmbeddedWallet.create(nodeUrl),
       iconURL: new URL('../../../assets/aztec_small_logo.png', import.meta.url).href,
       callback: () => {
-        setIsEmbeddedWalletSelected(true);
         setOpenWalletModal(true);
         return Promise.resolve();
       },
@@ -66,6 +65,7 @@ export function WalletHub() {
       setLoading(true);
       setOpen(false);
       setSelectedProvider(provider);
+      setIsEmbeddedWalletSelected(provider === providers[0]);
       const wallet = await provider.getWallet(network.nodeURL);
       setWallet(wallet);
       setLoading(false);

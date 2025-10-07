@@ -252,10 +252,7 @@ export function CreateContractDialog({
                 Register
               </Button>
             ) : (
-              <Button
-                disabled={alias === '' || (publiclyDeploy && !feePaymentMethod) || isRegistering}
-                onClick={createContract}
-              >
+              <Button disabled={alias === '' || isRegistering} onClick={createContract}>
                 {publiclyDeploy ? 'Create and deploy' : 'Create'}
               </Button>
             )

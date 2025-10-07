@@ -22,7 +22,6 @@ use crate::{
             PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
             PrivateToRollupKernelCircuitPublicInputs,
         },
-        log::Log,
         log_hash::LogHash,
         note_hash::{NoteHash, ScopedNoteHash},
         nullifier::{Nullifier, ScopedNullifier},
@@ -32,7 +31,8 @@ use crate::{
         private_kernel::private_call_data::{PrivateCallData, PrivateVerificationKeyHints},
         private_kernel_data::PrivateKernelData,
         private_log::{PrivateLog, PrivateLogData},
-        protocol_contract_leaf_preimage::ProtocolContractLeafPreimage,
+        private_tx_constant_data::PrivateTxConstantData,
+        protocol_contracts::ProtocolContracts,
         public_call_request::{PublicCallRequest, PublicCallRequestArrayLengths},
         public_data_write::PublicDataWrite,
         public_logs::PublicLogs,
@@ -49,16 +49,16 @@ use crate::{
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-        DEFAULT_UPDATE_DELAY, FUNCTION_TREE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX,
-        MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE, MAX_INCLUDE_BY_TIMESTAMP_DURATION,
-        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        DEFAULT_UPDATE_DELAY, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH, FUNCTION_TREE_HEIGHT,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
+        MAX_INCLUDE_BY_TIMESTAMP_DURATION, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_U32_VALUE, MEGA_VK_LENGTH_IN_FIELDS,
-        PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT,
-        PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_DATA_TREE_HEIGHT, SIDE_EFFECT_MASKING_ADDRESS,
-        UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
+        PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_CALL_REQUEST_LENGTH,
+        PUBLIC_DATA_TREE_HEIGHT, SIDE_EFFECT_MASKING_ADDRESS, UPDATED_CLASS_IDS_SLOT,
+        VK_TREE_HEIGHT,
     },
     contract_class_id::ContractClassId,
     data::{
@@ -80,17 +80,14 @@ use crate::{
     proof::{verification_key::{MegaVerificationKey, VerificationKey}, vk_data::VkData},
     public_keys::PublicKeys,
     storage::map::derive_storage_slot_in_map,
-    tests::{
-        fixtures::{
-            self,
-            contract_functions::ContractFunction,
-            contracts::ContractData,
-            public_data_tree::empty_public_data_tree,
-            vk_tree::{get_vk_data, vk_tree_root},
-        },
-        utils::{make_fixture, pad_end},
+    tests::fixtures::{
+        self,
+        contract_functions::ContractFunction,
+        contracts::ContractData,
+        public_data_tree::empty_public_data_tree,
+        vk_tree::{get_vk_data, vk_tree_root},
     },
-    traits::{Deserialize, Empty, FromField, Hash, Packable, ToField},
+    traits::{Deserialize, Empty, FromField, Hash, Packable},
     utils::arrays::ClaimedLengthArray,
 };
 
@@ -184,7 +181,7 @@ pub struct FixtureBuilder {
 
     // Public call.
     pub bytecode_hash: Field,
-    pub prover_address: AztecAddress,
+    pub prover_id: Field,
 
     // Proof.
     pub vk: MegaVerificationKey,
@@ -193,9 +190,7 @@ pub struct FixtureBuilder {
     pub vk_tree_root: Field,
 
     // Protocol contracts.
-    pub protocol_contract_tree_root: Field,
-    pub protocol_contract_membership_witness: MembershipWitness<PROTOCOL_CONTRACT_TREE_HEIGHT>,
-    pub protocol_contract_leaf: ProtocolContractLeafPreimage,
+    pub protocol_contracts: ProtocolContracts,
 
     // Contract updates
     pub updated_class_id_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
@@ -251,6 +246,8 @@ impl FixtureBuilder {
         builder.counter_start = counter_start;
         builder.counter = counter_start + 1;
 
+        builder.protocol_contracts = fixtures::protocol_contracts::get_protocol_contracts();
+
         let contract_data = fixtures::contracts::default_contract;
         let contract_function = fixtures::contract_functions::default_private_function;
 
@@ -275,46 +272,14 @@ impl FixtureBuilder {
 
         *self
     }
-
-    pub fn set_protocol_contract_root(&mut self) {
-        let (tree, protocol_contract_leaves) =
-            fixtures::protocol_contract_tree::get_protocol_contract_tree();
-        let contract_address_field = self.contract_address.to_field();
-        self.protocol_contract_tree_root = tree.get_root();
-        for i in 0..protocol_contract_leaves.len() {
-            let leaf = protocol_contract_leaves[i];
-            // The below is true if leaf is a valid low_leaf for self.contract_address
-            // This is used in validate_contract_address where is_protocol_contract = false.
-            if (leaf.address != 0)
-                & (leaf.address.lt(contract_address_field))
-                & ((contract_address_field.lt(leaf.next_address)) | (leaf.next_address == 0)) {
-                self.protocol_contract_leaf = leaf;
-                self.protocol_contract_membership_witness = MembershipWitness {
-                    leaf_index: i as Field,
-                    sibling_path: tree.get_sibling_path(i),
-                };
-            }
-        }
-    }
-
     // contract_index should be the same as contract address.
     pub fn use_protocol_contract(&mut self, contract_index: u32) -> Self {
-        let (tree, protocol_contract_leaves) =
-            fixtures::protocol_contract_tree::get_protocol_contract_tree();
-        self.protocol_contract_tree_root = tree.get_root();
-        // This is used in validate_contract_address where is_protocol_contract = true.
-        self.protocol_contract_membership_witness = MembershipWitness {
-            leaf_index: contract_index as Field,
-            sibling_path: tree.get_sibling_path(contract_index),
-        };
-        self.protocol_contract_leaf = protocol_contract_leaves[contract_index];
-
         let contract_data = fixtures::contracts::get_protocol_contract(contract_index);
         let function_data =
             fixtures::contract_functions::get_protocol_contract_function(contract_index);
 
         let _ = self.use_contract(contract_data);
-        self.contract_address = AztecAddress::from_field(contract_index as Field);
+        self.contract_address = AztecAddress::from_field(contract_index as Field + 1);
 
         self.use_function(function_data, fixtures::contract_functions::default_vk)
     }
@@ -325,7 +290,6 @@ impl FixtureBuilder {
         self.public_keys = contract_data.public_keys;
         self.contract_class_artifact_hash = contract_data.artifact_hash;
         self.contract_class_public_bytecode_commitment = contract_data.public_bytecode_commitment;
-        self.set_protocol_contract_root();
 
         *self
     }
@@ -356,7 +320,16 @@ impl FixtureBuilder {
             anchor_block_header: self.anchor_block_header,
             tx_context: self.tx_context,
             vk_tree_root: self.vk_tree_root,
-            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            protocol_contracts_hash: self.protocol_contracts.hash(),
+        }
+    }
+
+    pub fn to_private_tx_constant_data(self) -> PrivateTxConstantData {
+        PrivateTxConstantData {
+            anchor_block_header: self.anchor_block_header,
+            tx_context: self.tx_context,
+            vk_tree_root: self.vk_tree_root,
+            protocol_contracts: self.protocol_contracts,
         }
     }
 
@@ -472,8 +445,6 @@ impl FixtureBuilder {
             contract_class_artifact_hash: self.contract_class_artifact_hash,
             contract_class_public_bytecode_commitment: self
                 .contract_class_public_bytecode_commitment,
-            protocol_contract_membership_witness: self.protocol_contract_membership_witness,
-            protocol_contract_leaf: self.protocol_contract_leaf,
             updated_class_id_witness: self.updated_class_id_witness,
             updated_class_id_leaf: self.updated_class_id_leaf,
             updated_class_id_delayed_public_mutable_values: DelayedPublicMutableValues::new(
@@ -487,17 +458,19 @@ impl FixtureBuilder {
     pub fn compute_update_tree_and_hints(&mut self) {
         let public_data_prefill = 2;
         let mut public_data_tree = empty_public_data_tree::<8, 3>(public_data_prefill);
+        let last_leaf_index = (public_data_prefill - 1) as Field;
+        let new_leaf_index = last_leaf_index + 1;
 
         if self.updated_class_id_value_change.is_empty()
             & self.updated_class_id_delay_change.is_empty() {
             self.anchor_block_header.state.partial.public_data_tree.root =
                 public_data_tree.get_root();
             self.anchor_block_header.state.partial.public_data_tree.next_available_leaf_index =
-                public_data_prefill;
+                public_data_prefill as Field;
 
             self.updated_class_id_witness = MembershipWitness {
-                leaf_index: (public_data_prefill - 1) as Field,
-                sibling_path: public_data_tree.get_sibling_path(public_data_prefill - 1),
+                leaf_index: last_leaf_index,
+                sibling_path: public_data_tree.get_sibling_path(last_leaf_index),
             };
             self.updated_class_id_leaf = PublicDataTreeLeafPreimage {
                 slot: (public_data_prefill - 1) as Field,
@@ -521,12 +494,12 @@ impl FixtureBuilder {
                 hash_slot,
             );
             public_data_tree.update_leaf(
-                public_data_prefill - 1,
+                last_leaf_index,
                 PublicDataTreeLeafPreimage {
                     slot: (public_data_prefill - 1) as Field,
                     value: 0,
                     next_slot: hash_leaf_slot,
-                    next_index: public_data_prefill,
+                    next_index: last_leaf_index + 1,
                 }
                     .hash(),
             );
@@ -536,14 +509,14 @@ impl FixtureBuilder {
                 next_slot: 0,
                 next_index: 0,
             };
-            public_data_tree.update_leaf(public_data_prefill, self.updated_class_id_leaf.hash());
+            public_data_tree.update_leaf(new_leaf_index, self.updated_class_id_leaf.hash());
             self.anchor_block_header.state.partial.public_data_tree.root =
                 public_data_tree.get_root();
             self.anchor_block_header.state.partial.public_data_tree.next_available_leaf_index =
-                public_data_prefill + 1;
+                new_leaf_index + 1;
             self.updated_class_id_witness = MembershipWitness {
-                leaf_index: public_data_prefill as Field,
-                sibling_path: public_data_tree.get_sibling_path(public_data_prefill),
+                leaf_index: new_leaf_index,
+                sibling_path: public_data_tree.get_sibling_path(new_leaf_index),
             };
         }
     }
@@ -648,7 +621,7 @@ impl FixtureBuilder {
     }
 
     pub fn to_private_kernel_circuit_public_inputs(self) -> PrivateKernelCircuitPublicInputs {
-        let constants = self.to_tx_constant_data();
+        let constants = self.to_private_tx_constant_data();
         let end = self.to_private_accumulated_data();
         let validation_requests = self.to_private_validation_requests();
         let public_teardown_call_request = self.public_teardown_call_request;
@@ -763,12 +736,13 @@ impl FixtureBuilder {
 
         AvmCircuitPublicInputs {
             global_variables: self.global_variables,
-            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            protocol_contracts: self.protocol_contracts,
             start_tree_snapshots: self.start_tree_snapshots,
             start_gas_used: self.start_gas_used,
             gas_settings: self.tx_context.gas_settings,
             effective_gas_fees: self.effective_gas_fees,
             fee_payer: self.fee_payer,
+            prover_id: self.prover_id,
             public_call_request_array_lengths,
             public_setup_call_requests,
             public_app_logic_call_requests,
@@ -1055,6 +1029,12 @@ impl FixtureBuilder {
         self.append_private_logs_for_note(num_logs, 0 /* note_hash_counter */);
     }
 
+    pub fn append_private_logs_with_length<let LogFieldsLen: u32>(&mut self, num_logs: u32) {
+        for _i in 0..num_logs {
+            self.append_private_logs_with_lengths([LogFieldsLen]);
+        }
+    }
+
     pub fn append_private_logs_with_lengths<let NumLogs: u32>(&mut self, lengths: [u32; NumLogs]) {
         let index_offset = self.private_logs.len();
         for i in 0..lengths.len() {
@@ -1125,22 +1105,9 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_public_log<let LogFieldsLen: u32>(&mut self, fields: [Field; LogFieldsLen]) {
-        let log = Log { fields, length: LogFieldsLen };
-        self.public_logs.add_log(self.contract_address, log);
-    }
-
-    pub fn append_public_logs(&mut self, num_logs: u32) {
-        // 10 here is just arbitrary length. Use `append_public_logs_with_length` for custom lengths.
-        self.append_public_logs_with_length::<10>(num_logs);
-    }
-
-    pub fn append_public_logs_with_length<let LogFieldsLen: u32>(&mut self, num_logs: u32) {
-        let index_offset = self.public_logs.length;
-        for i in 0..num_logs {
-            let fields = self.mock_public_log_fields_with_length::<LogFieldsLen>(index_offset + i);
-            self.add_public_log(fields);
-        }
+    pub fn add_public_logs(&mut self, length: u32) {
+        let payload = self.mock_public_log_fields_with_length(length);
+        self.public_logs = PublicLogs::new(payload, length);
     }
 
     pub fn add_contract_class_log_hash(&mut self, hash: Field, length: u32) {
@@ -1155,14 +1122,23 @@ impl FixtureBuilder {
     }
 
     pub fn append_contract_class_logs_with_length<let LogFieldsLen: u32>(&mut self, num_logs: u32) {
-        let index_offset = self.contract_class_log_fields.len();
-        for i in 0..num_logs {
-            let padded_log_fields =
-                self.mock_contract_class_log_fields::<LogFieldsLen>(index_offset + i);
-            self.contract_class_log_fields.push(padded_log_fields);
+        for _i in 0..num_logs {
+            self.append_contract_class_logs_with_lengths([LogFieldsLen]);
+        }
+    }
 
-            let log_hash = compute_contract_class_log_hash(padded_log_fields);
-            self.add_contract_class_log_hash(log_hash, LogFieldsLen);
+    pub fn append_contract_class_logs_with_lengths<let NumLogs: u32>(
+        &mut self,
+        lengths: [u32; NumLogs],
+    ) {
+        let index_offset = self.private_logs.len();
+        for i in 0..lengths.len() {
+            let length = lengths[i];
+            let fields = self.mock_contract_class_log_fields_with_length(index_offset + i, length);
+            self.contract_class_log_fields.push(fields);
+
+            let log_hash = compute_contract_class_log_hash(fields);
+            self.add_contract_class_log_hash(log_hash, length);
         }
     }
 
@@ -1355,25 +1331,34 @@ impl FixtureBuilder {
         fields
     }
 
-    fn mock_public_log_fields_with_length<let LogFieldsLen: u32>(
+    fn mock_public_log_fields_with_length(
         self,
-        index: u32,
-    ) -> [Field; LogFieldsLen] {
-        let value_offset = 199199 + self.value_offset + (index * LogFieldsLen) as Field;
-        make_fixture(value_offset)
+        length: u32,
+    ) -> [Field; FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH] {
+        let value_offset = 199199 + self.value_offset;
+        let mut fields = [0; FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH];
+        for i in 0..FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH {
+            if i < length {
+                fields[i] = value_offset + i as Field;
+            }
+        }
+        fields
     }
 
-    fn mock_contract_class_log_fields<let LogFieldsLen: u32>(
+    fn mock_contract_class_log_fields_with_length(
         self,
         index: u32,
+        length: u32,
     ) -> [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS] {
-        let seed = (index + 1) as Field * 438 + 95337 + self.value_offset;
-        if LogFieldsLen >= CONTRACT_CLASS_LOG_SIZE_IN_FIELDS {
-            make_fixture(seed)
-        } else {
-            let log_fields: [Field; LogFieldsLen] = make_fixture(seed);
-            pad_end(log_fields)
+        let value_offset =
+            95337 + self.value_offset + (index * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS) as Field;
+        let mut fields = [0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS];
+        for i in 0..CONTRACT_CLASS_LOG_SIZE_IN_FIELDS {
+            if i < length {
+                fields[i] = value_offset + i as Field;
+            }
         }
+        fields
     }
 
     fn mock_private_call_request(self, index: u32) -> PrivateCallRequest {

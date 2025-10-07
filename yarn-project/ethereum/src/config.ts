@@ -212,7 +212,7 @@ const LocalEntryQueueConfig = {
   bootstrapFlushSize: 0n,
   normalFlushSizeMin: 48n,
   normalFlushSizeQuotient: 2n,
-  maxQueueFlushSize: 32n,
+  maxQueueFlushSize: 48n,
 };
 
 const StagingPublicEntryQueueConfig = {
@@ -232,8 +232,8 @@ const TestnetEntryQueueConfig = {
 };
 
 const StagingIgnitionEntryQueueConfig = {
-  bootstrapValidatorSetSize: 24n,
-  bootstrapFlushSize: 24n,
+  bootstrapValidatorSetSize: 48n,
+  bootstrapFlushSize: 48n,
   normalFlushSizeMin: 1n,
   normalFlushSizeQuotient: 2048n,
   maxQueueFlushSize: 24n,

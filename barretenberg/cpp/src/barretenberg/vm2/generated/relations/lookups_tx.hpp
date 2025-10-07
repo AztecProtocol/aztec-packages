@@ -113,6 +113,30 @@ using lookup_tx_read_phase_length_settings = lookup_settings<lookup_tx_read_phas
 template <typename FF_>
 using lookup_tx_read_phase_length_relation = lookup_relation_base<FF_, lookup_tx_read_phase_length_settings>;
 
+/////////////////// lookup_tx_read_calldata_hash ///////////////////
+
+struct lookup_tx_read_calldata_hash_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_TX_READ_CALLDATA_HASH";
+    static constexpr std::string_view RELATION_NAME = "tx";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr Column SRC_SELECTOR = Column::tx_should_process_call_request;
+    static constexpr Column DST_SELECTOR = Column::calldata_hashing_latch;
+    static constexpr Column COUNTS = Column::lookup_tx_read_calldata_hash_counts;
+    static constexpr Column INVERSES = Column::lookup_tx_read_calldata_hash_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::tx_calldata_hash, ColumnAndShifts::tx_calldata_size, ColumnAndShifts::tx_next_context_id
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::calldata_hashing_output_hash,
+        ColumnAndShifts::calldata_hashing_calldata_size,
+        ColumnAndShifts::calldata_hashing_context_id
+    };
+};
+
+using lookup_tx_read_calldata_hash_settings = lookup_settings<lookup_tx_read_calldata_hash_settings_>;
+template <typename FF_>
+using lookup_tx_read_calldata_hash_relation = lookup_relation_base<FF_, lookup_tx_read_calldata_hash_settings>;
+
 /////////////////// lookup_tx_read_public_call_request_phase ///////////////////
 
 struct lookup_tx_read_public_call_request_phase_settings_ {
@@ -148,7 +172,7 @@ using lookup_tx_read_public_call_request_phase_relation =
 struct lookup_tx_dispatch_exec_start_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_DISPATCH_EXEC_START";
     static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 25;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 26;
     static constexpr Column SRC_SELECTOR = Column::tx_should_process_call_request;
     static constexpr Column DST_SELECTOR = Column::execution_enqueued_call_start;
     static constexpr Column COUNTS = Column::lookup_tx_dispatch_exec_start_counts;
@@ -160,6 +184,7 @@ struct lookup_tx_dispatch_exec_start_settings_ {
         ColumnAndShifts::tx_contract_addr,
         ColumnAndShifts::tx_fee,
         ColumnAndShifts::tx_is_static,
+        ColumnAndShifts::tx_calldata_size,
         ColumnAndShifts::tx_prev_note_hash_tree_root,
         ColumnAndShifts::tx_prev_note_hash_tree_size,
         ColumnAndShifts::tx_prev_num_note_hashes_emitted,
@@ -187,6 +212,7 @@ struct lookup_tx_dispatch_exec_start_settings_ {
         ColumnAndShifts::execution_contract_address,
         ColumnAndShifts::execution_transaction_fee,
         ColumnAndShifts::execution_is_static,
+        ColumnAndShifts::execution_parent_calldata_size,
         ColumnAndShifts::execution_prev_note_hash_tree_root,
         ColumnAndShifts::execution_prev_note_hash_tree_size,
         ColumnAndShifts::execution_prev_num_note_hashes_emitted,

@@ -19,7 +19,7 @@ Please note that there are two other types of nodes available that we are not co
 
 Minimum hardware requirements:
 
-- 2 core / 4 vCPU (released in 2015 or later)
+- 2 core / 4 vCPU
 - 16 GB RAM
 - 1 TB NVMe SDD
 - 25 Mbps network connection

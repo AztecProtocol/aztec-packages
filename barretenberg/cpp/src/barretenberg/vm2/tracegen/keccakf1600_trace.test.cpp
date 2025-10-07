@@ -148,7 +148,7 @@ TEST(KeccakF1600TraceGenTest, MainKeccakTraceWithSimulation)
 
     const MemoryAddress src_addr = 123;
     const MemoryAddress dst_addr = 456;
-    const uint32_t space_id = 23;
+    const uint16_t space_id = 23;
 
     testing::generate_keccak_trace(trace, { dst_addr }, { src_addr }, space_id);
 
@@ -205,7 +205,7 @@ TEST(KeccakF1600TraceGenTest, TagErrorHandling)
 
     const MemoryAddress src_addr = 0;
     const MemoryAddress dst_addr = 200;
-    const uint32_t space_id = 79;
+    const uint16_t space_id = 79;
 
     // Position (1,2) in the 5x5 matrix corresponds to index 7 in the flattened array
     const size_t error_offset = 7;              // (1 * 5) + 2 = 7
@@ -282,7 +282,7 @@ TEST(KeccakF1600TraceGenTest, SrcAddressOutOfBounds)
 
     const MemoryAddress src_addr = AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 2;
     const MemoryAddress dst_addr = 456;
-    const uint32_t space_id = 23;
+    const uint16_t space_id = 23;
 
     testing::generate_keccak_trace_with_slice_error(trace, dst_addr, src_addr, space_id);
 
@@ -325,7 +325,7 @@ TEST(KeccakF1600TraceGenTest, DstAddressOutOfBounds)
 
     const MemoryAddress src_addr = 123;
     const MemoryAddress dst_addr = AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 2;
-    const uint32_t space_id = 23;
+    const uint16_t space_id = 23;
 
     testing::generate_keccak_trace_with_slice_error(trace, dst_addr, src_addr, space_id);
 

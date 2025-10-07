@@ -14,7 +14,7 @@ template <typename FF_> class contract_instance_retrievalImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 13> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 2, 3, 4, 3, 4, 4, 4, 4, 4, 4, 3 };
+    static constexpr std::array<size_t, 14> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 2, 3, 3, 5, 3, 4, 4, 4, 4, 4, 4, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -35,16 +35,18 @@ template <typename FF> class contract_instance_retrieval : public Relation<contr
     static constexpr const std::string_view NAME = "contract_instance_retrieval";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE = 6;
-    static constexpr size_t SR_INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE = 7;
-    static constexpr size_t SR_INSTANCE_MEMBER_CLASS_ID_IS_ZERO_IF_DNE = 8;
-    static constexpr size_t SR_INSTANCE_MEMBER_ORIGINAL_CLASS_ID_IS_ZERO_IF_DNE = 9;
-    static constexpr size_t SR_INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE = 10;
-    static constexpr size_t SR_UNCHANGED_ADDRESS_NON_PROTOCOL = 11;
+    static constexpr size_t SR_UNCHANGED_ADDRESS_NON_PROTOCOL = 7;
+    static constexpr size_t SR_INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE = 8;
+    static constexpr size_t SR_INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE = 9;
+    static constexpr size_t SR_INSTANCE_MEMBER_CLASS_ID_IS_ZERO_IF_DNE = 10;
+    static constexpr size_t SR_INSTANCE_MEMBER_ORIGINAL_CLASS_ID_IS_ZERO_IF_DNE = 11;
+    static constexpr size_t SR_INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE = 12;
 
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
+        case SR_UNCHANGED_ADDRESS_NON_PROTOCOL:
+            return "UNCHANGED_ADDRESS_NON_PROTOCOL";
         case SR_INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE:
             return "INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE";
         case SR_INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE:
@@ -55,8 +57,6 @@ template <typename FF> class contract_instance_retrieval : public Relation<contr
             return "INSTANCE_MEMBER_ORIGINAL_CLASS_ID_IS_ZERO_IF_DNE";
         case SR_INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE:
             return "INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE";
-        case SR_UNCHANGED_ADDRESS_NON_PROTOCOL:
-            return "UNCHANGED_ADDRESS_NON_PROTOCOL";
         }
         return std::to_string(index);
     }

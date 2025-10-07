@@ -1,6 +1,7 @@
 import {
   AztecAddress,
   createAztecNodeClient,
+  type DeployAccountOptions,
   DeployMethod,
   Fr,
   getContractInstanceFromInstantiationParams,
@@ -12,7 +13,7 @@ import { type AztecNode } from '@aztec/aztec.js/interfaces';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { createStore } from '@aztec/kv-store/lmdb';
 import { SponsoredFPCContractArtifact } from '@aztec/noir-contracts.js/SponsoredFPC';
-import { getPXEServiceConfig } from '@aztec/pxe/server';
+import { getPXEConfig } from '@aztec/pxe/server';
 import { getDefaultInitializer } from '@aztec/stdlib/abi';
 import { TestWallet } from '@aztec/test-wallet/server';
 import fs from 'fs';
@@ -34,7 +35,7 @@ async function setupWallet(aztecNode: AztecNode) {
     dataStoreMapSizeKB: 1e6,
   });
 
-  const config = getPXEServiceConfig();
+  const config = getPXEConfig();
   config.dataDirectory = 'pxe';
   config.proverEnabled = PROVER_ENABLED;
 
@@ -67,22 +68,20 @@ async function createAccount(wallet: TestWallet) {
 
   const deployMethod = await accountManager.getDeployMethod();
   const sponsoredPFCContract = await getSponsoredPFCContract();
-  const deployOpts = {
+  const deployOpts: DeployAccountOptions = {
     from: AztecAddress.ZERO,
-    contractAddressSalt: Fr.fromString(salt.toString()),
     fee: {
-      paymentMethod: await accountManager.getSelfPaymentMethod(
-        new SponsoredFeePaymentMethod(sponsoredPFCContract.address)
+      paymentMethod: new SponsoredFeePaymentMethod(
+        sponsoredPFCContract.address
       ),
     },
-    universalDeploy: true,
     skipClassPublication: true,
     skipInstancePublication: true,
   };
   const provenInteraction = await deployMethod.prove(deployOpts);
   await provenInteraction.send().wait({ timeout: 120 });
 
-  return accountManager.getAddress();
+  return accountManager.address;
 }
 
 async function deployContract(wallet: Wallet, deployer: AztecAddress) {

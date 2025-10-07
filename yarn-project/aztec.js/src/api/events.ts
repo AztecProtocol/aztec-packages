@@ -1,5 +1,5 @@
-import { EventSelector, decodeFromAbi } from '@aztec/stdlib/abi';
-import type { AztecNode, EventMetadataDefinition } from '@aztec/stdlib/interfaces/client';
+import { type EventMetadataDefinition, EventSelector, decodeFromAbi } from '@aztec/stdlib/abi';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 /**
  * Returns decoded public events given search parameters.

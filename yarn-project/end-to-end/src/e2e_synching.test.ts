@@ -53,7 +53,7 @@ import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/Schnor
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestationsAndSigners, L2Block } from '@aztec/stdlib/block';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { TestWallet } from '@aztec/test-wallet/server';
@@ -65,7 +65,7 @@ import { getContract } from 'viem';
 
 import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
-import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEServiceAndGetWallet } from './fixtures/utils.js';
+import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEAndGetWallet } from './fixtures/utils.js';
 
 const SALT = 420;
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
@@ -149,7 +149,12 @@ class TestVariant {
     const managers = await Promise.all(
       accounts.map(account => this.wallet.createSchnorrAccount(account.secret, account.salt)),
     );
-    await Promise.all(managers.map(m => m.deploy().wait()));
+    await Promise.all(
+      managers.map(async m => {
+        const deployMethod = await m.getDeployMethod();
+        return deployMethod.send({ from: AztecAddress.ZERO }).wait();
+      }),
+    );
     return accounts.map(acc => acc.address);
   }
 
@@ -196,9 +201,10 @@ class TestVariant {
           Fr.random(),
           GrumpkinScalar.random(),
         );
-        this.contractAddresses.push(accountManager.getAddress());
-        const tx = accountManager.deploy({
-          deployAccount,
+        this.contractAddresses.push(accountManager.address);
+        const deployMethod = await accountManager.getDeployMethod();
+        const tx = deployMethod.send({
+          from: deployAccount,
           skipClassPublication: true,
           skipInstancePublication: true,
         });
@@ -405,8 +411,7 @@ describe('e2e_synching', () => {
 
     const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(
       deployL1ContractsValues.l1Client,
-      logger,
-      dateProvider!,
+      { logger, dateProvider: dateProvider! },
       config,
     );
     const rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
@@ -432,7 +437,6 @@ describe('e2e_synching', () => {
         l1RpcUrls: config.l1RpcUrls,
         l1Contracts: deployL1ContractsValues.l1ContractAddresses,
         publisherPrivateKeys: [new SecretValue(sequencerPK)],
-        l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
@@ -539,7 +543,7 @@ describe('e2e_synching', () => {
             const aztecNode = await AztecNodeService.createAndSync(opts.config!);
             const sequencer = aztecNode.getSequencer();
 
-            const { wallet } = await setupPXEServiceAndGetWallet(aztecNode!);
+            const { wallet } = await setupPXEAndGetWallet(aztecNode!);
             variant.setWallet(wallet);
             const defaultAccountAddress = (await variant.deployAccounts(opts.initialFundedAccounts!.slice(0, 1)))[0];
 
@@ -681,7 +685,7 @@ describe('e2e_synching', () => {
           expect(await aztecNode.getBlockNumber()).toBeLessThan(blockBeforePrune);
 
           // We need to start the pxe after the re-org for now, because it won't handle it otherwise
-          const { wallet } = await setupPXEServiceAndGetWallet(aztecNode!);
+          const { wallet } = await setupPXEAndGetWallet(aztecNode!);
           variant.setWallet(wallet);
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
@@ -739,7 +743,7 @@ describe('e2e_synching', () => {
           const aztecNode = await AztecNodeService.createAndSync(opts.config!);
           const sequencer = aztecNode.getSequencer();
 
-          const { wallet: newWallet } = await setupPXEServiceAndGetWallet(aztecNode!);
+          const { wallet: newWallet } = await setupPXEAndGetWallet(aztecNode!);
           variant.setWallet(newWallet);
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());

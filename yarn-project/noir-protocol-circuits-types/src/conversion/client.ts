@@ -43,7 +43,7 @@ import {
 } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 import type { NullifierLeafPreimage } from '@aztec/stdlib/trees';
-import { CallContext, FunctionData, TxConstantData, TxRequest } from '@aztec/stdlib/tx';
+import { CallContext, FunctionData, TxRequest } from '@aztec/stdlib/tx';
 
 import type {
   CallContext as CallContextNoir,
@@ -85,7 +85,6 @@ import type {
   ScopedNullifier as ScopedNullifierNoir,
   ScopedReadRequest as ScopedReadRequestNoir,
   TransientDataSquashingHint as TransientDataSquashingHintNoir,
-  TxConstantData as TxConstantDataNoir,
   TxRequest as TxRequestNoir,
 } from '../types/index.js';
 import {
@@ -115,7 +114,8 @@ import {
   mapPrivateLogToNoir,
   mapPrivateToPublicAccumulatedDataFromNoir,
   mapPrivateToRollupAccumulatedDataFromNoir,
-  mapProtocolContractLeafPreimageToNoir,
+  mapPrivateTxConstantDataFromNoir,
+  mapPrivateTxConstantDataToNoir,
   mapPublicCallRequestFromNoir,
   mapPublicCallRequestToNoir,
   mapPublicDataTreePreimageToNoir,
@@ -550,10 +550,6 @@ export function mapPrivateVerificationKeyHintsToNoir(
     ),
     public_keys: mapPublicKeysToNoir(privateVerificationKeyHints.publicKeys),
     salted_initialization_hash: mapWrappedFieldToNoir(privateVerificationKeyHints.saltedInitializationHash),
-    protocol_contract_membership_witness: mapMembershipWitnessToNoir(
-      privateVerificationKeyHints.protocolContractMembershipWitness,
-    ),
-    protocol_contract_leaf: mapProtocolContractLeafPreimageToNoir(privateVerificationKeyHints.protocolContractLeaf),
     updated_class_id_witness: mapMembershipWitnessToNoir(
       privateVerificationKeyHints.updatedClassIdHints.updatedClassIdWitness,
     ),
@@ -579,20 +575,11 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
   };
 }
 
-function mapTxConstantDataToNoir(data: TxConstantData): TxConstantDataNoir {
-  return {
-    anchor_block_header: mapBlockHeaderToNoir(data.anchorBlockHeader),
-    tx_context: mapTxContextToNoir(data.txContext),
-    vk_tree_root: mapFieldToNoir(data.vkTreeRoot),
-    protocol_contract_tree_root: mapFieldToNoir(data.protocolContractTreeRoot),
-  };
-}
-
 export function mapPrivateKernelCircuitPublicInputsFromNoir(
   inputs: PrivateKernelCircuitPublicInputsNoir,
 ): PrivateKernelCircuitPublicInputs {
   return new PrivateKernelCircuitPublicInputs(
-    mapTxConstantDataFromNoir(inputs.constants),
+    mapPrivateTxConstantDataFromNoir(inputs.constants),
     mapFieldFromNoir(inputs.min_revertible_side_effect_counter),
     mapPrivateValidationRequestsFromNoir(inputs.validation_requests),
     mapPrivateAccumulatedDataFromNoir(inputs.end),
@@ -608,7 +595,7 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
   inputs: PrivateKernelCircuitPublicInputs,
 ): PrivateKernelCircuitPublicInputsNoir {
   return {
-    constants: mapTxConstantDataToNoir(inputs.constants),
+    constants: mapPrivateTxConstantDataToNoir(inputs.constants),
     validation_requests: mapPrivateValidationRequestsToNoir(inputs.validationRequests),
     end: mapPrivateAccumulatedDataToNoir(inputs.end),
     min_revertible_side_effect_counter: mapFieldToNoir(inputs.minRevertibleSideEffectCounter),

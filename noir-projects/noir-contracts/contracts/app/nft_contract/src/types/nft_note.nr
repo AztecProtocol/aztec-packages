@@ -22,7 +22,6 @@ use dep::aztec::{
 // #[custom_note] macro to implement it manually, resulting in some boilerplate. This is expected to be unnecessary once
 // macro support is expanded.
 
-// docs:start:nft_note
 /// A private note representing a token id associated to an account.
 #[derive(Eq, Serialize, Packable)]
 #[custom_note]
@@ -39,7 +38,6 @@ pub struct NFTNote {
     /// The ID of the token represented by this note.
     token_id: Field,
 }
-// docs:end:nft_note
 
 impl NoteHash for NFTNote {
     fn compute_note_hash(self, storage_slot: Field) -> Field {
@@ -68,23 +66,26 @@ impl NoteHash for NFTNote {
     fn compute_nullifier(
         self,
         context: &mut PrivateContext,
-        note_hash_for_nullify: Field,
+        note_hash_for_nullification: Field,
     ) -> Field {
         let owner_npk_m = get_public_keys(self.owner).npk_m;
         let owner_npk_m_hash = owner_npk_m.hash();
         let secret = context.request_nsk_app(owner_npk_m_hash);
         poseidon2_hash_with_separator(
-            [note_hash_for_nullify, secret],
+            [note_hash_for_nullification, secret],
             GENERATOR_INDEX__NOTE_NULLIFIER,
         )
     }
 
-    unconstrained fn compute_nullifier_unconstrained(self, note_hash_for_nullify: Field) -> Field {
+    unconstrained fn compute_nullifier_unconstrained(
+        self,
+        note_hash_for_nullification: Field,
+    ) -> Field {
         let owner_npk_m = get_public_keys(self.owner).npk_m;
         let owner_npk_m_hash = owner_npk_m.hash();
         let secret = get_nsk_app(owner_npk_m_hash);
         poseidon2_hash_with_separator(
-            [note_hash_for_nullify, secret],
+            [note_hash_for_nullification, secret],
             GENERATOR_INDEX__NOTE_NULLIFIER,
         )
     }
