@@ -1,6 +1,7 @@
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ipc/ipc_client.hpp"
 #include "barretenberg/ipc/shm/mpsc_shm.h"
 #include "barretenberg/ipc/shm/spsc_shm.h"
 #include "barretenberg/ipc/socket/uds_client.h"
@@ -547,7 +548,7 @@ static pid_t spawn_bb_msgpack_server(const std::string& path)
 // BB Binary Msgpack Benchmark: Full stack test with actual bb binary
 class Poseidon2BBMsgpackSocket : public Fixture {
   public:
-    struct uds_client* client;
+    std::unique_ptr<ipc::IpcClient> client;
     pid_t bb_pid;
     grumpkin::fq x, y;
 
@@ -566,7 +567,7 @@ class Poseidon2BBMsgpackSocket : public Fixture {
         return false;
     }
 
-    void SetUp(const ::benchmark::State&) override
+    void SetUp(const ::benchmark::State& /*unused*/) override
     {
         // Clean up any leftover socket
         unlink(socket_path);
@@ -587,11 +588,11 @@ class Poseidon2BBMsgpackSocket : public Fixture {
         // Give server a bit more time to be fully ready
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-        // Connect client with retries
+        // Create and connect client with retries
+        client = ipc::IpcClient::create_socket(socket_path);
         int retry_count = 0;
         while (retry_count < 5) {
-            client = uds_client_connect(socket_path);
-            if (client) {
+            if (client->connect()) {
                 break;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -609,10 +610,10 @@ class Poseidon2BBMsgpackSocket : public Fixture {
         y = grumpkin::fq::random_element();
     }
 
-    void TearDown(const ::benchmark::State&) override
+    void TearDown(const ::benchmark::State& /*unused*/) override
     {
         if (client) {
-            uds_client_close(client);
+            client->close();
         }
 
         // Kill bb process
@@ -641,15 +642,14 @@ BENCHMARK_DEFINE_F(Poseidon2BBMsgpackSocket, poseiden_hash_roundtrip)(benchmark:
         msgpack::sbuffer cmd_buffer;
         msgpack::pack(cmd_buffer, command);
 
-        // Send command (uds_client_send handles length prefix automatically)
-        ssize_t sent = uds_client_send(client, cmd_buffer.data(), cmd_buffer.size());
-        if (sent < 0) {
+        // Send command
+        if (!client->send(cmd_buffer.data(), cmd_buffer.size())) {
             state.SkipWithError("Failed to send command");
             break;
         }
 
-        // Receive response (uds_client_recv handles length prefix automatically)
-        ssize_t n = uds_client_recv(client, resp_buffer.data(), resp_buffer.size());
+        // Receive response
+        ssize_t n = client->recv(resp_buffer.data(), resp_buffer.size());
         if (n < 0) {
             state.SkipWithError("Failed to receive response");
             break;
@@ -678,15 +678,13 @@ BENCHMARK_REGISTER_F(Poseidon2BBMsgpackSocket, poseiden_hash_roundtrip)
 // BB Binary Msgpack Shared Memory Benchmark: Full stack test with bb binary using shared memory IPC
 class Poseidon2BBMsgpackShm : public Fixture {
   public:
+    std::unique_ptr<ipc::IpcClient> client;
     pid_t bb_pid;
-    uint32_t client_id;
-    struct mpsc_producer* producer;
-    struct spsc_shm* response_ring;
     grumpkin::fq x, y;
 
     const std::string base_name = "/poseidon_bb_msgpack_shm_bench";
 
-    void SetUp(const ::benchmark::State&) override
+    void SetUp(const ::benchmark::State& /*unused*/) override
     {
         // Clean up any leftover shared memory
         mpsc_unlink(base_name.c_str(), 10);
@@ -706,50 +704,12 @@ class Poseidon2BBMsgpackShm : public Fixture {
         // Wait for server to create shared memory resources
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-        // Atomically claim a client ID
-        std::string id_name = base_name + "_next_id";
-        int id_fd = shm_open(id_name.c_str(), O_RDWR, 0666);
-        if (id_fd < 0) {
+        // Create and connect shared memory client
+        client = ipc::IpcClient::create_shm(base_name, 10);
+        if (!client->connect()) {
             kill(bb_pid, SIGKILL);
             waitpid(bb_pid, nullptr, 0);
-            throw std::runtime_error("Failed to open client ID allocator");
-        }
-
-        auto* next_id = static_cast<std::atomic<uint32_t>*>(
-            mmap(nullptr, sizeof(std::atomic<uint32_t>), PROT_READ | PROT_WRITE, MAP_SHARED, id_fd, 0));
-        if (next_id == MAP_FAILED) {
-            close(id_fd);
-            kill(bb_pid, SIGKILL);
-            waitpid(bb_pid, nullptr, 0);
-            throw std::runtime_error("Failed to map client ID allocator");
-        }
-
-        client_id = next_id->fetch_add(1, std::memory_order_relaxed);
-        munmap(next_id, sizeof(std::atomic<uint32_t>));
-        close(id_fd);
-
-        if (client_id >= 10) {
-            kill(bb_pid, SIGKILL);
-            waitpid(bb_pid, nullptr, 0);
-            throw std::runtime_error("Too many clients (max 10)");
-        }
-
-        // Connect as MPSC producer (for requests)
-        producer = mpsc_producer_connect(base_name.c_str(), client_id);
-        if (!producer) {
-            kill(bb_pid, SIGKILL);
-            waitpid(bb_pid, nullptr, 0);
-            throw std::runtime_error("Failed to connect as MPSC producer");
-        }
-
-        // Connect to response ring as SPSC consumer
-        std::string resp_name = base_name + "_response_" + std::to_string(client_id);
-        response_ring = spsc_shm_connect(resp_name.c_str());
-        if (!response_ring) {
-            mpsc_producer_close(producer);
-            kill(bb_pid, SIGKILL);
-            waitpid(bb_pid, nullptr, 0);
-            throw std::runtime_error("Failed to connect to response ring");
+            throw std::runtime_error("Failed to connect to BB shared memory server");
         }
 
         // Pre-generate test inputs
@@ -757,14 +717,10 @@ class Poseidon2BBMsgpackShm : public Fixture {
         y = grumpkin::fq::random_element();
     }
 
-    void TearDown(const ::benchmark::State&) override
+    void TearDown(const ::benchmark::State& /*unused*/) override
     {
-        if (response_ring) {
-            spsc_shm_close(response_ring);
-        }
-
-        if (producer) {
-            mpsc_producer_close(producer);
+        if (client) {
+            client->close();
         }
 
         // Kill bb process
@@ -786,9 +742,10 @@ class Poseidon2BBMsgpackShm : public Fixture {
 
 BENCHMARK_DEFINE_F(Poseidon2BBMsgpackShm, poseiden_hash_roundtrip)(benchmark::State& state)
 {
-    for (auto _ : state) {
-        bool error = false;
+    // Pre-allocate buffer for responses
+    std::vector<uint8_t> resp_buffer(1024 * 1024); // 1MB should be enough for hash response
 
+    for (auto _ : state) {
         // Create Poseidon2Hash command wrapped in Command NamedUnion
         bb::bbapi::Poseidon2Hash hash_cmd;
         hash_cmd.inputs = { uint256_t(x), uint256_t(y) };
@@ -798,48 +755,23 @@ BENCHMARK_DEFINE_F(Poseidon2BBMsgpackShm, poseiden_hash_roundtrip)(benchmark::St
         msgpack::sbuffer cmd_buffer;
         msgpack::pack(cmd_buffer, command);
 
-        // Send request via MPSC (retry until we get enough space)
-        while (true) {
-            if (mpsc_wait_for_space(producer, cmd_buffer.size(), 1000000000)) {
-                size_t granted = 0;
-                void* buf = mpsc_claim(producer, cmd_buffer.size(), &granted);
-                if (granted >= cmd_buffer.size()) {
-                    std::memcpy(buf, cmd_buffer.data(), cmd_buffer.size());
-                    mpsc_publish(producer, cmd_buffer.size());
-                    break;
-                }
-            } else {
-                state.SkipWithError("Timeout waiting for space in request ring");
-                error = true;
-                break;
-            }
-        }
-
-        if (error) {
+        // Send request
+        if (!client->send(cmd_buffer.data(), cmd_buffer.size(), 1000000000)) {
+            state.SkipWithError("Failed to send command");
             break;
         }
 
-        // Receive response via SPSC
-        if (!spsc_wait_for_data(response_ring, 1000000000)) {
-            state.SkipWithError("Timeout waiting for response");
-            break;
-        }
-
-        size_t n = 0;
-        void* data = spsc_peek(response_ring, &n);
-        if (!data || n == 0) {
-            spsc_release(response_ring, n);
-            state.SkipWithError("Empty response");
+        // Receive response
+        ssize_t n = client->recv(resp_buffer.data(), resp_buffer.size(), 1000000000);
+        if (n < 0) {
+            state.SkipWithError("Failed to receive response");
             break;
         }
 
         // Deserialize response
-        auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(data), n);
+        auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(resp_buffer.data()), static_cast<size_t>(n));
         bb::bbapi::CommandResponse response;
         unpacked.get().convert(response);
-
-        // Release response data
-        spsc_release(response_ring, n);
 
         // Extract hash from response
         const auto& response_variant = static_cast<const bb::bbapi::CommandResponse::VariantType&>(response);
