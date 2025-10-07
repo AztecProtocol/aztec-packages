@@ -78,7 +78,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     this.tracer = telemetry.getTracer('Validator');
     this.metrics = new ValidatorMetrics(telemetry);
 
-    this.validationService = new ValidationService(keyStore);
+    this.validationService = new ValidationService(keyStore, log.createChild('validation-service'));
 
     // Refresh epoch cache every second to trigger alert if participation in committee changes
     this.epochCacheUpdateLoop = new RunningPromise(this.handleEpochCommitteeUpdate.bind(this), log, 1000);
@@ -359,7 +359,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       stateReference,
       txs,
       proposerAddress,
-      options,
+      { ...options, broadcastInvalidBlockProposal: this.config.broadcastInvalidBlockProposal },
     );
     this.previousProposal = newProposal;
     return newProposal;
