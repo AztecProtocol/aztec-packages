@@ -253,6 +253,7 @@ function build {
     build_wasm
     build_wasm_threads
   )
+  local macos_cross_compile=0
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
     builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast build_smt_verification)
     # macOS builds require the avm-transpiler linked.
@@ -261,12 +262,13 @@ function build {
       # We only build these with AVM transpiler linked, and disable them if not building AVM.
       # This coupling is mostly arbitrary.
       builds+=(build_darwin_arm64 build_darwin_amd64)
+      macos_cross_compile=1
     fi
   fi
   parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${builds[@]}
 
-  # Sign macOS builds if built (version already injected in build functions)
-  if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ] && [ "${DISABLE_AZTEC_VM:-0}" -eq 0 ]; then
+  # Re-sign macOS builds. Necessary due to injecting the version through binary rewriting.
+  if [ "$macos_cross_compile" -eq 1 ]; then
     ensure_ldid
     ldid -S build-zig-arm64-macos/bin/bb
     ldid -S build-zig-amd64-macos/bin/bb
