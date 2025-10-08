@@ -50,7 +50,7 @@ using OperationKey = std::string_view;
 
 struct TimeAndCount {
     uint64_t time = 0;
-    uint64_t count = 0;
+    std::size_t count = 0;
 };
 
 // Normalized benchmark entry - each represents a unique (function, parent) pair
@@ -58,11 +58,11 @@ struct AggregateEntry {
     // For convenience, even though redundant with map store
     OperationKey key;
     OperationKey parent;
-    std::size_t time = 0;
+    uint64_t time = 0;
     std::size_t count = 0;
     size_t num_threads = 0;
     double time_mean = 0;
-    std::size_t time_max = 0;
+    uint64_t time_max = 0;
     double time_stddev = 0;
 
     // Welford's algorithm state
@@ -106,18 +106,18 @@ extern GlobalBenchStatsContainer GLOBAL_BENCH_STATS;
 struct TimeStats {
     TimeStatsEntry* parent = nullptr;
     std::size_t count = 0;
-    std::size_t time = 0;
+    uint64_t time = 0;
     // Used if the parent changes from last call - chains to handle multiple parent contexts
     std::unique_ptr<TimeStats> next;
 
     TimeStats() = default;
-    TimeStats(TimeStatsEntry* parent_ptr, std::size_t count_val, std::size_t time_val)
+    TimeStats(TimeStatsEntry* parent_ptr, std::size_t count_val, uint64_t time_val)
         : parent(parent_ptr)
         , count(count_val)
         , time(time_val)
     {}
 
-    void track(TimeStatsEntry* current_parent, std::size_t time_val)
+    void track(TimeStatsEntry* current_parent, uint64_t time_val)
     {
         // Try to track with current stats if parent matches
         // Check if 'next' already handles this parent to avoid creating duplicates
@@ -137,7 +137,7 @@ struct TimeStats {
 
   private:
     // Returns true if successfully tracked (parent matches), false otherwise
-    bool raw_track(TimeStatsEntry* expected_parent, std::size_t time_val)
+    bool raw_track(TimeStatsEntry* expected_parent, uint64_t time_val)
     {
         if (parent != expected_parent) {
             return false;
@@ -180,7 +180,7 @@ template <OperationLabel Op> struct ThreadBenchStats {
 struct BenchReporter {
     TimeStatsEntry* parent;
     TimeStatsEntry* stats;
-    std::size_t time;
+    uint64_t time;
     BenchReporter(TimeStatsEntry* entry);
     ~BenchReporter();
 };
@@ -195,14 +195,14 @@ struct BenchReporter {
 #define BB_BENCH_ONLY_NAME(name) (void)0
 #define BB_BENCH_ENABLE_NESTING() (void)0
 #define BB_BENCH_ONLY() (void)0
-#elif defined __wasm__
-#define BB_TRACY() (void)0
-#define BB_TRACY_NAME(name) (void)0
-#define BB_BENCH_TRACY() (void)0
-#define BB_BENCH_TRACY_NAME(name) (void)0
-#define BB_BENCH_ONLY_NAME(name) (void)0
-#define BB_BENCH_ENABLE_NESTING() (void)0
-#define BB_BENCH_ONLY() (void)0
+// #elif defined __wasm__  // TEMPORARILY REMOVED FOR TIMING TEST
+// #define BB_TRACY() (void)0
+// #define BB_TRACY_NAME(name) (void)0
+// #define BB_BENCH_TRACY() (void)0
+// #define BB_BENCH_TRACY_NAME(name) (void)0
+// #define BB_BENCH_ONLY_NAME(name) (void)0
+// #define BB_BENCH_ENABLE_NESTING() (void)0
+// #define BB_BENCH_ONLY() (void)0
 #else
 #define BB_TRACY() (void)0
 #define BB_TRACY_NAME(name) (void)0
