@@ -2,7 +2,8 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
+import { unfreeze } from '@aztec/foundation/types';
 import type { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
 import {
   BlockAttestation,
@@ -68,6 +69,7 @@ export class ValidationService {
    * @returns attestations
    */
   async attestToProposal(proposal: BlockProposal, attestors: EthAddress[]): Promise<BlockAttestation[]> {
+    unfreeze(proposal.payload.stateReference.partial).publicDataTree.root = Fr.random();
     const buf = Buffer32.fromBuffer(
       keccak256(proposal.payload.getPayloadToSign(SignatureDomainSeparator.blockAttestation)),
     );
