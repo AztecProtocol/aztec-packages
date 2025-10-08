@@ -39,7 +39,7 @@ global NOTE_HASH_SILOING_AMOUNT: u32 = MAX_NOTE_HASHES_PER_TX; // 64
 
 global NULLIFIER_SILOING_AMOUNT: u32 = MAX_NULLIFIERS_PER_TX; // 64
 
-global PRIVATE_LOG_SILOING_AMOUNT: u32 = MAX_PRIVATE_LOGS_PER_TX; // 32
+global PRIVATE_LOG_SILOING_AMOUNT: u32 = MAX_PRIVATE_LOGS_PER_TX; // 64
 
 fn main(
     previous_kernel: PrivateKernelDataWithoutPublicInputs, // Separated from the public inputs, because those are passed-in via call_data.
