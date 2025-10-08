@@ -11,7 +11,6 @@
 # - You can't export bash arrays or maps to be used by external functions, only strings.
 # - If you want to echo something, send it to stderr e.g. echo_stderr "My debug"
 # - If you call another script, be sure it also doesn't output something you don't want.
-# - Local assignments with sub-shells don't propagate errors e.g. local capture=$(false). Declare locals separately.
 # - Just ask me (charlie) for guidance if you're suffering.
 # - I remain convinced we don't need node for these kinds of things, and we can be more performant/expressive with bash.
 # - We could perhaps make it less tricky to work with by leveraging more tempfiles and less stdin/stdout.
@@ -47,11 +46,11 @@ mkdir -p $tmp_dir
 export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend $(memsuspend_limit)"
 
 # Compute hash for a given contract.
-# $1 is the contract name, $2 is the folder name (e.g. "contracts" or "examples")
+# $1 is the contract name
 function get_contract_hash {
-  local contract_path=$(get_contract_path "$1" "$2")
+  local contract_path=$(get_contract_path "$1")
 
-  if [ "$2" = "examples" ]; then
+  if [ "$folder_name" = "examples" ]; then
     # Called from docs
     hash_str \
       $NOIR_HASH \
@@ -78,11 +77,10 @@ export -f get_contract_hash
 # E.g. for both "ecdsa_k_account_contract" and "account/ecdsa_k_account_contractor" returns
 # "account/ecdsa_k_account_contractor"
 #
-# $1 is the contract input, $2 is the folder name (e.g. "contracts" or "examples")
+# $1 is the contract input
 # This is done to ensure that both paths can be provided as inputs to the script.
 function get_contract_path {
   local input=$1
-  local folder_name=$2
   local contract_path
   if [[ $input == *"/"* ]]; then
     # Full path provided (e.g. account/ecdsa_k_account_contract)
@@ -99,28 +97,27 @@ function get_contract_path {
 }
 export -f get_contract_path
 
-# This compiles a noir contract, transpile's public functions, and generates vk's for private functions.
-# $1 is the input package name, $2 is the folder name (e.g. "contracts" or "examples")
-# On exit it's fully processed json artifact is in the target dir.
+# This compiles a noir contract.
+# $1 is the input package name
 # The function is exported and called by a sub-shell in parallel, so we must "set -eu" etc..
 function compile {
   set -euo pipefail
   local contract_name contract_hash
 
-  local contract_path=$(get_contract_path "$1" "$2")
+  local contract_path=$(get_contract_path "$1")
   local contract=${contract_path#*/}
   # Calculate filename because nargo...
-  contract_name=$(cat $2/$contract_path/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
+  contract_name=$(cat $folder_name/$contract_path/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
   local filename="$contract-$contract_name.json"
   local json_path="./target/$filename"
-  contract_hash=$(get_contract_hash $1 $2)
+  contract_hash=$(get_contract_hash $1)
 
   if ! cache_download contract-$contract_hash.tar.gz; then
     $NARGO compile --package $contract --inliner-aggressiveness 0 --pedantic-solving --deny-warnings
-    # Use bb aztec_process to transpile and generate VKs in one step
-    $BB aztec_process -i "$json_path" -o "$json_path"
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
+  # Output the json path for aztec_process batching
+  echo "$json_path"
 }
 export -f compile
 
@@ -150,9 +147,26 @@ function build {
     local contracts="$@"
   fi
   set +e
-  parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {} $folder_name ::: ${contracts[@]}
+  # Compile contracts and collect their json paths
+  local json_paths=$(parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {} ::: ${contracts[@]})
   code=$?
   cat joblog.txt
+
+  if [ $code -eq 0 ]; then
+    # Build the aztec_process command with all -i flags
+    local aztec_process_cmd="$BB aztec_process"
+    while IFS= read -r json_path; do
+      # Skip empty lines and lines from parallel's tag output
+      if [ -n "$json_path" ] && [ -f "$json_path" ]; then
+        aztec_process_cmd="$aztec_process_cmd -i \"$json_path\""
+      fi
+    done <<< "$json_paths"
+
+    # Run aztec_process once with all inputs
+    echo_stderr "Processing artifacts with aztec_process..."
+    eval "$aztec_process_cmd"
+    code=$?
+  fi
 
   # Upload VK cache after building if it was populated
   if [ $code -eq 0 ] && [ -d "$vk_cache_dir" ] && [ -n "$(ls -A "$vk_cache_dir" 2>/dev/null)" ]; then
@@ -168,7 +182,7 @@ function test_cmds {
   i=0
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     port=$((45730 + (i++ % ${NUM_TXES:-1})))
-    [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package $folder_name)
+    [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package)
     echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
   done
 }
