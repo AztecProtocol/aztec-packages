@@ -1,22 +1,22 @@
 ---
 title: "Aztec's Vision"
-description: "Discover how Aztec is creating a fully programmable private zkRollup that combines privacy, accessibility, trustlessness, and compliance"
+description: "Discover how Aztec is creating a fully programmable private zk rollup that combines privacy, accessibility, trust minimization, and compliance"
 ---
 
 ## Welcome to the Future of Private Applications
 
-Now that you understand the privacy problem from our previous section, let's explore how Aztec is solving it. You're about to discover a vision that goes beyond just fixing privacy - we're creating an entirely new paradigm for building decentralized applications.
+Now that you understand the privacy problem from our previous lesson, let's explore how Aztec is solving it. This goes beyond just fixing privacy; we're creating an new paradigm for building decentralized applications.
 
-Imagine a world where you can have your cake and eat it too: the security and decentralization of blockchain, combined with the privacy you expect from traditional applications. That's not just a dream - it's what we're building at Aztec.
+You can have your cake and eat it too: the security and decentralization of blockchain, combined with the privacy you expect from traditional applications. This is what we're building at Aztec.
 
 ## Learning Objectives
 
-By the end of this section, you'll understand:
+By the end of this lesson, you'll understand:
 
 1. How Aztec approaches privacy differently from other solutions
 2. Why accessibility through zero-knowledge proofs matters for mass adoption
-3. How trustlessness ensures no one can compromise your privacy
-4. Why programmable compliance is a game-changer for real-world adoption
+3. How trust minimization ensures no one can compromise your privacy
+4. Why programmable compliance is necessary for real-world adoption
 
 ---
 
@@ -35,7 +35,7 @@ This fundamental difference changes everything about how applications work.
 
 ### The UTXO Architecture
 
-You might have heard of UTXO (Unspent Transaction Output) from Bitcoin, but Aztec takes this concept and supercharges it for privacy. Let me explain why this matters with a simple analogy:
+You might have heard of UTXO (Unspent Transaction Output) from Bitcoin, but Aztec takes this concept and supercharges it for privacy. Let's explain why this matters with a simple analogy:
 
 **Traditional Account Model** (like Ethereum):
 
@@ -48,14 +48,16 @@ New Balance: $900 (everyone can see this too)
 **Aztec's Private UTXO Model**:
 
 ```
-You have several encrypted "notes" that only you can read
+You have several encrypted "notes" that only you can read, making up your balance.
 You consume one note and create two new ones:
   - One for Alice (only she can decrypt)
-  - One for your change (only you can decrypt)
+  - One for your remaining balance (only you can decrypt)
 Observers see: "Someone did something" ¯\_(ツ)_/¯
 ```
 
 This isn't just hiding amounts - it's complete transaction privacy!
+
+We will be going into notes and Aztec's private UTXO model later in the learning journey.
 
 ### Smart Contracts with Secrets
 
@@ -106,9 +108,9 @@ This isn't like using a mixer or a privacy coin where you're just obscuring tran
 
 ### The Magic of Recursive Proofs
 
-Now, you might be thinking, "Privacy sounds expensive. Won't this make transactions super costly?" This is where Aztec's innovation really shines!
+Now, you might be thinking, "Privacy sounds expensive. Won't this make transactions super costly?" by using recursive proofs, (little proofs combined into one mega proof), Aztec keeps transactions low cost.
 
-Let me explain with an analogy that'll make this crystal clear:
+Let's explain this using an analogy:
 
 **Traditional Blockchain Verification:**
 Imagine you're a teacher grading 1000 test papers. You have to check every single answer on every single paper. That's a lot of work!
@@ -123,7 +125,7 @@ That's the power of recursive aggregation! We can batch hundreds or thousands of
 Let's look at what this means for you as a user:
 
 ```
-Traditional Private Transaction Cost:
+Previous Private Transaction Cost:
 ├── Compute complex cryptography: $$$$$
 ├── Store encrypted data: $$
 ├── Verify each transaction: $$$$
@@ -136,16 +138,16 @@ Aztec's Aggregated Transaction Cost:
 └── Total: Affordable! 😊
 ```
 
+The key here is that other rollups use ZK proofs and batching transactions purely for succinct verification. But, Aztec uses it also for private state whilst _still_ maintaining cheaper transaction costs.
+
 The more people use Aztec, the cheaper it becomes for everyone. It's like carpooling for blockchain transactions!
 
-### Keeping It Accessible
+### Accessibility
 
-Accessibility isn't just about cost. It's also about:
-
-1. **Developer Experience**: We provide familiar tools so developers don't need PhDs in cryptography
-2. **User Experience**: Privacy should be the default, not something users have to figure out
+1. **Developer Experience**: We provide familiar tools so developers don't need PhDs in cryptography.
+2. **User Experience**: Privacy should be the default, not something users have to figure out.
 3. **Global Reach**: Low costs mean anyone, anywhere can participate
-4. **No Special Hardware**: You don't need expensive equipment to use Aztec
+4. **No Special Hardware**: You don't need expensive equipment to use Aztec. Only internet access.
 
 :::tip Why This Matters
 Without accessibility, privacy becomes a luxury only available to the wealthy. We believe privacy is a human right, not a premium feature. That's why making Aztec affordable and usable for everyone is core to our mission.
@@ -153,22 +155,20 @@ Without accessibility, privacy becomes a luxury only available to the wealthy. W
 
 ---
 
-## Core Value #3: Trustlessness
+## Core Value #3: Trust Minimization
 
-### What Does Trustlessness Really Mean?
+### What Does Trust Minimization Really Mean?
 
-Let's demystify this buzzword. Trustlessness means you don't have to trust anyone - not even us - to keep your information private. The math and the code guarantee it.
+Trust minimization means you don't have to trust anyone, not even Aztec, to keep your information private. The math and the code guarantee it.
 
-Think about the difference:
+**Traditional Privacy**:
 
-**Traditional Privacy (Trusting)**:
-
-- Your bank promises to keep your data private
-- WhatsApp says your messages are encrypted
-- A company pinky-swears they won't look at your data
+- Your bank _promises_ to keep your data private
+- Messaging apps _say_ your messages are encrypted
+- A company _pinky-swears_ they won't look at your data
 - _You have to trust them_
 
-**Aztec's Privacy (Trustless)**:
+**Aztec's Privacy**:
 
 - Math proves your data is private
 - Open source code you can verify
@@ -177,6 +177,8 @@ Think about the difference:
 
 ### The Sequencer Network
 
+Aztec's sequencer network is decentralized from day 1.
+
 Here's how Aztec ensures no single entity can compromise your privacy or censor your transactions:
 
 #### The Network
@@ -184,11 +186,11 @@ Here's how Aztec ensures no single entity can compromise your privacy or censor 
 ```
 Your Transaction
     ↓
-Encrypted & Sent to Multiple Sequencers
+Encrypted & Sent to Sequencers (mempool)
     ↓
 Sequencers (stake tokens to participate):
 ├── Sequencer A ─┐
-├── Sequencer B ─┼─→ Compete to include your transaction
+├── Sequencer B ─┼─> Include your transaction
 ├── Sequencer C ─┤
 └── Sequencer D ─┘
     ↓
@@ -219,10 +221,6 @@ This is a fancy term for a simple idea: the same rules apply to everyone, enforc
 
 It's like having a referee that's actually a robot - it can't be bribed, intimidated, or play favorites!
 
-### Individual Rights
-
-We believe strongly that individual rights shouldn't depend on the goodwill of corporations or governments. They should be guaranteed by mathematics and code.
-
 :::success Your Rights on Aztec
 
 - **Right to Privacy**: Cryptographically guaranteed, not policy-based
@@ -236,130 +234,114 @@ We believe strongly that individual rights shouldn't depend on the goodwill of c
 
 ## Core Value #4: Compliance
 
-### The Compliance Paradox Solved
+Previously, you could have privacy OR compliance on the blockchain, but not both". With Aztec, you can have privacy AND selective, programmable compliance".
 
-This might surprise you, but privacy and compliance aren't opposites - they're actually perfect partners when done right. Let me explain this game-changing concept.
+Aztec lets developers build compliance directly into applications while preserving user privacy.
 
-**The Old Way (False Choice):**
-"You can have privacy OR compliance, but not both"
+**Example: Private Lending with KYC**
 
-**The Aztec Way (Best of Both):**
-"You can have privacy AND selective, programmable compliance"
+- [TODO] check this code lol
 
-### Applied Programmable Privacy
+```rust
+contract PrivateLender {
 
-Here's the revolutionary part: developers can build compliance directly into their applications while preserving user privacy. Let's see how:
+    #[private]
+    fn borrow(
+        amount: Field,
+        kyc_proof: KYCProof,
+        creditworthiness_proof: CreditProof
+    ) {
+        // Verify user meets requirements without revealing:
+        // - Exact income or credit score
+        // - Identity or personal details
+        // - Transaction history
 
-#### Example: Private KYC
+        // verify two proofs using std:verify_proof_with_type
 
-```javascript
-// A private lending protocol on Aztec (conceptual)
-
-function borrowFunds(amount, proof_of_creditworthiness) {
-  // User proves they meet requirements WITHOUT revealing:
-  // - Their exact income
-  // - Their identity
-  // - Their transaction history
-
-  if (verify_creditworthiness_proof(proof_of_creditworthiness)) {
-    // Loan approved based on zero-knowledge proof
-    approve_loan(amount);
-  }
+        // Approve loan based on zero-knowledge proofs
+        mint_loan_tokens(amount);
+    }
 }
 ```
 
-The user proved they're creditworthy without exposing their financial life!
+Users can prove they're creditworthy without exposing their financial details.
 
-#### Example: Regulatory Reporting
+**Example: Regulatory Reporting**
 
-```javascript
-// Automated compliance reporting (conceptual)
+- [TODO] check code lol
 
-function generate_regulatory_report() {
-  // Generate proof that shows:
-  // ✓ No transactions exceeded $10,000 (without showing actual amounts)
-  // ✓ All users were KYC verified (without revealing identities)
-  // ✓ No sanctioned addresses were involved (without exposing user addresses)
+```rust
+contract ComplianceReporter {
+    #[aztec(public)]
+    fn generate_aml_report() -> AMLProof {
+        // Generate proof showing:
+        // ✓ No transactions exceeded $10k (without amounts)
+        // ✓ All users were KYC verified (without identities)
+        // ✓ No sanctioned addresses involved (without revealing addresses)
 
-  return aggregated_compliance_proof;
+        AMLProof::aggregate_compliance_data(self.transaction_nullifiers)
+    }
 }
 ```
 
 Regulators get the assurance they need, users keep their privacy. Everyone wins!
 
-### Real-World Compliance Scenarios
+### Real-World Compliance Examples
 
 Let's explore how this enables previously impossible applications:
 
-#### Private But Auditable Business Operations
-
-- Companies can keep trade secrets while proving regulatory compliance
-- Auditors can verify correctness without seeing sensitive data
-- Competitors can't spy on your operations
-- Regulators get the transparency they need
-
-#### Age Verification Without ID
-
-- Prove you're over 18 without revealing your birthdate
-- Access age-restricted content privately
-- No database of personal information to hack
-- Compliance with age-verification laws
-
-#### Tax Compliance with Privacy
-
-- Prove you paid the correct taxes
-- Don't reveal your entire financial history
-- Automatic reporting without manual disclosure
-- Privacy from everyone except designated authorities
+- **Private But Auditable Business Operations**: Companies can keep trade secrets while proving regulatory compliance and auditors can verify correctness without seeing sensitive data.
+- **Age Verification**: Prove you're over 18 without revealing your birthdate or any personal details. This enables compliance with age-verification laws such as age-restricted access, without storing personal details, such as government ID, in a database.
+- **Tax Compliance**: Prove you paid the correct taxes without revealing your entire financial history. This enables automatic reporting without manual disclosure
 
 :::warning Important Distinction
-Aztec provides the tools for compliance - it's up to application developers to implement them appropriately for their jurisdiction and use case. The protocol layer remains neutral and permissionless.
+Aztec provides the tools for compliance. It is up to application developers to implement them appropriately for their jurisdiction and use case. The protocol layer remains neutral and permissionless.
 :::
 
-### The Innovation This Enables
+### Example Privacy Applications
 
-When you combine privacy with programmable compliance, entirely new business models become possible:
+When you combine privacy with programmable compliance on the blockchain, new business models become possible:
 
-1. **Private DEXs** that meet trading regulations
-2. **Confidential payroll** systems that handle tax withholding
-3. **Private voting** that prevents double-voting
-4. **Private healthcare** applications that meet HIPAA requirements
-5. **Confidential supply chains** that provide necessary customs data
+- **Private DEXs** that meet trading regulations.
+- **Confidential payroll** systems that handle tax withholding.
+- **Private voting** that is verifiably correct and prevents double-voting.
+- **Private healthcare** applications that meet HIPAA requirements.
+- **Confidential supply chains** that provide necessary customs data.
 
 ---
 
-## Bringing It All Together: The Full Picture
+## Summary
 
-### The Synergy of Our Values
-
-These four core values don't exist in isolation - they reinforce each other:
+These four core values don't exist in isolation; they reinforce each other:
 
 ```
-Privacy ←→ Accessibility
-   ↑            ↓
-   ↑            ↓
-Trustlessness ←→ Compliance
+Privacy    ←→     Accessibility
+   ↑                     ↓
+   ↑                     ↓
+Trust Minimization ←→ Compliance
 ```
 
-- **Privacy needs Accessibility** or it's only for the elite
-- **Accessibility needs Trustlessness** or it can be shut down
-- **Trustlessness needs Compliance** or it can't integrate with the real world
-- **Compliance needs Privacy** or it exposes too much information
+- **Privacy needs accessibility** or it's only for the elite.
+- **Accessibility needs trust minimization** or it can be shut down.
+- **Trust minimization needs compliance** or it can't integrate with the real world.
+- **Compliance needs Privacy** or it exposes too much information.
 
 ### What This Means for You
 
-As a developer learning Aztec, you're not just learning another blockchain platform. You're learning to build applications that:
+As a developer learning Aztec, you're not just learning another blockchain platform. You're learning to build onchain privacy applications that:
 
 - Protect user privacy by default
-- Cost less through innovative proof aggregation
+- Cost less through proof aggregation
 - Can't be censored or controlled by any single entity
 - Can meet real-world compliance requirements
 
-You're learning to build the future of Web3 - one that's actually better than Web2!
+You're learning to build the future of Web3. One that's _actually_ better than Web2!
 
 ### The Journey Ahead
 
-This vision might seem ambitious, and it is! But here's the exciting part - it's not just a vision anymore. Aztec is live, the technology works, and developers are already building amazing applications.
+Aztec is live, the technology works, and developers are _already_ building amazing applications.
+
+- [TODO] link to a page of example dapps on Aztec
 
 As you continue through this learning journey, you'll see how these values translate into actual code, real applications, and tangible benefits for users.
 
@@ -370,10 +352,12 @@ You now understand:
 
 - ✅ How Aztec makes privacy programmable, not just optional
 - ✅ Why recursive proofs make private transactions affordable
-- ✅ How trustlessness guarantees your privacy rights
+- ✅ How trust minimization guarantees your privacy rights
 - ✅ Why compliance and privacy are partners, not enemies
 
 **Feeling inspired?** You should be! You're about to learn how to build applications that were literally impossible before Aztec.
+
+- [TODO] maybe add a link to create a tweet to say you're on the learning journey? Could be good for our metric tracking?
 :::
 
 ---
@@ -387,7 +371,7 @@ Now that you understand the vision, you're ready to see how it all works under t
 - The developer tools that make building on Aztec accessible
 - Your first hands-on experience with Aztec
 
-Remember, every expert was once a beginner. Every line of code you write brings us closer to a world where privacy is a default, not a luxury. Welcome to the revolution - we're glad you're here!
+Remember, every expert was once a beginner. Every line of code you write brings us closer to a world where privacy is a default, not a luxury. Welcome to the revolution. We're glad you're here!
 
 ## Quick Review Questions
 
@@ -399,13 +383,13 @@ Before moving on, try to answer these questions to test your understanding:
 2. **How do recursive proofs make transactions cheaper?**
    _Hint: Think about the teacher and test papers analogy_
 
-3. **What's the difference between trusting and trustless privacy?**
+3. **What's the difference between trusting and trust minimized privacy?**
    _Hint: Who controls your privacy in each model?_
 
 4. **How can applications be compliant AND private?**
    _Hint: Think about proving properties without revealing data_
 
-Don't worry if you can't answer all of these yet - they'll become clearer as we dive deeper into the technical details in upcoming modules!
+Don't worry if you can't answer all of these yet, they'll become clearer as we dive deeper into the technical details in upcoming modules!
 
 ## Further Resources
 
