@@ -188,7 +188,7 @@ TYPED_TEST(stdlib_field_conversion, DeserializePointAtInfinity)
 {
     using Builder = TypeParam;
     Builder builder;
-    const fr<Builder> zero(fr<Builder>::from_witness_index(&builder, builder.zero_idx));
+    const fr<Builder> zero(fr<Builder>::from_witness_index(&builder, builder.zero_idx()));
 
     {
         std::vector<fr<Builder>> zeros(4, zero);

@@ -178,8 +178,8 @@ ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra
     op_tuple.z_2 = this->add_variable(ultra_op.z_2);
 
     // Set the indices for the op values for each of the two rows
-    uint32_t op_val_idx_1 = op_tuple.op;    // genuine op code value
-    uint32_t op_val_idx_2 = this->zero_idx; // second row value always set to 0
+    uint32_t op_val_idx_1 = op_tuple.op;     // genuine op code value
+    uint32_t op_val_idx_2 = this->_zero_idx; // second row value always set to 0
     // If this is a random operation, the op values are randomized
     if (ultra_op.op_code.is_random_op) {
         op_val_idx_1 = this->add_variable(ultra_op.op_code.random_value_1);
@@ -224,7 +224,7 @@ template <typename FF> void MegaCircuitBuilder_<FF>::queue_ecc_random_op()
 
 template <typename FF> void MegaCircuitBuilder_<FF>::set_goblin_ecc_op_code_constant_variables()
 {
-    null_op_idx = this->zero_idx; // constant 0 is is associated with the zero index
+    null_op_idx = this->_zero_idx; // constant 0 is is associated with the zero index
     add_accum_op_idx = this->put_constant_variable(FF(EccOpCode{ .add = true }.value()));
     mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode{ .mul = true }.value()));
     equality_op_idx = this->put_constant_variable(FF(EccOpCode{ .eq = true, .reset = true }.value()));
@@ -268,7 +268,7 @@ template <typename FF>
 void MegaCircuitBuilder_<FF>::create_databus_read_gate(const databus_lookup_gate_<FF>& in, const BusId bus_idx)
 {
     auto& block = this->blocks.busread;
-    block.populate_wires(in.value, in.index, this->zero_idx, this->zero_idx);
+    block.populate_wires(in.value, in.index, this->_zero_idx, this->_zero_idx);
     apply_databus_selectors(bus_idx);
 
     this->check_selector_length_consistency();

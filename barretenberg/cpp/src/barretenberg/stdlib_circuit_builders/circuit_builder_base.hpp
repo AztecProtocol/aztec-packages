@@ -56,6 +56,11 @@ template <typename FF_> class CircuitBuilderBase {
     // that we are using the correct prover/verifier.
     bool is_recursive_circuit = false; // AUDITTODO: this seems totally unused now?
 
+    // Index at which a fixed witness 0 is stored
+    uint32_t _zero_idx = 0;
+
+    void set_zero_idx(uint32_t value) { _zero_idx = value; }
+
   public:
     size_t num_gates = 0;
 
@@ -88,8 +93,9 @@ template <typename FF_> class CircuitBuilderBase {
     virtual size_t get_estimated_num_finalized_gates() const;
     virtual void print_num_estimated_finalized_gates() const;
     virtual size_t get_num_variables() const;
-    // Index at which a fixed witness 0 is stored
-    uint32_t zero_idx = 0;
+
+    // Non-owning getter for the index at which a fixed witness 0 is stored
+    uint32_t zero_idx() const { return _zero_idx; }
 
     virtual void create_add_gate(const add_triple_<FF>& in) = 0;
     virtual void create_mul_gate(const mul_triple_<FF>& in) = 0;

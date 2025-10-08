@@ -217,7 +217,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     UltraCircuitBuilder_(const size_t size_hint = 0)
         : CircuitBuilderBase<FF>(size_hint)
     {
-        this->zero_idx = put_constant_variable(FF::zero());
+        this->set_zero_idx(put_constant_variable(FF::zero()));
         this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
     };
 
@@ -254,7 +254,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
         // Add the const zero variable after the acir witness has been
         // incorporated into variables.
-        this->zero_idx = put_constant_variable(FF::zero());
+        this->set_zero_idx(put_constant_variable(FF::zero()));
         this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
 
         this->is_recursive_circuit = recursive;

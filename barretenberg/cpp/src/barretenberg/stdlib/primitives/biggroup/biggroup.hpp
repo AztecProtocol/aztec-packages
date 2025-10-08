@@ -197,7 +197,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
     static element point_at_infinity(Builder* ctx)
     {
-        Fr zero = Fr::from_witness_index(ctx, ctx->zero_idx);
+        Fr zero = Fr::from_witness_index(ctx, ctx->zero_idx());
         zero.unset_free_witness_tag();
         Fq x_fq(zero, zero);
         Fq y_fq(zero, zero);
