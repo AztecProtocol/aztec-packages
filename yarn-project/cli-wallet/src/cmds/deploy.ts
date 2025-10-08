@@ -45,7 +45,7 @@ export async function deploy(
     contractArtifact,
     wallet,
     publicKeys ?? PublicKeys.default(),
-    initializer,
+    constructorArtifact?.name,
   );
 
   let args = [];

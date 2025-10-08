@@ -41,7 +41,7 @@ export async function send(
     txNonce,
   };
 
-  const gasLimits = await call.estimateGas(sendOptions);
+  const gasLimits = await call.estimateGas({ ...sendOptions, fee: { ...sendOptions.fee, estimatedGasPadding: 0 } });
   printGasEstimates(feeOpts, gasLimits, log);
 
   if (feeOpts.estimateOnly) {
