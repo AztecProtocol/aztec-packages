@@ -31,6 +31,8 @@ template <typename Builder> cycle_group<Builder>::cycle_group(Builder* _context)
 
 /**
  * @brief Construct a new cycle group<Builder>::cycle group object
+ * @warning This constructor does not constrain the point to be on the curve. It is intended for cases where points are
+ * implicitly known to be on the curve such as the result of a point addition or doubling.
  *
  * @param _x
  * @param _y
@@ -55,7 +57,6 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
         *this = constant_infinity(this->context);
     }
 
-    // Note: Points are not constrained in-circuit to be on the curve when using this constructor
     ASSERT(get_value().on_curve());
 }
 

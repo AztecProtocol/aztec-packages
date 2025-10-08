@@ -1729,9 +1729,8 @@ TYPED_TEST(CycleGroupTest, TestBatchMulIsConsistent)
         EXPECT_EQ(result1_native.x, result2_native.x);
         EXPECT_EQ(result1_native.y, result2_native.y);
         if (construct_witnesses) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1020): Re-enable these.
-            // EXPECT_FALSE(result1.is_constant());
-            // EXPECT_FALSE(result2.is_constant());
+            EXPECT_FALSE(result1.is_constant());
+            EXPECT_FALSE(result2.is_constant());
             // Gate count difference due to additional constants added by default in Mega builder
             if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
                 check_circuit_and_gate_count(builder, 5285); // Mega
