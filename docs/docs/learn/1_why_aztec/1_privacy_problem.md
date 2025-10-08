@@ -7,7 +7,9 @@ description: "Understanding why privacy matters in blockchain, how Web2 handles 
 
 Welcome to one of the most important topics in blockchain technology: privacy.
 
-- [TODO] add point about how important financial privacy is
+Financial privacy is a fundamental human right, not a luxury. Throughout history, societies have recognized that individuals need the ability to conduct economic activities without constant surveillance. In the physical world, cash provides this privacy - when you buy groceries, the cashier doesn't get to see your entire banking history, your employer doesn't know how you spend your paycheck, and strangers can't track every purchase you've ever made.
+
+Yet in the blockchain space, we've somehow accepted that all financial activity should be permanently public. This isn't just uncomfortable - it's dangerous. Without financial privacy, we expose individuals to targeting, discrimination, and exploitation. Businesses can't protect trade secrets, activists can't safely receive donations, and ordinary people can't make purchases without creating a permanent public record of their economic choices.
 
 Let's explore why privacy is such a critical challenge for blockchains, and more importantly, why solving it opens up opportunities for innovation.
 

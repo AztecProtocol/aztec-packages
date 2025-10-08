@@ -12,13 +12,13 @@ Welcome to the Aztec Learning Journey. This will be your comprehensive guide to 
 
 ## What You'll Learn
 
-This learning journey takes you from foundational concepts to advanced development techniques across five progressive modules. Whether you're new to blockchain privacy or an experienced developer looking to build on Aztec, this path provides the knowledge and hands-on experience you need.
+This learning journey takes you from foundational concepts to advanced development techniques across nine progressive modules. Whether you're new to blockchain privacy or an experienced developer looking to build on Aztec, this path provides the knowledge and hands-on experience you need.
 
 ### Journey Overview
 
-The learning path is structured as a progression through five key areas:
+The learning path is structured as a progression through nine comprehensive modules:
 
-**Module 1: Foundations** - Build your understanding of Aztec's core architecture, including its hybrid state model, privacy mechanisms using zero-knowledge proofs, and the unique execution environments (PXE and AVM).
+**Module 1: Why Aztec** - Understand the privacy problem in blockchain, why Web2 often handles privacy better, and how Aztec's vision addresses these challenges through programmable privacy, accessibility, trustlessness, and compliance.
 
 **Module 2: Smart Contract Development** - Learn how to write smart contracts in [Noir](https://noir-lang.org/), Aztec's domain-specific language. You'll learn to work with both private and public state, understand the execution flow between private and public contexts, and implement secure contract patterns.
 
