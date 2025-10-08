@@ -126,7 +126,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     }
     check_selector_length_consistency();
     ++this->num_gates;
-    create_dummy_gate(blocks.delta_range, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    create_unconstrained_gate(blocks.delta_range, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 
     // q_elliptic
     blocks.elliptic.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
@@ -149,7 +149,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     }
     check_selector_length_consistency();
     ++this->num_gates;
-    create_dummy_gate(blocks.elliptic, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    create_unconstrained_gate(blocks.elliptic, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 
     // q_memory
     blocks.memory.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
@@ -172,7 +172,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     }
     check_selector_length_consistency();
     ++this->num_gates;
-    create_dummy_gate(blocks.memory, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    create_unconstrained_gate(blocks.memory, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 
     // q_nnf
     blocks.nnf.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
@@ -195,11 +195,11 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     }
     check_selector_length_consistency();
     ++this->num_gates;
-    create_dummy_gate(blocks.nnf, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    create_unconstrained_gate(blocks.nnf, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 
     // Add nonzero values in w_4 and q_c (q_4*w_4 + q_c --> 1*1 - 1 = 0)
-    this->one_idx = put_constant_variable(FF::one());
-    create_big_add_gate({ this->zero_idx, this->zero_idx, this->zero_idx, this->one_idx, 0, 0, 0, 1, -1 });
+    uint32_t one_idx = put_constant_variable(FF::one());
+    create_big_add_gate({ this->zero_idx, this->zero_idx, this->zero_idx, one_idx, 0, 0, 0, 1, -1 });
 
     // Take care of all polys related to lookups (q_lookup, tables, sorted, etc)
     // by doing a dummy lookup with a special table.
@@ -253,8 +253,9 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     check_selector_length_consistency();
     ++this->num_gates;
 
-    // dummy gate to be read into by previous poseidon external gate via shifts
-    this->create_dummy_gate(blocks.poseidon2_external, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    // unconstrained gate to be read into by previous poseidon external gate via shifts
+    create_unconstrained_gate(
+        blocks.poseidon2_external, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 
     // mock a poseidon internal gate, with all zeros as input
     blocks.poseidon2_internal.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
@@ -279,7 +280,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     ++this->num_gates;
 
     // dummy gate to be read into by previous poseidon internal gate via shifts
-    create_dummy_gate(blocks.poseidon2_internal, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    create_unconstrained_gate(
+        blocks.poseidon2_internal, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 }
 
 /**
@@ -677,7 +679,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
         check_selector_length_consistency();
         ++this->num_gates;
     }
-    create_dummy_gate(block, in.x2, in.x3, in.y3, in.y2);
+    create_unconstrained_gate(block, in.x2, in.x3, in.y3, in.y2);
 }
 
 /**
@@ -737,7 +739,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
         check_selector_length_consistency();
         ++this->num_gates;
     }
-    create_dummy_gate(block, this->zero_idx, in.x3, in.y3, this->zero_idx);
+    create_unconstrained_gate(block, this->zero_idx, in.x3, in.y3, this->zero_idx);
 }
 
 /**
@@ -892,7 +894,7 @@ typename UltraCircuitBuilder_<ExecutionTrace>::RangeList UltraCircuitBuilder_<Ex
         assign_tag(index, result.range_tag);
     }
     // Need this because these variables will not appear in the witness otherwise
-    create_dummy_constraints(result.variable_indices);
+    create_unconstrained_gates(result.variable_indices);
 
     return result;
 }
@@ -1173,14 +1175,14 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint(const std::vec
         check_selector_length_consistency();
     }
     // dummy gate needed because of sort widget's check of next row
-    create_dummy_gate(
+    create_unconstrained_gate(
         blocks.delta_range, variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
 }
 
 // useful to put variables in the witness that aren't already used - e.g. the dummy variables of the range constraint in
 // multiples of four
 template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::create_dummy_constraints(const std::vector<uint32_t>& variable_index)
+void UltraCircuitBuilder_<ExecutionTrace>::create_unconstrained_gates(const std::vector<uint32_t>& variable_index)
 {
     std::vector<uint32_t> padded_list = variable_index;
     constexpr size_t gate_width = NUM_WIRES;
@@ -1192,7 +1194,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_dummy_constraints(const std::v
     this->assert_valid_variables(padded_list);
 
     for (size_t i = 0; i < padded_list.size(); i += gate_width) {
-        create_dummy_gate(
+        create_unconstrained_gate(
             blocks.arithmetic, padded_list[i], padded_list[i + 1], padded_list[i + 2], padded_list[i + 3]);
     }
 }
@@ -1268,78 +1270,9 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
     // (and remove dummy gate). This used to be a single gate before trace sorting based on gate types. The dummy gate
     // has been added to allow the previous gate to access the required wire data via shifts, allowing the arithmetic
     // gate to occur out of sequence. More details on the linked Github issue.
-    create_dummy_gate(block, variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
+    create_unconstrained_gate(
+        block, variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
     create_add_gate({ variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, 1, 0, 0, -end });
-}
-
-// range constraint a value by decomposing it into limbs whose size should be the default range constraint size
-
-template <typename ExecutionTrace>
-std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_default_range_better_for_oddlimbnum(
-    const uint32_t variable_index, const size_t num_bits, std::string const& msg)
-{
-    std::vector<uint32_t> sums;
-    const size_t limb_num = (size_t)num_bits / DEFAULT_PLOOKUP_RANGE_BITNUM;
-    const size_t last_limb_size = num_bits - (limb_num * DEFAULT_PLOOKUP_RANGE_BITNUM);
-    if (limb_num < 3) {
-        std::cerr
-            << "number of bits in range must be an integer multipe of DEFAULT_PLOOKUP_RANGE_BITNUM of size at least 3"
-            << std::endl;
-        return sums;
-    }
-
-    const uint256_t val = (uint256_t)(this->get_variable(variable_index));
-    // check witness value is indeed in range (commented out cause interferes with negative tests)
-    // ASSERT(val < ((uint256_t)1 << num_bits) - 1); // Q:ask Zac what happens with wrapping when converting scalar
-    // field to uint256 ASSERT(limb_num % 3 == 0); // TODO: write version of method that doesn't need this
-    std::vector<uint32_t> val_limbs;
-    std::vector<fr> val_slices;
-    for (size_t i = 0; i < limb_num; i++) {
-        val_slices.emplace_back(
-            FF(val.slice(DEFAULT_PLOOKUP_RANGE_BITNUM * i, DEFAULT_PLOOKUP_RANGE_BITNUM * (i + 1) - 1)));
-        val_limbs.emplace_back(this->add_variable(val_slices[i]));
-        create_new_range_constraint(val_limbs[i], DEFAULT_PLOOKUP_RANGE_SIZE);
-    }
-
-    uint64_t last_limb_range = ((uint64_t)1 << last_limb_size) - 1;
-    FF last_slice(0);
-    uint32_t last_limb(this->zero_idx);
-    size_t total_limb_num = limb_num;
-    if (last_limb_size > 0) {
-        val_slices.emplace_back(FF(val.slice(num_bits - last_limb_size, num_bits)));
-        val_limbs.emplace_back(this->add_variable(last_slice));
-        create_new_range_constraint(last_limb, last_limb_range);
-        total_limb_num++;
-    }
-    // pad slices and limbs in case they are not 2 mod 3
-    if (total_limb_num % 3 == 1) {
-        val_limbs.emplace_back(this->zero_idx); // TODO: check this is zero
-        val_slices.emplace_back(0);
-        total_limb_num++;
-    }
-    FF shift = FF(1 << DEFAULT_PLOOKUP_RANGE_BITNUM);
-    FF second_shift = shift * shift;
-    sums.emplace_back(this->add_variable(val_slices[0] + shift * val_slices[1] + second_shift * val_slices[2]));
-    create_big_add_gate({ val_limbs[0], val_limbs[1], val_limbs[2], sums[0], 1, shift, second_shift, -1, 0 });
-    FF cur_shift = (shift * second_shift);
-    FF cur_second_shift = cur_shift * shift;
-    for (size_t i = 3; i < total_limb_num; i = i + 2) {
-        sums.emplace_back(this->add_variable(this->get_variable(sums[sums.size() - 1]) + cur_shift * val_slices[i] +
-                                             cur_second_shift * val_slices[i + 1]));
-        create_big_add_gate({ sums[sums.size() - 2],
-                              val_limbs[i],
-                              val_limbs[i + 1],
-                              sums[sums.size() - 1],
-                              1,
-                              cur_shift,
-                              cur_second_shift,
-                              -1,
-                              0 });
-        cur_shift *= second_shift;
-        cur_second_shift *= second_shift;
-    }
-    this->assert_equal(sums[sums.size() - 1], variable_index, msg);
-    return sums;
 }
 
 /**
@@ -1817,7 +1750,7 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
                           -LIMB_SHIFT.sqr(),
                           0 },
                         true);
-    create_dummy_gate(blocks.arithmetic, this->zero_idx, this->zero_idx, this->zero_idx, lo_0_idx);
+    create_unconstrained_gate(blocks.arithmetic, this->zero_idx, this->zero_idx, this->zero_idx, lo_0_idx);
     //
     // a = (a3 || a2 || a1 || a0) = (a3 * 2^b + a2) * 2^b + (a1 * 2^b + a0)
     // b = (b3 || b2 || b1 || b0) = (b3 * 2^b + b2) * 2^b + (b1 * 2^b + b0)

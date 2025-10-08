@@ -173,7 +173,7 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
     // NOTE(https://github.com/AztecProtocol/barretenberg/issues/879): Optimisation opportunity to use a single gate
     // (and remove dummy gate). Currently, dummy gate is necessary for preceeding big add gate as these gates fall in
     // the arithmetic block. More details on the linked Github issue.
-    ctx->create_dummy_gate(
+    ctx->create_unconstrained_gate(
         ctx->blocks.arithmetic, ctx->zero_idx, ctx->zero_idx, ctx->zero_idx, limb_0.get_normalized_witness_index());
 
     uint64_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;

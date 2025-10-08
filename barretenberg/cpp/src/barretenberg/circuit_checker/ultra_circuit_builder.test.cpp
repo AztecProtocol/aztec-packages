@@ -431,7 +431,7 @@ TEST(UltraCircuitBuilder, RangeConstraint)
             builder.create_new_range_constraint(indices[i], 3);
         }
         // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
-        builder.create_dummy_constraints(indices);
+        builder.create_unconstrained_gates(indices);
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
@@ -452,7 +452,7 @@ TEST(UltraCircuitBuilder, RangeConstraint)
         for (size_t i = 0; i < indices.size(); i++) {
             builder.create_new_range_constraint(indices[i], 128);
         }
-        builder.create_dummy_constraints(indices);
+        builder.create_unconstrained_gates(indices);
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
@@ -463,7 +463,7 @@ TEST(UltraCircuitBuilder, RangeConstraint)
         for (size_t i = 0; i < indices.size(); i++) {
             builder.create_new_range_constraint(indices[i], 79);
         }
-        builder.create_dummy_constraints(indices);
+        builder.create_unconstrained_gates(indices);
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, false);
     }
@@ -474,7 +474,7 @@ TEST(UltraCircuitBuilder, RangeConstraint)
         for (size_t i = 0; i < indices.size(); i++) {
             builder.create_new_range_constraint(indices[i], 79);
         }
-        builder.create_dummy_constraints(indices);
+        builder.create_unconstrained_gates(indices);
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, false);
     }

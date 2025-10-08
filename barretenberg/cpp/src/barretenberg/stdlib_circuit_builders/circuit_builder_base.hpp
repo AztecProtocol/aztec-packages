@@ -82,10 +82,8 @@ template <typename FF_> class CircuitBuilderBase {
     virtual size_t get_estimated_num_finalized_gates() const;
     virtual void print_num_estimated_finalized_gates() const;
     virtual size_t get_num_variables() const;
-    // TODO(#216)(Adrian): Feels wrong to let the zero_idx be changed.
+    // Index at which a fixed witness 0 is stored
     uint32_t zero_idx = 0;
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1546): Do we need `one_idx`?
-    uint32_t one_idx = 1;
 
     virtual void create_add_gate(const add_triple_<FF>& in) = 0;
     virtual void create_mul_gate(const mul_triple_<FF>& in) = 0;

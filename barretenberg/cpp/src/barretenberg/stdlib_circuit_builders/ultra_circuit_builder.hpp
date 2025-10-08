@@ -12,7 +12,6 @@
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 
-// TODO(md): note that this has now been added
 #include "circuit_builder_base.hpp"
 #include "rom_ram_logic.hpp"
 #include <optional>
@@ -47,7 +46,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     static constexpr size_t NUM_WIRES = ExecutionTrace::NUM_WIRES;
 
     static constexpr std::string_view NAME_STRING = "UltraCircuitBuilder";
-    static constexpr size_t UINT_LOG2_BASE = 6; // DOCTODO: explain what this is, or rename.
     // The plookup range proof requires work linear in range size, thus cannot be used directly for
     // large ranges such as 2^64. For such ranges the element will be decomposed into smaller
     // chuncks according to the parameter below
@@ -87,9 +85,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         }
     };
 
+    // AUDITTODO: this is not a large optimization (~0.5% reduction for ultra rec verifier); consider removing
     /**
      * @brief Used to store instructions to create partial_non_native_field_multiplication gates.
-     *        We want to cache these (and remove duplicates) as the stdlib code can end up multiplying the same inputs
+     * @details We want to cache these (and remove duplicates) as the stdlib code can end up multiplying the same inputs
      * repeatedly.
      */
     struct cached_partial_non_native_field_multiplication {
@@ -181,15 +180,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         };
     };
 
-    struct non_native_field_multiplication_cross_terms {
-        uint32_t lo_0_idx;
-        uint32_t lo_1_idx;
-        uint32_t hi_0_idx;
-        uint32_t hi_1_idx;
-        uint32_t hi_2_idx;
-        uint32_t hi_3_idx;
-    };
-
     // Storage for wires and selectors for all gate types
     ExecutionTrace blocks;
 
@@ -210,7 +200,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     std::map<uint64_t, RangeList> range_lists; // DOCTODO: explain this.
 
     // Witnesses that can be in one gate, but that's intentional (used in boomerang catcher)
-    std::vector<uint32_t> used_witnesses;
+    std::vector<uint32_t> used_witnesses; // AUDITTODO: isolate these boomerang details?
     // Witnesses that appear in finalize method (used in boomerang catcher). Need to check
     // that all variables from some connected component were created after finalize method was called
     std::unordered_set<uint32_t> finalize_witnesses;
@@ -223,6 +213,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void populate_public_inputs_block();
 
     void process_non_native_field_multiplications();
+
     UltraCircuitBuilder_(const size_t size_hint = 0)
         : CircuitBuilderBase<FF>(size_hint)
     {
@@ -269,49 +260,11 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         this->is_recursive_circuit = recursive;
     };
     UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = default;
-    UltraCircuitBuilder_(UltraCircuitBuilder_&& other) noexcept
-        : CircuitBuilderBase<FF>(std::move(other))
-        , blocks(other.blocks)
-        , constant_variable_indices(other.constant_variable_indices)
-        , lookup_tables(other.lookup_tables)
-        , rom_ram_logic(other.rom_ram_logic)
-        , memory_read_records(other.memory_read_records)
-        , memory_write_records(other.memory_write_records)
-        , range_lists(other.range_lists)
-        , cached_partial_non_native_field_multiplications(other.cached_partial_non_native_field_multiplications)
-        , circuit_finalized(other.circuit_finalized)
-        , ipa_proof(other.ipa_proof) {};
+    UltraCircuitBuilder_(UltraCircuitBuilder_&& other) = default;
     UltraCircuitBuilder_& operator=(const UltraCircuitBuilder_& other) = default;
-    UltraCircuitBuilder_& operator=(UltraCircuitBuilder_&& other) noexcept
-    {
-        CircuitBuilderBase<FF>::operator=(std::move(other));
-        blocks = other.blocks;
-        constant_variable_indices = other.constant_variable_indices;
-
-        lookup_tables = other.lookup_tables;
-        range_lists = other.range_lists;
-        rom_ram_logic = other.rom_ram_logic;
-        memory_read_records = other.memory_read_records;
-        memory_write_records = other.memory_write_records;
-        cached_partial_non_native_field_multiplications = other.cached_partial_non_native_field_multiplications;
-        circuit_finalized = other.circuit_finalized;
-        ipa_proof = other.ipa_proof;
-        return *this;
-    };
+    UltraCircuitBuilder_& operator=(UltraCircuitBuilder_&& other) = default;
     ~UltraCircuitBuilder_() override = default;
 
-    bool operator==(const UltraCircuitBuilder_& other) const
-    {
-
-        return blocks == other.blocks && constant_variable_indices == other.constant_variable_indices &&
-               lookup_tables == other.lookup_tables && memory_read_records == other.memory_read_records &&
-               memory_write_records == other.memory_write_records && range_lists == other.range_lists &&
-               cached_partial_non_native_field_multiplications ==
-                   other.cached_partial_non_native_field_multiplications &&
-               used_witnesses == other.used_witnesses && rom_ram_logic == other.rom_ram_logic &&
-               // Compare the base class
-               CircuitBuilderBase<FF>::operator==(other);
-    }
     /**
      * @brief Debug helper method for ensuring all selectors have the same size
      * @details Each gate construction method manually appends values to the selectors. Failing to update one of the
@@ -708,10 +661,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         const uint64_t num_bits,
         const uint64_t target_range_bitnum = DEFAULT_PLOOKUP_RANGE_BITNUM,
         std::string const& msg = "decompose_into_default_range");
-    std::vector<uint32_t> decompose_into_default_range_better_for_oddlimbnum(
-        const uint32_t variable_index,
-        const size_t num_bits,
-        std::string const& msg = "decompose_into_default_range_better_for_oddlimbnum");
 
     /**
      * @brief Create a gate with no constraints but with possibly non-trivial wire values
@@ -721,7 +670,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * @tparam ExecutionTrace
      * @param block Execution trace block into which the dummy gate is to be placed
      */
-    void create_dummy_gate(
+    void create_unconstrained_gate(
         auto& block, const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
     {
         block.populate_wires(idx_1, idx_2, idx_3, idx_4);
@@ -746,7 +695,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         check_selector_length_consistency();
         ++this->num_gates;
     }
-    void create_dummy_constraints(const std::vector<uint32_t>& variable_index);
+    void create_unconstrained_gates(const std::vector<uint32_t>& variable_index);
     void create_sort_constraint(const std::vector<uint32_t>& variable_index);
     void create_sort_constraint_with_edges(const std::vector<uint32_t>& variable_index, const FF&, const FF&);
     void assign_tag(const uint32_t variable_index, const uint32_t tag)
@@ -814,7 +763,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     /**
      * Memory
      **/
-
     size_t create_ROM_array(const size_t array_size);
     void set_ROM_element(const size_t rom_id, const size_t index_value, const uint32_t value_witness);
     void set_ROM_element_pair(const size_t rom_id,
@@ -829,8 +777,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     uint32_t read_RAM_array(const size_t ram_id, const uint32_t index_witness);
     void write_RAM_array(const size_t ram_id, const uint32_t index_witness, const uint32_t value_witness);
-    // note that the `process_ROM_array` and `process_RAM_array` methods are controlled by `RomRamLogic` and hence are
-    // not present here.
 
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);

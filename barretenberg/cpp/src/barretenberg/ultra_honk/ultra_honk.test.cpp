@@ -664,7 +664,7 @@ TYPED_TEST(UltraHonkTests, RangeConstraint)
             circuit_builder.create_new_range_constraint(indices[i], 3);
         }
         // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
-        circuit_builder.create_dummy_constraints(indices);
+        circuit_builder.create_unconstrained_gates(indices);
 
         TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -689,7 +689,7 @@ TYPED_TEST(UltraHonkTests, RangeConstraint)
         for (size_t i = 0; i < indices.size(); i++) {
             circuit_builder.create_new_range_constraint(indices[i], 128);
         }
-        circuit_builder.create_dummy_constraints(indices);
+        circuit_builder.create_unconstrained_gates(indices);
 
         TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -702,7 +702,7 @@ TYPED_TEST(UltraHonkTests, RangeConstraint)
         for (size_t i = 0; i < indices.size(); i++) {
             circuit_builder.create_new_range_constraint(indices[i], 79);
         }
-        circuit_builder.create_dummy_constraints(indices);
+        circuit_builder.create_unconstrained_gates(indices);
 
         TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -715,7 +715,7 @@ TYPED_TEST(UltraHonkTests, RangeConstraint)
         for (size_t i = 0; i < indices.size(); i++) {
             circuit_builder.create_new_range_constraint(indices[i], 79);
         }
-        circuit_builder.create_dummy_constraints(indices);
+        circuit_builder.create_unconstrained_gates(indices);
 
         TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 

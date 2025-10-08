@@ -229,7 +229,7 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): This was formerly a single arithmetic gate. A
     // dummy gate has been added to allow the previous gate to access the required wire data via shifts, allowing the
     // arithmetic gate to occur out of sequence.
-    builder->create_dummy_gate(
+    builder->create_unconstrained_gate(
         builder->blocks.memory, max_index, builder->zero_idx, builder->zero_idx, builder->zero_idx);
     builder->create_big_add_gate(
         {
@@ -401,11 +401,11 @@ void RomRamLogic_<ExecutionTrace>::create_final_sorted_RAM_gate(CircuitBuilder* 
 
     // Create a final gate with all selectors zero; wire values are accessed by the previous RAM gate via
     // shifted wires
-    builder->create_dummy_gate(builder->blocks.memory,
-                               record.index_witness,
-                               record.timestamp_witness,
-                               record.value_witness,
-                               record.record_witness);
+    builder->create_unconstrained_gate(builder->blocks.memory,
+                                       record.index_witness,
+                                       record.timestamp_witness,
+                                       record.value_witness,
+                                       record.record_witness);
 
     // Create an add gate ensuring the final index is consistent with the size of the RAM array
     builder->create_big_add_gate({
@@ -543,7 +543,7 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
     // add the index/timestamp values of the last sorted record in an empty add gate.
     // (the previous gate will access the wires on this gate and requires them to be those of the last record)
     const auto& last = sorted_ram_records[ram_array.records.size() - 1];
-    builder->create_dummy_gate(
+    builder->create_unconstrained_gate(
         builder->blocks.memory, last.index_witness, last.timestamp_witness, builder->zero_idx, builder->zero_idx);
 
     // Step 3: validate difference in timestamps is monotonically increasing. i.e. is <= maximum timestamp
