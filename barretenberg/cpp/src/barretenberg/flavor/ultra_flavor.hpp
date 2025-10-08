@@ -268,6 +268,12 @@ class UltraFlavor {
         using Base::Base;
     };
 
+    class AllCommitments : public AllEntities<Commitment> {
+      public:
+        using Base = AllEntities<Commitment>;
+        using Base::Base;
+    };
+
     /**
      * @brief A container for polynomials handles.
      */
