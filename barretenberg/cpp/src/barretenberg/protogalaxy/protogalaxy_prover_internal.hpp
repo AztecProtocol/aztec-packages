@@ -222,61 +222,78 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
      * @brief Non-recursively compute the parent nodes of each level in the tree, starting from the leaves. Note that
      * at each level, the resulting parent nodes will be polynomials of degree (level+1) because we multiply by an
      * additional factor of X.
-     * @details This iterative implementation operates in-place using two buffers that alternate roles as source and
-     * destination, avoiding repeated allocations and copies.
+     * @details This iterative implementation uses flat contiguous buffers that alternate roles as source and
+     * destination, enabling efficient parallel initialization and better cache locality.
      */
     static std::vector<FF> construct_coefficients_tree(std::span<const FF> betas,
                                                        std::span<const FF> deltas,
-                                                       std::vector<std::vector<FF>>& current_level_coeffs)
+                                                       std::vector<FF>& current_level_buffer,
+                                                       size_t current_width,
+                                                       size_t current_degree)
     {
         if (betas.size() == 1) {
-            return current_level_coeffs[0];
+            return std::vector<FF>(current_level_buffer.begin(),
+                                   current_level_buffer.begin() + static_cast<std::ptrdiff_t>(current_degree));
         }
 
         size_t num_levels = betas.size();
 
-        // Allocate a second buffer for alternating computation
-        // Max degree at final level will be num_levels
-        size_t current_width = current_level_coeffs.size();
-        std::vector<std::vector<FF>> next_level_coeffs(current_width / 2);
+        // Pre-allocate buffers with maximum size needed
+        // At each level i, we have width/(2^i) nodes, each with degree i+1
+        // Calculate total size needed for the next level buffer
+        size_t max_next_buffer_size = 0;
+        size_t temp_width = current_width;
+        for (size_t level = 1; level < num_levels; ++level) {
+            temp_width /= 2;
+            size_t degree = level + 1;
+            max_next_buffer_size = std::max(max_next_buffer_size, temp_width * (degree + 1));
+        }
+
+        std::vector<FF> next_level_buffer(max_next_buffer_size);
 
         // Iterate through levels 1 to num_levels-1
         for (size_t level = 1; level < num_levels; ++level) {
-            size_t degree = level + 1;
+            size_t next_degree = level + 1;
             size_t next_width = current_width / 2;
+            size_t next_stride = next_degree + 1;
+            size_t current_stride = current_degree;
 
-            // Resize next_level buffer if needed
-            next_level_coeffs.resize(next_width);
-
+            // Parallel initialization and computation
             parallel_for_heuristic(
                 next_width,
                 [&](size_t parent) {
                     size_t node = parent * 2;
+                    size_t parent_offset = parent * next_stride;
+                    size_t left_child_offset = node * current_stride;
+                    size_t right_child_offset = (node + 1) * current_stride;
 
-                    // Resize and zero-initialize the parent's coefficient vector
-                    next_level_coeffs[parent].assign(degree + 1, FF(0));
-
-                    // Copy left child coefficients
-                    std::copy(current_level_coeffs[node].begin(),
-                              current_level_coeffs[node].end(),
-                              next_level_coeffs[parent].begin());
+                    // Copy left child coefficients and zero-initialize remaining
+                    for (size_t d = 0; d < current_stride; d++) {
+                        next_level_buffer[parent_offset + d] = current_level_buffer[left_child_offset + d];
+                    }
+                    for (size_t d = current_stride; d < next_stride; d++) {
+                        next_level_buffer[parent_offset + d] = FF(0);
+                    }
 
                     // Add right child contribution: n_r * (β_i + δ_i X)
-                    // The right child has 'degree' coefficients (from previous level)
-                    size_t right_child_size = current_level_coeffs[node + 1].size();
-                    for (size_t d = 0; d < right_child_size; d++) {
-                        next_level_coeffs[parent][d] += current_level_coeffs[node + 1][d] * betas[level];
-                        next_level_coeffs[parent][d + 1] += current_level_coeffs[node + 1][d] * deltas[level];
+                    for (size_t d = 0; d < current_stride; d++) {
+                        next_level_buffer[parent_offset + d] +=
+                            current_level_buffer[right_child_offset + d] * betas[level];
+                        next_level_buffer[parent_offset + d + 1] +=
+                            current_level_buffer[right_child_offset + d] * deltas[level];
                     }
                 },
-                /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * degree * 3);
+                /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * next_degree * 3);
 
             // Swap buffers: next becomes current
-            std::swap(current_level_coeffs, next_level_coeffs);
+            std::swap(current_level_buffer, next_level_buffer);
             current_width = next_width;
+            current_degree = next_stride;
         }
 
-        return current_level_coeffs[0];
+        // Return the final result (the root node)
+        return std::vector<FF>(current_level_buffer.begin(),
+                               current_level_buffer.begin() + static_cast<std::ptrdiff_t>(current_degree));
     }
 
     /**
@@ -286,8 +303,8 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
      * the tree, label the branch connecting the left node n_l to its parent by 1 and for the right node n_r by β_i +
      * δ_i X. The value of the parent node n will be constructed as n = n_l + n_r * (β_i + δ_i X). Recurse over each
      * layer until the root is reached which will correspond to the perturbator polynomial F(X).
-     * @details This implementation is non-recursive and operates in-place using alternating buffers, minimizing memory
-     * allocations and copies.
+     * @details This implementation is non-recursive and uses flat contiguous buffers with alternating roles,
+     * enabling efficient parallel initialization and minimizing memory allocations.
      */
     static std::vector<FF> construct_perturbator_coefficients(std::span<const FF> betas,
                                                               std::span<const FF> deltas,
@@ -298,19 +315,22 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
         auto width = full_honk_evaluations.size();
 
         // Construct first level coefficients (degree 1 polynomials from leaf pairs)
-        std::vector<std::vector<FF>> first_level_coeffs(width / 2, std::vector<FF>(2));
+        // Use flat buffer: each node has 2 coefficients (degree 1)
+        size_t first_level_width = width / 2;
+        std::vector<FF> first_level_buffer(first_level_width * 2);
+
         parallel_for_heuristic(
-            width / 2,
+            first_level_width,
             [&](size_t parent) {
                 size_t node = parent * 2;
-                first_level_coeffs[parent][0] =
-                    full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
-                first_level_coeffs[parent][1] = full_honk_evaluations[node + 1] * deltas[0];
+                size_t offset = parent * 2;
+                first_level_buffer[offset] = full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
+                first_level_buffer[offset + 1] = full_honk_evaluations[node + 1] * deltas[0];
             },
             /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * 3);
 
         // Build the tree iteratively in-place
-        return construct_coefficients_tree(betas, deltas, first_level_coeffs);
+        return construct_coefficients_tree(betas, deltas, first_level_buffer, first_level_width, 2);
     }
 
     /**
