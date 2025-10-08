@@ -80,6 +80,25 @@ ExecutionResult HybridExecution::execute(std::unique_ptr<ContextInterface> enque
         // If the context has halted, we need to exit the external call.
         // The external call stack is expected to be popped.
         if (context.halted()) {
+            // If this is the top-level enqueued call (only one context left), capture the return data
+            // before the context and its memory are destroyed.
+            if (external_call_stack.size() == 1) {
+                ExecutionResult current_result = get_execution_result();
+                // Copy return data from memory before it's destroyed
+                std::vector<FF> output_data;
+                uint32_t max_read_addr = static_cast<uint32_t>(static_cast<uint64_t>(current_result.rd_offset) +
+                                                               static_cast<uint64_t>(current_result.rd_size));
+                output_data.reserve(max_read_addr - current_result.rd_offset);
+
+                auto& memory = context.get_memory();
+                for (uint32_t addr = current_result.rd_offset; addr < max_read_addr; addr++) {
+                    output_data.push_back(memory.get(addr).as_ff());
+                }
+
+                // Update the execution result with the captured output
+                current_result.output = std::move(output_data);
+                set_execution_result(current_result);
+            }
             handle_exit_call();
         }
     }

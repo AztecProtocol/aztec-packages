@@ -1,8 +1,10 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
@@ -19,6 +21,10 @@ struct ExecutionResult {
     Gas gas_used;
     SideEffectStates side_effect_states;
     bool success;
+    // Optional: if set, contains the actual return data copied from memory.
+    // This is used when the caller needs the return data but the context's memory
+    // will be destroyed after execution (e.g., in standalone simulation).
+    std::optional<std::vector<FF>> output;
 };
 
 class ExecutionInterface {
