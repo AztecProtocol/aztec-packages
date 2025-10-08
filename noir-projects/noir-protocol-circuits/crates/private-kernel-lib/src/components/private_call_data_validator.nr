@@ -7,6 +7,7 @@ use dep::types::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_call_request::PrivateCallRequest,
         private_kernel::private_call_data::PrivateCallData,
+        protocol_contracts::ProtocolContracts,
         public_call_request::PublicCallRequest,
         side_effect::{Ordered, RangeOrdered},
         transaction::tx_request::TxRequest,
@@ -95,9 +96,9 @@ impl PrivateCallDataValidator {
 
     /// Validate properties of the PrivateCallData, which are "common" to both
     /// the Init and Inner circuits.
-    pub fn validate_common(self, protocol_contract_tree_root: Field) {
+    pub fn validate_common(self, protocol_contracts: ProtocolContracts) {
         // Validate that the vk exists within the called contract address:
-        validate_contract_address(self.data, protocol_contract_tree_root);
+        validate_contract_address(self.data, protocol_contracts);
 
         self.restrict_side_effects();
 

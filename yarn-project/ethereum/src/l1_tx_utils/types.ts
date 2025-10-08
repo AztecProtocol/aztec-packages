@@ -50,6 +50,7 @@ export enum TxUtilsState {
 export const TerminalTxUtilsState = [TxUtilsState.IDLE, TxUtilsState.MINED, TxUtilsState.NOT_MINED];
 
 export type L1TxState = {
+  id: number;
   txHashes: Hex[];
   cancelTxHashes: Hex[];
   gasLimit: bigint;

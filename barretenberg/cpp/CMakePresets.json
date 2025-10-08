@@ -248,16 +248,6 @@
       }
     },
     {
-      "name": "debug-fast-circuit-check-traces",
-      "displayName": "Optimized debug build with Clang-20 with stack traces for failing circuit checks",
-      "description": "Build with globally installed Clang-20 in optimized debug mode with stack traces for failing circuit checks",
-      "inherits": "debug-fast",
-      "binaryDir": "build-debug-fast-circuit-check-traces",
-      "cacheVariables": {
-        "CHECK_CIRCUIT_STACKTRACES": "ON"
-      }
-    },
-    {
       "name": "asan-fast",
       "displayName": "Debugging build with address sanitizer on Clang-20 in optimized debug mode",
       "description": "Build with address sanitizer on clang20 in optimized debug mode",
@@ -655,11 +645,6 @@
       "name": "debug-fast-notraces",
       "inherits": "default",
       "configurePreset": "debug-fast-notraces"
-    },
-    {
-      "name": "debug-fast-circuit-check-traces",
-      "inherits": "debug-fast",
-      "configurePreset": "debug-fast-circuit-check-traces"
     },
     {
       "name": "asan-fast",

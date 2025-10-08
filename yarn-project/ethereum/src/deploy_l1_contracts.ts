@@ -147,8 +147,8 @@ export type VerificationRecord = {
 export interface DeployL1ContractsArgs extends Omit<L1ContractsConfig, keyof L1TxUtilsConfig> {
   /** The vk tree root. */
   vkTreeRoot: Fr;
-  /** The protocol contract tree root. */
-  protocolContractTreeRoot: Fr;
+  /** The hash of the protocol contracts. */
+  protocolContractsHash: Fr;
   /** The genesis root of the archive tree. */
   genesisArchiveRoot: Fr;
   /** The salt for CREATE2 deployment. */
@@ -657,7 +657,7 @@ export const deployRollup = async (
 
   const genesisStateArgs = {
     vkTreeRoot: args.vkTreeRoot.toString(),
-    protocolContractTreeRoot: args.protocolContractTreeRoot.toString(),
+    protocolContractsHash: args.protocolContractsHash.toString(),
     genesisArchiveRoot: args.genesisArchiveRoot.toString(),
   };
 
@@ -1473,10 +1473,8 @@ export class L1Deployer {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
     this.l1TxUtils = createL1TxUtilsFromViemWallet(
       this.client,
-      this.logger,
-      dateProvider,
-      this.txUtilsConfig,
-      this.acceleratedTestDeployments,
+      { logger: this.logger, dateProvider },
+      { ...this.txUtilsConfig, debugMaxGasLimit: acceleratedTestDeployments },
     );
   }
 
@@ -1604,7 +1602,11 @@ export async function deployL1Contract(
 
   if (!l1TxUtils) {
     const config = getL1TxUtilsConfigEnvVars();
-    l1TxUtils = createL1TxUtilsFromViemWallet(extendedClient, logger, undefined, config, acceleratedTestDeployments);
+    l1TxUtils = createL1TxUtilsFromViemWallet(
+      extendedClient,
+      { logger },
+      { ...config, debugMaxGasLimit: acceleratedTestDeployments },
+    );
   }
 
   if (libraries) {

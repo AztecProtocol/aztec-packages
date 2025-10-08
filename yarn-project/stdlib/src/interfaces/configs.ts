@@ -52,6 +52,8 @@ export interface SequencerConfig {
   skipCollectingAttestations?: boolean;
   /** Do not invalidate the previous block if invalid when we are the proposer (for testing only) */
   skipInvalidateBlockAsProposer?: boolean;
+  /** Broadcast invalid block proposals with corrupted state (for testing only) */
+  broadcastInvalidBlockProposal?: boolean;
 }
 
 export const SequencerConfigSchema = z.object({
@@ -75,4 +77,5 @@ export const SequencerConfigSchema = z.object({
   skipCollectingAttestations: z.boolean().optional(),
   secondsBeforeInvalidatingBlockAsCommitteeMember: z.number(),
   secondsBeforeInvalidatingBlockAsNonCommitteeMember: z.number(),
+  broadcastInvalidBlockProposal: z.boolean().optional(),
 }) satisfies ZodFor<SequencerConfig>;

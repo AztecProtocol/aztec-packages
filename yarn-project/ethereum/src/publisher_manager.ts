@@ -28,7 +28,7 @@ const busyStates: TxUtilsState[] = [
 export type PublisherFilter<UtilsType extends L1TxUtils> = (utils: UtilsType) => boolean;
 
 export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
-  private log = createLogger('PublisherManager');
+  private log = createLogger('publisher:manager');
   private config: { publisherAllowInvalidStates?: boolean };
 
   constructor(
@@ -40,6 +40,11 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
     this.config = pick(config, 'publisherAllowInvalidStates');
   }
 
+  /** Loads the state of all publishers and resumes monitoring any pending txs */
+  public async loadState(): Promise<void> {
+    await Promise.all(this.publishers.map(pub => pub.loadStateAndResumeMonitoring()));
+  }
+
   // Finds and prioritises available publishers based on
   // 1. Validity as per the provided filter function
   // 2. Validity based on the state the publisher is in
@@ -47,6 +52,14 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
   // 4. Then priority based on highest balance
   // 5. Then priority based on least recently used
   public async getAvailablePublisher(filter: PublisherFilter<UtilsType> = () => true): Promise<UtilsType> {
+    this.log.debug(`Getting available publisher`, {
+      publishers: this.publishers.map(p => ({
+        address: p.getSenderAddress(),
+        state: p.state,
+        lastMined: p.lastMinedAtBlockNumber,
+      })),
+    });
+
     // Extract the valid publishers
     let validPublishers = this.publishers.filter((pub: UtilsType) => !busyStates.includes(pub.state) && filter(pub));
 

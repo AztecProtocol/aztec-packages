@@ -5,7 +5,7 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { EthAddress, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -1014,7 +1014,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       gasFees,
       this.config.l1ChainId,
       this.config.rollupVersion,
-      protocolContractTreeRoot,
+      protocolContractsHash,
       this.archiver,
       this.proofVerifier,
       !this.config.disableTransactions,

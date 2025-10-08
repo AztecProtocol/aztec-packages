@@ -15,11 +15,11 @@
   },
   "dependencies": {
     "@cookbookdev/docsbot": "^4.25.15",
-    "@docusaurus/core": "3.8.1",
-    "@docusaurus/plugin-content-docs": "3.8.1",
-    "@docusaurus/plugin-ideal-image": "3.8.1",
-    "@docusaurus/preset-classic": "3.8.1",
-    "@docusaurus/theme-mermaid": "3.8.1",
+    "@docusaurus/core": "3.9.1",
+    "@docusaurus/plugin-content-docs": "3.9.1",
+    "@docusaurus/plugin-ideal-image": "3.9.1",
+    "@docusaurus/preset-classic": "3.9.1",
+    "@docusaurus/theme-mermaid": "3.9.1",
     "@getbrevo/brevo": "^3.0.1",
     "clsx": "^2.1.1",
     "docusaurus-theme-search-typesense": "0.25.0",
@@ -32,7 +32,7 @@
     "remark-math": "6"
   },
   "devDependencies": {
-    "@docusaurus/tsconfig": "3.8.1",
+    "@docusaurus/tsconfig": "3.9.1",
     "@tsconfig/docusaurus": "^1.0.7",
     "cspell": "^8.19.4",
     "docusaurus-plugin-llms": "^0.2.0",

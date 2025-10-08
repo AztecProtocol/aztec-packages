@@ -35,16 +35,21 @@ resource "helm_release" "keystore_setup" {
       attesters = {
         attestersPerNode   = var.ATTESTERS_PER_NODE
         nodeCount          = var.NODE_COUNT
-        mnemonicStartIndex = var.MNEMONIC_INDEX_START
-        keyStoreSecret = {
-          create = true
-          name   = "${var.RELEASE_NAME}-keystore"
-        }
+        mnemonicStartIndex = var.VALIDATOR_MNEMONIC_INDEX_START
 
         addressConfigMap = {
           create = true
           name   = var.ADDRESS_CONFIGMAP_NAME
         }
+      }
+      publishers = {
+        perValidatorKey    = var.ATTESTERS_PER_NODE
+        mnemonicStartIndex = var.VALIDATOR_PUBLISHER_MNEMONIC_INDEX_START
+      }
+      provers = {
+        proverCount         = var.PROVER_COUNT
+        publishersPerProver = var.PUBLISHERS_PER_PROVER
+        mnemonicStartIndex  = var.PROVER_PUBLISHER_MNEMONIC_INDEX_START
       }
     })
   ]
@@ -71,16 +76,20 @@ resource "helm_release" "web3signer" {
         repository = split(":", var.WEB3SIGNER_DOCKER_IMAGE)[0]
         tag        = split(":", var.WEB3SIGNER_DOCKER_IMAGE)[1]
       }
-      extraVolumes = [{
-        name = "keystore"
-        secret = {
-          secretName = "${var.RELEASE_NAME}-keystore"
+      extraVolumes = [
+        {
+          name = "keystores"
+          secret = {
+            secretName = "${var.RELEASE_NAME}-setup-keystores"
+          }
         }
-      }]
-      extraVolumeMounts = [{
-        name      = "keystore"
-        mountPath = "/keystore"
-      }]
+      ]
+      extraVolumeMounts = [
+        {
+          name      = "keystores"
+          mountPath = "/keystore"
+        }
+      ]
       keystorePath = "/keystore"
     })
   ]

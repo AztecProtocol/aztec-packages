@@ -87,7 +87,7 @@ export const mockTx = async (
     chainId = Fr.ZERO,
     version = Fr.ZERO,
     vkTreeRoot = Fr.ZERO,
-    protocolContractTreeRoot = Fr.ZERO,
+    protocolContractsHash = Fr.ZERO,
   }: {
     numberOfNonRevertiblePublicCallRequests?: number;
     numberOfRevertiblePublicCallRequests?: number;
@@ -100,7 +100,7 @@ export const mockTx = async (
     chainId?: Fr;
     version?: Fr;
     vkTreeRoot?: Fr;
-    protocolContractTreeRoot?: Fr;
+    protocolContractsHash?: Fr;
   } = {},
 ) => {
   const totalPublicCallRequests =
@@ -118,7 +118,7 @@ export const mockTx = async (
   data.constants.txContext.chainId = chainId;
   data.constants.txContext.version = version;
   data.constants.vkTreeRoot = vkTreeRoot;
-  data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
+  data.constants.protocolContractsHash = protocolContractsHash;
 
   // Set includeByTimestamp to the maximum allowed duration from the current time.
   data.includeByTimestamp = BigInt(Math.floor(Date.now() / 1000) + MAX_INCLUDE_BY_TIMESTAMP_DURATION);

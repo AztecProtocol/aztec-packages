@@ -33,7 +33,7 @@ pub struct RollupFixtureBuilder {
     pub chain_id: Field,
     pub version: Field,
     pub vk_tree_root: Field,
-    pub protocol_contract_tree_root: Field,
+    pub protocol_contracts_hash: Field,
     pub prover_id: Field,
 
     // Used to identify the first block, which will have an empty start_sponge_blob, and non-empty in_hash.
@@ -52,7 +52,7 @@ impl RollupFixtureBuilder {
             chain_id: 1,
             version: 2,
             vk_tree_root,
-            protocol_contract_tree_root: 98765,
+            protocol_contracts_hash: 98765,
             prover_id: 76543,
             start_block_number: 11,
             start_slot_number: 7,
@@ -174,7 +174,7 @@ impl RollupFixtureBuilder {
             chain_id: self.chain_id,
             version: self.version,
             vk_tree_root: self.vk_tree_root,
-            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            protocol_contracts_hash: self.protocol_contracts_hash,
             prover_id: self.prover_id,
         }
     }
@@ -184,7 +184,7 @@ impl RollupFixtureBuilder {
             chain_id: self.chain_id,
             version: self.version,
             vk_tree_root: self.vk_tree_root,
-            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            protocol_contracts_hash: self.protocol_contracts_hash,
             prover_id: self.prover_id,
             slot_number,
             coinbase: self.get_coinbase(slot_number),
@@ -212,7 +212,7 @@ impl RollupFixtureBuilder {
             last_archive: self.get_archive(block_number - 1),
             l1_to_l2_tree_snapshot: self.get_l1_to_l2_message_tree_snapshot(self.start_slot_number),
             vk_tree_root: self.vk_tree_root,
-            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            protocol_contracts_hash: self.protocol_contracts_hash,
             prover_id: self.prover_id,
             global_variables: self.get_global_variables(block_number),
         }
@@ -245,7 +245,7 @@ impl RollupFixtureBuilder {
             anchor_block_header: self.get_block_header(block_number),
             tx_context: TxContext { chain_id: self.chain_id, version: self.version, gas_settings },
             vk_tree_root: self.vk_tree_root,
-            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            protocol_contracts_hash: self.protocol_contracts_hash,
         }
     }
 

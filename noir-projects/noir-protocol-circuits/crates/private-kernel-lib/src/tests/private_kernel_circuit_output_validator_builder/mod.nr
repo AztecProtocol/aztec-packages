@@ -79,7 +79,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             self.tx_request,
             private_call,
             self.private_call.vk_tree_root,
-            self.private_call.protocol_contract_tree_root,
+            self.private_call.protocol_contracts,
             self.is_private_only,
             self.first_nullifier_hint,
         );

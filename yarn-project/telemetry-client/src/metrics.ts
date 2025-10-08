@@ -96,6 +96,16 @@ export const L1_BALANCE_ETH = 'aztec.l1.balance';
 export const L1_GAS_PRICE_WEI = 'aztec.l1.gas_price';
 export const L1_BLOB_BASE_FEE_WEI = 'aztec.l1.blob_base_fee';
 
+export const L1_TX_MINED_DURATION = 'aztec.l1_tx.mined_duration';
+export const L1_TX_MINED_COUNT = 'aztec.l1_tx.mined_count';
+export const L1_TX_REVERTED_COUNT = 'aztec.l1_tx.reverted_count';
+export const L1_TX_CANCELLED_COUNT = 'aztec.l1_tx.cancelled_count';
+export const L1_TX_NOT_MINED_COUNT = 'aztec.l1_tx.not_mined_count';
+export const L1_TX_ATTEMPTS_UNTIL_MINED = 'aztec.l1_tx.attempts_until_mined';
+export const L1_TX_MAX_PRIORITY_FEE = 'aztec.l1_tx.max_priority_fee';
+export const L1_TX_MAX_FEE = 'aztec.l1_tx.max_fee';
+export const L1_TX_BLOB_FEE = 'aztec.l1_tx.blob_fee';
+
 export const PEER_MANAGER_GOODBYES_SENT = 'aztec.peer_manager.goodbyes_sent';
 export const PEER_MANAGER_GOODBYES_RECEIVED = 'aztec.peer_manager.goodbyes_received';
 export const PEER_MANAGER_PEER_COUNT = 'aztec.peer_manager.peer_count';

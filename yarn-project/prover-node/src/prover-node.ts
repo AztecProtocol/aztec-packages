@@ -144,6 +144,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    */
   async start() {
     this.epochsMonitor.start(this);
+    await this.publisherFactory.start();
     this.publisher = await this.publisherFactory.create();
     await this.rewardsMetrics.start();
     this.l1Metrics.start();
@@ -159,6 +160,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     await this.prover.stop();
     await tryStop(this.p2pClient);
     await tryStop(this.l2BlockSource);
+    await tryStop(this.publisherFactory);
     this.publisher?.interrupt();
     await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
     await this.worldState.stop();

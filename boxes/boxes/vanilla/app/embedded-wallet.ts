@@ -350,7 +350,9 @@ export class EmbeddedWallet extends BaseWallet {
       true /* simulatePublic */,
       true,
       true,
-      { contracts: contractOverrides }
+      {
+        contracts: contractOverrides,
+      }
     );
   }
 }

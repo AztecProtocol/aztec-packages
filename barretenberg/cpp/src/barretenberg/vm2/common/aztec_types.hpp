@@ -391,4 +391,28 @@ struct DebugLog {
     MSGPACK_FIELDS(contractAddress, level, message, fields);
 };
 
+struct ProtocolContracts {
+    std::array<AztecAddress, MAX_PROTOCOL_CONTRACTS> derivedAddresses;
+
+    bool operator==(const ProtocolContracts& other) const = default;
+
+    MSGPACK_FIELDS(derivedAddresses);
+};
+
+inline bool is_protocol_contract_address(const AztecAddress& address)
+{
+    return !address.is_zero() && static_cast<uint256_t>(address) <= MAX_PROTOCOL_CONTRACTS;
+}
+
+inline std::optional<AztecAddress> get_derived_address(const ProtocolContracts& protocol_contracts,
+                                                       const AztecAddress& canonical_address)
+{
+    assert(is_protocol_contract_address(canonical_address) && "Protocol contract canonical address out of bounds");
+    AztecAddress derived_address = protocol_contracts.derivedAddresses.at(static_cast<uint32_t>(canonical_address) - 1);
+    if (derived_address.is_zero()) {
+        return std::nullopt;
+    }
+    return derived_address;
+}
+
 } // namespace bb::avm2

@@ -49,7 +49,7 @@ struct BlockHeaderValidationFlags {
 
 struct GenesisState {
   bytes32 vkTreeRoot;
-  bytes32 protocolContractTreeRoot;
+  bytes32 protocolContractsHash;
   bytes32 genesisArchiveRoot;
 }
 
@@ -80,7 +80,7 @@ struct RollupConfigInput {
 
 struct RollupConfig {
   bytes32 vkTreeRoot;
-  bytes32 protocolContractTreeRoot;
+  bytes32 protocolContractsHash;
   uint32 version;
   IERC20 feeAsset;
   IFeeJuicePortal feeAssetPortal;

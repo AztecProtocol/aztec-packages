@@ -1,6 +1,5 @@
-import { Fr } from '@aztec/foundation/fields';
-import { AvmCircuitInputs, AvmProtocolContractAddressHint } from '@aztec/stdlib/avm';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import { ProtocolContracts } from '@aztec/stdlib/tx';
 
 import avmMinimalCircuitInputsJson from '../../../artifacts/avm_minimal_inputs.json' with { type: 'json' };
 import { TypeTag } from '../avm/avm_memory_types.js';
@@ -23,19 +22,9 @@ export async function simAvmMinimalPublicTx(): Promise<PublicTxResult> {
 
   const result = await testCustomBytecode(minimalBytecode, tester, 'MinimalTx', 'AvmMinimalContract');
 
-  // Modify the protocolContractDerivedAddresses to be all zeros and modify the protocolContractTreeRoot
-  // to be a fixed value (the root of a tree of all 0 leaves). This ensures that the testdata is stable
-  result.avmProvingRequest.inputs.hints.protocolContractDerivedAddresses =
-    result.avmProvingRequest.inputs.hints.protocolContractDerivedAddresses.map(
-      () => new AvmProtocolContractAddressHint(AztecAddress.ZERO, AztecAddress.ZERO),
-    );
-  result.avmProvingRequest.inputs.publicInputs.protocolContractTreeRoot = Fr.fromString(
-    '0x0dcca15f6b97b59e13712bd9e5a6a2e7fe2349ebb82b5a82a4ae554358bac73a',
-  );
-
-  // You can uncomment this to log the actual root if you want to verify it it matches
-  // const protocolContractTree = await buildProtocolContractTree([]);
-  // console.log(Fr.fromBuffer(protocolContractTree.root));
+  // Modify the protocol contracts to be all zeros
+  result.avmProvingRequest.inputs.hints.protocolContracts = ProtocolContracts.empty();
+  result.avmProvingRequest.inputs.publicInputs.protocolContracts = ProtocolContracts.empty();
 
   return result;
 }
