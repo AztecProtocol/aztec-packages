@@ -1291,9 +1291,10 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
     static void test_assert_is_in_field_fails()
     {
         auto builder = Builder();
+        size_t num_repetitions = 1000;
         fq_ct c_ct = fq_ct::zero();
         fq_native expected = fq_native::zero();
-        for (size_t i = 0; i < 1000; ++i) {
+        for (size_t i = 0; i < num_repetitions; ++i) {
 
             auto [a_native, a_ct] = get_random_witness(&builder); // fq_native, fq_ct
             auto [b_native, b_ct] = get_random_witness(&builder); // fq_native, fq_ct
@@ -1354,9 +1355,10 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         constexpr size_t num_bits = 200;
         constexpr uint256_t bit_mask = (uint256_t(1) << num_bits) - 1;
 
+        size_t num_repetitions = 1000;
         fq_ct c_ct = fq_ct::zero();
         fq_native expected = fq_native::zero();
-        for (size_t i = 0; i < 1000; ++i) {
+        for (size_t i = 0; i < num_repetitions; ++i) {
 
             uint256_t a_u256 = uint256_t(fq_native::random_element()) & bit_mask;
             uint256_t b_u256 = uint256_t(fq_native::random_element()) & bit_mask;
