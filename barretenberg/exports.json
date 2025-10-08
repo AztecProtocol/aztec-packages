@@ -232,6 +232,171 @@
     "isAsync": false
   },
   {
+    "functionName": "kzg_load_trusted_setup",
+    "inArgs": [
+      {
+        "name": "g1_lagrange_bytes",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "g1_monomial_bytes",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "g2_monomial_bytes",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [],
+    "isAsync": false
+  },
+  {
+    "functionName": "kzg_free_trusted_setup",
+    "inArgs": [],
+    "outArgs": [],
+    "isAsync": false
+  },
+  {
+    "functionName": "kzg_blob_to_kzg_commitment",
+    "inArgs": [
+      {
+        "name": "blob_data",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "commitment_out",
+        "type": "out_buf48"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "kzg_compute_kzg_proof",
+    "inArgs": [
+      {
+        "name": "blob_data",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "z_bytes",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "proof_out",
+        "type": "out_buf48"
+      },
+      {
+        "name": "y_out",
+        "type": "out_buf32"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "kzg_compute_blob_kzg_proof",
+    "inArgs": [
+      {
+        "name": "blob_data",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "commitment_bytes",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "proof_out",
+        "type": "out_buf48"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "kzg_verify_kzg_proof",
+    "inArgs": [
+      {
+        "name": "commitment_bytes",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "z_bytes",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "y_bytes",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "proof_bytes",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "result_out",
+        "type": "bool *"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "kzg_verify_blob_kzg_proof",
+    "inArgs": [
+      {
+        "name": "blob_data",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "commitment_bytes",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "proof_bytes",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "result_out",
+        "type": "bool *"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "kzg_verify_blob_kzg_proof_batch",
+    "inArgs": [
+      {
+        "name": "blobs_data",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "commitments_bytes",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "proofs_bytes",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "count",
+        "type": "uint32_t *"
+      },
+      {
+        "name": "result_out",
+        "type": "bool *"
+      }
+    ],
+    "isAsync": false
+  },
+  {
     "functionName": "srs_init_srs",
     "inArgs": [
       {
@@ -447,7 +612,7 @@
     "isAsync": false
   },
   {
-    "functionName": "acir_get_proving_key",
+    "functionName": "acir_get_prover_instance",
     "inArgs": [
       {
         "name": "acir_composer_ptr",
@@ -580,6 +745,10 @@
       {
         "name": "witness_vec",
         "type": "const uint8_t *"
+      },
+      {
+        "name": "vk_buf",
+        "type": "const uint8_t *"
       }
     ],
     "outArgs": [
@@ -599,6 +768,10 @@
       },
       {
         "name": "witness_vec",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "vk_buf",
         "type": "const uint8_t *"
       }
     ],
@@ -620,6 +793,10 @@
       {
         "name": "witness_vec",
         "type": "const uint8_t *"
+      },
+      {
+        "name": "vk_buf",
+        "type": "const uint8_t *"
       }
     ],
     "outArgs": [
@@ -640,6 +817,10 @@
       {
         "name": "witness_vec",
         "type": "const uint8_t *"
+      },
+      {
+        "name": "vk_buf",
+        "type": "const uint8_t *"
       }
     ],
     "outArgs": [
@@ -659,6 +840,10 @@
       },
       {
         "name": "witness_vec",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "vk_buf",
         "type": "const uint8_t *"
       }
     ],

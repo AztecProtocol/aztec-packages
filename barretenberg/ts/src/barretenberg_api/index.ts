@@ -10,7 +10,7 @@ import {
   serializeBufferable,
   OutputType,
 } from '../serialize/index.js';
-import { Fr, Point, Buffer32, Ptr } from '../types/index.js';
+import { Fr, Point, Buffer32, Buffer48, Ptr } from '../types/index.js';
 
 export class BarretenbergApi {
   constructor(protected wasm: BarretenbergWasmMainWorker) {}
@@ -157,6 +157,119 @@ export class BarretenbergApi {
     );
     const out = result.map((r, i) => outTypes[i].fromBuffer(r));
     return out[0];
+  }
+
+  async kzgLoadTrustedSetup(
+    g1LagrangeBytes: Uint8Array,
+    g1MonomialBytes: Uint8Array,
+    g2MonomialBytes: Uint8Array,
+  ): Promise<void> {
+    const inArgs = [g1LagrangeBytes, g1MonomialBytes, g2MonomialBytes].map(serializeBufferable);
+    const outTypes: OutputType[] = [];
+    const result = await this.wasm.callWasmExport(
+      'kzg_load_trusted_setup',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return;
+  }
+
+  async kzgFreeTrustedSetup(): Promise<void> {
+    const inArgs = [].map(serializeBufferable);
+    const outTypes: OutputType[] = [];
+    const result = await this.wasm.callWasmExport(
+      'kzg_free_trusted_setup',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return;
+  }
+
+  async kzgBlobToKzgCommitment(blobData: Uint8Array): Promise<Buffer48> {
+    const inArgs = [blobData].map(serializeBufferable);
+    const outTypes: OutputType[] = [Buffer48];
+    const result = await this.wasm.callWasmExport(
+      'kzg_blob_to_kzg_commitment',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  async kzgComputeKzgProof(blobData: Uint8Array, zBytes: Uint8Array): Promise<[Buffer48, Buffer32]> {
+    const inArgs = [blobData, zBytes].map(serializeBufferable);
+    const outTypes: OutputType[] = [Buffer48, Buffer32];
+    const result = await this.wasm.callWasmExport(
+      'kzg_compute_kzg_proof',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out as any;
+  }
+
+  async kzgComputeBlobKzgProof(blobData: Uint8Array, commitmentBytes: Uint8Array): Promise<Buffer48> {
+    const inArgs = [blobData, commitmentBytes].map(serializeBufferable);
+    const outTypes: OutputType[] = [Buffer48];
+    const result = await this.wasm.callWasmExport(
+      'kzg_compute_blob_kzg_proof',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  async kzgVerifyKzgProof(
+    commitmentBytes: Uint8Array,
+    zBytes: Uint8Array,
+    yBytes: Uint8Array,
+    proofBytes: Uint8Array,
+  ): Promise<boolean> {
+    const inArgs = [commitmentBytes, zBytes, yBytes, proofBytes].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'kzg_verify_kzg_proof',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  async kzgVerifyBlobKzgProof(
+    blobData: Uint8Array,
+    commitmentBytes: Uint8Array,
+    proofBytes: Uint8Array,
+  ): Promise<boolean> {
+    const inArgs = [blobData, commitmentBytes, proofBytes].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'kzg_verify_blob_kzg_proof',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  async kzgVerifyBlobKzgProofBatch(
+    blobsData: Uint8Array,
+    commitmentsBytes: Uint8Array,
+    proofsBytes: Uint8Array,
+  ): Promise<[number, boolean]> {
+    const inArgs = [blobsData, commitmentsBytes, proofsBytes].map(serializeBufferable);
+    const outTypes: OutputType[] = [NumberDeserializer(), BoolDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'kzg_verify_blob_kzg_proof_batch',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out as any;
   }
 
   async srsInitSrs(pointsBuf: Uint8Array, numPoints: number, g2PointBuf: Uint8Array): Promise<void> {
@@ -307,11 +420,11 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirGetProvingKey(acirComposerPtr: Ptr, acirVec: Uint8Array, recursive: boolean): Promise<Uint8Array> {
+  async acirGetProverInstance(acirComposerPtr: Ptr, acirVec: Uint8Array, recursive: boolean): Promise<Uint8Array> {
     const inArgs = [acirComposerPtr, acirVec, recursive].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
-      'acir_get_proving_key',
+      'acir_get_prover_instance',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -383,11 +496,11 @@ export class BarretenbergApi {
     return out as any;
   }
 
-  async acirProveUltraZKHonk(acirVec: Uint8Array, witnessVec: Uint8Array, vkBuf: Uint8Array): Promise<Uint8Array> {
+  async acirProveUltraHonk(acirVec: Uint8Array, witnessVec: Uint8Array, vkBuf: Uint8Array): Promise<Uint8Array> {
     const inArgs = [acirVec, witnessVec, vkBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
-      'acir_prove_ultra_zk_honk',
+      'acir_prove_ultra_honk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -455,11 +568,11 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirVerifyUltraZKHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): Promise<boolean> {
+  async acirVerifyUltraHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): Promise<boolean> {
     const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = await this.wasm.callWasmExport(
-      'acir_verify_ultra_zk_honk',
+      'acir_verify_ultra_honk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -770,6 +883,111 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
+  kzgLoadTrustedSetup(g1LagrangeBytes: Uint8Array, g1MonomialBytes: Uint8Array, g2MonomialBytes: Uint8Array): void {
+    const inArgs = [g1LagrangeBytes, g1MonomialBytes, g2MonomialBytes].map(serializeBufferable);
+    const outTypes: OutputType[] = [];
+    const result = this.wasm.callWasmExport(
+      'kzg_load_trusted_setup',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return;
+  }
+
+  kzgFreeTrustedSetup(): void {
+    const inArgs = [].map(serializeBufferable);
+    const outTypes: OutputType[] = [];
+    const result = this.wasm.callWasmExport(
+      'kzg_free_trusted_setup',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return;
+  }
+
+  kzgBlobToKzgCommitment(blobData: Uint8Array): Buffer48 {
+    const inArgs = [blobData].map(serializeBufferable);
+    const outTypes: OutputType[] = [Buffer48];
+    const result = this.wasm.callWasmExport(
+      'kzg_blob_to_kzg_commitment',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  kzgComputeKzgProof(blobData: Uint8Array, zBytes: Uint8Array): [Buffer48, Buffer32] {
+    const inArgs = [blobData, zBytes].map(serializeBufferable);
+    const outTypes: OutputType[] = [Buffer48, Buffer32];
+    const result = this.wasm.callWasmExport(
+      'kzg_compute_kzg_proof',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out as any;
+  }
+
+  kzgComputeBlobKzgProof(blobData: Uint8Array, commitmentBytes: Uint8Array): Buffer48 {
+    const inArgs = [blobData, commitmentBytes].map(serializeBufferable);
+    const outTypes: OutputType[] = [Buffer48];
+    const result = this.wasm.callWasmExport(
+      'kzg_compute_blob_kzg_proof',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  kzgVerifyKzgProof(
+    commitmentBytes: Uint8Array,
+    zBytes: Uint8Array,
+    yBytes: Uint8Array,
+    proofBytes: Uint8Array,
+  ): boolean {
+    const inArgs = [commitmentBytes, zBytes, yBytes, proofBytes].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'kzg_verify_kzg_proof',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  kzgVerifyBlobKzgProof(blobData: Uint8Array, commitmentBytes: Uint8Array, proofBytes: Uint8Array): boolean {
+    const inArgs = [blobData, commitmentBytes, proofBytes].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'kzg_verify_blob_kzg_proof',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  kzgVerifyBlobKzgProofBatch(
+    blobsData: Uint8Array,
+    commitmentsBytes: Uint8Array,
+    proofsBytes: Uint8Array,
+  ): [number, boolean] {
+    const inArgs = [blobsData, commitmentsBytes, proofsBytes].map(serializeBufferable);
+    const outTypes: OutputType[] = [NumberDeserializer(), BoolDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'kzg_verify_blob_kzg_proof_batch',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out as any;
+  }
+
   srsInitSrs(pointsBuf: Uint8Array, numPoints: number, g2PointBuf: Uint8Array): void {
     const inArgs = [pointsBuf, numPoints, g2PointBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [];
@@ -914,11 +1132,11 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirGetProvingKey(acirComposerPtr: Ptr, acirVec: Uint8Array, recursive: boolean): Uint8Array {
+  acirGetProverInstance(acirComposerPtr: Ptr, acirVec: Uint8Array, recursive: boolean): Uint8Array {
     const inArgs = [acirComposerPtr, acirVec, recursive].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = this.wasm.callWasmExport(
-      'acir_get_proving_key',
+      'acir_get_prover_instance',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -986,8 +1204,8 @@ export class BarretenbergApiSync {
     return out as any;
   }
 
-  acirProveUltraHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Uint8Array {
-    const inArgs = [acirVec, witnessVec].map(serializeBufferable);
+  acirProveUltraHonk(acirVec: Uint8Array, witnessVec: Uint8Array, vkBuf: Uint8Array): Uint8Array {
+    const inArgs = [acirVec, witnessVec, vkBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_prove_ultra_honk',
@@ -998,8 +1216,8 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirProveUltraKeccakHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Uint8Array {
-    const inArgs = [acirVec, witnessVec].map(serializeBufferable);
+  acirProveUltraKeccakHonk(acirVec: Uint8Array, witnessVec: Uint8Array, vkBuf: Uint8Array): Uint8Array {
+    const inArgs = [acirVec, witnessVec, vkBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_prove_ultra_keccak_honk',
@@ -1010,8 +1228,8 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirProveUltraKeccakZkHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Uint8Array {
-    const inArgs = [acirVec, witnessVec].map(serializeBufferable);
+  acirProveUltraKeccakZkHonk(acirVec: Uint8Array, witnessVec: Uint8Array, vkBuf: Uint8Array): Uint8Array {
+    const inArgs = [acirVec, witnessVec, vkBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_prove_ultra_keccak_zk_honk',
@@ -1022,8 +1240,8 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirProveUltraStarknetHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Uint8Array {
-    const inArgs = [acirVec, witnessVec].map(serializeBufferable);
+  acirProveUltraStarknetHonk(acirVec: Uint8Array, witnessVec: Uint8Array, vkBuf: Uint8Array): Uint8Array {
+    const inArgs = [acirVec, witnessVec, vkBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_prove_ultra_starknet_honk',
@@ -1034,8 +1252,8 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirProveUltraStarknetZkHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Uint8Array {
-    const inArgs = [acirVec, witnessVec].map(serializeBufferable);
+  acirProveUltraStarknetZkHonk(acirVec: Uint8Array, witnessVec: Uint8Array, vkBuf: Uint8Array): Uint8Array {
+    const inArgs = [acirVec, witnessVec, vkBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_prove_ultra_starknet_zk_honk',

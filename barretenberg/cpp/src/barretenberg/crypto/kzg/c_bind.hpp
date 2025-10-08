@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/wasm_export.hpp"
 #include <cstddef>
 #include <cstdint>
@@ -13,13 +14,20 @@
 extern "C" {
 
 /**
- * Load the trusted setup for KZG operations.
+ * Load the trusted setup for KZG operations from byte buffers.
  * This must be called before any other KZG operations.
  *
- * @param trusted_setup_path Path to trusted setup file (if nullptr, uses embedded setup)
- * @return 0 on success, non-zero on failure
+ * Each buffer must be in length-prefixed format:
+ * - First 4 bytes: little-endian uint32 length
+ * - Remaining bytes: actual data
+ *
+ * @param g1_lagrange_bytes G1 points in Lagrange form (4 + 196608 bytes)
+ * @param g1_monomial_bytes G1 points in monomial form (4 + 196608 bytes)
+ * @param g2_monomial_bytes G2 points in monomial form (4 + 6240 bytes)
  */
-WASM_EXPORT int kzg_load_trusted_setup(const char* trusted_setup_path);
+WASM_EXPORT void kzg_load_trusted_setup(uint8_t const* g1_lagrange_bytes,
+                                        uint8_t const* g1_monomial_bytes,
+                                        uint8_t const* g2_monomial_bytes);
 
 /**
  * Free the loaded trusted setup.
@@ -31,9 +39,8 @@ WASM_EXPORT void kzg_free_trusted_setup();
  *
  * @param blob_data Input blob data (131072 bytes = 4096 field elements * 32 bytes)
  * @param commitment_out Output commitment (48 bytes)
- * @return 0 on success, non-zero on failure
  */
-WASM_EXPORT int kzg_blob_to_kzg_commitment(const uint8_t* blob_data, uint8_t* commitment_out);
+WASM_EXPORT void kzg_blob_to_kzg_commitment(uint8_t const* blob_data, out_buf48 commitment_out);
 
 /**
  * Compute KZG proof for polynomial at evaluation point z.
@@ -43,12 +50,11 @@ WASM_EXPORT int kzg_blob_to_kzg_commitment(const uint8_t* blob_data, uint8_t* co
  * @param z_bytes Evaluation point z (32 bytes)
  * @param proof_out Output KZG proof (48 bytes)
  * @param y_out Output evaluation y = p(z) (32 bytes)
- * @return 0 on success, non-zero on failure
  */
-WASM_EXPORT int kzg_compute_kzg_proof(const uint8_t* blob_data,
-                                      const uint8_t* z_bytes,
-                                      uint8_t* proof_out,
-                                      uint8_t* y_out);
+WASM_EXPORT void kzg_compute_kzg_proof(const uint8_t* blob_data,
+                                       const uint8_t* z_bytes,
+                                       out_buf48 proof_out,
+                                       out_buf32 y_out);
 
 /**
  * Compute blob KZG proof (for EIP-4844 verification).
@@ -56,11 +62,10 @@ WASM_EXPORT int kzg_compute_kzg_proof(const uint8_t* blob_data,
  * @param blob_data Input blob data (131072 bytes)
  * @param commitment_bytes KZG commitment (48 bytes)
  * @param proof_out Output KZG proof (48 bytes)
- * @return 0 on success, non-zero on failure
  */
-WASM_EXPORT int kzg_compute_blob_kzg_proof(const uint8_t* blob_data,
-                                           const uint8_t* commitment_bytes,
-                                           uint8_t* proof_out);
+WASM_EXPORT void kzg_compute_blob_kzg_proof(const uint8_t* blob_data,
+                                            const uint8_t* commitment_bytes,
+                                            out_buf48 proof_out);
 
 /**
  * Verify a KZG proof that p(z) = y.
@@ -70,13 +75,12 @@ WASM_EXPORT int kzg_compute_blob_kzg_proof(const uint8_t* blob_data,
  * @param y_bytes Claimed evaluation y (32 bytes)
  * @param proof_bytes KZG proof (48 bytes)
  * @param result_out Output result (1 = valid, 0 = invalid)
- * @return 0 on success (check result_out for validity), non-zero on error
  */
-WASM_EXPORT int kzg_verify_kzg_proof(const uint8_t* commitment_bytes,
-                                     const uint8_t* z_bytes,
-                                     const uint8_t* y_bytes,
-                                     const uint8_t* proof_bytes,
-                                     bool* result_out);
+WASM_EXPORT void kzg_verify_kzg_proof(const uint8_t* commitment_bytes,
+                                      const uint8_t* z_bytes,
+                                      const uint8_t* y_bytes,
+                                      const uint8_t* proof_bytes,
+                                      bool* result_out);
 
 /**
  * Verify blob KZG proof (for EIP-4844).
@@ -85,12 +89,11 @@ WASM_EXPORT int kzg_verify_kzg_proof(const uint8_t* commitment_bytes,
  * @param commitment_bytes KZG commitment (48 bytes)
  * @param proof_bytes KZG proof (48 bytes)
  * @param result_out Output result (1 = valid, 0 = invalid)
- * @return 0 on success (check result_out for validity), non-zero on error
  */
-WASM_EXPORT int kzg_verify_blob_kzg_proof(const uint8_t* blob_data,
-                                          const uint8_t* commitment_bytes,
-                                          const uint8_t* proof_bytes,
-                                          bool* result_out);
+WASM_EXPORT void kzg_verify_blob_kzg_proof(const uint8_t* blob_data,
+                                           const uint8_t* commitment_bytes,
+                                           const uint8_t* proof_bytes,
+                                           bool* result_out);
 
 /**
  * Verify multiple blob KZG proofs in batch (more efficient).
@@ -100,13 +103,12 @@ WASM_EXPORT int kzg_verify_blob_kzg_proof(const uint8_t* blob_data,
  * @param proofs_bytes Array of proof pointers (48 bytes each)
  * @param count Number of blobs/commitments/proofs
  * @param result_out Output result (1 = all valid, 0 = at least one invalid)
- * @return 0 on success (check result_out for validity), non-zero on error
  */
-WASM_EXPORT int kzg_verify_blob_kzg_proof_batch(const uint8_t** blobs_data,
-                                                const uint8_t** commitments_bytes,
-                                                const uint8_t** proofs_bytes,
-                                                size_t count,
-                                                bool* result_out);
+WASM_EXPORT void kzg_verify_blob_kzg_proof_batch(const uint8_t* blobs_data,
+                                                 const uint8_t* commitments_bytes,
+                                                 const uint8_t* proofs_bytes,
+                                                 uint32_t* count,
+                                                 bool* result_out);
 
 // Constants
 constexpr size_t BYTES_PER_BLOB = 131072; // 4096 * 32

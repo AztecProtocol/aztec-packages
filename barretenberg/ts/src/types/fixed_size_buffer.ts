@@ -20,6 +20,25 @@ export class Buffer32 {
   }
 }
 
+export class Buffer48 {
+  static SIZE_IN_BYTES = 48;
+
+  constructor(public readonly buffer: Uint8Array) {}
+
+  static fromBuffer(buffer: Uint8Array | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new Buffer48(reader.readBytes(this.SIZE_IN_BYTES));
+  }
+
+  static random() {
+    return new Buffer48(randomBytes(this.SIZE_IN_BYTES));
+  }
+
+  toBuffer() {
+    return this.buffer;
+  }
+}
+
 export class Buffer64 {
   static SIZE_IN_BYTES = 64;
 

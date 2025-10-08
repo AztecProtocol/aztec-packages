@@ -2,6 +2,8 @@
 # Run from aztec-packages/barretenberg.
 set -eu
 
+cd $(dirname $0)/..
+
 if ! dpkg -l python3-clang-18 &> /dev/null; then
   echo "You need to install python clang 18 e.g.: apt install python3-clang-18"
   exit 1

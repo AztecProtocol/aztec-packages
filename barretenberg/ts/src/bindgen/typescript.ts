@@ -11,7 +11,7 @@ export function generateTypeScriptCode(filename: string) {
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { BufferDeserializer, NumberDeserializer, VectorDeserializer, BoolDeserializer, StringDeserializer, serializeBufferable, OutputType } from '../serialize/index.js';
-import { Fr, Point, Buffer32, Ptr } from '../types/index.js';
+import { Fr, Point, Buffer32, Buffer48, Ptr } from '../types/index.js';
 
 `;
 
