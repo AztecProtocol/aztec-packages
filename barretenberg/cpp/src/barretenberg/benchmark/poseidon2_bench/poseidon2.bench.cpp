@@ -306,29 +306,18 @@ using Poseidon2BBSocketMPSC = Poseidon2BBMsgpack<TransportType::Socket, 3>;
 using Poseidon2BBShmSPSC = Poseidon2BBMsgpack<TransportType::Shm, 1>;
 using Poseidon2BBShmMPSC = Poseidon2BBMsgpack<TransportType::Shm, 3>;
 
-BENCHMARK_DEFINE_F(Poseidon2BBSocketSPSC, poseiden_hash_roundtrip)(benchmark::State& state)
-{
-    run_benchmark(state);
-}
-BENCHMARK_REGISTER_F(Poseidon2BBSocketSPSC, poseiden_hash_roundtrip)->Unit(benchmark::kMicrosecond)->Iterations(10000);
+// Macro to register benchmark variants
+#define REGISTER_BB_BENCHMARK(fixture_name)                                                                            \
+    BENCHMARK_DEFINE_F(fixture_name, poseiden_hash_roundtrip)(benchmark::State & state)                                \
+    {                                                                                                                  \
+        run_benchmark(state);                                                                                          \
+    }                                                                                                                  \
+    BENCHMARK_REGISTER_F(fixture_name, poseiden_hash_roundtrip)->Unit(benchmark::kMicrosecond)->Iterations(10000)
 
-BENCHMARK_DEFINE_F(Poseidon2BBSocketMPSC, poseiden_hash_roundtrip)(benchmark::State& state)
-{
-    run_benchmark(state);
-}
-BENCHMARK_REGISTER_F(Poseidon2BBSocketMPSC, poseiden_hash_roundtrip)->Unit(benchmark::kMicrosecond)->Iterations(10000);
-
-BENCHMARK_DEFINE_F(Poseidon2BBShmSPSC, poseiden_hash_roundtrip)(benchmark::State& state)
-{
-    run_benchmark(state);
-}
-BENCHMARK_REGISTER_F(Poseidon2BBShmSPSC, poseiden_hash_roundtrip)->Unit(benchmark::kMicrosecond)->Iterations(10000);
-
-BENCHMARK_DEFINE_F(Poseidon2BBShmMPSC, poseiden_hash_roundtrip)(benchmark::State& state)
-{
-    run_benchmark(state);
-}
-BENCHMARK_REGISTER_F(Poseidon2BBShmMPSC, poseiden_hash_roundtrip)->Unit(benchmark::kMicrosecond)->Iterations(10000);
+REGISTER_BB_BENCHMARK(Poseidon2BBSocketSPSC);
+REGISTER_BB_BENCHMARK(Poseidon2BBSocketMPSC);
+REGISTER_BB_BENCHMARK(Poseidon2BBShmSPSC);
+REGISTER_BB_BENCHMARK(Poseidon2BBShmMPSC);
 
 } // namespace
 
