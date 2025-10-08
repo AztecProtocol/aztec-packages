@@ -230,8 +230,6 @@ template <typename Flavor> class SumcheckProver {
      */
     SumcheckOutput<Flavor> prove()
     {
-        BB_BENCH_NAME("sumcheck.prove (Non-ZK)");
-
         vinfo("starting sumcheck rounds...");
 
         // Given gate challenges β = (β₀, ..., β_{d−1}) and d = `multivariate_d`, compute the evaluations of
@@ -322,8 +320,6 @@ template <typename Flavor> class SumcheckProver {
     SumcheckOutput<Flavor> prove(ZKData& zk_sumcheck_data)
         requires Flavor::HasZK
     {
-        BB_BENCH_NAME("sumcheck.prove (ZK)");
-
         CommitmentKey ck;
 
         if constexpr (IsGrumpkinFlavor<Flavor>) {
