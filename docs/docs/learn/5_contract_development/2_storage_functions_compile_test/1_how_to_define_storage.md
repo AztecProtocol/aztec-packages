@@ -5,7 +5,7 @@ description: Define and manage storage state in your Aztec smart contracts using
 source: "developers/docs/guides/smart_contracts/how_to_define_storage.md"
 ---
 
-Now that you understand the overall structure of Aztec contracts from the previous section, let's dive deeper into one of the most important aspects: **storage**. Remember when we briefly covered storage types like `PublicMutable`, `PrivateSet`, and `Map`? This is where we'll explore them in detail and learn how to use them effectively.
+Now that you understand the overall structure of Aztec contracts from the previous lesson, let's dive deeper into one of the most important aspects: **storage**. Remember when we briefly covered storage types like `PublicMutable`, `PrivateSet`, and `Map`? This is where we'll explore them in detail and learn how to use them effectively.
 
 Storage is where your contract keeps its persistent state - the data that survives between function calls and transactions. In Aztec, storage is particularly interesting because you have choices about visibility and privacy that don't exist in traditional blockchain platforms. You can keep some data completely private, make other data publicly visible, or even mix both approaches in the same contract.
 

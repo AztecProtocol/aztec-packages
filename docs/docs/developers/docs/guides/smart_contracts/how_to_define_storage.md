@@ -40,9 +40,15 @@ The `Context` parameter provides execution mode information.
 
 Use the `storage` keyword to access your storage variables in contract functions.
 
+E.g., to read the `admin` variable:
+
+```rust
+storage.admin.read();
+```
+
 ## Use maps for key-value storage
 
-Maps store key-value pairs where keys are `Field` elements and values can be any type.
+Maps store key-value pairs where keys are `Field` elements or serializable types, like `AztecAddress`, and values can be any type.
 
 ### Understand map structure
 
@@ -92,33 +98,36 @@ All private storage operates on note types rather than arbitrary data types. Lea
 
 ### PrivateMutable
 
-PrivateMutable is a private state variable that is unique in a way. When a PrivateMutable is initialized, a note is created to represent its value. Updating the value means to destroy the current note, and to create a new one with the updated value.
+`PrivateMutable` is a private state variable that can be updated. It's a private state variable that is unique in a way. When a `PrivateMutable` is initialized, a note is created to represent its value. Updating the value means to destroy the current note, and to create a new one with the updated value.
 
 Like for public state, we define the struct to have context and a storage slot. You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/smart-contracts/aztec/src/state_vars/private_mutable.nr).
 
 An example of `PrivateMutable` usage in contracts is keeping track of important values. The `PrivateMutable` is added to the `Storage` struct as follows:
 
 ```rust
-// #[storage]
-// ...etc
-my_value: PrivateMutable<MyNote, Context>,
+#[storage]
+pub struct Storage<Context> {
+    my_value: PrivateMutable<MyNote, Context>,
+}
 ```
 
 #### `initialize`
 
-As mentioned, the PrivateMutable should be initialized to create the first note and value. When this function is called, a nullifier of the storage slot is created, preventing this PrivateMutable from being initialized again.
+As mentioned, the `PrivateMutable` should be initialized to create the first note and value. When this function is called, a nullifier of the storage slot is created, preventing this `PrivateMutable` from being initialized again.
 
 Unlike public states, which have a default initial value of `0` (or many zeros, in the case of a struct, array or map), a private state (of type `PrivateMutable`, `PrivateImmutable` or `PrivateSet`) does not have a default initial value. The `initialize` method (or `insert`, in the case of a `PrivateSet`) must be called.
 
+```rust
+storage.my_value.initialize(1);
+```
+
 #### `is_initialized`
 
-An unconstrained method to check whether the PrivateMutable has been initialized or not. It takes an optional owner and returns a boolean. You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/smart-contracts/aztec/src/state_vars/private_mutable.nr).
+An unconstrained method to check whether the `PrivateMutable` has been initialized or not. It takes an optional owner and returns a boolean. You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/smart-contracts/aztec/src/state_vars/private_mutable.nr).
 
 ```rust
 let is_initialized = my_value.is_initialized();
 ```
-
-s
 
 #### `replace`
 
@@ -143,11 +152,11 @@ Calling `emit(encode_and_encrypt_note())` on the `replace` method will encrypt t
 
 :::
 
-If two people are trying to modify the PrivateMutable at the same time, only one will succeed as we don't allow duplicate nullifiers! Developers should put in place appropriate access controls to avoid race conditions (unless a race is intended!).
+If two people are trying to modify the `PrivateMutable` at the same time, only one will succeed as we don't allow duplicate nullifiers! Developers should put in place appropriate access controls to avoid race conditions (unless a race is intended!).
 
 #### `get_note`
 
-This function allows us to get the note of a PrivateMutable, essentially reading the value.
+This function allows us to get the note of a `PrivateMutable`, essentially reading the value.
 
 ```rust
 let note = my_value.get_note()
@@ -155,7 +164,7 @@ let note = my_value.get_note()
 
 :::info
 
-To ensure that a user's private execution always uses the latest value of a PrivateMutable, the `get_note` function will nullify the note that it is reading. This means that if two people are trying to use this function with the same note, only one will succeed (no duplicate nullifiers allowed).
+To ensure that a user's private execution always uses the latest value of a `PrivateMutable`, the `get_note` function will nullify the note that it is reading. This means that if two people are trying to use this function with the same note, only one will succeed (no duplicate nullifiers allowed).
 
 This also makes read operations indistinguishable from write operations and allows the sequencer to verifying correct execution without learning anything about the value of the note.
 
@@ -171,9 +180,9 @@ Functionally similar to [`get_note`](#get_note), but executed in unconstrained f
 
 #### `initialize`
 
-When this function is invoked, it creates a nullifier for the storage slot, ensuring that the PrivateImmutable cannot be initialized again.
+When this function is invoked, it creates a nullifier for the storage slot, ensuring that the `PrivateImmutable` cannot be initialized again.
 
-Set the value of an PrivateImmutable by calling the `initialize` method:
+Set the value of an `PrivateImmutable` by calling the `initialize` method:
 
 ```rust
 #[private]
@@ -193,17 +202,17 @@ Calling `emit(encode_and_encrypt_note())` on `initialize` will encrypt the new n
 
 :::
 
-Once initialized, an PrivateImmutable's value remains unchangeable. This method can only be called once.
+Once initialized, an `PrivateImmutable`'s value remains unchangeable. This method can only be called once.
 
 #### `is_initialized`
 
-An unconstrained method to check if the PrivateImmutable has been initialized. Takes an optional owner and returns a boolean. You can find the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/smart-contracts/aztec/src/state_vars/private_immutable.nr).
+An unconstrained method to check if the `PrivateImmutable` has been initialized. Takes an optional owner and returns a boolean. You can find the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/smart-contracts/aztec/src/state_vars/private_immutable.nr).
 
 #### `get_note`
 
-Similar to the `PrivateMutable`, we can use the `get_note` method to read the value of an PrivateImmutable.
+Similar to the `PrivateMutable`, we can use the `get_note` method to read the value of an `PrivateImmutable`.
 
-Use this method to retrieve the value of an initialized PrivateImmutable.
+Use this method to retrieve the value of an initialized `PrivateImmutable`.
 
 ```rust
 #[private]
@@ -212,7 +221,7 @@ fn get_immutable_note() -> MyNote {
 }
 ```
 
-Unlike a `PrivateMutable`, the `get_note` function for an PrivateImmutable doesn't nullify the current note in the background. This means that multiple accounts can concurrently call this function to read the value.
+Unlike a `PrivateMutable`, the `get_note` function for an `PrivateImmutable` doesn't nullify the current note in the background. This means that multiple accounts can concurrently call this function to read the value.
 
 This function will throw if the `PrivateImmutable` hasn't been initialized.
 
@@ -508,6 +517,6 @@ Returns the last scheduled value change, along with the timestamp at which the s
 storage.my_delayed_value.get_scheduled_value()
 ```
 
-It is not possible to call this function in private: doing so would not be very useful at it cannot be asserted that a scheduled value change will not be immediately replaced if `shcedule_value_change` where to be called.
+It is not possible to call this function in private: doing so would not be very useful at it cannot be asserted that a scheduled value change will not be immediately replaced if `schedule_value_change` where to be called.
 
 <!-- docs:end:define_storage -->

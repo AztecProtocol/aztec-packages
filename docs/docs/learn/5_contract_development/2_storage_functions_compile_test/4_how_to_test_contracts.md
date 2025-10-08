@@ -13,10 +13,10 @@ For testing Aztec contracts written in Noir, you'll use the **TXE (Test eXecutio
 The TXE provides a `TestEnvironment` that mimics the Aztec network locally, allowing you to:
 
 - Deploy contracts instantly without waiting for blocks
-- Create test accounts on the fly
+- Create test accounts
 - Call private and public functions
 - Test authorization patterns like authwits
-- Control time and block timestamps
+- Control block timestamps
 
 Since the TXE uses mocked components and doesn't run the full rollup circuits, it's ideal for fast iteration during development. However, this also means it has limitations - it can't test complex cross-chain interactions or the full end-to-end flow through the Aztec rollup. For those more comprehensive scenarios, you'll want to use TypeScript-based end-to-end testing with `aztec.js`, which we'll cover in a later section.
 
