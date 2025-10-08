@@ -149,9 +149,27 @@ pub global MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS: u32 = 3000; 
 pub global MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS: u32 = 3000; // Arbitrary.
 
 // How many fields are on the serialized ClassPrivateFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS.
-pub global CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 19;
+pub global CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 =/* magic value */ 1
+    + 1 /* contract_class_id */
+    + 1 /* artifact_metadata_hash */
+    + 1 /* utility_functions_artifact_tree_root */
+    + FUNCTION_TREE_HEIGHT /* private_function_tree_sibling_path */
+    + 1 /* private_function_tree_leaf_index */
+    + ARTIFACT_FUNCTION_TREE_MAX_HEIGHT /* artifact_function_tree_sibling_path */
+    + 1 /* artifact_function_tree_leaf_index */
+    + 1 /* function selector */
+    + 1 /* function metadata_hash */
+    + 1 /* function vk_hash */;
+
 // How many fields are on the serialized ClassUtilityFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS.
-pub global CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 12;
+pub global CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 =/* magic value */ 1
+    + 1 /* contract_class_id */
+    + 1 /* artifact_metadata_hash */
+    + 1 /* private_functions_artifact_tree_root */
+    + ARTIFACT_FUNCTION_TREE_MAX_HEIGHT /* artifact_function_tree_sibling_path */
+    + 1 /* artifact_function_tree_leaf_index */
+    + 1 /* function selector */
+    + 1 /* function metadata_hash */;
 
 // TODO: ask Palla "WHYYYYY sha224?@?@"
 
