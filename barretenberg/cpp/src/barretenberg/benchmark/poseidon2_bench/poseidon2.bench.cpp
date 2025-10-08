@@ -253,6 +253,51 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
             }
         }
     }
+
+    // Benchmark implementation shared across all variants
+    void run_benchmark(benchmark::State& state)
+    {
+        std::array<uint8_t, 1024 * 1024> resp_buffer{};
+
+        for (auto _ : state) {
+            // Create Poseidon2Hash command
+            bb::bbapi::Poseidon2Hash hash_cmd;
+            hash_cmd.inputs = { uint256_t(x), uint256_t(y) };
+            bb::bbapi::Command command{ std::move(hash_cmd) };
+
+            // Serialize command to msgpack
+            msgpack::sbuffer cmd_buffer;
+            msgpack::pack(cmd_buffer, command);
+
+            // Send command
+            if (!clients[0]->send(cmd_buffer.data(), cmd_buffer.size())) {
+                state.SkipWithError("Failed to send command");
+                break;
+            }
+
+            // Receive response
+            ssize_t n = clients[0]->recv(resp_buffer.data(), resp_buffer.size());
+            if (n < 0) {
+                state.SkipWithError("Failed to receive response");
+                break;
+            }
+
+            // Deserialize response
+            auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(resp_buffer.data()), static_cast<size_t>(n));
+            bb::bbapi::CommandResponse response;
+            unpacked.get().convert(response);
+
+            // Extract hash from response
+            const auto& response_variant = static_cast<const bb::bbapi::CommandResponse::VariantType&>(response);
+            const auto* hash_response = std::get_if<bb::bbapi::Poseidon2Hash::Response>(&response_variant);
+            if (hash_response == nullptr) {
+                state.SkipWithError("Invalid response type");
+                break;
+            }
+
+            DoNotOptimize(hash_response->hash);
+        }
+    }
 };
 
 // Type aliases for specific test cases
@@ -263,184 +308,25 @@ using Poseidon2BBShmMPSC = Poseidon2BBMsgpack<TransportType::Shm, 3>;
 
 BENCHMARK_DEFINE_F(Poseidon2BBSocketSPSC, poseiden_hash_roundtrip)(benchmark::State& state)
 {
-    // Pre-allocate buffer for responses
-    std::array<uint8_t, 1024 * 1024> resp_buffer{};
-
-    for (auto _ : state) {
-        // Create Poseidon2Hash command
-        bb::bbapi::Poseidon2Hash hash_cmd;
-        hash_cmd.inputs = { uint256_t(x), uint256_t(y) };
-        bb::bbapi::Command command{ std::move(hash_cmd) };
-
-        // Serialize command to msgpack
-        msgpack::sbuffer cmd_buffer;
-        msgpack::pack(cmd_buffer, command);
-
-        // Send command
-        if (!clients[0]->send(cmd_buffer.data(), cmd_buffer.size())) {
-            state.SkipWithError("Failed to send command");
-            break;
-        }
-
-        // Receive response
-        ssize_t n = clients[0]->recv(resp_buffer.data(), resp_buffer.size());
-        if (n < 0) {
-            state.SkipWithError("Failed to receive response");
-            break;
-        }
-
-        // Deserialize response
-        auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(resp_buffer.data()), static_cast<size_t>(n));
-        bb::bbapi::CommandResponse response;
-        unpacked.get().convert(response);
-
-        // Extract hash from response
-        const auto& response_variant = static_cast<const bb::bbapi::CommandResponse::VariantType&>(response);
-        const auto* hash_response = std::get_if<bb::bbapi::Poseidon2Hash::Response>(&response_variant);
-        if (hash_response == nullptr) {
-            state.SkipWithError("Invalid response type");
-            break;
-        }
-
-        DoNotOptimize(hash_response->hash);
-    }
+    run_benchmark(state);
 }
 BENCHMARK_REGISTER_F(Poseidon2BBSocketSPSC, poseiden_hash_roundtrip)->Unit(benchmark::kMicrosecond)->Iterations(10000);
 
 BENCHMARK_DEFINE_F(Poseidon2BBSocketMPSC, poseiden_hash_roundtrip)(benchmark::State& state)
 {
-    // Background threads (clients 1 & 2) create contention
-    std::array<uint8_t, 1024 * 1024> resp_buffer{};
-
-    for (auto _ : state) {
-        // Create Poseidon2Hash command
-        bb::bbapi::Poseidon2Hash hash_cmd;
-        hash_cmd.inputs = { uint256_t(x), uint256_t(y) };
-        bb::bbapi::Command command{ std::move(hash_cmd) };
-
-        // Serialize command to msgpack
-        msgpack::sbuffer cmd_buffer;
-        msgpack::pack(cmd_buffer, command);
-
-        // Send command
-        if (!clients[0]->send(cmd_buffer.data(), cmd_buffer.size())) {
-            state.SkipWithError("Failed to send command");
-            break;
-        }
-
-        // Receive response
-        ssize_t n = clients[0]->recv(resp_buffer.data(), resp_buffer.size());
-        if (n < 0) {
-            state.SkipWithError("Failed to receive response");
-            break;
-        }
-
-        // Deserialize response
-        auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(resp_buffer.data()), static_cast<size_t>(n));
-        bb::bbapi::CommandResponse response;
-        unpacked.get().convert(response);
-
-        // Extract hash from response
-        const auto& response_variant = static_cast<const bb::bbapi::CommandResponse::VariantType&>(response);
-        const auto* hash_response = std::get_if<bb::bbapi::Poseidon2Hash::Response>(&response_variant);
-        if (hash_response == nullptr) {
-            state.SkipWithError("Invalid response type");
-            break;
-        }
-
-        DoNotOptimize(hash_response->hash);
-    }
+    run_benchmark(state);
 }
 BENCHMARK_REGISTER_F(Poseidon2BBSocketMPSC, poseiden_hash_roundtrip)->Unit(benchmark::kMicrosecond)->Iterations(10000);
 
 BENCHMARK_DEFINE_F(Poseidon2BBShmSPSC, poseiden_hash_roundtrip)(benchmark::State& state)
 {
-    std::array<uint8_t, 1024 * 1024> resp_buffer{};
-
-    for (auto _ : state) {
-        // Create Poseidon2Hash command
-        bb::bbapi::Poseidon2Hash hash_cmd;
-        hash_cmd.inputs = { uint256_t(x), uint256_t(y) };
-        bb::bbapi::Command command{ std::move(hash_cmd) };
-
-        // Serialize command to msgpack
-        msgpack::sbuffer cmd_buffer;
-        msgpack::pack(cmd_buffer, command);
-
-        // Send request
-        if (!clients[0]->send(cmd_buffer.data(), cmd_buffer.size(), 1000000000)) {
-            state.SkipWithError("Failed to send command");
-            break;
-        }
-
-        // Receive response
-        ssize_t n = clients[0]->recv(resp_buffer.data(), resp_buffer.size(), 1000000000);
-        if (n < 0) {
-            state.SkipWithError("Failed to receive response");
-            break;
-        }
-
-        // Deserialize response
-        auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(resp_buffer.data()), static_cast<size_t>(n));
-        bb::bbapi::CommandResponse response;
-        unpacked.get().convert(response);
-
-        // Extract hash from response
-        const auto& response_variant = static_cast<const bb::bbapi::CommandResponse::VariantType&>(response);
-        const auto* hash_response = std::get_if<bb::bbapi::Poseidon2Hash::Response>(&response_variant);
-        if (hash_response == nullptr) {
-            state.SkipWithError("Invalid response type");
-            break;
-        }
-
-        DoNotOptimize(hash_response->hash);
-    }
+    run_benchmark(state);
 }
 BENCHMARK_REGISTER_F(Poseidon2BBShmSPSC, poseiden_hash_roundtrip)->Unit(benchmark::kMicrosecond)->Iterations(10000);
 
 BENCHMARK_DEFINE_F(Poseidon2BBShmMPSC, poseiden_hash_roundtrip)(benchmark::State& state)
 {
-    // Background threads (clients 1 & 2) create contention
-    std::array<uint8_t, 1024 * 1024> resp_buffer{};
-
-    for (auto _ : state) {
-        // Create Poseidon2Hash command
-        bb::bbapi::Poseidon2Hash hash_cmd;
-        hash_cmd.inputs = { uint256_t(x), uint256_t(y) };
-        bb::bbapi::Command command{ std::move(hash_cmd) };
-
-        // Serialize command to msgpack
-        msgpack::sbuffer cmd_buffer;
-        msgpack::pack(cmd_buffer, command);
-
-        // Send request
-        if (!clients[0]->send(cmd_buffer.data(), cmd_buffer.size(), 1000000000)) {
-            state.SkipWithError("Failed to send command");
-            break;
-        }
-
-        // Receive response
-        ssize_t n = clients[0]->recv(resp_buffer.data(), resp_buffer.size(), 1000000000);
-        if (n < 0) {
-            state.SkipWithError("Failed to receive response");
-            break;
-        }
-
-        // Deserialize response
-        auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(resp_buffer.data()), static_cast<size_t>(n));
-        bb::bbapi::CommandResponse response;
-        unpacked.get().convert(response);
-
-        // Extract hash from response
-        const auto& response_variant = static_cast<const bb::bbapi::CommandResponse::VariantType&>(response);
-        const auto* hash_response = std::get_if<bb::bbapi::Poseidon2Hash::Response>(&response_variant);
-        if (hash_response == nullptr) {
-            state.SkipWithError("Invalid response type");
-            break;
-        }
-
-        DoNotOptimize(hash_response->hash);
-    }
+    run_benchmark(state);
 }
 BENCHMARK_REGISTER_F(Poseidon2BBShmMPSC, poseiden_hash_roundtrip)->Unit(benchmark::kMicrosecond)->Iterations(10000);
 
