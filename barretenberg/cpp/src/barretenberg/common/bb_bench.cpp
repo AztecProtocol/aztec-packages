@@ -1,12 +1,10 @@
-#include "barretenberg/common/assert.hpp"
-#include <cstdint>
-#include <sys/types.h>
-// #ifndef __wasm__  // TEMPORARILY REMOVED FOR TIMING TEST
 #include "bb_bench.hpp"
+#include "barretenberg/common/assert.hpp"
 #include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <functional>
 #include <iomanip>
 #include <iostream>
@@ -14,6 +12,7 @@
 #include <ostream>
 #include <set>
 #include <sstream>
+#include <sys/types.h>
 #include <thread>
 #include <vector>
 
@@ -596,4 +595,3 @@ BenchReporter::~BenchReporter()
     GlobalBenchStatsContainer::parent = parent;
 }
 } // namespace bb::detail
-// #endif  // TEMPORARILY REMOVED FOR TIMING TEST
