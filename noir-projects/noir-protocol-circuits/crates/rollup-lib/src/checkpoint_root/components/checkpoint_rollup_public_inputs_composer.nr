@@ -56,7 +56,7 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
             chain_id: merged_rollup.constants.chain_id,
             version: merged_rollup.constants.version,
             vk_tree_root: merged_rollup.constants.vk_tree_root,
-            protocol_contract_tree_root: merged_rollup.constants.protocol_contract_tree_root,
+            protocol_contracts_hash: merged_rollup.constants.protocol_contracts_hash,
             prover_id: merged_rollup.constants.prover_id,
         };
 

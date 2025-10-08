@@ -3,7 +3,7 @@ import { AccountManager, type AztecAddress, type WaitOpts, createAztecNodeClient
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet';
+import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet/server';
 
 export async function setupL2Contracts(nodeUrl: string, testAccounts: boolean, json: boolean, log: LogFn) {
   const waitOpts: WaitOpts = {

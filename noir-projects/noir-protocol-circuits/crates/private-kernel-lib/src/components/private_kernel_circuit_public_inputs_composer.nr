@@ -11,9 +11,10 @@ use dep::types::{
         },
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
+        private_tx_constant_data::PrivateTxConstantData,
+        protocol_contracts::ProtocolContracts,
         side_effect::{Ordered, OrderedValue},
         transaction::tx_request::TxRequest,
-        tx_constant_data::TxConstantData,
     },
     constants::MAX_U64_VALUE,
     debug::no_op,
@@ -49,17 +50,17 @@ impl PrivateKernelCircuitPublicInputsComposer {
         tx_request: TxRequest,
         private_call_public_inputs: PrivateCircuitPublicInputs,
         vk_tree_root: Field,
-        protocol_contract_tree_root: Field,
+        protocol_contracts: ProtocolContracts,
         is_private_only: bool,
         first_nullifier_hint: Field,
     ) -> Self {
         let mut public_inputs_builder = PrivateKernelCircuitPublicInputsBuilder::empty();
         public_inputs_builder.is_private_only = is_private_only;
 
-        public_inputs_builder.constants = TxConstantData {
+        public_inputs_builder.constants = PrivateTxConstantData {
             tx_context: private_call_public_inputs.tx_context,
-            vk_tree_root: vk_tree_root,
-            protocol_contract_tree_root: protocol_contract_tree_root,
+            vk_tree_root,
+            protocol_contracts,
             anchor_block_header: private_call_public_inputs.anchor_block_header,
         };
 

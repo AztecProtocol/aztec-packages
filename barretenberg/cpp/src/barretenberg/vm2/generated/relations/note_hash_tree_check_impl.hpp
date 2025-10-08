@@ -16,8 +16,8 @@ void note_hash_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     using C = ColumnAndShifts;
 
     const auto constants_NOTE_HASH_TREE_HEIGHT = FF(40);
-    const auto constants_AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX = FF(159);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX = FF(376);
+    const auto constants_AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX = FF(169);
+    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX = FF(386);
     const auto constants_GENERATOR_INDEX__NOTE_HASH_NONCE = FF(2);
     const auto constants_GENERATOR_INDEX__UNIQUE_NOTE_HASH = FF(3);
     const auto constants_GENERATOR_INDEX__SILOED_NOTE_HASH = FF(4);

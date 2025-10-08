@@ -599,7 +599,7 @@ template <typename Builder, typename T> class bigfield {
     void assert_is_in_field(std::string const& msg = "bigfield::assert_is_in_field") const;
     void assert_less_than(const uint256_t& upper_limit, std::string const& msg = "bigfield::assert_less_than") const;
     void reduce_mod_target_modulus() const;
-    void assert_equal(const bigfield& other) const;
+    void assert_equal(const bigfield& other, std::string const& msg = "bigfield::assert_equal") const;
     void assert_is_not_equal(const bigfield& other,
                              std::string const& msg = "bigfield: prime limb diff is zero, but expected non-zero") const;
 

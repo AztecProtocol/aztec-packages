@@ -14,21 +14,21 @@ export type ComponentsVersions = {
   // such as the keystore, we need to change it so we can handle updates.
   l1RollupAddress: EthAddress;
   rollupVersion: number;
-  l2ProtocolContractsTreeRoot: string;
+  l2ProtocolContractsHash: string;
   l2CircuitsVkTreeRoot: string;
 };
 
 /** Returns components versions from chain config. */
 export function getComponentsVersionsFromConfig(
   config: ChainConfig,
-  l2ProtocolContractsTreeRoot: string | Fr,
+  l2ProtocolContractsHash: string | Fr,
   l2CircuitsVkTreeRoot: string | Fr,
 ): ComponentsVersions {
   return {
     l1ChainId: config.l1ChainId,
     l1RollupAddress: config.l1Contracts?.rollupAddress, // This should not be undefined, but sometimes the config lies to us and it is...
     rollupVersion: config.rollupVersion,
-    l2ProtocolContractsTreeRoot: l2ProtocolContractsTreeRoot.toString(),
+    l2ProtocolContractsHash: l2ProtocolContractsHash.toString(),
     l2CircuitsVkTreeRoot: l2CircuitsVkTreeRoot.toString(),
   };
 }
@@ -37,7 +37,7 @@ export function getComponentsVersionsFromConfig(
 export function compressComponentVersions(versions: ComponentsVersions): string {
   if (
     versions.l1RollupAddress === undefined ||
-    versions.l2ProtocolContractsTreeRoot === undefined ||
+    versions.l2ProtocolContractsHash === undefined ||
     versions.l2CircuitsVkTreeRoot === undefined
   ) {
     throw new Error(`Component versions are not set: ${jsonStringify(versions)}`);
@@ -48,7 +48,7 @@ export function compressComponentVersions(versions: ComponentsVersions): string 
     versions.l1ChainId,
     versions.l1RollupAddress.toString().slice(2, 10),
     versions.rollupVersion,
-    versions.l2ProtocolContractsTreeRoot.toString().slice(2, 10),
+    versions.l2ProtocolContractsHash.toString().slice(2, 10),
     versions.l2CircuitsVkTreeRoot.toString().slice(2, 10),
   ].join('-');
 }
@@ -62,7 +62,7 @@ export class ComponentsVersionsError extends Error {
 
 /** Checks if the compressed string matches against the expected versions. Throws on mismatch. */
 export function checkCompressedComponentVersion(compressed: string, expected: ComponentsVersions) {
-  const [versionVersion, l1ChainId, l1RollupAddress, rollupVersion, l2ProtocolContractsTreeRoot, l2CircuitsVkTreeRoot] =
+  const [versionVersion, l1ChainId, l1RollupAddress, rollupVersion, l2ProtocolContractsHash, l2CircuitsVkTreeRoot] =
     compressed.split('-');
   if (versionVersion !== '00') {
     throw new ComponentsVersionsError('version', '00', versionVersion);
@@ -76,11 +76,11 @@ export function checkCompressedComponentVersion(compressed: string, expected: Co
   if (rollupVersion !== expected.rollupVersion.toString()) {
     throw new ComponentsVersionsError('L2 chain version', expected.rollupVersion.toString(), rollupVersion);
   }
-  if (l2ProtocolContractsTreeRoot !== expected.l2ProtocolContractsTreeRoot.toString().slice(2, 10)) {
+  if (l2ProtocolContractsHash !== expected.l2ProtocolContractsHash.toString().slice(2, 10)) {
     throw new ComponentsVersionsError(
       `L2 protocol contracts vk tree root`,
-      expected.l2ProtocolContractsTreeRoot.toString(),
-      l2ProtocolContractsTreeRoot,
+      expected.l2ProtocolContractsHash.toString(),
+      l2ProtocolContractsHash,
     );
   }
   if (l2CircuitsVkTreeRoot !== expected.l2CircuitsVkTreeRoot.toString().slice(2, 10)) {
@@ -99,7 +99,7 @@ export function validatePartialComponentVersionsMatch(
 ) {
   for (const key of [
     'l1RollupAddress',
-    'l2ProtocolContractsTreeRoot',
+    'l2ProtocolContractsHash',
     'l2CircuitsVkTreeRoot',
     'l1ChainId',
     'rollupVersion',

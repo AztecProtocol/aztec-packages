@@ -4,7 +4,7 @@ validator:
     preStartScript: |
       source /scripts/setup-attester-keystore.sh
 
-      if [ -n "${BOOT_NODE_HOST:-}" ] && [ -z "${NETWORK:-}" ]; then
+      if [ -n "${BOOT_NODE_HOST:-}" ]; then
         until curl --silent --head --fail "${BOOT_NODE_HOST}/status" > /dev/null; do
           echo "Waiting for boot node..."
           sleep 1

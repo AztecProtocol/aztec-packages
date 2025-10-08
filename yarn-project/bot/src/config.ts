@@ -13,7 +13,7 @@ import {
 import { Fr } from '@aztec/foundation/fields';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { type ZodFor, schemas } from '@aztec/stdlib/schemas';
 import type { ComponentsVersions } from '@aztec/stdlib/versioning';
 
@@ -280,7 +280,7 @@ export function getBotDefaultConfig(): BotConfig {
 
 export function getVersions(): Partial<ComponentsVersions> {
   return {
-    l2ProtocolContractsTreeRoot: protocolContractTreeRoot.toString(),
+    l2ProtocolContractsHash: protocolContractsHash.toString(),
     l2CircuitsVkTreeRoot: getVKTreeRoot().toString(),
   };
 }

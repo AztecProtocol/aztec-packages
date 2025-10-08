@@ -3,7 +3,7 @@ import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { BaseBot } from './base_bot.js';
 import type { BotConfig } from './config.js';

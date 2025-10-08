@@ -56,7 +56,7 @@ impl PrivateCallDataValidatorBuilder {
     pub fn validate(self) {
         let private_call = self.private_call.to_private_call_data();
         PrivateCallDataValidator::new(private_call).validate_common(
-            self.private_call.protocol_contract_tree_root,
+            self.private_call.protocol_contracts,
         );
     }
 

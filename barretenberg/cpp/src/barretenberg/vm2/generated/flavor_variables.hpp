@@ -46,7 +46,6 @@
 #include "relations/nullifier_exists.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_mem.hpp"
-#include "relations/protocol_contract.hpp"
 #include "relations/public_data_check.hpp"
 #include "relations/public_data_squash.hpp"
 #include "relations/range_check.hpp"
@@ -107,7 +106,6 @@
 #include "relations/lookups_nullifier_exists.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_poseidon2_mem.hpp"
-#include "relations/lookups_protocol_contract.hpp"
 #include "relations/lookups_public_data_check.hpp"
 #include "relations/lookups_public_data_squash.hpp"
 #include "relations/lookups_range_check.hpp"
@@ -142,10 +140,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3098;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3086;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 336;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3567;
+    static constexpr size_t NUM_ALL_ENTITIES = 3555;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -195,7 +193,6 @@ struct AvmFlavorVariables {
         avm2::nullifier_exists<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_mem<FF_>,
-        avm2::protocol_contract<FF_>,
         avm2::public_data_check<FF_>,
         avm2::public_data_squash<FF_>,
         avm2::range_check<FF_>,
@@ -280,7 +277,7 @@ struct AvmFlavorVariables {
         lookup_contract_instance_retrieval_address_derivation_relation<FF_>,
         lookup_contract_instance_retrieval_check_protocol_address_range_relation<FF_>,
         lookup_contract_instance_retrieval_deployment_nullifier_read_relation<FF_>,
-        lookup_contract_instance_retrieval_protocol_contract_derived_address_relation<FF_>,
+        lookup_contract_instance_retrieval_read_derived_address_from_public_inputs_relation<FF_>,
         lookup_contract_instance_retrieval_update_check_relation<FF_>,
         lookup_data_copy_check_dst_addr_in_range_relation<FF_>,
         lookup_data_copy_check_src_addr_in_range_relation<FF_>,
@@ -485,9 +482,6 @@ struct AvmFlavorVariables {
         lookup_poseidon2_mem_check_dst_addr_in_range_relation<FF_>,
         lookup_poseidon2_mem_check_src_addr_in_range_relation<FF_>,
         lookup_poseidon2_mem_input_output_poseidon2_perm_relation<FF_>,
-        lookup_protocol_contract_leaf_hash_relation<FF_>,
-        lookup_protocol_contract_merkle_check_relation<FF_>,
-        lookup_protocol_contract_public_input_protocol_contract_root_relation<FF_>,
         lookup_public_data_check_clk_diff_range_hi_relation<FF_>,
         lookup_public_data_check_clk_diff_range_lo_relation<FF_>,
         lookup_public_data_check_low_leaf_merkle_check_relation<FF_>,

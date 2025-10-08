@@ -152,12 +152,14 @@ export async function awaitOffenseDetected({
   slashingRoundSize,
   epochDuration,
   waitUntilOffenseCount,
+  timeoutSeconds = 120,
 }: {
   nodeAdmin: AztecNodeAdmin;
   logger: Logger;
   slashingRoundSize: number;
   epochDuration: number;
   waitUntilOffenseCount?: number;
+  timeoutSeconds?: number;
 }) {
   const targetOffenseCount = waitUntilOffenseCount ?? 1;
   logger.warn(`Waiting for ${pluralize('offense', targetOffenseCount)} to be detected`);
@@ -169,7 +171,7 @@ export async function awaitOffenseDetected({
       }
     },
     'non-empty offenses',
-    60,
+    timeoutSeconds,
   );
   logger.info(
     `Hit ${offenses.length} offenses on rounds ${unique(offenses.map(o => getRoundForOffense(o, { slashingRoundSize, epochDuration })))}`,

@@ -211,6 +211,18 @@ variable "PROVER_REPLICAS" {
   default     = 4
 }
 
+variable "PROVER_PUBLISHERS_PER_PROVER" {
+  description = "Number of publisher keys per prover"
+  type        = string
+  default     = 1
+}
+
+variable "PROVER_PUBLISHER_MNEMONIC_START_INDEX" {
+  description = "The prover publisher mnemonic start index"
+  type        = string
+  default     = 8000
+}
+
 variable "OTEL_COLLECTOR_ENDPOINT" {
   description = "Optional OpenTelemetry collector endpoint URL (e.g., http://otel-collector:4318)"
   type        = string

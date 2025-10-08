@@ -15,7 +15,7 @@ import {
   initTelemetryClient,
   telemetryClientConfigMappings,
 } from '@aztec/telemetry-client';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { createAztecNode } from '../../sandbox/index.js';

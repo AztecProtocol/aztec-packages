@@ -15,7 +15,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import { getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { ProtocolContractsList, protocolContractsHash } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -207,7 +207,7 @@ describe('LightBlockBuilder', () => {
       header: fork.getInitialHeader(),
       globalVariables,
       vkTreeRoot,
-      protocolContractTreeRoot,
+      protocolContracts: ProtocolContractsList,
       seed: i + 1,
       feePayer,
       feePaymentPublicDataWrite,
@@ -364,7 +364,7 @@ describe('LightBlockBuilder', () => {
         chainId: globalVariables.chainId,
         version: globalVariables.version,
         vkTreeRoot,
-        protocolContractTreeRoot,
+        protocolContractsHash,
         proverId,
         slotNumber: globalVariables.slotNumber,
         coinbase: globalVariables.coinbase,

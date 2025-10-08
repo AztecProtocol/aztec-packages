@@ -6,7 +6,7 @@ import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { type CircuitSimulator, NativeACVMSimulator, WASMSimulatorWithBlobs } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -125,7 +125,7 @@ export const makeCheckpointConstants = (slotNumber: number) => {
     chainId: Fr.ZERO,
     version: Fr.ZERO,
     vkTreeRoot: getVKTreeRoot(),
-    protocolContractTreeRoot,
+    protocolContractsHash,
     proverId: Fr.ZERO,
     slotNumber: new Fr(slotNumber),
     coinbase: EthAddress.ZERO,

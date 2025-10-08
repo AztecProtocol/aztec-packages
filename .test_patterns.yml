@@ -308,11 +308,6 @@ tests:
     owners:
       - *palla
 
-  - regex: "end-to-end/scripts/run_test.sh web3signer src/composed/web3signer/integration_remote_signer.test.ts"
-    error_regex: "SignerError: Web3Signer JSON-RPC error for eth_signTypedData at http://web3signer:9000: -32000 - No unlocked account matches the Sender"
-    owners:
-      - *alex
-
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"
     owners:

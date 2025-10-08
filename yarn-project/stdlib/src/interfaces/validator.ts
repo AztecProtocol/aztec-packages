@@ -43,7 +43,7 @@ export interface ValidatorClientConfig {
 }
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &
-  Pick<SequencerConfig, 'txPublicSetupAllowList'> &
+  Pick<SequencerConfig, 'txPublicSetupAllowList' | 'broadcastInvalidBlockProposal'> &
   Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'>;
 
 export const ValidatorClientConfigSchema = z.object({
