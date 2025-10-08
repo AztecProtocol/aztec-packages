@@ -46,6 +46,9 @@ template <typename FF_> class CircuitBuilderBase {
     static constexpr uint32_t REAL_VARIABLE = UINT32_MAX - 1;
     static constexpr uint32_t FIRST_VARIABLE_IN_CLASS = UINT32_MAX - 2;
 
+    // Index at which we store a witness constrained to be equal to 0
+    uint32_t _zero_idx = 0;
+
   protected:
     std::unordered_map<uint32_t, std::string> variable_names;
 
@@ -55,9 +58,6 @@ template <typename FF_> class CircuitBuilderBase {
     // This field exists to later set the same field in the verification key, and make sure
     // that we are using the correct prover/verifier.
     bool is_recursive_circuit = false; // AUDITTODO: this seems totally unused now?
-
-    // Index at which a fixed witness 0 is stored
-    uint32_t _zero_idx = 0;
 
     void set_zero_idx(uint32_t value) { _zero_idx = value; }
 

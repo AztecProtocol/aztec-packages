@@ -83,7 +83,7 @@ template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non_zero()
 {
     // q_m, q_1, q_2, q_3, q_4
-    blocks.arithmetic.populate_wires(this->_zero_idx, this->_zero_idx, this->_zero_idx, this->_zero_idx);
+    blocks.arithmetic.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
     blocks.arithmetic.q_m().emplace_back(1);
     blocks.arithmetic.q_1().emplace_back(1);
     blocks.arithmetic.q_2().emplace_back(1);
@@ -105,7 +105,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     ++this->num_gates;
 
     // q_delta_range
-    blocks.delta_range.populate_wires(this->_zero_idx, this->_zero_idx, this->_zero_idx, this->_zero_idx);
+    blocks.delta_range.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
     blocks.delta_range.q_m().emplace_back(0);
     blocks.delta_range.q_1().emplace_back(0);
     blocks.delta_range.q_2().emplace_back(0);
@@ -126,10 +126,11 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     }
     check_selector_length_consistency();
     ++this->num_gates;
-    create_unconstrained_gate(blocks.delta_range, this->_zero_idx, this->_zero_idx, this->_zero_idx, this->_zero_idx);
+    create_unconstrained_gate(
+        blocks.delta_range, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
 
     // q_elliptic
-    blocks.elliptic.populate_wires(this->_zero_idx, this->_zero_idx, this->_zero_idx, this->_zero_idx);
+    blocks.elliptic.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
     blocks.elliptic.q_m().emplace_back(0);
     blocks.elliptic.q_1().emplace_back(0);
     blocks.elliptic.q_2().emplace_back(0);
@@ -149,10 +150,10 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     }
     check_selector_length_consistency();
     ++this->num_gates;
-    create_unconstrained_gate(blocks.elliptic, this->_zero_idx, this->_zero_idx, this->_zero_idx, this->_zero_idx);
+    create_unconstrained_gate(blocks.elliptic, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
 
     // q_memory
-    blocks.memory.populate_wires(this->_zero_idx, this->_zero_idx, this->_zero_idx, this->_zero_idx);
+    blocks.memory.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
     blocks.memory.q_m().emplace_back(0);
     blocks.memory.q_1().emplace_back(0);
     blocks.memory.q_2().emplace_back(0);
@@ -172,10 +173,10 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     }
     check_selector_length_consistency();
     ++this->num_gates;
-    create_unconstrained_gate(blocks.memory, this->_zero_idx, this->_zero_idx, this->_zero_idx, this->_zero_idx);
+    create_unconstrained_gate(blocks.memory, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
 
     // q_nnf
-    blocks.nnf.populate_wires(this->_zero_idx, this->_zero_idx, this->_zero_idx, this->_zero_idx);
+    blocks.nnf.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
     blocks.nnf.q_m().emplace_back(0);
     blocks.nnf.q_1().emplace_back(0);
     blocks.nnf.q_2().emplace_back(0);
@@ -195,11 +196,11 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     }
     check_selector_length_consistency();
     ++this->num_gates;
-    create_unconstrained_gate(blocks.nnf, this->_zero_idx, this->_zero_idx, this->_zero_idx, this->_zero_idx);
+    create_unconstrained_gate(blocks.nnf, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
 
     // Add nonzero values in w_4 and q_c (q_4*w_4 + q_c --> 1*1 - 1 = 0)
     uint32_t one_idx = put_constant_variable(FF::one());
-    create_big_add_gate({ this->_zero_idx, this->_zero_idx, this->_zero_idx, one_idx, 0, 0, 0, 1, -1 });
+    create_big_add_gate({ this->zero_idx(), this->zero_idx(), this->zero_idx(), one_idx, 0, 0, 0, 1, -1 });
 
     // Take care of all polys related to lookups (q_lookup, tables, sorted, etc)
     // by doing a dummy lookup with a special table.
@@ -232,7 +233,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     }
 
     // mock a poseidon external gate, with all zeros as input
-    blocks.poseidon2_external.populate_wires(this->_zero_idx, this->_zero_idx, this->_zero_idx, this->_zero_idx);
+    blocks.poseidon2_external.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
     blocks.poseidon2_external.q_m().emplace_back(0);
     blocks.poseidon2_external.q_1().emplace_back(0);
     blocks.poseidon2_external.q_2().emplace_back(0);
@@ -255,10 +256,10 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
 
     // unconstrained gate to be read into by previous poseidon external gate via shifts
     create_unconstrained_gate(
-        blocks.poseidon2_external, this->_zero_idx, this->_zero_idx, this->_zero_idx, this->_zero_idx);
+        blocks.poseidon2_external, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
 
     // mock a poseidon internal gate, with all zeros as input
-    blocks.poseidon2_internal.populate_wires(this->_zero_idx, this->_zero_idx, this->_zero_idx, this->_zero_idx);
+    blocks.poseidon2_internal.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
     blocks.poseidon2_internal.q_m().emplace_back(0);
     blocks.poseidon2_internal.q_1().emplace_back(0);
     blocks.poseidon2_internal.q_2().emplace_back(0);
@@ -281,7 +282,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
 
     // dummy gate to be read into by previous poseidon internal gate via shifts
     create_unconstrained_gate(
-        blocks.poseidon2_internal, this->_zero_idx, this->_zero_idx, this->_zero_idx, this->_zero_idx);
+        blocks.poseidon2_internal, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
 }
 
 /**
@@ -296,7 +297,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::cr
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 
-    blocks.arithmetic.populate_wires(in.a, in.b, in.c, this->_zero_idx);
+    blocks.arithmetic.populate_wires(in.a, in.b, in.c, this->zero_idx());
     blocks.arithmetic.q_m().emplace_back(0);
     blocks.arithmetic.q_1().emplace_back(in.a_scaling);
     blocks.arithmetic.q_2().emplace_back(in.b_scaling);
@@ -431,7 +432,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::cr
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 
-    blocks.arithmetic.populate_wires(in.a, in.b, in.c, this->_zero_idx);
+    blocks.arithmetic.populate_wires(in.a, in.b, in.c, this->zero_idx());
     blocks.arithmetic.q_m().emplace_back(in.mul_scaling);
     blocks.arithmetic.q_1().emplace_back(0);
     blocks.arithmetic.q_2().emplace_back(0);
@@ -462,7 +463,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_bool_gate(const uint32_t varia
 {
     this->assert_valid_variables({ variable_index });
 
-    blocks.arithmetic.populate_wires(variable_index, variable_index, this->_zero_idx, this->_zero_idx);
+    blocks.arithmetic.populate_wires(variable_index, variable_index, this->zero_idx(), this->zero_idx());
     blocks.arithmetic.q_m().emplace_back(1);
     blocks.arithmetic.q_1().emplace_back(-1);
     blocks.arithmetic.q_2().emplace_back(0);
@@ -496,7 +497,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_poly_gate(const poly_triple_<F
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 
-    blocks.arithmetic.populate_wires(in.a, in.b, in.c, this->_zero_idx);
+    blocks.arithmetic.populate_wires(in.a, in.b, in.c, this->zero_idx());
     blocks.arithmetic.q_m().emplace_back(in.q_m);
     blocks.arithmetic.q_1().emplace_back(in.q_l);
     blocks.arithmetic.q_2().emplace_back(in.q_r);
@@ -565,7 +566,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
         block.q_1().set(block.size() - 1, in.sign_coefficient);
         block.q_elliptic().set(block.size() - 1, 1);
     } else {
-        block.populate_wires(this->_zero_idx, in.x1, in.y1, this->_zero_idx);
+        block.populate_wires(this->zero_idx(), in.x1, in.y1, this->zero_idx());
         block.q_3().emplace_back(0);
         block.q_4().emplace_back(0);
         block.q_1().emplace_back(in.sign_coefficient);
@@ -632,7 +633,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
         block.q_elliptic().set(block.size() - 1, 1);
         block.q_m().set(block.size() - 1, 1);
     } else {
-        block.populate_wires(this->_zero_idx, in.x1, in.y1, this->_zero_idx);
+        block.populate_wires(this->zero_idx(), in.x1, in.y1, this->zero_idx());
         block.q_elliptic().emplace_back(1);
         block.q_m().emplace_back(1);
         block.q_1().emplace_back(0);
@@ -653,7 +654,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
         check_selector_length_consistency();
         ++this->num_gates;
     }
-    create_unconstrained_gate(block, this->_zero_idx, in.x3, in.y3, this->_zero_idx);
+    create_unconstrained_gate(block, this->zero_idx(), in.x3, in.y3, this->zero_idx());
 }
 
 /**
@@ -667,7 +668,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::fix_witness(const uint32_t witness_in
 {
     this->assert_valid_variables({ witness_index });
 
-    blocks.arithmetic.populate_wires(witness_index, this->_zero_idx, this->_zero_idx, this->_zero_idx);
+    blocks.arithmetic.populate_wires(witness_index, this->zero_idx(), this->zero_idx(), this->zero_idx());
     blocks.arithmetic.q_m().emplace_back(0);
     blocks.arithmetic.q_1().emplace_back(1);
     blocks.arithmetic.q_2().emplace_back(0);
@@ -756,7 +757,7 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
 
         blocks.lookup.q_lookup_type().emplace_back(FF(1));
         blocks.lookup.q_3().emplace_back(FF(table.table_index));
-        blocks.lookup.populate_wires(first_idx, second_idx, third_idx, this->_zero_idx);
+        blocks.lookup.populate_wires(first_idx, second_idx, third_idx, this->zero_idx());
         blocks.lookup.q_1().emplace_back(0);
         blocks.lookup.q_2().emplace_back((i == (num_lookups - 1) ? 0 : -multi_table.column_1_step_sizes[i + 1]));
         blocks.lookup.q_m().emplace_back((i == (num_lookups - 1) ? 0 : -multi_table.column_2_step_sizes[i + 1]));
@@ -887,9 +888,9 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
             real_limbs[2] ? sublimbs[3 * i + 2] : 0,
         };
         const uint32_t new_limbs[3]{
-            real_limbs[0] ? sublimb_indices[3 * i] : this->_zero_idx,
-            real_limbs[1] ? sublimb_indices[3 * i + 1] : this->_zero_idx,
-            real_limbs[2] ? sublimb_indices[3 * i + 2] : this->_zero_idx,
+            real_limbs[0] ? sublimb_indices[3 * i] : this->zero_idx(),
+            real_limbs[1] ? sublimb_indices[3 * i + 1] : this->zero_idx(),
+            real_limbs[2] ? sublimb_indices[3 * i + 2] : this->zero_idx(),
         };
         const uint64_t shifts[3]{
             target_range_bitnum * (3 * i),
@@ -965,7 +966,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_new_range_constraint(const uin
                         const uint32_t copied_witness = this->add_variable(this->get_variable(variable_index));
                         create_add_gate({ .a = variable_index,
                                           .b = copied_witness,
-                                          .c = this->_zero_idx,
+                                          .c = this->zero_idx(),
                                           .a_scaling = 1,
                                           .b_scaling = -1,
                                           .c_scaling = 0,
@@ -1027,7 +1028,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
         padding += gate_width;
     }
     for (size_t i = 0; i < padding; ++i) {
-        indices.emplace_back(this->_zero_idx);
+        indices.emplace_back(this->zero_idx());
     }
     for (const auto sorted_value : sorted_list) {
         const uint32_t index = this->add_variable(sorted_value);
@@ -1091,9 +1092,9 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint(const std::vec
     // dummy gate needed because of sort widget's check of next row
     create_unconstrained_gate(blocks.delta_range,
                               variable_index[variable_index.size() - 1],
-                              this->_zero_idx,
-                              this->_zero_idx,
-                              this->_zero_idx);
+                              this->zero_idx(),
+                              this->zero_idx(),
+                              this->zero_idx());
 }
 
 // useful to put variables in the witness that aren't already used - e.g. the dummy variables of the range constraint in
@@ -1105,7 +1106,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_unconstrained_gates(const std:
     constexpr size_t gate_width = NUM_WIRES;
     const uint64_t padding = (gate_width - (padded_list.size() % gate_width)) % gate_width;
     for (uint64_t i = 0; i < padding; ++i) {
-        padded_list.emplace_back(this->_zero_idx);
+        padded_list.emplace_back(this->zero_idx());
     }
     this->assert_valid_variables(variable_index);
     this->assert_valid_variables(padded_list);
@@ -1130,7 +1131,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
     auto& block = blocks.delta_range;
 
     // Add an arithmetic gate to ensure the first input is equal to the start value of the range being checked
-    create_add_gate({ variable_index[0], this->_zero_idx, this->_zero_idx, 1, 0, 0, -start });
+    create_add_gate({ variable_index[0], this->zero_idx(), this->zero_idx(), 1, 0, 0, -start });
 
     // enforce range check for all but the final row
     for (size_t i = 0; i < variable_index.size() - gate_width; i += gate_width) {
@@ -1188,8 +1189,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
     // has been added to allow the previous gate to access the required wire data via shifts, allowing the arithmetic
     // gate to occur out of sequence. More details on the linked Github issue.
     create_unconstrained_gate(
-        block, variable_index[variable_index.size() - 1], this->_zero_idx, this->_zero_idx, this->_zero_idx);
-    create_add_gate({ variable_index[variable_index.size() - 1], this->_zero_idx, this->_zero_idx, 1, 0, 0, -end });
+        block, variable_index[variable_index.size() - 1], this->zero_idx(), this->zero_idx(), this->zero_idx());
+    create_add_gate({ variable_index[variable_index.size() - 1], this->zero_idx(), this->zero_idx(), 1, 0, 0, -end });
 }
 
 /**
@@ -1500,15 +1501,15 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
         // We also use zero_idx to substitute variables that should be zero
         constexpr uint256_t MAX_SUBLIMB_MASK = (uint256_t(1) << 14) - 1;
         std::array<uint32_t, 5> sublimb_indices;
-        sublimb_indices[0] = sublimb_masks[0] != 0 ? this->add_variable(limb & MAX_SUBLIMB_MASK) : this->_zero_idx;
+        sublimb_indices[0] = sublimb_masks[0] != 0 ? this->add_variable(limb & MAX_SUBLIMB_MASK) : this->zero_idx();
         sublimb_indices[1] =
-            sublimb_masks[1] != 0 ? this->add_variable((limb >> 14) & MAX_SUBLIMB_MASK) : this->_zero_idx;
+            sublimb_masks[1] != 0 ? this->add_variable((limb >> 14) & MAX_SUBLIMB_MASK) : this->zero_idx();
         sublimb_indices[2] =
-            sublimb_masks[2] != 0 ? this->add_variable((limb >> 28) & MAX_SUBLIMB_MASK) : this->_zero_idx;
+            sublimb_masks[2] != 0 ? this->add_variable((limb >> 28) & MAX_SUBLIMB_MASK) : this->zero_idx();
         sublimb_indices[3] =
-            sublimb_masks[3] != 0 ? this->add_variable((limb >> 42) & MAX_SUBLIMB_MASK) : this->_zero_idx;
+            sublimb_masks[3] != 0 ? this->add_variable((limb >> 42) & MAX_SUBLIMB_MASK) : this->zero_idx();
         sublimb_indices[4] =
-            sublimb_masks[4] != 0 ? this->add_variable((limb >> 56) & MAX_SUBLIMB_MASK) : this->_zero_idx;
+            sublimb_masks[4] != 0 ? this->add_variable((limb >> 56) & MAX_SUBLIMB_MASK) : this->zero_idx();
         return sublimb_indices;
     };
 
@@ -1667,7 +1668,7 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
                           -LIMB_SHIFT.sqr(),
                           0 },
                         true);
-    create_unconstrained_gate(blocks.arithmetic, this->_zero_idx, this->_zero_idx, this->_zero_idx, lo_0_idx);
+    create_unconstrained_gate(blocks.arithmetic, this->zero_idx(), this->zero_idx(), this->zero_idx(), lo_0_idx);
     //
     // a = (a3 || a2 || a1 || a0) = (a3 * 2^b + a2) * 2^b + (a1 * 2^b + a0)
     // b = (b3 || b2 || b1 || b0) = (b3 * 2^b + b2) * 2^b + (b1 * 2^b + b0)
@@ -1775,7 +1776,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::po
     // Update the public inputs block
     for (const auto& idx : this->public_inputs()) {
         // first two wires get a copy of the public inputs
-        blocks.pub_inputs.populate_wires(idx, idx, this->_zero_idx, this->_zero_idx);
+        blocks.pub_inputs.populate_wires(idx, idx, this->zero_idx(), this->zero_idx());
         for (auto& selector : this->blocks.pub_inputs.get_selectors()) {
             selector.emplace_back(0);
         }
@@ -1801,7 +1802,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
     // iterate over the cached items and create constraints
     for (const auto& input : cached_partial_non_native_field_multiplications) {
 
-        blocks.nnf.populate_wires(input.a[1], input.b[1], this->_zero_idx, input.lo_0);
+        blocks.nnf.populate_wires(input.a[1], input.b[1], this->zero_idx(), input.lo_0);
         apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_1);
         ++this->num_gates;
 
@@ -1809,11 +1810,11 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
         apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_2);
         ++this->num_gates;
 
-        blocks.nnf.populate_wires(input.a[2], input.b[2], this->_zero_idx, input.hi_0);
+        blocks.nnf.populate_wires(input.a[2], input.b[2], this->zero_idx(), input.hi_0);
         apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_3);
         ++this->num_gates;
 
-        blocks.nnf.populate_wires(input.a[1], input.b[1], this->_zero_idx, input.hi_1);
+        blocks.nnf.populate_wires(input.a[1], input.b[1], this->zero_idx(), input.hi_1);
         apply_nnf_selectors(NNF_SELECTORS::NNF_NONE);
         ++this->num_gates;
     }
@@ -1946,7 +1947,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.populate_wires(y_p, x_0, y_0, x_p);
     block.populate_wires(z_p, x_1, y_1, z_0);
     block.populate_wires(x_2, y_2, z_2, z_1);
-    block.populate_wires(x_3, y_3, z_3, this->_zero_idx);
+    block.populate_wires(x_3, y_3, z_3, this->zero_idx());
 
     block.q_m().emplace_back(addconstp);
     block.q_1().emplace_back(0);
@@ -2070,7 +2071,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.populate_wires(y_p, x_0, y_0, z_p);
     block.populate_wires(x_p, x_1, y_1, z_0);
     block.populate_wires(x_2, y_2, z_2, z_1);
-    block.populate_wires(x_3, y_3, z_3, this->_zero_idx);
+    block.populate_wires(x_3, y_3, z_3, this->zero_idx());
 
     block.q_m().emplace_back(-addconstp);
     block.q_1().emplace_back(0);
@@ -2317,9 +2318,9 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
 {
     // You should not name `zero` by yourself
     // but it will be rewritten anyway
-    auto first_zero_idx = this->get_first_variable_in_class(this->_zero_idx);
+    auto first_zero_idx = this->get_first_variable_in_class(this->zero_idx());
     if (!this->variable_names.contains(first_zero_idx)) {
-        this->set_variable_name(this->_zero_idx, "zero");
+        this->set_variable_name(this->zero_idx(), "zero");
     } else {
         this->variable_names[first_zero_idx] = "zero";
     }
