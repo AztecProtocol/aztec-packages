@@ -658,19 +658,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         block.q_2().emplace_back(0);
         block.q_3().emplace_back(0);
         block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(0);
         block.q_4().emplace_back(0);
-        block.q_delta_range().emplace_back(0);
-        block.q_elliptic().emplace_back(0);
-        block.q_lookup_type().emplace_back(0);
-        block.q_memory().emplace_back(0);
-        block.q_nnf().emplace_back(0);
-        block.q_poseidon2_external().emplace_back(0);
-        block.q_poseidon2_internal().emplace_back(0);
+        block.set_gate_selector(0); // all selectors zero
 
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
         check_selector_length_consistency();
         ++this->num_gates;
     }

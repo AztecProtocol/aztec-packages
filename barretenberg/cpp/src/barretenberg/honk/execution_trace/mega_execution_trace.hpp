@@ -605,6 +605,4 @@ static constexpr TraceStructure AZTEC_TRACE_STRUCTURE{ .ecc_op = 1000,
                                                        .poseidon2_internal = 96500,
                                                        .overflow = 0 };
 
-template <typename T>
-concept HasAdditionalSelectors = IsAnyOf<T, MegaExecutionTraceBlocks>;
 } // namespace bb
