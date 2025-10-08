@@ -220,7 +220,8 @@
       "binaryDir": "build-debug-fast-no-avm",
       "cacheVariables": {
         "DISABLE_AZTEC_VM": "ON",
-        "ENABLE_STACKTRACES": "ON"
+        "ENABLE_STACKTRACES": "ON",
+        "AVM_TRANSPILER_LIB": ""
       }
     },
     {
@@ -231,7 +232,8 @@
       "binaryDir": "build-debug-no-avm",
       "cacheVariables": {
         "DISABLE_AZTEC_VM": "ON",
-        "ENABLE_STACKTRACES": "ON"
+        "ENABLE_STACKTRACES": "ON",
+        "AVM_TRANSPILER_LIB": ""
       }
     },
     {
