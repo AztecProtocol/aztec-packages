@@ -80,12 +80,16 @@ To obtain these contract addresses, check your sequencer logs at startup for the
 
 The governance process follows these stages:
 
-1. **Signaling**: Sequencers signal support for a payload when proposing blocks. A payload needs a quorum of support to be promoted to a proposal
+1. **Signaling**: Sequencers signal support for a payload when proposing blocks. A payload needs a quorum of support to be promoted to a proposal. Signaling can start any time from the moment a payload is deployed.
 2. **Proposal Creation**: After reaching quorum, anyone can submit the payload as an official proposal.
-3. **Voting Delay**: A mandatory waiting period before voting opens (allows time for community review).
-4. **Voting Period**: Users who hold stake in the network vote on the proposal using their staked tokens.
-5. **Execution Delay**: After passing the vote, another mandatory delay before execution (allows time for node upgrades).
+3. **Voting Delay** (12 hours): A mandatory waiting period before voting opens (allows time for community review).
+4. **Voting Period** (24 hours): Users who hold stake in the network vote on the proposal using their staked tokens.
+5. **Execution Delay** (12 hours): After passing the vote, another mandatory delay before execution (allows time for node upgrades).
 6. **Execution**: Anyone can execute the proposal, which applies the changes.
+
+:::note
+These timeline values are specific to testnet and are subject to change for future network phases.
+:::
 
 ## Signaling Support for a Payload
 
