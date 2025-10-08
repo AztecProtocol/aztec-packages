@@ -71,17 +71,15 @@ add_to_config() {
 
 SHELL_UPDATED=false
 
-if add_to_config "${HOME}/.bashrc" "$PATH_ENTRY"; then
-    SHELL_UPDATED=true
-fi
-
-if add_to_config "${HOME}/.zshrc" "$PATH_ENTRY"; then
-    SHELL_UPDATED=true
-fi
-
-if [ -f "${HOME}/.config/fish/config.fish" ] && ! grep -q "/.bb " "${HOME}/.config/fish/config.fish"; then
-    echo "$FISH_PATH_ENTRY" >> "${HOME}/.config/fish/config.fish"
-    SHELL_UPDATED=true
+if [ "$PREF_SHELL" = "fish" ]; then
+    if [ -f "$PROFILE" ] && ! grep -q "/.bb " "$PROFILE"; then
+        echo "$FISH_PATH_ENTRY" >> "$PROFILE"
+        SHELL_UPDATED=true
+    fi
+else
+    if add_to_config "$PROFILE" "$PATH_ENTRY"; then
+        SHELL_UPDATED=true
+    fi
 fi
 
 printf "${GREEN}${SUCCESS} Successfully installed bbup${NC}\n"
