@@ -48,13 +48,14 @@ template <typename... BaseClass> auto _static_concatenate_base_class_get_labels(
 #define VARARGS_TO_STRING(...) #__VA_ARGS__
 
 #define DEFINE_REF_VIEW(...)                                                                                           \
-    [[nodiscard]] auto get_all()                                                                                       \
+    RefArray<std::remove_reference_t<DataType>, _members_size> _ref_array_{ __VA_ARGS__ };                             \
+    [[nodiscard]] const auto& get_all() const                                                                          \
     {                                                                                                                  \
-        return RefArray<std::remove_reference_t<DataType>, _members_size>{ __VA_ARGS__ };                              \
+        return _ref_array_;                                                                                            \
     }                                                                                                                  \
-    [[nodiscard]] auto get_all() const                                                                                 \
+    [[nodiscard]] auto& get_all()                                                                                      \
     {                                                                                                                  \
-        return RefArray<const std::remove_reference_t<DataType>, _members_size>{ __VA_ARGS__ };                        \
+        return _ref_array_;                                                                                            \
     }
 
 /**

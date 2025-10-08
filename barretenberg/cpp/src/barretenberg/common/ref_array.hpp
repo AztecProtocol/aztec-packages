@@ -131,6 +131,17 @@ template <typename T, std::size_t N> class RefArray {
     T** get_storage() { return storage; }
     T* const* get_storage() const { return storage; }
 
+    // Equality comparison - compares the pointers, not the values
+    bool operator==(const RefArray& other) const
+    {
+        for (size_t i = 0; i < N; ++i) {
+            if (storage[i] != other.storage[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
   private:
     // We are making a high-level array, for simplicity having a C array as backing makes sense.
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
