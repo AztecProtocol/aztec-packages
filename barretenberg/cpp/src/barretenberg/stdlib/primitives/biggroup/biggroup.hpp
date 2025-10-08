@@ -497,6 +497,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     Fq x;
     Fq y;
 
+    // For testing purposes only
+    friend class element_test_accessor;
+
   private:
     bool_ct _is_infinity;
 
@@ -980,6 +983,20 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     };
 
     using batch_lookup_table = batch_lookup_table_plookup;
+};
+
+// For testing purposes only
+class element_test_accessor {
+  public:
+    template <typename C, typename Fq, typename Fr, typename G, size_t wnaf_size>
+    static auto get_staggered_wnaf_fragment_value(uint64_t fragment_u64,
+                                                  uint64_t stagger,
+                                                  bool is_negative,
+                                                  bool wnaf_skew)
+    {
+        return element<C, Fq, Fr, G>::template get_staggered_wnaf_fragment_value<wnaf_size>(
+            fragment_u64, stagger, is_negative, wnaf_skew);
+    }
 };
 
 template <typename C, typename Fq, typename Fr, typename G>

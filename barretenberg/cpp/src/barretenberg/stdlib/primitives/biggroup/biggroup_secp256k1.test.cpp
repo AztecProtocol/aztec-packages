@@ -41,6 +41,73 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
         EXPECT_EQ(CircuitChecker::check(builder), expected_result);
     };
 
+    // Primitives functions for computing wnafs over secp256k1 scalars
+    template <size_t wnaf_size> void test_get_staggered_wnaf_fragment_value()
+    {
+        // Helper for easier invocation
+        auto get_val = [](uint64_t fragment_u64, uint64_t stagger, bool is_negative, bool wnaf_skew) {
+            return stdlib::element_default::element_test_accessor::
+                get_staggered_wnaf_fragment_value<Builder, typename Curve::fq_ct, scalar_ct, g1, wnaf_size>(
+                    fragment_u64, stagger, is_negative, wnaf_skew);
+        };
+
+        // Test: stagger == 0 returns (0, wnaf_skew)
+        {
+            auto [frag, skew] = get_val(123, 0, false, false);
+            EXPECT_EQ(frag, 0);
+            EXPECT_EQ(skew, false);
+
+            auto [frag2, skew2] = get_val(456, 0, true, true);
+            EXPECT_EQ(frag2, 0);
+            EXPECT_EQ(skew2, true);
+        }
+        // Test: random positive values (honest case)
+        {
+            for (size_t i = 0; i < 20; ++i) {
+                // Check for various stagger values ≤ 10
+                for (size_t num_stagger_bits = 1; num_stagger_bits <= 10; ++num_stagger_bits) {
+                    uint64_t input_frag = engine.get_random_uint32() % (1ULL << num_stagger_bits);
+                    bool inp_skew = engine.get_random_uint32() & 1;
+                    bool is_negative = false;
+
+                    auto [output_frag, output_skew] = get_val(input_frag, num_stagger_bits, is_negative, inp_skew);
+
+                    // input_frag - inp_skew * 2^t == output_wnaf - output_skew
+                    int lhs = static_cast<int>(input_frag) - static_cast<int>(inp_skew * (1ULL << num_stagger_bits));
+
+                    int output_wnaf_value =
+                        (2 * static_cast<int>(output_frag) + 1) - static_cast<int>(1ULL << wnaf_size);
+                    int rhs = output_wnaf_value - static_cast<int>(output_skew);
+
+                    EXPECT_EQ(lhs, rhs);
+                }
+            }
+        }
+        // Test: random negative values
+        {
+            for (size_t i = 0; i < 20; ++i) {
+                // Check for various stagger values ≤ 10
+                for (size_t num_stagger_bits = 1; num_stagger_bits <= 10; ++num_stagger_bits) {
+                    uint64_t input_frag = engine.get_random_uint32() % (1ULL << num_stagger_bits);
+                    bool inp_skew = engine.get_random_uint32() & 1;
+                    bool is_negative = true;
+
+                    auto [output_frag, output_skew] = get_val(input_frag, num_stagger_bits, is_negative, inp_skew);
+
+                    // In case of is_negative = true and input is even, we subtract 1 to make it odd and set skew = 1,
+                    // which must be added to the output wnaf value.
+                    // - input_frag + inp_skew * 2^t == output_wnaf + output_skew
+                    int lhs = -static_cast<int>(input_frag) + static_cast<int>(inp_skew * (1ULL << num_stagger_bits));
+
+                    int output_wnaf_value =
+                        (2 * static_cast<int>(output_frag) + 1) - static_cast<int>(1ULL << wnaf_size);
+                    int rhs = output_wnaf_value + static_cast<int>(output_skew);
+                    EXPECT_EQ(lhs, rhs);
+                }
+            }
+        }
+    }
+
     // Add the necessary utility methods used in tests
     static void test_wnaf_secp256k1()
     {
@@ -293,6 +360,14 @@ using Secp256k1TestTypes =
 TYPED_TEST_SUITE(stdlibBiggroupSecp256k1, Secp256k1TestTypes);
 
 // Define the individual tests
+TYPED_TEST(stdlibBiggroupSecp256k1, GetStaggeredWnafFragmentValue4bit)
+{
+    TestFixture::template test_get_staggered_wnaf_fragment_value<4>();
+}
+TYPED_TEST(stdlibBiggroupSecp256k1, GetStaggeredWnafFragmentValue8bit)
+{
+    TestFixture::template test_get_staggered_wnaf_fragment_value<8>();
+}
 TYPED_TEST(stdlibBiggroupSecp256k1, WnafSecp256k1)
 {
     TestFixture::test_wnaf_secp256k1();

@@ -23,6 +23,9 @@ std::pair<uint64_t, bool> element<C, Fq, Fr, G>::get_staggered_wnaf_fragment_val
         return std::make_pair(0, wnaf_skew);
     }
 
+    // Sanity check input fragment
+    BB_ASSERT_LT(fragment_u64, (1ULL << stagger), "biggroup_nafs: fragment value ≥ 2^{stagger}");
+
     // Convert the fragment to signed int for easier manipulation
     int fragment = static_cast<int>(fragment_u64);
 
@@ -40,7 +43,9 @@ std::pair<uint64_t, bool> element<C, Fq, Fr, G>::get_staggered_wnaf_fragment_val
         fragment += (1 << stagger);
     }
 
-    // If the lowest bit is zero, then set final skew to 1 and add 1 to the absolute value of the fragment
+    // If the lowest bit is zero, then set final skew to 1 and
+    // (i) add 1 to the absolute value of the fragment if it's positive
+    // (ii) subtract 1 from the absolute value of the fragment if it's negative
     bool output_skew = (fragment_u64 & 1) == 0;
     if (!is_negative && output_skew) {
         fragment += 1;
@@ -161,8 +166,10 @@ std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr,
 {
     // The number of rounds is the minimal required to cover the whole scalar with wnaf_size windows
     constexpr size_t num_rounds = ((num_bits + wnaf_size - 1) / wnaf_size);
+
     // Stagger mask is needed to retrieve the lowest bits that will not be used in montgomery ladder directly
     const uint64_t stagger_mask = (1ULL << stagger) - 1;
+
     // Stagger scalar represents the lower "staggered" bits that are not used in the ladder
     const uint64_t stagger_scalar = scalar.data[0] & stagger_mask;
 
@@ -337,7 +344,8 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
     constexpr size_t num_bits = 129;
 
     // Decomposes the scalar k into two 129-bit scalars klo, khi such that
-    // k = klo + ζ * khi (mod n) = klo - λ * khi (mod n)
+    // k = klo + ζ * khi (mod n)
+    //   = klo - λ * khi (mod n)
     // where ζ is the primitive sixth root of unity mod n, and λ is the primitive cube root of unity mod n
     // (note that ζ = -λ). We know that for any scalar k, such a decomposition exists and klo and khi are 128-bits long.
     secp256k1::fr k(uint256_t(scalar.get_value() % Fr::modulus_u512));
@@ -348,12 +356,11 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
     secp256k1::fr::split_into_endomorphism_scalars(k.from_montgomery_form(), klo, khi);
 
     // The low and high scalars must be less than 2^129 in absolute value. In some cases, the khi value
-    // is returned as negative, in which case we negate it and set a flag to indicate this. We do the same
-    // for klo for completeness, although this is very rare (almost never happens).
-    if (klo.uint256_t_no_montgomery_conversion().get_msb() >= 129) {
-        klo_negative = true;
-        klo = -klo;
-    }
+    // is returned as negative, in which case we negate it and set a flag to indicate this. This is because
+    // we decompose the scalar as:
+    // k = klo + ζ * khi (mod n)
+    //   = klo - λ * khi (mod n)
+    // where λ is the cube root of unity. If khi is negative, then -λ * khi is positive, and vice versa.
     if (khi.uint256_t_no_montgomery_conversion().get_msb() >= 129) {
         khi_negative = true;
         khi = -khi;
