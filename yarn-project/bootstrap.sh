@@ -202,7 +202,41 @@ function release {
   release_packages "$(dist_tag)" "${REF_NAME#v}"
 }
 
+function red {
+  if [[ -z "${DOCKER_REPO:-}" ]]; then
+    echo "DOCKER_REPO env var not set. Export this env var to a Docker repo you have permissions to push"
+    exit 1
+  fi
+
+
+  BUILT_IMAGE="aztecprotocol/aztec:$(git rev-parse HEAD)"
+  TARGET_IMAGE="${DOCKER_REPO}:$(git rev-parse HEAD)"
+  TARGET_IMAGE_LATEST="${DOCKER_REPO}:latest"
+
+  echo "Building and pushing a new aztec image"
+  echo " - compiling the Typescript"
+  echo " - building $BUILT_IMAGE"
+  echo " - tagging and pushing $TARGET_IMAGE"
+  echo " - tagging and pushing $TARGET_IMAGE_LATEST"
+
+  denoise "compile_all"
+  denoise "../release-image/bootstrap.sh"
+
+  docker tag $BUILT_IMAGE $TARGET_IMAGE
+  docker tag $BUILT_IMAGE $TARGET_IMAGE_LATEST
+
+  docker push $TARGET_IMAGE
+  docker push $TARGET_IMAGE_LATEST
+
+  echo "$TARGET_IMAGE"
+  echo "$TARGET_IMAGE_LATEST"
+}
+
 case "$cmd" in
+  "red")
+    red
+    ;;
+
   "clean")
     [ -n "${2:-}" ] && cd $2
     git clean -fdx
