@@ -450,7 +450,7 @@ void ExecutionTraceBuilder::process(
                   } });
 
         /**************************************************************************************************
-         *  Temporality group 2: Instruction fetching.
+         *  Temporality group 2: Instruction fetching. Mapping from wire to execution and addressing.
          **************************************************************************************************/
 
         // This will only have a value if instruction fetching succeeded.
@@ -458,6 +458,7 @@ void ExecutionTraceBuilder::process(
         bool instruction_fetching_failed = ex_event.error == ExecutionError::INSTRUCTION_FETCHING;
         bool instruction_fetching_success = !bytecode_retrieval_failed && !instruction_fetching_failed;
         trace.set(C::execution_sel_instruction_fetching_failure, row, instruction_fetching_failed ? 1 : 0);
+
         if (instruction_fetching_success) {
             exec_opcode = ex_event.wire_instruction.get_exec_opcode();
             process_instr_fetching(ex_event.wire_instruction, trace, row);
@@ -467,20 +468,13 @@ void ExecutionTraceBuilder::process(
                           { C::execution_next_pc,
                             ex_event.before_context_event.pc + ex_event.wire_instruction.size_in_bytes() },
                       } });
-        }
 
-        /**************************************************************************************************
-         *  Temporality group 2: Mapping from wire to execution and addressing.
-         **************************************************************************************************/
-
-        // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
-        if (instruction_fetching_success) {
+            // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
             process_execution_spec(ex_event, trace, row);
-        }
 
-        if (instruction_fetching_success) {
             process_addressing(ex_event.addressing_event, ex_event.wire_instruction, trace, row);
         }
+
         bool addressing_failed = ex_event.error == ExecutionError::ADDRESSING;
 
         /**************************************************************************************************
@@ -557,7 +551,7 @@ void ExecutionTraceBuilder::process(
                           // Exit reason - opcode or error
                           { C::execution_sel_execute_return, should_execute_return ? 1 : 0 },
                           { C::execution_sel_execute_revert, should_execute_revert ? 1 : 0 },
-                          { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
+                          { C::execution_sel_exit_call, 1 },
                           { C::execution_nested_return, should_execute_return && has_parent ? 1 : 0 },
                           // Enqueued or nested exit dependent on if we are a child context
                           { C::execution_enqueued_call_end, !has_parent ? 1 : 0 },
