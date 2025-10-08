@@ -88,17 +88,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     blocks.arithmetic.q_3().emplace_back(1);
     blocks.arithmetic.q_4().emplace_back(1);
     blocks.arithmetic.q_c().emplace_back(0);
-    blocks.arithmetic.q_delta_range().emplace_back(0);
-    blocks.arithmetic.q_arith().emplace_back(0);
-    blocks.arithmetic.q_lookup_type().emplace_back(0);
-    blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_memory().emplace_back(0);
-    blocks.arithmetic.q_nnf().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_external().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        blocks.arithmetic.pad_additional();
-    }
+    blocks.arithmetic.set_gate_selector(0);
     check_selector_length_consistency();
     ++this->num_gates;
 
@@ -110,18 +100,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     blocks.delta_range.q_3().emplace_back(0);
     blocks.delta_range.q_4().emplace_back(0);
     blocks.delta_range.q_c().emplace_back(0);
-    blocks.delta_range.q_delta_range().emplace_back(1);
-    blocks.delta_range.q_arith().emplace_back(0);
-    blocks.delta_range.q_lookup_type().emplace_back(0);
-    blocks.delta_range.q_elliptic().emplace_back(0);
-    blocks.delta_range.q_memory().emplace_back(0);
-    blocks.delta_range.q_nnf().emplace_back(0);
-    blocks.delta_range.q_poseidon2_external().emplace_back(0);
-    blocks.delta_range.q_poseidon2_internal().emplace_back(0);
+    blocks.delta_range.set_gate_selector(1);
 
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        blocks.delta_range.pad_additional();
-    }
     check_selector_length_consistency();
     ++this->num_gates;
     create_unconstrained_gate(
@@ -135,17 +115,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     blocks.elliptic.q_3().emplace_back(0);
     blocks.elliptic.q_4().emplace_back(0);
     blocks.elliptic.q_c().emplace_back(0);
-    blocks.elliptic.q_delta_range().emplace_back(0);
-    blocks.elliptic.q_arith().emplace_back(0);
-    blocks.elliptic.q_lookup_type().emplace_back(0);
-    blocks.elliptic.q_elliptic().emplace_back(1);
-    blocks.elliptic.q_memory().emplace_back(0);
-    blocks.elliptic.q_nnf().emplace_back(0);
-    blocks.elliptic.q_poseidon2_external().emplace_back(0);
-    blocks.elliptic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        blocks.elliptic.pad_additional();
-    }
+    blocks.elliptic.set_gate_selector(1);
     check_selector_length_consistency();
     ++this->num_gates;
     create_unconstrained_gate(blocks.elliptic, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
@@ -158,17 +128,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     blocks.memory.q_3().emplace_back(0);
     blocks.memory.q_4().emplace_back(0);
     blocks.memory.q_c().emplace_back(0);
-    blocks.memory.q_delta_range().emplace_back(0);
-    blocks.memory.q_arith().emplace_back(0);
-    blocks.memory.q_lookup_type().emplace_back(0);
-    blocks.memory.q_elliptic().emplace_back(0);
-    blocks.memory.q_memory().emplace_back(1);
-    blocks.memory.q_nnf().emplace_back(0);
-    blocks.memory.q_poseidon2_external().emplace_back(0);
-    blocks.memory.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        blocks.memory.pad_additional();
-    }
+    blocks.memory.set_gate_selector(1);
     check_selector_length_consistency();
     ++this->num_gates;
     create_unconstrained_gate(blocks.memory, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
@@ -181,17 +141,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     blocks.nnf.q_3().emplace_back(0);
     blocks.nnf.q_4().emplace_back(0);
     blocks.nnf.q_c().emplace_back(0);
-    blocks.nnf.q_delta_range().emplace_back(0);
-    blocks.nnf.q_arith().emplace_back(0);
-    blocks.nnf.q_lookup_type().emplace_back(0);
-    blocks.nnf.q_elliptic().emplace_back(0);
-    blocks.nnf.q_memory().emplace_back(0);
-    blocks.nnf.q_nnf().emplace_back(1);
-    blocks.nnf.q_poseidon2_external().emplace_back(0);
-    blocks.nnf.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        blocks.nnf.pad_additional();
-    }
+    blocks.nnf.set_gate_selector(1);
     check_selector_length_consistency();
     ++this->num_gates;
     create_unconstrained_gate(blocks.nnf, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
@@ -237,18 +187,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     blocks.poseidon2_external.q_2().emplace_back(0);
     blocks.poseidon2_external.q_3().emplace_back(0);
     blocks.poseidon2_external.q_c().emplace_back(0);
-    blocks.poseidon2_external.q_arith().emplace_back(0);
     blocks.poseidon2_external.q_4().emplace_back(0);
-    blocks.poseidon2_external.q_delta_range().emplace_back(0);
-    blocks.poseidon2_external.q_lookup_type().emplace_back(0);
-    blocks.poseidon2_external.q_elliptic().emplace_back(0);
-    blocks.poseidon2_external.q_memory().emplace_back(0);
-    blocks.poseidon2_external.q_nnf().emplace_back(0);
-    blocks.poseidon2_external.q_poseidon2_external().emplace_back(1);
-    blocks.poseidon2_external.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        blocks.poseidon2_external.pad_additional();
-    }
+    blocks.poseidon2_external.set_gate_selector(1);
     check_selector_length_consistency();
     ++this->num_gates;
 
@@ -263,18 +203,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     blocks.poseidon2_internal.q_2().emplace_back(0);
     blocks.poseidon2_internal.q_3().emplace_back(0);
     blocks.poseidon2_internal.q_c().emplace_back(0);
-    blocks.poseidon2_internal.q_arith().emplace_back(0);
     blocks.poseidon2_internal.q_4().emplace_back(0);
-    blocks.poseidon2_internal.q_delta_range().emplace_back(0);
-    blocks.poseidon2_internal.q_lookup_type().emplace_back(0);
-    blocks.poseidon2_internal.q_elliptic().emplace_back(0);
-    blocks.poseidon2_internal.q_memory().emplace_back(0);
-    blocks.poseidon2_internal.q_nnf().emplace_back(0);
-    blocks.poseidon2_internal.q_poseidon2_external().emplace_back(0);
-    blocks.poseidon2_internal.q_poseidon2_internal().emplace_back(1);
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        blocks.poseidon2_internal.pad_additional();
-    }
+    blocks.poseidon2_internal.set_gate_selector(1);
     check_selector_length_consistency();
     ++this->num_gates;
 
@@ -301,18 +231,8 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::cr
     blocks.arithmetic.q_2().emplace_back(in.b_scaling);
     blocks.arithmetic.q_3().emplace_back(in.c_scaling);
     blocks.arithmetic.q_c().emplace_back(in.const_scaling);
-    blocks.arithmetic.q_arith().emplace_back(1);
     blocks.arithmetic.q_4().emplace_back(0);
-    blocks.arithmetic.q_delta_range().emplace_back(0);
-    blocks.arithmetic.q_lookup_type().emplace_back(0);
-    blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_memory().emplace_back(0);
-    blocks.arithmetic.q_nnf().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_external().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        blocks.arithmetic.pad_additional();
-    }
+    blocks.arithmetic.set_gate_selector(1);
     check_selector_length_consistency();
     ++this->num_gates;
 }
@@ -336,18 +256,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_add_gate(const mul_qua
     blocks.arithmetic.q_2().emplace_back(in.b_scaling);
     blocks.arithmetic.q_3().emplace_back(in.c_scaling);
     blocks.arithmetic.q_c().emplace_back(in.const_scaling);
-    blocks.arithmetic.q_arith().emplace_back(include_next_gate_w_4 ? 2 : 1);
     blocks.arithmetic.q_4().emplace_back(in.d_scaling);
-    blocks.arithmetic.q_delta_range().emplace_back(0);
-    blocks.arithmetic.q_lookup_type().emplace_back(0);
-    blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_memory().emplace_back(0);
-    blocks.arithmetic.q_nnf().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_external().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        blocks.arithmetic.pad_additional();
-    }
+    blocks.arithmetic.set_gate_selector(include_next_gate_w_4 ? 2 : 1);
     check_selector_length_consistency();
     ++this->num_gates;
 }
@@ -371,18 +281,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_add_gate(const add_quad_<F
     blocks.arithmetic.q_2().emplace_back(in.b_scaling);
     blocks.arithmetic.q_3().emplace_back(in.c_scaling);
     blocks.arithmetic.q_c().emplace_back(in.const_scaling);
-    blocks.arithmetic.q_arith().emplace_back(include_next_gate_w_4 ? 2 : 1);
     blocks.arithmetic.q_4().emplace_back(in.d_scaling);
-    blocks.arithmetic.q_delta_range().emplace_back(0);
-    blocks.arithmetic.q_lookup_type().emplace_back(0);
-    blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_memory().emplace_back(0);
-    blocks.arithmetic.q_nnf().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_external().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        blocks.arithmetic.pad_additional();
-    }
+    blocks.arithmetic.set_gate_selector(include_next_gate_w_4 ? 2 : 1);
     check_selector_length_consistency();
     ++this->num_gates;
 }
@@ -403,18 +303,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_gate(const mul_quad_<F
     blocks.arithmetic.q_2().emplace_back(in.b_scaling);
     blocks.arithmetic.q_3().emplace_back(in.c_scaling);
     blocks.arithmetic.q_c().emplace_back(in.const_scaling);
-    blocks.arithmetic.q_arith().emplace_back(1);
     blocks.arithmetic.q_4().emplace_back(in.d_scaling);
-    blocks.arithmetic.q_delta_range().emplace_back(0);
-    blocks.arithmetic.q_lookup_type().emplace_back(0);
-    blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_memory().emplace_back(0);
-    blocks.arithmetic.q_nnf().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_external().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        blocks.arithmetic.pad_additional();
-    }
+    blocks.arithmetic.set_gate_selector(1);
     check_selector_length_consistency();
     ++this->num_gates;
 }
@@ -436,18 +326,8 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::cr
     blocks.arithmetic.q_2().emplace_back(0);
     blocks.arithmetic.q_3().emplace_back(in.c_scaling);
     blocks.arithmetic.q_c().emplace_back(in.const_scaling);
-    blocks.arithmetic.q_arith().emplace_back(1);
     blocks.arithmetic.q_4().emplace_back(0);
-    blocks.arithmetic.q_delta_range().emplace_back(0);
-    blocks.arithmetic.q_lookup_type().emplace_back(0);
-    blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_memory().emplace_back(0);
-    blocks.arithmetic.q_nnf().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_external().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        blocks.arithmetic.pad_additional();
-    }
+    blocks.arithmetic.set_gate_selector(1);
     check_selector_length_consistency();
     ++this->num_gates;
 }
@@ -467,19 +347,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_bool_gate(const uint32_t varia
     blocks.arithmetic.q_2().emplace_back(0);
     blocks.arithmetic.q_3().emplace_back(0);
     blocks.arithmetic.q_c().emplace_back(0);
-    blocks.arithmetic.q_delta_range().emplace_back(0);
-
-    blocks.arithmetic.q_arith().emplace_back(1);
     blocks.arithmetic.q_4().emplace_back(0);
-    blocks.arithmetic.q_lookup_type().emplace_back(0);
-    blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_memory().emplace_back(0);
-    blocks.arithmetic.q_nnf().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_external().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        blocks.arithmetic.pad_additional();
-    }
+    blocks.arithmetic.set_gate_selector(1);
     check_selector_length_consistency();
     ++this->num_gates;
 }
@@ -501,19 +370,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_poly_gate(const poly_triple_<F
     blocks.arithmetic.q_2().emplace_back(in.q_r);
     blocks.arithmetic.q_3().emplace_back(in.q_o);
     blocks.arithmetic.q_c().emplace_back(in.q_c);
-    blocks.arithmetic.q_delta_range().emplace_back(0);
-
-    blocks.arithmetic.q_arith().emplace_back(1);
     blocks.arithmetic.q_4().emplace_back(0);
-    blocks.arithmetic.q_lookup_type().emplace_back(0);
-    blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_memory().emplace_back(0);
-    blocks.arithmetic.q_nnf().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_external().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        blocks.arithmetic.pad_additional();
-    }
+    blocks.arithmetic.set_gate_selector(1);
     check_selector_length_consistency();
     ++this->num_gates;
 }
@@ -569,20 +427,10 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
         block.q_4().emplace_back(0);
         block.q_1().emplace_back(in.sign_coefficient);
 
-        block.q_arith().emplace_back(0);
         block.q_2().emplace_back(0);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
-        block.q_delta_range().emplace_back(0);
-        block.q_lookup_type().emplace_back(0);
-        block.q_elliptic().emplace_back(1);
-        block.q_memory().emplace_back(0);
-        block.q_nnf().emplace_back(0);
-        block.q_poseidon2_external().emplace_back(0);
-        block.q_poseidon2_internal().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
+        block.set_gate_selector(1);
         check_selector_length_consistency();
         ++this->num_gates;
     }
@@ -632,23 +480,13 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
         block.q_m().set(block.size() - 1, 1);
     } else {
         block.populate_wires(this->zero_idx(), in.x1, in.y1, this->zero_idx());
-        block.q_elliptic().emplace_back(1);
         block.q_m().emplace_back(1);
         block.q_1().emplace_back(0);
         block.q_2().emplace_back(0);
         block.q_3().emplace_back(0);
         block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(0);
         block.q_4().emplace_back(0);
-        block.q_delta_range().emplace_back(0);
-        block.q_lookup_type().emplace_back(0);
-        block.q_memory().emplace_back(0);
-        block.q_nnf().emplace_back(0);
-        block.q_poseidon2_external().emplace_back(0);
-        block.q_poseidon2_internal().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
+        block.set_gate_selector(1);
         check_selector_length_consistency();
         ++this->num_gates;
     }
@@ -672,18 +510,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::fix_witness(const uint32_t witness_in
     blocks.arithmetic.q_2().emplace_back(0);
     blocks.arithmetic.q_3().emplace_back(0);
     blocks.arithmetic.q_c().emplace_back(-witness_value);
-    blocks.arithmetic.q_arith().emplace_back(1);
     blocks.arithmetic.q_4().emplace_back(0);
-    blocks.arithmetic.q_delta_range().emplace_back(0);
-    blocks.arithmetic.q_lookup_type().emplace_back(0);
-    blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_memory().emplace_back(0);
-    blocks.arithmetic.q_nnf().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_external().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        blocks.arithmetic.pad_additional();
-    }
+    blocks.arithmetic.set_gate_selector(1);
     check_selector_length_consistency();
     ++this->num_gates;
 }
@@ -753,24 +581,14 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
         read_data[plookup::ColumnIdx::C3].push_back(third_idx);
         this->assert_valid_variables({ first_idx, second_idx, third_idx });
 
-        blocks.lookup.q_lookup_type().emplace_back(FF(1));
         blocks.lookup.q_3().emplace_back(FF(table.table_index));
         blocks.lookup.populate_wires(first_idx, second_idx, third_idx, this->zero_idx());
         blocks.lookup.q_1().emplace_back(0);
         blocks.lookup.q_2().emplace_back((i == (num_lookups - 1) ? 0 : -multi_table.column_1_step_sizes[i + 1]));
         blocks.lookup.q_m().emplace_back((i == (num_lookups - 1) ? 0 : -multi_table.column_2_step_sizes[i + 1]));
         blocks.lookup.q_c().emplace_back((i == (num_lookups - 1) ? 0 : -multi_table.column_3_step_sizes[i + 1]));
-        blocks.lookup.q_arith().emplace_back(0);
         blocks.lookup.q_4().emplace_back(0);
-        blocks.lookup.q_delta_range().emplace_back(0);
-        blocks.lookup.q_elliptic().emplace_back(0);
-        blocks.lookup.q_memory().emplace_back(0);
-        blocks.lookup.q_nnf().emplace_back(0);
-        blocks.lookup.q_poseidon2_external().emplace_back(0);
-        blocks.lookup.q_poseidon2_internal().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            blocks.lookup.pad_additional();
-        }
+        blocks.lookup.set_gate_selector(1);
         check_selector_length_consistency();
         ++this->num_gates;
     }
@@ -1075,16 +893,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint(const std::vec
         blocks.delta_range.q_c().emplace_back(0);
         blocks.delta_range.q_arith().emplace_back(0);
         blocks.delta_range.q_4().emplace_back(0);
-        blocks.delta_range.q_delta_range().emplace_back(1);
-        blocks.delta_range.q_elliptic().emplace_back(0);
-        blocks.delta_range.q_lookup_type().emplace_back(0);
-        blocks.delta_range.q_memory().emplace_back(0);
-        blocks.delta_range.q_nnf().emplace_back(0);
-        blocks.delta_range.q_poseidon2_external().emplace_back(0);
-        blocks.delta_range.q_poseidon2_internal().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            blocks.delta_range.pad_additional();
-        }
+        blocks.delta_range.set_gate_selector(1);
         check_selector_length_consistency();
     }
     // dummy gate needed because of sort widget's check of next row
@@ -1143,16 +952,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
         block.q_c().emplace_back(0);
         block.q_arith().emplace_back(0);
         block.q_4().emplace_back(0);
-        block.q_delta_range().emplace_back(1);
-        block.q_elliptic().emplace_back(0);
-        block.q_lookup_type().emplace_back(0);
-        block.q_memory().emplace_back(0);
-        block.q_nnf().emplace_back(0);
-        block.q_poseidon2_external().emplace_back(0);
-        block.q_poseidon2_internal().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
+        block.set_gate_selector(1);
         check_selector_length_consistency();
     }
     // enforce range checks of last row and ending at end
@@ -1169,16 +969,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
         block.q_c().emplace_back(0);
         block.q_arith().emplace_back(0);
         block.q_4().emplace_back(0);
-        block.q_delta_range().emplace_back(1);
-        block.q_elliptic().emplace_back(0);
-        block.q_lookup_type().emplace_back(0);
-        block.q_memory().emplace_back(0);
-        block.q_nnf().emplace_back(0);
-        block.q_poseidon2_external().emplace_back(0);
-        block.q_poseidon2_internal().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
+        block.set_gate_selector(1);
         check_selector_length_consistency();
     }
 
@@ -1217,15 +1008,7 @@ template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_SELECTORS type)
 {
     auto& block = blocks.memory;
-    block.q_memory().emplace_back(type == MEMORY_SELECTORS::MEM_NONE ? 0 : 1);
-    // Set to zero the selectors that are not enabled for this gate
-    block.q_arith().emplace_back(0);
-    block.q_delta_range().emplace_back(0);
-    block.q_lookup_type().emplace_back(0);
-    block.q_elliptic().emplace_back(0);
-    block.q_nnf().emplace_back(0);
-    block.q_poseidon2_external().emplace_back(0);
-    block.q_poseidon2_internal().emplace_back(0);
+    block.set_gate_selector(type == MEMORY_SELECTORS::MEM_NONE ? 0 : 1);
     switch (type) {
     case MEMORY_SELECTORS::ROM_CONSISTENCY_CHECK: {
         // Memory read gate used with the sorted list of memory reads.
@@ -1238,9 +1021,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
         check_selector_length_consistency();
         break;
     }
@@ -1256,9 +1036,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
         check_selector_length_consistency();
         break;
     }
@@ -1271,9 +1048,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_4().emplace_back(1);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
         check_selector_length_consistency();
         break;
     }
@@ -1287,9 +1061,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(1); // validate record witness is correctly computed
         block.q_c().emplace_back(0); // read/write flag stored in q_c
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
         check_selector_length_consistency();
         break;
     }
@@ -1303,9 +1074,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(1); // validate record witness is correctly computed
         block.q_c().emplace_back(0); // read/write flag stored in q_c
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
         check_selector_length_consistency();
         break;
     }
@@ -1319,9 +1087,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(1); // validate record witness is correctly computed
         block.q_c().emplace_back(1); // read/write flag stored in q_c
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
         check_selector_length_consistency();
         break;
     }
@@ -1332,9 +1097,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
         check_selector_length_consistency();
         break;
     }
@@ -1368,15 +1130,7 @@ template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTORS type)
 {
     auto& block = blocks.nnf;
-    block.q_nnf().emplace_back(type == NNF_SELECTORS::NNF_NONE ? 0 : 1);
-    // Set to zero the selectors that are not enabled for this gate
-    block.q_arith().emplace_back(0);
-    block.q_delta_range().emplace_back(0);
-    block.q_lookup_type().emplace_back(0);
-    block.q_elliptic().emplace_back(0);
-    block.q_memory().emplace_back(0);
-    block.q_poseidon2_external().emplace_back(0);
-    block.q_poseidon2_internal().emplace_back(0);
+    block.set_gate_selector(type == NNF_SELECTORS::NNF_NONE ? 0 : 1);
     switch (type) {
     case NNF_SELECTORS::LIMB_ACCUMULATE_1: {
         block.q_1().emplace_back(0);
@@ -1385,9 +1139,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTO
         block.q_4().emplace_back(1);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
         check_selector_length_consistency();
         break;
     }
@@ -1398,9 +1149,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTO
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(1);
         block.q_c().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
         check_selector_length_consistency();
         break;
     }
@@ -1411,9 +1159,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTO
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
         check_selector_length_consistency();
         break;
     }
@@ -1424,9 +1169,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTO
         block.q_4().emplace_back(1);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
         check_selector_length_consistency();
         break;
     }
@@ -1437,9 +1179,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTO
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(1);
         block.q_c().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
         check_selector_length_consistency();
         break;
     }
@@ -1450,9 +1189,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTO
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
         check_selector_length_consistency();
         break;
     }
@@ -1954,7 +1690,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_3().emplace_back(-y_mulconst0 * 2); // z_0 - (x_0 * -xmulconst0) - (y_0 * ymulconst0) = 0 => z_0 = x_0 + y_0
     block.q_4().emplace_back(0);
     block.q_c().emplace_back(-addconst0 * 2);
-    block.q_arith().emplace_back(3);
+    block.set_gate_selector(3);
 
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(0);
@@ -1962,7 +1698,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_3().emplace_back(-y_mulconst1);
     block.q_4().emplace_back(0);
     block.q_c().emplace_back(-addconst1);
-    block.q_arith().emplace_back(2);
+    block.set_gate_selector(2);
 
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(-x_mulconst2);
@@ -1970,7 +1706,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_3().emplace_back(1);
     block.q_4().emplace_back(0);
     block.q_c().emplace_back(-addconst2);
-    block.q_arith().emplace_back(1);
+    block.set_gate_selector(1);
 
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(-x_mulconst3);
@@ -1978,20 +1714,8 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_3().emplace_back(1);
     block.q_4().emplace_back(0);
     block.q_c().emplace_back(-addconst3);
-    block.q_arith().emplace_back(1);
+    block.set_gate_selector(1);
 
-    for (size_t i = 0; i < 4; ++i) {
-        block.q_delta_range().emplace_back(0);
-        block.q_lookup_type().emplace_back(0);
-        block.q_elliptic().emplace_back(0);
-        block.q_memory().emplace_back(0);
-        block.q_nnf().emplace_back(0);
-        block.q_poseidon2_external().emplace_back(0);
-        block.q_poseidon2_internal().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
-    }
     check_selector_length_consistency();
 
     this->num_gates += 4;
@@ -2093,7 +1817,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_3().emplace_back(1);
     block.q_4().emplace_back(0);
     block.q_c().emplace_back(-addconst2);
-    block.q_arith().emplace_back(1);
+    block.set_gate_selector(1);
 
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(-x_mulconst3);
@@ -2101,20 +1825,8 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_3().emplace_back(1);
     block.q_4().emplace_back(0);
     block.q_c().emplace_back(-addconst3);
-    block.q_arith().emplace_back(1);
+    block.set_gate_selector(1);
 
-    for (size_t i = 0; i < 4; ++i) {
-        block.q_delta_range().emplace_back(0);
-        block.q_lookup_type().emplace_back(0);
-        block.q_elliptic().emplace_back(0);
-        block.q_memory().emplace_back(0);
-        block.q_nnf().emplace_back(0);
-        block.q_poseidon2_external().emplace_back(0);
-        block.q_poseidon2_internal().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
-    }
     check_selector_length_consistency();
 
     this->num_gates += 4;
@@ -2261,18 +1973,8 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_ex
     block.q_2().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1]);
     block.q_3().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2]);
     block.q_c().emplace_back(0);
-    block.q_arith().emplace_back(0);
     block.q_4().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3]);
-    block.q_delta_range().emplace_back(0);
-    block.q_lookup_type().emplace_back(0);
-    block.q_elliptic().emplace_back(0);
-    block.q_memory().emplace_back(0);
-    block.q_nnf().emplace_back(0);
-    block.q_poseidon2_external().emplace_back(1);
-    block.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        block.pad_additional();
-    }
+    block.set_gate_selector(1);
     this->check_selector_length_consistency();
     ++this->num_gates;
 }
@@ -2290,18 +1992,8 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_in
     block.q_2().emplace_back(0);
     block.q_3().emplace_back(0);
     block.q_c().emplace_back(0);
-    block.q_arith().emplace_back(0);
     block.q_4().emplace_back(0);
-    block.q_delta_range().emplace_back(0);
-    block.q_lookup_type().emplace_back(0);
-    block.q_elliptic().emplace_back(0);
-    block.q_memory().emplace_back(0);
-    block.q_nnf().emplace_back(0);
-    block.q_poseidon2_external().emplace_back(0);
-    block.q_poseidon2_internal().emplace_back(1);
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        block.pad_additional();
-    }
+    block.set_gate_selector(1);
     this->check_selector_length_consistency();
     ++this->num_gates;
 }

@@ -298,18 +298,10 @@ template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(con
         break;
     }
     }
-    block.q_busread().emplace_back(1);
+    block.q_4().emplace_back(0);
     block.q_m().emplace_back(0);
     block.q_c().emplace_back(0);
-    block.q_delta_range().emplace_back(0);
-    block.q_arith().emplace_back(0);
-    block.q_4().emplace_back(0);
-    block.q_lookup_type().emplace_back(0);
-    block.q_elliptic().emplace_back(0);
-    block.q_memory().emplace_back(0);
-    block.q_nnf().emplace_back(0);
-    block.q_poseidon2_external().emplace_back(0);
-    block.q_poseidon2_internal().emplace_back(0);
+    block.set_gate_selector(1);
 }
 
 template class MegaCircuitBuilder_<bb::fr>;
