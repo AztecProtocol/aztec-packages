@@ -72,6 +72,10 @@ Key contracts you'll use:
 - **Governance**: Executes approved proposals
 - **Rollup**: Your sequencer stakes here and defaults to delegating voting power here
 
+:::note
+To obtain these contract addresses, check your sequencer logs at startup for the line beginning with `INFO: node Aztec Node started on chain...`
+:::
+
 ### Governance Lifecycle Overview
 
 The governance process follows these stages:
@@ -119,8 +123,24 @@ Replace `0x1234567890abcdef1234567890abcdef12345678` with your actual payload co
 
 Expected response:
 ```json
-{"jsonrpc":"2.0","result":true,"id":1}
+{"jsonrpc":"2.0","id":1}
 ```
+
+### Verify Your Configuration
+
+Use the `getConfig` method to verify the payload address:
+
+```bash
+curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc":"2.0",
+    "method":"nodeAdmin_getConfig",
+    "id":1
+  }'
+```
+
+Search for `governanceProposerPayload` in the response to confirm it matches your configured address.
 
 Once configured, your sequencer automatically signals support for this payload each time you propose a block. Each signal counts toward the quorum requirement.
 
@@ -243,8 +263,9 @@ Check that your vote was recorded:
 
 ```bash
 # Check vote counts for a proposal
-cast call [GSE_ADDRESS] \
-  "getVotes(uint256)" [PROPOSAL_ID] \
+# Note: This returns the proposal's vote tallies from the Governance contract, not GSE
+cast call [GOVERNANCE_CONTRACT_ADDRESS] \
+  "getProposal(uint256)" [PROPOSAL_ID] \
   --rpc-url [YOUR_RPC_URL]
 ```
 
