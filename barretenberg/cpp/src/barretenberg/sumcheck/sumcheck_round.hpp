@@ -7,7 +7,6 @@
 #pragma once
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/get_by_index.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
 #include "barretenberg/polynomials/row_disabling_polynomial.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -120,17 +119,12 @@ template <typename Flavor> class SumcheckProverRound {
      * @param extended_edges Container for the evaluations of \f$P_j(u_0,\ldots, u_{i-1}, k, \vec \ell) \f$ for
      \f$k=0,\ldots, D\f$ and \f$j=1,\ldots,N\f$.
      */
-    // Extend edges using runtime-indexed access
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     void extend_edges(ExtendedEdges& extended_edges,
                       const ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
                       const size_t edge_idx)
     {
-        // Loop through all entities, accessing them via runtime index
-        for (size_t idx = 0; idx < Flavor::NUM_ALL_ENTITIES; ++idx) {
-            const auto& multivariate = get_by_index(multivariates, idx);
-            auto& extended_edge = get_by_index(extended_edges, idx);
-
+        for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
             if constexpr (Flavor::USE_SHORT_MONOMIALS) {
                 extended_edge = bb::Univariate<FF, 2>({ multivariate[edge_idx], multivariate[edge_idx + 1] });
             } else {
