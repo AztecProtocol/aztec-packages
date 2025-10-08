@@ -28,7 +28,7 @@ class WorldStateWrapper : public Napi::ObjectWrap<WorldStateWrapper> {
     static Napi::Function get_class(Napi::Env);
 
   private:
-    std::unique_ptr<bb::world_state::WorldState> _ws;
+    bb::world_state::WorldState* _ws;
     bb::messaging::MessageDispatcher _dispatcher;
 
     bool get_tree_info(msgpack::object& obj, msgpack::sbuffer& buffer) const;
