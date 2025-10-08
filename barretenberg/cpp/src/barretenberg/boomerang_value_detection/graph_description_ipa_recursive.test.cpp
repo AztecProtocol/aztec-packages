@@ -1,4 +1,4 @@
-#include "barretenberg/boomerang_value_detection/"
+#include "barretenberg/boomerang_value_detection/graph.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.test.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
@@ -13,6 +13,9 @@
 
 using namespace bb;
 using namespace cdg;
+using NativeCurve = curve::Grumpkin;
+using Builder = UltraCircuitBuilder;
+using Curve = stdlib::grumpkin<Builder>;
 
 class BoomerangIPARecursiveTests : public CommitmentTest<NativeCurve> {
   public:
@@ -47,8 +50,9 @@ class BoomerangIPARecursiveTests : public CommitmentTest<NativeCurve> {
      * @note assumes that the size of `poly` is exactly `1 << log_poly_length`.
      */
     template <size_t log_poly_length>
-    std::pair<std::shared_ptr<StdlibTranscript>, OpeningClaim<Curve>> create_ipa_claim(
-        Builder& builder, Polynomial& poly, Fr x, FailureMode failure_mode = FailureMode::None)
+    std::pair<std::shared_ptr<StdlibTranscript>, OpeningClaim<Curve>> create_ipa_claim(Builder& builder,
+                                                                                       Polynomial& poly,
+                                                                                       Fr x)
     {
         using NativeIPA = IPA<NativeCurve, log_poly_length>;
         EXPECT_EQ(1UL << log_poly_length, poly.size());
@@ -56,7 +60,6 @@ class BoomerangIPARecursiveTests : public CommitmentTest<NativeCurve> {
         auto eval = poly.evaluate(x);
 
         const OpeningPair<NativeCurve> opening_pair = { x, eval };
-        const OpeningClaim<NativeCurve> opening_claim{ opening_pair, commitment };
         const ProverOpeningClaim<NativeCurve> prover_claim{ poly, opening_pair };
         // initialize empty prover transcript
         auto prover_transcript = std::make_shared<NativeTranscript>();
@@ -90,13 +93,12 @@ class BoomerangIPARecursiveTests : public CommitmentTest<NativeCurve> {
      * @param x
      * @return Builder
      */
-    template <size_t log_poly_length>
-    Builder build_ipa_recursive_verifier_circuit(Polynomial& poly, Fr x, FailureMode failure_mode = FailureMode::None)
+    template <size_t log_poly_length> Builder build_ipa_recursive_verifier_circuit(Polynomial& poly, Fr x)
     {
         using RecursiveIPA = IPA<Curve, log_poly_length>;
 
         Builder builder;
-        auto [stdlib_transcript, stdlib_claim] = create_ipa_claim<log_poly_length>(builder, poly, x, failure_mode);
+        auto [stdlib_transcript, stdlib_claim] = create_ipa_claim<log_poly_length>(builder, poly, x);
 
         RecursiveIPA::reduce_verify(stdlib_claim, stdlib_transcript);
         stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
@@ -139,11 +141,10 @@ class BoomerangIPARecursiveTests : public CommitmentTest<NativeCurve> {
      * @brief Tests IPA recursion
      * @details Creates an IPA claim and then runs the recursive IPA verification and checks that the circuit is valid.
      */
-    template <size_t log_poly_length>
-    void test_recursive_ipa(Polynomial& poly, Fr x, FailureMode failure_mode = FailureMode::None)
+    template <size_t log_poly_length> void test_recursive_ipa(Polynomial& poly, Fr x)
     {
         BB_DISABLE_ASSERTS();
-        Builder builder(build_ipa_recursive_verifier_circuit<log_poly_length>(poly, x, failure_mode));
+        Builder builder(build_ipa_recursive_verifier_circuit<log_poly_length>(poly, x));
         info("IPA Recursive Verifier num finalized gates = ", builder.get_num_finalized_gates());
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
@@ -190,4 +191,22 @@ class BoomerangIPARecursiveTests : public CommitmentTest<NativeCurve> {
         auto result = NativeIPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
         EXPECT_TRUE(result);
     }
+};
+
+TEST_F(BoomerangIPARecursiveTests, FullRecursiveVerifierMediumRandom)
+{
+
+    static constexpr size_t log_poly_length = 10;
+    static constexpr size_t poly_length = 1UL << log_poly_length;
+    using RecursiveIPA = IPA<Curve, log_poly_length>;
+
+    Builder builder;
+    auto [poly, x] = generate_poly_and_challenge<log_poly_length>();
+    auto [stdlib_transcript, stdlib_claim] = create_ipa_claim<log_poly_length>(builder, poly, x);
+
+    VerifierCommitmentKey<Curve> stdlib_pcs_vkey(&builder, poly_length, this->vk());
+    auto result = RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, stdlib_claim, stdlib_transcript);
+    EXPECT_TRUE(result);
+    builder.finalize_circuit(/*ensure_nonzero=*/true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
