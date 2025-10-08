@@ -260,6 +260,27 @@ template <typename Curve> class GeminiProver_ {
         }
 
         /**
+         * @brief Compute batched polynomial
+         */
+        template <size_t N>
+        static Polynomial compute_batched(RefArray<Polynomial, N>& polynomials_to_batch,
+                                          const size_t full_batched_size,
+                                          const std::array<Fr, N>& challenges)
+        {
+            BB_BENCH_NAME("compute_batched");
+
+            size_t challenge_idx = 0;
+
+            Polynomial full_batched(full_batched_size);
+            for (auto& poly : polynomials_to_batch) {
+                full_batched.add_scaled(poly, challenges[challenge_idx]);
+                challenge_idx += 1;
+            }
+
+            return full_batched;
+        }
+
+        /**
          * @brief Compute partially evaluated batched polynomials A₀(X, r) = A₀₊ = F + G/r, A₀(X, -r) = A₀₋ = F -
          * G/r
          * @details If the random polynomial is set, it is added to each batched polynomial for ZK
