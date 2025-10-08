@@ -110,7 +110,16 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
              zip_view(prover_instance->polynomials.get_databus_entities(), commitment_labels.get_databus_entities())) {
             {
                 BB_BENCH_NAME("COMMIT::databus");
-                batch.add_to_batch(polynomial, label, /*mask?*/ false);
+                // bool is_unmasked_commitment =
+                //     label == "CALLDATA" || label == "SECONDARY_CALLDATA" || label == "RETURN_DATA" ||
+                //     label == "CALLDATA_READ_COUNTS" || label == "SECONDARY_CALLDATA_READ_COUNTS" ||
+                //     label == "RETURN_DATA_READ_COUNTS" || label == "CALLDATA_READ_TAGS" ||
+                //     label == "SECONDARY_CALLDATA_READ_TAGS" || label == "RETURN_DATA_READ_TAGS";
+                // bool is_unmasked_commitment = label == "CALLDATA" || label == "SECONDARY_CALLDATA" ||
+                //                               label == "RETURN_DATA" || label == "CALLDATA_READ_COUNTS" ||
+                //                               label == "SECONDARY_CALLDATA_READ_COUNTS" ||
+                //                               label == "RETURN_DATA_READ_COUNTS";
+                batch.add_to_batch(polynomial, label, /*mask?*/ Flavor::HasZK);
             }
         }
     }
@@ -196,7 +205,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
     if constexpr (IsMegaFlavor<Flavor>) {
         for (auto [polynomial, label] :
              zip_view(prover_instance->polynomials.get_databus_inverses(), commitment_labels.get_databus_inverses())) {
-            batch.add_to_batch(polynomial, label, /*mask?*/ false);
+            batch.add_to_batch(polynomial, label, /*mask?*/ Flavor::HasZK);
         };
     }
     auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
