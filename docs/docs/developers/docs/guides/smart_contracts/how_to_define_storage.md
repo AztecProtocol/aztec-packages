@@ -98,7 +98,7 @@ All private storage operates on note types rather than arbitrary data types. Lea
 
 ### PrivateMutable
 
-`PrivateMutable` is a private state variable that can be replaced. It's a private state variable that is unique in a way. When a `PrivateMutable` is initialized, a note is created to represent its value. Updating the value means to destroy the current note, and to create a new one with the updated value.
+`PrivateMutable` is a private state variable that can be updated. It's a private state variable that is unique in a way. When a `PrivateMutable` is initialized, a note is created to represent its value. Updating the value means to destroy the current note, and to create a new one with the updated value.
 
 Like for public state, we define the struct to have context and a storage slot. You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/smart-contracts/aztec/src/state_vars/private_mutable.nr).
 
@@ -106,8 +106,9 @@ An example of `PrivateMutable` usage in contracts is keeping track of important 
 
 ```rust
 #[storage]
-// ...etc
-my_value: PrivateMutable<MyNote, Context>,
+pub struct Storage<Context> {
+    my_value: PrivateMutable<MyNote, Context>,
+}
 ```
 
 #### `initialize`

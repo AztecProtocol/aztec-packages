@@ -45,7 +45,7 @@ Whenever data, for example, an accounts balance, is stored, a `key: value` pair 
 
 When the data is modified, the `value` corresponding to the `key` is updated. Account state is updated directly when transactions are executed. It can then be read by anyone.
 
-This is how **public state** works on Aztec. This public data, which follows this account model, is stored in a **private state Merkle tree**, one of Aztec's 5 Merkle trees!
+This is how **public state** works on Aztec. This public data, which follows this account model, is stored in a **public state Merkle tree**, one of Aztec's 5 Merkle trees!
 
 ### Private state: UTXO based
 
@@ -55,7 +55,7 @@ This is how **public state** works on Aztec. This public data, which follows thi
 0x$$$_$$$_balance: $
 ```
 
-When we send a transaction, it will modify this specific slot directly. So, even if the key and value themselves are encrypted, the data location is leaked. Using correlation techniques, this would expose information and break the privacy assumption.
+When we send a transaction, it will modify this specific slot directly. So, even if the key and value themselves are encrypted, the data location is leaked. Using correlation techniques, this would expose information about the contract and variable being updated and break the privacy assumption.
 
 Therefore, we use a different model that breaks the link between the user and their balance. This means that balances can be updated whilst keeping the account and their associated data separate and private.
 
@@ -63,7 +63,7 @@ Enter UTXO-based private state using **notes**, which we will go through shortly
 
 We have explained UTXO-based state models in a previous lesson, but let's do a recap.
 
-Think of the UTXO model like physical cash. When you have cash in your wallet, you don't have "a balance", you have individual bills: a $20 bill, two $10 bills, and some $5 bills.
+Think of the UTXO model like physical cash. When you have cash in your wallet, you don't have "a balance", you have individual bills: a \$20 bill, two \$10 bills, and some $5 bills.
 
 **Cash:**
 
@@ -97,7 +97,7 @@ A note is a piece of private data that can optionally be encrypted to share with
 Think of a note as an envelope or sealed box that contains tokens inside, and only the note owner has the key to open:
 
 - Ownership: Only the owner with the key (called the nullification key) can spend the note.
-- Location: In order to maintain privacy, notes aren't tied to a fixed storage slot like an Ethereum account balance. Instead they are appended to a Merkle tree.
+- Location: In order to maintain privacy, notes aren't tied to a fixed storage slot like an Ethereum account balance. Instead they are appended to the note hash Merkle tree.
 - UTXO-like: To "spend" or "update", you consume old notes and create new ones.
 
 But what actually is a note? A note is just a `struct`, plus some methods, written in Noir, that specify the information about the note itself. Here's an example of what a note looks like:
@@ -133,7 +133,7 @@ To prevent double-spends, we need a public record that "this specific note commi
 
 - A nullifier is a unique value, derived from the note and owner secrets.
 - It's designed so that outsiders can't link it to a specific commitment.
-- Nullifiers live in the one of the five state trees, **the Nullifier Tree**.
+- Nullifiers live in one of the five state trees, **the Nullifier Tree**.
 - No transaction can emit a nullifier that already exists in the tree.
 
 Together, commitments say "a note was created", and nullifiers say "a note was consumed once—and only once".
