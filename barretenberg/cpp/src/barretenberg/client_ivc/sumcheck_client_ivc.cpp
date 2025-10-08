@@ -166,6 +166,7 @@ std::
         const TableCommitments& T_prev_commitments,
         const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
+    info("Num rows now: ", circuit.op_queue->get_num_rows());
     using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
 
     // The pairing points produced by the verification of the decider proof
