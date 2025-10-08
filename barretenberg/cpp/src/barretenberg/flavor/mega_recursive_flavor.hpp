@@ -101,6 +101,13 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
         using Base = MegaFlavor::AllEntities<FF>;
         using Base::Base;
     };
+
+    class AllCommitments : public MegaFlavor::AllEntities<Commitment> {
+      public:
+        using Base = MegaFlavor::AllEntities<Commitment>;
+        using Base::Base;
+    };
+
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.

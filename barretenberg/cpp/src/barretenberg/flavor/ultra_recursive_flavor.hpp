@@ -184,6 +184,12 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
         using Base::Base;
     };
 
+    class AllCommitments : public UltraFlavor::AllEntities<Commitment> {
+      public:
+        using Base = UltraFlavor::AllEntities<Commitment>;
+        using Base::Base;
+    };
+
     using CommitmentLabels = UltraFlavor::CommitmentLabels;
 
     using WitnessCommitments = UltraFlavor::WitnessEntities<Commitment>;
