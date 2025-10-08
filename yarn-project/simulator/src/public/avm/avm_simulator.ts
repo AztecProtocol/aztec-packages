@@ -204,7 +204,10 @@ export class AvmSimulator implements AvmSimulatorInterface {
       // Return results for processing by calling context
       return results;
     } catch (err: any) {
-      this.log.verbose('Exceptional halt (revert by something other than REVERT opcode)');
+      this.log.info(
+        `Exceptional halt (revert by something other than REVERT opcode) at pc ${machineState.pc}
+         and instruction counter ${machineState.instrCounter}`,
+      );
       if (!(err instanceof CheckedPublicExecutionError)) {
         this.log.error(`Unchecked/unknown error thrown by AVM. This is a bug. Error: ${err}`);
         throw err;
