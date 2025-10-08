@@ -131,10 +131,12 @@ ClientIVC::RecursiveVerifierAccumulator ClientIVC::perform_folding_recursive_ver
 
     // FOLDING INFRA //////////////// //////////////// ////////////////
     // Perform folding recursive verification to update the verifier accumulator
-    FoldingRecursiveVerifier verifier{ &circuit, verifier_accumulator, verifier_instance, transcript };
-    auto updated_verifier_accumulator = verifier.verify_folding_proof(proof);
+    // FoldingRecursiveVerifier verifier{ &circuit, verifier_accumulator, verifier_instance, transcript };
+    // auto updated_verifier_accumulator = verifier.verify_folding_proof(proof);
 
-    return updated_verifier_accumulator;
+    // return updated_verifier_accumulator;
+
+    return incoming_verifier_accumulator;
 }
 
 /**
@@ -489,14 +491,17 @@ HonkProof ClientIVC::construct_folding_proof(const std::shared_ptr<ProverInstanc
     ProverAccumulator incoming_accumulator = ClientIVC::execute_first_sumcheck(prover_instance, honk_vk, transcript);
 
     // FOLDING INFRA /////////// /////////// /////////// ///////////
-    FoldingProver folding_prover({ prover_accumulator, prover_instance },
-                                 { native_verifier_accum, verifier_instance },
-                                 transcript,
-                                 trace_usage_tracker);
-    auto output = folding_prover.prove();
-    prover_accumulator = output.accumulator; // update the prover accumulator
-    vinfo("pg proof constructed");
-    return output.proof;
+    // FoldingProver folding_prover({ prover_accumulator, prover_instance },
+    //                              { native_verifier_accum, verifier_instance },
+    //                              transcript,
+    //                              trace_usage_tracker);
+    // auto output = folding_prover.prove();
+    // prover_accumulator = output.accumulator; // update the prover accumulator
+    // vinfo("pg proof constructed");
+    // return output.proof;
+
+    HonkProof proof;
+    return proof;
 }
 
 /**
@@ -925,9 +930,9 @@ void ClientIVC::update_native_verifier_accumulator(const VerifierInputs& queue_e
             verifier_transcript->add_to_hash_buffer("accum_hash", accum_hash);
             info("Accumulator hash in PG verifier: ", accum_hash);
         }
-        // FOLDING INFRA
-        FoldingVerifier folding_verifier({ native_verifier_accum, verifier_inst }, verifier_transcript);
-        native_verifier_accum = folding_verifier.verify_folding_proof(queue_entry.proof);
+        // // FOLDING INFRA
+        // FoldingVerifier folding_verifier({ native_verifier_accum, verifier_inst }, verifier_transcript);
+        // native_verifier_accum = folding_verifier.verify_folding_proof(queue_entry.proof);
     }
 }
 
