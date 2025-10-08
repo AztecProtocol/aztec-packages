@@ -32,17 +32,38 @@ template <typename FF_> class CircuitBuilderBase {
 
     bool public_inputs_finalized_ = false; // Addition of new public inputs disallowed after this is set to true.
 
-  public:
-    size_t num_gates = 0;
     // true if we have dummy witnesses (in the write_vk case)
     bool has_dummy_witnesses = false;
-
-    std::unordered_map<uint32_t, std::string> variable_names;
 
     // index of next variable in equivalence class (=REAL_VARIABLE if you're last)
     std::vector<uint32_t> next_var_index;
     // index of  previous variable in equivalence class (=FIRST if you're in a cycle alone)
     std::vector<uint32_t> prev_var_index;
+
+    bool _failed = false;
+    std::string _err;
+
+    static constexpr uint32_t REAL_VARIABLE = UINT32_MAX - 1;
+    static constexpr uint32_t FIRST_VARIABLE_IN_CLASS = UINT32_MAX - 2;
+
+  protected:
+    std::unordered_map<uint32_t, std::string> variable_names;
+
+    // We know from the CLI arguments during proving whether a circuit should use a prover which produces
+    // proofs that are friendly to verify in a circuit themselves. A verifier does not need a full circuit
+    // description and should be able to verify a proof with just the verification key and the proof.
+    // This field exists to later set the same field in the verification key, and make sure
+    // that we are using the correct prover/verifier.
+    bool is_recursive_circuit = false; // AUDITTODO: this seems totally unused now?
+
+  public:
+    size_t num_gates = 0;
+
+    // The permutation on variable tags. See
+    // https://github.com/AztecProtocol/plonk-with-lookups-private/blob/new-stuff/GenPermuations.pdf
+    // DOCTODO(#231): replace with the relevant wiki link.
+    std::map<uint32_t, uint32_t> tau;
+
     // The "real_variable_index" acts as a map from a "witness index" (e.g. the one stored by a stdlib object) to an
     // index into the variables array. This extra layer of indirection is used to support copy constraints by allowing,
     // for example, two witnesses with differing witness indices to have the same "real variable index" and thus the
@@ -51,23 +72,8 @@ template <typename FF_> class CircuitBuilderBase {
     std::vector<uint32_t> real_variable_index;
     std::vector<uint32_t> real_variable_tags;
     uint32_t current_tag = DUMMY_TAG;
-    // The permutation on variable tags. See
-    // https://github.com/AztecProtocol/plonk-with-lookups-private/blob/new-stuff/GenPermuations.pdf
-    // DOCTODO(#231): replace with the relevant wiki link.
-    std::map<uint32_t, uint32_t> tau;
 
-    // We know from the CLI arguments during proving whether a circuit should use a prover which produces
-    // proofs that are friendly to verify in a circuit themselves. A verifier does not need a full circuit
-    // description and should be able to verify a proof with just the verification key and the proof.
-    // This field exists to later set the same field in the verification key, and make sure
-    // that we are using the correct prover/verifier.
-    bool is_recursive_circuit = false;
-
-    bool _failed = false;
-    std::string _err;
-    static constexpr uint32_t REAL_VARIABLE = UINT32_MAX - 1;
-    static constexpr uint32_t FIRST_VARIABLE_IN_CLASS = UINT32_MAX - 2;
-
+  public:
     CircuitBuilderBase(size_t size_hint = 0, bool has_dummy_witnesses = false);
 
     CircuitBuilderBase(const CircuitBuilderBase& other) = default;
