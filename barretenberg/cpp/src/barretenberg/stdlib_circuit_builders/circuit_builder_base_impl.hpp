@@ -210,9 +210,9 @@ void CircuitBuilderBase<FF>::assert_equal(const uint32_t a_variable_idx,
 }
 
 template <typename FF_>
-void CircuitBuilderBase<FF_>::assert_valid_variables(const std::vector<uint32_t>& variable_indices)
+void CircuitBuilderBase<FF_>::assert_valid_variables([[maybe_unused]] const std::vector<uint32_t>& variable_indices)
 {
-#ifdef NDEBUG
+#ifndef NDEBUG
     for (const auto& variable_index : variable_indices) {
         BB_ASSERT_LT(variable_index, variables.size());
     }
