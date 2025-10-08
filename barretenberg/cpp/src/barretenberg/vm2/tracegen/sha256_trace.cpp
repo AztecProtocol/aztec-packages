@@ -11,7 +11,6 @@
 
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256_mem.hpp"
-#include "barretenberg/vm2/generated/relations/perms_sha256_mem.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"

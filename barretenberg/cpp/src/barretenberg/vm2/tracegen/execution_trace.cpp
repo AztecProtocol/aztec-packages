@@ -455,9 +455,9 @@ void ExecutionTraceBuilder::process(
 
         // This will only have a value if instruction fetching succeeded.
         std::optional<ExecutionOpCode> exec_opcode;
-        bool instruction_fetching_failed = ex_event.error == ExecutionError::INSTRUCTION_FETCHING;
-        bool instruction_fetching_success = !bytecode_retrieval_failed && !instruction_fetching_failed;
-        trace.set(C::execution_sel_instruction_fetching_failure, row, instruction_fetching_failed ? 1 : 0);
+        bool error_in_instruction_fetching = ex_event.error == ExecutionError::INSTRUCTION_FETCHING;
+        bool instruction_fetching_success = !bytecode_retrieval_failed && !error_in_instruction_fetching;
+        trace.set(C::execution_sel_instruction_fetching_failure, row, error_in_instruction_fetching ? 1 : 0);
 
         if (instruction_fetching_success) {
             exec_opcode = ex_event.wire_instruction.get_exec_opcode();

@@ -676,8 +676,7 @@ sel_exec_dispatch_bitwise {
     register[0], mem_tag_reg[0],
     register[1], mem_tag_reg[1],
     register[2], mem_tag_reg[2]
-}
-in bitwise.sel {
+} in bitwise.sel {
     bitwise.op_id, bitwise.err,
     bitwise.acc_ia, bitwise.tag_a,
     bitwise.acc_ib, bitwise.tag_b,
@@ -828,16 +827,18 @@ sel_exec_dispatch_poseidon2_perm {
 };
 
 #[DISPATCH_TO_SHA256_COMPRESSION]
-sel_exec_dispatch_sha256_compression{
-    precomputed.clk, context_id, rop[0], rop[1], rop[2], sel_opcode_error }
-is sha256.start {
+sel_exec_dispatch_sha256_compression {
+    precomputed.clk, context_id, rop[0], rop[1], rop[2], sel_opcode_error
+} is sha256.start {
     sha256.execution_clk, sha256.space_id, sha256.output_addr, sha256.state_addr, sha256.input_addr, sha256.err
 };
 
 #[DISPATCH_TO_KECCAKF1600]
-sel_exec_dispatch_keccakf1600 { precomputed.clk, rop[0], rop[1], context_id, sel_opcode_error }
-is
-keccakf1600.start { keccakf1600.clk, keccakf1600.dst_addr, keccakf1600.src_addr, keccakf1600.space_id, keccakf1600.error };
+sel_exec_dispatch_keccakf1600 {
+     precomputed.clk, rop[0], rop[1], context_id, sel_opcode_error
+} is keccakf1600.start {
+     keccakf1600.clk, keccakf1600.dst_addr, keccakf1600.src_addr, keccakf1600.space_id, keccakf1600.error
+};
 
 #[DISPATCH_TO_ECC_ADD]
 sel_exec_dispatch_ecc_add {

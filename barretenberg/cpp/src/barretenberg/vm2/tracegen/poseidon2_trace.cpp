@@ -8,7 +8,6 @@
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_mem.hpp"
-#include "barretenberg/vm2/generated/relations/perms_poseidon2_mem.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"

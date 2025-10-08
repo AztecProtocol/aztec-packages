@@ -7,7 +7,6 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_ecc_mem.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_scalar_mul.hpp"
-#include "barretenberg/vm2/generated/relations/perms_ecc_mem.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
