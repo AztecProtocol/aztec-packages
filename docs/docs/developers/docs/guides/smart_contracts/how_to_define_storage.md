@@ -42,6 +42,12 @@ Use the `storage` keyword to access your storage variables in contract functions
 
 Maps store key-value pairs where keys are `Field` elements and values can be any type.
 
+You can import `Map` as:
+
+```noir
+use dep::aztec::state_vars::Map;
+```
+
 ### Understand map structure
 
 - Keys: Always `Field` or serializable types
