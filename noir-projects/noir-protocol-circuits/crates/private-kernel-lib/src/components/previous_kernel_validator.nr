@@ -296,7 +296,7 @@ impl PreviousKernelValidator {
                 );
                 // No need to verify logs linked to a note hash are squashed.
                 // When a note hash is squashed, all associated logs are guaranteed to be removed.
-                // See reset-kernel-lib/src/reset/transient_data.nr for details.
+                // See reset/transient_data/transient_data_validator.nr for details.
             }
         }
     }

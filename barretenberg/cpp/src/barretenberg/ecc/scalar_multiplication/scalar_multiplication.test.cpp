@@ -538,7 +538,7 @@ TYPED_TEST(ScalarMultiplicationTest, BenchBatchMsm)
         all_commitments.push_back(TestFixture::naive_msm(all_scalars.back(), all_points.back()));
     }
     auto func = [&]<bb::detail::OperationLabel thread_prefix>(size_t num_threads) {
-        set_hardware_concurrency(num_threads);
+        set_parallel_for_concurrency(num_threads);
         // Strategy 1: Individual MSMs
         {
             BB_BENCH_NAME((bb::detail::concat<thread_prefix, "IndividualMSMs">()));

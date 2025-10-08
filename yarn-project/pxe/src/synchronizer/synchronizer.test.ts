@@ -48,11 +48,8 @@ describe('Synchronizer', () => {
   });
 
   it('removes notes from db on a reorg', async () => {
-    const removeNotesAfter = jest
-      .spyOn(noteDataProvider, 'removeNotesAfter')
-      .mockImplementation(() => Promise.resolve());
-    const unnullifyNotesAfter = jest
-      .spyOn(noteDataProvider, 'unnullifyNotesAfter')
+    const rollbackNotesAndNullifiers = jest
+      .spyOn(noteDataProvider, 'rollbackNotesAndNullifiers')
       .mockImplementation(() => Promise.resolve());
     const resetNoteSyncData = jest
       .spyOn(taggingDataProvider, 'resetNoteSyncData')
@@ -67,8 +64,7 @@ describe('Synchronizer', () => {
     });
     await synchronizer.handleBlockStreamEvent({ type: 'chain-pruned', block: { number: 3, hash: '0x3' } });
 
-    expect(removeNotesAfter).toHaveBeenCalledWith(3);
-    expect(unnullifyNotesAfter).toHaveBeenCalledWith(3, 4);
+    expect(rollbackNotesAndNullifiers).toHaveBeenCalledWith(3, 4);
     expect(resetNoteSyncData).toHaveBeenCalled();
   });
 });

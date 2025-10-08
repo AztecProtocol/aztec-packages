@@ -24,7 +24,7 @@ use dep::aztec::{
 // macro support is expanded.
 
 /// A private note representing a numeric value associated to an account (e.g. a token balance).
-#[derive(Eq, Serialize, Packable)]
+#[derive(Deserialize, Eq, Serialize, Packable)]
 #[custom_note]
 pub struct UintNote {
     // The ordering of these fields is important given that it must:

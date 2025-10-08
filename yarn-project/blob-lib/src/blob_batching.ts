@@ -138,7 +138,7 @@ export class BatchedBlob {
  *    - used such that y = sum_i { gamma^i * y_i }, and C = sum_i { gamma^i * C_i }
  *      for all blob evaluations y_i (see above) and commitments C_i.
  *
- * Iteratively calculated by BlobAccumulatorPublicInputs.accumulate() in nr. See also precomputeBatchedBlobChallenges() above.
+ * Iteratively calculated by BlobAccumulator.accumulate() in nr. See also precomputeBatchedBlobChallenges() above.
  */
 export class FinalBlobBatchingChallenges {
   constructor(
@@ -165,7 +165,7 @@ export class FinalBlobBatchingChallenges {
 }
 
 /**
- * See noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching_public_inputs.nr -> BlobAccumulatorPublicInputs
+ * See noir-projects/noir-protocol-circuits/crates/blob/src/abis/blob_accumulator.nr
  */
 export class BatchedBlobAccumulator {
   constructor(

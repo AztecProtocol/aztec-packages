@@ -820,7 +820,7 @@ describe('PXEOracleInterface', () => {
     });
   });
 
-  describe('removeNullifiedNotes', () => {
+  describe('syncNoteNullifiers', () => {
     let recipient: AztecAddress;
 
     beforeEach(async () => {
@@ -839,9 +839,9 @@ describe('PXEOracleInterface', () => {
       // Set up initial state with a note
       const noteDao = await NoteDao.random({ contractAddress, recipient });
 
-      // Spy on the noteDataProvider.removeNullifiedNotes to later on have additional guarantee that we really removed
+      // Spy on the noteDataProvider.applyNullifiers to later on have additional guarantee that we really removed
       // the note.
-      jest.spyOn(noteDataProvider, 'removeNullifiedNotes');
+      jest.spyOn(noteDataProvider, 'applyNullifiers');
 
       // Add the note to storage
       await noteDataProvider.addNotes([noteDao], recipient);
@@ -851,14 +851,14 @@ describe('PXEOracleInterface', () => {
       aztecNode.findLeavesIndexes.mockResolvedValue([nullifierIndex]);
 
       // Call the function under test
-      await pxeOracleInterface.removeNullifiedNotes(contractAddress);
+      await pxeOracleInterface.syncNoteNullifiers(contractAddress);
 
       // Verify the note was removed by checking storage
       const remainingNotes = await noteDataProvider.getNotes({ contractAddress, recipient, status: NoteStatus.ACTIVE });
       expect(remainingNotes).toHaveLength(0);
 
       // Verify the note was removed by checking the spy
-      expect(noteDataProvider.removeNullifiedNotes).toHaveBeenCalledTimes(1);
+      expect(noteDataProvider.applyNullifiers).toHaveBeenCalledTimes(1);
     });
 
     it('should keep notes that have not been nullified', async () => {
@@ -872,7 +872,7 @@ describe('PXEOracleInterface', () => {
       aztecNode.findLeavesIndexes.mockResolvedValue([undefined]);
 
       // Call the function under test
-      await pxeOracleInterface.removeNullifiedNotes(contractAddress);
+      await pxeOracleInterface.syncNoteNullifiers(contractAddress);
 
       // Verify note still exists
       const remainingNotes = await noteDataProvider.getNotes({ contractAddress, recipient, status: NoteStatus.ACTIVE });
@@ -882,7 +882,7 @@ describe('PXEOracleInterface', () => {
 
     // Verifies that notes are not marked as nullified when their nullifier only exists in blocks that haven't been
     // synced yet. We mock the nullifier to only exist in blocks beyond our current sync point, then verify the note
-    // is not removed by removeNullifiedNotes.
+    // is not removed by applyNullifiers.
     it('should not remove notes if nullifier is in unsynced blocks', async () => {
       // Set up initial state with a note
       const noteDao = await NoteDao.random({ contractAddress, recipient });
@@ -901,7 +901,7 @@ describe('PXEOracleInterface', () => {
       });
 
       // Call the function under test
-      await pxeOracleInterface.removeNullifiedNotes(contractAddress);
+      await pxeOracleInterface.syncNoteNullifiers(contractAddress);
 
       // Verify note still exists
       const remainingNotes = await noteDataProvider.getNotes({ contractAddress, recipient, status: NoteStatus.ACTIVE });
@@ -920,9 +920,9 @@ describe('PXEOracleInterface', () => {
       const getNotesSpy = jest.spyOn(noteDataProvider, 'getNotes');
 
       // Call the function under test
-      await pxeOracleInterface.removeNullifiedNotes(contractAddress);
+      await pxeOracleInterface.syncNoteNullifiers(contractAddress);
 
-      // Verify removeNullifiedNotes was called once for all accounts
+      // Verify applyNullifiers was called once for all accounts
       expect(getNotesSpy).toHaveBeenCalledTimes(1);
 
       // Verify getNotes was called with the correct contract address

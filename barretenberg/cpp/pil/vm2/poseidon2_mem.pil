@@ -129,6 +129,7 @@ namespace poseidon2_perm_mem;
     // Error Handling - Invalid Input Tag (not FF)
     ////////////////////////////////////////////////
     pol commit sel_invalid_tag_err;
+    sel_invalid_tag_err * (1 - sel_invalid_tag_err) = 0;
     pol INPUT_TAG_DIFF_0 = input_tag[0] - constants.MEM_TAG_FF;
     pol INPUT_TAG_DIFF_1 = input_tag[1] - constants.MEM_TAG_FF;
     pol INPUT_TAG_DIFF_2 = input_tag[2] - constants.MEM_TAG_FF;

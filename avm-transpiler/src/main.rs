@@ -1,22 +1,26 @@
 #![warn(clippy::semicolon_if_nothing_returned)]
 #![cfg_attr(not(test), warn(unused_crate_dependencies, unused_extern_crates))]
 
-use noirc_frontend as _;
-
 use log::warn;
 use std::env;
 use std::fs;
 use std::path::Path;
 
-mod bit_traits;
-mod instructions;
-mod opcodes;
-mod procedures;
-mod transpile;
-mod transpile_contract;
-mod utils;
+// Use the library modules instead of redeclaring them
+use avm_transpiler::{CompiledAcirContractArtifact, TranspiledContractArtifact};
 
-use transpile_contract::{CompiledAcirContractArtifact, TranspiledContractArtifact};
+// Acknowledge dependencies used by the library but not directly by the binary
+use acvm as _;
+use base64 as _;
+use fxhash as _;
+use libc as _;
+use noirc_abi as _;
+use noirc_errors as _;
+use noirc_evaluator as _;
+use noirc_frontend as _;
+use once_cell as _;
+use regex as _;
+use serde as _;
 
 fn main() {
     env_logger::init();

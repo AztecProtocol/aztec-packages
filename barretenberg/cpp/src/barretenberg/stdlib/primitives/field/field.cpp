@@ -832,7 +832,7 @@ template <typename Builder> bb::fr field_t<Builder>::get_value() const
         ASSERT(context);
         return (multiplicative_constant * context->get_variable(witness_index)) + additive_constant;
     }
-    BB_ASSERT_EQ(multiplicative_constant, bb::fr::one());
+    ASSERT_DEBUG(multiplicative_constant == bb::fr::one());
     // A constant field_t's value is tracked wholly by its additive_constant member.
     return additive_constant;
 }

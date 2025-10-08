@@ -2,7 +2,7 @@ import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
-  type AztecAddress,
+  AztecAddress,
   type AztecNode,
   BatchCall,
   type ContractFunctionInteraction,
@@ -380,7 +380,6 @@ async function setupFromFresh(
   });
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.rollupVersion = deployL1ContractsValues.rollupVersion;
-  aztecNodeConfig.l1PublishRetryIntervalMS = 100;
 
   const watcher = new AnvilTestWatcher(
     new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls, dateProvider),
@@ -447,7 +446,7 @@ async function setupFromFresh(
   // Only enable proving if specifically requested.
   pxeConfig.proverEnabled = !!opts.realProofs;
   const wallet = await TestWallet.create(aztecNode, pxeConfig);
-  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, wallet, aztecNode, dateProvider);
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, aztecNode, dateProvider);
 
   if (statePath) {
     writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig, resolver));
@@ -575,7 +574,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   const pxeConfig = getPXEConfig();
   pxeConfig.dataDirectory = statePath;
   const wallet = await TestWallet.create(aztecNode, pxeConfig);
-  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, wallet, aztecNode, dateProvider);
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, aztecNode, dateProvider);
 
   return {
     aztecNodeConfig,
@@ -620,8 +619,10 @@ export const deployAccounts =
         deployedAccounts[i].salt,
         deployedAccounts[i].signingKey,
       );
-      await accountManager
-        .deploy({
+      const deployMethod = await accountManager.getDeployMethod();
+      await deployMethod
+        .send({
+          from: AztecAddress.ZERO,
           skipClassPublication: i !== 0, // Publish the contract class at most once.
         })
         .wait();

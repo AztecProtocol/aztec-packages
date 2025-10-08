@@ -1,14 +1,14 @@
 use crate::config::{D_INV, LOG_FIELDS_PER_BLOB, ROOTS};
 
-use bigint::{BigNum, BLS12_381_Fr as F};
+use bignum::{BigNum, BLS12_381_Fr};
 use std::ops::{Mul, Neg};
 use types::constants::FIELDS_PER_BLOB;
 
 /**
  *                    ___d-1
- *         z^d - 1    \            omega^i
+ *         z^d - 1    \            w^i
  * p(z) = --------- . /   y_i . ---------
- *            d      /____       z - omega^i
+ *            d      /____       z - w^i
  *                    i=0
  *
  * p(z) = factor . sum( y_i . num / denom )
@@ -17,7 +17,7 @@ use types::constants::FIELDS_PER_BLOB;
  * where d = 4096
  *
  * Precompute:
- * - The d roots of unity omega^i (plus maybe their negatives for z - omega^i computations).
+ * - The d roots of unity w^i (plus maybe their negatives for z - w^i computations).
  * - (1 / d)
  *
  * @param z
@@ -25,12 +25,15 @@ use types::constants::FIELDS_PER_BLOB;
  *
  * @return y = p(z)
  */
-pub(crate) fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
+pub(crate) fn barycentric_evaluate_blob_at_z(
+    z: BLS12_381_Fr,
+    ys: [BLS12_381_Fr; FIELDS_PER_BLOB],
+) -> BLS12_381_Fr {
     // Note: it's more efficient (saving 30k constraints) to compute:
     //    ___d-1
     //    \     /    y_i    \
-    //    /    |  ---------  | . omega^i
-    //   /____  \  z - omega^i  /
+    //    /    |  ---------  | . w^i
+    //   /____  \  z - w^i  /
     //    i=0
     //            ^^^^^^^^^
     //              frac
@@ -38,12 +41,12 @@ pub(crate) fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> 
     // ... than to compute:
     //
     //    ___d-1
-    //    \          /    omega^i    \
+    //    \          /    w^i    \
     //    /   y_i . |  ---------  |
-    //   /____       \  z - omega^i  /
+    //   /____       \  z - w^i  /
     //    i=0
     //
-    // perhaps because all the omega^i terms are constant witnesses?
+    // perhaps because all the w^i terms are constant witnesses?
     let fracs = compute_fracs(z, ys);
 
     let sum = if !std::runtime::is_unconstrained() {
@@ -57,14 +60,15 @@ pub(crate) fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> 
 
         // Seeking:
         //                    ___d-1
-        //                    \            omega^i
+        //                    \            w^i
         //              sum = /   y_i . ---------
-        //                   /____       z - omega^i
+        //                   /____       z - w^i
         //                    i=0
 
         let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
-        // Safety: This sum is checked by the following `F::evaluate_quadratic_expression` calls.
-        let partial_sums: [F; FIELDS_PER_BLOB / 8] = unsafe { __compute_partial_sums(fracs) };
+        // Safety: This sum is checked by the following `evaluate_quadratic_expression` calls.
+        let partial_sums: [BLS12_381_Fr; FIELDS_PER_BLOB / 8] =
+            unsafe { __compute_partial_sums(fracs) };
 
         // We split off the first term to check the initial sum
 
@@ -78,7 +82,7 @@ pub(crate) fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> 
             [fracs[0]], [fracs[1]], [fracs[2]], [fracs[3]], [fracs[4]], [fracs[5]], [fracs[6]],
             [fracs[7]],
         ];
-        bigint::bignum::evaluate_quadratic_expression(
+        bignum::bignum::evaluate_quadratic_expression(
             lhs,
             [[false], [false], [false], [false], [false], [false], [false], [false]],
             rhs,
@@ -89,9 +93,9 @@ pub(crate) fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> 
         for i in 1..NUM_PARTIAL_SUMS {
             // Seeking:
             //                    ___i*8 - 1              ___i*8 + 7
-            //                    \            omega^i        \            /    y_k    \
-            //      sum_out   =   /   y_i . ---------  +  /     omega^k . |  ---------  |
-            //                   /____       z - omega^i     /____         \  z - omega^k  /
+            //                    \            w^i        \            /    y_k    \
+            //      sum_out   =   /   y_i . ---------  +  /     w^k . |  ---------  |
+            //                   /____       z - w^i     /____         \  z - w^k  /
             //                       0                    k = i*8
             //                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
             //                          sum                         partial_sum
@@ -99,9 +103,9 @@ pub(crate) fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> 
             // ... that is:
             //
             //                    ___i*8 - 1              ___ 7
-            //                    \            omega^i        \
+            //                    \            w^i        \
             //      sum_out   =   /   y_i . ---------  +  /   lhs[j] . rhs[j]
-            //                   /____       z - omega^i     /____
+            //                   /____       z - w^i     /____
             //                       0                    j = 0
             //                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^
             //                          sum                   partial_sum
@@ -111,7 +115,7 @@ pub(crate) fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> 
             // => (lhs[8*i] * rhs[8*i] + ... + lhs[8*i + 7] * rhs[8*i + 7]) + partial_sums[i-1] - partial_sums[i] == 0
             let linear_terms = [partial_sums[i - 1], partial_sums[i]];
 
-            bigint::bignum::evaluate_quadratic_expression(
+            bignum::bignum::evaluate_quadratic_expression(
                 /* lhs */ [
                     [ROOTS[i * 8 + 0]],
                     [ROOTS[i * 8 + 1]],
@@ -156,12 +160,12 @@ pub(crate) fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> 
     factor.mul(sum)
 }
 
-unconstrained fn __compute_factor_helper(z_pow_d: F) -> F {
-    let one: F = F::one();
+unconstrained fn __compute_factor_helper(z_pow_d: BLS12_381_Fr) -> BLS12_381_Fr {
+    let one = BLS12_381_Fr::one();
     z_pow_d.__sub(one).__mul(D_INV)
 }
 
-fn compute_factor(z: F) -> F {
+fn compute_factor(z: BLS12_381_Fr) -> BLS12_381_Fr {
     // z ^ D:
     let mut t = z.mul(z);
 
@@ -171,14 +175,13 @@ fn compute_factor(z: F) -> F {
 
     let z_pow_d = t;
 
-    // Safety: We immediately check that this result is correct in the following
-    // `F::evaluate_quadratic_expression` call.
+    // Safety: We immediately check that this result is correct in the following `evaluate_quadratic_expression` call.
     let factor = unsafe { __compute_factor_helper(z_pow_d) };
 
     // (z_pow_d - one) * (D_INV) - factor = 0
     // z_pow_d * D_INV - D_INV - factor = 0
     if !std::runtime::is_unconstrained() {
-        bigint::bignum::evaluate_quadratic_expression(
+        bignum::bignum::evaluate_quadratic_expression(
             [[z_pow_d]],
             [[false]],
             [[D_INV]],
@@ -188,46 +191,41 @@ fn compute_factor(z: F) -> F {
         );
     }
 
-    // This version doesn't work:
-    // F::evaluate_quadratic_expression(
-    //     [[z_pow_d, one]],
-    //     [[false, true]],
-    //     [[D_INV]],
-    //     [[false]],
-    //     [factor],
-    //     [true]
-    // );
-
     factor
 }
 
-unconstrained fn __compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
-    let mut denoms = [F::zero(); FIELDS_PER_BLOB];
+unconstrained fn __compute_fracs(
+    z: BLS12_381_Fr,
+    ys: [BLS12_381_Fr; FIELDS_PER_BLOB],
+) -> [BLS12_381_Fr; FIELDS_PER_BLOB] {
+    let mut denoms = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
-        denoms[i] = z.__sub(ROOTS[i]); // (z - omega^i)
+        denoms[i] = z.__sub(ROOTS[i]); // (z - w^i)
     }
-    let inv_denoms: [F; FIELDS_PER_BLOB] = bigint::bignum::batch_invert(denoms); // 1 / (z - omega^i), for all i
+    let inv_denoms: [BLS12_381_Fr; FIELDS_PER_BLOB] = bignum::bignum::batch_invert(denoms); // 1 / (z - w^i), for all i
     // We're now done with `denoms` so we can reuse the allocated array to build `fracs`.
-    let mut fracs: [F; FIELDS_PER_BLOB] = denoms; // y_i / (z - omega^i), for all i
+    let mut fracs: [BLS12_381_Fr; FIELDS_PER_BLOB] = denoms; // y_i / (z - w^i), for all i
     for i in 0..FIELDS_PER_BLOB {
         let num = ys[i];
-        let inv_denom = inv_denoms[i]; // 1 / (z - omega^i)
-        fracs[i] = num.__mul(inv_denom); // y_i * (1 / (z - omega^i))
+        let inv_denom = inv_denoms[i]; // 1 / (z - w^i)
+        fracs[i] = num.__mul(inv_denom); // y_i * (1 / (z - w^i))
     }
 
     fracs
 }
 
-fn compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
-    // Safety: We immediately constrain these `fracs` to be correct in the following call
-    // to `F::evaluate_quadratic_expression`.
-    let mut fracs: [F; FIELDS_PER_BLOB] = unsafe { __compute_fracs(z, ys) };
+fn compute_fracs(
+    z: BLS12_381_Fr,
+    ys: [BLS12_381_Fr; FIELDS_PER_BLOB],
+) -> [BLS12_381_Fr; FIELDS_PER_BLOB] {
+    // Safety: We immediately constrain these `fracs` to be correct in the following call to `evaluate_quadratic_expression`.
+    let fracs: [BLS12_381_Fr; FIELDS_PER_BLOB] = unsafe { __compute_fracs(z, ys) };
 
     if !std::runtime::is_unconstrained() {
         for i in 0..FIELDS_PER_BLOB {
             // frac <-- ys[i] / (z + neg_roots[i])
             // frac * (z + neg_roots[i]) - ys[i] = 0
-            bigint::bignum::evaluate_quadratic_expression(
+            bignum::bignum::evaluate_quadratic_expression(
                 [[fracs[i]]],
                 [[false]],
                 [[z, ROOTS[i].neg()]],
@@ -242,41 +240,43 @@ fn compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
 }
 
 // TODO: Clean me
-unconstrained fn __compute_partial_sums(fracs: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB / 8] {
-    let mut partial_sums: [F; FIELDS_PER_BLOB / 8] = std::mem::zeroed();
+unconstrained fn __compute_partial_sums(
+    fracs: [BLS12_381_Fr; FIELDS_PER_BLOB],
+) -> [BLS12_381_Fr; FIELDS_PER_BLOB / 8] {
+    let mut partial_sums: [BLS12_381_Fr; FIELDS_PER_BLOB / 8] = std::mem::zeroed();
 
     // Seeking:
     //                    ___i*8 + 7
-    //                    \            omega^k
+    //                    \            w^k
     //      partial_sum = /   y_k . ---------
-    //                   /____       z - omega^k
+    //                   /____       z - w^k
     //                    k=i*8 + 0
 
     // Need to split off the first iteration.
-    let mut partial_sum: F = F::zero();
+    let mut partial_sum = BLS12_381_Fr::zero();
     for i in 0..8 {
-        // y_k * ( omega^k / (z - omega^k) )
+        // y_k * ( w^k / (z - w^k) )
         let summand = ROOTS[i].__mul(fracs[i]);
 
-        // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
+        // partial_sum + ( y_k * ( w^k / (z - w^k) ) -> partial_sum
         partial_sum = partial_sum.__add(summand);
     }
     partial_sums[0] = partial_sum;
 
     let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
     for i in 1..NUM_PARTIAL_SUMS {
-        let mut partial_sum: F = partial_sums[i - 1];
+        let mut partial_sum: BLS12_381_Fr = partial_sums[i - 1];
         // Seeking:
         //                    ___i*8 + 7
-        //                    \            omega^k
+        //                    \            w^k
         //      partial_sum = /   y_k . ---------
-        //                   /____       z - omega^k
+        //                   /____       z - w^k
         //                    k=i*8 + 0
         for j in 0..8 {
             let k = i * 8 + j;
-            // y_k * ( omega^k / (z - omega^k) )
+            // y_k * ( w^k / (z - w^k) )
             let summand = ROOTS[k].__mul(fracs[k]);
-            // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
+            // partial_sum + ( y_k * ( w^k / (z - w^k) ) -> partial_sum
             partial_sum = partial_sum.__add(summand);
         }
         partial_sums[i] = partial_sum;
@@ -285,33 +285,33 @@ unconstrained fn __compute_partial_sums(fracs: [F; FIELDS_PER_BLOB]) -> [F; FIEL
     partial_sums
 }
 
-unconstrained fn __compute_sum(fracs: [F; FIELDS_PER_BLOB]) -> F {
+unconstrained fn __compute_sum(fracs: [BLS12_381_Fr; FIELDS_PER_BLOB]) -> BLS12_381_Fr {
     // Seeking:
     //                    ___d-1
-    //                    \            omega^i
+    //                    \            w^i
     //              sum = /   y_i . ---------
-    //                   /____       z - omega^i
+    //                   /____       z - w^i
     //                    i=0
 
-    let mut sum: F = F::zero();
+    let mut sum = BLS12_381_Fr::zero();
     for i in 0..FIELDS_PER_BLOB {
-        // y_k * ( omega^k / (z - omega^k) )
+        // y_k * ( w^k / (z - w^k) )
         let summand = ROOTS[i].__mul(fracs[i]);
 
-        // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
+        // partial_sum + ( y_k * ( w^k / (z - w^k) ) -> partial_sum
         sum = sum.__add(summand);
     }
     sum
 }
 
 mod tests {
-    // TODO(#9982): Replace unconstrained_config with config and import ROOTS - calculating ROOTS in unconstrained is insecure.
     use crate::{blob::barycentric_evaluate_blob_at_z, config::{D, D_INV}};
     use super::{__compute_partial_sums, __compute_sum};
-    use bigint::{BigNum, BLS12_381_Fr as F};
+    use bignum::{BigNum, BLS12_381_Fr};
     use types::{
         abis::sponge_blob::SpongeBlob,
         constants::FIELDS_PER_BLOB,
+        hash::poseidon2_hash,
         tests::fixture_builder::FixtureBuilder,
         traits::{Empty, Serialize},
     };
@@ -323,13 +323,13 @@ mod tests {
     #[derive(Eq)]
     pub struct TestBlobEvaluationOutputs {
         pub z: Field,
-        pub y: F,
+        pub y: BLS12_381_Fr,
         pub c: [Field; 2],
     }
 
     impl Empty for TestBlobEvaluationOutputs {
         fn empty() -> Self {
-            Self { z: 0, y: F::zero(), c: [0, 0] }
+            Self { z: 0, y: BLS12_381_Fr::zero(), c: [0, 0] }
         }
     }
 
@@ -338,14 +338,12 @@ mod tests {
         kzg_commitment: [Field; 2],
         hashed_blobs_fields: Field,
     ) -> TestBlobEvaluationOutputs {
-        let challenge_z = poseidon::poseidon2::Poseidon2::hash(
-            [hashed_blobs_fields, kzg_commitment[0], kzg_commitment[1]],
-            3,
-        );
-        let challenge_z_as_bignum = F::from(challenge_z);
-        let blob = blob_as_fields.map(|b| F::from(b));
+        let challenge_z =
+            poseidon2_hash([hashed_blobs_fields, kzg_commitment[0], kzg_commitment[1]]);
+        let challenge_z_as_bignum = BLS12_381_Fr::from(challenge_z);
+        let blob = blob_as_fields.map(|b| BLS12_381_Fr::from(b));
 
-        let y: F = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
+        let y = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
 
         TestBlobEvaluationOutputs { z: challenge_z, y, c: kzg_commitment }
     }
@@ -365,14 +363,14 @@ mod tests {
         let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
         let hashed_blob = sponge_blob.squeeze();
         let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
-        let challenge_z = F::from(output.z);
+        let challenge_z = BLS12_381_Fr::from(output.z);
         let y = output.y;
         // Our blob is all 0s, apart from one commitment of value 1 at position 0
         // It's in eval form => our barycentric formula to find p(z) becomes:
         //
-        //         z^d - 1              omega^0      z^d - 1            1
+        //         z^d - 1                w^0        z^d - 1            1
         // p(z) = --------- .   note . --------- =  --------- . 1 . ---------
-        //            d               z - omega^0       d             z - 1
+        //            d                 z - w^0         d             z - 1
         //
         //                               =>
         // We check that:
@@ -381,7 +379,7 @@ mod tests {
         //*                    d
         //
         let rhs = super::compute_factor(challenge_z);
-        let z_minus_1 = challenge_z.__sub(F::one());
+        let z_minus_1 = challenge_z.__sub(BLS12_381_Fr::one());
         let lhs = y.__mul(z_minus_1);
         assert_eq(lhs, rhs);
     }
@@ -405,7 +403,7 @@ mod tests {
         let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
 
         // y is a BLS field with value 0x212c4f0c0ee5e7dd037110686a4639d191dde7b57ab99b51e4b06e7d827b6c4c
-        let expected_y: F = F::from_limbs([
+        let expected_y = BLS12_381_Fr::from_limbs([
             0xdde7b57ab99b51e4b06e7d827b6c4c,
             0x4f0c0ee5e7dd037110686a4639d191,
             0x212c,
@@ -432,7 +430,7 @@ mod tests {
         let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
 
         // y is a BLS field with value 0x0365494e66a289c4509ecf97af4ff92aa7ecc38f478ced014b6ae860502a1b1c
-        let expected_y: F = F::from_limbs([
+        let expected_y = BLS12_381_Fr::from_limbs([
             0xecc38f478ced014b6ae860502a1b1c,
             0x494e66a289c4509ecf97af4ff92aa7,
             0x0365,
@@ -442,14 +440,14 @@ mod tests {
 
     #[test]
     unconstrained fn test_barycentric() {
-        let z: F = F::from_limbs([2, 0, 0]);
+        let z = BLS12_381_Fr::from_limbs([2, 0, 0]);
 
         // many y's form a blob:
-        let mut ys: [F; FIELDS_PER_BLOB] = [F::zero(); FIELDS_PER_BLOB];
+        let mut ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
 
-        ys[0] = F::from_limbs([0x1234, 0, 0]);
-        ys[1] = F::from_limbs([0xabcd, 0, 0]);
-        ys[2] = F::from_limbs([0x69, 0, 0]);
+        ys[0] = BLS12_381_Fr::from_limbs([0x1234, 0, 0]);
+        ys[1] = BLS12_381_Fr::from_limbs([0xabcd, 0, 0]);
+        ys[2] = BLS12_381_Fr::from_limbs([0x69, 0, 0]);
 
         // evaluate the blob at z = 2 to yield y:
         let y = barycentric_evaluate_blob_at_z(z, ys);
@@ -487,7 +485,7 @@ mod tests {
 
     #[test]
     unconstrained fn test_compute_double_modulus() {
-        let double_modulus = F::params().double_modulus;
+        let double_modulus = BLS12_381_Fr::params().double_modulus;
         assert_eq(double_modulus, compute_double_modulus());
     }
 
@@ -499,9 +497,9 @@ mod tests {
 
     #[test]
     fn compute_sum_and_compute_partial_sums_agree() {
-        let mut fields = [F::zero(); FIELDS_PER_BLOB];
+        let mut fields = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
         for i in 0..FIELDS_PER_BLOB {
-            fields[i] = F::from(i as Field);
+            fields[i] = BLS12_381_Fr::from(i as Field);
         }
         // Safety: this is a test
         unsafe {

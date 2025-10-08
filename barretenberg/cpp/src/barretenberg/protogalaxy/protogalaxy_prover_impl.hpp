@@ -185,16 +185,25 @@ void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
         }
     });
 
-    // Evaluate the combined batching  α_i univariate at challenge to obtain next α_i and send it to the
-    // verifier, where i ∈ {0,...,NUM_SUBRELATIONS - 1}
-    for (auto [folded_alpha, key_alpha] : zip_view(accumulator->alphas, alphas)) {
-        folded_alpha = key_alpha.evaluate(combiner_challenge);
-    }
+    {
+        BB_BENCH_NAME("ProtogalaxyProver_::update_target_sum_and_fold::update_alphas_and_relation_parameters");
 
-    // Evaluate each relation parameter univariate at challenge to obtain the folded relation parameters.
-    for (auto [univariate, value] :
-         zip_view(univariate_relation_parameters.get_to_fold(), accumulator->relation_parameters.get_to_fold())) {
-        value = univariate.evaluate(combiner_challenge);
+        parallel_for([&](const ThreadChunk& chunk) {
+            // Evaluate the combined batching  α_i univariate at challenge to obtain next α_i and send it to the
+            // verifier, where i ∈ {0,...,NUM_SUBRELATIONS - 1}
+            for (size_t i : chunk.range(NUM_SUBRELATIONS)) {
+                accumulator->alphas[i] = alphas[i].evaluate(combiner_challenge);
+            }
+        });
+
+        auto univariate_params_to_fold = univariate_relation_parameters.get_to_fold();
+        auto accumulator_params_to_fold = accumulator->relation_parameters.get_to_fold();
+        parallel_for([&](const ThreadChunk& chunk) {
+            // Evaluate each relation parameter univariate at challenge to obtain the folded relation parameters.
+            for (size_t i : chunk.range(univariate_params_to_fold.size())) {
+                accumulator_params_to_fold[i] = univariate_params_to_fold[i].evaluate(combiner_challenge);
+            }
+        });
     }
 }
 

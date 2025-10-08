@@ -35,7 +35,7 @@ using crypto::merkle_tree::index_t;
 
 template <typename LeafValueType> struct BatchInsertionResult {
     std::vector<crypto::merkle_tree::LeafUpdateWitnessData<LeafValueType>> low_leaf_witness_data;
-    std::vector<std::pair<LeafValueType, size_t>> sorted_leaves;
+    std::vector<std::pair<LeafValueType, index_t>> sorted_leaves;
     crypto::merkle_tree::fr_sibling_path subtree_path;
 
     MSGPACK_FIELDS(low_leaf_witness_data, sorted_leaves, subtree_path);

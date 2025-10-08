@@ -31,7 +31,8 @@ use crate::{
         private_kernel::private_call_data::{PrivateCallData, PrivateVerificationKeyHints},
         private_kernel_data::PrivateKernelData,
         private_log::{PrivateLog, PrivateLogData},
-        protocol_contract_leaf_preimage::ProtocolContractLeafPreimage,
+        private_tx_constant_data::PrivateTxConstantData,
+        protocol_contracts::ProtocolContracts,
         public_call_request::{PublicCallRequest, PublicCallRequestArrayLengths},
         public_data_write::PublicDataWrite,
         public_logs::PublicLogs,
@@ -55,9 +56,9 @@ use crate::{
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_U32_VALUE, MEGA_VK_LENGTH_IN_FIELDS,
-        PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT,
-        PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_DATA_TREE_HEIGHT, SIDE_EFFECT_MASKING_ADDRESS,
-        UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
+        PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_CALL_REQUEST_LENGTH,
+        PUBLIC_DATA_TREE_HEIGHT, SIDE_EFFECT_MASKING_ADDRESS, UPDATED_CLASS_IDS_SLOT,
+        VK_TREE_HEIGHT,
     },
     contract_class_id::ContractClassId,
     data::{
@@ -86,7 +87,7 @@ use crate::{
         public_data_tree::empty_public_data_tree,
         vk_tree::{get_vk_data, vk_tree_root},
     },
-    traits::{Deserialize, Empty, FromField, Hash, Packable, ToField},
+    traits::{Deserialize, Empty, FromField, Hash, Packable},
     utils::arrays::ClaimedLengthArray,
 };
 
@@ -180,7 +181,7 @@ pub struct FixtureBuilder {
 
     // Public call.
     pub bytecode_hash: Field,
-    pub prover_address: AztecAddress,
+    pub prover_id: Field,
 
     // Proof.
     pub vk: MegaVerificationKey,
@@ -189,9 +190,7 @@ pub struct FixtureBuilder {
     pub vk_tree_root: Field,
 
     // Protocol contracts.
-    pub protocol_contract_tree_root: Field,
-    pub protocol_contract_membership_witness: MembershipWitness<PROTOCOL_CONTRACT_TREE_HEIGHT>,
-    pub protocol_contract_leaf: ProtocolContractLeafPreimage,
+    pub protocol_contracts: ProtocolContracts,
 
     // Contract updates
     pub updated_class_id_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
@@ -247,6 +246,8 @@ impl FixtureBuilder {
         builder.counter_start = counter_start;
         builder.counter = counter_start + 1;
 
+        builder.protocol_contracts = fixtures::protocol_contracts::get_protocol_contracts();
+
         let contract_data = fixtures::contracts::default_contract;
         let contract_function = fixtures::contract_functions::default_private_function;
 
@@ -271,46 +272,14 @@ impl FixtureBuilder {
 
         *self
     }
-
-    pub fn set_protocol_contract_root(&mut self) {
-        let (tree, protocol_contract_leaves) =
-            fixtures::protocol_contract_tree::get_protocol_contract_tree();
-        let contract_address_field = self.contract_address.to_field();
-        self.protocol_contract_tree_root = tree.get_root();
-        for i in 0..protocol_contract_leaves.len() {
-            let leaf = protocol_contract_leaves[i];
-            // The below is true if leaf is a valid low_leaf for self.contract_address
-            // This is used in validate_contract_address where is_protocol_contract = false.
-            if (leaf.address != 0)
-                & (leaf.address.lt(contract_address_field))
-                & ((contract_address_field.lt(leaf.next_address)) | (leaf.next_address == 0)) {
-                self.protocol_contract_leaf = leaf;
-                self.protocol_contract_membership_witness = MembershipWitness {
-                    leaf_index: i as Field,
-                    sibling_path: tree.get_sibling_path(i),
-                };
-            }
-        }
-    }
-
     // contract_index should be the same as contract address.
     pub fn use_protocol_contract(&mut self, contract_index: u32) -> Self {
-        let (tree, protocol_contract_leaves) =
-            fixtures::protocol_contract_tree::get_protocol_contract_tree();
-        self.protocol_contract_tree_root = tree.get_root();
-        // This is used in validate_contract_address where is_protocol_contract = true.
-        self.protocol_contract_membership_witness = MembershipWitness {
-            leaf_index: contract_index as Field,
-            sibling_path: tree.get_sibling_path(contract_index),
-        };
-        self.protocol_contract_leaf = protocol_contract_leaves[contract_index];
-
         let contract_data = fixtures::contracts::get_protocol_contract(contract_index);
         let function_data =
             fixtures::contract_functions::get_protocol_contract_function(contract_index);
 
         let _ = self.use_contract(contract_data);
-        self.contract_address = AztecAddress::from_field(contract_index as Field);
+        self.contract_address = AztecAddress::from_field(contract_index as Field + 1);
 
         self.use_function(function_data, fixtures::contract_functions::default_vk)
     }
@@ -321,7 +290,6 @@ impl FixtureBuilder {
         self.public_keys = contract_data.public_keys;
         self.contract_class_artifact_hash = contract_data.artifact_hash;
         self.contract_class_public_bytecode_commitment = contract_data.public_bytecode_commitment;
-        self.set_protocol_contract_root();
 
         *self
     }
@@ -352,7 +320,16 @@ impl FixtureBuilder {
             anchor_block_header: self.anchor_block_header,
             tx_context: self.tx_context,
             vk_tree_root: self.vk_tree_root,
-            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            protocol_contracts_hash: self.protocol_contracts.hash(),
+        }
+    }
+
+    pub fn to_private_tx_constant_data(self) -> PrivateTxConstantData {
+        PrivateTxConstantData {
+            anchor_block_header: self.anchor_block_header,
+            tx_context: self.tx_context,
+            vk_tree_root: self.vk_tree_root,
+            protocol_contracts: self.protocol_contracts,
         }
     }
 
@@ -468,8 +445,6 @@ impl FixtureBuilder {
             contract_class_artifact_hash: self.contract_class_artifact_hash,
             contract_class_public_bytecode_commitment: self
                 .contract_class_public_bytecode_commitment,
-            protocol_contract_membership_witness: self.protocol_contract_membership_witness,
-            protocol_contract_leaf: self.protocol_contract_leaf,
             updated_class_id_witness: self.updated_class_id_witness,
             updated_class_id_leaf: self.updated_class_id_leaf,
             updated_class_id_delayed_public_mutable_values: DelayedPublicMutableValues::new(
@@ -646,7 +621,7 @@ impl FixtureBuilder {
     }
 
     pub fn to_private_kernel_circuit_public_inputs(self) -> PrivateKernelCircuitPublicInputs {
-        let constants = self.to_tx_constant_data();
+        let constants = self.to_private_tx_constant_data();
         let end = self.to_private_accumulated_data();
         let validation_requests = self.to_private_validation_requests();
         let public_teardown_call_request = self.public_teardown_call_request;
@@ -761,12 +736,13 @@ impl FixtureBuilder {
 
         AvmCircuitPublicInputs {
             global_variables: self.global_variables,
-            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            protocol_contracts: self.protocol_contracts,
             start_tree_snapshots: self.start_tree_snapshots,
             start_gas_used: self.start_gas_used,
             gas_settings: self.tx_context.gas_settings,
             effective_gas_fees: self.effective_gas_fees,
             fee_payer: self.fee_payer,
+            prover_id: self.prover_id,
             public_call_request_array_lengths,
             public_setup_call_requests,
             public_app_logic_call_requests,
@@ -954,13 +930,17 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u32) -> u32 {
+    pub fn add_note_hash_read_request(&mut self, value: Field) -> u32 {
         let read_request_index = self.note_hash_read_requests.len();
-        let value = self.mock_note_hash_value(note_hash_index);
         let read_request =
             ReadRequest { value, counter: self.next_counter() }.scope(self.contract_address);
         self.note_hash_read_requests.push(read_request);
         read_request_index
+    }
+
+    pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u32) -> u32 {
+        let value = self.mock_note_hash_value(note_hash_index);
+        self.add_note_hash_read_request(value)
     }
 
     pub fn append_note_hash_read_requests(&mut self, num_reads: u32) {
@@ -968,22 +948,22 @@ impl FixtureBuilder {
         for i in 0..self.note_hash_read_requests.max_len() {
             if i < num_reads {
                 let value = self.mock_note_hash_read_value(index_offset + i);
-                let read_request = ReadRequest { value, counter: self.next_counter() }.scope(
-                    self.contract_address,
-                );
-                self.note_hash_read_requests.push(read_request);
+                let _ = self.add_note_hash_read_request(value);
             }
         }
     }
 
-    pub fn add_read_request_for_pending_nullifier(&mut self, nullifier_index: u32) -> u32 {
+    pub fn add_nullifier_read_request(&mut self, value: Field) -> u32 {
         let read_request_index = self.nullifier_read_requests.len();
-        let nullifier = self.mock_nullifier_value(nullifier_index);
-        let read_request = ReadRequest { value: nullifier, counter: self.next_counter() }.scope(
-            self.contract_address,
-        );
+        let read_request =
+            ReadRequest { value, counter: self.next_counter() }.scope(self.contract_address);
         self.nullifier_read_requests.push(read_request);
         read_request_index
+    }
+
+    pub fn add_read_request_for_pending_nullifier(&mut self, nullifier_index: u32) -> u32 {
+        let value = self.mock_nullifier_value(nullifier_index);
+        self.add_nullifier_read_request(value)
     }
 
     pub fn append_nullifier_read_requests(&mut self, num_reads: u32) {
@@ -991,10 +971,7 @@ impl FixtureBuilder {
         for i in 0..self.nullifier_read_requests.max_len() {
             if i < num_reads {
                 let value = self.mock_nullifier_read_value(index_offset + i);
-                let read_request = ReadRequest { value, counter: self.next_counter() }.scope(
-                    self.contract_address,
-                );
-                self.nullifier_read_requests.push(read_request);
+                let _ = self.add_nullifier_read_request(value);
             }
         }
     }

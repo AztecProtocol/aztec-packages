@@ -28,6 +28,7 @@ import { PublicKeys } from '@aztec/stdlib/keys';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 import { NativeWorldStateService } from '@aztec/world-state';
 
+import { jest } from '@jest/globals';
 import { strict as assert } from 'assert';
 import { randomInt } from 'crypto';
 import { mock } from 'jest-mock-extended';
@@ -63,7 +64,7 @@ import {
   EmitNoteHash,
   EmitNullifier,
   EmitUnencryptedLog,
-  type Instruction,
+  Instruction,
   Jump,
   Return,
   SStore,
@@ -215,7 +216,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   });
 
   it('Should handle calldata oracle', async () => {
-    const calldata: Fr[] = [new Fr(1), new Fr(2), new Fr(3)];
+    const calldata: Fr[] = [new Fr(1), new Fr(2), new Fr(3), /* with_selector: */ new Fr(0)];
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
     const bytecode = getAvmTestContractBytecode('assert_calldata_copy');
@@ -400,15 +401,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         resolveAvmTestContractAssertionMessage('u128_addition_overflow', results.revertReason!, results.output),
       ).toMatch('attempt to add with overflow');
     });
-  });
-
-  it('Logging', async () => {
-    const context = initContext();
-    const bytecode = getAvmTestContractBytecode('debug_logging');
-    const results = await new AvmSimulator(context).executeBytecode(bytecode);
-
-    expect(results.reverted).toBe(false);
-    expect(results.output).toEqual([]);
   });
 
   it('Assertion message', async () => {
@@ -1116,6 +1108,42 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.revertReason?.message).toMatch('Reached the limit');
       });
     });
+
+    it('Logging', async () => {
+      const context = createContext([]);
+      const bytecode = getAvmTestContractBytecode('debug_logging');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(false);
+      expect(results.output).toEqual([]);
+      expect(trace.traceDebugLog).toHaveBeenCalledTimes(6);
+      expect(trace.traceDebugLog).toHaveBeenCalledWith(address, 'debug', 'just text', []);
+      expect(trace.traceDebugLog).toHaveBeenCalledWith(address, 'debug', 'second: {1}', [
+        new Fr(1),
+        new Fr(2),
+        new Fr(3),
+        new Fr(4),
+      ]);
+      expect(trace.traceDebugLog).toHaveBeenCalledWith(address, 'debug', 'whole array: {}', [
+        new Fr(1),
+        new Fr(2),
+        new Fr(3),
+        new Fr(4),
+      ]);
+      expect(trace.traceDebugLog).toHaveBeenCalledWith(
+        address,
+        'debug',
+        'tabs and newlines\n\t- first\n\t- second',
+        [],
+      );
+      expect(trace.traceDebugLog).toHaveBeenCalledWith(address, 'fatal', 'fatal error', []);
+      expect(trace.traceDebugLog).toHaveBeenCalledWith(address, 'trace', 'trace format: {}', [
+        new Fr(1),
+        new Fr(3),
+        new Fr(3),
+        new Fr(7),
+      ]);
+    });
   });
 
   describe('Side effects including merkle checks', () => {
@@ -1443,6 +1471,33 @@ describe('AVM simulator: shift operations with huge amounts', () => {
       expect(results.reverted).toBe(false);
       expect(results.output).toEqual([new Fr(0)]);
     });
+  });
+});
+
+describe('AVM simulator: "unchecked" errors should NOT be caught', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('Unchecked error during instruction execution NOT be caught', async () => {
+    const context = initContext();
+    const instruction = new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
+      Opcode.ADD_8,
+      Add.wireFormat8,
+    );
+
+    const msg = 'This is an unchecked error during instruction execution';
+    jest.spyOn(Add.prototype, 'execute').mockRejectedValue(new Error(msg));
+    const bytecode = encodeToBytecode([instruction]);
+
+    await expect(new AvmSimulator(context).executeBytecode(bytecode)).rejects.toThrow(msg);
+  });
+
+  it('Unchecked error during getBytecode NOT be caught', async () => {
+    const context = initContext();
+    const msg = 'This is an unchecked error during getBytecode';
+    jest.spyOn(context.persistableState, 'getBytecode').mockRejectedValue(new Error(msg));
+    await expect(new AvmSimulator(context).execute()).rejects.toThrow(msg);
   });
 });
 

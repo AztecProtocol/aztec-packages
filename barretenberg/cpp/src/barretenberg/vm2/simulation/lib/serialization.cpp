@@ -159,7 +159,12 @@ const std::unordered_map<WireOpCode, std::vector<OperandType>> WireOpCode_WIRE_F
 
     // Misc
     { WireOpCode::DEBUGLOG,
-      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
+      { OperandType::INDIRECT8,
+        OperandType::UINT16,
+        OperandType::UINT16,
+        OperandType::UINT16,
+        OperandType::UINT16,
+        OperandType::UINT16 } },
 
     // Gadgets
     // Gadgets - Hashing

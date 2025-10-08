@@ -1,8 +1,6 @@
 use super::TestBuilder;
 use types::{
-    constants::{MAX_L2_TO_L1_MSG_SUBTREES_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX},
-    merkle_tree::{MerkleTree, UnbalancedMerkleTree},
-    tests::FixtureBuilder,
+    constants::MAX_L2_TO_L1_MSGS_PER_TX, merkle_tree::MerkleTree, tests::FixtureBuilder,
     utils::arrays::subarray,
 };
 
@@ -29,11 +27,7 @@ unconstrained fn max_l2_to_l1_msgs() {
     builder.assert_expected_public_inputs(pi);
 
     let siloed_l2_to_l1_msgs = builder.get_siloed_l2_to_l1_msgs();
-    let expected_out_hash = UnbalancedMerkleTree::new_sha::<MAX_L2_TO_L1_MSGS_PER_TX, MAX_L2_TO_L1_MSG_SUBTREES_PER_TX>(
-        siloed_l2_to_l1_msgs,
-        MAX_L2_TO_L1_MSGS_PER_TX,
-    )
-        .get_root();
+    let expected_out_hash = MerkleTree::new_sha(siloed_l2_to_l1_msgs).get_root();
     assert_eq(pi.out_hash, expected_out_hash);
 }
 

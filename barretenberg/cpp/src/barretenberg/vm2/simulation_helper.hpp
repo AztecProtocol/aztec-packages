@@ -15,7 +15,7 @@ class AvmSimulationHelper {
                                                     std::vector<PublicDataWrite> public_data_writes);
 
     // Fast simulation without event collection.
-    // FIXME(fcarreiro): This should eventually only take the Tx.
+    // FIXME(fcarreiro): This should eventually only take the Tx, Globals and not much more.
     void simulate_fast(const ExecutionHints& hints);
 };
 

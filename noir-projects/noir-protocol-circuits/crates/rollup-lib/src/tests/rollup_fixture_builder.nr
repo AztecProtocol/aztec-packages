@@ -1,7 +1,6 @@
 use crate::abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs, TxRollupPublicInputs};
-use blob::blob_batching_public_inputs::{
-    BatchingBlobCommitment, BlobAccumulatorPublicInputs, BLSPoint, FinalBlobBatchingChallenges,
-};
+use bignum::BigNum;
+use blob::abis::{BatchingBlobCommitment, BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges};
 use parity_lib::ParityPublicInputs;
 use types::{
     abis::{
@@ -34,7 +33,7 @@ pub struct RollupFixtureBuilder {
     pub chain_id: Field,
     pub version: Field,
     pub vk_tree_root: Field,
-    pub protocol_contract_tree_root: Field,
+    pub protocol_contracts_hash: Field,
     pub prover_id: Field,
 
     // Used to identify the first block, which will have an empty start_sponge_blob, and non-empty in_hash.
@@ -53,7 +52,7 @@ impl RollupFixtureBuilder {
             chain_id: 1,
             version: 2,
             vk_tree_root,
-            protocol_contract_tree_root: 98765,
+            protocol_contracts_hash: 98765,
             prover_id: 76543,
             start_block_number: 11,
             start_slot_number: 7,
@@ -175,7 +174,7 @@ impl RollupFixtureBuilder {
             chain_id: self.chain_id,
             version: self.version,
             vk_tree_root: self.vk_tree_root,
-            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            protocol_contracts_hash: self.protocol_contracts_hash,
             prover_id: self.prover_id,
         }
     }
@@ -185,7 +184,7 @@ impl RollupFixtureBuilder {
             chain_id: self.chain_id,
             version: self.version,
             vk_tree_root: self.vk_tree_root,
-            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            protocol_contracts_hash: self.protocol_contracts_hash,
             prover_id: self.prover_id,
             slot_number,
             coinbase: self.get_coinbase(slot_number),
@@ -213,7 +212,7 @@ impl RollupFixtureBuilder {
             last_archive: self.get_archive(block_number - 1),
             l1_to_l2_tree_snapshot: self.get_l1_to_l2_message_tree_snapshot(self.start_slot_number),
             vk_tree_root: self.vk_tree_root,
-            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            protocol_contracts_hash: self.protocol_contracts_hash,
             prover_id: self.prover_id,
             global_variables: self.get_global_variables(block_number),
         }
@@ -246,7 +245,7 @@ impl RollupFixtureBuilder {
             anchor_block_header: self.get_block_header(block_number),
             tx_context: TxContext { chain_id: self.chain_id, version: self.version, gas_settings },
             vk_tree_root: self.vk_tree_root,
-            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            protocol_contracts_hash: self.protocol_contracts_hash,
         }
     }
 
@@ -360,10 +359,10 @@ impl RollupFixtureBuilder {
         sponge
     }
 
-    pub fn get_blob_accumulator(self, slot_number: Field) -> BlobAccumulatorPublicInputs {
+    pub fn get_blob_accumulator(self, slot_number: Field) -> BlobAccumulator {
         if slot_number == (self.start_slot_number - 1) {
             // The first checkpoint in an epoch should start with an empty blob accumulator.
-            BlobAccumulatorPublicInputs::empty()
+            BlobAccumulator::empty()
         } else {
             self.make_fixture(slot_number, 0, 1)
         }
@@ -385,7 +384,7 @@ impl RollupFixtureBuilder {
         let z = end_block_accumulator.z_acc;
         // Safety: This is only for testing.
         let gamma = unsafe { __from_field(poseidon2_hash([end_block_accumulator.gamma_acc, z])) };
-        FinalBlobBatchingChallenges { z, gamma: bigint::bignum::BigNum::from_limbs(gamma) }
+        FinalBlobBatchingChallenges { z, gamma: BigNum::from_limbs(gamma) }
     }
 
     fn get_fee(_self: Self, tx_or_block_number: u32) -> Field {

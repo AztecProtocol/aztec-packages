@@ -71,7 +71,6 @@ pub struct Map<K, V, Context> {
     storage_slot: Field,
     state_var_constructor: fn(Context, Field) -> V,
 }
-// docs:end:map
 
 // Map reserves a single storage slot regardless of what it stores because
 // nothing is stored at said slot: it is only used to derive the storage slots
@@ -106,7 +105,6 @@ impl<K, V, Context> Map<K, V, Context> {
     ///                             typically the constructor of the state
     ///                             variable type being stored in the Map.
     ///
-    // docs:start:new
     pub fn new(
         context: Context,
         storage_slot: Field,
@@ -115,7 +113,6 @@ impl<K, V, Context> Map<K, V, Context> {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Map { context, storage_slot, state_var_constructor }
     }
-    // docs:end:new
 
     /// Returns the state variable associated with the given key.
     ///
@@ -149,7 +146,6 @@ impl<K, V, Context> Map<K, V, Context> {
     /// user_balance.replace(new_note);
     /// ```
     ///
-    // docs:start:at
     pub fn at(self, key: K) -> V
     where
         K: ToField,
@@ -160,5 +156,4 @@ impl<K, V, Context> Map<K, V, Context> {
         let state_var_constructor = self.state_var_constructor;
         state_var_constructor(self.context, derived_storage_slot)
     }
-    // docs:end:at
 }

@@ -1,4 +1,4 @@
-import { AztecAddress, type SimulateMethodOptions, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, type SimulateInteractionOptions, type Wallet } from '@aztec/aztec.js';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -80,7 +80,7 @@ describe('Bridging benchmark', () => {
 
           // 3. Consume L1 -> L2 message and mint private tokens on L2
           const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
-          const options: SimulateMethodOptions = {
+          const options: SimulateInteractionOptions = {
             from: benchysAddress,
             fee: { paymentMethod: await paymentMethod.forWallet(userWallet, benchysAddress) },
           };

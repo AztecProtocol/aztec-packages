@@ -1,6 +1,6 @@
 import { css } from '@emotion/react';
 import welcomeIconURL from '../../../assets/welcome_icon.svg';
-import { AztecAddress, Fr, TxStatus } from '@aztec/aztec.js';
+import { AztecAddress, Fr, TxStatus, type DeployAccountOptions } from '@aztec/aztec.js';
 import { useNotifications } from '@toolpad/core/useNotifications';
 import { Box, Button, CircularProgress, Tooltip } from '@mui/material';
 import { AztecContext } from '../../../aztecContext';
@@ -371,26 +371,24 @@ export function Landing() {
         salt,
         signingKey,
       );
-      const address = accountManager.getAddress();
+      const address = accountManager.address;
 
       notifications.show('Account created. Deploying...', {
         severity: 'success',
       });
 
-      const feePaymentMethod = await prepareForFeePayment(
+      const paymentMethod = await prepareForFeePayment(
         wallet,
         network.sponsoredFPC?.address,
         network.sponsoredFPC?.version,
       );
 
       const deployMethod = await accountManager.getDeployMethod();
-      const opts = {
+      const opts: DeployAccountOptions = {
         from: AztecAddress.ZERO,
-        contractAddressSalt: salt,
         fee: {
-          paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),
+          paymentMethod,
         },
-        universalDeploy: true,
         skipClassPublication: true,
         skipInstancePublication: true,
       };

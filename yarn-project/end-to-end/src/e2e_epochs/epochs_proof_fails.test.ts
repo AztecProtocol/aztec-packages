@@ -33,10 +33,11 @@ describe('e2e_epochs/epochs_proof_fails', () => {
   let test: EpochsTestContext;
 
   beforeEach(async () => {
-    // Bumping the epoch duration to 5 because otherwise it takes a full epoch before the actual test starts,
-    // which means the prover node is attempting to prove before we setup the mocks.
-    // Set startProverNode to false to prevent automatic startup
-    test = await EpochsTestContext.setup({ ethereumSlotDuration: 8, startProverNode: false });
+    test = await EpochsTestContext.setup({
+      maxSpeedUpAttempts: 0, // No speed ups
+      startProverNode: false, // Avoid early proving
+      ethereumSlotDuration: 8,
+    });
     ({ sequencerDelayer, context, l1Client, rollup, constants, logger, monitor } = test);
     ({ L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
   });
@@ -50,8 +51,8 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     // Here we cause a re-org by not publishing the proof for epoch 0 until after the end of epoch 1
     // The proof will be rejected and a re-org will take place
 
-    // Create prover node after test setup to avoid early proving
-    const proverNode = await test.createProverNode();
+    // Create prover node after test setup to avoid early proving. We ensure the prover does not retry txs.
+    const proverNode = await test.createProverNode({ cancelTxOnTimeout: false, maxSpeedUpAttempts: 0 });
     context.proverNode = proverNode;
 
     // Get the prover delayer from the newly created prover node
@@ -69,8 +70,6 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     logger.info(`Starting epoch 1 after L2 block ${blockNumberAtEndOfEpoch0}`);
 
     // Wait until the last block of epoch 1 is published and then hold off the sequencer.
-    // Note that the tx below will block the sequencer until it times out
-    // the txPropagationMaxQueryAttempts until #10824 is fixed.
     await test.waitUntilL2BlockNumber(
       blockNumberAtEndOfEpoch0 + test.epochDuration,
       test.L2_SLOT_DURATION_IN_S * (test.epochDuration + 4),
@@ -96,7 +95,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
 
   it('aborts proving if end of next epoch is reached', async () => {
     // Create prover node after test setup to avoid early proving
-    const proverNode = await test.createProverNode();
+    const proverNode = await test.createProverNode({ cancelTxOnTimeout: false, maxSpeedUpAttempts: 0 });
 
     // Get the prover delayer from the newly created prover node
     proverDelayer = (((proverNode as TestProverNode).publisher as ProverNodePublisher).l1TxUtils as DelayedTxUtils)

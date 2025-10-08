@@ -1,5 +1,6 @@
-import { sleep } from '@aztec/aztec.js';
+import { retryUntil, sleep } from '@aztec/aztec.js';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { RemoteSigner } from '@aztec/node-keystore';
 
 import { mkdirSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
@@ -21,11 +22,26 @@ privateKey: ${pk}`,
   await writeFile(path, yaml, { flag: 'wx' });
 }
 
-export async function refreshWeb3Signer(url: string) {
+export async function refreshWeb3Signer(url: string, ...expectedAddresses: string[]) {
   await fetch(new URL('reload', url), { method: 'POST' });
-  // give the service a chance to load up the new files
-  // 1s might not be enough if there are a lot of files to scan
-  await sleep(1000);
+
+  if (expectedAddresses.length > 0) {
+    await retryUntil(
+      async () => {
+        try {
+          await RemoteSigner.validateAccess(url, expectedAddresses);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      'web3signer refresh',
+      10,
+      0.5,
+    );
+  } else {
+    await sleep(1000);
+  }
 }
 
 export function getWeb3SignerTestKeystoreDir(): string {

@@ -63,7 +63,7 @@ contract MinimalFeeModel {
     TimeLib.initialize(block.timestamp, _slotDuration, _epochDuration, _proofSubmissionEpochs);
     FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
     STFLib.initialize(
-      GenesisState({vkTreeRoot: bytes32(0), protocolContractTreeRoot: bytes32(0), genesisArchiveRoot: bytes32(0)})
+      GenesisState({vkTreeRoot: bytes32(0), protocolContractsHash: bytes32(0), genesisArchiveRoot: bytes32(0)})
     );
   }
 

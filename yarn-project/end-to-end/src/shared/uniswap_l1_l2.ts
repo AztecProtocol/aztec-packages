@@ -35,7 +35,6 @@ import { CrossChainTestHarness } from './cross_chain_test_harness.js';
 // anvil --fork-url https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c --fork-block-number 17514288 --chain-id 31337
 // For CI, this is configured in `run_tests.sh` and `docker-compose-images.yml`
 
-// docs:start:uniswap_l1_l2_test_setup_const
 const TIMEOUT = 360_000;
 
 /** Objects to be returned by the uniswap setup function */
@@ -57,14 +56,12 @@ export type UniswapSetupContext = {
   /** Cheat codes instance. */
   cheatCodes: CheatCodes;
 };
-// docs:end:uniswap_l1_l2_test_setup_const
 
 export const uniswapL1L2TestSuite = (
   setup: () => Promise<UniswapSetupContext>,
   cleanup: () => Promise<void>,
   expectedForkBlockNumber = 17514288,
 ) => {
-  // docs:start:uniswap_l1_l2_test_beforeAll
   describe('uniswap_trade_on_l1_from_l2', () => {
     jest.setTimeout(TIMEOUT);
 
@@ -164,7 +161,6 @@ export const uniswapL1L2TestSuite = (
       const wethBalance = await wethCrossChainHarness.getL1BalanceOf(ownerEthAddress);
       expect(wethBalance).toBe(parseEther('1000'));
     });
-    // docs:end:uniswap_l1_l2_test_beforeAll
 
     afterAll(async () => {
       await cleanup();

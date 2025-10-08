@@ -22,7 +22,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import {
   type CircuitSimulator,
   ExecutionError,
@@ -372,7 +372,7 @@ export async function generateSimulatedProvingResult(
     privateExecutionResult.entrypoint.publicInputs.anchorBlockHeader,
     privateExecutionResult.entrypoint.publicInputs.txContext,
     getVKTreeRoot(),
-    protocolContractTreeRoot,
+    protocolContractsHash,
   );
 
   const hasPublicCalls = privateExecutionResult.publicFunctionCalldata.length !== 0;

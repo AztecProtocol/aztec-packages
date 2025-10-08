@@ -66,7 +66,7 @@ void ToRadix::to_be_radix(MemoryInterface& memory,
 {
 
     uint32_t execution_clk = execution_id_manager.get_execution_id();
-    uint32_t space_id = memory.get_space_id();
+    uint16_t space_id = memory.get_space_id();
 
     // todo(ilyas): there must be a nicer way to do this in the simulator. See if it's fine to provide
     // a hierarchy of errors so that we can throw on the first error we encounter

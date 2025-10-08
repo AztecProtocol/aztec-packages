@@ -7,7 +7,7 @@ import { DateProvider } from '@aztec/foundation/timer';
 import { unfreeze } from '@aztec/foundation/types';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2P } from '@aztec/p2p';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import type { GlobalVariableBuilder } from '@aztec/sequencer-client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -71,7 +71,7 @@ describe('aztec node', () => {
       chainId,
       version: rollupVersion,
       vkTreeRoot: getVKTreeRoot(),
-      protocolContractTreeRoot,
+      protocolContractsHash,
     });
   };
 
