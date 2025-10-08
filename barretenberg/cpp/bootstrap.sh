@@ -24,10 +24,10 @@ function ensure_zig {
   if command -v zig &>/dev/null; then
     return
   fi
-  export PATH="$bin_path:$PATH"
   local arch=$(uname -m)
   local zig_version=0.15.1
   local bin_path=/opt/zig-${arch}-linux-${zig_version}
+  export PATH="$bin_path:$PATH"
   if [ -f $bin_path/zig ]; then
     return
   fi
@@ -39,10 +39,10 @@ function ensure_ldid {
   if command -v ldid &>/dev/null; then
     return
   fi
-  export PATH="$bin_path:$PATH"
   local arch=$(uname -m)
   local version=v2.1.5-procursus7
   local bin_path=/opt/ldid-${version}
+  export PATH="$bin_path:$PATH"
   if [ -f $bin_path/ldid ]; then
     return
   fi
@@ -75,6 +75,7 @@ function inject_version {
   fi
   printf "$version\0" | dd of=$binary bs=1 seek=$offset conv=notrunc 2>/dev/null
 }
+export -f inject_version
 
 # Define build commands for each preset
 function build_preset() {
