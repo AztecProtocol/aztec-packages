@@ -12,7 +12,8 @@ MultilinearBatchingVerifier::MultilinearBatchingVerifier(const std::shared_ptr<T
     : transcript(transcript)
 {}
 
-bool MultilinearBatchingVerifier::verify_proof(const HonkProof& proof)
+std::pair<bool, MultilinearBatchingVerifier::SumcheckOutput> MultilinearBatchingVerifier::verify_proof(
+    const HonkProof& proof)
 {
     transcript->load_proof(proof);
 
@@ -48,18 +49,18 @@ bool MultilinearBatchingVerifier::verify_proof(const HonkProof& proof)
     std::vector<FF> padding_indicator(Flavor::VIRTUAL_LOG_N);
     std::ranges::fill(padding_indicator, FF{ 1 });
 
-    info("accumulator_non_shifted_evaluation: ", accumulator_non_shifted_evaluation);
-    info("instance_non_shifted_evaluation: ", instance_non_shifted_evaluation);
-    info("accumulator_shifted_evaluation: ", accumulator_shifted_evaluation);
-    info("instance_shifted_evaluation: ", instance_shifted_evaluation);
-    info("alpha: ", alpha);
     auto target_sum = (((instance_shifted_evaluation * alpha + accumulator_shifted_evaluation) * alpha +
                         instance_non_shifted_evaluation) *
                            alpha +
                        accumulator_non_shifted_evaluation);
     Sumcheck sumcheck(transcript, alpha, Flavor::VIRTUAL_LOG_N, target_sum);
     const auto sumcheck_result = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator);
-    return sumcheck_result.verified;
+    auto verified = sumcheck_result.verified &&
+                    sumcheck_result.claimed_evaluations.w_evaluations_accumulator ==
+                        EqVerifierPolynomial<FF>::eval(accumulator_challenges, sumcheck_result.challenge) &&
+                    sumcheck_result.claimed_evaluations.w_evaluations_instance ==
+                        EqVerifierPolynomial<FF>::eval(instance_challenges, sumcheck_result.challenge);
+    return { verified, sumcheck_result };
 }
 
 } // namespace bb

@@ -28,7 +28,9 @@ template <typename FF_> class MultilinearBatchingRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.w_evaluations_accumulator.is_zero() && in.w_evaluations_instance.is_zero();
+        return (in.w_non_shifted_accumulator.is_zero() && in.w_non_shifted_instance.is_zero() &&
+                in.w_shifted_accumulator.is_zero() && in.w_shifted_instance.is_zero()) ||
+               (in.w_evaluations_accumulator.is_zero() && in.w_evaluations_instance.is_zero());
     }
 
     /**

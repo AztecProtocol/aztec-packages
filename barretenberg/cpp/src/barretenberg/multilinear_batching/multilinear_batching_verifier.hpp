@@ -19,11 +19,12 @@ class MultilinearBatchingVerifier {
     using Flavor = MultilinearBatchingFlavor;
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
+    using SumcheckOutput = SumcheckOutput<Flavor>;
 
     using Sumcheck = SumcheckVerifier<MultilinearBatchingFlavor>;
     explicit MultilinearBatchingVerifier(const std::shared_ptr<Transcript>& transcript);
 
-    bool verify_proof(const HonkProof& proof);
+    std::pair<bool, SumcheckOutput> verify_proof(const HonkProof& proof);
 
   private:
     std::shared_ptr<Transcript> transcript;

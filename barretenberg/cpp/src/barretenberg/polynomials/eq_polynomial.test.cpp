@@ -238,6 +238,29 @@ TEST_F(EqPolyTest, VerifierVsProverForArbitraryU)
     EXPECT_EQ(ver_val, prov_val);
 }
 
+TEST_F(EqPolyTest, PartialEvaluationConsistency)
+{
+    constexpr size_t d = 21;
+    std::vector<FF> r(d);
+    std::vector<FF> u(d);
+    std::vector<FF> u_part(d);
+    for (size_t i = 0; i < d; i++) {
+        r[i] = FF::random_element();
+        u[i] = FF::random_element();
+        u_part[i] = 0;
+    }
+    auto current_element = EqVerifierPolynomial<FF>::eval(r, u_part);
+    auto pol = ProverEqPolynomial<FF>::construct(r, d);
+    for (size_t i = 0; i < d; i++) {
+        u_part[i] = 1;
+        auto new_element = EqVerifierPolynomial<FF>::eval(r, u_part);
+        current_element = current_element + u[i] * (new_element - current_element);
+        u_part[i] = u[i];
+        EXPECT_EQ(current_element, EqVerifierPolynomial<FF>::eval(r, u_part));
+    }
+    EXPECT_EQ(current_element, EqVerifierPolynomial<FF>::eval(r, u));
+}
+
 // -----------------------------------------------------------------------------
 // GateSeparatorPolynomial sanity checks
 // -----------------------------------------------------------------------------

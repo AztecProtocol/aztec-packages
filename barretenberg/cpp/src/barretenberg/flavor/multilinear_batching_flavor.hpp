@@ -37,6 +37,8 @@ class MultilinearBatchingFlavor {
     static constexpr bool USE_SHORT_MONOMIALS = false;
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
+    // Indicates that this flavor runs with Multilinear Batching.
+    static constexpr bool IS_MULTILINEAR_BATCHING = true;
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = true;
@@ -166,12 +168,12 @@ class MultilinearBatchingFlavor {
             for (auto& poly : get_unshifted()) {
                 if (poly.is_empty()) {
                     // Not set above
-                    poly = Polynomial{ /*memory size*/ circuit_size, /*largest possible index*/ circuit_size };
+                    poly = Polynomial{ /*memory size*/ circuit_size, /*largest possible index*/ 1 << VIRTUAL_LOG_N };
                 }
             }
 
             for (auto& poly : get_shifted()) {
-                poly = Polynomial{ /*memory size*/ circuit_size, /*largest possible index*/ circuit_size };
+                poly = Polynomial{ /*memory size*/ circuit_size, /*largest possible index*/ 1 << VIRTUAL_LOG_N };
             }
         }
         ProverPolynomials& operator=(const ProverPolynomials&) = delete;

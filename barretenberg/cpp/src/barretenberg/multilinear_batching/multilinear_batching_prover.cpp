@@ -85,7 +85,9 @@ void MultilinearBatchingProver::execute_relation_check_rounds()
                       alpha,
                       gate_challenges,
                       relation_parameters,
-                      Flavor::VIRTUAL_LOG_N);
+                      Flavor::VIRTUAL_LOG_N,
+                      key->proving_key->accumulator_challenge,
+                      key->proving_key->instance_challenge);
 
     sumcheck_output = sumcheck.prove();
 }
