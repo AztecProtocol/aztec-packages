@@ -891,7 +891,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint(const std::vec
         blocks.delta_range.q_2().emplace_back(0);
         blocks.delta_range.q_3().emplace_back(0);
         blocks.delta_range.q_c().emplace_back(0);
-        blocks.delta_range.q_arith().emplace_back(0);
         blocks.delta_range.q_4().emplace_back(0);
         blocks.delta_range.set_gate_selector(1);
         check_selector_length_consistency();
@@ -950,7 +949,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
         block.q_2().emplace_back(0);
         block.q_3().emplace_back(0);
         block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(0);
         block.q_4().emplace_back(0);
         block.set_gate_selector(1);
         check_selector_length_consistency();
@@ -967,7 +965,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
         block.q_2().emplace_back(0);
         block.q_3().emplace_back(0);
         block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(0);
         block.q_4().emplace_back(0);
         block.set_gate_selector(1);
         check_selector_length_consistency();
@@ -1801,7 +1798,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_3().emplace_back(y_mulconst0 * 2); // z_0 + (x_0 * -xmulconst0) + (y_0 * ymulconst0) = 0 => z_0 = x_0 - y_0
     block.q_4().emplace_back(0);
     block.q_c().emplace_back(-addconst0 * 2);
-    block.q_arith().emplace_back(3);
+    block.set_gate_selector(3);
 
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(0);
@@ -1809,7 +1806,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_3().emplace_back(y_mulconst1);
     block.q_4().emplace_back(0);
     block.q_c().emplace_back(-addconst1);
-    block.q_arith().emplace_back(2);
+    block.set_gate_selector(2);
 
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(-x_mulconst2);
