@@ -23,20 +23,14 @@ export async function checkTx(
     const receipt = await aztecNode.getTxReceipt(txHash);
     return receipt.status;
   } else {
-    await inspectTx(wallet, aztecNode, txHash, log, { includeBlockInfo: true });
+    await inspectTx(wallet, aztecNode, txHash, log);
   }
 }
 
 // The rest of the code here was copied over here from CLI because in CLI I needed to prune the inspect function of the PXE
 // dependency when dropping PXE JSON RPC Server.
 
-async function inspectTx(
-  wallet: CLIWallet,
-  aztecNode: AztecNode,
-  txHash: TxHash,
-  log: LogFn,
-  opts: { includeBlockInfo?: boolean; artifactMap?: ArtifactMap } = {},
-) {
+async function inspectTx(wallet: CLIWallet, aztecNode: AztecNode, txHash: TxHash, log: LogFn) {
   const [receipt, effectsInBlock] = await Promise.all([aztecNode.getTxReceipt(txHash), aztecNode.getTxEffect(txHash)]);
   // Base tx data
   log(`Tx ${txHash.toString()}`);
@@ -50,11 +44,9 @@ async function inspectTx(
   }
 
   const effects = effectsInBlock.data;
-  const artifactMap = opts?.artifactMap ?? (await getKnownArtifacts(wallet));
+  const artifactMap = await getKnownArtifacts(wallet);
 
-  if (opts.includeBlockInfo) {
-    log(` Block: ${receipt.blockNumber} (${receipt.blockHash?.toString()})`);
-  }
+  log(` Block: ${receipt.blockNumber} (${receipt.blockHash?.toString()})`);
   if (receipt.transactionFee) {
     log(` Fee: ${receipt.transactionFee.toString()}`);
   }

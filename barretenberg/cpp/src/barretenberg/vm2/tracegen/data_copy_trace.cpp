@@ -161,6 +161,7 @@ void DataCopyTraceBuilder::process(
 
                           { C::data_copy_sel_mem_read, sel_mem_read ? 1 : 0 },
                           { C::data_copy_read_addr, read_addr },
+                          { C::data_copy_read_addr_plus_one, read_cd_col ? read_addr + 1 : 0 },
 
                           { C::data_copy_reads_left_inv, reads_left_inv },
                           { C::data_copy_padding, is_padding_row ? 1 : 0 },
@@ -190,8 +191,5 @@ const InteractionDefinition DataCopyTraceBuilder::interactions =
         .add<lookup_data_copy_max_read_index_gt_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_data_copy_check_src_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_data_copy_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        .add<lookup_data_copy_offset_gt_max_read_index_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        // Permutations
-        .add<perm_data_copy_dispatch_cd_copy_settings, InteractionType::Permutation>()
-        .add<perm_data_copy_dispatch_rd_copy_settings, InteractionType::Permutation>();
+        .add<lookup_data_copy_offset_gt_max_read_index_settings, InteractionType::LookupGeneric>(Column::gt_sel);
 } // namespace bb::avm2::tracegen

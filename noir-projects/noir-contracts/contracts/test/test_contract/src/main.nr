@@ -139,14 +139,12 @@ pub contract Test {
         storage_slot: Field,
         make_tx_hybrid: bool,
     ) {
-        // docs:start:create_note
         let note = UintNote::new(value, owner);
         create_note(&mut context, storage_slot, note).emit(
             &mut context,
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
-        // docs:end:create_note
 
         if make_tx_hybrid {
             Test::at(context.this_address()).dummy_public_call().enqueue(&mut context);
@@ -195,10 +193,8 @@ pub contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        // docs:start:get_note_from_pxe
         let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
-        // docs:end:get_note_from_pxe
 
         retrieved_notes.get(0).note.get_value()
     }
@@ -252,9 +248,7 @@ pub contract Test {
         let retrieved_note = retrieved_notes.get(0);
         let note_hash = note_hashes.get(0);
 
-        // docs:start:nullify_note
         destroy_note_unsafe(&mut context, retrieved_note, note_hash);
-        // docs:end:nullify_note
     }
 
     #[private]
@@ -367,11 +361,9 @@ pub contract Test {
 
     #[public]
     fn emit_public(value: Field) {
-        // docs:start:emit_public
         context.emit_public_log(/*message=*/ value);
         context.emit_public_log(/*message=*/ [10, 20, 30]);
         context.emit_public_log(/*message=*/ "Hello, world!");
-        // docs:end:emit_public
     }
 
     #[private]

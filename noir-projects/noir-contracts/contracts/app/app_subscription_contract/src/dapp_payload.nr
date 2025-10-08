@@ -15,7 +15,6 @@ global DAPP_MAX_CALLS: u32 = 1;
 global DAPP_PAYLOAD_SIZE_IN_BYTES: u32 = 130;
 
 // Note: If you change the following struct you have to update default_entrypoint.ts
-// docs:start:app-payload-struct
 #[derive(Serialize)]
 pub struct DAppPayload {
     function_calls: [FunctionCall; DAPP_MAX_CALLS],
@@ -24,7 +23,6 @@ pub struct DAppPayload {
     // nonce.
     tx_nonce: Field,
 }
-// docs:end:app-payload-struct
 
 impl Hash for DAppPayload {
     fn hash(self) -> Field {
@@ -46,7 +44,6 @@ impl DAppPayload {
     }
 
     // Executes all private and public calls
-    // docs:start:entrypoint-execute-calls
     pub fn execute_calls(self, context: &mut PrivateContext, target_address: AztecAddress) {
         for i in 0..DAPP_MAX_CALLS {
             let call = self.function_calls[i];
@@ -68,5 +65,4 @@ impl DAppPayload {
             }
         }
     }
-    // docs:end:entrypoint-execute-calls
 }

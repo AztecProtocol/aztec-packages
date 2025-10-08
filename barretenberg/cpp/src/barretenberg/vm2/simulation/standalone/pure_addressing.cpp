@@ -29,13 +29,13 @@ std::vector<Operand> PureAddressing::resolve(const Instruction& instruction, Mem
 
     for (size_t i = 0; i < spec.num_addresses; ++i) {
         Operand& operand = resolved_operands[i];
+        const ValueTag tag = operand.get_tag();
 
-        // Check that operand is a valid address (fits in uint32)
-        // FIXME: do we need this? it's very expensive.
-        // assert(FF(static_cast<uint32_t>(operand.as_ff())) == operand.as_ff());
-        // We assume that the operand is a valid address (from serialization).
+        // We assume from serialization that the operand is <= the bits of a memory address.
+        // We assert this here as it is a precondition.
+        assert(get_tag_bits(tag) <= get_tag_bits(MemoryAddressTag));
         // Normalize possibly smaller sizes to MemoryAddress.
-        if (operand.get_tag() != MemoryAddressTag) {
+        if (tag != MemoryAddressTag) {
             operand = Operand::from(static_cast<MemoryAddress>(operand.to<MemoryAddress>()));
         }
 

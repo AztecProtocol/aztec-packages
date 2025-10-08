@@ -33,7 +33,7 @@ import {
   deployAccounts,
   publicDeployAccounts,
 } from './snapshot_manager.js';
-import { getPrivateKeyFromIndex, getSponsoredFPCAddress, setupPXEServiceAndGetWallet } from './utils.js';
+import { getPrivateKeyFromIndex, getSponsoredFPCAddress, setupPXEAndGetWallet } from './utils.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
 
@@ -208,7 +208,7 @@ export class FullProverTest {
 
     this.logger.verbose(`Main setup completed, initializing full prover PXE, Node, and Prover Node`);
     for (let i = 0; i < 2; i++) {
-      const { wallet: provenWallet, teardown: provenTeardown } = await setupPXEServiceAndGetWallet(
+      const { wallet: provenWallet, teardown: provenTeardown } = await setupPXEAndGetWallet(
         this.aztecNode,
         {
           proverEnabled: this.realProofs,

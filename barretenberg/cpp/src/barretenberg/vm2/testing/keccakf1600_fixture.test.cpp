@@ -42,7 +42,7 @@ void generate_keccak_trace_impl(TestTraceContainer& trace,
                                 const std::vector<MemoryAddress>& dst_addresses,
                                 const std::vector<MemoryAddress>& src_addresses,
                                 bool expect_error,
-                                uint32_t space_id)
+                                uint16_t space_id)
 {
     KeccakF1600TraceBuilder keccak_builder;
     BitwiseTraceBuilder bitwise_builder;
@@ -92,7 +92,7 @@ void generate_keccak_trace_impl(TestTraceContainer& trace,
 void generate_keccak_trace(TestTraceContainer& trace,
                            const std::vector<MemoryAddress>& dst_addresses,
                            const std::vector<MemoryAddress>& src_addresses,
-                           uint32_t space_id)
+                           uint16_t space_id)
 {
     generate_keccak_trace_impl(
         trace,
@@ -117,7 +117,7 @@ void generate_keccak_trace_with_tag_error(TestTraceContainer& trace,
                                           MemoryAddress src_address,
                                           size_t error_offset,
                                           MemoryTag error_tag,
-                                          uint32_t space_id)
+                                          uint16_t space_id)
 {
     generate_keccak_trace_impl(
         trace,
@@ -148,7 +148,7 @@ void generate_keccak_trace_with_tag_error(TestTraceContainer& trace,
 void generate_keccak_trace_with_slice_error(TestTraceContainer& trace,
                                             MemoryAddress dst_address,
                                             MemoryAddress src_address,
-                                            uint32_t space_id)
+                                            uint16_t space_id)
 {
     // Precondition for this trace to make sense is that the src or dst slice is out of bounds.
     ASSERT_TRUE(src_address > AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 1 ||

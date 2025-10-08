@@ -130,6 +130,9 @@ RUN apt update && \
         # C++ stack trace support
         libdw-dev \
         libelf-dev \
+        # Rust
+        pkg-config \
+        libssl-dev \
         # Node
         # WARNING: Need to downgrade to this version in the basebox below as well.
         nodejs=22.16.0-1nodesource1 \

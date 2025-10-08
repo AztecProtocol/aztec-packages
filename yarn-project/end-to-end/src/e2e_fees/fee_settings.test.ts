@@ -1,4 +1,4 @@
-import { type AztecAddress, type AztecNode, FeeJuicePaymentMethod, retryUntil } from '@aztec/aztec.js';
+import { type AztecAddress, type AztecNode, retryUntil } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { Fr } from '@aztec/foundation/fields';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -16,7 +16,6 @@ describe('e2e_fees fee settings', () => {
   let aliceAddress: AztecAddress;
   let wallet: TestWallet;
   let gasSettings: Partial<GasSettings>;
-  let paymentMethod: FeeJuicePaymentMethod;
   let testContract: TestContract;
 
   const t = new FeesTest('fee_juice', 1);
@@ -28,7 +27,6 @@ describe('e2e_fees fee settings', () => {
 
     testContract = await TestContract.deploy(wallet).send({ from: aliceAddress }).deployed();
     gasSettings = { ...gasSettings, maxFeesPerGas: undefined };
-    paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
   }, 60_000);
 
   afterAll(async () => {
@@ -60,7 +58,7 @@ describe('e2e_fees fee settings', () => {
       wallet.setBaseFeePadding(baseFeePadding);
       const tx = await testContract.methods
         .emit_nullifier_public(Fr.random())
-        .prove({ from: aliceAddress, fee: { gasSettings, paymentMethod } });
+        .prove({ from: aliceAddress, fee: { gasSettings } });
       const { maxFeesPerGas } = tx.data.constants.txContext.gasSettings;
       t.logger.info(`Tx with hash ${tx.getTxHash().toString()} ready with max fees ${inspect(maxFeesPerGas)}`);
       return tx;

@@ -6,7 +6,7 @@ pub struct EpochConstantData {
     pub chain_id: Field,
     pub version: Field,
     pub vk_tree_root: Field,
-    pub protocol_contract_tree_root: Field,
+    pub protocol_contracts_hash: Field,
     pub prover_id: Field,
 }
 
@@ -16,7 +16,7 @@ impl Empty for EpochConstantData {
             chain_id: 0,
             version: 0,
             vk_tree_root: 0,
-            protocol_contract_tree_root: 0,
+            protocol_contracts_hash: 0,
             prover_id: 0,
         }
     }
@@ -28,7 +28,7 @@ fn serialization_of_epoch_constant_data() {
         chain_id: 99,
         version: 77,
         vk_tree_root: 123,
-        protocol_contract_tree_root: 456,
+        protocol_contracts_hash: 456,
         prover_id: 789,
     };
     // We use the EPOCH_CONSTANT_DATA_LENGTH constant to ensure that there is a match between the derived trait

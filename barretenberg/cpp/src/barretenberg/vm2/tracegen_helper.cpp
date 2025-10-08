@@ -39,7 +39,6 @@
 #include "barretenberg/vm2/tracegen/opcodes/get_contract_instance_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
-#include "barretenberg/vm2/tracegen/protocol_contract_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_data_tree_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_inputs_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
@@ -426,12 +425,6 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                                    retrieved_bytecodes_tree_check_builder.process(
                                        events.retrieved_bytecodes_tree_check_events, trace));
                     clear_events(events.retrieved_bytecodes_tree_check_events);
-                },
-                [&]() {
-                    ProtocolContractTraceBuilder protocol_contract_builder;
-                    AVM_TRACK_TIME("tracegen/protocol_contract",
-                                   protocol_contract_builder.process(events.protocol_contract_events, trace));
-                    clear_events(events.protocol_contract_events);
                 } });
 
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
@@ -471,8 +464,7 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
                              GetContractInstanceTraceBuilder::interactions.get_all_jobs(),
                              L1ToL2MessageTreeCheckTraceBuilder::interactions.get_all_jobs(),
                              EmitUnencryptedLogTraceBuilder::interactions.get_all_jobs(),
-                             RetrievedBytecodesTreeCheckTraceBuilder::interactions.get_all_jobs(),
-                             ProtocolContractTraceBuilder::interactions.get_all_jobs());
+                             RetrievedBytecodesTreeCheckTraceBuilder::interactions.get_all_jobs());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

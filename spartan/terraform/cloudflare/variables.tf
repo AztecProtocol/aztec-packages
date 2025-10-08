@@ -8,7 +8,7 @@ variable "R2_ACCOUNT_ID" {
 
 variable "DOMAIN" {
   type    = string
-  default = "aztec-labs.com"
+  default = "aztec-labs-snapshots.com"
 }
 
 variable "SUBDOMAIN" {
@@ -19,4 +19,8 @@ variable "SUBDOMAIN" {
 variable "BUCKET_NAME" {
   type    = string
   default = "testnet-bucket"
+}
+
+variable "R2_ZONE_ID" {
+  type = string
 }

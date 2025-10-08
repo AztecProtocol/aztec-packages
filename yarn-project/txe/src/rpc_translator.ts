@@ -54,6 +54,9 @@ export class RPCTranslator {
       | ITxeExecutionOracle,
   ) {}
 
+  // Note: If you rename the following functions to not start with "handlerAs", you must also update the validation
+  // check in `TXESession.processFunction`.
+
   private handlerAsMisc(): IMiscOracle {
     if (!('isMisc' in this.oracleHandler)) {
       throw new UnavailableOracleError('Misc');
@@ -97,7 +100,7 @@ export class RPCTranslator {
   // TXE session state transition functions - these get handled by the state handler
 
   async txeSetTopLevelTXEContext() {
-    await this.stateHandler.setTopLevelContext();
+    await this.stateHandler.enterTopLevelState();
 
     return toForeignCallResult([]);
   }
@@ -116,7 +119,7 @@ export class RPCTranslator {
       ? fromSingle(foreignAnchorBlockNumberValue).toNumber()
       : undefined;
 
-    const privateContextInputs = await this.stateHandler.setPrivateContext(contractAddress, anchorBlockNumber);
+    const privateContextInputs = await this.stateHandler.enterPrivateState(contractAddress, anchorBlockNumber);
 
     return toForeignCallResult(privateContextInputs.toFields().map(toSingle));
   }
@@ -129,7 +132,7 @@ export class RPCTranslator {
       ? AztecAddress.fromField(fromSingle(foreignContractAddressValue))
       : undefined;
 
-    await this.stateHandler.setPublicContext(contractAddress);
+    await this.stateHandler.enterPublicState(contractAddress);
 
     return toForeignCallResult([]);
   }
@@ -142,7 +145,7 @@ export class RPCTranslator {
       ? AztecAddress.fromField(fromSingle(foreignContractAddressValue))
       : undefined;
 
-    await this.stateHandler.setUtilityContext(contractAddress);
+    await this.stateHandler.enterUtilityState(contractAddress);
 
     return toForeignCallResult([]);
   }
@@ -284,18 +287,21 @@ export class RPCTranslator {
     return toForeignCallResult([toArray(returns)]);
   }
 
-  // Since the argument is a slice, noir automatically adds a length field to oracle call.
+  // When the argument is a slice, noir automatically adds a length field to oracle call.
+  // When the argument is an array, we add the field length manually to the signature.
   utilityDebugLog(
+    foreignLevel: ForeignCallSingle,
     foreignMessage: ForeignCallArray,
     _foreignLength: ForeignCallSingle,
     foreignFields: ForeignCallArray,
   ) {
+    const level = fromSingle(foreignLevel).toNumber();
     const message = fromArray(foreignMessage)
       .map(field => String.fromCharCode(field.toNumber()))
       .join('');
     const fields = fromArray(foreignFields);
 
-    this.handlerAsMisc().utilityDebugLog(message, fields);
+    this.handlerAsMisc().utilityDebugLog(level, message, fields);
 
     return toForeignCallResult([]);
   }
@@ -591,15 +597,6 @@ export class RPCTranslator {
       throw new Error(`Low nullifier witness not found for nullifier ${nullifier} at block ${blockNumber}.`);
     }
     return toForeignCallResult(witness.toNoirRepresentation());
-  }
-
-  async utilityGetIndexedTaggingSecretAsSender(foreignSender: ForeignCallSingle, foreignRecipient: ForeignCallSingle) {
-    const sender = AztecAddress.fromField(fromSingle(foreignSender));
-    const recipient = AztecAddress.fromField(fromSingle(foreignRecipient));
-
-    const secret = await this.handlerAsUtility().utilityGetIndexedTaggingSecretAsSender(sender, recipient);
-
-    return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
   async utilityFetchTaggedLogs(foreignPendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
@@ -1002,5 +999,14 @@ export class RPCTranslator {
     await this.handlerAsPrivate().privateSetSenderForTags(senderForTags);
 
     return toForeignCallResult([]);
+  }
+
+  async privateGetNextAppTagAsSender(foreignSender: ForeignCallSingle, foreignRecipient: ForeignCallSingle) {
+    const sender = AztecAddress.fromField(fromSingle(foreignSender));
+    const recipient = AztecAddress.fromField(fromSingle(foreignRecipient));
+
+    const nextAppTag = await this.handlerAsPrivate().privateGetNextAppTagAsSender(sender, recipient);
+
+    return toForeignCallResult([toSingle(nextAppTag)]);
   }
 }

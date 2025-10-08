@@ -1,9 +1,15 @@
 #pragma once
 
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <cstdint>
 #include <sstream>
+
+// Enable this for (VERY SLOW) stats on which asserts are hit the most. Note that the time measured will be very
+// inaccurate, but you can still see what is called too often to be in a release build.
+// #define BB_BENCH_ASSERT(x) BB_BENCH_NAME(x)
+#define BB_BENCH_ASSERT(x)
 
 namespace bb {
 enum class AssertMode : std::uint8_t { ABORT, WARN };
@@ -70,6 +76,7 @@ struct AssertGuard {
 
 #define ASSERT(expression, ...)                                                                                        \
     do {                                                                                                               \
+        BB_BENCH_ASSERT("ASSERT" #expression);                                                                         \
         if (!(BB_LIKELY(expression))) {                                                                                \
             std::ostringstream oss;                                                                                    \
             oss << "Assertion failed: (" #expression ")";                                                              \
@@ -80,6 +87,7 @@ struct AssertGuard {
 
 #define BB_ASSERT_EQ(actual, expected, ...)                                                                            \
     do {                                                                                                               \
+        BB_BENCH_ASSERT("BB_ASSERT_EQ" #actual " == " #expected);                                                      \
         auto _actual = (actual);                                                                                       \
         auto _expected = (expected);                                                                                   \
         if (!(BB_LIKELY(_actual == _expected))) {                                                                      \
@@ -94,6 +102,7 @@ struct AssertGuard {
 
 #define BB_ASSERT_NEQ(actual, expected, ...)                                                                           \
     do {                                                                                                               \
+        BB_BENCH_ASSERT("BB_ASSERT_NEQ" #actual " != " #expected);                                                     \
         auto _actual = (actual);                                                                                       \
         auto _expected = (expected);                                                                                   \
         if (!(BB_LIKELY(_actual != _expected))) {                                                                      \
@@ -108,6 +117,7 @@ struct AssertGuard {
 
 #define BB_ASSERT_GT(left, right, ...)                                                                                 \
     do {                                                                                                               \
+        BB_BENCH_ASSERT("BB_ASSERT_GT" #left " > " #right);                                                            \
         auto _left = (left);                                                                                           \
         auto _right = (right);                                                                                         \
         if (!(BB_LIKELY(_left > _right))) {                                                                            \
@@ -122,6 +132,7 @@ struct AssertGuard {
 
 #define BB_ASSERT_GTE(left, right, ...)                                                                                \
     do {                                                                                                               \
+        BB_BENCH_ASSERT("BB_ASSERT_GTE" #left " >= " #right);                                                          \
         auto _left = (left);                                                                                           \
         auto _right = (right);                                                                                         \
         if (!(BB_LIKELY(_left >= _right))) {                                                                           \
@@ -136,6 +147,7 @@ struct AssertGuard {
 
 #define BB_ASSERT_LT(left, right, ...)                                                                                 \
     do {                                                                                                               \
+        BB_BENCH_ASSERT("BB_ASSERT_LT" #left " < " #right);                                                            \
         auto _left = (left);                                                                                           \
         auto _right = (right);                                                                                         \
         if (!(BB_LIKELY(_left < _right))) {                                                                            \
@@ -150,6 +162,7 @@ struct AssertGuard {
 
 #define BB_ASSERT_LTE(left, right, ...)                                                                                \
     do {                                                                                                               \
+        BB_BENCH_ASSERT("BB_ASSERT_LTE" #left " <= " #right);                                                          \
         auto _left = (left);                                                                                           \
         auto _right = (right);                                                                                         \
         if (!(BB_LIKELY(_left <= _right))) {                                                                           \

@@ -87,7 +87,6 @@ spec:
           {{- if .Values.node.preStartScript }}
           {{ .Values.node.preStartScript | nindent 10 }}
           {{- end }}
-
           "${start_cmd[@]}"
       startupProbe:
         httpGet:

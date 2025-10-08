@@ -6,6 +6,7 @@
 
 #include "polynomial.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -33,22 +34,24 @@ SharedShiftedVirtualZeroesArray<Fr> _clone(const SharedShiftedVirtualZeroesArray
                                            size_t left_expansion = 0)
 {
     size_t expanded_size = array.size() + right_expansion + left_expansion;
-    std::shared_ptr<BackingMemory<Fr>> backing_clone = BackingMemory<Fr>::allocate(expanded_size);
+    BackingMemory<Fr> backing_clone = BackingMemory<Fr>::allocate(expanded_size);
     // zero any left extensions to the array
-    memset(static_cast<void*>(backing_clone->raw_data()), 0, sizeof(Fr) * left_expansion);
+    memset(static_cast<void*>(backing_clone.raw_data), 0, sizeof(Fr) * left_expansion);
     // copy our cloned array over
-    memcpy(static_cast<void*>(backing_clone->raw_data() + left_expansion),
+    memcpy(static_cast<void*>(backing_clone.raw_data + left_expansion),
            static_cast<const void*>(array.data()),
            sizeof(Fr) * array.size());
     // zero any right extensions to the array
-    memset(
-        static_cast<void*>(backing_clone->raw_data() + left_expansion + array.size()), 0, sizeof(Fr) * right_expansion);
-    return { array.start_ - left_expansion, array.end_ + right_expansion, array.virtual_size_, backing_clone };
+    memset(static_cast<void*>(backing_clone.raw_data + left_expansion + array.size()), 0, sizeof(Fr) * right_expansion);
+    return {
+        array.start_ - left_expansion, array.end_ + right_expansion, array.virtual_size_, std::move(backing_clone)
+    };
 }
 
 template <typename Fr>
 void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, size_t start_index)
 {
+    BB_BENCH_NAME("Polynomial::allocate_backing_memory");
     BB_ASSERT_LTE(start_index + size, virtual_size);
     coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{
         start_index,        /* start index, used for shifted polynomials and offset 'islands' of non-zeroes */
@@ -69,7 +72,7 @@ void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, s
  */
 template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size, size_t start_index)
 {
-
+    BB_BENCH_NAME("Polynomial::Polynomial(size_t, size_t, size_t)");
     allocate_backing_memory(size, virtual_size, start_index);
 
     size_t num_threads = calculate_num_threads(size);

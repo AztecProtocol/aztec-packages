@@ -12,6 +12,7 @@ use crate::{
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
         log::Log,
+        protocol_contracts::ProtocolContracts,
         public_call_request::{PublicCallRequest, PublicCallRequestArrayLengths},
         public_data_write::PublicDataWrite,
         public_logs::PublicLogs,
@@ -60,7 +61,7 @@ use crate::{
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
-        AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACT_TREE_ROOT,
+        AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACTS_ROW_IDX, AVM_PUBLIC_INPUTS_PROVER_ID_ROW_IDX,
         AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX,
@@ -87,12 +88,13 @@ pub struct AvmCircuitPublicInputs {
     ///////////////////////////////////
     // Inputs.
     pub global_variables: GlobalVariables,
-    pub protocol_contract_tree_root: Field,
+    pub protocol_contracts: ProtocolContracts,
     pub start_tree_snapshots: TreeSnapshots,
     pub start_gas_used: Gas,
     pub gas_settings: GasSettings,
     pub effective_gas_fees: GasFees,
     pub fee_payer: AztecAddress,
+    pub prover_id: Field,
     pub public_call_request_array_lengths: PublicCallRequestArrayLengths,
     pub public_setup_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
     pub public_app_logic_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
@@ -117,12 +119,13 @@ impl Empty for AvmCircuitPublicInputs {
     fn empty() -> Self {
         AvmCircuitPublicInputs {
             global_variables: GlobalVariables::empty(),
-            protocol_contract_tree_root: 0,
+            protocol_contracts: ProtocolContracts::empty(),
             start_tree_snapshots: TreeSnapshots::empty(),
             start_gas_used: Gas::empty(),
             gas_settings: GasSettings::empty(),
             effective_gas_fees: GasFees::empty(),
             fee_payer: AztecAddress::zero(),
+            prover_id: 0,
             public_call_request_array_lengths: PublicCallRequestArrayLengths::empty(),
             public_setup_call_requests: [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
             public_app_logic_call_requests: [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
@@ -151,7 +154,7 @@ fn set_snapshot_in_cols(
     row_idx: u32,
 ) {
     cols[0][row_idx] = snapshot.root;
-    cols[1][row_idx] = snapshot.next_available_leaf_index as Field;
+    cols[1][row_idx] = snapshot.next_available_leaf_index;
 }
 fn set_gas_in_cols(
     gas: Gas,
@@ -242,6 +245,17 @@ fn set_public_data_writes_in_cols<let SIZE: u32>(
     }
 }
 
+fn set_protocol_contracts_in_cols(
+    protocol_contracts: ProtocolContracts,
+    cols: &mut [[Field; AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH]; AVM_NUM_PUBLIC_INPUT_COLUMNS],
+    protocol_contracts_start_row_idx: u32,
+) {
+    let serialized = protocol_contracts.serialize();
+    for i in 0..serialized.len() {
+        cols[0][protocol_contracts_start_row_idx + i] = serialized[i];
+    }
+}
+
 impl AvmCircuitPublicInputs {
 
     // WARNING: If updating this columns conversion, you must also update columns serialization
@@ -272,8 +286,12 @@ impl AvmCircuitPublicInputs {
             AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX,
         );
 
-        // Protocol Contract Tree Root
-        cols[0][AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACT_TREE_ROOT] = self.protocol_contract_tree_root;
+        // Protocol Contracts
+        set_protocol_contracts_in_cols(
+            self.protocol_contracts,
+            &mut cols,
+            AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACTS_ROW_IDX,
+        );
 
         // Start tree snapshots
         set_snapshot_in_cols(
@@ -335,6 +353,9 @@ impl AvmCircuitPublicInputs {
 
         // Fee payer
         cols[0][AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX] = self.fee_payer.to_field();
+
+        // Prover id
+        cols[0][AVM_PUBLIC_INPUTS_PROVER_ID_ROW_IDX] = self.prover_id;
 
         // Setup, app logic, and teardown call request array lengths
         cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX] =

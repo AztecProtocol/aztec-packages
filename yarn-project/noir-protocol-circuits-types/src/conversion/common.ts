@@ -5,6 +5,7 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
+  MAX_PROTOCOL_CONTRACTS,
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -39,13 +40,14 @@ import {
 import {
   AppendOnlyTreeSnapshot,
   type NullifierLeafPreimage,
-  type ProtocolContractLeafPreimage,
   type PublicDataTreeLeafPreimage,
 } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
   GlobalVariables,
   PartialStateReference,
+  PrivateTxConstantData,
+  ProtocolContracts,
   StateReference,
   TxConstantData,
   TxContext,
@@ -80,7 +82,8 @@ import type {
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
   PrivateToRollupAccumulatedData as PrivateToRollupAccumulatedDataNoir,
   PrivateToRollupKernelCircuitPublicInputs as PrivateToRollupKernelCircuitPublicInputsNoir,
-  ProtocolContractLeafPreimage as ProtocolContractLeafPreimageNoir,
+  PrivateTxConstantData as PrivateTxConstantDataNoir,
+  ProtocolContracts as ProtocolContractsNoir,
   PublicCallRequestArrayLengths as PublicCallRequestArrayLengthsNoir,
   PublicCallRequest as PublicCallRequestNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
@@ -664,21 +667,6 @@ export function mapPublicDataTreePreimageToNoir(preimage: PublicDataTreeLeafPrei
   };
 }
 
-/**
- * Maps a protocol contract leaf preimage to noir
- * @param protocolContractPreimage - The protocol contract leaf preimage.
- * @returns The noir protocol contract leaf preimage.
- * Note: the circuit does not use next_index, so it does not exist in the noir struct.
- */
-export function mapProtocolContractLeafPreimageToNoir(
-  protocolContractPreimage: ProtocolContractLeafPreimage,
-): ProtocolContractLeafPreimageNoir {
-  return {
-    address: mapFieldToNoir(protocolContractPreimage.address),
-    next_address: mapFieldToNoir(protocolContractPreimage.nextAddress),
-  };
-}
-
 export function mapMembershipWitnessToNoir<N extends number>(witness: MembershipWitness<N>): MembershipWitnessNoir<N> {
   const siblingPath = mapTuple(witness.siblingPath, mapFieldToNoir) as FixedLengthArray<NoirField, N>;
   return {
@@ -860,12 +848,42 @@ export function mapTxContextFromNoir(txContext: TxContextNoir): TxContext {
   );
 }
 
+export function mapProtocolContractsToNoir(protocolContracts: ProtocolContracts): ProtocolContractsNoir {
+  return {
+    derived_addresses: mapTuple(protocolContracts.derivedAddresses, mapAztecAddressToNoir),
+  };
+}
+
+export function mapProtocolContractsFromNoir(protocolContracts: ProtocolContractsNoir): ProtocolContracts {
+  return new ProtocolContracts(
+    mapTupleFromNoir(protocolContracts.derived_addresses, MAX_PROTOCOL_CONTRACTS, mapAztecAddressFromNoir),
+  );
+}
+
+export function mapPrivateTxConstantDataToNoir(data: PrivateTxConstantData): PrivateTxConstantDataNoir {
+  return {
+    anchor_block_header: mapBlockHeaderToNoir(data.anchorBlockHeader),
+    tx_context: mapTxContextToNoir(data.txContext),
+    vk_tree_root: mapFieldToNoir(data.vkTreeRoot),
+    protocol_contracts: mapProtocolContractsToNoir(data.protocolContracts),
+  };
+}
+
+export function mapPrivateTxConstantDataFromNoir(data: PrivateTxConstantDataNoir): PrivateTxConstantData {
+  return new PrivateTxConstantData(
+    mapBlockHeaderFromNoir(data.anchor_block_header),
+    mapTxContextFromNoir(data.tx_context),
+    mapFieldFromNoir(data.vk_tree_root),
+    mapProtocolContractsFromNoir(data.protocol_contracts),
+  );
+}
+
 export function mapTxConstantDataFromNoir(data: TxConstantDataNoir) {
   return new TxConstantData(
     mapBlockHeaderFromNoir(data.anchor_block_header),
     mapTxContextFromNoir(data.tx_context),
     mapFieldFromNoir(data.vk_tree_root),
-    mapFieldFromNoir(data.protocol_contract_tree_root),
+    mapFieldFromNoir(data.protocol_contracts_hash),
   );
 }
 
@@ -874,7 +892,7 @@ export function mapTxConstantDataToNoir(data: TxConstantData): TxConstantDataNoi
     anchor_block_header: mapBlockHeaderToNoir(data.anchorBlockHeader),
     tx_context: mapTxContextToNoir(data.txContext),
     vk_tree_root: mapFieldToNoir(data.vkTreeRoot),
-    protocol_contract_tree_root: mapFieldToNoir(data.protocolContractTreeRoot),
+    protocol_contracts_hash: mapFieldToNoir(data.protocolContractsHash),
   };
 }
 

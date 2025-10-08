@@ -25,7 +25,6 @@ void Memory::set(MemoryAddress index, MemoryValue value)
 
 const MemoryValue& Memory::get(MemoryAddress index) const
 {
-    // TODO: validate address?
     static const auto default_value = MemoryValue::from<FF>(0);
 
     auto it = memory.find(index);

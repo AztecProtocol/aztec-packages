@@ -101,6 +101,7 @@ class TaggedValue {
     TaggedValue operator>>(const TaggedValue& other) const;
     // Comparison operators. If the tags are not the same, false is returned
     bool operator<(const TaggedValue& other) const;
+    bool operator>(const TaggedValue& other) const;
     bool operator<=(const TaggedValue& other) const;
     bool operator==(const TaggedValue& other) const;
     bool operator!=(const TaggedValue& other) const;

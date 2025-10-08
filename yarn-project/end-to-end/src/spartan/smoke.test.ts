@@ -34,7 +34,6 @@ describe('smoke test', () => {
     const nodeUrl = `http://127.0.0.1:${aztecRpcPort}`;
 
     aztecNode = createAztecNodeClient(nodeUrl);
-    // docs:start:get_node_info_pub_client
     const nodeInfo = await aztecNode.getNodeInfo();
 
     const ethereumUrl = `http://127.0.0.1:${ethereumPort}`;
@@ -43,7 +42,6 @@ describe('smoke test', () => {
       chain: chain.chainInfo,
       transport: fallback([http(ethereumUrl)]),
     });
-    // docs:end:get_node_info_pub_client
   });
 
   it('should be able to get node enr', async () => {

@@ -1,6 +1,8 @@
 import {
   CoinIssuerAbi,
   CoinIssuerBytecode,
+  DateGatedRelayerAbi,
+  DateGatedRelayerBytecode,
   EmpireSlasherDeploymentExtLibAbi,
   EmpireSlasherDeploymentExtLibBytecode,
   EmpireSlashingProposerAbi,
@@ -147,6 +149,12 @@ export const CoinIssuerArtifact = {
   name: 'CoinIssuer',
   contractAbi: CoinIssuerAbi,
   contractBytecode: CoinIssuerBytecode as Hex,
+};
+
+export const DateGatedRelayerArtifact = {
+  name: 'DateGatedRelayer',
+  contractAbi: DateGatedRelayerAbi,
+  contractBytecode: DateGatedRelayerBytecode as Hex,
 };
 
 export const GovernanceProposerArtifact = {

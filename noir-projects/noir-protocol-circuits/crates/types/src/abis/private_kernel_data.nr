@@ -57,7 +57,7 @@ impl PrivateKernelData {
 }
 
 pub struct PrivateKernelDataWithoutPublicInputs {
-    vk_data: VkData<MEGA_VK_LENGTH_IN_FIELDS>,
+    pub vk_data: VkData<MEGA_VK_LENGTH_IN_FIELDS>,
 }
 
 impl PrivateKernelDataWithoutPublicInputs {

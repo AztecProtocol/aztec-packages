@@ -1,9 +1,8 @@
-use crate::tx_base::components::private_tail_validator;
+use crate::{abis::PublicTubePublicInputs, tx_base::components::private_tail_validator};
 use super::fees::compute_effective_gas_fees;
 use dep::types::{
     abis::{
         avm_circuit_public_inputs::AvmCircuitPublicInputs, block_constant_data::BlockConstantData,
-        kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
     },
     constants::{ARCHIVE_HEIGHT, AVM_VK_INDEX, PUBLIC_TUBE_VK_INDEX},
     proof::proof_data::{AvmV2ProofData, RollupHonkProofData},
@@ -27,7 +26,7 @@ where
 }
 
 pub struct PublicTxBaseInputsValidator {
-    public_tube_proof_data: RollupHonkProofData<PrivateToPublicKernelCircuitPublicInputs>,
+    public_tube_proof_data: RollupHonkProofData<PublicTubePublicInputs>,
     avm_proof_data: AvmV2ProofData<AvmCircuitPublicInputs>,
     constants: BlockConstantData,
     anchor_block_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
@@ -35,7 +34,7 @@ pub struct PublicTxBaseInputsValidator {
 
 impl PublicTxBaseInputsValidator {
     pub fn new(
-        public_tube_proof_data: RollupHonkProofData<PrivateToPublicKernelCircuitPublicInputs>,
+        public_tube_proof_data: RollupHonkProofData<PublicTubePublicInputs>,
         avm_proof_data: AvmV2ProofData<AvmCircuitPublicInputs>,
         constants: BlockConstantData,
         anchor_block_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
@@ -56,7 +55,7 @@ impl PublicTxBaseInputsValidator {
         // `public_tube`. The following two functions verify the public inputs to ensure that the private side was
         // executed correctly and that the data from private is passed to the AVM properly.
         self.validate_private_tail();
-        self.validate_private_tail_against_avm();
+        self.validate_public_tube_against_avm();
     }
 
     fn validate_public_tube_proof_and_vk(self) {
@@ -87,7 +86,7 @@ impl PublicTxBaseInputsValidator {
     }
 
     fn validate_private_tail(self) {
-        let private_tail = self.public_tube_proof_data.public_inputs;
+        let private_tail = self.public_tube_proof_data.public_inputs.private_tail;
 
         private_tail_validator::validate_tx_constant_data(
             private_tail.constants,
@@ -105,9 +104,27 @@ impl PublicTxBaseInputsValidator {
         );
     }
 
-    fn validate_private_tail_against_avm(self) {
-        let private_tail = self.public_tube_proof_data.public_inputs;
+    fn validate_public_tube_against_avm(self) {
         let avm = self.avm_proof_data.public_inputs;
+        let public_tube = self.public_tube_proof_data.public_inputs;
+
+        // --- Prover id ---
+
+        assert_eq(
+            public_tube.prover_id,
+            avm.prover_id,
+            "Mismatched prover_id between private and avm",
+        );
+
+        let private_tail = public_tube.private_tail;
+
+        // --- Protocol contracts ---
+
+        assert_eq(
+            private_tail.constants.protocol_contracts_hash,
+            avm.protocol_contracts.hash(),
+            "Mismatched protocol_contracts between private and avm",
+        );
 
         // --- Gas and fees ---
 
@@ -211,9 +228,6 @@ impl PublicTxBaseInputsValidator {
         // `global_variables`: part of the block constant data, validated in `tx_merge` and `block_root` to ensure
         // consistency across all txs in the block. The `chain_id` and `version` are validated in
         // `private_tail_validator` to ensure they match the values in the private tail.
-
-        // `protocol_contract_tree_root`: included in the block constant data and validated in `private_tail_validator`
-        // to match the value from the private tail.
 
         // `l1_to_l2_message_tree` in `start_tree_snapshots`: part of the block constant data, remains constant for all
         // txs in the block. The value is validated as follows:

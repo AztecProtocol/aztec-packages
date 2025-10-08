@@ -198,21 +198,36 @@ library BN254Lib {
     return result[0] == 1;
   }
 
+  // The hash to point is based on the "mapToPoint" function in https://www.iacr.org/archive/asiacrypt2001/22480516.pdf
   function hashToPoint(bytes32 domain, bytes memory message) internal view returns (G1Point memory output) {
-    bytes32 hashed = keccak256(abi.encode(domain, message));
-    uint256 x = uint256(hashed) % BASE_FIELD_ORDER;
-    uint256 y;
     bool found = false;
+    uint256 attempts = 0;
     while (true) {
-      y = mulmod(x, x, BASE_FIELD_ORDER);
+      uint256 x = uint256(keccak256(abi.encode(domain, message, attempts))) % BASE_FIELD_ORDER;
+      attempts++;
+
+      uint256 y = mulmod(x, x, BASE_FIELD_ORDER);
       y = mulmod(y, x, BASE_FIELD_ORDER);
       y = addmod(y, 3, BASE_FIELD_ORDER);
       (y, found) = sqrt(y);
       if (found) {
-        output = G1Point({x: x, y: y});
+        uint256 y0 = y;
+        uint256 y1 = BASE_FIELD_ORDER - y;
+
+        // Ensure that y1 > y0, flip em if necessary
+        if (y0 > y1) {
+          (y0, y1) = (y1, y0);
+        }
+
+        uint256 b = uint256(keccak256(abi.encode(domain, message, attempts)));
+        if (b & 1 == 0) {
+          output = G1Point({x: x, y: y0});
+        } else {
+          output = G1Point({x: x, y: y1});
+        }
+
         break;
       }
-      x = addmod(x, 1, BASE_FIELD_ORDER);
     }
     require(found, NoPointFound());
     return output;

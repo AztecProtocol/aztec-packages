@@ -1,0 +1,167 @@
+# Low-level workflow to deploy a single network
+# This is called by other deployment workflows
+name: Deploy Network
+
+on:
+  workflow_call:
+    inputs:
+      network:
+        description: 'Network to deploy (e.g., staging-public, staging-ignition, testnet, next-net)'
+        required: true
+        type: string
+      semver:
+        description: 'Semver version (e.g., 2.3.4)'
+        required: true
+        type: string
+      docker_image_tag:
+        description: 'Full docker image tag (optional, defaults to semver)'
+        required: false
+        type: string
+      ref:
+        description: 'Git ref to checkout'
+        required: false
+        type: string
+  workflow_dispatch:
+    inputs:
+      network:
+        description: 'Network to deploy (e.g., staging-public, staging-ignition, testnet, next-net)'
+        required: true
+        type: choice
+        options:
+        - staging-public
+        - staging-ignition
+        - testnet
+        - next-net
+      semver:
+        description: 'Semver version (e.g., 2.3.4)'
+        required: true
+        type: string
+      docker_image_tag:
+        description: 'Full docker image tag (optional, defaults to semver)'
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-network-${{ inputs.network }}-${{ inputs.semver }}-${{ github.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-network:
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+    steps:
+      - name: Determine checkout ref
+        id: checkout-ref
+        run: |
+          # Use inputs.ref if provided (workflow_call), otherwise use github.ref
+          if [[ -n "${{ inputs.ref }}" ]]; then
+            echo "ref=${{ inputs.ref }}" >> $GITHUB_OUTPUT
+          else
+            echo "ref=${{ github.ref }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ steps.checkout-ref.outputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: recursive  # Initialize git submodules for l1-contracts dependencies
+
+      - name: Validate inputs
+        run: |
+          # Validate network
+          if [[ ! -f "spartan/environments/${{ inputs.network }}.env" ]]; then
+            echo "Error: Environment file not found for network '${{ inputs.network }}'"
+            echo "Available networks:"
+            ls -1 spartan/environments/ | grep -v '\.local\.env$' || echo "No environment files found"
+            exit 1
+          fi
+
+          # Validate semver format
+          if ! echo "${{ inputs.semver }}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-.*)?$'; then
+            echo "Error: Invalid semver format '${{ inputs.semver }}'. Expected format: X.Y.Z or X.Y.Z-suffix"
+            exit 1
+          fi
+
+          # Extract major version for v2 check
+          major_version="${{ inputs.semver }}"
+          major_version="${major_version%%.*}"
+          echo "MAJOR_VERSION=$major_version" >> $GITHUB_ENV
+
+      - name: Store the GCP key in a file
+        if: env.MAJOR_VERSION == '2'
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          set +x
+          umask 077
+          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
+
+      - name: Setup GCP authentication
+        if: env.MAJOR_VERSION == '2'
+        run: |
+          gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+
+      - name: Setup gcloud and install GKE auth plugin
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: 'gke-gcloud-auth-plugin'
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@633666f66e0061ca3b725c73b2ec20cd13a8fdd1
+        with:
+          terraform_version: "1.7.5"
+          terraform_wrapper: false  # Disable the wrapper that adds debug output, this messes with reading terraform output
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Deploy network
+        if: env.MAJOR_VERSION == '2'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          REF_NAME: "v${{ inputs.semver }}"
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          AZTEC_DOCKER_IMAGE: "aztecprotocol/aztec:${{ inputs.docker_image_tag || inputs.semver }}"
+        run: |
+          echo "Deploying network: ${{ inputs.network }}"
+          echo "Using image: $AZTEC_DOCKER_IMAGE"
+          echo "Using branch/ref: ${{ steps.checkout-ref.outputs.ref }}"
+
+          cd spartan
+          ./scripts/install_deps.sh
+          ./scripts/network_deploy.sh "${{ inputs.network }}"
+
+      - name: Update testnet monitoring (testnet only)
+        if: env.MAJOR_VERSION == '2' && inputs.network == 'testnet' && !contains(inputs.semver, '-')
+        env:
+          MONITORING_NAMESPACE: testnet-block-height-monitor
+        run: |
+          echo "Updating monitoring app for testnet deployment..."
+          ./spartan/metrics/testnet-monitor/scripts/update-monitoring.sh testnet ${{ env.MONITORING_NAMESPACE }}
+
+      - name: Notify Slack on failure
+        if: failure() && env.MAJOR_VERSION == '2'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          if [ -n "${SLACK_BOT_TOKEN}" ]; then
+            read -r -d '' data <<EOF || true
+            {
+              "channel": "#alerts-${{ inputs.network }}",
+              "text": "Deploy Network workflow FAILED for *${{ inputs.network }}* (version ${{ inputs.semver }}): <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
+            }
+          EOF
+            curl -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-type: application/json" \
+              --data "$data"
+          fi

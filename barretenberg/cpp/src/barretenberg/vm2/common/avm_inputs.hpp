@@ -28,12 +28,13 @@ struct PublicInputs {
     ///////////////////////////////////
     // Inputs
     GlobalVariables globalVariables;
-    FF protocolContractTreeRoot;
+    ProtocolContracts protocolContracts;
     TreeSnapshots startTreeSnapshots;
     Gas startGasUsed;
     GasSettings gasSettings;
     GasFees effectiveGasFees;
     AztecAddress feePayer;
+    FF proverId;
     PublicCallRequestArrayLengths publicCallRequestArrayLengths;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicSetupCallRequests;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicAppLogicCallRequests;
@@ -87,12 +88,13 @@ struct PublicInputs {
     bool operator==(const PublicInputs& other) const = default;
 
     MSGPACK_FIELDS(globalVariables,
-                   protocolContractTreeRoot,
+                   protocolContracts,
                    startTreeSnapshots,
                    startGasUsed,
                    gasSettings,
                    effectiveGasFees,
                    feePayer,
+                   proverId,
                    publicCallRequestArrayLengths,
                    publicSetupCallRequests,
                    publicAppLogicCallRequests,
@@ -159,15 +161,6 @@ struct BytecodeCommitmentHint {
     bool operator==(const BytecodeCommitmentHint& other) const = default;
 
     MSGPACK_FIELDS(classId, commitment);
-};
-
-struct ProtocolContractAddressHint {
-    AztecAddress canonicalAddress;
-    AztecAddress derivedAddress;
-
-    bool operator==(const ProtocolContractAddressHint& other) const = default;
-
-    MSGPACK_FIELDS(canonicalAddress, derivedAddress);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -339,8 +332,8 @@ struct Tx {
 struct ExecutionHints {
     GlobalVariables globalVariables;
     Tx tx;
-    // Protocol Contract Hints
-    std::vector<ProtocolContractAddressHint> protocolContractDerivedAddresses;
+    // Protocol Contracts
+    ProtocolContracts protocolContracts;
     // Contracts.
     std::vector<ContractInstanceHint> contractInstances;
     std::vector<ContractClassHint> contractClasses;
@@ -365,7 +358,7 @@ struct ExecutionHints {
 
     MSGPACK_FIELDS(globalVariables,
                    tx,
-                   protocolContractDerivedAddresses,
+                   protocolContracts,
                    contractInstances,
                    contractClasses,
                    bytecodeCommitments,

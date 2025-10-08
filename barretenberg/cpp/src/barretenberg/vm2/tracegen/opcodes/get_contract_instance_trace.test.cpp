@@ -27,7 +27,7 @@ TEST(GetContractInstanceTraceTest, ValidMemberEnum)
     const FF public_data_tree_root = 0x5678;
     const FF contract_address = 0x1234;
     const uint32_t dst_offset = 100;
-    const uint32_t space_id = 1;
+    const uint16_t space_id = 1;
     const FF deployer_addr = 0x5678;
     const FF class_id = 0x9ABC;
     const FF init_hash = 0xDEF0;
@@ -95,7 +95,7 @@ TEST(GetContractInstanceTraceTest, InvalidMemberEnum)
     const FF public_data_tree_root = 0x5678;
     const FF contract_address = 0x1234;
     const uint32_t dst_offset = 100;
-    const uint32_t space_id = 1;
+    const uint16_t space_id = 1;
     const FF deployer_addr = 0x5678;
     const FF class_id = 0x9ABC;
     const FF init_hash = 0xDEF0;
@@ -152,7 +152,7 @@ TEST(GetContractInstanceTraceTest, OutOfBoundsWrite)
     const FF public_data_tree_root = 0x5678;
     const FF contract_address = 0x1234;
     const uint32_t dst_offset = AVM_HIGHEST_MEM_ADDRESS; // Max address, so +1 is out of bounds
-    const uint32_t space_id = 1;
+    const uint16_t space_id = 1;
     const FF deployer_addr = 0x5678;
     const FF class_id = 0x9ABC;
     const FF init_hash = 0xDEF0;

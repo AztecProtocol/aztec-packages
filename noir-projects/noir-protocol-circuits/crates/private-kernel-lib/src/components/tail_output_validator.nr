@@ -76,9 +76,9 @@ impl TailOutputValidator {
             "mismatch vk_tree_root",
         );
         assert_eq(
-            self.output.constants.protocol_contract_tree_root,
-            self.previous_kernel.constants.protocol_contract_tree_root,
-            "mismatch protocol_contract_tree_root",
+            self.output.constants.protocol_contracts_hash,
+            self.previous_kernel.constants.protocol_contracts.hash(),
+            "mismatch protocol_contracts_hash",
         );
 
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
