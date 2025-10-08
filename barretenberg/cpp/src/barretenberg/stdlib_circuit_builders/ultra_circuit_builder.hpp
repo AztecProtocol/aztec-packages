@@ -238,8 +238,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     UltraCircuitBuilder_(const size_t size_hint,
                          auto& witness_values,
                          const std::vector<uint32_t>& public_inputs,
-                         size_t varnum,
-                         bool recursive = false)
+                         size_t varnum)
         : CircuitBuilderBase<FF>(size_hint, witness_values.empty())
     {
         for (size_t idx = 0; idx < varnum; ++idx) {
@@ -256,8 +255,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         // incorporated into variables.
         this->set_zero_idx(put_constant_variable(FF::zero()));
         this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
-
-        this->is_recursive_circuit = recursive;
     };
     UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = default;
     UltraCircuitBuilder_(UltraCircuitBuilder_&& other) = default;

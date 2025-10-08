@@ -52,13 +52,6 @@ template <typename FF_> class CircuitBuilderBase {
   protected:
     std::unordered_map<uint32_t, std::string> variable_names;
 
-    // We know from the CLI arguments during proving whether a circuit should use a prover which produces
-    // proofs that are friendly to verify in a circuit themselves. A verifier does not need a full circuit
-    // description and should be able to verify a proof with just the verification key and the proof.
-    // This field exists to later set the same field in the verification key, and make sure
-    // that we are using the correct prover/verifier.
-    bool is_recursive_circuit = false; // AUDITTODO: this seems totally unused now?
-
     void set_zero_idx(uint32_t value) { _zero_idx = value; }
 
   public:
