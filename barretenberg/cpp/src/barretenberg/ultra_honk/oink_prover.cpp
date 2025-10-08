@@ -115,11 +115,9 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
                 //     label == "CALLDATA_READ_COUNTS" || label == "SECONDARY_CALLDATA_READ_COUNTS" ||
                 //     label == "RETURN_DATA_READ_COUNTS" || label == "CALLDATA_READ_TAGS" ||
                 //     label == "SECONDARY_CALLDATA_READ_TAGS" || label == "RETURN_DATA_READ_TAGS";
-                // bool is_unmasked_commitment = label == "CALLDATA" || label == "SECONDARY_CALLDATA" ||
-                //                               label == "RETURN_DATA" || label == "CALLDATA_READ_COUNTS" ||
-                //                               label == "SECONDARY_CALLDATA_READ_COUNTS" ||
-                //                               label == "RETURN_DATA_READ_COUNTS";
-                batch.add_to_batch(polynomial, label, /*mask?*/ Flavor::HasZK);
+                bool is_unmasked_commitment =
+                    label == "CALLDATA" || label == "SECONDARY_CALLDATA" || label == "RETURN_DATA";
+                batch.add_to_batch(polynomial, label, /*mask?*/ Flavor::HasZK && !is_unmasked_commitment);
             }
         }
     }
