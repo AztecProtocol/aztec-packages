@@ -11,88 +11,55 @@ namespace {
 
 using FF = MultilinearBatchingFlavor::FF;
 using Transcript = MultilinearBatchingFlavor::Transcript;
+using Commitment = MultilinearBatchingFlavor::Commitment;
 
-struct DummyProvingKey : MultilinearBatchingProvingKey {
-    DummyProvingKey()
+struct DummyClaim : MultilinearBatchingProverClaim {
+    DummyClaim()
     {
-        auto polys = MultilinearBatchingFlavor::ProverPolynomials(16);
-        // for (size_t i = 0; i < 2; i++) {
-
-        //     polys.w_non_shifted_accumulator.at(i) = FF(1);
-        //     polys.w_evaluations_accumulator.at(i) = FF(1);
-        //     polys.w_non_shifted_instance.at(i) = FF(1);
-        //     polys.w_evaluations_instance.at(i) = FF(1);
-        // }
-        for (size_t i = 0; i < polys.w_non_shifted_accumulator.size(); i++) {
-            polys.w_non_shifted_accumulator.at(i) = FF::random_element();
-        }
-        for (size_t i = 0; i < polys.w_shifted_accumulator.size(); i++) {
-            polys.w_shifted_accumulator.at(i) = FF::random_element();
-        }
-        for (size_t i = 0; i < polys.w_non_shifted_instance.size(); i++) {
-            polys.w_non_shifted_instance.at(i) = FF::random_element();
-        }
-        for (size_t i = 0; i < polys.w_shifted_instance.size(); i++) {
-            polys.w_shifted_instance.at(i) = FF::random_element();
-        }
-        auto accumulator_challenge = std::vector<FF>(MultilinearBatchingFlavor::VIRTUAL_LOG_N);
-        auto instance_challenge = std::vector<FF>(MultilinearBatchingFlavor::VIRTUAL_LOG_N);
+        auto challenge = std::vector<FF>(MultilinearBatchingFlavor::VIRTUAL_LOG_N);
         for (size_t i = 0; i < MultilinearBatchingFlavor::VIRTUAL_LOG_N; i++) {
-            accumulator_challenge[i] = FF::random_element();
-            instance_challenge[i] = FF::random_element();
+            challenge[i] = FF::random_element();
         }
-        polys.w_evaluations_accumulator = ProverEqPolynomial<FF>::construct(accumulator_challenge, 4);
-        polys.w_evaluations_instance = ProverEqPolynomial<FF>::construct(instance_challenge, 4);
+        auto non_shifted_polynomial = Polynomial(16);
+        auto pre_shift_polynomial = Polynomial::shiftable(16);
+        for (size_t i = 1; i < 16; i++) {
+            non_shifted_polynomial.at(i) = FF::random_element();
+            pre_shift_polynomial.at(i) = FF::random_element();
+        }
+        auto shifted_polynomial = pre_shift_polynomial.shifted();
+        non_shifted_polynomial.at(0) = FF::random_element();
+        auto non_shifted_commitment = Commitment::random_element();
+        auto shifted_commitment = Commitment::random_element();
 
-        for (size_t i = 0; i < polys.w_evaluations_accumulator.size(); i++) {
-            std::vector<FF> index_challenge(MultilinearBatchingFlavor::VIRTUAL_LOG_N);
-            for (size_t j = 0; j < MultilinearBatchingFlavor::VIRTUAL_LOG_N; j++) {
-                index_challenge[j] = (i >> j) & 1;
-            }
-            BB_ASSERT_EQ(polys.w_evaluations_accumulator.at(i),
-                         EqVerifierPolynomial<FF>::eval(accumulator_challenge, index_challenge));
-        }
-        for (size_t i = 0; i < polys.w_evaluations_instance.size(); i++) {
-            std::vector<FF> index_challenge(MultilinearBatchingFlavor::VIRTUAL_LOG_N);
-            for (size_t j = 0; j < MultilinearBatchingFlavor::VIRTUAL_LOG_N; j++) {
-                index_challenge[j] = (i >> j) & 1;
-            }
-            BB_ASSERT_EQ(polys.w_evaluations_instance.at(i),
-                         EqVerifierPolynomial<FF>::eval(instance_challenge, index_challenge));
-        }
+        auto eq_polynomial = ProverEqPolynomial<FF>::construct(challenge, 4);
 
         auto accumulator_evaluations = std::vector<FF>(2);
         auto instance_evaluations = std::vector<FF>(2);
         accumulator_evaluations[0] = 0;
-        for (size_t i = 0; i < polys.w_non_shifted_accumulator.size(); i++) {
-            accumulator_evaluations[0] += polys.w_non_shifted_accumulator[i] * polys.w_evaluations_accumulator[i];
+        for (size_t i = 0; i < non_shifted_polynomial.size(); i++) {
+            accumulator_evaluations[0] += non_shifted_polynomial.at(i) * eq_polynomial.at(i);
         }
         accumulator_evaluations[1] = 0;
-        for (size_t i = 0; i < polys.w_shifted_accumulator.size(); i++) {
-            accumulator_evaluations[1] += polys.w_shifted_accumulator[i] * polys.w_evaluations_accumulator[i];
+        for (size_t i = 0; i < shifted_polynomial.size(); i++) {
+            accumulator_evaluations[1] += shifted_polynomial.at(i) * eq_polynomial.at(i);
         }
-        instance_evaluations[0] = 0;
-        for (size_t i = 0; i < polys.w_non_shifted_instance.size(); i++) {
-            instance_evaluations[0] += polys.w_non_shifted_instance[i] * polys.w_evaluations_instance[i];
-        }
-        instance_evaluations[1] = 0;
-        for (size_t i = 0; i < polys.w_shifted_instance.size(); i++) {
-            instance_evaluations[1] += polys.w_shifted_instance[i] * polys.w_evaluations_instance[i];
-        }
-
-        proving_key = std::make_shared<ProvingKey>(std::move(polys),
-                                                   std::move(accumulator_challenge),
-                                                   std::move(instance_challenge),
-                                                   std::move(accumulator_evaluations),
-                                                   std::move(instance_evaluations));
+        this->challenge = challenge;
+        this->non_shifted_polynomial = non_shifted_polynomial;
+        this->shifted_polynomial = shifted_polynomial;
+        this->non_shifted_commitment = non_shifted_commitment;
+        this->shifted_commitment = shifted_commitment;
+        this->shifted_evaluation = accumulator_evaluations[1];
+        this->non_shifted_evaluation = accumulator_evaluations[0];
+        this->dyadic_size = 4;
     }
 };
 
 TEST(MultilinearBatchingProver, ConstructProof)
 {
     auto transcript = std::make_shared<Transcript>();
-    DummyProvingKey dummy_key;
-    MultilinearBatchingProver prover{ std::make_shared<MultilinearBatchingProvingKey>(dummy_key), transcript };
+    auto accumulator_claim = std::make_shared<DummyClaim>();
+    auto instance_claim = std::make_shared<DummyClaim>();
+    MultilinearBatchingProver prover{ accumulator_claim, instance_claim, transcript };
 
     auto proof = prover.construct_proof();
     EXPECT_FALSE(proof.empty());
@@ -101,8 +68,9 @@ TEST(MultilinearBatchingProver, ConstructProof)
 TEST(MultilinearBatchingVerifier, VerifyProof)
 {
     auto prover_transcript = std::make_shared<Transcript>();
-    DummyProvingKey dummy_key;
-    MultilinearBatchingProver prover{ std::make_shared<MultilinearBatchingProvingKey>(dummy_key), prover_transcript };
+    auto accumulator_claim = std::make_shared<DummyClaim>();
+    auto instance_claim = std::make_shared<DummyClaim>();
+    MultilinearBatchingProver prover{ accumulator_claim, instance_claim, prover_transcript };
 
     auto proof = prover.construct_proof();
     EXPECT_FALSE(proof.empty());

@@ -18,18 +18,26 @@ class MultilinearBatchingProvingKey {
     using ProvingKey = typename Flavor::ProvingKey;
     using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
+    using Commitment = typename Flavor::Commitment;
     using CommitmentKey = typename Flavor::CommitmentKey;
 
     std::shared_ptr<ProvingKey> proving_key;
     size_t circuit_size;
-
+    Commitment non_shifted_accumulator_commitment;
+    Commitment shifted_accumulator_commitment;
+    Commitment non_shifted_instance_commitment;
+    Commitment shifted_instance_commitment;
     MultilinearBatchingProvingKey() = default;
 
     MultilinearBatchingProvingKey(ProverPolynomials& polynomials,
                                   std::vector<FF> accumulator_challenge,
                                   std::vector<FF> instance_challenge,
                                   std::vector<FF> accumulator_evaluations,
-                                  std::vector<FF> instance_evaluations)
+                                  std::vector<FF> instance_evaluations,
+                                  Commitment non_shifted_accumulator_commitment,
+                                  Commitment shifted_accumulator_commitment,
+                                  Commitment non_shifted_instance_commitment,
+                                  Commitment shifted_instance_commitment)
     {
         BB_BENCH_NAME("MultilinearBatchingProvingKey(ProverPolynomials&)");
 
@@ -39,6 +47,10 @@ class MultilinearBatchingProvingKey {
                                                    std::move(accumulator_evaluations),
                                                    std::move(instance_evaluations));
         circuit_size = polynomials.get_polynomial_size();
+        this->non_shifted_accumulator_commitment = non_shifted_accumulator_commitment;
+        this->shifted_accumulator_commitment = shifted_accumulator_commitment;
+        this->non_shifted_instance_commitment = non_shifted_instance_commitment;
+        this->shifted_instance_commitment = shifted_instance_commitment;
     };
 };
 } // namespace bb

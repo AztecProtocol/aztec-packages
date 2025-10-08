@@ -12,16 +12,24 @@ MultilinearBatchingVerifier::MultilinearBatchingVerifier(const std::shared_ptr<T
     : transcript(transcript)
 {}
 
-std::pair<bool, MultilinearBatchingVerifier::SumcheckOutput> MultilinearBatchingVerifier::verify_proof(
-    const HonkProof& proof)
+std::pair<bool, MultilinearBatchingVerifierClaim> MultilinearBatchingVerifier::verify_proof(const HonkProof& proof)
 {
     transcript->load_proof(proof);
 
-    [[maybe_unused]] auto randomness = transcript->template receive_from_prover<FF>("initial_randomness");
+    // Receive commitments
+    [[maybe_unused]] auto non_shifted_accumulator_commitment =
+        transcript->template receive_from_prover<Commitment>("non_shifted_accumulator_commitment");
+    [[maybe_unused]] auto shifted_accumulator_commitment =
+        transcript->template receive_from_prover<Commitment>("shifted_accumulator_commitment");
+    [[maybe_unused]] auto non_shifted_instance_commitment =
+        transcript->template receive_from_prover<Commitment>("non_shifted_instance_commitment");
+    [[maybe_unused]] auto shifted_instance_commitment =
+        transcript->template receive_from_prover<Commitment>("shifted_instance_commitment");
     std::vector<FF> accumulator_challenges(Flavor::VIRTUAL_LOG_N);
     std::vector<FF> instance_challenges(Flavor::VIRTUAL_LOG_N);
     std::vector<FF> accumulator_evaluations(2);
     std::vector<FF> instance_evaluations(2);
+    // Receive challenges and evaluations
     for (size_t i = 0; i < Flavor::VIRTUAL_LOG_N; i++) {
         accumulator_challenges[i] =
             transcript->template receive_from_prover<FF>("accumulator_challenge_" + std::to_string(i));
@@ -60,7 +68,20 @@ std::pair<bool, MultilinearBatchingVerifier::SumcheckOutput> MultilinearBatching
                         EqVerifierPolynomial<FF>::eval(accumulator_challenges, sumcheck_result.challenge) &&
                     sumcheck_result.claimed_evaluations.w_evaluations_instance ==
                         EqVerifierPolynomial<FF>::eval(instance_challenges, sumcheck_result.challenge);
-    return { verified, sumcheck_result };
+    auto claim_batching_challenge = transcript->get_challenge<FF>("claim_batching_challenge");
+    MultilinearBatchingVerifierClaim verifier_claim;
+    verifier_claim.non_shifted_commitment =
+        non_shifted_accumulator_commitment + non_shifted_instance_commitment * claim_batching_challenge;
+    verifier_claim.shifted_commitment =
+        shifted_accumulator_commitment + shifted_instance_commitment * claim_batching_challenge;
+    verifier_claim.shifted_evaluation =
+        sumcheck_result.claimed_evaluations.w_shifted_accumulator +
+        sumcheck_result.claimed_evaluations.w_shifted_instance * claim_batching_challenge;
+    verifier_claim.non_shifted_evaluation =
+        sumcheck_result.claimed_evaluations.w_non_shifted_accumulator +
+        sumcheck_result.claimed_evaluations.w_non_shifted_instance * claim_batching_challenge;
+    verifier_claim.challenge = sumcheck_result.challenge;
+    return { verified, verifier_claim };
 }
 
 } // namespace bb
