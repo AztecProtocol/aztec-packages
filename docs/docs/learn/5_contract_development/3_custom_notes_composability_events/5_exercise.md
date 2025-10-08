@@ -1,10 +1,22 @@
 ---
 title: "Keep Building: Expand Your Contract"
-tags: [contracts, learning journey, practice]
-description: "Enhance the contract you started earlier by adding custom notes, composability, and events."
+tags: [contracts, learning journey, practice, exercises]
+description: "Enhance the contract you started earlier by adding custom notes, composability, and events with guided exercises"
 ---
 
 Great work completing the sections on custom notes, composability, and events! You've now learned some of Aztec's most powerful features for building sophisticated privacy-preserving applications. Let's put these concepts into practice.
+
+## Learning Objectives
+
+Time to level up! This exercise will help you apply advanced Aztec features. By the end, you should be able to:
+
+- ✅ Design and implement custom note types for your specific use case
+- ✅ Call functions in other contracts using generated interfaces
+- ✅ Emit both encrypted (private) and unencrypted (public) events
+- ✅ Build contracts that compose with existing protocols
+- ✅ Structure complex private data with meaningful note fields
+
+Each feature you master makes your contracts more powerful and production-ready. Let's do this!
 
 ## Time to Level Up Your Contract
 
@@ -103,21 +115,137 @@ As you build, keep these principles in mind:
 
 **Events Create Transparency**: Even in private systems, selective transparency through events is valuable. Choose what to reveal carefully, but do provide ways for users and applications to track important changes.
 
-## Practical Exercises
+## Hands-On Exercises
 
-Try these specific implementations to practice the concepts:
+Let's practice these advanced features with progressive exercises. Don't skip ahead - each builds on the previous!
 
-### Exercise 1: Add a Custom Note
+### Exercise: Create a Custom Task Note
 
-Take one of your existing `PrivateSet` storage slots and replace its note type with a custom note that includes at least 3 meaningful fields for your application.
+**Goal**: Replace generic `ValueNote` with a rich custom note type.
 
-### Exercise 2: Call Another Contract
+**Starting Point**: If you built the Task Manager from the previous exercise, enhance it. Otherwise, create a new contract with this custom note.
 
-Implement a function that calls a method on another contract. Even if you don't have a real external contract yet, you can define an interface and structure the call.
+**Requirements**:
+- Create a `TaskNote` with fields: `task_id`, `description_hash`, `priority`, `created_at`, `owner`
+- Use your custom note in storage instead of `ValueNote`
+- Implement serialization and deserialization methods
 
-### Exercise 3: Emit Events
+**Solution Hints**:
+<details>
+<summary>Click to see custom note structure</summary>
 
-Add at least one encrypted event and one unencrypted event to your contract. Make sure they provide useful information for someone monitoring your contract.
+```rust
+use dep::aztec::prelude::{AztecAddress, NoteInterface, NoteHeader, PrivateContext};
+
+struct TaskNote {
+    task_id: Field,
+    description_hash: Field,  // Hash of task description for privacy
+    priority: Field,          // 1 = low, 2 = medium, 3 = high
+    created_at: Field,        // Timestamp
+    owner: AztecAddress,
+    header: NoteHeader,
+}
+
+impl TaskNote {
+    fn new(task_id: Field, description_hash: Field, priority: Field, owner: AztecAddress) -> Self {
+        TaskNote {
+            task_id,
+            description_hash,
+            priority,
+            created_at: context.timestamp(), // Get block timestamp
+            owner,
+            header: NoteHeader::empty(),
+        }
+    }
+}
+
+impl NoteInterface<TASK_NOTE_LEN> for TaskNote {
+    // Implement required methods: serialize, deserialize, compute_note_hiding_point
+    // See Aztec.nr examples for full implementation
+}
+```
+
+</details>
+
+**Checkpoint**: Can you create a task, retrieve it, and access all custom fields?
+
+---
+
+### Exercise: Emit Custom Events
+
+**Goal**: Add meaningful events that help track contract activity.
+
+**Requirements**:
+- Define custom event structures
+- Emit an encrypted event when creating private tasks (visible only to task owner)
+- Emit a public event when milestones are reached (e.g., 100th task created)
+- Include relevant data in each event
+
+**Solution Hints**:
+<details>
+<summary>Click to see event definition pattern</summary>
+
+```rust
+// TODO: Add imports necessary for events
+// Define your events
+#[event]
+struct TaskCreated {
+    task_id: Field,
+    owner: AztecAddress,
+    priority: Field,
+}
+
+#[event]
+struct MilestoneReached {
+    milestone: Field,
+    total_tasks: u64,
+}
+
+// In your contract function:
+#[private]
+fn create_task(...) {
+    // ... task creation logic ...
+
+    // Emit encrypted event (only owner can decrypt)
+    dep::aztec::event_emission::emit_event_in_private(
+        TaskCreated { task_id, owner, priority },
+        &mut context,
+        context.msg_sender(),
+        MessageDelivery::CONSTRAINED_ONCHAIN
+    );
+
+    // Enqueue public function that might emit public milestone
+    ...
+}
+```
+
+</details>
+
+---
+
+### Exercise: Combine Everything
+
+**Goal**: Build a complete feature using all three advanced concepts.
+
+**Scenario**: Create a "Task Bounty" system where:
+- Tasks have detailed custom notes (TaskBountyNote with amount, deadline, requirements)
+- Creating a bounty charges the creator via token transfer (composability)
+- Completing a task pays the bounty to the worker (more composability)
+- Events track bounty creation, claims, and completions
+
+**Requirements**:
+- Custom `TaskBountyNote` with relevant fields
+- Token integration for payments
+- Encrypted events for private actions
+- Public events for bounty milestones
+
+**Hints**: This is a mini-project! Start by designing the flow on paper:
+1. What functions do you need?
+2. Which should be private vs public?
+3. What events make sense at each step?
+4. How do the contracts interact?
+
+Don't expect to get this perfect on the first try - iteration is how you learn!
 
 ## Next Steps
 
