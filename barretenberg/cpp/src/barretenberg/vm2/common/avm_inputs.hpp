@@ -28,11 +28,13 @@ struct PublicInputs {
     ///////////////////////////////////
     // Inputs
     GlobalVariables globalVariables;
+    ProtocolContracts protocolContracts;
     TreeSnapshots startTreeSnapshots;
     Gas startGasUsed;
     GasSettings gasSettings;
     GasFees effectiveGasFees;
     AztecAddress feePayer;
+    FF proverId;
     PublicCallRequestArrayLengths publicCallRequestArrayLengths;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicSetupCallRequests;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicAppLogicCallRequests;
@@ -86,11 +88,13 @@ struct PublicInputs {
     bool operator==(const PublicInputs& other) const = default;
 
     MSGPACK_FIELDS(globalVariables,
+                   protocolContracts,
                    startTreeSnapshots,
                    startGasUsed,
                    gasSettings,
                    effectiveGasFees,
                    feePayer,
+                   proverId,
                    publicCallRequestArrayLengths,
                    publicSetupCallRequests,
                    publicAppLogicCallRequests,
@@ -328,6 +332,8 @@ struct Tx {
 struct ExecutionHints {
     GlobalVariables globalVariables;
     Tx tx;
+    // Protocol Contracts
+    ProtocolContracts protocolContracts;
     // Contracts.
     std::vector<ContractInstanceHint> contractInstances;
     std::vector<ContractClassHint> contractClasses;
@@ -352,6 +358,7 @@ struct ExecutionHints {
 
     MSGPACK_FIELDS(globalVariables,
                    tx,
+                   protocolContracts,
                    contractInstances,
                    contractClasses,
                    bytecodeCommitments,

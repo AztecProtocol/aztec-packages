@@ -11,7 +11,7 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
-#include "barretenberg/vm2/simulation/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/gadgets/keccakf1600.hpp"
 #include "barretenberg/vm2/tracegen/lib/get_contract_instance_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/get_env_var_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
@@ -132,7 +132,7 @@ void PrecomputedTraceBuilder::process_power_of_2(TraceContainer& trace)
     constexpr auto num_rows = 1 << 8; // 2^8 = 256
     trace.reserve_column(C::precomputed_power_of_2, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
-        trace.set(C::precomputed_power_of_2, i, 1 << i);
+        trace.set(C::precomputed_power_of_2, i, uint256_t(1) << uint256_t(i));
     }
 }
 
@@ -308,7 +308,7 @@ void PrecomputedTraceBuilder::process_to_radix_safe_limbs(TraceContainer& trace)
 {
     using C = Column;
 
-    auto p_limbs_per_radix = get_p_limbs_per_radix();
+    const auto& p_limbs_per_radix = get_p_limbs_per_radix();
 
     trace.reserve_column(C::precomputed_sel_to_radix_p_limb_counts, p_limbs_per_radix.size());
     trace.reserve_column(C::precomputed_to_radix_safe_limbs, p_limbs_per_radix.size());
@@ -327,7 +327,7 @@ void PrecomputedTraceBuilder::process_to_radix_p_decompositions(TraceContainer& 
 {
     using C = Column;
 
-    auto p_limbs_per_radix = get_p_limbs_per_radix();
+    const auto& p_limbs_per_radix = get_p_limbs_per_radix();
 
     uint32_t row = 0;
     for (size_t i = 0; i < p_limbs_per_radix.size(); ++i) {
@@ -532,6 +532,28 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                       { C::precomputed_read_public_input_offset, pay_gas.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, pay_gas.read_pi_length_offset },
                       { C::precomputed_sel_can_write_public_data, 1 },
+                  },
+              });
+
+    trace.set(10,
+              {
+                  {
+                      { C::precomputed_sel_phase, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::TREE_PADDING) },
+                      { C::precomputed_sel_tree_padding, 1 },
+                      { C::precomputed_is_revertible, 0 },
+                      { C::precomputed_sel_can_emit_note_hash, 1 },
+                      { C::precomputed_sel_can_emit_nullifier, 1 },
+                  },
+              });
+
+    trace.set(11,
+              {
+                  {
+                      { C::precomputed_sel_phase, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::CLEANUP) },
+                      { C::precomputed_sel_cleanup, 1 },
+                      { C::precomputed_is_revertible, 0 },
                   },
               });
 }

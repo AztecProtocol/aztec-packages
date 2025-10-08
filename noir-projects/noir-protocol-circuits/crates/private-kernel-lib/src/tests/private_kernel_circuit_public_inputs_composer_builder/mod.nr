@@ -48,8 +48,8 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
         PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(
             self.tx_request,
             private_call,
-            FixtureBuilder::vk_tree_root(),
-            self.private_call.protocol_contract_tree_root,
+            self.private_call.vk_tree_root,
+            self.private_call.protocol_contracts,
             is_private_only,
             self.first_nullifier_hint,
         )

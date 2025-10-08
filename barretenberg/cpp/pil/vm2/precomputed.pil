@@ -151,6 +151,8 @@ pol constant sel_revertible_append_note_hash;
 pol constant sel_revertible_append_nullifier;
 pol constant sel_revertible_append_l2_l1_msg;
 pol constant sel_collect_fee;
+pol constant sel_tree_padding;
+pol constant sel_cleanup;
 pol constant sel_can_emit_note_hash;
 pol constant sel_can_emit_nullifier;
 pol constant sel_can_write_public_data;
@@ -184,3 +186,8 @@ pol constant is_valid_member_enum;
 pol constant is_deployer;
 pol constant is_class_id;
 pol constant is_init_hash;
+
+// Protocol Contract Set - Maps Canonical Address to Derived Address
+// Canonical Address are represented by the execution clk
+pol commit sel_protocol_contract;
+pol commit protocol_contract_derived_address;

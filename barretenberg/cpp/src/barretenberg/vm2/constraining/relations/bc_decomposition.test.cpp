@@ -5,6 +5,7 @@
 #include <memory>
 #include <vector>
 
+#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -20,6 +21,7 @@ namespace {
 
 using testing::random_bytes;
 using tracegen::BytecodeTraceBuilder;
+using tracegen::PrecomputedTraceBuilder;
 using tracegen::TestTraceContainer;
 
 using FF = AvmFlavorSettings::FF;
@@ -42,11 +44,18 @@ TEST(BytecodeDecompositionConstrainingTest, SingleBytecode)
     TestTraceContainer trace;
     init_trace(trace);
     BytecodeTraceBuilder builder;
+    PrecomputedTraceBuilder precomputed_builder;
+
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) } }, trace);
 
     EXPECT_EQ(trace.get_num_rows(), 1 + 40);
+
+    precomputed_builder.process_misc(trace, 256);
+    precomputed_builder.process_sel_range_8(trace);
+
     check_relation<bc_decomposition>(trace);
+    check_interaction<BytecodeTraceBuilder, lookup_bc_decomposition_bytes_are_bytes_settings>(trace);
 }
 
 TEST(BytecodeDecompositionConstrainingTest, ShortSingleBytecode)
@@ -55,11 +64,18 @@ TEST(BytecodeDecompositionConstrainingTest, ShortSingleBytecode)
     TestTraceContainer trace;
     init_trace(trace);
     BytecodeTraceBuilder builder;
+    PrecomputedTraceBuilder precomputed_builder;
+
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(5)) } }, trace);
 
     EXPECT_EQ(trace.get_num_rows(), 1 + 5);
+
+    precomputed_builder.process_misc(trace, 256);
+    precomputed_builder.process_sel_range_8(trace);
+
     check_relation<bc_decomposition>(trace);
+    check_interaction<BytecodeTraceBuilder, lookup_bc_decomposition_bytes_are_bytes_settings>(trace);
 }
 
 TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodes)
@@ -67,13 +83,20 @@ TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodes)
     TestTraceContainer trace;
     init_trace(trace);
     BytecodeTraceBuilder builder;
+    PrecomputedTraceBuilder precomputed_builder;
+
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) },
           { .bytecode_id = 2, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(55)) } },
         trace);
 
     EXPECT_EQ(trace.get_num_rows(), 1 + 40 + 55);
+
+    precomputed_builder.process_misc(trace, 256);
+    precomputed_builder.process_sel_range_8(trace);
+
     check_relation<bc_decomposition>(trace);
+    check_interaction<BytecodeTraceBuilder, lookup_bc_decomposition_bytes_are_bytes_settings>(trace);
 }
 
 TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodesWithShortOnes)
@@ -81,6 +104,8 @@ TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodesWithShortOnes)
     TestTraceContainer trace;
     init_trace(trace);
     BytecodeTraceBuilder builder;
+    PrecomputedTraceBuilder precomputed_builder;
+
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) },
           { .bytecode_id = 2, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(5)) },
@@ -90,26 +115,31 @@ TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodesWithShortOnes)
         trace);
 
     EXPECT_EQ(trace.get_num_rows(), 1 + 40 + 5 + 10 + 55 + 2);
+
+    precomputed_builder.process_misc(trace, 256);
+    precomputed_builder.process_sel_range_8(trace);
+
     check_relation<bc_decomposition>(trace);
+    check_interaction<BytecodeTraceBuilder, lookup_bc_decomposition_bytes_are_bytes_settings>(trace);
 }
 
 TEST(BytecodeDecompositionConstrainingTest, NegativeDeactivatedSel)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
+    TestTraceContainer trace({
         {
-            .bc_decomposition_bytes_rem_inv = FF(33).invert(),
-            .bc_decomposition_bytes_remaining = 33,
-            .bc_decomposition_sel = 1,
+            { C::bc_decomposition_bytes_rem_inv, FF(33).invert() },
+            { C::bc_decomposition_bytes_remaining, 33 },
+            { C::bc_decomposition_sel, 1 },
         },
         {
-            .bc_decomposition_bytes_rem_inv = FF(32).invert(),
-            .bc_decomposition_bytes_remaining = 32,
-            .bc_decomposition_sel = 1,
+            { C::bc_decomposition_bytes_rem_inv, FF(32).invert() },
+            { C::bc_decomposition_bytes_remaining, 32 },
+            { C::bc_decomposition_sel, 1 },
         },
         {
-            .bc_decomposition_bytes_rem_inv = FF(31).invert(),
-            .bc_decomposition_bytes_remaining = 31,
-            .bc_decomposition_sel = 1,
+            { C::bc_decomposition_bytes_rem_inv, FF(31).invert() },
+            { C::bc_decomposition_bytes_remaining, 31 },
+            { C::bc_decomposition_sel, 1 },
         },
     });
 
@@ -122,22 +152,22 @@ TEST(BytecodeDecompositionConstrainingTest, NegativeDeactivatedSel)
 
 TEST(BytecodeDecompositionConstrainingTest, NegativeDeactivateLastContract)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
+    TestTraceContainer trace({
         {
-            .bc_decomposition_bytes_rem_min_one_inv = FF(2).invert(),
-            .bc_decomposition_bytes_remaining = 3,
-            .bc_decomposition_sel = 1,
+            { C::bc_decomposition_bytes_rem_min_one_inv, FF(2).invert() },
+            { C::bc_decomposition_bytes_remaining, 3 },
+            { C::bc_decomposition_sel, 1 },
         },
         {
-            .bc_decomposition_bytes_rem_min_one_inv = 1,
-            .bc_decomposition_bytes_remaining = 2,
-            .bc_decomposition_sel = 1,
+            { C::bc_decomposition_bytes_rem_min_one_inv, 1 },
+            { C::bc_decomposition_bytes_remaining, 2 },
+            { C::bc_decomposition_sel, 1 },
         },
         {
-            .bc_decomposition_bytes_rem_min_one_inv = 0,
-            .bc_decomposition_bytes_remaining = 1,
-            .bc_decomposition_last_of_contract = 1,
-            .bc_decomposition_sel = 1,
+            { C::bc_decomposition_bytes_rem_min_one_inv, 0 },
+            { C::bc_decomposition_last_of_contract, 1 },
+            { C::bc_decomposition_bytes_remaining, 1 },
+            { C::bc_decomposition_sel, 1 },
         },
     });
 
@@ -150,11 +180,11 @@ TEST(BytecodeDecompositionConstrainingTest, NegativeDeactivateLastContract)
 
 TEST(BytecodeDecompositionConstrainingTest, NegativePcWrongInitializationFirstRow)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
         {
-            .bc_decomposition_pc = 0,
-            .bc_decomposition_sel = 1,
+            { C::bc_decomposition_pc, 0 },
+            { C::bc_decomposition_sel, 1 },
         },
     });
 
@@ -167,11 +197,11 @@ TEST(BytecodeDecompositionConstrainingTest, NegativePcWrongInitializationFirstRo
 
 TEST(BytecodeDecompositionConstrainingTest, NegativePcWrongInitializationInside)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .bc_decomposition_last_of_contract = 1 },
+    TestTraceContainer trace({
+        { { C::bc_decomposition_last_of_contract, 1 } },
         {
-            .bc_decomposition_pc = 0,
-            .bc_decomposition_sel = 1,
+            { C::bc_decomposition_pc, 0 },
+            { C::bc_decomposition_sel, 1 },
         },
     });
 
@@ -184,19 +214,19 @@ TEST(BytecodeDecompositionConstrainingTest, NegativePcWrongInitializationInside)
 
 TEST(BytecodeDecompositionConstrainingTest, NegativePcWrongIncrement)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
+    TestTraceContainer trace({
         {
-            .bc_decomposition_pc = 5,
-            .bc_decomposition_sel = 1,
+            { C::bc_decomposition_pc, 5 },
+            { C::bc_decomposition_sel, 1 },
         },
         {
-            .bc_decomposition_pc = 6,
-            .bc_decomposition_sel = 1,
+            { C::bc_decomposition_pc, 6 },
+            { C::bc_decomposition_sel, 1 },
         },
         {
-            .bc_decomposition_last_of_contract = 1, // Required otherwise the test passes trivially
-            .bc_decomposition_pc = 7,
-            .bc_decomposition_sel = 1,
+            { C::bc_decomposition_last_of_contract, 1 }, // Required otherwise the test passes trivially
+            { C::bc_decomposition_pc, 7 },
+            { C::bc_decomposition_sel, 1 },
         },
     });
 
@@ -208,19 +238,19 @@ TEST(BytecodeDecompositionConstrainingTest, NegativePcWrongIncrement)
 
 TEST(BytecodeDecompositionConstrainingTest, NegativeBytesRemWrongDecrement)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
+    TestTraceContainer trace({
         {
-            .bc_decomposition_bytes_remaining = 5,
-            .bc_decomposition_sel = 1,
+            { C::bc_decomposition_bytes_remaining, 5 },
+            { C::bc_decomposition_sel, 1 },
         },
         {
-            .bc_decomposition_bytes_remaining = 4,
-            .bc_decomposition_sel = 1,
+            { C::bc_decomposition_bytes_remaining, 4 },
+            { C::bc_decomposition_sel, 1 },
         },
         {
-            .bc_decomposition_bytes_remaining = 3,
-            .bc_decomposition_last_of_contract = 1, // Required otherwise the test passes trivially
-            .bc_decomposition_sel = 1,
+            { C::bc_decomposition_last_of_contract, 1 }, // Required otherwise the test passes trivially
+            { C::bc_decomposition_bytes_remaining, 3 },
+            { C::bc_decomposition_sel, 1 },
         },
     });
 
@@ -233,19 +263,19 @@ TEST(BytecodeDecompositionConstrainingTest, NegativeBytesRemWrongDecrement)
 
 TEST(BytecodeDecompositionConstrainingTest, NegativeMutateBytecodeId)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
+    TestTraceContainer trace({
         {
-            .bc_decomposition_id = 147,
-            .bc_decomposition_sel = 1,
+            { C::bc_decomposition_id, 147 },
+            { C::bc_decomposition_sel, 1 },
         },
         {
-            .bc_decomposition_id = 147,
-            .bc_decomposition_sel = 1,
+            { C::bc_decomposition_id, 147 },
+            { C::bc_decomposition_sel, 1 },
         },
         {
-            .bc_decomposition_id = 147,
-            .bc_decomposition_last_of_contract = 1, // Required otherwise the test passes trivially
-            .bc_decomposition_sel = 1,
+            { C::bc_decomposition_last_of_contract, 1 }, // Required otherwise the test passes trivially
+            { C::bc_decomposition_id, 147 },
+            { C::bc_decomposition_sel, 1 },
         },
     });
 
@@ -255,40 +285,119 @@ TEST(BytecodeDecompositionConstrainingTest, NegativeMutateBytecodeId)
                               "BC_DEC_ID_CONSTANT");
 }
 
-TEST(BytecodeDecompositionConstrainingTest, NegativeWrongBytesToReadNoCorrection)
+// Both positive and negative tests for sel_windows_gt_remaining initialization
+TEST(BytecodeDecompositionConstrainingTest, SelWindowsGtRemainingInitialization)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
+    TestTraceContainer trace({
         {
-            .bc_decomposition_bytes_remaining = 75,
-            .bc_decomposition_bytes_to_read = tracegen::DECOMPOSE_WINDOW_SIZE,
-            .bc_decomposition_sel = 1,
+            { C::bc_decomposition_last_of_contract, 1 },
+            { C::bc_decomposition_sel, 1 },
+            { C::bc_decomposition_sel_windows_gt_remaining, 1 },
         },
     });
 
-    check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_OVERFLOW_CORRECTION_VALUE);
-    trace.set(C::bc_decomposition_bytes_to_read, 0, 75); // Mutate to wrong value (bytes_remaining)
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_SEL_WINDOWS_GT_REMAINING_INIT);
+
+    trace.set(C::bc_decomposition_sel_windows_gt_remaining, 0, 0); // Mutate to wrong value
     EXPECT_THROW_WITH_MESSAGE(
-        check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_OVERFLOW_CORRECTION_VALUE),
-        "BC_DEC_OVERFLOW_CORRECTION_VALUE");
+        check_relation<bc_decomposition>(trace, bc_decomposition::SR_SEL_WINDOWS_GT_REMAINING_INIT),
+        "SEL_WINDOWS_GT_REMAINING_INIT");
+}
+
+// Both positive and negative tests for sel_windows_gt_remaining propagation without mutation.
+TEST(BytecodeDecompositionConstrainingTest, SelWindowsGtRemainingPropagation)
+{
+    TestTraceContainer trace({
+        {
+            { C::bc_decomposition_sel, 1 },
+            { C::bc_decomposition_sel_windows_gt_remaining, 1 },
+        },
+        {
+            { C::bc_decomposition_last_of_contract, 1 },
+            { C::bc_decomposition_sel, 1 },
+            { C::bc_decomposition_sel_windows_gt_remaining, 1 },
+        },
+    });
+
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_SEL_WINDOWS_GT_REMAINING_PROPAGATION);
+
+    trace.set(C::bc_decomposition_sel_windows_gt_remaining, 0, 0); // Mutate to wrong value at the top
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<bc_decomposition>(trace, bc_decomposition::SR_SEL_WINDOWS_GT_REMAINING_PROPAGATION),
+        "SEL_WINDOWS_GT_REMAINING_PROPAGATION");
+
+    // Reset to correct value
+    trace.set(C::bc_decomposition_sel_windows_gt_remaining, 0, 1);
+
+    trace.set(C::bc_decomposition_sel_windows_gt_remaining, 1, 0); // Mutate to wrong value at the bottom
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<bc_decomposition>(trace, bc_decomposition::SR_SEL_WINDOWS_GT_REMAINING_PROPAGATION),
+        "SEL_WINDOWS_GT_REMAINING_PROPAGATION");
+
+    // Test propagattion of 0 instead of 1
+    trace.set(C::bc_decomposition_sel_windows_gt_remaining, 0, 0); // Mutate to correct value
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_SEL_WINDOWS_GT_REMAINING_PROPAGATION);
+}
+
+// Both positive and negative tests for sel_windows_gt_remaining propagation with mutation.
+TEST(BytecodeDecompositionConstrainingTest, SelWindowsGtRemainingPropagationWithMutation)
+{
+    TestTraceContainer trace({
+        {
+            { C::bc_decomposition_is_windows_eq_remaining, 1 },
+            { C::bc_decomposition_sel, 1 },
+            { C::bc_decomposition_sel_windows_gt_remaining, 0 },
+        },
+        {
+            { C::bc_decomposition_sel, 1 },
+            { C::bc_decomposition_sel_windows_gt_remaining, 1 },
+        },
+        {
+            { C::bc_decomposition_last_of_contract, 1 },
+            { C::bc_decomposition_sel, 1 },
+            { C::bc_decomposition_sel_windows_gt_remaining, 1 },
+        },
+    });
+
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_SEL_WINDOWS_GT_REMAINING_PROPAGATION);
+
+    trace.set(C::bc_decomposition_sel_windows_gt_remaining, 0, 1); // Mutate to wrong value
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<bc_decomposition>(trace, bc_decomposition::SR_SEL_WINDOWS_GT_REMAINING_PROPAGATION),
+        "SEL_WINDOWS_GT_REMAINING_PROPAGATION");
+}
+
+TEST(BytecodeDecompositionConstrainingTest, NegativeWrongBytesToReadNoCorrection)
+{
+    TestTraceContainer trace({
+        {
+            { C::bc_decomposition_bytes_to_read, DECOMPOSE_WINDOW_SIZE },
+            { C::bc_decomposition_bytes_remaining, 75 },
+            { C::bc_decomposition_sel, 1 },
+        },
+    });
+
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_SET_BYTES_TO_READ);
+    trace.set(C::bc_decomposition_bytes_to_read, 0, 75); // Mutate to wrong value (bytes_remaining)
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_SET_BYTES_TO_READ),
+                              "SET_BYTES_TO_READ");
 }
 
 TEST(BytecodeDecompositionConstrainingTest, NegativeWrongBytesToReadWithCorrection)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
+    TestTraceContainer trace({
         {
-            .bc_decomposition_bytes_remaining = 13,
-            .bc_decomposition_bytes_to_read = 13,
-            .bc_decomposition_sel = 1,
-            .bc_decomposition_sel_overflow_correction_needed = 1,
+            { C::bc_decomposition_bytes_to_read, 13 },
+            { C::bc_decomposition_bytes_remaining, 13 },
+            { C::bc_decomposition_sel, 1 },
+            { C::bc_decomposition_sel_windows_gt_remaining, 1 },
         },
     });
 
-    check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_OVERFLOW_CORRECTION_VALUE);
-    trace.set(
-        C::bc_decomposition_bytes_to_read, 0, tracegen::DECOMPOSE_WINDOW_SIZE); // Mutate to wrong value (WINDOWS_SIZE)
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_OVERFLOW_CORRECTION_VALUE),
-        "BC_DEC_OVERFLOW_CORRECTION_VALUE");
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_SET_BYTES_TO_READ);
+    trace.set(C::bc_decomposition_bytes_to_read, 0, DECOMPOSE_WINDOW_SIZE); // Mutate to wrong value
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_SET_BYTES_TO_READ),
+                              "SET_BYTES_TO_READ");
 }
 
 TEST(BytecodeDecompositionConstrainingTest, NegativeWrongPacking)

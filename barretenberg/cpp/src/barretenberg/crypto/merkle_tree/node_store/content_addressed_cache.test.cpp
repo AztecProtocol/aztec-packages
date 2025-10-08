@@ -17,7 +17,7 @@ using CacheType = ContentAddressedCache<PublicDataLeafValue>;
 class ContentAddressedCacheTest : public testing::Test {
   protected:
     void SetUp() override {}
-    void TearDown() override{};
+    void TearDown() override {};
 };
 
 uint64_t get_index(uint64_t max_index = 0)

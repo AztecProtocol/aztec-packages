@@ -7,6 +7,10 @@ metadata:
 data:
   setup-service-addresses.sh: |
     {{ .Files.Get "files/config/setup-service-addresses.sh" | nindent 4 }}
+  setup-prover-keystore.sh: |
+    {{ .Files.Get "files/config/setup-prover-keystore.sh" | nindent 4 }}
+  setup-attester-keystore.sh: |
+    {{ .Files.Get "files/config/setup-attester-keystore.sh" | nindent 4 }}
   setup-p2p-addresses.sh: |
     {{ .Files.Get "files/config/setup-p2p-addresses.sh" | nindent 4 }}
   configure-full-node-env.sh: |

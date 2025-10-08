@@ -1,4 +1,4 @@
-import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory } from '@aztec/bb-prover';
+import { BB_RESULT, verifyClientIvcProof } from '@aztec/bb-prover';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
@@ -6,8 +6,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { getWorkingDirectory } from './bb_working_directory.js';
-import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack } from './index.js';
 import { proveClientIVC } from './prove_native.js';
+import { generateTestingIVCStack } from './witgen.js';
 
 const logger = createLogger('ivc-integration:test:native');
 
@@ -27,18 +27,18 @@ describe('Client IVC Integration', () => {
   // 1. Run a mock app that creates two commitments
   // 2. Run the init kernel to process the app run
   // 3. Run the tail kernel to finish the client IVC chain.
+  // 4. Run the hiding kernel.
   it('Should generate a verifiable client IVC proof from a simple mock tx', async () => {
-    const [bytecodes, witnessStack, _, vks] = await generate3FunctionTestingIVCStack();
+    const [bytecodes, witnessStack, _, vks] = await generateTestingIVCStack(1, 0);
 
-    const proof = await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger);
-    await writeClientIVCProofToOutputDirectory(proof, bbWorkingDirectory);
+    await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger);
+
     const verifyResult = await verifyClientIvcProof(
       bbBinaryPath,
       bbWorkingDirectory.concat('/proof'),
       bbWorkingDirectory.concat('/vk'),
       logger.info,
     );
-
     expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
   });
 
@@ -49,18 +49,18 @@ describe('Client IVC Integration', () => {
   // 4. Run the inner kernel to process the second app run
   // 5. Run the reset kernel to process the read request emitted by the reader app
   // 6. Run the tail kernel to finish the client IVC chain
+  // 7. Run the hiding kernel.
   it('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
-    const [bytecodes, witnessStack, _, vks] = await generate6FunctionTestingIVCStack();
+    const [bytecodes, witnessStack, _, vks] = await generateTestingIVCStack(1, 1);
 
-    const proof = await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger);
-    await writeClientIVCProofToOutputDirectory(proof, bbWorkingDirectory);
+    await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger);
+
     const verifyResult = await verifyClientIvcProof(
       bbBinaryPath,
       bbWorkingDirectory.concat('/proof'),
       bbWorkingDirectory.concat('/vk'),
       logger.info,
     );
-
     expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
   });
 });

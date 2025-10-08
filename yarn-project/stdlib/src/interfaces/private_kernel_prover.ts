@@ -1,4 +1,6 @@
 import type {
+  HidingKernelToPublicPrivateInputs,
+  HidingKernelToRollupPrivateInputs,
   PrivateExecutionStep,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelInitCircuitPrivateInputs,
@@ -93,6 +95,14 @@ export interface PrivateKernelProver {
    */
   simulateTail(
     privateKernelInputsTail: PrivateKernelTailCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>>;
+
+  generateHidingToRollupOutput(
+    inputs: HidingKernelToRollupPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>>;
+
+  generateHidingToPublicOutput(
+    inputs: HidingKernelToPublicPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>>;
 
   /**

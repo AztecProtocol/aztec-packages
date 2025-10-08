@@ -24,7 +24,7 @@ class ECCVMVerifier {
 
   public:
     explicit ECCVMVerifier(const std::shared_ptr<Transcript>& transcript)
-        : transcript(transcript){};
+        : transcript(transcript) {};
 
     bool verify_proof(const ECCVMProof& proof);
     void compute_translation_opening_claims(

@@ -437,6 +437,8 @@ TYPED_TEST(SafeUintTest, TestDivideMethod)
 
     field_ct a1(witness_ct(&builder, 2));
     field_ct b1(witness_ct(&builder, 9));
+    a1.unset_free_witness_tag();
+    b1.unset_free_witness_tag();
     suint_ct c1(a1, 2);
     c1.set_origin_tag(submitted_value_origin_tag);
     suint_ct d1(b1, 4);

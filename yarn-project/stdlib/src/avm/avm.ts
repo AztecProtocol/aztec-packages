@@ -15,9 +15,14 @@ import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
-import { GlobalVariables, PublicCallRequestWithCalldata, TreeSnapshots, type Tx } from '../tx/index.js';
+import {
+  GlobalVariables,
+  ProtocolContracts,
+  PublicCallRequestWithCalldata,
+  TreeSnapshots,
+  type Tx,
+} from '../tx/index.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
-import { clampGasSettingsForAVM } from './gas.js';
 import { serializeWithMessagePack } from './message_pack.js';
 
 ////////////////////////////////////////////////////////////////////////////
@@ -409,15 +414,12 @@ export class AvmTxHint {
     public readonly feePayer: AztecAddress,
   ) {}
 
-  static fromTx(tx: Tx): AvmTxHint {
+  static fromTx(tx: Tx, gasFees: GasFees): AvmTxHint {
     const setupCallRequests = tx.getNonRevertiblePublicCallRequestsWithCalldata();
     const appLogicCallRequests = tx.getRevertiblePublicCallRequestsWithCalldata();
     const teardownCallRequest = tx.getTeardownPublicCallRequestWithCalldata();
-    const gasSettings = clampGasSettingsForAVM(tx.data.constants.txContext.gasSettings, tx.data.gasUsed);
-    const effectiveGasFees = computeEffectiveGasFees(
-      tx.data.constants.historicalHeader.globalVariables.gasFees,
-      gasSettings,
-    );
+    const gasSettings = tx.data.constants.txContext.gasSettings;
+    const effectiveGasFees = computeEffectiveGasFees(gasFees, gasSettings);
 
     // For informational purposes. Assumed quick because it should be cached.
     const txHash = tx.getTxHash();
@@ -514,6 +516,8 @@ export class AvmExecutionHints {
   constructor(
     public readonly globalVariables: GlobalVariables,
     public tx: AvmTxHint,
+    // Protocol contracts.
+    public protocolContracts: ProtocolContracts,
     // Contract hints.
     public readonly contractInstances: AvmContractInstanceHint[] = [],
     public readonly contractClasses: AvmContractClassHint[] = [],
@@ -534,7 +538,7 @@ export class AvmExecutionHints {
   ) {}
 
   static empty() {
-    return new AvmExecutionHints(GlobalVariables.empty(), AvmTxHint.empty());
+    return new AvmExecutionHints(GlobalVariables.empty(), AvmTxHint.empty(), ProtocolContracts.empty());
   }
 
   static get schema() {
@@ -542,6 +546,7 @@ export class AvmExecutionHints {
       .object({
         globalVariables: GlobalVariables.schema,
         tx: AvmTxHint.schema,
+        protocolContracts: ProtocolContracts.schema,
         contractInstances: AvmContractInstanceHint.schema.array(),
         contractClasses: AvmContractClassHint.schema.array(),
         bytecodeCommitments: AvmBytecodeCommitmentHint.schema.array(),
@@ -562,6 +567,7 @@ export class AvmExecutionHints {
         ({
           globalVariables,
           tx,
+          protocolContracts,
           contractInstances,
           contractClasses,
           bytecodeCommitments,
@@ -581,6 +587,7 @@ export class AvmExecutionHints {
           new AvmExecutionHints(
             globalVariables,
             tx,
+            protocolContracts,
             contractInstances,
             contractClasses,
             bytecodeCommitments,

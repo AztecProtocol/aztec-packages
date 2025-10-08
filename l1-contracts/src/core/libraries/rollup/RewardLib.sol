@@ -77,22 +77,26 @@ library RewardLib {
   address public constant BURN_ADDRESS = address(bytes20("CUAUHXICALLI"));
 
   function setConfig(RewardConfig memory _config) internal {
+    require(Bps.unwrap(_config.sequencerBps) <= 10_000, Errors.RewardLib__InvalidSequencerBps());
     RewardStorage storage rewardStorage = getStorage();
     rewardStorage.config = _config;
   }
 
-  function claimSequencerRewards(address _recipient) internal returns (uint256) {
+  function claimSequencerRewards(address _sequencer) internal returns (uint256) {
     RewardStorage storage rewardStorage = getStorage();
 
     RollupStore storage rollupStore = STFLib.getStorage();
-    uint256 amount = rewardStorage.sequencerRewards[msg.sender];
-    rewardStorage.sequencerRewards[msg.sender] = 0;
-    rollupStore.config.feeAsset.transfer(_recipient, amount);
+    uint256 amount = rewardStorage.sequencerRewards[_sequencer];
+
+    if (amount > 0) {
+      rewardStorage.sequencerRewards[_sequencer] = 0;
+      rollupStore.config.feeAsset.safeTransfer(_sequencer, amount);
+    }
 
     return amount;
   }
 
-  function claimProverRewards(address _recipient, Epoch[] memory _epochs) internal returns (uint256) {
+  function claimProverRewards(address _prover, Epoch[] memory _epochs) internal returns (uint256) {
     Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
     RollupStore storage rollupStore = STFLib.getStorage();
 
@@ -105,21 +109,22 @@ library RewardLib {
         Errors.Rollup__NotPastDeadline(_epochs[i].toDeadlineEpoch(), currentEpoch)
       );
 
-      require(
-        !rewardStorage.proverClaimed[msg.sender].get(Epoch.unwrap(_epochs[i])),
-        Errors.Rollup__AlreadyClaimed(msg.sender, _epochs[i])
-      );
-      rewardStorage.proverClaimed[msg.sender].set(Epoch.unwrap(_epochs[i]));
+      if (rewardStorage.proverClaimed[_prover].get(Epoch.unwrap(_epochs[i]))) {
+        continue;
+      }
+      rewardStorage.proverClaimed[_prover].set(Epoch.unwrap(_epochs[i]));
 
       EpochRewards storage e = rewardStorage.epochRewards[_epochs[i]];
       SubEpochRewards storage se = e.subEpoch[e.longestProvenLength];
-      uint256 shares = se.shares[msg.sender];
+      uint256 shares = se.shares[_prover];
       if (shares > 0) {
         accumulatedRewards += (shares * e.rewards / se.summedShares);
       }
     }
 
-    rollupStore.config.feeAsset.transfer(_recipient, accumulatedRewards);
+    if (accumulatedRewards > 0) {
+      rollupStore.config.feeAsset.safeTransfer(_prover, accumulatedRewards);
+    }
 
     return accumulatedRewards;
   }
@@ -172,10 +177,10 @@ library RewardLib {
           }
         }
 
-        uint256 sequencerShare = BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);
-        v.sequencerBlockReward = sequencerShare / added;
+        uint256 sequenceBlockRewards = BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);
+        v.sequencerBlockReward = sequenceBlockRewards / added;
 
-        $er.rewards += (blockRewardsAvailable - sequencerShare).toUint128();
+        $er.rewards += (blockRewardsAvailable - sequenceBlockRewards).toUint128();
       }
 
       bool isTxsEnabled = FeeLib.isTxsEnabled();
@@ -215,7 +220,7 @@ library RewardLib {
       }
 
       if (t.totalBurn > 0) {
-        rollupStore.config.feeAsset.transfer(BURN_ADDRESS, t.totalBurn);
+        rollupStore.config.feeAsset.safeTransfer(BURN_ADDRESS, t.totalBurn);
       }
     }
   }

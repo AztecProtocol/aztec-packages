@@ -6,7 +6,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { makeBlockProposal, makeHeader, mockTx } from '@aztec/stdlib/testing';
+import { makeBlockProposal, makeL2BlockHeader, mockTx } from '@aztec/stdlib/testing';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -70,7 +70,7 @@ describe('p2p client integration block txs protocol ', () => {
       syncSummary: {
         latestBlockNumber: 0,
         latestBlockHash: '',
-        finalisedBlockNumber: 0,
+        finalizedBlockNumber: 0,
         treesAreSynched: false,
         oldestHistoricBlockNumber: 0,
       },
@@ -119,7 +119,7 @@ describe('p2p client integration block txs protocol ', () => {
   const createBlockProposal = (blockNumber: number, blockHash: any, txHashes: any[]) => {
     return makeBlockProposal({
       signer: Secp256k1Signer.random(),
-      header: makeHeader(1, blockNumber),
+      header: makeL2BlockHeader(1, blockNumber),
       archive: blockHash,
       txHashes,
     });

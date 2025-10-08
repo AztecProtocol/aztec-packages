@@ -20,9 +20,7 @@ namespace bb {
  */
 template <typename T>
 concept HasMsgpackSchemaName = requires {
-    {
-        T::MSGPACK_SCHEMA_NAME
-    } -> std::convertible_to<std::string_view>;
+    { T::MSGPACK_SCHEMA_NAME } -> std::convertible_to<std::string_view>;
 };
 
 /**

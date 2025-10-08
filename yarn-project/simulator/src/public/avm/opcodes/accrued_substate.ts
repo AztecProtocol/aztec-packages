@@ -1,4 +1,4 @@
-import { NullifierCollisionError } from '../../state_manager/nullifiers.js';
+import { NullifierCollisionError } from '../../side_effect_errors.js';
 import type { AvmContext } from '../avm_context.js';
 import { TypeTag, Uint1 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
@@ -219,8 +219,8 @@ export class EmitUnencryptedLog extends Instruction {
 
   constructor(
     private indirect: number,
-    private logOffset: number,
     private logSizeOffset: number,
+    private logOffset: number,
   ) {
     super();
   }
@@ -237,8 +237,8 @@ export class EmitUnencryptedLog extends Instruction {
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
     );
 
-    const operands = [this.logOffset, this.logSizeOffset];
-    const [logOffset, logSizeOffset] = addressing.resolve(operands, memory);
+    const operands = [this.logSizeOffset, this.logOffset];
+    const [logSizeOffset, logOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.UINT32, logSizeOffset);
     const logSize = memory.get(logSizeOffset).toNumber();
     memory.checkTagsRange(TypeTag.FIELD, logOffset, logSize);

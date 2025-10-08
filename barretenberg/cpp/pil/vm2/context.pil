@@ -1,5 +1,7 @@
 include "context_stack.pil";
 
+// TODO: Usage of sel_error in this whole file has to be reconsidered.
+
 // This is a virtual gadget, which is part of the execution trace.
 // This subtrace is focused on managing the changes to the context.
 // By default (i.e. when not executing a context-changing opcode),
@@ -10,14 +12,18 @@ namespace execution;
     #[skippable_if]
     sel = 0;
 
+    // TODO: make sure that all uses of `sel_error` here really should be "error" only
+    // since `sel_error` will not be ` for the REVERT opcode. If we need "error or REVERT",
+    // use `sel_failure`.
+
     // Guaranteed to be boolean because sel_execute_call & sel_execute_static_call are mutually exclusive
     pol commit sel_enter_call;
-    // Handle error separately since it takes priority and may occur during an sel_x_call
-    sel_enter_call = (sel_execute_call + sel_execute_static_call) * (1 - sel_error);
+    // The following selectors will be 0 if there is an error during execution (before the opcode execution step).
+    sel_enter_call = sel_execute_call + sel_execute_static_call;
     // CALL & precomputed.first_row are mutually exclusive
     sel_enter_call * precomputed.first_row = 0;
 
-    // sel_exit_call is used to flag if we are returning or reverting or we error
+    // sel_exit_call is used to flag if we are returning or reverting or there has been ANY error during execution
     // sel_execute_revert & sel_execute_return are mutually exclusive
     pol commit sel_exit_call;
     sel_exit_call = 1 - (1 - sel_execute_revert - sel_execute_return) * (1 - sel_error);
@@ -29,13 +35,17 @@ namespace execution;
     pol commit next_pc;
     pol commit msg_sender;
     pol commit contract_address;
+    pol commit bytecode_id;
     pol commit transaction_fee;
-    // Constrained boolean by tx trace (for enqueued call) and #[NEXT_IS_STATIC] for nested
+    // Constrained boolean by tx trace for enqueued call, #[IS_STATIC_NEXT_ROW] during normal execution,
+    // IS_STATIC_IF_STATIC_CALL+IS_STATIC_IF_CALL_FROM_STATIC_CONTEXT for nested calls,
+    // and CTX_STACK_CALL for returns or failures.
     pol commit is_static;
 
     pol commit parent_calldata_addr;
     pol commit parent_calldata_size;
 
+    pol commit last_child_id;
     pol commit last_child_returndata_addr;
     pol commit last_child_returndata_size;
     pol commit last_child_success; // Careful with this for now...
@@ -43,6 +53,10 @@ namespace execution;
     // ==== Gas ====
     pol commit l2_gas_limit;
     pol commit da_gas_limit;
+
+    pol commit prev_l2_gas_used;
+    pol commit prev_da_gas_used;
+
     pol commit l2_gas_used;
     pol commit da_gas_used;
 
@@ -69,6 +83,9 @@ namespace execution;
     // L1 to L2 tree doesn't evolve during execution of the AVM
     pol commit l1_l2_tree_root;
 
+    pol commit prev_retrieved_bytecodes_tree_root;
+    pol commit prev_retrieved_bytecodes_tree_size;
+
     // Next Tree State
     pol commit note_hash_tree_root; // TODO: Constrain root, sizes and emitted not changing unless specific opcode selectors are on
     pol commit note_hash_tree_size;
@@ -84,12 +101,15 @@ namespace execution;
     pol commit written_public_data_slots_tree_root;
     pol commit written_public_data_slots_tree_size;
 
+    pol commit retrieved_bytecodes_tree_root;
+    pol commit retrieved_bytecodes_tree_size;
+
     // Prev side effects state
-    pol commit prev_num_unencrypted_logs;
+    pol commit prev_num_unencrypted_log_fields;
     pol commit prev_num_l2_to_l1_messages;
 
     // Next side effects state
-    pol commit num_unencrypted_logs;
+    pol commit num_unencrypted_log_fields;
     pol commit num_l2_to_l1_messages;
 
     // ==== Helper columns ====
@@ -113,16 +133,23 @@ namespace execution;
 
     // next_context_id increments with each invocation of an external call or new enqueued call
     pol commit next_context_id; // Can be replaced by clk
+
+    // We always start enqueued calls with fresh context ids, so the next context id must start at context_id + 1
+    #[ENQUEUED_CALL_START_NEXT_CTX_ID]
+    enqueued_call_start * (context_id + 1 - next_context_id) = 0;
+
     // The initial next_context_id = 2, in row = 1
     #[INCR_NEXT_CONTEXT_ID]
-    NOT_LAST_EXEC * (next_context_id' - (next_context_id + sel_enter_call)) = 0;
+    NOT_LAST_EXEC * (next_context_id' - (next_context_id + sel_enter_call + enqueued_call_start')) = 0;
 
     // nested_exit_call = 1 ==> context_id' = parent_id
     // sel_enter_call   = 1 ==> context_id' = next_context_id
     // otherwise        = 0 ==> context_id' = context_id
-    #[CONTEXT_ID_CALL_NEXT_ROW]
+    #[CONTEXT_ID_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (context_id' - context_id) = 0;
+    #[CONTEXT_ID_EXT_CALL]
     NOT_LAST_EXEC * sel_enter_call  * (context_id' - next_context_id) = 0;
+    #[CONTEXT_ID_NESTED_EXIT]
     NOT_LAST_EXEC * nested_exit_call   * (context_id' - parent_id) = 0;
 
     // nested_exit_call = 1 ==> constraints come from lookup
@@ -156,6 +183,11 @@ namespace execution;
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (contract_address' - contract_address) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (contract_address' - register[2]) = 0;
 
+    // bytecode_id is set from the context stack when entering a call and propagated
+    // from row to row as we do for others, except on context change.
+    #[BYTECODE_ID_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (bytecode_id' - bytecode_id) = 0;
+
     // transaction fee gets set at the start of an enqueued call and remains the same throughout
     // TODO(dbanks12): tracegen and test this
     #[TRANSACTION_FEE_NEXT_ROW]
@@ -169,40 +201,69 @@ namespace execution;
     // otherwise        = 0 ==> is_static' = is_static
     #[IS_STATIC_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (is_static' - is_static) = 0;
-    NOT_LAST_EXEC * sel_enter_call  * (is_static' - sel_execute_static_call) = 0;
+    // An external call from a non-static context only creates a nested static context if the opcode is STATICCALL.
+    #[IS_STATIC_IF_STATIC_CALL]
+    NOT_LAST_EXEC * sel_enter_call * (1 - is_static) * (is_static' - sel_execute_static_call) = 0;
+    // An external call from a static context always creates a nested static context.
+    #[IS_STATIC_IF_CALL_FROM_STATIC_CONTEXT]
+    NOT_LAST_EXEC * sel_enter_call * is_static * (is_static' - 1) = 0;
 
     // nested_exit_call = 1 ==> constraints come from lookup
-    // sel_enter_call   = 1 ==> parent_calldata_addr' = rop[3] (resolved operand 4 from execution trace)
+    // sel_enter_call   = 1 ==> parent_calldata_addr' = rop[4] (resolved operand 5 from execution trace)
     // otherwise        = 0 ==> parent_calldata_addr' = parent_calldata_addr
     #[CD_OFFSET_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_addr' - parent_calldata_addr) = 0;
-    NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_addr' - rop[3]) = 0;
+    NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_addr' - rop[4]) = 0;
 
     // nested_exit_call = 1 ==> constraints come from lookup
-    // sel_enter_call   = 1 ==> parent_calldata_size' = rop[4] (resolved operand 5 from execution trace)
-    // otherwise        = 0 ==> parent_calldata_siz' = parent_calldata_size
+    // sel_enter_call   = 1 ==> parent_calldata_size' = register[3] (register 4 from execution trace)
+    // otherwise        = 0 ==> parent_calldata_size' = parent_calldata_size
     #[CD_SIZE_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_size' - parent_calldata_size) = 0;
-    NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_size' - rop[4]) = 0;
+    NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_size' - register[3]) = 0;
 
     pol NESTED_RET_REV_ONLY = nested_exit_call * (1 - sel_error);
+
     // NESTED_RET_REV_ONLY = 1 ==> rop[1] (resolved operand 2 from execution trace)
-    // sel_error           = 1 ==> last_child_returndata_size' = 0;
+    // sel_error           = 1 ==> last_child_returndata_addr' = 0;
     // sel_enter_call      = 1 ==> last_child_returndata_addr' = 0;
+    // enqueued_call_start = 1 ==> last_child_returndata_addr  = 0; <-- This row is 0
     // otherwise           = 0 ==> last_child_returndata_addr' = last_child_returndata_addr
-    #[RD_OFFSET_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_addr' - last_child_returndata_addr) = 0;
+    #[RET_REV_RD_ADDR]
     NOT_LAST_EXEC * NESTED_RET_REV_ONLY * (last_child_returndata_addr' - rop[1]) = 0;
+    #[NEXT_RD_ADDR_IS_ZERO]
     NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_addr' = 0;
+    #[RD_ADDR_IS_ZERO]
+    enqueued_call_start * last_child_returndata_addr = 0;
+    #[PROPAGATE_RD_ADDR]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_addr' - last_child_returndata_addr) = 0;
 
     // NESTED_RET_REV_ONLY = 1 ==> register[0] (intermediate register 1 from execution trace)
-    // sel_error               = 1 ==> last_child_returndata_size' = 0;
-    // sel_enter_call          = 1 ==> last_child_returndata_size' = 0;
-    // otherwise               = 0 ==> last_child_returndata_size' = last_child_returndata_size
-    #[RD_SIZE_OFFSET_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_size' - last_child_returndata_size) = 0;
+    // sel_error           = 1 ==> last_child_returndata_size' = 0;
+    // sel_enter_call      = 1 ==> last_child_returndata_size' = 0;
+    // enqueued_call_start = 1 ==> last_child_returndata_size  = 0; <-- Current row is 0
+    // otherwise           = 0 ==> last_child_returndata_size' = last_child_returndata_size
+    #[RET_REV_RD_SIZE]
     NOT_LAST_EXEC * NESTED_RET_REV_ONLY  * (last_child_returndata_size' - register[0]) = 0;
+    #[NEXT_RD_SIZE_IS_ZERO]
     NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_size' = 0;
+    #[RD_SIZE_IS_ZERO]
+    enqueued_call_start * last_child_returndata_addr = 0;
+    #[PROPAGATE_RD_SIZE]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_size' - last_child_returndata_size) = 0;
+
+    // nested_exit_call    = 1 ==> last_child_id' = context_id;  <-- sel_exit_call includes error case
+    // sel_enter_call      = 1 ==> last_child_id' = 0;
+    // enqueued_call_start = 1 ==> last_child_id = 0; <-- Current row is 0
+    // otherwise           = 0 ==> last_child_id' = last_child_id;
+    #[EXIT_CALL_LAST_CHILD_ID]
+    NOT_LAST_EXEC * nested_exit_call * (last_child_id' - context_id) = 0;
+    #[ENTER_CALL_LAST_CHILD_ID]
+    NOT_LAST_EXEC * sel_enter_call * last_child_id' = 0;
+    #[LAST_CHILD_ID_IS_ZERO]
+    enqueued_call_start * last_child_id = 0;
+    #[PROPAGATE_LAST_CHILD_ID]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_id' - last_child_id) = 0;
 
     // nested_exit_call = 1 ==> l2_gas_limit' = parent_l2_gas_limit
     // sel_enter_call   = 1 ==> constraints come from call logic
@@ -252,6 +313,13 @@ namespace execution;
     #[PARENT_DA_GAS_USED_STORE_ON_ENTER]
     NOT_LAST_EXEC * sel_enter_call * (parent_da_gas_used' - da_gas_used) = 0;
 
+    // The state of the retrieved bytecodes tree should be continuous unless we have finished an enqueued call
+    // The tx trace looks up the tree state at the start and end of an enqueued call
+    #[RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY]
+    sel * (1 - enqueued_call_end) * (retrieved_bytecodes_tree_root - prev_retrieved_bytecodes_tree_root') = 0;
+    #[RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY]
+    sel * (1 - enqueued_call_end) * (retrieved_bytecodes_tree_size - prev_retrieved_bytecodes_tree_size') = 0;
+
     #[CTX_STACK_CALL]
     sel_enter_call {
         next_context_id,
@@ -260,6 +328,7 @@ namespace execution;
         next_pc,
         msg_sender,
         contract_address,
+        bytecode_id,
         is_static,
         parent_calldata_addr,
         parent_calldata_size,
@@ -277,7 +346,8 @@ namespace execution;
         public_data_tree_size,
         written_public_data_slots_tree_root,
         written_public_data_slots_tree_size,
-        num_unencrypted_logs,
+        // Retrieved bytecodes tree is not commited and restored, since it's a tx global state.
+        num_unencrypted_log_fields,
         num_l2_to_l1_messages
     } in
     context_stack.sel {
@@ -287,6 +357,7 @@ namespace execution;
         context_stack.next_pc,
         context_stack.msg_sender,
         context_stack.contract_address,
+        context_stack.bytecode_id,
         context_stack.is_static,
         context_stack.parent_calldata_addr,
         context_stack.parent_calldata_size,
@@ -304,7 +375,7 @@ namespace execution;
         context_stack.public_data_tree_size,
         context_stack.written_public_data_slots_tree_root,
         context_stack.written_public_data_slots_tree_size,
-        context_stack.num_unencrypted_logs,
+        context_stack.num_unencrypted_log_fields,
         context_stack.num_l2_to_l1_messages
     };
 
@@ -322,6 +393,7 @@ namespace execution;
         pc',
         msg_sender',
         contract_address',
+        bytecode_id',
         is_static',
         parent_calldata_addr',
         parent_calldata_size',
@@ -340,7 +412,7 @@ namespace execution;
         prev_public_data_tree_size',
         prev_written_public_data_slots_tree_root',
         prev_written_public_data_slots_tree_size',
-        prev_num_unencrypted_logs',
+        prev_num_unencrypted_log_fields',
         prev_num_l2_to_l1_messages'
     } in
     context_stack.sel {
@@ -350,6 +422,7 @@ namespace execution;
         context_stack.next_pc,
         context_stack.msg_sender,
         context_stack.contract_address,
+        context_stack.bytecode_id,
         context_stack.is_static,
         context_stack.parent_calldata_addr,
         context_stack.parent_calldata_size,
@@ -367,12 +440,12 @@ namespace execution;
         context_stack.public_data_tree_size,
         context_stack.written_public_data_slots_tree_root,
         context_stack.written_public_data_slots_tree_size,
-        context_stack.num_unencrypted_logs,
+        context_stack.num_unencrypted_log_fields,
         context_stack.num_l2_to_l1_messages
     };
 
     pol commit nested_return;
-    nested_return = nested_exit_call * sel_execute_return;
+    nested_return = nested_exit_call * sel_execute_return * (1 - sel_error);
     #[CTX_STACK_RETURN]
     nested_return {
         context_id,
@@ -381,6 +454,7 @@ namespace execution;
         pc',
         msg_sender',
         contract_address',
+        bytecode_id',
         is_static',
         parent_calldata_addr',
         parent_calldata_size',
@@ -397,6 +471,7 @@ namespace execution;
         context_stack.next_pc,
         context_stack.msg_sender,
         context_stack.contract_address,
+        context_stack.bytecode_id,
         context_stack.is_static,
         context_stack.parent_calldata_addr,
         context_stack.parent_calldata_size,
@@ -410,15 +485,12 @@ namespace execution;
 
     // If any error happened during execution (i.e., sel_error=1), all gas should be consumed.
     pol SEL_CONSUMED_ALL_GAS = sel_error;
-    (l2_gas_limit - PREV_GAS_PLUS_USAGE_L2) * SEL_CONSUMED_ALL_GAS + PREV_GAS_PLUS_USAGE_L2 - l2_gas_used = 0;
-    (da_gas_limit - PREV_GAS_PLUS_USAGE_DA) * SEL_CONSUMED_ALL_GAS + PREV_GAS_PLUS_USAGE_DA - da_gas_used = 0;
+    (l2_gas_limit - total_gas_l2) * SEL_CONSUMED_ALL_GAS + total_gas_l2 - l2_gas_used = 0;
+    (da_gas_limit - total_gas_da) * SEL_CONSUMED_ALL_GAS + total_gas_da - da_gas_used = 0;
 
     // nested_exit_call = 1 <==> prev_gas_used' = parent_gas_used + gas_used
     // sel_enter_call   = 1 <==> prev_gas_used' = 0
     // otherwise        = 0 <==> prev_gas_used' = gas_used
-    pol commit prev_l2_gas_used;
-    pol commit prev_da_gas_used;
-
     #[L2_GAS_USED_CONTINUITY]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (l2_gas_used - prev_l2_gas_used') = 0;
     #[L2_GAS_USED_ZERO_AFTER_CALL]
@@ -460,6 +532,6 @@ namespace execution;
     NOT_LAST_EXEC * (l1_l2_tree_root - l1_l2_tree_root') = 0;
 
     #[NUM_UNENCRYPTED_LOGS_CONTINUITY]
-    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (num_unencrypted_logs - prev_num_unencrypted_logs') = 0;
+    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (num_unencrypted_log_fields - prev_num_unencrypted_log_fields') = 0;
     #[NUM_L2_TO_L1_MESSAGES_CONTINUITY]
     NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (num_l2_to_l1_messages - prev_num_l2_to_l1_messages') = 0;

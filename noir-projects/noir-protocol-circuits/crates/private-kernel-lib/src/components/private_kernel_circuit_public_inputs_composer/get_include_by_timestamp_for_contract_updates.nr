@@ -19,6 +19,6 @@ pub fn get_include_by_timestamp_for_contract_updates(private_call: PrivateCallDa
     );
     compute_delayed_public_mutable_time_horizon(
         delayed_public_mutable_values,
-        private_call.public_inputs.historical_header.global_variables.timestamp,
+        private_call.public_inputs.anchor_block_header.global_variables.timestamp,
     )
 }

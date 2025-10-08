@@ -73,7 +73,6 @@ TEST(MerkleCheckTraceGenTest, MerkleRead)
                           ROW_FIELD_EQ(merkle_check_index_is_even, 0), // Odd index
                           ROW_FIELD_EQ(merkle_check_read_left_node, left_node_1),
                           ROW_FIELD_EQ(merkle_check_read_right_node, right_node_1),
-                          ROW_FIELD_EQ(merkle_check_constant_2, 2),
                           ROW_FIELD_EQ(merkle_check_read_output_hash, output_hash_1)),
                     // Second real row
                     AllOf(ROW_FIELD_EQ(merkle_check_sel, 1),
@@ -89,7 +88,6 @@ TEST(MerkleCheckTraceGenTest, MerkleRead)
                           ROW_FIELD_EQ(merkle_check_index_is_even, 1),
                           ROW_FIELD_EQ(merkle_check_read_left_node, left_node_2),
                           ROW_FIELD_EQ(merkle_check_read_right_node, right_node_2),
-                          ROW_FIELD_EQ(merkle_check_constant_2, 2),
                           ROW_FIELD_EQ(merkle_check_read_output_hash, output_hash_2))));
 }
 
@@ -153,7 +151,6 @@ TEST(MerkleCheckTraceGenTest, MerkleWrite)
                           ROW_FIELD_EQ(merkle_check_read_right_node, leaf_value),
                           ROW_FIELD_EQ(merkle_check_write_left_node, sibling_value_1),
                           ROW_FIELD_EQ(merkle_check_write_right_node, new_leaf_value),
-                          ROW_FIELD_EQ(merkle_check_constant_2, 2),
                           ROW_FIELD_EQ(merkle_check_read_output_hash, read_output_hash_1),
                           ROW_FIELD_EQ(merkle_check_write_output_hash, write_output_hash_1)),
                     // Second real row
@@ -174,7 +171,6 @@ TEST(MerkleCheckTraceGenTest, MerkleWrite)
                           ROW_FIELD_EQ(merkle_check_read_right_node, sibling_value_2),
                           ROW_FIELD_EQ(merkle_check_write_left_node, write_output_hash_1),
                           ROW_FIELD_EQ(merkle_check_write_right_node, sibling_value_2),
-                          ROW_FIELD_EQ(merkle_check_constant_2, 2),
                           ROW_FIELD_EQ(merkle_check_read_output_hash, read_output_hash_2),
                           ROW_FIELD_EQ(merkle_check_write_output_hash, write_output_hash_2))));
 }
@@ -230,7 +226,6 @@ TEST(MerkleCheckTraceGenTest, MixedEvents)
                           ROW_FIELD_EQ(merkle_check_index_is_even, 1),
                           ROW_FIELD_EQ(merkle_check_read_left_node, leaf_value_1),
                           ROW_FIELD_EQ(merkle_check_read_right_node, sibling_value_1),
-                          ROW_FIELD_EQ(merkle_check_constant_2, 2),
                           ROW_FIELD_EQ(merkle_check_read_output_hash, output_hash_1)),
                     // Second real row (write)
                     AllOf(ROW_FIELD_EQ(merkle_check_sel, 1),
@@ -250,7 +245,6 @@ TEST(MerkleCheckTraceGenTest, MixedEvents)
                           ROW_FIELD_EQ(merkle_check_read_right_node, leaf_value_2),
                           ROW_FIELD_EQ(merkle_check_write_left_node, sibling_value_2),
                           ROW_FIELD_EQ(merkle_check_write_right_node, new_leaf_value_2),
-                          ROW_FIELD_EQ(merkle_check_constant_2, 2),
                           ROW_FIELD_EQ(merkle_check_read_output_hash, read_output_hash_2),
                           ROW_FIELD_EQ(merkle_check_write_output_hash, write_output_hash_2))));
 }

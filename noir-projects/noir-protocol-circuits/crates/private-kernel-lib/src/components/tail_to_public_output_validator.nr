@@ -61,7 +61,11 @@ impl TailToPublicOutputValidator {
     }
 
     fn validate_propagated_values(self) {
-        assert_eq(self.output.constants, self.previous_kernel.constants, "mismatch constants");
+        assert_eq(
+            self.output.constants,
+            self.previous_kernel.constants.to_tx_constant_data(),
+            "mismatch constants",
+        );
 
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
 
@@ -75,7 +79,7 @@ impl TailToPublicOutputValidator {
         );
         validate_include_by_timestamp_duration(
             include_by_timestamp,
-            self.previous_kernel.constants.historical_header.global_variables,
+            self.previous_kernel.constants.anchor_block_header.global_variables,
         );
         assert_eq(
             self.output.include_by_timestamp,

@@ -79,12 +79,14 @@ export const P2P_GOODBYE_REASON = 'aztec.p2p.goodbye.reason';
 export const PROVING_JOB_TYPE = 'aztec.proving.job_type';
 /** The proving job id */
 export const PROVING_JOB_ID = 'aztec.proving.job_id';
-
+/** Merkle tree name */
 export const MERKLE_TREE_NAME = 'aztec.merkle_tree.name';
 /** The prover-id in a root rollup proof. */
 export const ROLLUP_PROVER_ID = 'aztec.rollup.prover_id';
 /** Whether the proof submission was timed out (delayed more than 20 min) */
 export const PROOF_TIMED_OUT = 'aztec.proof.timed_out';
+/** Status of the validator (eg proposer, in-committee, none) */
+export const VALIDATOR_STATUS = 'aztec.validator_status';
 
 export const P2P_ID = 'aztec.p2p.id';
 export const P2P_REQ_RESP_PROTOCOL = 'aztec.p2p.req_resp.protocol';
@@ -119,3 +121,6 @@ export const NODEJS_EVENT_LOOP_STATE = 'nodejs.eventloop.state';
 export const TOPIC_NAME = 'aztec.gossip.topic_name';
 
 export const TX_COLLECTION_METHOD = 'aztec.tx_collection.method';
+
+/** Scope of L1 transaction (sequencer, prover, or other) */
+export const L1_TX_SCOPE = 'aztec.l1_tx.scope';

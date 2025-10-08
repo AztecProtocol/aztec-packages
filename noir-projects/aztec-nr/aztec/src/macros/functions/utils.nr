@@ -151,7 +151,9 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
 
     let context_finish = quote { context.finish() };
 
+    // A quote to be injected at the beginning of the function body.
     let to_prepend = quote {
+        dep::aztec::oracle::version::assert_compatible_oracle_version();
         $args_hasher
         $context_creation
         $assert_initializer
@@ -286,10 +288,9 @@ pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
     // Create utility context
     let context_creation =
         quote { let mut context = dep::aztec::context::utility_context::UtilityContext::new(); };
-    let module_has_storage = module_has_storage(f.module());
 
     // Initialize Storage if module has storage
-    let storage_init = if module_has_storage {
+    let storage_init = if module_has_storage(f.module()) {
         quote {
             // Some functions don't access storage, but it'd be quite difficult to only inject this variable if it is
             // referenced. We instead ignore 'unused variable' warnings for it.
@@ -305,9 +306,9 @@ pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
     // (`sync_private_state` function gets invoked by PXE::getPrivateEvents function).
     let message_discovery_call = create_message_discovery_call();
 
-    // Inject context creation, storage initialization, and message discovery call at the beginning of the function
-    // body.
+    // A quote to be injected at the beginning of the function body.
     let to_prepend = quote {
+        dep::aztec::oracle::version::assert_compatible_oracle_version();
         $context_creation
         $storage_init
         $message_discovery_call
@@ -375,7 +376,7 @@ pub(crate) comptime fn create_message_discovery_call() -> Quoted {
 ///   if (!from.eq(context.msg_sender())) {
 ///         assert_current_call_valid_authwit::<N>(&mut context, from);
 ///     } else {
-///         assert(authwit_nonce, "Invalid auhtwit nonce. When 'from' and 'msg_sender' are the same, authwit_nonce must be zero");
+///         assert(authwit_nonce, "Invalid authwit nonce. When 'from' and 'msg_sender' are the same, authwit_nonce must be zero");
 ///     }
 /// ```
 /// where `from` and `authwit_nonce` are the names of the parameters that are expected to be present in the function definition.

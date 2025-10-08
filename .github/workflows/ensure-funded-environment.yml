@@ -1,0 +1,127 @@
+# Ensure a single environment has all publisher keys funded
+# This workflow checks and funds publisher keys for a given environment
+name: Ensure Funded Environment
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to fund (e.g., staging-public, next-net, staging-ignition, testnet)'
+        required: true
+        type: string
+      low_watermark:
+        description: 'Minimum ETH balance (default: 0.5)'
+        required: false
+        type: string
+        default: '0.5'
+      high_watermark:
+        description: 'Target ETH balance when funding (default: 1.0)'
+        required: false
+        type: string
+        default: '1.0'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to fund'
+        required: true
+        type: choice
+        options:
+        - staging-public
+        - next-net
+        - staging-ignition
+        - testnet
+      low_watermark:
+        description: 'Minimum ETH balance'
+        required: false
+        type: string
+        default: '0.5'
+      high_watermark:
+        description: 'Target ETH balance when funding'
+        required: false
+        type: string
+        default: '1.0'
+
+concurrency:
+  group: ensure-funded-environment-${{ inputs.environment }}
+  cancel-in-progress: false  # Don't cancel funding operations
+
+jobs:
+  ensure-funded:
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate inputs
+        run: |
+          # Validate environment
+          if [[ ! -f "spartan/environments/${{ inputs.environment }}.env" ]]; then
+            echo "Error: Environment file not found for environment '${{ inputs.environment }}'"
+            echo "Available environments:"
+            ls -1 spartan/environments/ | grep -v '\.local\.env$' || echo "No environment files found"
+            exit 1
+          fi
+
+      - name: Store the GCP key in a file
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          set +x
+          umask 077
+          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
+
+      - name: Setup GCP authentication
+        run: |
+          gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install bc
+        run: sudo apt-get update && sudo apt-get install -y bc
+
+      - name: Fetch secrets from GCP
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          # Fetch the environment-specific secrets
+          FUNDING_PRIVATE_KEY=$(gcloud secrets versions access latest --secret="FUNDING_PRIVATE_KEY" --project="$GCP_PROJECT_ID")
+
+          # Export to environment
+          echo "FUNDING_PRIVATE_KEY=$FUNDING_PRIVATE_KEY" >> $GITHUB_ENV
+
+      - name: Ensure funded environment
+        run: |
+          cd spartan
+
+          # Run the funding script
+          ./bootstrap.sh ensure_funded_environment \
+            "${{ inputs.environment }}" \
+            "$FUNDING_PRIVATE_KEY" \
+            "${{ inputs.low_watermark }}" \
+            "${{ inputs.high_watermark }}"
+
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          if [ -n "${SLACK_BOT_TOKEN}" ]; then
+            read -r -d '' data <<EOF || true
+            {
+              "channel": "#alerts-${{ inputs.environment }}",
+              "text": "Ensure Funded Environment workflow FAILED for *${{ inputs.environment }}*: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
+            }
+          EOF
+            curl -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-type: application/json" \
+              --data "$data"
+          fi

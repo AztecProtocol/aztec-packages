@@ -10,8 +10,7 @@ namespace bb::bbapi {
 
 using Command = NamedUnion<CircuitProve,
                            CircuitComputeVk,
-                           CircuitInfo,
-                           CircuitCheck,
+                           CircuitStats,
                            CircuitVerify,
                            ClientIvcComputeStandaloneVk,
                            ClientIvcComputeIvcVk,
@@ -20,18 +19,14 @@ using Command = NamedUnion<CircuitProve,
                            ClientIvcAccumulate,
                            ClientIvcProve,
                            ClientIvcVerify,
-                           ProofAsFields,
                            VkAsFields,
                            CircuitWriteSolidityVerifier,
-                           CircuitProveAndVerify,
-                           CircuitBenchmark,
                            ClientIvcCheckPrecomputedVk,
-                           ClientIvcGates>;
+                           ClientIvcStats>;
 
 using CommandResponse = NamedUnion<CircuitProve::Response,
                                    CircuitComputeVk::Response,
-                                   CircuitInfo::Response,
-                                   CircuitCheck::Response,
+                                   CircuitStats::Response,
                                    CircuitVerify::Response,
                                    ClientIvcComputeStandaloneVk::Response,
                                    ClientIvcComputeIvcVk::Response,
@@ -40,13 +35,10 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
                                    ClientIvcAccumulate::Response,
                                    ClientIvcProve::Response,
                                    ClientIvcVerify::Response,
-                                   ProofAsFields::Response,
                                    VkAsFields::Response,
                                    CircuitWriteSolidityVerifier::Response,
-                                   CircuitProveAndVerify::Response,
-                                   CircuitBenchmark::Response,
                                    ClientIvcCheckPrecomputedVk::Response,
-                                   ClientIvcGates::Response>;
+                                   ClientIvcStats::Response>;
 
 /**
  * @brief Executes a command by visiting a variant of all possible commands.

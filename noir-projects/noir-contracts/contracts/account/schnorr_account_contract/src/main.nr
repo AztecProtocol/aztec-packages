@@ -10,12 +10,12 @@ pub contract SchnorrAccount {
         authwit::{
             account::AccountActions,
             auth::{compute_authwit_message_hash, compute_authwit_nullifier},
-            entrypoint::{app::AppPayload, fee::FeePayload},
+            entrypoint::app::AppPayload,
         },
         context::PrivateContext,
         hash::compute_siloed_nullifier,
         macros::{functions::{initializer, noinitcheck, private, utility, view}, storage::storage},
-        messages::logs::note::encode_and_encrypt_note,
+        messages::message_delivery::MessageDelivery,
         oracle::{
             auth_witness::get_auth_witness,
             get_nullifier_membership_witness::get_low_nullifier_membership_witness,
@@ -54,10 +54,11 @@ pub contract SchnorrAccount {
 
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(this) };
-        storage.signing_public_key.initialize(pub_key_note).emit(encode_and_encrypt_note(
+        storage.signing_public_key.initialize(pub_key_note).emit(
             &mut context,
             this,
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(original_sender) };
     }
@@ -66,14 +67,14 @@ pub contract SchnorrAccount {
     // using noinitcheck is an optimization, it reduces gates by omitting a check that the contract has been initialized
     #[private]
     #[noinitcheck]
-    fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
+    fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
         // it is safe to set from a constrained context.
         unsafe { set_sender_for_tags(context.this_address()) };
 
         let actions = AccountActions::init(&mut context, is_valid_impl);
-        actions.entrypoint(app_payload, fee_payload, cancellable);
+        actions.entrypoint(app_payload, fee_payment_method, cancellable);
     }
 
     #[private]

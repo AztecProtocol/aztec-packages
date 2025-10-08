@@ -72,11 +72,6 @@ class ECCVMRecursiveFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = ECCVMFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
-    // Instantiate the BarycentricData needed to extend each Relation Univariate
-
-    // define the containers for storing the contributions from each relation in Sumcheck
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
-
     /**
      * @brief A field element for each entity of the flavor.  These entities represent the prover polynomials
      * evaluated at one point.
@@ -96,8 +91,9 @@ class ECCVMRecursiveFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey
-        : public StdlibVerificationKey_<CircuitBuilder, ECCVMFlavor::PrecomputedEntities<Commitment>> {
+    class VerificationKey : public StdlibVerificationKey_<CircuitBuilder,
+                                                          ECCVMFlavor::PrecomputedEntities<Commitment>,
+                                                          VKSerializationMode::NO_METADATA> {
       public:
         VerifierCommitmentKey pcs_verification_key;
 
@@ -125,34 +121,13 @@ class ECCVMRecursiveFlavor {
         }
 
         /**
-         * @brief Serialize verification key to field elements.
-         *
-         * @return std::vector<BF>
-         */
-        std::vector<BF> to_field_elements() const override
-        {
-            using namespace bb::stdlib::field_conversion;
-            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
-                std::vector<FF> input_fields = convert_to_bn254_frs<CircuitBuilder, T>(input);
-                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-            };
-
-            std::vector<FF> elements;
-            for (const Commitment& commitment : this->get_all()) {
-                serialize_to_field_buffer(commitment, elements);
-            }
-
-            return elements;
-        }
-
-        /**
          * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
          *
          * @param domain_separator
          * @param transcript
          */
-        FF add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
-                                  [[maybe_unused]] Transcript& transcript) const override
+        FF hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }

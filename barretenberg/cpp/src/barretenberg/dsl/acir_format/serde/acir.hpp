@@ -2914,6 +2914,7 @@ struct BlackBoxFuncCall {
         std::shared_ptr<std::array<Acir::FunctionInput, 32>> public_key_y;
         std::shared_ptr<std::array<Acir::FunctionInput, 64>> signature;
         std::shared_ptr<std::array<Acir::FunctionInput, 32>> hashed_message;
+        Acir::FunctionInput predicate;
         Acir::Witness output;
 
         friend bool operator==(const EcdsaSecp256k1&, const EcdsaSecp256k1&);
@@ -2922,11 +2923,12 @@ struct BlackBoxFuncCall {
 
         void msgpack_pack(auto& packer) const
         {
-            packer.pack_map(5);
+            packer.pack_map(6);
             packer.pack(std::make_pair("public_key_x", public_key_x));
             packer.pack(std::make_pair("public_key_y", public_key_y));
             packer.pack(std::make_pair("signature", signature));
             packer.pack(std::make_pair("hashed_message", hashed_message));
+            packer.pack(std::make_pair("predicate", predicate));
             packer.pack(std::make_pair("output", output));
         }
 
@@ -2938,6 +2940,7 @@ struct BlackBoxFuncCall {
             Helpers::conv_fld_from_kvmap(kvmap, name, "public_key_y", public_key_y, false);
             Helpers::conv_fld_from_kvmap(kvmap, name, "signature", signature, false);
             Helpers::conv_fld_from_kvmap(kvmap, name, "hashed_message", hashed_message, false);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "predicate", predicate, false);
             Helpers::conv_fld_from_kvmap(kvmap, name, "output", output, false);
         }
     };
@@ -2947,6 +2950,7 @@ struct BlackBoxFuncCall {
         std::shared_ptr<std::array<Acir::FunctionInput, 32>> public_key_y;
         std::shared_ptr<std::array<Acir::FunctionInput, 64>> signature;
         std::shared_ptr<std::array<Acir::FunctionInput, 32>> hashed_message;
+        Acir::FunctionInput predicate;
         Acir::Witness output;
 
         friend bool operator==(const EcdsaSecp256r1&, const EcdsaSecp256r1&);
@@ -2955,11 +2959,12 @@ struct BlackBoxFuncCall {
 
         void msgpack_pack(auto& packer) const
         {
-            packer.pack_map(5);
+            packer.pack_map(6);
             packer.pack(std::make_pair("public_key_x", public_key_x));
             packer.pack(std::make_pair("public_key_y", public_key_y));
             packer.pack(std::make_pair("signature", signature));
             packer.pack(std::make_pair("hashed_message", hashed_message));
+            packer.pack(std::make_pair("predicate", predicate));
             packer.pack(std::make_pair("output", output));
         }
 
@@ -2971,6 +2976,7 @@ struct BlackBoxFuncCall {
             Helpers::conv_fld_from_kvmap(kvmap, name, "public_key_y", public_key_y, false);
             Helpers::conv_fld_from_kvmap(kvmap, name, "signature", signature, false);
             Helpers::conv_fld_from_kvmap(kvmap, name, "hashed_message", hashed_message, false);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "predicate", predicate, false);
             Helpers::conv_fld_from_kvmap(kvmap, name, "output", output, false);
         }
     };
@@ -2978,6 +2984,7 @@ struct BlackBoxFuncCall {
     struct MultiScalarMul {
         std::vector<Acir::FunctionInput> points;
         std::vector<Acir::FunctionInput> scalars;
+        Acir::FunctionInput predicate;
         std::shared_ptr<std::array<Acir::Witness, 3>> outputs;
 
         friend bool operator==(const MultiScalarMul&, const MultiScalarMul&);
@@ -2986,9 +2993,10 @@ struct BlackBoxFuncCall {
 
         void msgpack_pack(auto& packer) const
         {
-            packer.pack_map(3);
+            packer.pack_map(4);
             packer.pack(std::make_pair("points", points));
             packer.pack(std::make_pair("scalars", scalars));
+            packer.pack(std::make_pair("predicate", predicate));
             packer.pack(std::make_pair("outputs", outputs));
         }
 
@@ -2998,6 +3006,7 @@ struct BlackBoxFuncCall {
             auto kvmap = Helpers::make_kvmap(o, name);
             Helpers::conv_fld_from_kvmap(kvmap, name, "points", points, false);
             Helpers::conv_fld_from_kvmap(kvmap, name, "scalars", scalars, false);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "predicate", predicate, false);
             Helpers::conv_fld_from_kvmap(kvmap, name, "outputs", outputs, false);
         }
     };
@@ -3005,6 +3014,7 @@ struct BlackBoxFuncCall {
     struct EmbeddedCurveAdd {
         std::shared_ptr<std::array<Acir::FunctionInput, 3>> input1;
         std::shared_ptr<std::array<Acir::FunctionInput, 3>> input2;
+        Acir::FunctionInput predicate;
         std::shared_ptr<std::array<Acir::Witness, 3>> outputs;
 
         friend bool operator==(const EmbeddedCurveAdd&, const EmbeddedCurveAdd&);
@@ -3013,9 +3023,10 @@ struct BlackBoxFuncCall {
 
         void msgpack_pack(auto& packer) const
         {
-            packer.pack_map(3);
+            packer.pack_map(4);
             packer.pack(std::make_pair("input1", input1));
             packer.pack(std::make_pair("input2", input2));
+            packer.pack(std::make_pair("predicate", predicate));
             packer.pack(std::make_pair("outputs", outputs));
         }
 
@@ -3025,6 +3036,7 @@ struct BlackBoxFuncCall {
             auto kvmap = Helpers::make_kvmap(o, name);
             Helpers::conv_fld_from_kvmap(kvmap, name, "input1", input1, false);
             Helpers::conv_fld_from_kvmap(kvmap, name, "input2", input2, false);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "predicate", predicate, false);
             Helpers::conv_fld_from_kvmap(kvmap, name, "outputs", outputs, false);
         }
     };
@@ -6187,6 +6199,9 @@ inline bool operator==(const BlackBoxFuncCall::EcdsaSecp256k1& lhs, const BlackB
     if (!(lhs.hashed_message == rhs.hashed_message)) {
         return false;
     }
+    if (!(lhs.predicate == rhs.predicate)) {
+        return false;
+    }
     if (!(lhs.output == rhs.output)) {
         return false;
     }
@@ -6221,6 +6236,7 @@ void serde::Serializable<Acir::BlackBoxFuncCall::EcdsaSecp256k1>::serialize(
     serde::Serializable<decltype(obj.public_key_y)>::serialize(obj.public_key_y, serializer);
     serde::Serializable<decltype(obj.signature)>::serialize(obj.signature, serializer);
     serde::Serializable<decltype(obj.hashed_message)>::serialize(obj.hashed_message, serializer);
+    serde::Serializable<decltype(obj.predicate)>::serialize(obj.predicate, serializer);
     serde::Serializable<decltype(obj.output)>::serialize(obj.output, serializer);
 }
 
@@ -6234,6 +6250,7 @@ Acir::BlackBoxFuncCall::EcdsaSecp256k1 serde::Deserializable<Acir::BlackBoxFuncC
     obj.public_key_y = serde::Deserializable<decltype(obj.public_key_y)>::deserialize(deserializer);
     obj.signature = serde::Deserializable<decltype(obj.signature)>::deserialize(deserializer);
     obj.hashed_message = serde::Deserializable<decltype(obj.hashed_message)>::deserialize(deserializer);
+    obj.predicate = serde::Deserializable<decltype(obj.predicate)>::deserialize(deserializer);
     obj.output = serde::Deserializable<decltype(obj.output)>::deserialize(deserializer);
     return obj;
 }
@@ -6252,6 +6269,9 @@ inline bool operator==(const BlackBoxFuncCall::EcdsaSecp256r1& lhs, const BlackB
         return false;
     }
     if (!(lhs.hashed_message == rhs.hashed_message)) {
+        return false;
+    }
+    if (!(lhs.predicate == rhs.predicate)) {
         return false;
     }
     if (!(lhs.output == rhs.output)) {
@@ -6288,6 +6308,7 @@ void serde::Serializable<Acir::BlackBoxFuncCall::EcdsaSecp256r1>::serialize(
     serde::Serializable<decltype(obj.public_key_y)>::serialize(obj.public_key_y, serializer);
     serde::Serializable<decltype(obj.signature)>::serialize(obj.signature, serializer);
     serde::Serializable<decltype(obj.hashed_message)>::serialize(obj.hashed_message, serializer);
+    serde::Serializable<decltype(obj.predicate)>::serialize(obj.predicate, serializer);
     serde::Serializable<decltype(obj.output)>::serialize(obj.output, serializer);
 }
 
@@ -6301,6 +6322,7 @@ Acir::BlackBoxFuncCall::EcdsaSecp256r1 serde::Deserializable<Acir::BlackBoxFuncC
     obj.public_key_y = serde::Deserializable<decltype(obj.public_key_y)>::deserialize(deserializer);
     obj.signature = serde::Deserializable<decltype(obj.signature)>::deserialize(deserializer);
     obj.hashed_message = serde::Deserializable<decltype(obj.hashed_message)>::deserialize(deserializer);
+    obj.predicate = serde::Deserializable<decltype(obj.predicate)>::deserialize(deserializer);
     obj.output = serde::Deserializable<decltype(obj.output)>::deserialize(deserializer);
     return obj;
 }
@@ -6313,6 +6335,9 @@ inline bool operator==(const BlackBoxFuncCall::MultiScalarMul& lhs, const BlackB
         return false;
     }
     if (!(lhs.scalars == rhs.scalars)) {
+        return false;
+    }
+    if (!(lhs.predicate == rhs.predicate)) {
         return false;
     }
     if (!(lhs.outputs == rhs.outputs)) {
@@ -6347,6 +6372,7 @@ void serde::Serializable<Acir::BlackBoxFuncCall::MultiScalarMul>::serialize(
 {
     serde::Serializable<decltype(obj.points)>::serialize(obj.points, serializer);
     serde::Serializable<decltype(obj.scalars)>::serialize(obj.scalars, serializer);
+    serde::Serializable<decltype(obj.predicate)>::serialize(obj.predicate, serializer);
     serde::Serializable<decltype(obj.outputs)>::serialize(obj.outputs, serializer);
 }
 
@@ -6358,6 +6384,7 @@ Acir::BlackBoxFuncCall::MultiScalarMul serde::Deserializable<Acir::BlackBoxFuncC
     Acir::BlackBoxFuncCall::MultiScalarMul obj;
     obj.points = serde::Deserializable<decltype(obj.points)>::deserialize(deserializer);
     obj.scalars = serde::Deserializable<decltype(obj.scalars)>::deserialize(deserializer);
+    obj.predicate = serde::Deserializable<decltype(obj.predicate)>::deserialize(deserializer);
     obj.outputs = serde::Deserializable<decltype(obj.outputs)>::deserialize(deserializer);
     return obj;
 }
@@ -6370,6 +6397,9 @@ inline bool operator==(const BlackBoxFuncCall::EmbeddedCurveAdd& lhs, const Blac
         return false;
     }
     if (!(lhs.input2 == rhs.input2)) {
+        return false;
+    }
+    if (!(lhs.predicate == rhs.predicate)) {
         return false;
     }
     if (!(lhs.outputs == rhs.outputs)) {
@@ -6405,6 +6435,7 @@ void serde::Serializable<Acir::BlackBoxFuncCall::EmbeddedCurveAdd>::serialize(
 {
     serde::Serializable<decltype(obj.input1)>::serialize(obj.input1, serializer);
     serde::Serializable<decltype(obj.input2)>::serialize(obj.input2, serializer);
+    serde::Serializable<decltype(obj.predicate)>::serialize(obj.predicate, serializer);
     serde::Serializable<decltype(obj.outputs)>::serialize(obj.outputs, serializer);
 }
 
@@ -6416,6 +6447,7 @@ Acir::BlackBoxFuncCall::EmbeddedCurveAdd serde::Deserializable<Acir::BlackBoxFun
     Acir::BlackBoxFuncCall::EmbeddedCurveAdd obj;
     obj.input1 = serde::Deserializable<decltype(obj.input1)>::deserialize(deserializer);
     obj.input2 = serde::Deserializable<decltype(obj.input2)>::deserialize(deserializer);
+    obj.predicate = serde::Deserializable<decltype(obj.predicate)>::deserialize(deserializer);
     obj.outputs = serde::Deserializable<decltype(obj.outputs)>::deserialize(deserializer);
     return obj;
 }

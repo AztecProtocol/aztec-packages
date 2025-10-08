@@ -1,0 +1,453 @@
+include "gt.pil";
+include "constants_gen.pil";
+include "sha256.pil";
+include "execution.pil";
+
+/**
+ * This handles the memory accesses for the SHA256Compression opcode and is virtual to the sha256_compression subtrace.
+ * The sha256 compression is computed across 65 rows (64 rounds + 1 final output row). Each row represents
+ * a round of sha256 compression, where the input[i] is used for the i-th round. The 1st row contains the previous hash state
+ * that is read from memory. The 65th row contains the output hash state that will be written to memory.
+ *
+ * USAGE - Permutation
+ * sel_execute_sha256_compression { clk, space_id, output_addr, state_addr, input_addr, err }
+ * is
+ * sha256.start { sha256.execution_clk, sha256.space_id, sha256.output_addr, sha256.state_addr, sha256.input_addr, sha256.err };
+ *
+ * This trace reads and writes the following:
+ * (1) Read State: From { state_addr, state_addr + 1, ..., state_addr + 7 }
+ * (2) Read Input: From { input_addr, input_addr + 1, ..., input_addr + 15 }
+ * (3) Write Output: From { output_addr, output_addr + 1, ..., output_addr + 7 }
+ * All values operated on in this subtrace are validated to be U32.
+ * This subtrace has a mix of a vertical and horizontal memory accesses.
+ * The State and Outputs are written horizontally (i.e. there are 8 columns), this means that
+ * they are loaded in "parallel" and therefore they form their own temporality groups (for the purpose of any errors)
+ * The Input is "mixed" into the hash at each round (from round 1 to 16), this means the inputs are loaded in a single column and the i-th input
+ * is loaded in the i-th row of computation. Therefore, a single load is a temporality group (for the purpose of errors).
+ *
+ * Opcode operands (relevant in EXECUTION when interacting with this gadget):
+ * - rop[0]: output_addr
+ * - rop[1]: state_addr
+ * - rop[2]: input_addr
+ *
+ * Memory I/O, all operations are slice reads or writes:
+ * - M[rop[0]]: M[output_addr] aka output[0] (the first value of the hash output array)
+ *     - guaranteed by this gadget to be U32.
+ * - M[rop[0] + 7]: M[output_addr + 7] aka output[7] (the last value of the hash output array)
+ *     - guaranteed by this gadget to be U32
+ * - M[rop[1]]: M[state_addr] aka state[0] (the first value of the hash state array)
+ *     - guaranteed by this gadget to be U32
+ * - M[rop[1] + 7]: M[state_addr + 7] aka state[7] (the last value of the hash state array)
+ *     - guaranteed by this gadget to be U32
+ * - M[rop[2]]: M[input_addr] aka input[0] (the first value of the hash input array)
+ *     - guaranteed by this gadget to be U32.
+ * - M[rop[2] + 15]: M[input_addr + 15] aka input[15] (the last value of the hash input array)
+ *     - guaranteed by this gadget to be U32
+*
+ * ERROR HANDLING:
+ * Three errors need to be handled as part of this trace:
+ * (1) OUTPUT_OUT_OF_BOUNDS_ACCESS: If the reads or writes would access a memory address outside
+ *     of the max AVM memory address (AVM_HIGHEST_MEM_ADDRESS). This utilises the gt gadget
+ *     to compare the max value of each read/write slice against AVM_HIGHEST_MEM_ADDRESS.
+ * (2) INVALID_STATE_READ_TAG: If any of the state values retrieved from memory are NOT U32.
+ *     This utilises the batched zero check method (https://hackmd.io/moq6viBpRJeLpWrHAogCZw#Batching-comparison-of-n-bit-numbers)
+ * (3) INVALID_INPUT_READ_TAG: If any of the input values retrieved from memory are NOT U32.
+ *     Saee table below for how this is propagated
+ *
+ * These form the error temporality groups for Sha256 Compression
+ *
+ * EXAMPLE TRACE OVERVIEW
+ * Notes:
+ * (1) clk, space id and output addr are propagated down all rows (so they can be accessed when writing)
+ * (2) The values of mem_addr, mem_tag and registers depends on if we are at the start or end of the computation
+ * (3) Input addr is incremented for the first 16 rows
+ * +-------------------------------------------------+----------------------------------------------------------------------------------------------------+--------------------------------------------+--------------------------------+
+ * |       Operands and helper columns               | State Memory Columns : Reads inital state from state_addr, and writes output state to output_addr  | Input Loader: Loads 16 elements vertically | SHA256 COMPRESSION COMPUTATION |
+ * +-------------------------------------------------+----------------------------------------------------------------------------------------------------+--------------------------------------------+--------------------------------+
+ * | row | clk | space id | state addr | output addr | mem addr[0] | ... | mem_addr[7]    | mem tags[8] | register[0]         | ... |     register[7]     |    input addr   | input tag | input value  |                                |
+ * +-----+-----+----------+------------+-------------+-------------+-----+----------------+-------------+---------------------+-----+---------------------+-----------------+-----------+--------------+--------------------------------+
+ * |  1  |  2  |     1    | 0xdeadbeef |  0xc0ffee   | 0xdeadbeef  | ... | 0xdeadbeef + 7 |    U32      | sha256_init_a[0]    | ... | sha256_init_h[7]    | 0xdecafbad      |   U32     |     456      |                                |
+ * |  2  |  2  |     1    |     0      |  0xc0ffee   |     0       | ... |     0          |     0       |         0           | ... |         0           | 0xdecafbad + 1  |   U32     |     789      |                                |
+ * | ... | ... |    ...   |     0      |    ...      |    ...      | ... |    ...         |    ...      |        ...          | ... |        ...          |      ...        |   ...     |     ...      |       See sha256.pil           |
+ * | 16  |  2  |     1    |     0      |  0xc0ffee   |     0       | ... |    ...         |    ...      |        ...          | ... |        ...          | 0xdecafbad + 15 |   U32     |     123      |                                |
+ * | ... | ... |    ...   |     0      |    ...      |    ...      | ... |    ...         |    ...      |        ...          | ... |        ...          |       0         |   ...     |     ...      |                                |
+ * | 65  |  2  |     1    |     0      |  0xc0ffee   |  0xc0ffee   | ... |  0xc0ffee + 7  |    U32      | sha256_output_a[0]  | ... | sha256_output_h[7]  |       0         |    0      |      0       |                                |
+ * +-----+-----+----------+------------+-------------+-------------+-----+----------------+-------------+---------------------+-----+--------------------++-----------------+-----------+--------------+--------------------------------+
+ *
+ * EXAMPLE INVALID TAG ERROR PROPAGATION
+ * Shows how the input tag error is propagated back to the starting row from the row with the invalid tag input
+ * Notes:
+ * (1) err flag has to be toggled on for all rows to unconstrain the actual SHA256 Compression computation
+ * +-----+--------------+---------------+-------------------+-----------------+-------+------------------------+-------------------------+-------------------------+--------+
+ * | row | state addr   |  output addr  |   input addr      |  input mem tag  |  err  |  Mem Out of Range Err  |  Invalid Input Tag Err  |  Invalid Input Tag Row  |  latch |
+ * +-----+--------------+---------------+-------------------+-----------------+-------+------------------------+-------------------------+-------------------------+--------+
+ * | 1   |  0xdeadbeef  |  0xc0ffee     |   0xdecafbad      |     U32         |    1  |             0          |                1        |             0           |    0   | <-- Tag Error Propagated to top
+ * | 2   |  0xdeadbeef  |  0xc0ffee     |   0xdecafbad + 1  |     U32         |    1  |             0          |                1        |             0           |    0   |
+ * | 3   |  0xdeadbeef  |  0xc0ffee     |   0xdecafbad + 2  |     U32         |    1  |             0          |                1        |             0           |    0   |
+ * | 4   |  0xdeadbeef  |  0xc0ffee     |   0xdecafbad + 3  |     U8          |    1  |             0          |                1        |             1           |    1   | <-- latch only on row error
+ * +-----+--------------+---------------+-------------------+-----------------+-------+------------------------+-------------------------+-------------------------+--------+
+ *
+ */
+
+namespace sha256;
+
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    #[skippable_if]
+    sel = 0;
+
+    // Inputs
+    pol commit execution_clk;
+    pol commit space_id;
+    pol commit output_addr;
+    pol commit state_addr;
+    pol commit input_addr;
+
+    ////////////////////////////////////////////////
+    // Control flow
+    ////////////////////////////////////////////////
+    pol commit start;
+    start * (1 - sel) = 0;
+
+    // Selector to indicate end of this chunk of sha256
+    pol commit latch;
+    latch * (1 - latch) = 0;
+
+    #[LATCH_HAS_SEL_ON] // sel = 1 when latch = 1, sel = 0 at first row because of shift relations
+    latch * (1 - sel) = 0;
+    // This is now guaranteed to be mututally exclusive because of the above condition and since sel = 0 at row = 0 (since it has shifts)
+    pol LATCH_CONDITION = latch + precomputed.first_row;
+
+    #[START_AFTER_LAST]
+    sel' * (start' - LATCH_CONDITION) = 0;
+    pol NOT_LAST = sel * (1 - LATCH_CONDITION);
+
+    // We match the lookup on start, and start implies sel
+    // we then force sel = 1 on all subsequent rows unless we hit a LATCH_CONDITION
+    #[CONTINUITY_SEL] // Propagate sel
+    (1 - LATCH_CONDITION) * (sel' - sel) = 0;
+    #[CONTINUITY_EXEC_CLK] // Propagate exec clk
+    (1 - LATCH_CONDITION) * (execution_clk' - execution_clk) = 0;
+    #[CONTINUITY_SPACE_ID] // Propagate space id down
+    (1 - LATCH_CONDITION) * (space_id' - space_id) = 0;
+    #[CONTINUITY_OUTPUT_ADDR] // Propagate output addr down
+    (1 - LATCH_CONDITION) * (output_addr' - output_addr) = 0;
+
+    ////////////////////////////////////////////////
+    // Error Handling - Out of Range Memory Access
+    ////////////////////////////////////////////////
+    pol commit sel_state_out_of_range_err;
+    pol commit sel_input_out_of_range_err;
+    pol commit sel_output_out_of_range_err;
+
+    // Use the comparison gadget to check that the max addresses are within range.
+    // The comparison gadget provides the ability to test GreaterThan so we check
+    // (1) state_addr + 7 > max_mem_addr
+    // (2) input_addr + 15 > max_mem_addr
+    // (3) output_addr + 7 > max_mem_addr
+    pol commit max_mem_addr; // todo: While we do not support constants
+    start * (max_mem_addr - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
+
+    pol commit max_state_addr;
+    max_state_addr = start * (state_addr + 7); // We read 8 elements for the state
+    #[CHECK_STATE_ADDR_IN_RANGE]
+    start { max_state_addr, max_mem_addr, sel_state_out_of_range_err }
+    in
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
+
+    pol commit max_input_addr;
+    max_input_addr = start * (input_addr + 15); // We read 16 elements for inputs
+    #[CHECK_INPUT_ADDR_IN_RANGE]
+    start { max_input_addr, max_mem_addr, sel_input_out_of_range_err }
+    in
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
+
+    pol commit max_output_addr;
+    max_output_addr = start * (output_addr + 7); // We write 8 elements for the output
+    #[CHECK_OUTPUT_ADDR_IN_RANGE]
+    start { max_output_addr, max_mem_addr, sel_output_out_of_range_err }
+    in
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
+
+    pol commit mem_out_of_range_err;
+    mem_out_of_range_err = 1 - (1 - sel_state_out_of_range_err) * (1 - sel_input_out_of_range_err) * (1 - sel_output_out_of_range_err);
+
+    ////////////////////////////////////////////////////////
+    // Memory Operations: State and Output
+    ////////////////////////////////////////////////////////
+    // Since reading the hash state and writing the hash outputs have similar "shapes" (i.e. 8 columns)
+    // and occur at different "times" (the start and end (latch) respectively), we define a set of
+    // shared columns that we can re-use between the two. This saves us ~24 columns and 8 permutations.
+
+    pol commit memory_address[8]; // Addresses to read from or write to
+    pol commit memory_register[8]; // These will be used by state and output values
+    pol commit memory_tag[8]; // Memory Tag loaded from memory
+    pol commit u32_tag; // todo: While no constants in lookup
+    u32_tag = sel * constants.MEM_TAG_U32;
+
+    // When this selector is on, the memory columns are active
+    pol commit sel_mem_state_or_output;
+    // Activate the memory columns if
+    // (1) start && (1 - mem_out_of_range_err)
+    // (2) last && (1 - err), this uses err as it needs to capture later errors as well (i.e. mem tags or loading inputs)
+    pol STATE_READ_CONDITION = start * (1 - mem_out_of_range_err);
+    pol OUTPUT_WRITE_CONDITION = latch * (1 - err);
+
+    // We activate these memory columns if the start or last conditions are met. Note that the two
+    // conditions are mutually exclusive due to the presence of (1 - err) in OUTPUT_WRITE_CONDITION since
+    // start && latch = 1 only during an error (since errors imply latch)
+    #[START_OR_LAST_MEM]
+    sel_mem_state_or_output = STATE_READ_CONDITION + OUTPUT_WRITE_CONDITION;
+
+    // Mem address depends on whether we are reading or writing
+    pol MEM_ADDR = STATE_READ_CONDITION * state_addr + OUTPUT_WRITE_CONDITION * output_addr;
+    sel_mem_state_or_output * (memory_address[0] - (MEM_ADDR + 0)) = 0;
+    sel_mem_state_or_output * (memory_address[1] - (MEM_ADDR + 1)) = 0;
+    sel_mem_state_or_output * (memory_address[2] - (MEM_ADDR + 2)) = 0;
+    sel_mem_state_or_output * (memory_address[3] - (MEM_ADDR + 3)) = 0;
+    sel_mem_state_or_output * (memory_address[4] - (MEM_ADDR + 4)) = 0;
+    sel_mem_state_or_output * (memory_address[5] - (MEM_ADDR + 5)) = 0;
+    sel_mem_state_or_output * (memory_address[6] - (MEM_ADDR + 6)) = 0;
+    sel_mem_state_or_output * (memory_address[7] - (MEM_ADDR + 7)) = 0;
+
+    // todo(ilyas): might be a way to get the sha256 compression trace to operate directly on memory_registers
+    //              this is an optimisation
+    // If we are at the start, the init_x values of the sha256 compression trace is populated by these registers
+    // If we are at the end, the output_x_rhs values of the sha256 compression trace populate these registers
+    sel_mem_state_or_output * (STATE_READ_CONDITION * (memory_register[0] - init_a) + OUTPUT_WRITE_CONDITION * (memory_register[0] - output_a_rhs)) = 0;
+    sel_mem_state_or_output * (STATE_READ_CONDITION * (memory_register[1] - init_b) + OUTPUT_WRITE_CONDITION * (memory_register[1] - output_b_rhs)) = 0;
+    sel_mem_state_or_output * (STATE_READ_CONDITION * (memory_register[2] - init_c) + OUTPUT_WRITE_CONDITION * (memory_register[2] - output_c_rhs)) = 0;
+    sel_mem_state_or_output * (STATE_READ_CONDITION * (memory_register[3] - init_d) + OUTPUT_WRITE_CONDITION * (memory_register[3] - output_d_rhs)) = 0;
+    sel_mem_state_or_output * (STATE_READ_CONDITION * (memory_register[4] - init_e) + OUTPUT_WRITE_CONDITION * (memory_register[4] - output_e_rhs)) = 0;
+    sel_mem_state_or_output * (STATE_READ_CONDITION * (memory_register[5] - init_f) + OUTPUT_WRITE_CONDITION * (memory_register[5] - output_f_rhs)) = 0;
+    sel_mem_state_or_output * (STATE_READ_CONDITION * (memory_register[6] - init_g) + OUTPUT_WRITE_CONDITION * (memory_register[6] - output_g_rhs)) = 0;
+    sel_mem_state_or_output * (STATE_READ_CONDITION * (memory_register[7] - init_h) + OUTPUT_WRITE_CONDITION * (memory_register[7] - output_h_rhs)) = 0;
+
+
+    // Cannot just rely on latch. If we error after reading the state, latch will be 1 and start will be 1
+    // This will cause the reads to be interpreted as writes in the memory permutations below. We define a rw
+    // flag that accounts for this
+    pol commit rw;
+    rw = OUTPUT_WRITE_CONDITION;
+    #[MEM_OP_0]
+    sel_mem_state_or_output {
+        execution_clk,       space_id,
+        memory_address[0],   memory_register[0],
+        memory_tag[0],       /*rw=*/ rw
+    } is
+    memory.sel_sha256_op[0] {
+        memory.clk,      memory.space_id,
+        memory.address,  memory.value,
+        memory.tag,      memory.rw
+    };
+
+    #[MEM_OP_1]
+    sel_mem_state_or_output {
+        execution_clk,       space_id,
+        memory_address[1],   memory_register[1],
+        memory_tag[1],       /*rw=*/ rw
+    } is
+    memory.sel_sha256_op[1] {
+        memory.clk,      memory.space_id,
+        memory.address,  memory.value,
+        memory.tag,      memory.rw
+    };
+
+    #[MEM_OP_2]
+    sel_mem_state_or_output {
+        execution_clk,       space_id,
+        memory_address[2],   memory_register[2],
+        memory_tag[2],       /*rw=*/ rw
+    } is
+    memory.sel_sha256_op[2] {
+        memory.clk,      memory.space_id,
+        memory.address,  memory.value,
+        memory.tag,      memory.rw
+    };
+
+    #[MEM_OP_3]
+    sel_mem_state_or_output {
+        execution_clk,       space_id,
+        memory_address[3],   memory_register[3],
+        memory_tag[3],       /*rw=*/ rw
+    } is
+    memory.sel_sha256_op[3] {
+        memory.clk,      memory.space_id,
+        memory.address,  memory.value,
+        memory.tag,      memory.rw
+    };
+
+    #[MEM_OP_4]
+    sel_mem_state_or_output {
+        execution_clk,       space_id,
+        memory_address[4],   memory_register[4],
+        memory_tag[4],       /*rw=*/ rw
+    } is
+    memory.sel_sha256_op[4] {
+        memory.clk,      memory.space_id,
+        memory.address,  memory.value,
+        memory.tag,      memory.rw
+    };
+
+    #[MEM_OP_5]
+    sel_mem_state_or_output {
+        execution_clk,       space_id,
+        memory_address[5],   memory_register[5],
+        memory_tag[5],       /*rw=*/ rw
+    } is
+    memory.sel_sha256_op[5] {
+        memory.clk,      memory.space_id,
+        memory.address,  memory.value,
+        memory.tag,      memory.rw
+    };
+
+    #[MEM_OP_6]
+    sel_mem_state_or_output {
+        execution_clk,       space_id,
+        memory_address[6],   memory_register[6],
+        memory_tag[6],       /*rw=*/ rw
+    } is
+    memory.sel_sha256_op[6] {
+        memory.clk,      memory.space_id,
+        memory.address,  memory.value,
+        memory.tag,      memory.rw
+    };
+
+    #[MEM_OP_7]
+    sel_mem_state_or_output {
+        execution_clk,       space_id,
+        memory_address[7],   memory_register[7],
+        memory_tag[7],       /*rw=*/ rw
+    } is
+    memory.sel_sha256_op[7] {
+        memory.clk,      memory.space_id,
+        memory.address,  memory.value,
+        memory.tag,      memory.rw
+    };
+
+    ////////////////////////////////////////////////
+    // Error Handling - Invalid State Tag (not U32)
+    ////////////////////////////////////////////////
+    pol commit sel_invalid_state_tag_err;
+    sel_invalid_state_tag_err * (1 - sel_invalid_state_tag_err) = 0;
+
+    pol STATE_TAG_DIFF_0 = memory_tag[0] - constants.MEM_TAG_U32;
+    pol STATE_TAG_DIFF_1 = memory_tag[1] - constants.MEM_TAG_U32;
+    pol STATE_TAG_DIFF_2 = memory_tag[2] - constants.MEM_TAG_U32;
+    pol STATE_TAG_DIFF_3 = memory_tag[3] - constants.MEM_TAG_U32;
+    pol STATE_TAG_DIFF_4 = memory_tag[4] - constants.MEM_TAG_U32;
+    pol STATE_TAG_DIFF_5 = memory_tag[5] - constants.MEM_TAG_U32;
+    pol STATE_TAG_DIFF_6 = memory_tag[6] - constants.MEM_TAG_U32;
+    pol STATE_TAG_DIFF_7 = memory_tag[7] - constants.MEM_TAG_U32;
+
+    pol BATCHED_TAG_CHECK = 2**0 * STATE_TAG_DIFF_0 + 2**3 * STATE_TAG_DIFF_1
+                          + 2**6 * STATE_TAG_DIFF_2 + 2**9 * STATE_TAG_DIFF_3
+                          + 2**12 * STATE_TAG_DIFF_4 + 2**15 * STATE_TAG_DIFF_5
+                          + 2**18 * STATE_TAG_DIFF_6 + 2**21 * STATE_TAG_DIFF_7;
+
+    pol commit batch_tag_inv;
+    #[BATCH_ZERO_CHECK_READ]
+    (STATE_READ_CONDITION * BATCHED_TAG_CHECK) * ((1 - sel_invalid_state_tag_err) * (1 - batch_tag_inv) + batch_tag_inv) - sel_invalid_state_tag_err = 0;
+
+    // When writing, we need to force that the BATCHED_TAG_CHECK is zero, i.e. it is unsatisfiable for any of the tags to be != U32
+    #[BATCH_ENFORCE_ZERO_WRITE]
+    OUTPUT_WRITE_CONDITION * BATCHED_TAG_CHECK = 0;
+
+    ////////////////////////////////////////////////////////
+    // Memory Operation: Loading (16) Round Inputs
+    ////////////////////////////////////////////////////////
+    // The 16 hash inputs are mixed into the first 16 rounds of the sha256 compression
+    pol commit sel_is_input_round; // Selector to indicate that this is an input round
+    sel_is_input_round * (1 - sel_is_input_round) = 0;
+    // Constraining sel_is_input_round
+    // (1) At start, sel_is_input_round = 1
+    // (2) If input_rounds_rem = 1, then we are at last round of the inputs and sel_is_input_round' = 0;
+    //     However, if we error here - we ignore the constraint
+    //     If input_rounds_rem = 0, sel_is_input_round = 0
+    // (3) Otherwise propagate sel_is_input_round value to the next row. Note that if sel_is_input_round = 0
+    //     then sel_is_input_round' = 0 based on this relation
+    #[SEL_IS_INPUT_ROUND_START_COND]
+    start * (sel_is_input_round - 1) = 0;
+    pol commit input_rounds_rem_inv;
+    #[SEL_IS_INPUT_END]
+    (1 - LATCH_CONDITION) * (input_rounds_rem * ((1 - sel_is_input_round) * (1 - input_rounds_rem_inv) + input_rounds_rem_inv) - sel_is_input_round) = 0;
+    #[SEL_IS_INPUT_PROPAGATE]
+    (1 - LATCH_CONDITION) * (1 - sel_is_input_round) * sel_is_input_round' = 0;
+
+    // Input Round Remaining, starting value is 16
+    pol commit input_rounds_rem;
+    #[INPUT_ROUND_CTR_START_COND]
+    start * (input_rounds_rem - 16) = 0;
+    // Decrement the counter if we are in an input round row
+    #[INPUT_ROUND_CTR_DECR_COND]
+    sel * (1 - LATCH_CONDITION) * (input_rounds_rem' - (input_rounds_rem - sel_is_input_round)) = 0;
+
+    // Read input if we have not had an error from the previous temporality groups and this is an input round
+    pol commit sel_read_input_from_memory;
+    sel_read_input_from_memory = sel * (1 - mem_out_of_range_err) * sel_is_input_round * (1 - sel_invalid_state_tag_err);
+
+    // Put the result of the input loads in to the corresponding w value
+    // The w values contain the message schedule of the sha256 compression function
+    // The first 16 values correspond to the 16 input values loaded here.
+    pol commit input;
+    sel_is_input_round * (input - w) = 0;
+    pol commit input_tag;
+
+    #[MEM_INPUT_READ]
+    sel_read_input_from_memory {
+        execution_clk,       space_id,
+        input_addr,          input,
+        input_tag,           /*rw=*/ precomputed.zero
+    } is
+    memory.sel_sha256_read {
+        memory.clk,      memory.space_id,
+        memory.address,  memory.value,
+        memory.tag,      memory.rw
+    };
+
+    ////////////////////////////////////////////////
+    // Error Handling - Invalid Input Tag (not FF)
+    ////////////////////////////////////////////////
+    // This is 1 if any of the inputs loads fail, this is propagated from the row that errored back to the start row
+    pol commit sel_invalid_input_tag_err;
+    sel_invalid_input_tag_err * (1 - sel_invalid_input_tag_err) = 0;
+
+    // This is 1 on the specific input load that produced an error
+    pol commit sel_invalid_input_row_tag_err;
+    sel_invalid_input_row_tag_err * (1 - sel_invalid_input_row_tag_err) = 0;
+
+    pol INPUT_TAG_DIFF = sel_read_input_from_memory * (input_tag - constants.MEM_TAG_U32);
+    pol commit input_tag_diff_inv;
+    // Iff INPUT_TAG_DIFF != 0, sel_invalid_input_row_tag_err = 1
+    #[INPUT_TAG_DIFF_CHECK]
+    INPUT_TAG_DIFF * ((1 - sel_invalid_input_row_tag_err) * (1 - input_tag_diff_inv) + input_tag_diff_inv) - sel_invalid_input_row_tag_err = 0;
+
+    // We latch on rows that have a memory error, state tag error or the row that has an invalid input tag error
+    // We cannot simply latch on error because we do not want to latch on the propagated sel_invalid_input_tag_err
+    pol LATCH_ON_ERROR = 1 - (1 - mem_out_of_range_err) * (1 - sel_invalid_state_tag_err) * (1 - sel_invalid_input_row_tag_err);
+    sel * LATCH_ON_ERROR * (latch - 1) = 0;
+
+    // Based on the above, if sel_invalid_input_row_tag_err = 1, LATCH_CONDITION = 1.
+    // If we latched BECAUSE sel_invalid_input_row_tag_err = 1, we set the propagated sel_invalid_input_tag_err = 1
+    #[TAG_ERROR_INIT]
+    LATCH_CONDITION * (sel_invalid_input_tag_err - sel_invalid_input_row_tag_err) = 0;
+
+    // Propagate the value of sel_invalid_input_tag_err "up". When combined with #[TAG_ERROR_INIT], this effectively "lifts"
+    // the row tag error to the starting row so we can return the error flag
+    #[TAG_ERROR_PROPAGATION]
+    (1 - LATCH_CONDITION) * (sel_invalid_input_tag_err - sel_invalid_input_tag_err') = 0;
+
+    // The consolidated error flag is returned to the execution trace
+    // This error flag encompasses mem_out_of_range_err, invalid state tag err and the invalid input tag err, the invalid row tag err is excluded as it implies the propagated tag err
+    pol commit err;
+    err = 1 - (1 - mem_out_of_range_err) * (1 - sel_invalid_state_tag_err) * (1 - sel_invalid_input_tag_err);
+
+    ////////////////////////////////////////////////
+    // Dispatch Permutation
+    ////////////////////////////////////////////////
+    #[DISPATCH_SHA256]
+    execution.sel_execute_sha256_compression { precomputed.clk, execution.context_id, execution.rop[0], execution.rop[1], execution.rop[2], execution.sel_opcode_error }
+    is
+    start { execution_clk, space_id, output_addr, state_addr, input_addr, err };
+

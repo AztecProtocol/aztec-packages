@@ -123,9 +123,7 @@ uint256_t read_uint256(const uint8_t* data, size_t buffer_size = 32)
  */
 template <typename T>
 concept SimpleRng = requires(T a) {
-    {
-        a.next()
-    } -> std::convertible_to<uint32_t>;
+    { a.next() } -> std::convertible_to<uint32_t>;
 };
 /**
  * @brief Concept for forcing ArgumentSizes to be size_t
@@ -189,9 +187,7 @@ concept ArithmeticFuzzHelperConstraint = requires {
  */
 template <typename T>
 concept CheckableComposer = requires(T a) {
-    {
-        bb::CircuitChecker::check(a)
-    } -> std::same_as<bool>;
+    { bb::CircuitChecker::check(a) } -> std::same_as<bool>;
 };
 
 /**
@@ -203,9 +199,7 @@ concept CheckableComposer = requires(T a) {
  */
 template <typename T, typename Composer, typename Context>
 concept PostProcessingEnabled = requires(Composer composer, Context context) {
-    {
-        T::postProcess(&composer, context)
-    } -> std::same_as<bool>;
+    { T::postProcess(&composer, context) } -> std::same_as<bool>;
 };
 
 /**

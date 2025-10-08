@@ -80,16 +80,13 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     Polynomial A_0 = polynomial_batcher.compute_batched(rho, running_scalar);
 
     // Construct the d-1 Gemini foldings of A₀(X)
-    std::vector<Polynomial> fold_polynomials = compute_fold_polynomials(log_n, multilinear_challenge, A_0);
+    std::vector<Polynomial> fold_polynomials = compute_fold_polynomials(log_n, multilinear_challenge, A_0, has_zk);
 
     // If virtual_log_n >= log_n, pad the fold commitments with dummy group elements [1]_1.
     for (size_t l = 0; l < virtual_log_n - 1; l++) {
         std::string label = "Gemini:FOLD_" + std::to_string(l + 1);
-        if (l < log_n - 1) {
-            transcript->send_to_verifier(label, commitment_key.commit(fold_polynomials[l]));
-        } else {
-            transcript->send_to_verifier(label, Commitment::one());
-        }
+        // When has_zk is true, we are sending commitments to 0. Seems to work, but maybe brittle.
+        transcript->send_to_verifier(label, commitment_key.commit(fold_polynomials[l]));
     }
     const Fr r_challenge = transcript->template get_challenge<Fr>("Gemini:r");
 
@@ -106,16 +103,11 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     auto [A_0_pos, A_0_neg] = polynomial_batcher.compute_partially_evaluated_batch_polynomials(r_challenge);
     // Construct claims for the d + 1 univariate evaluations A₀₊(r), A₀₋(-r), and Foldₗ(−r^{2ˡ}), l = 1, ..., d-1
     std::vector<Claim> claims = construct_univariate_opening_claims(
-        log_n, std::move(A_0_pos), std::move(A_0_neg), std::move(fold_polynomials), r_challenge);
+        virtual_log_n, std::move(A_0_pos), std::move(A_0_neg), std::move(fold_polynomials), r_challenge);
 
-    // If virtual_log_n >= log_n, pad the negative fold evaluations with zeroes.
     for (size_t l = 1; l <= virtual_log_n; l++) {
         std::string label = "Gemini:a_" + std::to_string(l);
-        if (l <= log_n) {
-            transcript->send_to_verifier(label, claims[l].opening_pair.evaluation);
-        } else {
-            transcript->send_to_verifier(label, Fr::zero());
-        }
+        transcript->send_to_verifier(label, claims[l].opening_pair.evaluation);
     }
 
     // If running Gemini for the Translator VM polynomials, A₀(r) = A₀₊(r) + P₊(rˢ) and A₀(-r) = A₀₋(-r) + P₋(rˢ)
@@ -145,15 +137,18 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
  */
 template <typename Curve>
 std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::compute_fold_polynomials(
-    const size_t log_n, std::span<const Fr> multilinear_challenge, const Polynomial& A_0)
+    const size_t log_n, std::span<const Fr> multilinear_challenge, const Polynomial& A_0, const bool& has_zk)
 {
     const size_t num_threads = get_num_cpus_pow2();
+
+    const size_t virtual_log_n = multilinear_challenge.size();
+
     constexpr size_t efficient_operations_per_thread = 64; // A guess of the number of operation for which there
                                                            // would be a point in sending them to a separate thread
 
     // Reserve and allocate space for m-1 Fold polynomials, the foldings of the full batched polynomial A₀
     std::vector<Polynomial> fold_polynomials;
-    fold_polynomials.reserve(log_n - 1);
+    fold_polynomials.reserve(virtual_log_n - 1);
     for (size_t l = 0; l < log_n - 1; ++l) {
         // size of the previous polynomial/2
         const size_t n_l = 1 << (log_n - l - 1);
@@ -196,6 +191,28 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         });
         // set Aₗ₊₁ = Aₗ for the next iteration
         A_l = A_l_fold;
+    }
+
+    // Perform virtual rounds.
+    // After the first `log_n - 1` rounds, the prover's `fold` univariates stabilize. With ZK, the verifier multiplies
+    // the evaluations by 0, otherwise, when `virtual_log_n > log_n`, the prover honestly computes and sends the
+    // constant folds.
+    const auto& last = fold_polynomials.back();
+    const Fr u_last = multilinear_challenge[log_n - 1];
+    const Fr final_eval = last.at(0) + u_last * (last.at(1) - last.at(0));
+    Polynomial const_fold(1);
+    // Temporary fix: when we're running a zk proof, the verifier uses a `padding_indicator_array`. So the evals in
+    // rounds past `log_n - 1` will be ignored. Hence the prover also needs to ignore them, otherwise Shplonk will fail.
+    const_fold.at(0) = final_eval * Fr(static_cast<int>(!has_zk));
+    fold_polynomials.emplace_back(const_fold);
+
+    // FOLD_{log_n+1}, ..., FOLD_{d_v-1}
+    Fr tail = Fr(1);
+    for (size_t k = log_n; k < virtual_log_n - 1; ++k) {
+        tail *= (Fr(1) - multilinear_challenge[k]); // multiply by (1 - u_k)
+        Polynomial next_const(1);
+        next_const.at(0) = final_eval * tail * Fr(static_cast<int>(!has_zk));
+        fold_polynomials.emplace_back(next_const);
     }
 
     return fold_polynomials;

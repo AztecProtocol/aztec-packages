@@ -178,7 +178,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                         // The message discovery process finds settled notes, that is, notes that were created in prior
                         // transactions and are therefore already part of the note hash tree. We therefore compute the
                         // nullification note hash by treating the note as a settled note with the provided note nonce.
-                        let note_hash_for_nullify = aztec::note::utils::compute_note_hash_for_nullify(
+                        let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
                             aztec::note::retrieved_note::RetrievedNote{ 
                                 note, 
                                 contract_address, 
@@ -187,7 +187,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                             storage_slot,
                         );
 
-                        let inner_nullifier = $compute_nullifier_unconstrained(note, note_hash_for_nullify);
+                        let inner_nullifier = $compute_nullifier_unconstrained(note, note_hash_for_nullification);
 
                         Option::some(
                             aztec::messages::discovery::NoteHashAndNullifier {
@@ -208,7 +208,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             ///
             /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteHashAndNullifier` type,
             /// and so it can be used to call functions from that module such as `discover_new_messages`, 
-            /// `do_process_log` and `attempt_note_discovery`.
+            /// `do_process_message` and `attempt_note_discovery`.
             ///
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
@@ -270,14 +270,13 @@ comptime fn generate_process_message() -> Quoted {
     // to determine whether a function is `private`, `public`, or `utility`.
     let utility = crate::macros::functions::utility;
 
-    // TODO(#15012): Here we use PRIVATE_LOG_CIPHERTEXT_LEN for message ciphertext length. Fix message vs log naming.
     quote {
         #[$utility]
         unconstrained fn process_message(
-            message_ciphertext: BoundedVec<Field, aztec::protocol_types::constants::PRIVATE_LOG_CIPHERTEXT_LEN>,
+            message_ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
             message_context: aztec::messages::processing::message_context::MessageContext,
         ) {
-            aztec::messages::discovery::process_message::do_process_message(
+            aztec::messages::discovery::process_message::process_message_ciphertext(
                 context.this_address(),
                 _compute_note_hash_and_nullifier,
                 message_ciphertext,

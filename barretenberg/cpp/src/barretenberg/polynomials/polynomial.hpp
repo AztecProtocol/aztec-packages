@@ -6,8 +6,9 @@
 
 #pragma once
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/mem.hpp"
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/constants.hpp"
@@ -35,14 +36,14 @@ template <typename Fr> struct PolynomialSpan {
     size_t size() const { return span.size(); }
     Fr& operator[](size_t index)
     {
-        BB_ASSERT_GTE(index, start_index);
-        BB_ASSERT_LT(index, end_index());
+        ASSERT_DEBUG(index >= start_index);
+        ASSERT_DEBUG(index < end_index());
         return span[index - start_index];
     }
     const Fr& operator[](size_t index) const
     {
-        BB_ASSERT_GTE(index, start_index);
-        BB_ASSERT_LT(index, end_index());
+        ASSERT_DEBUG(index >= start_index);
+        ASSERT_DEBUG(index < end_index());
         return span[index - start_index];
     }
     PolynomialSpan subspan(size_t offset, size_t length)
@@ -79,7 +80,7 @@ template <typename Fr> class Polynomial {
     Polynomial(size_t size, size_t virtual_size, size_t start_index = 0);
     // Intended just for plonk, where size == virtual_size always
     Polynomial(size_t size)
-        : Polynomial(size, size){};
+        : Polynomial(size, size) {};
 
     // Constructor that does not initialize values, use with caution to save time.
     Polynomial(size_t size, size_t virtual_size, size_t start_index, DontZeroMemory flag);
@@ -101,10 +102,7 @@ template <typename Fr> class Polynomial {
     {}
 
     /**
-     * @brief Utility to efficiently construct a shift from the original polynomial.
-     *
-     * @param virtual_size the size of the polynomial to be shifted
-     * @return Polynomial
+     * @brief Utility to create a shiftable polynomial of given virtual size.
      */
     static Polynomial shiftable(size_t virtual_size)
     {
@@ -251,6 +249,8 @@ template <typename Fr> class Polynomial {
      */
     void add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor) &;
 
+    void add_scaled_chunk(const ThreadChunk& chunk, PolynomialSpan<const Fr> other, Fr scaling_factor) &;
+
     /**
      * @brief adds the polynomial q(X) 'other'.
      *
@@ -271,6 +271,8 @@ template <typename Fr> class Polynomial {
      * @param scaling_factor s
      */
     Polynomial& operator*=(Fr scaling_factor);
+
+    void multiply_chunk(const ThreadChunk& chunk, Fr scaling_factor);
 
     /**
      * @brief Add random values to the coefficients of a polynomial. In practice, this is used for ensuring the
@@ -311,7 +313,7 @@ template <typename Fr> class Polynomial {
 
     static Polynomial random(size_t size, size_t start_index = 0)
     {
-        PROFILE_THIS_NAME("generate random polynomial");
+        BB_BENCH_NAME("generate random polynomial");
 
         return random(size - start_index, size, start_index);
     }

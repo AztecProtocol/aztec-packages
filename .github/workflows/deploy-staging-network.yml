@@ -1,0 +1,47 @@
+# Deploy a single staging network
+# This workflow can be called directly or from other workflows
+# Now delegates to the lower-level deploy-network workflow
+name: Deploy Staging Network
+
+on:
+  workflow_call:
+    inputs:
+      network:
+        description: 'Network to deploy (e.g., staging-public, staging-ignition, testnet)'
+        required: true
+        type: string
+      semver:
+        description: 'Semver version (e.g., 2.3.4)'
+        required: true
+        type: string
+      ref:
+        description: 'Git ref to checkout'
+        required: false
+        type: string
+  workflow_dispatch:
+    inputs:
+      network:
+        description: 'Network to deploy (e.g., staging-public, staging-ignition, testnet)'
+        required: true
+        type: choice
+        options:
+        - staging-public
+        - staging-ignition
+        - testnet
+      semver:
+        description: 'Semver version (e.g., 2.3.4)'
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-staging-network-${{ inputs.network }}-${{ inputs.semver }}-${{ github.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-network:
+    uses: ./.github/workflows/deploy-network.yml
+    with:
+      network: ${{ inputs.network }}
+      semver: ${{ inputs.semver }}
+      ref: ${{ inputs.ref }}
+    secrets: inherit

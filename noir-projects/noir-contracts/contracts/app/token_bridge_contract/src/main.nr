@@ -1,7 +1,5 @@
 mod config;
 
-// docs:start:token_bridge_imports
-
 // Minimal implementation of the token bridge that can move funds between L1 <> L2.
 // The bridge has a corresponding Portal contract on L1 that it is attached to
 // And corresponds to a Token on L2 that uses the `AuthWit` accounts pattern.
@@ -26,9 +24,7 @@ pub contract TokenBridge {
     use dep::token::Token;
 
     use dep::aztec::macros::{functions::{initializer, private, public, view}, storage::storage};
-    // docs:end:token_bridge_imports
 
-    // docs:start:token_bridge_storage_and_constructor
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]
     struct Storage<Context> {
@@ -41,15 +37,12 @@ pub contract TokenBridge {
     fn constructor(token: AztecAddress, portal: EthAddress) {
         storage.config.initialize(Config { token, portal });
     }
-    // docs:end:token_bridge_storage_and_constructor
 
-    // docs:start:get_config
     #[private]
     #[view]
     fn get_config() -> Config {
         storage.config.read()
     }
-    // docs:end:get_config
 
     #[public]
     #[view]
@@ -96,7 +89,6 @@ pub contract TokenBridge {
     }
     // docs:end:exit_to_l1_public
 
-    // docs:start:claim_private
     /// Claims the bridged tokens and makes them accessible in private. Note that recipient's address is not revealed
     /// but the amount is. Hence it's most likely possible to determine to which L1 deposit this claim corresponds to
     /// (unless there are multiple pending deposits of the same amount).
@@ -119,11 +111,8 @@ pub contract TokenBridge {
         );
 
         // At last we mint the tokens
-        // docs:start:call_mint_on_token
         Token::at(config.token).mint_to_private(recipient, amount).call(&mut context);
-        // docs:end:call_mint_on_token
     }
-    // docs:end:claim_private
 
     // docs:start:exit_to_l1_private
     // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message privately
@@ -136,12 +125,10 @@ pub contract TokenBridge {
         caller_on_l1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
         authwit_nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
     ) {
-        // docs:start:assert_token_is_same
         let config = storage.config.read();
 
         // Assert that user provided token address is same as seen in storage.
         assert_eq(config.token, token, "Token address is not the same as seen in storage");
-        // docs:end:assert_token_is_same
 
         // Send an L2 to L1 message
         let content = get_withdraw_content_hash(recipient, amount, caller_on_l1);

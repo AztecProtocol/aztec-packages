@@ -48,7 +48,7 @@ get_bb_version_for_noir() {
         fi
     fi
 
-    local lookup_url="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/master/barretenberg/bbup/bb-versions.json"
+    local lookup_url="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/next/barretenberg/bbup/bb-versions.json"
 
     # Extract BB version from install script
     local bb_version=$(curl --fail -s "$lookup_url" | jq -r --arg version "$resolved_version" '.[$version]')

@@ -1,0 +1,148 @@
+# CI for Aztec Network Scenarios.
+# Triggered by CI3 workflow completion on tagged releases.
+#
+name: Test Network Scenarios
+
+on:
+  workflow_run:
+    workflows: ["CI3"]
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      semver:
+        description: Semver version (e.g., 1.2.3)
+        required: true
+        type: string
+
+concurrency:
+  group: test-network-scenarios-${{ (github.event_name == 'workflow_run' && github.event.workflow_run.head_sha) || (github.event_name == 'workflow_dispatch' && inputs.semver) || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-and-test-scenarios:
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    env:
+      NETWORK_ENV_FILE: /tmp/network.env
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+    steps:
+      #############
+      # Prepare Env
+      #############
+      - name: Checkout (workflow_run)
+        if: github.event_name == 'workflow_run'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: refs/tags/v${{ inputs.semver }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Determine semver from tag
+        if: github.event_name == 'workflow_run'
+        run: |
+          git fetch --tags --force
+          tag=$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | head -n1)
+          if ! echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "No semver tag found for head_sha: ${{ github.event.workflow_run.head_sha }}. Skipping."
+            exit 0
+          fi
+          semver="${tag#v}"
+          major_version="${semver%%.*}"
+          echo "SEMVER=$semver" >> $GITHUB_ENV
+          echo "MAJOR_VERSION=$major_version" >> $GITHUB_ENV
+      - name: Set semver from input
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          semver="${{ inputs.semver }}"
+          major_version="${semver%%.*}"
+          echo "SEMVER=$semver" >> $GITHUB_ENV
+          echo "MAJOR_VERSION=$major_version" >> $GITHUB_ENV
+      - name: Setup
+        if: env.SEMVER != ''
+        run: |
+          # Ensure we can SSH into the spot instances we request.
+          mkdir -p ~/.ssh
+          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+          sudo apt install -y --no-install-recommends redis-tools parallel
+
+      - name: Store the GCP key in a file
+        if: env.SEMVER != ''
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          set +x
+          umask 077
+          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
+
+      # note: it is fine to log the mnemonic here. this is an internal,
+      # throwaway test network, which you can see gets destroyed before it is created each time.
+      - name: Write network env file
+        if: env.SEMVER != ''
+        run: |
+          NAMESPACE="v${MAJOR_VERSION}-scenario"
+          cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
+          RUN_TESTS=true
+          DESTROY_NAMESPACE=true
+          DESTROY_ETH_DEVNET=true
+          CREATE_ETH_DEVNET=true
+          DESTROY_ROLLUP_CONTRACTS=true
+          DESTROY_AZTEC_INFRA=true
+          GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
+          GCP_REGION=us-west1-a
+          CLUSTER=aztec-gke-private
+          SALT=1757186002
+          NAMESPACE=${NAMESPACE}
+          AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
+          AZTEC_EPOCH_DURATION=8
+          ETHEREUM_CHAIN_ID=1337
+          LABS_INFRA_MNEMONIC="test test test test test test test test test test test junk"
+          OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}
+          EOF
+          echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
+
+      - name: Get Tree Hash
+        if: env.SEMVER != ''
+        run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV
+
+      - name: Check CI Cache
+        id: ci_cache
+        if: env.SEMVER != ''
+        uses: actions/cache@v3
+        with:
+          path: ci-success.txt
+          key: ci-network-scenario-${{ env.TREE_HASH }}
+
+      #############
+      # Run
+      #############
+      - name: Run
+        if: env.SEMVER != '' && steps.ci_cache.outputs.cache-hit != 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          NETWORK_ENV_FILE: ${{ env.NETWORK_ENV_FILE }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          NAMESPACE: ${{ env.NAMESPACE }}
+          REF_NAME: "v${{ env.SEMVER }}"
+        run: |
+          # the network env file and gcp credentials file are mounted into the ec2 instance
+          # see ci3/bootstrap_ec2
+          exec ./ci.sh network-deploy
+
+      - name: Save CI Success
+        if: env.SEMVER != '' && steps.ci_cache.outputs.cache-hit != 'true'
+        run: echo "success" > ci-success.txt

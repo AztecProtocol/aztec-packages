@@ -17,20 +17,34 @@ namespace bb::stdlib {
 template <typename CircuitType> struct secp256r1 {
     static constexpr bb::CurveType type = bb::CurveType::SECP256R1;
 
-    typedef bb::secp256r1::fq fq;
-    typedef bb::secp256r1::fr fr;
-    typedef bb::secp256r1::g1 g1;
+    using fq = bb::secp256r1::fq;
+    using fr = bb::secp256r1::fr;
+    using g1 = bb::secp256r1::g1;
 
-    typedef CircuitType Builder;
-    typedef witness_t<Builder> witness_ct;
-    typedef public_witness_t<Builder> public_witness_ct;
-    typedef field_t<Builder> fr_ct;
-    typedef byte_array<Builder> byte_array_ct;
-    typedef bool_t<Builder> bool_ct;
+    // Native types
+    using ScalarFieldNative = ::bb::secp256r1::fr;
+    using BaseFieldNative = ::bb::secp256r1::fq;
+    using GroupNative = ::bb::secp256r1::g1;
+    using ElementNative = GroupNative::element;
+    using AffineElementNative = GroupNative::affine_element;
 
-    typedef bigfield<Builder, typename bb::secp256r1::FqParams> fq_ct;
-    typedef bigfield<Builder, typename bb::secp256r1::FrParams> bigfr_ct;
-    typedef element<Builder, fq_ct, fr_ct, g1> g1_ct;
-    typedef element<Builder, fq_ct, bigfr_ct, g1> g1_bigfr_ct;
+    // Stdlib types
+    using ScalarField = bigfield<CircuitType, typename ::bb::secp256r1::FrParams>;
+    using BaseField = bigfield<CircuitType, typename ::bb::secp256r1::FqParams>;
+    using Group = element<CircuitType, BaseField, ScalarField, GroupNative>;
+    using Element = Group;
+    using AffineElement = Group;
+
+    using Builder = CircuitType;
+    using witness_ct = witness_t<Builder>;
+    using public_witness_ct = public_witness_t<Builder>;
+    using fr_ct = field_t<Builder>;
+    using byte_array_ct = byte_array<Builder>;
+    using bool_ct = bool_t<Builder>;
+
+    using fq_ct = bigfield<Builder, typename bb::secp256r1::FqParams>;
+    using bigfr_ct = bigfield<Builder, typename bb::secp256r1::FrParams>;
+    using g1_ct = element<Builder, fq_ct, fr_ct, g1>;
+    using g1_bigfr_ct = element<Builder, fq_ct, bigfr_ct, g1>;
 };
 } // namespace bb::stdlib

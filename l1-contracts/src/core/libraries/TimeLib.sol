@@ -73,6 +73,24 @@ library TimeLib {
     return _a + Epoch.wrap(store.proofSubmissionEpochs + 1);
   }
 
+  /**
+   * @notice Calculates the maximum number of blocks that can be pruned from the pending chain
+   * @dev The maximum prunable blocks is determined by:
+   *      - epochDuration: number of slots in an epoch
+   *      - proofSubmissionEpochs: number of epochs allowed for proof submission
+   *
+   *      The formula is: epochDuration * (proofSubmissionEpochs + 1)
+   *
+   *      The +1 accounts for blocks in the current epoch, ensuring they are included
+   *      in the prunable window along with blocks from previous epochs within the
+   *      proof submission window.
+   *
+   *      This value is used to:
+   *      1. Size the circular storage buffer (roundaboutSize = maxPrunableBlocks + 1)
+   *      2. Determine when blocks become stale and can be overwritten
+   *
+   * @return The maximum number of blocks that can be pruned.
+   */
   function maxPrunableBlocks() internal view returns (uint256) {
     TimeStorage storage store = getStorage();
     return uint256(store.epochDuration) * (uint256(store.proofSubmissionEpochs) + 1);

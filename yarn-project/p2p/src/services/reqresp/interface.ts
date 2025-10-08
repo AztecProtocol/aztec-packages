@@ -13,13 +13,13 @@ import type { ReqRespStatus } from './status.js';
 /*
  * Request Response Sub Protocols
  */
-export const PING_PROTOCOL = '/aztec/req/ping/0.1.0';
-export const STATUS_PROTOCOL = '/aztec/req/status/0.1.0';
-export const GOODBYE_PROTOCOL = '/aztec/req/goodbye/0.1.0';
-export const TX_REQ_PROTOCOL = '/aztec/req/tx/0.1.0';
-export const BLOCK_REQ_PROTOCOL = '/aztec/req/block/0.1.0';
-export const AUTH_PROTOCOL = '/aztec/req/auth/0.1.0';
-export const BLOCK_TXS_REQ_PROTOCOL = '/aztec/req/block_txs/0.1.0';
+export const PING_PROTOCOL = '/aztec/req/ping/1.0.0';
+export const STATUS_PROTOCOL = '/aztec/req/status/1.0.0';
+export const GOODBYE_PROTOCOL = '/aztec/req/goodbye/1.0.0';
+export const TX_REQ_PROTOCOL = '/aztec/req/tx/1.0.0';
+export const BLOCK_REQ_PROTOCOL = '/aztec/req/block/1.0.0';
+export const AUTH_PROTOCOL = '/aztec/req/auth/1.0.0';
+export const BLOCK_TXS_REQ_PROTOCOL = '/aztec/req/block_txs/1.0.0';
 
 export enum ReqRespSubProtocol {
   PING = PING_PROTOCOL,
@@ -120,27 +120,6 @@ export type SubProtocolMap = {
     InstanceType<(typeof subProtocolMap)[S]['request']>,
     InstanceType<(typeof subProtocolMap)[S]['response']>
   >;
-};
-
-/**
- * Default handler for unimplemented sub protocols, this SHOULD be overwritten
- * by the service, but is provided as a fallback
- */
-export const defaultHandler = (_msg: any): Promise<Buffer> => {
-  return Promise.resolve(Buffer.from('unimplemented'));
-};
-
-/**
- * Default sub protocol handlers - this SHOULD be overwritten by the service,
- */
-export const DEFAULT_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
-  [ReqRespSubProtocol.PING]: defaultHandler,
-  [ReqRespSubProtocol.STATUS]: defaultHandler,
-  [ReqRespSubProtocol.TX]: defaultHandler,
-  [ReqRespSubProtocol.GOODBYE]: defaultHandler,
-  [ReqRespSubProtocol.BLOCK]: defaultHandler,
-  [ReqRespSubProtocol.AUTH]: defaultHandler,
-  [ReqRespSubProtocol.BLOCK_TXS]: defaultHandler,
 };
 
 /**

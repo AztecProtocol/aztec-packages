@@ -15,6 +15,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/relations/relation_types.hpp"
 
 namespace bb {
 
@@ -23,7 +24,7 @@ template <typename Flavor> class RelationUtils {
     using FF = typename Flavor::FF;
     using Relations = typename Flavor::Relations;
     using PolynomialEvaluations = typename Flavor::AllValues;
-    using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
+    using RelationEvaluations = decltype(create_tuple_of_arrays_of_values<typename Flavor::Relations>());
     using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
     static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;

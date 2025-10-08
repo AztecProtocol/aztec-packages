@@ -21,7 +21,7 @@ using numeric::uint256_t;
 // Get rid of the inner typename
 template <typename Circuit, typename Flavor> void generate_proof(uint256_t inputs[])
 {
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
@@ -35,7 +35,7 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
         stdlib::recursion::PairingPoints<CircuitBuilder>::add_default_to_public_inputs(builder);
     }
 
-    auto instance = std::make_shared<DeciderProvingKey>(builder);
+    auto instance = std::make_shared<ProverInstance>(builder);
     auto verification_key = std::make_shared<VerificationKey>(instance->get_precomputed());
     Prover prover(instance, verification_key);
     Verifier verifier(verification_key);

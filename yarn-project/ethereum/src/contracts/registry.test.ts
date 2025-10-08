@@ -1,6 +1,7 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import { RegistryAbi } from '@aztec/l1-artifacts/RegistryAbi';
 
 import type { Anvil } from '@viem/anvil';
@@ -13,7 +14,7 @@ import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';
 import { L1Deployer, deployL1Contracts, deployRollup } from '../deploy_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
-import { defaultL1TxUtilsConfig } from '../l1_tx_utils.js';
+import { defaultL1TxUtilsConfig } from '../l1_tx_utils/index.js';
 import { EthCheatCodes } from '../test/eth_cheat_codes.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient } from '../types.js';
@@ -29,7 +30,7 @@ describe('Registry', () => {
   let logger: Logger;
 
   let vkTreeRoot: Fr;
-  let protocolContractTreeRoot: Fr;
+  let protocolContractsHash: Fr;
   let l1Client: ExtendedViemWalletClient;
   let registry: RegistryContract;
   let deployedAddresses: L1ContractAddresses;
@@ -41,7 +42,7 @@ describe('Registry', () => {
     // this is the 6th address that gets funded by the junk mnemonic
     privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
     vkTreeRoot = Fr.random();
-    protocolContractTreeRoot = Fr.random();
+    protocolContractsHash = Fr.random();
 
     ({ anvil, rpcUrl } = await startAnvil());
 
@@ -51,7 +52,7 @@ describe('Registry', () => {
       ...DefaultL1ContractsConfig,
       salt: originalVersionSalt,
       vkTreeRoot,
-      protocolContractTreeRoot,
+      protocolContractsHash,
       genesisArchiveRoot: Fr.random(),
       realVerifier: false,
     });
@@ -62,13 +63,14 @@ describe('Registry', () => {
       'feeAssetHandlerAddress',
       'stakingAssetHandlerAddress',
       'zkPassportVerifierAddress',
+      'dateGatedRelayerAddress',
     );
     registry = new RegistryContract(l1Client, deployedAddresses.registryAddress);
 
     const rollup = new RollupContract(l1Client, deployedAddresses.rollupAddress);
     deployedVersion = Number(await rollup.getVersion());
 
-    ethCheatCodes = new EthCheatCodes([rpcUrl]);
+    ethCheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
     await ethCheatCodes.setBalance(deployedAddresses.governanceAddress, 10n ** 18n);
   });
 
@@ -131,7 +133,7 @@ describe('Registry', () => {
         ...DefaultL1ContractsConfig,
         salt: newVersionSalt,
         vkTreeRoot,
-        protocolContractTreeRoot,
+        protocolContractsHash,
         genesisArchiveRoot: Fr.random(),
         realVerifier: false,
       },

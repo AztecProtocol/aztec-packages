@@ -1,9 +1,9 @@
 import {
-  type AccountWallet,
   type AztecAddress,
+  type AztecNode,
   BatchCall,
-  type PXE,
   PrivateFeePaymentMethod,
+  type Wallet,
   waitForProven,
 } from '@aztec/aztec.js';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
@@ -15,14 +15,14 @@ import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees private_payment', () => {
-  let aliceWallet: AccountWallet;
+  let wallet: Wallet;
   let aliceAddress: AztecAddress;
   let bobAddress: AztecAddress;
   let sequencerAddress: AztecAddress;
   let bananaCoin: BananaCoin;
   let bananaFPC: FPCContract;
   let gasSettings: GasSettings;
-  let pxe: PXE;
+  let aztecNode: AztecNode;
 
   const t = new FeesTest('private_payment');
 
@@ -30,7 +30,7 @@ describe('e2e_fees private_payment', () => {
     await t.applyBaseSnapshots();
     await t.applyFPCSetupSnapshot();
     await t.applyFundAliceWithBananas();
-    ({ aliceWallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings, pxe } =
+    ({ wallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings, aztecNode } =
       await t.setup());
 
     // Prove up until the current state by just marking it as proven.
@@ -60,7 +60,7 @@ describe('e2e_fees private_payment', () => {
   beforeEach(async () => {
     gasSettings = GasSettings.from({
       ...gasSettings,
-      maxFeesPerGas: await aliceWallet.getCurrentBaseFees(),
+      maxFeesPerGas: await aztecNode.getCurrentBaseFees(),
     });
 
     [
@@ -100,9 +100,9 @@ describe('e2e_fees private_payment', () => {
     const transferAmount = 5n;
     const interaction = bananaCoin.methods.transfer(bobAddress, transferAmount);
     const settings = {
+      from: aliceAddress,
       fee: {
-        gasSettings,
-        paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
+        paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
       },
     };
     const localTx = await interaction.prove(settings);
@@ -116,7 +116,7 @@ describe('e2e_fees private_payment', () => {
     await t.cheatCodes.rollup.advanceToNextEpoch();
 
     const receipt = await tx.wait({ timeout: 300, interval: 10 });
-    await waitForProven(pxe, receipt, { provenTimeout: 300 });
+    await waitForProven(aztecNode, receipt, { provenTimeout: 300 });
 
     // @note There is a potential race condition here if other tests send transactions that get into the same
     // epoch and thereby pays out fees at the same time (when proven).
@@ -164,9 +164,9 @@ describe('e2e_fees private_payment', () => {
     const tx = await bananaCoin.methods
       .mint_to_private(aliceAddress, newlyMintedBananas)
       .send({
+        from: aliceAddress,
         fee: {
-          gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
+          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
         },
       })
       .wait();
@@ -212,9 +212,9 @@ describe('e2e_fees private_payment', () => {
     const tx = await bananaCoin.methods
       .transfer_to_private(aliceAddress, amountTransferredToPrivate)
       .send({
+        from: aliceAddress,
         fee: {
-          gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
+          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
         },
       })
       .wait();
@@ -261,14 +261,14 @@ describe('e2e_fees private_payment', () => {
      * increase sequencer/fee recipient/FPC admin private banana balance by feeAmount by finalizing partial note
      * increase Alice's private banana balance by feeAmount by finalizing partial note
      */
-    const tx = await new BatchCall(aliceWallet, [
+    const tx = await new BatchCall(wallet, [
       bananaCoin.methods.transfer(bobAddress, amountTransferredInPrivate),
       bananaCoin.methods.transfer_to_private(aliceAddress, amountTransferredToPrivate),
     ])
       .send({
+        from: aliceAddress,
         fee: {
-          gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
+          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
         },
       })
       .wait();
@@ -297,7 +297,9 @@ describe('e2e_fees private_payment', () => {
 
   it('rejects txs that dont have enough balance to cover gas costs', async () => {
     // deploy a copy of bananaFPC but don't fund it!
-    const bankruptFPC = await FPCContract.deploy(aliceWallet, bananaCoin.address, aliceAddress).send().deployed();
+    const bankruptFPC = await FPCContract.deploy(wallet, bananaCoin.address, aliceAddress)
+      .send({ from: aliceAddress })
+      .deployed();
 
     await expectMapping(t.getGasBalanceFn, [bankruptFPC.address], [0n]);
 
@@ -305,9 +307,9 @@ describe('e2e_fees private_payment', () => {
       bananaCoin.methods
         .mint_to_private(aliceAddress, 10)
         .send({
+          from: aliceAddress,
           fee: {
-            gasSettings,
-            paymentMethod: new PrivateFeePaymentMethod(bankruptFPC.address, aliceWallet),
+            paymentMethod: new PrivateFeePaymentMethod(bankruptFPC.address, aliceAddress, wallet, gasSettings),
           },
         })
         .wait(),
@@ -319,11 +321,14 @@ describe('e2e_fees private_payment', () => {
     // We call arbitrary `private_get_name(...)` function just to check the correct error is triggered.
     await expect(
       bananaCoin.methods.private_get_name().simulate({
+        from: aliceAddress,
         fee: {
           gasSettings: t.gasSettings,
           paymentMethod: new PrivateFeePaymentMethod(
             bananaFPC.address,
-            aliceWallet,
+            aliceAddress,
+            wallet,
+            gasSettings,
             true, // We set max fee/funded amount to 1 to trigger the error.
           ),
         },

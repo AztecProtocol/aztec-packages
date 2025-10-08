@@ -71,7 +71,7 @@ export class BatchedBlob {
   static async precomputeBatchedBlobChallenges(blobs: Blob[]): Promise<FinalBlobBatchingChallenges> {
     // We need to precompute the final challenge values to evaluate the blobs.
     let z = blobs[0].challengeZ;
-    // We start at i = 1, because z is initialised as the first blob's challenge.
+    // We start at i = 1, because z is initialized as the first blob's challenge.
     for (let i = 1; i < blobs.length; i++) {
       z = await poseidon2Hash([z, blobs[i].challengeZ]);
     }
@@ -80,24 +80,10 @@ export class BatchedBlob {
     const evaluations = proofObjects.map(([_, evaluation]) => BLS12Fr.fromBuffer(Buffer.from(evaluation)));
     // ...and find the challenge for the linear combination of blobs.
     let gamma = await hashNoirBigNumLimbs(evaluations[0]);
-    // We start at i = 1, because gamma is initialised as the first blob's evaluation.
+    // We start at i = 1, because gamma is initialized as the first blob's evaluation.
     for (let i = 1; i < blobs.length; i++) {
       gamma = await poseidon2Hash([gamma, await hashNoirBigNumLimbs(evaluations[i])]);
     }
-    gamma = await poseidon2Hash([gamma, z]);
-
-    return new FinalBlobBatchingChallenges(z, BLS12Fr.fromBN254Fr(gamma));
-  }
-
-  static async precomputeEmptyBatchedBlobChallenges(): Promise<FinalBlobBatchingChallenges> {
-    const blobs = [await Blob.fromFields([])];
-    // We need to precompute the final challenge values to evaluate the blobs.
-    const z = blobs[0].challengeZ;
-    // Now we have a shared challenge for all blobs, evaluate them...
-    const proofObjects = blobs.map(b => computeKzgProof(b.data, z.toBuffer()));
-    const evaluations = proofObjects.map(([_, evaluation]) => BLS12Fr.fromBuffer(Buffer.from(evaluation)));
-    // ...and find the challenge for the linear combination of blobs.
-    let gamma = await hashNoirBigNumLimbs(evaluations[0]);
     gamma = await poseidon2Hash([gamma, z]);
 
     return new FinalBlobBatchingChallenges(z, BLS12Fr.fromBN254Fr(gamma));
@@ -152,7 +138,7 @@ export class BatchedBlob {
  *    - used such that y = sum_i { gamma^i * y_i }, and C = sum_i { gamma^i * C_i }
  *      for all blob evaluations y_i (see above) and commitments C_i.
  *
- * Iteratively calculated by BlobAccumulatorPublicInputs.accumulate() in nr. See also precomputeBatchedBlobChallenges() above.
+ * Iteratively calculated by BlobAccumulator.accumulate() in nr. See also precomputeBatchedBlobChallenges() above.
  */
 export class FinalBlobBatchingChallenges {
   constructor(
@@ -179,7 +165,7 @@ export class FinalBlobBatchingChallenges {
 }
 
 /**
- * See noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching_public_inputs.nr -> BlobAccumulatorPublicInputs
+ * See noir-projects/noir-protocol-circuits/crates/blob/src/abis/blob_accumulator.nr
  */
 export class BatchedBlobAccumulator {
   constructor(
@@ -287,7 +273,7 @@ export class BatchedBlobAccumulator {
    * @returns An updated blob accumulator.
    */
   async accumulateBlobs(blobs: Blob[]) {
-    // Initialise the acc to iterate over:
+    // Initialize the acc to iterate over:
     let acc: BatchedBlobAccumulator = this.clone();
     for (let i = 0; i < blobs.length; i++) {
       acc = await acc.accumulate(blobs[i]);

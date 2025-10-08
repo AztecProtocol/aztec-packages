@@ -9,8 +9,7 @@
  */
 inline std::vector<uint8_t> gunzip(const std::string& path)
 {
-    std::string command = "gunzip -c \"" + path + "\"";
-    return bb::exec_pipe(command);
+    return bb::exec_pipe_with_stdin(path, "gunzip -c");
 }
 
 inline std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
@@ -21,8 +20,7 @@ inline std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
     std::filesystem::path filePath = bytecodePath;
     if (filePath.extension() == ".json") {
         // Try reading json files as if they are a Nargo build artifact
-        std::string command = "jq -r '.bytecode' \"" + bytecodePath + "\" | base64 -d | gunzip -c";
-        return bb::exec_pipe(command);
+        return bb::exec_pipe_with_stdin(bytecodePath, "jq -r '.bytecode' - | base64 -d | gunzip -c");
     }
 
     // For other extensions, assume file is a raw ACIR program

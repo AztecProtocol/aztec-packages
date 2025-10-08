@@ -319,15 +319,15 @@ cmake --build --preset default --target run_ecc_bench
 
 ### Debugging
 
-#### Debugging Verifification Failures
+#### Debugging Verification Failures
 
 The CircuitChecker::check_circuit function is used to get the gate index and block information about a failing circuit constraint.
 If you are in a scenario where you have a failing call to check_circuit and wish to get more information out of it than just the gate index, you can use this feature to get a stack trace, see example below.
 
 Usage instructions:
 
-- On ubuntu (or our mainframe accounts) use `sudo apt-get install libdw-dev` to support trace printing
-- Use `cmake --preset clang16-dbg-fast-circuit-check-traces` and `cmake --build --preset clang16-dbg-fast-circuit-check-traces` to enable the backward-cpp dependency through the CHECK_CIRCUIT_STACKTRACES CMake variable.
+- On ubuntu (or our mainframe accounts) use `sudo apt-get install libdw-dev libelf-dev` to support trace printing
+- Use `cmake --preset debug-fast-circuit-check-traces` and `cmake --build --preset debug-fast-circuit-check-traces` to enable the backward-cpp dependency through the CHECK_CIRCUIT_STACKTRACES CMake variable.
 - Run any case where you have a failing check_circuit call, you will now have a stack trace illuminating where this constraint was added in code.
 
 Caveats:
@@ -450,7 +450,7 @@ In terms of general usage, you should be able to use scrolling or the WASD keys 
 
 ##### Adding Zones
 
-Zones are how you can keep track of where you are relative in the code and how you can bucket allocations together. All of the colored blocks in the Main Thread row and other threads' rows refer to zones. You can nest zones in deeper and deeper scopes, which leads to stacks of these zones. To add a named zone, all you have to do is add PROFILE_THIS() or PROFILE_THIS_NAME(<name>) to a scope and it will create a zone. Note that you can't create multiple zones in the same scope.
+Zones are how you can keep track of where you are relative in the code and how you can bucket allocations together. All of the colored blocks in the Main Thread row and other threads' rows refer to zones. You can nest zones in deeper and deeper scopes, which leads to stacks of these zones. To add a named zone, all you have to do is add BB_BENCH_TRACY() or BB_BENCH_TRACY_NAME(<name>) to a scope and it will create a zone. Note that you can't create multiple zones in the same scope.
 
 ##### Analyzing Fragmentation
 

@@ -29,10 +29,10 @@ Inspired by [rust rollups](https://forge.rust-lang.org/release/rollups.html), bu
 
 ### Merge Train Lifecycle
 
-1. **Creation**: A merge train PR is created with an empty commit. All existing PRs are updated to prevent issues due to the squash merge.
-2. **Accumulation**: Feature PRs are merged into the merge train branch
-3. **Auto-merge**: After 4 hours of inactivity (with meaningful commits), the train is automatically merged
-4. **Recreation**: The cycle starts again with a new empty merge train
+1. **Creation**: A merge train PR is created automatically when changes are pushed to the branch and labeled with `ci-no-squash`.
+2. **Accumulation**: Feature PRs are merged into the merge train branch, squashed
+3. **Auto-merge**: After 4 hours of inactivity (with meaningful commits), the train is automatically merged with a merge-commit (not a squash)
+4. **Recreation**: The cycle starts again with a new merge train
 
 ## Handling Merge Failures
 
@@ -47,31 +47,3 @@ When a merge-train fails due to issues from `next`:
 - Merge a revert or workaround into `next`
 - The fix will auto-propagate to merge-train via automation
 - Best when key assumptions are broken or multiple trains affected
-
-## Resolving Merge Conflicts
-
-When merge conflicts arise in the merge-train branch:
-
-1. Pull the latest merge-train branch locally
-2. Resolve conflicts in your editor
-3. Push the merge commit directly to the merge-train branch
-
-**Note**: Keep the merge commit when resolving conflicts - squashing won't help with the history divergence issues that occur after merge-train recreation.
-
-## RECOVERING FROM MERGE TRAIN RECREATION
-
-When a merge-train is recreated after squashing, PRs with commits from the old merge-train need rebasing.
-
-### Three Recovery Options:
-
-1. **Automatic (Recommended)**: Add the `auto-rebase` label to your PR
-2. **Script**: Run `./scripts/auto_rebase_pr.sh` locally
-3. **Manual**: Follow the git instructions posted as a comment on your PR
-
-The automation will detect if your PR contains commits from the old merge-train and post specific rebase instructions as a comment. These instructions use `git rebase --onto` to cleanly move your commits to the new base, preserving your work while avoiding the squashed history.
-
-**Important**: 
-- PRs without commits from the old merge-train need no action
-- The recreation process automatically checks each PR and only comments on affected ones
-- The posted git commands help you merge the old PR head and then rebase onto the new base
-- Always check your diff afterwards for unexpected changes

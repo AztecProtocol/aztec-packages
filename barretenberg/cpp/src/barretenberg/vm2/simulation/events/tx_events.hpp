@@ -3,14 +3,45 @@
 #include <cstdint>
 #include <variant>
 
+#include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/tx_context_event.hpp"
 
 namespace bb::avm2::simulation {
 
+struct PhaseLengths {
+    uint32_t nr_nullifier_insertion = 0;
+    uint32_t nr_note_insertion = 0;
+    uint32_t nr_l2_to_l1_message = 0;
+    uint32_t setup = 0;
+    uint32_t r_nullifier_insertion = 0;
+    uint32_t r_note_insertion = 0;
+    uint32_t r_l2_to_l1_message = 0;
+    uint32_t app_logic = 0;
+    uint32_t teardown = 0;
+
+    static PhaseLengths from_tx(const Tx& tx)
+    {
+        return PhaseLengths{
+            .nr_nullifier_insertion = static_cast<uint32_t>(tx.nonRevertibleAccumulatedData.nullifiers.size()),
+            .nr_note_insertion = static_cast<uint32_t>(tx.nonRevertibleAccumulatedData.noteHashes.size()),
+            .nr_l2_to_l1_message = static_cast<uint32_t>(tx.nonRevertibleAccumulatedData.l2ToL1Messages.size()),
+            .setup = static_cast<uint32_t>(tx.setupEnqueuedCalls.size()),
+            .r_nullifier_insertion = static_cast<uint32_t>(tx.revertibleAccumulatedData.nullifiers.size()),
+            .r_note_insertion = static_cast<uint32_t>(tx.revertibleAccumulatedData.noteHashes.size()),
+            .r_l2_to_l1_message = static_cast<uint32_t>(tx.revertibleAccumulatedData.l2ToL1Messages.size()),
+            .app_logic = static_cast<uint32_t>(tx.appLogicEnqueuedCalls.size()),
+            .teardown = tx.teardownEnqueuedCall ? 1U : 0U,
+        };
+    }
+};
+
 struct TxStartupEvent {
     TxContextEvent state;
+    Gas gas_limit;
+    Gas teardown_gas_limit;
+    PhaseLengths phase_lengths;
 };
 
 struct EnqueuedCallEvent {
@@ -18,10 +49,10 @@ struct EnqueuedCallEvent {
     FF contract_address;
     FF transaction_fee;
     bool is_static;
+    uint32_t calldata_size;
     FF calldata_hash;
     Gas start_gas;
     Gas end_gas;
-    Gas gas_limit;
     bool success;
 };
 
@@ -43,8 +74,19 @@ struct CollectGasFeeEvent {
     FF fee;
 };
 
-using TxPhaseEventType =
-    std::variant<EnqueuedCallEvent, PrivateAppendTreeEvent, PrivateEmitL2L1MessageEvent, CollectGasFeeEvent>;
+struct PadTreesEvent {};
+
+struct CleanupEvent {};
+
+struct EmptyPhaseEvent {};
+
+using TxPhaseEventType = std::variant<EnqueuedCallEvent,
+                                      PrivateAppendTreeEvent,
+                                      PrivateEmitL2L1MessageEvent,
+                                      CollectGasFeeEvent,
+                                      PadTreesEvent,
+                                      CleanupEvent,
+                                      EmptyPhaseEvent>;
 
 struct TxPhaseEvent {
     TransactionPhase phase;

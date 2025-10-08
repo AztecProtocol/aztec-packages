@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "remoteSigner": {
+    "remoteSignerUrl": "https://localhost:9000",
+    "certPath": "/path/to/cert.pem",
+    "certPass": "example-pass"
+  },
+  "slasher": [
+    "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "0x1111111111111111111111111111111111111111",
+    {
+      "address": "0xcccccccccccccccccccccccccccccccccccccccc",
+      "remoteSignerUrl": "https://localhost:9001",
+      "certPath": "/path/to/another-cert.pem"
+    },
+    {
+      "path": "/tmp/slasher.json",
+      "password": "slasher-pass"
+    }
+  ],
+  "validators": [
+    {
+      "attester": {
+        "mnemonic": "test test test test test test test test test test test junk",
+        "accountIndex": 1,
+        "addressIndex": 0,
+        "addressCount": 2
+      },
+      "coinbase": "0x1111111111111111111111111111111111111111",
+      "publisher": [
+        "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        {
+          "address": "0xffffffffffffffffffffffffffffffffffffffff",
+          "remoteSignerUrl": "https://localhost:9100",
+          "certPass": "optional"
+        },
+        {
+          "path": "/tmp/validator-publishers",
+          "password": "secret"
+        }
+      ],
+      "feeRecipient": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "remoteSigner": "https://localhost:9100"
+    },
+    {
+      "attester": [
+        "0x9999999999999999999999999999999999999999999999999999999999999999",
+        {
+          "address": "0x2222222222222222222222222222222222222222",
+          "remoteSignerUrl": "https://localhost:9200"
+        },
+        {
+          "path": "/tmp/attester.json",
+          "password": "attester-pass"
+        }
+      ],
+      "publisher": {
+        "mnemonic": "test test test test test test test test test test test junk",
+        "accountCount": 2,
+        "addressCount": 1
+      },
+      "feeRecipient": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+      "fundingAccount": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "attester": {
+        "eth": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "bls": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "feeRecipient": "0x9999999999999999999999999999999999999999999999999999999999999999"
+    }
+  ],
+  "prover": {
+    "id": "0x1234567890123456789012345678901234567890",
+    "publisher": [
+      "0x5555555555555555555555555555555555555555555555555555555555555555",
+      "0x6666666666666666666666666666666666666666",
+      {
+        "address": "0x7777777777777777777777777777777777777777",
+        "remoteSignerUrl": "https://localhost:9300",
+        "certPath": "/path/to/prover-cert.pem"
+      },
+      {
+        "path": "/tmp/prover-publishers",
+        "password": "prover-pass"
+      }
+    ]
+  },
+  "fundingAccount": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

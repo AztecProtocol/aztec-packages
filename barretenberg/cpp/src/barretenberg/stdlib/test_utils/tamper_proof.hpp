@@ -38,7 +38,7 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
     static constexpr size_t FIRST_WITNESS_INDEX = InnerFlavor::NUM_PRECOMPUTED_ENTITIES;
 
     // Deserialize the transcript into the struct so that we can tamper it
-    auto num_public_inputs = inner_prover.proving_key->num_public_inputs();
+    auto num_public_inputs = inner_prover.prover_instance->num_public_inputs();
     inner_prover.transcript->deserialize_full_transcript(num_public_inputs);
 
     switch (type) {
@@ -88,7 +88,7 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
     // can access/modify elements of a proof more easily
     inner_prover.transcript->serialize_full_transcript();
     inner_prover.transcript->proof_start = 0;
-    inner_prover.transcript->num_frs_written = InnerFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + num_public_inputs;
+    inner_prover.transcript->num_frs_written = InnerFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + num_public_inputs;
     if (HasIPAAccumulator<InnerFlavor>) {
         // Exclude the IPA points from the proof - they are added again by export_proof
         inner_prover.transcript->num_frs_written -= IPA_PROOF_LENGTH;

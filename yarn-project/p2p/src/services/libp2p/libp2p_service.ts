@@ -5,7 +5,7 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { EthAddress, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -19,7 +19,7 @@ import {
   PeerErrorSeverity,
   TopicType,
   createTopicString,
-  getTopicTypeForClientType,
+  getTopicsForClientAndConfig,
   metricsTopicStrToLabels,
 } from '@aztec/stdlib/p2p';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -43,7 +43,6 @@ import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
 import { type Message, type MultiaddrConnection, type PeerId, TopicValidatorResult } from '@libp2p/interface';
 import type { ConnectionManager } from '@libp2p/interface-internal';
-import '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
 import { tcp } from '@libp2p/tcp';
 import { createLibp2p } from 'libp2p';
@@ -273,7 +272,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           // The connection attempts to the node on TCP layer are not necessarily valid Aztec peers so we want to have a bit of leeway here
           // If we hit the limit, the connection will be temporarily accepted and immediately dropped.
           // Docs: https://nodejs.org/api/net.html#servermaxconnections
-          maxConnections: Math.ceil(maxPeerCount * 1.5),
+          maxConnections: maxPeerCount * 2,
           // socket option: the maximum length of the queue of pending connections
           // https://nodejs.org/dist/latest-v22.x/docs/api/net.html#serverlisten
           // it's not safe if we increase this number
@@ -284,7 +283,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
             // In case closeAbove is reached, the server stops listening altogether
             // It's important that there is enough difference between closeAbove and listenAbove,
             // otherwise the server.listener will flap between being closed and open potentially degrading perf even more
-            closeAbove: maxPeerCount * 2,
+            closeAbove: maxPeerCount * 3,
             listenBelow: Math.floor(maxPeerCount * 0.9),
           },
         }),
@@ -294,8 +293,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       streamMuxers: [yamux(), mplex()],
       connectionEncryption: [noise()],
       connectionManager: {
-        minConnections: 0,
-        maxConnections: maxPeerCount,
+        minConnections: 0, // Disable libp2p peer dialing, we do it manually
+        // We set maxConnections above maxPeerCount because if we hit limit of maxPeerCount
+        // libp2p will start aggressively rejecting all new connections, preventing network discovery and crawling.
+        maxConnections: maxPeerCount * 2,
         maxParallelDials: 100,
         dialTimeout: 30_000,
         maxPeerAddrsToDial: 5,
@@ -444,7 +445,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     await this.node.start();
 
     // Subscribe to standard GossipSub topics by default
-    for (const topic of getTopicTypeForClientType(this.clientType)) {
+    for (const topic of getTopicsForClientAndConfig(this.clientType, this.config.disableTransactions)) {
       this.subscribeToTopic(this.topicStrings[topic]);
     }
 
@@ -453,15 +454,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const goodbyeHandler = reqGoodbyeHandler(this.peerManager);
     const blockHandler = reqRespBlockHandler(this.archiver);
     const statusHandler = reqRespStatusHandler(this.protocolVersion, this.worldStateSynchronizer, this.logger);
-    // In case P2P client doesnt'have attestation pool,
-    // const blockTxsHandler = this.mempools.attestationPool
-    //   ? reqRespBlockTxsHandler(this.mempools.attestationPool, this.mempools.txPool)
-    //   : def;
 
     const requestResponseHandlers: Partial<ReqRespSubProtocolHandlers> = {
       [ReqRespSubProtocol.PING]: pingHandler,
       [ReqRespSubProtocol.STATUS]: statusHandler.bind(this),
-      [ReqRespSubProtocol.TX]: txHandler.bind(this),
       [ReqRespSubProtocol.GOODBYE]: goodbyeHandler.bind(this),
       [ReqRespSubProtocol.BLOCK]: blockHandler.bind(this),
     };
@@ -470,6 +466,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (this.mempools.attestationPool) {
       const blockTxsHandler = reqRespBlockTxsHandler(this.mempools.attestationPool, this.mempools.txPool);
       requestResponseHandlers[ReqRespSubProtocol.BLOCK_TXS] = blockTxsHandler.bind(this);
+    }
+
+    if (!this.config.disableTransactions) {
+      requestResponseHandlers[ReqRespSubProtocol.TX] = txHandler.bind(this);
     }
 
     // add GossipSub listener
@@ -694,7 +694,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     try {
       resultAndObj = await validationFunc();
     } catch (err) {
-      this.logger.error(`Error deserialising and validating message `, err);
+      this.logger.error(`Error deserializing and validating message `, err);
     }
 
     if (resultAndObj.result) {
@@ -808,9 +808,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   private async processValidBlockProposal(block: BlockProposal, sender: PeerId) {
     const slot = block.slotNumber.toBigInt();
     const previousSlot = slot - 1n;
-    const epoch = slot / 32n;
     this.logger.verbose(
-      `Received block ${block.blockNumber} for slot ${slot} epoch ${epoch} from external peer ${sender.toString()}.`,
+      `Received block ${block.blockNumber} for slot ${slot} from external peer ${sender.toString()}.`,
       {
         p2pMessageIdentifier: await block.p2pMessageIdentifier(),
         slot: block.slotNumber.toNumber(),
@@ -1015,9 +1014,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       gasFees,
       this.config.l1ChainId,
       this.config.rollupVersion,
-      protocolContractTreeRoot,
+      protocolContractsHash,
       this.archiver,
       this.proofVerifier,
+      !this.config.disableTransactions,
       allowedInSetup,
     );
   }

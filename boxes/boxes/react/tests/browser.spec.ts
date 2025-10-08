@@ -2,6 +2,13 @@ import { test, expect } from '@playwright/test';
 
 test('test', async ({ page }) => {
   test.slow();
+  page.on('console', msg => {
+    if (msg.type() === 'error') {
+      console.error(msg.text());
+    } else {
+      console.log(msg.text());
+    }
+  });
   await page.goto('/');
 
   // Deploy contract

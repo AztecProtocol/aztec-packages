@@ -23,8 +23,8 @@ struct GasEvent {
     uint32_t addressing_gas = 0;
     Gas dynamic_gas_factor = { 0, 0 };
 
-    uint64_t limit_used_l2_comparison_witness;
-    uint64_t limit_used_da_comparison_witness;
+    uint64_t total_gas_used_l2 = 0;
+    uint64_t total_gas_used_da = 0;
 
     bool oog_l2 = false;
     bool oog_da = false;

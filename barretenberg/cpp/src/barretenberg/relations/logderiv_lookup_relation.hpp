@@ -173,7 +173,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
                                               auto& relation_parameters,
                                               const size_t circuit_size)
     {
-        PROFILE_THIS_NAME("Lookup::compute_logderivative_inverse");
+        BB_BENCH_NAME("Lookup::compute_logderivative_inverse");
         auto& inverse_polynomial = get_inverse_polynomial(polynomials);
 
         size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
@@ -253,7 +253,6 @@ template <typename FF_> class LogDerivLookupRelationImpl {
                            const Parameters& params,
                            const FF& scaling_factor)
     {
-        PROFILE_THIS_NAME("Lookup::accumulate");
         // declare the accumulator of the maximum length, in non-ZK Flavors, they are of the same length,
         // whereas in ZK Flavors, the accumulator corresponding log derivative lookup argument sub-relation is the
         // longest

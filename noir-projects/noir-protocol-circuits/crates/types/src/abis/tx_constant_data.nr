@@ -4,26 +4,23 @@ use crate::{
 };
 use std::meta::derive;
 
-// Constants used throughout the executions of both private and public.
+// Version of PrivateTxConstantData exposed by the tail circuits.
+// The protocol contracts are compressed down to a hash to minimize the number of public inputs.
 #[derive(Deserialize, Eq, Serialize)]
 pub struct TxConstantData {
-    pub historical_header: BlockHeader,
-    // Note: `chain_id` and `version` in tx_context are not redundant to the values in
-    // self.historical_header.global_variables because they can be different in case of a protocol upgrade. In such
-    // a situation we could be using header from a block before the upgrade took place but be using the updated
-    // protocol to execute and prove the transaction.
+    pub anchor_block_header: BlockHeader,
     pub tx_context: TxContext,
     pub vk_tree_root: Field,
-    pub protocol_contract_tree_root: Field,
+    pub protocol_contracts_hash: Field,
 }
 
 impl Empty for TxConstantData {
     fn empty() -> Self {
         TxConstantData {
-            historical_header: BlockHeader::empty(),
+            anchor_block_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
             vk_tree_root: 0,
-            protocol_contract_tree_root: 0,
+            protocol_contracts_hash: 0,
         }
     }
 }

@@ -12,7 +12,7 @@ import { foundry } from 'viem/chains';
 import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';
 import { deployL1Contracts } from '../deploy_l1_contracts.js';
-import { L1TxUtils } from '../l1_tx_utils.js';
+import { createL1TxUtilsFromViemWallet } from '../l1_tx_utils/index.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { FeeAssetHandlerContract } from './fee_asset_handler.js';
@@ -33,7 +33,7 @@ describe('FeeAssetHandler', () => {
     // this is the 6th address that gets funded by the junk mnemonic
     privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
     const vkTreeRoot = Fr.random();
-    const protocolContractTreeRoot = Fr.random();
+    const protocolContractsHash = Fr.random();
 
     ({ anvil, rpcUrl } = await startAnvil());
 
@@ -43,13 +43,13 @@ describe('FeeAssetHandler', () => {
       ...DefaultL1ContractsConfig,
       salt: originalVersionSalt,
       vkTreeRoot,
-      protocolContractTreeRoot,
+      protocolContractsHash,
       genesisArchiveRoot: Fr.random(),
       realVerifier: false,
     });
     // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
     const deployedAddresses = omit(deployed.l1ContractAddresses, 'slashFactoryAddress');
-    const txUtils = new L1TxUtils(l1Client, logger);
+    const txUtils = createL1TxUtilsFromViemWallet(l1Client, { logger });
     feeAssetHandler = new FeeAssetHandlerContract(deployedAddresses.feeAssetHandlerAddress!.toString(), txUtils);
     feeAsset = getContract({
       address: deployedAddresses.feeJuiceAddress!.toString(),

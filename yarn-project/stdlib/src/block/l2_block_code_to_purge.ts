@@ -1,26 +1,35 @@
+import { compact } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
-import { BlockHeader } from '../tx/block_header.js';
 import { ContentCommitment } from '../tx/content_commitment.js';
 import { GlobalVariables } from '../tx/global_variables.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
 import { StateReference } from '../tx/state_reference.js';
+import { L2BlockHeader } from './l2_block_header.js';
 
-/**
- * Makes header.
- */
-export function makeHeader(seed = 0, blockNumber?: number, slotNumber?: number, inHash?: Fr): BlockHeader {
-  return new BlockHeader(
+export function makeL2BlockHeader(
+  seed = 0,
+  blockNumber?: number,
+  slotNumber?: number,
+  overrides: Partial<FieldsOf<L2BlockHeader>> = {},
+  inHash?: Fr,
+) {
+  return new L2BlockHeader(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
-    makeContentCommitment(seed + 0x200, inHash),
-    makeStateReference(seed + 0x600),
-    makeGlobalVariables((seed += 0x700), blockNumber, slotNumber ?? blockNumber),
+    overrides?.contentCommitment ?? makeContentCommitment(seed + 0x200, inHash),
+    overrides?.state ?? makeStateReference(seed + 0x600),
+    makeGlobalVariables((seed += 0x700), {
+      ...(blockNumber ? { blockNumber } : {}),
+      ...(slotNumber ? { slotNumber: new Fr(slotNumber) } : {}),
+    }),
     new Fr(seed + 0x800),
     new Fr(seed + 0x900),
+    new Fr(seed + 0xa00),
   );
 }
 
@@ -62,26 +71,16 @@ function makePartialStateReference(seed = 0): PartialStateReference {
   );
 }
 
-/**
- * Makes global variables.
- * @param seed - The seed to use for generating the global variables.
- * @param blockNumber - The block number to use for generating the global variables.
- * If blockNumber is undefined, it will be set to seed + 2.
- * @returns Global variables.
- */
-export function makeGlobalVariables(
-  seed = 1,
-  blockNumber: number | undefined = undefined,
-  slotNumber: number | undefined = undefined,
-): GlobalVariables {
-  return new GlobalVariables(
-    new Fr(seed),
-    new Fr(seed + 1),
-    blockNumber ?? seed + 2,
-    new Fr(slotNumber ?? seed + 3),
-    BigInt(seed + 4),
-    EthAddress.fromField(new Fr(seed + 5)),
-    AztecAddress.fromField(new Fr(seed + 6)),
-    new GasFees(seed + 7, seed + 8),
-  );
+function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<GlobalVariables>> = {}): GlobalVariables {
+  return GlobalVariables.from({
+    chainId: new Fr(seed),
+    version: new Fr(seed + 1),
+    blockNumber: seed + 2,
+    slotNumber: new Fr(seed + 3),
+    timestamp: BigInt(seed + 4),
+    coinbase: EthAddress.fromField(new Fr(seed + 5)),
+    feeRecipient: AztecAddress.fromField(new Fr(seed + 6)),
+    gasFees: new GasFees(seed + 7, seed + 8),
+    ...compact(overrides),
+  });
 }

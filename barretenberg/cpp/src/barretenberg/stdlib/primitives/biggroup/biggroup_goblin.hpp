@@ -56,6 +56,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         , y(y)
         , _is_infinity(false)
     {}
+    goblin_element(const Fq& x, const Fq& y, const bool_ct is_infinity)
+        : x(x)
+        , y(y)
+        , _is_infinity(is_infinity)
+    {}
     goblin_element(const goblin_element& other) = default;
     goblin_element(goblin_element&& other) noexcept = default;
     goblin_element& operator=(const goblin_element& other) = default;
@@ -99,6 +104,19 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         this->x.convert_constant_to_fixed_witness(builder);
         this->y.convert_constant_to_fixed_witness(builder);
         this->unset_free_witness_tag();
+    }
+
+    /**
+     * Fix a witness. The value of the witness is constrained with a selector
+     **/
+    void fix_witness()
+    {
+        // Origin tags should be updated within
+        this->x.fix_witness();
+        this->y.fix_witness();
+
+        // This is now effectively a constant
+        unset_free_witness_tag();
     }
 
     void validate_on_curve() const
@@ -162,12 +180,21 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
             y_lo.assert_equal(other.y.limbs[0]);
             y_hi.assert_equal(other.y.limbs[1]);
         }
+        // if function queue_ecc_add_accum is used, op_tuple creates as a result of construct_and_populate_ultra_ops
+        // function. In case of queue_ecc_add_accum, scalar is zero, (z_1, z_2) = (scalar, 0) = (0, 0) and they just put
+        // in the wires.
+        builder->update_used_witnesses({ op_tuple.z_1, op_tuple.z_2 });
 
         ecc_op_tuple op_tuple2 = builder->queue_ecc_add_accum(result_value);
         auto x_lo = Fr::from_witness_index(builder, op_tuple2.x_lo);
         auto x_hi = Fr::from_witness_index(builder, op_tuple2.x_hi);
         auto y_lo = Fr::from_witness_index(builder, op_tuple2.y_lo);
         auto y_hi = Fr::from_witness_index(builder, op_tuple2.y_hi);
+
+        // if function queue_ecc_add_accum is used, op_tuple creates as a result of construct_and_populate_ultra_ops
+        // function. In case of queue_ecc_add_accum, scalar is zero, (z_1, z_2) = (scalar, 0) = (0, 0) and they just put
+        // in the wires.
+        builder->update_used_witnesses({ op_tuple2.z_1, op_tuple2.z_2 });
 
         Fq result_x(x_lo, x_hi);
         Fq result_y(y_lo, y_hi);
@@ -219,6 +246,23 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         goblin_element negated = -(*this);
         goblin_element result(*this);
         result.y = Fq::conditional_assign(predicate, negated.y, result.y);
+        return result;
+    }
+
+    /**
+     * @brief Selects `this` if predicate is false, `other` if predicate is true.
+     *
+     * @param other
+     * @param predicate
+     * @return goblin_element
+     */
+    goblin_element conditional_select(const goblin_element& other, const bool_ct& predicate) const
+    {
+        goblin_element result(*this);
+        result.x = Fq::conditional_assign(predicate, other.x, result.x);
+        result.y = Fq::conditional_assign(predicate, other.y, result.y);
+        result._is_infinity =
+            bool_ct::conditional_assign(predicate, other.is_point_at_infinity(), result.is_point_at_infinity());
         return result;
     }
 
@@ -292,7 +336,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
      * @brief Enforce x and y coordinates of a point to be (0,0) in the case of point at infinity
      *
      * @details We need to have a standard witness in Noir and the point at infinity can have non-zero random
-     * coefficients when we get it as output from our optimised algorithms. This function returns a (0,0) point, if
+     * coefficients when we get it as output from our optimized algorithms. This function returns a (0,0) point, if
      * it is a point at infinity
      */
     goblin_element get_standard_form() const

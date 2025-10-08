@@ -55,8 +55,11 @@ cp -Rf ./aztec-packages/noir-projects/noir-contracts/contracts/test/counter_cont
 cd counter_contract
 sed -i 's|\.\./\.\./\.\./\.\./|/home/ubuntu/aztec-packages/noir-projects/|g' Nargo.toml
 
-# Compile and codegen.
+# Compile the contract.
 aztec-nargo compile
+# Post-process the contract.
+aztec-postprocess-contract
+# Codegen
 aztec codegen -o src/artifacts target
 if [ ! -d src/artifacts ]; then
   echo "Failed to codegen TypeScript."

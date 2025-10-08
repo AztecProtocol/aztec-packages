@@ -50,15 +50,12 @@ function compile_all {
   if cache_download yarn-project-$hash.tar.gz; then
     return
   fi
-  # hack, after running prettier foundation may fail to resolve hash.js dependency.
-  # it is only currently foundation, presumably because hash.js looks like a js file.
-  rm -rf foundation/node_modules
-  compile_project ::: constants foundation stdlib builder ethereum l1-artifacts
+
+  compile_project ::: constants foundation stdlib blob-lib builder ethereum l1-artifacts
 
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
     accounts \
-    bb-prover \
     stdlib \
     ivc-integration \
     l1-artifacts \
@@ -71,6 +68,10 @@ function compile_all {
   cat joblog.txt
 
   get_projects | compile_project
+
+  # Run oracle version check for pxe after compilation
+  cd pxe && yarn check_oracle_version
+  cd ..
 
   cmds=('format --check')
   if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
@@ -99,6 +100,7 @@ function build {
 
 function test_cmds {
   local hash=$(hash)
+  local avm_flag=$(../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm && echo "no-avm" || echo "avm")
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
@@ -106,7 +108,7 @@ function test_cmds {
   for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
     # If AVM is disabled, filter out avm_proving_tests/*.test.ts and avm_integration.test.ts
     # Also must filter out rollup_ivc_integration.test.ts as it includes AVM proving.
-    if ../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm && [[ "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
+    if [[ $avm_flag == "no-avm" && "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
       continue
     fi
 
@@ -136,14 +138,14 @@ function test_cmds {
     if [[ "$test" =~ ^prover-client/src/test/ ]]; then
       if [ "$CI_FULL" -eq 1 ]; then
         prefix+=":CPUS=16:MEM=96g"
-        cmd_env+=" LOG_LEVEL=verbose"
+        cmd_env+=" LOG_LEVEL=verbose HARDWARE_CONCURRENCY=16"
       else
         cmd_env+=" FAKE_PROOFS=1"
       fi
     fi
 
     if [[ "$test" =~ rollup_ivc_integration || "$test" =~ avm_integration ]]; then
-      cmd_env+=" LOG_LEVEL=trace BB_VERBOSE=1 "
+      cmd_env+=" LOG_LEVEL=debug BB_VERBOSE=1 "
     fi
 
     echo "${prefix}${cmd_env} yarn-project/scripts/run_test.sh $test"
@@ -153,14 +155,14 @@ function test_cmds {
   echo "$hash cd yarn-project/kv-store && yarn test"
   echo "$hash cd yarn-project/ivc-integration && yarn test:browser"
 
-  if [ "$CI" -eq 0 ] || [[ "${TARGET_BRANCH:-}" == "master" || "${TARGET_BRANCH:-}" == "staging" ]]; then
+  if [[ "${TARGET_BRANCH:-}" =~ ^v[0-9]+$ ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
   fi
 }
 
 function test {
   echo_header "yarn-project test"
-  test_cmds | filter_test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelize
 }
 
 function bench_cmds {
@@ -226,6 +228,35 @@ case "$cmd" in
     else
       get_projects | compile_project
     fi
+    ;;
+  instrumented_profile)
+    # Automatically hooks sites with benchmarking instrumentation.
+    if [ "$#" -gt 1 ]; then
+      echo "Usage: ./bootstrap.sh profile <command>"
+      exit 1
+    fi
+    cmd=$1
+    # Refuse to continue if there are uncommitted changes to tracked files.
+    if [ -n "$(git status --porcelain | grep -v '^??')" ]; then
+      echo "Please commit or stash your changes before running this command."
+      exit 1
+    fi
+    rm -f profile-*.json
+    echo "NOTE: If you interrupt this you may have a dirty git state or build state. Otherwise it will clean up."
+    ( cd ./scripts/instrumenting-profiler && npm install )
+    ./scripts/instrumenting-profiler/instrument.sh
+    denoise "./bootstrap.sh compile"
+    pwd=$(pwd)
+    cleanup_instrumentation() {
+      # we may have changed paths
+      git checkout "$pwd"
+      denoise "cd '$pwd' && ./bootstrap.sh compile"
+      for f in profile-*.json; do
+        echo "To print: ./scripts/instrumenting-profiler/print.mjs $(pwd)/$f"
+      done
+    }
+    trap cleanup_instrumentation EXIT
+    eval "$cmd"
     ;;
   lint|format)
     $cmd "$@"

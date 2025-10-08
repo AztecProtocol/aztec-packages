@@ -212,7 +212,7 @@ void TranslatorRecursiveVerifier::verify_translation(const TranslationEvaluation
 }
 
 void TranslatorRecursiveVerifier::verify_consistency_with_final_merge(
-    const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> merge_commitments)
+    const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& merge_commitments)
 {
     // Check the consistency with final merge
     for (auto [merge_commitment, translator_commitment] : zip_view(merge_commitments, op_queue_commitments)) {

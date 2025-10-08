@@ -232,7 +232,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
     vm.warp(revertTimestamp + uint256(_daysInFuture) * 24 * 60 * 60);
 
-    vm.expectRevert("Proof expired or date is invalid");
+    vm.expectRevert("The proof was generated outside the validity period");
     vm.prank(_caller);
     stakingAssetHandler.addValidator(
       attester, validMerkleProof, _proof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
@@ -255,12 +255,10 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
     vm.warp(revertTimestamp);
 
+    bytes4 selectorWithParam = bytes4(keccak256("flushEntryQueue(uint256)"));
+
     // Mock flushEntryQueue to revert
-    vm.mockCallRevert(
-      address(staking),
-      abi.encodeWithSelector(IStakingCore.flushEntryQueue.selector),
-      bytes(string("flushEntryQueue failed"))
-    );
+    vm.mockCallRevert(address(staking), selectorWithParam, bytes(string("flushEntryQueue failed")));
 
     uint256 queueLengthBefore = staking.getEntryQueueLength();
 

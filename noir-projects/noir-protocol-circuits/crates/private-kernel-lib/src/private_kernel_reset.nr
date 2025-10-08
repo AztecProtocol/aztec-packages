@@ -89,7 +89,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             pending_note_hash_read_amount: self.dimensions.NOTE_HASH_PENDING_READ_AMOUNT,
             note_hash_tree_root: previous_public_inputs
                 .constants
-                .historical_header
+                .anchor_block_header
                 .state
                 .partial
                 .note_hash_tree
@@ -100,7 +100,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             pending_nullifier_read_amount: self.dimensions.NULLIFIER_PENDING_READ_AMOUNT,
             nullifier_tree_root: previous_public_inputs
                 .constants
-                .historical_header
+                .anchor_block_header
                 .state
                 .partial
                 .nullifier_tree
@@ -384,7 +384,7 @@ mod tests {
     fn correct_private_kernel_reset_output_propagated_values() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
 
-        let constants = builder.previous_kernel.to_tx_constant_data();
+        let constants = builder.previous_kernel.to_private_tx_constant_data();
         builder.previous_kernel.min_revertible_side_effect_counter = 246;
         let public_teardown_call_request = make_fixture(999);
         builder.previous_kernel.public_teardown_call_request = public_teardown_call_request;
@@ -817,7 +817,7 @@ mod tests {
         }
             .scope(SIDE_EFFECT_MASKING_ADDRESS)];
         let padded_private_logs = [PrivateLogData {
-            log: PrivateLog { fields: pad_end([22, 33], 0), length: 2 },
+            log: PrivateLog { fields: pad_end([22, 33]), length: 2 },
             note_hash_counter: 0,
             counter: MAX_U32_VALUE,
         }

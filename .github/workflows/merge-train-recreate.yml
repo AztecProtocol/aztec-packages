@@ -3,17 +3,6 @@ name: Merge-Train Recreate
 on:
   pull_request:
     types: [closed]
-  workflow_dispatch:
-    inputs:
-      merge_train_branch:
-        description: 'Merge train branch to recreate (e.g., merge-train/docs)'
-        required: true
-        type: string
-      base_branch:
-        description: 'Base branch (e.g., next)'
-        required: true
-        type: string
-        default: 'next'
 
 jobs:
   recreate:
@@ -36,24 +25,14 @@ jobs:
 
       - name: Recreate branch
         run: |
-          # Determine branch names based on event type
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            MERGE_TRAIN_BRANCH="${{ github.event.inputs.merge_train_branch }}"
-            BASE_BRANCH="${{ github.event.inputs.base_branch }}"
-            # For manual dispatch, use current SHA and get latest from base branch
-            HEAD_COMMIT_SHA="${{ github.sha }}"
-            BASE_COMMIT_SHA=$(git rev-parse origin/$BASE_BRANCH)
-          else
-            MERGE_TRAIN_BRANCH="${{ github.event.pull_request.head.ref }}"
-            BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
-            HEAD_COMMIT_SHA="${{ github.event.pull_request.head.sha }}"
-            BASE_COMMIT_SHA="${{ github.event.pull_request.merge_commit_sha }}"
-          fi
+          MERGE_TRAIN_BRANCH="${{ github.event.pull_request.head.ref }}"
+          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+          git fetch origin "$BASE_BRANCH"
+          git checkout -b "$MERGE_TRAIN_BRANCH" "origin/$BASE_BRANCH"
 
-          # Use aztecbot token for all operations including PR creation
-          GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
-          ./scripts/merge-train/recreate-branch.sh \
-            "$MERGE_TRAIN_BRANCH" \
-            "$BASE_BRANCH" \
-            "$BASE_COMMIT_SHA" \
-            "$HEAD_COMMIT_SHA"
+      - name: Push branch
+        continue-on-error: true
+        run: |
+          # This will generally only succeed if the branch does not exist, as a fallback if the branch is unprotected and gets deleted.
+          git push origin "$MERGE_TRAIN_BRANCH"
+

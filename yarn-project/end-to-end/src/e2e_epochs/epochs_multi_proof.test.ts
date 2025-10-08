@@ -1,6 +1,5 @@
 import { type Logger, retryUntil, sleep } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
@@ -33,7 +32,7 @@ describe('e2e_epochs/epochs_multi_proof', () => {
   it('submits proofs from multiple prover-nodes', async () => {
     await test.createProverNode();
     await test.createProverNode();
-    const proverIds = test.proverNodes.map(prover => EthAddress.fromField(prover.getProverId()));
+    const proverIds = test.proverNodes.map(prover => prover.getProverId());
     logger.info(`Prover nodes running with ids ${proverIds.map(id => id.toString()).join(', ')}`);
 
     // Add a delay to prover nodes so not all txs land on the same place
@@ -42,11 +41,11 @@ describe('e2e_epochs/epochs_multi_proof', () => {
       const origCreateEpochProver = proverManager.createEpochProver.bind(proverManager);
       proverManager.createEpochProver = () => {
         const epochProver = origCreateEpochProver();
-        const origFinaliseEpoch = epochProver.finaliseEpoch.bind(epochProver);
-        epochProver.finaliseEpoch = async () => {
-          const result = await origFinaliseEpoch();
+        const origFinalizeEpoch = epochProver.finalizeEpoch.bind(epochProver);
+        epochProver.finalizeEpoch = async () => {
+          const result = await origFinalizeEpoch();
           const sleepTime = index * 1000 * test.constants.ethereumSlotDuration;
-          logger.warn(`Delaying finaliseEpoch for prover node ${index} by ${sleepTime}ms`);
+          logger.warn(`Delaying finalizeEpoch for prover node ${index} by ${sleepTime}ms`);
           await sleep(sleepTime);
           return result;
         };

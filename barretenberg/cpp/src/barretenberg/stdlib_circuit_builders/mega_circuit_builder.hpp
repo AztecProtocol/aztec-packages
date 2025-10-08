@@ -36,12 +36,13 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
 
     // Functions for adding ECC op queue "gates"
     ecc_op_tuple queue_ecc_add_accum(const g1::affine_element& point);
-    ecc_op_tuple queue_ecc_mul_accum(const g1::affine_element& point, const FF& scalar);
-    ecc_op_tuple queue_ecc_eq();
+    ecc_op_tuple queue_ecc_mul_accum(const g1::affine_element& point, const FF& scalar, bool in_finalize = false);
+    ecc_op_tuple queue_ecc_eq(bool in_finalize = true);
     ecc_op_tuple queue_ecc_no_op();
+    void queue_ecc_random_op();
 
   private:
-    ecc_op_tuple populate_ecc_op_wires(const UltraOp& ultra_op);
+    ecc_op_tuple populate_ecc_op_wires(const UltraOp& ultra_op, bool in_finalize = false);
     void set_goblin_ecc_op_code_constant_variables();
     void create_databus_read_gate(const databus_lookup_gate_<FF>& in, BusId bus_idx);
     void apply_databus_selectors(BusId bus_idx);
@@ -52,7 +53,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(size_hint)
         , op_queue(std::move(op_queue_in))
     {
-        PROFILE_THIS();
+        BB_BENCH();
         // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate
         // whether the subtable should be prepended or appended to the existing subtables from prior circuits.
         op_queue->initialize_new_subtable();

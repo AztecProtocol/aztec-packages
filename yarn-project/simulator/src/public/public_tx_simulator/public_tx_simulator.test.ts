@@ -1,6 +1,11 @@
 import {
+  AVM_MAX_PROCESSABLE_L2_GAS,
   CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE,
   CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
+  GAS_ESTIMATION_DA_GAS_LIMIT,
+  GAS_ESTIMATION_L2_GAS_LIMIT,
+  GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
+  GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
   NULLIFIER_SUBTREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
@@ -40,6 +45,12 @@ import { mock } from 'jest-mock-extended';
 import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import type { InstructionSet } from '../avm/serialization/bytecode_serialization.js';
 import { PublicContractsDB } from '../public_db_sources.js';
+import { CheckedPublicExecutionError } from '../public_errors.js';
+import {
+  L2ToL1MessageLimitReachedError,
+  NoteHashLimitReachedError,
+  NullifierLimitReachedError,
+} from '../side_effect_errors.js';
 import { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 
@@ -47,17 +58,17 @@ describe('public_tx_simulator', () => {
   // Nullifier must be >=128 since tree starts with 128 entries pre-filled
   const MIN_NULLIFIER = 128;
   // Gas settings.
-  const gasLimits = new Gas(100, 150);
-  const teardownGasLimits = new Gas(20, 30);
+  let gasLimits = new Gas(100, 150);
+  let teardownGasLimits = new Gas(20, 30);
   const gasFees = new GasFees(2, 3);
   let maxFeesPerGas = gasFees;
   let maxPriorityFeesPerGas = GasFees.empty();
 
   // gasUsed for the tx after private execution, minus the teardownGasLimits.
-  const privateGasUsed = new Gas(13, 17);
+  let privateGasUsed = new Gas(13, 17);
 
   // gasUsed for each enqueued call.
-  const enqueuedCallGasUsed = new Gas(12, 34);
+  let enqueuedCallGasUsed = new Gas(12, 34);
 
   let merkleTrees: MerkleTreeWriteOperations;
   let merkleTreesCopy: MerkleTreeWriteOperations;
@@ -250,16 +261,21 @@ describe('public_tx_simulator', () => {
   const createSimulator = ({
     doMerkleOperations = true,
     skipFeeEnforcement = false,
+    proverId,
   }: {
     doMerkleOperations?: boolean;
     skipFeeEnforcement?: boolean;
+    proverId?: Fr;
   }) => {
     const simulator = new PublicTxSimulator(
       merkleTrees,
       contractsDB,
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
-      doMerkleOperations,
-      skipFeeEnforcement,
+      {
+        doMerkleOperations,
+        skipFeeEnforcement,
+        proverId,
+      },
     );
 
     // Mock the internal private function. Borrowed from https://stackoverflow.com/a/71033167
@@ -289,6 +305,12 @@ describe('public_tx_simulator', () => {
   };
 
   beforeEach(async () => {
+    gasLimits = new Gas(100, 150);
+    teardownGasLimits = new Gas(20, 30);
+
+    privateGasUsed = new Gas(13, 17);
+    enqueuedCallGasUsed = new Gas(12, 34);
+
     merkleTrees = await (await NativeWorldStateService.tmp()).fork();
     merkleTreesCopy = await (await NativeWorldStateService.tmp()).fork();
     contractsDB = new PublicContractsDB(mock<ContractDataSource>());
@@ -556,6 +578,22 @@ describe('public_tx_simulator', () => {
     );
 
     await expect(simulator.simulate(tx)).rejects.toThrow(setupFailureMsg);
+
+    expect(simulateInternal).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails a tx that consumes more than the AVM maximum processable gas', async () => {
+    gasLimits = new Gas(GAS_ESTIMATION_DA_GAS_LIMIT, GAS_ESTIMATION_L2_GAS_LIMIT);
+    teardownGasLimits = new Gas(GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT, GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT);
+    enqueuedCallGasUsed = new Gas(GAS_ESTIMATION_L2_GAS_LIMIT, AVM_MAX_PROCESSABLE_L2_GAS);
+
+    const tx = await mockTxWithPublicCalls({
+      numberOfAppLogicCalls: 1,
+    });
+
+    await expect(simulator.simulate(tx)).rejects.toThrow(
+      `exceeds the AVM maximum processable gas of ${AVM_MAX_PROCESSABLE_L2_GAS}`,
+    );
 
     expect(simulateInternal).toHaveBeenCalledTimes(1);
   });
@@ -1234,5 +1272,287 @@ describe('public_tx_simulator', () => {
     // Verify that the SimulationError contains information about the nullifier collision
     const simulationError = txResult.revertReason as SimulationError;
     expect(simulationError.getOriginalMessage()).toContain('Nullifier collision');
+  });
+
+  describe('prover id', () => {
+    it('exposes the default prover id in public inputs', async () => {
+      const tx = await mockTxWithPublicCalls({
+        numberOfAppLogicCalls: 1,
+      });
+
+      const txResult = await simulator.simulate(tx);
+
+      expect(txResult.avmProvingRequest!.inputs.publicInputs.proverId).toEqual(Fr.ZERO);
+    });
+
+    it('exposes the prover id in public inputs', async () => {
+      const tx = await mockTxWithPublicCalls({
+        numberOfAppLogicCalls: 1,
+      });
+
+      const proverId = Fr.random();
+
+      simulator = createSimulator({ skipFeeEnforcement: true, proverId });
+
+      const txResult = await simulator.simulate(tx);
+
+      expect(txResult.avmProvingRequest!.inputs.publicInputs.proverId).toEqual(proverId);
+    });
+  });
+
+  describe('unchecked errors should NOT be caught', () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('Unchecked error during enqueued call simulation should NOT be caught', async () => {
+      const tx = await mockTxWithPublicCalls({
+        numberOfAppLogicCalls: 1,
+      });
+
+      const msg = 'This is an unchecked error during enqueued call';
+      simulateInternal.mockRejectedValue(new Error(msg));
+
+      await expect(simulator.simulate(tx)).rejects.toThrow(msg);
+    });
+
+    it('Unchecked error during revertible nullifier insertion should NOT be caught', async () => {
+      const tx = await mockTx(/*seed=*/ 5555, {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 1, // need at least 1 public call so that is classified as forPublic
+        numberOfRevertibleNullifiers: 1, // nonzero so that this calls writeSiloedNullifier which we mock
+      });
+
+      // Zero out the first nullifier to force it to skip nonrevertible nullifier insertions
+      // so that we fail later during revertibles.
+      tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] = new Fr(0);
+
+      mockPublicExecutor([
+        // one app logic call
+        async (_stateManager: PublicPersistableStateManager) => {},
+      ]);
+
+      const msg = 'This is an unchecked error during revertible nullifier insertion';
+      jest.spyOn(PublicPersistableStateManager.prototype, 'writeSiloedNullifier').mockImplementation(() => {
+        throw new Error(msg);
+      });
+
+      await expect(simulator.simulate(tx)).rejects.toThrow(msg);
+    });
+
+    it('Unchecked error during revertible note hash insertion should NOT be caught', async () => {
+      const tx = await mockTx(/*seed=*/ 5555, {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 1, // need at least 1 public call so that is classified as forPublic
+      });
+
+      tx.data.forPublic!.revertibleAccumulatedData.noteHashes[0] = new Fr(123);
+
+      mockPublicExecutor([
+        // one app logic call
+        async (_stateManager: PublicPersistableStateManager) => {},
+      ]);
+
+      const msg = 'This is an unchecked error during revertible note hash insertion';
+      jest.spyOn(PublicPersistableStateManager.prototype, 'writeSiloedNoteHash').mockImplementation(() => {
+        throw new Error(msg);
+      });
+
+      await expect(simulator.simulate(tx)).rejects.toThrow(msg);
+    });
+
+    it('Unchecked error during revertible l2 to l1 message insertion should NOT be caught', async () => {
+      const tx = await mockTx(/*seed=*/ 5555, {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 1, // need at least 1 public call so that is classified as forPublic
+      });
+
+      tx.data.forPublic!.revertibleAccumulatedData.l2ToL1Msgs[0] = new ScopedL2ToL1Message(
+        new L2ToL1Message(EthAddress.fromNumber(123), new Fr(456)),
+        AztecAddress.fromNumber(789),
+      );
+
+      mockPublicExecutor([
+        // one app logic call
+        async (_stateManager: PublicPersistableStateManager) => {},
+      ]);
+
+      const msg = 'This is an unchecked error during revertible l2 to l1 message insertion';
+      jest.spyOn(PublicPersistableStateManager.prototype, 'writeScopedL2ToL1Message').mockImplementation(() => {
+        throw new Error(msg);
+      });
+
+      await expect(simulator.simulate(tx)).rejects.toThrow(msg);
+    });
+  });
+
+  describe('"checked" errors SHOULD be caught', () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('"Checked" error during revertible nullifier insertion should be caught', async () => {
+      const tx = await mockTx(/*seed=*/ 5555, {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 1, // need at least 1 public call so that is classified as forPublic
+        numberOfRevertibleNullifiers: 1, // nonzero so that this calls writeSiloedNullifier which we mock
+      });
+
+      // Zero out the first nullifier to force it to skip nonrevertible nullifier insertions
+      // so that we fail later during revertibles.
+      tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] = new Fr(0);
+
+      mockPublicExecutor([
+        // one app logic call
+        async (_stateManager: PublicPersistableStateManager) => {},
+      ]);
+
+      jest.spyOn(PublicPersistableStateManager.prototype, 'writeSiloedNullifier').mockImplementation(() => {
+        throw new NullifierLimitReachedError();
+      });
+
+      const txResult = await simulator.simulate(tx);
+      expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
+      expect(txResult.revertReason?.message).toContain(new NullifierLimitReachedError().message);
+    });
+
+    it('"Checked" error during revertible note hash insertion should be caught', async () => {
+      const tx = await mockTx(/*seed=*/ 5555, {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 1, // need at least 1 public call so that is classified as forPublic
+      });
+
+      tx.data.forPublic!.revertibleAccumulatedData.noteHashes[0] = new Fr(123);
+
+      mockPublicExecutor([
+        // one app logic call
+        async (_stateManager: PublicPersistableStateManager) => {},
+      ]);
+
+      jest.spyOn(PublicPersistableStateManager.prototype, 'writeSiloedNoteHash').mockImplementation(() => {
+        throw new NoteHashLimitReachedError();
+      });
+      const txResult = await simulator.simulate(tx);
+      expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
+      expect(txResult.revertReason?.message).toContain(new NoteHashLimitReachedError().message);
+    });
+
+    it('"Checked" error during revertible l2 to l1 message insertion should be caught', async () => {
+      const tx = await mockTx(/*seed=*/ 5555, {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 1, // need at least 1 public call so that is classified as forPublic
+      });
+
+      tx.data.forPublic!.revertibleAccumulatedData.l2ToL1Msgs[0] = new ScopedL2ToL1Message(
+        new L2ToL1Message(EthAddress.fromNumber(123), new Fr(456)),
+        AztecAddress.fromNumber(789),
+      );
+
+      mockPublicExecutor([
+        // one app logic call
+        async (_stateManager: PublicPersistableStateManager) => {},
+      ]);
+
+      jest.spyOn(PublicPersistableStateManager.prototype, 'writeScopedL2ToL1Message').mockImplementation(() => {
+        throw new L2ToL1MessageLimitReachedError();
+      });
+
+      const txResult = await simulator.simulate(tx);
+      expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
+      expect(txResult.revertReason?.message).toContain(new L2ToL1MessageLimitReachedError().message);
+    });
+  });
+
+  describe('unchecked errors should NOT be caught', () => {
+    class CheckedError extends CheckedPublicExecutionError {
+      constructor(message: string) {
+        super(message);
+        this.name = 'CheckedError';
+      }
+    }
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('ANY error from internal simulation is unchecked.... AvmSimulator internally handles checked errors!', async () => {
+      const tx = await mockTxWithPublicCalls({
+        numberOfAppLogicCalls: 1,
+      });
+
+      const msg = 'Error uncaught by AvmSimulator';
+      simulateInternal.mockRejectedValue(new CheckedError(msg));
+
+      await expect(simulator.simulate(tx)).rejects.toThrow(msg);
+    });
+
+    it('Unchecked error during revertible nullifier insertion should NOT be caught', async () => {
+      const tx = await mockTx(/*seed=*/ 5555, {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 1, // need at least 1 public call so that is classified as forPublic
+        numberOfRevertibleNullifiers: 1, // nonzero so that this calls writeSiloedNullifier which we mock
+      });
+
+      // Zero out the first nullifier to force it to skip nonrevertible nullifier insertions
+      // so that we fail later during revertibles.
+      tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] = new Fr(0);
+
+      mockPublicExecutor([
+        // one app logic call
+        async (_stateManager: PublicPersistableStateManager) => {},
+      ]);
+
+      const msg = 'This is an unchecked error during revertible nullifier insertion';
+      jest.spyOn(PublicPersistableStateManager.prototype, 'writeSiloedNullifier').mockImplementation(() => {
+        throw new Error(msg);
+      });
+
+      await expect(simulator.simulate(tx)).rejects.toThrow(msg);
+    });
+
+    it('Unchecked error during revertible note hash insertion should NOT be caught', async () => {
+      const tx = await mockTx(/*seed=*/ 5555, {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 1, // need at least 1 public call so that is classified as forPublic
+      });
+
+      tx.data.forPublic!.revertibleAccumulatedData.noteHashes[0] = new Fr(123);
+
+      mockPublicExecutor([
+        // one app logic call
+        async (_stateManager: PublicPersistableStateManager) => {},
+      ]);
+
+      const msg = 'This is an unchecked error during revertible note hash insertion';
+      jest.spyOn(PublicPersistableStateManager.prototype, 'writeSiloedNoteHash').mockImplementation(() => {
+        throw new Error(msg);
+      });
+
+      await expect(simulator.simulate(tx)).rejects.toThrow(msg);
+    });
+
+    it('Unchecked error during revertible l2 to l1 message insertion should NOT be caught', async () => {
+      const tx = await mockTx(/*seed=*/ 5555, {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 1, // need at least 1 public call so that is classified as forPublic
+      });
+
+      tx.data.forPublic!.revertibleAccumulatedData.l2ToL1Msgs[0] = new ScopedL2ToL1Message(
+        new L2ToL1Message(EthAddress.fromNumber(123), new Fr(456)),
+        AztecAddress.fromNumber(789),
+      );
+
+      mockPublicExecutor([
+        // one app logic call
+        async (_stateManager: PublicPersistableStateManager) => {},
+      ]);
+
+      const msg = 'This is an unchecked error during revertible l2 to l1 message insertion';
+      jest.spyOn(PublicPersistableStateManager.prototype, 'writeScopedL2ToL1Message').mockImplementation(() => {
+        throw new Error(msg);
+      });
+
+      await expect(simulator.simulate(tx)).rejects.toThrow(msg);
+    });
   });
 });

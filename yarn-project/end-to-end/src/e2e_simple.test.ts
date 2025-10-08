@@ -1,6 +1,5 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
-import { type AztecNode, ContractDeployer, Fr, type Wallet, waitForProven } from '@aztec/aztec.js';
-import { EthAddress } from '@aztec/foundation/eth-address';
+import { AztecAddress, type AztecNode, ContractDeployer, Fr, type Wallet, waitForProven } from '@aztec/aztec.js';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 
 import { jest } from '@jest/globals';
@@ -11,7 +10,8 @@ import { setup } from './fixtures/utils.js';
 describe('e2e_simple', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
-  let owner: Wallet;
+  let wallet: Wallet;
+  let ownerAddress: AztecAddress;
   let teardown: () => Promise<void>;
   let config: AztecNodeConfig;
   let aztecNode: AztecNode;
@@ -26,11 +26,11 @@ describe('e2e_simple', () => {
     beforeAll(async () => {
       ({
         teardown,
-        wallets: [owner],
+        wallet,
+        accounts: [ownerAddress],
         config,
         aztecNode,
       } = await setup(1, {
-        customForwarderContractAddress: EthAddress.ZERO,
         archiverPollingIntervalMS: 200,
         transactionPollingIntervalMS: 200,
         worldStateBlockCheckIntervalMS: 200,
@@ -46,11 +46,11 @@ describe('e2e_simple', () => {
     afterAll(() => teardown());
 
     it('deploys a contract', async () => {
-      const deployer = new ContractDeployer(artifact, owner);
+      const deployer = new ContractDeployer(artifact, wallet);
 
-      const ownerAddress = owner.getCompleteAddress().address;
       const sender = ownerAddress;
       const provenTx = await deployer.deploy(ownerAddress, sender, 1).prove({
+        from: ownerAddress,
         contractAddressSalt: new Fr(BigInt(1)),
         skipClassPublication: true,
         skipInstancePublication: true,

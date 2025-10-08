@@ -24,7 +24,7 @@ export async function triggerSeedSnapshot({
   });
 
   log('Triggering seed snapshot for next epoch');
-  const txHash = await rollup.write.setupSeedSnapshotForNextEpoch();
+  const txHash = await rollup.write.checkpointRandao();
   log(`Sent! | Seed snapshot setup for next epoch | tx hash: ${txHash}`);
   const receipt = await client.waitForTransactionReceipt({ hash: txHash });
   log(`Done! | Seed snapshot setup for next epoch | tx hash: ${txHash} | status: ${receipt.status}`);

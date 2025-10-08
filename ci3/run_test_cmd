@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Called by 'parallelise' to execute a given test cmd.
+# Called by 'parallelize' to execute a given test cmd.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
 source $ci3/source_refname
@@ -8,6 +8,9 @@ source $ci3/source_refname
 # Otherwise, when parallel sends a TERM to the group, it will also kill any child process of the test.
 # This can cause issues with proper cleanup (e.g. killing docker client processes as they run).
 set -m
+
+# Ensure SCENARIO_TESTS is always defined
+SCENARIO_TESTS=${SCENARIO_TESTS:-0}
 
 cmd=$1
 is_merge_queue=0
@@ -105,7 +108,8 @@ function live_publish_log {
   publish_log
   echo -e "${blue}RUNNING${reset}${log_info:-}: $test_cmd"
   while [ -f $tmp_file ]; do
-    if [ $(( $(date +%s) - $(stat -c %Y "$tmp_file") )) -le 5 ]; then
+    local stat=$(stat -c %Y "$tmp_file" || echo 0)
+    if [ $(( $(date +%s) - "$stat" )) -le 5 ]; then
       publish_log
     fi
     sleep 5 &
@@ -204,6 +208,20 @@ function fail {
   line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
   track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
   track_test "failed_tests${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
+
+  # notify slack if scenario test failed
+  if [ "$SCENARIO_TESTS" -eq 1 ] && [ -n "${SLACK_BOT_TOKEN:-}" ]; then
+    read -r -d '' data <<EOF
+    {
+      "channel": "#alerts-next-scenario",
+      "text": "Scenario test FAILED on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` ${CI_REDIS_AVAILABLE:+http://ci.aztec-labs.com/$log_key}"
+    }
+EOF
+    curl -X POST https://slack.com/api/chat.postMessage \
+      -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+      -H "Content-type: application/json" \
+      --data "$data" &>/dev/null
+  fi
 
   exit $code
 }

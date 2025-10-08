@@ -56,7 +56,10 @@ export function getEpochAtSlot(slot: bigint, constants: Pick<L1RollupConstants, 
 }
 
 /** Returns the range of L2 slots (inclusive) for a given epoch number. */
-export function getSlotRangeForEpoch(epochNumber: bigint, constants: Pick<L1RollupConstants, 'epochDuration'>) {
+export function getSlotRangeForEpoch(
+  epochNumber: bigint,
+  constants: Pick<L1RollupConstants, 'epochDuration'>,
+): [bigint, bigint] {
   const startSlot = epochNumber * BigInt(constants.epochDuration);
   return [startSlot, startSlot + BigInt(constants.epochDuration) - 1n];
 }
@@ -68,7 +71,7 @@ export function getSlotRangeForEpoch(epochNumber: bigint, constants: Pick<L1Roll
 export function getTimestampRangeForEpoch(
   epochNumber: bigint,
   constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'epochDuration' | 'ethereumSlotDuration'>,
-) {
+): [bigint, bigint] {
   const [startSlot, endSlot] = getSlotRangeForEpoch(epochNumber, constants);
   const ethereumSlotsPerL2Slot = constants.slotDuration / constants.ethereumSlotDuration;
   return [
@@ -77,6 +80,17 @@ export function getTimestampRangeForEpoch(
       endSlot * BigInt(constants.slotDuration) +
       BigInt((ethereumSlotsPerL2Slot - 1) * constants.ethereumSlotDuration),
   ];
+}
+
+/**
+ * Returns the start timestamp for a given epoch number.
+ */
+export function getStartTimestampForEpoch(
+  epochNumber: bigint,
+  constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'epochDuration'>,
+) {
+  const [startSlot] = getSlotRangeForEpoch(epochNumber, constants);
+  return getTimestampForSlot(startSlot, constants);
 }
 
 /**
@@ -103,4 +117,12 @@ export function getProofSubmissionDeadlineTimestamp(
   const deadlineEpoch = getProofSubmissionDeadlineEpoch(epochNumber, constants);
   const [deadlineSlot] = getSlotRangeForEpoch(deadlineEpoch, constants);
   return getTimestampForSlot(deadlineSlot, constants);
+}
+
+/** Returns the timestamp to start building a block for a given L2 slot. Computed as the start timestamp of the slot minus one L1 slot duration. */
+export function getSlotStartBuildTimestamp(
+  slotNumber: number | bigint,
+  constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>,
+): number {
+  return Number(constants.l1GenesisTime) + Number(slotNumber) * constants.slotDuration - constants.ethereumSlotDuration;
 }

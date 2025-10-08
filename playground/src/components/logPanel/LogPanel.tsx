@@ -1,5 +1,5 @@
 import { css, Global } from '@emotion/react';
-import { AztecContext } from '../../aztecEnv';
+import { AztecContext } from '../../aztecContext';
 import { useContext } from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
 import ExpandCircleDownIcon from '@mui/icons-material/ExpandCircleDown';
@@ -79,8 +79,9 @@ export function LogPanel() {
       [
         logs
           .map(log => {
-            return `${new Date(log.timestamp).toISOString()} [${log.type.toUpperCase()}] ${log.prefix} ${log.message
-              } ${safeStringify(log.data)}`;
+            return `${new Date(log.timestamp).toISOString()} [${log.type.toUpperCase()}] ${log.prefix} ${
+              log.message
+            } ${safeStringify(log.data)}`;
           })
           .join('\n'),
       ],
@@ -111,9 +112,10 @@ export function LogPanel() {
                 position: 'fixed',
                 bottom: '0.5rem',
                 right: '0.5rem',
-                zIndex: 10000
+                zIndex: 10000,
               }}
-              onClick={() => setLogsOpen(true)}>
+              onClick={() => setLogsOpen(true)}
+            >
               <ExpandCircleDownIcon sx={{ transform: 'rotate(180deg)' }} />
             </IconButton>
           </Tooltip>
@@ -149,12 +151,12 @@ export function LogPanel() {
             {logsOpen && (
               <ButtonGroup>
                 <Tooltip title="Download logs">
-                  <IconButton onClick={() => downloadLogs()} >
+                  <IconButton onClick={() => downloadLogs()}>
                     <DownloadIcon />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Close logs">
-                  <IconButton onClick={() => setLogsOpen(false)}  sx={{ marginRight: '0.5rem' }}>
+                  <IconButton onClick={() => setLogsOpen(false)} sx={{ marginRight: '0.5rem' }}>
                     <CloseButton />
                   </IconButton>
                 </Tooltip>

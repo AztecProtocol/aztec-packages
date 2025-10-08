@@ -54,6 +54,7 @@ function mockTxPool(): TxPool {
     hasTxs: () => Promise.resolve([]),
     updateConfig: () => {},
     markTxsAsNonEvictable: () => Promise.resolve(),
+    cleanupDeletedMinedTxs: () => Promise.resolve(0),
   };
   return Object.assign(new EventEmitter(), pool);
 }
@@ -100,7 +101,7 @@ function mockWorldStateSynchronizer(): WorldStateSynchronizer {
         syncSummary: {
           latestBlockNumber: 0,
           latestBlockHash: '',
-          finalisedBlockNumber: 0,
+          finalizedBlockNumber: 0,
           treesAreSynched: false,
           oldestHistoricBlockNumber: 0,
         },

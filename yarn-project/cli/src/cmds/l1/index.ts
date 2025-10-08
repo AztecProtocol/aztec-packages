@@ -1,18 +1,18 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
-import { withoutHexPrefix } from '@aztec/foundation/string';
 
 import { type Command, Option } from 'commander';
 
+import { getL1RollupAddressFromEnv } from '../../config/get_l1_config.js';
 import {
   ETHEREUM_HOSTS,
   MNEMONIC,
   PRIVATE_KEY,
   l1ChainIdOption,
+  nodeOption,
   parseAztecAddress,
   parseBigint,
   parseEthereumAddress,
-  pxeOption,
 } from '../../utils/commands.js';
 
 export { addL1Validator } from './update_l1_validators.js';
@@ -25,6 +25,8 @@ const l1RpcUrlsOption = new Option(
   .default([ETHEREUM_HOSTS])
   .makeOptionMandatory(true)
   .argParser((arg: string) => arg.split(',').map(url => url.trim()));
+
+const networkOption = new Option('--network <string>', 'Network to execute against').env('NETWORK');
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
   program
@@ -46,6 +48,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option('--sponsored-fpc', 'Populate genesis state with a testing sponsored FPC contract')
     .option('--accelerated-test-deployments', 'Fire and forget deployment transactions, use in testing only', false)
     .option('--real-verifier', 'Deploy the real verifier', false)
+    .option('--existing-token <address>', 'Use an existing ERC20 for both fee and staking', parseEthereumAddress)
+    .option('--create-verification-json [path]', 'Create JSON file for etherscan contract verification', false)
     .action(async options => {
       const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
 
@@ -62,8 +66,10 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.sponsoredFpc,
         options.acceleratedTestDeployments,
         options.json,
+        options.createVerificationJson,
         initialValidators,
         options.realVerifier,
+        options.existingToken,
         log,
         debugLogger,
       );
@@ -283,8 +289,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
 
   program
     .command('add-l1-validator')
-    .description('Adds a validator to the L1 rollup contract.')
+    .description('Adds a validator to the L1 rollup contract via a direct deposit.')
     .addOption(l1RpcUrlsOption)
+    .addOption(networkOption)
     .option('-pk, --private-key <string>', 'The private key to use sending the transaction', PRIVATE_KEY)
     .option(
       '-m, --mnemonic <string>',
@@ -293,32 +300,29 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     )
     .addOption(l1ChainIdOption)
     .option('--attester <address>', 'ethereum address of the attester', parseEthereumAddress)
+    .option('--withdrawer <address>', 'ethereum address of the withdrawer', parseEthereumAddress)
     .option(
       '--bls-secret-key <string>',
       'The BN254 scalar field element used as a secret key for BLS signatures. Will be associated with the attester address.',
       parseBigint,
     )
-    .option('--staking-asset-handler <address>', 'ethereum address of the staking asset handler', parseEthereumAddress)
-    .option('--proof <buffer>', 'The proof to use for the attestation', arg =>
-      Buffer.from(withoutHexPrefix(arg), 'hex'),
-    )
-    .option(
-      '--merkle-proof <string>',
-      'The merkle proof to use for the attestation (comma separated list of 32 byte buffers)',
-      arg => arg.split(','),
-    )
+    .option('--move-with-latest-rollup', 'Whether to move with the latest rollup', true)
+    .option('--rollup <string>', 'Rollup contract address', parseEthereumAddress)
     .action(async options => {
-      const { addL1Validator } = await import('./update_l1_validators.js');
-      await addL1Validator({
+      const { addL1ValidatorViaRollup } = await import('./update_l1_validators.js');
+
+      const rollupAddress = options.rollup ?? (await getL1RollupAddressFromEnv(options.l1RpcUrls, options.l1ChainId));
+
+      await addL1ValidatorViaRollup({
         rpcUrls: options.l1RpcUrls,
         chainId: options.l1ChainId,
         privateKey: options.privateKey,
         mnemonic: options.mnemonic,
         attesterAddress: options.attester,
-        stakingAssetHandlerAddress: options.stakingAssetHandler,
-        merkleProof: options.merkleProof,
-        proofParams: options.proof,
         blsSecretKey: options.blsSecretKey,
+        withdrawerAddress: options.withdrawer,
+        rollupAddress,
+        moveWithLatestRollup: options.moveWithLatestRollup,
         log,
         debugLogger,
       });
@@ -439,35 +443,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     });
 
   program
-    .command('deploy-l1-verifier')
-    .description('Deploys the rollup verifier contract')
-    .addOption(l1RpcUrlsOption)
-    .addOption(l1ChainIdOption)
-    .option('--l1-private-key <string>', 'The L1 private key to use for deployment', PRIVATE_KEY)
-    .option(
-      '-m, --mnemonic <string>',
-      'The mnemonic to use in deployment',
-      'test test test test test test test test test test test junk',
-    )
-    .option('-i, --mnemonic-index <number>', 'The index of the mnemonic to use in deployment', arg => parseInt(arg), 0)
-    .requiredOption('--verifier <verifier>', 'Either mock or real', 'real')
-    .action(async options => {
-      const { deployMockVerifier, deployUltraHonkVerifier } = await import('./deploy_l1_verifier.js');
-      if (options.verifier === 'mock') {
-        await deployMockVerifier(options.l1RpcUrls, options.l1ChainId, options.l1PrivateKey, options.mnemonic, log);
-      } else {
-        await deployUltraHonkVerifier(
-          options.l1RpcUrls,
-          options.l1ChainId,
-          options.l1PrivateKey,
-          options.mnemonic,
-          options.mnemonicIndex,
-          log,
-        );
-      }
-    });
-
-  program
     .command('bridge-erc20')
     .description('Bridges ERC20 tokens to L2.')
     .argument('<amount>', 'The amount of Fee Juice to mint and bridge.', parseBigint)
@@ -534,20 +509,20 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     )
     .argument('[blockNumber]', 'The target block number, defaults to the latest pending block number.', parseBigint)
     .addOption(l1RpcUrlsOption)
-    .addOption(pxeOption)
+    .addOption(nodeOption)
     .action(async (blockNumber, options) => {
       const { assumeProvenThrough } = await import('./assume_proven_through.js');
-      await assumeProvenThrough(blockNumber, options.l1RpcUrls, options.rpcUrl, log);
+      await assumeProvenThrough(blockNumber, options.l1RpcUrls, options.nodeUrl, log);
     });
 
   program
     .command('advance-epoch')
     .description('Use L1 cheat codes to warp time until the next epoch.')
     .addOption(l1RpcUrlsOption)
-    .addOption(pxeOption)
+    .addOption(nodeOption)
     .action(async options => {
       const { advanceEpoch } = await import('./advance_epoch.js');
-      await advanceEpoch(options.l1RpcUrls, options.rpcUrl, log);
+      await advanceEpoch(options.l1RpcUrls, options.nodeUrl, log);
     });
 
   program

@@ -50,7 +50,7 @@ impl TailOutputComposer {
         );
 
         PrivateToRollupKernelCircuitPublicInputs {
-            constants: source.constants,
+            constants: source.constants.to_tx_constant_data(),
             end,
             gas_used,
             fee_payer: source.fee_payer,

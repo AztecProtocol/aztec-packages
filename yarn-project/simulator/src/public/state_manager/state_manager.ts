@@ -9,13 +9,14 @@ import {
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { createLogger } from '@aztec/foundation/log';
+import { type LogLevel, createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublicWithCommitment, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { SerializableContractInstance } from '@aztec/stdlib/contract';
 import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '@aztec/stdlib/delayed-public-mutable';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
+import type { DebugLog } from '@aztec/stdlib/logs';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TreeSnapshots } from '@aztec/stdlib/tx';
@@ -27,8 +28,9 @@ import type { AvmExecutionEnvironment } from '../avm/avm_execution_environment.j
 import type { PublicContractsDBInterface } from '../db_interfaces.js';
 import { getPublicFunctionDebugName } from '../debug_fn_name.js';
 import type { PublicTreesDB } from '../public_db_sources.js';
+import { MaxCallsToUniqueContractClassIdsError, NullifierCollisionError } from '../side_effect_errors.js';
 import type { PublicSideEffectTraceInterface } from '../side_effect_trace_interface.js';
-import { NullifierCollisionError, NullifierManager } from './nullifiers.js';
+import { NullifierManager } from './nullifiers.js';
 import { PublicStorage } from './public_storage.js';
 
 /**
@@ -138,6 +140,8 @@ export class PublicPersistableStateManager {
   public async writeStorage(contractAddress: AztecAddress, slot: Fr, value: Fr, protocolWrite = false): Promise<void> {
     this.log.trace(`Storage write (address=${contractAddress}, slot=${slot}): value=${value}`);
 
+    await this.trace.tracePublicStorageWrite(contractAddress, slot, value, protocolWrite);
+
     if (this.doMerkleOperations) {
       // write to native merkle trees
       await this.treesDB.storageWrite(contractAddress, slot, value);
@@ -145,8 +149,6 @@ export class PublicPersistableStateManager {
       // Cache storage writes for later reference/reads
       this.publicStorage.write(contractAddress, slot, value);
     }
-
-    await this.trace.tracePublicStorageWrite(contractAddress, slot, value, protocolWrite);
   }
 
   public isStorageCold(contractAddress: AztecAddress, slot: Fr): boolean {
@@ -217,10 +219,10 @@ export class PublicPersistableStateManager {
    */
   public async writeUniqueNoteHash(uniqueNoteHash: Fr): Promise<void> {
     this.log.trace(`noteHashes += @${uniqueNoteHash}.`);
+    this.trace.traceNewNoteHash(uniqueNoteHash);
     if (this.doMerkleOperations) {
       await this.treesDB.writeNoteHash(uniqueNoteHash);
     }
-    this.trace.traceNewNoteHash(uniqueNoteHash);
   }
 
   /**
@@ -262,6 +264,8 @@ export class PublicPersistableStateManager {
   public async writeSiloedNullifier(siloedNullifier: Fr) {
     this.log.trace(`Inserting siloed nullifier=${siloedNullifier}`);
 
+    this.trace.traceNewNullifier(siloedNullifier);
+
     if (this.doMerkleOperations) {
       const exists = await this.treesDB.checkNullifierExists(siloedNullifier);
 
@@ -277,8 +281,6 @@ export class PublicPersistableStateManager {
       // Cache pending nullifiers for later access
       await this.nullifiers.append(siloedNullifier);
     }
-
-    this.trace.traceNewNullifier(siloedNullifier);
   }
 
   /**
@@ -319,6 +321,22 @@ export class PublicPersistableStateManager {
     );
   }
 
+  public writeDebugLog(contractAddress: AztecAddress, level: LogLevel, message: string, fields: Fr[]) {
+    this.trace.traceDebugLog(contractAddress, level, message, fields);
+  }
+
+  public writeDebugLogMemoryReads(memoryReads: number) {
+    this.trace.traceDebugLogMemoryReads(memoryReads);
+  }
+
+  public getDebugLogMemoryReads() {
+    return this.trace.getDebugLogMemoryReads();
+  }
+
+  public getLogs(): DebugLog[] {
+    return this.trace.getDebugLogs();
+  }
+
   /**
    * Write a public log
    * @param contractAddress - address of the contract that emitted the log
@@ -340,18 +358,18 @@ export class PublicPersistableStateManager {
     const exists = instanceWithAddress !== undefined;
 
     const instance = exists ? new SerializableContractInstance(instanceWithAddress) : undefined;
-    if (!exists) {
-      this.log.debug(`Contract instance NOT FOUND (address=${contractAddress})`);
-      return undefined;
-    }
 
-    this.log.trace(`Got contract instance (address=${contractAddress}): instance=${jsonStringify(instance!)}`);
-    // Canonical addresses do not trigger nullifier and update checks.
     if (contractAddressIsCanonical(contractAddress)) {
+      this.log.trace(
+        `Got canonical contract instance (address=${contractAddress}): instance=${jsonStringify(instance!)}`,
+      );
       return instance;
     }
 
-    // This will decide internally whether to check the nullifier tree or not depending on doMerkleOperations.
+    // Nullifier check! We do this regardless of whether or not the instance exists,
+    // as even for non-existence, we need to generate nullifier check hints.
+
+    // This will internally decide whether to check the nullifier tree or not depending on doMerkleOperations.
     const nullifierExistsInTree = await this.checkNullifierExists(
       AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
       contractAddress.toField(),
@@ -361,7 +379,14 @@ export class PublicPersistableStateManager {
       `Contract instance for address ${contractAddress} in DB: ${exists} != nullifier tree: ${nullifierExistsInTree}. This is a bug!`,
     );
 
-    // All that is left is tocheck that the contract updatability information is correct.
+    if (!exists) {
+      this.log.debug(`Contract instance NOT FOUND (address=${contractAddress})`);
+      return undefined;
+    }
+
+    this.log.trace(`Got contract instance (address=${contractAddress}): instance=${jsonStringify(instance!)}`);
+
+    // All that is left is to check that the contract updatability information is correct.
     // That is, that the current and original contract class ids are correct.
     await this.checkContractUpdateInformation(instanceWithAddress);
 
@@ -382,7 +407,7 @@ export class PublicPersistableStateManager {
       //
       // However, we will also be checking the hash of the delayed public mutable values.
       // This is a bit of a leak of information, since the circuit will use it to prove
-      // one public read insted of N of the delayed public mutable values.
+      // one public read instead of N of the delayed public mutable values.
       const { delayedPublicMutableSlot, delayedPublicMutableHashSlot } =
         await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(instance.address);
       const readDeployerStorage = async (storageSlot: Fr) =>
@@ -431,7 +456,7 @@ export class PublicPersistableStateManager {
    * @param classId - class id to retrieve.
    * @returns the contract class or undefined if it does not exist.
    */
-  public async getContractClass(classId: Fr): Promise<ContractClassPublicWithCommitment | undefined> {
+  private async getContractClass(classId: Fr): Promise<ContractClassPublicWithCommitment | undefined> {
     this.log.trace(`Getting contract class for id ${classId}`);
     const contractClass = await this.contractsDB.getContractClass(classId);
     const exists = contractClass !== undefined;
@@ -452,9 +477,10 @@ export class PublicPersistableStateManager {
         publicBytecodeCommitment: bytecodeCommitment,
       };
     } else {
-      this.log.debug(`Contract instance NOT FOUND (id=${classId})`);
+      this.log.debug(`Contract class NOT FOUND (id=${classId})`);
     }
 
+    // TODO(dbanks12): does this need to be moved to before the DB accesses as was done with writeNullifier?
     this.trace.traceGetContractClass(classId, exists);
     return extendedClass;
   }
@@ -470,13 +496,20 @@ export class PublicPersistableStateManager {
       return undefined;
     }
 
-    const contractClass = await this.getContractClass(contractInstance.currentContractClassId);
-    assert(
-      contractClass,
-      `Contract class not found in DB, but a contract instance was found with this class ID (${contractInstance.currentContractClassId}). This should not happen!`,
-    );
-
-    return contractClass.packedBytecode;
+    try {
+      const contractClass = await this.getContractClass(contractInstance.currentContractClassId);
+      assert(
+        contractClass,
+        `Contract class not found in DB, but a contract instance was found with this class ID (${contractInstance.currentContractClassId}). This should not happen!`,
+      );
+      return contractClass.packedBytecode;
+    } catch (error) {
+      if (error instanceof MaxCallsToUniqueContractClassIdsError) {
+        return undefined;
+      }
+      // Otherwise, unknown error. This is a bug.
+      throw error;
+    }
   }
 
   public async getPublicFunctionDebugName(avmEnvironment: AvmExecutionEnvironment): Promise<string> {

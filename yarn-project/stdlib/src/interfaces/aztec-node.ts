@@ -7,6 +7,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
@@ -48,9 +49,10 @@ import {
   TxValidationResultSchema,
   indexedTxSchema,
 } from '../tx/index.js';
-import { ValidatorsStatsSchema } from '../validators/schemas.js';
-import type { ValidatorsStats } from '../validators/types.js';
+import { SingleValidatorStatsSchema, ValidatorsStatsSchema } from '../validators/schemas.js';
+import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
+import { type AllowedElement, AllowedElementSchema } from './allowed_element.js';
 import { MAX_RPC_BLOCKS_LEN, MAX_RPC_LEN, MAX_RPC_TXS_LEN } from './api_limit.js';
 import {
   type GetContractClassLogsResponse,
@@ -198,10 +200,14 @@ export interface AztecNode
     l1ToL2Message: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined>;
 
+  /** Returns the L2 block number in which this L1 to L2 message becomes available, or undefined if not found. */
+  getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<number | undefined>;
+
   /**
-   * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
+   * Returns whether an L1 to L2 message is synced by archiver.
    * @param l1ToL2Message - The L1 to L2 message to check.
-   * @returns Whether the message is synced and ready to be included in a block.
+   * @returns Whether the message is synced.
+   * @deprecated Use `getL1ToL2MessageBlock` instead. This method may return true even if the message is not ready to use.
    */
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
 
@@ -397,6 +403,13 @@ export interface AztecNode
   /** Returns stats for validators if enabled. */
   getValidatorsStats(): Promise<ValidatorsStats>;
 
+  /** Returns stats for a single validator if enabled. */
+  getValidatorStats(
+    validatorAddress: EthAddress,
+    fromSlot?: bigint,
+    toSlot?: bigint,
+  ): Promise<SingleValidatorStats | undefined>;
+
   /**
    * Simulates the public part of a transaction with the current state.
    * This currently just checks that the transaction execution succeeds.
@@ -430,6 +443,12 @@ export interface AztecNode
    * Returns the ENR of this node for peer discovery, if available.
    */
   getEncodedEnr(): Promise<string | undefined>;
+
+  /**
+   * Returns the list of allowed public setup elements configured for this node.
+   * @returns The list of allowed elements.
+   */
+  getAllowedPublicSetup(): Promise<AllowedElement[]>;
 }
 
 export const MAX_LOGS_PER_TAG = 10;
@@ -492,6 +511,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .function()
     .args(L2BlockNumberSchema, schemas.Fr)
     .returns(z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)]).optional()),
+
+  getL1ToL2MessageBlock: z.function().args(schemas.Fr).returns(z.number().optional()),
 
   isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
 
@@ -577,6 +598,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getValidatorsStats: z.function().returns(ValidatorsStatsSchema),
 
+  getValidatorStats: z
+    .function()
+    .args(schemas.EthAddress, optional(schemas.BigInt), optional(schemas.BigInt))
+    .returns(SingleValidatorStatsSchema.optional()),
+
   simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),
 
   isValidTx: z
@@ -592,6 +618,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
 
   getEncodedEnr: z.function().returns(z.string().optional()),
+
+  getAllowedPublicSetup: z.function().args().returns(z.array(AllowedElementSchema)),
 };
 
 export function createAztecNodeClient(

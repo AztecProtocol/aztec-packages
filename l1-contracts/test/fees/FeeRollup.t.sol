@@ -9,11 +9,11 @@ import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {
-  SignatureLib,
+  AttestationLib,
   Signature,
   CommitteeAttestation,
   CommitteeAttestations
-} from "@aztec/shared/libraries/SignatureLib.sol";
+} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -54,6 +54,8 @@ import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol
 
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
+import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -74,6 +76,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     bytes blobInputs;
     CommitteeAttestation[] attestations;
     address[] signers;
+    Signature attestationsAndSignersSignature;
   }
 
   DecoderBase.Full full = load("empty_block_1");
@@ -169,7 +172,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       body: body,
       blobInputs: full.block.blobCommitments,
       attestations: attestations,
-      signers: signers
+      signers: signers,
+      attestationsAndSignersSignature: Signature({v: 0, r: 0, s: 0})
     });
   }
 
@@ -191,8 +195,9 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             stateReference: EMPTY_STATE_REFERENCE,
             oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
           }),
-          SignatureLib.packAttestations(b.attestations),
+          AttestationLibHelper.packAttestations(b.attestations),
           b.signers,
+          b.attestationsAndSignersSignature,
           b.blobInputs
         );
         nextSlot = nextSlot + Slot.wrap(1);
@@ -282,8 +287,9 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             stateReference: EMPTY_STATE_REFERENCE,
             oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
           }),
-          SignatureLib.packAttestations(b.attestations),
+          AttestationLibHelper.packAttestations(b.attestations),
           b.signers,
+          b.attestationsAndSignersSignature,
           b.blobInputs
         );
 

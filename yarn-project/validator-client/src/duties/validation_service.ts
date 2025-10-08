@@ -2,7 +2,10 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
+import { unfreeze } from '@aztec/foundation/types';
+import type { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
 import {
   BlockAttestation,
   BlockProposal,
@@ -10,12 +13,17 @@ import {
   ConsensusPayload,
   SignatureDomainSeparator,
 } from '@aztec/stdlib/p2p';
-import type { ProposedBlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
+import type { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
+import { StateReference, type Tx } from '@aztec/stdlib/tx';
 
 import type { ValidatorKeyStore } from '../key_store/interface.js';
 
 export class ValidationService {
-  constructor(private keyStore: ValidatorKeyStore) {}
+  constructor(
+    private keyStore: ValidatorKeyStore,
+    private log = createLogger('validator:validation-service'),
+  ) {}
 
   /**
    * Create a block proposal with the given header, archive, and transactions
@@ -24,12 +32,13 @@ export class ValidationService {
    * @param header - The block header
    * @param archive - The archive of the current block
    * @param txs - TxHash[] ordered list of transactions
+   * @param options - Block proposal options (including broadcastInvalidBlockProposal for testing)
    *
    * @returns A block proposal signing the above information (not the current implementation!!!)
    */
   async createBlockProposal(
     blockNumber: number,
-    header: ProposedBlockHeader,
+    header: CheckpointHeader,
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
@@ -46,6 +55,12 @@ export class ValidationService {
     }
     // TODO: check if this is calculated earlier / can not be recomputed
     const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+
+    // For testing: corrupt the state reference to trigger state_mismatch validation failure
+    if (options.broadcastInvalidBlockProposal) {
+      unfreeze(stateReference.partial).noteHashTree = AppendOnlyTreeSnapshot.random();
+      this.log.warn(`Creating INVALID block proposal for block ${blockNumber} at slot ${header.slotNumber.toBigInt()}`);
+    }
 
     return BlockProposal.createProposalFromSigner(
       blockNumber,
@@ -75,5 +90,15 @@ export class ValidationService {
     );
     //await this.keyStore.signMessage(buf);
     return signatures.map(sig => new BlockAttestation(proposal.blockNumber, proposal.payload, sig));
+  }
+
+  async signAttestationsAndSigners(
+    attestationsAndSigners: CommitteeAttestationsAndSigners,
+    proposer: EthAddress,
+  ): Promise<Signature> {
+    const buf = Buffer32.fromBuffer(
+      keccak256(attestationsAndSigners.getPayloadToSign(SignatureDomainSeparator.attestationsAndSigners)),
+    );
+    return await this.keyStore.signMessageWithAddress(proposer, buf);
   }
 }

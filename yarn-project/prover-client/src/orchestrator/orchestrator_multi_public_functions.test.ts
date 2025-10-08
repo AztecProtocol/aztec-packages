@@ -1,22 +1,28 @@
-import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import type { TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
+import {
+  PublicTxSimulationTester,
+  SimpleContractDataSource,
+  type TestEnqueuedCall,
+} from '@aztec/simulator/public/fixtures';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { Tx } from '@aztec/stdlib/tx';
 
 import { TestContext } from '../mocks/test_context.js';
+import { buildBlobDataFromTxs } from './block-building-helpers.js';
 
 const logger = createLogger('prover-client:test:orchestrator-multi-public-functions');
 
 describe('prover/orchestrator/public-functions', () => {
   let context: TestContext;
+  let tester: PublicTxSimulationTester;
+  let contractDataSource: SimpleContractDataSource;
 
   beforeEach(async () => {
     context = await TestContext.new(logger);
@@ -34,8 +40,12 @@ describe('prover/orchestrator/public-functions', () => {
     beforeEach(async () => {
       admin = context.feePayer; // make sure tx sender has sufficient balance
 
+      const merkleTrees = await context.worldState.fork();
+      contractDataSource = new SimpleContractDataSource();
+      tester = new PublicTxSimulationTester(merkleTrees, contractDataSource);
+
       const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
-      token = await context.tester.registerAndDeployContract(
+      token = await tester.registerAndDeployContract(
         constructorArgs,
         /*deployer=*/ admin,
         TokenContractArtifact,
@@ -48,7 +58,7 @@ describe('prover/orchestrator/public-functions', () => {
         token.address.toField(),
       );
 
-      constructorTx = await context.tester.createTx(
+      constructorTx = await tester.createTx(
         /*sender=*/ admin,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
@@ -86,27 +96,44 @@ describe('prover/orchestrator/public-functions', () => {
           );
         }
         for (const tx of txs) {
-          tx.data.constants.historicalHeader = context.getBlockHeader(0);
+          tx.data.constants.anchorBlockHeader = context.getBlockHeader(0);
           tx.data.constants.vkTreeRoot = getVKTreeRoot();
-          tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
+          tx.data.constants.protocolContractsHash = protocolContractsHash;
           await tx.recomputeHash();
         }
 
-        const [processed, failed] = await context.processPublicFunctions(txs, numTransactions);
+        const [processed, failed] = await context.processPublicFunctions(txs, {
+          maxTransactions: numTransactions,
+          contractDataSource,
+        });
         expect(processed.length).toBe(numTransactions);
         expect(failed.length).toBe(0);
 
-        const blobs = await Blob.getBlobsPerBlock(processed.map(tx => tx.txEffect.toBlobFields()).flat());
-        const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
-        context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
-        await context.orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
+        const {
+          blobFieldsLengths: [blobFieldsLength],
+          finalBlobChallenges,
+        } = await buildBlobDataFromTxs([processed]);
+        context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+        await context.orchestrator.startNewCheckpoint(
+          0, // checkpointIndex
+          context.getCheckpointConstants(),
+          [],
+          1,
+          blobFieldsLength,
+          context.getPreviousBlockHeader(),
+        );
+        await context.orchestrator.startNewBlock(
+          context.blockNumber,
+          context.globalVariables.timestamp,
+          processed.length,
+        );
 
         await context.orchestrator.addTxs(processed);
 
-        const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
-        await context.orchestrator.finaliseEpoch();
+        const header = await context.orchestrator.setBlockCompleted(context.blockNumber);
+        await context.orchestrator.finalizeEpoch();
 
-        expect(block.number).toEqual(context.blockNumber);
+        expect(header.getBlockNumber()).toEqual(context.blockNumber);
       },
     );
 
@@ -136,7 +163,7 @@ describe('prover/orchestrator/public-functions', () => {
       const appCalls = Array.from({ length: numberOfRevertiblePublicCallRequests }, (_, i) =>
         createMintCall(/*seed=*/ appCallSeed(i)),
       );
-      return await context.tester.createTx(
+      return await tester.createTx(
         /*sender=*/ admin,
         /*setupCalls=*/ setupCalls,
         /*appCalls=*/ appCalls,

@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+
+ci_log_id=$1
+commit_title=$(git log -1 --pretty=format:'%s')
+commit_author=$(git log -1 --pretty=format:'%an')
+
+if [[ "$REF_NAME" == "merge-train/barretenberg" ]]; then
+  channel="#honk-team"
+elif [[ "$REF_NAME" == "merge-train/avm" ]]; then
+  channel="#team-bonobos"
+elif [[ "$REF_NAME" == "merge-train/docs" ]]; then
+  channel="#dev-rels"
+else
+  exit 0
+fi
+
+set -x
+# Send slack message
+data=$(cat <<EOF
+{
+  "channel": "$channel",
+  "text": "There was a failure (http://ci.aztec-labs.com/$ci_log_id) in the merge-train:\\n$commit_title by $commit_author"
+}
+EOF
+)
+curl -X POST https://slack.com/api/chat.postMessage \
+  -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+  -H "Content-type: application/json" \
+  --data "$data"

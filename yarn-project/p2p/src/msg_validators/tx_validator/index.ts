@@ -9,3 +9,4 @@ export * from './phases_validator.js';
 export * from './test_utils.js';
 export * from './allowed_public_setup.js';
 export * from './archive_cache.js';
+export * from './tx_permitted_validator.js';

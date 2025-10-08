@@ -61,8 +61,8 @@ function build_ec2 {
     git remote add origin https://github.com/aztecprotocol/aztec-packages
     git fetch --depth 1 origin $current_commit
     git checkout FETCH_HEAD
-    ./build-images/bootstrap.sh || bash
-    ./build-images/bootstrap.sh push-images || bash
+    ./build-images/bootstrap.sh
+    ./build-images/bootstrap.sh push-images
   "
 }
 
@@ -105,12 +105,11 @@ case "$cmd" in
     build_ec2 64 arm64
     ;;
   "deploy")
+    git diff --quiet && git diff --cached --quiet || { echo "Uncommitted changes detected. Please commit or stash them before deploying."; exit 1; }
     docker_login
     build_all
     update_manifests
-    ;;
-  "amis")
-      parallel --tag --line-buffer ARCH={} $ci3/aws/ami_update.sh ::: amd64 arm64
+    parallel --tag --line-buffer ARCH={} $ci3/aws/ami_update.sh ::: amd64 arm64
     ;;
   *)
     echo "Unknown command: $cmd"

@@ -3,6 +3,7 @@ import { EthAddress, Fr, type Logger } from '@aztec/aztec.js';
 import type { Operator } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, timesAsync } from '@aztec/foundation/collection';
+import { SecretValue } from '@aztec/foundation/config';
 import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
@@ -34,7 +35,7 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
     validators = times(NODE_COUNT, i => {
       const privateKey = bufferToHex(getPrivateKeyFromIndex(i + 3)!);
       const attester = EthAddress.fromString(privateKeyToAccount(privateKey).address);
-      return { attester, withdrawer: attester, privateKey, bn254SecretKey: Fr.random().toBigInt() };
+      return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
 
     // Setup context with the given set of validators, no reorgs, mocked gossip sub network, and no anvil test watcher.
@@ -73,7 +74,9 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
 
   it('builds blocks without any errors', async () => {
     // Create and submit a bunch of txs
-    const txs = await timesAsync(TX_COUNT, i => contract.methods.spam(i, 1n, false).prove());
+    const txs = await timesAsync(TX_COUNT, i =>
+      contract.methods.spam(i, 1n, false).prove({ from: context.accounts[0] }),
+    );
     const sentTxs = await Promise.all(txs.map(tx => tx.send()));
     logger.warn(`Sent ${sentTxs.length} transactions`, {
       txs: await Promise.all(sentTxs.map(tx => tx.getTxHash())),

@@ -60,6 +60,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     using NativeVerificationKey = NativeFlavor::VerificationKey;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 
+    static constexpr size_t VIRTUAL_LOG_N = UltraFlavor::VIRTUAL_LOG_N;
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = UltraFlavor::USE_SHORT_MONOMIALS;
 
@@ -103,9 +104,6 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     static constexpr size_t NUM_SUBRELATIONS = NativeFlavor::NUM_SUBRELATIONS;
     using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
-    // define the container for storing the univariate contribution from each relation in Sumcheck
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
-
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
@@ -142,18 +140,18 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
          * @param builder
          * @param elements
          */
-        VerificationKey(CircuitBuilder& builder, std::span<FF> elements)
+        VerificationKey(std::span<FF> elements)
         {
             using namespace bb::stdlib::field_conversion;
 
             size_t num_frs_read = 0;
 
-            this->log_circuit_size = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-            this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-            this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
+            this->log_circuit_size = deserialize_from_frs<FF>(elements, num_frs_read);
+            this->num_public_inputs = deserialize_from_frs<FF>(elements, num_frs_read);
+            this->pub_inputs_offset = deserialize_from_frs<FF>(elements, num_frs_read);
 
             for (Commitment& commitment : this->get_all()) {
-                commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
+                commitment = deserialize_from_frs<Commitment>(elements, num_frs_read);
             }
         }
 
@@ -172,7 +170,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
             for (const auto& idx : witness_indices) {
                 vk_fields.emplace_back(FF::from_witness_index(&builder, idx));
             }
-            return VerificationKey(builder, vk_fields);
+            return VerificationKey(vk_fields);
         }
     };
 

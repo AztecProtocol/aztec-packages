@@ -35,7 +35,7 @@ using crypto::merkle_tree::index_t;
 
 template <typename LeafValueType> struct BatchInsertionResult {
     std::vector<crypto::merkle_tree::LeafUpdateWitnessData<LeafValueType>> low_leaf_witness_data;
-    std::vector<std::pair<LeafValueType, size_t>> sorted_leaves;
+    std::vector<std::pair<LeafValueType, index_t>> sorted_leaves;
     crypto::merkle_tree::fr_sibling_path subtree_path;
 
     MSGPACK_FIELDS(low_leaf_witness_data, sorted_leaves, subtree_path);
@@ -275,7 +275,7 @@ class WorldState {
     uint64_t create_fork(const std::optional<block_number_t>& blockNumber);
     void delete_fork(const uint64_t& forkId);
 
-    WorldStateStatusSummary set_finalised_blocks(const block_number_t& toBlockNumber);
+    WorldStateStatusSummary set_finalized_blocks(const block_number_t& toBlockNumber);
     WorldStateStatusFull unwind_blocks(const block_number_t& toBlockNumber);
     WorldStateStatusFull remove_historical_blocks(const block_number_t& toBlockNumber);
 
@@ -316,7 +316,7 @@ class WorldState {
 
     bool unwind_block(const block_number_t& blockNumber, WorldStateStatusFull& status);
     bool remove_historical_block(const block_number_t& blockNumber, WorldStateStatusFull& status);
-    bool set_finalised_block(const block_number_t& blockNumber);
+    bool set_finalized_block(const block_number_t& blockNumber);
 
     void get_all_tree_info(const WorldStateRevision& revision, std::array<TreeMeta, NUM_TREES>& responses) const;
 

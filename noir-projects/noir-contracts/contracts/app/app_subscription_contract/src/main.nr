@@ -45,7 +45,7 @@ pub contract AppSubscription {
     use aztec::{
         authwit::auth::assert_current_call_valid_authwit,
         macros::{functions::{initializer, private, public, utility}, storage::storage},
-        messages::logs::note::encode_and_encrypt_note,
+        messages::message_delivery::MessageDelivery,
         oracle::notes::set_sender_for_tags,
         protocol_types::{address::AztecAddress, constants::MAX_FIELD_VALUE, traits::ToField},
         state_vars::{Map, PrivateMutable, PublicImmutable},
@@ -79,15 +79,12 @@ pub contract AppSubscription {
         // the parent takes. See aztec-nr/src/authwit/auth.nr for more details.
         assert_current_call_valid_authwit::<2>(&mut context, user_address);
 
-        let mut note = storage.subscriptions.at(user_address).get_note().note;
-        assert(note.remaining_txs > 0, "you're out of txs");
-
-        note.remaining_txs -= 1;
-
-        storage.subscriptions.at(user_address).replace(note).emit(encode_and_encrypt_note(
-            &mut context,
-            user_address,
-        ));
+        let emission = storage.subscriptions.at(user_address).replace(|mut note| {
+            assert(note.remaining_txs > 0, "you're out of txs");
+            note.remaining_txs -= 1;
+            note
+        });
+        emission.emit(&mut context, user_address, MessageDelivery.CONSTRAINED_ONCHAIN);
 
         context.set_as_fee_payer();
 
@@ -100,7 +97,11 @@ pub contract AppSubscription {
 
         // We check that the note is not expired. We do that via the router contract to conceal which contract
         // is performing the check.
-        privately_check_block_number(Comparator.LT, note.expiry_block_number, &mut context);
+        privately_check_block_number(
+            Comparator.LT,
+            emission.note.expiry_block_number,
+            &mut context,
+        );
 
         payload.execute_calls(&mut context, config.target_address);
     }
@@ -153,10 +154,13 @@ pub contract AppSubscription {
             &mut context,
         );
 
-        let subscription_note = SubscriptionNote::new(subscriber, expiry_block_number, tx_count);
-        storage.subscriptions.at(subscriber).initialize_or_replace(subscription_note).emit(
-            encode_and_encrypt_note(&mut context, subscriber),
-        );
+        storage
+            .subscriptions
+            .at(subscriber)
+            .initialize_or_replace(|_| {
+                SubscriptionNote::new(subscriber, expiry_block_number, tx_count)
+            })
+            .emit(&mut context, subscriber, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[utility]

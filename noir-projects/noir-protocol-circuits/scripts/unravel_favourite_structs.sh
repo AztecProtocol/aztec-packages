@@ -28,20 +28,20 @@ append_line_break "PRIVATE KERNEL TAIL"
 node scripts/unravel_struct.js target/private_kernel_tail.json --all >> "$FILE"
 
 
-append_line_break "PRIVATE BASE"
-node scripts/unravel_struct.js target/rollup_base_private.json PrivateBaseRollupInputs >> "$FILE"
+append_line_break "PRIVATE TX BASE"
+node scripts/unravel_struct.js target/rollup_tx_base_private.json PrivateTxBaseRollupPrivateInputs >> "$FILE"
 append_line_break
-node scripts/unravel_struct.js target/rollup_base_private.json BaseOrMergeRollupPublicInputs >> "$FILE" 2>&1
+node scripts/unravel_struct.js target/rollup_tx_base_private.json TxRollupPublicInputs >> "$FILE" 2>&1
 
-append_line_break "PUBLIC BASE"
-node scripts/unravel_struct.js target/rollup_base_public.json PublicBaseRollupInputs >> "$FILE"
+append_line_break "PUBLIC TX BASE"
+node scripts/unravel_struct.js target/rollup_tx_base_public.json PublicTxBaseRollupPrivateInputs >> "$FILE"
 append_line_break
-node scripts/unravel_struct.js target/rollup_base_public.json BaseOrMergeRollupPublicInputs >> "$FILE" 2>&1
+node scripts/unravel_struct.js target/rollup_tx_base_public.json TxRollupPublicInputs >> "$FILE" 2>&1
 
-append_line_break "(TX) MERGE"
-node scripts/unravel_struct.js target/rollup_merge.json MergeRollupInputs >> "$FILE"
+append_line_break "TX MERGE"
+node scripts/unravel_struct.js target/rollup_tx_merge.json TxMergeRollupPrivateInputs >> "$FILE"
 append_line_break
-node scripts/unravel_struct.js target/rollup_merge.json BaseOrMergeRollupPublicInputs >> "$FILE" 2>&1
+node scripts/unravel_struct.js target/rollup_tx_merge.json TxRollupPublicInputs >> "$FILE" 2>&1
 
 
 append_line_break "BLOCK ROOT FIRST"
@@ -78,11 +78,11 @@ node scripts/unravel_struct.js target/rollup_root.json RootRollupPublicInputs >>
 
 
 append_line_break "PARITY BASE"
-node scripts/unravel_struct.js target/parity_base.json BaseParityInputs >> "$FILE" 2>&1
+node scripts/unravel_struct.js target/parity_base.json ParityBasePrivateInputs >> "$FILE" 2>&1
 append_line_break
 node scripts/unravel_struct.js target/parity_base.json ParityPublicInputs >> "$FILE" 2>&1
 
 append_line_break "PARITY ROOT"
-node scripts/unravel_struct.js target/parity_root.json RootParityInputs >> "$FILE" 2>&1
+node scripts/unravel_struct.js target/parity_root.json ParityRootPrivateInputs >> "$FILE" 2>&1
 append_line_break
 node scripts/unravel_struct.js target/parity_root.json ParityPublicInputs >> "$FILE" 2>&1

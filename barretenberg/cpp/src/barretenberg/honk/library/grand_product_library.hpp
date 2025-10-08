@@ -74,7 +74,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
                            size_t size_override = 0,
                            const ActiveRegionData& active_region_data = ActiveRegionData{})
 {
-    PROFILE_THIS_NAME("compute_grand_product");
+    BB_BENCH_NAME("compute_grand_product");
 
     using FF = typename Flavor::FF;
     using Polynomial = typename Flavor::Polynomial;

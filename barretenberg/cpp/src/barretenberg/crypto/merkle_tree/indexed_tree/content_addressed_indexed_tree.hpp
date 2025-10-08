@@ -43,7 +43,7 @@
 namespace bb::crypto::merkle_tree {
 
 /**
- * @brief Implements a parallelised batch insertion indexed tree
+ * @brief Implements a parallelized batch insertion indexed tree
  * Accepts template argument of the type of store backing the tree, the type of store containing the leaves and the
  * hashing policy
  * All public methods are asynchronous unless marked otherwise
@@ -71,7 +71,7 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
     ContentAddressedIndexedTree(std::unique_ptr<Store> store,
                                 std::shared_ptr<ThreadPool> workers,
                                 const index_t& initial_size)
-        : ContentAddressedIndexedTree(std::move(store), workers, initial_size, std::vector<LeafValueType>()){};
+        : ContentAddressedIndexedTree(std::move(store), workers, initial_size, std::vector<LeafValueType>()) {};
     ContentAddressedIndexedTree(ContentAddressedIndexedTree const& other) = delete;
     ContentAddressedIndexedTree(ContentAddressedIndexedTree&& other) = delete;
     ~ContentAddressedIndexedTree() = default;
@@ -305,7 +305,7 @@ ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(
     TreeMeta meta;
     store_->get_meta(meta);
 
-    // if the tree already contains leaves then it's been initialised in the past
+    // if the tree already contains leaves then it's been initialized in the past
     if (meta.size > 0) {
         return;
     }
@@ -346,7 +346,7 @@ ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(
     ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(appended_hashes, completion, false);
     signal.wait_for_level(0);
     if (!result.success) {
-        throw std::runtime_error(format("Failed to initialise tree: ", result.message));
+        throw std::runtime_error(format("Failed to initialize tree: ", result.message));
     }
     store_->get_meta(meta);
     meta.initialRoot = result.inner.root;
@@ -552,8 +552,8 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_int
     bool capture_witness)
 {
     // We first take a copy of the leaf values and their locations within the set given to us
-    std::shared_ptr<std::vector<std::pair<LeafValueType, size_t>>> values_to_be_sorted =
-        std::make_shared<std::vector<std::pair<LeafValueType, size_t>>>(values.size());
+    std::shared_ptr<std::vector<std::pair<LeafValueType, index_t>>> values_to_be_sorted =
+        std::make_shared<std::vector<std::pair<LeafValueType, index_t>>>(values.size());
     for (size_t i = 0; i < values.size(); ++i) {
         (*values_to_be_sorted)[i] = std::make_pair(values[i], i);
     }
@@ -958,8 +958,8 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                                                     max_size_));
                 }
                 for (size_t i = 0; i < values.size(); ++i) {
-                    std::pair<LeafValueType, size_t>& value_pair = values[i];
-                    size_t index_into_appended_leaves = value_pair.second;
+                    std::pair<LeafValueType, index_t>& value_pair = values[i];
+                    index_t index_into_appended_leaves = value_pair.second;
                     index_t index_of_new_leaf = static_cast<index_t>(index_into_appended_leaves) + meta.size;
                     if (value_pair.first.is_empty()) {
                         continue;

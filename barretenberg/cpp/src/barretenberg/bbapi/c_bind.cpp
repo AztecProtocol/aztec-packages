@@ -13,10 +13,6 @@ namespace bb::bbapi {
 namespace {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 BBApiRequest global_request;
-#ifndef NO_MULTITHREADING
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-std::mutex request_mutex;
-#endif
 } // namespace
 
 /**
@@ -27,14 +23,6 @@ std::mutex request_mutex;
  */
 CommandResponse bbapi(Command&& command)
 {
-#ifndef NO_MULTITHREADING
-    // Try to lock, but error if it would block (indicating concurrent access)
-    std::unique_lock<std::mutex> lock(request_mutex, std::try_to_lock);
-    if (!lock.owns_lock()) {
-        throw_or_abort("BB API is meant for single-threaded (queued) use only");
-    }
-#endif
-
     // Execute the command using the global request and return the response
     return execute(global_request, std::move(command));
 }

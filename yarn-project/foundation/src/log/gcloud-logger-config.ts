@@ -13,10 +13,6 @@ const GOOGLE_CLOUD_TRACE_SAMPLED = 'logging.googleapis.com/trace_sampled';
  */
 export const GoogleCloudLoggerConfig = {
   messageKey: 'message',
-  // Same as pino.stdTimeFunctions.isoTime but uses "timestamp" key instead of "time"
-  timestamp(): string {
-    return `,"timestamp":"${new Date(Date.now()).toISOString()}"`;
-  },
   formatters: {
     log(object: Record<string, unknown>): Record<string, unknown> {
       // Add trace context attributes following Cloud Logging structured log format described

@@ -1,5 +1,6 @@
 use crate::traits::{Deserialize, Serialize};
 
+global U1_SERIALIZED_LEN: u32 = 1;
 global BOOL_SERIALIZED_LEN: u32 = 1;
 global U8_SERIALIZED_LEN: u32 = 1;
 global U16_SERIALIZED_LEN: u32 = 1;
@@ -15,6 +16,7 @@ global I64_SERIALIZED_LEN: u32 = 1;
 impl Serialize for bool {
     let N: u32 = BOOL_SERIALIZED_LEN;
 
+    #[inline_always]
     fn serialize(self) -> [Field; Self::N] {
         [self as Field]
     }
@@ -23,14 +25,34 @@ impl Serialize for bool {
 impl Deserialize for bool {
     let N: u32 = BOOL_SERIALIZED_LEN;
 
+    #[inline_always]
     fn deserialize(fields: [Field; Self::N]) -> bool {
         fields[0] != 0
+    }
+}
+
+impl Serialize for u1 {
+    let N: u32 = U1_SERIALIZED_LEN;
+
+    #[inline_always]
+    fn serialize(self) -> [Field; Self::N] {
+        [self as Field]
+    }
+}
+
+impl Deserialize for u1 {
+    let N: u32 = U1_SERIALIZED_LEN;
+
+    #[inline_always]
+    fn deserialize(fields: [Field; Self::N]) -> Self {
+        fields[0] as u1
     }
 }
 
 impl Serialize for u8 {
     let N: u32 = U8_SERIALIZED_LEN;
 
+    #[inline_always]
     fn serialize(self) -> [Field; Self::N] {
         [self as Field]
     }
@@ -39,6 +61,7 @@ impl Serialize for u8 {
 impl Deserialize for u8 {
     let N: u32 = U8_SERIALIZED_LEN;
 
+    #[inline_always]
     fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0] as u8
     }
@@ -47,6 +70,7 @@ impl Deserialize for u8 {
 impl Serialize for u16 {
     let N: u32 = U16_SERIALIZED_LEN;
 
+    #[inline_always]
     fn serialize(self) -> [Field; Self::N] {
         [self as Field]
     }
@@ -55,6 +79,7 @@ impl Serialize for u16 {
 impl Deserialize for u16 {
     let N: u32 = U16_SERIALIZED_LEN;
 
+    #[inline_always]
     fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0] as u16
     }
@@ -63,6 +88,7 @@ impl Deserialize for u16 {
 impl Serialize for u32 {
     let N: u32 = U32_SERIALIZED_LEN;
 
+    #[inline_always]
     fn serialize(self) -> [Field; Self::N] {
         [self as Field]
     }
@@ -71,6 +97,7 @@ impl Serialize for u32 {
 impl Deserialize for u32 {
     let N: u32 = U32_SERIALIZED_LEN;
 
+    #[inline_always]
     fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0] as u32
     }
@@ -79,6 +106,7 @@ impl Deserialize for u32 {
 impl Serialize for u64 {
     let N: u32 = U64_SERIALIZED_LEN;
 
+    #[inline_always]
     fn serialize(self) -> [Field; Self::N] {
         [self as Field]
     }
@@ -87,6 +115,7 @@ impl Serialize for u64 {
 impl Deserialize for u64 {
     let N: u32 = U64_SERIALIZED_LEN;
 
+    #[inline_always]
     fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0] as u64
     }
@@ -95,6 +124,7 @@ impl Deserialize for u64 {
 impl Serialize for u128 {
     let N: u32 = U128_SERIALIZED_LEN;
 
+    #[inline_always]
     fn serialize(self) -> [Field; Self::N] {
         [self as Field]
     }
@@ -103,6 +133,7 @@ impl Serialize for u128 {
 impl Deserialize for u128 {
     let N: u32 = U128_SERIALIZED_LEN;
 
+    #[inline_always]
     fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0] as u128
     }
@@ -111,6 +142,7 @@ impl Deserialize for u128 {
 impl Serialize for Field {
     let N: u32 = FIELD_SERIALIZED_LEN;
 
+    #[inline_always]
     fn serialize(self) -> [Field; Self::N] {
         [self]
     }
@@ -119,6 +151,7 @@ impl Serialize for Field {
 impl Deserialize for Field {
     let N: u32 = FIELD_SERIALIZED_LEN;
 
+    #[inline_always]
     fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0]
     }
@@ -127,6 +160,7 @@ impl Deserialize for Field {
 impl Serialize for i8 {
     let N: u32 = I8_SERIALIZED_LEN;
 
+    #[inline_always]
     fn serialize(self) -> [Field; Self::N] {
         [self as u8 as Field]
     }
@@ -135,6 +169,7 @@ impl Serialize for i8 {
 impl Deserialize for i8 {
     let N: u32 = I8_SERIALIZED_LEN;
 
+    #[inline_always]
     fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0] as u8 as i8
     }
@@ -143,6 +178,7 @@ impl Deserialize for i8 {
 impl Serialize for i16 {
     let N: u32 = I16_SERIALIZED_LEN;
 
+    #[inline_always]
     fn serialize(self) -> [Field; Self::N] {
         [self as u16 as Field]
     }
@@ -151,6 +187,7 @@ impl Serialize for i16 {
 impl Deserialize for i16 {
     let N: u32 = I16_SERIALIZED_LEN;
 
+    #[inline_always]
     fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0] as u16 as i16
     }
@@ -159,6 +196,7 @@ impl Deserialize for i16 {
 impl Serialize for i32 {
     let N: u32 = I32_SERIALIZED_LEN;
 
+    #[inline_always]
     fn serialize(self) -> [Field; Self::N] {
         [self as u32 as Field]
     }
@@ -167,6 +205,7 @@ impl Serialize for i32 {
 impl Deserialize for i32 {
     let N: u32 = I32_SERIALIZED_LEN;
 
+    #[inline_always]
     fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0] as u32 as i32
     }
@@ -175,6 +214,7 @@ impl Deserialize for i32 {
 impl Serialize for i64 {
     let N: u32 = I64_SERIALIZED_LEN;
 
+    #[inline_always]
     fn serialize(self) -> [Field; Self::N] {
         [self as u64 as Field]
     }
@@ -183,6 +223,7 @@ impl Serialize for i64 {
 impl Deserialize for i64 {
     let N: u32 = I64_SERIALIZED_LEN;
 
+    #[inline_always]
     fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0] as u64 as i64
     }
@@ -194,6 +235,7 @@ where
 {
     let N: u32 = <T as Serialize>::N * M;
 
+    #[inline_always]
     fn serialize(self) -> [Field; Self::N] {
         let mut result: [Field; _] = std::mem::zeroed();
         for i in 0..M {
@@ -212,6 +254,7 @@ where
 {
     let N: u32 = <T as Deserialize>::N * M;
 
+    #[inline_always]
     fn deserialize(fields: [Field; Self::N]) -> Self {
         let mut reader = crate::utils::reader::Reader::new(fields);
         let mut result: [T; M] = std::mem::zeroed();
@@ -225,6 +268,7 @@ where
 {
     let N: u32 = <T as Serialize>::N + 1;
 
+    #[inline_always]
     fn serialize(self) -> [Field; Self::N] {
         let mut result: [Field; Self::N] = std::mem::zeroed();
 
@@ -245,6 +289,7 @@ where
 {
     let N: u32 = <T as Deserialize>::N + 1;
 
+    #[inline_always]
     fn deserialize(fields: [Field; Self::N]) -> Self {
         if fields[0] == 1 {
             let mut value_fields = [0; <T as Deserialize>::N];

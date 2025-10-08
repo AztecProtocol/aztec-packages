@@ -15,7 +15,7 @@ export class BlockHeaderTxValidator<T extends AnyTx> implements TxValidator<T> {
   }
 
   async validateTx(tx: T): Promise<TxValidationResult> {
-    const [index] = await this.#archiveSource.getArchiveIndices([await tx.data.constants.historicalHeader.hash()]);
+    const [index] = await this.#archiveSource.getArchiveIndices([await tx.data.constants.anchorBlockHeader.hash()]);
     if (index === undefined) {
       this.#log.verbose(`Rejecting tx ${'txHash' in tx ? tx.txHash : tx.hash} for referencing an unknown block header`);
       return { result: 'invalid', reason: [TX_ERROR_BLOCK_HEADER] };

@@ -34,9 +34,10 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::verify()
     execute_log_derivative_inverse_round();
     execute_grand_product_computation_round();
 
-    verification_key->witness_commitments = witness_comms;
-    verification_key->relation_parameters = relation_parameters;
-    verification_key->alphas = generate_alphas_round();
+    verifier_instance->witness_commitments = witness_comms;
+    verifier_instance->relation_parameters = relation_parameters;
+    verifier_instance->alphas = generate_alphas_round();
+    verifier_instance->is_complete = true; // instance has been completely populated
 }
 
 /**
@@ -45,14 +46,17 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::verify()
  */
 template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 {
-    FF vkey_hash = verification_key->vk->add_hash_to_transcript(domain_separator, *transcript);
-    vinfo("vk hash in Oink verifier: ", vkey_hash);
+    FF vk_hash = verifier_instance->vk->hash_through_transcript(domain_separator, *transcript);
+    transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
+    vinfo("vk hash in Oink verifier: ", vk_hash);
 
-    for (size_t i = 0; i < verification_key->vk->num_public_inputs; ++i) {
+    std::vector<FF> public_inputs;
+    for (size_t i = 0; i < verifier_instance->vk->num_public_inputs; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i));
         public_inputs.emplace_back(public_input_i);
     }
+    verifier_instance->public_inputs = std::move(public_inputs);
 }
 
 /**
@@ -132,11 +136,10 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_log_deriv
  */
 template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_grand_product_computation_round()
 {
-    const FF public_input_delta = compute_public_input_delta<Flavor>(public_inputs,
+    const FF public_input_delta = compute_public_input_delta<Flavor>(verifier_instance->public_inputs,
                                                                      relation_parameters.beta,
                                                                      relation_parameters.gamma,
-                                                                     verification_key->vk->log_circuit_size,
-                                                                     verification_key->vk->pub_inputs_offset);
+                                                                     verifier_instance->vk->pub_inputs_offset);
 
     relation_parameters.public_input_delta = public_input_delta;
 

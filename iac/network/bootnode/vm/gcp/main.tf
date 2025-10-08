@@ -32,12 +32,19 @@ data "terraform_remote_state" "ip" {
   }
 }
 
+data "terraform_remote_state" "metrics" {
+  backend = "gcs"
+  config = {
+    bucket = "aztec-terraform"
+    prefix = "metrics-deploy/us-west1-a/aztec-gke-private/metrics/terraform.tfstate"
+  }
+}
+
 locals {
   ssh_user              = data.terraform_remote_state.ssh.outputs.ssh_user
   public_key            = data.terraform_remote_state.ssh.outputs.public_key
   service_account_email = data.terraform_remote_state.common.outputs.service_account_email
 }
-
 
 # Create the VM and assign the static IP
 resource "google_compute_instance" "vm" {
@@ -72,12 +79,14 @@ resource "google_compute_instance" "vm" {
       PUBLIC_IP              = data.terraform_remote_state.ip.outputs.ip_addresses[var.regions[count.index]],
       PEER_ID_PRIVATE_KEY    = var.peer_id_private_keys[count.index],
       LOCATION               = "GCP",
+      REGION                 = var.regions[count.index],
       DATA_STORE_MAP_SIZE_KB = 16777216,
       P2P_PORT               = var.p2p_port,
       SSH_USER               = local.ssh_user,
       L1_CHAIN_ID            = var.l1_chain_id,
       NETWORK_NAME           = var.network_name
       TAG                    = var.image_tag
+      OTEL_COLLECTOR_URL     = "http://${data.terraform_remote_state.metrics.outputs.otel_collector_ip}:4318"
     })
     # Trigger resource recreation if the startup script changes
     startup-script-hash = filemd5(var.start_script)

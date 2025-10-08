@@ -1,11 +1,13 @@
 import {
-  type AccountWallet,
   type AztecAddress,
+  EthAddress,
   Fr,
   FunctionSelector,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
+  SetPublicAuthwitContractInteraction,
   TxStatus,
+  type Wallet,
 } from '@aztec/aztec.js';
 import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
@@ -18,19 +20,20 @@ import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees failures', () => {
-  let aliceWallet: AccountWallet;
+  let wallet: Wallet;
   let aliceAddress: AztecAddress;
   let sequencerAddress: AztecAddress;
   let bananaCoin: BananaCoin;
   let bananaFPC: FPCContract;
   let gasSettings: GasSettings;
+  const coinbase = EthAddress.random();
 
-  const t = new FeesTest('failures');
+  const t = new FeesTest('failures', 3, { coinbase });
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyFPCSetupSnapshot();
-    ({ aliceWallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = await t.setup());
+    ({ wallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = await t.setup());
 
     // Prove up until the current state by just marking it as proven.
     // Then turn off the watcher to prevent it from keep proving
@@ -61,9 +64,10 @@ describe('e2e_fees failures', () => {
         // still use a public transfer so as to fail in the public app logic phase
         .transfer_in_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
         .simulate({
+          from: aliceAddress,
           fee: {
             gasSettings,
-            paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
+            paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
           },
         }),
     ).rejects.toThrow(U128_UNDERFLOW_ERROR);
@@ -86,9 +90,9 @@ describe('e2e_fees failures', () => {
     const txReceipt = await bananaCoin.methods
       .transfer_in_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
       .send({
+        from: aliceAddress,
         fee: {
-          gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
+          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
         },
       })
       .wait({ dontThrowOnRevert: true });
@@ -148,7 +152,10 @@ describe('e2e_fees failures', () => {
       bananaFPC.address,
     );
 
-    await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send().wait();
+    await bananaCoin.methods
+      .mint_to_public(aliceAddress, publicMintedAlicePublicBananas)
+      .send({ from: aliceAddress })
+      .wait();
 
     const [initialAliceGas, initialFPCGas, initialSequencerGas] = await t.getGasBalanceFn(
       aliceAddress,
@@ -161,9 +168,9 @@ describe('e2e_fees failures', () => {
       bananaCoin.methods
         .transfer_in_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
         .simulate({
+          from: aliceAddress,
           fee: {
-            gasSettings,
-            paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
+            paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
           },
         }),
     ).rejects.toThrow(U128_UNDERFLOW_ERROR);
@@ -189,9 +196,9 @@ describe('e2e_fees failures', () => {
     const txReceipt = await bananaCoin.methods
       .transfer_in_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
       .send({
+        from: aliceAddress,
         fee: {
-          gasSettings,
-          paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
+          paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
         },
       })
       .wait({ dontThrowOnRevert: true });
@@ -225,9 +232,9 @@ describe('e2e_fees failures', () => {
       bananaCoin.methods
         .transfer_in_public(aliceAddress, sequencerAddress, OutrageousPublicAmountAliceDoesNotHave, 0)
         .simulate({
+          from: aliceAddress,
           fee: {
-            gasSettings,
-            paymentMethod: new BuggedSetupFeePaymentMethod(bananaFPC.address, aliceWallet),
+            paymentMethod: new BuggedSetupFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
           },
         }),
     ).rejects.toThrow(/Setup phase reverted/);
@@ -237,9 +244,9 @@ describe('e2e_fees failures', () => {
       bananaCoin.methods
         .transfer_in_public(aliceAddress, sequencerAddress, OutrageousPublicAmountAliceDoesNotHave, 0)
         .send({
+          from: aliceAddress,
           fee: {
-            gasSettings,
-            paymentMethod: new BuggedSetupFeePaymentMethod(bananaFPC.address, aliceWallet),
+            paymentMethod: new BuggedSetupFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
           },
         })
         .wait(),
@@ -261,7 +268,10 @@ describe('e2e_fees failures', () => {
       bananaFPC.address,
     );
 
-    await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send().wait();
+    await bananaCoin.methods
+      .mint_to_public(aliceAddress, publicMintedAlicePublicBananas)
+      .send({ from: aliceAddress })
+      .wait();
 
     const [initialAliceGas, initialFPCGas, initialSequencerGas] = await t.getGasBalanceFn(
       aliceAddress,
@@ -278,9 +288,9 @@ describe('e2e_fees failures', () => {
       bananaCoin.methods
         .mint_to_public(aliceAddress, 1n) // random operation
         .simulate({
+          from: aliceAddress,
           fee: {
-            gasSettings: badGas,
-            paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
+            paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, badGas),
           },
         }),
     ).rejects.toThrow();
@@ -288,9 +298,9 @@ describe('e2e_fees failures', () => {
     const receipt = await bananaCoin.methods
       .mint_to_public(aliceAddress, 1n) // random operation
       .send({
+        from: aliceAddress,
         fee: {
-          gasSettings: badGas,
-          paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
+          paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, badGas),
         },
       })
       .wait({
@@ -323,20 +333,22 @@ describe('e2e_fees failures', () => {
 });
 
 class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
-  override async getExecutionPayload(gasSettings: GasSettings): Promise<ExecutionPayload> {
-    const maxFee = gasSettings.getFeeLimit();
+  override async getExecutionPayload(): Promise<ExecutionPayload> {
+    const maxFee = this.gasSettings.getFeeLimit();
     const authwitNonce = Fr.random();
 
     const tooMuchFee = new Fr(maxFee.toBigInt() * 2n);
 
     const asset = await this.getAsset();
 
-    const setPublicAuthWitInteraction = await this.wallet.setPublicAuthWit(
+    const setPublicAuthWitInteraction = await SetPublicAuthwitContractInteraction.create(
+      this.wallet,
+      this.sender,
       {
         caller: this.paymentContract,
-        action: {
+        call: {
           name: 'transfer_in_public',
-          args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, authwitNonce],
+          args: [this.sender.toField(), this.paymentContract.toField(), maxFee, authwitNonce],
           selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),u128,Field)'),
           type: FunctionType.PUBLIC,
           isStatic: false,

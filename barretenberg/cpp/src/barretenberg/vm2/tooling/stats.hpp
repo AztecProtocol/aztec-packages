@@ -8,15 +8,14 @@
 
 // To enable stats tracking, compile in RelWithAssert mode.
 // cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
-#ifndef NDEBUG
+// TODO(fcarreiro): This should be possible to disable.
 #define AVM_TRACK_STATS
-#endif
 
 #ifdef AVM_TRACK_STATS
 // For tracking time spent in a block of code.
 #define AVM_TRACK_TIME(key, body) ::bb::avm2::Stats::get().time(key, [&]() { body; });
 // For tracking time spent in a block of code and returning a value.
-#define AVM_TRACK_TIME_V(key, body) ::bb::avm2::Stats::get().template time_r(key, [&]() { return body; });
+#define AVM_TRACK_TIME_V(key, body) ::bb::avm2::Stats::get().time_r(key, [&]() { return body; });
 #else
 #define AVM_TRACK_TIME(key, body) body
 #define AVM_TRACK_TIME_V(key, body) body

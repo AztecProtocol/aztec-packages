@@ -20,14 +20,29 @@ inline uint8_t hex_char_to_value(char c)
     if (c >= 'A' && c <= 'F') {
         return static_cast<uint8_t>(10 + (c - 'A'));
     }
-    throw std::invalid_argument("Invalid hex character");
+    throw std::invalid_argument(std::string("Invalid hex character: '") + c + "'");
 }
-// Converts a 64-character hex string to a vector<uint8_t>
+
+// Converts a hex string (must have even length) to a vector<uint8_t>
 inline std::vector<uint8_t> hex_string_to_bytes(const std::string& str)
 {
+    // Allow optional "0x" or "0X" prefix
+    size_t offset = 0;
+    if (str.size() >= 2 && (str[0] == '0') && (str[1] == 'x' || str[1] == 'X')) {
+        offset = 2;
+    }
+    size_t hex_len = str.size() - offset;
+    // Enforce that the input string must represent exactly 32 bytes (64 hex chars)
+    if (hex_len != 64) {
+        throw std::invalid_argument(
+            "Hex string must be exactly 64 characters (32 bytes), excluding optional 0x prefix");
+    }
     std::vector<uint8_t> bytes;
-    for (const char& c : str) {
-        bytes.push_back(hex_char_to_value(c));
+    bytes.reserve(32);
+    for (size_t i = 0; i < hex_len; i += 2) {
+        uint8_t high = hex_char_to_value(str[offset + i]);
+        uint8_t low = hex_char_to_value(str[offset + i + 1]);
+        bytes.push_back(static_cast<uint8_t>((high << 4) | low));
     }
     return bytes;
 }
@@ -117,15 +132,21 @@ inline std::vector<uint8_t> create_simple_kernel(size_t vk_size, bool is_init_ke
     ;
     size_t total_num_witnesses = /* vk */ vk_size + /* key_hash */ 1;
 
+    auto predicate_const = std::variant<Acir::FunctionInput::Constant, Acir::FunctionInput::Witness>{
+        std::in_place_type<Acir::FunctionInput::Constant>,
+        hex_string_to_bytes("0000000000000000000000000000000000000000000000000000000000000001")
+    };
+    Acir::FunctionInput predicate{ .value = predicate_const };
+
     // Modeled after noir-projects/mock-protocol-circuits/crates/mock-private-kernel-init/src/main.nr
     // We mock the init or tail kernels using OINK or PG respectively.
     Acir::BlackBoxFuncCall::RecursiveAggregation recursion{ .verification_key = vk_inputs,
                                                             .proof = {},
                                                             .public_inputs = {},
                                                             .key_hash = key_hash,
-                                                            .proof_type = is_init_kernel
-                                                                              ? acir_format::PROOF_TYPE::OINK
-                                                                              : acir_format::PROOF_TYPE::PG };
+                                                            .proof_type = is_init_kernel ? acir_format::PROOF_TYPE::OINK
+                                                                                         : acir_format::PROOF_TYPE::PG,
+                                                            .predicate = predicate };
 
     Acir::BlackBoxFuncCall black_box_call;
     black_box_call.value = recursion;

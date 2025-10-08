@@ -20,24 +20,28 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
       // Check that the attestation is for the current or next slot
       const slotNumberBigInt = block.payload.header.slotNumber.toBigInt();
       if (slotNumberBigInt !== currentSlot && slotNumberBigInt !== nextSlot) {
-        this.logger.debug(
-          `Penalizing peer for invalid slot number ${slotNumberBigInt}, current slot: ${currentSlot}, next slot: ${nextSlot}`,
-        );
+        this.logger.debug(`Penalizing peer for invalid slot number ${slotNumberBigInt}`, { currentSlot, nextSlot });
         return PeerErrorSeverity.HighToleranceError;
       }
 
       // Check that the block proposal is from the current or next proposer
       const proposer = block.getSender();
-      if (
-        currentProposer !== undefined &&
-        !proposer.equals(currentProposer) &&
-        nextProposer !== undefined &&
-        !proposer.equals(nextProposer)
-      ) {
-        this.logger.debug(
-          `Penalizing peer for invalid proposer ${proposer.toString()}, current proposer: ${currentProposer.toString()}, next proposer: ${nextProposer.toString()}`,
-        );
-        return PeerErrorSeverity.HighToleranceError;
+      if (slotNumberBigInt === currentSlot && currentProposer !== undefined && !proposer.equals(currentProposer)) {
+        this.logger.debug(`Penalizing peer for invalid proposer for current slot ${slotNumberBigInt}`, {
+          currentProposer,
+          nextProposer,
+          proposer,
+        });
+        return PeerErrorSeverity.MidToleranceError;
+      }
+
+      if (slotNumberBigInt === nextSlot && nextProposer !== undefined && !proposer.equals(nextProposer)) {
+        this.logger.debug(`Penalizing peer for invalid proposer for next slot ${slotNumberBigInt}`, {
+          currentProposer,
+          nextProposer,
+          proposer,
+        });
+        return PeerErrorSeverity.MidToleranceError;
       }
 
       return undefined;

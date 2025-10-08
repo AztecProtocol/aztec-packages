@@ -83,17 +83,26 @@ contract StaticTest is WithGSE {
     // As _instance is latest, it will also get attesters[1]
     assertEq(gse.getAttesterFromIndexAtTime(_instance, 1, ts), _attesters[1], "invalid attester");
 
-    address[] memory attesters = gse.getAttestersAtTime(_instance, ts);
+    address[] memory attesters = getAttestersAtTime(_instance, ts);
     assertEq(attesters.length, 2, "invalid attesters");
     assertEq(attesters[0], _attesters[0], "invalid attester");
     assertEq(attesters[1], _attesters[1], "invalid attester");
 
     // Note the indexes of this can look strange as it first the specific then the bonus
-    attesters = gse.getAttestersAtTime(_instance, ts2);
+    attesters = getAttestersAtTime(_instance, ts2);
     assertEq(attesters.length, 4, "invalid attesters");
     assertEq(attesters[0], _attesters[0], "invalid attester");
     assertEq(attesters[1], _attesters[2], "invalid attester");
     assertEq(attesters[2], _attesters[1], "invalid attester");
     assertEq(attesters[3], _attesters[3], "invalid attester");
+  }
+
+  function getAttestersAtTime(address _instance, Timestamp _timestamp) internal view returns (address[] memory) {
+    uint256 count = gse.getAttesterCountAtTime(_instance, _timestamp);
+    address[] memory attesters = new address[](count);
+    for (uint256 i = 0; i < count; i++) {
+      attesters[i] = gse.getAttesterFromIndexAtTime(_instance, i, _timestamp);
+    }
+    return attesters;
   }
 }

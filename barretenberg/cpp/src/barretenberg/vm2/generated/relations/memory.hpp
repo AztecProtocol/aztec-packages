@@ -3,7 +3,7 @@
 
 #include <string_view>
 
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,7 +14,10 @@ template <typename FF_> class memoryImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS = { 3, 3 };
+    static constexpr std::array<size_t, 60> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 4, 3, 2, 2, 5, 5, 2, 4, 4, 4, 4, 5, 3
+    };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -27,34 +30,61 @@ template <typename FF_> class memoryImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        PROFILE_THIS_NAME("accumulate/memory");
-
-        {
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::memory_sel) * (in.get(C::memory_sel) - FF(1));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::memory_rw) * (FF(1) - in.get(C::memory_rw));
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class memory : public Relation<memoryImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "memory";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_ACTIVE_ROW_NEEDS_PERM_SELECTOR = 42;
+    static constexpr size_t SR_MEM_CONTIGUOUS = 47;
+    static constexpr size_t SR_SEL_RNG_CHK = 48;
+    static constexpr size_t SR_GLOBAL_ADDR = 49;
+    static constexpr size_t SR_TIMESTAMP = 50;
+    static constexpr size_t SR_LAST_ACCESS = 51;
+    static constexpr size_t SR_DIFF = 52;
+    static constexpr size_t SR_DIFF_DECOMP = 53;
+    static constexpr size_t SR_MEMORY_INIT_VALUE = 54;
+    static constexpr size_t SR_MEMORY_INIT_TAG = 55;
+    static constexpr size_t SR_READ_WRITE_CONSISTENCY_VALUE = 56;
+    static constexpr size_t SR_READ_WRITE_CONSISTENCY_TAG = 57;
+    static constexpr size_t SR_TAG_IS_FF = 58;
+    static constexpr size_t SR_SEL_RNG_WRITE = 59;
+
     static std::string get_subrelation_label(size_t index)
     {
-        switch (index) {}
+        switch (index) {
+        case SR_ACTIVE_ROW_NEEDS_PERM_SELECTOR:
+            return "ACTIVE_ROW_NEEDS_PERM_SELECTOR";
+        case SR_MEM_CONTIGUOUS:
+            return "MEM_CONTIGUOUS";
+        case SR_SEL_RNG_CHK:
+            return "SEL_RNG_CHK";
+        case SR_GLOBAL_ADDR:
+            return "GLOBAL_ADDR";
+        case SR_TIMESTAMP:
+            return "TIMESTAMP";
+        case SR_LAST_ACCESS:
+            return "LAST_ACCESS";
+        case SR_DIFF:
+            return "DIFF";
+        case SR_DIFF_DECOMP:
+            return "DIFF_DECOMP";
+        case SR_MEMORY_INIT_VALUE:
+            return "MEMORY_INIT_VALUE";
+        case SR_MEMORY_INIT_TAG:
+            return "MEMORY_INIT_TAG";
+        case SR_READ_WRITE_CONSISTENCY_VALUE:
+            return "READ_WRITE_CONSISTENCY_VALUE";
+        case SR_READ_WRITE_CONSISTENCY_TAG:
+            return "READ_WRITE_CONSISTENCY_TAG";
+        case SR_TAG_IS_FF:
+            return "TAG_IS_FF";
+        case SR_SEL_RNG_WRITE:
+            return "SEL_RNG_WRITE";
+        }
         return std::to_string(index);
     }
 };

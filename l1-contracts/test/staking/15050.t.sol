@@ -9,7 +9,7 @@ import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {SlashPayload, IPayload} from "@aztec/periphery/SlashPayload.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
-import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
+import {EmpireSlashingProposer} from "@aztec/core/slashing/EmpireSlashingProposer.sol";
 import {RoundAccounting} from "@aztec/governance/proposer/EmpireBase.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
@@ -49,7 +49,7 @@ contract Test15050 is StakingBase {
 
     SlashPayload payload = new SlashPayload(validators, amounts, IValidatorSelection(address(staking)));
 
-    SlashingProposer caller = Slasher(SLASHER).PROPOSER();
+    EmpireSlashingProposer caller = EmpireSlashingProposer(Slasher(SLASHER).PROPOSER());
 
     stdstore.clear();
     stdstore.enable_packed_slots().target(address(caller)).sig("getRoundData(address,uint256)").with_key(

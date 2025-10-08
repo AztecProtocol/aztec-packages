@@ -85,8 +85,7 @@ contract UpdateConfigurationTest is GovernanceBase {
     vm.prank(address(governance));
     governance.updateConfiguration(config);
 
-    config.proposeConfig.lockDelay =
-      Timestamp.wrap(bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_UPPER) + 1, type(uint256).max));
+    config.proposeConfig.lockDelay = Timestamp.wrap(uint256(type(uint32).max) + 1);
     vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooBig.selector, "LockDelay"));
     vm.prank(address(governance));
     governance.updateConfiguration(config);
@@ -178,9 +177,11 @@ contract UpdateConfigurationTest is GovernanceBase {
     assertEq(config.votingDelay, fresh.votingDelay);
     assertEq(config.votingDuration, fresh.votingDuration);
 
-    assertEq(config.withdrawalDelay(), fresh.withdrawalDelay());
+    Configuration memory memConfig = config;
+    Configuration memory memFresh = fresh;
+    assertEq(upw.getWithdrawalDelay(memConfig), upw.getWithdrawalDelay(memFresh));
     assertEq(
-      config.withdrawalDelay(),
+      upw.getWithdrawalDelay(memConfig),
       Timestamp.wrap(Timestamp.unwrap(fresh.votingDelay) / 5) + fresh.votingDuration + fresh.executionDelay
     );
     assertEq(config.proposeConfig.lockAmount, fresh.proposeConfig.lockAmount);
@@ -220,7 +221,7 @@ contract UpdateConfigurationTest is GovernanceBase {
     // it updates the configuration
     // it emits {ConfigurationUpdated} event
 
-    uint256 val = bound(_val, ConfigurationLib.VOTES_LOWER, type(uint256).max);
+    uint256 val = bound(_val, ConfigurationLib.VOTES_LOWER, ConfigurationLib.VOTES_UPPER);
 
     vm.assume(val != config.minimumVotes);
     config.minimumVotes = val;
@@ -230,7 +231,7 @@ contract UpdateConfigurationTest is GovernanceBase {
     // it updates the configuration
     // it emits {ConfigurationUpdated} event
 
-    uint256 val = bound(_val, ConfigurationLib.LOCK_AMOUNT_LOWER, type(uint256).max);
+    uint256 val = bound(_val, ConfigurationLib.LOCK_AMOUNT_LOWER, ConfigurationLib.LOCK_AMOUNT_UPPER);
 
     vm.assume(val != config.proposeConfig.lockAmount);
     config.proposeConfig.lockAmount = val;

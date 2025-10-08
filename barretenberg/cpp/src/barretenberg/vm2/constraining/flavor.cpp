@@ -18,13 +18,12 @@ AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
 void AvmFlavor::Transcript::deserialize_full_transcript()
 {
     size_t num_frs_read = 0;
-    circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
 
     for (auto& commitment : commitments) {
         commitment = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
     }
 
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+    for (size_t i = 0; i < log_circuit_size; ++i) {
         sumcheck_univariates.emplace_back(deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
             Transcript::proof_data, num_frs_read));
     }
@@ -32,11 +31,11 @@ void AvmFlavor::Transcript::deserialize_full_transcript()
     sumcheck_evaluations =
         deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(Transcript::proof_data, num_frs_read);
 
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+    for (size_t i = 0; i < log_circuit_size - 1; ++i) {
         gemini_fold_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
     }
 
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+    for (size_t i = 0; i < log_circuit_size; ++i) {
         gemini_fold_evals.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
     }
 
@@ -50,23 +49,21 @@ void AvmFlavor::Transcript::serialize_full_transcript()
     size_t old_proof_length = proof_data.size();
     Transcript::proof_data.clear();
 
-    serialize_to_buffer(circuit_size, Transcript::proof_data);
-
     for (const auto& commitment : commitments) {
         serialize_to_buffer(commitment, Transcript::proof_data);
     }
 
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+    for (size_t i = 0; i < log_circuit_size; ++i) {
         serialize_to_buffer(sumcheck_univariates[i], Transcript::proof_data);
     }
 
     serialize_to_buffer(sumcheck_evaluations, Transcript::proof_data);
 
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+    for (size_t i = 0; i < log_circuit_size - 1; ++i) {
         serialize_to_buffer(gemini_fold_comms[i], proof_data);
     }
 
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+    for (size_t i = 0; i < log_circuit_size; ++i) {
         serialize_to_buffer(gemini_fold_evals[i], proof_data);
     }
 
@@ -77,48 +74,52 @@ void AvmFlavor::Transcript::serialize_full_transcript()
     BB_ASSERT_EQ(proof_data.size(), old_proof_length);
 }
 
-AvmFlavor::PartiallyEvaluatedMultivariates::PartiallyEvaluatedMultivariates(const size_t circuit_size)
-{
-    // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
-    for (auto& poly : get_all()) {
-        poly = Polynomial(circuit_size / 2);
-    }
-}
-
-AvmFlavor::PartiallyEvaluatedMultivariates::PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials,
-                                                                            size_t circuit_size)
+AvmFlavor::ProverPolynomials::ProverPolynomials(const ProverPolynomials& full_polynomials, size_t circuit_size)
 {
     for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
         // After the initial sumcheck round, the new size is CEIL(size/2).
-        size_t desired_size = full_poly.end_index() / 2 + full_poly.end_index() % 2;
+        size_t desired_size = (full_poly.end_index() / 2) + (full_poly.end_index() % 2);
         poly = Polynomial(desired_size, circuit_size / 2);
     }
 }
 
-AvmFlavor::ProvingKey::ProvingKey(const size_t circuit_size, const size_t num_public_inputs)
-    : circuit_size(circuit_size)
-    , log_circuit_size(numeric::get_msb(circuit_size))
-    , num_public_inputs(num_public_inputs)
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
-    , commitment_key(circuit_size + 1){
+AvmFlavor::ProvingKey::ProvingKey()
+    : commitment_key(circuit_size + 1) {
         // The proving key's polynomials are not allocated here because they are later overwritten
         // AvmComposer::compute_witness(). We should probably refactor this flow.
     };
 
-/**
- * @brief Serialize verification key to field elements
- *
- * @return std::vector<FF>
- */
-std::vector<AvmFlavor::FF> AvmFlavor::VerificationKey::to_field_elements() const
+void AvmFlavor::LazilyExtendedProverUnivariates::set_current_edge(size_t edge_idx)
 {
-    std::vector<FF> elements = { FF(log_circuit_size), FF(num_public_inputs) };
+    current_edge = edge_idx;
+    // If the current edge changed, we need to clear all the cached univariates.
+    dirty = true;
+}
 
-    for (auto const& comm : get_all()) {
-        std::vector<FF> comm_as_fields = field_conversion::convert_to_bn254_frs(comm);
-        elements.insert(elements.end(), comm_as_fields.begin(), comm_as_fields.end());
+const bb::Univariate<AvmFlavor::FF, AvmFlavor::MAX_PARTIAL_RELATION_LENGTH>& AvmFlavor::
+    LazilyExtendedProverUnivariates::get(ColumnAndShifts c) const
+{
+    const auto& multivariate = multivariates.get(c);
+    if (multivariate.is_empty() || multivariate.end_index() < current_edge) {
+        static const auto zero_univariate = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>::zero();
+        return zero_univariate;
+    } else {
+        auto& mutable_entities = const_cast<decltype(entities)&>(entities);
+        if (dirty) {
+            // If the current edge changed, we need to clear all the cached univariates.
+            for (auto& extended_ptr : mutable_entities) {
+                extended_ptr.reset();
+            }
+            dirty = false;
+        }
+        auto& extended_ptr = mutable_entities[static_cast<size_t>(c)];
+        if (extended_ptr.get() == nullptr) {
+            extended_ptr = std::make_unique<bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>>(
+                bb::Univariate<FF, 2>({ multivariate[current_edge], multivariate[current_edge + 1] })
+                    .template extend_to<MAX_PARTIAL_RELATION_LENGTH>());
+        }
+        return *extended_ptr;
     }
-    return elements;
 }
 
 } // namespace bb::avm2

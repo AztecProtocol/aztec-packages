@@ -1,10 +1,15 @@
+use crate::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN;
 use protocol_types::{
-    constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN, PUBLIC_LOG_PLAINTEXT_LEN},
+    constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN},
     traits::Deserialize,
 };
 
-global MAX_LOG_CONTENT_LEN: u32 =
-    std::cmp::max(PUBLIC_LOG_PLAINTEXT_LEN, PRIVATE_LOG_CIPHERTEXT_LEN);
+pub global MAX_PUBLIC_LOG_LEN_FOR_NOTE_COMPLETION: u32 = MAX_NOTE_PACKED_LEN;
+
+global MAX_LOG_CONTENT_LEN: u32 = std::cmp::max(
+    MAX_PUBLIC_LOG_LEN_FOR_NOTE_COMPLETION,
+    PRIVATE_LOG_CIPHERTEXT_LEN,
+);
 
 /// A response to a `LogRetrievalRequest`, containing the payload of a log (i.e. the content minus the tag, called
 /// plaintext for public logs and ciphertext for private), plus contextual information about the transaction in which

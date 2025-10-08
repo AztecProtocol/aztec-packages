@@ -13,7 +13,7 @@
 namespace bb::wnaf {
 constexpr size_t SCALAR_BITS = 127;
 
-#define WNAF_SIZE(x) ((bb::wnaf::SCALAR_BITS + (x)-1) / (x)) // NOLINT(cppcoreguidelines-macro-usage)
+#define WNAF_SIZE(x) ((bb::wnaf::SCALAR_BITS + (x) - 1) / (x)) // NOLINT(cppcoreguidelines-macro-usage)
 
 constexpr size_t get_optimal_bucket_width(const size_t num_points)
 {

@@ -61,9 +61,9 @@ impl TailOutputValidator {
         // Whilst we could just assert the entire `constants` struct to be equal, we broke it
         // up to test with the specific error messages.
         assert_eq(
-            self.output.constants.historical_header,
-            self.previous_kernel.constants.historical_header,
-            "mismatch historical_header",
+            self.output.constants.anchor_block_header,
+            self.previous_kernel.constants.anchor_block_header,
+            "mismatch anchor_block_header",
         );
         assert_eq(
             self.output.constants.tx_context,
@@ -76,9 +76,9 @@ impl TailOutputValidator {
             "mismatch vk_tree_root",
         );
         assert_eq(
-            self.output.constants.protocol_contract_tree_root,
-            self.previous_kernel.constants.protocol_contract_tree_root,
-            "mismatch protocol_contract_tree_root",
+            self.output.constants.protocol_contracts_hash,
+            self.previous_kernel.constants.protocol_contracts.hash(),
+            "mismatch protocol_contracts_hash",
         );
 
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
@@ -93,7 +93,7 @@ impl TailOutputValidator {
         );
         validate_include_by_timestamp_duration(
             include_by_timestamp,
-            self.previous_kernel.constants.historical_header.global_variables,
+            self.previous_kernel.constants.anchor_block_header.global_variables,
         );
         assert_eq(
             self.output.include_by_timestamp,

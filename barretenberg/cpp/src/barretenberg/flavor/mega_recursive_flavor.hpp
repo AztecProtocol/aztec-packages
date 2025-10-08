@@ -47,7 +47,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     using NativeFlavor = MegaFlavor;
 
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
-
+    static constexpr size_t VIRTUAL_LOG_N = MegaFlavor::VIRTUAL_LOG_N;
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = MegaFlavor::USE_SHORT_MONOMIALS;
     // Note(luke): Eventually this may not be needed at all
@@ -91,9 +91,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     // combiner) to much.
     static constexpr size_t NUM_SUBRELATIONS = MegaFlavor::NUM_SUBRELATIONS;
     using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
-
-    // define the container for storing the univariate contribution from each relation in Sumcheck
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
@@ -143,18 +140,18 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
          * @param builder
          * @param elements
          */
-        VerificationKey(CircuitBuilder& builder, std::span<FF> elements)
+        VerificationKey(std::span<FF> elements)
         {
             using namespace bb::stdlib::field_conversion;
 
             size_t num_frs_read = 0;
 
-            this->log_circuit_size = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-            this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-            this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
+            this->log_circuit_size = deserialize_from_frs<FF>(elements, num_frs_read);
+            this->num_public_inputs = deserialize_from_frs<FF>(elements, num_frs_read);
+            this->pub_inputs_offset = deserialize_from_frs<FF>(elements, num_frs_read);
 
             for (Commitment& commitment : this->get_all()) {
-                commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
+                commitment = deserialize_from_frs<Commitment>(elements, num_frs_read);
             }
 
             if (num_frs_read != elements.size()) {
@@ -177,7 +174,21 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             for (const auto& idx : witness_indices) {
                 vk_fields.emplace_back(FF::from_witness_index(&builder, idx));
             }
-            return VerificationKey(builder, vk_fields);
+            return VerificationKey(vk_fields);
+        }
+
+        /**
+         * @brief Fixes witnesses of VK to be constants.
+         *
+         */
+        void fix_witness()
+        {
+            this->log_circuit_size.fix_witness();
+            this->num_public_inputs.fix_witness();
+            this->pub_inputs_offset.fix_witness();
+            for (Commitment& commitment : this->get_all()) {
+                commitment.fix_witness();
+            }
         }
     };
 

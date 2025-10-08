@@ -26,6 +26,13 @@ class InvalidOperationTag : public std::runtime_error {
     {}
 };
 
+class DivisionByZero : public std::runtime_error {
+  public:
+    DivisionByZero(const std::string& msg)
+        : std::runtime_error("Division by zero: " + msg)
+    {}
+};
+
 enum class ValueTag {
     FF = MEM_TAG_FF,
     U1 = MEM_TAG_U1,
@@ -94,6 +101,7 @@ class TaggedValue {
     TaggedValue operator>>(const TaggedValue& other) const;
     // Comparison operators. If the tags are not the same, false is returned
     bool operator<(const TaggedValue& other) const;
+    bool operator>(const TaggedValue& other) const;
     bool operator<=(const TaggedValue& other) const;
     bool operator==(const TaggedValue& other) const;
     bool operator!=(const TaggedValue& other) const;
@@ -112,6 +120,31 @@ class TaggedValue {
         }
         throw std::runtime_error("TaggedValue::as(): type mismatch. Wanted type " +
                                  std::to_string(static_cast<uint32_t>(tag_for_type<T>())) + " but got " + to_string());
+    }
+
+    // This method try to do the smallest conversion possible.
+    // In particular, it tries to avoid going through FF.
+    // Note: truncation will happen if the value is out of bounds for the target type.
+    template <typename T> T to() const
+    {
+        switch (get_tag()) {
+        case ValueTag::U8:
+            return static_cast<T>(std::get<uint8_t>(value));
+        case ValueTag::U16:
+            return static_cast<T>(std::get<uint16_t>(value));
+        case ValueTag::U32:
+            return static_cast<T>(std::get<uint32_t>(value));
+        case ValueTag::U64:
+            return static_cast<T>(std::get<uint64_t>(value));
+        case ValueTag::U128:
+            return static_cast<T>(std::get<uint128_t>(value));
+        case ValueTag::U1:
+            return static_cast<T>(std::get<uint1_t>(value));
+        case ValueTag::FF:
+            return static_cast<T>(std::get<FF>(value));
+        }
+
+        __builtin_unreachable();
     }
 
     std::size_t hash() const noexcept { return std::hash<FF>{}(as_ff()); }

@@ -1,6 +1,9 @@
 use crate::tests::tail_output_validator_builder::TailOutputValidatorBuilder;
 use dep::types::{
-    address::AztecAddress, constants::MAX_INCLUDE_BY_TIMESTAMP_DURATION, traits::FromField,
+    abis::protocol_contracts::ProtocolContracts,
+    address::AztecAddress,
+    constants::{MAX_INCLUDE_BY_TIMESTAMP_DURATION, MAX_PROTOCOL_CONTRACTS},
+    traits::FromField,
 };
 
 /**
@@ -10,19 +13,19 @@ use dep::types::{
 fn validate_propagated_values_constants_succeeds() {
     let mut builder = TailOutputValidatorBuilder::new();
 
-    builder.previous_kernel.historical_header.total_fees = 123;
-    builder.output.historical_header.total_fees = 123;
+    builder.previous_kernel.anchor_block_header.total_fees = 123;
+    builder.output.anchor_block_header.total_fees = 123;
 
     builder.validate();
 }
 
-#[test(should_fail_with = "mismatch historical_header")]
+#[test(should_fail_with = "mismatch anchor_block_header")]
 fn validate_propagated_values_total_fees_mismatch_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
-    builder.previous_kernel.historical_header.total_fees = 123;
+    builder.previous_kernel.anchor_block_header.total_fees = 123;
     // Tweak the value in the output.
-    builder.output.historical_header.total_fees = 45;
+    builder.output.anchor_block_header.total_fees = 45;
 
     builder.validate();
 }
@@ -49,13 +52,13 @@ fn validate_propagated_values_vk_tree_root_mismatch_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with = "mismatch protocol_contract_tree_root")]
-fn validate_propagated_values_protocol_contract_tree_root_mismatch_fails() {
+#[test(should_fail_with = "mismatch protocol_contracts_hash")]
+fn validate_propagated_values_protocol_contracts_hash_mismatch_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
-    builder.previous_kernel.protocol_contract_tree_root = 123;
     // Tweak the value in the output.
-    builder.output.protocol_contract_tree_root = 45;
+    builder.output.protocol_contracts =
+        ProtocolContracts::new([AztecAddress::from_field(42); MAX_PROTOCOL_CONTRACTS]);
 
     builder.validate();
 }
@@ -113,8 +116,8 @@ fn validate_propagated_values_include_by_timestamp_custom_equals_max_duration_su
     let mut builder = TailOutputValidatorBuilder::new();
 
     let block_timestamp = 99;
-    builder.previous_kernel.historical_header.global_variables.timestamp = block_timestamp;
-    builder.output.historical_header.global_variables.timestamp = block_timestamp;
+    builder.previous_kernel.anchor_block_header.global_variables.timestamp = block_timestamp;
+    builder.output.anchor_block_header.global_variables.timestamp = block_timestamp;
 
     let max_timestamp = block_timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
     builder.include_by_timestamp_upper_bound = max_timestamp;
@@ -129,8 +132,8 @@ fn validate_propagated_values_include_by_timestamp_custom_exceeds_max_duration_f
     let mut builder = TailOutputValidatorBuilder::new();
 
     let block_timestamp = 99;
-    builder.previous_kernel.historical_header.global_variables.timestamp = block_timestamp;
-    builder.output.historical_header.global_variables.timestamp = block_timestamp;
+    builder.previous_kernel.anchor_block_header.global_variables.timestamp = block_timestamp;
+    builder.output.anchor_block_header.global_variables.timestamp = block_timestamp;
 
     let max_timestamp = block_timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
     builder.include_by_timestamp_upper_bound = max_timestamp + 1;
@@ -145,8 +148,8 @@ fn validate_propagated_values_include_by_timestamp_custom_exceeds_max_pick_previ
     let mut builder = TailOutputValidatorBuilder::new();
 
     let block_timestamp = 99;
-    builder.previous_kernel.historical_header.global_variables.timestamp = block_timestamp;
-    builder.output.historical_header.global_variables.timestamp = block_timestamp;
+    builder.previous_kernel.anchor_block_header.global_variables.timestamp = block_timestamp;
+    builder.output.anchor_block_header.global_variables.timestamp = block_timestamp;
 
     let max_timestamp = block_timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
     builder.include_by_timestamp_upper_bound = max_timestamp + 1;
@@ -161,8 +164,8 @@ fn validate_propagated_values_include_by_timestamp_previous_exceeds_max_pick_cus
     let mut builder = TailOutputValidatorBuilder::new();
 
     let block_timestamp = 99;
-    builder.previous_kernel.historical_header.global_variables.timestamp = block_timestamp;
-    builder.output.historical_header.global_variables.timestamp = block_timestamp;
+    builder.previous_kernel.anchor_block_header.global_variables.timestamp = block_timestamp;
+    builder.output.anchor_block_header.global_variables.timestamp = block_timestamp;
 
     let max_timestamp = block_timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
     builder.include_by_timestamp_upper_bound = max_timestamp;

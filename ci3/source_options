@@ -7,3 +7,6 @@ set -euo pipefail
 # Enable extended bash globs.
 shopt -s extglob
 shopt -s globstar
+
+# Error on x=$(failing_command).
+shopt -s inherit_errexit

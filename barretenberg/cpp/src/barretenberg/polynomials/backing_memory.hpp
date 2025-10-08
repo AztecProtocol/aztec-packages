@@ -14,135 +14,164 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <memory>
-#ifndef _WASI_EMULATED_PROCESS_CLOCKS
+#ifndef __wasm__
 #include <sys/mman.h>
 #endif
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern bool slow_low_memory;
 
-template <typename T> class AlignedMemory;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+extern size_t storage_budget;
 
-#ifndef _WASI_EMULATED_PROCESS_CLOCKS
-template <typename T> class FileBackedMemory;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+extern std::atomic<size_t> current_storage_usage;
+
+// Parse storage size string (e.g., "500m", "2g", "1024k")
+size_t parse_size_string(const std::string& size_str);
+
+template <typename Fr> struct BackingMemory {
+    // Common raw data pointer used by all storage types
+    Fr* raw_data = nullptr;
+
+#ifndef __wasm__
+    // File-backed data substruct with cleanup metadata
+    struct FileBackedData {
+        size_t file_size;
+        std::string filename;
+        int fd;
+        Fr* raw_data_ptr;
+
+        ~FileBackedData()
+        {
+            if (raw_data_ptr != nullptr && file_size > 0) {
+                munmap(raw_data_ptr, file_size);
+                current_storage_usage.fetch_sub(file_size);
+            }
+            if (fd >= 0) {
+                close(fd);
+            }
+            if (!filename.empty()) {
+                std::filesystem::remove(filename);
+            }
+        }
+    };
+    std::shared_ptr<FileBackedData> file_backed;
 #endif
+    // Aligned memory data substruct
+    std::shared_ptr<Fr[]> aligned_memory;
 
-template <typename Fr> class BackingMemory {
-  public:
     BackingMemory() = default;
 
-    BackingMemory(const BackingMemory&) = delete;            // delete copy constructor
-    BackingMemory& operator=(const BackingMemory&) = delete; // delete copy assignment
+    BackingMemory(const BackingMemory&) = default;
+    BackingMemory& operator=(const BackingMemory&) = default;
 
-    BackingMemory(BackingMemory&& other) = delete;            // delete move constructor
-    BackingMemory& operator=(const BackingMemory&&) = delete; // delete move assignment
-
-    virtual Fr* raw_data() = 0;
-
-    static std::shared_ptr<BackingMemory<Fr>> allocate(size_t size)
+    BackingMemory(BackingMemory&& other) noexcept
+        : raw_data(other.raw_data)
+#ifndef __wasm__
+        , file_backed(std::move(other.file_backed))
+#endif
+        , aligned_memory(std::move(other.aligned_memory))
     {
-#ifndef _WASI_EMULATED_PROCESS_CLOCKS
+        other.raw_data = nullptr;
+    }
+
+    BackingMemory& operator=(BackingMemory&& other) noexcept
+    {
+        if (this != &other) {
+            raw_data = other.raw_data;
+#ifndef __wasm__
+            file_backed = std::move(other.file_backed);
+#endif
+            aligned_memory = std::move(other.aligned_memory);
+            other.raw_data = nullptr;
+        }
+        return *this;
+    }
+
+    // Allocate memory, preferring file-backed if in low memory mode
+    static BackingMemory allocate(size_t size)
+    {
+        BackingMemory memory;
+#ifndef __wasm__
         if (slow_low_memory) {
-            return std::shared_ptr<BackingMemory<Fr>>(new FileBackedMemory<Fr>(size));
+            if (try_allocate_file_backed(memory, size)) {
+                return memory;
+            }
         }
 #endif
-        return std::shared_ptr<BackingMemory<Fr>>(new AlignedMemory<Fr>(size));
+        allocate_aligned(memory, size);
+        return memory;
     }
 
-    virtual ~BackingMemory() = default;
-};
-
-template <typename T> class AlignedMemory : public BackingMemory<T> {
-  public:
-    T* raw_data() { return data.get(); }
+    ~BackingMemory() = default;
 
   private:
-    AlignedMemory(size_t size)
-        : BackingMemory<T>()
+    static void allocate_aligned(BackingMemory& memory, size_t size)
+    {
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        , data(std::static_pointer_cast<T[]>(std::move(bb::get_mem_slab(sizeof(T) * size))))
-    {}
-
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-    std::shared_ptr<T[]> data;
-
-    friend BackingMemory<T>;
-};
-
-#ifndef _WASI_EMULATED_PROCESS_CLOCKS
-template <typename T> class FileBackedMemory : public BackingMemory<T> {
-  public:
-    FileBackedMemory(const FileBackedMemory&) = delete;            // delete copy constructor
-    FileBackedMemory& operator=(const FileBackedMemory&) = delete; // delete copy assignment
-
-    FileBackedMemory(FileBackedMemory&& other) = delete;            // delete move constructor
-    FileBackedMemory& operator=(const FileBackedMemory&&) = delete; // delete move assignment
-
-    T* raw_data() { return memory; }
-
-    ~FileBackedMemory()
-    {
-        if (file_size == 0) {
-            return;
-        }
-        if (memory != nullptr && file_size > 0) {
-            munmap(memory, file_size);
-        }
-        if (fd >= 0) {
-            close(fd);
-        }
-        if (!filename.empty()) {
-            std::filesystem::remove(filename);
-        }
+        memory.aligned_memory = std::static_pointer_cast<Fr[]>(std::move(bb::get_mem_slab(sizeof(Fr) * size)));
+        memory.raw_data = memory.aligned_memory.get();
     }
 
-  private:
-    // Create a new file-backed memory region
-    FileBackedMemory(size_t size)
-        : BackingMemory<T>()
-        , file_size(size * sizeof(T))
+#ifndef __wasm__
+    static bool try_allocate_file_backed(BackingMemory& memory, size_t size)
     {
-        if (file_size == 0) {
-            return;
+        if (size == 0) {
+            return false;
         }
 
+        size_t required_bytes = size * sizeof(Fr);
+        size_t current_usage = current_storage_usage.load();
+
+        // Check if we're under the storage budget
+        if (current_usage + required_bytes > storage_budget) {
+            return false;
+        }
+
+        size_t file_size = required_bytes;
         static std::atomic<size_t> file_counter{ 0 };
         size_t id = file_counter.fetch_add(1);
+
         std::filesystem::path temp_dir;
         try {
             temp_dir = std::filesystem::temp_directory_path();
         } catch (const std::exception&) {
-            // Fallback to current directory if temp_directory_path() fails
             temp_dir = std::filesystem::current_path();
         }
 
-        filename = temp_dir / ("poly-mmap-" + std::to_string(getpid()) + "-" + std::to_string(id));
+        std::string filename = temp_dir / ("poly-mmap-" + std::to_string(getpid()) + "-" + std::to_string(id));
 
-        fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
-        // Create file
+        int fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
         if (fd < 0) {
-            throw_or_abort("Failed to create backing file: " + filename);
+            return false;
         }
 
-        // Set file size
         if (ftruncate(fd, static_cast<off_t>(file_size)) != 0) {
-            throw_or_abort("Failed to set file size");
+            close(fd);
+            std::filesystem::remove(filename);
+            return false;
         }
 
-        // Memory map the file
         void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
         if (addr == MAP_FAILED) {
-            throw_or_abort("Failed to mmap file: " + std::string(std::strerror(errno)));
+            close(fd);
+            std::filesystem::remove(filename);
+            return false;
         }
 
-        memory = static_cast<T*>(addr);
+        auto file_backed_data = std::make_shared<FileBackedData>();
+        file_backed_data->file_size = file_size;
+        file_backed_data->filename = filename;
+        file_backed_data->fd = fd;
+        file_backed_data->raw_data_ptr = static_cast<Fr*>(addr);
+
+        memory.raw_data = static_cast<Fr*>(addr);
+        memory.file_backed = std::move(file_backed_data);
+
+        current_storage_usage.fetch_add(required_bytes);
+
+        return true;
     }
-
-    size_t file_size;
-    std::string filename;
-    int fd;
-    T* memory;
-
-    friend BackingMemory<T>;
+#endif
 };
-#endif // __EMSCRIPTEN___

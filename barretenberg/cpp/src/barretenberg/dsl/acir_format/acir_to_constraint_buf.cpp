@@ -17,6 +17,7 @@
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/dsl/acir_format/ecdsa_constraints.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/honk/execution_trace/gate_data.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -129,11 +130,9 @@ Witnesses::WitnessStack deserialize_witness_stack(std::vector<uint8_t>&& buf)
 // TODO(tom): clean this up.
 uint256_t from_be_bytes(std::vector<uint8_t> const& bytes)
 {
-    if (bytes.size() != 32) {
-        throw_or_abort("Error, uint256 constructed from bytes array with invalid length");
-    }
+    BB_ASSERT_EQ(bytes.size(), 32U, "uint256 constructed from bytes array with invalid length");
     uint256_t result = 0;
-    for (unsigned char byte : bytes) {
+    for (uint8_t byte : bytes) {
         result <<= 8;
         result |= byte;
     }
@@ -662,7 +661,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 }
                 af.original_opcode_indices.blake3_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256k1>) {
-                af.ecdsa_k1_constraints.push_back(EcdsaSecp256k1Constraint{
+                af.ecdsa_k1_constraints.push_back(EcdsaConstraint{
                     .hashed_message =
                         transform::map(*arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
                     .signature =
@@ -671,21 +670,23 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                         transform::map(*arg.public_key_x, [](auto& e) { return get_witness_from_function_input(e); }),
                     .pub_y_indices =
                         transform::map(*arg.public_key_y, [](auto& e) { return get_witness_from_function_input(e); }),
+                    .predicate = parse_input(arg.predicate),
                     .result = arg.output.value,
                 });
                 af.constrained_witness.insert(af.ecdsa_k1_constraints.back().result);
                 af.original_opcode_indices.ecdsa_k1_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256r1>) {
-                af.ecdsa_r1_constraints.push_back(EcdsaSecp256r1Constraint{
+                af.ecdsa_r1_constraints.push_back(EcdsaConstraint{
                     .hashed_message =
                         transform::map(*arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
+                    .signature =
+                        transform::map(*arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
                     .pub_x_indices =
                         transform::map(*arg.public_key_x, [](auto& e) { return get_witness_from_function_input(e); }),
                     .pub_y_indices =
                         transform::map(*arg.public_key_y, [](auto& e) { return get_witness_from_function_input(e); }),
+                    .predicate = parse_input(arg.predicate),
                     .result = arg.output.value,
-                    .signature =
-                        transform::map(*arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
                 });
                 af.constrained_witness.insert(af.ecdsa_r1_constraints.back().result);
                 af.original_opcode_indices.ecdsa_r1_constraints.push_back(opcode_index);
@@ -693,6 +694,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 af.multi_scalar_mul_constraints.push_back(MultiScalarMul{
                     .points = transform::map(arg.points, [](auto& e) { return parse_input(e); }),
                     .scalars = transform::map(arg.scalars, [](auto& e) { return parse_input(e); }),
+                    .predicate = parse_input(arg.predicate),
                     .out_point_x = (*arg.outputs)[0].value,
                     .out_point_y = (*arg.outputs)[1].value,
                     .out_point_is_infinite = (*arg.outputs)[2].value,
@@ -708,6 +710,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 auto input_2_x = parse_input((*arg.input2)[0]);
                 auto input_2_y = parse_input((*arg.input2)[1]);
                 auto input_2_infinite = parse_input((*arg.input2)[2]);
+                auto predicate = parse_input(arg.predicate);
 
                 af.ec_add_constraints.push_back(EcAdd{
                     .input1_x = input_1_x,
@@ -716,6 +719,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .input2_x = input_2_x,
                     .input2_y = input_2_y,
                     .input2_infinite = input_2_infinite,
+                    .predicate = predicate,
                     .result_x = (*arg.outputs)[0].value,
                     .result_y = (*arg.outputs)[1].value,
                     .result_infinite = (*arg.outputs)[2].value,
@@ -767,12 +771,16 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 case PG:
                 case PG_TAIL:
                 case PG_FINAL:
-                    af.ivc_recursion_constraints.push_back(c);
-                    af.original_opcode_indices.ivc_recursion_constraints.push_back(opcode_index);
+                    af.pg_recursion_constraints.push_back(c);
+                    af.original_opcode_indices.pg_recursion_constraints.push_back(opcode_index);
                     break;
                 case AVM:
                     af.avm_recursion_constraints.push_back(c);
                     af.original_opcode_indices.avm_recursion_constraints.push_back(opcode_index);
+                    break;
+                case CIVC:
+                    af.civc_recursion_constraints.push_back(c);
+                    af.original_opcode_indices.civc_recursion_constraints.push_back(opcode_index);
                     break;
                 default:
                     throw_or_abort("Invalid PROOF_TYPE in RecursionConstraint!");

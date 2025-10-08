@@ -20,6 +20,7 @@ import { DoubleSpendTxValidator } from './double_spend_validator.js';
 import { GasTxValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
 import { PhasesTxValidator } from './phases_validator.js';
+import { TxPermittedValidator } from './tx_permitted_validator.js';
 import { TxProofValidator } from './tx_proof_validator.js';
 
 export interface MessageValidator {
@@ -36,15 +37,20 @@ export function createTxMessageValidators(
   gasFees: GasFees,
   l1ChainId: number,
   rollupVersion: number,
-  protocolContractTreeRoot: Fr,
+  protocolContractsHash: Fr,
   contractDataSource: ContractDataSource,
   proofVerifier: ClientProtocolCircuitVerifier,
+  txsPermitted: boolean,
   allowedInSetup: AllowedElement[] = [],
 ): Record<string, MessageValidator>[] {
   const merkleTree = worldStateSynchronizer.getCommitted();
 
   return [
     {
+      txsPermittedValidator: {
+        validator: new TxPermittedValidator(txsPermitted),
+        severity: PeerErrorSeverity.MidToleranceError,
+      },
       dataValidator: {
         validator: new DataTxValidator(),
         severity: PeerErrorSeverity.HighToleranceError,
@@ -55,7 +61,7 @@ export function createTxMessageValidators(
           rollupVersion: new Fr(rollupVersion),
           timestamp,
           blockNumber,
-          protocolContractTreeRoot,
+          protocolContractsHash,
           vkTreeRoot: getVKTreeRoot(),
         }),
         severity: PeerErrorSeverity.HighToleranceError,

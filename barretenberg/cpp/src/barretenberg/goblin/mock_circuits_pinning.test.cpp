@@ -13,7 +13,7 @@ using namespace bb;
  */
 class MegaMockCircuitsPinning : public ::testing::Test {
   protected:
-    using DeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
+    using ProverInstance = ProverInstance_<MegaFlavor>;
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
@@ -24,11 +24,11 @@ TEST_F(MegaMockCircuitsPinning, AppCircuitSizes)
         MegaCircuitBuilder app_circuit{ goblin.op_queue };
         GoblinMockCircuits::construct_mock_app_circuit(app_circuit, large);
         TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-        auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
+        auto prover_instance = std::make_shared<ProverInstance>(app_circuit, trace_settings);
         if (large) {
-            EXPECT_EQ(proving_key->log_dyadic_size(), 19);
+            EXPECT_EQ(prover_instance->log_dyadic_size(), 19);
         } else {
-            EXPECT_EQ(proving_key->log_dyadic_size(), 19);
+            EXPECT_EQ(prover_instance->log_dyadic_size(), 19);
         };
     };
     run_test(true);
@@ -44,8 +44,8 @@ TEST_F(MegaMockCircuitsPinning, SmallTestStructuredCircuitSize)
     MegaCircuitBuilder app_circuit{ goblin.op_queue };
     stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>::add_default(app_circuit);
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
-    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
-    EXPECT_EQ(proving_key->log_dyadic_size(), 18);
+    auto prover_instance = std::make_shared<ProverInstance>(app_circuit, trace_settings);
+    EXPECT_EQ(prover_instance->log_dyadic_size(), 18);
 }
 
 TEST_F(MegaMockCircuitsPinning, AztecStructuredCircuitSize)
@@ -54,6 +54,6 @@ TEST_F(MegaMockCircuitsPinning, AztecStructuredCircuitSize)
     MegaCircuitBuilder app_circuit{ goblin.op_queue };
     stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>::add_default(app_circuit);
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
-    EXPECT_EQ(proving_key->log_dyadic_size(), 18);
+    auto prover_instance = std::make_shared<ProverInstance>(app_circuit, trace_settings);
+    EXPECT_EQ(prover_instance->log_dyadic_size(), 18);
 }

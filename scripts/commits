@@ -1,0 +1,479 @@
+#!/usr/bin/env python3
+
+import sys
+import subprocess
+import re
+import os
+from datetime import datetime
+from typing import List, Tuple, Optional
+import argparse
+
+# ANSI color codes
+RESET = '\033[0m'
+BOLD = '\033[1m'
+DIM = '\033[2m'
+YELLOW = '\033[38;2;250;217;121m'
+GREEN = '\033[38;2;97;214;104m'
+BLUE = '\033[38;2;95;167;241m'
+PURPLE = '\033[38;2;188;109;208m'
+GRAY = '\033[0;90m'
+DARK_GRAY = '\033[38;5;240m'  # Different gray for subsystem labels
+WHITE = '\033[37m'  # White for regular commit text
+
+def run_command(cmd: List[str]) -> str:
+    """Run a command and return its output."""
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return result.stdout.strip()
+    except subprocess.CalledProcessError:
+        return ""
+
+def get_pr_number(message: str) -> Optional[str]:
+    """Extract PR number from commit message."""
+    match = re.search(r'#(\d+)', message)
+    return match.group(1) if match else None
+
+def get_commit_color_and_split(message: str) -> tuple:
+    """Get color based on commit type and split the message into colored and white parts."""
+    # Check for patterns like "feat(...): " or "fix!: " etc
+    import re
+
+    # Match conventional commit format: type(scope)!: or type:
+    match = re.match(r'^(fix|feat|chore|refactor|docs|style|test|perf|ci|build|revert)(\([^)]+\))?(!)?(:)', message)
+
+    if match:
+        prefix = match.group(0)[:-1]  # Everything except the colon
+        rest = message[match.end()-1:]  # From colon onwards
+
+        if message.startswith('fix'):
+            return GREEN, prefix, rest
+        elif message.startswith('feat'):
+            return BLUE, prefix, rest
+        elif message.startswith('chore'):
+            return GRAY, prefix, rest
+        elif message.startswith('refactor'):
+            return PURPLE, prefix, rest
+        else:
+            return "", prefix, rest
+
+    # No conventional commit format found
+    return "", "", message
+
+def term_link(url: str, text: str) -> str:
+    """Create a terminal hyperlink."""
+    return f'\033]8;;{url}\033\\{text}\033]8;;\033\\'
+
+def md_link(url: str, text: str) -> str:
+    """Create a markdown hyperlink."""
+    return f'[{text}]({url})'
+
+def get_commit_body(commit: str) -> str:
+    """Return the body (message without subject) of a commit."""
+    body_cmd = ['git', 'log', '--format=%b', '-n1', commit]
+    return run_command(body_cmd)
+
+def detect_breaking(subject: str, commit: str) -> Tuple[bool, str]:
+    """Detect if a commit is breaking. Returns (is_breaking, summary).
+
+    Rules:
+    - Conventional commit bang after type/scope (e.g., feat!:, fix(scope)!:)
+    - Footer lines starting with BREAKING CHANGE:, BREAKING CHANGES:, or BREAKING:
+    """
+    # Check subject for '!'
+    m = re.match(r'^(fix|feat|chore|refactor|docs|style|test|perf|ci|build|revert)(\([^)]+\))?(!)?(:)', subject)
+    if m and m.group(3):
+        return True, ''
+
+    # Fallback to scanning body footers
+    body = get_commit_body(commit)
+    if not body:
+        return False, ''
+    footer_match = re.search(r'(?im)^(BREAKING(?: CHANGE| CHANGES)?|BREAKING):\s*(.+)?$', body)
+    if footer_match:
+        summary = footer_match.group(2) or ''
+        return True, summary.strip()
+    return False, ''
+
+def get_commit_type(message: str) -> str:
+    """Return the conventional commit type if present, otherwise 'other'."""
+    match = re.match(r'^(fix|feat|chore|refactor|docs|style|test|perf|ci|build|revert)(\([^)]+\))?(!)?(:)', message)
+    if match:
+        return match.group(1)
+    return 'other'
+
+TYPE_ORDER = [
+    'feat', 'fix', 'perf', 'refactor', 'docs', 'test', 'chore', 'ci', 'build', 'style', 'revert', 'other'
+]
+
+TYPE_LABELS = {
+    'feat': 'Features',
+    'fix': 'Fixes',
+    'perf': 'Performance',
+    'refactor': 'Refactors',
+    'docs': 'Documentation',
+    'test': 'Tests',
+    'chore': 'Chores',
+    'ci': 'CI',
+    'build': 'Build',
+    'style': 'Style',
+    'revert': 'Reverts',
+    'other': 'Other',
+}
+
+TYPE_COLORS = {
+    'feat': BLUE,
+    'fix': GREEN,
+    'chore': GRAY,
+    'refactor': PURPLE,
+}
+
+def format_author_date(author: str, date: str, current_length: int, max_width: int = 120) -> str:
+    """Format author and date aligned to the right."""
+    author_date = f"[{date}] {GREEN}{author}{RESET}"
+    # Need to account for ANSI codes in length calculation
+    visible_author_date = f"[{date}] {author}"
+    padding = max_width - current_length - len(visible_author_date)
+
+    if padding > 0:
+        return " " * padding + author_date
+    else:
+        return " " + author_date
+
+def visible_length(text: str) -> int:
+    """Calculate visible length of text (without ANSI codes)."""
+    # Remove ANSI color codes
+    text = re.sub(r'\033\[[0-9;]*m', '', text)
+    # Remove terminal hyperlink sequences
+    text = re.sub(r'\033\]8[^\\]*\\', '', text)
+    return len(text)
+
+def get_merge_train_commits(merge_commit: str) -> List[str]:
+    """Get commits in a merge train."""
+    # Get the first parent (the commit this was merged into)
+    first_parent_cmd = ['git', 'rev-parse', f'{merge_commit}^1']
+    first_parent = run_command(first_parent_cmd)
+
+    if not first_parent:
+        return []
+
+    # Get all commits in the merge train branch
+    commits_cmd = ['git', 'rev-list', '--reverse', f'{first_parent}..{merge_commit}^2']
+    commits_output = run_command(commits_cmd)
+
+    if not commits_output:
+        return []
+
+    commits = []
+    for commit in commits_output.split('\n'):
+        if not commit:
+            continue
+
+        # Get the commit message
+        message_cmd = ['git', 'log', '--format=%s', '-n1', commit]
+        message = run_command(message_cmd)
+
+        # Skip merge commits without PR numbers
+        if message.startswith('Merge branch') and '#' not in message:
+            continue
+
+        commits.append(commit)
+
+    return commits
+
+def process_commit(commit: str, indent: str = "", message: str = "",
+                  author: str = "", date: str = "", merge_train_prefix: str = "") -> str:
+    """Process and format a single commit."""
+    # Extract PR number if present
+    pr_num = get_pr_number(message)
+    pr_link = ""
+    if pr_num:
+        pr_url = f"https://github.com/AztecProtocol/aztec-packages/pull/{pr_num}"
+        pr_link = f" ({term_link(pr_url, f'#{YELLOW}{pr_num}{RESET}')})"
+
+    # Clean message (remove PR number from display)
+    clean_message = re.sub(r' \(#\d+\)$', '', message)
+
+    # Get color and split message
+    commit_color, colored_prefix, white_rest = get_commit_color_and_split(clean_message)
+
+    # Format the message with colored prefix and white rest
+    if colored_prefix:
+        formatted_message = f"{commit_color}{colored_prefix}{WHITE}{white_rest}{RESET}"
+    else:
+        formatted_message = f"{WHITE}{clean_message}{RESET}"
+
+    # For merge-train children, use the subsystem prefix instead of commit hash
+    if merge_train_prefix:
+        # Abbreviate barretenberg to bb
+        prefix_display = "bb" if merge_train_prefix == "barretenberg" else merge_train_prefix
+        # Use the subsystem name in brackets with a different gray
+        # Pad the visible part to align with commit hashes (8 chars including space)
+        visible_part = f"[{prefix_display}]"
+        padded_visible = visible_part.ljust(8)
+        commit_part = f"{DARK_GRAY}{visible_part}{RESET}{' ' * (8 - len(visible_part))}"
+    else:
+        # Make commit hash a clickable link
+        commit_url = f"https://github.com/AztecProtocol/aztec-packages/commit/{commit}"
+        commit_part = f"{term_link(commit_url, f'{YELLOW}{commit[:7]}{RESET}')} "
+
+    # Build the left part of the line
+    left_part = f"{indent}{commit_part}{formatted_message}{pr_link}"
+
+    # Calculate visible length for alignment
+    vis_length = visible_length(left_part)
+
+    # Format with right-aligned author and date
+    author_date = format_author_date(author, date, vis_length)
+
+    return left_part + author_date
+
+def process_commit_markdown(commit: str, indent: str = "", message: str = "",
+                            author: str = "", date: str = "", merge_train_prefix: str = "") -> str:
+    """Process and format a single commit as a markdown bullet line."""
+    pr_num = get_pr_number(message)
+    pr_md = ""
+    if pr_num:
+        pr_url = f"https://github.com/AztecProtocol/aztec-packages/pull/{pr_num}"
+        pr_md = f" ([#{pr_num}]({pr_url}))"
+
+    clean_message = re.sub(r' \(#\d+\)$', '', message)
+
+    commit_url = f"https://github.com/AztecProtocol/aztec-packages/commit/{commit}"
+    commit_md = md_link(commit_url, commit[:7])
+
+    prefix = ""
+    if merge_train_prefix:
+        prefix_display = "bb" if merge_train_prefix == "barretenberg" else merge_train_prefix
+        prefix = f"[{prefix_display}] "
+
+    # If there is a PR, prefer showing the PR and hide the commit link in markdown
+    commit_tail = "" if pr_num else f" — {commit_md}"
+    # Example: - [bb] feat: message (#123) — Author, 2 days ago
+    return f"{indent}- {prefix}{clean_message}{pr_md} — {author}, {date}{commit_tail}"
+
+def echo_header(text: str) -> None:
+    """Print a formatted header."""
+    print(f"{PURPLE}---{RESET} {BLUE}{BOLD}{text}{RESET} {PURPLE}---{RESET}")
+
+def main():
+    # Parse arguments with argparse to support ranges and grep filtering
+    parser = argparse.ArgumentParser(
+        description=(
+            "Pretty git log with merge-train grouping. Shows linear history with merge-train children grouped, "
+            "color-coded conventional commit prefixes, optional markdown output, and regex filtering via --grep."
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser.epilog = f"""
+Examples:
+  {parser.prog}                           Show latest 50 commits on HEAD
+  {parser.prog} main 100                  Show 100 commits on main
+  {parser.prog} v1.2.0..v2.0.0            Show commits between two tags
+  {parser.prog} -m v1.0.0..v2.0.0         Markdown output for a range
+  {parser.prog} --grep 'feat|fix' HEAD    Filter subjects by regex (OR)
+  {parser.prog} --grep '^feat' -m         Markdown output of only feats on HEAD
+  {parser.prog} --no-first-parent main    Do not restrict to first-parent history
+  {parser.prog} v2.0.0..HEAD --grep 'bb|barretenberg'   Filter to barretenberg-related changes
+  {parser.prog} -g                        Group commits by type on HEAD
+  {parser.prog} -g -m v1.2.0..v2.0.0      Group by type in Markdown for a range
+  {parser.prog} -g --grep 'feat|fix' main Group by type but only features/fixes
+  {parser.prog} -g                        Group and extract Breaking Changes to the top
+"""
+    parser.add_argument('ref', nargs='?', default='HEAD', help='Branch, commit, or range (e.g., v1.2.1..v2.0.1)')
+    parser.add_argument('limit', nargs='?', type=int, default=50, help='Max commits to inspect (applies to top-level history)')
+    parser.add_argument('--grep', dest='grep_patterns', action='append', default=[], help='Regex to match commit subjects. Can be repeated.')
+    parser.add_argument('--no-first-parent', action='store_true', help='Do not restrict to first-parent history')
+    parser.add_argument('--markdown', '-m', action='store_true', help='Print output formatted as Markdown')
+    parser.add_argument('--group-by-type', '-g', action='store_true', help='Group commits by conventional type (feat, fix, refactor, chore, etc.)')
+
+    args = parser.parse_args()
+    ref = args.ref
+    limit = args.limit
+    grep_patterns: List[str] = args.grep_patterns or []
+    use_first_parent = not args.no_first_parent
+
+    def matches_grep(subject: str) -> bool:
+        if not grep_patterns:
+            return True
+        for pattern in grep_patterns:
+            try:
+                if re.search(pattern, subject):
+                    return True
+            except re.error:
+                # Ignore invalid regex patterns
+                continue
+        return False
+
+    # Print header
+    header_target = ref
+    if args.markdown:
+        if '..' in ref:
+            print(f"### Commits between {ref}")
+        else:
+            print(f"### Commits on {ref}")
+        print()
+    else:
+        if '..' in ref:
+            echo_header(f"Commits between {ref} (linear with merge trains grouped)")
+        else:
+            echo_header(f"Commits on {ref} (linear with merge trains grouped)")
+
+    # Get all commits with their details (top-level history)
+    log_cmd = ['git', 'log', f'--format=%H|%s|%an|%ar', ref, '-n', str(limit)]
+    if use_first_parent:
+        log_cmd.insert(2, '--first-parent')
+    log_output = run_command(log_cmd)
+
+    if not log_output:
+        print("No commits found.")
+        return
+
+    printed_any = False
+    # (commit, message, author, date, merge_train_prefix, is_breaking, breaking_summary)
+    grouped_entries: List[Tuple[str, str, str, str, Optional[str], bool, str]] = []
+
+    for line in log_output.split('\n'):
+        if not line:
+            continue
+
+        parts = line.split('|', 3)
+        if len(parts) != 4:
+            continue
+
+        commit, message, author, date = parts
+
+        # Check if this is a merge train commit
+        if 'merge-train/' in message and '#' in message:
+            # Extract subsystem name from merge-train/subsystem
+            subsystem_match = re.search(r'merge-train/([^\s]+)', message)
+            subsystem = subsystem_match.group(1) if subsystem_match else "merge-train"
+
+            # Gather child commits within the merge train and filter them
+            train_commits = get_merge_train_commits(commit)
+            filtered_children: List[Tuple[str, str, str]] = []
+            for train_commit in train_commits:
+                if not train_commit:
+                    continue
+                detail_cmd = ['git', 'log', '--format=%s|%an|%ar', '-n1', train_commit]
+                train_details = run_command(detail_cmd)
+                if not train_details:
+                    continue
+                train_parts = train_details.split('|', 2)
+                if len(train_parts) != 3:
+                    continue
+                train_message, train_author, train_date = train_parts
+                if matches_grep(train_message):
+                    filtered_children.append((train_commit, train_message, train_author, train_date))
+
+            # Only print the merge-train header if there are matching children
+            if filtered_children:
+                if args.group_by_type:
+                    for (train_commit, train_message, train_author, train_date) in filtered_children:
+                        is_break, break_summary = detect_breaking(train_message, train_commit)
+                        grouped_entries.append((train_commit, train_message, train_author, train_date, subsystem, is_break, break_summary))
+                    printed_any = True
+                else:
+                    pr_num = get_pr_number(message)
+                    if args.markdown:
+                        pr_md = ""
+                        if pr_num:
+                            pr_url = f"https://github.com/AztecProtocol/aztec-packages/pull/{pr_num}"
+                            pr_md = f" ([#{pr_num}]({pr_url}))"
+                        commit_url = f"https://github.com/AztecProtocol/aztec-packages/commit/{commit}"
+                        commit_link = md_link(commit_url, commit[:7])
+                        print(f"* {commit_link} merge-train{pr_md}")
+                        for (train_commit, train_message, train_author, train_date) in filtered_children:
+                            print(process_commit_markdown(train_commit, "  ", train_message, train_author, train_date, subsystem))
+                    else:
+                        pr_link = ""
+                        if pr_num:
+                            pr_url = f"https://github.com/AztecProtocol/aztec-packages/pull/{pr_num}"
+                            pr_link = f" ({term_link(pr_url, f'#{YELLOW}{pr_num}{RESET}')})"
+                        commit_url = f"https://github.com/AztecProtocol/aztec-packages/commit/{commit}"
+                        commit_link = term_link(commit_url, f'{YELLOW}{commit[:7]}{RESET}')
+                        print(f"* {commit_link} {DIM}merge-train{RESET}{pr_link}")
+                        for (train_commit, train_message, train_author, train_date) in filtered_children:
+                            print(process_commit(train_commit, "  ", train_message, train_author, train_date, subsystem))
+                    printed_any = True
+        else:
+            # Skip merge commits without PR numbers
+            if message.startswith('Merge') and '#' not in message:
+                continue
+            # Apply grep filter to regular commits
+            if not matches_grep(message):
+                continue
+            if args.group_by_type:
+                is_break, break_summary = detect_breaking(message, commit)
+                grouped_entries.append((commit, message, author, date, None, is_break, break_summary))
+                printed_any = True
+            else:
+                if args.markdown:
+                    print(process_commit_markdown(commit, "", message, author, date))
+                else:
+                    print(process_commit(commit, "", message, author, date))
+                printed_any = True
+
+    if not printed_any:
+        print("No matching commits found.")
+
+    # When grouping by type, render grouped sections now
+    if args.group_by_type and grouped_entries:
+        # Separate breaking changes
+        breaking_entries: List[Tuple[str, str, str, str, Optional[str]]] = []
+        non_breaking: List[Tuple[str, str, str, str, Optional[str]]] = []
+        for (c, m, a, d, mtp, is_break, _bs) in grouped_entries:
+            if is_break:
+                breaking_entries.append((c, m, a, d, mtp))
+            else:
+                non_breaking.append((c, m, a, d, mtp))
+
+        # Bucket non-breaking by type
+        buckets = {t: [] for t in TYPE_ORDER}
+        for (c, m, a, d, mtp) in non_breaking:
+            t = get_commit_type(m)
+            if t not in buckets:
+                buckets['other'].append((c, m, a, d, mtp))
+            else:
+                buckets[t].append((c, m, a, d, mtp))
+
+        # Render Breaking Changes first
+        if breaking_entries:
+            if args.markdown:
+                print()
+                print(f"#### Breaking Changes")
+                print()
+                for (c, m, a, d, mtp) in breaking_entries:
+                    print(process_commit_markdown(c, "", m, a, d, mtp or ""))
+            else:
+                print()
+                print(f"{BOLD}{YELLOW}Breaking Changes{RESET}")
+                for (c, m, a, d, mtp) in breaking_entries:
+                    print(process_commit(c, "", m, a, d, mtp or ""))
+
+        # Render other groups
+        for t in TYPE_ORDER:
+            entries = buckets[t]
+            if not entries:
+                continue
+            label = TYPE_LABELS.get(t, t.title())
+            if args.markdown:
+                print()
+                print(f"#### {label}")
+                print()
+                for (c, m, a, d, mtp) in entries:
+                    print(process_commit_markdown(c, "", m, a, d, mtp or ""))
+            else:
+                color = TYPE_COLORS.get(t, "")
+                print()
+                print(f"{BOLD}{color}{label}{RESET}")
+                for (c, m, a, d, mtp) in entries:
+                    print(process_commit(c, "", m, a, d, mtp or ""))
+
+    print()
+    if args.markdown:
+        print(f"_Showing up to {limit} commits. Use '{sys.argv[0]} {ref} <number>' to see more._")
+    else:
+        print(f"{BOLD}Showing up to {limit} commits. Use '{sys.argv[0]} {ref} <number>' to see more.{RESET}")
+
+if __name__ == "__main__":
+    main()

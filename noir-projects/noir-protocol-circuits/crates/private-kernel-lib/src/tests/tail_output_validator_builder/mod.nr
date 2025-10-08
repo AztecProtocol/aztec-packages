@@ -11,7 +11,10 @@ use dep::types::{
         gas::Gas, gas_fees::GasFees, gas_settings::GasSettings,
         kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
     },
-    constants::{DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT},
+    constants::{
+        DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT, DEFAULT_TEARDOWN_DA_GAS_LIMIT,
+        DEFAULT_TEARDOWN_L2_GAS_LIMIT,
+    },
     tests::fixture_builder::FixtureBuilder,
 };
 
@@ -24,8 +27,8 @@ pub struct TailOutputValidatorBuilder {
 impl TailOutputValidatorBuilder {
     pub fn new() -> Self {
         let gas_settings = GasSettings::new(
-            Gas::new(DEFAULT_GAS_LIMIT, DEFAULT_GAS_LIMIT),
-            Gas::new(DEFAULT_TEARDOWN_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT),
+            Gas::new(DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT),
+            Gas::new(DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT),
             GasFees::new(10, 10),
             GasFees::new(3, 3),
         );

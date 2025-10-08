@@ -3,8 +3,8 @@
 #include <gmock/gmock.h>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/simulation/context.hpp"
-#include "barretenberg/vm2/simulation/data_copy.hpp"
+#include "barretenberg/vm2/simulation/interfaces/context.hpp"
+#include "barretenberg/vm2/simulation/interfaces/data_copy.hpp"
 
 namespace bb::avm2::simulation {
 

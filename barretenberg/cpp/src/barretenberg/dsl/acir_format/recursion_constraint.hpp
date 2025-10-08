@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include <cstdint>
 #include <vector>
 
@@ -16,7 +17,7 @@ namespace acir_format {
 // ACIR
 // Keep this enum values in sync with their noir counterpart constants defined in
 // noir-protocol-circuits/crates/types/src/constants.nr
-enum PROOF_TYPE { PLONK, HONK, OINK, PG, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HONK_ZK, PG_FINAL, PG_TAIL };
+enum PROOF_TYPE { PLONK, HONK, OINK, PG, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HONK_ZK, PG_FINAL, PG_TAIL, CIVC };
 
 /**
  * @brief RecursionConstraint struct contains information required to recursively verify a proof!
@@ -55,9 +56,6 @@ enum PROOF_TYPE { PLONK, HONK, OINK, PG, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HON
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/996): Create similar comments for Honk.
  */
 struct RecursionConstraint {
-    // An aggregation state is represented by two G1 affine elements. Each G1 point has
-    // two field element coordinates (x, y). Thus, four field elements
-    static constexpr size_t NUM_AGGREGATION_ELEMENTS = 4;
     std::vector<uint32_t> key;
     std::vector<uint32_t> proof;
     std::vector<uint32_t> public_inputs;
@@ -66,6 +64,18 @@ struct RecursionConstraint {
     WitnessOrConstant<bb::fr> predicate;
 
     friend bool operator==(RecursionConstraint const& lhs, RecursionConstraint const& rhs) = default;
+
+    template <typename Builder>
+    static std::vector<bb::stdlib::field_t<Builder>> fields_from_witnesses(Builder& builder,
+                                                                           const std::vector<uint32_t>& witness_indices)
+    {
+        std::vector<bb::stdlib::field_t<Builder>> result;
+        result.reserve(witness_indices.size());
+        for (const auto& idx : witness_indices) {
+            result.emplace_back(bb::stdlib::field_t<Builder>::from_witness_index(&builder, idx));
+        }
+        return result;
+    }
 };
 
 template <typename B> inline void read(B& buf, RecursionConstraint& constraint)

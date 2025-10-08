@@ -11,7 +11,7 @@ import {
   getContract,
 } from 'viem';
 
-import type { GasPrice, L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
+import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ViemClient } from '../types.js';
 import { type IEmpireBase, encodeSignal, encodeSignalWithSignature, signSignalWithSig } from './empire_base.js';
 import { extractProposalIdFromLogs } from './governance.js';
@@ -21,8 +21,11 @@ export class GovernanceProposerContract implements IEmpireBase {
 
   constructor(
     public readonly client: ViemClient,
-    address: Hex,
+    address: Hex | EthAddress,
   ) {
+    if (address instanceof EthAddress) {
+      address = address.toString();
+    }
     this.proposer = getContract({ address, abi: GovernanceProposerAbi, client });
   }
 
@@ -47,12 +50,12 @@ export class GovernanceProposerContract implements IEmpireBase {
     return this.proposer.read.ROUND_SIZE();
   }
 
-  public computeRound(slot: bigint): Promise<bigint> {
-    return this.proposer.read.computeRound([slot]);
+  public getInstance() {
+    return this.proposer.read.getInstance();
   }
 
-  public getNonce(proposer: Hex): Promise<bigint> {
-    return this.proposer.read.nonces([proposer]);
+  public computeRound(slot: bigint): Promise<bigint> {
+    return this.proposer.read.computeRound([slot]);
   }
 
   public async getRoundInfo(
@@ -75,13 +78,19 @@ export class GovernanceProposerContract implements IEmpireBase {
 
   public async createSignalRequestWithSignature(
     payload: Hex,
-    round: bigint,
+    slot: bigint,
     chainId: number,
     signerAddress: Hex,
     signer: (msg: TypedDataDefinition) => Promise<Hex>,
   ): Promise<L1TxRequest> {
-    const nonce = await this.getNonce(signerAddress);
-    const signature = await signSignalWithSig(signer, payload, nonce, round, this.address.toString(), chainId);
+    const signature = await signSignalWithSig(
+      signer,
+      payload,
+      slot,
+      await this.getInstance(),
+      this.address.toString(),
+      chainId,
+    );
     return {
       to: this.address.toString(),
       data: encodeSignalWithSignature(payload, signature),
@@ -93,10 +102,9 @@ export class GovernanceProposerContract implements IEmpireBase {
     l1TxUtils: L1TxUtils,
   ): Promise<{
     receipt: TransactionReceipt;
-    gasPrice: GasPrice;
     proposalId: bigint;
   }> {
-    const { receipt, gasPrice } = await l1TxUtils.sendAndMonitorTransaction({
+    const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
       to: this.address.toString(),
       data: encodeFunctionData({
         abi: this.proposer.abi,
@@ -105,6 +113,6 @@ export class GovernanceProposerContract implements IEmpireBase {
       }),
     });
     const proposalId = extractProposalIdFromLogs(receipt.logs);
-    return { receipt, gasPrice, proposalId };
+    return { receipt, proposalId };
   }
 }

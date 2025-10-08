@@ -1,0 +1,1702 @@
+[
+  {
+    "attester": "0xdEc08eb67aEa96cd8C2F576aEFD5b9F6bA4bc973",
+    "publicKeyInG1": {
+      "x": "0x0d8fd0af4f057a4ab0e7c55b80bcb1e624a0d319edc890a94e32ff8a49b17fd0",
+      "y": "0x288a165b8f273e46b18d308bd94980511ff1ab31cf7977524cc5100a81c639ba"
+    },
+    "publicKeyInG2": {
+      "x0": "0x189965ba927f0bdf8a00df57ca5c2f9fbb08a1c1e5ffe492d4b4c15ecefe3c16",
+      "x1": "0x0041dc6e43f797479233619b2f6da70fd3a0a6bf097a8fa256b9bc83bc309f17",
+      "y0": "0x08b4c50b72aa8ff1205d5d849d10614731fc4e17edfa920e4ee59baf96889661",
+      "y1": "0x167947af5ae7f4277b0c1f6d915c8dd6485b1898d524c5caee08da68c77fa1e1"
+    },
+    "proofOfPossession": {
+      "x": "0x133f0503586cdaa1a23f00739cd060f78f461454880b299bf8851f6a53729624",
+      "y": "0x1f083545d8cfe01fb185fc93cda3fbc271cf43e3e52dce949d6401b583a549d0"
+    }
+  },
+  {
+    "attester": "0x65Df7Fe8A2Fd26805ab8d9487D548Dd70262B371",
+    "publicKeyInG1": {
+      "x": "0x13c228ed66d3336ba3a9cdd09f17dd72ebe04ee91d3b96009308e5feee87a4a9",
+      "y": "0x21b3da7ed72d72776844138fabb21537913956816338a2988916f349b40868f6"
+    },
+    "publicKeyInG2": {
+      "x0": "0x11dbb4bd7204d4c626cc09ba1a5dfdea248acc892464f379860e4d1d9b687d54",
+      "x1": "0x2ac8ad0079bbf89f1496dee77a2f33410d7d78ca48ab4a1eb9846b2ae584fe53",
+      "y0": "0x229713c0ee5720acaa5747d8e73361dfea8dd78533d59f28f76e2f94599ec9ae",
+      "y1": "0x295e82aa97fda4d7cfd6bd2b3100956825bb8c1a76432d82aa5b7600d4e7824a"
+    },
+    "proofOfPossession": {
+      "x": "0x0da902bb610c05dcc651761f66fdd61b99f3e206f93daf7defda48c5a0fcf116",
+      "y": "0x25c53f62b0c19a3c466cc39af2f64b7fd708649222f5e792328357b4c9097e5a"
+    }
+  },
+  {
+    "attester": "0x3B31bA671E50640DC929319f68bEC5D6Dc485Be1",
+    "publicKeyInG1": {
+      "x": "0x1a612809c5d132c776d1ee93e771e91b64e28b76c64b71fd3ddf56528b666a18",
+      "y": "0x0a41e5fce62131f347a0824426903dd96da3757991511d059c948dd4acb64084"
+    },
+    "publicKeyInG2": {
+      "x0": "0x013ef0adea24e873d1bae1a46519fe6c178f0b9707b88fbf23f4bd16de63d113",
+      "x1": "0x2147b7592cabd3ae0f0da30058abe68c38e79f3db109ec2b0a436011ecd7d574",
+      "y0": "0x0fc0d0118d8d7191613181aa8a16a5c581df40dd8c09c47a92f10b79885790a5",
+      "y1": "0x13b3c2ba6089a1f5842c94857ead8f4ffc2df381a3e2383ed6f473858b2902db"
+    },
+    "proofOfPossession": {
+      "x": "0x1244637230c931ab41b46d299a3a053b01c95032c3b4f20740963bd594cb12ae",
+      "y": "0x1cd68789a42f8e69489ac5d97d2f70e1e6d51b246ffadf5cb97ac9923cb35dea"
+    }
+  },
+  {
+    "attester": "0xD74060d019d93629f20D0de54EDD1fdda326a14A",
+    "publicKeyInG1": {
+      "x": "0x2d971aae78feaae2e7c160f57c9b0b459d1bdb4abb2db606e00e815dce03dfb3",
+      "y": "0x21f4e235a038562fa823f4621dd27ee1b2099b5f309a0900e4cb39479256586c"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2f92922c2b3cf619b1731cab6ca6c7e3236acf04fbcef318f22ed6adf7e9e91a",
+      "x1": "0x08674b4d7c02a99dcada17f5d8c2f86a892c19b0dee823e880b1327217f2419a",
+      "y0": "0x0910130a51646d01be6ef2ef9150543305fbabc1ea8fd96de862eacc355eb96a",
+      "y1": "0x16e2641e6f68ae6879d3a947fbf69dcf4b02b8eee9bbd4120f08bde24b8b1c76"
+    },
+    "proofOfPossession": {
+      "x": "0x1963024b4b3d758a5dcdddde07ae5f2b8bae0f8e403f0b5743c96de1e8791512",
+      "y": "0x1b1a85c9657e3c752a8cff34e90241edcb902d95608a957a7791e4f4b866c5d9"
+    }
+  },
+  {
+    "attester": "0x73B88ec8bC5e16c3D2aE879f94a53EB755Bd6a51",
+    "publicKeyInG1": {
+      "x": "0x0ecec3c57e4e1f04d910a5fe2bde493a454a33b1e1bc3610084bb466d040fbf2",
+      "y": "0x01349c15806bdcfbce6f739ca184a1c641be64c1327a28fdefc7f52ccbf0e94b"
+    },
+    "publicKeyInG2": {
+      "x0": "0x0eea15c1781b8c4217c091dd62cc1848b537711d860f21022b92a50720aa7d72",
+      "x1": "0x17a6c3f889b413f5a04c29c3c57f8cbf14c1d3cdcbf122ec850f2509f0cac346",
+      "y0": "0x1aa53a908eb54269a92cfa55eb8e2d818e951c8f130ea834c7a55932e9c24f5b",
+      "y1": "0x1b91a2a469dba7f9ee878b2fc1bf65e7a1edcfa7156fcad46669afdf8e2824ab"
+    },
+    "proofOfPossession": {
+      "x": "0x189b2f8be96c32c7847742925a9467419ce1327f82d5c6384737db644ac10cf0",
+      "y": "0x1e2eec77b16b4db47dda29b52c9ec352eb97f9d9a479f797923e605053800048"
+    }
+  },
+  {
+    "attester": "0xf528bb057E29E05252586cEFf8A1eB94fe370Cc6",
+    "publicKeyInG1": {
+      "x": "0x17d4d1627187055d6b7a2ea75b525fd210d1a4c34cfee28f221d3045855153e0",
+      "y": "0x02c72b69e0aa885e42ef8640524bec7ecd0a08865481a4b484cba8120a88ae19"
+    },
+    "publicKeyInG2": {
+      "x0": "0x00d645115f310a9853a09dca9dc8de485035bea0fcd1cce62571e75590837c1a",
+      "x1": "0x2c2d3e34bf42ffc4bcc70ce8c09e6fee411fdac239253f374a62b5da94584f48",
+      "y0": "0x00dca25611e1e7bc606adc45a1c2750a74eae58b2c646871350ca277e6fd59e9",
+      "y1": "0x1b29ea6c1cea3925424da167028a7b23ded13a2429101af2ae3b59ced3d9cdcf"
+    },
+    "proofOfPossession": {
+      "x": "0x1117a6d9535faf9f4eea62e1d543ed0e7e1df6e452c789790da4bbfb6a5c2f64",
+      "y": "0x064742ba0f84675cd643cd9c73348ef805176c5c719ca8678926e72b90e08a0e"
+    }
+  },
+  {
+    "attester": "0xBCAD1d6F664FEe4E76e65B7e741D317a181f9084",
+    "publicKeyInG1": {
+      "x": "0x2fe2b64f7c150d3652bf33e7d785ab72a38b78baa50d23d05861ffbac948ec43",
+      "y": "0x1419f5dcf4c52cf74d1067b7d98409133aa918d4b7efa5c1cc29b4cea340a736"
+    },
+    "publicKeyInG2": {
+      "x0": "0x13b41424947c5376f48517d8a3c3c63864afcb96f47c484831f212edc7c6241c",
+      "x1": "0x26e7d72d516245bc4cb6570e896f60ab0d968663cfa192eee4010a775f66f0d3",
+      "y0": "0x0b80b2965787f1417d01c211b365fb0bacf47360dbc870bcc0c46c7a1e37f9e6",
+      "y1": "0x02510e3570171c3cb7b3b9ac708e98d865afb1c4b23ed2f39663bb6241d1c3f4"
+    },
+    "proofOfPossession": {
+      "x": "0x179476ffcf79701795339cb583cba14243f9624ee6cfda0ff9f7eb5a41421c4a",
+      "y": "0x19ac01f1b55af0dbdbd4a4a0494385aae336ec32abb447891602ab0d793c0242"
+    }
+  },
+  {
+    "attester": "0x47EadaC92B7bd05cd6f6Df0ff76EB9872c79d188",
+    "publicKeyInG1": {
+      "x": "0x22d33ff5d60b1f23482896689c5335b972a98a87f73f080e9ab4d3d29e6f7351",
+      "y": "0x178e6fb12365d087dc76984e2f017270d5f5743503b8606a12def08f723da910"
+    },
+    "publicKeyInG2": {
+      "x0": "0x166f3e9c2bca7a36fb8837d8161cd510803ec65127d57e4f0141b3e03882d330",
+      "x1": "0x0c9d4f179a458919e1360a5b9f2d540a6fc20a92b0fc47ae7ed4fedc6f59a1e5",
+      "y0": "0x1ae06dbaf838cc4b2539648a70816c2d59823ec8bd0f68740555d902d5c6356d",
+      "y1": "0x1d3f23bbb9a5589787d27296cd35763f2dddbcd30aa8a8435897835271a334ad"
+    },
+    "proofOfPossession": {
+      "x": "0x1b930fc0e1d73e9fcde7ba8202e9e9cd028cc94a4f1959a926863b48eef420cc",
+      "y": "0x2e77371d19a422761bcaea7a303c212835bb72c868ce02ef64375066ed46b5eb"
+    }
+  },
+  {
+    "attester": "0xdd22AD1c88948D25bb13E30D99895a7f8A943A20",
+    "publicKeyInG1": {
+      "x": "0x1b6d2afdf7d835bed51f7e770fed40cad94e7d1c48b0fe2a886493b25912f469",
+      "y": "0x08c7b848310ad2574c97bcfd44c8116dba6e7f5325b450e2b277a23667766d44"
+    },
+    "publicKeyInG2": {
+      "x0": "0x1c02ae1ad06995c130ae8c66f16e8825823939a81de1a7af8521dabc7be2249e",
+      "x1": "0x18da85c577377f4434060b6dbbe296dd48301c61a4f2eb2524c3909171b96be8",
+      "y0": "0x0b3e3d84c0f111d6239e6740e4aebb4ef39606df58b9377da3ca6e6351342542",
+      "y1": "0x26e5b7e0ac133eca8433930f803d49f660a072bad3dbf147c0ff865ae66940e0"
+    },
+    "proofOfPossession": {
+      "x": "0x02fcdaa613736ba9da345c3bf1f9777f2f13fcb29c530fd7302a8d2a375e6686",
+      "y": "0x074fb4e8e56c83863f5ac69a51208758017bf282a93fe0059fce93fd9ff6436d"
+    }
+  },
+  {
+    "attester": "0xa1FCFa64f30120a11Df2d972665d68734B465EFd",
+    "publicKeyInG1": {
+      "x": "0x260c35140ff9fa6c7a502df27c29326e0a8356a051a72ed1f8f6862fb060b93d",
+      "y": "0x08410720af05333302e4dcf2c0c578b1389a15eaa7c375a4130db757c377b865"
+    },
+    "publicKeyInG2": {
+      "x0": "0x1698cec64605f37f94ee2cc09c6d85170109c807b76094804612bcb4164a2f45",
+      "x1": "0x283e88133e6b593e4a6d8e29f70feee724e922c43b67a09f2a7b9976db96cde8",
+      "y0": "0x1fd8c98ed9e5011d07b788de6a4587840a5caf58c6d0b1185b879f0f334b9fbb",
+      "y1": "0x16c1e55e1404c5d725084ae4891adca519598e9fb8d626af7c274dfde6bf579c"
+    },
+    "proofOfPossession": {
+      "x": "0x223bc88422ee0524a87fe8169802ad194fdfbe9fd6e00f6480f826c5c49bbabb",
+      "y": "0x2dbbcd344ee2cb58759b51d80c01b904f2abf49a8df16470725161e55b870578"
+    }
+  },
+  {
+    "attester": "0x7136F1928bEC919c2A1142725c71A5c9E9B16170",
+    "publicKeyInG1": {
+      "x": "0x20123af8afac58b5510ea85d23a84f24d078db14e786e53ba13b6d754ff2eab3",
+      "y": "0x123abc736d3c97692610890e769013bad5ec320e6f1ed297ae6e1b9a39744c26"
+    },
+    "publicKeyInG2": {
+      "x0": "0x07783221f613c53dd4ab2f8adc19db5cb116f5422876504b9994a72c99d12720",
+      "x1": "0x1ecbd8f5a1848df0e2c8caf28f621bb98a1694f865d5b55b64b897259b00c703",
+      "y0": "0x2985cab35e646edb7d6b6bf67834ce6e71785316d73c85010fa8c26d00a81f6f",
+      "y1": "0x2a09617fc0f4d5501065b5a8b57568773f5eab11700cc72e79cb7b964990a0ef"
+    },
+    "proofOfPossession": {
+      "x": "0x11d92c0a309ab6c4362f5ee9141db3be8102ce36aa12903fbbf9c38146f28fd5",
+      "y": "0x00fd1a3d34714115cc76fe7faa7e0ca71cf19e110783d86296f6859f3ac92001"
+    }
+  },
+  {
+    "attester": "0x37dCF65c113ab3e6fa9DC33187b2539A3b7dF2AB",
+    "publicKeyInG1": {
+      "x": "0x205889781a91e0a9f8109b71e09d72b375fb51d1718d32cd62e739767d7b3ced",
+      "y": "0x01df55d820582e95ed168b2fe22515ce6beebad4753df8f0b3e1820f95ecf670"
+    },
+    "publicKeyInG2": {
+      "x0": "0x0f9690b83bd6f5331d2a77592cd7e15f5da4df17f003cf5f0bedaf318cf04d1e",
+      "x1": "0x200aa58a575b2ba20cbcc7aca9f930b9b6b353f49c82e5ee270bd91aabc353ae",
+      "y0": "0x099628c5f1506dbc6e4346f444de36d0c508ab0f1e2c5f57b589596d6dc3136e",
+      "y1": "0x2851e8407246a11951073fc0bb00ad087990eb1907b45db92483db5313f38d9e"
+    },
+    "proofOfPossession": {
+      "x": "0x1ec5c8faa14854152a4351e1ec940e2a063b3fd073f053e04ffd8e248445deb5",
+      "y": "0x2eabd7f1bc3060e11413bc31d03d8e59e8a3e86ff4345af3032fd1118dbb94d0"
+    }
+  },
+  {
+    "attester": "0x1E0227ac0dB196ac12893Aee81ba06cE6C319429",
+    "publicKeyInG1": {
+      "x": "0x24c9a60a1de3f5b44bb6c70bf0e6fbec5512067c13b7dee6a08f0e5a13a66947",
+      "y": "0x1fcf63c86973cb19d6bdc5ebb1eb26c79939748271320a177ab0364f5bd72f90"
+    },
+    "publicKeyInG2": {
+      "x0": "0x00d18be68ae5054b88c17c05120956f2ecf06b8f8b7ea0bba27ae2c196382789",
+      "x1": "0x2ee8677371e6e5815a09c04845bea198b079ce850c4f61bd3be73cb08739e398",
+      "y0": "0x254f0e0b2d1a6e2c5e05b0a5b7a7a1f5a2aeb38b214125966306cf37f3432d36",
+      "y1": "0x1a9f62ec76090b03647a9c2c9c68d9ffc452951e34178101a38b6069d7e3e3a0"
+    },
+    "proofOfPossession": {
+      "x": "0x12f374b93206477a1108630ba1990daf4390e55f6a6e0bbd0d0cd4db5b8b161d",
+      "y": "0x21a3c6c97b78c53bc630f92195411d87d07275d7ba301b2b66cafd3078c7a12d"
+    }
+  },
+  {
+    "attester": "0xA10935D01b921F543FadE4992310C8bd5AC360DD",
+    "publicKeyInG1": {
+      "x": "0x0bb5458b0d91982f0d37bf1dd26c9886e23c27f97994239d39b2504e0a6287a9",
+      "y": "0x0aee1ca2859a31cf85e6d0852c4bdb58808d1ab33399bba89bff927739457248"
+    },
+    "publicKeyInG2": {
+      "x0": "0x0c6057e93bd012abf01fb203f47ff330d60c8846640abd30bc20c066bb2a797e",
+      "x1": "0x2a7dae7122ed092108e033f3666572a37f268953cee15fddeccbaeb301220665",
+      "y0": "0x0758353e461e04968d8cab4627304acd733f574e054f67aa4ba7c112c44f1626",
+      "y1": "0x094d9bc276544d3a3d24adc1c34a55d20bca0f94afb32a14d7f68440e9ed44aa"
+    },
+    "proofOfPossession": {
+      "x": "0x06bdd1f936848c7dc49e97bcfd0e94fe86d06764921667b618007797d6353c0f",
+      "y": "0x0c3924ec315bd1c1edf131079853ed99c50c9207f08235b1dbfbe2ccfaffbb6a"
+    }
+  },
+  {
+    "attester": "0x41A05666e1DA484986488947ea958E56D4efD108",
+    "publicKeyInG1": {
+      "x": "0x05285b29fffa1ba8fbf6f6648f0f3ceb85078cc9bb5c28eee9573eb614a49581",
+      "y": "0x20898c2e0415f363f2850ac136219aaaf05a4b8027e9dce9e05458b82400873f"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2c10c1f121b33a5124be5bd87327b474cbbee926d33598fc12e5ef2d94c58cdc",
+      "x1": "0x021638dba2e99cd833ae5732d77e5c5b1bf5ef4d16f35f15c1eeebdaf8f2911f",
+      "y0": "0x1527857ac10efa4e030e7db5ae9800263b60c04e8d7da2c4a1998a6dc81a83a7",
+      "y1": "0x0362ce030807a2c6287404bbc6eb7723ab3259e310e19eba0678980a07d44430"
+    },
+    "proofOfPossession": {
+      "x": "0x1d24ef3c9375fc28b7c56e58e5ffd1f14436099c0f32d06f1e8febdaafb71675",
+      "y": "0x0ab4301e57db36e76f00c0b59153b9ab8ae4445fef28e81ed8bffdb0dc583388"
+    }
+  },
+  {
+    "attester": "0x4B39daAcdf30bD18f2447e9926Ac3473abbdf116",
+    "publicKeyInG1": {
+      "x": "0x0e96d23bf58f226754dc65783c20ed2338d42ba9864e7812a2ac8a23f03a1f71",
+      "y": "0x1d1a4ecd2e4c245d60711e9364d04fd5c3abdaf4a2482dafef99d25522dd6e0c"
+    },
+    "publicKeyInG2": {
+      "x0": "0x303bf3868ce408e57c212223d6b2b9f9839285f051cf9ea2d6f22ff3a6a86033",
+      "x1": "0x2b9644b30b89fd050c36886dbac0cf3ed240d6ec6f7546dec3650f3dc50fbe02",
+      "y0": "0x27fcb70c8bfb6b16ec97ac8edf07809ddccead86f8c48054472b419fae895a41",
+      "y1": "0x136e10ba0cf7614a8efb2efd463dc577400579bbf28cddaf6390ca38e3a4cdcd"
+    },
+    "proofOfPossession": {
+      "x": "0x28acd5c885933cf3faf71fe5578251106239b9d603bb3a88cb22b97d30b6c307",
+      "y": "0x0e8791667bd2b1e1671498a7e72fe54f15f3f8fe13b84f41ee8df359e2e0e37c"
+    }
+  },
+  {
+    "attester": "0xFaf0b7ef3Fc4474B175bfF6c2d57a4fb3195d5E1",
+    "publicKeyInG1": {
+      "x": "0x2b282b9af6af3dd72df5987671d7f4fd18242c10b407f317d35fb69302fb1e8b",
+      "y": "0x1dd4275c9a2cf8961569116a527c083ede11bf6358128ab40cb21fc67d83938c"
+    },
+    "publicKeyInG2": {
+      "x0": "0x16c94c76ecd9342d9fe0bc11609f5c72e5fdbac19561df1335794e587266ef73",
+      "x1": "0x106fc61d7e05179a96a90ba882164bfc49bd2bc2b8e89a76dc72c1b09e2b61f4",
+      "y0": "0x0b79fdaf9123d7df42ce411d7da47f29ff973883f97438045e7ffb73520db71b",
+      "y1": "0x0d43f01c6dd3bd5225950aed6963119b82141dc15a6cb02be55c052cf010863c"
+    },
+    "proofOfPossession": {
+      "x": "0x2355d563b2e0529631bb5083c37312f124a15aab0b46834a0cf544bd8002fc3c",
+      "y": "0x27bc26a06d6719766681cf53e920b7f634a1994af6fce02eb67bcf71f7be66ba"
+    }
+  },
+  {
+    "attester": "0xFd2Bed71B4B0159D0cbADa00228f0A5f3Fc28e91",
+    "publicKeyInG1": {
+      "x": "0x25d7346e4e4eabbe7a0972f1afec400abedee7d7975547184c24dac50fc0c8e6",
+      "y": "0x156af30a396d578b5d1ff119ec6a1f2dae7a7f8bb4edc589f1458635e42c5dea"
+    },
+    "publicKeyInG2": {
+      "x0": "0x0c68010a4c63db55c4ddea4acd8444bda002f76e8df65c24c23ad272dc956b3c",
+      "x1": "0x1b06855f2a8c52d3167a7c6e98596e5377912f91f5b57159490a667032d790b0",
+      "y0": "0x1664d344656cbe019947376639333b8a3c7aad06b26383ca1f4600e5cd5157e4",
+      "y1": "0x130aeab1108c671656ad9e63afadf542c01c3cf6d9f81e2abbf53e570c81d8c0"
+    },
+    "proofOfPossession": {
+      "x": "0x03e49b6eec5accbe51e45ef89bb72eac202e26f009eaf07e83d60fd2bfcec2f3",
+      "y": "0x0007084ff2d45f0259bd4f54202c82fe5c3e9234fb7c84a0c93e441e35b57ede"
+    }
+  },
+  {
+    "attester": "0x4DdaEA5D39a1cc00B3ad8dAA937b6aeaF57eA3AA",
+    "publicKeyInG1": {
+      "x": "0x1a6a8a5e54581bab45d574bde5e89f4408480c3b84d3d72ef4bc53e083dc1c63",
+      "y": "0x0d8a444b86b3297654ac2367c3159fabeac252b73dc0f51c1367362fa1b24f77"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2ba362c0649dc21131db9d9fd9dc5b6219810c9d38c072f050630bd371caef94",
+      "x1": "0x2dccd3d75ad77c13ab321066ae352fd60b9f1195082b7dd739a25e9fdcea3784",
+      "y0": "0x1649825e8b57b7404358c2cdf1c867be690b27b0730e60850b77d18acd18dba3",
+      "y1": "0x1ab8666514c459b8f45ed618c77fe3ebe149a7481225cd429915df31393832fb"
+    },
+    "proofOfPossession": {
+      "x": "0x0cb9127581e31532d0170f72db6063f6734969d021ad0e25490931e18f76531e",
+      "y": "0x0287a0db65d6c690c5ea930886b33cc1683c825dfed433e1170dcde435733afe"
+    }
+  },
+  {
+    "attester": "0x91d52d7F3Abc49780c1D5b477B76Bd6dde5161ED",
+    "publicKeyInG1": {
+      "x": "0x0ab137b9929bf24a87f23cf3ea13eb18e26fd69ef1d1ea209965f21c87d01df5",
+      "y": "0x168578eed3d80ac21cb9cc0bb859a80e589c089c8dcbac48043831b2c4841951"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2d31fe625fcb6784059e3e12d085b86cbc3976b295aedb71534b06549350ed13",
+      "x1": "0x12eae0ed390716affc103a1d09f9c42b91114d27fb04af084e8aad15aae0ff75",
+      "y0": "0x2dc6358e5bd8e12081a90fa50322c58d6dee7efec30986c7aa96ad1cffe45c9b",
+      "y1": "0x141a1da54e5ee4e5b89f3c56f9809d50d0cfbccdbf80941268bd8373e3ab71d5"
+    },
+    "proofOfPossession": {
+      "x": "0x1a57ba579baa28ed3066342719dd4e681a98e5e05e5a062195fd12820132b408",
+      "y": "0x0160a69452b1548fa26a2d6ccd162ff6393f5e672b53cfd42947fcf7c556f670"
+    }
+  },
+  {
+    "attester": "0x18f8fF2eaa8E6215a7D0ddACC681E8D070292a05",
+    "publicKeyInG1": {
+      "x": "0x2e096f42cee10459655e7dd958a50012c09bbeef92948a70136a3f6f0ffaae96",
+      "y": "0x12bbae14b61a05b7c1e3b59399b27149691c224f80544f2d41d9ec35bb0ef864"
+    },
+    "publicKeyInG2": {
+      "x0": "0x1c539de774d5a72d769b6fbd18317261284afe630c58a69604785ddd042fa626",
+      "x1": "0x27935fb1f6f6aece887d1637c0fb6262c76149787350fcb422fc0dd7e09aad6f",
+      "y0": "0x1ff9693c0b8fecab526f2662a60b2fb335901d9b9285ec2c9ea5423ccce74f11",
+      "y1": "0x2ab3059d7997351a207903dc6494e70cfaba36c6abfbc070318cc48b7eaa86ec"
+    },
+    "proofOfPossession": {
+      "x": "0x1fbe35dae34908f75361e06bd6c76b6b1e1418a6b30b7d143fa7b536f7e5f87d",
+      "y": "0x16b592a443208652752a6904fa0dc7a0b96e47616d6486b4028965a07faa9a1e"
+    }
+  },
+  {
+    "attester": "0x31b058e2F0923955986cfc3995E3416DA3ca7AcE",
+    "publicKeyInG1": {
+      "x": "0x2883f93207c9e408f6f73bd4bd769e899346fd031aa57f397a132392372e4519",
+      "y": "0x0346bc74991de3195389d3b59edd42ba9ffd783327a13387c9cb77dbd3d3e0ec"
+    },
+    "publicKeyInG2": {
+      "x0": "0x1b8d89453fe35a338e0733ad5b553a3e203c9c0c719c48a192d1ecf44a67a14d",
+      "x1": "0x2fc359dca1748a2611eeb0ba255106908a7bf21df84f65b6e1f700bd765acb8b",
+      "y0": "0x2ce29874ca2809df339f2f7a2944f8f597d3f67a46b7d230472d13127fbb6721",
+      "y1": "0x296aec85d9793fa99c9a706b05f231968798fbca0bffc11a41eb738700447c2c"
+    },
+    "proofOfPossession": {
+      "x": "0x29375f6b21b366037e4e2e639452f5018de3efdc620800de59f1ced489c60fb4",
+      "y": "0x0ae70bcfefa9b7605643d0d36b2c107dba0366b9b1206bcc90ba2b69452d5298"
+    }
+  },
+  {
+    "attester": "0xa96237a0F6d3bC477D2d1a3B057b2eFA25c425D0",
+    "publicKeyInG1": {
+      "x": "0x15ab2978fcf9eddebfc7c0328be545fff1154f16b893a1a2895c84d2dc2509d5",
+      "y": "0x2eb4bcab0218b0ae296b61bfdbf00064ec5e85b25ff121dd06341e3a1ae8f840"
+    },
+    "publicKeyInG2": {
+      "x0": "0x1d45b65c90092fabb0750abca16e0703adad03f51bc6a4d53c9a6991af538358",
+      "x1": "0x0b6bdd40571e9557e9a507352642423ff7475da1026ceec35e0131bee5f2244d",
+      "y0": "0x01d8f6d5e3c803789a3da352e3ba118a3360463e5fc55ce2ef73007a8032d4b7",
+      "y1": "0x21b35a0f915f26c2c0c75f0d4373a96f623691c8ba114bcf4bb7ec1bf02e13e2"
+    },
+    "proofOfPossession": {
+      "x": "0x17d9f0479f0d21e543e6c9c3a9f2b50961535cc8bd3b3da2fa71c59b97bffe24",
+      "y": "0x1b0eeedcfe3ce304d0b6a44100890ac5d7d1c0b76c242c1c37d4358646fee112"
+    }
+  },
+  {
+    "attester": "0x3aA54797f21921D4698f4be47Ae483e5C464fdD3",
+    "publicKeyInG1": {
+      "x": "0x1d48cd6a9720ba3c41944da79b292bfcaa82ae476269f6194b85ae151bb9c282",
+      "y": "0x0272ed848e9d22eacc84fa8674e5f3f2c4bdcc0dd946521937bcb051c3f41eea"
+    },
+    "publicKeyInG2": {
+      "x0": "0x1e3de3b9565f7ab2a32aaf86286427612e10908982b759677d7a5f6ef9ff31dd",
+      "x1": "0x2245a3a3c8ba954476dc331f552e5fb08dc3a451e0d99db0fcd57ddc12a72b76",
+      "y0": "0x023d47d65ac2ea7e5c992a36dd012c024b2590cdf048929c9de1bc1f0af5365f",
+      "y1": "0x13efb77bfdd55a74f84a52100a0d0ca9d00d569ba40f2c13c8952eac07b7885d"
+    },
+    "proofOfPossession": {
+      "x": "0x24784be096a18d01df918a467a02da38f46235a7e35b16e12612438b49a3089e",
+      "y": "0x0f8522f2abf198cfbec7f93979bcb4dbed8b19a2761ca738b0825e08d85ceabc"
+    }
+  },
+  {
+    "attester": "0x98d0958eE1Ad1d849488921054D2628A2900fAc0",
+    "publicKeyInG1": {
+      "x": "0x28d9bc59fa6d679663b8016318e1e2b4cce429797923dbf979fdceab12743ca9",
+      "y": "0x17173e14ca1834ee3d0ebf437af4e6fff31a7943d79e023ff05a47315b44228a"
+    },
+    "publicKeyInG2": {
+      "x0": "0x1d495e7507ffd0fa56118317a68694524fc64345e6b53cbc5ef5c6b6253e4ce1",
+      "x1": "0x21f18e2fd9fca17c8c83847ea642f6d8140a4937d805584b953d5b93a2920157",
+      "y0": "0x076553cc645437ce45946600a9e7d63be43c52cb14130629b8db0cea94b4bb36",
+      "y1": "0x29398490ac5c752ee68597fbee53fd415b0057255803908ed9f10eb74358df5b"
+    },
+    "proofOfPossession": {
+      "x": "0x1ccf6fcd205ce71205551fb546d6192c4dcfea1c126c9cc9f35bea2d872e3d99",
+      "y": "0x006cf648ea8e7cb961d96e966c3de2ffd470449554a15e442ff4369822b65699"
+    }
+  },
+  {
+    "attester": "0x114B5F431B932169B6D0431A4E63d040873601e7",
+    "publicKeyInG1": {
+      "x": "0x188d61017feb8cf7954056108e85fa9abd29e96e58ec1418bff5220ac7916735",
+      "y": "0x007e3b629bdb4d3be584962f69dc630904fbb5ae0ead8265d6ac116e315a1d82"
+    },
+    "publicKeyInG2": {
+      "x0": "0x054604eb0484c70e340ad0d46864a79e95a47d603c8704f76b0c5c5493f7d950",
+      "x1": "0x13eb1e6adb032aa5619171032f165022f07bf731d87602c1b62abeaa1dd3c9ae",
+      "y0": "0x23348d77e8111e0a0b779e17b85170a416d3e26c8bbc3cb3a04367030e3d81c2",
+      "y1": "0x153895dfb49ad78b32074cd44f322cd832d4333b5d6a7fd361ad7718ce1e23d2"
+    },
+    "proofOfPossession": {
+      "x": "0x15565593bb0f1c4a34b1cfa084842f800f6a3d4d537e49a7e430f08cc441efd1",
+      "y": "0x1709ee60aea38f0491c2b3d5d7e05b5d0840ef08f1c2c2a06d86e0ba1e38ebfc"
+    }
+  },
+  {
+    "attester": "0x2Cda54eda64990cC5d502042708fB984714513D6",
+    "publicKeyInG1": {
+      "x": "0x0f74aa90497b457118cbd85c9f83a9b73c4fa04ab7659730fd96be21cce877f8",
+      "y": "0x18365eafc5dbd6d81cf1db3a1d0b7956404da464d38a13bb8e2fa7fd6f191c5e"
+    },
+    "publicKeyInG2": {
+      "x0": "0x0358e759652d9d7bc6140f1dd8ebc6e9956b871e9b0516fdb25efaec6fdc2f00",
+      "x1": "0x087d247a95098cc7e70fa681238501cd15ef39dcd1a663d792ba73a9f7e13bbb",
+      "y0": "0x0891f2a4ccad5dfe2fad9ddbdce04c02dcbb613fecf0d455278077ecac750309",
+      "y1": "0x2e2688d7fbb701f0f6c90f581da6723c732ce54aeb1b5a0361d4d4c97f9ded6f"
+    },
+    "proofOfPossession": {
+      "x": "0x1761a9e9675d10fa9785546eee265b2fffc9c3cbaf75ddd70a092b71d48dd0d6",
+      "y": "0x17f7e2c390f8f64e8f22487e4e4b5d01111da677712e9f1f2bf497fff5741b27"
+    }
+  },
+  {
+    "attester": "0x62cE081e593e8311A95F3ED8A028cEc5630374Ec",
+    "publicKeyInG1": {
+      "x": "0x1f28179275af90170bd946e4011255261873feb80632babb2760969af96c1509",
+      "y": "0x248d1f4dfefad6532cc49153f4406c8533944ee33626b7551503118be2039a41"
+    },
+    "publicKeyInG2": {
+      "x0": "0x08d3032f3864e18b126897f5b97dfae2000bd4a9521f64481772136611e7fe7c",
+      "x1": "0x0fbe8140cd6a509389ed33da8370843c4f8ad6c0c99516c34d5855b192cf18b0",
+      "y0": "0x0ac5fdf058d9ca51de2e170f6f540eb7d8d63272d95000188bbbe044606fcb04",
+      "y1": "0x13e41cb136291d2ce9d96d10c00a019690c7e651d6cd55ebcb6bb30809eb0df4"
+    },
+    "proofOfPossession": {
+      "x": "0x2a97b4cefa08b43737bfd8bb3e313a2f49b73555b3204d3034d621e51181fe44",
+      "y": "0x01d0b328f8c05d8affdb0bbddf345de1a91c4e163a6327ecb715b82c6891a3da"
+    }
+  },
+  {
+    "attester": "0x3b80bE67051c04D71b19B600732fe4a15315Dac5",
+    "publicKeyInG1": {
+      "x": "0x0d4947bb1c66db7b6ad293a9b81e7a4a2531ee93ac047f61deef3f87435bbb0e",
+      "y": "0x1eb75c84e7b3375b450159e9e45326850f876d83f4d3433107be5d6565b4d3c9"
+    },
+    "publicKeyInG2": {
+      "x0": "0x242dab615b17f17cf670ebacfe3043cc34bd545c70355ccdacf8a80272685025",
+      "x1": "0x0f1fb1dc5d9e2b54c4e67f516caaec402f23e98ef8c8efd8f904669007f62e20",
+      "y0": "0x268c0bdf14cf53ba336d7232a7a78b4ef7b07c94aa803b5ab618acd35119e116",
+      "y1": "0x2d61a3e74564d51d8082cf8579173046e444a83db0427e8bfc4abf770c74eeb5"
+    },
+    "proofOfPossession": {
+      "x": "0x2ed5b5f2e4cb4256a4c3d91a36cf7c954f60290bf6802c2e6285acd7a1120597",
+      "y": "0x0df0c0b103cd1a573171744c493660ef2a9edba1854625ab829a51f24bf8845d"
+    }
+  },
+  {
+    "attester": "0xdDE3D5F2e4AC782D829cC1c51d558c6220E51cBE",
+    "publicKeyInG1": {
+      "x": "0x2c35334d4ba0ec79591eea3e441e1ca18f013f2cff92e6ebc658c7f9bf615238",
+      "y": "0x0a6ffb6b8fe935880d85d456f0affd1509948a5268d08ac21de09d42a39d86b7"
+    },
+    "publicKeyInG2": {
+      "x0": "0x0806ee6b0541334d10d1db9656138b4eefe2a565fcc0e3eb716d0162ba21c13f",
+      "x1": "0x2b66da2589d20847e28b5bc665124d486bba143369791f8e118d171ccd171d55",
+      "y0": "0x08c3f6894c68b1c0fe35c8889e18d405e21188279aa0994af485005295a59839",
+      "y1": "0x2bf70c74d786b8518b61dc8b728ed6f007cd036b3d35696c4d6613d7915b794d"
+    },
+    "proofOfPossession": {
+      "x": "0x05de1ef7be39b0cfecf2a395944bc903ab654bbe115e1faa415b2a9092a83f22",
+      "y": "0x2497fc68d6e013dc6e4974dcf8f50a8d2d4d1c8c82153aefeb8062049ba685f0"
+    }
+  },
+  {
+    "attester": "0xb42915f83F02EE6EF3ECAcC76Da3bAb42635d05A",
+    "publicKeyInG1": {
+      "x": "0x0ed038f5e855bc313ab205d6b7c04326950f938df4f155e360b1f3e27398ca12",
+      "y": "0x282e85e61ddb9bea80240c4e0ec941e61b9dcce6ac038fd7a4b26d559b17a6e7"
+    },
+    "publicKeyInG2": {
+      "x0": "0x169f437ec592de03ce25a6a4b032692eb8cbc44ca2a18983ef3bc975a7c93527",
+      "x1": "0x0ce82fd3a8d1b8b8e02089e0a3c362904ad2857e54e71a037a4780ecd2e2481e",
+      "y0": "0x14326fee1a9e5bc290e7afeccba6823dddaeeb193df59d8fed36e07089212300",
+      "y1": "0x0ab70372ec856891cd6ca0fb8ab6e4f6aa131a87eac59108ae6661007457d59d"
+    },
+    "proofOfPossession": {
+      "x": "0x2c80b90f88cfe2046f975e953f62acc86107872ea6c2851b79c6332b159e1f3c",
+      "y": "0x276559a7633c5f6604770fac2f5a4ef5c941dab37194589791cabdf27fc46a5a"
+    }
+  },
+  {
+    "attester": "0x1F072D90467704620b6e16FbEff57c8341bd80D2",
+    "publicKeyInG1": {
+      "x": "0x234617edd83cdfa81e59abc100b284f716a5f28e4aeb9eb25ad4fecf5bdc6061",
+      "y": "0x2d898a58aa9f76d9aa3252e8c357513ba0725f98808566c1813dd20338ef7ec8"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2408c73088af843020f48fd383ea7fe3c9d2f7cea7f461a449a28eb178845bd7",
+      "x1": "0x184aedfd0d109298faa45790e488d163add06fa58a11200fac23deecf241e2cf",
+      "y0": "0x177171686c0be2c2bdb37c416153c2b6895385798e131569c2b2e2a212d1175d",
+      "y1": "0x1a613dc0549f3136a7acaa9a625cf675a9401349ec910839ed6c00841426ea49"
+    },
+    "proofOfPossession": {
+      "x": "0x2b95b43e4f5ba81c69b53aaf54bffc95a39358ca23a46ba0730107a95e6ab3b1",
+      "y": "0x2e68eb8fe5e63c108b664aeeac57a951a74a4c26f0f4b83e93b7a049055a77ab"
+    }
+  },
+  {
+    "attester": "0x3aFef8eCA9735560A6056a9a4C397410d030C384",
+    "publicKeyInG1": {
+      "x": "0x0ca65368fa2f6edef59a49464f83723839945b53b4faf318062abb0587942a4b",
+      "y": "0x27c892b032ada0621328c0824e6799813eb5e745eac88d7b0ad2e810c72f0196"
+    },
+    "publicKeyInG2": {
+      "x0": "0x272416130fde03c2e203c00c019c8d34c984c567398ace314940997d13a61a37",
+      "x1": "0x0f7edca29089ea4fe1508b7e6c2a12853c1bedeaa2995f03684f69d2f996d94b",
+      "y0": "0x231312c089b0310e9d09965176c2d27759c0603d3bab77a0260930e4e3a50c21",
+      "y1": "0x15fa8188ab0cb0d696ef0455ee10b3dbaad74da43b5c872c53e92148ffd009ad"
+    },
+    "proofOfPossession": {
+      "x": "0x14625eca128e58da0565945764d47fcfde20575ab4e14f2a83839e98ac6165f8",
+      "y": "0x134f556893a8ca76d048b5fb46864da30e136ecf8e4436551f3ddda0b96d8bb4"
+    }
+  },
+  {
+    "attester": "0xEa4818A862FBf968673a2b7632dbb17663a07DB4",
+    "publicKeyInG1": {
+      "x": "0x0e5ee9cf0d03bff64dc94a59e2c59bb515f5472ab7860cfa2d0bfae882965c66",
+      "y": "0x1979ad3afede07a31812b3eb879565be9e1b8edf345742b7f398f3ccf847878a"
+    },
+    "publicKeyInG2": {
+      "x0": "0x1ba2912efb76dd32bf551768ff98006153a566c80233887dce340181032c5e4d",
+      "x1": "0x0bc836c3999d0146f2e7711f101a4a4740ed50c9c066cafe6d27aa3fc05544df",
+      "y0": "0x2c3d283fd4f02f192a69d956a6b43d0d01a6ed88f84a0123ac19a2c4c297f341",
+      "y1": "0x1cae6b2b6cad5841300ad04ad66503a74e4ac3bebc1fae62024aea1a4e48dcec"
+    },
+    "proofOfPossession": {
+      "x": "0x2f9b9887b1bf69d0d260ea768c8ea22e8fd9681966ffce8aa84de7661502a73d",
+      "y": "0x0bebcd1a2f954d5d00bab1a938b2d94d72247e661c3dc2f42e0ba0fc8afc426f"
+    }
+  },
+  {
+    "attester": "0x256288A8e9b86B76cA8379F99e2AF6FeE3Ca5B60",
+    "publicKeyInG1": {
+      "x": "0x20086b33d8b33504198f9f576075d74742f84e7d308abd910d09e7f79720b18a",
+      "y": "0x2aa409af33868f514ba4bfcca023291b5722b4942aca56f5dbee8945b591220e"
+    },
+    "publicKeyInG2": {
+      "x0": "0x1722db7e37e69f871121516207b0d382b9e5e56faa26a9dd77c83425e786e45d",
+      "x1": "0x21a6bcd67fa1fd1a610c7492751f7787f08f92d282eaee0bede13b0c557d6d10",
+      "y0": "0x037407cc132e38bf8e736d1a2ff535ff9c17da913813ccca060bc95e97052252",
+      "y1": "0x2b68e108ab55f0a6ca7e20069484f34ddf3b81c6b789b8f69c762448a771a470"
+    },
+    "proofOfPossession": {
+      "x": "0x09a8f0d110f9144be704a2323d2b87b6fa666aaf13a15723be8b39586856ea99",
+      "y": "0x2c91542f0b0ea1c18fded9dff4548a5e4e9a1b658fb4604c291d8a97699f256a"
+    }
+  },
+  {
+    "attester": "0xdc75909868ed9Ac64A86833091030Fdf3A041b7f",
+    "publicKeyInG1": {
+      "x": "0x0441ae54b6bf7bb040831ccfc0ace697177b2cee57d0a04c022ca4d81d75073c",
+      "y": "0x2d1d116373b76aef89cdf25d2af26286b21d5307e0e157708e629e1482f65bec"
+    },
+    "publicKeyInG2": {
+      "x0": "0x0bb83cdaf9c53fa3074a9fdf855bdc9b9facae26f6c1da265ac774eb89bf5719",
+      "x1": "0x1f1f761b932fee18f31265b2b9769e2b77721435d0fc365b2ddbc66f65a561c4",
+      "y0": "0x1eb29df8d35cb7ec464b1e46a622c3cc138675bb23645f0d695ef6f6f25ff93e",
+      "y1": "0x267cac22bb86e025f01aab36b34ac21dc78d3033192f54af942d6d512c305018"
+    },
+    "proofOfPossession": {
+      "x": "0x176dc67fc48b0c696904d17865224ace1443126f918ab6634076455df483408b",
+      "y": "0x1af8f8faeea171cb1aa31c42c173e8dedf014dfc1a0442acf47e4d0eeb601832"
+    }
+  },
+  {
+    "attester": "0x77cD48F0Fb8e5735F7C0ac44B5CbDde10D593107",
+    "publicKeyInG1": {
+      "x": "0x03e3b5dd680b66b8ad3e9002527b8e14521d485bdf37f5706030fb18d36bc8b2",
+      "y": "0x228b2e6380645864e48cf561bec3f940ba62df24752c03a1076bf068e9e56f2a"
+    },
+    "publicKeyInG2": {
+      "x0": "0x1f485feebf61afe07126cc11c052f08ed5cc60b6c49e88af8205af9eb3b70ace",
+      "x1": "0x14c17101a892d99786a6801940d8516f3df2139daa56799f1145403917a667b5",
+      "y0": "0x1e0e9b36a8f05b49af80ebaeff63e2a801e6aa400783b4e18f072eb50bcfadba",
+      "y1": "0x2203f47be3bd1523402e3d3e987e48538d23cea1d210d0acbdfa653296ce266f"
+    },
+    "proofOfPossession": {
+      "x": "0x10fc11f6f8dd9ee05bad0ede1a472084660880ec05ff38381c1821c3ef481763",
+      "y": "0x1b3bc92a3fe4768708c565a87d3e2d6dbcc62bed1d16f8b248c461903e99ab58"
+    }
+  },
+  {
+    "attester": "0xCbFeA3aF489c824e117a07Ad119EAB19b3fB69FB",
+    "publicKeyInG1": {
+      "x": "0x19f57acb6162c0feced602b52e01000c2dc300c2666f82d3e6970cb338e4d345",
+      "y": "0x14db3ad3288bc22c2f4e814fd3aa2c1ff33918b370278953ad72886ded679d2b"
+    },
+    "publicKeyInG2": {
+      "x0": "0x26cc715db60669323f63db96e7f40b288ba347b33ead1c6ea152a59698cdfe9f",
+      "x1": "0x287a016903cc87192e25e2125fe422d88490cff100756f58d72f14f3da8700ff",
+      "y0": "0x0be614180eb5bff7fb88d03ac778ff785df74aaaeefae52188fb3f48c6e5d639",
+      "y1": "0x1508bf9901ae2e7ce5917937322920b863ca34902851721b672dcba9ecffeff3"
+    },
+    "proofOfPossession": {
+      "x": "0x0c95068f0922b32733908ed28ef8ab366a317902282e98d15feb34292bb8a11a",
+      "y": "0x11b45d4b9f3239f6cb04a727b89ccfdaf05887b98964e2ff1918b88ecd0c3f81"
+    }
+  },
+  {
+    "attester": "0x29735D4BEbD23cF9689Bab167419E0E8A4695fF3",
+    "publicKeyInG1": {
+      "x": "0x11718c32c5f570a25713ff59d5d1f2f051bd185e8e2d7fc46a013336d45690b5",
+      "y": "0x0b9ca870ec15c0fde96302c5f31ad0bbf78f70f4b2876b5c4228d78cccf5f471"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2570d79ad9d01f2964f3925ca4ed56ded8ca38b3e1f44978f58271c7d3843da5",
+      "x1": "0x1498759e12437eb14e83cbd3ad307b79c6ef2da0f78bad3f07c8c68105093d14",
+      "y0": "0x183017af02b66f93b1d47b78042136eca4debf1b969555a348d43fcb23d6499a",
+      "y1": "0x151d31894219f37fed778410b0ff951ff19242d17cde231511eabdb17707c35f"
+    },
+    "proofOfPossession": {
+      "x": "0x257a5d13230d572e7a874e27db44b91cea7b7084297907128bec128fe4e278f4",
+      "y": "0x29503d5b98b4817d667b96f9f36bff5c521bcffbc425653a6c54db9deb738580"
+    }
+  },
+  {
+    "attester": "0x95f9a7e791820D71E29051a991db4e6091615368",
+    "publicKeyInG1": {
+      "x": "0x2ca1c7141c978359b507f4233b923df3ad72b1c2303a7449197be697071539ed",
+      "y": "0x2772b4ae9fc7146752389e9ed05378089f42d708d4c1a988e2294a97550dd1e3"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2a550da95fa9fc25a4bd46700e6b2405b0d9fd75e3981222e1c6f659aac67ffb",
+      "x1": "0x216518d1d15a800109efe2ebb1b85b35ad0a81aecafed939fde90c8d0ed814bc",
+      "y0": "0x0b3e34ee0b3d604cd1df05ce9246b45e3df97152a23e460b6d9bae3a67ce63c4",
+      "y1": "0x2e008236930871bf497320d66d3d4ad17e13484e9acdd11ca4fd82511203ac57"
+    },
+    "proofOfPossession": {
+      "x": "0x0a5e9d7e06f2950b418ee81f54f81f27c897b6f3a6aac67f0af0da99a4f00cd0",
+      "y": "0x125637848185e232ab20addeb2950b18193dfb7a366144516f5da88757b6708d"
+    }
+  },
+  {
+    "attester": "0xE13e810F4fC4CEa29d897c6bd4062c7f1456bDEB",
+    "publicKeyInG1": {
+      "x": "0x239ef9e3f692d33468fc40cc00cd5082b6c61e201991c73b4831a32706926e57",
+      "y": "0x0a03cb9c7a02d95ae6e27dbc819d208537a81137222575ed8eda93cb2b243858"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2910723d79a157e3bf43caad7e654e69ec316d45b9f8dbf92b7d09a25c848b33",
+      "x1": "0x06686878b2f26195a43d77e5cbcb6eb2d0c3db239b671f9f4fc085d0700b443b",
+      "y0": "0x07fcf89f3b48cdacf28fc975031ddf667ad4bbf070e8133fcd313e3a4c1fcbc8",
+      "y1": "0x29e26c991cb00d370ce530dbd409371270f1b3a0e95a1af35d963b3382d23a9f"
+    },
+    "proofOfPossession": {
+      "x": "0x14fd643a651b3cc07a7eaf79517cb22a76beb3f98522ae1a7637fb16fc00f088",
+      "y": "0x1303cc5d00e5f0daa6fd363b484f808151793c7232654f59887ded3dc4294484"
+    }
+  },
+  {
+    "attester": "0x8721d95669c1E419caa60B62BE1170447606f5DC",
+    "publicKeyInG1": {
+      "x": "0x0e0d3f0e7856169e5db49d9dabed6646fe37d5d546c2d9ae7377b6e0bef38eef",
+      "y": "0x24fb11f8045fe8827305e66e94373dc23675d77ff2e9ffe0e28042a393eeeb27"
+    },
+    "publicKeyInG2": {
+      "x0": "0x179b5e3c099c26d71f0959cfb9002ebebcc056bac323cbd2cae7498232141383",
+      "x1": "0x0d4f5b51ddd1bdcf2e0f2ac92d413732b982c936116185a1be4f3cc736adb458",
+      "y0": "0x2ba1319b2f167dc2b60fc4517cee3ab9688dc9c1aa03a44eb10734a5d57fbf16",
+      "y1": "0x11b04b4777d75fd5b7b31f7682ba656937475cf6a8d075b2771a7ce6ff95ce87"
+    },
+    "proofOfPossession": {
+      "x": "0x29e82468d0abd80e79a400e02dc891bbd4ee22563a8c92de25943923b9012bc0",
+      "y": "0x168d128c16dc7247bee219dedf37e4345e6557f488712c0b65a77e4a06c63e03"
+    }
+  },
+  {
+    "attester": "0x01E83cAe2Ef4a0f3Bf7C57c943ce02D1cb4c931E",
+    "publicKeyInG1": {
+      "x": "0x160171fe5bee5ed04848582f40af48f6dd1586dfca0cd77fbcf0d6e6f23cea9e",
+      "y": "0x22a891bc90d825799f89b424158e86d471dd72bebb4079a182893080ca628746"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2e48127b0553bf2b38e0fd20a7a14655e99fb7076c32dd6f34ff7ee356150803",
+      "x1": "0x2ca9bdbb146a7e9e0729f90b70a87b617b565a116b7e215b85280d5f61a76427",
+      "y0": "0x2734c050c24a8a8059feddf69a18cf9fab5ec4661c91712b88bac7663bdf0703",
+      "y1": "0x2f3d09d2a7b02350e2ade70aca0f4e3361ae31e50a96ec6c04458d5d1f5ab890"
+    },
+    "proofOfPossession": {
+      "x": "0x21f157697694330affffa68fc51ed9e44863349a3a5e8a742a9cd3c3f9daf6df",
+      "y": "0x21f026092d36193bb8fb8bfa3282aa50b5704ac6691a66ef55686b4f4f084361"
+    }
+  },
+  {
+    "attester": "0xC33624Ef62EcF780beD11c0173cEe7Ef51209a44",
+    "publicKeyInG1": {
+      "x": "0x029f8b7d3de99a95652ec3f510413fb5b01af98ebdb6030512c9a642ed1c2766",
+      "y": "0x2bafe0ec75847ade29dab1af2f2f553005d25a56605114eeaad62fb52184b7f9"
+    },
+    "publicKeyInG2": {
+      "x0": "0x178335953f840d083f7f71eafdb4e4839520daeef606057c3bebc0d31797d441",
+      "x1": "0x2c8b81514e1b5bfb9f25d0b5cfc5892dd9232744660daef00a7b54a8fa674620",
+      "y0": "0x18e385bfa7193bba1bf14566833951e78e9444c3bc28ba56bf6ea8f13fa30dbb",
+      "y1": "0x0191527435a4f2c9d2deba50e1108ebe25aace43638e006008f0558c4c5cb390"
+    },
+    "proofOfPossession": {
+      "x": "0x1ee1fb2a41b5ccc82dea0e09ac1b94fdc0c70c58adaed3fa837018c906b34bfc",
+      "y": "0x04c008aee606f88f721dada78f32158e452230189cd0faccbb62c10ca3e0fdf2"
+    }
+  },
+  {
+    "attester": "0xA073Cf01EAC11D0bf6be66477CBb8f9f42eD2B47",
+    "publicKeyInG1": {
+      "x": "0x2714ce461ff5e7c09521f9dea7e34cd3ecfb5712ecacae79835cbc8a91b2d381",
+      "y": "0x1cc257071f2b52f92bd9461e709ed6e824acdea65460e4219f1a5830e7e25844"
+    },
+    "publicKeyInG2": {
+      "x0": "0x01777093a6467bed48ab855694d4c7d4227f687133fdd373bb4ebb388612ce4d",
+      "x1": "0x04d906ff978a589a879e81cf6881ac3d4410dd7f68787c7b66cd2abc96213ec2",
+      "y0": "0x1b44c3f16df32dc2a2dc88c26b1fdbfc16eafdf290a4a0dbdfbf642c5c8c0228",
+      "y1": "0x0cb26d852c0f8f5df3b6f76c4a4094ed619bfa744481032ff50e70b592ee4659"
+    },
+    "proofOfPossession": {
+      "x": "0x16bde0603d8c77189b0da50c35d01ecaa69e22d20b75b8145ede5df4e03485e2",
+      "y": "0x25944f3ad5a91780c4f8c4d3d3fc148b17a01156b1f74f537355c3312cf70deb"
+    }
+  },
+  {
+    "attester": "0xcD0cBFc1a1e05A18aA2E5F456912495d8E08a643",
+    "publicKeyInG1": {
+      "x": "0x20bfdb338d07b6f7e697e6a68724f5759712784a50a51cd4c074e30bce090706",
+      "y": "0x21bb42e18604859332aff6380710bb29b84bc698366d1b672e0055a601f25968"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2561b4ca76df710a132dba6607ca90e9045a0371c9e94507aa1d0209487dd3d9",
+      "x1": "0x021527aec0d37e6ca1a506f1562b01106d75fb37fa7445cd74c91b28d5ce0a54",
+      "y0": "0x13b8ae7dd289aeaee4e57d0bb7d88ef1296f7aa0eeb699e0780bd2f1ec25c709",
+      "y1": "0x08ab116b3c5d183c3dd26e5f8d2a0cfe81936f3255dc5a48ef0beb07defaadc6"
+    },
+    "proofOfPossession": {
+      "x": "0x2cfd5504589337a867fb312b205f8d8414fe5cad896603797ed7f8f4594e3b31",
+      "y": "0x20eeb474982dbff73c355fddff4c8c7e02d425b598dae27b5cddf366b36430f5"
+    }
+  },
+  {
+    "attester": "0x70a8224E386704760e6d64862d3AF28208DA1E51",
+    "publicKeyInG1": {
+      "x": "0x2b8631b77fac1ddddd64e9b4c790dda6aee72416a1654897da58f3540403815c",
+      "y": "0x11906bb665262a1dd524a80753b0e4bf2f30710f60c53dbadce3c467661d34d3"
+    },
+    "publicKeyInG2": {
+      "x0": "0x161a7a09d5a6440c42bd8ad1e28e75bb95d04f0255a4bb109762343f194647bb",
+      "x1": "0x1400827ff036fd3f7307a5ea52b90a2ba0251faffe0fe4aba84ecb985635d72b",
+      "y0": "0x2787f246104582788afe5ab56da514531e318dd48b2d95cc100facb63f2264bd",
+      "y1": "0x1fbb335a2787ccdfcb67e18349d446aa60ea8170fb0df550b7cd9556e95a39aa"
+    },
+    "proofOfPossession": {
+      "x": "0x22f646af5ede1c3a202468178d80575d4f96a462ce80e4719909720ff1d1e1a5",
+      "y": "0x0c67f0a2161a7f0b4bde90b757be4e3c9dc2b40add86a9d2978f203a49132363"
+    }
+  },
+  {
+    "attester": "0x65FbF9075F6Ae6832F9D46fE6CEdD7EF92468d6C",
+    "publicKeyInG1": {
+      "x": "0x1ce9139538044187cc479b4daa8d761d23c0ed22a931abbd7cfff505aecd4b59",
+      "y": "0x24087554bdfd4fed5ff19faab351425907624c7bd67a2d40827c3c4bc2e5826a"
+    },
+    "publicKeyInG2": {
+      "x0": "0x01e33e0181f548f948fd2045058fc4dc28955ee8497b6acdd5f95a549736e562",
+      "x1": "0x0218da3e733a8f627aa95f34be1be1af3b140f5512c36237d83d79d5f083b50b",
+      "y0": "0x10dc34f98242395b467d5ddcf406c4443fab7bba553a4a0b13ce4a5fafeee32f",
+      "y1": "0x0e8443f957aadef92032db74bb0d2eeb789561580c1800394f8c7aad63197732"
+    },
+    "proofOfPossession": {
+      "x": "0x15e0c7738cbf8c7761291e09326bcebf1858d432d9b65985d2d056453cfe365b",
+      "y": "0x08c57adb471370ebf36ca583015e40630f0fb37528fe7ec1e5e03720ae2d55c1"
+    }
+  },
+  {
+    "attester": "0x22De988b43C6106ab38e21B6D68CaA2D619f7168",
+    "publicKeyInG1": {
+      "x": "0x2cbe62dfc3b3f96052e9cc9d1ab74fabc5f5bbe06dad4f80266a3305fd020fa2",
+      "y": "0x052917e96a073de49c2fa93d0bf09b87952e539b3424bd12de21e0949522d1c1"
+    },
+    "publicKeyInG2": {
+      "x0": "0x00455f800a6187955b13a7ec73718af3c2cf88763ed59438eb500c49448478fb",
+      "x1": "0x2fb4f4f9d0860c6ae4d65f7070399de2cff5a8d73451adc9585bbc35a34615a2",
+      "y0": "0x01d307abcc617271346d7dabdeef13cf6a11cf51f654c32cdbf36052b5d1cd17",
+      "y1": "0x2ca5e1a9630f53bb60cd3cd2248c7857f64c849e03a646af40dcec499206cb61"
+    },
+    "proofOfPossession": {
+      "x": "0x1d473bf7604c803b3064bbe57780b017987150b9733d38ec73785d17c138915b",
+      "y": "0x128f98de3ce205dcebda69c4350d65641d64012cc80564c611dedcb8a43bd634"
+    }
+  },
+  {
+    "attester": "0x9334067926f67Ca7fbbA685B875426c1Bd122A8E",
+    "publicKeyInG1": {
+      "x": "0x2f1ffc64e9c268ec66dbd55e5abade11cf6950d0ccbd58f5080b2780e074cbcc",
+      "y": "0x0c9fcdc25f10c520c98197bfc26d806f12f4be25037fd958953bb5c09038d786"
+    },
+    "publicKeyInG2": {
+      "x0": "0x226296964acc148c0ca8c814f370bf79ff6d92b8d05f115575eb3b8613b425b9",
+      "x1": "0x0b607258b1a16d33252638ac4eaba537a2be317a45b0e6afc2a1bce947d02c62",
+      "y0": "0x08e3d045266f4893b8433ac6dd7ec47d3707c6767c15ce8df3d4c8cae552352e",
+      "y1": "0x0c2e6045eff682723932d47af5d042d16a23a04096daf43e0448a5c214effc06"
+    },
+    "proofOfPossession": {
+      "x": "0x0b715879487d1a8d6809e853f8f2db853734d84632ebccc6edf95049e635376d",
+      "y": "0x22d062548ab685353583dcd62e860cd3b1a758aeffffcbc61cec543d9db81099"
+    }
+  },
+  {
+    "attester": "0x55B3236522f80154b16945acB41551E2275b6Cbd",
+    "publicKeyInG1": {
+      "x": "0x1e25d9671ad28473b618eee18b76b4a9efd794e1f4578120531c9a108bc31303",
+      "y": "0x2bfc4a91c70a1e50af3a6b57adbe72ba9536a91ec095877283491329f61d6ee4"
+    },
+    "publicKeyInG2": {
+      "x0": "0x0b71655fc1b6c76d80aa10b1b7ebc8c5d4831183ae3bb03a00befa3d9c8242d7",
+      "x1": "0x2635f8c6b8d13ca628e6c6991252b8b9d683064c0ff2d1e4e50d7e97dc1ca204",
+      "y0": "0x0e10a26e286bb9c088b77ae9b270bc7532177572afd83776e4f972a4d43a1eff",
+      "y1": "0x0196f3aa6fd3048b4b3e4ef468c0229d3b34bb72a714baa12ff916fbda9bc919"
+    },
+    "proofOfPossession": {
+      "x": "0x1b784a48385d056ce5d39301a66b9082ffaa48870a278bbc28a19a5f373bc569",
+      "y": "0x223cd03208b69e4b507f09c87a0c7b0cdbeb102da20b21eaa46600023a2cc478"
+    }
+  },
+  {
+    "attester": "0x0efEA9B04727Fe7c61c59c2C88AD2B1925847Fa6",
+    "publicKeyInG1": {
+      "x": "0x01c14f4e1508b70001f0683cd52640803dacaae00325ea055df50f87b2eb998f",
+      "y": "0x14f0d23f048cf969beb0d1b2a172f20e61a16f68fc13ddded2eac40d623f9336"
+    },
+    "publicKeyInG2": {
+      "x0": "0x145c7b64b70fa4edff4bc1fa13d28ef60cd78908668275226e0f0f30f2cfe679",
+      "x1": "0x2cc16bc17563123bb7f89ffb83192b268ead9e38598e204e09801b31b43ffe77",
+      "y0": "0x03a70040b52493838dd8755546f1200421e339af3ab031961d049d716623275d",
+      "y1": "0x211d7ff49cff9913ca93e0f639daabfa307df145b07048b9920dcd9190666a43"
+    },
+    "proofOfPossession": {
+      "x": "0x05bdcf4b7d478dff3e2bc0b1d7258424da1fb273986deff415d2b2991a4b119f",
+      "y": "0x2c44d5e997751bc61a62f4afe2c1259f341083173c12e35115197aabcb581238"
+    }
+  },
+  {
+    "attester": "0x5E133B4f794099CF225EB25D567459615c4718f9",
+    "publicKeyInG1": {
+      "x": "0x0bc2cafdbaed747abbf2ed4212be4c0107b49b6c676c231433f46ab915a6a0f7",
+      "y": "0x15f3f4860873d077fa36456e4fa1bb9ca176364bd0d5a144f81ff270ce3ed302"
+    },
+    "publicKeyInG2": {
+      "x0": "0x0fd3242e6e9945742c03a99f1093fda6931bf54c3dd4297488534813e26c3d98",
+      "x1": "0x17c263f9d34a2fe4bc76903d385b46d09f2776d0f9fcfd4a685aa92941b85ae2",
+      "y0": "0x2dc462b5f6cc2baa433716ab0fbd36dc8ec465bb951eebe23c0eb5732a15b8f4",
+      "y1": "0x10939a4421942a2933a4b33436424d517d2e7f8be19490b765d2ca059573a5d0"
+    },
+    "proofOfPossession": {
+      "x": "0x274271d8f1d367fb79fd4d8159d6c67b3edc94ffc355cf8e7893fd251411378a",
+      "y": "0x08c66f6bbf5554ae2c8b55e787f26334b964486dbf6e9704f5ef96233a115333"
+    }
+  },
+  {
+    "attester": "0x5Ebf3C778a90EEAd643c61cc8d85DD51a864840e",
+    "publicKeyInG1": {
+      "x": "0x15b1b798ef01cad007df979d79e7e242902be1a73d2c1bd5c8d4ea645d9580be",
+      "y": "0x2dba716933683f69ff3cd1ce4f7f7b578a5bdf3c4708d567d8b5acd71320ae3b"
+    },
+    "publicKeyInG2": {
+      "x0": "0x192525d410766bdc0b8a486593dc4afdcc2463840b59b631391a423b11d01e93",
+      "x1": "0x00fa73a06a12856aaa248b3f16025142593c1cae133a5ba214b728fc9104b8e6",
+      "y0": "0x134effa6b0b29ffcbbe10fbb8f0a4edee680abf538de1a3276507ecfeefa8b2e",
+      "y1": "0x162b53d936d646f0b5e0daeb87b576496715a0e504a67ec7f7a9fb4835d4d5f5"
+    },
+    "proofOfPossession": {
+      "x": "0x2042572aade21285ff8f7b8ee67bd4841d0c940203a3f80cf5cdf93226a1d5c1",
+      "y": "0x11c0df49dc0499081900851fcbdce59cc5fd3b01c4fd74a4af44273729d6f10b"
+    }
+  },
+  {
+    "attester": "0x7D33D3F0Db22D528B4A87cE2Ca304912eeE02c14",
+    "publicKeyInG1": {
+      "x": "0x2bb5558ce96db2cf54288983cb446394bca6883a5d437bc9c694261bf08253dc",
+      "y": "0x1b5c2e706ed461bf3577b003bcecf698cceb283089a38a4462e18712b7cc83e0"
+    },
+    "publicKeyInG2": {
+      "x0": "0x03817fd73489f38a00599194abbfe358cd528c8e705a8db91182ea336d69064b",
+      "x1": "0x0c78bc66ce28a009381d94c7bcc7c3eb27ce95703123edafbe70aea9ec4e372f",
+      "y0": "0x141945a1f683345d3ede2f1fec3f9c626959f1fcec0fe8032e75150a13e58d27",
+      "y1": "0x2fdfc11aa9fb2929b4f399f3b3ba32a5c447894b1be48e245d403dc03c8f9364"
+    },
+    "proofOfPossession": {
+      "x": "0x1a534e187109fbec790e9c22d7f6e5ca6caa71f313114dabd3aa32447c5a784c",
+      "y": "0x280a438025d28ed1185e6f5a471607ecf2d3060dbc1e89d79b5398d2c7741ea9"
+    }
+  },
+  {
+    "attester": "0x119cc8f4472eA8f061179893d28e568A0eFc0F3c",
+    "publicKeyInG1": {
+      "x": "0x04522e94c6905e7113ee79be1063d5e8601a7e42a3e8385127d584597fe1492f",
+      "y": "0x27e9bc119d236ed587c9268351da4610210c2df0d085724046fada788b4e0fad"
+    },
+    "publicKeyInG2": {
+      "x0": "0x07d6dd72837a0e6e2a7b4fc843b5ab78d155768073e7da1ad856f08f590e9430",
+      "x1": "0x0b944f824b4a3d2e84dfaff8ea4afad9efdfa213e938f5df06fd4561003afda3",
+      "y0": "0x2b89b5905d59fd14d7f259a5d1e104879f3d4cb3834626114c729bde2edd2f07",
+      "y1": "0x2ebed3efaa5480ec1ba4b3ca5c8a84efbbab79de9d0a203be4d332869f59e805"
+    },
+    "proofOfPossession": {
+      "x": "0x0fa9611691e0f3912445e90c405decdd1cdb6470663e0c1e49658706ce75c7ac",
+      "y": "0x0ccc331232ef3b1a172ede45d8b884a624f94d18aa9e83f781bd32cd2f519019"
+    }
+  },
+  {
+    "attester": "0x9CeE81D27Eb056BfeD0f6b3eB61048418D14526B",
+    "publicKeyInG1": {
+      "x": "0x073fc718770e458baf5465c644919f202cc0665ca3ddcc328085bb38cab3af25",
+      "y": "0x136278f141b8995e4c3cd17f35c6abe6b35961eb68f49b4d9412739e0f1d69a8"
+    },
+    "publicKeyInG2": {
+      "x0": "0x06096f9f6664a93608bf810cbdd862c402057051fd0e27f1e87d53abcf04ec02",
+      "x1": "0x27ccb75d28e5cfa9a09774f2d21eaf61033ea36b14c9f6c43991f4a531e0b210",
+      "y0": "0x29fe346f9f2c80a01579339b6ca5373245c43eb24d828455904a70128135eac9",
+      "y1": "0x0289782b103d33f2efc18a2a665ccde38762ca3fdf9d1ae2bf4461e2ab213b7c"
+    },
+    "proofOfPossession": {
+      "x": "0x2251f7c76e4541c475c0e18ff07f221988d1b0ef01cf2245a24332938ccfec79",
+      "y": "0x07a46a4a593ab6dac3f94fe60c185355309ad35f99fdc34fa733cb5f440ef479"
+    }
+  },
+  {
+    "attester": "0x946F38Ba619e91069C1480f88b2D29Ea1931FF40",
+    "publicKeyInG1": {
+      "x": "0x298f579015dee5f6597f88619359d90873f57cae30e22d35c86d48dc1cf627d8",
+      "y": "0x241dee9fccc55336134ec576f657eb0a5dd1daf15f0d5effae3c2b4b0e75d32b"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2c3434cfe72b381653522440e78c8eec4eb22143aaee967b497022dc8d9eeb3f",
+      "x1": "0x17d83e3411967982733bf604b884a98ab677b437cc33136af7df7bc764dc1ec6",
+      "y0": "0x0d41b91720cea82b033c9bbfd0c5b4715eb4e24e2fa13f3320875552023d01e8",
+      "y1": "0x256c38cce8b2ae628840c91b8e640bcae0ae4900ebadf88170e0a0a3f5f0768f"
+    },
+    "proofOfPossession": {
+      "x": "0x09bcb2d093ed1539793a2e157ece0172655d28b9420d9eee14236b0233684406",
+      "y": "0x17f8910ebddd74ebbe626447419bd38515f4cde052fd88c448a128b0dd9c4123"
+    }
+  },
+  {
+    "attester": "0xEFBfd91C680fC354b1936c8D2b7dDA82ed6e446c",
+    "publicKeyInG1": {
+      "x": "0x0875bd2ceae9045c977aafdcdd7951bd22435dc4fc3a80543f8b4e20463235af",
+      "y": "0x1a3ae53d45f1d1b866bfdc524b1fa9b09c7180cd6516eaea13c93eed86e45bf4"
+    },
+    "publicKeyInG2": {
+      "x0": "0x077df624eb58881e56c5762a1cb7e010ee991050fcc2a8288fca59904500a5d4",
+      "x1": "0x0f7c8e37e8728719e486fca4f124d4a3d754471c171418825b9b61b326ed0c5c",
+      "y0": "0x1506c38f9a2062e5c27bc664ee099b053fb58d6a24e71dab6bee3e155de9ff44",
+      "y1": "0x0e6eb3b78bdb732d475d1b0e014801376c67f11f1be77c21efc7a25b0d0fdd5f"
+    },
+    "proofOfPossession": {
+      "x": "0x0b0bf27c678deb0e35dc41bc01a99eabb09fbed0909835a6532376aecc0f0edf",
+      "y": "0x25020423057b2f78aa0bb016e37d5f1f3d1bd138075f983272d50d68593564b5"
+    }
+  },
+  {
+    "attester": "0xB11cCDD473B9d182200805dda8042057ef4Ce34F",
+    "publicKeyInG1": {
+      "x": "0x16ec94135ce653fb69fdac8b0621efac528dc7ce749624f8fb9fab82ab411b3c",
+      "y": "0x1ff8848992f45ffddf40d2e20929f42b545eee17a0c7789be9cae6b98efdfb37"
+    },
+    "publicKeyInG2": {
+      "x0": "0x07d2639e6a283e8387214036360a3331fdda2109da57a3242855edb241cde806",
+      "x1": "0x2c8bd17d6f9a3b152de2603a31698b6a9f040d442a5606a34079a304acabad16",
+      "y0": "0x074a82232f73e9a9075d3028d00175a0c3d54cceefc576bb0e114646c1bd5f7a",
+      "y1": "0x032cbd3b6112f3517717192d61fa8cfc2bd3b963dad9e2c436e66ead5a1d0e91"
+    },
+    "proofOfPossession": {
+      "x": "0x1b69acc4a96f4e19e4d2348b8d8bb6f470888d957bdfaccd4eb58ca6439174ca",
+      "y": "0x14cb7e8af2763331e7ad6138320e6d4b617963b91bb6882dea4af4b6377ddfda"
+    }
+  },
+  {
+    "attester": "0x397a373b7Cc119Cb2b0406fCa8447C44B1E34F09",
+    "publicKeyInG1": {
+      "x": "0x14c37699f83833f02a0ab992598e1bae0425306c92735fcf06cefe9eb51e9de3",
+      "y": "0x225bfc75b8f69d7698efa72544481bb1ac93287b8220b18ab9473d72aea7355c"
+    },
+    "publicKeyInG2": {
+      "x0": "0x26b67a53368f62604c776ed75fd3dcd710dea3c66badd3c9768f0675274c6a75",
+      "x1": "0x1976d966afcb9ee1ff1db2d58453fd7252db4943b0ebe20fdbf9f1eae0ea4caa",
+      "y0": "0x2dd4123d31413d8a82907efa2573de1250a3d4d9d408c17fa999d39192358a08",
+      "y1": "0x12c77e7e6d55598fe99d96ab974bb625653a151e9fe23a6370c4090ab74bc3df"
+    },
+    "proofOfPossession": {
+      "x": "0x170fbe6fb9bd8755ccc205240c9931a3b5276300c9b0e2c00c0aa7c6fc1348e8",
+      "y": "0x23fb5b09dcc1f10756e787ad990d283e2c78dc592d8b408072e2ce31328f33cd"
+    }
+  },
+  {
+    "attester": "0xCF7cFa438a57F5fc20c51ff232BdB956Aff0Ec54",
+    "publicKeyInG1": {
+      "x": "0x08a0408948433fd2e3b65b62fff48ec3cd300ffffdaf2f03b14bb0956a26c4f0",
+      "y": "0x08c35b8ddddaa25887d4625bb3833c4f88182d305ef2351e440101cfac3681d7"
+    },
+    "publicKeyInG2": {
+      "x0": "0x1748a44c043af689062fcc0a4bf73650f5a307ebed3c6c526c96835009108d12",
+      "x1": "0x2f3c9249f4e7ba254da765cc5f1638bde9f3da15f1c0079ff77dbe4efc788d38",
+      "y0": "0x07e2cc8ec6edbec21e33bae1a1e3226a35856e6d58a66ae1df0d603c222ab02b",
+      "y1": "0x123a996c0ad3ba0180ef8c96f87600950934534aea513028a72bb16aeff7180e"
+    },
+    "proofOfPossession": {
+      "x": "0x1bb57c0c7274aafa659aa60dd96956c97740abfdf7661bfbd9625004083db6fe",
+      "y": "0x01f9f42d7b9f2d62e5d48baef8a0d58d8ff43d9fc4f5c74cb359f0f2c1a3b719"
+    }
+  },
+  {
+    "attester": "0x28b7D43C60951cc06d3f01332374f84227e12820",
+    "publicKeyInG1": {
+      "x": "0x0370a6f0a1d4f7f079dba4686c1fd23d4205a8616194cac0dc854ee18e7943c4",
+      "y": "0x04a066b48d83c5cd475a85e5e195b3cfd154aa01ed4b85fa9ac3427bdc2ef93f"
+    },
+    "publicKeyInG2": {
+      "x0": "0x078f94ef04be439fc5805430f7bc9975c0a400d9ff7540c812fcb1740c87571c",
+      "x1": "0x18ff75bfae1f8b500ce03986ed6d82960569cfc7b82e9e0fbd2013b0c0f7cbec",
+      "y0": "0x1091eb94f285b4968ed6ffe35dd18a310f02ebc8620a0dfff3d6a368543ae1ed",
+      "y1": "0x25343369da2f9d30b206759925dfd959bd99c3a9bf6d0900a1d6677e29f1c266"
+    },
+    "proofOfPossession": {
+      "x": "0x133cf3cb7fbdfdb42211ae2252950702fb307ef70d7fdce5db04b4fa6d3418b8",
+      "y": "0x0fffa0218d11b358a9ca09a96171bed0f968ea074daaf8bba0c27ae87b8a1206"
+    }
+  },
+  {
+    "attester": "0x653E3B27D94ABB08782f8155D6c76e3f30A576DF",
+    "publicKeyInG1": {
+      "x": "0x1e43c1103c10ebf568ec40fd2163fa9530f7b97e7d4082d30e71e70b3fe67bf8",
+      "y": "0x1949a92b79469c079f331818171fa83e371fa6eb2d0e6bd19bab890680027aab"
+    },
+    "publicKeyInG2": {
+      "x0": "0x05457915116ada11803432dbc9226554a2fe9718865400efdd924924957af2c5",
+      "x1": "0x2390aac55e5b36b546448e01bdd89c9358ca84d8fe29b00906883cdd73f8e88a",
+      "y0": "0x1d6e51d606f392eb79620f7dd6f608d8358e4ab550b4198f73044206c7687c27",
+      "y1": "0x01d676828f0f026f8e7a43d2ff528eec6565f260e9dc4d2593b485267437e8ad"
+    },
+    "proofOfPossession": {
+      "x": "0x2a6f91f318b0cb24f4f5a952870b8398d22d11132bcdb57471d900cdc462a60d",
+      "y": "0x1eccd8dd28bbd7e758eb48a7e716b2f9c779643b758b9cd12fc0bfa2a8771cd1"
+    }
+  },
+  {
+    "attester": "0xcb4F73AD2f12d7Bce187c44A3689759665f1c8dB",
+    "publicKeyInG1": {
+      "x": "0x03f9c009d05cc1b93e4873f179f20bc5375422bdfe859c5fc971f0df986668fa",
+      "y": "0x15cec3bd583142bf4d8ebbe5267eae780964ede2c442337d4eb7d436e662e874"
+    },
+    "publicKeyInG2": {
+      "x0": "0x1892d53f0b289360b1c17231cb7aec268a26bbbf021775da438284e4f150f3f8",
+      "x1": "0x221dd7c8169548701a74a0d9229fb700ac3badaef3dc0e00790297912e27fe90",
+      "y0": "0x03a6fe09fd8808590dea6413f75fb94226b14fdeaf738def82c36afc7668f41a",
+      "y1": "0x14c02d7cc9598ecc905ecd0dd3bd093af87c0cda8cf46f0e463e68d3d9470b3a"
+    },
+    "proofOfPossession": {
+      "x": "0x158729f9f752df00873b33046644fae48a10f31ce6b6312546a20b78d901c0ae",
+      "y": "0x1bc429d7d6e5b23d2c4ef9a1881bcbc595ab18dbe48ca9fccff6e271564e5ba8"
+    }
+  },
+  {
+    "attester": "0x137770b6F607E4914A74e01aC90AADB770B1103B",
+    "publicKeyInG1": {
+      "x": "0x011902f18444c2a0bb146a2dc512cffe277891cb29d9628a2d06f7afbcf1de9c",
+      "y": "0x03a1798a4941f9f94d910ddec32e072c8c0a96d6f991329b98f3f13dd9802086"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2748529f837b2fa393087e0d8845e2f72b9b37e049edc6c9f31116a694b3eedc",
+      "x1": "0x10d9937a2a39abefa8edaca99082aeb59459470e0afacc1f287a4fe2a387ec07",
+      "y0": "0x14598f6ef6c0fc8be0c0672e371f3d63069aed9113a83da2892b3949c72b054a",
+      "y1": "0x2d890a9929b0dde56525cdb4e780e549d23ae8b8f0118b48f8c71b3fbdfe937e"
+    },
+    "proofOfPossession": {
+      "x": "0x140036d8d2a4094b98094a9697c026d58bee9fc9b7774a749fa17bf38e7bc63c",
+      "y": "0x0f75b91b1443b9f462a2c603b543f02c1f0085c8e11d10254673a38f84dda417"
+    }
+  },
+  {
+    "attester": "0xC92e1e56de65953B33c6C53a1EEaa922898a5c00",
+    "publicKeyInG1": {
+      "x": "0x19e5004e94a2b5ccca50559082a79be48de578772a5148af61b400eb8c59f9d3",
+      "y": "0x263ce438f3d28ab4329d81214c98f5b5de2b3d10a0fc88336bf1f0710b8b7c30"
+    },
+    "publicKeyInG2": {
+      "x0": "0x0e1c443537ce6929bc1998c6864e97ceaf74725940c3f162ce31106fce3b5d0b",
+      "x1": "0x2b17090f3a6247dc48457c0340e5daa22bfccc4786a8e7629e267a27f454a203",
+      "y0": "0x06b3e7b881992ad88950097288b6df02ea11c1104acf3de807633aa3b694d9d4",
+      "y1": "0x2920bf6599fe66801c6a46c9a9fae5c833b7baf4aa21e030543e89b29216bbdc"
+    },
+    "proofOfPossession": {
+      "x": "0x2c724909a06259ba2c7633cad45afb1e42e16e55c127195cf719473dff37ac08",
+      "y": "0x156f2112a190b5c3fa6b09a9f898c2ba9fcd1a95fde8892e0f6d9532c625ec00"
+    }
+  },
+  {
+    "attester": "0xBef1762e6E33104cbF7CC1B31535F1334658e9A8",
+    "publicKeyInG1": {
+      "x": "0x01a2934d353c1fe65942777d7922510e4d71d793b926088ba26f9220f35bfe63",
+      "y": "0x12692eb11dda2c19b78d048f6e2e57cf1b616e1aa45a658d3c30dfa0dddc648c"
+    },
+    "publicKeyInG2": {
+      "x0": "0x0491ec3ec9d12237fd6e9cd6a1a22f9ac52257b0dff4d612665bc31b7da8fbf3",
+      "x1": "0x1ce820c7b4696f48878ef0af648fbc88e7a9d68118bc51e8abbbfc58d8a73bc2",
+      "y0": "0x171f3312c3f7eebc40ee05a0d2fe4bc38df3cb15f9950fd4f5c9d16c89fd6026",
+      "y1": "0x02a5ed1756f741b1d56729f7eb89a61776c9ef9561efa0354b8ba310d5c1c22b"
+    },
+    "proofOfPossession": {
+      "x": "0x1034f6906f702af482980f1630697f1cacb8ac7b24271c7e01234b56cce02a93",
+      "y": "0x2e7cb0a8629e6c8cf3cb6e0501d3acbd92f45724377fd7d13b9da53d78a576e7"
+    }
+  },
+  {
+    "attester": "0x7c4a9830a246C81438B81700D4C72B420db6104D",
+    "publicKeyInG1": {
+      "x": "0x0c1c9359e97224452feef5dad4dc1691886271d80b8bd1bcf7399d70716a3763",
+      "y": "0x02ec337ae6672324280481630ee46d67f69cb917916f78321f6506093f2b33b0"
+    },
+    "publicKeyInG2": {
+      "x0": "0x24db27e64ed986961f903d5503565c43b751d7c43682b1b97790ce1ce8a3f2c9",
+      "x1": "0x2241a9f877143859efe902edf591c5a6902dbad66d71380e3d3b2b8c519be63d",
+      "y0": "0x0ead03f87bcf899f1c4f4911528658bd55c461ea2eeaab87c5b420a376f7c13d",
+      "y1": "0x1c87fb3bea4f19500f1ae1753922dd2b2478ffcc43274def6fe5f4176c55cd27"
+    },
+    "proofOfPossession": {
+      "x": "0x195cdbb9062551162848e17b1be3d771ded7814d17c376691c7bdb172939f40a",
+      "y": "0x1fb6d13127e17d5f1738cdfc10a813fb56fb6ad2dd7f0e3a339a4ea98eb9d4e9"
+    }
+  },
+  {
+    "attester": "0xe631ec7d6f0Fdfb416500D7Bf755A4d403D9f5e4",
+    "publicKeyInG1": {
+      "x": "0x2420ecbc01481bae5bd2640f9e731e0ee487e765f5fcbc1f6be1512d470cd4c1",
+      "y": "0x220214139d9f48e79560bc89b6f522bfabd476df5b0d39a375985f532a5363ac"
+    },
+    "publicKeyInG2": {
+      "x0": "0x24e5f991f5cc1de237ff238645521b55b04edc2d79b325e29a9a2df7ea971b38",
+      "x1": "0x180d4a56fc16994db4943221c40d68e04b747f64cd1878d06ef90786408d2424",
+      "y0": "0x0349cabeff0cdb78d668aaf0395534ade4ee225711e358c96b7161442c19f571",
+      "y1": "0x10dbc71616702da4bb941169cf49c0473b06d7c2063c4cf7e9aea4a8672c3bbd"
+    },
+    "proofOfPossession": {
+      "x": "0x0e571f626513a24d1466ae55968f5fffe01330bc246b227b091db3385b13b885",
+      "y": "0x097183fb6a2172546460b71bcfa5f409d1bbeb03c8a3c9d7662fb548bf697cf5"
+    }
+  },
+  {
+    "attester": "0xC2e7acB00fC980f6cb1747665549e76008b6d74f",
+    "publicKeyInG1": {
+      "x": "0x2d12eebdc45515ee412edc260934165113ce022ba9cc8a24f9b4112d8b560efb",
+      "y": "0x0f6846596333d9a24dc0885abedbd60ec76624c19ecad5c042a650e00789317c"
+    },
+    "publicKeyInG2": {
+      "x0": "0x0ae0e5192c61748f590435851618ea08d22825702b53922e7c85f32e39c663ce",
+      "x1": "0x302a0474481e5d77e1c8fbcd369c92099bc067261f3f0706d32ec5d093d96320",
+      "y0": "0x13ec6e65cc699a967842dd31835caae90a45aa48f9a1f7fad42f76245b553b68",
+      "y1": "0x2d727aa50771d6cf6b0b43d816f25ee692457fcc80bf630500eb970d82b13bc0"
+    },
+    "proofOfPossession": {
+      "x": "0x156467971d22617047752615bfaad02c8c168c66bf7a05d831461e6d8d81f435",
+      "y": "0x0bd4dfc1acdce888f670e9c51ff21dd0259e9fa774d91bcecbd7a210dd85ba62"
+    }
+  },
+  {
+    "attester": "0x44f6A5525491d3520D8b3D879d8FdEedFcFA2c47",
+    "publicKeyInG1": {
+      "x": "0x07958e4b47accd7fe94a10e9a98e01fc82f4fdebac3b19f25720034868506c65",
+      "y": "0x1d8b36579a5275bbc6376a2981ebea4182412fea10dc342871ed893e347fd134"
+    },
+    "publicKeyInG2": {
+      "x0": "0x0f0b91ad534a4f7af671354620cc51b721eaab89071b9b64907ab45da14d5f36",
+      "x1": "0x22b30ebb0b7675d6a34137316907a207011bca069529ad7f378975ee928ee68b",
+      "y0": "0x249135547c0d53008e1743217fa61bc63156466c3c3751b5be92614813028d42",
+      "y1": "0x0fcb9b2b2e2de43ae86d66f24e51ea7766cf3b19d947baa18dc2ec036356579f"
+    },
+    "proofOfPossession": {
+      "x": "0x162e0cf7d55a9841c63743dd3ad3ca831f855a52877513c66d4c0912ea7cedef",
+      "y": "0x2fa37695e3ebf1b146680c323af4ecf49c4c631d18e943d2e72d0f434564f9d1"
+    }
+  },
+  {
+    "attester": "0xdc2E4a7ca46D5362fb754C973c127C371C0dd321",
+    "publicKeyInG1": {
+      "x": "0x06ed30252cf76f8c9d0c23810ffcb61bce354a18d537bae075be336a32edd591",
+      "y": "0x2018b039586854542cd3615e8159d5cdbd8e906b78aa7c216b58727bfbbe5bb7"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2866d66dda18734b3bfafa46a41beb5edb2ee7eb3d951467f315d49b7d1395c7",
+      "x1": "0x2badfd275c077903b861365e2565313fc403efeddc514cac0826a1e463464667",
+      "y0": "0x1402d9bc331ad53241067e431e874ef2ed06c507076fa4c64f7ccd1c6c768b46",
+      "y1": "0x158d2ac252f4b5e431a1dbc2b5cea34ff6a681e1ecb7ef38af46c484e9d04145"
+    },
+    "proofOfPossession": {
+      "x": "0x14dc091f0830478f61ca91f9639097550aef78969630f5cfeca2ac3b4d3b2ca7",
+      "y": "0x0c8ad8c14eab5631d13d68b2a06b29b54e3713fb8ede46cdc2bcd76d1960d6df"
+    }
+  },
+  {
+    "attester": "0xd56bCCC6dDb9179e5Ad17D4187a971dCB945e064",
+    "publicKeyInG1": {
+      "x": "0x0d480873e9489c01fbc28694d28d638552f3bc1e5d252f487a727cc98cc20277",
+      "y": "0x200ee715646b5e6e9602e4dfe0e3c20360ff1d5e8511269f6c0d5e4fe2f5eaeb"
+    },
+    "publicKeyInG2": {
+      "x0": "0x021a4ab3fdee46722c54a51b98d916187d34993af8a07565b4dee0bd0cfe3def",
+      "x1": "0x174c422a9538eccac5cadfd216552077de6494b3e52cecd73305cdfe583e8fac",
+      "y0": "0x164718eb92ea4af0f5c16982430d40df3c037cf07020b65b0a3ad459262c71a8",
+      "y1": "0x02b4dd76d9eec3d6079a968e569a4b7c540d63e0d18bce8010ed690b8556a0a1"
+    },
+    "proofOfPossession": {
+      "x": "0x118ac06ac5a925c6339cb2628c538926049bc18b5113abf7bb98f861febd2c5b",
+      "y": "0x253abd394d412d95d673d99f743e508ead1887df846ef27bbb21530dac8d22f8"
+    }
+  },
+  {
+    "attester": "0x6fE89Ac502967884e46eF2B96d907822c7754852",
+    "publicKeyInG1": {
+      "x": "0x10449bd430def8dc713d13d062f3c3514040f16548ca5ee261b082dcd48eb07f",
+      "y": "0x14a7ba3639d4eae54632f0300afccd696e5b4f875c1bacbc5e6211fbc1c3c346"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2ac057e815460a85f3fa80c490a3127222a1a86c0effffcf7e57b15858c21995",
+      "x1": "0x24a0775643b394a86a34055df4cc60e92faaa313e821b5c7ce3e7cb5c181faa2",
+      "y0": "0x2cd63c6344a8ebcb6fef1e739d5925dc203cffbcd5d9eb686b2f5019ecb11739",
+      "y1": "0x0b03031e0a904f111ff2814684015e5277bd9e2379b78f76729b82c3fe170468"
+    },
+    "proofOfPossession": {
+      "x": "0x09c01be051a4fb86d99e772cc798b578f2c177defc4407b3604ce6f2f900244a",
+      "y": "0x0b2bd308083ef9f2a6cf3b41d6f03a2a2294337b399a56b72fd2a3df6e91cb8a"
+    }
+  },
+  {
+    "attester": "0x5e0c2615584f1905aB4cd7341C019eA1e4323663",
+    "publicKeyInG1": {
+      "x": "0x217549ba36039cb9569317a9c158221ca518ea50e8bc264d2236a4a3a87810de",
+      "y": "0x229e2179ffd52f9b24896457829b2eb0131609cc11bbaefc88bbd6157384e245"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2ff7730343e9095c86f91daed90a8f3b0653b92a577ba608fbff35f1c53af7a7",
+      "x1": "0x1717f5ee4a3eba7126e5196163a1f769f7cba8ed2fabb5f9d4ec9f0b7d4c00e3",
+      "y0": "0x2182d9babd26faa397f40d54ef46a29d98927ca998288bf6e7fcb61e4f17834c",
+      "y1": "0x25ecbe7e8c75321fd4d191835e1251b3f7671ed26b1a2429c1e1f0593e6f2b1e"
+    },
+    "proofOfPossession": {
+      "x": "0x0cad8589251746d13064362f6b97df57d29b69f538f371d38083ce7a61c909be",
+      "y": "0x188724b17a886e3a3a36ee88493d02993ec9e5c4c2e1e7b8a6842d176886de39"
+    }
+  },
+  {
+    "attester": "0xDa0656D1A6d1ED158D7dcBbDEBc83c5e22928586",
+    "publicKeyInG1": {
+      "x": "0x237c1dca63e83a93205167d5199fe4cf55205c42bf2a0f35a4e39f4984095edb",
+      "y": "0x1bb4a0f15930504f9835daa446d9793dfb43cad98657e50c8b65ad0d8f53baf2"
+    },
+    "publicKeyInG2": {
+      "x0": "0x22806d585efda1245cce4d6573ddc5ba5a7f7ed983f5f00c75242c36e9fdd810",
+      "x1": "0x12a89a12d124115474d213a08118a274ab1b008605f966d7203dc21858defd7e",
+      "y0": "0x13206cee7820f28c60824b63e52c8f5f2e825e1020f8e120c4df81d21bd1d0cd",
+      "y1": "0x2a5ecef82fc339706aa55f75a2ecccdb23678cf3db34f72df23fa38a637d90e4"
+    },
+    "proofOfPossession": {
+      "x": "0x2c4227ae03d24da716ff793e7d6c12bb56966bfe01fe9f960017dc53618162d2",
+      "y": "0x0950cc8f0f4fe4c913c3a0abe62fb8e4ef49b917658d21c7aed92db198f6bd9a"
+    }
+  },
+  {
+    "attester": "0xa713306ED802C5A16599B5821fbb8CF9D4cC2c94",
+    "publicKeyInG1": {
+      "x": "0x10175ced6e5d78b313b045ac0a31f7305f091d297d23667058887b6ee674b94f",
+      "y": "0x2eac2ee35b422cfc685d7e0d306a7c1eaedaabc2cb204d9f8be48a13018f8401"
+    },
+    "publicKeyInG2": {
+      "x0": "0x1988a474565ab60ea7c6fcd3a543d26e5023f961d003d3f520cb9196f0194f9a",
+      "x1": "0x0a748a6808ee9dd0ceb1f9247ad9c9e5cbfdddf1391ad7cf109b4fd7c913bfbb",
+      "y0": "0x087f0af9bcac1838a18592a5ce6213484966222144ad359c19a10328b8bd5d74",
+      "y1": "0x274596e462e6321ccdf5acecf270d5f8ed9087386ee310f1d49d22c73467f6a0"
+    },
+    "proofOfPossession": {
+      "x": "0x2a499423b933d055208b589a8b59c02db78f080ab7eeae2b33f66a6dbf5f3024",
+      "y": "0x25d3015065e7343b344ab5218a0287af9b1e6981d05f1dec23346d91d7ef1e25"
+    }
+  },
+  {
+    "attester": "0xEB82DD3d16421e58C54Db6bcBdB54F6e7B83A7bb",
+    "publicKeyInG1": {
+      "x": "0x0189f6564892b101895c23b51b461e9e760fe36c19dce400ed4653ec0663bf10",
+      "y": "0x0a65703434f02529cfe841595b43c816e167b344d108ec2b8cd863bd8b2789f3"
+    },
+    "publicKeyInG2": {
+      "x0": "0x16503058ca3ebfc22eee761aa18a8c615022157a3812132748d46fc06ee86bba",
+      "x1": "0x25f7254af4c23b28a85afc81a2e7f5639468dd30d3d857898d1fe8a4778ee9b6",
+      "y0": "0x1c40f71282abfa1bece2fd2bf862c13b14e7923dc055550614c3a7733be74884",
+      "y1": "0x150991cebea84c5a5dde57e6fed07c136325d5c15a130b5f4eeafa5bea2f8027"
+    },
+    "proofOfPossession": {
+      "x": "0x2ff613326d8e097c60d5a8d895432f3da0ea3bbc2ddb40d34ba9fe5c32b91278",
+      "y": "0x1e7c683efcb2cbfb326321673a5305eb1c1c017f645498c519775068de767978"
+    }
+  },
+  {
+    "attester": "0x95D89d4374D14c4eFB9Fa73F1Ca51a2cFB33F0a6",
+    "publicKeyInG1": {
+      "x": "0x2797dd95a7fe10ffae0b241339fdb4dd89131807e3982012a22d0aba76e71405",
+      "y": "0x0103972529079d6628a88e5b2ed5356c8739c287190a87b2dab6918ef90c94a8"
+    },
+    "publicKeyInG2": {
+      "x0": "0x1853d33af448375c93bca07c91a9690251260fe493bafb0fdcb37a144c127259",
+      "x1": "0x2fae9dcd6e592d9f31292259b66f2d4d45985e95836d4586c0cdca5300ad6562",
+      "y0": "0x072b6dd5b2c514b77752bc76ce68ad8d89bdb3217cf033bcd1bf142245deac43",
+      "y1": "0x03590acf6c6b48cc3abf712d4f79a484c02b1292848888a8d74b1414729ea121"
+    },
+    "proofOfPossession": {
+      "x": "0x2d7b809f84c4c8908dd82184cf649ef55ded7022ea7e3e2c4da0262d6eb7d547",
+      "y": "0x022684f0f88646c8d0587ef10a8e94b2c2adfcbfac7f556e2b7f08f36fea6e8c"
+    }
+  },
+  {
+    "attester": "0x241618e649868953abF15AD2281479e84986C9C3",
+    "publicKeyInG1": {
+      "x": "0x22e945bf806521b5674374f1db4863391b291673ba8b5017006e8463dfcf0fc0",
+      "y": "0x10fe364b29f9951c40cccecae7c192e42cf8e533094d2c2b2b423bb845189618"
+    },
+    "publicKeyInG2": {
+      "x0": "0x12418a7632f05937f32ec870ea8792b146d7ccc8d8a174dc46df5bb278f4a5d8",
+      "x1": "0x2d364167896543b32d7439b660a3df40db68191d5aba437faf11ab2099919382",
+      "y0": "0x13f2f78385b9a954f6d454b61e14af1e47ca3a9ee22a9bb2163008fc56b4e55c",
+      "y1": "0x2cbf868c8f1c16c1c851944299a336d37b539a72039971fa9df5a9f4abe19c5b"
+    },
+    "proofOfPossession": {
+      "x": "0x29c4e1d662da2e0a72028dfe8db78e68995325ae7c48d65193c0fad6122ad827",
+      "y": "0x0610a2e1e9ee9032bc8927e19022cfd99d6892c28a11156faaf68f218fd07e43"
+    }
+  },
+  {
+    "attester": "0xc160154Fa57BB10eAd101B739C1cB5DFD48f501f",
+    "publicKeyInG1": {
+      "x": "0x063ba644fd60de9ad1e76d3997bb2c0929c6ef6d4fac799a9ec36aedf65af26f",
+      "y": "0x052d5a9891f53a90dbe33ede5ee9034464957a10ea0ed3c834c94531c4039fe1"
+    },
+    "publicKeyInG2": {
+      "x0": "0x232af331f58a0715b04a501427eee0a503e042ea16d024e237df0c901aba9d48",
+      "x1": "0x246c4999250c81915fe69c4390b37c374a1f9c8a3e79bbfa57d431e017240c4a",
+      "y0": "0x1733136ce22b88ce7c54b00f0d87cebf37788a7792da5e7bb12776ccd51447e9",
+      "y1": "0x2caea16a9133f7427d22b0c8d36abd986ef43e52a18c94ca9474c4ab61a428aa"
+    },
+    "proofOfPossession": {
+      "x": "0x05e9c126e8f9fa18b05722192c703264c0455fd36e848a46d23e6804f8ab4152",
+      "y": "0x0edd572f61c0570a9e5f20edc35b9fe92666be91e0527986053aef34e75518b2"
+    }
+  },
+  {
+    "attester": "0x5488c67A1408aab0D26D01E2B12a8cc41de7C7fB",
+    "publicKeyInG1": {
+      "x": "0x120409e828c7bc54716ad1f474e375af2ab16c853d5864366e0aa93e69b8b09b",
+      "y": "0x04ec8e954f2e2821979054cc37338ac4353e859b0d0b1302c658a50418940268"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2678b5c3ba0d7afc3c4e1f020bd96f2554d0314ec26ce21c12ce328e532df662",
+      "x1": "0x2dbfb37312163a63f62f85c189ffd81ea88ea84d1eba31230e3b37ac5019c8ce",
+      "y0": "0x006d1f51de3aa7ca3f0384e4e089d08552ffb17f22c234ef839f0be764cffc36",
+      "y1": "0x027fb29d7cc71d8c13ab317df65873606ab6c8f87b22a016c0d8a303253e7ff9"
+    },
+    "proofOfPossession": {
+      "x": "0x289bd578dacbba6826c57378537b3d4f02a6c1e4a06bbaea32dea6035e813810",
+      "y": "0x109d85b4b02fdc287fea3ef6f5487953c0fb635460c1cf1116371bc481b05e4a"
+    }
+  },
+  {
+    "attester": "0xF75C01cD01c84Ef1CD22cFD92A05a05a4e55BCBD",
+    "publicKeyInG1": {
+      "x": "0x04d33397a1a18548c9c779c3e467eac432b35d71f1e498ac98c44c40bea49ed3",
+      "y": "0x1abf0cedc32a29abeb7316656928c44ad5ec6c3ba566c4c89910ed8a1dad2a3e"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2e297bc3e3a0f06787b5901fc2e61d4cf35aefbcfd74e1b8d4d98bcac8ac66fe",
+      "x1": "0x2a7ded64df75cae78dc0db48b72168021417766951e27d50540adffa8258ca8c",
+      "y0": "0x0029f187b17345753202ccfbe45eac598da21b8d9b5dc1b820973155531d9179",
+      "y1": "0x13a898a0decce47df6c59ebe0a86213a163721fafaa420a6d153bce257139b34"
+    },
+    "proofOfPossession": {
+      "x": "0x167f666ab8bd58c37db2b41279e4d14aef4eb16baf5de4d1f03623a3513a3d43",
+      "y": "0x0f0df209939176d02a186ce2a587cdee9462236164f230b0ea04d9b41db96e7a"
+    }
+  },
+  {
+    "attester": "0x763c588f4F21630a4b4D63bce656f88FcC013B8A",
+    "publicKeyInG1": {
+      "x": "0x2a89ae64ac64adda24e498ea3911bfcb322bc72ae48b22edc6749e0cc4a352e3",
+      "y": "0x06b0618f98f351ce14fc7deabd62b2c6296e846b7cbef430ae698e83c17e74b8"
+    },
+    "publicKeyInG2": {
+      "x0": "0x034cc1e446c7024f773dfffe041670920724e3fa51395a7d2d97c28f7348367f",
+      "x1": "0x1f904f622d05fb7924e8582baa23d6692233d4d310e6cf8c8afbe85ba7719f37",
+      "y0": "0x01be9d0b7b056ffbb9fe1df153efaa14bb71de993f55eeb145f7947fc80d655c",
+      "y1": "0x2a0d8609c26060d144b391323d7d22db7236806ac2a951f400ed6f1bca17f7f5"
+    },
+    "proofOfPossession": {
+      "x": "0x1349d3363a7fa94c70eb144ef5266c96e7db5d547101e8eba8418a4fdec48806",
+      "y": "0x1d3db2e99d634695cb048ed95633dc1dc95d9f5d2dc3aec7f36b957cc6ee1c21"
+    }
+  },
+  {
+    "attester": "0xd5AFaBA332083D6f6200533eB334209Fa4c06fBd",
+    "publicKeyInG1": {
+      "x": "0x14f08405bab59d5c4dc5a454d3bd617495ca9815ead86ef2b7d2303280c590f4",
+      "y": "0x0974dd038365cf61707c4664757b12b70f320e92e768718ee3410cf2457d783d"
+    },
+    "publicKeyInG2": {
+      "x0": "0x0dad54a329f9f6402c59a4ad993b25a40e0bc696888bb98ccd25ca510c8d7e9d",
+      "x1": "0x277561cd9b85718babff0fbaff5296617163e909f6c1c1acdd4871561b8acb84",
+      "y0": "0x2d81fb2ed0a38652d64f78df8cbf8ac86042f650b32047521cb7c8d54771d44a",
+      "y1": "0x13473bf8219d37e02bd49fa2ace6f04cb8bca2dfd71991c803ce1ea380ea4598"
+    },
+    "proofOfPossession": {
+      "x": "0x11aa658e7ea79ade3c8d2372b4721363689a4d521ed93e8890bf985d84a0ee19",
+      "y": "0x109e18a392c729d18caf42b1290227182b7f30795418f3045ca73a99c22bf242"
+    }
+  },
+  {
+    "attester": "0x3C867687FA6469BD8E77fAcfCcb670D8cbF6f752",
+    "publicKeyInG1": {
+      "x": "0x200f51f6ff62ba956cb02a846cb67611cf60d76c5a17d92cc26d142390066591",
+      "y": "0x1d3c15aed112f6f93d5b072fa297df817e078fbfb0032d339ee99c497235e360"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2fc4e28ef89a20c4ef92d4a227dc32492c0fab7462a8ce8a595586d14c643259",
+      "x1": "0x0b46dd591345dc1b80e46af32a46a97dd3fe37aaa02ce15f0427e397a9cb7b1e",
+      "y0": "0x144c603f60fca25b75e9efdaef22f3859684f11e50ec48f2b03f42a0cbad23b5",
+      "y1": "0x0a318c6b9cb276e575ed3dc40d9ad404e369375e360ce4c25c7a76308264cef3"
+    },
+    "proofOfPossession": {
+      "x": "0x22e4e53b3a7a69feb68b3aa5ccca44d0d4ea1309cd678419773a3d361384969d",
+      "y": "0x2b7028d11f159cf5864bcca05c1bb3fc884dcfa2716840a9ddd53398d6e11d2b"
+    }
+  },
+  {
+    "attester": "0x1a993aD87F71355F8094c2528afD8f72289d7F50",
+    "publicKeyInG1": {
+      "x": "0x1a52b9d81b60afbb6be0a93a14c591f7d9cd7ed036cb46d31ac46d6c151fdd01",
+      "y": "0x2b3291888231d06266b260975abc6595c5241095d975a6cbd83e922bd9ea539c"
+    },
+    "publicKeyInG2": {
+      "x0": "0x1c6fac65675e2a00748d359da2034dd9a88f8d309a107014a96887b711b8ffea",
+      "x1": "0x01bdb774d9ec494ab5ff9db5744663b21a2af957ea9beee32b63f1f0c7a46281",
+      "y0": "0x1b332dba4289ded478deb374bc68b7cae90dd97d41f67cceaa53ff26daff27c4",
+      "y1": "0x2a950aa97408280e998b10e24ba08bedb98994b093e0437301ebea1661ac0e23"
+    },
+    "proofOfPossession": {
+      "x": "0x0c0e24cc0f4eb1a106af50892c8400c0f91fae3bf08819bbeb8c17f51c01f82e",
+      "y": "0x27015d92bc13d472cce785bc5814e2f2e3c5b35cf857d6204874f439fab0bcf2"
+    }
+  },
+  {
+    "attester": "0xe10d6375F64017809B2ba5715858810A66F8e31D",
+    "publicKeyInG1": {
+      "x": "0x0fc70e3b709d8e11e767e4447aa492667584597d29fdefbf5022400833948ffb",
+      "y": "0x075e6f53c950184d5d56f07d5c6aa3b2d30f9b9e0839f128fdb65e619a2b1b19"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2c022c3f52cabe48cf39425d3d9c14a789d8e555f48873cf99e4e83a8c933184",
+      "x1": "0x25d1e8031f83045acef464fdeb1dd4be81786616621a50b3e77dc53b1d9e93d9",
+      "y0": "0x052855edbd73ff329f4a43b590ffab5baa85594db38cf01bd421a30a3d6c5f77",
+      "y1": "0x202e20dd3237476a1c05f6ed1256473bd4b36c557bb4723d619d966d9a15521e"
+    },
+    "proofOfPossession": {
+      "x": "0x108f14c616b795487ac58312aec2111958bba2750710fe7f965bf6b0d2aea015",
+      "y": "0x00127f33a1bd9a10f5dfb904b8cb797762186193f4194acb739efa93d9f98dfa"
+    }
+  },
+  {
+    "attester": "0xDCfc7065BaAA202e6a1e27eBEf448D759C60B056",
+    "publicKeyInG1": {
+      "x": "0x10d8aea9b63328d088d22dd98fb906e89e01e587e34a2c0eb9a133264573378b",
+      "y": "0x10fb68265d495da78b42c7caa7c96cd3f90f8c0586dfc4d57ef04a333867f1d5"
+    },
+    "publicKeyInG2": {
+      "x0": "0x00b3335d174425a5adfacb1c903e77978376e1b29ebd5c058ebfcdb37bcae872",
+      "x1": "0x12afd96928df4aafeae4cfc2bd3ec3372680d7687ea94165b58d2909fdd76b8f",
+      "y0": "0x25e1d8d9414d9202f0524ba6e19a52ec10f96305c29e39b6ff01179e2af3c5a9",
+      "y1": "0x2b433c84ad585a7166951a4ef2f4cb900575e625865ad88a86ff1064828668b3"
+    },
+    "proofOfPossession": {
+      "x": "0x1f0547e31da73722bca55834d2c6e97949425ccb8b59a3679d078ef7e4e58e56",
+      "y": "0x1bab0d5598dede0c0a7a61c613703fbfd6227913f10333cfb2d739f1c1fe339a"
+    }
+  },
+  {
+    "attester": "0xC8c109057D4c6872Db1C20c7013Dae0c91AB2Ee1",
+    "publicKeyInG1": {
+      "x": "0x1ab2bb336c2b147e6f64bcf2523d4740dde827525c3fd7c4749f79249592d62b",
+      "y": "0x2adf45dcbf308733c35dca6fe007b5a883b184ee15a91cf6ddc8ab3f4e810ed1"
+    },
+    "publicKeyInG2": {
+      "x0": "0x26a6a31927ee9a9f5488f82b28bc7357dcb91432b4b83fa173dc1fc109b1684c",
+      "x1": "0x0b04bfdd3a0b9fffd1e302f11b60a7592482cf6c3319ab7dad2df4ff7733c717",
+      "y0": "0x2f092c8dd461d33114d06f464a7e406377a51d0846028e0567e0b23282dc027e",
+      "y1": "0x1802cd7d1ca40e12af5fdcd402f28977c0c5eb21dbdecdb6e105900e8b05a756"
+    },
+    "proofOfPossession": {
+      "x": "0x199b0bf2ec7fc95d186c8790a134f7258a6a88e6e49da064ce399461a5f7b92a",
+      "y": "0x271f465aac4c20c5835036fb602fbaa85eab94b8ab9d6975c12b11bb8f84b274"
+    }
+  },
+  {
+    "attester": "0x80bE2F25ff8fbf155da4b29554C1011b6eeDf046",
+    "publicKeyInG1": {
+      "x": "0x24d359b508b6687c7a2e3f018b3d5413c906c6e79719f2df3e79fd7491e8028e",
+      "y": "0x01805472ae2e222144584866d1893d7644db403944d1cd2de827c14cedfccebd"
+    },
+    "publicKeyInG2": {
+      "x0": "0x290e7cb4b662faadf17de296951a11f9172d0244662005194b26876336a86841",
+      "x1": "0x0788c3254f95cb3513a607f3bf425ae2b15234bfeba0019ac4ab66dc2c292a50",
+      "y0": "0x27b30c90f3300d7104526027caf352c25cd9a14116b4875030074e0eb389da3d",
+      "y1": "0x2adeda3180be936e44a01ec1a5a8f5b87e0a375ceb00757a6f72fdcde964d3d3"
+    },
+    "proofOfPossession": {
+      "x": "0x2b7500a308d29ff035d1f5d70e467dcc36df57a0cdea2ab9cd20038f9fbcb918",
+      "y": "0x0f807576be35a0a7d8244ad79c211dc1018a0a235558f5dc78407e6ae0539728"
+    }
+  },
+  {
+    "attester": "0xa8B161b9E8A945ca537ca4Dea8e11A8bB64C0C11",
+    "publicKeyInG1": {
+      "x": "0x0990dcbf7afa546f31fcf90e182f3e42ef3a483decfdd12b6e7d2f2ff1693e9a",
+      "y": "0x1e73e19ce490c0befe683c50804a68730f833c2ed1c635ee9c6c0acecb259fc0"
+    },
+    "publicKeyInG2": {
+      "x0": "0x02b886e26c7ea6e7571d16ee27eb8b8f4c3f0deadf69ea4cb77d9cbef8895b53",
+      "x1": "0x2d6680855fc1fecac810681c27d210e196adc850459e192cc6ddc7fd388cf31e",
+      "y0": "0x06f24916ca98906c21ea65d8c19986d47d5b2c64f939dafb793e4d88cd69c083",
+      "y1": "0x14e7072b0b7aab13b55e0c2025a4c8d4af70de2507db39074af8bc7f0ef4d317"
+    },
+    "proofOfPossession": {
+      "x": "0x2f086add5b7bbc44f08b7c300d3d85b6448b0c593ea3145ce4a6a5d076be713f",
+      "y": "0x209bbaae1ce24816a89ca9dcf8037699f090c741adb0f81b48ea5975af0a5d44"
+    }
+  },
+  {
+    "attester": "0xa22fEB3b0d5dF587d6798658416f0d4FEBbD12A1",
+    "publicKeyInG1": {
+      "x": "0x2409f7a22c3b3c962e59b1b7179e969d42a3cb50dbdbcc81e55974e2f7f3aa62",
+      "y": "0x0e2fe6dcacf4be70e452c6af6be24d94018960e9fae5a052b29893ca77a94ad0"
+    },
+    "publicKeyInG2": {
+      "x0": "0x0d7f9b4d7f95b122d294d55ee6831c934e0375daef4718f59281f1794006e6a1",
+      "x1": "0x074c5c39a0c0d6ac3edf10ead86d3caf37f241c9c0d6d5dc2c458218d759cb8d",
+      "y0": "0x0894556bf91f0f0fcefb7b9e578d5665efb270fb6ccec4930d7625d95acdd0e0",
+      "y1": "0x27f25ec2ecc6fa4e716337c3a189aa0bc87f94544f4d48ac71112fb0d670d68a"
+    },
+    "proofOfPossession": {
+      "x": "0x2f08a0bcec13068ba5d45fa9658d347ddc957a9fa9abc16f7345b882192e24c8",
+      "y": "0x24769f3cb728c95da941a2973ef7399333b2ffded12adc2e6cad97777cdc6e98"
+    }
+  },
+  {
+    "attester": "0x660BC7C1e4c76C4aE9658dF24Bb32B29E9310B6D",
+    "publicKeyInG1": {
+      "x": "0x0cd553f552b0fd25a969aee34ed7a4dfc6c65431158d1b9c92290586f32c3465",
+      "y": "0x1f6b3594fae5b4ec72fc17d19071972fbfe442b9e5bf61c6f9389827f21e8328"
+    },
+    "publicKeyInG2": {
+      "x0": "0x2d109046fd54d1f884329129fc38f2cc0a701a0d1ae6a1adcd596eac98e10f31",
+      "x1": "0x3025c57b668da826fd4f6be75f3a372cac7185c99f80b026073aabce1d516179",
+      "y0": "0x2d85cb00a82636e4101f65759585020e9ae61714f1dd25c6f28b59833c67a6fd",
+      "y1": "0x256f6e8ddd7eb7dd5a1b01fddbbf3e636b30a6f0bd23e010e01b2f94a97780cd"
+    },
+    "proofOfPossession": {
+      "x": "0x26813a9f680adad34432273c17182dc4aa89e135764f71743c77151cfbe08c3e",
+      "y": "0x1950d82bdf2bc93d6d8fd2f8f7c7ebac8a50d8fae730ee80d74ba66b2f655dab"
+    }
+  },
+  {
+    "attester": "0xE1b6E785B19bE2B3117249a785e13c0f1d3f2cD0",
+    "publicKeyInG1": {
+      "x": "0x1f44e327013e2d28d53fa4ac7561e0086165b7f6cd3b72f4c6d672607d1556ba",
+      "y": "0x1c69839683401ee7a00b3736456bcbd772b700580a1bdd189ba25f8ff78e377c"
+    },
+    "publicKeyInG2": {
+      "x0": "0x11bfdd25e0f94a25195627178216372140b264e21aba4a11e36c06dce2b06170",
+      "x1": "0x09e359d60c927f4b203d0a36a68c81caf1d5c6277132ae153f8cac7ddc4b3444",
+      "y0": "0x17cded03bed2697a9b4b645c1ca04b34bd1f056b8f4a9b5569dd24ed1ff28397",
+      "y1": "0x1aea7e6e5849a9f04a36c24198049fec3669448fc58afb62332908193cc739e4"
+    },
+    "proofOfPossession": {
+      "x": "0x22d825175341f7a5da16ded0a49182415ccb64859e6a1f36f3b4f94f30f4c7d0",
+      "y": "0x1a4a1867770386cb68d38b98e7386e58bcde3ccc2a9c3e0a24c30fe1d5f1703d"
+    }
+  },
+  {
+    "attester": "0x603384FD0B9326E06cEbd6c601ff1e813aFe8B46",
+    "publicKeyInG1": {
+      "x": "0x2e327f17ef190e964b776bacb026e1b72fc30b940d6b6c45fe15033071860d7d",
+      "y": "0x23131e849037b39775c7a4575952cc6463b74229d08ece8678d114606ec95611"
+    },
+    "publicKeyInG2": {
+      "x0": "0x20f5ad2d0e0607271a19d5ad67a2ec72a178dccf425c31b22beeee5170e4226c",
+      "x1": "0x2bbb36859e1c04f33d1757e3e4e8df08f6244ceba1f4760aafd989550acff102",
+      "y0": "0x1eda1a7fd65af413e17f40758a530ad477294eda573c1de7b2935ca6cfc2aeec",
+      "y1": "0x23c803af5b6529dac8e766878146f97169034d7c71c9475e395b28077e4eb472"
+    },
+    "proofOfPossession": {
+      "x": "0x13c9e26c172acf1965d3374b52e2863146de763b670f1e2491771a0ad07231ee",
+      "y": "0x1c1f949184e05036efbfdf7dbf77549de1ae430ead59cc096369b4e9b8904a20"
+    }
+  },
+  {
+    "attester": "0x08632f59537f777d19A234F4dFd854169aBA747E",
+    "publicKeyInG1": {
+      "x": "0x06f016e3f1da4c854e2d3a4f99cc141d0f8283db2b49c2e937f899cf349f420f",
+      "y": "0x09530954e2a2748ef02958b8d9db89401a392d86fb58b78c7786d7797b045624"
+    },
+    "publicKeyInG2": {
+      "x0": "0x21abe60951400784754f2a334ec429fe7600edf4e03e716c89283a598faf2b6e",
+      "x1": "0x19956855f9e5a2c55339b320904458bd347cba518fbaa5f44fcf868b24153201",
+      "y0": "0x0a6c9720b90e4508c6e6553586f47a8f51d09de745f153ee6b4de48b92e5a39b",
+      "y1": "0x1a90c829b13900630bc8336dad31b366c42d702879e5822312f004bc86b6659b"
+    },
+    "proofOfPossession": {
+      "x": "0x15b03fdaf43e03fba20f5d01a261c5f134843ffaa7e8a598a21aed530487a7a9",
+      "y": "0x102b8f8e48b5081b8ff8aa40b95c25d7bc92903b30b34e884e53b590548791af"
+    }
+  },
+  {
+    "attester": "0x50Ee5dF7BC0be6f041047b072f1615CF5Bbe64d0",
+    "publicKeyInG1": {
+      "x": "0x2bdd94b5570494f37ad5deca26de0678649a2c0302c9c16fae89f677295bfbe3",
+      "y": "0x19e0068c4ae1c7414447ec8e275dcf82e7c45201e1411eb09c5fe13e537b174d"
+    },
+    "publicKeyInG2": {
+      "x0": "0x1f1c6490bb092be7ceb4141cec1800839a01f92c5837f6df0cd2d5609363fd40",
+      "x1": "0x18f3ca5d4b90d1066b37699a9b5473070dec3d7b59c1998cff4d392c4d560f77",
+      "y0": "0x0f078d1844941e1483c4f84c6d2da751f6beb0979b267016aa3fd13168ec6c5f",
+      "y1": "0x056c6b51ab62801ab8592c07a1b815fab9650a1c69007047cfd6c4255f7419d9"
+    },
+    "proofOfPossession": {
+      "x": "0x23e1b56edcbca1344ef462ff35bb3c18564364cf419aa6415daa1577517fa8ef",
+      "y": "0x1548bfed5a6eb634e5cd720debb32d0bfa25edcb970b29f8fff135c3a8cc1f21"
+    }
+  },
+  {
+    "attester": "0x07EfE31f7c5E4Fc1f870c3EFAA9cF1de704e9760",
+    "publicKeyInG1": {
+      "x": "0x2c9273c0b874fccc711f87459bc01f1bce6e6f2fa1c775365d2e479fc7d7d590",
+      "y": "0x212ab611673a0f989f4e42589ab7b9a289cb84a015443c86c65835cceb7b92b9"
+    },
+    "publicKeyInG2": {
+      "x0": "0x024fa5b52e2c89f603928dcbc4fb8dc4ff5d55b32c04e14ef66e710af89f787f",
+      "x1": "0x24290fe1183bb8e3e0676607a23ed3004c8916099ce6759e5d4e174d62a2d09c",
+      "y0": "0x1fc858fc4da4c8cf6c4be5bc78d0f00ea69f4694a5ce28283278d60dea6faa49",
+      "y1": "0x0487cdae08c9c427af9f162df027f87b0b46d7a17aafc4e39ce0160b2e41ffb9"
+    },
+    "proofOfPossession": {
+      "x": "0x2589c83d981a33a63652c110ffa3f46fcc2e7077a97f62caa95aa44b17d04bdf",
+      "y": "0x21b07a08ccac54068112045c502b11c0d95b8492c89fd628a1a1bd96751414d4"
+    }
+  }
+]

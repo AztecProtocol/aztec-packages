@@ -5,8 +5,9 @@
 
 #include <gmock/gmock.h>
 
-#include "barretenberg/vm2/simulation/context.hpp"
-#include "barretenberg/vm2/simulation/memory.hpp"
+#include "barretenberg/vm2/simulation/events/context_events.hpp"
+#include "barretenberg/vm2/simulation/interfaces/context.hpp"
+#include "barretenberg/vm2/simulation/interfaces/memory.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -29,6 +30,7 @@ class MockContext : public ContextInterface {
 
     MOCK_METHOD(uint32_t, get_context_id, (), (const, override));
     MOCK_METHOD(uint32_t, get_parent_id, (), (const, override));
+    MOCK_METHOD(uint32_t, get_last_child_id, (), (const, override));
     MOCK_METHOD(bool, has_parent, (), (const, override));
 
     // Environment.
@@ -40,6 +42,8 @@ class MockContext : public ContextInterface {
     MOCK_METHOD(void, set_side_effect_states, (SideEffectStates side_effect_states), (override));
     MOCK_METHOD(AppendOnlyTreeSnapshot, get_written_public_data_slots_tree_snapshot, (), (override));
     MOCK_METHOD(const GlobalVariables&, get_globals, (), (const, override));
+
+    MOCK_METHOD(TransactionPhase, get_phase, (), (const, override));
 
     // Input / Output.
     MOCK_METHOD(std::vector<FF>, get_calldata, (uint32_t cd_offset, uint32_t cd_size), (const, override));

@@ -43,7 +43,7 @@ export class UpdateChecker extends EventEmitter<EventMap> {
     private rollupVersion: bigint,
     private fetch: typeof globalThis.fetch,
     private getLatestRollupVersion: () => Promise<bigint>,
-    private checkIntervalMs = 60_000, // every minute
+    private checkIntervalMs = 10 * 60_000, // every 10 mins
     private log = createLogger('foundation:update-check'),
   ) {
     super();

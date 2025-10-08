@@ -86,6 +86,11 @@ where
     }
 }
 
+// Note: I don't derive Packable on `WithHash` because `derive_serialize` function does not support setting "N = M"
+// as I do here 3 lines below. This could be worked around by placing the "where" clause directly on the `WithHash`
+// struct, but Jake mentioned that the syntax is not expected to be supported at least until Noir 1.0.
+// Relevant discussion on Slack:
+// https://aztecprotocol.slack.com/archives/C04QF64EDNV/p1752593876160699?thread_ts=1752589887.955379&cid=C04QF64EDNV
 impl<T, let M: u32> Packable for WithHash<T, M>
 where
     T: Packable<N = M>,
@@ -115,7 +120,6 @@ where
 
 mod test {
     use crate::{
-        oracle::random::random,
         test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct},
         utils::with_hash::WithHash,
     };
@@ -142,7 +146,7 @@ mod test {
 
         env.private_context(|context| {
             let result = WithHash::<MockStruct, _>::historical_public_storage_read(
-                context.historical_header,
+                context.anchor_block_header,
                 context.this_address(),
                 STORAGE_SLOT,
             );
@@ -162,7 +166,7 @@ mod test {
 
         env.private_context(|context| {
             let result = WithHash::<MockStruct, _>::historical_public_storage_read(
-                context.historical_header,
+                context.anchor_block_header,
                 context.this_address(),
                 STORAGE_SLOT,
             );
@@ -175,7 +179,7 @@ mod test {
         let env = TestEnvironment::new();
 
         env.private_context(|context| {
-            let block_header = context.historical_header;
+            let block_header = context.anchor_block_header;
             let address = context.this_address();
 
             // Mock the oracle to return a non-zero hint/packed value
@@ -206,14 +210,14 @@ mod test {
             let value = MockStruct { a: 5, b: 3 };
             context.storage_write(STORAGE_SLOT, value);
 
-            let incorrect_hash = random();
+            let incorrect_hash = 13;
             let hash_storage_slot = STORAGE_SLOT + (value.pack().len() as Field);
             context.storage_write(hash_storage_slot, [incorrect_hash]);
         });
 
         env.private_context(|context| {
             let _ = WithHash::<MockStruct, _>::historical_public_storage_read(
-                context.historical_header,
+                context.anchor_block_header,
                 context.this_address(),
                 STORAGE_SLOT,
             );

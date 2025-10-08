@@ -149,8 +149,8 @@ enum class ExecutionOpCode {
     SHA256COMPRESSION,
     KECCAKF1600,
     ECADD,
-    MSM,
     TORADIXBE,
+    MAX = TORADIXBE, // Keep this at the end. Serves looping over all opcodes.
 };
 
 std::ostream& operator<<(std::ostream& os, const ExecutionOpCode& op);

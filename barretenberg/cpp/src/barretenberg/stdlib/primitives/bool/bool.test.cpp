@@ -102,11 +102,31 @@ template <class Builder_> class BoolTest : public ::testing::Test {
         EXPECT_TRUE(a_true.get_value());
         EXPECT_FALSE(a_false.get_value());
         EXPECT_TRUE(a_true.is_constant() && a_false.is_constant());
-        EXPECT_TRUE(!a_true.witness_inverted && !a_false.witness_inverted);
+        EXPECT_TRUE(!a_true.is_inverted() && !a_false.is_inverted());
         // No gates have been added
         EXPECT_TRUE(num_gates_start == builder.get_estimated_num_finalized_gates());
     }
 
+    void test_construct_from_witness_index()
+    {
+        Builder builder = Builder();
+        size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+        const size_t witness_idx_zero = builder.add_variable(bb::fr(0));
+        const size_t witness_idx_one = builder.add_variable(bb::fr(1));
+        const size_t non_bool_witness_idx = builder.add_variable(bb::fr(15));
+
+        bool_ct bool_witness = bool_ct::from_witness_index_unsafe(&builder, witness_idx_zero);
+        EXPECT_EQ(bool_witness.get_value(), false);
+
+        bool_witness = bool_ct::from_witness_index_unsafe(&builder, witness_idx_one);
+        EXPECT_EQ(bool_witness.get_value(), true);
+        // No gates are added.
+        EXPECT_EQ(builder.get_estimated_num_finalized_gates() - num_gates_start, 0);
+
+        // Out-of-circuit failure when witness points to a non-bool value.
+        EXPECT_THROW_OR_ABORT(bool_witness = bool_ct::from_witness_index_unsafe(&builder, non_bool_witness_idx),
+                              "bool_t: creating a witness bool from a non-boolean value");
+    }
     void test_construct_from_witness()
     {
         Builder builder = Builder();
@@ -117,7 +137,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
         EXPECT_TRUE(a_true.get_value());
         EXPECT_FALSE(a_false.get_value());
         EXPECT_TRUE(!a_true.is_constant() && !a_false.is_constant());
-        EXPECT_TRUE(!a_true.witness_inverted && !a_false.witness_inverted);
+        EXPECT_TRUE(!a_true.is_inverted() && !a_false.is_inverted());
         // Each witness bool must be constrained => expect 2 gates being added
         EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_start == 2);
         EXPECT_TRUE(CircuitChecker::check(builder));
@@ -130,6 +150,40 @@ template <class Builder_> class BoolTest : public ::testing::Test {
             EXPECT_THROW_OR_ABORT(a_incorrect = witness_ct(&builder, random_value),
                                   "((other.witness == bb::fr::one()) || (other.witness == bb::fr::zero()))");
         };
+    }
+
+    void test_construct_from_witness_range_constraint()
+    {
+        const bool use_range_constraint = true;
+
+        for (size_t num_inputs = 1; num_inputs < 50; num_inputs++) {
+            Builder builder = Builder();
+            size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+
+            std::vector<uint32_t> indices;
+            for (size_t idx = 0; idx < num_inputs; idx++) {
+                indices.push_back(
+                    bool_ct(witness_ct(&builder, idx % 2), use_range_constraint).get_normalized_witness_index());
+            }
+
+            const size_t sorted_list_size = num_inputs + 2;
+
+            // Pin down the gate numbers. The point is that it is more efficient to use this constructor to constrain a
+            // batch of bool_t elements. 4 is a special case, otherwise the number of gates is just
+            // ceil(sorted_list_size) + 2.
+            size_t expected = (sorted_list_size == 4) ? 4 : ((sorted_list_size + 3) / 4) + 2;
+
+            EXPECT_EQ(builder.get_estimated_num_finalized_gates() - num_gates_start, expected);
+
+            builder.create_dummy_constraints(indices);
+
+            EXPECT_TRUE(CircuitChecker::check(builder));
+        }
+
+        // Failure test
+        Builder builder = Builder();
+        EXPECT_THROW_OR_ABORT(auto new_bool = bool_ct(witness_ct(&builder, 2), use_range_constraint),
+                              "bool_t: witness value is not 0 or 1");
     }
     void test_AND()
     {
@@ -217,13 +271,13 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                     if (!result_is_constant && a.is_constant() && !b.is_constant()) {
                         // we only add gates if the value `true` is not flipped to `false` and we need to add a new
                         // constant == 1, which happens iff `b` is not inverted.
-                        EXPECT_EQ(diff, static_cast<size_t>(!b.witness_inverted));
+                        EXPECT_EQ(diff, static_cast<size_t>(!b.is_inverted()));
                     }
 
                     if (!result_is_constant && !a.is_constant() && b.is_constant()) {
                         // we only add gates if the value `true` is not flipped to `false` and we need to add a new
                         // constant == 1, which happens iff `a` is inverted.
-                        EXPECT_EQ(diff, static_cast<size_t>(a.witness_inverted));
+                        EXPECT_EQ(diff, static_cast<size_t>(a.is_inverted()));
                     }
                     EXPECT_EQ(CircuitChecker::check(builder), expected);
                 }
@@ -283,9 +337,9 @@ template <class Builder_> class BoolTest : public ::testing::Test {
             if (!a.is_constant()) {
                 EXPECT_EQ(c.get_origin_tag(), submitted_value_origin_tag);
             }
-            EXPECT_EQ(c.witness_inverted, false);
+            EXPECT_EQ(c.is_inverted(), false);
             size_t diff = builder.get_estimated_num_finalized_gates() - num_gates_start;
-            // Note that although `normalize()` returns value, it flips the `witness_inverted` flag of `a` if it was
+            // Note that although `normalize()` returns value, it flips the `is_inverted()` flag of `a` if it was
             // `true`.
             EXPECT_EQ(diff, static_cast<size_t>(!a.is_constant() && a_raw.is_inverted));
             EXPECT_TRUE(CircuitChecker::check(builder));
@@ -430,6 +484,10 @@ TYPED_TEST(BoolTest, ConstructFromConstBool)
 TYPED_TEST(BoolTest, ConstructFromWitness)
 {
     TestFixture::test_construct_from_witness();
+}
+TYPED_TEST(BoolTest, ConstructFromWitnessRangeConstraint)
+{
+    TestFixture::test_construct_from_witness_range_constraint();
 }
 
 TYPED_TEST(BoolTest, Normalization)

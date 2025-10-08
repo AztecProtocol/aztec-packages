@@ -43,7 +43,7 @@ void avm_prove(const std::filesystem::path& inputs_path, const std::filesystem::
     bool res = avm.verify(proof, inputs.publicInputs, vk);
     info("verification: ", res ? "success" : "failure");
     if (!res) {
-        throw std::runtime_error("Generated proof is invalid!1!!1");
+        throw std::runtime_error("Generated proof is invalid!!!!!");
     }
 }
 
@@ -73,6 +73,18 @@ bool avm_verify(const std::filesystem::path& proof_path,
 
     print_avm_stats();
     return res;
+}
+
+void avm_simulate(const std::filesystem::path& inputs_path)
+{
+    // This includes input deserialization as well.
+    AVM_TRACK_TIME("command/avm_simulate", {
+        avm2::AvmAPI avm;
+        auto inputs = avm2::AvmAPI::ProvingInputs::from(read_file(inputs_path));
+        avm.simulate(inputs.hints);
+    });
+
+    print_avm_stats();
 }
 
 } // namespace bb

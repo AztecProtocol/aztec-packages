@@ -89,7 +89,9 @@ describe('e2e_p2p_reex', () => {
     // Submit the txs to the mempool. We submit a single set of txs, and then inject different behaviors
     // into the validator nodes to cause them to fail in different ways.
     t.logger.info('Submitting txs');
-    txs = await submitComplexTxsTo(t.logger, t.spamContract!, NUM_TXS_PER_NODE, { callPublic: true });
+    txs = await submitComplexTxsTo(t.logger, t.defaultAccountAddress!, t.spamContract!, NUM_TXS_PER_NODE, {
+      callPublic: true,
+    });
   }, 360 * 1000);
 
   afterAll(async () => {
@@ -110,13 +112,11 @@ describe('e2e_p2p_reex', () => {
 
     // Hold off sequencers from building a block
     const pauseProposals = () =>
-      Promise.all(
-        nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: NUM_TXS_PER_NODE + 1 })),
-      );
+      Promise.all(nodes.map(node => node.getSequencer()?.updateConfig({ minTxsPerBlock: NUM_TXS_PER_NODE + 1 })));
 
     // Reenable them
     const resumeProposals = () =>
-      Promise.all(nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: NUM_TXS_PER_NODE })));
+      Promise.all(nodes.map(node => node.getSequencer()?.updateConfig({ minTxsPerBlock: NUM_TXS_PER_NODE })));
 
     // Make sure the nodes submit faulty proposals, in this case a faulty proposal is one where we remove one of the transactions
     // Such that the calculated archive will be different!

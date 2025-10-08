@@ -1,9 +1,10 @@
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
+import { TimeoutError } from '@aztec/foundation/error';
 import type { Logger } from '@aztec/foundation/log';
 
 import { type EncodeFunctionDataParameters, type Hex, encodeFunctionData, multicall3Abi } from 'viem';
 
-import type { L1BlobInputs, L1GasConfig, L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
+import type { L1BlobInputs, L1TxConfig, L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { FormattedViemError, formatViemError } from '../utils.js';
 import { RollupContract } from './rollup.js';
@@ -14,7 +15,7 @@ export class Multicall3 {
   static async forward(
     requests: L1TxRequest[],
     l1TxUtils: L1TxUtils,
-    gasConfig: L1GasConfig | undefined,
+    gasConfig: L1TxConfig | undefined,
     blobConfig: L1BlobInputs | undefined,
     rollupAddress: Hex,
     logger: Logger,
@@ -35,18 +36,15 @@ export class Multicall3 {
     const encodedForwarderData = encodeFunctionData(forwarderFunctionData);
 
     try {
-      const { receipt, gasPrice } = await l1TxUtils.sendAndMonitorTransaction(
-        {
-          to: MULTI_CALL_3_ADDRESS,
-          data: encodedForwarderData,
-        },
+      const { receipt, state } = await l1TxUtils.sendAndMonitorTransaction(
+        { to: MULTI_CALL_3_ADDRESS, data: encodedForwarderData },
         gasConfig,
         blobConfig,
       );
 
       if (receipt.status === 'success') {
         const stats = await l1TxUtils.getTransactionStats(receipt.transactionHash);
-        return { receipt, gasPrice, stats };
+        return { receipt, stats };
       } else {
         logger.error('Forwarder transaction failed', undefined, { receipt });
 
@@ -58,7 +56,7 @@ export class Multicall3 {
         let errorMsg: string | undefined;
 
         if (blobConfig) {
-          const maxFeePerBlobGas = blobConfig.maxFeePerBlobGas ?? gasPrice.maxFeePerBlobGas;
+          const maxFeePerBlobGas = blobConfig.maxFeePerBlobGas ?? state.gasPrice.maxFeePerBlobGas;
           if (maxFeePerBlobGas === undefined) {
             errorMsg = 'maxFeePerBlobGas is required to get the error message';
           } else {
@@ -89,9 +87,13 @@ export class Multicall3 {
           errorMsg = await l1TxUtils.tryGetErrorFromRevertedTx(encodedForwarderData, args, undefined, []);
         }
 
-        return { receipt, gasPrice, errorMsg };
+        return { receipt, errorMsg };
       }
     } catch (err) {
+      if (err instanceof TimeoutError) {
+        throw err;
+      }
+
       for (const request of requests) {
         logger.debug('Simulating request', { request });
         const result = await l1TxUtils

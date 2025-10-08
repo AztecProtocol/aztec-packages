@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { AztecContext } from '../aztecEnv';
+import { AztecContext } from '../aztecContext';
 import {
   TxReceipt,
   TxStatus,
@@ -7,21 +7,21 @@ import {
   type ContractFunctionInteraction,
   type DeployMethod,
   type DeployOptions,
-  type SendMethodOptions,
+  type SendInteractionOptions,
 } from '@aztec/aztec.js';
 import { TimeoutError } from '@aztec/foundation/error';
 import { useNotifications } from '@toolpad/core/useNotifications';
 import { TX_TIMEOUT } from '../constants';
 
 export function useTransaction() {
-  const { walletDB, currentTx, setCurrentTx } = useContext(AztecContext);
+  const { playgroundDB, currentTx, setCurrentTx } = useContext(AztecContext);
   const notifications = useNotifications();
 
   async function sendTx(
     name: string,
     interaction: ContractFunctionInteraction | DeployMethod,
     contractAddress: AztecAddress,
-    opts: SendMethodOptions | DeployOptions,
+    opts: SendInteractionOptions | DeployOptions,
     displayOptions?: {
       showNotifications?: boolean;
     },
@@ -64,7 +64,7 @@ export function useTransaction() {
         });
       }
 
-      await walletDB.storeTx({
+      await playgroundDB.storeTx({
         contractAddress,
         txHash,
         name,
@@ -83,7 +83,7 @@ export function useTransaction() {
     } catch (e) {
       if (e instanceof TimeoutError) {
         const txReceipt = new TxReceipt(txHash, TxStatus.PENDING, e.message);
-        await walletDB.storeTx({
+        await playgroundDB.storeTx({
           contractAddress,
           txHash,
           name,

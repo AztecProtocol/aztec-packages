@@ -1,11 +1,12 @@
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
-import type { EthAddress } from '@aztec/foundation/eth-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
-import type { TestDateProvider } from '@aztec/foundation/timer';
+import { pluralize } from '@aztec/foundation/string';
+import type { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 
-import { type Hex, createPublicClient, fallback, http } from 'viem';
+import { type Hex, type Transaction, createPublicClient, fallback, hexToNumber, http } from 'viem';
 
 import type { ViemPublicClient } from '../types.js';
 
@@ -13,12 +14,16 @@ import type { ViemPublicClient } from '../types.js';
  * A class that provides utility functions for interacting with ethereum (L1).
  */
 export class EthCheatCodes {
-  private publicClient: ViemPublicClient;
+  public readonly publicClient: ViemPublicClient;
   constructor(
     /**
      * The RPC URL to use for interacting with the chain
      */
     public rpcUrls: string[],
+    /**
+     * The date provider to use for time operations
+     */
+    public dateProvider: DateProvider | TestDateProvider,
     /**
      * The logger to use for the eth cheatcodes
      */
@@ -29,9 +34,12 @@ export class EthCheatCodes {
     });
   }
 
-  async rpcCall(method: string, params: any[]) {
-    const paramsString = jsonStringify(params);
-    this.logger.debug(`Calling ${method} with params: ${paramsString} on ${this.rpcUrls.join(', ')}`);
+  public rpcCall(method: string, params: any[]) {
+    this.logger.debug(`Calling ${method} with params: ${jsonStringify(params)} on ${this.rpcUrls.join(', ')}`);
+    return this.doRpcCall(method, params);
+  }
+
+  private async doRpcCall(method: string, params: any[]) {
     return (await this.publicClient.transport.request({
       method,
       params,
@@ -44,7 +52,7 @@ export class EthCheatCodes {
    */
   public async isAutoMining(): Promise<boolean> {
     try {
-      const res = await this.rpcCall('anvil_getAutomine', []);
+      const res = await this.doRpcCall('anvil_getAutomine', []);
       return res;
     } catch (err) {
       this.logger.error(`Calling "anvil_getAutomine" failed with:`, err);
@@ -57,7 +65,7 @@ export class EthCheatCodes {
    * @returns The current block number
    */
   public async blockNumber(): Promise<number> {
-    const res = await this.rpcCall('eth_blockNumber', []);
+    const res = await this.doRpcCall('eth_blockNumber', []);
     return parseInt(res, 16);
   }
 
@@ -66,7 +74,7 @@ export class EthCheatCodes {
    * @returns The current chainId
    */
   public async chainId(): Promise<number> {
-    const res = await this.rpcCall('eth_chainId', []);
+    const res = await this.doRpcCall('eth_chainId', []);
     return parseInt(res, 16);
   }
 
@@ -75,7 +83,7 @@ export class EthCheatCodes {
    * @returns The current timestamp
    */
   public async timestamp(): Promise<number> {
-    const res = await this.rpcCall('eth_getBlockByNumber', ['latest', true]);
+    const res = await this.doRpcCall('eth_getBlockByNumber', ['latest', true]);
     return parseInt(res.timestamp, 16);
   }
 
@@ -83,14 +91,14 @@ export class EthCheatCodes {
    * Advance the chain by a number of blocks
    * @param numberOfBlocks - The number of blocks to mine
    */
-  public async mine(numberOfBlocks = 1): Promise<void> {
-    await this.doMine(numberOfBlocks);
+  public async mine(numberOfBlocks: number | bigint = 1): Promise<void> {
+    await this.doMine(Number(numberOfBlocks));
     this.logger.warn(`Mined ${numberOfBlocks} L1 blocks`);
   }
 
   private async doMine(numberOfBlocks = 1): Promise<void> {
     try {
-      await this.rpcCall('hardhat_mine', [numberOfBlocks]);
+      await this.doRpcCall('hardhat_mine', [numberOfBlocks]);
     } catch (err) {
       throw new Error(`Error mining: ${err}`);
     }
@@ -101,7 +109,8 @@ export class EthCheatCodes {
    */
   public async evmMine(): Promise<void> {
     try {
-      await this.rpcCall('evm_mine', []);
+      await this.doRpcCall('evm_mine', []);
+      this.logger.warn(`Mined 1 L1 block with evm_mine`);
     } catch (err) {
       throw new Error(`Error mining: ${err}`);
     }
@@ -112,13 +121,18 @@ export class EthCheatCodes {
    * @param account - The account to set the balance for
    * @param balance - The balance to set
    */
-  public async setBalance(account: EthAddress, balance: bigint): Promise<void> {
+  public async setBalance(account: EthAddress | Hex, balance: bigint): Promise<void> {
     try {
       await this.rpcCall('anvil_setBalance', [account.toString(), toHex(balance)]);
     } catch (err) {
       throw new Error(`Error setting balance for ${account}: ${err}`);
     }
     this.logger.warn(`Set balance for ${account} to ${balance}`);
+  }
+
+  public async getBalance(account: EthAddress | Hex): Promise<bigint> {
+    const res = await this.doRpcCall('eth_getBalance', [account.toString(), 'latest']);
+    return BigInt(res);
   }
 
   /**
@@ -153,7 +167,7 @@ export class EthCheatCodes {
    */
   public getIntervalMining(): Promise<number | null> {
     try {
-      return this.rpcCall('anvil_getIntervalMining', []);
+      return this.doRpcCall('anvil_getIntervalMining', []);
     } catch (err) {
       throw new Error(`Error getting interval mining: ${err}`);
     }
@@ -220,12 +234,12 @@ export class EthCheatCodes {
   /**
    * Set the next block timestamp and mines the block.
    * Optionally resets interval mining so the next block is mined in `blockInterval` seconds from now.
-   * Optionally updates a provided date provider to follow L1 time.
+   * Always updates the injected date provider to follow L1 time.
    * @param timestamp - The timestamp to set the next block to
    */
   public async warp(
     timestamp: number | bigint,
-    opts: { silent?: boolean; resetBlockInterval?: boolean; updateDateProvider?: TestDateProvider } = {},
+    opts: { silent?: boolean; resetBlockInterval?: boolean } = {},
   ): Promise<void> {
     let blockInterval: number | null = null;
     try {
@@ -240,8 +254,10 @@ export class EthCheatCodes {
       await this.rpcCall('evm_setNextBlockTimestamp', [Number(timestamp)]);
       // And mine a block so the timestamp goes into effect now
       await this.doMine();
-      // Update the date provider if provided so it follows L1 time
-      opts.updateDateProvider?.setTime(Number(timestamp) * 1000);
+      // Update the injected date provider so it follows L1 time
+      if ('setTime' in this.dateProvider) {
+        this.dateProvider.setTime(Number(timestamp) * 1000);
+      }
     } catch (err) {
       throw new Error(`Error warping: ${err}`);
     } finally {
@@ -272,14 +288,21 @@ export class EthCheatCodes {
    * @param slot - The storage slot
    * @param value - The value to set the storage slot to
    */
-  public async store(contract: EthAddress, slot: bigint, value: bigint): Promise<void> {
+  public async store(
+    contract: EthAddress,
+    slot: bigint,
+    value: bigint,
+    opts: { silent?: boolean } = {},
+  ): Promise<void> {
     // for the rpc call, we need to change value to be a 32 byte hex string.
     try {
       await this.rpcCall('hardhat_setStorageAt', [contract.toString(), toHex(slot), toHex(value, true)]);
     } catch (err) {
       throw new Error(`Error setting storage for contract ${contract} at ${slot}: ${err}`);
     }
-    this.logger.warn(`Set L1 storage for contract ${contract} at ${slot} to ${value}`);
+    if (!opts.silent) {
+      this.logger.warn(`Set L1 storage for contract ${contract} at ${slot} to ${value}`);
+    }
   }
 
   /**
@@ -300,6 +323,11 @@ export class EthCheatCodes {
    */
   public async startImpersonating(who: EthAddress | Hex): Promise<void> {
     try {
+      // Since the `who` impersonated will sometimes be a contract without funds, we fund it if needed.
+      if ((await this.getBalance(who)) === 0n) {
+        await this.setBalance(who, 10n * 10n ** 18n);
+      }
+
       await this.rpcCall('hardhat_impersonateAccount', [who.toString()]);
     } catch (err) {
       throw new Error(`Error impersonating ${who}: ${err}`);
@@ -340,8 +368,7 @@ export class EthCheatCodes {
    * @returns The bytecode for the contract
    */
   public async getBytecode(contract: EthAddress): Promise<`0x${string}`> {
-    const res = await this.rpcCall('eth_getCode', [contract.toString(), 'latest']);
-    return res;
+    return await this.doRpcCall('eth_getCode', [contract.toString(), 'latest']);
   }
 
   /**
@@ -350,8 +377,7 @@ export class EthCheatCodes {
    * @returns The raw transaction
    */
   public async getRawTransaction(txHash: Hex): Promise<`0x${string}`> {
-    const res = await this.rpcCall('debug_getRawTransaction', [txHash]);
-    return res;
+    return await this.doRpcCall('debug_getRawTransaction', [txHash]);
   }
 
   /**
@@ -360,8 +386,7 @@ export class EthCheatCodes {
    * @returns The trace
    */
   public async debugTraceTransaction(txHash: Hex): Promise<any> {
-    const res = await this.rpcCall('debug_traceTransaction', [txHash]);
-    return res;
+    return await this.doRpcCall('debug_traceTransaction', [txHash]);
   }
 
   /**
@@ -379,7 +404,6 @@ export class EthCheatCodes {
    * @param blockNumber - The block number that's going to be the new tip
    */
   public reorgTo(blockNumber: number): Promise<void> {
-    this.logger.info('reorgTo', { blockNumber });
     if (blockNumber <= 0) {
       throw new Error(`Can't reorg to block before genesis: ${blockNumber}`);
     }
@@ -395,6 +419,7 @@ export class EthCheatCodes {
 
       const depth = Number(currentTip - BigInt(blockNumber) + 1n);
       await this.rpcCall('anvil_rollback', [depth]);
+      this.logger.warn(`Reorged L1 chain to block number ${blockNumber} (depth ${depth})`);
     });
   }
 
@@ -421,10 +446,73 @@ export class EthCheatCodes {
   }
 
   public traceTransaction(txHash: Hex): Promise<any> {
-    return this.rpcCall('trace_transaction', [txHash]);
+    return this.doRpcCall('trace_transaction', [txHash]);
   }
 
-  public async execWithPausedAnvil(fn: () => Promise<void>): Promise<void> {
+  public async getTxPoolStatus(): Promise<{ pending: number; queued: number }> {
+    const { pending, queued } = await this.doRpcCall('txpool_status', []);
+    return { pending: hexToNumber(pending), queued: hexToNumber(queued) };
+  }
+
+  public async getTxPoolContents(): Promise<TxPoolTransaction[]> {
+    const txpoolContent = await this.doRpcCall('txpool_content', []);
+    return mapTxPoolContent(txpoolContent);
+  }
+
+  /**
+   * Mines an empty block by temporarily removing all pending transactions from the mempool,
+   * mining a block, and then re-adding the transactions back to the pool.
+   */
+  public async mineEmptyBlock(blockCount: number = 1): Promise<void> {
+    await this.execWithPausedAnvil(async () => {
+      // Get all pending and queued transactions from the pool
+      const txs = await this.getTxPoolContents();
+
+      this.logger.debug(`Found ${txs.length} transactions in pool`);
+
+      // Get raw transactions before dropping them
+      const rawTxs: Hex[] = [];
+      for (const tx of txs) {
+        try {
+          const rawTx = await this.doRpcCall('debug_getRawTransaction', [tx.hash]);
+          if (rawTx) {
+            rawTxs.push(rawTx);
+            this.logger.debug(`Got raw tx for ${tx.hash}`);
+          } else {
+            this.logger.warn(`No raw tx found for ${tx.hash}`);
+          }
+        } catch {
+          this.logger.warn(`Failed to get raw transaction for ${tx.hash}`);
+        }
+      }
+
+      this.logger.debug(`Retrieved ${rawTxs.length} raw transactions`);
+
+      // Drop all transactions from the mempool
+      await this.doRpcCall('anvil_dropAllTransactions', []);
+
+      // Mine an empty block
+      await this.doMine(blockCount);
+
+      // Re-add the transactions to the pool
+      for (const rawTx of rawTxs) {
+        try {
+          const txHash = await this.doRpcCall('eth_sendRawTransaction', [rawTx]);
+          this.logger.debug(`Re-added transaction ${txHash}`);
+        } catch (err) {
+          this.logger.warn(`Failed to re-add transaction: ${err}`);
+        }
+      }
+
+      if (rawTxs.length !== txs.length) {
+        this.logger.warn(`Failed to add all txs back: had ${txs.length} but re-added ${rawTxs.length}`);
+      }
+    });
+
+    this.logger.warn(`Mined ${blockCount} empty L1 ${pluralize('block', blockCount)}`);
+  }
+
+  public async execWithPausedAnvil<T>(fn: () => Promise<T>): Promise<T> {
     const [blockInterval, wasAutoMining] = await Promise.all([this.getIntervalMining(), this.isAutoMining()]);
     try {
       if (blockInterval !== null) {
@@ -435,7 +523,7 @@ export class EthCheatCodes {
         await this.setAutomine(false, { silent: true });
       }
 
-      await fn();
+      return await fn();
     } finally {
       try {
         // restore automine if necessary
@@ -456,4 +544,39 @@ export class EthCheatCodes {
       }
     }
   }
+
+  public async syncDateProvider() {
+    const timestamp = await this.timestamp();
+    if ('setTime' in this.dateProvider) {
+      this.dateProvider.setTime(timestamp * 1000);
+    }
+  }
+}
+
+type TxPoolState = 'pending' | 'queued';
+
+interface TxPoolContent {
+  pending: Record<Hex, Record<string, Transaction>>;
+  queued: Record<Hex, Record<string, Transaction>>;
+}
+
+export type TxPoolTransaction = Transaction & {
+  poolState: TxPoolState;
+};
+
+function mapTxPoolContent(content: TxPoolContent): TxPoolTransaction[] {
+  const result: TxPoolTransaction[] = [];
+
+  const processPool = (pool: Record<Hex, Record<string, Transaction>>, poolState: TxPoolState) => {
+    for (const txsByNonce of Object.values(pool)) {
+      for (const tx of Object.values(txsByNonce)) {
+        result.push({ ...tx, poolState });
+      }
+    }
+  };
+
+  processPool(content.pending, 'pending');
+  processPool(content.queued, 'queued');
+
+  return result;
 }

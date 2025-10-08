@@ -288,7 +288,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     // Generate Libra polynomials, compute masked concatenated Libra polynomial, commit to it
     ZKData zk_sumcheck_data(this->log_n, prover_transcript, ck);
 
-    // Generate multivariate challenge of size CONST_PROOF_SIZE_LOG_N
+    // Generate multivariate challenge
     std::vector<Fr> mle_opening_point = this->random_evaluation_point(this->log_n);
 
     // Generate random prover polynomials, compute their evaluations and commitments
@@ -303,7 +303,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     const Fr claimed_inner_product = SmallSubgroupIPAProver<TypeParam>::compute_claimed_inner_product(
         zk_sumcheck_data, mle_opening_point, this->log_n);
 
-    prover_transcript->template send_to_verifier("Libra:claimed_evaluation", claimed_inner_product);
+    prover_transcript->send_to_verifier("Libra:claimed_evaluation", claimed_inner_product);
 
     // Instantiate SmallSubgroupIPAProver, this prover sends commitments to Big Sum and Quotient polynomials
     SmallSubgroupIPAProver<TypeParam> small_subgroup_ipa_prover(
@@ -412,7 +412,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     const Fr claimed_inner_product =
         SmallSubgroupIPAProver<TypeParam>::compute_claimed_inner_product(zk_sumcheck_data, challenge, this->log_n);
 
-    prover_transcript->template send_to_verifier("Libra:claimed_evaluation", claimed_inner_product);
+    prover_transcript->send_to_verifier("Libra:claimed_evaluation", claimed_inner_product);
 
     // Instantiate SmallSubgroupIPAProver, this prover sends commitments to Big Sum and Quotient polynomials
     SmallSubgroupIPAProver<TypeParam> small_subgroup_ipa_prover(

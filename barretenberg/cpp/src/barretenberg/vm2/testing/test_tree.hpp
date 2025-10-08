@@ -2,7 +2,7 @@
 
 #include "barretenberg/crypto/merkle_tree/memory_tree.hpp"
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 
 namespace bb::avm2::testing {
 
