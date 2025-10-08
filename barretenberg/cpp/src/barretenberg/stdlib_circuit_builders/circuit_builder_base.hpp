@@ -22,7 +22,7 @@ static constexpr uint32_t DUMMY_TAG = 0;
 template <typename FF_> class CircuitBuilderBase {
   public:
     using FF = FF_;
-    using EmbeddedCurve = std::conditional_t<std::same_as<FF, bb::g1::Fq>, curve::BN254, curve::Grumpkin>;
+    using EmbeddedCurve = curve::Grumpkin;
 
   private:
     // A container for all of the witness values used by the circuit

@@ -5,8 +5,6 @@
 // =====================
 
 /**
- * @file ultra_circuit_builder.cpp
- * @author Luke (ledwards2225) and Kesha (Rumata888)
  * @brief This file contains the implementation of field-agnostic UltraCircuitBuilder class that defines the logic
  * of ultra-style circuits and is intended for the use in UltraHonk
  *
@@ -2459,7 +2457,5 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
 
 template class UltraCircuitBuilder_<UltraExecutionTraceBlocks>;
 template class UltraCircuitBuilder_<MegaExecutionTraceBlocks>;
-// To enable this we need to template plookup
-// template class UltraCircuitBuilder_<grumpkin::fr>;
 
 } // namespace bb
