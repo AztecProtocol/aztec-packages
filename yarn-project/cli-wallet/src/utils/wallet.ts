@@ -216,6 +216,7 @@ export class CLIWallet extends BaseWallet {
     const finalExecutionPayload = feeExecutionPayload
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
       : executionPayload;
+
     // Kernelless simulations using the multicall entrypoints are not currently supported,
     // since we only override proper account contracts.
     // TODO: allow disabling kernels even when no overrides are necessary
@@ -246,6 +247,7 @@ export class CLIWallet extends BaseWallet {
         contracts: contractOverrides,
       });
     }
+
     if (opts.fee?.estimateGas) {
       const limits = getGasLimits(simulationResults, opts.fee?.estimatedGasPadding);
       printGasEstimates(feeOptions, limits, this.userLog);

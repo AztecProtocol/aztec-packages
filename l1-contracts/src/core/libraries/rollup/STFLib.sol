@@ -97,14 +97,14 @@ library STFLib {
    *
    * @param _genesisState The initial state configuration containing:
    *        - vkTreeRoot: Root of the verification key tree for circuit verification
-   *        - protocolContractTreeRoot: Root containing protocol contract addresses and configurations
+   *        - protocolContractsHash: Root containing protocol contract addresses and configurations
    *        - genesisArchiveRoot: Initial archive root representing the genesis state
    */
   function initialize(GenesisState memory _genesisState) internal {
     RollupStore storage rollupStore = STFLib.getStorage();
 
     rollupStore.config.vkTreeRoot = _genesisState.vkTreeRoot;
-    rollupStore.config.protocolContractTreeRoot = _genesisState.protocolContractTreeRoot;
+    rollupStore.config.protocolContractsHash = _genesisState.protocolContractsHash;
 
     rollupStore.archives[0] = _genesisState.genesisArchiveRoot;
   }

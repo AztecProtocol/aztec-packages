@@ -36,16 +36,21 @@ provider "helm" {
 }
 
 module "web3signer" {
-  source                 = "../modules/web3signer"
-  NAMESPACE              = var.NAMESPACE
-  RELEASE_NAME           = var.RELEASE_PREFIX
-  AZTEC_DOCKER_IMAGE     = var.AZTEC_DOCKER_IMAGE
-  CHAIN_ID               = var.L1_CHAIN_ID
-  MNEMONIC               = var.VALIDATOR_MNEMONIC
-  ADDRESS_CONFIGMAP_NAME = "${var.RELEASE_PREFIX}-attester-addresses"
-  ATTESTERS_PER_NODE     = tonumber(var.VALIDATORS_PER_NODE)
-  NODE_COUNT             = tonumber(var.VALIDATOR_REPLICAS)
-  MNEMONIC_INDEX_START   = tonumber(var.VALIDATOR_MNEMONIC_START_INDEX)
+  source                                   = "../modules/web3signer"
+  NAMESPACE                                = var.NAMESPACE
+  RELEASE_NAME                             = var.RELEASE_PREFIX
+  AZTEC_DOCKER_IMAGE                       = var.AZTEC_DOCKER_IMAGE
+  CHAIN_ID                                 = var.L1_CHAIN_ID
+  MNEMONIC                                 = var.VALIDATOR_MNEMONIC
+  ADDRESS_CONFIGMAP_NAME                   = "${var.RELEASE_PREFIX}-attester-addresses"
+  ATTESTERS_PER_NODE                       = tonumber(var.VALIDATORS_PER_NODE)
+  NODE_COUNT                               = tonumber(var.VALIDATOR_REPLICAS)
+  VALIDATOR_MNEMONIC_INDEX_START           = tonumber(var.VALIDATOR_MNEMONIC_START_INDEX)
+  VALIDATOR_PUBLISHER_MNEMONIC_INDEX_START = tonumber(var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX)
+  PROVER_PUBLISHER_MNEMONIC_INDEX_START    = tonumber(var.PROVER_PUBLISHER_MNEMONIC_START_INDEX)
+  PROVER_COUNT                             = tonumber(var.PROVER_REPLICAS)
+  PUBLISHERS_PER_PROVER                    = tonumber(var.PROVER_PUBLISHERS_PER_PROVER)
+  PROVER_PUBLISHER_MNEMONIC_START_INDEX    = tonumber(var.PROVER_PUBLISHER_MNEMONIC_START_INDEX)
 
   providers = {
     helm       = helm.gke-cluster
@@ -178,11 +183,16 @@ locals {
         "node.web3signerUrl"                      = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
         "node.node.env.NETWORK"                   = var.NETWORK
         "node.node.env.PROVER_FAILED_PROOF_STORE" = var.PROVER_FAILED_PROOF_STORE
+        "node.node.env.KEY_INDEX_START"           = var.PROVER_MNEMONIC_START_INDEX
+        "node.node.env.PUBLISHER_KEY_INDEX_START" = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+        "node.node.env.PUBLISHERS_PER_PROVER"     = var.PROVER_PUBLISHERS_PER_PROVER
         "broker.node.proverRealProofs"            = var.PROVER_REAL_PROOFS
         "broker.node.env.NETWORK"                 = var.NETWORK
+        "broker.node.env.BOOTSTRAP_NODES"         = "asdf"
         "agent.node.proverRealProofs"             = var.PROVER_REAL_PROOFS
         "agent.node.env.NETWORK"                  = var.NETWORK
         "agent.replicaCount"                      = var.PROVER_REPLICAS
+        "agent.node.env.BOOTSTRAP_NODES"          = "asdf"
       }
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"

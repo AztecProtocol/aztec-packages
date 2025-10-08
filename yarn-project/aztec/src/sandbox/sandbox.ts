@@ -18,7 +18,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
@@ -74,7 +74,7 @@ export async function deployContractsToL1(
       ...getL1ContractsConfigEnvVars(), // TODO: We should not need to be loading config from env again, caller should handle this
       ...aztecNodeConfig,
       vkTreeRoot: getVKTreeRoot(),
-      protocolContractTreeRoot,
+      protocolContractsHash,
       genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
       salt: opts.salt,
       feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,

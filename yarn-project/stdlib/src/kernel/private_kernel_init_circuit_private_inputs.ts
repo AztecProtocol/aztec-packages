@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { ProtocolContracts } from '../tx/protocol_contracts.js';
 import { TxRequest } from '../tx/tx_request.js';
 import { PrivateCallData } from './private_call_data.js';
 
@@ -18,9 +19,9 @@ export class PrivateKernelInitCircuitPrivateInputs {
      */
     public vkTreeRoot: Fr,
     /**
-     * The root of the protocol contract tree.
+     * The protocol contracts.
      */
-    public protocolContractTreeRoot: Fr,
+    public protocolContracts: ProtocolContracts,
     /**
      * Private calldata corresponding to this iteration of the kernel.
      */
@@ -43,7 +44,7 @@ export class PrivateKernelInitCircuitPrivateInputs {
     return serializeToBuffer(
       this.txRequest,
       this.vkTreeRoot,
-      this.protocolContractTreeRoot,
+      this.protocolContracts,
       this.privateCall,
       this.firstNullifierHint,
     );
@@ -59,7 +60,7 @@ export class PrivateKernelInitCircuitPrivateInputs {
     return new PrivateKernelInitCircuitPrivateInputs(
       reader.readObject(TxRequest),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      reader.readObject(ProtocolContracts),
       reader.readObject(PrivateCallData),
       reader.readBoolean(),
       Fr.fromBuffer(reader),

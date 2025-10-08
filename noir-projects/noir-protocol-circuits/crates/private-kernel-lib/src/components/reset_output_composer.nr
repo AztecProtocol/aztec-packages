@@ -5,32 +5,36 @@ pub use reset_output_hints::ResetOutputHints;
 use crate::{
     abis::PaddedSideEffects,
     components::reset_output_composer::reset_output_hints::generate_reset_output_hints,
+    reset::{
+        get_propagated_key_validation_requests, get_propagated_read_requests, ReadRequestAction,
+        TransientDataSquashingHint,
+    },
 };
-use dep::reset_kernel_lib::{PrivateValidationRequestProcessor, TransientDataSquashingHint};
-use dep::types::{
+use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         note_hash::{NoteHash, ScopedNoteHash},
         nullifier::{Nullifier, ScopedNullifier},
         private_log::PrivateLogData,
         side_effect::{Ordered, scoped::Scoped},
+        validation_requests::PrivateValidationRequests,
     },
     address::AztecAddress,
     constants::{
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_U32_VALUE,
-        SIDE_EFFECT_MASKING_ADDRESS,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
+        MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS,
     },
     hash::{compute_unique_siloed_note_hash, silo_note_hash, silo_nullifier, silo_private_log},
-    utils::arrays::{ClaimedLengthArray, sort_by_counter_asc, validate_padded_items},
+    utils::arrays::{check_padded_items, ClaimedLengthArray, sort_by_counter_asc},
 };
 
-pub struct ResetOutputComposer<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_HINTS_LEN: u32> {
+pub struct ResetOutputComposer {
     pub previous_kernel: PrivateKernelCircuitPublicInputs,
-    pub validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_HINTS_LEN>,
     pub padded_side_effects: PaddedSideEffects, // this is a hint, of sorts. TODO(MC): consider renaming.
-    pub note_hash_siloing_amount: u32,
-    pub nullifier_siloing_amount: u32,
-    pub private_log_siloing_amount: u32,
+    pub note_hash_read_request_actions: [ReadRequestAction; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
+    pub nullifier_read_request_actions: [ReadRequestAction; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
+    pub validation_requests_split_counter_hint: u32,
     pub hints: ResetOutputHints,
 }
 
@@ -47,15 +51,14 @@ pub struct ResetOutputComposer<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, l
 // Or maybe calling them all "hint" is ok?
 //
 
-impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_HINTS_LEN: u32> ResetOutputComposer<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_HINTS_LEN> {
-    pub unconstrained fn new<let TRANSIENT_DATA_SQUASHING_HINTS_LEN: u32>(
+impl ResetOutputComposer {
+    pub unconstrained fn new<let TransientDataSquashingHintsLen: u32>(
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_HINTS_LEN>,
         padded_side_effects: PaddedSideEffects,
-        transient_data_squashing_hints: [TransientDataSquashingHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
-        note_hash_siloing_amount: u32,
-        nullifier_siloing_amount: u32,
-        private_log_siloing_amount: u32,
+        transient_data_squashing_hints: [TransientDataSquashingHint; TransientDataSquashingHintsLen],
+        note_hash_read_request_actions: [ReadRequestAction; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
+        nullifier_read_request_actions: [ReadRequestAction; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
+        validation_requests_split_counter_hint: u32,
     ) -> Self {
         // Hints for:
         // - Squashing:
@@ -65,51 +68,81 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
         ResetOutputComposer {
             previous_kernel,
-            validation_request_processor,
             padded_side_effects,
-            note_hash_siloing_amount,
-            nullifier_siloing_amount,
-            private_log_siloing_amount,
+            note_hash_read_request_actions,
+            nullifier_read_request_actions,
+            validation_requests_split_counter_hint,
             hints,
         }
     }
 
     // Q: why is this a separate function call, instead of handled within the constructor?
-    pub unconstrained fn finish(self) -> PrivateKernelCircuitPublicInputs {
+    pub unconstrained fn finish<let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32, let KeyValidationAmount: u32>(
+        self,
+    ) -> PrivateKernelCircuitPublicInputs {
         let mut output = self.previous_kernel;
 
         // The "propagated" validation requests (read requests & key validation requests)
         // whose processing will be deferred to later Reset circuit iterations.
-        output.validation_requests = self.validation_request_processor.compose();
+        output.validation_requests =
+            self.get_propagated_validation_requests::<KeyValidationAmount>();
 
         // Before we propagate side-effects, we might be in the final reset circuit,
         // in which case we'll also silo all of them, and then pad them for better privacy.
 
-        output.end.note_hashes = if self.note_hash_siloing_amount == 0 {
+        output.end.note_hashes = if NoteHashSiloingAmount == 0 {
             // Some transient note_hashes have been removed (squashed).
             self.hints.kept_note_hashes
         } else {
-            self.get_padded_unique_siloed_sorted_kept_note_hashes()
+            self.get_padded_unique_siloed_sorted_kept_note_hashes::<NoteHashSiloingAmount>()
         };
 
-        output.end.nullifiers = if self.nullifier_siloing_amount == 0 {
+        output.end.nullifiers = if NullifierSiloingAmount == 0 {
             // Some transient nullifiers have been removed (squashed).
             self.hints.kept_nullifiers
         } else {
-            self.get_padded_siloed_sorted_kept_nullifiers()
+            self.get_padded_siloed_sorted_kept_nullifiers::<NullifierSiloingAmount>()
         };
 
-        output.end.private_logs = if self.private_log_siloing_amount == 0 {
+        output.end.private_logs = if PrivateLogSiloingAmount == 0 {
             // The logs of transient notes have been removed (squashed).
             self.hints.kept_private_logs
         } else {
-            self.get_padded_siloed_sorted_kept_private_logs()
+            self.get_padded_siloed_sorted_kept_private_logs::<PrivateLogSiloingAmount>()
         };
 
         output
     }
 
-    unconstrained fn get_padded_unique_siloed_sorted_kept_note_hashes(
+    unconstrained fn get_propagated_validation_requests<let KeyValidationAmount: u32>(
+        self,
+    ) -> PrivateValidationRequests {
+        let validation_requests = self.previous_kernel.validation_requests;
+
+        let kept_note_hash_read_requests = get_propagated_read_requests(
+            validation_requests.note_hash_read_requests,
+            self.note_hash_read_request_actions,
+        );
+
+        let kept_nullifier_read_requests = get_propagated_read_requests(
+            validation_requests.nullifier_read_requests,
+            self.nullifier_read_request_actions,
+        );
+
+        let scoped_key_validation_requests_and_generators = get_propagated_key_validation_requests(
+            validation_requests.scoped_key_validation_requests_and_generators,
+            KeyValidationAmount,
+        );
+
+        PrivateValidationRequests {
+            note_hash_read_requests: kept_note_hash_read_requests,
+            nullifier_read_requests: kept_nullifier_read_requests,
+            scoped_key_validation_requests_and_generators,
+            split_counter: Option::some(self.validation_requests_split_counter_hint),
+        }
+    }
+
+    unconstrained fn get_padded_unique_siloed_sorted_kept_note_hashes<let NoteHashSiloingAmount: u32>(
         self,
     ) -> ClaimedLengthArray<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX> {
         // Sort:
@@ -126,12 +159,12 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         let padded_note_hashes = self.padded_side_effects.note_hashes;
 
         // Calling this in the unconstrained context is not a problem. Since it doesn't matter if there are non-empty
-        // items outside of the range [num_kept_note_hashes, self.note_hash_siloing_amount). The values will simply be ignored.
+        // items outside of the range [num_kept_note_hashes, NoteHashSiloingAmount). The values will simply be ignored.
         // Having the check here is useful to catch any bugs where the padded values are not configured correctly by mistake.
-        validate_padded_items(
+        check_padded_items(
             padded_note_hashes,
             num_kept_note_hashes,
-            self.note_hash_siloing_amount,
+            NoteHashSiloingAmount,
         );
 
         // The ordering of adjectives in this name is intentional (back to front).
@@ -143,7 +176,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
                 // we only apply padding if the executor of this circuit provides padding as input:
                 & (padded_note_hashes[i] != 0) {
                 // We 'push' so that the length increments.
-                // Note: beyond NOTE_HASH_SILOING_AMOUNT, these so-called "padded" note_hashes
+                // Note: beyond `NoteHashSiloingAmount`, these so-called "padded" note_hashes
                 // will be empty. I.e. we don't pad 64; it depends on the dimensions
                 // of this variant of the reset circuit.
                 padded_unique_siloed_sorted_kept_note_hashes.push(
@@ -189,7 +222,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         padded_unique_siloed_sorted_kept_note_hashes
     }
 
-    unconstrained fn get_padded_siloed_sorted_kept_nullifiers(
+    unconstrained fn get_padded_siloed_sorted_kept_nullifiers<let NullifierSiloingAmount: u32>(
         self,
     ) -> ClaimedLengthArray<ScopedNullifier, MAX_NULLIFIERS_PER_TX> {
         // Sort:
@@ -202,12 +235,12 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         let padded_nullifiers = self.padded_side_effects.nullifiers;
 
         // Calling this in the unconstrained context is not a problem. Since it doesn't matter if there are non-empty
-        // items outside of the range [num_nullifiers, self.nullifier_siloing_amount). The values will simply be ignored.
+        // items outside of the range [num_nullifiers, NullifierSiloingAmount). The values will simply be ignored.
         // Having the check here is useful to catch any bugs where the padded values are not configured correctly by mistake.
-        validate_padded_items(
+        check_padded_items(
             padded_nullifiers,
             num_kept_nullifiers,
-            self.nullifier_siloing_amount,
+            NullifierSiloingAmount,
         );
 
         // The ordering of adjectives in this name is intentional (back to front).
@@ -239,7 +272,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         padded_siloed_sorted_kept_nullifiers
     }
 
-    unconstrained fn get_padded_siloed_sorted_kept_private_logs(
+    unconstrained fn get_padded_siloed_sorted_kept_private_logs<let PrivateLogSiloingAmount: u32>(
         self,
     ) -> ClaimedLengthArray<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX> {
         // Sort:
@@ -252,12 +285,12 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         let padded_private_logs = self.padded_side_effects.private_logs;
 
         // Calling this in the unconstrained context is not a problem. Since it doesn't matter if there are non-empty
-        // items outside of the range [num_private_logs, self.private_log_siloing_amount). The values will simply be ignored.
+        // items outside of the range [num_private_logs, PrivateLogSiloingAmount). The values will simply be ignored.
         // Having the check here is useful to catch any bugs where the padded values are not configured correctly by mistake.
-        validate_padded_items(
+        check_padded_items(
             padded_private_logs,
             num_kept_private_logs,
-            self.private_log_siloing_amount,
+            PrivateLogSiloingAmount,
         );
 
         // The ordering of adjectives in this name is intentional (back to front).

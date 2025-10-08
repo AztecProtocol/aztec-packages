@@ -1,6 +1,6 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import {
   type ComponentsVersions,
@@ -20,7 +20,7 @@ const xxhash = await xxhashFactory();
 
 /** Returns the component versions based on config and this build. */
 export function getVersions(config: ChainConfig) {
-  return getComponentsVersionsFromConfig(config, protocolContractTreeRoot, getVKTreeRoot());
+  return getComponentsVersionsFromConfig(config, protocolContractsHash, getVKTreeRoot());
 }
 
 /** Sets the aztec key on the ENR record with versioning info. */

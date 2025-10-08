@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js",
-    "./lazy": "./dest/lazy.js",
+    "./client/bundle": "./dest/bundle.js",
+    "./client/lazy": "./dest/lazy.js",
     "./server": "./dest/server.js"
   },
   "typedocOptions": {

@@ -2,7 +2,6 @@ use crate::{
     abis::{read_request::ScopedReadRequest, side_effect::{Ordered, OrderedValue, Readable, Scoped}},
     address::AztecAddress,
     constants::{NULLIFIER_LENGTH, SCOPED_NULLIFIER_LENGTH},
-    hash::compute_siloed_nullifier,
     traits::{Deserialize, Empty, FromField, Serialize},
 };
 use std::meta::derive;
@@ -30,24 +29,6 @@ impl OrderedValue<Field> for Nullifier {
 impl Empty for Nullifier {
     fn empty() -> Self {
         Nullifier { value: 0, counter: 0, note_hash: 0 }
-    }
-}
-
-impl Readable<ScopedReadRequest> for Nullifier {
-    fn assert_match_read_request(self, read_request: ScopedReadRequest) {
-        // Public kernels output Nullifier instead of ScopedNullifier.
-        // The nullifier value has been siloed.
-        let siloed_request_value =
-            compute_siloed_nullifier(read_request.contract_address, read_request.value());
-        assert_eq(
-            self.value,
-            siloed_request_value,
-            "Value of the nullifier does not match read request",
-        );
-        assert(
-            read_request.counter() > self.counter,
-            "Read request counter must be greater than the counter of the nullifier",
-        );
     }
 }
 
@@ -101,10 +82,6 @@ impl Readable<ScopedReadRequest> for ScopedNullifier {
             self.contract_address,
             read_request.contract_address,
             "Contract address of the nullifier does not match read request",
-        );
-        assert(
-            read_request.counter() > self.nullifier.counter,
-            "Read request counter must be greater than the counter of the nullifier",
         );
     }
 }

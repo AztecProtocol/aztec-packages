@@ -578,7 +578,7 @@ new_archive_sibling_path = [
 
       [inputs.previous_rollups.public_inputs.constants]
       vk_tree_root = "0x1d65435f2d0ae408d8189f6b31335c3fd3c9f26d509c44917afe724671762199"
-      protocol_contract_tree_root = "0x25eb6a2cec218e13641530a61cdba9c295da333df2526933a2c46b16e206f965"
+      protocol_contracts_hash = "0x25eb6a2cec218e13641530a61cdba9c295da333df2526933a2c46b16e206f965"
       prover_id = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
         [inputs.previous_rollups.public_inputs.constants.last_archive]
@@ -1347,7 +1347,7 @@ next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000
 
       [inputs.previous_rollups.public_inputs.constants]
       vk_tree_root = "0x1d65435f2d0ae408d8189f6b31335c3fd3c9f26d509c44917afe724671762199"
-      protocol_contract_tree_root = "0x25eb6a2cec218e13641530a61cdba9c295da333df2526933a2c46b16e206f965"
+      protocol_contracts_hash = "0x25eb6a2cec218e13641530a61cdba9c295da333df2526933a2c46b16e206f965"
       prover_id = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
         [inputs.previous_rollups.public_inputs.constants.last_archive]

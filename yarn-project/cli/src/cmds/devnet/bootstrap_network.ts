@@ -21,7 +21,7 @@ import {
   deployL1Contract,
 } from '@aztec/ethereum';
 import type { LogFn, Logger } from '@aztec/foundation/log';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 import { getContract } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';

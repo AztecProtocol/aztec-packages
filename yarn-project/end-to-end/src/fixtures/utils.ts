@@ -52,7 +52,7 @@ import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2PClientDeps } from '@aztec/p2p';
 import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
@@ -125,7 +125,7 @@ export const setupL1Contracts = async (
 ) => {
   const l1Data = await deployL1Contracts(l1RpcUrls, account, chain, logger, {
     vkTreeRoot: getVKTreeRoot(),
-    protocolContractTreeRoot,
+    protocolContractsHash,
     genesisArchiveRoot: args.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
     salt: args.salt,
     initialValidators: args.initialValidators,

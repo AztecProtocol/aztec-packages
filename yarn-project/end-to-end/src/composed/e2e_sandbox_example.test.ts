@@ -16,7 +16,7 @@ import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee/testing';
 import { timesParallel } from '@aztec/foundation/collection';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { GasSettings } from '@aztec/stdlib/gas';
-import { registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet';
+import { registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet/server';
 import { TestWallet } from '@aztec/test-wallet/server';
 
 import { format } from 'util';

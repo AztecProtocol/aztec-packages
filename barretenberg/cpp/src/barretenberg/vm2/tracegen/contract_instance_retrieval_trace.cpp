@@ -25,8 +25,16 @@ void ContractInstanceRetrievalTraceBuilder::process(
 
     uint32_t row = 1;
     for (const auto& event : events) {
-        AztecAddress derived_address =
-            event.is_protocol_contract ? simulation::compute_contract_address(event.contract_instance) : event.address;
+        AztecAddress derived_address = event.address;
+        FF protocol_contract_derived_address_inv = 0;
+        uint32_t derived_address_pi_index = 0;
+
+        if (event.is_protocol_contract) {
+            derived_address = event.exists ? simulation::compute_contract_address(event.contract_instance) : 0;
+            protocol_contract_derived_address_inv = event.exists ? derived_address.invert() : 0;
+            derived_address_pi_index =
+                AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACTS_ROW_IDX + static_cast<uint32_t>(event.address - 1);
+        }
 
         // No update check for protocol contract instances
         bool check_update = event.exists && !event.is_protocol_contract;
@@ -69,7 +77,10 @@ void ContractInstanceRetrievalTraceBuilder::process(
 
                 // Columns conditional on protocol contract instance
                 { C::contract_instance_retrieval_address_sub_one, event.address - 1 },
-                { C::contract_instance_retrieval_max_protocol_contract_address, MAX_PROTOCOL_CONTRACT_ADDRESS },
+                { C::contract_instance_retrieval_max_protocol_contracts, MAX_PROTOCOL_CONTRACTS },
+                { C::contract_instance_retrieval_derived_address_pi_index, derived_address_pi_index },
+                { C::contract_instance_retrieval_protocol_contract_derived_address_inv,
+                  protocol_contract_derived_address_inv },
                 { C::contract_instance_retrieval_derived_address, derived_address },
                 { C::contract_instance_retrieval_is_protocol_contract, event.is_protocol_contract ? 1 : 0 },
                 { C::contract_instance_retrieval_should_check_nullifier, !event.is_protocol_contract ? 1 : 0 },
@@ -85,7 +96,7 @@ const InteractionDefinition ContractInstanceRetrievalTraceBuilder::interactions 
         .add<lookup_contract_instance_retrieval_address_derivation_settings, InteractionType::LookupGeneric>()
         .add<lookup_contract_instance_retrieval_update_check_settings, InteractionType::LookupSequential>()
         .add<lookup_contract_instance_retrieval_check_protocol_address_range_settings, InteractionType::LookupGeneric>()
-        .add<lookup_contract_instance_retrieval_protocol_contract_derived_address_settings,
-             InteractionType::LookupGeneric>();
+        .add<lookup_contract_instance_retrieval_read_derived_address_from_public_inputs_settings,
+             InteractionType::LookupIntoIndexedByClk>();
 
 } // namespace bb::avm2::tracegen

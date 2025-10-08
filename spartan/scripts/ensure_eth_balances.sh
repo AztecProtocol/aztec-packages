@@ -148,7 +148,7 @@ fi
 
 multicall_address="0xcA11bde05977b3631167028862bE2a173976CA11" # Multicall3 contract on most chains
 
-echo "Sending transaction to top up $accounts_to_fund_count accounts..."
+echo "Sending transaction to top up $accounts_to_fund_count accounts, total value to send $total_value_to_send..."
 tx_hash=$(cast send "$multicall_address" \
   "aggregate3Value((address,bool,uint256,bytes)[])" \
   "$calls" \

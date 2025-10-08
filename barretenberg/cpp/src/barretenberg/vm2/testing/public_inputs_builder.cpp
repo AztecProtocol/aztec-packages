@@ -9,6 +9,11 @@ PublicInputsBuilder& PublicInputsBuilder::with_global_variables(const GlobalVari
     public_inputs.globalVariables = globals;
     return *this;
 }
+PublicInputsBuilder& PublicInputsBuilder::set_protocol_contracts(const ProtocolContracts& protocol_contracts)
+{
+    public_inputs.protocolContracts = protocol_contracts;
+    return *this;
+}
 PublicInputsBuilder& PublicInputsBuilder::with_start_tree_snapshots(const TreeSnapshots& snapshots)
 {
     public_inputs.startTreeSnapshots = snapshots;

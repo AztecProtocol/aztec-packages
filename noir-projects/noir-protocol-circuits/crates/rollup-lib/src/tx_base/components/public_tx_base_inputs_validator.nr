@@ -118,6 +118,14 @@ impl PublicTxBaseInputsValidator {
 
         let private_tail = public_tube.private_tail;
 
+        // --- Protocol contracts ---
+
+        assert_eq(
+            private_tail.constants.protocol_contracts_hash,
+            avm.protocol_contracts.hash(),
+            "Mismatched protocol_contracts between private and avm",
+        );
+
         // --- Gas and fees ---
 
         assert_eq(
@@ -220,9 +228,6 @@ impl PublicTxBaseInputsValidator {
         // `global_variables`: part of the block constant data, validated in `tx_merge` and `block_root` to ensure
         // consistency across all txs in the block. The `chain_id` and `version` are validated in
         // `private_tail_validator` to ensure they match the values in the private tail.
-
-        // `protocol_contract_tree_root`: included in the block constant data and validated in `private_tail_validator`
-        // to match the value from the private tail.
 
         // `l1_to_l2_message_tree` in `start_tree_snapshots`: part of the block constant data, remains constant for all
         // txs in the block. The value is validated as follows:
