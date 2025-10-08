@@ -142,22 +142,6 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         return num_ultra_gates + num_goblin_ecc_op_gates;
     }
 
-    /**
-     * @brief Dynamically compute the number of gates added by the "add_gates_to_ensure_all_polys_are_non_zero" method
-     * @note This does NOT add the gates to the present builder
-     *
-     */
-    size_t get_num_gates_added_to_ensure_nonzero_polynomials()
-    {
-        MegaCircuitBuilder_<FF> builder; // instantiate new builder
-
-        size_t num_gates_prior = builder.get_estimated_num_finalized_gates();
-        builder.add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero();
-        size_t num_gates_post = builder.get_estimated_num_finalized_gates(); // accounts for finalization gates
-
-        return num_gates_post - num_gates_prior;
-    }
-
     /**x
      * @brief Print the number and composition of gates in the circuit
      *

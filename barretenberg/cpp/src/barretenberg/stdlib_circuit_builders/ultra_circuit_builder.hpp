@@ -295,9 +295,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void create_add_gate(const add_triple_<FF>& in) override;
     void create_big_mul_add_gate(const mul_quad_<FF>& in, const bool use_next_gate_w_4 = false);
     void create_big_add_gate(const add_quad_<FF>& in, const bool use_next_gate_w_4 = false);
-    void create_big_add_gate_with_bit_extraction(const add_quad_<FF>& in);
     void create_big_mul_gate(const mul_quad_<FF>& in);
-    void create_balanced_add_gate(const add_quad_<FF>& in);
 
     void create_mul_gate(const mul_triple_<FF>& in) override;
     void create_bool_gate(const uint32_t a) override;
@@ -487,22 +485,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         size_t nnfcount = 0;
         get_num_estimated_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
         return count + romcount + ramcount + rangecount + nnfcount;
-    }
-
-    /**
-     * @brief Dynamically compute the number of gates added by the "add_gates_to_ensure_all_polys_are_non_zero" method
-     * @note This does NOT add the gates to the present builder
-     *
-     */
-    size_t get_num_gates_added_to_ensure_nonzero_polynomials()
-    {
-        UltraCircuitBuilder_<ExecutionTrace> builder; // instantiate new builder
-
-        size_t num_gates_prior = builder.get_estimated_num_finalized_gates();
-        builder.add_gates_to_ensure_all_polys_are_non_zero();
-        size_t num_gates_post = builder.get_estimated_num_finalized_gates(); // accounts for finalization gates
-
-        return num_gates_post - num_gates_prior;
     }
 
     /**

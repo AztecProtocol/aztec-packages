@@ -191,15 +191,6 @@ template <typename FF_> class CircuitBuilderBase {
     virtual void set_variable_name(uint32_t index, const std::string& name);
 
     /**
-     * After assert_equal() merge two class names if present.
-     * Preserves the first name in class.
-     *
-     * @param index Index of the variable you have previously named and used in assert_equal.
-     *
-     */
-    virtual void update_variable_names(uint32_t index);
-
-    /**
      * Export the existing circuit as msgpack compatible buffer.
      *
      * @return msgpack compatible buffer
@@ -242,7 +233,6 @@ template <typename FF_> class CircuitBuilderBase {
     bool failed() const;
     const std::string& err() const;
 
-    void set_err(std::string msg);
     void failure(std::string msg);
 };
 

@@ -389,71 +389,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_add_gate(const add_quad_<F
 }
 
 /**
- * @brief A legacy method that was used to extract a bit from c-4d by using gate selectors in the
- * Turboplonk, but is simulated here for ultraplonk
- *
- * @param in Structure with variables and witness selector values
- */
-template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::create_big_add_gate_with_bit_extraction(const add_quad_<FF>& in)
-{
-    // This method is an artifact of a turbo plonk feature that implicitly extracts
-    // a high or low bit from a base-4 quad and adds it into the arithmetic gate relationship.
-    // This has been removed in the plookup composer due to it's infrequent use not being worth the extra
-    // cost incurred by the prover for the extra field muls required.
-
-    // We have wires a, b, c, d, where
-    // a + b + c + d + 6 * (extracted bit) = 0
-    // (extracted bit) is the high bit pulled from c - 4d
-
-    this->assert_valid_variables({ in.a, in.b, in.c, in.d });
-
-    const uint256_t quad = this->get_variable(in.c) - this->get_variable(in.d) * 4;
-    const auto lo_bit = quad & uint256_t(1);
-    const auto hi_bit = (quad & uint256_t(2)) >> 1;
-    const auto lo_idx = this->add_variable(lo_bit);
-    const auto hi_idx = this->add_variable(hi_bit);
-    // lo + hi * 2 - c + 4 * d = 0
-    create_big_add_gate({
-        lo_idx,
-        hi_idx,
-        in.c,
-        in.d,
-        1,
-        2,
-        -1,
-        4,
-        0,
-    });
-
-    // create temporary variable t = in.a * in.a_scaling + 6 * hi_bit
-    const auto t = this->get_variable(in.a) * in.a_scaling + FF(hi_bit) * 6;
-    const auto t_idx = this->add_variable(t);
-    create_big_add_gate({
-        in.a,
-        hi_idx,
-        t_idx,
-        this->zero_idx,
-        in.a_scaling,
-        6,
-        -1,
-        0,
-        0,
-    });
-    // (t = a + 6 * hi_bit) + b + c + d = 0
-    create_big_add_gate({
-        t_idx,
-        in.b,
-        in.c,
-        in.d,
-        1,
-        in.b_scaling,
-        in.c_scaling,
-        in.d_scaling,
-        in.const_scaling,
-    });
-}
-/**
  * @brief Create a basic multiplication gate q_m * a * b + q_1 * a + q_2 * b + q_3 * c + q_4 * d + q_c = 0 (q_arith = 1)
  *
  * @param in Structure containing variables and witness selectors
@@ -485,39 +420,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_gate(const mul_quad_<F
     ++this->num_gates;
 }
 
-// Creates a width-4 addition gate, where the fourth witness must be a boolean.
-// Can be used to normalize a 32-bit addition
-template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::create_balanced_add_gate(const add_quad_<FF>& in)
-{
-    this->assert_valid_variables({ in.a, in.b, in.c, in.d });
-
-    blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
-    blocks.arithmetic.q_m().emplace_back(0);
-    blocks.arithmetic.q_1().emplace_back(in.a_scaling);
-    blocks.arithmetic.q_2().emplace_back(in.b_scaling);
-    blocks.arithmetic.q_3().emplace_back(in.c_scaling);
-    blocks.arithmetic.q_c().emplace_back(in.const_scaling);
-    blocks.arithmetic.q_arith().emplace_back(1);
-    blocks.arithmetic.q_4().emplace_back(in.d_scaling);
-    blocks.arithmetic.q_delta_range().emplace_back(0);
-    blocks.arithmetic.q_lookup_type().emplace_back(0);
-    blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_memory().emplace_back(0);
-    blocks.arithmetic.q_nnf().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_external().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        blocks.arithmetic.pad_additional();
-    }
-    check_selector_length_consistency();
-    ++this->num_gates;
-
-    // Range constrain the 4-th wire to {0, 1}. Since the inputs being added never exceed (2^x - 1)
-    // during uintx arithmetic, we can safely use a 1-bit range check here. In other words, we do not
-    // allow lazy uintx addition.
-    create_new_range_constraint(in.d, 1);
-}
 /**
  * @brief Create a multiplication gate with q_m * a * b + q_3 * c + q_const = 0
  *
