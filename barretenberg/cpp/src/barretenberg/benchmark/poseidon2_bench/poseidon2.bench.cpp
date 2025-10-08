@@ -575,9 +575,6 @@ class Poseidon2BBMsgpackSocket : public Fixture {
 
     void SetUp(const ::benchmark::State& /*unused*/) override
     {
-        // Clean up any leftover socket
-        unlink(socket_path);
-
         // Spawn bb binary in socket server mode
         bb_pid = spawn_bb_msgpack_server(socket_path);
         if (bb_pid < 0) {
@@ -618,18 +615,40 @@ class Poseidon2BBMsgpackSocket : public Fixture {
 
     void TearDown(const ::benchmark::State& /*unused*/) override
     {
+        // Send Shutdown command to bb so it exits gracefully
         if (client) {
+            try {
+                // Create Shutdown command
+                bb::bbapi::Shutdown shutdown_cmd;
+                bb::bbapi::Command command{ std::move(shutdown_cmd) };
+
+                // Serialize command to msgpack
+                msgpack::sbuffer cmd_buffer;
+                msgpack::pack(cmd_buffer, command);
+
+                // Send shutdown command
+                client->send(cmd_buffer.data(), cmd_buffer.size());
+
+                // Wait for response (bb will send response before exiting)
+                std::vector<uint8_t> resp_buffer(1024);
+                client->recv(resp_buffer.data(), resp_buffer.size(), 500000000); // 500ms timeout
+            } catch (...) {
+                // Ignore errors during shutdown
+            }
+
             client->close();
         }
 
-        // Kill bb process
+        // Wait for bb to exit gracefully (destructors will clean up resources)
         if (bb_pid > 0) {
-            kill(bb_pid, SIGTERM);
-            waitpid(bb_pid, nullptr, 0);
+            int status;
+            pid_t result = waitpid(bb_pid, &status, 0); // Blocking wait
+            if (result <= 0) {
+                // If wait failed, force kill
+                kill(bb_pid, SIGKILL);
+                waitpid(bb_pid, nullptr, 0);
+            }
         }
-
-        // Cleanup socket
-        unlink(socket_path);
     }
 };
 
@@ -692,15 +711,7 @@ class Poseidon2BBMsgpackShm : public Fixture {
 
     void SetUp(const ::benchmark::State& /*unused*/) override
     {
-        // Clean up any leftover shared memory
-        mpsc_unlink(base_name.c_str(), 10);
-        for (int i = 0; i < 10; i++) {
-            std::string resp_name = base_name + "_response_" + std::to_string(i);
-            spsc_shm_unlink(resp_name.c_str());
-        }
-        shm_unlink((base_name + "_next_id").c_str());
-
-        // Spawn bb binary in shared memory server mode (path ends with .shm to activate shared memory)
+        // Spawn bb binary in shared memory server mode
         std::string shm_path = base_name + ".shm";
         bb_pid = spawn_bb_msgpack_server(shm_path);
         if (bb_pid < 0) {
@@ -725,24 +736,40 @@ class Poseidon2BBMsgpackShm : public Fixture {
 
     void TearDown(const ::benchmark::State& /*unused*/) override
     {
+        // Send Shutdown command to bb so it exits gracefully
         if (client) {
+            try {
+                // Create Shutdown command
+                bb::bbapi::Shutdown shutdown_cmd;
+                bb::bbapi::Command command{ std::move(shutdown_cmd) };
+
+                // Serialize command to msgpack
+                msgpack::sbuffer cmd_buffer;
+                msgpack::pack(cmd_buffer, command);
+
+                // Send shutdown command
+                client->send(cmd_buffer.data(), cmd_buffer.size(), 1000000000);
+
+                // Wait for response (bb will send response before exiting)
+                std::vector<uint8_t> resp_buffer(1024);
+                client->recv(resp_buffer.data(), resp_buffer.size(), 500000000); // 500ms timeout
+            } catch (...) {
+                // Ignore errors during shutdown
+            }
+
             client->close();
         }
 
-        // Kill bb process
+        // Wait for bb to exit gracefully (destructors will clean up resources)
         if (bb_pid > 0) {
-            kill(bb_pid, SIGTERM);
-            waitpid(bb_pid, nullptr, 0);
+            int status;
+            pid_t result = waitpid(bb_pid, &status, 0); // Blocking wait
+            if (result <= 0) {
+                // If wait failed, force kill
+                kill(bb_pid, SIGKILL);
+                waitpid(bb_pid, nullptr, 0);
+            }
         }
-
-        // Cleanup shared memory
-        mpsc_unlink(base_name.c_str(), 10);
-        for (int i = 0; i < 10; i++) {
-            std::string resp_name = base_name + "_response_" + std::to_string(i);
-            spsc_shm_unlink(resp_name.c_str());
-        }
-        std::string id_name = base_name + "_next_id";
-        shm_unlink(id_name.c_str());
     }
 };
 

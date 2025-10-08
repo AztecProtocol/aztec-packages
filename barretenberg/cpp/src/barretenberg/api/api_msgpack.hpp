@@ -142,6 +142,11 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm)
                 return {};
             }
 
+            // Check if this is a Shutdown command
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
+            std::string command_name(arr.ptr[0].via.str.ptr, arr.ptr[0].via.str.size);
+            bool is_shutdown = (command_name == "Shutdown");
+
             // Convert to Command and execute
             bb::bbapi::Command command;
             obj.convert(command);
@@ -150,9 +155,18 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm)
             // Serialize response
             msgpack::sbuffer response_buffer;
             msgpack::pack(response_buffer, response);
+            std::vector<uint8_t> result(response_buffer.data(), response_buffer.data() + response_buffer.size());
 
-            // Return serialized response
-            return std::vector<uint8_t>(response_buffer.data(), response_buffer.data() + response_buffer.size());
+            // If this was a shutdown command, throw exception with response
+            // This signals the server to send the response and then exit gracefully
+            if (is_shutdown) {
+                throw ipc::ShutdownRequested(std::move(result));
+            }
+
+            return result;
+        } catch (const ipc::ShutdownRequested&) {
+            // Re-throw shutdown request
+            throw;
         } catch (const std::exception& e) {
             std::cerr << "Error processing request from client " << client_id << ": " << e.what() << std::endl;
             return {};

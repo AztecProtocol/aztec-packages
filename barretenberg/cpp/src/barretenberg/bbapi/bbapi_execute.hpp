@@ -24,7 +24,8 @@ using Command = NamedUnion<CircuitProve,
                            CircuitWriteSolidityVerifier,
                            ClientIvcCheckPrecomputedVk,
                            ClientIvcStats,
-                           Poseidon2Hash>;
+                           Poseidon2Hash,
+                           Shutdown>;
 
 using CommandResponse = NamedUnion<CircuitProve::Response,
                                    CircuitComputeVk::Response,
@@ -41,7 +42,8 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
                                    CircuitWriteSolidityVerifier::Response,
                                    ClientIvcCheckPrecomputedVk::Response,
                                    ClientIvcStats::Response,
-                                   Poseidon2Hash::Response>;
+                                   Poseidon2Hash::Response,
+                                   Shutdown::Response>;
 
 /**
  * @brief Executes a command by visiting a variant of all possible commands.

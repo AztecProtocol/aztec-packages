@@ -5,10 +5,27 @@
 #include <functional>
 #include <memory>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 namespace bb::ipc {
+
+/**
+ * @brief Exception thrown by handler to signal graceful shutdown
+ *
+ * Carries the response data to be sent before shutting down.
+ */
+class ShutdownRequested : public std::exception {
+    std::vector<uint8_t> response_;
+
+  public:
+    explicit ShutdownRequested(std::vector<uint8_t> response)
+        : response_(std::move(response))
+    {}
+    const std::vector<uint8_t>& response() const { return response_; }
+    const char* what() const noexcept override { return "Server shutdown requested"; }
+};
 
 /**
  * @brief Abstract interface for IPC server
@@ -84,6 +101,8 @@ class IpcServer {
      * Handler is responsible for deserializing request, processing, and serializing response.
      * This is a convenience method that encapsulates the typical server loop.
      *
+     * Server exits gracefully when handler throws ShutdownRequested exception.
+     *
      * @param handler Function to process requests and generate responses
      * @param max_message_size Maximum message size to allocate buffer for (default 1MB)
      */
@@ -105,9 +124,18 @@ class IpcServer {
                 continue;
             }
 
-            auto response = handler(client_id, std::span<const uint8_t>(buffer.data(), static_cast<size_t>(n)));
-            if (!response.empty()) {
-                send(client_id, response.data(), response.size());
+            try {
+                auto response = handler(client_id, std::span<const uint8_t>(buffer.data(), static_cast<size_t>(n)));
+                if (!response.empty()) {
+                    send(client_id, response.data(), response.size());
+                }
+            } catch (const ShutdownRequested& shutdown) {
+                // Send final response before shutting down
+                if (!shutdown.response().empty()) {
+                    send(client_id, shutdown.response().data(), shutdown.response().size());
+                }
+                // Graceful shutdown - exit loop and let destructors run
+                return;
             }
         }
     }
