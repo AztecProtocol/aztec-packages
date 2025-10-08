@@ -581,6 +581,13 @@ template <typename Flavor> class SumcheckProverRound {
                                                    const SubrelationSeparators& challenge,
                                                    const bb::GateSeparatorPolynomial<FF>& gate_separators)
     {
+        auto print_accumulators = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
+            info("accumulator: ", element.evaluations.at(0), ", ", element.evaluations.at(1));
+            info("accumulator_sum: ", element.evaluations.at(0) + element.evaluations.at(1));
+        };
+
+        Utils::apply_to_tuple_of_tuples(univariate_accumulators, print_accumulators);
+        info("--------------------------------");
         Utils::scale_univariates(univariate_accumulators, challenge);
 
         auto result = ExtendedUnivariate(0);
