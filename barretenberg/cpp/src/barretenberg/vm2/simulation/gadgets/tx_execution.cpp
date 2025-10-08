@@ -102,7 +102,7 @@ void TxExecution::simulate(const Tx& tx)
                                                                   tx_context.side_effect_states,
                                                                   TransactionPhase::SETUP);
             // This call should not throw unless it's an unexpected unrecoverable failure.
-            ExecutionResult result = call_execution.execute(std::move(context));
+            EnqueuedCallResult result = call_execution.execute(std::move(context));
             tx_context.side_effect_states = result.side_effect_states;
             tx_context.gas_used = result.gas_used;
             emit_public_call_request(call,
@@ -148,7 +148,7 @@ void TxExecution::simulate(const Tx& tx)
                                                                       tx_context.side_effect_states,
                                                                       TransactionPhase::APP_LOGIC);
                 // This call should not throw unless it's an unexpected unrecoverable failure.
-                ExecutionResult result = call_execution.execute(std::move(context));
+                EnqueuedCallResult result = call_execution.execute(std::move(context));
                 tx_context.side_effect_states = result.side_effect_states;
                 tx_context.gas_used = result.gas_used;
                 emit_public_call_request(call,
@@ -203,7 +203,7 @@ void TxExecution::simulate(const Tx& tx)
                                                                   tx_context.side_effect_states,
                                                                   TransactionPhase::TEARDOWN);
             // This call should not throw unless it's an unexpected unrecoverable failure.
-            ExecutionResult result = call_execution.execute(std::move(context));
+            EnqueuedCallResult result = call_execution.execute(std::move(context));
             tx_context.side_effect_states = result.side_effect_states;
             // Check what to do here for GAS
             emit_public_call_request(*tx.teardownEnqueuedCall,
