@@ -24,6 +24,7 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state/fork.hpp"
 #include "barretenberg/world_state/types.hpp"
+#include "barretenberg/world_state/world_state_manager.hpp"
 #include "napi.h"
 
 using namespace bb::nodejs;
@@ -149,13 +150,13 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
         thread_pool_size = info[thread_pool_size_index].As<Napi::Number>().Uint32Value();
     }
 
-    _ws = std::make_unique<WorldState>(thread_pool_size,
-                                       data_dir,
-                                       map_size,
-                                       tree_height,
-                                       tree_prefill,
-                                       prefilled_public_data,
-                                       initial_header_generator_point);
+    _ws = bb::world_state::WorldStateManager::initialise_world_state(thread_pool_size,
+                                                                     data_dir,
+                                                                     map_size,
+                                                                     tree_height,
+                                                                     tree_prefill,
+                                                                     prefilled_public_data,
+                                                                     initial_header_generator_point);
 
     _dispatcher.register_target(
         WorldStateMessageType::GET_TREE_INFO,
@@ -773,9 +774,7 @@ bool WorldStateWrapper::close(msgpack::object& obj, msgpack::sbuffer& buf)
     HeaderOnlyMessage request;
     obj.convert(request);
 
-    // The only reason this API exists is for testing purposes in TS (e.g. close db, open new db instance to test
-    // persistence)
-    _ws.reset(nullptr);
+    WorldStateManager::reset_world_state();
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<EmptyResponse> resp_msg(WorldStateMessageType::CLOSE, header, {});
