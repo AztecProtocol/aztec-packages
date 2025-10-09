@@ -248,7 +248,7 @@ locals {
       values = [
         "common.yaml",
         "archive.yaml",
-        "archive-resources-dev.yaml"
+        "archive-resources-prod.yaml"
       ]
       custom_settings = {
         "nodeType"                       = "archive"
