@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/events/events_container.hpp"
 #include "barretenberg/vm2/simulation/interfaces/execution.hpp"
 
@@ -21,14 +22,14 @@ class AvmSimulationHelper {
 
     // Simulate a bytecode with some calldata and additional context.
     // Note: this assumes that no nested calls are ever made to other bytecodes.
-    simulation::ExecutionResult simulate_bytecode(AztecAddress address,
-                                                  AztecAddress sender,
-                                                  FF transaction_fee,
-                                                  GlobalVariables globals,
-                                                  bool is_static_call,
-                                                  const std::vector<FF>& calldata,
-                                                  Gas gas_limit,
-                                                  const std::vector<uint8_t>& bytecode);
+    EnqueuedCallResult simulate_bytecode(AztecAddress address,
+                                         AztecAddress sender,
+                                         FF transaction_fee,
+                                         GlobalVariables globals,
+                                         bool is_static_call,
+                                         const std::vector<FF>& calldata,
+                                         Gas gas_limit,
+                                         const std::vector<uint8_t>& bytecode);
 };
 
 } // namespace bb::avm2

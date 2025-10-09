@@ -413,14 +413,14 @@ void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints)
     tx_execution.simulate(hints.tx);
 }
 
-ExecutionResult AvmSimulationHelper::simulate_bytecode(AztecAddress address,
-                                                       AztecAddress sender,
-                                                       FF transaction_fee,
-                                                       GlobalVariables globals,
-                                                       bool is_static_call,
-                                                       const std::vector<FF>& calldata,
-                                                       Gas gas_limit,
-                                                       const std::vector<uint8_t>& bytecode)
+EnqueuedCallResult AvmSimulationHelper::simulate_bytecode(AztecAddress address,
+                                                          AztecAddress sender,
+                                                          FF transaction_fee,
+                                                          GlobalVariables globals,
+                                                          bool is_static_call,
+                                                          const std::vector<FF>& calldata,
+                                                          Gas gas_limit,
+                                                          const std::vector<uint8_t>& bytecode)
 {
     BB_BENCH_NAME("AvmSimulationHelper::simulate_bytecode");
 
@@ -553,7 +553,7 @@ ExecutionResult AvmSimulationHelper::simulate_bytecode(AztecAddress address,
         /*gas_used=*/Gas{ 0, 0 },
         globals,
         std::make_unique<RawBytecodeManager>(shared_bytecode),
-        /*memory=*/memory_provider.make_memory(/*space_id=*/0),
+        memory_provider.make_memory(/*space_id=*/0),
         /*internal_call_stack_manager=*/
         internal_call_stack_manager_provider.make_internal_call_stack_manager(/*context_id=*/0),
         merkle_db,
@@ -562,7 +562,14 @@ ExecutionResult AvmSimulationHelper::simulate_bytecode(AztecAddress address,
         /*side_effect_states=*/SideEffectStates{ 0, 0 },
         /*phase=*/TransactionPhase::APP_LOGIC,
         calldata);
-    return execution.execute(std::make_unique<EnqueuedCallContext>(std::move(enqueued_call_context)));
+
+    const ExecutionResult& result =
+        execution.execute(std::make_unique<EnqueuedCallContext>(std::move(enqueued_call_context)));
+
+    std::vector<FF> output_data = result.output.value_or(std::vector<FF>{});
+
+    const Gas gas_left = gas_limit - result.gas_used;
+    return { .reverted = !result.success, .output = output_data, .gas_left = gas_left };
 }
 
 } // namespace bb::avm2

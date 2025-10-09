@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/simulation_helper.hpp"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
@@ -15,6 +16,7 @@ namespace {
 using avm2::testing::InstructionBuilder;
 using simulation::Instruction;
 using simulation::Operand;
+using ::testing::ElementsAre;
 
 // Helper function to create bytecode from a vector of instructions
 std::vector<uint8_t> create_bytecode(const std::vector<Instruction>& instructions)
@@ -59,13 +61,11 @@ TEST_F(SimulateBytecodeTest, AddSimple)
 {
     const uint8_t a_value = 10;
     const uint8_t b_value = 20;
-    // const uint8_t expected_sum = 30;
 
     const uint8_t a_offset = 0;
     const uint8_t b_offset = 1;
     const uint8_t result_offset = 2;
     const uint8_t return_size_offset = 3;
-    const uint8_t return_offset = 4;
 
     std::vector<Instruction> instructions = {
         // Set value of a
@@ -74,9 +74,7 @@ TEST_F(SimulateBytecodeTest, AddSimple)
         InstructionBuilder(WireOpCode::SET_8).operand(b_offset).operand(MemoryTag::FF).operand(b_value).build(),
         // Add a + b
         InstructionBuilder(WireOpCode::ADD_8).operand(a_offset).operand(b_offset).operand(result_offset).build(),
-        // Copy result to return offset
-        InstructionBuilder(WireOpCode::MOV_8).operand(result_offset).operand(return_offset).build(),
-        // Set return size to 1 (u32(1))
+        // Set return size to 1 to return sum
         InstructionBuilder(WireOpCode::SET_8)
             .operand(return_size_offset)
             .operand(MemoryTag::U32)
@@ -85,7 +83,7 @@ TEST_F(SimulateBytecodeTest, AddSimple)
         // Return successfully with one field element
         InstructionBuilder(WireOpCode::RETURN)
             .operand(static_cast<uint16_t>(return_size_offset))
-            .operand(static_cast<uint16_t>(return_offset))
+            .operand(static_cast<uint16_t>(result_offset))
             .build(),
     };
 
@@ -95,9 +93,8 @@ TEST_F(SimulateBytecodeTest, AddSimple)
     auto result = helper.simulate_bytecode(
         contract_address, sender_address, transaction_fee, globals, is_static_call, calldata, gas_limit, bytecode);
 
-    EXPECT_TRUE(result.success);
-    // TODO: new result type with output vector of FFs
-    // EXPECT_EQ(result.output.as<uint8_t>(), expected_sum);
+    EXPECT_FALSE(result.reverted);
+    EXPECT_THAT(result.output, ElementsAre(a_value + b_value));
 }
 
 TEST_F(SimulateBytecodeTest, AddWithIndirectOffset)
@@ -133,16 +130,16 @@ TEST_F(SimulateBytecodeTest, AddWithIndirectOffset)
                           Operand::from<uint8_t>(b_offset),
                           Operand::from<uint8_t>(result_offset) },
         },
-        // Set return size to 0 (u32(0)) for an empty return
+        // Set return size to 1 to return sum
         InstructionBuilder(WireOpCode::SET_8)
             .operand(return_size_offset)
             .operand(MemoryTag::U32)
-            .operand(static_cast<uint8_t>(0))
+            .operand(static_cast<uint8_t>(1))
             .build(),
-        // Return successfully (but empty)
+        // Return successfully (with one field element: the sum)
         InstructionBuilder(WireOpCode::RETURN)
             .operand(static_cast<uint16_t>(return_size_offset))
-            .operand(static_cast<uint16_t>(0))
+            .operand(static_cast<uint16_t>(result_offset))
             .build(),
     };
 
@@ -152,7 +149,8 @@ TEST_F(SimulateBytecodeTest, AddWithIndirectOffset)
     auto result = helper.simulate_bytecode(
         contract_address, sender_address, transaction_fee, globals, is_static_call, calldata, gas_limit, bytecode);
 
-    EXPECT_TRUE(result.success);
+    EXPECT_FALSE(result.reverted);
+    EXPECT_THAT(result.output, ElementsAre(a_value + b_value));
 }
 
 TEST_F(SimulateBytecodeTest, AddFromCalldata)
@@ -169,7 +167,6 @@ TEST_F(SimulateBytecodeTest, AddFromCalldata)
     const uint16_t a_memory_offset = 1000;
     const uint16_t b_memory_offset = 1001;
     const uint16_t result_offset = 1002;
-    const uint16_t return_size_offset = 1003;
 
     std::vector<Instruction> instructions = {
         // Store consts into memory (use 16-bit wire format for large offsets)
@@ -218,14 +215,11 @@ TEST_F(SimulateBytecodeTest, AddFromCalldata)
             .operand(b_memory_offset)
             .operand(result_offset)
             .build(),
-        // Set return size to 0 (u32(0)) for an empty return
-        InstructionBuilder(WireOpCode::SET_16)
-            .operand(return_size_offset)
-            .operand(MemoryTag::U32)
-            .operand(static_cast<uint16_t>(0))
+        // Return successfully (with one field element: the sum)
+        InstructionBuilder(WireOpCode::RETURN)
+            .operand(const1_offset)
+            .operand(static_cast<uint16_t>(result_offset))
             .build(),
-        // Return successfully (but empty)
-        InstructionBuilder(WireOpCode::RETURN).operand(return_size_offset).operand(static_cast<uint16_t>(0)).build(),
     };
 
     const auto bytecode = create_bytecode(instructions);
@@ -233,7 +227,8 @@ TEST_F(SimulateBytecodeTest, AddFromCalldata)
     auto result = helper.simulate_bytecode(
         contract_address, sender_address, transaction_fee, globals, is_static_call, calldata, gas_limit, bytecode);
 
-    EXPECT_TRUE(result.success);
+    EXPECT_FALSE(result.reverted);
+    EXPECT_THAT(result.output, ElementsAre(a_value + b_value));
 }
 
 TEST_F(SimulateBytecodeTest, AddShouldRevertWithMismatchedTags)
@@ -244,6 +239,7 @@ TEST_F(SimulateBytecodeTest, AddShouldRevertWithMismatchedTags)
     const uint8_t a_offset = 0;
     const uint8_t b_offset = 1;
     const uint8_t result_offset = 2;
+    const uint8_t return_size_offset = 3;
 
     std::vector<Instruction> instructions = {
         // Set value of a as FIELD
@@ -252,16 +248,17 @@ TEST_F(SimulateBytecodeTest, AddShouldRevertWithMismatchedTags)
         InstructionBuilder(WireOpCode::SET_8).operand(b_offset).operand(MemoryTag::U32).operand(b_value).build(),
         // Try to add a + b (should fail due to tag mismatch)
         InstructionBuilder(WireOpCode::ADD_8).operand(a_offset).operand(b_offset).operand(result_offset).build(),
-        // Set return size to 0 (u32(0)) for an empty return
+        // Set return size to 1 to return sum
+        // SHOULD NOT REACH HERE!
         InstructionBuilder(WireOpCode::SET_8)
-            .operand(static_cast<uint8_t>(3))
+            .operand(return_size_offset)
             .operand(MemoryTag::U32)
-            .operand(static_cast<uint8_t>(0))
+            .operand(static_cast<uint8_t>(1))
             .build(),
         // Return successfully (but empty)
         InstructionBuilder(WireOpCode::RETURN)
-            .operand(static_cast<uint16_t>(3))
-            .operand(static_cast<uint16_t>(0))
+            .operand(static_cast<uint16_t>(return_size_offset))
+            .operand(static_cast<uint16_t>(result_offset))
             .build(),
     };
 
@@ -272,7 +269,8 @@ TEST_F(SimulateBytecodeTest, AddShouldRevertWithMismatchedTags)
         contract_address, sender_address, transaction_fee, globals, is_static_call, calldata, gas_limit, bytecode);
 
     // Execution should fail due to tag mismatch
-    EXPECT_FALSE(result.success);
+    EXPECT_TRUE(result.reverted);
+    EXPECT_THAT(result.output, ElementsAre());
 }
 
 } // namespace

@@ -339,6 +339,10 @@ struct SideEffectStates {
     bool operator==(const SideEffectStates& other) const = default;
 };
 
+////////////////////////////////////////////////////////////////////////////
+// Misc Types
+////////////////////////////////////////////////////////////////////////////
+
 enum class DebugLogLevel {
     SILENT = 0,
     FATAL = 1,
@@ -414,5 +418,13 @@ inline std::optional<AztecAddress> get_derived_address(const ProtocolContracts& 
     }
     return derived_address;
 }
+struct EnqueuedCallResult {
+    bool reverted;
+    std::vector<FF> output;
+    Gas gas_left;
+
+    bool operator==(const EnqueuedCallResult& other) const = default;
+    MSGPACK_FIELDS(reverted, output, gas_left);
+};
 
 } // namespace bb::avm2
