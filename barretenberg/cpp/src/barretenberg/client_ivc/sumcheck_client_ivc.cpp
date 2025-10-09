@@ -168,7 +168,9 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
     const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
     auto num_rows = circuit.op_queue->get_num_rows();
+    auto num_ops = circuit.op_queue->get_current_subtable_size();
     info("NUM ROWS WHEN ENTERING: ", num_rows);
+    info("NUM OPS WHEN ENTERING: ", num_ops);
 
     using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
 
@@ -292,6 +294,9 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
         bus_depot.set_app_return_data_commitment(witness_commitments.return_data);
     }
 
+    info("NUM ROWS DIFF: ", circuit.op_queue->get_num_rows() - num_rows);
+    info("NUM OPS DIFF: ", circuit.op_queue->get_current_subtable_size() - num_ops);
+
     // Extract the commitments to the subtable corresponding to the incoming circuit
     merge_commitments.t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
 
@@ -307,7 +312,8 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
         hide_op_queue_content_in_hiding(circuit);
     }
 
-    info("NUM ROWS DIFF: ", circuit.op_queue->get_num_rows() - num_rows);
+    info("NUM ROWS DIFF AT THE END: ", circuit.op_queue->get_num_rows() - num_rows);
+    info("NUM OPS DIFF AT THE END: ", circuit.op_queue->get_current_subtable_size() - num_ops);
 
     return { output_verifier_accumulator, pairing_points, merged_table_commitments };
 }
@@ -426,6 +432,7 @@ SumcheckClientIVC::ProverAccumulator SumcheckClientIVC::execute_first_sumcheck(
     decider_prover.execute_relation_check_rounds();
 
     // First sumcheck output
+    info("Dyadic size: ", prover_instance->dyadic_size());
     FirstSumcheckOutput sumcheck_output{ .challenge = decider_prover.sumcheck_output.challenge,
                                          .claimed_evaluations = decider_prover.sumcheck_output.claimed_evaluations,
                                          .full_batched_size = prover_instance->dyadic_size() };
@@ -777,6 +784,8 @@ HonkProof SumcheckClientIVC::construct_pcs_proof(const std::shared_ptr<Transcrip
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
     auto ck = bn254_commitment_key;
+    info("Dyadic size in PCS: ", ck.dyadic_size);
+    info("Dyadic size poly in PCS: ", prover_accumulator.batched_polynomials[0].virtual_size());
 
     PolynomialBatcher polynomial_batcher(bn254_commitment_key.dyadic_size);
     polynomial_batcher.set_unshifted(prover_accumulator.batched_polynomials[0]);
@@ -784,7 +793,7 @@ HonkProof SumcheckClientIVC::construct_pcs_proof(const std::shared_ptr<Transcrip
 
     OpeningClaim prover_opening_claim;
     prover_opening_claim = ShpleminiProver_<Curve>::prove(
-        bn254_commitment_key.dyadic_size, polynomial_batcher, prover_accumulator.challenge, ck, transcript);
+        ck.dyadic_size, polynomial_batcher, prover_accumulator.challenge, ck, transcript);
 
     vinfo("executed multivariate-to-univariate reduction");
     Flavor::PCS::compute_opening_proof(ck, prover_opening_claim, transcript);
