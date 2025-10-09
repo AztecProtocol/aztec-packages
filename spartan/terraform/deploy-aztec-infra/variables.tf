@@ -199,12 +199,6 @@ variable "PROVER_MNEMONIC" {
   default     = "test test test test test test test test test test test junk"
 }
 
-variable "PROVER_MNEMONIC_START_INDEX" {
-  description = "The prover mnemonic start index"
-  type        = string
-  default     = 1000
-}
-
 variable "PROVER_REPLICAS" {
   description = "The number of prover replicas"
   type        = string

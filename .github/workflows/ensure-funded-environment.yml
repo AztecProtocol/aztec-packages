@@ -92,17 +92,20 @@ jobs:
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         run: |
           # Fetch the environment-specific secrets
-          FUNDING_PRIVATE_KEY=$(gcloud secrets versions access latest --secret="FUNDING_PRIVATE_KEY" --project="$GCP_PROJECT_ID")
+          FUNDING_PRIVATE_KEY=$(gcloud secrets versions access latest --secret="sepolia-funding-private-key" --project="$GCP_PROJECT_ID")
 
           # Export to environment
           echo "FUNDING_PRIVATE_KEY=$FUNDING_PRIVATE_KEY" >> $GITHUB_ENV
 
       - name: Ensure funded environment
+        env:
+          FUNDING_PRIVATE_KEY: ${{ env.FUNDING_PRIVATE_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         run: |
-          cd spartan
+          cd spartan/scripts
 
           # Run the funding script
-          ./bootstrap.sh ensure_funded_environment \
+          ./ensure_funded_environment.sh \
             "${{ inputs.environment }}" \
             "$FUNDING_PRIVATE_KEY" \
             "${{ inputs.low_watermark }}" \
