@@ -87,6 +87,7 @@
     "@aztec/noir-noir_js": "file:../noir/packages/noir_js",
     "jest-runner@npm:^29.7.0": "patch:jest-runner@npm%3A29.7.0#~/.yarn/patches/jest-runner-npm-29.7.0-3bc9f82b58.patch",
     "ws": "^8.17.1",
-    "d3-color": "^3.1.0"
+    "d3-color": "^3.1.0",
+    "@chainsafe/enr@3.0.0-backport-306": "git+https://github.com/AztecProtocol/discv5.git#commit=845e0f24f99486918d2d3be5ae16c3cc69ed70fb&workspace=@chainsafe/enr"
   }
 }
