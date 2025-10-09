@@ -51,6 +51,7 @@ void ProgramBlock::process_add_8_instruction(ADD_8_Instruction instruction)
                                  .operand(instruction.result_offset)
                                  .build();
     instructions.push_back(add_8_instruction);
+    this->stored_variables[instruction.argument_tag].push_back(instruction.result_offset);
 }
 
 void ProgramBlock::process_sub_8_instruction(SUB_8_Instruction instruction)
@@ -68,6 +69,7 @@ void ProgramBlock::process_sub_8_instruction(SUB_8_Instruction instruction)
                                  .operand(instruction.result_offset)
                                  .build();
     instructions.push_back(sub_8_instruction);
+    this->stored_variables[instruction.argument_tag].push_back(instruction.result_offset);
 }
 
 void ProgramBlock::process_mul_8_instruction(MUL_8_Instruction instruction)
@@ -84,6 +86,7 @@ void ProgramBlock::process_mul_8_instruction(MUL_8_Instruction instruction)
                                  .operand(instruction.result_offset)
                                  .build();
     instructions.push_back(mul_8_instruction);
+    this->stored_variables[instruction.argument_tag].push_back(instruction.result_offset);
 }
 
 void ProgramBlock::process_div_8_instruction(DIV_8_Instruction instruction)
@@ -101,6 +104,7 @@ void ProgramBlock::process_div_8_instruction(DIV_8_Instruction instruction)
                                  .operand(instruction.result_offset)
                                  .build();
     instructions.push_back(div_8_instruction);
+    this->stored_variables[instruction.argument_tag].push_back(instruction.result_offset);
 }
 
 void ProgramBlock::process_eq_8_instruction(EQ_8_Instruction instruction)
@@ -117,6 +121,7 @@ void ProgramBlock::process_eq_8_instruction(EQ_8_Instruction instruction)
                                 .operand(instruction.result_offset)
                                 .build();
     instructions.push_back(eq_8_instruction);
+    this->stored_variables[instruction.argument_tag].push_back(instruction.result_offset);
 }
 
 void ProgramBlock::process_lt_8_instruction(LT_8_Instruction instruction)
@@ -134,6 +139,7 @@ void ProgramBlock::process_lt_8_instruction(LT_8_Instruction instruction)
                                 .operand(instruction.result_offset)
                                 .build();
     instructions.push_back(lt_8_instruction);
+    this->stored_variables[instruction.argument_tag].push_back(instruction.result_offset);
 }
 
 void ProgramBlock::process_lte_8_instruction(LTE_8_Instruction instruction)
@@ -150,6 +156,7 @@ void ProgramBlock::process_lte_8_instruction(LTE_8_Instruction instruction)
                                  .operand(instruction.result_offset)
                                  .build();
     instructions.push_back(lte_8_instruction);
+    this->stored_variables[instruction.argument_tag].push_back(instruction.result_offset);
 }
 
 void ProgramBlock::process_and_8_instruction(AND_8_Instruction instruction)
@@ -167,6 +174,7 @@ void ProgramBlock::process_and_8_instruction(AND_8_Instruction instruction)
                                  .operand(instruction.result_offset)
                                  .build();
     instructions.push_back(and_8_instruction);
+    this->stored_variables[instruction.argument_tag].push_back(instruction.result_offset);
 }
 
 void ProgramBlock::process_or_8_instruction(OR_8_Instruction instruction)
@@ -184,6 +192,7 @@ void ProgramBlock::process_or_8_instruction(OR_8_Instruction instruction)
                                 .operand(instruction.result_offset)
                                 .build();
     instructions.push_back(or_8_instruction);
+    this->stored_variables[instruction.argument_tag].push_back(instruction.result_offset);
 }
 
 void ProgramBlock::process_xor_8_instruction(XOR_8_Instruction instruction)
@@ -201,6 +210,7 @@ void ProgramBlock::process_xor_8_instruction(XOR_8_Instruction instruction)
                                  .operand(instruction.result_offset)
                                  .build();
     instructions.push_back(xor_8_instruction);
+    this->stored_variables[instruction.argument_tag].push_back(instruction.result_offset);
 }
 
 void ProgramBlock::process_shl_8_instruction(SHL_8_Instruction instruction)
@@ -218,6 +228,7 @@ void ProgramBlock::process_shl_8_instruction(SHL_8_Instruction instruction)
                                  .operand(instruction.result_offset)
                                  .build();
     instructions.push_back(shl_8_instruction);
+    this->stored_variables[instruction.argument_tag].push_back(instruction.result_offset);
 }
 
 void ProgramBlock::process_shr_8_instruction(SHR_8_Instruction instruction)
@@ -235,6 +246,7 @@ void ProgramBlock::process_shr_8_instruction(SHR_8_Instruction instruction)
                                  .operand(instruction.result_offset)
                                  .build();
     instructions.push_back(shr_8_instruction);
+    this->stored_variables[instruction.argument_tag].push_back(instruction.result_offset);
 }
 
 void ProgramBlock::process_set_8_instruction(SET_8_Instruction instruction)
