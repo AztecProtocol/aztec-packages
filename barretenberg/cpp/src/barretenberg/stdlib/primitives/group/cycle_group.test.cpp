@@ -1847,4 +1847,3 @@ TYPED_TEST(CycleGroupTest, TestFixedBaseBatchMul)
     check_circuit_and_gates(builder, 2908);
 }
 #pragma GCC diagnostic pop
-
