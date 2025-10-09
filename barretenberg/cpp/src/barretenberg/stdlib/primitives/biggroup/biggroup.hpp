@@ -283,6 +283,24 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         return result;
     }
 
+    /**
+     * @brief Asserts that two group elements are equal (i.e., x, y coordinates and infinity flag are all equal).
+     *
+     * @param other
+     * @param msg
+     *
+     * @details Note that checking the coordinates as well as the infinity flag opens up the possibility of honest
+     * prover unable to satisfy constraints if both points are at infinity but have different x, y. This is not a
+     * problem in practice as we should never have multiple representations of the point at infinity in a circuit.
+     */
+    void incomplete_assert_equal(const element& other,
+                                 const std::string msg = "biggroup::incomplete_assert_equal") const
+    {
+        is_point_at_infinity().assert_equal(other.is_point_at_infinity(), msg + " (infinity flag)");
+        x.assert_equal(other.x, msg + " (x coordinate)");
+        y.assert_equal(other.y, msg + " (y coordinate)");
+    }
+
     element normalize() const
     {
         element result(*this);

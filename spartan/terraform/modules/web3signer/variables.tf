@@ -38,17 +38,12 @@ variable "NODE_COUNT" {
   type        = number
 }
 
-variable "VALIDATOR_MNEMONIC_INDEX_START" {
+variable "VALIDATOR_MNEMONIC_START_INDEX" {
   description = "Mnemonic index start for key derivation"
   type        = number
 }
 
-variable "VALIDATOR_PUBLISHER_MNEMONIC_INDEX_START" {
-  description = "Mnemonic index start for key derivation"
-  type        = number
-}
-
-variable "PROVER_PUBLISHER_MNEMONIC_INDEX_START" {
+variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
   description = "Mnemonic index start for key derivation"
   type        = number
 }

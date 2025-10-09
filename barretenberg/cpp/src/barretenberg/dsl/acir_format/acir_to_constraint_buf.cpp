@@ -12,9 +12,9 @@
 #include <tuple>
 #include <utility>
 
-#include "barretenberg/api/get_bytecode.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/container.hpp"
+#include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/ecdsa_constraints.hpp"
