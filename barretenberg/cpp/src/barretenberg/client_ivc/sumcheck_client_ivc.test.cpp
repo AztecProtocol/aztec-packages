@@ -42,9 +42,12 @@ class SumcheckClientIVCTests : public ::testing::Test {
         CircuitProducer circuit_producer(num_app_circuits);
         const size_t num_circuits = circuit_producer.total_num_circuits;
         SumcheckClientIVC ivc{ num_circuits };
-
+        TestSettings settings{
+            .num_public_inputs = 0,
+            .log2_num_gates = 15,
+        };
         for (size_t j = 0; j < num_circuits; ++j) {
-            circuit_producer.construct_and_accumulate_next_circuit(ivc);
+            circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
         }
         return { ivc.prove(), ivc.get_vk() };
     };
