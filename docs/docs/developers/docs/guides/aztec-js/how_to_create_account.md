@@ -27,7 +27,7 @@ yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/accounts@#includ
 Any account on Aztec just needs a secret, a salt, and a signing key. Let's get them:
 
 ```typescript
-import { Fr, GrumpkinScalar } from '@aztec/aztec.js';
+import { Fr, GrumpkinScalar } from "@aztec/aztec.js";
 
 const secretKey = Fr.random();
 const salt = new Fr(0);
@@ -44,7 +44,7 @@ These keys will be used to:
 We need a Wallet to hold our account contract. Let's use `TestWallet` since most of the 3rd party wallets will use the same interface:
 
 ```typescript
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from "@aztec/test-wallet/server";
 
 const wallet = new TestWallet(pxe);
 ```
@@ -65,19 +65,30 @@ If your account was pre-funded with Fee Juice (ex. on the sandbox, or if you use
 // get the initial test accounts data
 const [fundedAccount] = await getInitialTestAccountsData();
 // add the funded account to the wallet
-const fundedWallet = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
+const fundedWallet = await wallet.createSchnorrAccount(
+  fundedAccount.secret,
+  fundedAccount.salt
+);
 
 // add the new account to the wallet
-const alice = await wallet.createSchnorrAccount(secretKey, salt, signingPrivateKey);
+const alice = await wallet.createSchnorrAccount(
+  secretKey,
+  salt,
+  signingPrivateKey
+);
 // deploy the new account from the funded account
-await alice.deploy({ deployAccount: fundedAccount.address }).wait()
+await alice.deploy({ deployAccount: fundedAccount.address }).wait();
 ```
 
 Or if using the Sponsored FPC:
 
 ```typescript
-const alice = await wallet.createSchnorrAccount(secretKey, salt, signingPrivateKey);
-await alice.deploy({ fee: { paymentMethod: sponsoredPaymentMethod }}).wait()
+const alice = await wallet.createSchnorrAccount(
+  secretKey,
+  salt,
+  signingPrivateKey
+);
+await alice.deploy({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait();
 ```
 
 :::warning Testnet

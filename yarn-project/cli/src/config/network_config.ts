@@ -93,13 +93,7 @@ export async function enrichEnvironmentWithNetworkConfig(networkName: NetworkNam
 
   enrichVar('BOOTSTRAP_NODES', networkConfig.bootnodes.join(','));
   enrichVar('L1_CHAIN_ID', String(networkConfig.l1ChainId));
-
-  // Snapshot synch only supports a single source. Take the first
-  // See A-101 for more details
-  const firstSource = networkConfig[0];
-  if (firstSource) {
-    enrichVar('SYNC_SNAPSHOTS_URL', networkConfig.snapshots.join(','));
-  }
+  enrichVar('SYNC_SNAPSHOTS_URLS', networkConfig.snapshots.join(','));
 
   enrichEthAddressVar('REGISTRY_CONTRACT_ADDRESS', networkConfig.registryAddress.toString());
   if (networkConfig.feeAssetHandlerAddress) {

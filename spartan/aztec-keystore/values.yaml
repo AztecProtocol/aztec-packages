@@ -35,6 +35,20 @@ publishers:
     create: true
     name: "" # if empty name will be generated based on Release.Name
 
+provers:
+  proverCount: 1
+  publishersPerProver: 1
+  mnemonicStartIndex: 8000
+  keyStoreSecret:
+    create: true
+    name: "" # if empty name will be generated based on Release.Name
+  addressConfigMap:
+    create: true
+    name: "" # if empty name will be generated based on Release.Name
+
+keystores:
+  secretName: "" # if empty, will be generated as {Release.Name}-keystores
+
 serviceAccount:
   create: true
   name: "" # leave empty to generate a name based on Release.Name

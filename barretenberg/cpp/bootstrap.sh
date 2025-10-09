@@ -64,7 +64,11 @@ function build_preset() {
   local preset=$1
   shift
   # DISABLE_AZTEC_VM is set to 1 in CI for arm64, or in dev usage if you export DISABLE_AZTEC_VM=1
-  cmake --fresh --preset "$preset" ${DISABLE_AZTEC_VM:+-DDISABLE_AZTEC_VM=$DISABLE_AZTEC_VM}
+  local cmake_args=()
+  if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
+    cmake_args+=(-DDISABLE_AZTEC_VM=1 -DAVM_TRANSPILER_LIB="")
+  fi
+  cmake --fresh --preset "$preset" "${cmake_args[@]}"
   cmake --build --preset "$preset" "$@"
 }
 
@@ -104,21 +108,21 @@ function build_nodejs_module {
   fi
 }
 
-function build_darwin {
+function build_darwin_arm64 {
   set -eu
-  local arch=${1:-$(arch)}
-  if ! cache_download barretenberg-darwin-$hash.zst; then
-    # Download sdk.
-    local osx_sdk="MacOSX14.0.sdk"
-    if ! [ -d "/opt/osxcross/SDK/$osx_sdk" ]; then
-      echo "Downloading $osx_sdk..."
-      local osx_sdk_url="https://github.com/joseluisq/macosx-sdks/releases/download/14.0/${osx_sdk}.tar.xz"
-      curl -sSL "$osx_sdk_url" | sudo tar -xJ -C /opt/osxcross/SDK
-      sudo rm -rf /opt/osxcross/SDK/$osx_sdk/System
-    fi
+  ensure_zig
+  if ! cache_download barretenberg-arm64-macos-$hash.zst; then
+    build_preset zig-arm64-macos --target bb
+    cache_upload barretenberg-arm64-macos-$hash.zst build-zig-arm64-macos/bin
+  fi
+}
 
-    build_preset darwin-$arch --target bb
-    cache_upload barretenberg-darwin-$hash.zst build-darwin-$arch/bin
+function build_darwin_amd64 {
+  set -eu
+  ensure_zig
+  if ! cache_download barretenberg-amd64-macos-$hash.zst; then
+    build_preset zig-amd64-macos --target bb
+    cache_upload barretenberg-amd64-macos-$hash.zst build-zig-amd64-macos/bin
   fi
 }
 
@@ -199,19 +203,41 @@ function build_release {
   inject_version build-release/bb
   tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build-release --remove-files bb
 
-  # Only release wasms built on amd64.
+  # Only release wasms and macOS builds on amd64.
   if [ "$arch" == "amd64" ]; then
     tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
     tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
     tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
     tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
+
+    # Download ldid for code signing
+    if [ ! -f build/ldid ]; then
+      echo "Downloading ldid for macOS code signing..."
+      curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 -o build/ldid
+      chmod +x build/ldid
+    fi
+
+    if [ "${DISABLE_AZTEC_VM:-0}" -eq 0 ]; then
+      # Package arm64-macos
+      cp build-zig-arm64-macos/bin/bb build-release/bb
+      inject_version build-release/bb
+      build/ldid -S build-release/bb
+      tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb
+
+      # Package amd64-macos
+      cp build-zig-amd64-macos/bin/bb build-release/bb
+      inject_version build-release/bb
+      build/ldid -S build-release/bb
+      tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
+    fi
   fi
 }
 
-export -f ensure_zig build_preset build_native build_asan_fast build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
+export -f ensure_zig build_preset build_native build_asan_fast build_darwin_amd64 build_darwin_arm64 build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
 
 function build {
   echo_header "bb cpp build"
+  ensure_zig
   builds=(
     build_native
     build_nodejs_module
@@ -220,9 +246,11 @@ function build {
   )
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
     builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast build_smt_verification)
-  fi
-  if [ "$CI_FULL" -eq 1 ]; then
-    builds+=(build_darwin)
+    # macOS builds require the avm-transpiler linked.
+    # We build them using zig cross-compilation.
+    if [ "${DISABLE_AZTEC_VM:-0}" -eq 0 ]; then
+      builds+=(build_darwin_arm64 build_darwin_amd64)
+    fi
   fi
   parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${builds[@]}
   build_release
@@ -384,7 +412,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench|bench_cmds|build_bench|release|build_native|build_nodejs_module|build_asan_fast|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|build_smt_verification|inject_version)
+  test|test_cmds|bench|bench_cmds|build_bench|release|build_native|build_nodejs_module|build_asan_fast|build_darwin_arm64|build_darwin_amd64|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|build_smt_verification|inject_version)
     $cmd "$@"
     ;;
   *)

@@ -1,4 +1,4 @@
-if(CHECK_CIRCUIT_STACKTRACES OR ENABLE_STACKTRACES)
+if(ENABLE_STACKTRACES)
     include(FetchContent)
 
     # Also requires one of: libbfd (gnu binutils), libdwarf, libdw (elfutils)

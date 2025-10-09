@@ -1,4 +1,4 @@
-use dep::reset_kernel_lib::{squash_transient_data, TransientDataSquashingHint};
+use crate::reset::{squash_transient_data, TransientDataSquashingHint};
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::ScopedNoteHash,
@@ -20,9 +20,9 @@ pub struct ResetOutputHints {
     pub sorted_kept_private_log_indexes: [u32; MAX_PRIVATE_LOGS_PER_TX],
 }
 
-pub unconstrained fn generate_reset_output_hints<let TRANSIENT_DATA_SQUASHING_HINTS_LEN: u32>(
+pub unconstrained fn generate_reset_output_hints<let TransientDataSquashingHintsLen: u32>(
     previous_kernel: PrivateKernelCircuitPublicInputs,
-    transient_data_squashing_hints: [TransientDataSquashingHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
+    transient_data_squashing_hints: [TransientDataSquashingHint; TransientDataSquashingHintsLen],
 ) -> ResetOutputHints {
     // Splice-removes transient items (as opposed to setting items to "empty" in-place).
     let (kept_note_hashes, kept_nullifiers, kept_private_logs) = squash_transient_data(

@@ -31,7 +31,11 @@ async function main() {
     bytecode: func.bytecode,
     debug_symbols: func.debug_symbols,
     file_map: contractArtifact.file_map,
-    names: ["main"],
+    expression_width: {
+      Bounded: {
+        width: 4,
+      },
+    },
   };
 
   const outputDir = path.dirname(contractArtifactPath);

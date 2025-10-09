@@ -223,6 +223,10 @@ function test_cmds {
   else
     folder_name="contracts"
   fi
+
+  # Test bb aztec_process command
+  echo "$BB_HASH noir-projects/scripts/test_aztec_process.sh"
+
   i=0
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     port=$((45730 + (i++ % ${NUM_TXES:-1})))

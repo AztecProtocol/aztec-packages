@@ -142,6 +142,14 @@ case "$cmd" in
 
     ensure_eth_balances "$amount"
     ;;
+  "ensure_funded_environment")
+    shift
+    env_file="$1"
+    low_watermark="${2:-0.5}"
+    high_watermark="${3:-1.0}"
+
+    ./scripts/ensure_funded_environment.sh "$env_file" "$FUNDING_PRIVATE_KEY" "$low_watermark" "$high_watermark"
+    ;;
   "network_deploy")
     shift
     env_file="$1"
