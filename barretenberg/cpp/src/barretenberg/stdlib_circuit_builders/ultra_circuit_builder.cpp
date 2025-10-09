@@ -2275,7 +2275,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
 }
 
 /**
- * @brief Create a new read-only memory region
+ * @brief Create a new read-only memory region (a.k.a. ROM table)
  *
  * @details Creates a transcript object, where the inside memory state array is filled with "uninitialized memory"
  and
@@ -2345,9 +2345,10 @@ void UltraCircuitBuilder_<ExecutionTrace>::write_RAM_array(const size_t ram_id,
 /**
  * @brief Initialize a rom cell to equal `value_witness`
  *
- * @param rom_id The index of the ROM array, which cell we are initializing
- * @param index_value The index of the cell within the array (an actual index, not a witness index)
- * @param value_witness The index of the witness with the value that should be in the
+ * @param rom_id The index of the ROM array in which we are initializing a cell
+ * @param index_value The index of the cell within the array/ROM table (an actual index, not a witness index)
+ * @param value_witness The index of the witness with the value that should be in the `index_value` place in the ROM
+ * table.
  */
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::set_ROM_element(const size_t rom_id,

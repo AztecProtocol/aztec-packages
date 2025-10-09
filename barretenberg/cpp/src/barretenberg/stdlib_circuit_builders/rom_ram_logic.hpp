@@ -14,14 +14,16 @@ static constexpr uint32_t UNINITIALIZED_MEMORY_RECORD = UINT32_MAX;
 
 /**
  * @brief A ROM memory record that can be ordered
+ *
+ * @note A `RomRecord` is used both for setting ROM elements and reading ROM elements.
  */
 struct RomRecord {
-    uint32_t index_witness = 0;
+    uint32_t index_witness = 0; // Witness value of the index in the particular ROM block that contains this row.
     uint32_t value_column1_witness = 0;
     uint32_t value_column2_witness = 0;
     uint32_t index = 0;
-    uint32_t record_witness = 0;
-    size_t gate_index = 0;
+    uint32_t record_witness = 0; // Record, a.k.a. "fingerprint" of the row.
+    size_t gate_index = 0;       // Index in the memory block where the ROM gate will live.
     bool operator<(const RomRecord& other) const { return index < other.index; }
     bool operator==(const RomRecord& other) const noexcept
     {
@@ -62,11 +64,13 @@ struct RamRecord {
 };
 
 /**
- * @brief Each rom array is an instance of memory transcript. It saves values and indexes for a particular memory
- * array
+ * @brief `RomTranscript` contains the `RomRecord`s for a particular ROM table as well as the vector whose ith entry
+ * corresponds to the ith value (or pair of values) of the ROM table.
+ *
+ * @note the values in the `state` vector are the _indicies_ of the values in the real variables array.
  */
 struct RomTranscript {
-    // Contains the value of each index of the array
+    // Contains the value(s) of each index of the array. Note that each index/slot may contain _two_ values.
     std::vector<std::array<uint32_t, 2>> state;
     // A vector of records, each of which contains:
     // + The constant witness with the index
@@ -81,18 +85,21 @@ struct RomTranscript {
 };
 
 /**
- * @brief Each ram array is an instance of memory transcript. It saves values and indexes for a particular memory
- * array
+ * @brief `RamTranscript` contains the `RamRecord`s for a particular RAM table (recording READ and WRITE operations) as
+ * well as the vector whose ith entry corresponds to the _current_ ith value of the RAM table.
  */
 struct RamTranscript {
     // Contains the value of each index of the array
     std::vector<uint32_t> state;
     // A vector of records, each of which contains:
     // + The constant witness with the index
-    // + The value in the memory slot
+    // + The type of operation (READ or WRITE)
+    // + The _current_ value in the memory slot
     // + The actual index value
     std::vector<RamRecord> records;
-    // used for RAM records, to compute the timestamp when performing a read/write
+    // The number of times this RAM array has been touched (i.e., has had a READ or WRITE operation performed on it).
+    // used for RAM records, to compute the timestamp when performing a read/write. Note that the timestamp is _not_ a
+    // global timestamp; rather, it is a timestamp for the RAM array in question.
     size_t access_count = 0;
     // Used to check that the state hasn't changed in tests
     bool operator==(const RamTranscript& other) const noexcept
@@ -112,8 +119,7 @@ template <typename ExecutionTrace> class RomRamLogic_ {
     // Storage
     /**
      * @brief Each entry in ram_arrays represents an independent RAM table.
-     * RamTranscript tracks the current table state,
-     * as well as the 'records' produced by each read and write operation.
+     * RamTranscript tracks the current table state, as well as the 'records' produced by each read and write operation.
      * Used in `compute_prover_instance` to generate consistency check gates required to validate the RAM read/write
      * history
      */

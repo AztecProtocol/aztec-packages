@@ -71,7 +71,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         RAM_CONSISTENCY_CHECK,
         ROM_CONSISTENCY_CHECK,
         RAM_TIMESTAMP_CHECK,
-        ROM_READ,
+        ROM_READ, // refers to either initializing or reading an element of a ROM table.
         RAM_READ,
         RAM_WRITE,
     };

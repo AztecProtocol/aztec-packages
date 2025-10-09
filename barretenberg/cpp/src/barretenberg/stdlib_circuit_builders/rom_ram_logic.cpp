@@ -16,10 +16,14 @@ template <typename ExecutionTrace> size_t RomRamLogic_<ExecutionTrace>::create_R
     return rom_arrays.size() - 1;
 }
 /**
- * Initialize a ROM cell to equal `value_witness`
- * `index_value` is a RAW VALUE that describes the cell index. It is NOT a witness
- * When intializing ROM arrays, it is important that the index of the cell is known when compiling the circuit.
- * This ensures that, for a given circuit, we know with 100% certainty that EVERY rom cell is initialized
+ * @brief Initialize a ROM cell to equal `value_witness` (or, more precisely, `(value_witness, 0)`.
+ *
+ * @note `index_value` is a RAW VALUE that describes the cell index inside of the specified ROM table (which we treat as
+ * an array). It is NOT a witness. When intializing ROM arrays, it is important that the index of the cell is known when
+ * compiling the circuit. This ensures that, for a given circuit, we know with 100% certainty that EVERY ROM cell is
+ * initialized
+ *
+ * @note This method does not know what the value of `record_witness` will be.
  **/
 template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::set_ROM_element(CircuitBuilder* builder,
@@ -44,10 +48,13 @@ void RomRamLogic_<ExecutionTrace>::set_ROM_element(CircuitBuilder* builder,
     };
     rom_array.state[index_value][0] = value_witness;
     rom_array.state[index_value][1] = builder->zero_idx;
+    // `create_ROM_gate` fills in the `gate_index` of the `RomRecord`.
     create_ROM_gate(builder, new_record);
     rom_array.records.emplace_back(new_record);
 }
-
+/**
+ * @brief Initialize a ROM cell to `(value_witness[0], value_witness[1])`.
+ */
 template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::set_ROM_element_pair(CircuitBuilder* builder,
                                                         const size_t rom_id,
