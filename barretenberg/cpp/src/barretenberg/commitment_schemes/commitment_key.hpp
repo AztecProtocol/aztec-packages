@@ -45,16 +45,14 @@ template <class Curve> class CommitmentKey {
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using G1 = typename Curve::AffineElement;
-    static constexpr size_t EXTRA_SRS_POINTS_FOR_ECCVM_IPA = 1;
 
     static size_t get_num_needed_srs_points(size_t num_points)
     {
-        // NOTE 1: Currently we must round up internal space for points as our pippenger algorithm (specifically,
+        // NOTE: Currently we must round up internal space for points as our pippenger algorithm (specifically,
         // pippenger_unsafe_optimized_for_non_dyadic_polys) will use next power of 2. This is used to simplify the
         // recursive halving scheme. We do, however allow the polynomial to not be fully formed. Pippenger internally
         // will pad 0s into the runtime state.
-        // NOTE 2: We then add one for ECCVM to provide for IPA verification
-        return numeric::round_up_power_2(num_points) + EXTRA_SRS_POINTS_FOR_ECCVM_IPA;
+        return numeric::round_up_power_2(num_points);
     }
 
   public:
