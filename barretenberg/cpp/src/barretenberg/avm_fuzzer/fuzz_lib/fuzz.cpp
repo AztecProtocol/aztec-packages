@@ -1,6 +1,6 @@
 #include "fuzz.hpp"
 
-void fuzz(FuzzerData& fuzzer_data)
+SimulatorResult fuzz(FuzzerData& fuzzer_data)
 {
     auto control_flow = ControlFlow();
     control_flow.add_instructions(fuzzer_data.instructions);
@@ -12,10 +12,13 @@ void fuzz(FuzzerData& fuzzer_data)
     auto js_result = js_simulator.simulate(bytecode, fuzzer_data.calldata);
     if (compare_simulator_results(result, js_result)) {
         std::cout << "Simulator results are the same" << std::endl;
+        // TODO(defkit) remove / log
         for (const auto& output : result.output) {
             std::cout << output << std::endl;
         }
     } else {
         std::cout << "Simulator results are different" << std::endl;
+        throw std::runtime_error("Simulator results are different");
     }
+    return result;
 }

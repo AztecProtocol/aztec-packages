@@ -5,7 +5,7 @@ ControlFlow::ControlFlow()
     current_block = new ProgramBlock();
 }
 
-void ControlFlow::add_instructions(std::vector<Instruction>& instructions)
+void ControlFlow::add_instructions(std::vector<FuzzInstruction>& instructions)
 {
     for (const auto& instruction : instructions) {
         current_block->process_instruction(instruction);

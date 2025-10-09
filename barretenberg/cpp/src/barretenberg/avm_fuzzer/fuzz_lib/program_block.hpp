@@ -28,13 +28,25 @@
 class ProgramBlock {
   private:
     // map of Tag -> vector of memory addresses
-    std::map<bb::avm2::MemoryTag, std::vector<uint32_t>> stored_variables;
+    std::map<bb::avm2::MemoryTag, std::vector<uint16_t>> stored_variables;
 
     std::vector<bb::avm2::simulation::Instruction> instructions;
 
-    std::optional<uint32_t> get_variable_by_tag_and_index(bb::avm2::MemoryTag tag, uint32_t index);
+    std::optional<uint16_t> get_16_bit_offset_by_tag_and_index(bb::avm2::MemoryTag tag, uint16_t index);
+    std::optional<uint8_t> get_8_bit_offset_by_tag_and_index(bb::avm2::MemoryTag tag, uint16_t index);
 
     void process_add_8_instruction(ADD_8_Instruction instruction);
+    void process_sub_8_instruction(SUB_8_Instruction instruction);
+    void process_mul_8_instruction(MUL_8_Instruction instruction);
+    void process_div_8_instruction(DIV_8_Instruction instruction);
+    void process_eq_8_instruction(EQ_8_Instruction instruction);
+    void process_lt_8_instruction(LT_8_Instruction instruction);
+    void process_lte_8_instruction(LTE_8_Instruction instruction);
+    void process_and_8_instruction(AND_8_Instruction instruction);
+    void process_or_8_instruction(OR_8_Instruction instruction);
+    void process_xor_8_instruction(XOR_8_Instruction instruction);
+    void process_shl_8_instruction(SHL_8_Instruction instruction);
+    void process_shr_8_instruction(SHR_8_Instruction instruction);
     void process_set_8_instruction(SET_8_Instruction instruction);
     void process_return_instruction(RETURN_Instruction instruction);
 
@@ -45,7 +57,7 @@ class ProgramBlock {
     /// Updates `stored_variables` if the instruction writes to memory
     /// Updates `instructions` with the instruction
     /// If arguments of the instruction are not in stored_variables, the instruction is skipped
-    void process_instruction(Instruction instruction);
+    void process_instruction(FuzzInstruction instruction);
 
     std::vector<bb::avm2::simulation::Instruction> get_instructions();
 };

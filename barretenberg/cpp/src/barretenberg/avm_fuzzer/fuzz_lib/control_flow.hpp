@@ -11,7 +11,8 @@ class ControlFlow {
 
   public:
     ControlFlow();
-    void add_instructions(std::vector<Instruction>& instructions);
+    /// @brief add instructions to the current block
+    void add_instructions(std::vector<FuzzInstruction>& instructions);
 
     std::vector<uint8_t> build_bytecode();
 };

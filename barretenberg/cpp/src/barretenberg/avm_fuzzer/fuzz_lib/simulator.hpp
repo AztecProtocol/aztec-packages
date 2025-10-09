@@ -1,3 +1,4 @@
+#pragma once
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/interfaces/execution.hpp"
 #include <vector>
