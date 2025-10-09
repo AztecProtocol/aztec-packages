@@ -15,18 +15,22 @@
 
 namespace bb {
 
-class MultilinearBatchingVerifier {
+template <typename Flavor_> class MultilinearBatchingVerifier {
   public:
-    using Flavor = MultilinearBatchingFlavor;
+    using Flavor = Flavor_;
     using FF = typename Flavor::FF;
+    using Curve = typename Flavor::Curve;
     using Transcript = typename Flavor::Transcript;
     using SumcheckOutput = SumcheckOutput<Flavor>;
 
     using Commitment = typename Flavor::Commitment;
-    using Sumcheck = SumcheckVerifier<MultilinearBatchingFlavor>;
+    using Sumcheck = SumcheckVerifier<Flavor>;
+    using MultilinearBatchingVerifierClaim = MultilinearBatchingVerifierClaim<Curve>;
+    using Proof = std::vector<FF>;
+
     explicit MultilinearBatchingVerifier(const std::shared_ptr<Transcript>& transcript);
 
-    std::pair<bool, MultilinearBatchingVerifierClaim> verify_proof(const HonkProof& proof);
+    std::pair<bool, MultilinearBatchingVerifierClaim> verify_proof(const Proof& proof);
 
   private:
     std::shared_ptr<Transcript> transcript;

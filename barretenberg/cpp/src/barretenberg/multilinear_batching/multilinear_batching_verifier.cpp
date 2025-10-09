@@ -5,14 +5,18 @@
 // =====================
 
 #include "multilinear_batching_verifier.hpp"
+#include "barretenberg/flavor/multilinear_batching_recursive_flavor.hpp"
 
 namespace bb {
 
-MultilinearBatchingVerifier::MultilinearBatchingVerifier(const std::shared_ptr<Transcript>& transcript)
+template <typename Flavor_>
+MultilinearBatchingVerifier<Flavor_>::MultilinearBatchingVerifier(const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
 {}
 
-std::pair<bool, MultilinearBatchingVerifierClaim> MultilinearBatchingVerifier::verify_proof(const HonkProof& proof)
+template <typename Flavor_>
+std::pair<bool, typename MultilinearBatchingVerifier<Flavor_>::MultilinearBatchingVerifierClaim>
+MultilinearBatchingVerifier<Flavor_>::verify_proof(const Proof& proof)
 {
     transcript->load_proof(proof);
 
@@ -63,12 +67,15 @@ std::pair<bool, MultilinearBatchingVerifierClaim> MultilinearBatchingVerifier::v
                        accumulator_non_shifted_evaluation);
     Sumcheck sumcheck(transcript, alpha, Flavor::VIRTUAL_LOG_N, target_sum);
     const auto sumcheck_result = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator);
-    auto verified = sumcheck_result.verified &&
-                    sumcheck_result.claimed_evaluations.w_evaluations_accumulator ==
-                        EqVerifierPolynomial<FF>::eval(accumulator_challenges, sumcheck_result.challenge) &&
-                    sumcheck_result.claimed_evaluations.w_evaluations_instance ==
-                        EqVerifierPolynomial<FF>::eval(instance_challenges, sumcheck_result.challenge);
-    auto claim_batching_challenge = transcript->get_challenge<FF>("claim_batching_challenge");
+    bool verified = false;
+    if constexpr (!Curve::is_stdlib_type) {
+        verified = sumcheck_result.verified &&
+                   sumcheck_result.claimed_evaluations.w_evaluations_accumulator ==
+                       EqVerifierPolynomial<FF>::eval(accumulator_challenges, sumcheck_result.challenge) &&
+                   sumcheck_result.claimed_evaluations.w_evaluations_instance ==
+                       EqVerifierPolynomial<FF>::eval(instance_challenges, sumcheck_result.challenge);
+    }
+    auto claim_batching_challenge = transcript->template get_challenge<FF>("claim_batching_challenge");
     MultilinearBatchingVerifierClaim verifier_claim;
     verifier_claim.non_shifted_commitment =
         non_shifted_accumulator_commitment + non_shifted_instance_commitment * claim_batching_challenge;
@@ -83,5 +90,8 @@ std::pair<bool, MultilinearBatchingVerifierClaim> MultilinearBatchingVerifier::v
     verifier_claim.challenge = sumcheck_result.challenge;
     return { verified, verifier_claim };
 }
+
+template class MultilinearBatchingVerifier<MultilinearBatchingFlavor>;
+template class MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor>;
 
 } // namespace bb

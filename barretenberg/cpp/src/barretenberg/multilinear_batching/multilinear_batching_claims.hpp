@@ -18,10 +18,9 @@ struct MultilinearBatchingProverClaim {
     size_t dyadic_size;
 };
 
-struct MultilinearBatchingVerifierClaim {
-    using FF = MultilinearBatchingFlavor::FF;
-    using Commitment = MultilinearBatchingFlavor::Commitment;
-    using Polynomial = MultilinearBatchingFlavor::Polynomial;
+template <typename Curve> struct MultilinearBatchingVerifierClaim {
+    using FF = Curve::ScalarField;
+    using Commitment = Curve::AffineElement;
     std::vector<FF> challenge;
     FF shifted_evaluation;
     FF non_shifted_evaluation;
