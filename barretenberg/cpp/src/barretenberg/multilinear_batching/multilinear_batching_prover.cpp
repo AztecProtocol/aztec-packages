@@ -20,6 +20,7 @@ MultilinearBatchingProver::MultilinearBatchingProver(
     const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
 {
+    BB_BENCH();
     ProverPolynomials polynomials;
     size_t virtual_circuit_size = 1 << Flavor::VIRTUAL_LOG_N;
     info("accumulator: ", accumulator_claim->dyadic_size);
@@ -55,6 +56,7 @@ MultilinearBatchingProver::MultilinearBatchingProver(
 
 void MultilinearBatchingProver::execute_commitments_round()
 {
+    BB_BENCH();
     transcript->send_to_verifier("non_shifted_accumulator_commitment", key->non_shifted_accumulator_commitment);
     transcript->send_to_verifier("shifted_accumulator_commitment", key->shifted_accumulator_commitment);
     transcript->send_to_verifier("non_shifted_instance_commitment", key->non_shifted_instance_commitment);
@@ -62,6 +64,7 @@ void MultilinearBatchingProver::execute_commitments_round()
 }
 void MultilinearBatchingProver::execute_challenges_and_evaluations_round()
 {
+    BB_BENCH();
     for (size_t i = 0; i < Flavor::VIRTUAL_LOG_N; i++) {
         transcript->send_to_verifier("accumulator_challenge_" + std::to_string(i),
                                      key->proving_key->accumulator_challenge[i]);
@@ -82,6 +85,7 @@ void MultilinearBatchingProver::execute_challenges_and_evaluations_round()
  */
 void MultilinearBatchingProver::execute_relation_check_rounds()
 {
+    BB_BENCH();
     using Sumcheck = SumcheckProver<Flavor>;
 
     // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
@@ -110,6 +114,7 @@ void MultilinearBatchingProver::execute_relation_check_rounds()
 
 void MultilinearBatchingProver::compute_new_claim()
 {
+    BB_BENCH();
     auto claim_batching_challenge = transcript->get_challenge<FF>("claim_batching_challenge");
     auto new_non_shifted_polynomial = Polynomial(key->proving_key->circuit_size);
     new_non_shifted_polynomial += key->proving_key->polynomials.w_non_shifted_accumulator;

@@ -167,10 +167,10 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
     const TableCommitments& T_prev_commitments,
     const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
-    auto num_rows = circuit.op_queue->get_num_rows();
-    auto num_ops = circuit.op_queue->get_current_subtable_size();
-    info("NUM ROWS WHEN ENTERING: ", num_rows);
-    info("NUM OPS WHEN ENTERING: ", num_ops);
+    // auto num_rows = circuit.op_queue->get_num_rows();
+    // auto num_ops = circuit.op_queue->get_current_subtable_size();
+    // info("NUM ROWS WHEN ENTERING: ", num_rows);
+    // info("NUM OPS WHEN ENTERING: ", num_ops);
 
     using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
 
@@ -297,8 +297,8 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
         bus_depot.set_app_return_data_commitment(witness_commitments.return_data);
     }
 
-    info("NUM ROWS DIFF: ", circuit.op_queue->get_num_rows() - num_rows);
-    info("NUM OPS DIFF: ", circuit.op_queue->get_current_subtable_size() - num_ops);
+    // info("NUM ROWS DIFF: ", circuit.op_queue->get_num_rows() - num_rows);
+    // info("NUM OPS DIFF: ", circuit.op_queue->get_current_subtable_size() - num_ops);
 
     // Extract the commitments to the subtable corresponding to the incoming circuit
     merge_commitments.t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
@@ -315,8 +315,8 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
         hide_op_queue_content_in_hiding(circuit);
     }
 
-    info("NUM ROWS DIFF AT THE END: ", circuit.op_queue->get_num_rows() - num_rows);
-    info("NUM OPS DIFF AT THE END: ", circuit.op_queue->get_current_subtable_size() - num_ops);
+    // info("NUM ROWS DIFF AT THE END: ", circuit.op_queue->get_num_rows() - num_rows);
+    // info("NUM OPS DIFF AT THE END: ", circuit.op_queue->get_current_subtable_size() - num_ops);
 
     return { output_verifier_accumulator, pairing_points, merged_table_commitments };
 }
@@ -465,7 +465,7 @@ SumcheckClientIVC::VerifierAccumulator SumcheckClientIVC::execute_first_sumcheck
     // Get the gate challenges for sumcheck/combiner computation
     verifier_instance->gate_challenges =
         transcript->template get_powers_of_challenge<FF>("gate_challenge", Flavor::VIRTUAL_LOG_N);
-    info("Gate challenge verifier: ", verifier_instance->gate_challenges[0]);
+    // info("Gate challenge verifier: ", verifier_instance->gate_challenges[0]);
 
     VerifierCommitments commitments{ verifier_instance->vk, verifier_instance->witness_commitments };
     // DeciderVerifier's log circuit size is fixed, hence we are using a trivial `padding_indicator_array`.
@@ -835,9 +835,9 @@ HonkProof SumcheckClientIVC::construct_pcs_proof(const std::shared_ptr<Transcrip
 
     auto ck = bn254_commitment_key;
     size_t actual_size = prover_accumulator.batched_polynomials[0].virtual_size();
-    info("Dyadic size in PCS: ", ck.dyadic_size);
-    info("Dyadic size poly in CK: ", prover_accumulator.batched_polynomials[0].virtual_size());
-    info("challenge size ", prover_accumulator.challenge.size());
+    // info("Dyadic size in PCS: ", ck.dyadic_size);
+    // info("Dyadic size poly in CK: ", prover_accumulator.batched_polynomials[0].virtual_size());
+    // info("challenge size ", prover_accumulator.challenge.size());
 
     PolynomialBatcher polynomial_batcher(actual_size);
     polynomial_batcher.set_unshifted(prover_accumulator.batched_polynomials[0]);
