@@ -7,7 +7,8 @@ describe('KVArchiverDataStore', () => {
   let archiverStore: KVArchiverDataStore;
 
   beforeEach(async () => {
-    archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_test'));
+    const store = await openTmpStore('archiver_test');
+    archiverStore = new KVArchiverDataStore(store);
   });
 
   describeArchiverDataStore('ArchiverStore', () => archiverStore);

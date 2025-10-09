@@ -6,18 +6,9 @@ import type { AztecAsyncKVStore, CustomRange, StoreSize } from '@aztec/kv-store'
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block, ValidateBlockResult } from '@aztec/stdlib/block';
-import type {
-  ContractClassPublic,
-  ContractDataSource,
-  ContractInstanceUpdateWithAddress,
-  ContractInstanceWithAddress,
-  ExecutablePrivateFunctionWithMembershipProof,
-  UtilityFunctionWithMembershipProof,
-} from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import { type LogFilter, PrivateLog, type TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { BlockHeader, TxHash, TxReceipt } from '@aztec/stdlib/tx';
-import type { UInt64 } from '@aztec/stdlib/types';
 
 import { join } from 'path';
 
@@ -25,8 +16,6 @@ import type { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.
 import type { InboxMessage } from '../structs/inbox_message.js';
 import type { PublishedL2Block } from '../structs/published.js';
 import { BlockStore } from './block_store.js';
-import { ContractClassStore } from './contract_class_store.js';
-import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
 
@@ -37,14 +26,12 @@ export const MAX_FUNCTION_NAME_LEN = 256;
 /**
  * LMDB implementation of the ArchiverDataStore interface.
  */
-export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSource {
+export class KVArchiverDataStore implements ArchiverDataStore {
   public static readonly SCHEMA_VERSION = ARCHIVER_DB_VERSION;
 
   #blockStore: BlockStore;
   #logStore: LogStore;
   #messageStore: MessageStore;
-  #contractClassStore: ContractClassStore;
-  #contractInstanceStore: ContractInstanceStore;
 
   private functionNames = new Map<string, string>();
 
@@ -57,8 +44,6 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     this.#blockStore = new BlockStore(db);
     this.#logStore = new LogStore(db, this.#blockStore, logsMaxPageSize);
     this.#messageStore = new MessageStore(db);
-    this.#contractClassStore = new ContractClassStore(db);
-    this.#contractInstanceStore = new ContractInstanceStore(db);
   }
 
   public transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
@@ -67,15 +52,6 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
 
   public getBlockNumber(): Promise<number> {
     return this.getSynchedL2BlockNumber();
-  }
-
-  public async getContract(
-    address: AztecAddress,
-    maybeTimestamp?: UInt64,
-  ): Promise<ContractInstanceWithAddress | undefined> {
-    const [header] = await this.getBlockHeaders(await this.getBlockNumber(), 1);
-    const timestamp = maybeTimestamp ?? header!.globalVariables.timestamp;
-    return this.getContractInstance(address, timestamp);
   }
 
   public async backupTo(path: string, compress = true): Promise<string> {
@@ -103,81 +79,6 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
         this.#log.warn(`Failed to parse signature: ${sig}. Ignoring`);
       }
     }
-  }
-
-  getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
-    return this.#contractClassStore.getContractClass(id);
-  }
-
-  getContractClassIds(): Promise<Fr[]> {
-    return this.#contractClassStore.getContractClassIds();
-  }
-
-  getContractInstance(address: AztecAddress, timestamp: UInt64): Promise<ContractInstanceWithAddress | undefined> {
-    return this.#contractInstanceStore.getContractInstance(address, timestamp);
-  }
-
-  getContractInstanceDeploymentBlockNumber(address: AztecAddress): Promise<number | undefined> {
-    return this.#contractInstanceStore.getContractInstanceDeploymentBlockNumber(address);
-  }
-
-  async addContractClasses(
-    data: ContractClassPublic[],
-    bytecodeCommitments: Fr[],
-    blockNumber: number,
-  ): Promise<boolean> {
-    return (
-      await Promise.all(
-        data.map((c, i) => this.#contractClassStore.addContractClass(c, bytecodeCommitments[i], blockNumber)),
-      )
-    ).every(Boolean);
-  }
-
-  async deleteContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean> {
-    return (await Promise.all(data.map(c => this.#contractClassStore.deleteContractClasses(c, blockNumber)))).every(
-      Boolean,
-    );
-  }
-
-  getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
-    return this.#contractClassStore.getBytecodeCommitment(contractClassId);
-  }
-
-  addFunctions(
-    contractClassId: Fr,
-    privateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
-    utilityFunctions: UtilityFunctionWithMembershipProof[],
-  ): Promise<boolean> {
-    return this.#contractClassStore.addFunctions(contractClassId, privateFunctions, utilityFunctions);
-  }
-
-  async addContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean> {
-    return (await Promise.all(data.map(c => this.#contractInstanceStore.addContractInstance(c, blockNumber)))).every(
-      Boolean,
-    );
-  }
-
-  async deleteContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {
-    return (await Promise.all(data.map(c => this.#contractInstanceStore.deleteContractInstance(c)))).every(Boolean);
-  }
-
-  async addContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], timestamp: UInt64): Promise<boolean> {
-    return (
-      await Promise.all(
-        data.map((update, logIndex) =>
-          this.#contractInstanceStore.addContractInstanceUpdate(update, timestamp, logIndex),
-        ),
-      )
-    ).every(Boolean);
-  }
-  async deleteContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], timestamp: UInt64): Promise<boolean> {
-    return (
-      await Promise.all(
-        data.map((update, logIndex) =>
-          this.#contractInstanceStore.deleteContractInstanceUpdate(update, timestamp, logIndex),
-        ),
-      )
-    ).every(Boolean);
   }
 
   /**

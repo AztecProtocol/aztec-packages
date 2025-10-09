@@ -86,6 +86,7 @@ import {
 } from './data_retrieval.js';
 import { InitialBlockNumberNotSequentialError, NoBlobBodiesFoundError } from './errors.js';
 import { ArchiverInstrumentation } from './instrumentation.js';
+import type { ContractDataStore } from './kv_archiver_store/contract_data_store.js';
 import type { InboxMessage } from './structs/inbox_message.js';
 import type { PublishedL2Block } from './structs/published.js';
 import { type ValidateBlockResult, validateBlockAttestations } from './validation.js';
@@ -125,6 +126,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   private inbox: InboxContract;
 
   private store: ArchiverStoreHelper;
+  private contractStore: ContractDataStore;
 
   private l1BlockNumber: bigint | undefined;
   private l1Timestamp: bigint | undefined;
@@ -139,13 +141,15 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
    * @param inboxAddress - Ethereum address of the inbox contract.
    * @param registryAddress - Ethereum address of the registry contract.
    * @param pollingIntervalMs - The interval for polling for L1 logs (in milliseconds).
-   * @param store - An archiver data store for storage & retrieval of blocks, encrypted logs & contract data.
+   * @param dataStore - An archiver data store for storage & retrieval of blocks, encrypted logs.
+   * @param contractStore - A contract data store for storage & retrieval of contract data.
    * @param log - A logger.
    */
   constructor(
     private readonly publicClient: ViemPublicClient,
     private readonly l1Addresses: { rollupAddress: EthAddress; inboxAddress: EthAddress; registryAddress: EthAddress },
     readonly dataStore: ArchiverDataStore,
+    contractStore: ContractDataStore,
     private config: { pollingIntervalMs: number; batchSize: number; skipValidateBlockAttestations?: boolean },
     private readonly blobSinkClient: BlobSinkClientInterface,
     private readonly epochCache: EpochCache,
@@ -156,7 +160,8 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     super();
 
     this.tracer = instrumentation.tracer;
-    this.store = new ArchiverStoreHelper(dataStore);
+    this.contractStore = contractStore;
+    this.store = new ArchiverStoreHelper(dataStore, contractStore);
 
     this.rollup = new RollupContract(publicClient, l1Addresses.rollupAddress);
     this.inbox = new InboxContract(publicClient, l1Addresses.inboxAddress);
@@ -166,12 +171,14 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
    * Creates a new instance of the Archiver and blocks until it syncs from chain.
    * @param config - The archiver's desired configuration.
    * @param archiverStore - The backing store for the archiver.
+   * @param contractStore - The contract data store for the archiver.
    * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
    * @returns - An instance of the archiver.
    */
   public static async createAndSync(
     config: ArchiverConfig,
     archiverStore: ArchiverDataStore,
+    contractStore: ContractDataStore,
     deps: ArchiverDeps,
     blockUntilSynced = true,
   ): Promise<Archiver> {
@@ -215,6 +222,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       publicClient,
       config.l1Contracts,
       archiverStore,
+      contractStore,
       opts,
       deps.blobSinkClient,
       epochCache,
@@ -1189,11 +1197,11 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   }
 
   public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
-    return this.store.getContractClass(id);
+    return this.contractStore.getContractClass(id);
   }
 
   public getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
-    return this.store.getBytecodeCommitment(id);
+    return this.contractStore.getBytecodeCommitment(id);
   }
 
   public async getContract(
@@ -1209,7 +1217,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       timestamp = maybeTimestamp;
     }
 
-    return this.store.getContractInstance(address, timestamp);
+    return this.contractStore.getContractInstance(address, timestamp);
   }
 
   /**
@@ -1231,11 +1239,11 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   }
 
   getContractClassIds(): Promise<Fr[]> {
-    return this.store.getContractClassIds();
+    return this.contractStore.getContractClassIds();
   }
 
   registerContractFunctionSignatures(signatures: string[]): Promise<void> {
-    return this.store.registerContractFunctionSignatures(signatures);
+    return this.dataStore.registerContractFunctionSignatures(signatures);
   }
 
   getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
@@ -1350,27 +1358,14 @@ enum Operation {
  * store would need to include otherwise while exposing fewer functions and logic directly to the archiver.
  */
 export class ArchiverStoreHelper
-  implements
-    Omit<
-      ArchiverDataStore,
-      | 'addLogs'
-      | 'deleteLogs'
-      | 'addContractClasses'
-      | 'deleteContractClasses'
-      | 'addContractInstances'
-      | 'deleteContractInstances'
-      | 'addContractInstanceUpdates'
-      | 'deleteContractInstanceUpdates'
-      | 'addFunctions'
-      | 'backupTo'
-      | 'close'
-      | 'transactionAsync'
-      | 'addBlocks'
-    >
+  implements Omit<ArchiverDataStore, 'addLogs' | 'deleteLogs' | 'backupTo' | 'close' | 'transactionAsync' | 'addBlocks'>
 {
   #log = createLogger('archiver:block-helper');
 
-  constructor(protected readonly store: ArchiverDataStore) {}
+  constructor(
+    protected readonly store: ArchiverDataStore,
+    protected readonly contractStore: ContractDataStore,
+  ) {}
 
   /**
    * Extracts and stores contract classes out of ContractClassPublished events emitted by the class registry contract.
@@ -1389,9 +1384,9 @@ export class ArchiverStoreHelper
         const commitments = await Promise.all(
           contractClasses.map(c => computePublicBytecodeCommitment(c.packedBytecode)),
         );
-        return await this.store.addContractClasses(contractClasses, commitments, blockNum);
+        return await this.contractStore.addContractClasses(contractClasses, commitments, blockNum);
       } else if (operation == Operation.Delete) {
-        return await this.store.deleteContractClasses(contractClasses, blockNum);
+        return await this.contractStore.deleteContractClasses(contractClasses, blockNum);
       }
     }
     return true;
@@ -1411,9 +1406,9 @@ export class ArchiverStoreHelper
         this.#log.verbose(`${Operation[operation]} contract instance at ${c.address.toString()}`),
       );
       if (operation == Operation.Store) {
-        return await this.store.addContractInstances(contractInstances, blockNum);
+        return await this.contractStore.addContractInstances(contractInstances, blockNum);
       } else if (operation == Operation.Delete) {
-        return await this.store.deleteContractInstances(contractInstances, blockNum);
+        return await this.contractStore.deleteContractInstances(contractInstances, blockNum);
       }
     }
     return true;
@@ -1436,9 +1431,9 @@ export class ArchiverStoreHelper
         this.#log.verbose(`${Operation[operation]} contract instance update at ${c.address.toString()}`),
       );
       if (operation == Operation.Store) {
-        return await this.store.addContractInstanceUpdates(contractUpdates, timestamp);
+        return await this.contractStore.addContractInstanceUpdates(contractUpdates, timestamp);
       } else if (operation == Operation.Delete) {
-        return await this.store.deleteContractInstanceUpdates(contractUpdates, timestamp);
+        return await this.contractStore.deleteContractInstanceUpdates(contractUpdates, timestamp);
       }
     }
     return true;
@@ -1468,7 +1463,7 @@ export class ArchiverStoreHelper
       groupBy([...privateFnEvents, ...utilityFnEvents], e => e.contractClassId.toString()),
     )) {
       const contractClassId = Fr.fromHexString(classIdString);
-      const contractClass = await this.getContractClass(contractClassId);
+      const contractClass = await this.contractStore.getContractClass(contractClassId);
       if (!contractClass) {
         this.#log.warn(`Skipping broadcasted functions as contract class ${contractClassId.toString()} was not found`);
         continue;
@@ -1503,7 +1498,7 @@ export class ArchiverStoreHelper
       if (validFnCount > 0) {
         this.#log.verbose(`Storing ${validFnCount} functions for contract class ${contractClassId.toString()}`);
       }
-      return await this.store.addFunctions(contractClassId, validPrivateFns, validUtilityFns);
+      return await this.contractStore.addFunctions(contractClassId, validPrivateFns, validUtilityFns);
     }
     return true;
   }
@@ -1641,16 +1636,16 @@ export class ArchiverStoreHelper
     return this.store.getSynchPoint();
   }
   getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
-    return this.store.getContractClass(id);
+    return this.contractStore.getContractClass(id);
   }
   getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
-    return this.store.getBytecodeCommitment(contractClassId);
+    return this.contractStore.getBytecodeCommitment(contractClassId);
   }
   getContractInstance(address: AztecAddress, timestamp: UInt64): Promise<ContractInstanceWithAddress | undefined> {
-    return this.store.getContractInstance(address, timestamp);
+    return this.contractStore.getContractInstance(address, timestamp);
   }
   getContractClassIds(): Promise<Fr[]> {
-    return this.store.getContractClassIds();
+    return this.contractStore.getContractClassIds();
   }
   registerContractFunctionSignatures(signatures: string[]): Promise<void> {
     return this.store.registerContractFunctionSignatures(signatures);

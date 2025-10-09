@@ -36,6 +36,7 @@ import { Archiver } from './archiver.js';
 import type { ArchiverDataStore } from './archiver_store.js';
 import type { ArchiverInstrumentation } from './instrumentation.js';
 import { KVArchiverDataStore } from './kv_archiver_store/kv_archiver_store.js';
+import { KVContractDataStore } from './kv_archiver_store/kv_contract_data_store.js';
 import { updateRollingHash } from './structs/inbox_message.js';
 
 interface MockRollupContractRead {
@@ -158,7 +159,9 @@ describe('Archiver', () => {
 
     const tracer = getTelemetryClient().getTracer('');
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
-    archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_test'), 1000);
+    const store = await openTmpStore('archiver_test');
+    const contractStore = new KVContractDataStore(store);
+    archiverStore = new KVArchiverDataStore(store, 1000);
     l1Constants = {
       l1GenesisTime: BigInt(now),
       l1StartBlock: 0n,
@@ -173,6 +176,7 @@ describe('Archiver', () => {
       publicClient,
       { rollupAddress, inboxAddress, registryAddress },
       archiverStore,
+      contractStore,
       { pollingIntervalMs: 1000, batchSize: 1000 },
       blobSinkClient,
       epochCache,

@@ -2,6 +2,7 @@ import {
   Archiver,
   type ArchiverConfig,
   KVArchiverDataStore,
+  KVContractDataStore,
   archiverConfigMappings,
   getArchiverConfigFromEnv,
 } from '@aztec/archiver';
@@ -49,11 +50,18 @@ export async function startArchiver(
 
   const storeLog = createLogger('archiver:lmdb');
   const store = await createStore('archiver', KVArchiverDataStore.SCHEMA_VERSION, archiverConfig, storeLog);
+  const contractStore = new KVContractDataStore(store);
   const archiverStore = new KVArchiverDataStore(store, archiverConfig.maxLogs);
 
   const telemetry = initTelemetryClient(getTelemetryClientConfig());
   const blobSinkClient = createBlobSinkClient(archiverConfig, { logger: createLogger('archiver:blob-sink:client') });
-  const archiver = await Archiver.createAndSync(archiverConfig, archiverStore, { telemetry, blobSinkClient }, true);
+  const archiver = await Archiver.createAndSync(
+    archiverConfig,
+    archiverStore,
+    contractStore,
+    { telemetry, blobSinkClient },
+    true,
+  );
   services.archiver = [archiver, ArchiverApiSchema];
   signalHandlers.push(archiver.stop);
 

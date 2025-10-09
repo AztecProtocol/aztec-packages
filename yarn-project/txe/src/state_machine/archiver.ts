@@ -1,4 +1,4 @@
-import { ArchiverStoreHelper, KVArchiverDataStore, type PublishedL2Block } from '@aztec/archiver';
+import { ArchiverStoreHelper, KVArchiverDataStore, KVContractDataStore, type PublishedL2Block } from '@aztec/archiver';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -13,7 +13,8 @@ import type { UInt64 } from '@aztec/stdlib/types';
 // requires (i.e. an L1 client)
 export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
   constructor(db: AztecAsyncKVStore) {
-    super(new KVArchiverDataStore(db, 9999));
+    const contractStore = new KVContractDataStore(db);
+    super(new KVArchiverDataStore(db, 9999), contractStore);
   }
 
   public override async addBlocks(blocks: PublishedL2Block[]): Promise<boolean> {

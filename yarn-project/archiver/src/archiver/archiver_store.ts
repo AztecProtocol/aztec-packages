@@ -4,17 +4,9 @@ import type { CustomRange } from '@aztec/kv-store';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block, ValidateBlockResult } from '@aztec/stdlib/block';
-import type {
-  ContractClassPublic,
-  ContractInstanceUpdateWithAddress,
-  ContractInstanceWithAddress,
-  ExecutablePrivateFunctionWithMembershipProof,
-  UtilityFunctionWithMembershipProof,
-} from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { BlockHeader, type IndexedTxEffect, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
-import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { InboxMessage } from './structs/inbox_message.js';
 import type { PublishedL2Block } from './structs/published.js';
@@ -190,61 +182,6 @@ export interface ArchiverDataStore {
    * Gets the synch point of the archiver
    */
   getSynchPoint(): Promise<ArchiverL1SynchPoint>;
-
-  /**
-   * Add new contract classes from an L2 block to the store's list.
-   * @param data - List of contract classes to be added.
-   * @param blockNumber - Number of the L2 block the contracts were registered in.
-   * @returns True if the operation is successful.
-   */
-  addContractClasses(data: ContractClassPublic[], bytecodeCommitments: Fr[], blockNumber: number): Promise<boolean>;
-
-  deleteContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean>;
-
-  getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined>;
-
-  /**
-   * Returns a contract class given its id, or undefined if not exists.
-   * @param id - Id of the contract class.
-   */
-  getContractClass(id: Fr): Promise<ContractClassPublic | undefined>;
-
-  /**
-   * Add new contract instances from an L2 block to the store's list.
-   * @param data - List of contract instances to be added.
-   * @param blockNumber - Number of the L2 block the instances were deployed in.
-   * @returns True if the operation is successful.
-   */
-  addContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean>;
-  deleteContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean>;
-
-  /**
-   * Add new contract instance updates
-   * @param data - List of contract updates to be added.
-   * @param timestamp - Timestamp at which the updates were scheduled.
-   * @returns True if the operation is successful.
-   */
-  addContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], timestamp: UInt64): Promise<boolean>;
-  deleteContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], timestamp: UInt64): Promise<boolean>;
-  /**
-   * Adds private functions to a contract class.
-   */
-  addFunctions(
-    contractClassId: Fr,
-    privateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
-    utilityFunctions: UtilityFunctionWithMembershipProof[],
-  ): Promise<boolean>;
-
-  /**
-   * Returns a contract instance given its address and the given timestamp, or undefined if not exists.
-   * @param address - Address of the contract.
-   * @param timestamp - Timestamp to get the contract instance at. Contract updates might change the instance.
-   * @returns The contract instance or undefined if not found.
-   */
-  getContractInstance(address: AztecAddress, timestamp: UInt64): Promise<ContractInstanceWithAddress | undefined>;
-
-  /** Returns the list of all class ids known by the archiver. */
-  getContractClassIds(): Promise<Fr[]>;
 
   /** Register a public function signature, so it can be looked up by selector. */
   registerContractFunctionSignatures(signatures: string[]): Promise<void>;

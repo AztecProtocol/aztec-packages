@@ -9,8 +9,11 @@ import { type ContractClassPublic, computePublicBytecodeCommitment } from '@azte
 import type { ArchiverApi, Service } from '@aztec/stdlib/interfaces/server';
 
 import { Archiver, type ArchiverDeps } from './archiver/archiver.js';
+import type { ArchiverDataStore } from './archiver/archiver_store.js';
 import type { ArchiverConfig } from './archiver/config.js';
+import type { ContractDataStore } from './archiver/kv_archiver_store/contract_data_store.js';
 import { ARCHIVER_DB_VERSION, KVArchiverDataStore } from './archiver/kv_archiver_store/kv_archiver_store.js';
+import { KVContractDataStore } from './archiver/kv_archiver_store/kv_contract_data_store.js';
 
 export const ARCHIVER_STORE_NAME = 'archiver';
 
@@ -22,8 +25,14 @@ export async function createArchiverStore(
     ...userConfig,
     dataStoreMapSizeKB: userConfig.archiverStoreMapSizeKb ?? userConfig.dataStoreMapSizeKB,
   };
-  const store = await createStore(ARCHIVER_STORE_NAME, ARCHIVER_DB_VERSION, config, createLogger('archiver:lmdb'));
-  return new KVArchiverDataStore(store, config.maxLogs);
+  const db = await createStore(ARCHIVER_STORE_NAME, ARCHIVER_DB_VERSION, config, createLogger('archiver:lmdb'));
+
+  // Create both stores using the same DB (for now - Phase 3 will split them)
+  const contractStore = new KVContractDataStore(db);
+  const archiverStore = new KVArchiverDataStore(db, config.maxLogs);
+
+  // Return both stores
+  return { archiverStore, contractStore };
 }
 
 /**
@@ -39,12 +48,12 @@ export async function createArchiver(
   deps: ArchiverDeps,
   opts: { blockUntilSync: boolean } = { blockUntilSync: true },
 ): Promise<ArchiverApi & Service & L2BlockSourceEventEmitter> {
-  const archiverStore = await createArchiverStore(config);
-  await registerProtocolContracts(archiverStore);
-  return Archiver.createAndSync(config, archiverStore, deps, opts.blockUntilSync);
+  const { archiverStore, contractStore } = await createArchiverStore(config);
+  await registerProtocolContracts(archiverStore, contractStore);
+  return Archiver.createAndSync(config, archiverStore, contractStore, deps, opts.blockUntilSync);
 }
 
-async function registerProtocolContracts(store: KVArchiverDataStore) {
+async function registerProtocolContracts(archiverStore: ArchiverDataStore, contractStore: ContractDataStore) {
   const blockNumber = 0;
   for (const name of protocolContractNames) {
     const provider = new BundledProtocolContractsProvider();
@@ -59,9 +68,9 @@ async function registerProtocolContracts(store: KVArchiverDataStore) {
       .filter(fn => fn.functionType === FunctionType.PUBLIC)
       .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
 
-    await store.registerContractFunctionSignatures(publicFunctionSignatures);
+    await archiverStore.registerContractFunctionSignatures(publicFunctionSignatures);
     const bytecodeCommitment = await computePublicBytecodeCommitment(contractClassPublic.packedBytecode);
-    await store.addContractClasses([contractClassPublic], [bytecodeCommitment], blockNumber);
-    await store.addContractInstances([contract.instance], blockNumber);
+    await contractStore.addContractClasses([contractClassPublic], [bytecodeCommitment], blockNumber);
+    await contractStore.addContractInstances([contract.instance], blockNumber);
   }
 }
