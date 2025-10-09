@@ -1,4 +1,4 @@
-use dep::types::{abis::side_effect::Ordered, traits::Empty, utils::arrays::find_index_hint};
+use dep::types::{side_effect::Ordered, traits::Empty, utils::arrays::find_index_hint};
 use std::option::Option;
 
 // - If the min_revertible_side_effect_counter was set before any of the call requests (possibly even before "this" function (the function call that this kernel is currently processing)):

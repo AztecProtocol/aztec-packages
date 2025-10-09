@@ -9,9 +9,9 @@ use super::{
     read_request_validator::ReadRequestValidator,
 };
 use dep::types::{
-    abis::{read_request::{ReadRequest, ScopedReadRequest}, side_effect::{Ordered, Readable}},
     address::AztecAddress,
     merkle_tree::{LeafPreimage, MembershipWitness},
+    side_effect::{Counted, Ordered, Readable, Scoped},
     tests::{merkle_tree_utils::SingleSubtreeMerkleTree, utils::pad_end},
     traits::{Empty, FromField},
     utils::arrays::ClaimedLengthArray,
@@ -36,10 +36,10 @@ impl Ordered for TestValue {
     }
 }
 
-impl Readable<ScopedReadRequest> for TestValue {
-    fn assert_match_read_request(self, read_request: ScopedReadRequest) {
+impl Readable for TestValue {
+    fn assert_match_read_request(self, read_request: Scoped<Counted<Field>>) {
         assert_eq(
-            read_request.value(),
+            read_request.innermost(),
             self.value,
             "Hinted test value does not match read request",
         );
@@ -67,10 +67,10 @@ impl Empty for TestLeafPreimage {
     }
 }
 
-impl Readable<ScopedReadRequest> for TestLeafPreimage {
-    fn assert_match_read_request(self, read_request: ScopedReadRequest) {
+impl Readable for TestLeafPreimage {
+    fn assert_match_read_request(self, read_request: Scoped<Counted<Field>>) {
         assert_eq(
-            read_request.value(),
+            read_request.innermost(),
             self.value,
             "Hinted test leaf preimage does not match read request",
         );
@@ -90,12 +90,12 @@ global TEST_SUBTREE_WIDTH: u32 = 1 << TEST_SUBTREE_HEIGHT;
 global TEST_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(123);
 
 struct TestBuilder {
-    read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
+    read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, READ_REQUEST_LEN>,
     pending_values: ClaimedLengthArray<TestValue, PENDING_VALUE_LEN>,
     tree: SingleSubtreeMerkleTree<TEST_SUBTREE_WIDTH, TEST_SUBTREE_HEIGHT, TEST_TREE_HEIGHT>,
     tree_root: Field,
     leaf_preimages: [TestLeafPreimage; TEST_SUBTREE_WIDTH],
-    propagated_read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
+    propagated_read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, READ_REQUEST_LEN>,
     hints: ReadRequestHintsBuilder<READ_REQUEST_LEN, PENDING_READ_HINTS_LEN, SETTLED_READ_HINTS_LEN, TEST_TREE_HEIGHT, TestLeafPreimage>,
     counter: u32,
 }
@@ -141,8 +141,7 @@ impl TestBuilder {
 
     pub fn add_read_request(&mut self, value: Field) -> u32 {
         let read_request_index = self.read_requests.length;
-        let read_request =
-            ReadRequest { value, counter: self.counter }.scope(TEST_CONTRACT_ADDRESS);
+        let read_request = Counted::new(value, self.counter).scope(TEST_CONTRACT_ADDRESS);
         self.read_requests.push(read_request);
         self.counter += 1;
         read_request_index

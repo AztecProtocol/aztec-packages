@@ -1,8 +1,9 @@
 use super::TestBuilder;
 use types::{
-    abis::{note_hash::NoteHash, nullifier::Nullifier, private_log::{PrivateLog, PrivateLogData}},
+    abis::{nullifier::Nullifier, private_log::{PrivateLog, PrivateLogData}},
     constants::{MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS},
     hash::compute_siloed_nullifier,
+    side_effect::Counted,
     tests::utils::{assert_array_eq, pad_end},
 };
 
@@ -37,14 +38,14 @@ fn squashing_siloing_and_ordering_with_padded_items() {
 
     // Add padded items.
     let padded_note_hashes = [123, 456].map(|value| {
-        NoteHash { value, counter: MAX_U32_VALUE }.scope(SIDE_EFFECT_MASKING_ADDRESS)
+        Counted::new(value, MAX_U32_VALUE).scope(SIDE_EFFECT_MASKING_ADDRESS)
     });
     let padded_nullifiers = [500, 600].map(|value| {
         Nullifier {
             value: compute_siloed_nullifier(SIDE_EFFECT_MASKING_ADDRESS, value),
-            counter: MAX_U32_VALUE,
             note_hash: 0,
         }
+            .count(MAX_U32_VALUE)
             .scope(SIDE_EFFECT_MASKING_ADDRESS)
     });
     let padded_private_logs = [
@@ -52,17 +53,17 @@ fn squashing_siloing_and_ordering_with_padded_items() {
         PrivateLog { fields: pad_end([77, 88, 99]), length: 3 },
     ]
         .map(|log| {
-            PrivateLogData { log, note_hash_counter: 0, counter: MAX_U32_VALUE }.scope(
+            PrivateLogData { log, note_hash_counter: 0 }.count(MAX_U32_VALUE).scope(
                 SIDE_EFFECT_MASKING_ADDRESS,
             )
         });
 
-    builder.padded_side_effects.note_hashes[2] = padded_note_hashes[0].note_hash.value;
-    builder.padded_side_effects.note_hashes[3] = padded_note_hashes[1].note_hash.value;
-    builder.padded_side_effects.nullifiers[3] = padded_nullifiers[0].nullifier.value;
-    builder.padded_side_effects.nullifiers[4] = padded_nullifiers[1].nullifier.value;
-    builder.padded_side_effects.private_logs[2] = padded_private_logs[0].inner.log;
-    builder.padded_side_effects.private_logs[3] = padded_private_logs[1].inner.log;
+    builder.padded_side_effects.note_hashes[2] = padded_note_hashes[0].innermost();
+    builder.padded_side_effects.note_hashes[3] = padded_note_hashes[1].innermost();
+    builder.padded_side_effects.nullifiers[3] = padded_nullifiers[0].innermost().value;
+    builder.padded_side_effects.nullifiers[4] = padded_nullifiers[1].innermost().value;
+    builder.padded_side_effects.private_logs[2] = padded_private_logs[0].innermost().log;
+    builder.padded_side_effects.private_logs[3] = padded_private_logs[1].innermost().log;
 
     let public_inputs = builder.execute_with_siloing();
 

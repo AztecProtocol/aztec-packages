@@ -1,6 +1,5 @@
 use crate::{
-    abis::side_effect::Ordered, constants::MAX_U32_VALUE, traits::Empty,
-    utils::arrays::find_index_hint,
+    constants::MAX_U32_VALUE, side_effect::Ordered, traits::Empty, utils::arrays::find_index_hint,
 };
 
 pub(crate) fn assert_split_transformed_padded_arrays_with_hint<T, S, let N: u32, Env>(
