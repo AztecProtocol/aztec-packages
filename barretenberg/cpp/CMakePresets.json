@@ -317,6 +317,7 @@
         "FUZZING": "ON",
         "FUZZING_SHOW_INFORMATION": "ON",
         "DISABLE_AZTEC_VM": "ON",
+        "AVM_TRANSPILER_LIB": "",
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert"
