@@ -128,6 +128,8 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     void connect_all_variables_in_vector(const std::vector<uint32_t>& variables_vector);
     bool check_is_not_constant_variable(const uint32_t& variable_index);
 
+    void save_constant_variable_indices();
+
     std::pair<std::vector<uint32_t>, size_t> get_connected_component_with_index(
         const std::vector<std::vector<uint32_t>>& connected_components, size_t index);
 
@@ -176,6 +178,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     std::vector<ConnectedComponent> connected_components;
     std::vector<ConnectedComponent>
         main_connected_components; // connected components without finalize blocks and range lists
+    std::unordered_set<uint32_t> constant_variable_indices_set;
 };
 
 // Type aliases for convenience

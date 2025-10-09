@@ -190,12 +190,18 @@ class BoomerangIPARecursiveTests : public CommitmentTest<NativeCurve> {
 
         auto result = NativeIPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
         EXPECT_TRUE(result);
+
+        info("Starting analyzing circuit");
+        auto tool = StaticAnalyzer(builder);
+        auto cc = tool.find_connected_components();
+        EXPECT_EQ(cc.size(), 1);
+        auto variables_in_one_gate = tool.get_variables_in_one_gate();
+        EXPECT_EQ(variables_in_one_gate.size(), 0);
     }
 };
 
 TEST_F(BoomerangIPARecursiveTests, FullRecursiveVerifierMediumRandom)
 {
-
     static constexpr size_t log_poly_length = 10;
     static constexpr size_t poly_length = 1UL << log_poly_length;
     using RecursiveIPA = IPA<Curve, log_poly_length>;
@@ -208,5 +214,19 @@ TEST_F(BoomerangIPARecursiveTests, FullRecursiveVerifierMediumRandom)
     auto result = RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, stdlib_claim, stdlib_transcript);
     EXPECT_TRUE(result);
     builder.finalize_circuit(/*ensure_nonzero=*/true);
-    EXPECT_TRUE(CircuitChecker::check(builder));
+
+    info("Starting analyzing circuit");
+    auto tool = StaticAnalyzer(builder);
+    auto cc = tool.find_connected_components();
+    EXPECT_EQ(cc.size(), 1);
+    auto variables_in_one_gate = tool.get_variables_in_one_gate();
+    EXPECT_EQ(variables_in_one_gate.size(), 0);
+}
+
+TEST_F(BoomerangIPARecursiveTests, AccumulateSmallRandom)
+{
+    static constexpr size_t log_poly_length = 2;
+    auto [poly1, x1] = generate_poly_and_challenge<log_poly_length>(PolyType::Random);
+    auto [poly2, x2] = generate_poly_and_challenge<log_poly_length>(PolyType::Random);
+    test_accumulation<log_poly_length>(poly1, poly2, x1, x2);
 }
