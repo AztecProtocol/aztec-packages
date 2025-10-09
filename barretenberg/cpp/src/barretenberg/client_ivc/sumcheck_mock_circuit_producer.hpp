@@ -207,6 +207,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
             settings = TestSettings{};
             ivc.trace_settings = TraceSettings{};
         }
+        info("setting gates ", settings.log2_num_gates);
         auto circuit = create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs);
         return { circuit, get_verification_key(circuit, ivc.trace_settings) };
     }

@@ -421,8 +421,7 @@ SumcheckClientIVC::ProverAccumulator SumcheckClientIVC::execute_first_sumcheck(
     oink_prover.prove();
 
     // Determine the number of rounds in the sumcheck based on whether or not padding is employed
-    const size_t virtual_log_n =
-        Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : static_cast<size_t>(prover_instance->log_dyadic_size());
+    const size_t virtual_log_n = Flavor::VIRTUAL_LOG_N;
 
     prover_instance->gate_challenges =
         transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
@@ -832,16 +831,18 @@ HonkProof SumcheckClientIVC::construct_pcs_proof(const std::shared_ptr<Transcrip
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
     auto ck = bn254_commitment_key;
+    size_t actual_size = prover_accumulator.batched_polynomials[0].virtual_size();
     info("Dyadic size in PCS: ", ck.dyadic_size);
-    info("Dyadic size poly in PCS: ", prover_accumulator.batched_polynomials[0].virtual_size());
+    info("Dyadic size poly in CK: ", prover_accumulator.batched_polynomials[0].virtual_size());
+    info("challenge size ", prover_accumulator.challenge.size());
 
-    PolynomialBatcher polynomial_batcher(bn254_commitment_key.dyadic_size);
+    PolynomialBatcher polynomial_batcher(actual_size);
     polynomial_batcher.set_unshifted(prover_accumulator.batched_polynomials[0]);
     polynomial_batcher.set_to_be_shifted_by_one(prover_accumulator.batched_polynomials[1]);
 
     OpeningClaim prover_opening_claim;
-    prover_opening_claim = ShpleminiProver_<Curve>::prove(
-        ck.dyadic_size, polynomial_batcher, prover_accumulator.challenge, ck, transcript);
+    prover_opening_claim =
+        ShpleminiProver_<Curve>::prove(actual_size, polynomial_batcher, prover_accumulator.challenge, ck, transcript);
 
     vinfo("executed multivariate-to-univariate reduction");
     Flavor::PCS::compute_opening_proof(ck, prover_opening_claim, transcript);
