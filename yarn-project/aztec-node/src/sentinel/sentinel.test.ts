@@ -1,5 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { times } from '@aztec/foundation/collection';
+import { compactArray, times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -124,7 +124,7 @@ describe('sentinel', () => {
 
     it('identifies attestors from p2p and archiver', async () => {
       block = await randomPublishedL2Block(Number(slot), { signers: signers.slice(0, 2) });
-      const attestorsFromBlock = getAttestationsFromPublishedL2Block(block).map(att => att.getSender());
+      const attestorsFromBlock = compactArray(getAttestationsFromPublishedL2Block(block)).map(att => att.getSender());
       expect(attestorsFromBlock.map(a => a.toString())).toEqual(signers.slice(0, 2).map(a => a.address.toString()));
 
       await sentinel.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });

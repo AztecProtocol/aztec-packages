@@ -1,4 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
+import { compactArray } from '@aztec/foundation/collection';
 import type { Logger } from '@aztec/foundation/log';
 import {
   type PublishedL2Block,
@@ -20,7 +21,7 @@ export async function validateBlockAttestations(
   logger?: Logger,
 ): Promise<ValidateBlockResult> {
   const attestations = getAttestationsFromPublishedL2Block(publishedBlock);
-  const attestors = attestations.map(a => a.getSender());
+  const attestors = compactArray(attestations.map(a => a?.tryGetSender()));
   const { block } = publishedBlock;
   const blockHash = await block.hash().then(hash => hash.toString());
   const archiveRoot = block.archive.root.toString();
@@ -31,10 +32,11 @@ export async function validateBlockAttestations(
 
   logger?.debug(`Validating attestations for block ${block.number} at slot ${slot} in epoch ${epoch}`, {
     committee: (committee ?? []).map(member => member.toString()),
-    recoveredAttestors: attestations.map(a => a.getSender().toString()),
-    postedAttestations: publishedBlock.attestations.map(a =>
-      a.address.isZero() ? a.signature.toString() : a.address.toString(),
-    ),
+    recoveredAttestors: attestors.map(member => member.toString()),
+    invalidAttestations: attestations
+      .filter(a => a !== undefined && a.tryGetSender() === undefined)
+      .map(a => a?.toInspect()),
+    postedAttestations: publishedBlock.attestations.map(a => (a.address.isZero() ? a.signature : a.address).toString()),
     ...logData,
   });
 
@@ -48,28 +50,42 @@ export async function validateBlockAttestations(
 
   for (let i = 0; i < attestations.length; i++) {
     const attestation = attestations[i];
-    const signer = attestation.getSender().toString();
-    if (!committeeSet.has(signer)) {
-      logger?.warn(`Attestation from non-committee member ${signer} at slot ${slot}`, { committee });
-      const reason = 'invalid-attestation';
-      return {
-        valid: false,
-        reason,
-        invalidIndex: i,
-        block: publishedBlock.block.toBlockInfo(),
-        committee,
-        seed,
-        epoch,
-        attestors,
-        attestations: publishedBlock.attestations,
-      };
+
+    // Skip empty signatures (undefined entries)
+    if (attestation === undefined) {
+      continue;
     }
+
+    const signer = attestation.tryGetSender()?.toString();
+    if (signer !== undefined && committeeSet.has(signer)) {
+      continue;
+    }
+
+    if (signer === undefined) {
+      logger?.warn(`Attestation with invalid signature at slot ${slot}`, { committee, ...logData });
+    } else {
+      logger?.warn(`Attestation from non-committee member ${signer} at slot ${slot}`, { committee, ...logData });
+    }
+
+    const reason = 'invalid-attestation';
+    return {
+      valid: false,
+      reason,
+      invalidIndex: i,
+      block: publishedBlock.block.toBlockInfo(),
+      committee,
+      seed,
+      epoch,
+      attestors,
+      attestations: publishedBlock.attestations,
+    };
   }
 
-  if (attestations.length < requiredAttestationCount) {
+  const validAttestationCount = compactArray(attestations).length;
+  if (validAttestationCount < requiredAttestationCount) {
     logger?.warn(`Insufficient attestations for block at slot ${slot}`, {
       requiredAttestations: requiredAttestationCount,
-      actualAttestations: attestations.length,
+      actualAttestations: validAttestationCount,
       ...logData,
     });
     const reason = 'insufficient-attestations';

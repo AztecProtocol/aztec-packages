@@ -145,6 +145,10 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Do not invalidate the previous block if invalid when we are the proposer (for testing only)',
     ...booleanConfigHelper(false),
   },
+  injectFakeAttestation: {
+    description: 'Inject a fake attestation (for testing only)',
+    ...booleanConfigHelper(false),
+  },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowList']),
 };
 
