@@ -271,19 +271,18 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     void check_selector_length_consistency()
     {
-        // #if NDEBUG
-        //         // do nothing
-        // #else
+#if NDEBUG
+        // do nothing
+#else
         for (auto& block : blocks.get()) {
             const auto& block_selectors = block.get_selectors();
             size_t nominal_size = block_selectors[0].size();
             for (size_t idx = 1; idx < block_selectors.size(); ++idx) {
-                // info("selector idx: ", idx, " size: ", block_selectors[idx].size());
                 BB_ASSERT_EQ(block_selectors[idx].size(), nominal_size);
             }
         }
 
-        // #endif // NDEBUG
+#endif // NDEBUG
     }
 
     void finalize_circuit(const bool ensure_nonzero);
