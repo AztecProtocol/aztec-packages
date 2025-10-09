@@ -8,6 +8,7 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
+#include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
@@ -111,8 +112,8 @@ SumcheckClientIVC::RecursiveVerifierAccumulator SumcheckClientIVC::perform_foldi
     const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
     const std::shared_ptr<RecursiveTranscript>& transcript,
     const StdlibProof& proof,
-    std::optional<StdlibFF>& prev_accum_hash,
-    bool is_kernel)
+    [[maybe_unused]] std::optional<StdlibFF>& prev_accum_hash,
+    [[maybe_unused]] bool is_kernel)
 {
     BB_ASSERT_NEQ(verifier_accumulator.has_value(),
                   false,
@@ -120,23 +121,22 @@ SumcheckClientIVC::RecursiveVerifierAccumulator SumcheckClientIVC::perform_foldi
 
     // Fiat-Shamir the accumulator. (Only needs to be performed on the first in a series of recursive PG verifications
     // within a given kernel and by convention the kernel proof is always verified first).
-    if (is_kernel) {
-        prev_accum_hash = verifier_accumulator->hash_through_transcript("", *transcript);
-        transcript->add_to_hash_buffer("accum_hash", *prev_accum_hash);
-        info("Previous accumulator hash in PG rec verifier: ", *prev_accum_hash);
-    }
+    // if (is_kernel) {
+    //     prev_accum_hash = verifier_accumulator->hash_through_transcript("", *transcript);
+    //     transcript->add_to_hash_buffer("accum_hash", *prev_accum_hash);
+    //     info("Previous accumulator hash in PG rec verifier: ", *prev_accum_hash);
+    // }
 
     auto incoming_verifier_accumulator =
         execute_first_sumcheck_recursive_verification(circuit, verifier_instance, transcript, proof);
 
-    // FOLDING INFRA //////////////// //////////////// ////////////////
-    // Perform folding recursive verification to update the verifier accumulator
-    // FoldingRecursiveVerifier verifier{ &circuit, verifier_accumulator, verifier_instance, transcript };
-    // auto updated_verifier_accumulator = verifier.verify_folding_proof(proof);
+    MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor> batching_verifier(transcript);
+    auto [verified, new_accumulator] = batching_verifier.verify_proof(proof);
+    BB_ASSERT_EQ(verified, true, "Batching Sumcheck: Failed to verify sumcheck batching.");
 
-    // return updated_verifier_accumulator;
-
-    return incoming_verifier_accumulator;
+    return RecursiveVerifierAccumulator(new_accumulator.challenge,
+                                        { new_accumulator.non_shifted_evaluation, new_accumulator.shifted_evaluation },
+                                        { new_accumulator.non_shifted_commitment, new_accumulator.shifted_commitment });
 }
 
 /**
@@ -426,6 +426,7 @@ SumcheckClientIVC::ProverAccumulator SumcheckClientIVC::execute_first_sumcheck(
 
     prover_instance->gate_challenges =
         transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
+    info("Gate challenge prover: ", prover_instance->gate_challenges[0]);
 
     // Run sumcheck
     DeciderProver decider_prover(prover_instance, transcript);
@@ -461,7 +462,8 @@ SumcheckClientIVC::VerifierAccumulator SumcheckClientIVC::execute_first_sumcheck
     verifier_instance->target_sum = 0;
     // Get the gate challenges for sumcheck/combiner computation
     verifier_instance->gate_challenges =
-        transcript->template get_powers_of_challenge<FF>("gate_challenge", CONST_PG_LOG_N);
+        transcript->template get_powers_of_challenge<FF>("gate_challenge", Flavor::VIRTUAL_LOG_N);
+    info("Gate challenge verifier: ", verifier_instance->gate_challenges[0]);
 
     VerifierCommitments commitments{ verifier_instance->vk, verifier_instance->witness_commitments };
     // DeciderVerifier's log circuit size is fixed, hence we are using a trivial `padding_indicator_array`.
@@ -489,35 +491,79 @@ HonkProof SumcheckClientIVC::construct_sumcheck_proof(const std::shared_ptr<Prov
 HonkProof SumcheckClientIVC::construct_folding_proof(const std::shared_ptr<ProverInstance>& prover_instance,
                                                      const std::shared_ptr<MegaVerificationKey>& honk_vk,
                                                      const std::shared_ptr<Transcript>& transcript,
-                                                     bool is_kernel)
+                                                     [[maybe_unused]] bool is_kernel)
 {
     vinfo("computing folding proof...");
     // Only fiat shamir if this is a kernel with the assumption that kernels are always the first being recursively
     // verified.
-    if (is_kernel) {
-        // Fiat-Shamir the verifier accumulator
-        FF accum_hash = native_verifier_accum.hash_through_transcript("", *prover_accumulation_transcript);
-        prover_accumulation_transcript->add_to_hash_buffer("accum_hash", accum_hash);
-        info("Accumulator hash in PG prover: ", accum_hash);
-    }
+    // if (is_kernel) {
+    //     // Fiat-Shamir the verifier accumulator
+    //     FF accum_hash = native_verifier_accum.hash_through_transcript("", *prover_accumulation_transcript);
+    //     prover_accumulation_transcript->add_to_hash_buffer("accum_hash", accum_hash);
+    //     info("Accumulator hash in PG prover: ", accum_hash);
+    // }
     auto verifier_instance = std::make_shared<VerifierInstance_<Flavor>>(honk_vk);
 
     ProverAccumulator incoming_accumulator =
         SumcheckClientIVC::execute_first_sumcheck(prover_instance, honk_vk, transcript);
 
-    prover_accumulator = incoming_accumulator;
+    MultilinearBatchingProverClaim accumulator_claim{
+        .challenge = prover_accumulator.challenge,
+        .shifted_evaluation = prover_accumulator.batched_evaluations[1],
+        .non_shifted_evaluation = prover_accumulator.batched_evaluations[0],
+        .non_shifted_polynomial = prover_accumulator.batched_polynomials[0],
+        .shifted_polynomial = prover_accumulator.batched_polynomials[1],
+        .non_shifted_commitment = prover_accumulator.batched_commitments[0],
+        .shifted_commitment = prover_accumulator.batched_commitments[1],
+        .dyadic_size = prover_accumulator.dyadic_size
+    };
 
-    // FOLDING INFRA /////////// /////////// /////////// ///////////
-    // FoldingProver folding_prover({ prover_accumulator, prover_instance },
-    //                              { native_verifier_accum, verifier_instance },
-    //                              transcript,
-    //                              trace_usage_tracker);
-    // auto output = folding_prover.prove();
-    // prover_accumulator = output.accumulator; // update the prover accumulator
-    // vinfo("pg proof constructed");
-    // return output.proof;
+    // prover_accumulator.batched_polynomials[0].increase_virtual_size(1 << Flavor::VIRTUAL_LOG_N);
+    // prover_accumulator.batched_polynomials[1].increase_virtual_size(1 << Flavor::VIRTUAL_LOG_N);
+    // info("Evaluation correct: ",
+    //      prover_accumulator.batched_polynomials[0].evaluate_mle(prover_accumulator.challenge) ==
+    //          prover_accumulator.batched_evaluations[0]);
+    // info("Evaluation correct: ",
+    //      prover_accumulator.batched_polynomials[1].evaluate_mle(prover_accumulator.challenge) ==
+    //          prover_accumulator.batched_evaluations[1]);
 
-    return transcript->export_proof();
+    MultilinearBatchingProverClaim incoming_claim{
+        .challenge = incoming_accumulator.challenge,
+        .shifted_evaluation = incoming_accumulator.batched_evaluations[1],
+        .non_shifted_evaluation = incoming_accumulator.batched_evaluations[0],
+        .non_shifted_polynomial = incoming_accumulator.batched_polynomials[0],
+        .shifted_polynomial = incoming_accumulator.batched_polynomials[1],
+        .non_shifted_commitment = incoming_accumulator.batched_commitments[0],
+        .shifted_commitment = incoming_accumulator.batched_commitments[1],
+        .dyadic_size = incoming_accumulator.dyadic_size
+    };
+
+    incoming_accumulator.batched_polynomials[0].increase_virtual_size(1 << Flavor::VIRTUAL_LOG_N);
+    incoming_accumulator.batched_polynomials[1].increase_virtual_size(1 << Flavor::VIRTUAL_LOG_N);
+    info("Evaluation correct: ",
+         incoming_accumulator.batched_polynomials[0].evaluate_mle(incoming_accumulator.challenge) ==
+             incoming_accumulator.batched_evaluations[0]);
+    info("Evaluation correct: ",
+         incoming_accumulator.batched_polynomials[1].evaluate_mle(incoming_accumulator.challenge) ==
+             incoming_accumulator.batched_evaluations[1]);
+
+    MultilinearBatchingProver batching_prover(std::make_shared<MultilinearBatchingProverClaim>(accumulator_claim),
+                                              std::make_shared<MultilinearBatchingProverClaim>(incoming_claim),
+                                              transcript);
+
+    HonkProof proof = batching_prover.construct_proof();
+    batching_prover.compute_new_claim();
+    auto new_accumulator = batching_prover.get_new_claim();
+
+    prover_accumulator = ProverAccumulator{
+        .challenge = new_accumulator.challenge,
+        .batched_evaluations = { new_accumulator.non_shifted_evaluation, new_accumulator.shifted_evaluation },
+        .batched_polynomials = { new_accumulator.non_shifted_polynomial, new_accumulator.shifted_polynomial },
+        .batched_commitments = { new_accumulator.non_shifted_commitment, new_accumulator.shifted_commitment },
+        .dyadic_size = new_accumulator.dyadic_size,
+    };
+
+    return proof;
 }
 
 /**
@@ -936,24 +982,32 @@ SumcheckClientIVC::VerificationKey SumcheckClientIVC::get_vk() const
              std::make_shared<TranslatorVerificationKey>() };
 }
 
-void SumcheckClientIVC::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
-                                                           const std::shared_ptr<Transcript>& verifier_transcript)
+void SumcheckClientIVC::update_native_verifier_accumulator(
+    const VerifierInputs& queue_entry, [[maybe_unused]] const std::shared_ptr<Transcript>& verifier_transcript)
 {
     auto verifier_inst = std::make_shared<VerifierInstance>(queue_entry.honk_vk);
     auto incoming_accumulator =
         execute_first_sumcheck_native_verification(verifier_inst, transcript, queue_entry.proof);
     if (queue_entry.type != QUEUE_TYPE::OINK) {
-        if (queue_entry.is_kernel) {
-            // Fiat-Shamir the verifier accumulator
-            FF accum_hash = native_verifier_accum.hash_through_transcript("", *verifier_transcript);
-            verifier_transcript->add_to_hash_buffer("accum_hash", accum_hash);
-            info("Accumulator hash in PG verifier: ", accum_hash);
-        }
-        // // FOLDING INFRA
-        // FoldingVerifier folding_verifier({ native_verifier_accum, verifier_inst }, verifier_transcript);
-        // native_verifier_accum = folding_verifier.verify_folding_proof(queue_entry.proof);
+        // if (queue_entry.is_kernel) {
+        //     // Fiat-Shamir the verifier accumulator
+        //     FF accum_hash = native_verifier_accum.hash_through_transcript("", *verifier_transcript);
+        //     verifier_transcript->add_to_hash_buffer("accum_hash", accum_hash);
+        //     info("Accumulator hash in PG verifier: ", accum_hash);
+        // }
+
+        MultilinearBatchingVerifier<MultilinearBatchingFlavor> batching_verifier(transcript);
+        auto [verified, new_accumulator] = batching_verifier.verify_proof(queue_entry.proof);
+        BB_ASSERT_EQ(verified, true, "Batching Sumcheck: Failed native sumcheck verification");
+
+        native_verifier_accum = VerifierAccumulator{
+            .challenge = new_accumulator.challenge,
+            .batched_evaluations = { new_accumulator.non_shifted_evaluation, new_accumulator.shifted_evaluation },
+            .batched_commitments = { new_accumulator.non_shifted_commitment, new_accumulator.shifted_commitment },
+        };
+    } else {
+        native_verifier_accum = incoming_accumulator;
     }
-    native_verifier_accum = incoming_accumulator;
 }
 
 } // namespace bb

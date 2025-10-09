@@ -233,6 +233,7 @@ class SumcheckClientIVC {
         std::array<FF, 2> batched_evaluations;
         std::array<Polynomial<FF>, 2> batched_polynomials;
         std::array<Commitment, 2> batched_commitments;
+        size_t dyadic_size;
     };
 
     struct VerifierAccumulator {
@@ -386,7 +387,8 @@ class SumcheckClientIVC {
             auto batched_unshifted = PolynomialBatcher::compute_batched<Flavor::NUM_UNSHIFTED_ENTITIES>(
                 unshifted, full_batched_size, unshifted_challenges);
             auto batched_shifted = PolynomialBatcher::compute_batched<Flavor::NUM_SHIFTED_WITNESSES>(
-                shifted, full_batched_size, shifted_challenges, true);
+                                       shifted, full_batched_size, shifted_challenges, true)
+                                       .shifted();
 
             // Batch evaluations
             auto unshifted_evaluations = claimed_evaluations.get_unshifted();
@@ -409,7 +411,8 @@ class SumcheckClientIVC {
                 .challenge = challenge,
                 .batched_evaluations = { batched_unshifted_evaluation, batched_shifted_evaluation },
                 .batched_polynomials = { batched_unshifted, batched_shifted },
-                .batched_commitments = { batched_unshifted_commitment, batched_shifted_commitment }
+                .batched_commitments = { batched_unshifted_commitment, batched_shifted_commitment },
+                .dyadic_size = full_batched_size,
             };
         }
 
@@ -690,7 +693,7 @@ class SumcheckClientIVC {
                                                     const std::shared_ptr<MegaVerificationKey>& honk_vk,
                                                     const std::shared_ptr<Transcript>& transcript);
 
-    VerifierAccumulator execute_first_sumcheck_native_verification(
+    static VerifierAccumulator execute_first_sumcheck_native_verification(
         const std::shared_ptr<VerifierInstance>& verifier_instance,
         const std::shared_ptr<Transcript>& transcript,
         const HonkProof& proof);

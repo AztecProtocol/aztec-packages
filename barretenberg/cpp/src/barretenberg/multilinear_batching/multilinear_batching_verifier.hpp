@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
+#include "barretenberg/flavor/multilinear_batching_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"

@@ -28,8 +28,9 @@ MultilinearBatchingProver::MultilinearBatchingProver(
     polynomials.w_non_shifted_instance = instance_claim->non_shifted_polynomial;
     polynomials.w_shifted_instance = instance_claim->shifted_polynomial;
     polynomials.w_evaluations_accumulator =
-        ProverEqPolynomial<FF>::construct(accumulator_claim->challenge, max_dyadic_size);
-    polynomials.w_evaluations_instance = ProverEqPolynomial<FF>::construct(instance_claim->challenge, max_dyadic_size);
+        ProverEqPolynomial<FF>::construct(accumulator_claim->challenge, bb::numeric::get_msb(max_dyadic_size));
+    polynomials.w_evaluations_instance =
+        ProverEqPolynomial<FF>::construct(instance_claim->challenge, bb::numeric::get_msb(max_dyadic_size));
 
     polynomials.increase_polynomials_virtual_size(virtual_circuit_size);
     std::vector<FF> accumulator_evaluations = { accumulator_claim->non_shifted_evaluation,
@@ -118,7 +119,6 @@ void MultilinearBatchingProver::compute_new_claim()
     new_claim.shifted_polynomial = new_shifted_polynomial;
     new_claim.non_shifted_commitment = new_non_shifted_commitment;
     new_claim.shifted_commitment = new_shifted_commitment;
-    new_claim.shifted_evaluation = new_shifted_polynomial.at(0);
     new_claim.non_shifted_evaluation =
         sumcheck_output.claimed_evaluations.w_non_shifted_accumulator +
         sumcheck_output.claimed_evaluations.w_non_shifted_instance * claim_batching_challenge;

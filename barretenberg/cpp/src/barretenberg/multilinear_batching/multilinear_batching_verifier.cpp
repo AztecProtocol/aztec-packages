@@ -67,14 +67,8 @@ MultilinearBatchingVerifier<Flavor_>::verify_proof(const Proof& proof)
                        accumulator_non_shifted_evaluation);
     Sumcheck sumcheck(transcript, alpha, Flavor::VIRTUAL_LOG_N, target_sum);
     const auto sumcheck_result = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator);
-    bool verified = false;
-    if constexpr (!Curve::is_stdlib_type) {
-        verified = sumcheck_result.verified &&
-                   sumcheck_result.claimed_evaluations.w_evaluations_accumulator ==
-                       EqVerifierPolynomial<FF>::eval(accumulator_challenges, sumcheck_result.challenge) &&
-                   sumcheck_result.claimed_evaluations.w_evaluations_instance ==
-                       EqVerifierPolynomial<FF>::eval(instance_challenges, sumcheck_result.challenge);
-    }
+
+    // Construct new claim
     auto claim_batching_challenge = transcript->template get_challenge<FF>("claim_batching_challenge");
     MultilinearBatchingVerifierClaim verifier_claim;
     verifier_claim.non_shifted_commitment =
@@ -88,6 +82,21 @@ MultilinearBatchingVerifier<Flavor_>::verify_proof(const Proof& proof)
         sumcheck_result.claimed_evaluations.w_non_shifted_accumulator +
         sumcheck_result.claimed_evaluations.w_non_shifted_instance * claim_batching_challenge;
     verifier_claim.challenge = sumcheck_result.challenge;
+
+    // Verification
+    bool verified = true;
+    auto equality_verified = sumcheck_result.claimed_evaluations.w_evaluations_accumulator ==
+                                 EqVerifierPolynomial<FF>::eval(accumulator_challenges, sumcheck_result.challenge) &&
+                             sumcheck_result.claimed_evaluations.w_evaluations_instance ==
+                                 EqVerifierPolynomial<FF>::eval(instance_challenges, sumcheck_result.challenge);
+
+    if constexpr (IsRecursiveFlavor<Flavor>) {
+        equality_verified.assert_equal(stdlib::bool_t(equality_verified.get_context(), true));
+        verified = sumcheck_result.verified && equality_verified.get_value();
+    } else {
+        verified = sumcheck_result.verified && equality_verified;
+    }
+
     return { verified, verifier_claim };
 }
 

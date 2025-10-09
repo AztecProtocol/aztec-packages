@@ -68,6 +68,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_wire_comm
 {
     // Get commitments to first three wire polynomials
     witness_comms.w_l = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_l);
+    info("Commitment to w_l from verifier: ", witness_comms.w_l);
     witness_comms.w_r = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_r);
     witness_comms.w_o = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_o);
 
@@ -95,6 +96,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_sorted_li
     // Get eta challenges
     auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
         domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three");
+    info("Eta challenge from verifier: ", eta);
     relation_parameters.eta = eta;
     relation_parameters.eta_two = eta_two;
     relation_parameters.eta_three = eta_three;
