@@ -759,7 +759,23 @@ StaticAnalyzer_<FF, CircuitBuilder>::StaticAnalyzer_(CircuitBuilder& circuit_bui
         variables_degree[variable_index] = 0;
         variable_adjacency_lists[variable_index] = {};
     }
+    save_constant_variable_indices();
     process_execution_trace();
+}
+
+/**
+ * @brief
+ *
+ */
+
+template <typename FF, typename CircuitBuilder>
+void StaticAnalyzer_<FF, CircuitBuilder>::save_constant_variable_indices()
+{
+    constant_variable_indices_set.clear();
+    const auto& constant_variable_indices = circuit_builder.constant_variable_indices;
+    for (const auto& pair : constant_variable_indices) {
+        constant_variable_indices_set.insert(pair.second);
+    }
 }
 
 /**
@@ -774,15 +790,8 @@ StaticAnalyzer_<FF, CircuitBuilder>::StaticAnalyzer_(CircuitBuilder& circuit_bui
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzer_<FF, CircuitBuilder>::check_is_not_constant_variable(const uint32_t& variable_index)
 {
-    bool is_not_constant = true;
-    const auto& constant_variable_indices = circuit_builder.constant_variable_indices;
-    for (const auto& pair : constant_variable_indices) {
-        if (pair.second == circuit_builder.real_variable_index[variable_index]) {
-            is_not_constant = false;
-            break;
-        }
-    }
-    return is_not_constant;
+    uint32_t real_variable_index = circuit_builder.real_variable_index[variable_index];
+    return constant_variable_indices_set.find(real_variable_index) == constant_variable_indices_set.end();
 }
 
 /**
