@@ -62,12 +62,10 @@ use protocol_types::{
 /// }
 /// ```
 ///
-// docs:start:public_immutable_struct
 pub struct PublicImmutable<T, Context> {
     context: Context,
     storage_slot: Field,
 }
-// docs:end:public_immutable_struct
 
 /// `PublicImmutable` stores both the packed value (using M fields) and its hash (1 field), requiring M + 1 total
 /// fields.
@@ -106,7 +104,6 @@ impl<T, Context> PublicImmutable<T, Context> {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         PublicImmutable { context, storage_slot }
     }
-    // docs:end:public_immutable_struct_new
 
     pub fn compute_initialization_nullifier(self) -> Field {
         poseidon2_hash_with_separator(
@@ -149,7 +146,6 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
 
         self.context.storage_write(self.storage_slot, WithHash::new(value));
     }
-    // docs:end:public_immutable_struct_write
 
     /// Reads the permanent value stored in this PublicImmutable state variable.
     ///
@@ -177,7 +173,6 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
         assert(self.is_initialized(), "Trying to read from uninitialized PublicImmutable");
         WithHash::public_storage_read(*self.context, self.storage_slot)
     }
-    // docs:end:public_immutable_struct_read
 
     /// Reads the value stored in this PublicImmutable without checking if the value
     /// is initialized.

@@ -1,4 +1,4 @@
-import { NullifierCollisionError } from '../../state_manager/nullifiers.js';
+import { NullifierCollisionError } from '../../side_effect_errors.js';
 import type { AvmContext } from '../avm_context.js';
 import { TypeTag, Uint1 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';

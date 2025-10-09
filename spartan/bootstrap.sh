@@ -104,6 +104,7 @@ function network_tests {
   echo_header "spartan scenario test"
 
   # no parallelize here as we want to run the tests sequentially
+  export SCENARIO_TESTS=1
   network_test_cmds | filter_test_cmds | parallelize 1
 }
 
@@ -140,6 +141,14 @@ case "$cmd" in
     source_network_env "$env_file"
 
     ensure_eth_balances "$amount"
+    ;;
+  "ensure_funded_environment")
+    shift
+    env_file="$1"
+    low_watermark="${2:-0.5}"
+    high_watermark="${3:-1.0}"
+
+    ./scripts/ensure_funded_environment.sh "$env_file" "$FUNDING_PRIVATE_KEY" "$low_watermark" "$high_watermark"
     ;;
   "network_deploy")
     shift

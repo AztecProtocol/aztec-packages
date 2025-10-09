@@ -107,7 +107,6 @@ pub struct PrivateMutable<Note, Context> {
     context: Context,
     storage_slot: Field,
 }
-// docs:end:struct
 
 // Private storage slots are not really 'slots' but rather a value in the note hash preimage, so there is no notion of a
 // value spilling over multiple slots. For this reason PrivateMutable (and all other private state variables) needs just
@@ -142,7 +141,6 @@ impl<Note, Context> PrivateMutable<Note, Context> {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
     }
-    // docs:end:new
 
     /// Computes the nullifier that will be created when this PrivateMutable is first
     /// initialized.
@@ -237,7 +235,6 @@ where
     /// slot and can leak privacy information (see `compute_initialization_nullifier`
     /// documentation).
     ///
-    // docs:start:initialize
     pub fn initialize(self, note: Note) -> NoteEmission<Note>
     where
         Note: Packable,
@@ -248,7 +245,6 @@ where
 
         create_note(self.context, self.storage_slot, note)
     }
-    // docs:end:initialize
 
     /// Reads the current note of a PrivateMutable state variable, nullifies it,
     /// and inserts a new note produced by a user-provided function.
@@ -293,7 +289,6 @@ where
     /// The nullification of the previous note ensures that it cannot be used again,
     /// maintaining the invariant that a PrivateMutable has exactly one current note.
     ///
-    // docs:start:replace
     pub fn replace<Env>(self, f: fn[Env](Note) -> Note) -> NoteEmission<Note>
     where
         Note: Packable,
@@ -313,7 +308,6 @@ where
         // Add replacement note.
         create_note(self.context, self.storage_slot, new_note)
     }
-    // docs:end:replace
 
     /// Initializes the PrivateMutable if it's uninitialized, or replaces the current note
     /// using a transform function.
@@ -420,7 +414,6 @@ where
         // Because a nonce is added to every note in the kernel, its nullifier will be different.
         create_note(self.context, self.storage_slot, retrieved_note.note)
     }
-    // docs:end:get_note
 }
 
 impl<Note> PrivateMutable<Note, UtilityContext>
@@ -465,5 +458,4 @@ where
     {
         view_note(self.storage_slot).note
     }
-    // docs:end:view_note
 }

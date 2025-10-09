@@ -14,8 +14,8 @@ template <typename FF_> class bc_hashingImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 21> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 4, 5, 3, 3, 4,
-                                                                            3, 3, 4, 4, 4, 4, 5, 3, 4, 3 };
+    static constexpr std::array<size_t, 22> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 4, 4, 3, 3,
+                                                                            3, 3, 3, 4, 4, 4, 4, 5, 3, 4, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -38,20 +38,20 @@ template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_TRACE_CONTINUITY = 1;
     static constexpr size_t SR_SEL_TOGGLED_AT_LATCH = 3;
-    static constexpr size_t SR_START_AFTER_LATCH = 5;
-    static constexpr size_t SR_PC_INCREMENTS = 6;
-    static constexpr size_t SR_PC_INCREMENTS_1 = 7;
-    static constexpr size_t SR_PC_INCREMENTS_2 = 8;
-    static constexpr size_t SR_ID_CONSISTENCY = 9;
-    static constexpr size_t SR_START_IS_SEPARATOR = 10;
-    static constexpr size_t SR_PADDING_CONSISTENCY = 13;
-    static constexpr size_t SR_PADDING_END = 14;
-    static constexpr size_t SR_PADDED_BY_ZERO_1 = 15;
-    static constexpr size_t SR_PADDED_BY_ZERO_2 = 16;
-    static constexpr size_t SR_PADDING_CORRECTNESS = 17;
-    static constexpr size_t SR_BYTECODE_LENGTH_FIELDS = 18;
-    static constexpr size_t SR_ROUNDS_DECREMENT = 19;
-    static constexpr size_t SR_HASH_CONSISTENCY = 20;
+    static constexpr size_t SR_START_AFTER_LATCH = 6;
+    static constexpr size_t SR_PC_INCREMENTS = 7;
+    static constexpr size_t SR_PC_INCREMENTS_1 = 8;
+    static constexpr size_t SR_PC_INCREMENTS_2 = 9;
+    static constexpr size_t SR_ID_CONSISTENCY = 10;
+    static constexpr size_t SR_START_IS_SEPARATOR = 11;
+    static constexpr size_t SR_PADDING_CONSISTENCY = 14;
+    static constexpr size_t SR_PADDING_END = 15;
+    static constexpr size_t SR_PADDED_BY_ZERO_1 = 16;
+    static constexpr size_t SR_PADDED_BY_ZERO_2 = 17;
+    static constexpr size_t SR_PADDING_CORRECTNESS = 18;
+    static constexpr size_t SR_BYTECODE_LENGTH_FIELDS = 19;
+    static constexpr size_t SR_ROUNDS_DECREMENT = 20;
+    static constexpr size_t SR_HASH_CONSISTENCY = 21;
 
     static std::string get_subrelation_label(size_t index)
     {

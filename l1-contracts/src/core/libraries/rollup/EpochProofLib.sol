@@ -176,7 +176,7 @@ library EpochProofLib {
     //   chain_id: Field,
     //   version: Field,
     //   vk_tree_root: Field,
-    //   protocol_contract_tree_root: Field,
+    //   protocol_contracts_hash: Field,
     //   prover_id: Field,
     //   blob_public_inputs: FinalBlobAccumulatorPublicInputs,
     // }
@@ -213,8 +213,8 @@ library EpochProofLib {
     publicInputs[offset] = rollupStore.config.vkTreeRoot;
     offset += 1;
 
-    // protocol_contract_tree_root
-    publicInputs[offset] = rollupStore.config.protocolContractTreeRoot;
+    // protocol_contracts_hash
+    publicInputs[offset] = rollupStore.config.protocolContractsHash;
     offset += 1;
 
     // prover_id: id of current epoch's prover

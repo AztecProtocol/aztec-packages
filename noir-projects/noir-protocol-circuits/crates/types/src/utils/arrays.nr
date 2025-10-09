@@ -27,7 +27,7 @@ pub use assert_exposed_sorted_transformed_value_array::{
 pub use assert_sorted_array::assert_sorted_array;
 pub use assert_sorted_transformed_padded_array::{
     assert_sorted_transformed_i_padded_array_capped_size,
-    assert_sorted_transformed_padded_array_capped_size, validate_padded_items,
+    assert_sorted_transformed_padded_array_capped_size, check_padded_items,
 };
 pub use assert_split_sorted_transformed_value_arrays::{
     assert_split_sorted_transformed_value_arrays_asc,
@@ -47,22 +47,8 @@ use super::for_loop::{for_i_in_0_, for_i_only_in_0_};
 //**********************************************************************************
 
 // TODO: Consider making this a part of the noir stdlib.
-pub fn subarray<let SrcLen: u32, let DstLen: u32>(
-    src: [Field; SrcLen],
-    offset: u32,
-) -> [Field; DstLen] {
-    let mut dst: [Field; DstLen] = std::mem::zeroed();
-    for i in 0..DstLen {
-        dst[i] = src[i + offset];
-    }
-
-    dst
-}
-
-// Helper fn to create a subarray from a given array
-// TODO: rename to `slice`. This is not a splice.
-// TODO: looks very similar to `subarray` above.
-pub fn array_splice<T, let N: u32, let M: u32>(array: [T; N], offset: u32) -> [T; M]
+/// Helper fn to create a subarray from a given array.
+pub fn subarray<T, let N: u32, let M: u32>(array: [T; N], offset: u32) -> [T; M]
 where
     T: Empty,
 {

@@ -1,9 +1,7 @@
-import { type AztecAddress, EthAddress, Fr, type Wallet } from '@aztec/aztec.js';
-import { AnvilTestWatcher, CheatCodes, EthCheatCodes } from '@aztec/aztec/testing';
+import { EthAddress } from '@aztec/aztec.js';
+import { EthCheatCodes } from '@aztec/aztec/testing';
 import { type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
-import { RollupContract } from '@aztec/ethereum/contracts';
 import { DateProvider } from '@aztec/foundation/timer';
-import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import type { Anvil } from '@viem/anvil';
 import { parseEther } from 'viem';
@@ -11,8 +9,7 @@ import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { MNEMONIC } from './fixtures/fixtures.js';
-import { mintTokensToPrivate } from './fixtures/token_utils.js';
-import { getLogger, setup, startAnvil } from './fixtures/utils.js';
+import { getLogger, startAnvil } from './fixtures/utils.js';
 
 describe('e2e_cheat_codes', () => {
   describe('L1 cheatcodes', () => {
@@ -134,89 +131,6 @@ describe('e2e_cheat_codes', () => {
       } catch (e: any) {
         expect(e.message).toContain('tx from field is set');
       }
-    });
-  });
-
-  describe('L2 cheatcodes', () => {
-    let wallet: Wallet;
-    let adminAddress: AztecAddress;
-    let cc: CheatCodes;
-    let teardown: () => Promise<void>;
-
-    let token: TokenContract;
-    let rollup: RollupContract;
-    let watcher: AnvilTestWatcher | undefined;
-
-    beforeAll(async () => {
-      let deployL1ContractsValues;
-      ({
-        teardown,
-        wallet,
-        accounts: [adminAddress],
-        cheatCodes: cc,
-        deployL1ContractsValues,
-        watcher,
-      } = await setup());
-      if (watcher) {
-        watcher.setIsMarkingAsProven(false);
-      }
-
-      rollup = RollupContract.getFromL1ContractsValues(deployL1ContractsValues);
-      token = await TokenContract.deploy(wallet, adminAddress, 'TokenName', 'TokenSymbol', 18)
-        .send({ from: adminAddress })
-        .deployed();
-    });
-
-    afterAll(() => teardown());
-
-    it('load public', async () => {
-      expect(adminAddress.toField().equals(await cc.aztec.loadPublic(token.address, 1n))).toBeTrue();
-    });
-
-    it('load public returns 0 for non existent value', async () => {
-      const storageSlot = Fr.random();
-      expect(Fr.ZERO.equals(await cc.aztec.loadPublic(token.address, storageSlot))).toBeTrue();
-    });
-
-    it('load private works as expected for no notes', async () => {
-      const notes = await cc.aztec.loadPrivate(adminAddress, token.address, 5n);
-      const values = notes.map(note => note.items[0]);
-      const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
-      expect(balance).toEqual(0n);
-    });
-
-    it('load private', async () => {
-      // mint a token note and check it exists in balances.
-      // docs:start:load_private_cheatcode
-      const mintAmount = 100n;
-
-      await mintTokensToPrivate(token, adminAddress, adminAddress, mintAmount);
-      await token.methods.sync_private_state().simulate({ from: adminAddress });
-
-      const balancesAdminSlot = await cc.aztec.computeSlotInMap(TokenContract.storage.balances.slot, adminAddress);
-
-      // check if note was added to pending shield:
-      const notes = await cc.aztec.loadPrivate(adminAddress, token.address, balancesAdminSlot);
-
-      // @note If you get pain for dinner, this guys is the reason.
-      // Assuming that it is still testing the token contract, you need to look at the balances,
-      // and then the type of note, currently a `UintNote` which stores fields: [owner, randomness, amount]
-      const values = notes.map(note => note.items[2]);
-      const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
-      expect(balance).toEqual(mintAmount);
-      // docs:end:load_private_cheatcode
-    });
-
-    it('markAsProven', async () => {
-      const { pendingBlockNumber, provenBlockNumber } = await rollup.getTips();
-      expect(pendingBlockNumber).toBeGreaterThan(provenBlockNumber);
-
-      await cc.rollup.markAsProven();
-
-      const { pendingBlockNumber: pendingBlockNumber2, provenBlockNumber: provenBlockNumber2 } = await rollup.getTips();
-      expect(pendingBlockNumber2).toBe(provenBlockNumber2);
-
-      // If this test fails, it is likely because the storage updated and is not updated in the cheatcodes.
     });
   });
 });

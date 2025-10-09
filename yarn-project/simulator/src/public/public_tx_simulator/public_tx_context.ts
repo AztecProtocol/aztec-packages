@@ -32,6 +32,7 @@ import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type GlobalVariables,
+  ProtocolContracts,
   PublicCallRequestWithCalldata,
   TreeSnapshots,
   type Tx,
@@ -70,7 +71,8 @@ export class PublicTxContext {
     public readonly state: PhaseStateManager,
     private readonly startTreeSnapshots: TreeSnapshots,
     private readonly globalVariables: GlobalVariables,
-    private readonly protocolContractTreeRoot: Fr,
+    private readonly protocolContracts: ProtocolContracts,
+    private readonly proverId: Fr,
     private readonly gasSettings: GasSettings,
     private readonly gasUsedByPrivate: Gas,
     private readonly gasAllocatedToPublic: Gas,
@@ -91,8 +93,9 @@ export class PublicTxContext {
     contractsDB: PublicContractsDBInterface,
     tx: Tx,
     globalVariables: GlobalVariables,
-    protocolContractTreeRoot: Fr,
+    protocolContracts: ProtocolContracts,
     doMerkleOperations: boolean,
+    proverId: Fr,
   ) {
     const nonRevertibleAccumulatedDataFromPrivate = tx.data.forPublic!.nonRevertibleAccumulatedData;
 
@@ -120,7 +123,8 @@ export class PublicTxContext {
       new PhaseStateManager(txStateManager),
       await txStateManager.getTreeSnapshots(),
       globalVariables,
-      protocolContractTreeRoot,
+      protocolContracts,
+      proverId,
       gasSettings,
       gasUsedByPrivate,
       gasAllocatedToPublic,
@@ -377,12 +381,13 @@ export class PublicTxContext {
 
     return new AvmCircuitPublicInputs(
       this.globalVariables,
-      this.protocolContractTreeRoot,
+      this.protocolContracts,
       this.startTreeSnapshots,
       /*startGasUsed=*/ this.gasUsedByPrivate,
       this.gasSettings,
       computeEffectiveGasFees(this.globalVariables.gasFees, this.gasSettings),
       this.feePayer,
+      this.proverId,
       /*publicCallRequestArrayLengths=*/ new PublicCallRequestArrayLengths(
         this.setupCallRequests.length,
         this.appLogicCallRequests.length,

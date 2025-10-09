@@ -77,7 +77,6 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
         return bytecode_id;
     }
 
-    // We convert the bytecode to a shared_ptr because it will be shared by some events.
     // We now save the bytecode so that we don't repeat this process.
     bytecodes[bytecode_id] = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));
     return bytecode_id;
@@ -85,6 +84,8 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
 
 Instruction PureTxBytecodeManager::read_instruction(const BytecodeId& bytecode_id, uint32_t pc)
 {
+    // The corresponding bytecode is already stored in the cache if we call this routine. This is safe-guarded by the
+    // fact that it is added in the cache when we retrieve the bytecode_id.
     return read_instruction(bytecode_id, get_bytecode_data(bytecode_id), pc);
 }
 

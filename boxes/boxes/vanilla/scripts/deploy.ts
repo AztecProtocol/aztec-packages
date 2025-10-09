@@ -1,6 +1,7 @@
 import {
   AztecAddress,
   createAztecNodeClient,
+  type DeployAccountOptions,
   DeployMethod,
   Fr,
   getContractInstanceFromInstantiationParams,
@@ -67,22 +68,20 @@ async function createAccount(wallet: TestWallet) {
 
   const deployMethod = await accountManager.getDeployMethod();
   const sponsoredPFCContract = await getSponsoredPFCContract();
-  const deployOpts = {
+  const deployOpts: DeployAccountOptions = {
     from: AztecAddress.ZERO,
-    contractAddressSalt: Fr.fromString(salt.toString()),
     fee: {
-      paymentMethod: await accountManager.getSelfPaymentMethod(
-        new SponsoredFeePaymentMethod(sponsoredPFCContract.address)
+      paymentMethod: new SponsoredFeePaymentMethod(
+        sponsoredPFCContract.address
       ),
     },
-    universalDeploy: true,
     skipClassPublication: true,
     skipInstancePublication: true,
   };
   const provenInteraction = await deployMethod.prove(deployOpts);
   await provenInteraction.send().wait({ timeout: 120 });
 
-  return accountManager.getAddress();
+  return accountManager.address;
 }
 
 async function deployContract(wallet: Wallet, deployer: AztecAddress) {

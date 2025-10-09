@@ -18,6 +18,7 @@
 #include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
 #include "barretenberg/vm2/tracegen/contract_instance_retrieval_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
+#include "barretenberg/vm2/tracegen/retrieved_bytecodes_tree_check.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
@@ -28,7 +29,12 @@ using testing::random_contract_instance;
 using tracegen::BytecodeTraceBuilder;
 using tracegen::ClassIdDerivationTraceBuilder;
 using tracegen::ContractInstanceRetrievalTraceBuilder;
+using tracegen::RetrievedBytecodesTreeCheckTraceBuilder;
 using tracegen::TestTraceContainer;
+
+using simulation::ClassIdLeafValue;
+using simulation::RetrievedBytecodesTreeCheckEvent;
+using simulation::RetrievedBytecodesTreeLeafPreimage;
 
 using FF = AvmFlavorSettings::FF;
 using C = Column;
@@ -53,6 +59,7 @@ TEST(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
     BytecodeTraceBuilder builder;
     ContractInstanceRetrievalTraceBuilder contract_instance_retrieval_builder;
     ClassIdDerivationTraceBuilder class_id_builder;
+    RetrievedBytecodesTreeCheckTraceBuilder retrieved_bytecodes_tree_check_builder;
 
     FF nullifier_root = FF::random_element();
     FF public_data_tree_root = FF::random_element();
@@ -69,12 +76,13 @@ TEST(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
                                 .bytecode_length = bytecode_size,
                                 .bytecode_fields = bytecode_fields } },
                             trace);
-    contract_instance_retrieval_builder.process({ { .address = instance.deployer_addr,
+    contract_instance_retrieval_builder.process({ {
+                                                    .address = instance.deployer_addr,
                                                     .contract_instance = { instance },
                                                     .nullifier_tree_root = nullifier_root,
                                                     .public_data_tree_root = public_data_tree_root,
                                                     .exists = true,
-                                                    .error = false } },
+                                                } },
                                                 trace);
     class_id_builder.process({ { .class_id = instance.current_class_id, .klass = klass } }, trace);
 
@@ -87,6 +95,29 @@ TEST(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
         .root = FF(42),
         .nextAvailableLeafIndex = AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE + 1,
     };
+
+    // Read the tree of the retrieved bytecodes
+    retrieved_bytecodes_tree_check_builder.process(
+        { RetrievedBytecodesTreeCheckEvent{
+            .class_id = instance.current_class_id,
+            .prev_snapshot = snapshot_before,
+            .next_snapshot = snapshot_after,
+            .low_leaf_preimage = RetrievedBytecodesTreeLeafPreimage(ClassIdLeafValue(0), 0, 0),
+            .low_leaf_index = 0,
+        } },
+        trace);
+
+    // Insertion in the retrieved bytecodes tree
+    retrieved_bytecodes_tree_check_builder.process(
+        { RetrievedBytecodesTreeCheckEvent{
+            .class_id = instance.current_class_id,
+            .prev_snapshot = snapshot_before,
+            .next_snapshot = snapshot_after,
+            .low_leaf_preimage = RetrievedBytecodesTreeLeafPreimage(ClassIdLeafValue(0), 0, 0),
+            .low_leaf_index = 0,
+            .write = true,
+        } },
+        trace);
 
     // Build a bytecode retrieval event where instance exists
     builder.process_retrieval({ {
@@ -106,7 +137,9 @@ TEST(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
     check_interaction<BytecodeTraceBuilder,
                       lookup_bc_retrieval_bytecode_hash_is_correct_settings,
                       lookup_bc_retrieval_class_id_derivation_settings,
-                      lookup_bc_retrieval_contract_instance_retrieval_settings>(trace);
+                      lookup_bc_retrieval_contract_instance_retrieval_settings,
+                      lookup_bc_retrieval_is_new_class_check_settings,
+                      lookup_bc_retrieval_retrieved_bytecodes_insertion_settings>(trace);
 }
 
 TEST(BytecodeRetrievalConstrainingTest, TooManyBytecodes)

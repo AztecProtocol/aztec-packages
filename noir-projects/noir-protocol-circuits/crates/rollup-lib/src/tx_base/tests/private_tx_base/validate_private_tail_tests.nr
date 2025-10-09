@@ -28,11 +28,11 @@ unconstrained fn mismatch_version() {
     builder.execute_and_fail();
 }
 
-#[test(should_fail_with = "Mismatched protocol_contract_tree_root between kernel and rollup")]
-unconstrained fn mismatch_protocol_contract_tree_root() {
+#[test(should_fail_with = "Mismatched protocol_contracts_hash between kernel and rollup")]
+unconstrained fn mismatch_protocol_contracts_hash() {
     let mut builder = TestBuilder::new();
 
-    builder.private_tail.constants.protocol_contract_tree_root += 1;
+    builder.private_tail.constants.protocol_contracts_hash += 1;
 
     builder.execute_and_fail();
 }

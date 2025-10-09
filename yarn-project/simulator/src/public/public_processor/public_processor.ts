@@ -40,8 +40,14 @@ import {
 } from '@aztec/telemetry-client';
 import { ForkCheckpoint } from '@aztec/world-state/native';
 
+import { AssertionError } from 'assert';
+
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
-import { type PublicTxSimulator, TelemetryPublicTxSimulator } from '../public_tx_simulator/index.js';
+import {
+  type PublicTxSimulator,
+  type PublicTxSimulatorConfig,
+  TelemetryPublicTxSimulator,
+} from '../public_tx_simulator/index.js';
 import { GuardedMerkleTreeOperations } from './guarded_merkle_tree.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
 
@@ -64,20 +70,23 @@ export class PublicProcessorFactory {
   public create(
     merkleTree: MerkleTreeWriteOperations,
     globalVariables: GlobalVariables,
-    skipFeeEnforcement: boolean,
-    clientInitiatedSimulation: boolean = false,
+    config: {
+      skipFeeEnforcement: boolean;
+      clientInitiatedSimulation: boolean;
+      proverId?: Fr;
+      maxDebugLogMemoryReads?: number;
+    },
   ): PublicProcessor {
     const contractsDB = new PublicContractsDB(this.contractDataSource);
 
     const guardedFork = new GuardedMerkleTreeOperations(merkleTree);
-    const publicTxSimulator = this.createPublicTxSimulator(
-      guardedFork,
-      contractsDB,
-      globalVariables,
-      /*doMerkleOperations=*/ true,
-      skipFeeEnforcement,
-      clientInitiatedSimulation,
-    );
+    const publicTxSimulator = this.createPublicTxSimulator(guardedFork, contractsDB, globalVariables, {
+      proverId: config.proverId,
+      doMerkleOperations: true,
+      skipFeeEnforcement: config.skipFeeEnforcement,
+      clientInitiatedSimulation: config.clientInitiatedSimulation,
+      maxDebugLogMemoryReads: config.maxDebugLogMemoryReads,
+    });
 
     return new PublicProcessor(
       globalVariables,
@@ -93,19 +102,9 @@ export class PublicProcessorFactory {
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
-    doMerkleOperations: boolean,
-    skipFeeEnforcement: boolean,
-    clientInitiatedSimulation: boolean,
+    config?: Partial<PublicTxSimulatorConfig>,
   ): PublicTxSimulator {
-    return new TelemetryPublicTxSimulator(
-      merkleTree,
-      contractsDB,
-      globalVariables,
-      doMerkleOperations,
-      skipFeeEnforcement,
-      clientInitiatedSimulation,
-      this.telemetryClient,
-    );
+    return new TelemetryPublicTxSimulator(merkleTree, contractsDB, globalVariables, this.telemetryClient, config);
   }
 }
 
@@ -309,7 +308,7 @@ export class PublicProcessor implements Traceable {
         // Roll back state to start of TX before proceeding to next TX
         await checkpoint.revert();
         await this.guardedMerkleTree.getUnderlyingFork().revertAllCheckpoints();
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        const errorMessage = err instanceof Error || err instanceof AssertionError ? err.message : 'Unknown error';
         this.log.warn(`Failed to process tx ${txHash.toString()}: ${errorMessage} ${err?.stack}`);
         failed.push({ tx, error: err instanceof Error ? err : new Error(errorMessage) });
         returns.push(new NestedProcessReturnValues([]));

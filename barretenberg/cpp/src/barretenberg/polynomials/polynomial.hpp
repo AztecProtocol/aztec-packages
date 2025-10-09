@@ -36,14 +36,14 @@ template <typename Fr> struct PolynomialSpan {
     size_t size() const { return span.size(); }
     Fr& operator[](size_t index)
     {
-        BB_ASSERT_GTE(index, start_index);
-        BB_ASSERT_LT(index, end_index());
+        ASSERT_DEBUG(index >= start_index);
+        ASSERT_DEBUG(index < end_index());
         return span[index - start_index];
     }
     const Fr& operator[](size_t index) const
     {
-        BB_ASSERT_GTE(index, start_index);
-        BB_ASSERT_LT(index, end_index());
+        ASSERT_DEBUG(index >= start_index);
+        ASSERT_DEBUG(index < end_index());
         return span[index - start_index];
     }
     PolynomialSpan subspan(size_t offset, size_t length)
@@ -102,10 +102,7 @@ template <typename Fr> class Polynomial {
     {}
 
     /**
-     * @brief Utility to efficiently construct a shift from the original polynomial.
-     *
-     * @param virtual_size the size of the polynomial to be shifted
-     * @return Polynomial
+     * @brief Utility to create a shiftable polynomial of given virtual size.
      */
     static Polynomial shiftable(size_t virtual_size)
     {

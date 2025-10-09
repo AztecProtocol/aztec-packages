@@ -22,6 +22,9 @@ export async function bulkTest(
 
   // Needed since we invoke the Fee Juice Contract in the bulk test.registerFeeJuiceContract
   await tester.registerFeeJuiceContract();
+  // Register multiple different protocol contracts (to ensure we don't dedup bytecode hashing events):
+  await tester.registerAuthContract();
+  await tester.registerInstanceRegistryContract();
 
   // Get a deployed contract instance to pass to the contract
   // for it to use as "expected" values when testing contract instance retrieval.
@@ -50,6 +53,26 @@ export async function bulkTest(
         fnName: 'bulk_testing',
         args,
       },
+      // 3 calls creating calldata + asserting calldata copy:
+      {
+        address: avmTestContract.address,
+        fnName: 'assert_calldata_copy_large',
+        args: [Array.from({ length: 300 }, () => Fr.random()), /* with_selector: */ true],
+      },
+      {
+        address: avmTestContract.address,
+        fnName: 'assert_calldata_copy',
+        args: [argsField.slice(3), /* with_selector: */ true],
+      },
+      {
+        address: avmTestContract.address,
+        fnName: 'assert_calldata_copy_large',
+        args: [Array.from({ length: 300 }, () => Fr.random()), /* with_selector: */ true],
+      },
+      // 3 calls to external contracts
+      { address: avmTestContract.address, fnName: 'call_fee_juice', args: [] },
+      { address: avmTestContract.address, fnName: 'call_auth_registry', args: [] },
+      { address: avmTestContract.address, fnName: 'call_instance_registry', args: [] },
     ],
     /*teardownCall=*/ undefined,
     /*feePayer*/ undefined,

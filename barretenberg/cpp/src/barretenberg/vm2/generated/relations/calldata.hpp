@@ -14,7 +14,7 @@ template <typename FF_> class calldataImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS = { 4, 4, 5 };
+    static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 3, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -35,12 +35,15 @@ template <typename FF> class calldata : public Relation<calldataImpl<FF>> {
     static constexpr const std::string_view NAME = "calldata";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_TRACE_CONTINUITY = 1;
-    static constexpr size_t SR_CONTEXT_ID_CONTINUITY = 2;
+    static constexpr size_t SR_SEL_TOGGLED_AT_LATCH = 1;
+    static constexpr size_t SR_TRACE_CONTINUITY = 3;
+    static constexpr size_t SR_CONTEXT_ID_CONTINUITY = 4;
 
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
+        case SR_SEL_TOGGLED_AT_LATCH:
+            return "SEL_TOGGLED_AT_LATCH";
         case SR_TRACE_CONTINUITY:
             return "TRACE_CONTINUITY";
         case SR_CONTEXT_ID_CONTINUITY:

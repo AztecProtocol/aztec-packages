@@ -212,7 +212,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _gse The Governance Staking Escrow contract
    * @param _epochProofVerifier The honk verifier contract for root epoch proofs
    * @param _governance The address with owner privileges
-   * @param _genesisState Initial state containing VK tree root, protocol contract tree root, and genesis archive
+   * @param _genesisState Initial state containing VK tree root, protocol contracts hash, and genesis archive
    * @param _config Comprehensive configuration including timing, staking, slashing, and reward parameters
    */
   constructor(

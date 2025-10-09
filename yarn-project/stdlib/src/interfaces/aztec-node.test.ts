@@ -53,6 +53,7 @@ import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import type { TxValidationResult } from '../tx/validator/tx_validator.js';
 import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.js';
+import type { AllowedElement } from './allowed_element.js';
 import { MAX_RPC_LEN } from './api_limit.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 import type { SequencerConfig } from './configs.js';
@@ -464,6 +465,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBe('enr:-');
   });
 
+  it('getAllowedPublicSetup', async () => {
+    const response = await context.client.getAllowedPublicSetup();
+    expect(response).toEqual([]);
+  });
+
   it('getWorldStateSyncStatus', async () => {
     const response = await context.client.getWorldStateSyncStatus();
     expect(response).toEqual(await handler.getWorldStateSyncStatus());
@@ -758,5 +764,8 @@ class MockAztecNode implements AztecNode {
   }
   getEncodedEnr(): Promise<string | undefined> {
     return Promise.resolve('enr:-');
+  }
+  getAllowedPublicSetup(): Promise<AllowedElement[]> {
+    return Promise.resolve([]);
   }
 }

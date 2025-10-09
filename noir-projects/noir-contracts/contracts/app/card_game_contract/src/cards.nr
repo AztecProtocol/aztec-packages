@@ -38,14 +38,12 @@ impl ToField for Card {
     }
 }
 
-// docs:start:pure_noir_testing
 #[test]
 fn test_to_from_field() {
     let field = 1234567890;
     let card = Card::from_field(field);
     assert(card.to_field() == field);
 }
-// docs:end:pure_noir_testing
 
 pub struct CardNote {
     card: Card,

@@ -93,8 +93,8 @@ TEST_P(GtBasicTest, BasicComparison)
 
     EXPECT_EQ(field_gt_simulator.ff_gt(param.a, param.b), param.expected_result);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;
@@ -117,8 +117,8 @@ TEST_P(DecBasicTest, BasicDecomposition)
 
     EXPECT_EQ(field_gt_simulator.canon_dec(param.a), param.expected_result);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;
@@ -142,8 +142,8 @@ TEST_P(GtInteractionTests, InteractionsWithRangeCheck)
 
     EXPECT_EQ(field_gt_simulator.ff_gt(param.a, param.b), param.expected_result);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;
@@ -174,8 +174,8 @@ TEST_P(DecInteractionTests, InteractionsWithRangeCheck)
 
     EXPECT_EQ(field_gt_simulator.canon_dec(param.a), param.expected_result);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;
@@ -203,8 +203,8 @@ TEST(FieldGreaterThanConstrainingTest, NegativeManipulatedDecompositions)
 
     field_gt_simulator.ff_gt(0, 0);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;
@@ -226,8 +226,8 @@ TEST(FieldGreaterThanConstrainingTest, NegativeManipulatedComparisonsWithP)
 
     field_gt_simulator.ff_gt(0, 0);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;
@@ -263,8 +263,8 @@ TEST(FieldGreaterThanConstrainingTest, NegativeLessRangeChecks)
 
     field_gt_simulator.ff_gt(0, 0);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;
@@ -286,8 +286,8 @@ TEST(FieldGreaterThanConstrainingTest, NegativeRangeCheckCtrInitInDec)
 
     field_gt_simulator.canon_dec(0);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;
@@ -309,8 +309,8 @@ TEST(FieldGreaterThanConstrainingTest, NegativeSelectorConsistency)
 
     field_gt_simulator.ff_gt(0, 0);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;
@@ -331,8 +331,8 @@ TEST(FieldGreaterThanConstrainingTest, NegativeEraseShift)
 
     field_gt_simulator.ff_gt(42, 27);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;

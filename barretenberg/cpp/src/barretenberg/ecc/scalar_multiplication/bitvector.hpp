@@ -21,7 +21,7 @@ class BitVector {
 
     BB_INLINE void set(size_t index, bool value) noexcept
     {
-        BB_ASSERT_LT(index, num_bits_);
+        ASSERT_DEBUG(index < num_bits_);
         const size_t word = index >> 6;
         const size_t bit = index & 63;
 
@@ -35,7 +35,7 @@ class BitVector {
 
     BB_INLINE bool get(size_t index) const noexcept
     {
-        BB_ASSERT_LT(index, num_bits_);
+        ASSERT_DEBUG(index < num_bits_);
         const uint64_t word = index >> 6;
         const uint64_t bit = index & 63;
         return ((data_[static_cast<size_t>(word)] >> bit) & 1) == 1;

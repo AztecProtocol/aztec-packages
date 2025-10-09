@@ -75,8 +75,8 @@ class MockHighLevelMerkleDB : public HighLevelMerkleDBInterface {
     MOCK_METHOD(bool, was_storage_written, (const AztecAddress& contract_address, const FF& slot), (const, override));
     MOCK_METHOD(bool, nullifier_exists, (const AztecAddress& contract_address, const FF& nullifier), (const, override));
     MOCK_METHOD(bool, siloed_nullifier_exists, (const FF& nullifier), (const, override));
-    MOCK_METHOD(bool, nullifier_write, (const AztecAddress& contract_address, const FF& nullifier), (override));
-    MOCK_METHOD(bool, siloed_nullifier_write, (const FF& nullifier), (override));
+    MOCK_METHOD(void, nullifier_write, (const AztecAddress& contract_address, const FF& nullifier), (override));
+    MOCK_METHOD(void, siloed_nullifier_write, (const FF& nullifier), (override));
     MOCK_METHOD(bool, note_hash_exists, (uint64_t leaf_index, const FF& unique_note_hash), (const, override));
     MOCK_METHOD(void, note_hash_write, (const AztecAddress& contract_address, const FF& note_hash), (override));
     MOCK_METHOD(void, siloed_note_hash_write, (const FF& note_hash), (override));

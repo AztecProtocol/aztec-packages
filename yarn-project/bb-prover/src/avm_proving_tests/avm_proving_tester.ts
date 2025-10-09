@@ -146,6 +146,11 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       }
     });
 
+    // Throw if logs did not contain any times.
+    if (Object.keys(times).length === 0) {
+      throw new Error('AVM stdout did not contain any proving times in the stats!');
+    }
+
     // Hack to make labels match.
     const txLabelWithCount = `${txLabel}/${this.txCount - 1}`;
     // I need to cast because TS doesnt realize metrics is protected not private.
@@ -199,6 +204,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     feePayer = sender,
     privateInsertions?: TestPrivateInsertions,
     txLabel: string = 'unlabeledTx',
+    disableRevertCheck: boolean = false,
   ): Promise<PublicTxResult> {
     const simRes = await this.simulateTx(
       sender,
@@ -209,7 +215,10 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       privateInsertions,
       txLabel,
     );
-    expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);
+
+    if (!disableRevertCheck) {
+      expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);
+    }
 
     const opString = this.checkCircuitOnly ? 'Check circuit' : 'Proving and verification';
 
@@ -235,10 +244,11 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       setupCalls ?? [],
       appCalls ?? [],
       teardownCall,
-      /*expectRevert=*/ false,
+      undefined,
       feePayer,
       privateInsertions,
       txLabel,
+      true,
     );
   }
 

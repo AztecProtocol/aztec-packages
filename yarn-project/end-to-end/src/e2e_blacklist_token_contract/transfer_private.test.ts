@@ -49,20 +49,12 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     expect(amount).toBeGreaterThan(0n);
 
     // We need to compute the message we want to sign and add it to the wallet as approved
-    // docs:start:authwit_transfer_example
-    // docs:start:authwit_computeAuthWitMessageHash
     const action = asset.methods.transfer(adminAddress, otherAddress, amount, authwitNonce);
-    // docs:end:authwit_computeAuthWitMessageHash
-    // docs:start:create_authwit
     const witness = await wallet.createAuthWit(adminAddress, { caller: otherAddress, action });
-    // docs:end:create_authwit
 
     // Perform the transfer
 
-    // docs:start:add_authwit
     await action.send({ from: otherAddress, authWitnesses: [witness] }).wait();
-    // docs:end:add_authwit
-    // docs:end:authwit_transfer_example
     tokenSim.transferPrivate(adminAddress, otherAddress, amount);
 
     // Perform the transfer again, should fail

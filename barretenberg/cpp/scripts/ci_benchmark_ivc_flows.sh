@@ -4,12 +4,10 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 
 if [[ $# -ne 2 ]]; then
-  echo "Usage: $0 <bench_input_folder> <benchmark_output>"
+  echo "Usage: $0 <runtime> <benchmark_folder>"
   exit 1
 fi
 cd ..
-export input_folder="$1"
-benchmark_output="$2"
 
 echo_header "bb ivc flow bench"
 

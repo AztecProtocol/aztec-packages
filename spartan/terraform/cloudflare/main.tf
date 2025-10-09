@@ -28,3 +28,12 @@ resource "cloudflare_r2_managed_domain" "r2dev" {
   enabled     = true
 }
 
+# Attach custom domain to the R2 bucket
+resource "cloudflare_r2_custom_domain" "aztec_labs_snapshots_com" {
+  account_id  = var.R2_ACCOUNT_ID
+  bucket_name = cloudflare_r2_bucket.bucket.name
+  domain      = var.DOMAIN
+  zone_id     = var.R2_ZONE_ID
+  enabled     = true
+}
+

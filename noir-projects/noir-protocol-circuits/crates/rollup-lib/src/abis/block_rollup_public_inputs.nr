@@ -40,8 +40,10 @@ pub struct BlockRollupPublicInputs {
     // Block root rollups that are not the first in a checkpoint will have an `in_hash` value of 0.
     pub in_hash: Field,
 
-    // hash of the `l2_to_l1` message subtree. It will be combined with the `out_hash` from other blocks in the
+    // Hash of the `l2_to_l1` message subtree. It will be combined with the `out_hash` from other blocks in the
     // same checkpoint to form a wonky tree. The root of that tree becomes the final `out_hash` used on L1.
+    // TODO(#15793): Keep accumulating `out_hash` all the way up to the root rollup, and set the final hash on L1 when
+    // proving an epoch.
     pub out_hash: Field,
 
     // Accumulated fees for all blocks in this block range.

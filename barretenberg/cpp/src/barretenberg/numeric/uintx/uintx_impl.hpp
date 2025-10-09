@@ -13,7 +13,7 @@ template <class base_uint>
 std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::divmod_base(const uintx& b) const
 
 {
-    ASSERT(b != 0);
+    ASSERT_DEBUG(b != 0);
     if (*this == 0) {
         return { uintx(0), uintx(0) };
     }

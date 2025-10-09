@@ -123,7 +123,6 @@ List of all slashable offenses in the system:
 **Detection**: Validators detect invalid proposals during attestation validation.  
 **Target**: Proposer who broadcast the invalid block.  
 **Time Unit**: Slot-based offense.  
-**Note**: Not supported at the moment. Requires reexecution of proposals even when a validator is not part of the committee.
 
 ### PROPOSED_INSUFFICIENT_ATTESTATIONS
 **Description**: A proposer submitted a block to L1 without sufficient committee attestations.  

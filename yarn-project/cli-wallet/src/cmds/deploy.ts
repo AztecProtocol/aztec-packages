@@ -1,4 +1,4 @@
-import { AztecAddress, ContractDeployer, type DeployOptions, Fr, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, ContractDeployer, type DeployOptions, Fr } from '@aztec/aztec.js';
 import { encodeArgs, getContractArtifact, prettyPrintJSON } from '@aztec/cli/utils';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getAllFunctionAbis, getInitializer } from '@aztec/stdlib/abi';
@@ -7,9 +7,11 @@ import { PublicKeys } from '@aztec/stdlib/keys';
 import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
 import { CLIFeeArgs } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
+import type { CLIWallet } from '../utils/wallet.js';
 
 export async function deploy(
-  wallet: Wallet,
+  wallet: CLIWallet,
+  node: AztecNode,
   deployer: AztecAddress,
   artifactPath: string,
   json: boolean,
@@ -53,9 +55,9 @@ export async function deploy(
   }
 
   const deploy = contractDeployer.deploy(...args);
-  const userFeeOptions = await feeOpts.toUserFeeOptions(wallet, deployer);
+  const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(node, wallet, deployer);
   const deployOpts: DeployOptions = {
-    fee: userFeeOptions,
+    fee: { gasSettings, paymentMethod },
     from: deployer ?? AztecAddress.ZERO,
     contractAddressSalt: salt,
     universalDeploy: !deployer,

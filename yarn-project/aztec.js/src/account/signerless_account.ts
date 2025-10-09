@@ -1,28 +1,27 @@
-import type { EntrypointInterface, FeeOptions, TxExecutionOptions } from '@aztec/entrypoints/interfaces';
+import type { ChainInfo, EntrypointInterface } from '@aztec/entrypoints/interfaces';
+import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { Fr } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
+import type { GasSettings } from '@aztec/stdlib/gas';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
-import type { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import type { CallIntent, IntentInnerHash } from '../utils/authwit.js';
-import type { Wallet } from '../wallet/wallet.js';
 import type { Account } from './account.js';
 
 /**
- * Wallet implementation which creates a transaction request directly to the requested contract without any signing.
+ * Account implementation which creates a transaction using the multicall protocol contract as entrypoint.
  */
 export class SignerlessAccount implements Account {
-  constructor(private entrypoint: EntrypointInterface) {}
+  private entrypoint: EntrypointInterface;
+  constructor(chainInfo: ChainInfo) {
+    this.entrypoint = new DefaultMultiCallEntrypoint(chainInfo.chainId.toNumber(), chainInfo.version.toNumber());
+  }
 
-  createTxExecutionRequest(
-    execution: ExecutionPayload,
-    feeOptions: FeeOptions,
-    options: TxExecutionOptions,
-  ): Promise<TxExecutionRequest> {
-    return this.entrypoint.createTxExecutionRequest(execution, feeOptions, options);
+  createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings): Promise<TxExecutionRequest> {
+    return this.entrypoint.createTxExecutionRequest(exec, gasSettings);
   }
 
   getChainId(): Fr {
@@ -31,10 +30,6 @@ export class SignerlessAccount implements Account {
 
   getVersion(): Fr {
     throw new Error('SignerlessAccount: Method getVersion not implemented.');
-  }
-
-  getPublicKeysHash(): Fr {
-    throw new Error('SignerlessAccount: Method getPublicKeysHash not implemented.');
   }
 
   getCompleteAddress(): CompleteAddress {
@@ -47,13 +42,5 @@ export class SignerlessAccount implements Account {
 
   createAuthWit(_intent: Fr | Buffer | IntentInnerHash | CallIntent): Promise<AuthWitness> {
     throw new Error('SignerlessAccount: Method createAuthWit not implemented.');
-  }
-
-  setPublicAuthWit(
-    _wallet: Wallet,
-    _messageHashOrIntent: Fr | Buffer | IntentInnerHash | CallIntent,
-    _authorized: boolean,
-  ): Promise<ContractFunctionInteraction> {
-    throw new Error('SignerlessAccount: Method setPublicAuthWit not implemented.');
   }
 }

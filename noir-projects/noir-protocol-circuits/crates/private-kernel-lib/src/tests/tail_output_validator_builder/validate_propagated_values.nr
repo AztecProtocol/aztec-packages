@@ -1,6 +1,9 @@
 use crate::tests::tail_output_validator_builder::TailOutputValidatorBuilder;
 use dep::types::{
-    address::AztecAddress, constants::MAX_INCLUDE_BY_TIMESTAMP_DURATION, traits::FromField,
+    abis::protocol_contracts::ProtocolContracts,
+    address::AztecAddress,
+    constants::{MAX_INCLUDE_BY_TIMESTAMP_DURATION, MAX_PROTOCOL_CONTRACTS},
+    traits::FromField,
 };
 
 /**
@@ -49,13 +52,13 @@ fn validate_propagated_values_vk_tree_root_mismatch_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with = "mismatch protocol_contract_tree_root")]
-fn validate_propagated_values_protocol_contract_tree_root_mismatch_fails() {
+#[test(should_fail_with = "mismatch protocol_contracts_hash")]
+fn validate_propagated_values_protocol_contracts_hash_mismatch_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
-    builder.previous_kernel.protocol_contract_tree_root = 123;
     // Tweak the value in the output.
-    builder.output.protocol_contract_tree_root = 45;
+    builder.output.protocol_contracts =
+        ProtocolContracts::new([AztecAddress::from_field(42); MAX_PROTOCOL_CONTRACTS]);
 
     builder.validate();
 }
