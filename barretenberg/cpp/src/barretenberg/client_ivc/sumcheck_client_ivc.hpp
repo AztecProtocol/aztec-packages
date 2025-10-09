@@ -322,7 +322,7 @@ class SumcheckClientIVC {
     };
 
     struct FirstSumcheckOutput {
-        using ProverCommitments = Flavor::AllCommitments;
+        using VerifierCommitments = Flavor::VerifierCommitments;
         using ClaimedEvaluations = Flavor::AllValues;
 
         // \f$ \vec u = (u_0, ..., u_{d-1}) \f$
@@ -333,7 +333,7 @@ class SumcheckClientIVC {
         size_t full_batched_size;
 
         ProverAccumulator batch(ProverPolynomials& polynomials,
-                                ProverCommitments& commitments,
+                                VerifierCommitments& commitments,
                                 const std::shared_ptr<Transcript>& transcript)
         {
             auto generate_challenges = [&transcript]<size_t N>(const std::string& label) -> std::array<FF, N> {

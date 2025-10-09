@@ -56,7 +56,7 @@ class SumcheckClientIVCTests : public ::testing::Test {
  */
 TEST_F(SumcheckClientIVCTests, BasicStructured)
 {
-    BB_DISABLE_ASSERTS();
+    // BB_DISABLE_ASSERTS();
     const size_t NUM_APP_CIRCUITS = 1;
     auto [proof, vk] = SumcheckClientIVCTests::accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 

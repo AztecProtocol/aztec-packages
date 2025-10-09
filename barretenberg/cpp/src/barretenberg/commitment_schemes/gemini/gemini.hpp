@@ -272,13 +272,18 @@ template <typename Curve> class GeminiProver_ {
 
             size_t challenge_idx = 0;
 
+            if (shift) {
+                auto full_batched = Polynomial::shiftable(full_batched_size);
+                for (auto& poly : polynomials_to_batch) {
+                    full_batched.add_scaled(poly, challenges[challenge_idx]);
+                    challenge_idx += 1;
+                }
+                return full_batched;
+            }
+
             Polynomial full_batched(full_batched_size);
             for (auto& poly : polynomials_to_batch) {
-                if (shift) {
-                    full_batched.add_scaled(poly.shifted(), challenges[challenge_idx]);
-                } else {
-                    full_batched.add_scaled(poly, challenges[challenge_idx]);
-                }
+                full_batched.add_scaled(poly, challenges[challenge_idx]);
                 challenge_idx += 1;
             }
 

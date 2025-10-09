@@ -263,8 +263,8 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
         kernel_input.reconstruct_from_public(public_inputs);
         nested_pairing_points = kernel_input.pairing_inputs;
         // Perform databus consistency checks
-        kernel_input.kernel_return_data.assert_equal(witness_commitments.calldata);
-        kernel_input.app_return_data.assert_equal(witness_commitments.secondary_calldata);
+        kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.calldata);
+        kernel_input.app_return_data.incomplete_assert_equal(witness_commitments.secondary_calldata);
 
         // T_prev is read by the public input of the previous kernel K_{i-1} at the beginning of the recursive
         // verification of of the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app). This verification
@@ -437,9 +437,11 @@ SumcheckClientIVC::ProverAccumulator SumcheckClientIVC::execute_first_sumcheck(
                                          .claimed_evaluations = decider_prover.sumcheck_output.claimed_evaluations,
                                          .full_batched_size = prover_instance->dyadic_size() };
 
+    // Commitments
+    Flavor::VerifierCommitments verifier_commitments(honk_vk, prover_instance->commitments);
+
     // Batching
-    ProverAccumulator result =
-        sumcheck_output.batch(prover_instance->polynomials, prover_instance->commitments, transcript);
+    ProverAccumulator result = sumcheck_output.batch(prover_instance->polynomials, verifier_commitments, transcript);
 
     return result;
 }
