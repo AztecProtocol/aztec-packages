@@ -12,10 +12,12 @@
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_decomposition.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_hashing.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_retrieval.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_instr_fetching.hpp"
+#include "barretenberg/vm2/generated/relations/perms_bc_hashing.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
@@ -30,6 +32,10 @@ void BytecodeTraceBuilder::process_decomposition(
     TraceContainer& trace)
 {
     using C = Column;
+    // Since next_packed_pc - pc is always in the range [0, 31), we can precompute the inverses:
+    std::vector<FF> next_packed_pc_min_pc_inverses = { 0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15,
+                                                       16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30 };
+    FF::batch_invert(next_packed_pc_min_pc_inverses);
 
     // We start from row 1 because we need a row of zeroes for the shifts.
     uint32_t row = 1;
@@ -124,7 +130,17 @@ void BytecodeTraceBuilder::process_decomposition(
                       { {
                           { C::bc_decomposition_sel_packed, 1 },
                           { C::bc_decomposition_packed_field, bytecode_field_at(i) },
+                          { C::bc_decomposition_next_packed_pc, i },
+                          { C::bc_decomposition_next_packed_pc_min_pc_inv, 0 },
                       } });
+            for (uint32_t j = i + 1; j < std::min(bytecode_len, i + 31); j++) {
+                trace.set(
+                    row + j,
+                    { {
+                        { C::bc_decomposition_next_packed_pc, i + 31 },
+                        { C::bc_decomposition_next_packed_pc_min_pc_inv, next_packed_pc_min_pc_inverses[i + 31 - j] },
+                    } });
+            }
         }
 
         // We advance to the next bytecode.
@@ -422,19 +438,19 @@ void BytecodeTraceBuilder::process_instruction_fetching(
 const InteractionDefinition BytecodeTraceBuilder::interactions =
     InteractionDefinition()
         // Bytecode Hashing
-        .add<lookup_bc_hashing_get_packed_field_0_settings, InteractionType::LookupSequential>()
-        .add<lookup_bc_hashing_get_packed_field_1_settings, InteractionType::LookupSequential>()
-        .add<lookup_bc_hashing_get_packed_field_2_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_hashing_check_final_bytes_remaining_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_hashing_poseidon2_hash_settings, InteractionType::LookupSequential>()
         // Bytecode Retrieval
-        .add<lookup_bc_retrieval_bytecode_hash_is_correct_settings, InteractionType::LookupGeneric>()
         .add<lookup_bc_retrieval_class_id_derivation_settings, InteractionType::LookupGeneric>()
         .add<lookup_bc_retrieval_contract_instance_retrieval_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_retrieval_is_new_class_check_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_retrieval_retrieved_bytecodes_insertion_settings, InteractionType::LookupSequential>()
         // Bytecode Decomposition
         .add<lookup_bc_decomposition_bytes_are_bytes_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<InteractionType::MultiPermutation,
+             perm_bc_hashing_get_packed_field_0_settings,
+             perm_bc_hashing_get_packed_field_1_settings,
+             perm_bc_hashing_get_packed_field_2_settings>(Column::bc_decomposition_sel_packed)
         // Instruction Fetching
         .add<lookup_instr_fetching_bytes_from_bc_dec_settings, InteractionType::LookupGeneric>()
         .add<lookup_instr_fetching_bytecode_size_from_bc_dec_settings, InteractionType::LookupGeneric>()

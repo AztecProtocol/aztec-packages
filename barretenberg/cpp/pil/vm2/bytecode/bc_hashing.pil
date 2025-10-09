@@ -100,7 +100,7 @@ namespace bc_hashing;
     sel * ( pc_index_2 - (pc_index_1 + 31) ) = 0;
 
     pol commit bytecode_id;
-    #[ID_CONSISTENCY]
+    #[ID_PROPAGATION]
     (1 - LATCH_CONDITION) * (bytecode_id' - bytecode_id) = 0;
 
     // We need 3 packed fields to use as inputs for each poseidon round
@@ -112,18 +112,18 @@ namespace bc_hashing;
 
     #[GET_PACKED_FIELD_0]
     sel_not_start { pc_index, bytecode_id, packed_fields_0 }
-    in
-    bc_decomposition.sel_packed { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.packed_field };
+    is
+    bc_decomposition.sel_packed_read[0] { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.packed_field };
 
     #[GET_PACKED_FIELD_1]
     sel_not_padding_1 { pc_index_1, bytecode_id, packed_fields_1 }
-    in
-    bc_decomposition.sel_packed { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.packed_field };
+    is
+    bc_decomposition.sel_packed_read[1] { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.packed_field };
 
     #[GET_PACKED_FIELD_2]
     sel_not_padding_2 { pc_index_2, bytecode_id, packed_fields_2 }
-    in
-    bc_decomposition.sel_packed { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.packed_field };
+    is
+    bc_decomposition.sel_packed_read[2] { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.packed_field };
 
     // Padding
 
@@ -239,8 +239,11 @@ namespace bc_hashing;
 
     pol commit output_hash;
 
-    #[HASH_CONSISTENCY]
-    (1 - LATCH_CONDITION) * (output_hash' - output_hash) = 0;
+    // Since we constrain the id the same for each row (#[ID_PROPAGATION]) and id == output_hash below, there is no need for #[HASH_PROPAGATION].
+    // Note that we must constrain the below at *each row* to ensure that poseidon rows from different hashing traces (i.e. mismatched output_hash,
+    // matching tuple of inputs and length) are not inserted maliciously:
+    #[HASH_IS_ID]
+    sel * (bytecode_id - output_hash) = 0;
 
     #[POSEIDON2_HASH]
     sel { start, latch, packed_fields_0, packed_fields_1, packed_fields_2, input_len, rounds_rem, output_hash }
