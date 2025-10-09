@@ -1,10 +1,7 @@
 use crate::reset::transient_data::transient_data_squashing_hint::TransientDataSquashingHint;
 use dep::types::{
-    abis::{
-        note_hash::ScopedNoteHash,
-        private_log::PrivateLogData,
-        side_effect::{Ordered, scoped::Scoped},
-    },
+    abis::{note_hash::NoteHash, private_log::PrivateLogData},
+    side_effect::{Counted, Ordered, Scoped},
     utils::arrays::{ClaimedLengthArray, find_first_index},
 };
 
@@ -29,9 +26,9 @@ pub struct NoteLogLinkedSourceIndices {
 /// @returns An array of `NoteLogLinkedSourceIndices` where each entry corresponds to a log in `logs` and describes the
 /// origin of its possible linked note hash (may be in `kept_note_hashes` or in `transient_data_squashing_hints`).
 pub unconstrained fn build_note_log_linked_source_indices<let LogsLen: u32, let NoteHashesLen: u32, let SquashingHintsLen: u32>(
-    logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
-    note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
-    kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
+    logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, LogsLen>,
+    note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
+    kept_note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
     transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
 ) -> [NoteLogLinkedSourceIndices; LogsLen] {
     let mut linked_source_indices = [
@@ -42,7 +39,7 @@ pub unconstrained fn build_note_log_linked_source_indices<let LogsLen: u32, let 
     ];
 
     for i in 0..logs.length {
-        let log_note_hash_counter = logs.array[i].inner.note_hash_counter;
+        let log_note_hash_counter = logs.array[i].innermost().note_hash_counter;
         // A nonzero counter implies the log is linked to a note hash.
         if log_note_hash_counter != 0 {
             // Now we determine whether that note hash is transient or will be kept.

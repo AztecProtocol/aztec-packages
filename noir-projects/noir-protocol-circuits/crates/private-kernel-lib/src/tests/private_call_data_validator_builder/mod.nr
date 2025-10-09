@@ -7,22 +7,22 @@ mod restrict_side_effects;
 mod validate_call_requests;
 mod validate_contract_address;
 mod validate_counters;
-mod validate_log_lengths;
 mod validate_private_call_requests;
 mod verify_proof;
 
 use crate::components::private_call_data_validator::PrivateCallDataValidator;
 use dep::types::{
     abis::{
-        note_hash::ScopedNoteHash, private_call_request::PrivateCallRequest,
+        note_hash::NoteHash, private_call_request::PrivateCallRequest,
         private_kernel::private_call_data::PrivateCallData, transaction::tx_request::TxRequest,
     },
+    side_effect::{Counted, Scoped},
     tests::fixture_builder::FixtureBuilder,
 };
 
 pub struct PrivateCallDataValidatorBuilder {
     private_call: FixtureBuilder,
-    previous_note_hashes: BoundedVec<ScopedNoteHash, 4>,
+    previous_note_hashes: BoundedVec<Scoped<Counted<NoteHash>>, 4>,
 }
 
 impl PrivateCallDataValidatorBuilder {

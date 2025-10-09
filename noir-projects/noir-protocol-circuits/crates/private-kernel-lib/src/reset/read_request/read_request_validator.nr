@@ -6,23 +6,23 @@ use super::{
 };
 
 use dep::types::{
-    abis::{read_request::ScopedReadRequest, side_effect::{Ordered, Readable}},
     merkle_tree::LeafPreimage,
+    side_effect::{Counted, Ordered, Readable, Scoped},
     utils::arrays::ClaimedLengthArray,
 };
 
 pub struct ReadRequestValidator<let ReadRequestLen: u32, Value, let PendingValueLen: u32, let PendingReadHintsLen: u32, let SettledReadHintsLen: u32, let TreeHeight: u32, SettledReadLeafPreimage> {
-    pub read_requests: ClaimedLengthArray<ScopedReadRequest, ReadRequestLen>,
+    pub read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, ReadRequestLen>,
     pub pending_values: ClaimedLengthArray<Value, PendingValueLen>,
     pub tree_root: Field,
-    pub propagated_read_requests: ClaimedLengthArray<ScopedReadRequest, ReadRequestLen>,
+    pub propagated_read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, ReadRequestLen>,
     pub hints: ReadRequestHints<ReadRequestLen, PendingReadHintsLen, SettledReadHintsLen, TreeHeight, SettledReadLeafPreimage>,
 }
 
 impl<let ReadRequestLen: u32, Value, let PendingValueLen: u32, let PendingReadHintsLen: u32, let SettledReadHintsLen: u32, let TreeHeight: u32, SettledReadLeafPreimage> ReadRequestValidator<ReadRequestLen, Value, PendingValueLen, PendingReadHintsLen, SettledReadHintsLen, TreeHeight, SettledReadLeafPreimage>
 where
-    Value: Readable<ScopedReadRequest> + Ordered,
-    SettledReadLeafPreimage: LeafPreimage + Readable<ScopedReadRequest>,
+    Value: Readable + Ordered,
+    SettledReadLeafPreimage: LeafPreimage + Readable,
 {
     // Generic parameters are used because generic arrays cannot have zero length.
     // When a reset circuit does not require read request validation, the hints array will still contain at least one

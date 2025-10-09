@@ -9,10 +9,7 @@ use crate::components::{
     private_kernel_circuit_public_inputs_composer::create_protocol_nullifier,
 };
 use dep::types::{
-    abis::{
-        private_call_request::PrivateCallRequest, side_effect::OrderedValue,
-        transaction::tx_request::TxRequest,
-    },
+    abis::{private_call_request::PrivateCallRequest, transaction::tx_request::TxRequest},
     constants::PRIVATE_KERNEL_INIT_INDEX,
     tests::fixture_builder::FixtureBuilder,
     traits::Empty,
@@ -54,8 +51,8 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         self.output.nullifiers.push(protocol_nullifier);
         self.previous_kernel.nullifiers.push(protocol_nullifier);
 
-        self.previous_kernel.claimed_first_nullifier = protocol_nullifier.value();
-        self.output.claimed_first_nullifier = protocol_nullifier.value();
+        self.previous_kernel.claimed_first_nullifier = protocol_nullifier.innermost().value;
+        self.output.claimed_first_nullifier = protocol_nullifier.innermost().value;
         // First nullifier hint of zero signals that the protocol nullifier will be used as the first nullifier.
         self.first_nullifier_hint = 0;
     }

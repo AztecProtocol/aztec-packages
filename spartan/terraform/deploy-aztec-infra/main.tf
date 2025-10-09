@@ -45,9 +45,8 @@ module "web3signer" {
   ADDRESS_CONFIGMAP_NAME                   = "${var.RELEASE_PREFIX}-attester-addresses"
   ATTESTERS_PER_NODE                       = tonumber(var.VALIDATORS_PER_NODE)
   NODE_COUNT                               = tonumber(var.VALIDATOR_REPLICAS)
-  VALIDATOR_MNEMONIC_INDEX_START           = tonumber(var.VALIDATOR_MNEMONIC_START_INDEX)
-  VALIDATOR_PUBLISHER_MNEMONIC_INDEX_START = tonumber(var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX)
-  PROVER_PUBLISHER_MNEMONIC_INDEX_START    = tonumber(var.PROVER_PUBLISHER_MNEMONIC_START_INDEX)
+  VALIDATOR_MNEMONIC_START_INDEX           = tonumber(var.VALIDATOR_MNEMONIC_START_INDEX)
+  VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX = tonumber(var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX)
   PROVER_COUNT                             = tonumber(var.PROVER_REPLICAS)
   PUBLISHERS_PER_PROVER                    = tonumber(var.PROVER_PUBLISHERS_PER_PROVER)
   PROVER_PUBLISHER_MNEMONIC_START_INDEX    = tonumber(var.PROVER_PUBLISHER_MNEMONIC_START_INDEX)
@@ -178,12 +177,12 @@ locals {
       ]
       custom_settings = {
         "node.mnemonic"                           = var.PROVER_MNEMONIC
-        "node.mnemonicStartIndex"                 = var.PROVER_MNEMONIC_START_INDEX
+        "node.mnemonicStartIndex"                 = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
         "node.node.proverRealProofs"              = var.PROVER_REAL_PROOFS
         "node.web3signerUrl"                      = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
         "node.node.env.NETWORK"                   = var.NETWORK
         "node.node.env.PROVER_FAILED_PROOF_STORE" = var.PROVER_FAILED_PROOF_STORE
-        "node.node.env.KEY_INDEX_START"           = var.PROVER_MNEMONIC_START_INDEX
+        "node.node.env.KEY_INDEX_START"           = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
         "node.node.env.PUBLISHER_KEY_INDEX_START" = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
         "node.node.env.PUBLISHERS_PER_PROVER"     = var.PROVER_PUBLISHERS_PER_PROVER
         "broker.node.proverRealProofs"            = var.PROVER_REAL_PROOFS

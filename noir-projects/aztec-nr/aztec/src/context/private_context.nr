@@ -29,8 +29,6 @@ use dep::protocol_types::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_log::{PrivateLog, PrivateLogData},
         public_call_request::PublicCallRequest,
-        read_request::ReadRequest,
-        side_effect::Counted,
         validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
     },
     address::{AztecAddress, EthAddress},
@@ -45,6 +43,7 @@ use dep::protocol_types::{
     },
     hash::poseidon2_hash,
     messaging::l2_to_l1_message::L2ToL1Message,
+    side_effect::Counted,
     traits::{Empty, Hash, ToField},
     utils::arrays::{ClaimedLengthArray, trimmed_array_length_hint},
 };
@@ -179,12 +178,12 @@ pub struct PrivateContext {
 
     pub include_by_timestamp: u64,
 
-    pub note_hash_read_requests: BoundedVec<ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
-    pub nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
+    pub note_hash_read_requests: BoundedVec<Counted<Field>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    pub nullifier_read_requests: BoundedVec<Counted<Field>, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     key_validation_requests_and_generators: BoundedVec<KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
-    pub note_hashes: BoundedVec<NoteHash, MAX_NOTE_HASHES_PER_CALL>,
-    pub nullifiers: BoundedVec<Nullifier, MAX_NULLIFIERS_PER_CALL>,
+    pub note_hashes: BoundedVec<Counted<NoteHash>, MAX_NOTE_HASHES_PER_CALL>,
+    pub nullifiers: BoundedVec<Counted<Nullifier>, MAX_NULLIFIERS_PER_CALL>,
 
     pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_CALL>,
@@ -195,7 +194,7 @@ pub struct PrivateContext {
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
     pub anchor_block_header: BlockHeader,
 
-    pub private_logs: BoundedVec<PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL>,
+    pub private_logs: BoundedVec<Counted<PrivateLogData>, MAX_PRIVATE_LOGS_PER_CALL>,
     pub contract_class_logs_hashes: BoundedVec<Counted<LogHash>, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
 
     // Contains the last key validation request for each key type. This is used to cache the last request and avoid
@@ -394,7 +393,7 @@ impl PrivateContext {
     /// > that new functionality should be added to aztec-nr.
     ///
     pub fn push_note_hash(&mut self, note_hash: Field) {
-        self.note_hashes.push(NoteHash { value: note_hash, counter: self.next_counter() });
+        self.note_hashes.push(Counted::new(note_hash, self.next_counter()));
     }
 
     /// Pushes a new nullifier to the Aztec blockchain's global Nullifier Tree
@@ -443,9 +442,7 @@ impl PrivateContext {
     ///
     pub fn push_nullifier(&mut self, nullifier: Field) {
         notify_created_nullifier(nullifier);
-        self.nullifiers.push(
-            Nullifier { value: nullifier, note_hash: 0, counter: self.next_counter() },
-        );
+        self.nullifiers.push(Nullifier { value: nullifier, note_hash: 0 }.count(self.next_counter()));
     }
 
     /// Pushes a nullifier that corresponds to a specific note hash.
@@ -476,13 +473,9 @@ impl PrivateContext {
     pub fn push_nullifier_for_note_hash(&mut self, nullifier: Field, nullified_note_hash: Field) {
         let nullifier_counter = self.next_counter();
         notify_nullified_note(nullifier, nullified_note_hash, nullifier_counter);
-        self.nullifiers.push(
-            Nullifier {
-                value: nullifier,
-                note_hash: nullified_note_hash,
-                counter: nullifier_counter,
-            },
-        );
+        self.nullifiers.push(Nullifier { value: nullifier, note_hash: nullified_note_hash }.count(
+            nullifier_counter,
+        ));
     }
 
     /// Returns the anchor block header - the historical block header that this
@@ -760,7 +753,7 @@ impl PrivateContext {
     /// to be included, to ensure the note is included in the tree).
     ///
     pub fn push_note_hash_read_request(&mut self, note_hash: Field) {
-        let side_effect = ReadRequest { value: note_hash, counter: self.next_counter() };
+        let side_effect = Counted::new(note_hash, self.next_counter());
         self.note_hash_read_requests.push(side_effect);
     }
 
@@ -790,7 +783,7 @@ impl PrivateContext {
     /// earlier tx to be included, to ensure the note is included in the tree).
     ///
     pub fn push_nullifier_read_request(&mut self, nullifier: Field) {
-        let request = ReadRequest { value: nullifier, counter: self.next_counter() };
+        let request = Counted::new(nullifier, self.next_counter());
         self.nullifier_read_requests.push(request);
     }
 
@@ -1064,8 +1057,8 @@ impl PrivateContext {
     ///
     pub fn emit_private_log(&mut self, log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS], length: u32) {
         let counter = self.next_counter();
-        let private_log =
-            PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter: 0, counter };
+        let private_log = PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter: 0 }
+            .count(counter);
         self.private_logs.push(private_log);
     }
 
@@ -1097,9 +1090,8 @@ impl PrivateContext {
         note_hash_counter: u32,
     ) {
         let counter = self.next_counter();
-        let private_log =
-            PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter, counter };
-        self.private_logs.push(private_log);
+        let private_log = PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter };
+        self.private_logs.push(private_log.count(counter));
     }
 
     pub fn emit_contract_class_log<let N: u32>(&mut self, log: [Field; N]) {

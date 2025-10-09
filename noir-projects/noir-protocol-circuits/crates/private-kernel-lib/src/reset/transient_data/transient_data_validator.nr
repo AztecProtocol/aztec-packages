@@ -6,10 +6,8 @@ use super::{
     validate_transient_data_squashing_hints::validate_transient_data_squashing_hints,
 };
 use dep::types::{
-    abis::{
-        note_hash::ScopedNoteHash, nullifier::ScopedNullifier, private_log::PrivateLogData,
-        side_effect::scoped::Scoped,
-    },
+    abis::{note_hash::NoteHash, nullifier::Nullifier, private_log::PrivateLogData},
+    side_effect::{Counted, Scoped},
     utils::arrays::ClaimedLengthArray,
 };
 
@@ -18,12 +16,12 @@ use dep::types::{
 /// This function checks that note hashes, nullifiers, and logs are squashed correctly according to user-provided hints
 /// and expectations. It allows some transient data to be intentionally preserved across iterations when needed.
 pub struct TransientDataValidator<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let SquashingHintsLen: u32> {
-    pub note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
-    pub nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
-    pub logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
-    pub expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
-    pub expected_kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
-    pub expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
+    pub note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
+    pub nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
+    pub logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, LogsLen>,
+    pub expected_kept_note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
+    pub expected_kept_nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
+    pub expected_kept_logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, LogsLen>,
     pub min_revertible_side_effect_counter: u32,
     // Hints provided by the user to specify what to squash.
     // These are not derived automatically in this function like other hints, because the user can choose to not squash
@@ -36,16 +34,16 @@ pub struct TransientDataValidator<let NoteHashesLen: u32, let NullifiersLen: u32
 
 impl<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let SquashingHintsLen: u32> TransientDataValidator<NoteHashesLen, NullifiersLen, LogsLen, SquashingHintsLen> {
     pub fn new(
-        note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
-        nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
-        logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
-        expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
-        expected_kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
-        expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
+        note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
+        nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
+        logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, LogsLen>,
+        expected_kept_note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
+        expected_kept_nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
+        expected_kept_logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, LogsLen>,
         min_revertible_side_effect_counter: u32,
         transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
     ) -> Self {
-        // Safety: The hints are verified below by validate_squashed_transient_data_with_derived_hints.
+        // Safety: The hints are verified in `self.validate`.
         let derived_hints = unsafe {
             build_derived_hints(
                 note_hashes,
@@ -110,7 +108,10 @@ impl<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let Squas
 
 pub(crate) mod tests {
     use crate::reset::transient_data::tests::{mock_log, TransientDataFixtureBuilder};
-    use dep::types::abis::{note_hash::NoteHash, nullifier::Nullifier, private_log::PrivateLogData};
+    use dep::types::{
+        abis::{nullifier::Nullifier, private_log::PrivateLogData},
+        side_effect::Counted,
+    };
 
     #[test]
     fn succeeds_empty_everything() {
@@ -122,23 +123,23 @@ pub(crate) mod tests {
         let mut builder = TransientDataFixtureBuilder::new();
 
         builder.add_note_hashes([
-            NoteHash { value: 11, counter: 1 },
-            NoteHash { value: 22, counter: 2 },
-            NoteHash { value: 33, counter: 3 },
-            NoteHash { value: 44, counter: 4 },
+            Counted::new(11, 1),
+            Counted::new(22, 2),
+            Counted::new(33, 3),
+            Counted::new(44, 4),
         ]);
 
         builder.add_nullifiers([
-            Nullifier { value: 55, counter: 5, note_hash: 33 },
-            Nullifier { value: 66, counter: 6, note_hash: 11 },
-            Nullifier { value: 77, counter: 7, note_hash: 22 },
-            Nullifier { value: 88, counter: 8, note_hash: 44 },
+            Nullifier { value: 55, note_hash: 33 }.count(5),
+            Nullifier { value: 66, note_hash: 11 }.count(6),
+            Nullifier { value: 77, note_hash: 22 }.count(7),
+            Nullifier { value: 88, note_hash: 44 }.count(8),
         ]);
 
         builder.add_logs([
-            PrivateLogData { log: mock_log(101), counter: 9, note_hash_counter: 1 },
-            PrivateLogData { log: mock_log(202), counter: 10, note_hash_counter: 4 },
-            PrivateLogData { log: mock_log(303), counter: 11, note_hash_counter: 1 },
+            PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(9),
+            PrivateLogData { log: mock_log(202), note_hash_counter: 4 }.count(10),
+            PrivateLogData { log: mock_log(303), note_hash_counter: 1 }.count(11),
         ]);
 
         builder.add_squashing_hint(0, 1);
@@ -155,19 +156,16 @@ pub(crate) mod tests {
     fn succeeds_keep_squashable_pairs() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_note_hashes([
-            NoteHash { value: 11, counter: 1 },
-            NoteHash { value: 22, counter: 2 },
-        ]);
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(22, 2)]);
 
         builder.add_nullifiers([
-            Nullifier { value: 505, counter: 5, note_hash: 11 },
-            Nullifier { value: 606, counter: 6, note_hash: 22 },
+            Nullifier { value: 505, note_hash: 11 }.count(5),
+            Nullifier { value: 606, note_hash: 22 }.count(6),
         ]);
 
         builder.add_logs([
-            PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 2 },
-            PrivateLogData { log: mock_log(202), counter: 8, note_hash_counter: 1 },
+            PrivateLogData { log: mock_log(101), note_hash_counter: 2 }.count(7),
+            PrivateLogData { log: mock_log(202), note_hash_counter: 1 }.count(8),
         ]);
 
         // All items are kept, even though all the note hashes and nullifiers can be squashed.
@@ -182,19 +180,16 @@ pub(crate) mod tests {
     fn succeeds_squash_partial() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_note_hashes([
-            NoteHash { value: 11, counter: 1 },
-            NoteHash { value: 22, counter: 2 },
-        ]);
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(22, 2)]);
 
         builder.add_nullifiers([
-            Nullifier { value: 505, counter: 5, note_hash: 22 },
-            Nullifier { value: 606, counter: 6, note_hash: 99 },
+            Nullifier { value: 505, note_hash: 22 }.count(5),
+            Nullifier { value: 606, note_hash: 99 }.count(6),
         ]);
 
         builder.add_logs([
-            PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 2 },
-            PrivateLogData { log: mock_log(202), counter: 8, note_hash_counter: 1 },
+            PrivateLogData { log: mock_log(101), note_hash_counter: 2 }.count(7),
+            PrivateLogData { log: mock_log(202), note_hash_counter: 1 }.count(8),
         ]);
 
         builder.add_squashing_hint(1, 0);
@@ -213,30 +208,30 @@ pub(crate) mod tests {
         let mut builder = TransientDataFixtureBuilder::new();
 
         builder.add_note_hashes([
-            NoteHash { value: 11, counter: 1 },
-            NoteHash { value: 22, counter: 2 },
-            NoteHash { value: 33, counter: 3 },
-            NoteHash { value: 44, counter: 4 },
-            NoteHash { value: 55, counter: 5 },
-            NoteHash { value: 66, counter: 6 },
+            Counted::new(11, 1),
+            Counted::new(22, 2),
+            Counted::new(33, 3),
+            Counted::new(44, 4),
+            Counted::new(55, 5),
+            Counted::new(66, 6),
         ]);
 
         builder.add_nullifiers([
-            Nullifier { value: 10, counter: 7, note_hash: 33 },
-            Nullifier { value: 20, counter: 8, note_hash: 0 },
-            Nullifier { value: 30, counter: 9, note_hash: 0 },
-            Nullifier { value: 40, counter: 10, note_hash: 11 },
-            Nullifier { value: 50, counter: 11, note_hash: 66 },
+            Nullifier { value: 10, note_hash: 33 }.count(7),
+            Nullifier { value: 20, note_hash: 0 }.count(8),
+            Nullifier { value: 30, note_hash: 0 }.count(9),
+            Nullifier { value: 40, note_hash: 11 }.count(10),
+            Nullifier { value: 50, note_hash: 66 }.count(11),
         ]);
 
         builder.add_logs([
-            PrivateLogData { log: mock_log(101), counter: 12, note_hash_counter: 5 },
-            PrivateLogData { log: mock_log(202), counter: 13, note_hash_counter: 0 },
-            PrivateLogData { log: mock_log(303), counter: 14, note_hash_counter: 1 },
-            PrivateLogData { log: mock_log(404), counter: 15, note_hash_counter: 1 },
-            PrivateLogData { log: mock_log(505), counter: 16, note_hash_counter: 6 },
-            PrivateLogData { log: mock_log(606), counter: 17, note_hash_counter: 0 },
-            PrivateLogData { log: mock_log(707), counter: 18, note_hash_counter: 1 },
+            PrivateLogData { log: mock_log(101), note_hash_counter: 5 }.count(12),
+            PrivateLogData { log: mock_log(202), note_hash_counter: 0 }.count(13),
+            PrivateLogData { log: mock_log(303), note_hash_counter: 1 }.count(14),
+            PrivateLogData { log: mock_log(404), note_hash_counter: 1 }.count(15),
+            PrivateLogData { log: mock_log(505), note_hash_counter: 6 }.count(16),
+            PrivateLogData { log: mock_log(606), note_hash_counter: 0 }.count(17),
+            PrivateLogData { log: mock_log(707), note_hash_counter: 1 }.count(18),
         ]);
 
         builder.keep_note_hashes([0, 1, 2, 3, 4, 5]);
@@ -251,23 +246,19 @@ pub(crate) mod tests {
         let mut builder = TransientDataFixtureBuilder::new();
 
         // All the note hashes have the same value.
-        builder.add_note_hashes([
-            NoteHash { value: 11, counter: 1 },
-            NoteHash { value: 11, counter: 2 },
-            NoteHash { value: 11, counter: 3 },
-        ]);
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(11, 2), Counted::new(11, 3)]);
 
         // All the nullifiers nullify the same note hash value.
         builder.add_nullifiers([
-            Nullifier { value: 505, counter: 5, note_hash: 11 },
-            Nullifier { value: 606, counter: 6, note_hash: 11 },
-            Nullifier { value: 707, counter: 7, note_hash: 11 },
+            Nullifier { value: 505, note_hash: 11 }.count(5),
+            Nullifier { value: 606, note_hash: 11 }.count(6),
+            Nullifier { value: 707, note_hash: 11 }.count(7),
         ]);
 
         builder.add_logs([
-            PrivateLogData { log: mock_log(101), counter: 8, note_hash_counter: 2 },
-            PrivateLogData { log: mock_log(202), counter: 9, note_hash_counter: 3 },
-            PrivateLogData { log: mock_log(303), counter: 10, note_hash_counter: 1 },
+            PrivateLogData { log: mock_log(101), note_hash_counter: 2 }.count(8),
+            PrivateLogData { log: mock_log(202), note_hash_counter: 3 }.count(9),
+            PrivateLogData { log: mock_log(303), note_hash_counter: 1 }.count(10),
         ]);
 
         // Use the hint to specify which note hash and nullifier to be paired and squashed.

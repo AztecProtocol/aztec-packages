@@ -1,9 +1,10 @@
 mod previous_kernel_validator_hints;
 
 use dep::types::{
-    abis::{private_kernel_data::PrivateKernelData, side_effect::{Ordered, OrderedValue}},
+    abis::private_kernel_data::PrivateKernelData,
     address::AztecAddress,
     constants::{CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, PRIVATE_LOG_SIZE_IN_FIELDS},
+    side_effect::Ordered,
     traits::Empty,
 };
 
@@ -54,13 +55,13 @@ impl PreviousKernelValidator {
     fn validate_first_nullifier(self, tx_can_revert: bool) {
         let first_nullifier = self.previous_kernel.public_inputs.end.nullifiers.array[0];
         assert_eq(
-            first_nullifier.value(),
+            first_nullifier.innermost().value,
             self.previous_kernel.public_inputs.claimed_first_nullifier,
             "First nullifier claim was not satisfied",
         );
         if tx_can_revert {
             assert(
-                first_nullifier.nullifier.counter()
+                first_nullifier.inner.counter
                     < self.previous_kernel.public_inputs.min_revertible_side_effect_counter,
                 "First nullifier must be non revertible",
             );
@@ -197,7 +198,7 @@ impl PreviousKernelValidator {
         let private_logs = self.previous_kernel.public_inputs.end.private_logs.array;
         for private_log in private_logs {
             assert(
-                private_log.inner.log.length <= PRIVATE_LOG_SIZE_IN_FIELDS,
+                private_log.innermost().log.length <= PRIVATE_LOG_SIZE_IN_FIELDS,
                 "Private log length exceeds max",
             );
         }
@@ -206,7 +207,7 @@ impl PreviousKernelValidator {
             self.previous_kernel.public_inputs.end.contract_class_logs_hashes.array;
         for contract_class_log in contract_class_logs {
             assert(
-                contract_class_log.inner.inner.length <= CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+                contract_class_log.innermost().length <= CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
                 "Contract class log length exceeds max",
             );
         }
@@ -282,11 +283,11 @@ impl PreviousKernelValidator {
             hints.transient_note_hash_index_for_each_nullifier;
         for i in 0..nullifiers.array.len() {
             let nullifier = nullifiers.array[i];
-            let nullified_note_hash = nullifier.nullifier.note_hash;
+            let nullified_note_hash = nullifier.innermost().note_hash;
             if nullified_note_hash != 0 {
                 let note_hash = note_hashes.array[transient_note_hash_index_for_each_nullifier[i]];
                 assert_eq(
-                    note_hash.value(),
+                    note_hash.innermost(),
                     nullified_note_hash,
                     "Hinted siloed note hash does not match nullified note hash",
                 );

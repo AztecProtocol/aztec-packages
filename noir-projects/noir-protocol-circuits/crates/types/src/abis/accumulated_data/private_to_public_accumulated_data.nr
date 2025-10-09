@@ -1,9 +1,7 @@
 use crate::{
-    abis::{
-        log_hash::LogHash, private_log::PrivateLog, public_call_request::PublicCallRequest,
-        side_effect::scoped::Scoped,
-    },
+    abis::{log_hash::LogHash, private_log::PrivateLog, public_call_request::PublicCallRequest},
     messaging::l2_to_l1_message::L2ToL1Message,
+    side_effect::Scoped,
     traits::{Deserialize, Empty, Serialize},
 };
 use crate::constants::{
