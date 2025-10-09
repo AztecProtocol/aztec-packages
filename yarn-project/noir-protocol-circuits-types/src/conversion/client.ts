@@ -46,8 +46,8 @@ import type {
   KeyValidationHint as KeyValidationHintNoir,
   KeyValidationRequestAndGenerator as KeyValidationRequestAndGeneratorNoir,
   KeyValidationRequest as KeyValidationRequestsNoir,
+  Field as NoirField,
   NoteHashLeafPreimage as NoteHashLeafPreimageNoir,
-  NoteHash as NoteHashNoir,
   Nullifier as NullifierNoir,
   PaddedSideEffectAmounts as PaddedSideEffectAmountsNoir,
   PaddedSideEffects as PaddedSideEffectsNoir,
@@ -68,12 +68,7 @@ import type {
   PublicKeys as PublicKeysNoir,
   ReadRequestAction as ReadRequestActionNoir,
   ReadRequestHints as ReadRequestHintsNoir,
-  ReadRequest as ReadRequestNoir,
   Scoped,
-  ScopedKeyValidationRequestAndGenerator as ScopedKeyValidationRequestAndGeneratorNoir,
-  ScopedNoteHash as ScopedNoteHashNoir,
-  ScopedNullifier as ScopedNullifierNoir,
-  ScopedReadRequest as ScopedReadRequestNoir,
   SettledReadHint as SettledReadHintNoir,
   TransientDataSquashingHint as TransientDataSquashingHintNoir,
   TxRequest as TxRequestNoir,
@@ -152,117 +147,112 @@ export function mapTxRequestToNoir(txRequest: TxRequest): TxRequestNoir {
   };
 }
 
-function mapNoteHashToNoir(noteHash: NoteHash): NoteHashNoir {
+function mapNoteHashToNoir(noteHash: NoteHash): Counted<NoirField> {
   return {
-    value: mapFieldToNoir(noteHash.value),
+    inner: mapFieldToNoir(noteHash.value),
     counter: mapNumberToNoir(noteHash.counter),
   };
 }
 
-function mapNoteHashFromNoir(noteHash: NoteHashNoir) {
-  return new NoteHash(mapFieldFromNoir(noteHash.value), mapNumberFromNoir(noteHash.counter));
+function mapNoteHashFromNoir(noteHash: Counted<NoirField>) {
+  return new NoteHash(mapFieldFromNoir(noteHash.inner), mapNumberFromNoir(noteHash.counter));
 }
 
-function mapScopedNoteHashToNoir(noteHash: ScopedNoteHash): ScopedNoteHashNoir {
+function mapScopedNoteHashToNoir(noteHash: ScopedNoteHash): Scoped<Counted<NoirField>> {
   return {
-    note_hash: mapNoteHashToNoir(noteHash.noteHash),
+    inner: mapNoteHashToNoir(noteHash.noteHash),
     contract_address: mapAztecAddressToNoir(noteHash.contractAddress),
   };
 }
 
-function mapScopedNoteHashFromNoir(noteHash: ScopedNoteHashNoir) {
-  return new ScopedNoteHash(
-    mapNoteHashFromNoir(noteHash.note_hash),
-    mapAztecAddressFromNoir(noteHash.contract_address),
-  );
+function mapScopedNoteHashFromNoir(noteHash: Scoped<Counted<NoirField>>) {
+  return new ScopedNoteHash(mapNoteHashFromNoir(noteHash.inner), mapAztecAddressFromNoir(noteHash.contract_address));
 }
 
-function mapNullifierToNoir(nullifier: Nullifier): NullifierNoir {
+function mapNullifierToNoir(nullifier: Nullifier): Counted<NullifierNoir> {
   return {
-    value: mapFieldToNoir(nullifier.value),
+    inner: {
+      value: mapFieldToNoir(nullifier.value),
+      note_hash: mapFieldToNoir(nullifier.noteHash),
+    },
     counter: mapNumberToNoir(nullifier.counter),
-    note_hash: mapFieldToNoir(nullifier.noteHash),
   };
 }
 
-function mapNullifierFromNoir(nullifier: NullifierNoir) {
+function mapNullifierFromNoir(nullifier: Counted<NullifierNoir>) {
   return new Nullifier(
-    mapFieldFromNoir(nullifier.value),
+    mapFieldFromNoir(nullifier.inner.value),
+    mapFieldFromNoir(nullifier.inner.note_hash),
     mapNumberFromNoir(nullifier.counter),
-    mapFieldFromNoir(nullifier.note_hash),
   );
 }
 
-function mapScopedNullifierToNoir(nullifier: ScopedNullifier): ScopedNullifierNoir {
+function mapScopedNullifierToNoir(nullifier: ScopedNullifier): Scoped<Counted<NullifierNoir>> {
   return {
-    nullifier: mapNullifierToNoir(nullifier.nullifier),
+    inner: mapNullifierToNoir(nullifier.nullifier),
     contract_address: mapAztecAddressToNoir(nullifier.contractAddress),
   };
 }
 
-function mapScopedNullifierFromNoir(nullifier: ScopedNullifierNoir) {
+function mapScopedNullifierFromNoir(nullifier: Scoped<Counted<NullifierNoir>>) {
   return new ScopedNullifier(
-    mapNullifierFromNoir(nullifier.nullifier),
+    mapNullifierFromNoir(nullifier.inner),
     mapAztecAddressFromNoir(nullifier.contract_address),
   );
 }
 
-function mapPrivateLogDataToNoir(data: PrivateLogData): PrivateLogDataNoir {
+function mapPrivateLogDataToNoir(data: PrivateLogData): Counted<PrivateLogDataNoir> {
   return {
-    log: mapPrivateLogToNoir(data.log),
-    note_hash_counter: mapNumberToNoir(data.noteHashCounter),
+    inner: {
+      log: mapPrivateLogToNoir(data.log),
+      note_hash_counter: mapNumberToNoir(data.noteHashCounter),
+    },
     counter: mapNumberToNoir(data.counter),
   };
 }
 
-function mapPrivateLogDataFromNoir(data: PrivateLogDataNoir) {
+function mapPrivateLogDataFromNoir(data: Counted<PrivateLogDataNoir>) {
   return new PrivateLogData(
-    mapPrivateLogFromNoir(data.log),
-    mapNumberFromNoir(data.note_hash_counter),
+    mapPrivateLogFromNoir(data.inner.log),
+    mapNumberFromNoir(data.inner.note_hash_counter),
     mapNumberFromNoir(data.counter),
   );
 }
 
-function mapScopedPrivateLogDataToNoir(data: ScopedPrivateLogData): Scoped<PrivateLogDataNoir> {
+function mapScopedPrivateLogDataToNoir(data: ScopedPrivateLogData): Scoped<Counted<PrivateLogDataNoir>> {
   return {
     inner: mapPrivateLogDataToNoir(data.inner),
     contract_address: mapAztecAddressToNoir(data.contractAddress),
   };
 }
 
-function mapScopedPrivateLogDataFromNoir(data: Scoped<PrivateLogDataNoir>) {
+function mapScopedPrivateLogDataFromNoir(data: Scoped<Counted<PrivateLogDataNoir>>) {
   return new ScopedPrivateLogData(
     mapPrivateLogDataFromNoir(data.inner),
     mapAztecAddressFromNoir(data.contract_address),
   );
 }
 
-/**
- * Maps a noir ReadRequest to ReadRequest.
- * @param readRequest - The noir ReadRequest.
- * @returns The TS ReadRequest.
- */
-function mapReadRequestFromNoir(readRequest: ReadRequestNoir): ReadRequest {
-  return new ReadRequest(mapFieldFromNoir(readRequest.value), mapNumberFromNoir(readRequest.counter));
+function mapReadRequestToNoir(readRequest: ReadRequest): Counted<NoirField> {
+  return {
+    inner: mapFieldToNoir(readRequest.value),
+    counter: mapNumberToNoir(readRequest.counter),
+  };
 }
 
-function mapScopedReadRequestToNoir(scopedReadRequest: ScopedReadRequest): ScopedReadRequestNoir {
+function mapReadRequestFromNoir(readRequest: Counted<NoirField>) {
+  return new ReadRequest(mapFieldFromNoir(readRequest.inner), mapNumberFromNoir(readRequest.counter));
+}
+
+function mapScopedReadRequestToNoir(scopedReadRequest: ScopedReadRequest): Scoped<Counted<NoirField>> {
   return {
-    read_request: mapReadRequestToNoir(scopedReadRequest.readRequest),
+    inner: mapReadRequestToNoir(scopedReadRequest.readRequest),
     contract_address: mapAztecAddressToNoir(scopedReadRequest.contractAddress),
   };
 }
 
-/**
- * Maps a noir ReadRequest to ReadRequest.
- * @param readRequest - The noir ReadRequest.
- * @returns The TS ReadRequest.
- */
-export function mapScopedReadRequestFromNoir(scoped: ScopedReadRequestNoir): ScopedReadRequest {
-  return new ScopedReadRequest(
-    mapReadRequestFromNoir(scoped.read_request),
-    mapAztecAddressFromNoir(scoped.contract_address),
-  );
+function mapScopedReadRequestFromNoir(scoped: Scoped<Counted<NoirField>>): ScopedReadRequest {
+  return new ScopedReadRequest(mapReadRequestFromNoir(scoped.inner), mapAztecAddressFromNoir(scoped.contract_address));
 }
 
 /**
@@ -306,18 +296,18 @@ function mapKeyValidationRequestAndGeneratorFromNoir(
 
 function mapScopedKeyValidationRequestAndGeneratorToNoir(
   request: ScopedKeyValidationRequestAndGenerator,
-): ScopedKeyValidationRequestAndGeneratorNoir {
+): Scoped<KeyValidationRequestAndGeneratorNoir> {
   return {
-    request: mapKeyValidationRequestAndGeneratorToNoir(request.request),
+    inner: mapKeyValidationRequestAndGeneratorToNoir(request.request),
     contract_address: mapAztecAddressToNoir(request.contractAddress),
   };
 }
 
 function mapScopedKeyValidationRequestAndGeneratorFromNoir(
-  request: ScopedKeyValidationRequestAndGeneratorNoir,
+  request: Scoped<KeyValidationRequestAndGeneratorNoir>,
 ): ScopedKeyValidationRequestAndGenerator {
   return new ScopedKeyValidationRequestAndGenerator(
-    mapKeyValidationRequestAndGeneratorFromNoir(request.request),
+    mapKeyValidationRequestAndGeneratorFromNoir(request.inner),
     mapAztecAddressFromNoir(request.contract_address),
   );
 }
@@ -378,18 +368,6 @@ function mapCountedPublicCallRequestToNoir(request: CountedPublicCallRequest): C
   return {
     inner: mapPublicCallRequestToNoir(request.inner),
     counter: mapNumberToNoir(request.counter),
-  };
-}
-
-/**
- * Maps a ReadRequest to a noir ReadRequest.
- * @param readRequest - The read request.
- * @returns The noir ReadRequest.
- */
-function mapReadRequestToNoir(readRequest: ReadRequest): ReadRequestNoir {
-  return {
-    value: mapFieldToNoir(readRequest.value),
-    counter: mapNumberToNoir(readRequest.counter),
   };
 }
 

@@ -16,7 +16,6 @@ use crate::{
         public_call_request::{PublicCallRequest, PublicCallRequestArrayLengths},
         public_data_write::PublicDataWrite,
         public_logs::PublicLogs,
-        side_effect::scoped::Scoped,
         tree_snapshots::TreeSnapshots,
     },
     address::{AztecAddress, EthAddress},
@@ -78,6 +77,7 @@ use crate::{
     },
     messaging::l2_to_l1_message::L2ToL1Message,
     proof::traits::SerializeToColumns,
+    side_effect::Scoped,
     traits::{Deserialize, Empty, FromField, Serialize, ToField},
 };
 

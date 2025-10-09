@@ -1,6 +1,7 @@
 use crate::reset::transient_data::transient_data_squashing_hint::TransientDataSquashingHint;
 use types::{
-    abis::{note_hash::ScopedNoteHash, nullifier::ScopedNullifier},
+    abis::{note_hash::NoteHash, nullifier::Nullifier},
+    side_effect::{Counted, Scoped},
     utils::arrays::{ClaimedLengthArray, SortedTuple},
 };
 
@@ -19,8 +20,8 @@ use types::{
 /// The validation against the claimed lengths prevent malicious users from faking a note hash or nullifier beyond the
 /// claimed length to justify squashing a nullifier or note hash that should be kept.
 pub fn validate_transient_data_squashing_hints<let NoteHashesLen: u32, let NullifiersLen: u32, let SquashingHintsLen: u32>(
-    note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
-    nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
+    note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
+    nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
     transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
     num_active_squashing_hints: u32,
     // Sorted values of nullifier indices (with original indices) used to validate uniqueness.
@@ -123,7 +124,7 @@ pub fn validate_transient_data_squashing_hints<let NoteHashesLen: u32, let Nulli
 
 mod tests {
     use crate::reset::transient_data::tests::TransientDataFixtureBuilder;
-    use types::abis::{note_hash::NoteHash, nullifier::Nullifier};
+    use types::{abis::nullifier::Nullifier, side_effect::Counted};
 
     // ===========
     // Note hashes
@@ -133,11 +134,11 @@ mod tests {
     fn fails_same_note_hash_squashed_by_two_nullifiers() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_note_hashes([NoteHash { value: 11, counter: 1 }]);
+        builder.add_note_hashes([Counted::new(11, 1)]);
 
         builder.add_nullifiers([
-            Nullifier { value: 505, counter: 5, note_hash: 11 },
-            Nullifier { value: 606, counter: 6, note_hash: 11 },
+            Nullifier { value: 505, note_hash: 11 }.count(5),
+            Nullifier { value: 606, note_hash: 11 }.count(6),
         ]);
 
         // Both nullifiers are squashing the same note hash.
@@ -152,14 +153,14 @@ mod tests {
         let mut builder = TransientDataFixtureBuilder::new();
 
         builder.add_note_hashes([
-            NoteHash { value: 11, counter: 1 },
+            Counted::new(11, 1),
             // Add a note hash that can't be squashed.
-            NoteHash { value: 99, counter: 9 },
+            Counted::new(99, 9),
         ]);
 
         builder.add_nullifiers([
-            Nullifier { value: 505, counter: 5, note_hash: 11 },
-            Nullifier { value: 606, counter: 6, note_hash: 11 },
+            Nullifier { value: 505, note_hash: 11 }.count(5),
+            Nullifier { value: 606, note_hash: 11 }.count(6),
         ]);
 
         // Both nullifiers are squashing the same note hash at index 0.
@@ -178,12 +179,9 @@ mod tests {
     fn fails_note_hash_squashed_by_inactive_hint() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_note_hashes([
-            NoteHash { value: 11, counter: 1 },
-            NoteHash { value: 99, counter: 9 },
-        ]);
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(99, 9)]);
 
-        builder.add_nullifiers([Nullifier { value: 505, counter: 5, note_hash: 11 }]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
 
         builder.add_squashing_hint(0, 0);
 
@@ -202,14 +200,11 @@ mod tests {
     fn fails_referring_to_note_hash_beyond_claimed_length() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_note_hashes([
-            NoteHash { value: 11, counter: 1 },
-            NoteHash { value: 11, counter: 2 },
-        ]);
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(11, 2)]);
 
         builder.add_nullifiers([
-            Nullifier { value: 505, counter: 5, note_hash: 11 },
-            Nullifier { value: 606, counter: 6, note_hash: 11 },
+            Nullifier { value: 505, note_hash: 11 }.count(5),
+            Nullifier { value: 606, note_hash: 11 }.count(6),
         ]);
 
         // Change the length of the note hashes array to 1, to make the note hash at index 1 beyond the claimed length.
@@ -229,12 +224,9 @@ mod tests {
     fn fails_identical_note_hashes_squashed_by_same_nullifier() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_note_hashes([
-            NoteHash { value: 11, counter: 1 },
-            NoteHash { value: 11, counter: 2 },
-        ]);
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(11, 2)]);
 
-        builder.add_nullifiers([Nullifier { value: 505, counter: 5, note_hash: 11 }]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
 
         // Both note hashes are squashed by the nullifier at index 0.
         builder.add_squashing_hint(0, 0);
@@ -247,15 +239,12 @@ mod tests {
     fn fails_identical_note_hashes_squashed_by_same_nullifier_with_extra_nullifier() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_note_hashes([
-            NoteHash { value: 11, counter: 1 },
-            NoteHash { value: 11, counter: 2 },
-        ]);
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(11, 2)]);
 
         builder.add_nullifiers([
-            Nullifier { value: 505, counter: 5, note_hash: 11 },
+            Nullifier { value: 505, note_hash: 11 }.count(5),
             // Add an extra nullifier that can also squash one of the note hashes.
-            Nullifier { value: 606, counter: 6, note_hash: 11 },
+            Nullifier { value: 606, note_hash: 11 }.count(6),
         ]);
 
         // Both note hashes are squashed by the nullifier at index 0.
@@ -274,11 +263,11 @@ mod tests {
     fn fails_nullifier_squashed_by_inactive_hint() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_note_hashes([NoteHash { value: 11, counter: 1 }]);
+        builder.add_note_hashes([Counted::new(11, 1)]);
 
         builder.add_nullifiers([
-            Nullifier { value: 505, counter: 5, note_hash: 22 },
-            Nullifier { value: 606, counter: 6, note_hash: 11 },
+            Nullifier { value: 505, note_hash: 22 }.count(5),
+            Nullifier { value: 606, note_hash: 11 }.count(6),
         ]);
 
         // Change the length of the nullifiers array to 1, to make the nullifier at index 1 beyond the claimed length.
@@ -301,11 +290,11 @@ mod tests {
     fn fails_referring_to_nullifier_beyond_claimed_length() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_note_hashes([NoteHash { value: 11, counter: 1 }]);
+        builder.add_note_hashes([Counted::new(11, 1)]);
 
         builder.add_nullifiers([
-            Nullifier { value: 505, counter: 5, note_hash: 22 },
-            Nullifier { value: 606, counter: 6, note_hash: 11 },
+            Nullifier { value: 505, note_hash: 22 }.count(5),
+            Nullifier { value: 606, note_hash: 11 }.count(6),
         ]);
 
         // Change the length of the nullifiers array to 1, to make the nullifier at index 1 beyond the claimed length.

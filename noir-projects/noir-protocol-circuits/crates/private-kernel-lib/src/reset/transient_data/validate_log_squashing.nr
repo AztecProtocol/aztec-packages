@@ -3,16 +3,16 @@ use crate::reset::transient_data::{
     transient_data_squashing_hint::TransientDataSquashingHint,
 };
 use types::{
-    abis::{
-        note_hash::ScopedNoteHash,
-        private_log::PrivateLogData,
-        side_effect::{Ordered, scoped::Scoped},
-    },
+    abis::{note_hash::NoteHash, private_log::PrivateLogData},
+    side_effect::{Counted, Ordered, Scoped},
     utils::arrays::ClaimedLengthArray,
 };
 
-fn is_log_linked_to_note_hash(log: Scoped<PrivateLogData>, note_hash: ScopedNoteHash) -> bool {
-    (log.inner.note_hash_counter == note_hash.counter())
+fn is_log_linked_to_note_hash(
+    log: Scoped<Counted<PrivateLogData>>,
+    note_hash: Scoped<Counted<NoteHash>>,
+) -> bool {
+    (log.innermost().note_hash_counter == note_hash.counter())
         & (log.contract_address == note_hash.contract_address)
 }
 
@@ -27,10 +27,10 @@ fn is_log_linked_to_note_hash(log: Scoped<PrivateLogData>, note_hash: ScopedNote
 /// - Correct usage of squashing hints.
 /// - Both the log and the note hash must be revertible or non-revertible.
 pub fn validate_log_squashing<let LogsLen: u32, let SquashingHintsLen: u32, let NoteHashesLen: u32>(
-    logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
-    note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
-    expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
-    expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
+    logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, LogsLen>,
+    note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
+    expected_kept_logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, LogsLen>,
+    expected_kept_note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
     min_revertible_side_effect_counter: u32,
     transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
     note_log_linked_source_indices: [NoteLogLinkedSourceIndices; LogsLen],
@@ -44,7 +44,7 @@ pub fn validate_log_squashing<let LogsLen: u32, let SquashingHintsLen: u32, let 
         let linked_source_indices = note_log_linked_source_indices[i];
 
         // A log is considered a "note log" if its `note_hash_counter` is non-zero.
-        let is_note_log = log.inner.note_hash_counter != 0;
+        let is_note_log = log.innermost().note_hash_counter != 0;
 
         // === Read the hinted data ===
         // If the log is squashed, it should be linked to the note hash at this index.
@@ -136,7 +136,7 @@ pub fn validate_log_squashing<let LogsLen: u32, let SquashingHintsLen: u32, let 
 
 mod tests {
     use crate::reset::transient_data::tests::{mock_log, TransientDataFixtureBuilder};
-    use types::abis::{note_hash::NoteHash, nullifier::Nullifier, private_log::PrivateLogData};
+    use types::{abis::{nullifier::Nullifier, private_log::PrivateLogData}, side_effect::Counted};
 
     // =============
     // Non-note logs
@@ -147,7 +147,7 @@ mod tests {
         let mut builder = TransientDataFixtureBuilder::new();
 
         // This log does not link to a note hash.
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 0 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 0 }.count(7)]);
 
         builder.keep_logs([0]);
 
@@ -158,12 +158,12 @@ mod tests {
     fn fails_kept_non_note_log_wrong_fields() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 0 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 0 }.count(7)]);
 
         builder.keep_logs([0]);
 
         // Tweak the value of the kept log.
-        builder.expected_kept_logs.array[0].inner.log.fields[0] += 1;
+        builder.expected_kept_logs.array[0].inner.inner.log.fields[0] += 1;
 
         builder.validate();
     }
@@ -172,12 +172,12 @@ mod tests {
     fn fails_kept_non_note_log_wrong_fields_length() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 0 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 0 }.count(7)]);
 
         builder.keep_logs([0]);
 
         // Tweak the length of the kept log fields.
-        builder.expected_kept_logs.array[0].inner.log.length += 1;
+        builder.expected_kept_logs.array[0].inner.inner.log.length += 1;
 
         builder.validate();
     }
@@ -186,7 +186,7 @@ mod tests {
     fn fails_kept_non_note_log_wrong_counter() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 0 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 0 }.count(7)]);
 
         builder.keep_logs([0]);
 
@@ -200,12 +200,12 @@ mod tests {
     fn fails_kept_non_note_log_wrong_note_hash_counter() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 0 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 0 }.count(7)]);
 
         builder.keep_logs([0]);
 
         // Tweak the note hash counter of the kept log.
-        builder.expected_kept_logs.array[0].inner.note_hash_counter += 1;
+        builder.expected_kept_logs.array[0].inner.inner.note_hash_counter += 1;
 
         builder.validate();
     }
@@ -214,7 +214,7 @@ mod tests {
     fn fails_kept_non_note_log_wrong_contract_address() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 0 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 0 }.count(7)]);
 
         builder.keep_logs([0]);
 
@@ -229,8 +229,8 @@ mod tests {
         let mut builder = TransientDataFixtureBuilder::new();
 
         builder.add_logs([
-            PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 0 },
-            PrivateLogData { log: mock_log(202), counter: 8, note_hash_counter: 0 },
+            PrivateLogData { log: mock_log(101), note_hash_counter: 0 }.count(7),
+            PrivateLogData { log: mock_log(202), note_hash_counter: 0 }.count(8),
         ]);
 
         // Change the length of the logs array to 1, to make the log at index 1 beyond the claimed length.
@@ -247,8 +247,8 @@ mod tests {
         let mut builder = TransientDataFixtureBuilder::new();
 
         builder.add_logs([
-            PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 0 },
-            PrivateLogData { log: mock_log(202), counter: 8, note_hash_counter: 0 },
+            PrivateLogData { log: mock_log(101), note_hash_counter: 0 }.count(7),
+            PrivateLogData { log: mock_log(202), note_hash_counter: 0 }.count(8),
         ]);
 
         // Change the length of the logs array to 1, to make the log at index 1 beyond the claimed length.
@@ -267,7 +267,7 @@ mod tests {
     fn fails_increased_expected_kept_logs_length() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 0 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 0 }.count(7)]);
 
         builder.keep_logs([0]);
 
@@ -281,7 +281,7 @@ mod tests {
     fn fails_decreased_expected_kept_logs_length() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 0 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 0 }.count(7)]);
 
         builder.keep_logs([0]);
 
@@ -299,9 +299,9 @@ mod tests {
     fn succeeds_kept_note_log() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 1 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(7)]);
 
-        builder.add_note_hashes([NoteHash { value: 11, counter: 1 }]);
+        builder.add_note_hashes([Counted::new(11, 1)]);
 
         builder.keep_logs([0]);
 
@@ -315,9 +315,9 @@ mod tests {
         let mut builder = TransientDataFixtureBuilder::new();
 
         // This log is linked to a note hash, but the note hash does not exist.
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 999 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 999 }.count(7)]);
 
-        builder.add_note_hashes([NoteHash { value: 11, counter: 1 }]);
+        builder.add_note_hashes([Counted::new(11, 1)]);
 
         builder.keep_logs([0]);
 
@@ -331,12 +331,9 @@ mod tests {
         let mut builder = TransientDataFixtureBuilder::new();
 
         // This log is linked to a note hash beyond the claimed length.
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 999 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 999 }.count(7)]);
 
-        builder.add_note_hashes([
-            NoteHash { value: 11, counter: 1 },
-            NoteHash { value: 99, counter: 999 },
-        ]);
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(99, 999)]);
 
         // Change the length of the note hashes array to 1, to make the note hash at index 1 beyond the claimed length.
         builder.note_hashes.length = 1;
@@ -356,12 +353,9 @@ mod tests {
         let mut builder = TransientDataFixtureBuilder::new();
 
         // This log is linked to a note hash beyond the claimed length.
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 999 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 999 }.count(7)]);
 
-        builder.add_note_hashes([
-            NoteHash { value: 11, counter: 1 },
-            NoteHash { value: 99, counter: 999 },
-        ]);
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(99, 999)]);
 
         // Change the length of the note hashes array to 1, to make the note hash at index 1 beyond the claimed length.
         builder.note_hashes.length = 1;
@@ -386,12 +380,9 @@ mod tests {
         let mut builder = TransientDataFixtureBuilder::new();
 
         // This log is linked to a note hash beyond the claimed length.
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 999 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 999 }.count(7)]);
 
-        builder.add_note_hashes([
-            NoteHash { value: 11, counter: 1 },
-            NoteHash { value: 99, counter: 999 },
-        ]);
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(99, 999)]);
 
         // Change the length of the note hashes array to 1, to make the note hash at index 1 beyond the claimed length.
         builder.note_hashes.length = 1;
@@ -423,11 +414,11 @@ mod tests {
     fn succeeds_squashed_log() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 1 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(7)]);
 
-        builder.add_note_hashes([NoteHash { value: 11, counter: 1 }]);
+        builder.add_note_hashes([Counted::new(11, 1)]);
 
-        builder.add_nullifiers([Nullifier { value: 505, counter: 5, note_hash: 11 }]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
 
         builder.add_squashing_hint(0, 0);
 
@@ -440,11 +431,11 @@ mod tests {
     fn fails_squashed_log_mismatch_note_hash_contract_address() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 1 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(7)]);
 
-        builder.add_note_hashes([NoteHash { value: 11, counter: 1 }]);
+        builder.add_note_hashes([Counted::new(11, 1)]);
 
-        builder.add_nullifiers([Nullifier { value: 505, counter: 5, note_hash: 11 }]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
 
         builder.add_squashing_hint(0, 0);
 
@@ -459,11 +450,11 @@ mod tests {
         let mut builder = TransientDataFixtureBuilder::new();
 
         // This log is linked to a non-existent note hash.
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 999 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 999 }.count(7)]);
 
-        builder.add_note_hashes([NoteHash { value: 11, counter: 1 }]);
+        builder.add_note_hashes([Counted::new(11, 1)]);
 
-        builder.add_nullifiers([Nullifier { value: 505, counter: 5, note_hash: 11 }]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
 
         builder.add_squashing_hint(0, 0);
 
@@ -475,11 +466,11 @@ mod tests {
         let mut builder = TransientDataFixtureBuilder::new();
 
         // This log is linked to a non-existent note hash.
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 999 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 999 }.count(7)]);
 
-        builder.add_note_hashes([NoteHash { value: 11, counter: 1 }]);
+        builder.add_note_hashes([Counted::new(11, 1)]);
 
-        builder.add_nullifiers([Nullifier { value: 505, counter: 5, note_hash: 11 }]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
 
         builder.add_squashing_hint(0, 0);
 
@@ -496,17 +487,14 @@ mod tests {
         let mut builder = TransientDataFixtureBuilder::new();
 
         // This log is linked to a note hash beyond the claimed length.
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 999 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 999 }.count(7)]);
 
-        builder.add_note_hashes([
-            NoteHash { value: 11, counter: 1 },
-            NoteHash { value: 99, counter: 999 },
-        ]);
+        builder.add_note_hashes([Counted::new(11, 1), Counted::new(99, 999)]);
 
         // Change the length of the note hashes array to 1, to make the note hash at index 1 beyond the claimed length.
         builder.note_hashes.length = 1;
 
-        builder.add_nullifiers([Nullifier { value: 505, counter: 5, note_hash: 11 }]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
 
         builder.add_squashing_hint(0, 0);
 
@@ -529,11 +517,11 @@ mod tests {
     fn succeeds_squashed_non_revertible_log_with_non_revertible_note_hash() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 5, note_hash_counter: 1 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(5)]);
 
-        builder.add_note_hashes([NoteHash { value: 11, counter: 1 }]);
+        builder.add_note_hashes([Counted::new(11, 1)]);
 
-        builder.add_nullifiers([Nullifier { value: 505, counter: 7, note_hash: 11 }]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(7)]);
 
         builder.add_squashing_hint(0, 0);
 
@@ -547,11 +535,11 @@ mod tests {
     fn fails_squashed_non_revertible_log_with_revertible_note_hash() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 5, note_hash_counter: 6 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 6 }.count(5)]);
 
-        builder.add_note_hashes([NoteHash { value: 11, counter: 6 }]);
+        builder.add_note_hashes([Counted::new(11, 6)]);
 
-        builder.add_nullifiers([Nullifier { value: 505, counter: 7, note_hash: 11 }]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(7)]);
 
         builder.add_squashing_hint(0, 0);
 
@@ -565,11 +553,11 @@ mod tests {
     fn succeeds_squashed_revertible_log_with_revertible_note_hash() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 5, note_hash_counter: 1 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(5)]);
 
-        builder.add_note_hashes([NoteHash { value: 11, counter: 1 }]);
+        builder.add_note_hashes([Counted::new(11, 1)]);
 
-        builder.add_nullifiers([Nullifier { value: 505, counter: 7, note_hash: 11 }]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(7)]);
 
         builder.add_squashing_hint(0, 0);
 
@@ -583,11 +571,11 @@ mod tests {
     fn fails_squashed_revertible_log_with_non_revertible_note_hash() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 10, note_hash_counter: 1 }]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(10)]);
 
-        builder.add_note_hashes([NoteHash { value: 11, counter: 1 }]);
+        builder.add_note_hashes([Counted::new(11, 1)]);
 
-        builder.add_nullifiers([Nullifier { value: 505, counter: 7, note_hash: 11 }]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(7)]);
 
         builder.add_squashing_hint(0, 0);
 
@@ -603,14 +591,14 @@ mod tests {
 
         // All the logs are linked to the same note hash.
         builder.add_logs([
-            PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 1 },
-            PrivateLogData { log: mock_log(202), counter: 8, note_hash_counter: 1 },
-            PrivateLogData { log: mock_log(303), counter: 9, note_hash_counter: 1 },
+            PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(7),
+            PrivateLogData { log: mock_log(202), note_hash_counter: 1 }.count(8),
+            PrivateLogData { log: mock_log(303), note_hash_counter: 1 }.count(9),
         ]);
 
-        builder.add_note_hashes([NoteHash { value: 11, counter: 1 }]);
+        builder.add_note_hashes([Counted::new(11, 1)]);
 
-        builder.add_nullifiers([Nullifier { value: 505, counter: 5, note_hash: 11 }]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
 
         builder.add_squashing_hint(0, 0);
 

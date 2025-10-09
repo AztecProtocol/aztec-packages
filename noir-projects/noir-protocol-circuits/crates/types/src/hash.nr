@@ -2,10 +2,9 @@ use crate::{
     abis::{
         contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage,
         function_selector::FunctionSelector,
-        note_hash::ScopedNoteHash,
-        nullifier::ScopedNullifier,
+        note_hash::NoteHash,
+        nullifier::Nullifier,
         private_log::{PrivateLog, PrivateLogData},
-        side_effect::{OrderedValue, scoped::Scoped},
     },
     address::{AztecAddress, EthAddress},
     constants::{
@@ -16,6 +15,7 @@ use crate::{
     merkle_tree::root_from_sibling_path,
     messaging::l2_to_l1_message::L2ToL1Message,
     poseidon2::Poseidon2Sponge,
+    side_effect::{Counted, Scoped},
     traits::{FromField, Hash, ToField},
     utils::field::{field_from_bytes, field_from_bytes_32_trunc},
 };
@@ -88,11 +88,11 @@ pub fn compute_unique_siloed_note_hash(
 
 /// Siloing in the context of Aztec refers to the process of hashing a note hash with a contract address (this way
 /// the note hash is scoped to a specific contract). This is used to prevent intermingling of notes between contracts.
-pub fn silo_note_hash(note_hash: ScopedNoteHash) -> Field {
+pub fn silo_note_hash(note_hash: Scoped<Counted<NoteHash>>) -> Field {
     if note_hash.contract_address.is_zero() {
         0
     } else {
-        compute_siloed_note_hash(note_hash.contract_address, note_hash.value())
+        compute_siloed_note_hash(note_hash.contract_address, note_hash.innermost())
     }
 }
 
@@ -103,15 +103,15 @@ pub fn compute_siloed_nullifier(app: AztecAddress, nullifier: Field) -> Field {
     )
 }
 
-pub fn silo_nullifier(nullifier: ScopedNullifier) -> Field {
+pub fn silo_nullifier(nullifier: Scoped<Counted<Nullifier>>) -> Field {
+    let value = nullifier.innermost().value;
     // Q: shouldn't we be checking whether the _whole_ nullifier is empty?
     // A: We don't have to. The init and inner circuits add contract address to non-empty nullifiers.
     // So we know we should silo it if the contract address is not empty.
     if nullifier.contract_address.is_zero() {
-        // Q: I don't understand this comment. We could still compute a siloed nullifier from a zero contract address.
-        nullifier.value() // Return value instead of 0 because the first nullifier's contract address is zero.
+        value // Return `value` instead of 0 because an already-siloed nullifier's contract address is zero.
     } else {
-        compute_siloed_nullifier(nullifier.contract_address, nullifier.value())
+        compute_siloed_nullifier(nullifier.contract_address, value)
     }
 }
 
@@ -119,13 +119,14 @@ pub fn compute_siloed_private_log_field(contract_address: AztecAddress, field: F
     poseidon2_hash([contract_address.to_field(), field])
 }
 
-pub fn silo_private_log(private_log: Scoped<PrivateLogData>) -> PrivateLog {
+pub fn silo_private_log(private_log: Scoped<Counted<PrivateLogData>>) -> PrivateLog {
+    let log = private_log.innermost().log;
     if private_log.contract_address.is_zero() {
-        private_log.inner.log
+        log
     } else {
-        let mut fields = private_log.inner.log.fields;
+        let mut fields = log.fields;
         fields[0] = compute_siloed_private_log_field(private_log.contract_address, fields[0]);
-        PrivateLog::new(fields, private_log.inner.log.length)
+        PrivateLog::new(fields, log.length)
     }
 }
 
