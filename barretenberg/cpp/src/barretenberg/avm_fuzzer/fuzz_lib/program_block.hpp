@@ -15,7 +15,7 @@
   ```
   In the BLOCK 3 only one of {1338, 1339} is defined, so we cannot use them.
 */
-
+#pragma once
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include <cstdint>
 #include <map>
@@ -36,13 +36,16 @@ class ProgramBlock {
 
     void process_add_8_instruction(ADD_8_Instruction instruction);
     void process_set_8_instruction(SET_8_Instruction instruction);
+    void process_return_instruction(RETURN_Instruction instruction);
 
   public:
-    ProgramBlock();
+    ProgramBlock() = default;
     /// @brief process the instruction
     /// @param instruction the instruction to process
     /// Updates `stored_variables` if the instruction writes to memory
     /// Updates `instructions` with the instruction
     /// If arguments of the instruction are not in stored_variables, the instruction is skipped
     void process_instruction(Instruction instruction);
+
+    std::vector<bb::avm2::simulation::Instruction> get_instructions();
 };
