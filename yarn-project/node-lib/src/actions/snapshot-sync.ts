@@ -58,7 +58,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
 
   // Create an archiver store to check the current state (do this only once)
   log.verbose(`Creating temporary archiver data store`);
-  const archiverStore = await createArchiverStore(config);
+  const { archiverStore, contractStore } = await createArchiverStore(config);
   let archiverL1BlockNumber: bigint | undefined;
   let archiverL2BlockNumber: number | undefined;
   try {
@@ -67,8 +67,8 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
       archiverStore.getSynchedL2BlockNumber(),
     ] as const);
   } finally {
-    log.verbose(`Closing temporary archiver data store`, { archiverL1BlockNumber, archiverL2BlockNumber });
-    await archiverStore.close();
+    log.verbose(`Closing temporary archiver data stores`, { archiverL1BlockNumber, archiverL2BlockNumber });
+    await Promise.all([archiverStore.close(), contractStore.close()]);
   }
 
   const minL1BlocksToTriggerReplace = config.minL1BlocksToTriggerReplace ?? MIN_L1_BLOCKS_TO_TRIGGER_REPLACE;

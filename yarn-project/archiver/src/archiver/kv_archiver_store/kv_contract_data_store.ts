@@ -108,7 +108,7 @@ export class KVContractDataStore implements ContractDataStore {
   }
 
   close(): Promise<void> {
-    // DB is owned by KVArchiverDataStore, so we don't close it here
-    return Promise.resolve();
+    // Now that contracts have their own DB, we own it and must close it
+    return this.db.close();
   }
 }

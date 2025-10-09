@@ -17,19 +17,35 @@ import { KVContractDataStore } from './archiver/kv_archiver_store/kv_contract_da
 
 export const ARCHIVER_STORE_NAME = 'archiver';
 
+export const CONTRACT_STORE_NAME = 'contracts';
+
 /** Creates an archiver store. */
 export async function createArchiverStore(
-  userConfig: Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> & DataStoreConfig,
+  userConfig: Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'contractStoreMapSizeKb' | 'maxLogs'> & DataStoreConfig,
 ) {
   const config = {
     ...userConfig,
     dataStoreMapSizeKB: userConfig.archiverStoreMapSizeKb ?? userConfig.dataStoreMapSizeKB,
   };
-  const db = await createStore(ARCHIVER_STORE_NAME, ARCHIVER_DB_VERSION, config, createLogger('archiver:lmdb'));
 
-  // Create both stores using the same DB (for now - Phase 3 will split them)
-  const contractStore = new KVContractDataStore(db);
-  const archiverStore = new KVArchiverDataStore(db, config.maxLogs);
+  // Create separate LMDB databases for main archiver data and contract data
+  const mainDb = await createStore(ARCHIVER_STORE_NAME, ARCHIVER_DB_VERSION, config, createLogger('archiver:lmdb'));
+
+  // Contract store gets its own database with configurable size (default 100MB)
+  const contractConfig = {
+    ...userConfig,
+    dataStoreMapSizeKB: userConfig.contractStoreMapSizeKb ?? 100 * 1024, // 100MB default
+  };
+  const contractDb = await createStore(
+    CONTRACT_STORE_NAME,
+    ARCHIVER_DB_VERSION,
+    contractConfig,
+    createLogger('archiver:contracts:lmdb'),
+  );
+
+  // Create stores with their respective databases
+  const contractStore = new KVContractDataStore(contractDb);
+  const archiverStore = new KVArchiverDataStore(mainDb, config.maxLogs);
 
   // Return both stores
   return { archiverStore, contractStore };

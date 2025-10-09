@@ -1,9 +1,8 @@
 import {
   Archiver,
   type ArchiverConfig,
-  KVArchiverDataStore,
-  KVContractDataStore,
   archiverConfigMappings,
+  createArchiverStore,
   getArchiverConfigFromEnv,
 } from '@aztec/archiver';
 import { createLogger } from '@aztec/aztec.js';
@@ -11,7 +10,6 @@ import { type BlobSinkConfig, blobSinkConfigMapping, createBlobSinkClient } from
 import { getL1Config } from '@aztec/cli/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
-import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { ArchiverApiSchema } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
@@ -48,10 +46,8 @@ export async function startArchiver(
   archiverConfig.l1Contracts = addresses;
   archiverConfig = { ...archiverConfig, ...l1Config };
 
-  const storeLog = createLogger('archiver:lmdb');
-  const store = await createStore('archiver', KVArchiverDataStore.SCHEMA_VERSION, archiverConfig, storeLog);
-  const contractStore = new KVContractDataStore(store);
-  const archiverStore = new KVArchiverDataStore(store, archiverConfig.maxLogs);
+  // Create separate stores for main archiver data and contract data
+  const { archiverStore, contractStore } = await createArchiverStore(archiverConfig);
 
   const telemetry = initTelemetryClient(getTelemetryClientConfig());
   const blobSinkClient = createBlobSinkClient(archiverConfig, { logger: createLogger('archiver:blob-sink:client') });
@@ -63,7 +59,12 @@ export async function startArchiver(
     true,
   );
   services.archiver = [archiver, ArchiverApiSchema];
+
+  // Add cleanup handlers for both stores
   signalHandlers.push(archiver.stop);
+  signalHandlers.push(async () => {
+    await Promise.all([archiverStore.close(), contractStore.close()]);
+  });
 
   return { config: archiverConfig };
 }

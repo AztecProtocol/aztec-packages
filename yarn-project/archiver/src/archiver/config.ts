@@ -46,6 +46,11 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     parseEnv: (val: string | undefined) => (val ? +val : undefined),
     description: 'The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKB.',
   },
+  contractStoreMapSizeKb: {
+    env: 'CONTRACT_STORE_MAP_SIZE_KB',
+    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    description: 'The maximum possible size of the contract DB in KB. Defaults to 100MB if not specified.',
+  },
   skipValidateBlockAttestations: {
     description: 'Whether to skip validating block attestations (use only for testing).',
     ...booleanConfigHelper(false),

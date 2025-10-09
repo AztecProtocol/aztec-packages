@@ -47,6 +47,9 @@ export type ArchiverSpecificConfig = {
   /** The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKB. */
   archiverStoreMapSizeKb?: number;
 
+  /** The maximum possible size of the contract DB in KB. Defaults to 100MB if not specified. */
+  contractStoreMapSizeKb?: number;
+
   /** Whether to skip validating block attestations (use only for testing). */
   skipValidateBlockAttestations?: boolean;
 };
@@ -57,6 +60,7 @@ export const ArchiverSpecificConfigSchema = z.object({
   viemPollingIntervalMS: schemas.Integer.optional(),
   maxLogs: schemas.Integer.optional(),
   archiverStoreMapSizeKb: schemas.Integer.optional(),
+  contractStoreMapSizeKb: schemas.Integer.optional(),
   skipValidateBlockAttestations: z.boolean().optional(),
 });
 
