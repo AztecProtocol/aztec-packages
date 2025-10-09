@@ -540,14 +540,14 @@ HonkProof SumcheckClientIVC::construct_folding_proof(const std::shared_ptr<Prove
         .dyadic_size = incoming_accumulator.dyadic_size
     };
 
-    incoming_accumulator.batched_polynomials[0].increase_virtual_size(1 << Flavor::VIRTUAL_LOG_N);
-    incoming_accumulator.batched_polynomials[1].increase_virtual_size(1 << Flavor::VIRTUAL_LOG_N);
-    info("Evaluation correct: ",
-         incoming_accumulator.batched_polynomials[0].evaluate_mle(incoming_accumulator.challenge) ==
-             incoming_accumulator.batched_evaluations[0]);
-    info("Evaluation correct: ",
-         incoming_accumulator.batched_polynomials[1].evaluate_mle(incoming_accumulator.challenge) ==
-             incoming_accumulator.batched_evaluations[1]);
+    // incoming_accumulator.batched_polynomials[0].increase_virtual_size(1 << Flavor::VIRTUAL_LOG_N);
+    // incoming_accumulator.batched_polynomials[1].increase_virtual_size(1 << Flavor::VIRTUAL_LOG_N);
+    // info("Evaluation correct: ",
+    //      incoming_accumulator.batched_polynomials[0].evaluate_mle(incoming_accumulator.challenge) ==
+    //          incoming_accumulator.batched_evaluations[0]);
+    // info("Evaluation correct: ",
+    //      incoming_accumulator.batched_polynomials[1].evaluate_mle(incoming_accumulator.challenge) ==
+    //          incoming_accumulator.batched_evaluations[1]);
 
     MultilinearBatchingProver batching_prover(std::make_shared<MultilinearBatchingProverClaim>(accumulator_claim),
                                               std::make_shared<MultilinearBatchingProverClaim>(incoming_claim),
