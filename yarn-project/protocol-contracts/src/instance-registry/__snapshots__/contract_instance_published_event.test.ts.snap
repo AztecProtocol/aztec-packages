@@ -2,17 +2,17 @@
 
 exports[`ContractInstancePublishedEvent parses an event as emitted by the ClassInstanceRegistry 1`] = `
 ContractInstancePublishedEvent {
-  "address": "0x27ab5678efa16cd36014d6f92d72d89fb2496e4394d8a75ca82674137cd9c1d4",
-  "contractClassId": "0x0a8ad282f9ed12cd5f61b8b0224b526b5950ebac30e6660189cb34418b6a3c66",
+  "address": "0x154afc0357934addcb89e2370e630709df298dc31d0612706785bad1d8114e61",
+  "contractClassId": "0x133a6d012997199ce6f03f6934f138189060a11609e5e1164b8fd61f2dac1b0f",
   "deployer": "0x0000000000000000000000000000000000000000000000000000000000000000",
-  "initializationHash": "0x1955df48942dba07aaf78cd693a8322f190638e1adf0264db9374f40d8e4d14f",
+  "initializationHash": "0x08b8f11e037063c6cbb60727e0b2ceb021cd459d83b2c8b4d2b01f4538a594eb",
   "publicKeys": PublicKeys {
-    "masterIncomingViewingPublicKey": "0x2e3836a1ef93615f986841eb5dcd2314bf35ee736120e6645fe99b406e096b8f1f53dee6f3b0b40f17a76a19b7d3e0e3915c209db5cda640173b09307c79df49",
-    "masterNullifierPublicKey": "0x008519fee80aaf7006d9b95d804cf35ee32a0d118bfb1387e9aabec1921d989606676bdeefbdd532b3e4ac5b0df708b26045322ac6e8619e5b8130ce00a5d872",
-    "masterOutgoingViewingPublicKey": "0x233da67dec0067e2ebec0e0f0f483bd0996cfc79f8581e47ab44be989696c2ea22c3e09c642a449b3b095a945f5e4d800ce6899a607786278256183a0cd2afa2",
-    "masterTaggingPublicKey": "0x21239edc1ed21cb3abd14e9c5de3b4a00417a34716cb48c38d3884c2fc5782bd19e707b85bdc938999562ae3939c43c71100dc8ddec2dc18e998de5f3b32723c",
+    "masterIncomingViewingPublicKey": "0x0d8c62eabe9064d6eeeb6f01eb5a769a74d7908266eab81aee14fa4b7159bdc41a850fabc690a0b812f4389f36ffdd37fd6ea5d51d2727536bbd312c8bc3b3d2",
+    "masterNullifierPublicKey": "0x0486d2efd76266ef7434d24f0e620fb790d7b180ad7612ceb3e50cd44c6a575f0eb5f0f27e1194ee382ad1e70c91a50697330d14c7f4ab98324146a8aa82003d",
+    "masterOutgoingViewingPublicKey": "0x13784f782dab000360d6a632ab8be823734c58b6e2e364169caaefdb39d3fbda194627b25f5f081983c9d3efc02a08e351e48bab3f02dc3b63fd984c0ddb1b7d",
+    "masterTaggingPublicKey": "0x1be139519448ec3f14630cad048e8b132fed905da1cb160732ab7983d3785dc61b8e69a82608b064ab40f45ee4db1098e30b3dd20afe6087f74184760ca7f764",
   },
-  "salt": "0x00f4851dcaed949c8224bd411cee58a130b29295cf0f94293d62e876f1b36cc9",
+  "salt": "0x2b3aa019403abc8bb2ea8098b1bf4a9391ea4c7d19e4422f4a170750f6da31d3",
   "version": 1,
 }
 `;

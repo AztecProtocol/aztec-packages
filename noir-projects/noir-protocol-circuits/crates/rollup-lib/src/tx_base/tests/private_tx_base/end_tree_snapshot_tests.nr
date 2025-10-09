@@ -150,7 +150,7 @@ unconstrained fn insert_at_large_index_to_fill_note_hash_tree() {
     assert_eq(pi.end_tree_snapshots.note_hash_tree.next_available_leaf_index, max_num_note_hashes);
 }
 
-#[test(should_fail_with = "Field failed to decompose into specified 34 limbs")]
+#[test(should_fail_with = "Field failed to decompose into specified 36 limbs")]
 unconstrained fn insert_at_large_index_to_overfill_note_hash_tree() {
     let mut builder = TestBuilder::new();
 
@@ -389,7 +389,7 @@ unconstrained fn insert_at_large_index_to_fill_nullifier_tree() {
     assert_eq(pi.end_tree_snapshots.nullifier_tree.next_available_leaf_index, max_num_nullifiers);
 }
 
-#[test(should_fail_with = "Field failed to decompose into specified 34 limbs")]
+#[test(should_fail_with = "Field failed to decompose into specified 36 limbs")]
 unconstrained fn insert_at_large_index_to_overfill_nullifier_tree() {
     let mut builder = TestBuilder::new();
 
