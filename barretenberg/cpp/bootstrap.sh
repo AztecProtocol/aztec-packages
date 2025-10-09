@@ -217,7 +217,7 @@ function build_release {
       chmod +x build/ldid
     fi
 
-    if [ "${DISABLE_AZTEC_VM:-0}" -eq 0 ]; then
+    if [[ "${DISABLE_AZTEC_VM:-0}" -eq 0 && "$(arch)" == "amd64" && "$CI" -eq 1 ]]; then
       # Package arm64-macos
       cp build-zig-arm64-macos/bin/bb build-release/bb
       inject_version build-release/bb
