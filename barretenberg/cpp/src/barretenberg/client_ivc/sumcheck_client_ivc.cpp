@@ -121,11 +121,11 @@ SumcheckClientIVC::RecursiveVerifierAccumulator SumcheckClientIVC::perform_foldi
 
     // Fiat-Shamir the accumulator. (Only needs to be performed on the first in a series of recursive PG verifications
     // within a given kernel and by convention the kernel proof is always verified first).
-    // if (is_kernel) {
-    //     prev_accum_hash = verifier_accumulator->hash_through_transcript("", *transcript);
-    //     transcript->add_to_hash_buffer("accum_hash", *prev_accum_hash);
-    //     info("Previous accumulator hash in PG rec verifier: ", *prev_accum_hash);
-    // }
+    if (is_kernel) {
+        prev_accum_hash = verifier_accumulator->hash_through_transcript("", *transcript);
+        // transcript->add_to_hash_buffer("accum_hash", *prev_accum_hash);
+        info("Previous accumulator hash in PG rec verifier: ", *prev_accum_hash);
+    }
 
     auto incoming_verifier_accumulator =
         execute_first_sumcheck_recursive_verification(circuit, verifier_instance, transcript, proof);
@@ -226,6 +226,9 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
                                                                                  verifier_inputs.proof,
                                                                                  prev_accum_hash,
                                                                                  verifier_inputs.is_kernel);
+
+        StdlibProof stdlib_pcs_proof(circuit, pcs_proof);
+        accumulation_recursive_transcript->load_proof(stdlib_pcs_proof);
 
         // DeciderRecursiveVerifier's log circuit size is fixed, hence we are using a trivial `padding_indicator_array`.
         std::vector<StdlibFF> padding_indicator_array(RecursiveFlavor::VIRTUAL_LOG_N, 1);
@@ -496,8 +499,8 @@ HonkProof SumcheckClientIVC::construct_folding_proof(const std::shared_ptr<Prove
     // Only fiat shamir if this is a kernel with the assumption that kernels are always the first being recursively
     // verified.
     // if (is_kernel) {
-    //     // Fiat-Shamir the verifier accumulator
-    //     FF accum_hash = native_verifier_accum.hash_through_transcript("", *prover_accumulation_transcript);
+    // Fiat-Shamir the verifier accumulator
+    // FF accum_hash = native_verifier_accum.hash_through_transcript("", *prover_accumulation_transcript);
     //     prover_accumulation_transcript->add_to_hash_buffer("accum_hash", accum_hash);
     //     info("Accumulator hash in PG prover: ", accum_hash);
     // }
@@ -983,12 +986,12 @@ SumcheckClientIVC::VerificationKey SumcheckClientIVC::get_vk() const
              std::make_shared<TranslatorVerificationKey>() };
 }
 
-void SumcheckClientIVC::update_native_verifier_accumulator(
-    const VerifierInputs& queue_entry, [[maybe_unused]] const std::shared_ptr<Transcript>& verifier_transcript)
+void SumcheckClientIVC::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
+                                                           const std::shared_ptr<Transcript>& verifier_transcript)
 {
     auto verifier_inst = std::make_shared<VerifierInstance>(queue_entry.honk_vk);
     auto incoming_accumulator =
-        execute_first_sumcheck_native_verification(verifier_inst, transcript, queue_entry.proof);
+        execute_first_sumcheck_native_verification(verifier_inst, verifier_transcript, queue_entry.proof);
     if (queue_entry.type != QUEUE_TYPE::OINK) {
         // if (queue_entry.is_kernel) {
         //     // Fiat-Shamir the verifier accumulator
@@ -997,7 +1000,7 @@ void SumcheckClientIVC::update_native_verifier_accumulator(
         //     info("Accumulator hash in PG verifier: ", accum_hash);
         // }
 
-        MultilinearBatchingVerifier<MultilinearBatchingFlavor> batching_verifier(transcript);
+        MultilinearBatchingVerifier<MultilinearBatchingFlavor> batching_verifier(verifier_transcript);
         auto [verified, new_accumulator] = batching_verifier.verify_proof(queue_entry.proof);
         BB_ASSERT_EQ(verified, true, "Batching Sumcheck: Failed native sumcheck verification");
 

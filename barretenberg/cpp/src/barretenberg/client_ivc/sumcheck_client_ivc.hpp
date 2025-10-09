@@ -387,8 +387,7 @@ class SumcheckClientIVC {
             auto batched_unshifted = PolynomialBatcher::compute_batched<Flavor::NUM_UNSHIFTED_ENTITIES>(
                 unshifted, full_batched_size, unshifted_challenges);
             auto batched_shifted = PolynomialBatcher::compute_batched<Flavor::NUM_SHIFTED_WITNESSES>(
-                                       shifted, full_batched_size, shifted_challenges, true)
-                                       .shifted();
+                shifted, full_batched_size, shifted_challenges, true);
 
             // Batch evaluations
             auto unshifted_evaluations = claimed_evaluations.get_unshifted();

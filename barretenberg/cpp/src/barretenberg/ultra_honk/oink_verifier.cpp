@@ -68,7 +68,6 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_wire_comm
 {
     // Get commitments to first three wire polynomials
     witness_comms.w_l = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_l);
-    info("Commitment to w_l from verifier: ", witness_comms.w_l);
     witness_comms.w_r = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_r);
     witness_comms.w_o = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_o);
 

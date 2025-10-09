@@ -16,9 +16,9 @@ MultilinearBatchingVerifier<Flavor_>::MultilinearBatchingVerifier(const std::sha
 
 template <typename Flavor_>
 std::pair<bool, typename MultilinearBatchingVerifier<Flavor_>::MultilinearBatchingVerifierClaim>
-MultilinearBatchingVerifier<Flavor_>::verify_proof(const Proof& proof)
+MultilinearBatchingVerifier<Flavor_>::verify_proof([[maybe_unused]] const Proof& proof)
 {
-    transcript->load_proof(proof);
+    // transcript->load_proof(proof);
 
     // Receive commitments
     [[maybe_unused]] auto non_shifted_accumulator_commitment =

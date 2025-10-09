@@ -22,11 +22,13 @@ MultilinearBatchingProver::MultilinearBatchingProver(
 {
     ProverPolynomials polynomials;
     size_t virtual_circuit_size = 1 << Flavor::VIRTUAL_LOG_N;
+    info("accumulator: ", accumulator_claim->dyadic_size);
+    info("instance: ", instance_claim->dyadic_size);
     size_t max_dyadic_size = std::max(accumulator_claim->dyadic_size, instance_claim->dyadic_size);
     polynomials.w_non_shifted_accumulator = accumulator_claim->non_shifted_polynomial;
-    polynomials.w_shifted_accumulator = accumulator_claim->shifted_polynomial;
+    polynomials.w_shifted_accumulator = accumulator_claim->shifted_polynomial.shifted();
     polynomials.w_non_shifted_instance = instance_claim->non_shifted_polynomial;
-    polynomials.w_shifted_instance = instance_claim->shifted_polynomial;
+    polynomials.w_shifted_instance = instance_claim->shifted_polynomial.shifted();
     polynomials.w_evaluations_accumulator =
         ProverEqPolynomial<FF>::construct(accumulator_claim->challenge, bb::numeric::get_msb(max_dyadic_size));
     polynomials.w_evaluations_instance =
@@ -45,7 +47,10 @@ MultilinearBatchingProver::MultilinearBatchingProver(
                                                           accumulator_claim->non_shifted_commitment,
                                                           accumulator_claim->shifted_commitment,
                                                           instance_claim->non_shifted_commitment,
-                                                          instance_claim->shifted_commitment);
+                                                          instance_claim->shifted_commitment,
+                                                          accumulator_claim->shifted_polynomial,
+                                                          instance_claim->shifted_polynomial);
+    key->proving_key->circuit_size = max_dyadic_size;
 }
 
 void MultilinearBatchingProver::execute_commitments_round()
@@ -106,15 +111,18 @@ void MultilinearBatchingProver::execute_relation_check_rounds()
 void MultilinearBatchingProver::compute_new_claim()
 {
     auto claim_batching_challenge = transcript->get_challenge<FF>("claim_batching_challenge");
-    auto new_non_shifted_polynomial = key->proving_key->polynomials.w_non_shifted_accumulator;
+    auto new_non_shifted_polynomial = Polynomial(key->proving_key->circuit_size);
+    new_non_shifted_polynomial += key->proving_key->polynomials.w_non_shifted_accumulator;
     new_non_shifted_polynomial.add_scaled(key->proving_key->polynomials.w_non_shifted_instance,
                                           claim_batching_challenge);
-    auto new_shifted_polynomial = key->proving_key->polynomials.w_shifted_accumulator;
-    new_shifted_polynomial.add_scaled(key->proving_key->polynomials.w_shifted_instance, claim_batching_challenge);
+    auto new_shifted_polynomial = Polynomial::shiftable(key->proving_key->circuit_size);
+    new_shifted_polynomial += key->preshifted_accumulator;
+    new_shifted_polynomial.add_scaled(key->preshifted_instance, claim_batching_challenge);
     auto new_non_shifted_commitment =
         key->non_shifted_accumulator_commitment + key->non_shifted_instance_commitment * claim_batching_challenge;
     auto new_shifted_commitment =
         key->shifted_accumulator_commitment + key->shifted_instance_commitment * claim_batching_challenge;
+    new_claim.challenge = sumcheck_output.challenge;
     new_claim.non_shifted_polynomial = new_non_shifted_polynomial;
     new_claim.shifted_polynomial = new_shifted_polynomial;
     new_claim.non_shifted_commitment = new_non_shifted_commitment;
