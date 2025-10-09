@@ -10,7 +10,7 @@ export hash=$(cache_content_hash .rebuild_patterns)
 
 if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
   # Enable AVM for release builds (when REF_NAME is a valid semver), disable for CI/PR builds
-  if ! semver check "${REF_NAME:-}"; then
+  if ! semver check "$REF_NAME"; then
     export DISABLE_AZTEC_VM=1
   fi
 fi
@@ -217,7 +217,7 @@ function build_release {
       chmod +x build/ldid
     fi
 
-    if [ "${DISABLE_AZTEC_VM:-0}" -eq 0 ]; then
+    if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
       # Package arm64-macos
       cp build-zig-arm64-macos/bin/bb build-release/bb
       inject_version build-release/bb
@@ -246,11 +246,11 @@ function build {
   )
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
     builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast build_smt_verification)
+  fi
+  if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
     # macOS builds require the avm-transpiler linked.
     # We build them using zig cross-compilation.
-    if [ "${DISABLE_AZTEC_VM:-0}" -eq 0 ]; then
-      builds+=(build_darwin_arm64 build_darwin_amd64)
-    fi
+    builds+=(build_darwin_arm64 build_darwin_amd64)
   fi
   parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${builds[@]}
   build_release
