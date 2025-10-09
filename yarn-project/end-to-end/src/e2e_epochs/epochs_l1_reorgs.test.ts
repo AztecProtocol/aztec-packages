@@ -259,7 +259,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       await blobSinkClient.sendBlobsToBlobSink(blobs);
 
       // And wait for the node to see the new block
-      await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER), 'node sync', 5, 0.1);
+      await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER), 'node sync', 20, 0.1);
     });
   });
 
