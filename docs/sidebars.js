@@ -76,6 +76,10 @@ const sidebar = {
       id: "the_aztec_network/guides/run_nodes/how_to_run_prover",
     },
     {
+      type: "doc",
+      id: "the_aztec_network/guides/running_delegated_stake",
+    },
+    {
       type: "html",
       value: '<span class="sidebar-divider" />',
     },
