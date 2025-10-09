@@ -1,6 +1,6 @@
 use crate::{
-    abis::side_effect::{Ordered, scoped::Scoped},
     address::AztecAddress,
+    side_effect::{Ordered, scoped::Scoped},
     traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };

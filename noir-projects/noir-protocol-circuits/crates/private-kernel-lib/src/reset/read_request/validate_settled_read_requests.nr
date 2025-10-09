@@ -1,6 +1,6 @@
 use dep::types::{
-    abis::{read_request::ScopedReadRequest, side_effect::Readable},
     merkle_tree::{check_membership, LeafPreimage, MembershipWitness},
+    side_effect::{Counted, Readable, Scoped},
     traits::Empty,
     utils::arrays::ClaimedLengthArray,
 };
@@ -38,12 +38,12 @@ where
 // 2. If a hint is inactive (its `read_request_index == ReadRequestLen`):
 //    - It is ignored (no validation performed).
 pub fn validate_settled_read_requests<let ReadRequestLen: u32, let SettledReadHintsLen: u32, let TreeHeight: u32, SettledReadLeafPreimage>(
-    read_requests: ClaimedLengthArray<ScopedReadRequest, ReadRequestLen>,
+    read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, ReadRequestLen>,
     hints: [SettledReadHint<TreeHeight, SettledReadLeafPreimage>; SettledReadHintsLen],
     tree_root: Field,
 )
 where
-    SettledReadLeafPreimage: LeafPreimage + Readable<ScopedReadRequest>,
+    SettledReadLeafPreimage: LeafPreimage + Readable,
 {
     for hint in hints {
         let read_request_index = hint.read_request_index;

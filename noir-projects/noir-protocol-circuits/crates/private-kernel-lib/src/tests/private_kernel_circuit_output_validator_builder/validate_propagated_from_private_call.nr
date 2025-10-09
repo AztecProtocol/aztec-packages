@@ -29,7 +29,7 @@ fn validate_propagated_from_private_call__note_hash_read_requests_output_mismatc
     builder.output.append_note_hash_read_requests(2);
     // Tweak the value in the output.
     let mut read_request = builder.output.note_hash_read_requests.get(1);
-    read_request.read_request.value += 1;
+    read_request.inner.inner += 1;
     builder.output.note_hash_read_requests.set(1, read_request);
 
     builder.validate_as_inner_call();
@@ -118,7 +118,7 @@ fn validate_propagated_from_private_call__note_hash_read_requests_with_previous_
     builder.output.append_note_hash_read_requests(2);
     // Tweak the value in the output.
     let mut read_request = builder.output.note_hash_read_requests.get(3);
-    read_request.read_request.value += 1;
+    read_request.inner.inner += 1;
     builder.output.note_hash_read_requests.set(3, read_request);
 
     builder.validate_as_inner_call();

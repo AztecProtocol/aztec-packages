@@ -109,7 +109,7 @@ export const mockTx = async (
     (hasPublicTeardownCallRequest ? 1 : 0);
   const isForPublic = totalPublicCallRequests > 0;
   const data = PrivateKernelTailCircuitPublicInputs.empty();
-  const firstNullifier = new Nullifier(new Fr(seed + 1), 0, Fr.ZERO);
+  const firstNullifier = new Nullifier(new Fr(seed + 1), Fr.ZERO, 0);
   data.constants.txContext.gasSettings = GasSettings.default({
     maxFeesPerGas: new GasFees(10, 10),
     maxPriorityFeesPerGas,
@@ -151,7 +151,7 @@ export const mockTx = async (
       .build();
 
     for (let i = 0; i < numberOfRevertibleNullifiers; i++) {
-      const revertibleNullifier = new Nullifier(new Fr(seed + 2 + i), 0, Fr.ZERO);
+      const revertibleNullifier = new Nullifier(new Fr(seed + 2 + i), Fr.ZERO, 0);
       revertibleBuilder.pushNullifier(revertibleNullifier.value);
     }
 

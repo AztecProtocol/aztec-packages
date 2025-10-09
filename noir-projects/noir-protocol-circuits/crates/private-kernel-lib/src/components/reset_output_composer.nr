@@ -12,11 +12,8 @@ use crate::{
 };
 use types::{
     abis::{
-        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        note_hash::{NoteHash, ScopedNoteHash},
-        nullifier::{Nullifier, ScopedNullifier},
-        private_log::PrivateLogData,
-        side_effect::{Ordered, scoped::Scoped},
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::NoteHash,
+        nullifier::Nullifier, private_log::PrivateLogData,
         validation_requests::PrivateValidationRequests,
     },
     address::AztecAddress,
@@ -26,6 +23,7 @@ use types::{
         MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS,
     },
     hash::{compute_unique_siloed_note_hash, silo_note_hash, silo_nullifier, silo_private_log},
+    side_effect::{Counted, Ordered, Scoped},
     utils::arrays::{check_padded_items, ClaimedLengthArray, sort_by_counter_asc},
 };
 
@@ -144,7 +142,7 @@ impl ResetOutputComposer {
 
     unconstrained fn get_padded_unique_siloed_sorted_kept_note_hashes<let NoteHashSiloingAmount: u32>(
         self,
-    ) -> ClaimedLengthArray<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX> {
+    ) -> ClaimedLengthArray<Scoped<Counted<NoteHash>>, MAX_NOTE_HASHES_PER_TX> {
         // Sort:
         let sorted_kept_note_hashes = ClaimedLengthArray {
             array: sort_by_counter_asc(self.hints.kept_note_hashes.array),
@@ -179,15 +177,11 @@ impl ResetOutputComposer {
                 // Note: beyond `NoteHashSiloingAmount`, these so-called "padded" note_hashes
                 // will be empty. I.e. we don't pad 64; it depends on the dimensions
                 // of this variant of the reset circuit.
-                padded_unique_siloed_sorted_kept_note_hashes.push(
-                    ScopedNoteHash {
-                        note_hash: NoteHash {
-                            value: padded_note_hashes[i],
-                            counter: MAX_U32_VALUE, // TODO: consider using Option::none,
-                        },
-                        contract_address: SIDE_EFFECT_MASKING_ADDRESS,
-                    },
-                );
+                padded_unique_siloed_sorted_kept_note_hashes.push(Counted::new(
+                    padded_note_hashes[i],
+                    MAX_U32_VALUE, // TODO(MC): consider using Option::none,
+                )
+                    .scope(SIDE_EFFECT_MASKING_ADDRESS));
             }
 
             // Silo:
@@ -206,7 +200,7 @@ impl ResetOutputComposer {
             // We don't silo revertible note hashes with a note_nonce, since we don't know their final position in the tx.
             let is_non_revertible = note_hash.counter() < min_revertible_side_effect_counter;
 
-            padded_unique_siloed_sorted_kept_note_hashes.array[i].note_hash.value = if is_private_only
+            padded_unique_siloed_sorted_kept_note_hashes.array[i].inner.inner = if is_private_only
                 | is_non_revertible {
                 unique_siloed_note_hash
             } else {
@@ -224,7 +218,7 @@ impl ResetOutputComposer {
 
     unconstrained fn get_padded_siloed_sorted_kept_nullifiers<let NullifierSiloingAmount: u32>(
         self,
-    ) -> ClaimedLengthArray<ScopedNullifier, MAX_NULLIFIERS_PER_TX> {
+    ) -> ClaimedLengthArray<Scoped<Counted<Nullifier>>, MAX_NULLIFIERS_PER_TX> {
         // Sort:
         let sorted_kept_nullifiers = ClaimedLengthArray {
             array: sort_by_counter_asc(self.hints.kept_nullifiers.array),
@@ -251,20 +245,16 @@ impl ResetOutputComposer {
             if (i >= num_kept_nullifiers)
                 // we only apply padding if the executor of this circuit provides padding as input:
                 & (padded_nullifiers[i] != 0) {
-                padded_siloed_sorted_kept_nullifiers.push(
-                    ScopedNullifier {
-                        nullifier: Nullifier {
-                            value: padded_nullifiers[i],
-                            counter: MAX_U32_VALUE, // TODO: consider using Option::none,
-                            note_hash: 0,
-                        },
-                        contract_address: SIDE_EFFECT_MASKING_ADDRESS,
-                    },
-                );
+                padded_siloed_sorted_kept_nullifiers.push(Nullifier {
+                    value: padded_nullifiers[i],
+                    note_hash: 0,
+                }
+                    .count(MAX_U32_VALUE) // TODO(MC): consider using Option::none,
+                    .scope(SIDE_EFFECT_MASKING_ADDRESS));
             }
 
             // Silo:
-            padded_siloed_sorted_kept_nullifiers.array[i].nullifier.value =
+            padded_siloed_sorted_kept_nullifiers.array[i].inner.inner.value =
                 silo_nullifier(padded_siloed_sorted_kept_nullifiers.array[i]);
             padded_siloed_sorted_kept_nullifiers.array[i].contract_address = AztecAddress::zero();
         }
@@ -274,7 +264,7 @@ impl ResetOutputComposer {
 
     unconstrained fn get_padded_siloed_sorted_kept_private_logs<let PrivateLogSiloingAmount: u32>(
         self,
-    ) -> ClaimedLengthArray<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX> {
+    ) -> ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, MAX_PRIVATE_LOGS_PER_TX> {
         // Sort:
         let sorted_kept_private_logs = ClaimedLengthArray {
             array: sort_by_counter_asc(self.hints.kept_private_logs.array),
@@ -301,20 +291,16 @@ impl ResetOutputComposer {
             if (i >= num_kept_private_logs)
                 // we only apply padding if the executor of this circuit provides padding as input:
                 & (padded_private_logs[i].length != 0) {
-                padded_siloed_sorted_kept_private_logs.push(
-                    Scoped {
-                        inner: PrivateLogData {
-                            log: padded_private_logs[i],
-                            note_hash_counter: 0,
-                            counter: MAX_U32_VALUE, // TODO: consider using Option::none,
-                        },
-                        contract_address: SIDE_EFFECT_MASKING_ADDRESS,
-                    },
-                );
+                padded_siloed_sorted_kept_private_logs.push(PrivateLogData {
+                    log: padded_private_logs[i],
+                    note_hash_counter: 0,
+                }
+                    .count(MAX_U32_VALUE) // TODO(MC): consider using Option::none,
+                    .scope(SIDE_EFFECT_MASKING_ADDRESS));
             }
 
             // Silo:
-            padded_siloed_sorted_kept_private_logs.array[i].inner.log =
+            padded_siloed_sorted_kept_private_logs.array[i].inner.inner.log =
                 silo_private_log(padded_siloed_sorted_kept_private_logs.array[i]);
             padded_siloed_sorted_kept_private_logs.array[i].contract_address = AztecAddress::zero();
         }

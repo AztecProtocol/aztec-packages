@@ -1,6 +1,7 @@
 use crate::reset::transient_data::transient_data_squashing_hint::TransientDataSquashingHint;
 use dep::types::{
-    abis::nullifier::ScopedNullifier,
+    abis::nullifier::Nullifier,
+    side_effect::{Counted, Scoped},
     utils::arrays::{ClaimedLengthArray, find_first_index},
 };
 
@@ -9,7 +10,7 @@ use dep::types::{
 /// Remaining entries are considered inactive and will be ignored.
 pub unconstrained fn get_num_active_squashing_hints<let SquashingHintsLen: u32, let NullifiersLen: u32>(
     transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
-    _nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
+    _nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
 ) -> u32 {
     find_first_index(
         transient_data_squashing_hints,

@@ -1,10 +1,6 @@
 global NOTE_HASH_LEAF_PREIMAGE_LENGTH: u32 = 1;
 
-use crate::{
-    abis::{read_request::ScopedReadRequest, side_effect::Readable},
-    merkle_tree::LeafPreimage,
-    traits::Empty,
-};
+use crate::{merkle_tree::LeafPreimage, side_effect::{Counted, Readable, Scoped}, traits::Empty};
 
 pub struct NoteHashLeafPreimage {
     pub value: Field,
@@ -26,11 +22,11 @@ impl LeafPreimage for NoteHashLeafPreimage {
     }
 }
 
-impl Readable<ScopedReadRequest> for NoteHashLeafPreimage {
-    fn assert_match_read_request(self, read_request: ScopedReadRequest) {
+impl Readable for NoteHashLeafPreimage {
+    fn assert_match_read_request(self, read_request: Scoped<Counted<Field>>) {
         assert_eq(
             self.value,
-            read_request.value(),
+            read_request.innermost(),
             "Value of the note hash leaf does not match read request",
         );
     }

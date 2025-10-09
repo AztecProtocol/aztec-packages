@@ -1,6 +1,6 @@
 use crate::{
-    abis::side_effect::{counted::Counted, Ordered},
     address::AztecAddress,
+    side_effect::{counted::Counted, Ordered},
     tests::types::TestValue,
     traits::{Deserialize, Empty, Serialize, ToField},
     utils::reader::Reader,
@@ -65,7 +65,19 @@ where
 
 impl<T> Ordered for Scoped<Counted<T>> {
     fn counter(self) -> u32 {
-        self.inner.counter()
+        self.inner.counter
+    }
+}
+
+impl<T> Scoped<Counted<T>> {
+    pub fn innermost(self) -> T {
+        self.inner.inner
+    }
+}
+
+impl Scoped<Counted<Field>> {
+    pub fn expose_to_public(self) -> Field {
+        self.innermost()
     }
 }
 
