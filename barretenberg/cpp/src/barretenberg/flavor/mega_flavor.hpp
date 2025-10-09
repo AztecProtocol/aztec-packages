@@ -608,6 +608,13 @@ class MegaFlavor {
                      zip_view(this->get_witness(), witness_commitments.value().get_all())) {
                     witness = witness_in;
                 }
+
+                // Set shifted commitments
+                this->w_l_shift = witness_commitments.value().w_l;
+                this->w_r_shift = witness_commitments.value().w_r;
+                this->w_o_shift = witness_commitments.value().w_o;
+                this->w_4_shift = witness_commitments.value().w_4;
+                this->z_perm_shift = witness_commitments.value().z_perm;
             }
         }
     };
