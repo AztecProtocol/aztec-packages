@@ -24,7 +24,7 @@ namespace {
  */
 class MockDatabusProducer {
   private:
-    using ClientCircuit = ClientIVC::ClientCircuit;
+    using ClientCircuit = SumcheckClientIVC::ClientCircuit;
     using Flavor = MegaFlavor;
     using FF = Flavor::FF;
     using BusDataArray = std::vector<FF>;
@@ -110,7 +110,7 @@ struct TestSettings {
  * testing consecutive kernels. These can be configured via TestSettings.
  */
 class PrivateFunctionExecutionMockCircuitProducer {
-    using ClientCircuit = ClientIVC::ClientCircuit;
+    using ClientCircuit = SumcheckClientIVC::ClientCircuit;
     using Flavor = MegaFlavor;
     using VerificationKey = Flavor::VerificationKey;
 
@@ -150,8 +150,8 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
         // Deepcopy the opqueue to avoid modifying the original one when finalising the circuit
         builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
-        std::shared_ptr<ClientIVC::ProverInstance> prover_instance =
-            std::make_shared<ClientIVC::ProverInstance>(builder, trace_settings);
+        std::shared_ptr<SumcheckClientIVC::ProverInstance> prover_instance =
+            std::make_shared<SumcheckClientIVC::ProverInstance>(builder, trace_settings);
         std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
         return vk;
     }
@@ -162,7 +162,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
      * large.
      *
      */
-    ClientCircuit create_next_circuit(ClientIVC& ivc, size_t log2_num_gates = 0, size_t num_public_inputs = 0)
+    ClientCircuit create_next_circuit(SumcheckClientIVC& ivc, size_t log2_num_gates = 0, size_t num_public_inputs = 0)
     {
         const bool is_kernel = is_kernel_flags[circuit_counter];
 
@@ -199,7 +199,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
     /**
      * @brief Create the next circuit (app/kernel) in a mocked private function execution stack
      */
-    std::pair<ClientCircuit, std::shared_ptr<VerificationKey>> create_next_circuit_and_vk(ClientIVC& ivc,
+    std::pair<ClientCircuit, std::shared_ptr<VerificationKey>> create_next_circuit_and_vk(SumcheckClientIVC& ivc,
                                                                                           TestSettings settings = {})
     {
         // If this is a mock hiding kernel, remove the settings and use a default (non-structured) trace
@@ -211,7 +211,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
         return { circuit, get_verification_key(circuit, ivc.trace_settings) };
     }
 
-    void construct_and_accumulate_next_circuit(ClientIVC& ivc, TestSettings settings = {})
+    void construct_and_accumulate_next_circuit(SumcheckClientIVC& ivc, TestSettings settings = {})
     {
         auto [circuit, vk] = create_next_circuit_and_vk(ivc, settings);
         ivc.accumulate(circuit, vk);

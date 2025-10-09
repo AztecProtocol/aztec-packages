@@ -18,13 +18,13 @@ namespace bb {
  *
  * @param NUM_CIRCUITS Number of circuits to accumulate (apps + kernels)
  */
-std::pair<ClientIVC::Proof, ClientIVC::VerificationKey> accumulate_and_prove_ivc_with_precomputed_vks(
+std::pair<SumcheckClientIVC::Proof, SumcheckClientIVC::VerificationKey> accumulate_and_prove_ivc_with_precomputed_vks(
     size_t num_app_circuits, auto& precomputed_vks, const bool large_first_app = true)
 {
     PrivateFunctionExecutionMockCircuitProducer circuit_producer(num_app_circuits, large_first_app);
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
+    SumcheckClientIVC ivc{ NUM_CIRCUITS, trace_settings };
 
     BB_ASSERT_EQ(precomputed_vks.size(), NUM_CIRCUITS, "There should be a precomputed VK for each circuit");
 
@@ -47,7 +47,7 @@ std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> sumcheck_prec
     CircuitProducer circuit_producer(num_app_circuits, large_first_app);
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
+    SumcheckClientIVC ivc{ NUM_CIRCUITS, trace_settings };
 
     std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> vkeys;
     for (size_t j = 0; j < NUM_CIRCUITS; ++j) {

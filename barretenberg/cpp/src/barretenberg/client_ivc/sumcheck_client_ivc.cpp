@@ -16,7 +16,7 @@
 namespace bb {
 
 // Constructor
-ClientIVC::ClientIVC(size_t num_circuits, TraceSettings trace_settings)
+SumcheckClientIVC::SumcheckClientIVC(size_t num_circuits, TraceSettings trace_settings)
     : trace_usage_tracker(trace_settings)
     , num_circuits(num_circuits)
     , trace_settings(trace_settings)
@@ -41,7 +41,7 @@ ClientIVC::ClientIVC(size_t num_circuits, TraceSettings trace_settings)
  *
  * @param circuit
  */
-void ClientIVC::instantiate_stdlib_verification_queue(
+void SumcheckClientIVC::instantiate_stdlib_verification_queue(
     ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys)
 {
     bool vkeys_provided = !input_keys.empty();
@@ -73,7 +73,7 @@ void ClientIVC::instantiate_stdlib_verification_queue(
     }
 }
 
-ClientIVC::RecursiveVerifierAccumulator ClientIVC::execute_first_sumcheck_recursive_verification(
+SumcheckClientIVC::RecursiveVerifierAccumulator SumcheckClientIVC::execute_first_sumcheck_recursive_verification(
     ClientCircuit& circuit,
     const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
     const std::shared_ptr<RecursiveTranscript>& transcript,
@@ -105,7 +105,7 @@ ClientIVC::RecursiveVerifierAccumulator ClientIVC::execute_first_sumcheck_recurs
     return recursive_accumulator;
 }
 
-ClientIVC::RecursiveVerifierAccumulator ClientIVC::perform_folding_recursive_verification(
+SumcheckClientIVC::RecursiveVerifierAccumulator SumcheckClientIVC::perform_folding_recursive_verification(
     ClientCircuit& circuit,
     const std::optional<RecursiveVerifierAccumulator>& verifier_accumulator,
     const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
@@ -157,16 +157,19 @@ ClientIVC::RecursiveVerifierAccumulator ClientIVC::perform_folding_recursive_ver
  * @return Triple of output verifier accumulator, PairingPoints for final verification and commitments to the merged
  * tables as read from the proof by the Merge verifier
  */
-std::
-    tuple<std::optional<ClientIVC::RecursiveVerifierAccumulator>, ClientIVC::PairingPoints, ClientIVC::TableCommitments>
-    ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
-        ClientCircuit& circuit,
-        const StdlibVerifierInputs& verifier_inputs,
-        const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
-        const TableCommitments& T_prev_commitments,
-        const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
+std::tuple<std::optional<SumcheckClientIVC::RecursiveVerifierAccumulator>,
+           SumcheckClientIVC::PairingPoints,
+           SumcheckClientIVC::TableCommitments>
+SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks(
+    ClientCircuit& circuit,
+    const StdlibVerifierInputs& verifier_inputs,
+    const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
+    const TableCommitments& T_prev_commitments,
+    const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
-    info("Num rows now: ", circuit.op_queue->get_num_rows());
+    auto num_rows = circuit.op_queue->get_num_rows();
+    info("NUM ROWS WHEN ENTERING: ", num_rows);
+
     using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
 
     // The pairing points produced by the verification of the decider proof
@@ -184,7 +187,7 @@ std::
 
     switch (verifier_inputs.type) {
     case QUEUE_TYPE::OINK: {
-        BB_ASSERT_EQ(input_verifier_accumulator.has_value(), true);
+        BB_ASSERT_EQ(input_verifier_accumulator.has_value(), false);
 
         output_verifier_accumulator = execute_first_sumcheck_recursive_verification(
             circuit, verifier_instance, accumulation_recursive_transcript, verifier_inputs.proof);
@@ -306,6 +309,8 @@ std::
         hide_op_queue_content_in_hiding(circuit);
     }
 
+    info("NUM ROWS DIFF: ", circuit.op_queue->get_num_rows() - num_rows);
+
     return { output_verifier_accumulator, pairing_points, merged_table_commitments };
 }
 
@@ -317,7 +322,7 @@ std::
  *
  * @param circuit
  */
-void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
+void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
 
     // Transcript to be shared shared across recursive verification of the folding of K_{i-1} (kernel), A_{i,1} (app),
@@ -381,11 +386,11 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
     // Set the kernel output data to be propagated via the public inputs
     if (is_hiding_kernel) {
-        BB_ASSERT_EQ(current_stdlib_verifier_accumulator.has_value(), true);
+        BB_ASSERT_EQ(current_stdlib_verifier_accumulator.has_value(), false);
         HidingKernelIO hiding_output{ points_accumulator, T_prev_commitments };
         hiding_output.set_public();
     } else {
-        BB_ASSERT_NEQ(current_stdlib_verifier_accumulator.has_value(), true);
+        BB_ASSERT_NEQ(current_stdlib_verifier_accumulator.has_value(), false);
         // Extract native verifier accumulator from the stdlib accum for use on the next round
         recursive_verifier_native_accum = current_stdlib_verifier_accumulator.value().get_value();
 
@@ -402,9 +407,10 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
 }
 
-ClientIVC::ProverAccumulator ClientIVC::execute_first_sumcheck(const std::shared_ptr<ProverInstance>& prover_instance,
-                                                               const std::shared_ptr<MegaVerificationKey>& honk_vk,
-                                                               const std::shared_ptr<Transcript>& transcript)
+SumcheckClientIVC::ProverAccumulator SumcheckClientIVC::execute_first_sumcheck(
+    const std::shared_ptr<ProverInstance>& prover_instance,
+    const std::shared_ptr<MegaVerificationKey>& honk_vk,
+    const std::shared_ptr<Transcript>& transcript)
 {
     vinfo("computing sumcheck proof...");
     MegaOinkProver oink_prover{ prover_instance, honk_vk, transcript };
@@ -433,7 +439,7 @@ ClientIVC::ProverAccumulator ClientIVC::execute_first_sumcheck(const std::shared
     return result;
 }
 
-ClientIVC::VerifierAccumulator ClientIVC::execute_first_sumcheck_native_verification(
+SumcheckClientIVC::VerifierAccumulator SumcheckClientIVC::execute_first_sumcheck_native_verification(
     const std::shared_ptr<VerifierInstance>& verifier_instance,
     const std::shared_ptr<Transcript>& transcript,
     const HonkProof& proof)
@@ -465,18 +471,18 @@ ClientIVC::VerifierAccumulator ClientIVC::execute_first_sumcheck_native_verifica
     return accumulator;
 }
 
-HonkProof ClientIVC::construct_sumcheck_proof(const std::shared_ptr<ProverInstance>& prover_instance,
-                                              const std::shared_ptr<MegaVerificationKey>& honk_vk,
-                                              const std::shared_ptr<Transcript>& transcript)
+HonkProof SumcheckClientIVC::construct_sumcheck_proof(const std::shared_ptr<ProverInstance>& prover_instance,
+                                                      const std::shared_ptr<MegaVerificationKey>& honk_vk,
+                                                      const std::shared_ptr<Transcript>& transcript)
 {
-    prover_accumulator = ClientIVC::execute_first_sumcheck(prover_instance, honk_vk, transcript);
+    prover_accumulator = SumcheckClientIVC::execute_first_sumcheck(prover_instance, honk_vk, transcript);
     return transcript->export_proof();
 }
 
-HonkProof ClientIVC::construct_folding_proof(const std::shared_ptr<ProverInstance>& prover_instance,
-                                             const std::shared_ptr<MegaVerificationKey>& honk_vk,
-                                             const std::shared_ptr<Transcript>& transcript,
-                                             bool is_kernel)
+HonkProof SumcheckClientIVC::construct_folding_proof(const std::shared_ptr<ProverInstance>& prover_instance,
+                                                     const std::shared_ptr<MegaVerificationKey>& honk_vk,
+                                                     const std::shared_ptr<Transcript>& transcript,
+                                                     bool is_kernel)
 {
     vinfo("computing folding proof...");
     // Only fiat shamir if this is a kernel with the assumption that kernels are always the first being recursively
@@ -489,7 +495,8 @@ HonkProof ClientIVC::construct_folding_proof(const std::shared_ptr<ProverInstanc
     }
     auto verifier_instance = std::make_shared<VerifierInstance_<Flavor>>(honk_vk);
 
-    ProverAccumulator incoming_accumulator = ClientIVC::execute_first_sumcheck(prover_instance, honk_vk, transcript);
+    ProverAccumulator incoming_accumulator =
+        SumcheckClientIVC::execute_first_sumcheck(prover_instance, honk_vk, transcript);
 
     // FOLDING INFRA /////////// /////////// /////////// ///////////
     // FoldingProver folding_prover({ prover_accumulator, prover_instance },
@@ -501,14 +508,13 @@ HonkProof ClientIVC::construct_folding_proof(const std::shared_ptr<ProverInstanc
     // vinfo("pg proof constructed");
     // return output.proof;
 
-    HonkProof proof;
-    return proof;
+    return transcript->export_proof();
 }
 
 /**
  * @brief Get queue type for the proof of a circuit about to be accumulated based on num circuits accumulated so far.
  */
-ClientIVC::QUEUE_TYPE ClientIVC::get_queue_type() const
+SumcheckClientIVC::QUEUE_TYPE SumcheckClientIVC::get_queue_type() const
 {
     // first app
     if (num_circuits_accumulated == 0) {
@@ -543,12 +549,13 @@ ClientIVC::QUEUE_TYPE ClientIVC::get_queue_type() const
  * this case, just produce a Honk proof for that circuit and do no folding.
  * @param precomputed_vk
  */
-void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
+void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
 {
-    BB_ASSERT_LT(
-        num_circuits_accumulated, num_circuits, "ClientIVC: Attempting to accumulate more circuits than expected.");
+    BB_ASSERT_LT(num_circuits_accumulated,
+                 num_circuits,
+                 "SumcheckClientIVC: Attempting to accumulate more circuits than expected.");
 
-    ASSERT(precomputed_vk != nullptr, "ClientIVC::accumulate - VK expected for the provided circuit");
+    ASSERT(precomputed_vk != nullptr, "SumcheckClientIVC::accumulate - VK expected for the provided circuit");
 
     // Construct the prover instance for circuit
     std::shared_ptr<ProverInstance> prover_instance = std::make_shared<ProverInstance>(circuit, trace_settings);
@@ -623,7 +630,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
  * add a random yet valid operation to the op queue. This guarantees the batched polynomial over Grumpkin contains at
  * least one random coefficient.
  */
-void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
+void SumcheckClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
 {
     Point random_point = Point::random_element();
     FF random_scalar = FF::random_element();
@@ -675,7 +682,7 @@ void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
  * parts of its data), there are 4 commitments and 5 evaluations across the CIVC proof so the sweet spot is 5 random
  * ops.
  */
-void ClientIVC::hide_op_queue_content_in_tail(ClientCircuit& circuit)
+void SumcheckClientIVC::hide_op_queue_content_in_tail(ClientCircuit& circuit)
 {
     circuit.queue_ecc_random_op();
     circuit.queue_ecc_random_op();
@@ -690,7 +697,7 @@ void ClientIVC::hide_op_queue_content_in_tail(ClientCircuit& circuit)
  * containts, for each wire, its commitment and evaluation to the Sumcheck challenge. As at least 3 random coefficients
  * are needed in each op queue polynomial, we add 2 random ops. More details in `hide_op_queue_content_in_tail`.
  */
-void ClientIVC::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
+void SumcheckClientIVC::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
 {
     circuit.queue_ecc_random_op();
     circuit.queue_ecc_random_op();
@@ -700,7 +707,7 @@ void ClientIVC::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
  * @brief Construct a zero-knowledge proof for the hiding circuit, which recursively verifies the last folding,
  * merge and decider proof.
  */
-HonkProof ClientIVC::construct_honk_proof_for_hiding_kernel(
+HonkProof SumcheckClientIVC::construct_honk_proof_for_hiding_kernel(
     ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& verification_key)
 {
     // Note: a structured trace is not used for the hiding kernel
@@ -718,7 +725,7 @@ HonkProof ClientIVC::construct_honk_proof_for_hiding_kernel(
  *
  * @return Proof
  */
-ClientIVC::Proof ClientIVC::prove()
+SumcheckClientIVC::Proof SumcheckClientIVC::prove()
 {
     // deallocate the protogalaxy accumulator
     prover_accumulator = ProverAccumulator();
@@ -736,7 +743,7 @@ ClientIVC::Proof ClientIVC::prove()
     return { mega_proof, goblin.prove(MergeSettings::APPEND) };
 };
 
-bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
+bool SumcheckClientIVC::verify(const Proof& proof, const VerificationKey& vk)
 {
     using TableCommitments = Goblin::TableCommitments;
     // Create a transcript to be shared by MegaZK-, Merge-, ECCVM-, and Translator- Verifiers.
@@ -762,22 +769,22 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
  *
  * @return HonkProof
  */
-HonkProof ClientIVC::construct_pcs_proof(const std::shared_ptr<Transcript>& transcript)
+HonkProof SumcheckClientIVC::construct_pcs_proof(const std::shared_ptr<Transcript>& transcript)
 {
     vinfo("prove PCS...");
 
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
-    auto& ck = bn254_commitment_key;
+    auto ck = CommitmentKey<Curve>(1 << 21);
 
     PolynomialBatcher polynomial_batcher(bn254_commitment_key.dyadic_size);
     polynomial_batcher.set_unshifted(prover_accumulator.batched_polynomials[0]);
     polynomial_batcher.set_to_be_shifted_by_one(prover_accumulator.batched_polynomials[1]);
 
     OpeningClaim prover_opening_claim;
-    prover_opening_claim = ShpleminiProver_<Curve>::prove(
-        bn254_commitment_key.dyadic_size, polynomial_batcher, prover_accumulator.challenge, ck, transcript);
+    prover_opening_claim =
+        ShpleminiProver_<Curve>::prove(1 << 21, polynomial_batcher, prover_accumulator.challenge, ck, transcript);
 
     vinfo("executed multivariate-to-univariate reduction");
     Flavor::PCS::compute_opening_proof(ck, prover_opening_claim, transcript);
@@ -787,12 +794,12 @@ HonkProof ClientIVC::construct_pcs_proof(const std::shared_ptr<Transcript>& tran
 }
 
 // Proof methods
-size_t ClientIVC::Proof::size() const
+size_t SumcheckClientIVC::Proof::size() const
 {
     return mega_proof.size() + goblin_proof.size();
 }
 
-std::vector<ClientIVC::FF> ClientIVC::Proof::to_field_elements() const
+std::vector<SumcheckClientIVC::FF> SumcheckClientIVC::Proof::to_field_elements() const
 {
     HonkProof proof;
 
@@ -805,12 +812,12 @@ std::vector<ClientIVC::FF> ClientIVC::Proof::to_field_elements() const
     return proof;
 };
 
-ClientIVC::Proof ClientIVC::Proof::from_field_elements(const std::vector<ClientIVC::FF>& fields)
+SumcheckClientIVC::Proof SumcheckClientIVC::Proof::from_field_elements(const std::vector<SumcheckClientIVC::FF>& fields)
 {
     HonkProof mega_proof;
     GoblinProof goblin_proof;
 
-    size_t custom_public_inputs_size = fields.size() - ClientIVC::Proof::PROOF_LENGTH();
+    size_t custom_public_inputs_size = fields.size() - SumcheckClientIVC::Proof::PROOF_LENGTH();
 
     // Mega proof
     auto start_idx = fields.begin();
@@ -842,14 +849,14 @@ ClientIVC::Proof ClientIVC::Proof::from_field_elements(const std::vector<ClientI
     return { mega_proof, goblin_proof };
 };
 
-msgpack::sbuffer ClientIVC::Proof::to_msgpack_buffer() const
+msgpack::sbuffer SumcheckClientIVC::Proof::to_msgpack_buffer() const
 {
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, *this);
     return buffer;
 }
 
-uint8_t* ClientIVC::Proof::to_msgpack_heap_buffer() const
+uint8_t* SumcheckClientIVC::Proof::to_msgpack_heap_buffer() const
 {
     msgpack::sbuffer buffer = to_msgpack_buffer();
 
@@ -857,7 +864,7 @@ uint8_t* ClientIVC::Proof::to_msgpack_heap_buffer() const
     return to_heap_buffer(buf);
 }
 
-ClientIVC::Proof ClientIVC::Proof::from_msgpack_buffer(uint8_t const*& buffer)
+SumcheckClientIVC::Proof SumcheckClientIVC::Proof::from_msgpack_buffer(uint8_t const*& buffer)
 {
     auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
 
@@ -867,7 +874,7 @@ ClientIVC::Proof ClientIVC::Proof::from_msgpack_buffer(uint8_t const*& buffer)
     return from_msgpack_buffer(sbuf);
 }
 
-ClientIVC::Proof ClientIVC::Proof::from_msgpack_buffer(const msgpack::sbuffer& buffer)
+SumcheckClientIVC::Proof SumcheckClientIVC::Proof::from_msgpack_buffer(const msgpack::sbuffer& buffer)
 {
     msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
     msgpack::object obj = oh.get();
@@ -876,7 +883,7 @@ ClientIVC::Proof ClientIVC::Proof::from_msgpack_buffer(const msgpack::sbuffer& b
     return proof;
 }
 
-void ClientIVC::Proof::to_file_msgpack(const std::string& filename) const
+void SumcheckClientIVC::Proof::to_file_msgpack(const std::string& filename) const
 {
     msgpack::sbuffer buffer = to_msgpack_buffer();
     std::ofstream ofs(filename, std::ios::binary);
@@ -887,7 +894,7 @@ void ClientIVC::Proof::to_file_msgpack(const std::string& filename) const
     ofs.close();
 }
 
-ClientIVC::Proof ClientIVC::Proof::from_file_msgpack(const std::string& filename)
+SumcheckClientIVC::Proof SumcheckClientIVC::Proof::from_file_msgpack(const std::string& filename)
 {
     std::ifstream ifs(filename, std::ios::binary);
     if (!ifs.is_open()) {
@@ -908,7 +915,7 @@ ClientIVC::Proof ClientIVC::Proof::from_file_msgpack(const std::string& filename
 }
 
 // VerificationKey construction
-ClientIVC::VerificationKey ClientIVC::get_vk() const
+SumcheckClientIVC::VerificationKey SumcheckClientIVC::get_vk() const
 {
     BB_ASSERT_EQ(verification_queue.size(), 1UL);
     BB_ASSERT_EQ(verification_queue.front().type == QUEUE_TYPE::MEGA, true);
@@ -918,8 +925,8 @@ ClientIVC::VerificationKey ClientIVC::get_vk() const
              std::make_shared<TranslatorVerificationKey>() };
 }
 
-void ClientIVC::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
-                                                   const std::shared_ptr<Transcript>& verifier_transcript)
+void SumcheckClientIVC::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
+                                                           const std::shared_ptr<Transcript>& verifier_transcript)
 {
     auto verifier_inst = std::make_shared<VerifierInstance>(queue_entry.honk_vk);
     auto incoming_accumulator =

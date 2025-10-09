@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include "barretenberg/commitment_schemes/multilinear_claim.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
@@ -36,7 +35,7 @@ namespace bb {
  * of circuits being accumulated is even.
  *
  */
-class ClientIVC {
+class SumcheckClientIVC {
 
   public:
     using Flavor = MegaFlavor;
@@ -136,7 +135,7 @@ class ClientIVC {
          */
         std::vector<FF> to_field_elements() const;
 
-        static Proof from_field_elements(const std::vector<ClientIVC::FF>& fields);
+        static Proof from_field_elements(const std::vector<SumcheckClientIVC::FF>& fields);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1299): The following msgpack methods are generic
         // and should leverage some kind of shared msgpack utility.
@@ -274,8 +273,8 @@ class ClientIVC {
         {}
         RecursiveVerifierAccumulator(ClientCircuit* builder, VerifierAccumulator& native_accumulator)
         {
-            for (auto [recursive, native] : zip_view(challenge, native_accumulator.challenge)) {
-                recursive = StdlibFF::from_witness(builder, native);
+            for (auto element : native_accumulator.challenge) {
+                challenge.emplace_back(StdlibFF::from_witness(builder, element));
             }
 
             batched_evaluations[0] = StdlibFF::from_witness(builder, native_accumulator.batched_evaluations[0]);
@@ -308,8 +307,8 @@ class ClientIVC {
         {
             VerifierAccumulator value;
 
-            for (auto [native, recursive] : zip_view(value.challenge, challenge)) {
-                native = recursive.get_value();
+            for (auto element : challenge) {
+                value.challenge.emplace_back(element.get_value());
             }
 
             value.batched_evaluations[0] = batched_evaluations[0].get_value();
@@ -620,7 +619,7 @@ class ClientIVC {
 
     size_t get_num_circuits() const { return num_circuits; }
 
-    ClientIVC(size_t num_circuits, TraceSettings trace_settings = {});
+    SumcheckClientIVC(size_t num_circuits, TraceSettings trace_settings = {});
 
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                                                const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
@@ -709,11 +708,11 @@ class ClientIVC {
 };
 
 // Serialization methods for ClientIVC::VerificationKey
-inline void read(uint8_t const*& it, ClientIVC::VerificationKey& vk)
+inline void read(uint8_t const*& it, SumcheckClientIVC::VerificationKey& vk)
 {
     using serialize::read;
 
-    size_t num_frs = ClientIVC::VerificationKey::calc_num_data_types();
+    size_t num_frs = SumcheckClientIVC::VerificationKey::calc_num_data_types();
 
     // Read exactly num_frs field elements from the buffer
     std::vector<bb::fr> field_elements(num_frs);
@@ -725,7 +724,7 @@ inline void read(uint8_t const*& it, ClientIVC::VerificationKey& vk)
     vk.from_field_elements(field_elements);
 }
 
-inline void write(std::vector<uint8_t>& buf, ClientIVC::VerificationKey const& vk)
+inline void write(std::vector<uint8_t>& buf, SumcheckClientIVC::VerificationKey const& vk)
 {
     using serialize::write;
 
