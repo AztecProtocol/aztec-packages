@@ -1,7 +1,8 @@
-import { WalletSchema, type ChainInfo, type Wallet } from '@aztec/aztec.js/wallet';
+import { WalletSchema, type Wallet } from '@aztec/aztec.js/wallet';
 import { promiseWithResolvers, type PromiseWithResolvers } from '@aztec/foundation/promise';
 import { schemaHasMethod } from '@aztec/foundation/schemas';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
+import type { ChainInfo } from '@aztec/aztec.js';
 
 type FunctionsOf<T> = { [K in keyof T as T[K] extends Function ? K : never]: T[K] };
 
