@@ -237,9 +237,7 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
                                                                           claim_batcher,
                                                                           final_verifier_accumulator.challenge,
                                                                           RecursiveCommitment::one(&circuit),
-                                                                          accumulation_recursive_transcript,
-                                                                          RecursiveFlavor::REPEATED_COMMITMENTS,
-                                                                          RecursiveFlavor::HasZK);
+                                                                          accumulation_recursive_transcript);
         decider_pairing_points =
             PCS::reduce_verify_batch_opening_claim(opening_claim, accumulation_recursive_transcript);
 
@@ -497,6 +495,8 @@ HonkProof SumcheckClientIVC::construct_folding_proof(const std::shared_ptr<Prove
 
     ProverAccumulator incoming_accumulator =
         SumcheckClientIVC::execute_first_sumcheck(prover_instance, honk_vk, transcript);
+
+    prover_accumulator = incoming_accumulator;
 
     // FOLDING INFRA /////////// /////////// /////////// ///////////
     // FoldingProver folding_prover({ prover_accumulator, prover_instance },
@@ -776,15 +776,15 @@ HonkProof SumcheckClientIVC::construct_pcs_proof(const std::shared_ptr<Transcrip
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
-    auto ck = CommitmentKey<Curve>(1 << 21);
+    auto ck = bn254_commitment_key;
 
     PolynomialBatcher polynomial_batcher(bn254_commitment_key.dyadic_size);
     polynomial_batcher.set_unshifted(prover_accumulator.batched_polynomials[0]);
     polynomial_batcher.set_to_be_shifted_by_one(prover_accumulator.batched_polynomials[1]);
 
     OpeningClaim prover_opening_claim;
-    prover_opening_claim =
-        ShpleminiProver_<Curve>::prove(1 << 21, polynomial_batcher, prover_accumulator.challenge, ck, transcript);
+    prover_opening_claim = ShpleminiProver_<Curve>::prove(
+        bn254_commitment_key.dyadic_size, polynomial_batcher, prover_accumulator.challenge, ck, transcript);
 
     vinfo("executed multivariate-to-univariate reduction");
     Flavor::PCS::compute_opening_proof(ck, prover_opening_claim, transcript);
@@ -942,6 +942,7 @@ void SumcheckClientIVC::update_native_verifier_accumulator(const VerifierInputs&
         // FoldingVerifier folding_verifier({ native_verifier_accum, verifier_inst }, verifier_transcript);
         // native_verifier_accum = folding_verifier.verify_folding_proof(queue_entry.proof);
     }
+    native_verifier_accum = incoming_accumulator;
 }
 
 } // namespace bb

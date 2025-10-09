@@ -37,15 +37,14 @@ class SumcheckClientIVCTests : public ::testing::Test {
 
   public:
     static std::pair<SumcheckClientIVC::Proof, SumcheckClientIVC::VerificationKey> accumulate_and_prove_ivc(
-        size_t num_app_circuits, TestSettings settings = {})
+        size_t num_app_circuits)
     {
         CircuitProducer circuit_producer(num_app_circuits);
         const size_t num_circuits = circuit_producer.total_num_circuits;
-        TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-        SumcheckClientIVC ivc{ num_circuits, trace_settings };
+        SumcheckClientIVC ivc{ num_circuits };
 
         for (size_t j = 0; j < num_circuits; ++j) {
-            circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
+            circuit_producer.construct_and_accumulate_next_circuit(ivc);
         }
         return { ivc.prove(), ivc.get_vk() };
     };
