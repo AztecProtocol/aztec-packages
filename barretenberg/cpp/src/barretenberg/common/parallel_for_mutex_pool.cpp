@@ -156,18 +156,18 @@ namespace bb {
  */
 void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func)
 {
-    static thread_local size_t nesting_level = 0;
+    static std::atomic<size_t> nesting_level = 0;
     // There is a unique pool for each thread * nesting level.
     // The main thread will have nesting_level one greater than its child threads.
     // This needs to be an array so that when the main thread recurses here, it uses a different thread pool.
     static thread_local std::array<ThreadPool, PARALLEL_FOR_MAX_NESTING> pools;
 
     // If we exceed max nesting, throw an error
-    if (nesting_level >= PARALLEL_FOR_MAX_NESTING) {
+    if (nesting_level.load() >= PARALLEL_FOR_MAX_NESTING) {
         throw_or_abort("parallel_for_mutex_pool: exceeded maximum nesting level");
     }
 
-    ThreadPool& pool = pools[nesting_level];
+    ThreadPool& pool = pools[nesting_level.load()];
 
     // Initialize the pool if needed, or grow it if hardware concurrency has increased.
     // The ThreadPool is default-constructed with 0 workers, so grow() will initialize it on first use.
@@ -187,9 +187,9 @@ void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(siz
     size_t inner_concurrency =
         std::max(size_t{ 2 }, (total_threads + num_iterations - 1) / std::max(num_iterations, size_t{ 1 }));
 
-    nesting_level++;
+    nesting_level.fetch_add(1);
     pool.start_tasks(num_iterations, func, inner_concurrency);
-    nesting_level--;
+    nesting_level.fetch_sub(1);
 }
 } // namespace bb
 #endif
