@@ -1,5 +1,5 @@
 # CI3
-
+.
 This document attempts to document CI version 3, to provide a little history, rationale, and a guide on how to use it.
 
 If anything is unclear or lacking, raise it with me (Charlie) directly, so I can advise and update this document.
