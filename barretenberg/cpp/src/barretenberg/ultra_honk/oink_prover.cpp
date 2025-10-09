@@ -122,12 +122,12 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
 
     if constexpr (IsMegaFlavor<Flavor>) {
         size_t commitment_idx = 3;
-        for (auto commitment : prover_instance->commitments.get_ecc_op_wires()) {
+        for (auto& commitment : prover_instance->commitments.get_ecc_op_wires()) {
             commitment = computed_commitments[commitment_idx];
             commitment_idx++;
         }
 
-        for (auto commitment : prover_instance->commitments.get_databus_entities()) {
+        for (auto& commitment : prover_instance->commitments.get_databus_entities()) {
             commitment = computed_commitments[commitment_idx];
             commitment_idx++;
         }
@@ -203,7 +203,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
     prover_instance->commitments.lookup_inverses = computed_commitments[0];
     if constexpr (IsMegaFlavor<Flavor>) {
         size_t commitment_idx = 1;
-        for (auto commitment : prover_instance->commitments.get_databus_inverses()) {
+        for (auto& commitment : prover_instance->commitments.get_databus_inverses()) {
             commitment = computed_commitments[commitment_idx];
             commitment_idx++;
         };
