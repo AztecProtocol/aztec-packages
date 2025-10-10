@@ -7,7 +7,7 @@ description: Pay transaction fees on Aztec using different payment methods and f
 
 import { Fees } from '@site/src/components/Snippets/general_snippets';
 
-This guide shows you how to pay transaction fees on Aztec using various payment methods.
+This guide walks you through paying transaction fees on Aztec using various payment methods.
 
 ## Prerequisites
 
@@ -21,7 +21,9 @@ This guide shows you how to pay transaction fees on Aztec using various payment 
 
 ## Pay with Fee Juice
 
-Fee Juice is the native fee token on Aztec. Fees are paid using this token:
+Fee Juice is the native fee token on Aztec.
+
+If your account already has Fee Juice (for example, from a faucet), is [already deployed](./how_to_create_account.md), and is registered in your wallet, you can pay for a function call using the `FeeJuicePaymentMethod`:
 
 ```typescript
 import { FeeJuicePaymentMethod } from '@aztec/aztec.js';
@@ -44,11 +46,11 @@ console.log('Transaction fee:', tx.transactionFee);
 
 ### Sponsored Fee Payment Contracts
 
-Fee Payment Contracts (FPC) are contracts that pay on your behalf, usually accepting a different token than fee-juice. Since fee-juice is non-transferrable on Aztec, this will likely be the most used way to pay for fees.
+Fee Payment Contracts (FPC) pay fees on your behalf, typically accepting a different token than Fee Juice. Since Fee Juice is non-transferrable on L2, FPCs are the most common fee payment method.
 
-The Sponsored FPC is just an FPC that pays for your fees, except... it doesn't want anything in return. It unconditionally pays for your fees.
+The Sponsored FPC pays for fees unconditionally without requiring payment in return.
 
-You can derive the Sponsored FPC address just by knowing its deployment parameters and salt (which defaults to `0`):
+You can derive the Sponsored FPC address from its deployment parameters and salt (which defaults to `0`):
 
 ```typescript
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
@@ -57,30 +59,33 @@ import { getContractInstanceFromInstantiationParams, SponsoredFeePaymentMethod }
 const sponsoredFPCInstance = await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
   salt: new Fr(0),
 });
+```
 
-// you need to tell your PXE about this new contract
-await pxe.registerContract({ instance: sponsoredFPCInstance, artifact: SponsoredFPCContract.artifact });
+Register the contract with your Wallet before deploying and using it:
+
+```typescript
+await wallet.registerContract(sponsoredFPCInstance, SponsoredFPCContract.artifact);
 const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPCInstance.address);
 
-// Deploy account for free
-await yourAccount.deploy({
-    fee: { sponsoredPaymentMethod }
-}).wait();
+// deploy account for free
+const deployMethod = await yourAccount.getDeployMethod();
+const txHash = await deployMethod.send({
+    from: AztecAddress.ZERO,
+    fee: { paymentMethod: sponsoredPaymentMethod}
+}).wait()
 
 ```
 
-## Use Other Fee Paying Contracts (FPCs)
+## Use other Fee Paying Contracts
 
-On a different scenario, a third-party would be glad to pay for your fees using their own logic like accepting a different token instead of Fee Juice.
+Third-party FPCs can pay for your fees using custom logic, such as accepting different tokens instead of Fee Juice.
 
 ### Private fee payments
 
-Pay fees privately using a private FPC:
+Private FPCs enable fee payments without revealing the payer's identity onchain:
 
 ```typescript
 import { PrivateFeePaymentMethod } from '@aztec/aztec.js';
-
-// Private FPCs enable fee payments without revealing the payer's identity onchain.
 const paymentMethod = new PrivateFeePaymentMethod(
     fpcAddress,
     senderAddress,
@@ -98,7 +103,7 @@ const tx = await contract.methods
     .wait();
 ```
 
-A Public FPC payment method would look something like:
+Use a public FPC payment method:
 
 ```typescript
 
@@ -116,7 +121,7 @@ const paymentMethod = new PublicFeePaymentMethod(
 
 ### Set custom gas limits
 
-You can set custom gas limits easily by importing from the `stdlib`:
+Set custom gas limits by importing from `stdlib`:
 
 ```typescript
 import { GasSettings, Gas, GasFees } from '@aztec/stdlib/gas';
