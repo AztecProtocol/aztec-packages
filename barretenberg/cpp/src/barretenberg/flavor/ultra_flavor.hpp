@@ -182,8 +182,6 @@ class UltraFlavor {
                               lagrange_first,       // column 26
                               lagrange_last)        // column 27
 
-        static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
-
         auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; }
         auto get_gate_selectors()
         {

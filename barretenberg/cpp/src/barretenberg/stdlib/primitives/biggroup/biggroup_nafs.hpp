@@ -109,7 +109,7 @@ Fr element<C, Fq, Fr, G>::reconstruct_bigfield_from_wnaf(Builder* builder,
     // TODO: improve efficiency by creating a constructor that does NOT require us to range constrain
     //       limbs (we already know (sum < 2^{130}))
     // Convert this value to bigfield element
-    Fr reconstructed = Fr(sum, field_t<C>::from_witness_index(builder, builder->zero_idx), false);
+    Fr reconstructed = Fr(sum, field_t<C>::from_witness_index(builder, builder->zero_idx()), false);
     // Double the final value and add the skew
     reconstructed = (reconstructed + reconstructed).add_to_lower_limb(positive_skew, uint256_t(1));
     return reconstructed;
