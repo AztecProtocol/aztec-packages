@@ -16,6 +16,6 @@ export async function ensureKzgInitialized(): Promise<void> {
   const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
   const { g1Lagrange, g1Monomial, g2Monomial } = loadTrustedSetup();
 
-  api.kzgLoadTrustedSetup(g1Lagrange, g1Monomial, g2Monomial);
+  api.bbApi.kzgLoadTrustedSetup({ g1Lagrange, g1Monomial, g2Monomial });
   kzgInitialized = true;
 }

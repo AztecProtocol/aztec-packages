@@ -1,4 +1,4 @@
-import { BarretenbergSync, Buffer32, Buffer48, RawBuffer } from '@aztec/bb.js';
+import { BarretenbergSync, Buffer32, Buffer48 } from '@aztec/bb.js';
 import { poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -75,8 +75,9 @@ export class Blob {
     // This matches the output of SpongeBlob.squeeze() in the blob circuit
     const fieldsHash = multiBlobFieldsHash ? multiBlobFieldsHash : await poseidon2Hash(fields);
     await ensureKzgInitialized();
-    const api = BarretenbergSync.getSingleton();
-    const commitment = Buffer.from(api.kzgBlobToKzgCommitment(new RawBuffer(data)).buffer);
+    const api = BarretenbergSync.getSingleton().bbApi;
+    const res = api.kzgBlobToCommitment({ blobData: data });
+    const commitment = Buffer.from(res.commitment);
     const challengeZ = await poseidon2Hash([fieldsHash, ...commitmentToFields(commitment)]);
 
     return new Blob(data, fieldsHash, challengeZ, commitment);
@@ -212,13 +213,19 @@ export class Blob {
    */
   evaluate(challengeZ?: Fr): { y: Buffer32; proof: Buffer48 } {
     const z = challengeZ || this.challengeZ;
-    const api = BarretenbergSync.getSingleton();
-    const res = api.kzgComputeKzgProof(new RawBuffer(this.data), new RawBuffer(z.toBuffer()));
-    if (!api.kzgVerifyKzgProof(new RawBuffer(this.commitment), new RawBuffer(z.toBuffer()), res[1], res[0])) {
+    const api = BarretenbergSync.getSingleton().bbApi;
+    const res = api.kzgComputeProof({ blobData: this.data, z: z.toBuffer() });
+    const verifyRes = api.kzgVerifyProof({
+      commitment: this.commitment,
+      z: z.toBuffer(),
+      y: res.y,
+      proof: res.proof,
+    });
+    if (!verifyRes.valid) {
       throw new Error(`KZG proof did not verify.`);
     }
-    const proof = res[0];
-    const y = res[1];
+    const proof = new Buffer48(res.proof);
+    const y = new Buffer32(res.y);
     return { y, proof };
   }
 

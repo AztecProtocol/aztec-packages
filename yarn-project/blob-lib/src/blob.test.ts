@@ -1,4 +1,4 @@
-import { BarretenbergSync, RawBuffer } from '@aztec/bb.js';
+import { BarretenbergSync } from '@aztec/bb.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -20,7 +20,7 @@ describe('blob', () => {
 
   it('bb.js KZG should verify a batch of blobs', () => {
     // This test is taken from the blob-lib repo
-    const api = BarretenbergSync.getSingleton();
+    const api = BarretenbergSync.getSingleton().bbApi;
     const BATCH_SIZE = 3;
     const blobs: BlobBuffer[] = [];
     const commitments: Bytes48[] = [];
@@ -30,27 +30,27 @@ describe('blob', () => {
       blobs.push(Buffer.alloc(BYTES_PER_BLOB));
       (blobs[i] as Buffer).write('potato', 0, 'utf8');
       (blobs[i] as Buffer).write('potato', BYTES_PER_BLOB - 50, 'utf8');
-      const commitment = api.kzgBlobToKzgCommitment(new RawBuffer(blobs[i]));
-      commitments.push(commitment.buffer);
-      const proof = api.kzgComputeBlobKzgProof(new RawBuffer(blobs[i]), new RawBuffer(commitment.buffer));
-      kzgProofs.push(proof.buffer);
+      const commitmentRes = api.kzgBlobToCommitment({ blobData: blobs[i] });
+      commitments.push(commitmentRes.commitment);
+      const proofRes = api.kzgComputeBlobProof({ blobData: blobs[i], commitment: commitmentRes.commitment });
+      kzgProofs.push(proofRes.proof);
     }
     const blobsFlat = Buffer.concat(blobs);
     const commitmentsFlat = Buffer.concat(commitments);
     const proofsFlat = Buffer.concat(kzgProofs);
-    const isValid = api.kzgVerifyBlobKzgProofBatch(
-      new RawBuffer(blobsFlat),
-      new RawBuffer(commitmentsFlat),
-      new RawBuffer(proofsFlat),
-      BATCH_SIZE,
-    );
+    const verifyRes = api.kzgVerifyBlobProofBatch({
+      blobs: blobsFlat,
+      commitments: commitmentsFlat,
+      proofs: proofsFlat,
+      count: BATCH_SIZE,
+    });
 
-    expect(isValid).toBe(true);
+    expect(verifyRes.valid).toBe(true);
   });
 
   it('should verify a kzg precise proof', () => {
     // This test is taken from the blob-lib repo
-    const api = BarretenbergSync.getSingleton();
+    const api = BarretenbergSync.getSingleton().bbApi;
     const zBytes = Buffer.alloc(32);
 
     // blobs[0][31] = x, and z = 0x01 results in y = x.
@@ -64,23 +64,23 @@ describe('blob', () => {
     (blob as Buffer).write('09', 31, 'hex');
     (blob as Buffer).write('07', 31 + 32, 'hex');
 
-    const proofResult = api.kzgComputeKzgProof(new RawBuffer(blob), new RawBuffer(zBytes));
-    const commitment = api.kzgBlobToKzgCommitment(new RawBuffer(blob));
+    const proofResult = api.kzgComputeProof({ blobData: blob, z: zBytes });
+    const commitmentRes = api.kzgBlobToCommitment({ blobData: blob });
 
-    const isValid = api.kzgVerifyKzgProof(
-      new RawBuffer(commitment.buffer),
-      new RawBuffer(zBytes),
-      proofResult[1],
-      proofResult[0],
-    );
+    const verifyRes = api.kzgVerifyProof({
+      commitment: commitmentRes.commitment,
+      z: zBytes,
+      y: proofResult.y,
+      proof: proofResult.proof,
+    });
 
-    expect(isValid).toBe(true);
+    expect(verifyRes.valid).toBe(true);
   });
 
   it('should evaluate a blob of 400 items', async () => {
     // This test ensures that the Blob class correctly matches the c-kzg lib in bb.js
     // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr -> test_400
-    const api = BarretenbergSync.getSingleton();
+    const api = BarretenbergSync.getSingleton().bbApi;
     const blobItems = Array(400).fill(new Fr(3));
     const ourBlob = await Blob.fromFields(blobItems);
     const blobItemsHash = await poseidon2Hash(Array(400).fill(new Fr(3)));
@@ -89,29 +89,30 @@ describe('blob', () => {
     // We add zeros before getting commitment as we do not store the blob along with
     // all of the zeros
     const dataWithZeros = Buffer.concat([ourBlob.data], BYTES_PER_BLOB);
-    expect(Buffer.from(api.kzgBlobToKzgCommitment(new RawBuffer(dataWithZeros)).buffer)).toEqual(ourBlob.commitment);
+    const commitmentRes = api.kzgBlobToCommitment({ blobData: dataWithZeros });
+    expect(Buffer.from(commitmentRes.commitment)).toEqual(ourBlob.commitment);
 
     const z = await poseidon2Hash([blobItemsHash, ...ourBlob.commitmentToFields()]);
     expect(z).toEqual(ourBlob.challengeZ);
 
-    const res = api.kzgComputeKzgProof(new RawBuffer(dataWithZeros), new RawBuffer(ourBlob.challengeZ.toBuffer()));
+    const res = api.kzgComputeProof({ blobData: dataWithZeros, z: ourBlob.challengeZ.toBuffer() });
     const { y, proof } = ourBlob.evaluate();
-    expect(Buffer.from(res[0].buffer)).toEqual(proof.buffer);
-    expect(Buffer.from(res[1].buffer)).toEqual(y.buffer);
+    expect(Buffer.from(res.proof)).toEqual(proof.buffer);
+    expect(Buffer.from(res.y)).toEqual(y.buffer);
 
-    const isValid = api.kzgVerifyKzgProof(
-      new RawBuffer(ourBlob.commitment),
-      new RawBuffer(ourBlob.challengeZ.toBuffer()),
-      y,
-      proof,
-    );
-    expect(isValid).toBe(true);
+    const verifyRes = api.kzgVerifyProof({
+      commitment: ourBlob.commitment,
+      z: ourBlob.challengeZ.toBuffer(),
+      y: y.buffer,
+      proof: proof.buffer,
+    });
+    expect(verifyRes.valid).toBe(true);
   });
 
   it('should evaluate full blob', async () => {
     // This test ensures that the Blob class correctly matches the bb.js KZG implementation
     // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr -> test_full_blob
-    const api = BarretenbergSync.getSingleton();
+    const api = BarretenbergSync.getSingleton().bbApi;
     const blobItems = [];
     for (let i = 0; i < FIELD_ELEMENTS_PER_BLOB; i++) {
       blobItems[i] = new Fr(i + 2);
@@ -122,23 +123,24 @@ describe('blob', () => {
     const ourBlob = blobs[0];
     expect(blobItemsHash).toEqual(ourBlob.fieldsHash);
 
-    expect(Buffer.from(api.kzgBlobToKzgCommitment(new RawBuffer(ourBlob.data)).buffer)).toEqual(ourBlob.commitment);
+    const commitmentRes = api.kzgBlobToCommitment({ blobData: ourBlob.data });
+    expect(Buffer.from(commitmentRes.commitment)).toEqual(ourBlob.commitment);
 
     const z = await poseidon2Hash([blobItemsHash, ...ourBlob.commitmentToFields()]);
     expect(z).toEqual(ourBlob.challengeZ);
 
-    const res = api.kzgComputeKzgProof(new RawBuffer(ourBlob.data), new RawBuffer(ourBlob.challengeZ.toBuffer()));
+    const res = api.kzgComputeProof({ blobData: ourBlob.data, z: ourBlob.challengeZ.toBuffer() });
     const { y, proof } = ourBlob.evaluate();
-    expect(Buffer.from(res[0].buffer)).toEqual(proof.buffer);
-    expect(Buffer.from(res[1].buffer)).toEqual(y.buffer);
+    expect(Buffer.from(res.proof)).toEqual(proof.buffer);
+    expect(Buffer.from(res.y)).toEqual(y.buffer);
 
-    const isValid = api.kzgVerifyKzgProof(
-      new RawBuffer(ourBlob.commitment),
-      new RawBuffer(ourBlob.challengeZ.toBuffer()),
-      y,
-      proof,
-    );
-    expect(isValid).toBe(true);
+    const verifyRes = api.kzgVerifyProof({
+      commitment: ourBlob.commitment,
+      z: ourBlob.challengeZ.toBuffer(),
+      y: y.buffer,
+      proof: proof.buffer,
+    });
+    expect(verifyRes.valid).toBe(true);
   });
 
   it('should serialise and deserialise a blob', async () => {

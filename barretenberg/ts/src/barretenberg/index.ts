@@ -8,7 +8,21 @@ import { RawBuffer } from '../types/raw_buffer.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import { createDebugLogger } from '../log/index.js';
 import { AsyncApi } from '../cbind/generated/async.js';
-import { BbApiBase, CircuitComputeVk, CircuitProve, CircuitVerify, ClientIvcAccumulate, ClientIvcComputeIvcVk, ClientIvcStats, ClientIvcLoad, ClientIvcProve, ClientIvcStart, ClientIvcVerify, VkAsFields } from '../cbind/generated/api_types.js';
+import {
+  BbApiBase,
+  CircuitComputeVk,
+  CircuitProve,
+  CircuitVerify,
+  ClientIvcAccumulate,
+  ClientIvcComputeIvcVk,
+  ClientIvcStats,
+  ClientIvcLoad,
+  ClientIvcProve,
+  ClientIvcStart,
+  ClientIvcVerify,
+  VkAsFields,
+} from '../cbind/generated/api_types.js';
+import { SyncApi } from '../cbind/generated/sync.js';
 
 export { UltraHonkBackend, UltraHonkVerifierBackend, AztecClientBackend } from './backend.js';
 
@@ -164,15 +178,17 @@ export class Barretenberg extends BarretenbergApi {
   async vkAsFields(command: VkAsFields) {
     return this.bbApi.vkAsFields(command);
   }
-
 }
 
 let barretenbergSyncSingletonPromise: Promise<BarretenbergSync>;
 let barretenbergSyncSingleton: BarretenbergSync;
 
 export class BarretenbergSync extends BarretenbergApiSync {
+  bbApi: SyncApi;
+
   private constructor(wasm: BarretenbergWasmMain) {
     super(wasm);
+    this.bbApi = new SyncApi(wasm);
   }
 
   private static async new(wasmPath?: string, logger: (msg: string) => void = createDebugLogger('bb_wasm_sync')) {

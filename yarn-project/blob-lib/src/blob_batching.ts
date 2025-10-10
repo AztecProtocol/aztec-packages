@@ -74,9 +74,9 @@ export class BatchedBlob {
     }
     // Now we have a shared challenge for all blobs, evaluate them...
     await ensureKzgInitialized();
-    const api = BarretenbergSync.getSingleton();
-    const proofObjects = blobs.map(b => api.kzgComputeKzgProof(new RawBuffer(b.data), new RawBuffer(z.toBuffer())));
-    const evaluations = proofObjects.map(([_, evaluation]) => BLS12Fr.fromBuffer(Buffer.from(evaluation.buffer)));
+    const api = BarretenbergSync.getSingleton().bbApi;
+    const proofObjects = blobs.map(b => api.kzgComputeProof({ blobData: b.data, z: z.toBuffer() }));
+    const evaluations = proofObjects.map(res => BLS12Fr.fromBuffer(Buffer.from(res.y)));
     // ...and find the challenge for the linear combination of blobs.
     let gamma = await hashNoirBigNumLimbs(evaluations[0]);
     // We start at i = 1, because gamma is initialized as the first blob's evaluation.
@@ -208,19 +208,20 @@ export class BatchedBlobAccumulator {
     blob: Blob,
     finalBlobChallenges: FinalBlobBatchingChallenges,
   ): Promise<BatchedBlobAccumulator> {
-    const api = BarretenbergSync.getSingleton();
-    const [q, evaluation] = api.kzgComputeKzgProof(
-      new RawBuffer(blob.data),
-      new RawBuffer(finalBlobChallenges.z.toBuffer()),
-    );
-    const firstY = BLS12Fr.fromBuffer(Buffer.from(evaluation.buffer));
+    const api = BarretenbergSync.getSingleton().bbApi;
+    const res = api.kzgComputeProof({
+      blobData: blob.data,
+      z: finalBlobChallenges.z.toBuffer(),
+    });
+    const firstY = BLS12Fr.fromBuffer(Buffer.from(res.y));
+    const q = Buffer.from(res.proof);
     // Here, i = 0, so:
     return new BatchedBlobAccumulator(
       sha256ToField([blob.commitment]), // blobCommitmentsHashAcc = sha256(C_0)
       blob.challengeZ, // zAcc = z_0
       firstY, // yAcc = gamma^0 * y_0 = 1 * y_0
       BLS12Point.decompress(blob.commitment), // cAcc = gamma^0 * C_0 = 1 * C_0
-      BLS12Point.decompress(Buffer.from(q.buffer)), // qAcc = gamma^0 * Q_0 = 1 * Q_0
+      BLS12Point.decompress(q), // qAcc = gamma^0 * Q_0 = 1 * Q_0
       await hashNoirBigNumLimbs(firstY), // gammaAcc = poseidon2(y_0.limbs)
       finalBlobChallenges.gamma, // gammaPow = gamma^(i + 1) = gamma^1 = gamma
       finalBlobChallenges,
@@ -253,12 +254,13 @@ export class BatchedBlobAccumulator {
     if (this.isEmptyState()) {
       return BatchedBlobAccumulator.initialize(blob, this.finalBlobChallenges);
     } else {
-      const api = BarretenbergSync.getSingleton();
-      const [q, evaluation] = api.kzgComputeKzgProof(
-        new RawBuffer(blob.data),
-        new RawBuffer(this.finalBlobChallenges.z.toBuffer()),
-      );
-      const thisY = BLS12Fr.fromBuffer(Buffer.from(evaluation.buffer));
+      const api = BarretenbergSync.getSingleton().bbApi;
+      const res = api.kzgComputeProof({
+        blobData: blob.data,
+        z: this.finalBlobChallenges.z.toBuffer(),
+      });
+      const thisY = BLS12Fr.fromBuffer(Buffer.from(res.y));
+      const q = Buffer.from(res.proof);
 
       // Moving from i - 1 to i, so:
       return new BatchedBlobAccumulator(
@@ -266,7 +268,7 @@ export class BatchedBlobAccumulator {
         await poseidon2Hash([this.zAcc, blob.challengeZ]), // zAcc := poseidon2(zAcc, z_i)
         this.yAcc.add(thisY.mul(this.gammaPow)), // yAcc := yAcc + (gamma^i * y_i)
         this.cAcc.add(BLS12Point.decompress(blob.commitment).mul(this.gammaPow)), // cAcc := cAcc + (gamma^i * C_i)
-        this.qAcc.add(BLS12Point.decompress(Buffer.from(q.buffer)).mul(this.gammaPow)), // qAcc := qAcc + (gamma^i * C_i)
+        this.qAcc.add(BLS12Point.decompress(q).mul(this.gammaPow)), // qAcc := qAcc + (gamma^i * C_i)
         await poseidon2Hash([this.gammaAcc, await hashNoirBigNumLimbs(thisY)]), // gammaAcc := poseidon2(gammaAcc, poseidon2(y_i.limbs))
         this.gammaPow.mul(this.finalBlobChallenges.gamma), // gammaPow = gamma^(i + 1) = gamma^i * final_gamma
         this.finalBlobChallenges,
@@ -315,15 +317,14 @@ export class BatchedBlobAccumulator {
         `Blob batching mismatch: accumulated gamma ${calculatedGamma} does not equal injected gamma ${this.finalBlobChallenges.gamma.toBN254Fr()}`,
       );
     }
-    const api = BarretenbergSync.getSingleton();
-    if (
-      !api.kzgVerifyKzgProof(
-        new RawBuffer(this.cAcc.compress()),
-        new RawBuffer(this.zAcc.toBuffer()),
-        new Buffer32(this.yAcc.toBuffer()),
-        new Buffer48(this.qAcc.compress()),
-      )
-    ) {
+    const api = BarretenbergSync.getSingleton().bbApi;
+    const verifyRes = api.kzgVerifyProof({
+      commitment: this.cAcc.compress(),
+      z: this.zAcc.toBuffer(),
+      y: this.yAcc.toBuffer(),
+      proof: this.qAcc.compress(),
+    });
+    if (!verifyRes.valid) {
       throw new Error(`KZG proof did not verify.`);
     }
 
