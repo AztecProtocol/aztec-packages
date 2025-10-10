@@ -99,7 +99,7 @@ As a sequencer, you initiate proposals through signaling. When you propose a blo
 
 - Only you can signal during slots when you're the block proposer
 - Your sequencer node automatically calls `signal` on the `GovernanceProposer` contract when proposing a block (if you've configured a payload address)
-- Rounds consist of 1000 slots each. At every 1000-block boundary, the system checks if any payload has received 750 or more signals (the quorum threshold, which is 75% of the round size)
+- Rounds consist of 300 slots each (180 minutes at 36 seconds per slot). At every 300-block boundary, the system checks if any payload has received 151 or more signals (the quorum threshold, which is >50% of the round size)
 - Payloads that reach quorum can be submitted as official proposals by anyone
 
 :::note
@@ -150,7 +150,7 @@ Once configured, your sequencer automatically signals support for this payload e
 
 ## Creating a Proposal
 
-Once a payload receives the required quorum (750 signals in a 1000-slot round), you or any user can call `submitRoundWinner` on the `GovernanceProposer` contract to officially create the proposal.
+Once a payload receives the required quorum (151 signals in a 300-slot round), you or any user can call `submitRoundWinner` on the `GovernanceProposer` contract to officially create the proposal.
 
 ### Submit the Payload
 
