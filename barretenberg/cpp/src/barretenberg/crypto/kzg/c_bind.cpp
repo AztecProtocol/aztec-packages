@@ -6,6 +6,7 @@
 
 #include "c_bind.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/streams.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "c-kzg/ckzg.h"
 #include "c-kzg/eip4844/blob.h"
@@ -154,16 +155,13 @@ WASM_EXPORT void kzg_verify_blob_kzg_proof(const uint8_t* blob_data,
     const Bytes48* commitment = reinterpret_cast<const Bytes48*>(commitment_bytes);
     const Bytes48* proof = reinterpret_cast<const Bytes48*>(proof_bytes);
 
-    C_KZG_RET ret = verify_blob_kzg_proof(result_out, blob, commitment, proof, &g_kzg_settings);
-    if (ret != C_KZG_OK) {
-        throw_or_abort("verify_blob_kzg_proof failed");
-    }
+    verify_blob_kzg_proof(result_out, blob, commitment, proof, &g_kzg_settings);
 }
 
 WASM_EXPORT void kzg_verify_blob_kzg_proof_batch(const uint8_t* blobs_data,
                                                  const uint8_t* commitments_bytes,
                                                  const uint8_t* proofs_bytes,
-                                                 size_t count,
+                                                 const uint32_t* count_in,
                                                  bool* result_out)
 {
     if (!g_kzg_initialized) {
@@ -173,11 +171,9 @@ WASM_EXPORT void kzg_verify_blob_kzg_proof_batch(const uint8_t* blobs_data,
     const Blob* blobs = reinterpret_cast<const Blob*>(blobs_data);
     const Bytes48* commitments = reinterpret_cast<const Bytes48*>(commitments_bytes);
     const Bytes48* proofs = reinterpret_cast<const Bytes48*>(proofs_bytes);
+    const uint32_t count = ntohl(*count_in);
 
-    C_KZG_RET ret = verify_blob_kzg_proof_batch(result_out, blobs, commitments, proofs, count, &g_kzg_settings);
-    if (ret != C_KZG_OK) {
-        throw_or_abort("verify_blob_kzg_proof_batch failed");
-    }
+    verify_blob_kzg_proof_batch(result_out, blobs, commitments, proofs, count, &g_kzg_settings);
 }
 
 } // extern "C"

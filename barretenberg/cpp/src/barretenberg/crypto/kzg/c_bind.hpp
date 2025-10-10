@@ -76,11 +76,8 @@ WASM_EXPORT void kzg_compute_blob_kzg_proof(const uint8_t* blob_data,
  * @param proof_bytes KZG proof (48 bytes)
  * @param result_out Output result (1 = valid, 0 = invalid)
  */
-WASM_EXPORT void kzg_verify_kzg_proof(const uint8_t* commitment_bytes,
-                                      const uint8_t* z_bytes,
-                                      const uint8_t* y_bytes,
-                                      const uint8_t* proof_bytes,
-                                      bool* result_out);
+WASM_EXPORT void kzg_verify_kzg_proof(
+    const uint8_t* commitment_bytes, const uint8_t* z_bytes, in_buf32 y_bytes, in_buf48 proof_bytes, bool* result_out);
 
 /**
  * Verify blob KZG proof (for EIP-4844).
@@ -107,7 +104,7 @@ WASM_EXPORT void kzg_verify_blob_kzg_proof(const uint8_t* blob_data,
 WASM_EXPORT void kzg_verify_blob_kzg_proof_batch(const uint8_t* blobs_data,
                                                  const uint8_t* commitments_bytes,
                                                  const uint8_t* proofs_bytes,
-                                                 uint32_t* count,
+                                                 const uint32_t* count,
                                                  bool* result_out);
 
 // Constants

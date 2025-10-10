@@ -1,4 +1,5 @@
 import { RawBuffer } from '../types/raw_buffer.js';
+import { Buffer32, Buffer48, Buffer64, Buffer128 } from '../types/fixed_size_buffer.js';
 
 // For serializing bool.
 export function boolToBuffer(b: boolean) {
@@ -141,6 +142,8 @@ export function serializeBufferable(obj: Bufferable): Uint8Array {
     return serializeBufferArrayToVector(obj.map(serializeBufferable));
   } else if (obj instanceof RawBuffer) {
     return obj;
+  } else if (obj instanceof Buffer32 || obj instanceof Buffer48 || obj instanceof Buffer64 || obj instanceof Buffer128) {
+    return obj.buffer;
   } else if (obj instanceof Uint8Array) {
     return serializeBufferToVector(obj);
   } else if (typeof obj === 'boolean') {

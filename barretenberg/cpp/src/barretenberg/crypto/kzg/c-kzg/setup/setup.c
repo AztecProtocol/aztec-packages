@@ -26,6 +26,8 @@
 #include <stdlib.h>   /* For NULL */
 #include <string.h>   /* For memcpy */
 
+void logstr(char const*);
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Macros
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -444,6 +446,7 @@ C_KZG_RET load_trusted_setup(
     if (ret != C_KZG_OK) goto out_error;
 
     /* Convert all g1 monomial bytes to g1 points */
+    logstr("Loading KZG trusted setup G1 monomial\n");
     for (size_t i = 0; i < NUM_G1_POINTS; i++) {
         blst_p1_affine g1_affine;
         BLST_ERROR err = blst_p1_uncompress(&g1_affine, &g1_monomial_bytes[BYTES_PER_G1 * i]);
@@ -455,6 +458,7 @@ C_KZG_RET load_trusted_setup(
     }
 
     /* Convert all g1 Lagrange bytes to g1 points */
+    logstr("Loading KZG trusted setup in Lagrange form\n");
     for (size_t i = 0; i < NUM_G1_POINTS; i++) {
         blst_p1_affine g1_affine;
         BLST_ERROR err = blst_p1_uncompress(&g1_affine, &g1_lagrange_bytes[BYTES_PER_G1 * i]);
@@ -466,6 +470,7 @@ C_KZG_RET load_trusted_setup(
     }
 
     /* Convert all g2 bytes to g2 points */
+    logstr("Loading KZG trusted setup in G2\n");
     for (size_t i = 0; i < NUM_G2_POINTS; i++) {
         blst_p2_affine g2_affine;
         BLST_ERROR err = blst_p2_uncompress(&g2_affine, &g2_monomial_bytes[BYTES_PER_G2 * i]);
@@ -475,23 +480,28 @@ C_KZG_RET load_trusted_setup(
         }
         blst_p2_from_affine(&out->g2_values_monomial[i], &g2_affine);
     }
+    logstr("doing stuff\n");
 
     /* Make sure the trusted setup was loaded in Lagrange form */
     ret = is_trusted_setup_in_lagrange_form(out, NUM_G1_POINTS, NUM_G2_POINTS);
     if (ret != C_KZG_OK) goto out_error;
+    logstr("doing stuff 1\n");
 
     /* Compute roots of unity and permute the G1 trusted setup */
     ret = compute_roots_of_unity(out);
     if (ret != C_KZG_OK) goto out_error;
+    logstr("doing stuff 2\n");
 
     /* Bit reverse the Lagrange form points */
     ret = bit_reversal_permutation(out->g1_values_lagrange_brp, sizeof(g1_t), NUM_G1_POINTS);
     if (ret != C_KZG_OK) goto out_error;
+    logstr("doing stuff 3\n");
 
     /* Setup for FK20 proof computation */
     ret = init_fk20_multi_settings(out);
     if (ret != C_KZG_OK) goto out_error;
 
+    logstr("stuff done\n");
     goto out_success;
 
 out_error:

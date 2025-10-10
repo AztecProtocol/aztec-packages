@@ -329,11 +329,11 @@
       },
       {
         "name": "y_bytes",
-        "type": "const uint8_t *"
+        "type": "in_buf32"
       },
       {
         "name": "proof_bytes",
-        "type": "const uint8_t *"
+        "type": "in_buf48"
       }
     ],
     "outArgs": [
@@ -382,13 +382,13 @@
       {
         "name": "proofs_bytes",
         "type": "const uint8_t *"
+      },
+      {
+        "name": "count",
+        "type": "const uint32_t *"
       }
     ],
     "outArgs": [
-      {
-        "name": "count",
-        "type": "uint32_t *"
-      },
       {
         "name": "result_out",
         "type": "bool *"

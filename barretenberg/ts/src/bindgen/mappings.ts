@@ -18,6 +18,7 @@ const typeMap: { [key: string]: string } = {
   in_str_buf: 'string',
   out_str_buf: 'string',
   in_buf32: 'Buffer32',
+  in_buf48: 'Buffer48',
   out_buf32: 'Buffer32',
   out_buf48: 'Buffer48',
   'uint32_t *': 'number',

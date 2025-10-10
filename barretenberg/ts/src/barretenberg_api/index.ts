@@ -226,8 +226,8 @@ export class BarretenbergApi {
   async kzgVerifyKzgProof(
     commitmentBytes: Uint8Array,
     zBytes: Uint8Array,
-    yBytes: Uint8Array,
-    proofBytes: Uint8Array,
+    yBytes: Buffer32,
+    proofBytes: Buffer48,
   ): Promise<boolean> {
     const inArgs = [commitmentBytes, zBytes, yBytes, proofBytes].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
@@ -260,16 +260,17 @@ export class BarretenbergApi {
     blobsData: Uint8Array,
     commitmentsBytes: Uint8Array,
     proofsBytes: Uint8Array,
-  ): Promise<[number, boolean]> {
-    const inArgs = [blobsData, commitmentsBytes, proofsBytes].map(serializeBufferable);
-    const outTypes: OutputType[] = [NumberDeserializer(), BoolDeserializer()];
+    count: number,
+  ): Promise<boolean> {
+    const inArgs = [blobsData, commitmentsBytes, proofsBytes, count].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
     const result = await this.wasm.callWasmExport(
       'kzg_verify_blob_kzg_proof_batch',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
     const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out as any;
+    return out[0];
   }
 
   async srsInitSrs(pointsBuf: Uint8Array, numPoints: number, g2PointBuf: Uint8Array): Promise<void> {
@@ -943,12 +944,7 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  kzgVerifyKzgProof(
-    commitmentBytes: Uint8Array,
-    zBytes: Uint8Array,
-    yBytes: Uint8Array,
-    proofBytes: Uint8Array,
-  ): boolean {
+  kzgVerifyKzgProof(commitmentBytes: Uint8Array, zBytes: Uint8Array, yBytes: Buffer32, proofBytes: Buffer48): boolean {
     const inArgs = [commitmentBytes, zBytes, yBytes, proofBytes].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = this.wasm.callWasmExport(
@@ -976,16 +972,17 @@ export class BarretenbergApiSync {
     blobsData: Uint8Array,
     commitmentsBytes: Uint8Array,
     proofsBytes: Uint8Array,
-  ): [number, boolean] {
-    const inArgs = [blobsData, commitmentsBytes, proofsBytes].map(serializeBufferable);
-    const outTypes: OutputType[] = [NumberDeserializer(), BoolDeserializer()];
+    count: number,
+  ): boolean {
+    const inArgs = [blobsData, commitmentsBytes, proofsBytes, count].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
     const result = this.wasm.callWasmExport(
       'kzg_verify_blob_kzg_proof_batch',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
     const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out as any;
+    return out[0];
   }
 
   srsInitSrs(pointsBuf: Uint8Array, numPoints: number, g2PointBuf: Uint8Array): void {

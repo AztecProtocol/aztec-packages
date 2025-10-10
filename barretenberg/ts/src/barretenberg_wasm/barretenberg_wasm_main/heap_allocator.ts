@@ -5,13 +5,12 @@ import { type BarretenbergWasmMain } from './index.js';
  * The WASM memory layout has 1024 bytes of unused "scratch" space at the start (addresses 0-1023).
  * We can leverage this for IO rather than making expensive bb_malloc bb_free calls.
  * Heap allocations will be created for input/output args that don't fit into the scratch space.
- * Input and output args can use the same scratch space as it's assume all input reads will be performed before any
- * output writes are performed.
+ * Input scratch uses the lower half (0-511), output scratch uses the upper half (512-1023).
  */
 export class HeapAllocator {
   private allocs: number[] = [];
-  private inScratchRemaining = 1024;
-  private outScratchRemaining = 1024;
+  private inScratchRemaining = 512;
+  private outScratchRemaining = 512;
 
   constructor(private wasm: BarretenbergWasmMain) {}
 
@@ -41,7 +40,10 @@ export class HeapAllocator {
       const size = len || 4;
 
       if (size <= this.outScratchRemaining) {
-        return (this.outScratchRemaining -= size);
+        // Output scratch space: 512-1023 (grows down from 1024)
+        const ptr = 1024 - (512 - this.outScratchRemaining) - size;
+        this.outScratchRemaining -= size;
+        return ptr;
       } else {
         const ptr = this.wasm.call('bbmalloc', size);
         this.allocs.push(ptr);
@@ -51,6 +53,7 @@ export class HeapAllocator {
   }
 
   addOutputPtr(ptr: number) {
+    // Only add to dealloc list if it's a heap allocation (not in scratch space 0-1023)
     if (ptr >= 1024) {
       this.allocs.push(ptr);
     }

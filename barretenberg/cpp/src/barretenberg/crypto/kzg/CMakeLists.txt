@@ -6,34 +6,15 @@
 # 4. Need to disable strict warnings for third-party C code
 
 # List only the source files we need
-set(C_KZG_SOURCES
+set(SOURCES
     c-kzg/ckzg.c
-    c-kzg/common/alloc.c
-    c-kzg/common/bytes.c
-    c-kzg/common/ec.c
-    c-kzg/common/fr.c
-    c-kzg/common/lincomb.c
-    c-kzg/common/utils.c
-    c-kzg/eip4844/blob.c
-    c-kzg/eip4844/eip4844.c
-    c-kzg/setup/setup.c
-)
-
-# BLST: Use server.c which is a unity build (includes all necessary sources)
-set(BLST_SOURCES
     c-kzg/blst/src/server.c
-)
-
-# C++ binding
-set(CPP_SOURCES
     c_bind.cpp
 )
 
 # Create object library
 add_library(crypto_kzg_objects OBJECT
-    ${C_KZG_SOURCES}
-    ${BLST_SOURCES}
-    ${CPP_SOURCES}
+    ${SOURCES}
 )
 
 # Include directories - c-kzg files use relative includes from c-kzg/
