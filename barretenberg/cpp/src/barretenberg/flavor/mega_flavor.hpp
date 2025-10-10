@@ -357,12 +357,6 @@ class MegaFlavor {
         using Base::Base;
     };
 
-    class AllCommitments : public AllEntities<Commitment> {
-      public:
-        using Base = AllEntities<Commitment>;
-        using Base::Base;
-    };
-
     /**
      * @brief A container for the prover polynomials handles.
      */
@@ -610,11 +604,11 @@ class MegaFlavor {
                 }
 
                 // Set shifted commitments
-                this->w_l_shift = witness_commitments.value().w_l;
-                this->w_r_shift = witness_commitments.value().w_r;
-                this->w_o_shift = witness_commitments.value().w_o;
-                this->w_4_shift = witness_commitments.value().w_4;
-                this->z_perm_shift = witness_commitments.value().z_perm;
+                this->w_l_shift = witness_commitments->w_l;
+                this->w_r_shift = witness_commitments->w_r;
+                this->w_o_shift = witness_commitments->w_o;
+                this->w_4_shift = witness_commitments->w_4;
+                this->z_perm_shift = witness_commitments->z_perm;
             }
         }
     };
