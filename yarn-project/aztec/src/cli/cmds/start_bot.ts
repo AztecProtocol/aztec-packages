@@ -10,7 +10,7 @@ import {
   initTelemetryClient,
   makeTracedFetch,
 } from '@aztec/telemetry-client';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 import { extractRelevantOptions } from '../util.js';
 import { getVersions } from '../versioning.js';

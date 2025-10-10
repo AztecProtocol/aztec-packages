@@ -1,14 +1,12 @@
 use crate::abis::PaddedSideEffectAmounts;
 use dep::types::{
-    abis::{
-        accumulated_data::{
-            private_accumulated_data_builder::PrivateAccumulatedDataBuilder,
-            private_to_public_accumulated_data::PrivateToPublicAccumulatedData,
-            private_to_public_accumulated_data_builder::PrivateToPublicAccumulatedDataBuilder,
-        },
-        side_effect::{Ordered, OrderedValue},
+    abis::accumulated_data::{
+        private_accumulated_data_builder::PrivateAccumulatedDataBuilder,
+        private_to_public_accumulated_data::PrivateToPublicAccumulatedData,
+        private_to_public_accumulated_data_builder::PrivateToPublicAccumulatedDataBuilder,
     },
     constants::MAX_U32_VALUE,
+    side_effect::Ordered,
     traits::Empty,
 };
 
@@ -29,10 +27,10 @@ pub unconstrained fn split_to_public(
             let is_padding = note_hash.counter() == MAX_U32_VALUE;
             if (note_hash.counter() < min_revertible_side_effect_counter)
                 | (is_padding & (padded_non_revertible != 0)) {
-                non_revertible_builder.note_hashes.push(note_hash.value());
+                non_revertible_builder.note_hashes.push(note_hash.expose_to_public());
                 padded_non_revertible -= 1 * is_padding as u32;
             } else {
-                revertible_builder.note_hashes.push(note_hash.value());
+                revertible_builder.note_hashes.push(note_hash.expose_to_public());
                 assert(
                     !is_padding | (padded_revertible != 0),
                     "padded note hash amount is too small",
@@ -54,10 +52,10 @@ pub unconstrained fn split_to_public(
             let is_padding = nullifier.counter() == MAX_U32_VALUE;
             if (nullifier.counter() < min_revertible_side_effect_counter)
                 | (is_padding & (padded_non_revertible != 0)) {
-                non_revertible_builder.nullifiers.push(nullifier.value());
+                non_revertible_builder.nullifiers.push(nullifier.expose_to_public());
                 padded_non_revertible -= 1 * is_padding as u32;
             } else {
-                revertible_builder.nullifiers.push(nullifier.value());
+                revertible_builder.nullifiers.push(nullifier.expose_to_public());
                 assert(
                     !is_padding | (padded_revertible != 0),
                     "padded nullifier amount is too small",

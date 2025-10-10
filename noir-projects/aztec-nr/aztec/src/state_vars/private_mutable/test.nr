@@ -62,7 +62,10 @@ unconstrained fn initialize() {
         // During initialization we both create the new note and emit the initialization nullifier
         assert_eq(context.note_hashes.len(), 1);
         assert_eq(context.nullifiers.len(), 1);
-        assert_eq(context.nullifiers.get(0).value, state_var.compute_initialization_nullifier());
+        assert_eq(
+            context.nullifiers.get(0).inner.value,
+            state_var.compute_initialization_nullifier(),
+        );
 
         assert_eq(emission.note, note);
         assert_eq(emission.storage_slot, STORAGE_SLOT);
@@ -246,7 +249,10 @@ unconstrained fn initialize_or_replace_uninitialized() {
         // succeed if the initialization nullifier had not been already emitted.
         assert_eq(context.note_hashes.len(), 1);
         assert_eq(context.nullifiers.len(), 1);
-        assert_eq(context.nullifiers.get(0).value, state_var.compute_initialization_nullifier());
+        assert_eq(
+            context.nullifiers.get(0).inner.value,
+            state_var.compute_initialization_nullifier(),
+        );
     });
 }
 

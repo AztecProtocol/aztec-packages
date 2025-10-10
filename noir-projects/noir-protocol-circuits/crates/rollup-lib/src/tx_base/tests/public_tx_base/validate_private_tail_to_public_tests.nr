@@ -28,15 +28,6 @@ unconstrained fn mismatch_version() {
     builder.execute_and_fail();
 }
 
-#[test(should_fail_with = "Mismatched protocol_contract_tree_root between kernel and rollup")]
-unconstrained fn mismatch_protocol_contract_tree_root() {
-    let mut builder = TestBuilder::new();
-
-    builder.private_tail.constants.protocol_contract_tree_root += 1;
-
-    builder.execute_and_fail();
-}
-
 #[test(should_fail_with = "da gas is higher than the maximum specified by the tx")]
 unconstrained fn not_enough_fee_per_da_gas() {
     let mut builder = TestBuilder::new();

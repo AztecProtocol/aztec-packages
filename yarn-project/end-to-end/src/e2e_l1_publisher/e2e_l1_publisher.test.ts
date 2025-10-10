@@ -29,7 +29,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { ProtocolContractsList } from '@aztec/protocol-contracts';
 import { buildBlockWithCleanDB } from '@aztec/prover-client/block-factory';
 import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
 import {
@@ -290,7 +290,7 @@ describe('L1Publisher integration', () => {
       version: fr(version),
       vkTreeRoot: getVKTreeRoot(),
       gasSettings: GasSettings.default({ maxFeesPerGas: baseFee }),
-      protocolContractTreeRoot,
+      protocolContracts: ProtocolContractsList,
       seed,
     });
 

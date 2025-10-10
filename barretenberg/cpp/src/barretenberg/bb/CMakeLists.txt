@@ -22,7 +22,7 @@ if (NOT(FUZZING))
     if(NOT DISABLE_AZTEC_VM)
         add_dependencies(bb vm2)
     endif()
-    if(CHECK_CIRCUIT_STACKTRACES OR ENABLE_STACKTRACES)
+    if(ENABLE_STACKTRACES)
         target_link_libraries(
             bb
             PUBLIC

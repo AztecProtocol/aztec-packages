@@ -66,7 +66,7 @@ describe('Public Side Effect Trace', () => {
     trace.traceNewNullifier(utxo);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
-    const expected = [new Nullifier(utxo, startCounter, Fr.ZERO)];
+    const expected = [new Nullifier(utxo, Fr.ZERO, startCounter)];
     expect(trace.getSideEffects().nullifiers).toEqual(expected);
   });
 

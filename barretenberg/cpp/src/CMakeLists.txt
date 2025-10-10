@@ -257,7 +257,7 @@ if(WASM)
         DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
     )
 
-    if(CHECK_CIRCUIT_STACKTRACES OR ENABLE_STACKTRACES)
+    if(ENABLE_STACKTRACES)
         target_link_libraries(
             barretenberg.wasm
             PUBLIC

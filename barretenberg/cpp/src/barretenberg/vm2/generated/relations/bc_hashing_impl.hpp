@@ -91,7 +91,7 @@ void bc_hashingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                     (static_cast<View>(in.get(C::bc_hashing_pc_index_1)) + FF(31)));
         std::get<9>(evals) += (tmp * scaling_factor);
     }
-    { // ID_CONSISTENCY
+    { // ID_PROPAGATION
         using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
         auto tmp =
             (FF(1) - CView(bc_hashing_LATCH_CONDITION)) * (static_cast<View>(in.get(C::bc_hashing_bytecode_id_shift)) -
@@ -166,11 +166,11 @@ void bc_hashingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                  (static_cast<View>(in.get(C::bc_hashing_rounds_rem)) - FF(1)));
         std::get<20>(evals) += (tmp * scaling_factor);
     }
-    { // HASH_CONSISTENCY
+    { // HASH_IS_ID
         using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
         auto tmp =
-            (FF(1) - CView(bc_hashing_LATCH_CONDITION)) * (static_cast<View>(in.get(C::bc_hashing_output_hash_shift)) -
-                                                           static_cast<View>(in.get(C::bc_hashing_output_hash)));
+            static_cast<View>(in.get(C::bc_hashing_sel)) * (static_cast<View>(in.get(C::bc_hashing_bytecode_id)) -
+                                                            static_cast<View>(in.get(C::bc_hashing_output_hash)));
         std::get<21>(evals) += (tmp * scaling_factor);
     }
 }

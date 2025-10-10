@@ -85,7 +85,7 @@ class AcirIntegrationTest : public ::testing::Test {
             val_idx_1,
             val_idx_2,
             val_idx_3,
-            circuit.zero_idx,
+            circuit.zero_idx(),
             1,
             1,
             1,

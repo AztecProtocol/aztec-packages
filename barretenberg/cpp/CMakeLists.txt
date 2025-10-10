@@ -29,7 +29,6 @@ option(COVERAGE "Enable collecting coverage from tests" OFF)
 option(ENABLE_ASAN "Address sanitizer for debugging tricky memory corruption" OFF)
 option(ENABLE_HEAVY_TESTS "Enable heavy tests when collecting coverage" OFF)
 # Note: Must do 'sudo apt-get install libdw-dev' or equivalent
-option(CHECK_CIRCUIT_STACKTRACES "Enable (slow) stack traces for check circuit" OFF)
 option(ENABLE_STACKTRACES "Enable stack traces on assertion" OFF)
 option(ENABLE_TRACY "Enable low-medium overhead profiling for memory and performance with tracy" OFF)
 option(ENABLE_PIC "Builds with position independent code" OFF)
@@ -44,10 +43,8 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "a
     set(RUN_HAVE_POSIX_REGEX 0)
 endif()
 
-if(CHECK_CIRCUIT_STACKTRACES)
+if(ENABLE_STACKTRACES)
     add_compile_options(-DCHECK_CIRCUIT_STACKTRACES -DSTACKTRACES)
-elseif(ENABLE_STACKTRACES)
-    add_compile_options(-DSTACKTRACES)
 endif()
 
 if(ENABLE_TRACY OR ENABLE_TRACY_TIME_INSTRUMENTED)

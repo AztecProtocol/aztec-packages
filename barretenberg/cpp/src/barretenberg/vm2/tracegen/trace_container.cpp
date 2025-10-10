@@ -1,6 +1,9 @@
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
+#include <algorithm>
+
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 
@@ -71,7 +74,7 @@ uint32_t TraceContainer::get_column_rows(Column col) const
     if (column_data.row_number_dirty) {
         // Trigger recalculation of max row number.
         auto keys = std::views::keys(column_data.rows);
-        const auto it = std::max_element(keys.begin(), keys.end());
+        const auto it = std::ranges::max_element(keys);
         // We use -1 to indicate that the column is empty.
         column_data.max_row_number = it == keys.end() ? -1 : static_cast<int64_t>(*it);
         column_data.row_number_dirty = false;
@@ -102,6 +105,24 @@ void TraceContainer::visit_column(Column col, const std::function<void(uint32_t,
     for (const auto& [row, value] : column_data.rows) {
         visitor(row, value);
     }
+}
+
+void TraceContainer::invert_columns(std::span<const Column> cols)
+{
+    for (const auto& col : cols) {
+        invert_column(col);
+    }
+}
+
+void TraceContainer::invert_column(Column col)
+{
+    RefVector<FF> ff_vector;
+    auto& column_data = (*trace)[static_cast<size_t>(col)];
+    std::unique_lock lock(column_data.mutex);
+    for (auto& [row, value] : column_data.rows) {
+        ff_vector.push_back(value);
+    }
+    FF::batch_invert<RefVector<FF>>(ff_vector);
 }
 
 void TraceContainer::clear_column(Column col)

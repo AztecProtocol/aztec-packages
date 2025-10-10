@@ -204,6 +204,16 @@ export async function deleteResourceByLabel({
   timeout?: string;
   force?: boolean;
 }) {
+  // Check if the resource type exists before attempting to delete
+  try {
+    await execAsync(
+      `kubectl api-resources --api-group="" --no-headers -o name | grep -q "^${resource}$" || kubectl api-resources --no-headers -o name | grep -q "^${resource}$"`,
+    );
+  } catch (error) {
+    logger.warn(`Resource type '${resource}' not found in cluster, skipping deletion ${error}`);
+    return '';
+  }
+
   const command = `kubectl delete ${resource} -l ${label} -n ${namespace} --ignore-not-found=true --wait=true --timeout=${timeout} ${
     force ? '--force' : ''
   }`;

@@ -23,7 +23,7 @@ describe('versioning', () => {
       l1ChainId: 1,
       l1RollupAddress: EthAddress.random(),
       rollupVersion: 3,
-      l2ProtocolContractsTreeRoot: Fr.random().toString(),
+      l2ProtocolContractsHash: Fr.random().toString(),
       l2CircuitsVkTreeRoot: Fr.random().toString(),
     };
   });
@@ -62,7 +62,7 @@ describe('versioning', () => {
         l1ChainId: 1,
         l1RollupAddress: EthAddress.random(),
         rollupVersion: undefined,
-        l2ProtocolContractsTreeRoot: Fr.random().toString(),
+        l2ProtocolContractsHash: Fr.random().toString(),
         l2CircuitsVkTreeRoot: Fr.random().toString(),
       };
 

@@ -10,7 +10,7 @@ export hash=$(cache_content_hash .rebuild_patterns)
 
 if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
   # Enable AVM for release builds (when REF_NAME is a valid semver), disable for CI/PR builds
-  if ! semver check "${REF_NAME:-}"; then
+  if ! semver check "$REF_NAME"; then
     export DISABLE_AZTEC_VM=1
   fi
 fi
@@ -209,9 +209,12 @@ function build_smt_verification {
   cmake --preset smt-verification
 
   cvc5_cmake_hash=$(cache_content_hash ^barretenberg/cpp/src/barretenberg/smt_verification/CMakeLists.txt)
-  if ! cache_download barretenberg-cvc5-$cvc5_cmake_hash.zst; then
-      cmake --build build-smt --target cvc5
-      cache_upload barretenberg-cvc5-$cvc5_cmake_hash.zst build-smt/_deps/cvc5
+  if cache_download barretenberg-cvc5-$cvc5_cmake_hash.zst; then
+    # Restore machine-dependent paths after downloading cache
+    find build-smt/_deps/cvc5 -type f -name "*.cmake" -exec sed -i "s|/workspace|$(pwd)|g" {} \;
+  else
+    cmake --build build-smt --target cvc5
+    cache_upload barretenberg-cvc5-$cvc5_cmake_hash.zst build-smt/_deps/cvc5
   fi
 
   cmake --build build-smt --target smt_verification_tests
@@ -234,7 +237,7 @@ function build_release {
     tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
     tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
 
-    if [ "${DISABLE_AZTEC_VM:-0}" -eq 0 ]; then
+    if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
       # We only build these with AVM transpiler linked, and disable them if not building AVM.
       # This coupling is mostly arbitrary.
       tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-zig-arm64-macos/bin bb
@@ -257,6 +260,8 @@ function build {
   local macos_cross_compile=0
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
     builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast build_smt_verification)
+  fi
+  if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
     # macOS builds require the avm-transpiler linked.
     # We build them using zig cross-compilation.
     if [ "${DISABLE_AZTEC_VM:-0}" -eq 0 ]; then
@@ -265,6 +270,7 @@ function build {
       builds+=(build_darwin_arm64 build_darwin_amd64)
       macos_cross_compile=1
     fi
+    builds+=(build_darwin_arm64 build_darwin_amd64)
   fi
   parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${builds[@]}
 
