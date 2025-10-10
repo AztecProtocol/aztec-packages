@@ -13,4 +13,4 @@ Sequencers will be chosen via a random election, while provers will be selected 
 
 The proposers in the first `C=13` slots in epoch `N+1` will accept quotes to prove epoch N from provers. The winning prover will have until the end of epoch `N+1` to produce and submit the proof to L1.
 
-If are you interested in running a sequencer node or a prover node, you can refer to [the guides section](./../../guides/run_nodes/index.md).
+If you are interested in running a sequencer node or a prover node, you can refer to the [sequencer guide](../../setup/sequencer_management) or [prover guide](../../setup/running_a_prover.md).
