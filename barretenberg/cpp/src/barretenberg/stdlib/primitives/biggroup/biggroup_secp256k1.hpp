@@ -43,9 +43,12 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
      *
      * The bits removed by the right-shifts are stored in the wnaf's respective `least_significant_wnaf_fragment` member
      * variable
+     *
+     * We do NOT range constrain the wNAF entries, because we will use them to lookup in a ROM/regular table.
+     * The ROM/regular table lookup implicitly enforces the range constraint
      */
-    const auto [u1_lo_wnaf, u1_hi_wnaf] = compute_secp256k1_endo_wnaf<8, 2, 3>(u1);
-    const auto [u2_lo_wnaf, u2_hi_wnaf] = compute_secp256k1_endo_wnaf<4, 0, 1>(u2);
+    const auto [u1_lo_wnaf, u1_hi_wnaf] = compute_secp256k1_endo_wnaf<8, 2, 3>(u1, false);
+    const auto [u2_lo_wnaf, u2_hi_wnaf] = compute_secp256k1_endo_wnaf<4, 0, 1>(u2, false);
 
     /**
      * Construct our 4-bit variable-base and 8-bit fixed base lookup tables

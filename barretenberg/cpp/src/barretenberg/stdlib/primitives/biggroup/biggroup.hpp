@@ -422,7 +422,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static std::vector<field_t<Builder>> compute_wnaf(const Fr& scalar);
 
     template <size_t wnaf_size, size_t staggered_lo_offset = 0, size_t staggered_hi_offset = 0>
-    static secp256k1_wnaf_pair compute_secp256k1_endo_wnaf(const Fr& scalar);
+    static secp256k1_wnaf_pair compute_secp256k1_endo_wnaf(const Fr& scalar, const bool range_constrain_wnaf = true);
 
     Builder* get_context() const
     {
@@ -518,8 +518,12 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      * setting `is_negative = true`.
      */
     template <size_t num_bits, size_t wnaf_size, size_t lo_stagger, size_t hi_stagger>
-    static std::pair<Fr, secp256k1_wnaf> compute_secp256k1_single_wnaf(
-        Builder* builder, const secp256k1::fr& scalar, size_t stagger, bool is_negative, bool is_lo = false);
+    static std::pair<Fr, secp256k1_wnaf> compute_secp256k1_single_wnaf(Builder* builder,
+                                                                       const secp256k1::fr& scalar,
+                                                                       size_t stagger,
+                                                                       bool is_negative,
+                                                                       const bool range_constrain_wnaf = true,
+                                                                       bool is_lo = false);
 
     /**
      * @brief Compute the stagger-related part of wNAF and the final skew

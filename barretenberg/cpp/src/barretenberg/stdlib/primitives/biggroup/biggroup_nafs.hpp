@@ -162,7 +162,12 @@ Fr element<C, Fq, Fr, G>::reconstruct_bigfield_from_wnaf(Builder* builder,
 template <typename C, class Fq, class Fr, class G>
 template <size_t num_bits, size_t wnaf_size, size_t lo_stagger, size_t hi_stagger>
 std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr, G>::compute_secp256k1_single_wnaf(
-    C* builder, const secp256k1::fr& scalar, size_t stagger, bool is_negative, bool is_lo)
+    C* builder,
+    const secp256k1::fr& scalar,
+    size_t stagger,
+    bool is_negative,
+    const bool range_constrain_wnaf,
+    bool is_lo)
 {
     // The number of rounds is the minimal required to cover the whole scalar with wnaf_size windows
     constexpr size_t num_rounds = ((num_bits + wnaf_size - 1) / wnaf_size);
@@ -195,7 +200,7 @@ std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr,
     // Get wnaf witnesses
     // We don't range constrain the wnaf entries here because we will use them to lookup in a ROM/regular table.
     std::vector<field_t<C>> wnaf = convert_wnaf_values_to_witnesses<wnaf_size>(
-        builder, &wnaf_values[0], is_negative, num_rounds_excluding_stagger_bits, false);
+        builder, &wnaf_values[0], is_negative, num_rounds_excluding_stagger_bits, range_constrain_wnaf);
 
     // Compute and constrain skews
     bool_ct negative_skew(witness_t<Builder>(builder, is_negative ? 0 : skew), /*use_range_constraint*/ true);
@@ -208,6 +213,12 @@ std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr,
 
     // Initialize stagger witness
     field_t<C> stagger_fragment = witness_t<C>(builder, first_fragment);
+
+    // We only range constrain the stagger fragment if range_constrain_wnaf is set. This is because in some cases
+    // we may use the stagger fragment to lookup in a ROM/regular table, which implicitly enforces the range constraint.
+    if (range_constrain_wnaf) {
+        stagger_fragment.create_range_constraint(wnaf_size, "biggroup_nafs: stagger fragment is not in range");
+    }
 
     // Reconstruct the bigfield scalar from (wnaf + stagger) representation
     Fr reconstructed = reconstruct_bigfield_from_wnaf<wnaf_size>(
@@ -311,7 +322,8 @@ std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr,
  **/
 template <typename C, class Fq, class Fr, class G>
 template <size_t wnaf_size, size_t lo_stagger, size_t hi_stagger>
-typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compute_secp256k1_endo_wnaf(const Fr& scalar)
+typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compute_secp256k1_endo_wnaf(
+    const Fr& scalar, const bool range_constrain_wnaf)
 {
     /**
      * The staggered offset describes the number of bits we want to remove from the input scalar before computing our
@@ -371,11 +383,11 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
 
     const auto [klo_reconstructed, klo_out] =
         element<C, Fq, Fr, G>::compute_secp256k1_single_wnaf<num_bits, wnaf_size, lo_stagger, hi_stagger>(
-            ctx, klo, lo_stagger, klo_negative, true);
+            ctx, klo, lo_stagger, klo_negative, range_constrain_wnaf, true);
 
     const auto [khi_reconstructed, khi_out] =
         element<C, Fq, Fr, G>::compute_secp256k1_single_wnaf<num_bits, wnaf_size, lo_stagger, hi_stagger>(
-            ctx, khi, hi_stagger, khi_negative, false);
+            ctx, khi, hi_stagger, khi_negative, range_constrain_wnaf, false);
 
     uint256_t minus_lambda_val(-secp256k1::fr::cube_root_of_unity());
     Fr minus_lambda(bb::fr(minus_lambda_val.slice(0, 136)), bb::fr(minus_lambda_val.slice(136, 256)), false);
