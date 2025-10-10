@@ -2,6 +2,7 @@
 
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/simulation/events/events_container.hpp"
+#include "barretenberg/world_state/types.hpp"
 
 namespace bb::avm2 {
 
@@ -16,7 +17,7 @@ class AvmSimulationHelper {
 
     // Fast simulation without event collection.
     // FIXME(fcarreiro): This should eventually only take the Tx, Globals and not much more.
-    void simulate_fast(const ExecutionHints& hints);
+    void simulate_fast(const ExecutionHints& hints, world_state::WorldStateRevision& ws_revision);
 };
 
 } // namespace bb::avm2

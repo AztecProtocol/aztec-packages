@@ -11,6 +11,7 @@
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
+#include "barretenberg/world_state/world_state_manager.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -300,6 +301,7 @@ FF HintedRawMerkleDB::get_leaf_value(world_state::MerkleTreeId tree_id, index_t 
     auto tree_info = get_tree_info(tree_id);
     GetLeafValueKey key = { tree_info, tree_id, leaf_index };
     auto it = get_leaf_value_hints.find(key);
+    // should this check that the leaf_index supplied is in range of the tree size?
     return it == get_leaf_value_hints.end() ? 0 : it->second;
 }
 
@@ -613,6 +615,148 @@ AppendLeafResult HintedRawMerkleDB::appendLeafInternal(world_state::MerkleTreeId
 uint32_t HintedRawMerkleDB::get_checkpoint_id() const
 {
     return checkpoint_stack.top();
+}
+
+// PureRawMerkleDB starts.
+SiblingPath PureRawMerkleDB::get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) const
+{
+    world_state::WorldState* ws_instance = world_state::WorldStateManager::get_world_state();
+    return ws_instance->get_sibling_path(ws_revision, tree_id, leaf_index);
+}
+
+GetLowIndexedLeafResponse PureRawMerkleDB::get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) const
+{
+    world_state::WorldState* ws_instance = world_state::WorldStateManager::get_world_state();
+    return ws_instance->find_low_leaf_index(ws_revision, tree_id, value);
+}
+
+FF PureRawMerkleDB::get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) const
+{
+    world_state::WorldState* ws_instance = world_state::WorldStateManager::get_world_state();
+    std::optional<FF> res = ws_instance->get_leaf<FF>(ws_revision, tree_id, leaf_index);
+    // If the optional is not set, we assume something is wrong (e.g. leaf index out of bounds)
+    if (!res.has_value()) {
+        throw std::runtime_error(
+            format("Invalid get_leaf_value request", static_cast<uint64_t>(tree_id), " for index ", leaf_index));
+    }
+    return res.value();
+}
+
+IndexedLeaf<PublicDataLeafValue> PureRawMerkleDB::get_leaf_preimage_public_data_tree(index_t leaf_index) const
+{
+    world_state::WorldState* ws_instance = world_state::WorldStateManager::get_world_state();
+    std::optional<IndexedLeaf<PublicDataLeafValue>> res =
+        ws_instance->get_indexed_leaf<PublicDataLeafValue>(ws_revision, MerkleTreeId::PUBLIC_DATA_TREE, leaf_index);
+    // If the optional is not set, we assume something is wrong (e.g. leaf index out of bounds)
+    if (!res.has_value()) {
+        throw std::runtime_error(format("Invalid get_leaf_preimage_public_data_tree request for index ", leaf_index));
+    }
+    return res.value();
+}
+
+IndexedLeaf<NullifierLeafValue> PureRawMerkleDB::get_leaf_preimage_nullifier_tree(index_t leaf_index) const
+{
+    world_state::WorldState* ws_instance = world_state::WorldStateManager::get_world_state();
+    std::optional<IndexedLeaf<NullifierLeafValue>> res =
+        ws_instance->get_indexed_leaf<NullifierLeafValue>(ws_revision, MerkleTreeId::NULLIFIER_TREE, leaf_index);
+    // If the optional is not set, we assume something is wrong (e.g. leaf index out of bounds)
+    if (!res.has_value()) {
+        throw std::runtime_error(format("Invalid get_leaf_preimage_nullifier_tree request for index ", leaf_index));
+    }
+    return res.value();
+}
+
+// State modification methods.
+SequentialInsertionResult<PublicDataLeafValue> PureRawMerkleDB::insert_indexed_leaves_public_data_tree(
+    const PublicDataLeafValue& leaf_value)
+{
+    world_state::WorldState* ws_instance = world_state::WorldStateManager::get_world_state();
+    auto result = ws_instance->insert_indexed_leaves<PublicDataLeafValue>(
+        MerkleTreeId::PUBLIC_DATA_TREE, { leaf_value }, ws_revision.forkId);
+
+    // Update local state
+    auto tree_info = ws_instance->get_tree_info(ws_revision, MerkleTreeId::PUBLIC_DATA_TREE);
+    tree_roots.publicDataTree.root = tree_info.meta.root;
+    tree_roots.publicDataTree.nextAvailableLeafIndex = tree_info.meta.size;
+
+    return result;
+}
+SequentialInsertionResult<NullifierLeafValue> PureRawMerkleDB::insert_indexed_leaves_nullifier_tree(
+    const NullifierLeafValue& leaf_value)
+{
+    world_state::WorldState* ws_instance = world_state::WorldStateManager::get_world_state();
+    auto result = ws_instance->insert_indexed_leaves<NullifierLeafValue>(
+        MerkleTreeId::NULLIFIER_TREE, { leaf_value }, ws_revision.forkId);
+
+    // Update local state
+    auto tree_info = ws_instance->get_tree_info(ws_revision, MerkleTreeId::NULLIFIER_TREE);
+    tree_roots.nullifierTree.root = tree_info.meta.root;
+    tree_roots.nullifierTree.nextAvailableLeafIndex = tree_info.meta.size;
+    return result;
+}
+
+// This method currently returns a vector of intermediate roots and sibling paths, but in practice we might only
+// need or care about the last one, this would simplify how we append in this function.
+// Given this function says append, perhaps we just want to restrict to NoteHash?
+std::vector<AppendLeafResult> PureRawMerkleDB::append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves)
+{
+    world_state::WorldState* ws_instance = world_state::WorldStateManager::get_world_state();
+    std::vector<FF> leaves_vec(leaves.begin(), leaves.end());
+
+    // IF we wanted intermediate roots and paths, we would need to call append_leaves one by one
+    ws_instance->append_leaves(tree_id, leaves_vec, ws_revision.forkId);
+
+    // This should only be relevant for NOTE HASH TREE?
+    auto tree_info = ws_instance->get_tree_info(ws_revision, MerkleTreeId::NOTE_HASH_TREE);
+    tree_roots.noteHashTree.root = tree_info.meta.root;
+    tree_roots.noteHashTree.nextAvailableLeafIndex = tree_info.meta.size;
+
+    return { AppendLeafResult{ .root = tree_roots.noteHashTree.root,
+                               .path =
+                                   get_sibling_path(tree_id, tree_roots.noteHashTree.nextAvailableLeafIndex - 1) } };
+}
+
+void PureRawMerkleDB::pad_tree(MerkleTreeId tree_id, size_t num_leaves)
+{
+    // Do we need to actually pad the world state? Hopefully not
+    switch (tree_id) {
+    case MerkleTreeId::NOTE_HASH_TREE:
+        tree_roots.noteHashTree.nextAvailableLeafIndex += num_leaves;
+        break;
+    case MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
+        tree_roots.l1ToL2MessageTree.nextAvailableLeafIndex += num_leaves;
+        break;
+    case MerkleTreeId::NULLIFIER_TREE:
+        tree_roots.nullifierTree.nextAvailableLeafIndex += num_leaves;
+        break;
+    default:
+        throw std::runtime_error(
+            "pad_tree is only supported for NOTE_HASH_TREE, L1_TO_L2_MESSAGE_TREE and NULLIFIER_TREE");
+    }
+}
+
+void PureRawMerkleDB::create_checkpoint()
+{
+    world_state::WorldState* ws_instance = world_state::WorldStateManager::get_world_state();
+    ws_instance->checkpoint(ws_revision.forkId);
+}
+
+void PureRawMerkleDB::commit_checkpoint()
+{
+    world_state::WorldState* ws_instance = world_state::WorldStateManager::get_world_state();
+    ws_instance->commit_checkpoint(ws_revision.forkId);
+}
+
+void PureRawMerkleDB::revert_checkpoint()
+{
+    world_state::WorldState* ws_instance = world_state::WorldStateManager::get_world_state();
+    ws_instance->revert_checkpoint(ws_revision.forkId);
+}
+
+// This is for debugging only? So we just return a dummy value for now
+uint32_t PureRawMerkleDB::get_checkpoint_id() const
+{
+    return 0;
 }
 
 } // namespace bb::avm2::simulation
