@@ -397,22 +397,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
                                         const std::vector<Fr>& small_scalars,
                                         const size_t max_num_small_bits);
 
-    template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, bb::g1>::value>>
-        requires(IsNotMegaBuilder<Builder>)
-    static element bn254_endo_batch_mul_with_generator(const std::vector<element>& big_points,
-                                                       const std::vector<Fr>& big_scalars,
-                                                       const std::vector<element>& small_points,
-                                                       const std::vector<Fr>& small_scalars,
-                                                       const Fr& generator_scalar,
-                                                       const size_t max_num_small_bits);
-
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, secp256k1::g1>::value>>
     static element secp256k1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2);
 
     static std::vector<bool_ct> compute_naf(const Fr& scalar, const size_t max_num_bits = 0);
-
-    template <size_t max_num_bits = 0, size_t WNAF_SIZE = 4>
-    static std::vector<field_t<Builder>> compute_wnaf(const Fr& scalar, const bool range_constrain_wnaf = true);
 
     template <size_t wnaf_size, size_t staggered_lo_offset = 0, size_t staggered_hi_offset = 0>
     static secp256k1_wnaf_pair compute_secp256k1_endo_wnaf(const Fr& scalar, const bool range_constrain_wnaf = true);

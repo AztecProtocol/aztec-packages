@@ -1324,24 +1324,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    static void test_compute_wnaf()
-    {
-        Builder builder = Builder();
-
-        fr scalar_val = fr::random_element();
-        scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
-        // Assign origin tag to scalar
-        scalar.set_origin_tag(submitted_value_origin_tag);
-
-        const auto result = element_ct::compute_wnaf(scalar);
-        // Check that wnaf entries propagate tag
-        for (const auto& wnaf_entry : result) {
-            EXPECT_EQ(wnaf_entry.get_origin_tag(), submitted_value_origin_tag);
-        }
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
     static void test_batch_mul_short_scalars()
     {
         const size_t num_points = 11;
@@ -1805,17 +1787,6 @@ HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
         }
     } else {
         GTEST_SKIP();
-    }
-}
-
-/* the following test was only developed as a test of Ultra Circuit Constructor. It fails for Standard in the
-   case where Fr is a bigfield. */
-HEAVY_TYPED_TEST(stdlib_biggroup, compute_wnaf)
-{
-    if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP();
-    } else {
-        TestFixture::test_compute_wnaf();
     }
 }
 
