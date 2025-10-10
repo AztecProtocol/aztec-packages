@@ -354,7 +354,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     element montgomery_ladder(const element& other) const;
     element montgomery_ladder(const chain_add_accumulator& to_add);
     element multiple_montgomery_ladder(const std::vector<chain_add_accumulator>& to_add) const;
-    element quadruple_and_add(const std::vector<element>& to_add) const;
 
     typename NativeGroup::affine_element get_value() const
     {
@@ -373,12 +372,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static std::pair<std::vector<element>, std::vector<Fr>> handle_points_at_infinity(
         const std::vector<element>& _points, const std::vector<Fr>& _scalars);
 
-    // compute a multi-scalar-multiplication by creating a precomputed lookup table for each point,
-    // splitting each scalar multiplier up into a 4-bit sliding window wNAF.
-    // more efficient than batch_mul if num_points < 4
-    // only works with Plookup!
-    template <size_t max_num_bits = 0>
-    static element wnaf_batch_mul(const std::vector<element>& points, const std::vector<Fr>& scalars);
     static element batch_mul(const std::vector<element>& points,
                              const std::vector<Fr>& scalars,
                              const size_t max_num_bits = 0,
