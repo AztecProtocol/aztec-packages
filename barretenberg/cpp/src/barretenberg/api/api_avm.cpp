@@ -1,3 +1,5 @@
+#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/world_state/types.hpp"
 #ifndef DISABLE_AZTEC_VM
 #include "barretenberg/api/api_avm.hpp"
 
@@ -77,11 +79,18 @@ bool avm_verify(const std::filesystem::path& proof_path,
 
 void avm_simulate(const std::filesystem::path& inputs_path)
 {
+
+    world_state::WorldStateRevision ws_revision = {
+        .forkId = 0,
+        .blockNumber = 0,
+        .includeUncommitted = true,
+    };
+
     // This includes input deserialization as well.
     AVM_TRACK_TIME("command/avm_simulate", {
         avm2::AvmAPI avm;
         auto inputs = avm2::AvmAPI::ProvingInputs::from(read_file(inputs_path));
-        avm.simulate(inputs.hints);
+        avm.simulate(inputs.hints, ws_revision);
     });
 
     print_avm_stats();

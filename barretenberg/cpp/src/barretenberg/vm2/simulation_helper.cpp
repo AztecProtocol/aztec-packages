@@ -11,7 +11,9 @@
 #include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
+#include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
+#include "barretenberg/world_state/types.hpp"
 
 // Events.
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
@@ -293,7 +295,8 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
     };
 }
 
-void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints)
+void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints,
+                                        world_state::WorldStateRevision& world_state_revision)
 {
     BB_BENCH_NAME("AvmSimulationHelper::simulate_fast");
 
@@ -339,7 +342,13 @@ void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints)
 
     Ecc ecc(execution_id_manager, greater_than, to_radix, ecc_add_emitter, scalar_mul_emitter, ecc_add_memory_emitter);
     HintedRawContractDB raw_contract_db(hints);
-    HintedRawMerkleDB raw_merkle_db(hints);
+
+    // Connect to world state given the revision, this relies on the world state being already initialized.
+    std::optional<PureRawMerkleDB> maybe_raw_merkle_db = PureRawMerkleDB::connect(world_state_revision);
+    if (!maybe_raw_merkle_db.has_value()) {
+        throw std::runtime_error("AvmSimulationHelper::simulate_fast, failed to connect to world state");
+    }
+    PureRawMerkleDB raw_merkle_db = maybe_raw_merkle_db.value();
 
     PureContractDB contract_db(raw_contract_db);
 

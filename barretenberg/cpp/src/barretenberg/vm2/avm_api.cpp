@@ -5,6 +5,7 @@
 #include "barretenberg/vm2/tooling/debugger.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
 #include "barretenberg/vm2/tracegen_helper.hpp"
+#include "barretenberg/world_state/types.hpp"
 
 namespace bb::avm2 {
 
@@ -86,11 +87,11 @@ bool AvmAPI::verify(const AvmProof& proof, const PublicInputs& pi, const AvmVeri
     return AVM_TRACK_TIME_V("verifing/all", proving_helper.verify(proof, pi, vk_data));
 }
 
-void AvmAPI::simulate(const ExecutionHints& hints)
+void AvmAPI::simulate(const ExecutionHints& hints, world_state::WorldStateRevision& world_state_revision)
 {
     info("Simulating...");
     AvmSimulationHelper simulation_helper;
-    AVM_TRACK_TIME("simulation/all", simulation_helper.simulate_fast(hints));
+    AVM_TRACK_TIME("simulation/all", simulation_helper.simulate_fast(hints, world_state_revision));
 }
 
 } // namespace bb::avm2
