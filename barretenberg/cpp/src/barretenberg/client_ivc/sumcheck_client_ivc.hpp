@@ -701,8 +701,7 @@ class SumcheckClientIVC : public IVCBase {
 
     HonkProof construct_folding_proof(const std::shared_ptr<ProverInstance>& prover_instance,
                                       const std::shared_ptr<MegaVerificationKey>& honk_vk,
-                                      const std::shared_ptr<Transcript>& transcript,
-                                      bool is_kernel);
+                                      const std::shared_ptr<Transcript>& transcript);
 
     HonkProof construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
                                                      const std::shared_ptr<MegaVerificationKey>& verification_key);

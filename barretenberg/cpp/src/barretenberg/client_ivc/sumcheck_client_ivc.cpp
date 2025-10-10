@@ -124,12 +124,9 @@ SumcheckClientIVC::RecursiveVerifierAccumulator SumcheckClientIVC::perform_foldi
     auto incoming_verifier_accumulator =
         execute_first_sumcheck_recursive_verification(circuit, verifier_instance, transcript, proof);
 
-    // Fiat-Shamir the accumulator. (Only needs to be performed on the first in a series of recursive PG verifications
-    // within a given kernel and by convention the kernel proof is always verified first).
+    // Update previous accumulator hash so that we can set it as a public input
     if (is_kernel) {
         prev_accum_hash = verifier_accumulator->hash_through_transcript("", *transcript);
-        transcript->add_to_hash_buffer("accum_hash", *prev_accum_hash);
-        info("Previous accumulator hash in PG rec verifier: ", *prev_accum_hash);
     }
 
     MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor> batching_verifier(transcript);
@@ -494,8 +491,7 @@ HonkProof SumcheckClientIVC::construct_sumcheck_proof(const std::shared_ptr<Prov
 
 HonkProof SumcheckClientIVC::construct_folding_proof(const std::shared_ptr<ProverInstance>& prover_instance,
                                                      const std::shared_ptr<MegaVerificationKey>& honk_vk,
-                                                     const std::shared_ptr<Transcript>& transcript,
-                                                     bool is_kernel)
+                                                     const std::shared_ptr<Transcript>& transcript)
 {
     vinfo("computing folding proof...");
 
@@ -503,15 +499,6 @@ HonkProof SumcheckClientIVC::construct_folding_proof(const std::shared_ptr<Prove
 
     ProverAccumulator incoming_accumulator =
         SumcheckClientIVC::execute_first_sumcheck(prover_instance, honk_vk, transcript);
-
-    // Only fiat shamir if this is a kernel with the assumption that kernels are always the first being recursively
-    // verified.
-    if (is_kernel) {
-        // Fiat - Shamir the verifier accumulator
-        FF accum_hash = native_verifier_accum.hash_through_transcript("", *transcript);
-        transcript->add_to_hash_buffer("accum_hash", accum_hash);
-        info("Accumulator hash in PG prover: ", accum_hash);
-    }
 
     MultilinearBatchingProverClaim accumulator_claim{
         .challenge = prover_accumulator.challenge,
@@ -637,10 +624,10 @@ void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr
         break;
     case QUEUE_TYPE::PG:
     case QUEUE_TYPE::PG_TAIL:
-        proof = construct_folding_proof(prover_instance, precomputed_vk, prover_accumulation_transcript, is_kernel);
+        proof = construct_folding_proof(prover_instance, precomputed_vk, prover_accumulation_transcript);
         break;
     case QUEUE_TYPE::PG_FINAL:
-        proof = construct_folding_proof(prover_instance, precomputed_vk, prover_accumulation_transcript, is_kernel);
+        proof = construct_folding_proof(prover_instance, precomputed_vk, prover_accumulation_transcript);
         pcs_proof = construct_pcs_proof(prover_accumulation_transcript);
         break;
     case QUEUE_TYPE::MEGA:
@@ -978,13 +965,6 @@ void SumcheckClientIVC::update_native_verifier_accumulator(const VerifierInputs&
         execute_first_sumcheck_native_verification(verifier_inst, verifier_transcript, queue_entry.proof);
 
     if (queue_entry.type != QUEUE_TYPE::OINK) {
-        if (queue_entry.is_kernel) {
-            // Fiat-Shamir the verifier accumulator
-            FF accum_hash = native_verifier_accum.hash_through_transcript("", *verifier_transcript);
-            verifier_transcript->add_to_hash_buffer("accum_hash", accum_hash);
-            info("Accumulator hash in PG verifier: ", accum_hash);
-        }
-
         MultilinearBatchingVerifier<MultilinearBatchingFlavor> batching_verifier(verifier_transcript);
         auto [verified, new_accumulator] = batching_verifier.verify_proof(queue_entry.proof);
         BB_ASSERT_EQ(verified, true, "Batching Sumcheck: Failed native sumcheck batching verification");
