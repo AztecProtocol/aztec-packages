@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/bbapi/bbapi_client_ivc.hpp"
+#include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/bbapi/bbapi_kzg.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
@@ -31,7 +32,8 @@ using Command = NamedUnion<CircuitProve,
                            KzgComputeBlobProof,
                            KzgVerifyProof,
                            KzgVerifyBlobProof,
-                           KzgVerifyBlobProofBatch>;
+                           KzgVerifyBlobProofBatch,
+                           Poseidon2Hash>;
 
 using CommandResponse = NamedUnion<CircuitProve::Response,
                                    CircuitComputeVk::Response,
@@ -55,7 +57,8 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
                                    KzgComputeBlobProof::Response,
                                    KzgVerifyProof::Response,
                                    KzgVerifyBlobProof::Response,
-                                   KzgVerifyBlobProofBatch::Response>;
+                                   KzgVerifyBlobProofBatch::Response,
+                                   Poseidon2Hash::Response>;
 
 /**
  * @brief Executes a command by visiting a variant of all possible commands.
