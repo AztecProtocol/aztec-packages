@@ -11,8 +11,9 @@ if(ENABLE_ASAN)
     ExternalProject_Add(
         cvc5
         PREFIX ${CVC5_PREFIX}
-        GIT_REPOSITORY "https://github.com/cvc5/cvc5.git"
-        GIT_TAG ${CVC5_STABLE_COMMIT}
+        DOWNLOAD_COMMAND
+            sh -c "mkdir -p ${CVC5_PREFIX}/src/cvc5 && cd ${CVC5_PREFIX}/src/cvc5 && git init . && (git remote add origin https://github.com/cvc5/cvc5.git || true) && git fetch --depth 1 origin ${CVC5_STABLE_COMMIT} && git checkout FETCH_HEAD"
+        SOURCE_DIR ${CVC5_PREFIX}/src/cvc5
         BUILD_IN_SOURCE YES
         CONFIGURE_COMMAND ${SHELL} ./configure.sh debug --gpl --auto-download --cocoa --cryptominisat --kissat -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} --prefix=${CVC5_BUILD} --asan
         BUILD_COMMAND make -C build -j8
@@ -26,8 +27,9 @@ else()
     ExternalProject_Add(
         cvc5
         PREFIX ${CVC5_PREFIX}
-        GIT_REPOSITORY "https://github.com/cvc5/cvc5.git"
-        GIT_TAG ${CVC5_STABLE_COMMIT}
+        DOWNLOAD_COMMAND
+            sh -c "mkdir -p ${CVC5_PREFIX}/src/cvc5 && cd ${CVC5_PREFIX}/src/cvc5 && git init . && (git remote add origin https://github.com/cvc5/cvc5.git || true) && git fetch --depth 1 origin ${CVC5_STABLE_COMMIT} && git checkout FETCH_HEAD"
+        SOURCE_DIR ${CVC5_PREFIX}/src/cvc5
         BUILD_IN_SOURCE YES
         CONFIGURE_COMMAND ${SHELL} ./configure.sh production --gpl --auto-download --cocoa --cryptominisat --kissat -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} --prefix=${CVC5_BUILD}
         BUILD_COMMAND make -C build -j8
