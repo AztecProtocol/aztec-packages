@@ -72,6 +72,9 @@ tests:
     error_regex: "Aborted.*core dumped"
     owners:
       - *adam
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh .* webkit"
+    owners:
+      - *luke
 
   # /home/aztec-dev/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib/primitives/bigfield/bigfield_edge_cases.test.cpp:142: Failure
   # Expected equality of these values:
