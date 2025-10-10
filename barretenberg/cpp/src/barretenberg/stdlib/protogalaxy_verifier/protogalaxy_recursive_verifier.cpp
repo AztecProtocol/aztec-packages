@@ -189,11 +189,7 @@ std::shared_ptr<VerifierInstance> ProtogalaxyRecursiveVerifier_<VerifierInstance
                                                   /*handle_edge_cases=*/IsUltraBuilder<Builder>);
 
     // Enforce [C] = (1 - gamma) * [A] + gamma * [B]
-    output_sum.is_point_at_infinity().assert_equal(folded_sum.is_point_at_infinity());
-    output_sum.x.assert_equal(
-        BaseField::conditional_assign(output_sum.is_point_at_infinity(), output_sum.x, folded_sum.x));
-    output_sum.y.assert_equal(
-        BaseField::conditional_assign(output_sum.is_point_at_infinity(), output_sum.y, folded_sum.y));
+    output_sum.incomplete_assert_equal(folded_sum);
 
     // Step 13. Update the target sum: e^{\ast} = F(\alpha) * L_0(\gamma) + Z(\gamma) * K(\gamma)
     accumulator->target_sum =
