@@ -22,7 +22,7 @@ void ProtogalaxyRecursiveVerifier_<VerifierInstance>::run_oink_verifier_on_each_
     if (!key->is_complete) {
         OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
         oink_verifier.verify();
-        key->target_sum = FF::from_witness_index(builder, builder->zero_idx);
+        key->target_sum = FF::from_witness_index(builder, builder->zero_idx());
         // Get the gate challenges for sumcheck/combiner computation
         key->gate_challenges =
             transcript->template get_powers_of_challenge<FF>(domain_separator + "_gate_challenge", CONST_PG_LOG_N);
