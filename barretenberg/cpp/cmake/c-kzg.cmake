@@ -8,7 +8,7 @@ set(C_KZG_PREFIX "${CMAKE_BINARY_DIR}/_deps/c-kzg")
 FetchContent_Declare(
   c-kzg
   GIT_REPOSITORY https://github.com/ethereum/c-kzg-4844.git
-  GIT_TAG        00ae727c21a346ba0bd027eca6e378da0def988f
+  GIT_TAG        v2.1.5
   GIT_SUBMODULES blst
   GIT_SUBMODULES_RECURSE ON
 )
