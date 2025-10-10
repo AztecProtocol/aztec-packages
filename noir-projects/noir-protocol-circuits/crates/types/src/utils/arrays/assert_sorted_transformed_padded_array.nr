@@ -1,4 +1,4 @@
-use crate::{abis::side_effect::Ordered, constants::MAX_U32_VALUE, traits::Empty};
+use crate::{constants::MAX_U32_VALUE, side_effect::Ordered, traits::Empty};
 use super::ClaimedLengthArray;
 
 // This function ensures that the `sorted_transformed_padded_array` is sorted in ascending order by counter and that all

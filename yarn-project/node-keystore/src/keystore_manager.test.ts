@@ -242,8 +242,8 @@ describe('KeystoreManager', () => {
       };
 
       const manager = new KeystoreManager(keystore);
-      const coinbase = manager.getCoinbaseAddress(0);
       const attesterSigners = manager.createAttesterSigners(0);
+      const coinbase = manager.getCoinbaseAddress(0, attesterSigners[0].address);
 
       expect(coinbase.toString()).toBe(attesterSigners[0].address.toString());
     });
@@ -261,9 +261,38 @@ describe('KeystoreManager', () => {
       };
 
       const manager = new KeystoreManager(keystore);
-      const coinbase = manager.getCoinbaseAddress(0);
+      const attesterSigners = manager.createAttesterSigners(0);
+      const coinbase = manager.getCoinbaseAddress(0, attesterSigners[0].address);
 
       expect(coinbase.toString()).toBe('0x9876543210987654321098765432109876543210');
+    });
+
+    it('should get coinbase address for each attester when no explicit coinbase is set', async () => {
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: [
+              '0x1234567890123456789012345678901234567890123456789012345678901234',
+              '0x2345678901234567890123456789012345678901234567890123456789012345',
+              '0x3456789012345678901234567890123456789012345678901234567890123456',
+            ] as any[],
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
+
+      const manager = new KeystoreManager(keystore);
+      const attesterSigners = manager.createAttesterSigners(0);
+
+      // Each attester should get its own address as coinbase
+      const coinbase0 = manager.getCoinbaseAddress(0, attesterSigners[0].address);
+      const coinbase1 = manager.getCoinbaseAddress(0, attesterSigners[1].address);
+      const coinbase2 = manager.getCoinbaseAddress(0, attesterSigners[2].address);
+
+      expect(coinbase0.toString()).toBe(attesterSigners[0].address.toString());
+      expect(coinbase1.toString()).toBe(attesterSigners[1].address.toString());
+      expect(coinbase2.toString()).toBe(attesterSigners[2].address.toString());
     });
   });
 

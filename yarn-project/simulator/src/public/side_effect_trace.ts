@@ -216,7 +216,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
       throw new NullifierLimitReachedError();
     }
 
-    this.nullifiers.push(new Nullifier(siloedNullifier, this.sideEffectCounter, /*noteHash=*/ Fr.ZERO));
+    this.nullifiers.push(new Nullifier(siloedNullifier, /*noteHash=*/ Fr.ZERO, this.sideEffectCounter));
 
     this.log.trace(`Tracing new nullifier (counter=${this.sideEffectCounter})`);
     this.incrementSideEffectCounter();

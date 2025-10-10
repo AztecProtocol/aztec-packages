@@ -5,7 +5,7 @@
 use dep::types::{
     abis::{
         block_constant_data::BlockConstantData, global_variables::GlobalVariables,
-        log_hash::LogHash, side_effect::scoped::Scoped, tx_constant_data::TxConstantData,
+        log_hash::LogHash, tx_constant_data::TxConstantData,
     },
     constants::{
         ARCHIVE_HEIGHT, AVM_MAX_PROCESSABLE_L2_GAS, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
@@ -13,6 +13,7 @@ use dep::types::{
     },
     hash::compute_contract_class_log_hash,
     merkle_tree::check_membership,
+    side_effect::Scoped,
     traits::Hash,
     utils::arrays::array_padded_with,
 };

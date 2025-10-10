@@ -392,8 +392,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         // Erroneously set a non-zero wire value to zero in one of the lookup gates
         for (auto& wire_3_witness_idx : builder1.blocks.lookup.w_o()) {
-            if (wire_3_witness_idx != builder1.zero_idx) {
-                wire_3_witness_idx = builder1.zero_idx;
+            if (wire_3_witness_idx != builder1.zero_idx()) {
+                wire_3_witness_idx = builder1.zero_idx();
                 break;
             }
         }

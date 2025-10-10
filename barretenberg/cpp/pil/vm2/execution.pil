@@ -147,6 +147,10 @@ pol commit op[7];  // operands
 // ideally want to leave it unconstrained. This is why we do 2 lookups instead of 1.
 // TODO: We can consider optimizing this later, but it is probably the cleanest right now.
 
+// Note: the below lookups additionally constrain that the bytecode with bytecode_id has
+// been correctly hashed due to instr_fetching's lookups into bc_decomposition, where
+// there is a multipermutation with bc_hashing.
+
 #[INSTRUCTION_FETCHING_RESULT]
 sel_bytecode_retrieval_success {
     pc, bytecode_id, sel_instruction_fetching_failure

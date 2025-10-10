@@ -73,9 +73,9 @@ fn with_padded_note_hashes() {
 
     // Pop the last two note hashes and use them as padded note hashes.
     builder.padded_side_effects.note_hashes[4] =
-        builder.previous_kernel.note_hashes.pop().note_hash.value;
+        builder.previous_kernel.note_hashes.pop().innermost();
     builder.padded_side_effects.note_hashes[3] =
-        builder.previous_kernel.note_hashes.pop().note_hash.value;
+        builder.previous_kernel.note_hashes.pop().innermost();
 
     builder.output.append_siloed_note_hashes(3);
     builder.output.append_padded_note_hashes(2);

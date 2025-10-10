@@ -1,22 +1,23 @@
 use crate::reset::{squash_transient_data, TransientDataSquashingHint};
 use dep::types::{
     abis::{
-        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::ScopedNoteHash,
-        nullifier::ScopedNullifier, private_log::PrivateLogData, side_effect::scoped::Scoped,
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::NoteHash,
+        nullifier::Nullifier, private_log::PrivateLogData,
     },
     constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX},
+    side_effect::{Counted, Scoped},
     utils::arrays::{ClaimedLengthArray, get_order_hints_asc, OrderHint},
 };
 
 pub struct ResetOutputHints {
     // note_hashes
-    pub kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
+    pub kept_note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, MAX_NOTE_HASHES_PER_TX>,
     pub sorted_kept_note_hash_indexes: [u32; MAX_NOTE_HASHES_PER_TX],
     // nullifiers
-    pub kept_nullifiers: ClaimedLengthArray<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
+    pub kept_nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, MAX_NULLIFIERS_PER_TX>,
     pub sorted_kept_nullifier_indexes: [u32; MAX_NULLIFIERS_PER_TX],
     // private_logs
-    pub kept_private_logs: ClaimedLengthArray<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
+    pub kept_private_logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, MAX_PRIVATE_LOGS_PER_TX>,
     pub sorted_kept_private_log_indexes: [u32; MAX_PRIVATE_LOGS_PER_TX],
 }
 
