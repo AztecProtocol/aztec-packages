@@ -607,11 +607,13 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
     // constraints present in the program. This is for when we write_vk.
     if (ivc_base == nullptr) {
         if (bb::bbapi::USE_SUMCHECK_IVC) {
-            // TODO: Add support for mocking SumcheckClientIVC when USE_SUMCHECK_IVC is true
-            info("WARNING: mocking SumcheckClientIVC is not yet supported!");
+            auto mock_ivc = create_mock_sumcheck_ivc_from_constraints(constraints.pg_recursion_constraints);
+            process_with_ivc(mock_ivc);
+        } else {
+            auto mock_ivc =
+                create_mock_ivc_from_constraints(constraints.pg_recursion_constraints, { AZTEC_TRACE_STRUCTURE });
+            process_with_ivc(mock_ivc);
         }
-        auto ivc = create_mock_ivc_from_constraints(constraints.pg_recursion_constraints, { AZTEC_TRACE_STRUCTURE });
-        process_with_ivc(ivc);
     } else {
         // Use the global flag to cast to the correct IVC type
         if (bb::bbapi::USE_SUMCHECK_IVC) {
