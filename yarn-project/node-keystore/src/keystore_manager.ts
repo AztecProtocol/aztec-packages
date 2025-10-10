@@ -320,22 +320,17 @@ export class KeystoreManager {
   }
 
   /**
-   * Get coinbase address for validator (falls back to first attester address)
+   * Get coinbase address for validator (falls back to the specific attester address)
    */
-  getCoinbaseAddress(validatorIndex: number): EthAddress {
+  getCoinbaseAddress(validatorIndex: number, attesterAddress: EthAddress): EthAddress {
     const validator = this.getValidator(validatorIndex);
 
     if (validator.coinbase) {
       return validator.coinbase;
     }
 
-    // Fall back to first attester address
-    const attesterSigners = this.createAttesterSigners(validatorIndex);
-    if (attesterSigners.length === 0) {
-      throw new KeystoreError(`No attester signers found for validator ${validatorIndex}`);
-    }
-
-    return attesterSigners[0].address;
+    // Fall back to the specific attester address
+    return attesterAddress;
   }
 
   /**
