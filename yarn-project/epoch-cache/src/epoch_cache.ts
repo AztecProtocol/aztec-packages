@@ -58,26 +58,19 @@ export interface EpochCacheInterface {
  * Note: This class is very dependent on the system clock being in sync.
  */
 export class EpochCache implements EpochCacheInterface {
-  private cache: Map<bigint, EpochCommitteeInfo> = new Map();
+  protected cache: Map<bigint, EpochCommitteeInfo> = new Map();
   private allValidators: Set<string> = new Set();
   private lastValidatorRefresh = 0;
   private readonly log: Logger = createLogger('epoch-cache');
 
   constructor(
     private rollup: RollupContract,
-    initialEpoch: bigint = 0n,
-    initialValidators: EthAddress[] | undefined = undefined,
-    initialSampleSeed: bigint = 0n,
     private readonly l1constants: L1RollupConstants = EmptyL1RollupConstants,
     private readonly dateProvider: DateProvider = new DateProvider(),
-    private readonly config = { cacheSize: 12, validatorRefreshIntervalSeconds: 60 },
+    protected readonly config = { cacheSize: 12, validatorRefreshIntervalSeconds: 60 },
   ) {
-    this.cache.set(initialEpoch, { epoch: initialEpoch, committee: initialValidators, seed: initialSampleSeed });
-    this.log.debug(`Initialized EpochCache with ${initialValidators?.length ?? 'no'} validators`, {
+    this.log.debug(`Initialized EpochCache`, {
       l1constants,
-      initialValidators,
-      initialSampleSeed,
-      initialEpoch,
     });
   }
 
@@ -102,21 +95,9 @@ export class EpochCache implements EpochCacheInterface {
       rollup = new RollupContract(publicClient, rollupOrAddress.toString());
     }
 
-    const [
-      l1StartBlock,
-      l1GenesisTime,
-      initialValidators,
-      sampleSeed,
-      epochNumber,
-      proofSubmissionEpochs,
-      slotDuration,
-      epochDuration,
-    ] = await Promise.all([
+    const [l1StartBlock, l1GenesisTime, proofSubmissionEpochs, slotDuration, epochDuration] = await Promise.all([
       rollup.getL1StartBlock(),
       rollup.getL1GenesisTime(),
-      rollup.getCurrentEpochCommittee(),
-      rollup.getCurrentSampleSeed(),
-      rollup.getCurrentEpochNumber(),
       rollup.getProofSubmissionEpochs(),
       rollup.getSlotDuration(),
       rollup.getEpochDuration(),
@@ -131,14 +112,7 @@ export class EpochCache implements EpochCacheInterface {
       ethereumSlotDuration: config.ethereumSlotDuration,
     };
 
-    return new EpochCache(
-      rollup,
-      epochNumber,
-      initialValidators?.map(v => EthAddress.fromString(v)),
-      sampleSeed,
-      l1RollupConstants,
-      deps.dateProvider,
-    );
+    return new EpochCache(rollup, l1RollupConstants, deps.dateProvider);
   }
 
   public getL1Constants(): L1RollupConstants {
