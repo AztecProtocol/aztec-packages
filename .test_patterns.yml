@@ -326,6 +326,10 @@ tests:
     error_regex: "Sumcheck failed"
     owners:
       - *luke
+  - regex: "aztec-up/scripts/run_test.sh bridge_and_claim"
+    error_regex: "Cannot satisfy constraint"
+    owners:
+      - *adam
 
   # boxes
   - regex: "vanilla-all-browsers box boxes"
@@ -357,6 +361,10 @@ tests:
     error_regex: "create account and cast vote"
     owners:
       - *saleel
+  - regex: "BOX=vanilla BROWSER=* run_compose_test vanilla-all-browsers box boxes"
+    error_regex: "Tag mismatch at offset 0, got FIELD, expected UINT32"
+    owners:
+      - *david
 
   - regex: "src/e2e_p2p/inactivity_slash.test.ts"
     error_regex: "Cannot propose.*since the committee does not exist on L1"
