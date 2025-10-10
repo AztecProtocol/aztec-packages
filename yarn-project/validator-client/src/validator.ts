@@ -265,7 +265,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     // Check that I have any address in current committee before attesting
     const inCommittee = await this.epochCache.filterInCommittee(slotNumber, this.getValidatorAddresses());
     const partOfCommittee = inCommittee.length > 0;
-    const incFailedAttestation = (reason: string) => this.metrics.incFailedAttestations(1, reason, partOfCommittee);
 
     const proposalInfo = { ...proposal.toBlockInfo(), proposer: proposer.toString() };
     this.log.info(`Received proposal for block ${proposal.blockNumber} at slot ${slotNumber}`, {
@@ -289,9 +288,28 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     if (!validationResult.isValid) {
       this.log.warn(`Proposal validation failed: ${validationResult.reason}`, proposalInfo);
-      incFailedAttestation(validationResult.reason || 'unknown');
 
-      // Slash invalid block proposals
+      // Only track attestation failure metrics if we're actually in the committee
+      if (partOfCommittee) {
+        const reason = validationResult.reason || 'unknown';
+        // Classify failure reason: bad proposal vs node issue
+        const badProposalReasons: BlockProposalValidationFailureReason[] = [
+          'invalid_proposal',
+          'state_mismatch',
+          'failed_txs',
+          'in_hash_mismatch',
+          'parent_block_does_not_match',
+        ];
+
+        if (badProposalReasons.includes(reason as BlockProposalValidationFailureReason)) {
+          this.metrics.incFailedAttestationsBadProposal(1, reason);
+        } else {
+          // Node issues: parent_block_not_found, block_number_already_exists, txs_not_available, timeout, unknown_error
+          this.metrics.incFailedAttestationsNodeIssue(1, reason);
+        }
+      }
+
+      // Slash invalid block proposals (can happen even when not in committee)
       if (
         validationResult.reason &&
         SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT.includes(validationResult.reason) &&
@@ -311,7 +329,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     // Provided all of the above checks pass, we can attest to the proposal
     this.log.info(`Attesting to proposal for block ${proposal.blockNumber} at slot ${slotNumber}`, proposalInfo);
-    this.metrics.incAttestations(inCommittee.length);
+    this.metrics.incSuccessfulAttestations(inCommittee.length);
 
     // If the above function does not throw an error, then we can attest to the proposal
     return this.createBlockAttestationsFromProposal(proposal, inCommittee);
