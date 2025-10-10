@@ -68,7 +68,7 @@ You can find more info about the LSP [in the Noir docs](https://noir-lang.org/do
 
 <Glossary.AztecNode />
 
-To run your own node see [here](../../../the_aztec_network/guides/run_nodes/index.md).
+To run your own node see [here](../../../the_aztec_network/index.md).
 
 ### Note
 
