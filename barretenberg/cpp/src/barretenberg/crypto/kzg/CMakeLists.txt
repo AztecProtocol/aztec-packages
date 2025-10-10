@@ -6,9 +6,10 @@
 # 4. Need to disable strict warnings for third-party C code
 
 # List only the source files we need
+# C_KZG_SOURCE_DIR and C_KZG_BLST_DIR are set in cmake/c-kzg.cmake
 set(SOURCES
-    c-kzg/ckzg.c
-    c-kzg/blst/src/server.c
+    ${C_KZG_SOURCE_DIR}/ckzg.c
+    ${C_KZG_BLST_DIR}/src/server.c
     c_bind.cpp
 )
 
@@ -20,8 +21,8 @@ add_library(crypto_kzg_objects OBJECT
 # Include directories - c-kzg files use relative includes from c-kzg/
 target_include_directories(crypto_kzg_objects PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/c-kzg
-    ${CMAKE_CURRENT_SOURCE_DIR}/c-kzg/blst/bindings
+    ${C_KZG_SOURCE_DIR}
+    ${C_KZG_BLST_DIR}/bindings
 )
 
 # Disable strict warnings for third-party C code

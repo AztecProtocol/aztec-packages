@@ -8,10 +8,10 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "c-kzg/ckzg.h"
-#include "c-kzg/eip4844/blob.h"
-#include "c-kzg/eip4844/eip4844.h"
-#include "c-kzg/setup/setup.h"
+#include "ckzg.h"
+#include "eip4844/blob.h"
+#include "eip4844/eip4844.h"
+#include "setup/setup.h"
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
