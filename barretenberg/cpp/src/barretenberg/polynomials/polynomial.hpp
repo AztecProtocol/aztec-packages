@@ -272,7 +272,6 @@ template <typename Fr> class Polynomial {
 
         for (size_t i = virtual_size() - NUM_MASKED_ROWS; i < virtual_size(); ++i) {
             at(i) = FF::random_element();
-            // at(i) = FF(0);
         }
     }
 

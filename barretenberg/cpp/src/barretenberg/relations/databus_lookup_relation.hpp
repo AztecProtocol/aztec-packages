@@ -318,7 +318,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
     static void accumulate_subrelation_contributions(ContainerOverSubrelations& accumulator,
                                                      const AllEntities& in,
                                                      const Parameters& params,
-                                                     [[maybe_unused]] const FF& scaling_factor)
+                                                     const FF& scaling_factor)
     {
         using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
@@ -355,8 +355,8 @@ template <typename FF_> class DatabusLookupRelationImpl {
         tmp *= inverses;
         std::get<subrel_idx_2>(accumulator) += tmp; // Deg 4 (4)
 
-        [[maybe_unused]] const auto read_tag_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_tags(in));
-        [[maybe_unused]] const auto read_tag = ShortAccumulator(read_tag_m);
+        const auto read_tag_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_tags(in));
+        const auto read_tag = ShortAccumulator(read_tag_m);
         // // this is done by row so we have to multiply by the scaling factor
         // degree                                  1(1)       1(1)       1(1)      =      2(2)
         std::get<subrel_idx_3>(accumulator) += (read_tag * read_tag - read_tag) * scaling_factor;
