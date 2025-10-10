@@ -3,8 +3,8 @@ import { sleep } from '@aztec/foundation/sleep';
 import { type ComponentsVersions, checkCompressedComponentVersion } from '@aztec/stdlib/versioning';
 import { OtelMetricsAdapter, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { Discv5, type Discv5EventEmitter, type IDiscv5CreateOptions } from '@chainsafe/discv5';
-import { ENR, SignableENR } from '@chainsafe/enr';
+import { Discv5, type Discv5EventEmitter, type IDiscv5CreateOptions } from '@NethermindEth/discv5';
+import { ENR, SignableENR } from '@NethermindEth/enr';
 import type { PeerId } from '@libp2p/interface';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 import EventEmitter from 'events';

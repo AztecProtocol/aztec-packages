@@ -5,7 +5,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
-import type { IDiscv5CreateOptions } from '@chainsafe/discv5';
+import type { IDiscv5CreateOptions } from '@NethermindEth/discv5';
 import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';

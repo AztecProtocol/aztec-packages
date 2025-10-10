@@ -28,7 +28,7 @@ import type { UInt64 } from '@aztec/stdlib/types';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
 import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
-import { ENR } from '@chainsafe/enr';
+import { ENR } from '@NethermindEth/enr';
 import {
   type GossipSub,
   type GossipSubComponents,

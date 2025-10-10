@@ -9,7 +9,7 @@ import type { PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/
 import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
-import { ENR } from '@chainsafe/enr';
+import { ENR } from '@NethermindEth/enr';
 import type { Connection, PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
 import type { Multiaddr } from '@multiformats/multiaddr';

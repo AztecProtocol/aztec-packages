@@ -2,7 +2,7 @@ import type { LogFn } from '@aztec/foundation/log';
 import { type ChainConfig, emptyChainConfig } from '@aztec/stdlib/config';
 import type { ComponentsVersions } from '@aztec/stdlib/versioning';
 
-import { ENR, SignableENR } from '@chainsafe/enr';
+import { ENR, SignableENR } from '@NethermindEth/enr';
 import type { PeerId } from '@libp2p/interface';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 

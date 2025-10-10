@@ -26,7 +26,7 @@ import {
   trackSpan,
 } from '@aztec/telemetry-client';
 
-import type { ENR } from '@chainsafe/enr';
+import type { ENR } from '@NethermindEth/enr';
 import type { PeerId } from '@libp2p/interface';
 
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
