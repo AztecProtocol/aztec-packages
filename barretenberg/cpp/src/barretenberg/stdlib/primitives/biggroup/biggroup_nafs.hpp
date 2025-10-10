@@ -402,7 +402,7 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
 
 template <typename C, class Fq, class Fr, class G>
 template <size_t max_num_bits, size_t WNAF_SIZE>
-std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
+std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar, const bool range_constrain_wnaf)
 {
     C* ctx = scalar.context;
     uint512_t scalar_multiplier_512 = uint512_t(uint256_t(scalar.get_value()) % Fr::modulus);
@@ -415,22 +415,11 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
     bool skew = false;
     bb::wnaf::fixed_wnaf<num_bits, 1, WNAF_SIZE>(&scalar_multiplier.data[0], &wnaf_values[0], skew, 0);
 
-    std::vector<field_t<C>> wnaf_entries;
-    for (size_t i = 0; i < num_rounds; ++i) {
-        bool predicate = bool((wnaf_values[i] >> 31U) & 1U);
-        uint64_t offset_entry;
-        if (!predicate) {
-            offset_entry = (1ULL << (WNAF_SIZE - 1)) + (wnaf_values[i] & 0xffffff);
-        } else {
-            offset_entry = (1ULL << (WNAF_SIZE - 1)) - 1 - (wnaf_values[i] & 0xffffff);
-        }
-        field_t<C> entry(witness_t<C>(ctx, offset_entry));
-        ctx->create_new_range_constraint(entry.witness_index, 1ULL << (WNAF_SIZE), "biggroup_nafs");
+    // Get wnaf witnesses
+    std::vector<field_t<C>> wnaf_entries = convert_wnaf_values_to_witnesses<WNAF_SIZE>(
+        ctx, &wnaf_values[0], /*is_negative*/ false, num_rounds, range_constrain_wnaf);
 
-        wnaf_entries.emplace_back(entry);
-    }
-
-    // add skew
+    // add skew to wnaf_entries
     wnaf_entries.emplace_back(witness_t<C>(ctx, skew));
     ctx->create_new_range_constraint(wnaf_entries[wnaf_entries.size() - 1].witness_index, 1, "biggroup_nafs");
 
@@ -477,6 +466,7 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
         // We then subtract off the constant term and call `Fr::assert_is_in_field` to reduce the value modulo
         // Fr::modulus
         const auto reconstruct_half_wnaf = [](field_t<C>* wnafs, const size_t half_round_length) {
+            // TODO: what if half_round_length is 0?
             std::vector<field_t<C>> half_accumulators;
             for (size_t i = 0; i < half_round_length; ++i) {
                 field_t<C> entry = wnafs[half_round_length - 1 - i];

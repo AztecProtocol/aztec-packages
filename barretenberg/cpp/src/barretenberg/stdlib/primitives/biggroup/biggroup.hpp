@@ -419,7 +419,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static std::vector<bool_ct> compute_naf(const Fr& scalar, const size_t max_num_bits = 0);
 
     template <size_t max_num_bits = 0, size_t WNAF_SIZE = 4>
-    static std::vector<field_t<Builder>> compute_wnaf(const Fr& scalar);
+    static std::vector<field_t<Builder>> compute_wnaf(const Fr& scalar, const bool range_constrain_wnaf = true);
 
     template <size_t wnaf_size, size_t staggered_lo_offset = 0, size_t staggered_hi_offset = 0>
     static secp256k1_wnaf_pair compute_secp256k1_endo_wnaf(const Fr& scalar, const bool range_constrain_wnaf = true);
