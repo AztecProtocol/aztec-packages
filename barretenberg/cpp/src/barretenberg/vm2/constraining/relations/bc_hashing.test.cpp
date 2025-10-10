@@ -46,7 +46,7 @@ using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using bc_hashing = bb::avm2::bc_hashing<FF>;
-using poseidon2 = bb::avm2::poseidon2_hash<FF>;
+using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
 class BytecodeHashingConstrainingTest : public ::testing::Test {
   public:
@@ -65,7 +65,7 @@ class BytecodeHashingConstrainingTest : public ::testing::Test {
 class BytecodeHashingConstrainingTestTraceHelper : public BytecodeHashingConstrainingTest {
   public:
     TestTraceContainer process_bc_hashing_trace(std::vector<std::vector<FF>> all_bytecode_fields,
-                                                std::vector<uint32_t> bytecode_ids)
+                                                std::vector<FF> bytecode_ids)
     {
         // Note: this helper expects bytecode fields without the prepended separator and does not complete decomposition
         Poseidon2 poseidon2 = Poseidon2(
@@ -162,7 +162,7 @@ TEST_F(BytecodeHashingConstrainingTest, SingleBytecodeHashOneRow)
             { C::bc_hashing_pc_index_2, 31 },
             { C::bc_hashing_sel_not_padding_1, 1 },
             { C::bc_hashing_sel_not_padding_2, 1 },
-            { C::bc_hashing_bytecode_id, 1 },
+            { C::bc_hashing_bytecode_id, hash },
             { C::bc_hashing_output_hash, hash },
             { C::bc_hashing_pc_index, 0 },
             { C::bc_hashing_rounds_rem, 1 },
@@ -173,7 +173,7 @@ TEST_F(BytecodeHashingConstrainingTest, SingleBytecodeHashOneRow)
 
     precomputed_builder.process_misc(trace, 3);
     builder.process_decomposition(
-        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
+        { { .bytecode_id = hash, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
 
     check_relation<bc_hashing>(trace);
@@ -190,7 +190,7 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, SingleBytecodeHash100Fields)
         bytecode_fields.push_back(FF(i));
     }
 
-    TestTraceContainer trace = process_bc_hashing_trace({ bytecode_fields }, { 1 });
+    TestTraceContainer trace = process_bc_hashing_trace({ bytecode_fields }, { hash });
 
     std::vector<uint8_t> bytecode = {};
     for (auto bytecode_field : bytecode_fields) {
@@ -200,23 +200,24 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, SingleBytecodeHash100Fields)
     }
 
     builder.process_decomposition(
-        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
+        { { .bytecode_id = hash, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
 
     check_relation<bc_hashing>(trace);
     check_all_interactions<BytecodeTraceBuilder>(trace);
     EXPECT_EQ(trace.get(C::bc_hashing_output_hash, 1), hash);
 }
 
-// Note: skipping this for now as it takes ~4s
 TEST_F(BytecodeHashingConstrainingTestTraceHelper, SingleBytecodeHashMax)
 {
-    GTEST_SKIP();
     std::vector<uint8_t> bytecode = random_bytes(static_cast<size_t>(31 * MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS));
     std::vector<FF> bytecode_fields = simulation::encode_bytecode(bytecode);
+    std::vector<FF> prepended_fields = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+    prepended_fields.insert(prepended_fields.end(), bytecode_fields.begin(), bytecode_fields.end());
+    FF hash = RawPoseidon2::hash(prepended_fields);
 
-    TestTraceContainer trace = process_bc_hashing_trace({ bytecode_fields }, { 1 });
+    TestTraceContainer trace = process_bc_hashing_trace({ bytecode_fields }, { hash });
     builder.process_decomposition(
-        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
+        { { .bytecode_id = hash, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
 
     check_relation<bc_hashing>(trace);
     check_all_interactions<BytecodeTraceBuilder>(trace);
@@ -228,19 +229,22 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, MultipleBytecodeHash)
     // 20 bytes => hash 2 fields, one padding field
     // 80 bytes => hash 4 fields, two padding fields
     std::vector<std::vector<uint8_t>> all_bytecode = { random_bytes(40), random_bytes(20), random_bytes(80) };
-    std::vector<std::vector<FF>> all_bytecode_fields = {
-        simulation::encode_bytecode(all_bytecode[0]),
-        simulation::encode_bytecode(all_bytecode[1]),
-        simulation::encode_bytecode(all_bytecode[2]),
-    };
+    std::vector<std::vector<FF>> all_bytecode_fields;
+    std::vector<FF> hashes;
+    for (uint32_t i = 0; i < all_bytecode.size(); i++) {
+        all_bytecode_fields.push_back(simulation::encode_bytecode(all_bytecode[i]));
+        std::vector<FF> prepended_fields = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+        prepended_fields.insert(prepended_fields.end(), all_bytecode_fields[i].begin(), all_bytecode_fields[i].end());
+        hashes.push_back(RawPoseidon2::hash(prepended_fields));
+    }
 
-    TestTraceContainer trace = process_bc_hashing_trace(all_bytecode_fields, { 1, 2, 3 });
+    TestTraceContainer trace = process_bc_hashing_trace(all_bytecode_fields, hashes);
     std::vector<simulation::BytecodeDecompositionEvent> decomp_events = {};
 
     for (uint32_t j = 0; j < all_bytecode.size(); j++) {
         const auto& bytecode = all_bytecode[j];
         decomp_events.push_back(simulation::BytecodeDecompositionEvent{
-            .bytecode_id = j + 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) });
+            .bytecode_id = hashes[j], .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) });
     }
     builder.process_decomposition({ decomp_events }, trace);
 
@@ -256,17 +260,27 @@ TEST_F(BytecodeHashingConstrainingTest, BytecodeInteractions)
 
     std::vector<uint8_t> bytecode = random_bytes(123);
     std::vector<FF> fields = simulation::encode_bytecode(bytecode);
+    std::vector<FF> prepended_fields = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+    prepended_fields.insert(prepended_fields.end(), fields.begin(), fields.end());
+    FF hash = RawPoseidon2::hash(prepended_fields);
 
-    builder.process_hashing({ { .bytecode_id = 1, .bytecode_length = 40, .bytecode_fields = fields } }, trace);
+    builder.process_hashing({ { .bytecode_id = hash, .bytecode_length = 40, .bytecode_fields = fields } }, trace);
     builder.process_decomposition(
-        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
+        { { .bytecode_id = hash, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
 
-    check_interaction<BytecodeTraceBuilder,
-                      lookup_bc_hashing_get_packed_field_0_settings,
-                      lookup_bc_hashing_get_packed_field_1_settings,
-                      lookup_bc_hashing_get_packed_field_0_settings,
-                      lookup_bc_hashing_check_final_bytes_remaining_settings>(trace);
+    tracegen::MultiPermutationBuilder<perm_bc_hashing_get_packed_field_0_settings,
+                                      perm_bc_hashing_get_packed_field_1_settings,
+                                      perm_bc_hashing_get_packed_field_2_settings>
+        perm_builder(C::bc_decomposition_sel_packed);
+    perm_builder.process(trace);
+
+    check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_check_final_bytes_remaining_settings>(trace);
+    check_multipermutation_interaction<BytecodeTraceBuilder,
+                                       perm_bc_hashing_get_packed_field_0_settings,
+                                       perm_bc_hashing_get_packed_field_1_settings,
+                                       perm_bc_hashing_get_packed_field_2_settings>(trace);
     check_relation<bc_hashing>(trace);
+    check_relation<bb::avm2::bc_decomposition<FF>>(trace);
 }
 
 // Negative test where latch == 1 and sel == 0
@@ -345,39 +359,59 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeBytecodeInteraction)
 
     std::vector<uint8_t> bytecode = random_bytes(150);
     std::vector<FF> fields = simulation::encode_bytecode(bytecode);
+    std::vector<FF> prepended_fields = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+    prepended_fields.insert(prepended_fields.end(), fields.begin(), fields.end());
+    FF hash = RawPoseidon2::hash(prepended_fields);
 
-    builder.process_hashing({ { .bytecode_id = 1, .bytecode_length = 150, .bytecode_fields = fields } }, trace);
+    builder.process_hashing({ { .bytecode_id = hash, .bytecode_length = 150, .bytecode_fields = fields } }, trace);
     builder.process_decomposition(
-        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
+        { { .bytecode_id = hash, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
+    tracegen::MultiPermutationBuilder<perm_bc_hashing_get_packed_field_0_settings,
+                                      perm_bc_hashing_get_packed_field_1_settings,
+                                      perm_bc_hashing_get_packed_field_2_settings>
+        perm_builder(C::bc_decomposition_sel_packed);
+    perm_builder.process(trace);
 
     // Row = 2 constrains the hashing for the last 3 fields of the bytecode (no padding)
-    // Modify the pc index for the lookup of the first packed field of row 2 (= fields[3])
+    // Modify the pc index for the permutation of the first packed field of row 2 (= prepended_fields[3])
     trace.set(Column::bc_hashing_pc_index, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_get_packed_field_0_settings>(trace)),
-        "Failed.*GET_PACKED_FIELD_0. Could not find tuple in destination.");
-
-    // Modify the field value for the lookup of the second packed field of row 2 (= fields[4])
+    EXPECT_THROW_WITH_MESSAGE((check_multipermutation_interaction<BytecodeTraceBuilder,
+                                                                  perm_bc_hashing_get_packed_field_0_settings,
+                                                                  perm_bc_hashing_get_packed_field_1_settings,
+                                                                  perm_bc_hashing_get_packed_field_2_settings>(trace)),
+                              "Failed.*GET_PACKED_FIELD_0. Could not find tuple in destination.");
+    trace.set(Column::bc_hashing_pc_index, 2, 62);
+    // Modify the field value for the permutation of the second packed field of row 2 (= prepended_fields[4])
     trace.set(Column::bc_hashing_packed_fields_1, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_get_packed_field_1_settings>(trace)),
-        "Failed.*GET_PACKED_FIELD_1. Could not find tuple in destination.");
+    EXPECT_THROW_WITH_MESSAGE((check_multipermutation_interaction<BytecodeTraceBuilder,
+                                                                  perm_bc_hashing_get_packed_field_0_settings,
+                                                                  perm_bc_hashing_get_packed_field_1_settings,
+                                                                  perm_bc_hashing_get_packed_field_2_settings>(trace)),
+                              "Failed.*GET_PACKED_FIELD_1. Could not find tuple in destination.");
+    trace.set(Column::bc_hashing_packed_fields_1, 2, prepended_fields[4]);
 
-    // Modify the pc index for the lookup of the third packed field of row 2 (= fields[5])
+    // Modify the pc index for the permutation of the third packed field of row 2 (= fields[5])
     trace.set(Column::bc_hashing_pc_index_2, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_get_packed_field_2_settings>(trace)),
-        "Failed.*GET_PACKED_FIELD_2. Could not find tuple in destination.");
+    EXPECT_THROW_WITH_MESSAGE((check_multipermutation_interaction<BytecodeTraceBuilder,
+                                                                  perm_bc_hashing_get_packed_field_0_settings,
+                                                                  perm_bc_hashing_get_packed_field_1_settings,
+                                                                  perm_bc_hashing_get_packed_field_2_settings>(trace)),
+                              "Failed.*GET_PACKED_FIELD_2. Could not find tuple in destination.");
 
     // Reset for next test:
     trace.set(Column::bc_hashing_pc_index_2, 2, 124);
-    check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_get_packed_field_2_settings>(trace);
+    check_multipermutation_interaction<BytecodeTraceBuilder,
+                                       perm_bc_hashing_get_packed_field_0_settings,
+                                       perm_bc_hashing_get_packed_field_1_settings,
+                                       perm_bc_hashing_get_packed_field_2_settings>(trace);
 
-    // Modify the bytecode id for the lookup of the third packed field of row 2 (= fields[5])
+    // Modify the bytecode id for the permutation:
     trace.set(Column::bc_hashing_bytecode_id, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_get_packed_field_2_settings>(trace)),
-        "Failed.*GET_PACKED_FIELD_2. Could not find tuple in destination.");
+    EXPECT_THROW_WITH_MESSAGE((check_multipermutation_interaction<BytecodeTraceBuilder,
+                                                                  perm_bc_hashing_get_packed_field_0_settings,
+                                                                  perm_bc_hashing_get_packed_field_1_settings,
+                                                                  perm_bc_hashing_get_packed_field_2_settings>(trace)),
+                              "Failed.*GET_PACKED_FIELD_.*. Could not find tuple in destination.");
 }
 
 TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingSelectors)
@@ -414,10 +448,13 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingUnder)
     // 80 bytes => hash 4 fields, two padding fields
     std::vector<uint8_t> bytecode = random_bytes(80);
     std::vector<FF> fields = simulation::encode_bytecode(bytecode);
+    std::vector<FF> prepended_fields = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+    prepended_fields.insert(prepended_fields.end(), fields.begin(), fields.end());
+    FF hash = RawPoseidon2::hash(prepended_fields);
 
-    TestTraceContainer trace = process_bc_hashing_trace({ fields }, { 1 });
+    TestTraceContainer trace = process_bc_hashing_trace({ fields }, { hash });
     builder.process_decomposition(
-        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
+        { { .bytecode_id = hash, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
 
     // Row = 2 constrains the hashing for the last field of the bytecode, plus 2 padding fields
     // We cannot claim there is only one padding field:
@@ -429,9 +466,11 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingUnder)
     trace.set(Column::bc_hashing_pc_at_final_field, 2, 93);
     check_relation<bc_hashing>(trace, bc_hashing::SR_PADDING_CORRECTNESS);
     // ...but the lookup to find field 1 will fail...
-    EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_get_packed_field_1_settings>(trace)),
-        "Failed.*GET_PACKED_FIELD_1. Could not find tuple in destination.");
+    EXPECT_THROW_WITH_MESSAGE((check_multipermutation_interaction<BytecodeTraceBuilder,
+                                                                  perm_bc_hashing_get_packed_field_0_settings,
+                                                                  perm_bc_hashing_get_packed_field_1_settings,
+                                                                  perm_bc_hashing_get_packed_field_2_settings>(trace)),
+                              "Failed.*GET_PACKED_FIELD_1. Could not find tuple in destination.");
     // ...and the lookup to check the final field against bytes remaining will fail:
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_check_final_bytes_remaining_settings>(trace)),
@@ -507,7 +546,10 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativeRounds)
 TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativeOutputHash)
 {
     std::vector<FF> bytecode_fields = random_fields(10);
-    TestTraceContainer trace = process_bc_hashing_trace({ bytecode_fields }, { 1 });
+    std::vector<FF> prepended_fields = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+    prepended_fields.insert(prepended_fields.end(), bytecode_fields.begin(), bytecode_fields.end());
+    FF hash = RawPoseidon2::hash(prepended_fields);
+    TestTraceContainer trace = process_bc_hashing_trace({ bytecode_fields }, { hash });
 
     check_relation<bc_hashing>(trace);
     check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_poseidon2_hash_settings>(trace);
@@ -656,7 +698,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashOutputConsiste
             { C::bc_hashing_pc_index_2, 31 },
             { C::bc_hashing_sel_not_padding_1, 1 },
             { C::bc_hashing_sel_not_padding_2, 1 },
-            { C::bc_hashing_bytecode_id, 1 },
+            { C::bc_hashing_bytecode_id, good_hash },
             { C::bc_hashing_output_hash, good_hash },
             { C::bc_hashing_pc_index, 0 },
             { C::bc_hashing_rounds_rem, 2 },
@@ -674,7 +716,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashOutputConsiste
             { C::bc_hashing_pc_index_2, 124 },
             { C::bc_hashing_sel_not_padding_1, 1 },
             { C::bc_hashing_sel_not_padding_2, 1 },
-            { C::bc_hashing_bytecode_id, 1 },
+            { C::bc_hashing_bytecode_id, good_hash },
             { C::bc_hashing_output_hash, bad_hash },
             { C::bc_hashing_pc_index, 62 },
             { C::bc_hashing_rounds_rem, 1 },
@@ -685,13 +727,20 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashOutputConsiste
     precomputed_builder.process_misc(trace, 256);
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     builder.process_decomposition(
-        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
+        { { .bytecode_id = good_hash, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
 
     // The 'correct' rows (for input chunks [sep, 1, 2] and [3, 4, 5]) will exist in the poseidon trace, so the lookups
     // will pass...
     check_all_interactions<BytecodeTraceBuilder>(trace);
-    // ...but the hash consistency check will fail:
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_HASH_CONSISTENCY), "HASH_CONSISTENCY");
+    // ...but the hash check will fail:
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_HASH_IS_ID), "HASH_IS_ID");
+    // Changing the id to match will fail the lookup into decomposition, and the propagation check:
+    trace.set(Column::bc_hashing_bytecode_id, 2, bad_hash);
+    check_relation<bc_hashing>(trace, bc_hashing::SR_HASH_IS_ID);
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_check_final_bytes_remaining_settings>(trace)),
+        "Failed.*CHECK_FINAL_BYTES_REMAINING. Could not find tuple in destination.");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_ID_PROPAGATION), "ID_PROPAGATION");
 }
 } // namespace
 } // namespace bb::avm2::constraining

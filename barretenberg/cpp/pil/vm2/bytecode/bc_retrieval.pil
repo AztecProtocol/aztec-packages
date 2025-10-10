@@ -1,5 +1,4 @@
 include "contract_instance_retrieval.pil";
-include "bc_hashing.pil";
 
 include "../constants_gen.pil";
 
@@ -34,6 +33,7 @@ sel = 0;
 
 // This id is the bytecode commitment itself
 // The bytecode_id should equal the public_bytecode_commitment.
+// This is constrained in bc_hashing, which is looked up via instr_fetching -> bc_decomposition.
 pol commit bytecode_id;
 pol commit error;  // some error occurred.
 pol commit address;  // contract address.
@@ -154,10 +154,6 @@ should_retrieve {
     retrieved_bytecodes_tree_check.tree_size_after_write
 };
 
-// Note: only need to hash the bytecode if there is no error. Otherwise there is nothing to hash!
-#[BYTECODE_HASH_IS_CORRECT]
-should_retrieve { bytecode_id, /*public_bytecode_commitment=*/ bytecode_id } in bc_hashing.latch { bc_hashing.bytecode_id, bc_hashing.output_hash };
-
 // If instance does not exist, force current_class_id to 0.
 #[CURRENT_CLASS_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST]
 sel * (1 - instance_exists) * (current_class_id - 0) = 0;
@@ -173,5 +169,5 @@ error * (bytecode_id - 0) = 0;
 error * (next_retrieved_bytecodes_tree_root - prev_retrieved_bytecodes_tree_root) = 0;
 error * (next_retrieved_bytecodes_tree_size - prev_retrieved_bytecodes_tree_size) = 0;
 
-// Note: we don't need to silo and check the class id because the deployer contract guarrantees
+// Note: we don't need to silo and check the class id because the deployer contract guarantees
 // that if a contract instance exists, the class has been registered.

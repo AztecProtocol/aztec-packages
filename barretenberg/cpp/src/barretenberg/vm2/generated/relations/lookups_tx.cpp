@@ -42,7 +42,6 @@ INSTANTIATE_LOOKUP(lookup_tx_read_fee_payer_public_inputs_relation);
 INSTANTIATE_LOOKUP(lookup_tx_balance_slot_poseidon2_relation);
 INSTANTIATE_LOOKUP(lookup_tx_balance_read_relation);
 INSTANTIATE_LOOKUP(lookup_tx_balance_validation_relation);
-INSTANTIATE_LOOKUP(lookup_tx_balance_update_relation);
 INSTANTIATE_LOOKUP(lookup_tx_write_fee_public_inputs_relation);
 
 } // namespace bb::avm2
