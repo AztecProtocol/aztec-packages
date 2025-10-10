@@ -5,6 +5,7 @@
 #include "barretenberg/vm2/tooling/debugger.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
 #include "barretenberg/vm2/tracegen_helper.hpp"
+#include "barretenberg/world_state/types.hpp"
 
 namespace bb::avm2 {
 

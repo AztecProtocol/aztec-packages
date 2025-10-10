@@ -8,6 +8,7 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
@@ -293,8 +294,8 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
     };
 }
 
-void AvmSimulationHelper::simulate_fast(simulation::ContractDBInterface& raw_contract_db,
-                                        simulation::LowLevelMerkleDBInterface& raw_merkle_db,
+void AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_contract_db,
+                                        LowLevelMerkleDBInterface& raw_merkle_db,
                                         const Tx& tx,
                                         const GlobalVariables& global_variables,
                                         const ProtocolContracts& protocol_contracts)

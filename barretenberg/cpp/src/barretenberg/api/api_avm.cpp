@@ -1,5 +1,7 @@
 #ifndef DISABLE_AZTEC_VM
 #include "barretenberg/api/api_avm.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/world_state/types.hpp"
 
 #include <filesystem>
 
