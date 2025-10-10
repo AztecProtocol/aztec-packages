@@ -19,6 +19,11 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
   private nextWorker = 0;
   private nextThreadId = 1;
 
+  // Pre-allocated scratch buffers for msgpack I/O to avoid malloc/free overhead
+  private msgpackInputScratch: number = 0;   // 1MB input buffer
+  private msgpackOutputScratch: number = 0;  // 1MB output buffer
+  private readonly MSGPACK_SCRATCH_SIZE = 1024 * 1024; // 1MB
+
   public getNumThreads() {
     return this.workers.length + 1;
   }
@@ -53,6 +58,14 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
 
     // Init all global/static data.
     this.call('_initialize');
+
+    // Allocate dedicated msgpack scratch buffers (never freed, reused for all msgpack calls)
+    this.msgpackInputScratch = this.call('bbmalloc', this.MSGPACK_SCRATCH_SIZE);
+    this.msgpackOutputScratch = this.call('bbmalloc', this.MSGPACK_SCRATCH_SIZE);
+    this.logger(
+      `Allocated msgpack scratch buffers: ` +
+      `input @ ${this.msgpackInputScratch}, output @ ${this.msgpackOutputScratch} (${this.MSGPACK_SCRATCH_SIZE} bytes each)`
+    );
 
     // Create worker threads. Create 1 less than requested, as main thread counts as a thread.
     if (threads > 1) {
@@ -138,25 +151,43 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
   }
 
   cbindCall(cbind: string, inputBuffer: Uint8Array): any {
-    const outputSizePtr = this.call('bbmalloc', 4);
-    const outputMsgpackPtr = this.call('bbmalloc', 4);
+    // Validate input size against scratch buffer
+    if (inputBuffer.length > this.MSGPACK_SCRATCH_SIZE) {
+      throw new Error(
+        `Msgpack input exceeds scratch buffer size: ${inputBuffer.length} > ${this.MSGPACK_SCRATCH_SIZE}. ` +
+        `This is a bug - msgpack messages should not be this large.`
+      );
+    }
 
-    const inputPtr = this.call('bbmalloc', inputBuffer.length);
-    this.writeMemory(inputPtr, inputBuffer);
-    this.call(cbind, inputPtr, inputBuffer.length, outputMsgpackPtr, outputSizePtr);
+    // Write input directly to scratch buffer (NO malloc)
+    this.writeMemory(this.msgpackInputScratch, inputBuffer);
+
+    // Use scratch buffer for output pointers (NO malloc)
+    const outputSizePtr = this.msgpackOutputScratch;
+    const outputMsgpackPtr = this.msgpackOutputScratch + 4;
+
+    // Call WASM with scratch buffer pointers
+    this.call(cbind, this.msgpackInputScratch, inputBuffer.length, outputMsgpackPtr, outputSizePtr);
 
     const readPtr32 = (ptr32: number) => {
       const dataView = new DataView(this.getMemorySlice(ptr32, ptr32 + 4).buffer);
       return dataView.getUint32(0, true);
     };
 
-    const encodedResult = this.getMemorySlice(
-      readPtr32(outputMsgpackPtr),
-      readPtr32(outputMsgpackPtr) + readPtr32(outputSizePtr),
-    );
-    this.call('bbfree', inputPtr);
-    this.call('bbfree', outputSizePtr);
-    this.call('bbfree', outputMsgpackPtr);
+    const outputDataPtr = readPtr32(outputMsgpackPtr);
+    const outputSize = readPtr32(outputSizePtr);
+
+    // Validate output size (defensive check)
+    if (outputSize > this.MSGPACK_SCRATCH_SIZE - 8) {
+      throw new Error(
+        `Msgpack output exceeds scratch buffer size: ${outputSize} > ${this.MSGPACK_SCRATCH_SIZE - 8}. ` +
+        `This is a bug - msgpack responses should not be this large.`
+      );
+    }
+
+    const encodedResult = this.getMemorySlice(outputDataPtr, outputDataPtr + outputSize);
+
+    // NO bbfree calls - scratch buffers are reused!
     return encodedResult;
   }
 }
