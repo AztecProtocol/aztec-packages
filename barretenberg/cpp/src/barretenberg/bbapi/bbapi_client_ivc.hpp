@@ -34,10 +34,11 @@ struct ClientIvcStart {
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
     };
+    bool use_sumcheck_ivc = false;
     // Number of circuits to be accumulated.
     size_t num_circuits;
     Response execute(BBApiRequest& request) &&;
-    MSGPACK_FIELDS(num_circuits);
+    MSGPACK_FIELDS(use_sumcheck_ivc, num_circuits);
     bool operator==(const ClientIvcStart&) const = default;
 };
 

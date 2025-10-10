@@ -83,5 +83,3 @@ TEST_F(MultilinearBatchingRelationConsistency, SkipLogic)
     instance_non_zero.w_evaluations_instance = FF(1);
     EXPECT_FALSE(Relation::skip(instance_non_zero));
 }
-
-

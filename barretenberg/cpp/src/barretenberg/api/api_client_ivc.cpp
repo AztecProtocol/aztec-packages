@@ -68,8 +68,12 @@ void ClientIVCAPI::prove(const Flags& flags,
     bbapi::BBApiRequest request;
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    bbapi::ClientIvcStart{ .num_circuits = raw_steps.size() }.execute(request);
-    info("ClientIVC: starting with ", raw_steps.size(), " circuits");
+    bbapi::ClientIvcStart{ .use_sumcheck_ivc = flags.use_sumcheck_ivc, .num_circuits = raw_steps.size() }.execute(
+        request);
+    info("ClientIVC: starting with ",
+         raw_steps.size(),
+         " circuits",
+         flags.use_sumcheck_ivc ? " (using SumcheckClientIVC)" : "");
     for (const auto& step : raw_steps) {
         bbapi::ClientIvcLoad{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
