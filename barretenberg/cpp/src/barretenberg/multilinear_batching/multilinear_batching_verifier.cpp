@@ -61,8 +61,8 @@ MultilinearBatchingVerifier<Flavor_>::verify_proof([[maybe_unused]] const Proof&
     std::vector<FF> padding_indicator(Flavor::VIRTUAL_LOG_N);
     std::ranges::fill(padding_indicator, FF{ 1 });
 
-    auto target_sum = (((instance_shifted_evaluation * alpha + accumulator_shifted_evaluation) * alpha +
-                        instance_non_shifted_evaluation) *
+    auto target_sum = (((instance_shifted_evaluation * alpha + instance_non_shifted_evaluation) * alpha +
+                        accumulator_shifted_evaluation) *
                            alpha +
                        accumulator_non_shifted_evaluation);
     Sumcheck sumcheck(transcript, alpha, Flavor::VIRTUAL_LOG_N, target_sum);

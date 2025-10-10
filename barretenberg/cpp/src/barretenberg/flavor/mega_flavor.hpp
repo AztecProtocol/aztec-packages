@@ -488,6 +488,7 @@ class MegaFlavor {
                 poly = Polynomial(desired_size, circuit_size / 2);
             }
         }
+        [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
     };
 
     /**

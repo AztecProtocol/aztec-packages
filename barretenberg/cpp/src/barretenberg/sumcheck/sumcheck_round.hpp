@@ -372,7 +372,16 @@ template <typename Flavor> class SumcheckProverRound {
                 }
             }
         } else {
-            result.push_back(BlockOfContiguousRows{ .starting_edge_idx = 0, .size = round_size });
+            constexpr bool has_get_polynomial_size =
+                requires(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials_like) {
+                    polynomials_like.get_polynomial_size();
+                };
+            if constexpr (has_get_polynomial_size) {
+                result.push_back(
+                    BlockOfContiguousRows{ .starting_edge_idx = 0, .size = polynomials.get_polynomial_size() });
+            } else {
+                result.push_back(BlockOfContiguousRows{ .starting_edge_idx = 0, .size = round_size });
+            }
         }
         return result;
     }
