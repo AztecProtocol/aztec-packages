@@ -10,8 +10,9 @@ import {
 
 export class ValidatorMetrics {
   private failedReexecutionCounter: UpDownCounter;
-  private attestationsCount: UpDownCounter;
-  private failedAttestationsCount: UpDownCounter;
+  private successfulAttestationsCount: UpDownCounter;
+  private failedAttestationsBadProposalCount: UpDownCounter;
+  private failedAttestationsNodeIssueCount: UpDownCounter;
 
   private reexMana: Histogram;
   private reexTx: Histogram;
@@ -26,15 +27,26 @@ export class ValidatorMetrics {
       valueType: ValueType.INT,
     });
 
-    this.attestationsCount = meter.createUpDownCounter(Metrics.VALIDATOR_ATTESTATION_COUNT, {
-      description: 'The number of attestations',
+    this.successfulAttestationsCount = meter.createUpDownCounter(Metrics.VALIDATOR_ATTESTATION_SUCCESS_COUNT, {
+      description: 'The number of successful attestations',
       valueType: ValueType.INT,
     });
 
-    this.failedAttestationsCount = meter.createUpDownCounter(Metrics.VALIDATOR_FAILED_ATTESTATION_COUNT, {
-      description: 'The number of failed attestations',
-      valueType: ValueType.INT,
-    });
+    this.failedAttestationsBadProposalCount = meter.createUpDownCounter(
+      Metrics.VALIDATOR_ATTESTATION_FAILED_BAD_PROPOSAL_COUNT,
+      {
+        description: 'The number of failed attestations due to invalid block proposals',
+        valueType: ValueType.INT,
+      },
+    );
+
+    this.failedAttestationsNodeIssueCount = meter.createUpDownCounter(
+      Metrics.VALIDATOR_ATTESTATION_FAILED_NODE_ISSUE_COUNT,
+      {
+        description: 'The number of failed attestations due to node issues (timeout, missing data, etc.)',
+        valueType: ValueType.INT,
+      },
+    );
 
     this.reexMana = meter.createHistogram(Metrics.VALIDATOR_RE_EXECUTION_MANA, {
       description: 'The mana consumed by blocks',
@@ -68,14 +80,19 @@ export class ValidatorMetrics {
     });
   }
 
-  public incAttestations(num: number) {
-    this.attestationsCount.add(num);
+  public incSuccessfulAttestations(num: number) {
+    this.successfulAttestationsCount.add(num);
   }
 
-  public incFailedAttestations(num: number, reason: string, inCommittee: boolean) {
-    this.failedAttestationsCount.add(num, {
+  public incFailedAttestationsBadProposal(num: number, reason: string) {
+    this.failedAttestationsBadProposalCount.add(num, {
       [Attributes.ERROR_TYPE]: reason,
-      [Attributes.VALIDATOR_STATUS]: inCommittee ? 'in-committee' : 'none',
+    });
+  }
+
+  public incFailedAttestationsNodeIssue(num: number, reason: string) {
+    this.failedAttestationsNodeIssueCount.add(num, {
+      [Attributes.ERROR_TYPE]: reason,
     });
   }
 }
