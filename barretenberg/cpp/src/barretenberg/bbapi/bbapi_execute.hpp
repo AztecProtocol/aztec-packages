@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/bbapi/bbapi_client_ivc.hpp"
+#include "barretenberg/bbapi/bbapi_kzg.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -22,7 +23,15 @@ using Command = NamedUnion<CircuitProve,
                            VkAsFields,
                            CircuitWriteSolidityVerifier,
                            ClientIvcCheckPrecomputedVk,
-                           ClientIvcStats>;
+                           ClientIvcStats,
+                           KzgLoadTrustedSetup,
+                           KzgFreeTrustedSetup,
+                           KzgBlobToCommitment,
+                           KzgComputeProof,
+                           KzgComputeBlobProof,
+                           KzgVerifyProof,
+                           KzgVerifyBlobProof,
+                           KzgVerifyBlobProofBatch>;
 
 using CommandResponse = NamedUnion<CircuitProve::Response,
                                    CircuitComputeVk::Response,
@@ -38,7 +47,15 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
                                    VkAsFields::Response,
                                    CircuitWriteSolidityVerifier::Response,
                                    ClientIvcCheckPrecomputedVk::Response,
-                                   ClientIvcStats::Response>;
+                                   ClientIvcStats::Response,
+                                   KzgLoadTrustedSetup::Response,
+                                   KzgFreeTrustedSetup::Response,
+                                   KzgBlobToCommitment::Response,
+                                   KzgComputeProof::Response,
+                                   KzgComputeBlobProof::Response,
+                                   KzgVerifyProof::Response,
+                                   KzgVerifyBlobProof::Response,
+                                   KzgVerifyBlobProofBatch::Response>;
 
 /**
  * @brief Executes a command by visiting a variant of all possible commands.

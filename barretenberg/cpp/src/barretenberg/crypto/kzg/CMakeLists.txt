@@ -10,6 +10,7 @@
 set(SOURCES
     ${C_KZG_SOURCE_DIR}/ckzg.c
     ${C_KZG_BLST_DIR}/src/server.c
+    ${C_KZG_BLST_DIR}/build/assembly.S
     c_bind.cpp
 )
 
@@ -36,6 +37,13 @@ target_compile_options(crypto_kzg_objects PRIVATE
 
 # Create static library
 add_library(crypto_kzg STATIC $<TARGET_OBJECTS:crypto_kzg_objects>)
+
+# Propagate include directories to consumers
+target_include_directories(crypto_kzg PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${C_KZG_SOURCE_DIR}
+    ${C_KZG_BLST_DIR}/bindings
+)
 
 # Link with common (for WASM_EXPORT)
 target_link_libraries(crypto_kzg PUBLIC common)
