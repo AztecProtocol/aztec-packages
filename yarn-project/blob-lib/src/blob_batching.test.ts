@@ -1,4 +1,4 @@
-import { BarretenbergSync } from '@aztec/bb.js';
+import { BarretenbergSync, Buffer32, Buffer48, RawBuffer } from '@aztec/bb.js';
 import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB } from '@aztec/constants';
 import { fromHex } from '@aztec/foundation/bigint-buffer';
 import { poseidon2Hash, randomInt, sha256ToField } from '@aztec/foundation/crypto';
@@ -17,6 +17,10 @@ const trustedSetup = JSON.parse(
 );
 
 describe('Blob Batching', () => {
+  beforeAll(async () => {
+    await ensureKzgInitialized();
+  });
+
   it.each([10, 100, 400])('our BLS library should correctly commit to a blob of %p items', async size => {
     const blobItems: Fr[] = Array(size).fill(new Fr(size + 1));
     const ourBlob = await Blob.fromFields(blobItems);
@@ -55,7 +59,7 @@ describe('Blob Batching', () => {
 
     // 'Batched' evaluation
     const proofObjects = blobs.map(b => {
-      const res = api.kzgComputeKzgProof(b.data, finalZ.toBuffer());
+      const res = api.kzgComputeKzgProof(new RawBuffer(b.data), new RawBuffer(finalZ.toBuffer()));
       return [Buffer.from(res[0].buffer), Buffer.from(res[1].buffer)] as const;
     });
     const evalYs = proofObjects.map(p => BLS12Fr.fromBuffer(Buffer.from(p[1])));
@@ -95,10 +99,10 @@ describe('Blob Batching', () => {
     expect(finalBlobCommitmentsHash.equals(batchedBlob.blobCommitmentsHash.toBuffer())).toBeTruthy();
 
     const isValid = api.kzgVerifyKzgProof(
-      batchedC.compress(),
-      finalZ.toBuffer(),
-      finalY.toBuffer(),
-      batchedQ.compress(),
+      new RawBuffer(batchedC.compress()),
+      new RawBuffer(finalZ.toBuffer()),
+      new Buffer32(finalY.toBuffer()),
+      new Buffer48(batchedQ.compress()),
     );
     expect(isValid).toBe(true);
   });
@@ -106,7 +110,6 @@ describe('Blob Batching', () => {
   it('should construct and verify a batch of 3 full blobs', async () => {
     // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr -> test_full_blobs_batched
     // Initialize enough fields to require 3 blobs
-    await ensureKzgInitialized();
     const api = BarretenbergSync.getSingleton();
     const items = [new Fr(3), new Fr(4), new Fr(5)].map(f =>
       new Array(FIELDS_PER_BLOB).fill(f).map((elt, i) => elt.mul(new Fr(i + 1))),
@@ -123,7 +126,7 @@ describe('Blob Batching', () => {
     // Batched evaluation
     // NB: we share the same finalZ between blobs
     const proofObjects = blobs.map(b => {
-      const res = api.kzgComputeKzgProof(b.data, finalZ.toBuffer());
+      const res = api.kzgComputeKzgProof(new RawBuffer(b.data), new RawBuffer(finalZ.toBuffer()));
       return [Buffer.from(res[0].buffer), Buffer.from(res[1].buffer)] as const;
     });
     const evalYs = proofObjects.map(p => BLS12Fr.fromBuffer(Buffer.from(p[1])));
@@ -164,10 +167,10 @@ describe('Blob Batching', () => {
     expect(finalBlobCommitmentsHash.equals(batchedBlob.blobCommitmentsHash.toBuffer())).toBeTruthy();
 
     const isValid = api.kzgVerifyKzgProof(
-      batchedC.compress(),
-      finalZ.toBuffer(),
-      finalY.toBuffer(),
-      batchedQ.compress(),
+      new RawBuffer(batchedC.compress()),
+      new RawBuffer(finalZ.toBuffer()),
+      new Buffer32(finalY.toBuffer()),
+      new Buffer48(batchedQ.compress()),
     );
     expect(isValid).toBe(true);
   });

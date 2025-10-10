@@ -1,4 +1,4 @@
-import { BarretenbergSync } from '@aztec/bb.js';
+import { BarretenbergSync, Buffer32, Buffer48, RawBuffer } from '@aztec/bb.js';
 import { AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_BLOCK } from '@aztec/constants';
 import { poseidon2Hash, sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { BLS12Field, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
@@ -75,7 +75,7 @@ export class BatchedBlob {
     // Now we have a shared challenge for all blobs, evaluate them...
     await ensureKzgInitialized();
     const api = BarretenbergSync.getSingleton();
-    const proofObjects = blobs.map(b => api.kzgComputeKzgProof(b.data, z.toBuffer()));
+    const proofObjects = blobs.map(b => api.kzgComputeKzgProof(new RawBuffer(b.data), new RawBuffer(z.toBuffer())));
     const evaluations = proofObjects.map(([_, evaluation]) => BLS12Fr.fromBuffer(Buffer.from(evaluation.buffer)));
     // ...and find the challenge for the linear combination of blobs.
     let gamma = await hashNoirBigNumLimbs(evaluations[0]);
@@ -209,7 +209,10 @@ export class BatchedBlobAccumulator {
     finalBlobChallenges: FinalBlobBatchingChallenges,
   ): Promise<BatchedBlobAccumulator> {
     const api = BarretenbergSync.getSingleton();
-    const [q, evaluation] = api.kzgComputeKzgProof(blob.data, finalBlobChallenges.z.toBuffer());
+    const [q, evaluation] = api.kzgComputeKzgProof(
+      new RawBuffer(blob.data),
+      new RawBuffer(finalBlobChallenges.z.toBuffer()),
+    );
     const firstY = BLS12Fr.fromBuffer(Buffer.from(evaluation.buffer));
     // Here, i = 0, so:
     return new BatchedBlobAccumulator(
@@ -251,7 +254,10 @@ export class BatchedBlobAccumulator {
       return BatchedBlobAccumulator.initialize(blob, this.finalBlobChallenges);
     } else {
       const api = BarretenbergSync.getSingleton();
-      const [q, evaluation] = api.kzgComputeKzgProof(blob.data, this.finalBlobChallenges.z.toBuffer());
+      const [q, evaluation] = api.kzgComputeKzgProof(
+        new RawBuffer(blob.data),
+        new RawBuffer(this.finalBlobChallenges.z.toBuffer()),
+      );
       const thisY = BLS12Fr.fromBuffer(Buffer.from(evaluation.buffer));
 
       // Moving from i - 1 to i, so:
@@ -311,7 +317,12 @@ export class BatchedBlobAccumulator {
     }
     const api = BarretenbergSync.getSingleton();
     if (
-      !api.kzgVerifyKzgProof(this.cAcc.compress(), this.zAcc.toBuffer(), this.yAcc.toBuffer(), this.qAcc.compress())
+      !api.kzgVerifyKzgProof(
+        new RawBuffer(this.cAcc.compress()),
+        new RawBuffer(this.zAcc.toBuffer()),
+        new Buffer32(this.yAcc.toBuffer()),
+        new Buffer48(this.qAcc.compress()),
+      )
     ) {
       throw new Error(`KZG proof did not verify.`);
     }
