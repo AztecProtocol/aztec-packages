@@ -16,7 +16,7 @@ namespace bb::bbapi {
 ClientIvcStart::Response ClientIvcStart::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    if (use_sumcheck_ivc) {
+    if (USE_SUMCHECK_IVC) {
         request.ivc_in_progress = std::make_shared<SumcheckClientIVC>(num_circuits, request.trace_settings);
     } else {
         request.ivc_in_progress = std::make_shared<ClientIVC>(num_circuits, request.trace_settings);

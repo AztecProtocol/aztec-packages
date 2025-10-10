@@ -89,7 +89,7 @@ SumcheckClientIVC::RecursiveVerifierAccumulator SumcheckClientIVC::execute_first
     verifier_instance->target_sum = StdlibFF::from_witness_index(&circuit, circuit.zero_idx);
     // Get the gate challenges for sumcheck/combiner computation
     verifier_instance->gate_challenges =
-        transcript->template get_powers_of_challenge<StdlibFF>("gate_challenge", CONST_PG_LOG_N);
+        transcript->template get_powers_of_challenge<StdlibFF>("gate_challenge", Flavor::VIRTUAL_LOG_N);
 
     VerifierCommitments commitments{ verifier_instance->vk_and_hash->vk, verifier_instance->witness_commitments };
     // DeciderRecursiveVerifier's log circuit size is fixed, hence we are using a trivial `padding_indicator_array`.
@@ -98,6 +98,8 @@ SumcheckClientIVC::RecursiveVerifierAccumulator SumcheckClientIVC::execute_first
     Sumcheck sumcheck(transcript, verifier_instance->alphas, Flavor::VIRTUAL_LOG_N, verifier_instance->target_sum);
     SumcheckOutput<RecursiveFlavor> sumcheck_output = sumcheck.verify(
         verifier_instance->relation_parameters, verifier_instance->gate_challenges, padding_indicator_array);
+
+    BB_ASSERT_EQ(sumcheck_output.verified, true, "Sumcheck: Failed to recursively verify first sumcheck.");
 
     RecursiveFirstSumcheckOutput output{ .challenge = sumcheck_output.challenge,
                                          .claimed_evaluations = sumcheck_output.claimed_evaluations };
@@ -112,27 +114,24 @@ SumcheckClientIVC::RecursiveVerifierAccumulator SumcheckClientIVC::perform_foldi
     const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
     const std::shared_ptr<RecursiveTranscript>& transcript,
     const StdlibProof& proof,
-    [[maybe_unused]] std::optional<StdlibFF>& prev_accum_hash,
-    [[maybe_unused]] bool is_kernel)
+    std::optional<StdlibFF>& prev_accum_hash,
+    bool is_kernel)
 {
     BB_ASSERT_NEQ(verifier_accumulator.has_value(),
                   false,
                   "verifier_accumulator cannot be null in folding recursive verification");
 
-    // Fiat-Shamir the accumulator. (Only needs to be performed on the first in a series of recursive PG verifications
-    // within a given kernel and by convention the kernel proof is always verified first).
-    if (is_kernel) {
-        prev_accum_hash = verifier_accumulator->hash_through_transcript("", *transcript);
-        // transcript->add_to_hash_buffer("accum_hash", *prev_accum_hash);
-        info("Previous accumulator hash in PG rec verifier: ", *prev_accum_hash);
-    }
-
     auto incoming_verifier_accumulator =
         execute_first_sumcheck_recursive_verification(circuit, verifier_instance, transcript, proof);
 
+    // Update previous accumulator hash so that we can set it as a public input
+    if (is_kernel) {
+        prev_accum_hash = verifier_accumulator->hash_through_transcript("", *transcript);
+    }
+
     MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor> batching_verifier(transcript);
     auto [verified, new_accumulator] = batching_verifier.verify_proof(proof);
-    BB_ASSERT_EQ(verified, true, "Batching Sumcheck: Failed to verify sumcheck batching.");
+    BB_ASSERT_EQ(verified, true, "Batching Sumcheck: Failed to recursively verify sumcheck batching.");
 
     return RecursiveVerifierAccumulator(new_accumulator.challenge,
                                         { new_accumulator.non_shifted_evaluation, new_accumulator.shifted_evaluation },
@@ -167,10 +166,10 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
     const TableCommitments& T_prev_commitments,
     const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
-    // auto num_rows = circuit.op_queue->get_num_rows();
-    // auto num_ops = circuit.op_queue->get_current_subtable_size();
-    // info("NUM ROWS WHEN ENTERING: ", num_rows);
-    // info("NUM OPS WHEN ENTERING: ", num_ops);
+    auto num_rows = circuit.op_queue->get_num_rows();
+    auto num_ops = circuit.op_queue->get_current_subtable_size();
+    info("NUM ROWS WHEN ENTERING: ", num_rows);
+    info("NUM OPS WHEN ENTERING: ", num_ops);
 
     using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
 
@@ -297,8 +296,8 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
         bus_depot.set_app_return_data_commitment(witness_commitments.return_data);
     }
 
-    // info("NUM ROWS DIFF: ", circuit.op_queue->get_num_rows() - num_rows);
-    // info("NUM OPS DIFF: ", circuit.op_queue->get_current_subtable_size() - num_ops);
+    info("NUM ROWS DIFF: ", circuit.op_queue->get_num_rows() - num_rows);
+    info("NUM OPS DIFF: ", circuit.op_queue->get_current_subtable_size() - num_ops);
 
     // Extract the commitments to the subtable corresponding to the incoming circuit
     merge_commitments.t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
@@ -315,8 +314,8 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
         hide_op_queue_content_in_hiding(circuit);
     }
 
-    // info("NUM ROWS DIFF AT THE END: ", circuit.op_queue->get_num_rows() - num_rows);
-    // info("NUM OPS DIFF AT THE END: ", circuit.op_queue->get_current_subtable_size() - num_ops);
+    info("NUM ROWS DIFF AT THE END: ", circuit.op_queue->get_num_rows() - num_rows);
+    info("NUM OPS DIFF AT THE END: ", circuit.op_queue->get_current_subtable_size() - num_ops);
 
     return { output_verifier_accumulator, pairing_points, merged_table_commitments };
 }
@@ -399,7 +398,7 @@ void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     } else {
         BB_ASSERT_NEQ(current_stdlib_verifier_accumulator.has_value(), false);
         // Extract native verifier accumulator from the stdlib accum for use on the next round
-        recursive_verifier_native_accum = current_stdlib_verifier_accumulator.value().get_value();
+        recursive_verifier_native_accum = current_stdlib_verifier_accumulator->get_value();
 
         KernelIO kernel_output;
         kernel_output.pairing_inputs = points_accumulator;
@@ -428,7 +427,6 @@ SumcheckClientIVC::ProverAccumulator SumcheckClientIVC::execute_first_sumcheck(
 
     prover_instance->gate_challenges =
         transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
-    info("Gate challenge prover: ", prover_instance->gate_challenges[0]);
 
     // Run sumcheck
     DeciderProver decider_prover(prover_instance, transcript);
@@ -465,7 +463,6 @@ SumcheckClientIVC::VerifierAccumulator SumcheckClientIVC::execute_first_sumcheck
     // Get the gate challenges for sumcheck/combiner computation
     verifier_instance->gate_challenges =
         transcript->template get_powers_of_challenge<FF>("gate_challenge", Flavor::VIRTUAL_LOG_N);
-    // info("Gate challenge verifier: ", verifier_instance->gate_challenges[0]);
 
     VerifierCommitments commitments{ verifier_instance->vk, verifier_instance->witness_commitments };
     // DeciderVerifier's log circuit size is fixed, hence we are using a trivial `padding_indicator_array`.
@@ -474,6 +471,8 @@ SumcheckClientIVC::VerifierAccumulator SumcheckClientIVC::execute_first_sumcheck
     Sumcheck sumcheck(transcript, verifier_instance->alphas, Flavor::VIRTUAL_LOG_N, verifier_instance->target_sum);
     SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(
         verifier_instance->relation_parameters, verifier_instance->gate_challenges, padding_indicator_array);
+
+    BB_ASSERT_EQ(sumcheck_output.verified, true, "Sumcheck: Failed native first sumcheck verification.");
 
     FirstSumcheckOutput output{ .challenge = sumcheck_output.challenge,
                                 .claimed_evaluations = sumcheck_output.claimed_evaluations };
@@ -492,18 +491,10 @@ HonkProof SumcheckClientIVC::construct_sumcheck_proof(const std::shared_ptr<Prov
 
 HonkProof SumcheckClientIVC::construct_folding_proof(const std::shared_ptr<ProverInstance>& prover_instance,
                                                      const std::shared_ptr<MegaVerificationKey>& honk_vk,
-                                                     const std::shared_ptr<Transcript>& transcript,
-                                                     [[maybe_unused]] bool is_kernel)
+                                                     const std::shared_ptr<Transcript>& transcript)
 {
     vinfo("computing folding proof...");
-    // Only fiat shamir if this is a kernel with the assumption that kernels are always the first being recursively
-    // verified.
-    // if (is_kernel) {
-    // Fiat-Shamir the verifier accumulator
-    // FF accum_hash = native_verifier_accum.hash_through_transcript("", *prover_accumulation_transcript);
-    //     prover_accumulation_transcript->add_to_hash_buffer("accum_hash", accum_hash);
-    //     info("Accumulator hash in PG prover: ", accum_hash);
-    // }
+
     auto verifier_instance = std::make_shared<VerifierInstance_<Flavor>>(honk_vk);
 
     ProverAccumulator incoming_accumulator =
@@ -520,15 +511,6 @@ HonkProof SumcheckClientIVC::construct_folding_proof(const std::shared_ptr<Prove
         .dyadic_size = prover_accumulator.dyadic_size
     };
 
-    // prover_accumulator.batched_polynomials[0].increase_virtual_size(1 << Flavor::VIRTUAL_LOG_N);
-    // prover_accumulator.batched_polynomials[1].increase_virtual_size(1 << Flavor::VIRTUAL_LOG_N);
-    // info("Evaluation correct: ",
-    //      prover_accumulator.batched_polynomials[0].evaluate_mle(prover_accumulator.challenge) ==
-    //          prover_accumulator.batched_evaluations[0]);
-    // info("Evaluation correct: ",
-    //      prover_accumulator.batched_polynomials[1].evaluate_mle(prover_accumulator.challenge) ==
-    //          prover_accumulator.batched_evaluations[1]);
-
     MultilinearBatchingProverClaim incoming_claim{
         .challenge = incoming_accumulator.challenge,
         .shifted_evaluation = incoming_accumulator.batched_evaluations[1],
@@ -539,15 +521,6 @@ HonkProof SumcheckClientIVC::construct_folding_proof(const std::shared_ptr<Prove
         .shifted_commitment = incoming_accumulator.batched_commitments[1],
         .dyadic_size = incoming_accumulator.dyadic_size
     };
-
-    // incoming_accumulator.batched_polynomials[0].increase_virtual_size(1 << Flavor::VIRTUAL_LOG_N);
-    // incoming_accumulator.batched_polynomials[1].increase_virtual_size(1 << Flavor::VIRTUAL_LOG_N);
-    // info("Evaluation correct: ",
-    //      incoming_accumulator.batched_polynomials[0].evaluate_mle(incoming_accumulator.challenge) ==
-    //          incoming_accumulator.batched_evaluations[0]);
-    // info("Evaluation correct: ",
-    //      incoming_accumulator.batched_polynomials[1].evaluate_mle(incoming_accumulator.challenge) ==
-    //          incoming_accumulator.batched_evaluations[1]);
 
     MultilinearBatchingProver batching_prover(std::make_shared<MultilinearBatchingProverClaim>(accumulator_claim),
                                               std::make_shared<MultilinearBatchingProverClaim>(incoming_claim),
@@ -651,10 +624,10 @@ void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr
         break;
     case QUEUE_TYPE::PG:
     case QUEUE_TYPE::PG_TAIL:
-        proof = construct_folding_proof(prover_instance, precomputed_vk, prover_accumulation_transcript, is_kernel);
+        proof = construct_folding_proof(prover_instance, precomputed_vk, prover_accumulation_transcript);
         break;
     case QUEUE_TYPE::PG_FINAL:
-        proof = construct_folding_proof(prover_instance, precomputed_vk, prover_accumulation_transcript, is_kernel);
+        proof = construct_folding_proof(prover_instance, precomputed_vk, prover_accumulation_transcript);
         pcs_proof = construct_pcs_proof(prover_accumulation_transcript);
         break;
     case QUEUE_TYPE::MEGA:
@@ -835,9 +808,6 @@ HonkProof SumcheckClientIVC::construct_pcs_proof(const std::shared_ptr<Transcrip
 
     auto ck = bn254_commitment_key;
     size_t actual_size = prover_accumulator.batched_polynomials[0].virtual_size();
-    // info("Dyadic size in PCS: ", ck.dyadic_size);
-    // info("Dyadic size poly in CK: ", prover_accumulator.batched_polynomials[0].virtual_size());
-    // info("challenge size ", prover_accumulator.challenge.size());
 
     PolynomialBatcher polynomial_batcher(actual_size);
     polynomial_batcher.set_unshifted(prover_accumulator.batched_polynomials[0]);
@@ -990,19 +960,14 @@ void SumcheckClientIVC::update_native_verifier_accumulator(const VerifierInputs&
                                                            const std::shared_ptr<Transcript>& verifier_transcript)
 {
     auto verifier_inst = std::make_shared<VerifierInstance>(queue_entry.honk_vk);
+
     auto incoming_accumulator =
         execute_first_sumcheck_native_verification(verifier_inst, verifier_transcript, queue_entry.proof);
-    if (queue_entry.type != QUEUE_TYPE::OINK) {
-        // if (queue_entry.is_kernel) {
-        //     // Fiat-Shamir the verifier accumulator
-        //     FF accum_hash = native_verifier_accum.hash_through_transcript("", *verifier_transcript);
-        //     verifier_transcript->add_to_hash_buffer("accum_hash", accum_hash);
-        //     info("Accumulator hash in PG verifier: ", accum_hash);
-        // }
 
+    if (queue_entry.type != QUEUE_TYPE::OINK) {
         MultilinearBatchingVerifier<MultilinearBatchingFlavor> batching_verifier(verifier_transcript);
         auto [verified, new_accumulator] = batching_verifier.verify_proof(queue_entry.proof);
-        BB_ASSERT_EQ(verified, true, "Batching Sumcheck: Failed native sumcheck verification");
+        BB_ASSERT_EQ(verified, true, "Batching Sumcheck: Failed native sumcheck batching verification");
 
         native_verifier_accum = VerifierAccumulator{
             .challenge = new_accumulator.challenge,

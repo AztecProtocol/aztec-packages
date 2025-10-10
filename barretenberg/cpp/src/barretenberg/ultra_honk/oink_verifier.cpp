@@ -95,7 +95,6 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_sorted_li
     // Get eta challenges
     auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
         domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three");
-    info("Eta challenge from verifier: ", eta);
     relation_parameters.eta = eta;
     relation_parameters.eta_two = eta_two;
     relation_parameters.eta_three = eta_three;

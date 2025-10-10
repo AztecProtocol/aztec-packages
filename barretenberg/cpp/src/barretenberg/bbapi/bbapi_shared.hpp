@@ -17,6 +17,11 @@
 namespace bb::bbapi {
 
 /**
+ * @brief Global flag to control whether to use SumcheckClientIVC instead of ClientIVC
+ */
+inline bool USE_SUMCHECK_IVC = false;
+
+/**
  * @struct CircuitInputNoVK
  * @brief A circuit to be used in either ultrahonk or chonk (ClientIVC+honk) verification key derivation.
  */

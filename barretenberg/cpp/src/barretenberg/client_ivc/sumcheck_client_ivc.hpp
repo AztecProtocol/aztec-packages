@@ -426,7 +426,7 @@ class SumcheckClientIVC : public IVCBase {
                 }
 
                 std::array<FF, N> challenges;
-                transcript->template get_challenges<FF>(labels);
+                challenges = transcript->template get_challenges<FF>(labels);
 
                 return challenges;
             };
@@ -463,7 +463,7 @@ class SumcheckClientIVC : public IVCBase {
 
             // Batch evaluations
             auto unshifted_evaluations = claimed_evaluations.get_unshifted();
-            auto shifted_evaluations = claimed_evaluations.get_shifted();
+            auto shifted_evaluations = claimed_evaluations.get_to_be_shifted();
 
             auto batched_unshifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
                 unshifted_evaluations, unshifted_challenges);
@@ -557,17 +557,10 @@ class SumcheckClientIVC : public IVCBase {
             // Batch commitments
             auto unshifted_verifier_commitments = verifier_commitments.get_unshifted();
             auto shifted_witness_commitments = verifier_commitments.get_to_be_shifted();
-            auto ctx = unshifted_verifier_commitments[0].get_context();
-            size_t num_rows = ctx->op_queue->get_num_rows();
             auto batched_unshifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
                 unshifted_verifier_commitments, unshifted_challenges);
-            size_t updated_num_rows = ctx->op_queue->get_num_rows();
-            info("DIFF: ", updated_num_rows - num_rows);
-            num_rows = updated_num_rows;
             auto batched_shifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_SHIFTED_WITNESSES>(
                 shifted_witness_commitments, shifted_challenges);
-            updated_num_rows = ctx->op_queue->get_num_rows();
-            info("DIFF: ", updated_num_rows - num_rows);
 
             return RecursiveVerifierAccumulator(challenge,
                                                 { batched_unshifted_evaluation, batched_shifted_evaluation },
@@ -708,8 +701,7 @@ class SumcheckClientIVC : public IVCBase {
 
     HonkProof construct_folding_proof(const std::shared_ptr<ProverInstance>& prover_instance,
                                       const std::shared_ptr<MegaVerificationKey>& honk_vk,
-                                      const std::shared_ptr<Transcript>& transcript,
-                                      bool is_kernel);
+                                      const std::shared_ptr<Transcript>& transcript);
 
     HonkProof construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
                                                      const std::shared_ptr<MegaVerificationKey>& verification_key);

@@ -6,6 +6,7 @@
 
 #include "acir_format.hpp"
 
+#include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
@@ -605,16 +606,20 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
     // If an ivc instance is not provided, we mock one with the state required to construct the recursion
     // constraints present in the program. This is for when we write_vk.
     if (ivc_base == nullptr) {
+        if (bb::bbapi::USE_SUMCHECK_IVC) {
+            // TODO: Add support for mocking SumcheckClientIVC when USE_SUMCHECK_IVC is true
+            info("WARNING: mocking SumcheckClientIVC is not yet supported!");
+        }
         auto ivc = create_mock_ivc_from_constraints(constraints.pg_recursion_constraints, { AZTEC_TRACE_STRUCTURE });
         process_with_ivc(ivc);
     } else {
-        // Process using the appropriate IVC type
-        if (auto ivc = std::dynamic_pointer_cast<ClientIVC>(ivc_base)) {
-            process_with_ivc(ivc);
-        } else if (auto sumcheck_ivc = std::dynamic_pointer_cast<SumcheckClientIVC>(ivc_base)) {
+        // Use the global flag to cast to the correct IVC type
+        if (bb::bbapi::USE_SUMCHECK_IVC) {
+            auto sumcheck_ivc = std::static_pointer_cast<SumcheckClientIVC>(ivc_base);
             process_with_ivc(sumcheck_ivc);
         } else {
-            throw_or_abort("PG recursion constraints require ClientIVC or SumcheckClientIVC");
+            auto ivc = std::static_pointer_cast<ClientIVC>(ivc_base);
+            process_with_ivc(ivc);
         }
     }
 }

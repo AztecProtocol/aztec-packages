@@ -117,7 +117,6 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
 
     auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
     prover_instance->commitments.w_l = computed_commitments[0];
-    info("Commitment to w_l from prover: ", computed_commitments[0]);
     prover_instance->commitments.w_r = computed_commitments[1];
     prover_instance->commitments.w_o = computed_commitments[2];
 
@@ -145,7 +144,6 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list
     // Get eta challenges
     auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
         domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three");
-    info("Eta challenge from prover: ", eta);
     prover_instance->relation_parameters.eta = eta;
     prover_instance->relation_parameters.eta_two = eta_two;
     prover_instance->relation_parameters.eta_three = eta_three;
