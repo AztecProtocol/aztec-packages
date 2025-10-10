@@ -575,7 +575,6 @@ namespace tx;
     pol commit uint32_max;
     is_collect_fee * (uint32_max - 0xffffffff) = 0;
 
-    // TODO: Lookup for now: will need multipermutation
     #[BALANCE_UPDATE]
     is_collect_fee {
         fee_payer_new_balance,
@@ -587,7 +586,7 @@ namespace tx;
         prev_public_data_tree_size,
         next_public_data_tree_size,
         uint32_max
-    } in public_data_check.write {
+    } is public_data_check.protocol_write {
         public_data_check.value,
         public_data_check.address,
         public_data_check.slot,

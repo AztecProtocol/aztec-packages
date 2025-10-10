@@ -738,6 +738,32 @@ TEST(PublicDataTreeConstrainingTest, NegativeUpdateRootValidation)
                               "UPDATE_ROOT_VALIDATION");
 }
 
+TEST(PublicDataTreeConstrainingTest, NegativeSetProtocolWrite)
+{
+    // Test constraint: protocol_write + non_protocol_write = write
+    TestTraceContainer trace({ {
+        { C::public_data_check_sel, 1 },
+        { C::public_data_check_write, 1 },
+        { C::public_data_check_protocol_write, 1 },
+    } });
+
+    check_relation<public_data_check>(trace, public_data_check::SR_PROTOCOL_WRITE_CHECK);
+
+    // Invalid, must set either protocol or non protocol write
+    trace.set(C::public_data_check_protocol_write, 0, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_PROTOCOL_WRITE_CHECK),
+                              "PROTOCOL_WRITE_CHECK");
+
+    trace.set(C::public_data_check_non_protocol_write, 0, 1);
+    check_relation<public_data_check>(trace, public_data_check::SR_PROTOCOL_WRITE_CHECK);
+
+    // Invalid, cannot both be a protocol and non protocol write
+    trace.set(C::public_data_check_protocol_write, 0, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_PROTOCOL_WRITE_CHECK),
+                              "PROTOCOL_WRITE_CHECK");
+}
+
 TEST(PublicDataTreeConstrainingTest, NegativeWriteIdxInitialValue)
 {
     // Test constraint: (1 - sel) * sel' * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX

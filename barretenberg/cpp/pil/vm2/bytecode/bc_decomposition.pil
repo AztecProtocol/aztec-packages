@@ -59,11 +59,11 @@ pol commit bytes_rem_min_one_inv;
 sel * ((bytes_remaining - 1) * (last_of_contract * (1 - bytes_rem_min_one_inv) + bytes_rem_min_one_inv) + last_of_contract - 1) = 0;
 
 // The following alias is a boolean because last_of_contract == 1 ==> sel == 1 ==> first_row == 0 (sel' is defined)
-pol FIRST_OR_LAST_CONTRACT = precomputed.first_row + last_of_contract;
+pol LATCH_CONDITION = precomputed.first_row + last_of_contract;
 
 // Initialization of pc per bytecode to zero
 #[BC_DEC_PC_ZERO_INITIALIZATION]
-FIRST_OR_LAST_CONTRACT * pc' = 0;
+LATCH_CONDITION * pc' = 0;
 
 // pc evolution (increment within bytecode)
 #[BC_DEC_PC_INCREMENT]
@@ -77,7 +77,7 @@ sel * (1 - last_of_contract) * (bytes_remaining' - bytes_remaining + 1) = 0;
 // for a given instruction (pair [pc, bytecode_id]). Otherwise, instruction fetching might
 // be misled to copy the wrong instruction from this subtrace.
 #[BC_DEC_ID_CONSTANT]
-(1 - FIRST_OR_LAST_CONTRACT) * (id' - id) = 0;
+(1 - LATCH_CONDITION) * (id' - id) = 0;
 
 // This constrains that the bytes are in the range 0 to 255.
 #[BYTES_ARE_BYTES]
@@ -167,75 +167,94 @@ last_of_contract * (1 - sel_windows_gt_remaining) = 0;
 // If we reach is_windows_eq_remaining == 1, we pass from 1 to 0. (Decrement a single time.)
 // sel_windows_gt_remaining = sel_windows_gt_remaining' - is_windows_eq_remaining
 #[SEL_WINDOWS_GT_REMAINING_PROPAGATION]
-(1 - FIRST_OR_LAST_CONTRACT) * (sel_windows_gt_remaining' - is_windows_eq_remaining - sel_windows_gt_remaining) = 0;
+(1 - LATCH_CONDITION) * (sel_windows_gt_remaining' - is_windows_eq_remaining - sel_windows_gt_remaining) = 0;
 
 #[SET_BYTES_TO_READ]
 sel * ((1 - sel_windows_gt_remaining) * (bytes_to_read - WINDOW_SIZE) + sel_windows_gt_remaining * (bytes_to_read - bytes_remaining)) = 0;
 
 // Constrain shifted columns.
-// We need to guard with (1 - FIRST_OR_LAST_CONTRACT) because otherwise we would need to copy value
+// We need to guard with (1 - LATCH_CONDITION) because otherwise we would need to copy value
 // from another bytecode to satisfy the relations. The issue is then that it would pollute
 // the value packed_field and would lead computing the wrong hash in bytecode hashing.
-// By writing the following relations in the form bytes_pc_plus_i = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_{i-1}'
-// rather than (1 - FIRST_OR_LAST_CONTRACT) * (bytes_pc_plus_i - bytes_pc_plus_{i-1}') = 0
+// By writing the following relations in the form bytes_pc_plus_i = (1 - LATCH_CONDITION) * bytes_pc_plus_{i-1}'
+// rather than (1 - LATCH_CONDITION) * (bytes_pc_plus_i - bytes_pc_plus_{i-1}') = 0
 // we not only help witness generation to be satisfied but enforce the propagation
 // of zero values (instead of garbage) whch effectively prevents a malicious prover to
 // add garbage values beyond the end of the bytecode. This is not strictly necessary
 // but this property comes at no additional cost.
 
-bytes_pc_plus_1 = (1 - FIRST_OR_LAST_CONTRACT) * bytes';
-bytes_pc_plus_2 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_1';
-bytes_pc_plus_3 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_2';
-bytes_pc_plus_4 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_3';
-bytes_pc_plus_5 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_4';
-bytes_pc_plus_6 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_5';
-bytes_pc_plus_7 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_6';
-bytes_pc_plus_8 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_7';
-bytes_pc_plus_9 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_8';
-bytes_pc_plus_10 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_9';
-bytes_pc_plus_11 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_10';
-bytes_pc_plus_12 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_11';
-bytes_pc_plus_13 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_12';
-bytes_pc_plus_14 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_13';
-bytes_pc_plus_15 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_14';
-bytes_pc_plus_16 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_15';
-bytes_pc_plus_17 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_16';
-bytes_pc_plus_18 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_17';
-bytes_pc_plus_19 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_18';
-bytes_pc_plus_20 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_19';
-bytes_pc_plus_21 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_20';
-bytes_pc_plus_22 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_21';
-bytes_pc_plus_23 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_22';
-bytes_pc_plus_24 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_23';
-bytes_pc_plus_25 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_24';
-bytes_pc_plus_26 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_25';
-bytes_pc_plus_27 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_26';
-bytes_pc_plus_28 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_27';
-bytes_pc_plus_29 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_28';
-bytes_pc_plus_30 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_29';
-bytes_pc_plus_31 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_30';
-bytes_pc_plus_32 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_31';
-bytes_pc_plus_33 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_32';
-bytes_pc_plus_34 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_33';
-bytes_pc_plus_35 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_34';
-bytes_pc_plus_36 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_35';
+bytes_pc_plus_1 = (1 - LATCH_CONDITION) * bytes';
+bytes_pc_plus_2 = (1 - LATCH_CONDITION) * bytes_pc_plus_1';
+bytes_pc_plus_3 = (1 - LATCH_CONDITION) * bytes_pc_plus_2';
+bytes_pc_plus_4 = (1 - LATCH_CONDITION) * bytes_pc_plus_3';
+bytes_pc_plus_5 = (1 - LATCH_CONDITION) * bytes_pc_plus_4';
+bytes_pc_plus_6 = (1 - LATCH_CONDITION) * bytes_pc_plus_5';
+bytes_pc_plus_7 = (1 - LATCH_CONDITION) * bytes_pc_plus_6';
+bytes_pc_plus_8 = (1 - LATCH_CONDITION) * bytes_pc_plus_7';
+bytes_pc_plus_9 = (1 - LATCH_CONDITION) * bytes_pc_plus_8';
+bytes_pc_plus_10 = (1 - LATCH_CONDITION) * bytes_pc_plus_9';
+bytes_pc_plus_11 = (1 - LATCH_CONDITION) * bytes_pc_plus_10';
+bytes_pc_plus_12 = (1 - LATCH_CONDITION) * bytes_pc_plus_11';
+bytes_pc_plus_13 = (1 - LATCH_CONDITION) * bytes_pc_plus_12';
+bytes_pc_plus_14 = (1 - LATCH_CONDITION) * bytes_pc_plus_13';
+bytes_pc_plus_15 = (1 - LATCH_CONDITION) * bytes_pc_plus_14';
+bytes_pc_plus_16 = (1 - LATCH_CONDITION) * bytes_pc_plus_15';
+bytes_pc_plus_17 = (1 - LATCH_CONDITION) * bytes_pc_plus_16';
+bytes_pc_plus_18 = (1 - LATCH_CONDITION) * bytes_pc_plus_17';
+bytes_pc_plus_19 = (1 - LATCH_CONDITION) * bytes_pc_plus_18';
+bytes_pc_plus_20 = (1 - LATCH_CONDITION) * bytes_pc_plus_19';
+bytes_pc_plus_21 = (1 - LATCH_CONDITION) * bytes_pc_plus_20';
+bytes_pc_plus_22 = (1 - LATCH_CONDITION) * bytes_pc_plus_21';
+bytes_pc_plus_23 = (1 - LATCH_CONDITION) * bytes_pc_plus_22';
+bytes_pc_plus_24 = (1 - LATCH_CONDITION) * bytes_pc_plus_23';
+bytes_pc_plus_25 = (1 - LATCH_CONDITION) * bytes_pc_plus_24';
+bytes_pc_plus_26 = (1 - LATCH_CONDITION) * bytes_pc_plus_25';
+bytes_pc_plus_27 = (1 - LATCH_CONDITION) * bytes_pc_plus_26';
+bytes_pc_plus_28 = (1 - LATCH_CONDITION) * bytes_pc_plus_27';
+bytes_pc_plus_29 = (1 - LATCH_CONDITION) * bytes_pc_plus_28';
+bytes_pc_plus_30 = (1 - LATCH_CONDITION) * bytes_pc_plus_29';
+bytes_pc_plus_31 = (1 - LATCH_CONDITION) * bytes_pc_plus_30';
+bytes_pc_plus_32 = (1 - LATCH_CONDITION) * bytes_pc_plus_31';
+bytes_pc_plus_33 = (1 - LATCH_CONDITION) * bytes_pc_plus_32';
+bytes_pc_plus_34 = (1 - LATCH_CONDITION) * bytes_pc_plus_33';
+bytes_pc_plus_35 = (1 - LATCH_CONDITION) * bytes_pc_plus_34';
+bytes_pc_plus_36 = (1 - LATCH_CONDITION) * bytes_pc_plus_35';
 
 // For bytecode hashing, we need to re-pack 31 bytes at some PCs into a field.
 // We will have a selector for the PCs that are packed. This only needs to happen
 // for PCs 0, 31, 62, ...
-// The "sequencer" can choose which PCs to pack, but the bytecode hashing trace
-// will use this selector (as 1) in the lookup tuple. Therefore, if the sequencer
-// does not choose at least the minimum amount of rows, the lookup will fail.
-// NOTE: The bytecode hashing trace will constrain itself that every 31st pc is packed.
-
-// TODO: We need to ensure that every active row contains a byte which is accounted for
-// in the bytecode hashing trace. See https://github.com/AztecProtocol/aztec-packages/issues/17428
 
 pol commit sel_packed;
 sel_packed * (1 - sel_packed) = 0;
 
+// Permutation selectors (bc_hashing.pil).
+pol commit sel_packed_read[3];
+sel_packed_read[0] * (1 - sel_packed_read[0]) = 0;
+sel_packed_read[1] * (1 - sel_packed_read[1]) = 0;
+sel_packed_read[2] * (1 - sel_packed_read[2]) = 0;
+
+#[PACKED_ROW_NEEDS_PERM_SELECTOR]
+sel_packed = sel_packed_read[0] + sel_packed_read[1] + sel_packed_read[2];
+
 #[SEL_TOGGLED_AT_PACKED]
 sel_packed * (1 - sel) = 0;
+
+// Each first row of a new bytecode id should be packed (#17428):
+#[SEL_PACKED_INIT]
+LATCH_CONDITION * (sel' - sel_packed') = 0;
+
+// NOTE: The bytecode hashing trace constrains that every 31st pc is packed, however
+// we must duplicate this check here as we do not constrain uniqueness of bytecode ids:
+pol commit next_packed_pc;
+// next_packed_pc == pc <==> sel_packed == 1
+pol commit next_packed_pc_min_pc_inv;
+#[PC_IS_PACKED]
+sel * ((next_packed_pc - pc) * (sel_packed * (1 - next_packed_pc_min_pc_inv) + next_packed_pc_min_pc_inv) + sel_packed - 1) = 0;
+
+// If we reach sel_packed == 1, we increment next_packed_pc by 31. #[SEL_PACKED_INIT] and #[BC_DEC_PC_ZERO_INITIALIZATION] ensure
+// we start a new bytecode with sel_packed = 1 and pc = 0, and the below sets next_packed_pc' += 31.
+#[NEXT_PACKED_PC_PROPAGATION]
+(1 - LATCH_CONDITION) * (next_packed_pc' - (next_packed_pc + sel_packed * 31)) = 0;
 
 // Important: this "field" is not 32 bytes (or 254 bits) long. It is 31 bytes long.
 pol commit packed_field;

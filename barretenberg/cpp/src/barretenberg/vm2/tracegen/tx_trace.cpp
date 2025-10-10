@@ -708,7 +708,6 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_note_hash_append_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_nullifier_append_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_balance_read_settings, InteractionType::LookupGeneric>()
-        .add<lookup_tx_balance_update_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_balance_slot_poseidon2_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_context_public_inputs_note_hash_tree_settings, InteractionType::LookupIntoIndexedByClk>()

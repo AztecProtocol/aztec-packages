@@ -47,38 +47,4 @@ template <typename FF_>
 using lookup_sstore_record_written_storage_slot_relation =
     lookup_relation_base<FF_, lookup_sstore_record_written_storage_slot_settings>;
 
-/////////////////// lookup_sstore_storage_write ///////////////////
-
-struct lookup_sstore_storage_write_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_SSTORE_STORAGE_WRITE";
-    static constexpr std::string_view RELATION_NAME = "sstore";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 9;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_write_public_data;
-    static constexpr Column DST_SELECTOR = Column::public_data_check_write;
-    static constexpr Column COUNTS = Column::lookup_sstore_storage_write_counts;
-    static constexpr Column INVERSES = Column::lookup_sstore_storage_write_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_register_0_,
-        ColumnAndShifts::execution_contract_address,
-        ColumnAndShifts::execution_register_1_,
-        ColumnAndShifts::execution_discard,
-        ColumnAndShifts::execution_prev_public_data_tree_root,
-        ColumnAndShifts::execution_prev_public_data_tree_size,
-        ColumnAndShifts::execution_public_data_tree_root,
-        ColumnAndShifts::execution_public_data_tree_size,
-        ColumnAndShifts::precomputed_clk
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::public_data_check_value,      ColumnAndShifts::public_data_check_address,
-        ColumnAndShifts::public_data_check_slot,       ColumnAndShifts::public_data_check_discard,
-        ColumnAndShifts::public_data_check_root,       ColumnAndShifts::public_data_check_tree_size_before_write,
-        ColumnAndShifts::public_data_check_write_root, ColumnAndShifts::public_data_check_tree_size_after_write,
-        ColumnAndShifts::public_data_check_clk
-    };
-};
-
-using lookup_sstore_storage_write_settings = lookup_settings<lookup_sstore_storage_write_settings_>;
-template <typename FF_>
-using lookup_sstore_storage_write_relation = lookup_relation_base<FF_, lookup_sstore_storage_write_settings>;
-
 } // namespace bb::avm2
