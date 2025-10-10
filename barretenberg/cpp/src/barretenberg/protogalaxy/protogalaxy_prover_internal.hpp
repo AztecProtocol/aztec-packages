@@ -219,9 +219,46 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
         return aggregated_relation_evaluations;
     }
     /**
-     * @brief Non-recursively compute the parent nodes of each level in the tree, starting from the leaves. Note that
-     * at each level, the resulting parent nodes will be polynomials of degree (level+1) because we multiply by an
-     * additional factor of X.
+     * @brief Non-recursively compute the parent nodes of each level in the tree, starting from the leaves.
+     *
+     * MATHEMATICAL SPECIFICATION
+     * ==========================
+     *
+     * Inputs:
+     * - betas: β⃗ = (β₀, β₁, ..., βₖ₋₁) - gate challenge vector
+     * - deltas: δ⃗ = (δ₀, δ₁, ..., δₖ₋₁) - delta challenge vector
+     * - current_level_buffer: Coefficients from previous level (flat buffer)
+     * - current_width: Number of nodes at current level
+     * - current_degree: Polynomial degree + 1 (number of coefficients per node)
+     *
+     * Output: F(X) = Σᵢ fᵢXⁱ - perturbator polynomial coefficient vector
+     *
+     * Algorithm: Binary Tree Construction (Iterative)
+     * -----------------------------------------------
+     *
+     * Level ℓ (General Case):
+     * For parent node p ∈ [0, n/2ℓ) with children at 2p and 2p+1:
+     *
+     *   Pℓ[p](X) = Pℓ₋₁[2p](X) + Pℓ₋₁[2p+1](X) · (βℓ + δℓX)
+     *
+     * In coefficient form:
+     *   Pℓ[p][d]   = Pℓ₋₁[2p][d] + Pℓ₋₁[2p+1][d] · βℓ    for d ∈ [0, ℓ]
+     *   Pℓ[p][d+1] += Pℓ₋₁[2p+1][d] · δℓ                 for d ∈ [0, ℓ]
+     *
+     * Note: Pℓ[p] has degree ℓ+1 (requires ℓ+2 coefficients)
+     *
+     * Flat Buffer Layout:
+     * ------------------
+     * At level ℓ with w nodes and stride s = ℓ+2:
+     * - Parent p offset:      p_offset = p · (ℓ+2)
+     * - Left child offset:    l_offset = (2p) · (ℓ+1)
+     * - Right child offset:   r_offset = (2p+1) · (ℓ+1)
+     *
+     * Complexity:
+     * - Time: O(n) - each leaf combined once per level
+     * - Space: O(n) - two buffers with alternating roles
+     * - Parallelism: n/2ℓ independent tasks per level
+     *
      * @details This iterative implementation uses flat contiguous buffers that alternate roles as source and
      * destination, enabling efficient parallel initialization and better cache locality.
      */
@@ -297,12 +334,56 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
     }
 
     /**
-     * @brief We construct the coefficients of the perturbator polynomial in O(n) time following the technique in
-     * Claim 4.4. Consider a binary tree whose leaves are the evaluations of the full Honk relation at each row in the
-     * execution trace. The subsequent levels in the tree are constructed using the following technique: At level i in
-     * the tree, label the branch connecting the left node n_l to its parent by 1 and for the right node n_r by β_i +
-     * δ_i X. The value of the parent node n will be constructed as n = n_l + n_r * (β_i + δ_i X). Recurse over each
-     * layer until the root is reached which will correspond to the perturbator polynomial F(X).
+     * @brief Construct the perturbator polynomial F(X) coefficients in O(n) time using binary tree reduction.
+     *
+     * MATHEMATICAL SPECIFICATION
+     * ==========================
+     *
+     * Inputs:
+     * - ℰ = {e₀, e₁, ..., eₙ₋₁}: Full Honk relation evaluations (size n = 2^k)
+     * - β⃗ = (β₀, β₁, ..., βₖ₋₁): Gate challenge vector
+     * - δ⃗ = (δ₀, δ₁, ..., δₖ₋₁): Delta challenge vector
+     *
+     * Output: F(X) = Σᵢ fᵢXⁱ - perturbator polynomial of degree k
+     *
+     * Algorithm (following Claim 4.4 from Protogalaxy paper):
+     * -------------------------------------------------------
+     *
+     * Level 0 (Leaves): L₀[i] = eᵢ for i ∈ [0, n)
+     *
+     * Level 1 (First Combination):
+     * For parent p ∈ [0, n/2) with children at 2p and 2p+1:
+     *   P₁[p](X) = e₂ₚ + e₂ₚ₊₁ · (β₀ + δ₀X)
+     *
+     * Expanding to coefficients:
+     *   P₁[p][0] = e₂ₚ + e₂ₚ₊₁ · β₀
+     *   P₁[p][1] = e₂ₚ₊₁ · δ₀
+     *
+     * General Level ℓ ∈ [1, k):
+     * For parent p with children from previous level:
+     *   Pℓ[p](X) = Pℓ₋₁[2p](X) + Pℓ₋₁[2p+1](X) · (βℓ + δℓX)
+     *
+     * Final Result: F(X) = Pₖ[0](X) (root node after k levels)
+     *
+     * Tree Structure Example (n=8):
+     *   Level 0:  e₀ e₁ e₂ e₃ e₄ e₅ e₆ e₇   (degree 0, 8 nodes)
+     *             └─┬┘  └─┬┘  └─┬┘  └─┬┘
+     *               ↓β₀   ↓β₀   ↓β₀   ↓β₀
+     *   Level 1:   P₁[0] P₁[1] P₁[2] P₁[3] (degree 1, 4 nodes)
+     *              └────┬────┘  └────┬────┘
+     *                   ↓β₁          ↓β₁
+     *   Level 2:       P₂[0]       P₂[1]   (degree 2, 2 nodes)
+     *                  └──────┬──────┘
+     *                         ↓β₂
+     *   Level 3:            P₃[0]          (degree 3, 1 node)
+     *                         ↓
+     *                       F(X)
+     *
+     * Properties:
+     * - Degree growth: At level ℓ, polynomials have degree ℓ
+     * - Tree reduction: Each level halves the number of nodes
+     * - Zeroth coefficient: F(0) = f₀ equals the target sum
+     *
      * @details This implementation is non-recursive and uses flat contiguous buffers with alternating roles,
      * enabling efficient parallel initialization and minimizing memory allocations.
      */
