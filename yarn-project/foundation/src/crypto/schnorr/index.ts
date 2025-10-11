@@ -18,8 +18,8 @@ export class Schnorr {
    */
   public async computePublicKey(privateKey: GrumpkinScalar): Promise<Point> {
     const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-    const [result] = api.getWasm().callWasmExport('schnorr_compute_public_key', [privateKey.toBuffer()], [64]);
-    return Point.fromBuffer(Buffer.from(result));
+    const response = api.schnorrComputePublicKey({ privateKey: privateKey.toBuffer() });
+    return Point.fromBuffer(Buffer.concat([Buffer.from(response.publicKey.x), Buffer.from(response.publicKey.y)]));
   }
 
   /**
@@ -31,10 +31,11 @@ export class Schnorr {
   public async constructSignature(msg: Uint8Array, privateKey: GrumpkinScalar) {
     const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const [s, e] = api
-      .getWasm()
-      .callWasmExport('schnorr_construct_signature', [messageArray, privateKey.toBuffer()], [32, 32]);
-    return new SchnorrSignature(Buffer.from([...s, ...e]));
+    const response = api.schnorrConstructSignature({
+      message: messageArray,
+      privateKey: privateKey.toBuffer(),
+    });
+    return new SchnorrSignature(Buffer.from([...response.s, ...response.e]));
   }
 
   /**
@@ -47,9 +48,12 @@ export class Schnorr {
   public async verifySignature(msg: Uint8Array, pubKey: Point, sig: SchnorrSignature) {
     const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const [result] = api
-      .getWasm()
-      .callWasmExport('schnorr_verify_signature', [messageArray, pubKey.toBuffer(), sig.s, sig.e], [1]);
-    return result[0] === 1;
+    const response = api.schnorrVerifySignature({
+      message: messageArray,
+      publicKey: { x: pubKey.x.toBuffer(), y: pubKey.y.toBuffer() },
+      s: sig.s,
+      e: sig.e,
+    });
+    return response.verified;
   }
 }

@@ -19,10 +19,11 @@ export class Ecdsa {
    */
   public async computePublicKey(privateKey: Buffer): Promise<Buffer> {
     const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-    const [result] = api
-      .getWasm()
-      .callWasmExport(`ecdsa_${this.curve === 'secp256r1' ? 'r' : ''}_compute_public_key`, [privateKey], [64]);
-    return Buffer.from(result);
+    const response =
+      this.curve === 'secp256r1'
+        ? await api.ecdsaSecp256r1ComputePublicKey({ privateKey })
+        : await api.ecdsaSecp256k1ComputePublicKey({ privateKey });
+    return Buffer.concat([Buffer.from(response.publicKey.x), Buffer.from(response.publicKey.y)]);
   }
 
   /**
@@ -34,14 +35,11 @@ export class Ecdsa {
   public async constructSignature(msg: Uint8Array, privateKey: Buffer) {
     const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const [r, s, v] = api
-      .getWasm()
-      .callWasmExport(
-        `ecdsa_${this.curve === 'secp256r1' ? 'r' : ''}_construct_signature_`,
-        [messageArray, privateKey],
-        [32, 32, 1],
-      );
-    return new EcdsaSignature(Buffer.from(r), Buffer.from(s), Buffer.from(v));
+    const response =
+      this.curve === 'secp256r1'
+        ? await api.ecdsaSecp256r1ConstructSignature({ message: messageArray, privateKey })
+        : await api.ecdsaSecp256k1ConstructSignature({ message: messageArray, privateKey });
+    return new EcdsaSignature(Buffer.from(response.r), Buffer.from(response.s), Buffer.from([response.v]));
   }
 
   /**
@@ -53,14 +51,11 @@ export class Ecdsa {
   public async recoverPublicKey(msg: Uint8Array, sig: EcdsaSignature): Promise<Buffer> {
     const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const [result] = api
-      .getWasm()
-      .callWasmExport(
-        `ecdsa_${this.curve === 'secp256r1' ? 'r' : ''}_recover_public_key_from_signature_`,
-        [messageArray, sig.r, sig.s, sig.v],
-        [64],
-      );
-    return Buffer.from(result);
+    const response =
+      this.curve === 'secp256r1'
+        ? await api.ecdsaSecp256r1RecoverPublicKey({ message: messageArray, r: sig.r, s: sig.s, v: sig.v[0] })
+        : await api.ecdsaSecp256k1RecoverPublicKey({ message: messageArray, r: sig.r, s: sig.s, v: sig.v[0] });
+    return Buffer.concat([Buffer.from(response.publicKey.x), Buffer.from(response.publicKey.y)]);
   }
 
   /**
@@ -73,13 +68,22 @@ export class Ecdsa {
   public async verifySignature(msg: Uint8Array, pubKey: Buffer, sig: EcdsaSignature) {
     const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const [result] = api
-      .getWasm()
-      .callWasmExport(
-        `ecdsa_${this.curve === 'secp256r1' ? 'r' : ''}_verify_signature_`,
-        [messageArray, pubKey, sig.r, sig.s, sig.v],
-        [1],
-      );
-    return result[0] === 1;
+    const response =
+      this.curve === 'secp256r1'
+        ? await api.ecdsaSecp256r1VerifySignature({
+            message: messageArray,
+            publicKey: { x: pubKey.subarray(0, 32), y: pubKey.subarray(32, 64) },
+            r: sig.r,
+            s: sig.s,
+            v: sig.v[0],
+          })
+        : await api.ecdsaSecp256k1VerifySignature({
+            message: messageArray,
+            publicKey: { x: pubKey.subarray(0, 32), y: pubKey.subarray(32, 64) },
+            r: sig.r,
+            s: sig.s,
+            v: sig.v[0],
+          });
+    return response.verified;
   }
 }

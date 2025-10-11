@@ -28,8 +28,11 @@ export class Secp256k1 {
    */
   public async mul(point: Uint8Array, scalar: Uint8Array) {
     const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-    const [result] = api.getWasm().callWasmExport('ecc_secp256k1__mul', [point, scalar], [64]);
-    return Buffer.from(result);
+    const response = await api.secp256k1Mul({
+      point: { x: point.subarray(0, 32), y: point.subarray(32, 64) },
+      scalar,
+    });
+    return Buffer.concat([Buffer.from(response.point.x), Buffer.from(response.point.y)]);
   }
 
   /**
@@ -38,8 +41,8 @@ export class Secp256k1 {
    */
   public async getRandomFr() {
     const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-    const [result] = api.getWasm().callWasmExport('ecc_secp256k1__get_random_scalar_mod_circuit_modulus', [], [32]);
-    return Buffer.from(result);
+    const response = await api.secp256k1GetRandomFr({ dummy: 0 });
+    return Buffer.from(response.value);
   }
 
   /**
@@ -49,9 +52,7 @@ export class Secp256k1 {
    */
   public async reduce512BufferToFr(uint512Buf: Buffer) {
     const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-    const [result] = api
-      .getWasm()
-      .callWasmExport('ecc_secp256k1__reduce512_buffer_mod_circuit_modulus', [uint512Buf], [32]);
-    return Buffer.from(result);
+    const response = await api.secp256k1Reduce512({ input: uint512Buf });
+    return Buffer.from(response.value);
   }
 }

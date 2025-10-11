@@ -1,4 +1,4 @@
-import { BarretenbergSync, Fr as FrBarretenberg } from '@aztec/bb.js';
+import { BarretenbergSync } from '@aztec/bb.js';
 
 import { Fr } from '../../fields/fields.js';
 import { type Fieldable, serializeToFields } from '../../serialize/serialize.js';
@@ -13,13 +13,11 @@ export async function pedersenCommit(input: Buffer[], offset = 0) {
   }
   input = input.map(i => (i.length < 32 ? Buffer.concat([Buffer.alloc(32 - i.length, 0), i]) : i));
   const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-  const point = api.pedersenCommit(
-    input.map(i => new FrBarretenberg(i)),
-    offset,
-  );
-  // toBuffer returns Uint8Arrays (browser/worker-boundary friendly).
-  // TODO: rename toTypedArray()?
-  return [Buffer.from(point.x.toBuffer()), Buffer.from(point.y.toBuffer())];
+  const response = api.pedersenCommit({
+    inputs: input,
+    hashIndex: offset,
+  });
+  return [Buffer.from(response.point.x), Buffer.from(response.point.y)];
 }
 
 /**
@@ -31,11 +29,11 @@ export async function pedersenCommit(input: Buffer[], offset = 0) {
 export async function pedersenHash(input: Fieldable[], index = 0): Promise<Fr> {
   const inputFields = serializeToFields(input);
   const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-  const hash = api.pedersenHash(
-    inputFields.map(i => new FrBarretenberg(i.toBuffer())), // TODO(#4189): remove this stupid conversion
-    index,
-  );
-  return Fr.fromBuffer(Buffer.from(hash.toBuffer()));
+  const response = api.pedersenHash({
+    inputs: inputFields.map(i => i.toBuffer()),
+    hashIndex: index,
+  });
+  return Fr.fromBuffer(Buffer.from(response.hash));
 }
 
 /**
@@ -43,6 +41,9 @@ export async function pedersenHash(input: Fieldable[], index = 0): Promise<Fr> {
  */
 export async function pedersenHashBuffer(input: Buffer, index = 0) {
   const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-  const result = api.pedersenHashBuffer(input, index);
-  return Buffer.from(result.toBuffer());
+  const response = api.pedersenHashBuffer({
+    input,
+    hashIndex: index,
+  });
+  return Buffer.from(response.hash);
 }
