@@ -52,9 +52,8 @@ export type CircuitOptions = {
  * The main class library consumers interact with.
  * It extends the generated api, and provides a static constructor "new" to compose components.
  */
-export class Barretenberg extends BarretenbergApi {
+export class Barretenberg extends AsyncApi {
   private options: BackendOptions;
-  private bbApi: BbApiBase;
 
   private constructor(
     private worker: any,
@@ -63,7 +62,6 @@ export class Barretenberg extends BarretenbergApi {
   ) {
     super(wasm);
     this.options = options;
-    this.bbApi = new AsyncApi(wasm);
   }
 
   /**
@@ -95,7 +93,7 @@ export class Barretenberg extends BarretenbergApi {
     const crs = await Crs.new(Math.max(circuitSize, minSRSSize) + 1, this.options.crsPath, this.options.logger);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1129): Do slab allocator initialization?
     // await this.commonInitSlabAllocator(circuitSize);
-    await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
+    await this.srsInitSrs({ pointsBuf: crs.getG1Data(), numPoints: crs.numPoints, g2Point: crs.getG2Data() });
   }
 
   async initSRSClientIVC(srsSize = this.getDefaultSrsSize()): Promise<void> {
@@ -105,8 +103,8 @@ export class Barretenberg extends BarretenbergApi {
 
     // Load CRS into wasm global CRS state.
     // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
-    await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
-    await this.srsInitGrumpkinSrs(new RawBuffer(grumpkinCrs.getG1Data()), grumpkinCrs.numPoints);
+    await this.srsInitSrs({ pointsBuf: crs.getG1Data(), numPoints: crs.numPoints, g2Point: crs.getG2Data() });
+    await this.srsInitGrumpkinSrs({ pointsBuf: grumpkinCrs.getG1Data(), numPoints: grumpkinCrs.numPoints });
   }
 
   getDefaultSrsSize(): number {
@@ -132,63 +130,14 @@ export class Barretenberg extends BarretenbergApi {
   getWasm() {
     return this.wasm;
   }
-
-  // Wrap ClientIVC methods used by AztecClientBackend and UltraHonkBackend
-  async clientIvcStart(command: ClientIvcStart) {
-    return this.bbApi.clientIvcStart(command);
-  }
-
-  async clientIvcLoad(command: ClientIvcLoad) {
-    return this.bbApi.clientIvcLoad(command);
-  }
-
-  async clientIvcAccumulate(command: ClientIvcAccumulate) {
-    return this.bbApi.clientIvcAccumulate(command);
-  }
-
-  async clientIvcProve(command: ClientIvcProve) {
-    return this.bbApi.clientIvcProve(command);
-  }
-
-  async clientIvcVerify(command: ClientIvcVerify) {
-    return this.bbApi.clientIvcVerify(command);
-  }
-
-  async clientIvcComputeIvcVk(command: ClientIvcComputeIvcVk) {
-    return this.bbApi.clientIvcComputeIvcVk(command);
-  }
-
-  async clientIvcStats(command: ClientIvcStats) {
-    return this.bbApi.clientIvcStats(command);
-  }
-
-  // Wrap circuit methods used by BbApiUltraHonkBackend
-  async circuitProve(command: CircuitProve) {
-    return this.bbApi.circuitProve(command);
-  }
-
-  async circuitComputeVk(command: CircuitComputeVk) {
-    return this.bbApi.circuitComputeVk(command);
-  }
-
-  async circuitVerify(command: CircuitVerify) {
-    return this.bbApi.circuitVerify(command);
-  }
-
-  async vkAsFields(command: VkAsFields) {
-    return this.bbApi.vkAsFields(command);
-  }
 }
 
 let barretenbergSyncSingletonPromise: Promise<BarretenbergSync>;
 let barretenbergSyncSingleton: BarretenbergSync;
 
-export class BarretenbergSync extends BarretenbergApiSync {
-  bbApi: SyncApi;
-
+export class BarretenbergSync extends SyncApi {
   private constructor(wasm: BarretenbergWasmMain) {
     super(wasm);
-    this.bbApi = new SyncApi(wasm);
   }
 
   private static async new(wasmPath?: string, logger: (msg: string) => void = createDebugLogger('bb_wasm_sync')) {

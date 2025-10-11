@@ -20,7 +20,7 @@ describe('blake2s async', () => {
         0x2a, 0xc2, 0xb1, 0x00, 0x54, 0x1e, 0x04, 0xfe, 0x87, 0xb4, 0xa5, 0x9e, 0x12, 0x43,
       ]),
     );
-    const result = await api.blake2s(input);
+    const result = await api.blake2s({ data: input });
     expect(result).toEqual(expected);
   });
 
@@ -32,7 +32,7 @@ describe('blake2s async', () => {
         0x2a, 0xc2, 0xb1, 0x00, 0x54, 0x1e, 0x04, 0xfe, 0x87, 0xb4, 0xa5, 0x9e, 0x12, 0x43,
       ]),
     );
-    const result = await api.blake2sToField(input);
+    const result = await api.blake2sToField({ data: input });
     expect(result).toEqual(expected);
   });
 });
@@ -52,7 +52,8 @@ describe('blake2s sync', () => {
         0x2a, 0xc2, 0xb1, 0x00, 0x54, 0x1e, 0x04, 0xfe, 0x87, 0xb4, 0xa5, 0x9e, 0x12, 0x43,
       ]),
     );
-    const result = api.blake2s(input);
+    const response = api.blake2s({ data: input });
+    const result = Buffer32.fromBuffer(response.hash);
     expect(result).toEqual(expected);
   });
 
@@ -64,7 +65,8 @@ describe('blake2s sync', () => {
         0x2a, 0xc2, 0xb1, 0x00, 0x54, 0x1e, 0x04, 0xfe, 0x87, 0xb4, 0xa5, 0x9e, 0x12, 0x43,
       ]),
     );
-    const result = api.blake2sToField(input);
+    const response = api.blake2sToField({ data: input });
+    const result = Fr.fromBuffer(response.field);
     expect(result).toEqual(expected);
   });
 });
