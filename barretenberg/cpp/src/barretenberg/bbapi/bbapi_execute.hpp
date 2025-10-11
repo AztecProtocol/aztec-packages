@@ -7,6 +7,7 @@
 #include "barretenberg/bbapi/bbapi_kzg.hpp"
 #include "barretenberg/bbapi/bbapi_schnorr.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/bbapi/bbapi_srs.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <vector>
@@ -65,7 +66,9 @@ using Command = NamedUnion<CircuitProve,
                            EcdsaSecp256k1RecoverPublicKey,
                            EcdsaSecp256r1RecoverPublicKey,
                            EcdsaSecp256k1VerifySignature,
-                           EcdsaSecp256r1VerifySignature>;
+                           EcdsaSecp256r1VerifySignature,
+                           SrsInitSrs,
+                           SrsInitGrumpkinSrs>;
 
 using CommandResponse = NamedUnion<CircuitProve::Response,
                                    CircuitComputeVk::Response,
@@ -119,7 +122,9 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
                                    EcdsaSecp256k1RecoverPublicKey::Response,
                                    EcdsaSecp256r1RecoverPublicKey::Response,
                                    EcdsaSecp256k1VerifySignature::Response,
-                                   EcdsaSecp256r1VerifySignature::Response>;
+                                   EcdsaSecp256r1VerifySignature::Response,
+                                   SrsInitSrs::Response,
+                                   SrsInitGrumpkinSrs::Response>;
 
 /**
  * @brief Executes a command by visiting a variant of all possible commands.
