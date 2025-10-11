@@ -20,7 +20,7 @@ describe('blob', () => {
 
   it('bb.js KZG should verify a batch of blobs', () => {
     // This test is taken from the blob-lib repo
-    const api = BarretenbergSync.getSingleton().bbApi;
+    const api = BarretenbergSync.getSingleton();
     const BATCH_SIZE = 3;
     const blobs: BlobBuffer[] = [];
     const commitments: Bytes48[] = [];
@@ -50,7 +50,7 @@ describe('blob', () => {
 
   it('should verify a kzg precise proof', () => {
     // This test is taken from the blob-lib repo
-    const api = BarretenbergSync.getSingleton().bbApi;
+    const api = BarretenbergSync.getSingleton();
     const zBytes = Buffer.alloc(32);
 
     // blobs[0][31] = x, and z = 0x01 results in y = x.
@@ -80,7 +80,7 @@ describe('blob', () => {
   it('should evaluate a blob of 400 items', async () => {
     // This test ensures that the Blob class correctly matches the c-kzg lib in bb.js
     // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr -> test_400
-    const api = BarretenbergSync.getSingleton().bbApi;
+    const api = BarretenbergSync.getSingleton();
     const blobItems = Array(400).fill(new Fr(3));
     const ourBlob = await Blob.fromFields(blobItems);
     const blobItemsHash = await poseidon2Hash(Array(400).fill(new Fr(3)));
@@ -112,7 +112,7 @@ describe('blob', () => {
   it('should evaluate full blob', async () => {
     // This test ensures that the Blob class correctly matches the bb.js KZG implementation
     // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr -> test_full_blob
-    const api = BarretenbergSync.getSingleton().bbApi;
+    const api = BarretenbergSync.getSingleton();
     const blobItems = [];
     for (let i = 0; i < FIELD_ELEMENTS_PER_BLOB; i++) {
       blobItems[i] = new Fr(i + 2);

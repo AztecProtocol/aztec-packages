@@ -50,7 +50,7 @@ describe('Blob Batching', () => {
     const blobs = await Blob.getBlobsPerBlock(blobItems);
 
     // Challenge for the final opening (z)
-    const api = BarretenbergSync.getSingleton().bbApi;
+    const api = BarretenbergSync.getSingleton();
     const zis = blobs.map(b => b.challengeZ);
     const finalZ = zis[0];
 
@@ -110,7 +110,7 @@ describe('Blob Batching', () => {
   it('should construct and verify a batch of 3 full blobs', async () => {
     // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr -> test_full_blobs_batched
     // Initialize enough fields to require 3 blobs
-    const api = BarretenbergSync.getSingleton().bbApi;
+    const api = BarretenbergSync.getSingleton();
     const items = [new Fr(3), new Fr(4), new Fr(5)].map(f =>
       new Array(FIELDS_PER_BLOB).fill(f).map((elt, i) => elt.mul(new Fr(i + 1))),
     );

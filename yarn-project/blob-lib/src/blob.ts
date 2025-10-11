@@ -75,7 +75,7 @@ export class Blob {
     // This matches the output of SpongeBlob.squeeze() in the blob circuit
     const fieldsHash = multiBlobFieldsHash ? multiBlobFieldsHash : await poseidon2Hash(fields);
     await ensureKzgInitialized();
-    const api = BarretenbergSync.getSingleton().bbApi;
+    const api = BarretenbergSync.getSingleton();
     const res = api.kzgBlobToCommitment({ blobData: data });
     const commitment = Buffer.from(res.commitment);
     const challengeZ = await poseidon2Hash([fieldsHash, ...commitmentToFields(commitment)]);
@@ -213,7 +213,7 @@ export class Blob {
    */
   evaluate(challengeZ?: Fr): { y: Buffer32; proof: Buffer48 } {
     const z = challengeZ || this.challengeZ;
-    const api = BarretenbergSync.getSingleton().bbApi;
+    const api = BarretenbergSync.getSingleton();
     const res = api.kzgComputeProof({ blobData: this.data, z: z.toBuffer() });
     const verifyRes = api.kzgVerifyProof({
       commitment: this.commitment,
@@ -293,8 +293,12 @@ export class Blob {
   } {
     const api = BarretenbergSync.getSingleton();
     return {
-      blobToKzgCommitment: api.kzgBlobToKzgCommitment.bind(api),
-      computeBlobKzgProof: api.kzgComputeBlobKzgProof.bind(api),
+      blobToKzgCommitment: (blob: Uint8Array) => ({
+        buffer: new Uint8Array(api.kzgBlobToCommitment({ blobData: blob }).commitment),
+      }),
+      computeBlobKzgProof: (blob: Uint8Array, commitment: Uint8Array) => ({
+        buffer: api.kzgComputeBlobProof({ blobData: blob, commitment }).proof,
+      }),
     };
   }
 

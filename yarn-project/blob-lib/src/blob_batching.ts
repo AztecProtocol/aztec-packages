@@ -1,4 +1,4 @@
-import { BarretenbergSync, Buffer32, Buffer48, RawBuffer } from '@aztec/bb.js';
+import { BarretenbergSync } from '@aztec/bb.js';
 import { AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_BLOCK } from '@aztec/constants';
 import { poseidon2Hash, sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { BLS12Field, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
@@ -74,7 +74,7 @@ export class BatchedBlob {
     }
     // Now we have a shared challenge for all blobs, evaluate them...
     await ensureKzgInitialized();
-    const api = BarretenbergSync.getSingleton().bbApi;
+    const api = BarretenbergSync.getSingleton();
     const proofObjects = blobs.map(b => api.kzgComputeProof({ blobData: b.data, z: z.toBuffer() }));
     const evaluations = proofObjects.map(res => BLS12Fr.fromBuffer(Buffer.from(res.y)));
     // ...and find the challenge for the linear combination of blobs.
@@ -208,7 +208,7 @@ export class BatchedBlobAccumulator {
     blob: Blob,
     finalBlobChallenges: FinalBlobBatchingChallenges,
   ): Promise<BatchedBlobAccumulator> {
-    const api = BarretenbergSync.getSingleton().bbApi;
+    const api = BarretenbergSync.getSingleton();
     const res = api.kzgComputeProof({
       blobData: blob.data,
       z: finalBlobChallenges.z.toBuffer(),
@@ -254,7 +254,7 @@ export class BatchedBlobAccumulator {
     if (this.isEmptyState()) {
       return BatchedBlobAccumulator.initialize(blob, this.finalBlobChallenges);
     } else {
-      const api = BarretenbergSync.getSingleton().bbApi;
+      const api = BarretenbergSync.getSingleton();
       const res = api.kzgComputeProof({
         blobData: blob.data,
         z: this.finalBlobChallenges.z.toBuffer(),
@@ -317,7 +317,7 @@ export class BatchedBlobAccumulator {
         `Blob batching mismatch: accumulated gamma ${calculatedGamma} does not equal injected gamma ${this.finalBlobChallenges.gamma.toBN254Fr()}`,
       );
     }
-    const api = BarretenbergSync.getSingleton().bbApi;
+    const api = BarretenbergSync.getSingleton();
     const verifyRes = api.kzgVerifyProof({
       commitment: this.cAcc.compress(),
       z: this.zAcc.toBuffer(),
