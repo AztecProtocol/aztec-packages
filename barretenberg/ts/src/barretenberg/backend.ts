@@ -1,14 +1,6 @@
 import { BackendOptions, Barretenberg, CircuitOptions } from './index.js';
-import { RawBuffer } from '../types/raw_buffer.js';
-import {
-  ProofData,
-  reconstructHonkProof,
-  splitHonkProof,
-  PAIRING_POINTS_SIZE,
-  uint8ArrayToHex,
-  hexToUint8Array,
-} from '../proof/index.js';
-import { ClientIVCProof, fromClientIVCProof, toClientIVCProof } from '../cbind/generated/api_types.js';
+import { ProofData, uint8ArrayToHex, hexToUint8Array } from '../proof/index.js';
+import { fromClientIVCProof, toClientIVCProof } from '../cbind/generated/api_types.js';
 import { ungzip } from 'pako';
 import { Buffer } from 'buffer';
 import { Decoder, Encoder } from 'msgpackr';

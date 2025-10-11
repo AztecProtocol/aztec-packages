@@ -20,8 +20,8 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
   private nextThreadId = 1;
 
   // Pre-allocated scratch buffers for msgpack I/O to avoid malloc/free overhead
-  private msgpackInputScratch: number = 0;   // 1MB input buffer
-  private msgpackOutputScratch: number = 0;  // 1MB output buffer
+  private msgpackInputScratch: number = 0; // 1MB input buffer
+  private msgpackOutputScratch: number = 0; // 1MB output buffer
   private readonly MSGPACK_SCRATCH_SIZE = 1024 * 1024; // 1MB
 
   public getNumThreads() {
@@ -64,7 +64,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     this.msgpackOutputScratch = this.call('bbmalloc', this.MSGPACK_SCRATCH_SIZE);
     this.logger(
       `Allocated msgpack scratch buffers: ` +
-      `input @ ${this.msgpackInputScratch}, output @ ${this.msgpackOutputScratch} (${this.MSGPACK_SCRATCH_SIZE} bytes each)`
+        `input @ ${this.msgpackInputScratch}, output @ ${this.msgpackOutputScratch} (${this.MSGPACK_SCRATCH_SIZE} bytes each)`,
     );
 
     // Create worker threads. Create 1 less than requested, as main thread counts as a thread.
@@ -155,7 +155,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     if (inputBuffer.length > this.MSGPACK_SCRATCH_SIZE) {
       throw new Error(
         `Msgpack input exceeds scratch buffer size: ${inputBuffer.length} > ${this.MSGPACK_SCRATCH_SIZE}. ` +
-        `This is a bug - msgpack messages should not be this large.`
+          `This is a bug - msgpack messages should not be this large.`,
       );
     }
 
@@ -181,7 +181,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     if (outputSize > this.MSGPACK_SCRATCH_SIZE - 8) {
       throw new Error(
         `Msgpack output exceeds scratch buffer size: ${outputSize} > ${this.MSGPACK_SCRATCH_SIZE - 8}. ` +
-        `This is a bug - msgpack responses should not be this large.`
+          `This is a bug - msgpack responses should not be this large.`,
       );
     }
 

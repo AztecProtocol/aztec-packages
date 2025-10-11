@@ -1,6 +1,17 @@
 import { BarretenbergSync, Fr } from '../index.js';
 import { OutputType, serializeBufferable } from '../serialize/index.js';
 
+/**
+ * We keep some old api stuff lingering for insights into msgpack overheads.
+ * Once this is no longer needed we can delete:
+ * - barretenberg/poseidon2_benchmark.test.ts
+ * - barretenberg_wasm/barretenberg_wasm_main/heap_allocator.ts
+ * - serialize/output_type.ts
+ * - serialize/serialize.ts
+ * and the following methods from BarretenbergWasmMain:
+ * - callWasmExport
+ * - getOutputArgs
+ */
 describe('poseidon2Hash benchmark: msgpack vs direct WASM', () => {
   const ITERATIONS = 5000;
   const SIZES = [2, 4, 8, 16, 32];

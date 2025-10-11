@@ -3,24 +3,9 @@ import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/fa
 import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
 import { Crs, GrumpkinCrs } from '../crs/index.js';
-import { RawBuffer } from '../types/raw_buffer.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import { createDebugLogger } from '../log/index.js';
 import { AsyncApi } from '../cbind/generated/async.js';
-import {
-  BbApiBase,
-  CircuitComputeVk,
-  CircuitProve,
-  CircuitVerify,
-  ClientIvcAccumulate,
-  ClientIvcComputeIvcVk,
-  ClientIvcStats,
-  ClientIvcLoad,
-  ClientIvcProve,
-  ClientIvcStart,
-  ClientIvcVerify,
-  VkAsFields,
-} from '../cbind/generated/api_types.js';
 import { SyncApi } from '../cbind/generated/sync.js';
 
 export { UltraHonkBackend, UltraHonkVerifierBackend, AztecClientBackend } from './backend.js';
