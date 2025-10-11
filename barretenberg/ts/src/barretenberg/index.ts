@@ -116,9 +116,26 @@ export class Barretenberg extends AsyncApi {
     return 2 ** 20;
   }
 
+  async acirGetCircuitSizes(
+    bytecode: Uint8Array,
+    recursive: boolean,
+    honkRecursion: boolean,
+  ): Promise<[number, number]> {
+    const response = await this.circuitStats({
+      circuit: { name: '', bytecode, verificationKey: new Uint8Array() },
+      includeGatesPerOpcode: false,
+      settings: {
+        ipaAccumulation: false,
+        oracleHashType: honkRecursion ? 'poseidon2' : 'keccak',
+        disableZk: !recursive,
+        optimizedSolidityVerifier: false,
+      },
+    });
+    return [response.numGates, response.numGatesDyadic];
+  }
+
   async acirInitSRS(bytecode: Uint8Array, recursive: boolean, honkRecursion: boolean): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [_total, subgroupSize] = await this.acirGetCircuitSizes(bytecode, recursive, honkRecursion);
+    const [_, subgroupSize] = await this.acirGetCircuitSizes(bytecode, recursive, honkRecursion);
     return this.initSRSForCircuitSize(subgroupSize);
   }
 
