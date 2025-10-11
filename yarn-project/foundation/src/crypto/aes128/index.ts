@@ -23,7 +23,7 @@ export class Aes128 {
     const input = Buffer.concat([data, paddingBuffer]);
 
     const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-    const response = await api.aesEncrypt({
+    const response = api.aesEncrypt({
       plaintext: input,
       iv,
       key,
@@ -42,7 +42,7 @@ export class Aes128 {
    */
   public async decryptBufferCBCKeepPadding(data: Uint8Array, iv: Uint8Array, key: Uint8Array): Promise<Buffer> {
     const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-    const response = await api.aesDecrypt({
+    const response = api.aesDecrypt({
       ciphertext: data,
       iv,
       key,
