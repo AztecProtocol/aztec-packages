@@ -265,20 +265,30 @@ void mock_ivc_accumulation(const std::shared_ptr<ClientIVC>& ivc, ClientIVC::QUE
 }
 
 /**
- * @brief Populate an IVC instance with data that mimics the state after a single IVC accumulation (Oink or PG)
- * @details Mock state consists of a mock verification queue entry of type OINK (proof, VK) and a mocked merge proof
+ * @brief Populate an IVC instance with data that mimics the state after a single IVC accumulation
+ * @details Mock state consists of a mock verification queue entry (proof, VK) and a mocked merge proof.
+ * Also initializes the recursive verifier accumulator since it is hashed in circuit.
  *
  * @param ivc
- * @param num_public_inputs_app num pub inputs in accumulated app, excluding fixed components, e.g. pairing points
+ * @param type The type of verification (OINK, PG, PG_TAIL, PG_FINAL)
+ * @param is_kernel Whether this is a kernel circuit accumulation
  */
 void mock_sumcheck_ivc_accumulation(const std::shared_ptr<SumcheckClientIVC>& ivc,
                                     SumcheckClientIVC::QUEUE_TYPE type,
                                     const bool is_kernel)
 {
+    using FF = SumcheckClientIVC::FF;
+    using Commitment = SumcheckClientIVC::Commitment;
+
+    // Initialize verifier accumulator with proper structure
+    ivc->recursive_verifier_native_accum.challenge =
+        std::vector<FF>(SumcheckClientIVC::Flavor::VIRTUAL_LOG_N, FF::zero());
+    ivc->recursive_verifier_native_accum.batched_evaluations = { FF::zero(), FF::zero() };
+    ivc->recursive_verifier_native_accum.batched_commitments = { Commitment::one(), Commitment::one() };
+
     SumcheckClientIVC::VerifierInputs entry = acir_format::create_mock_verification_queue_entry_nova(type, is_kernel);
     ivc->verification_queue.emplace_back(entry);
     ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_mock_merge_proof());
-    // If the type is PG_FINAL, we also need to populate the ivc instance with a mock PCS proof
     if (type == SumcheckClientIVC::QUEUE_TYPE::PG_FINAL) {
         ivc->pcs_proof = acir_format::create_mock_pcs_proof<SumcheckClientIVC::Flavor>();
     }

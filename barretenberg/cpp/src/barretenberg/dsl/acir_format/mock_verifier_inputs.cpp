@@ -101,19 +101,42 @@ template <typename Flavor> HonkProof create_mock_sumcheck_proof()
     return proof;
 }
 
+HonkProof create_mock_multilinear_batch_proof()
+{
+    using Flavor = MultilinearBatchingFlavor;
+    using FF = typename Flavor::FF;
+    HonkProof proof;
+
+    // Populate mock witness polynomial commitments
+    populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES);
+
+    // Accumulator and instance multivariate challenges
+    populate_field_elements<FF>(proof, Flavor::VIRTUAL_LOG_N * 2);
+
+    // Witness polynomial evaluations
+    populate_field_elements<FF>(proof, Flavor::NUM_WITNESS_ENTITIES);
+
+    // Sumcheck proof
+    HonkProof sumcheck_proof = create_mock_sumcheck_proof<Flavor>();
+
+    proof.insert(proof.end(), sumcheck_proof.begin(), sumcheck_proof.end());
+
+    return proof;
+}
+
 template <typename Flavor, class PublicInputs> HonkProof create_mock_hyper_nova_proof(bool include_fold)
 {
     HonkProof oink_proof = create_mock_oink_proof<Flavor, PublicInputs>(/*inner_public_inputs_size=*/0);
     HonkProof sumcheck_proof = create_mock_sumcheck_proof<Flavor>();
-    HonkProof nova_fold_proof;
+    HonkProof multilinear_batch_proof;
     if (include_fold) {
-        nova_fold_proof = create_mock_sumcheck_proof<MultilinearBatchingFlavor>();
+        multilinear_batch_proof = create_mock_multilinear_batch_proof();
     }
     HonkProof proof;
-    proof.reserve(oink_proof.size() + sumcheck_proof.size() + nova_fold_proof.size());
+    proof.reserve(oink_proof.size() + sumcheck_proof.size() + multilinear_batch_proof.size());
     proof.insert(proof.end(), oink_proof.begin(), oink_proof.end());
     proof.insert(proof.end(), sumcheck_proof.begin(), sumcheck_proof.end());
-    proof.insert(proof.end(), nova_fold_proof.begin(), nova_fold_proof.end());
+    proof.insert(proof.end(), multilinear_batch_proof.begin(), multilinear_batch_proof.end());
 
     return proof;
 }

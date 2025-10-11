@@ -389,225 +389,226 @@ TEST_F(SumcheckIvcRecursionConstraintTest, GenerateInitKernelVKFromConstraints)
     EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
 }
 
-// // Test generation of "reset" kernel VK via dummy IVC data
-// TEST_F(SumcheckIvcRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
-// {
-//     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
-//     std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
-//     {
-//         auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits=*/5);
+// Test generation of "reset" kernel VK via dummy IVC data
+TEST_F(SumcheckIvcRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
+{
+    // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
+    std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
+    {
+        auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits=*/5);
 
-//         const ProgramMetadata metadata{ ivc };
+        const ProgramMetadata metadata{ ivc };
 
-//         // Construct and accumulate mock app_circuit
-//         construct_and_accumulate_mock_app(ivc);
+        // Construct and accumulate mock app_circuit
+        construct_and_accumulate_mock_app(ivc);
 
-//         // Construct and accumulate a mock INIT kernel (oink recursion for app accumulation)
-//         construct_and_accumulate_mock_kernel(ivc);
-//         EXPECT_TRUE(ivc->verification_queue.size() == 1);
-//         EXPECT_TRUE(ivc->verification_queue[0].type == bb::SumcheckClientIVC::QUEUE_TYPE::PG);
+        // Construct and accumulate a mock INIT kernel (oink recursion for app accumulation)
+        construct_and_accumulate_mock_kernel(ivc);
+        EXPECT_TRUE(ivc->verification_queue.size() == 1);
+        EXPECT_TRUE(ivc->verification_queue[0].type == bb::SumcheckClientIVC::QUEUE_TYPE::PG);
 
-//         // Construct and accumulate a mock RESET kernel (PG recursion for kernel accumulation)
-//         construct_and_accumulate_mock_kernel(ivc);
-//         expected_kernel_vk = ivc->verification_queue.back().honk_vk;
-//     }
+        // Construct and accumulate a mock RESET kernel (PG recursion for kernel accumulation)
+        construct_and_accumulate_mock_kernel(ivc);
+        expected_kernel_vk = ivc->verification_queue.back().honk_vk;
+    }
 
-//     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
-//     std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
-//     {
-//         auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits=*/5);
+    // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
+    std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
+    {
+        auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits=*/5);
 
-//         // Construct kernel consisting only of the kernel completion logic
-//         acir_format::mock_sumcheck_ivc_accumulation(ivc, SumcheckClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
-//         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
-//         program.witness = {}; // remove the witness to mimick VK construction context
-//         kernel_vk = construct_kernel_vk_from_acir_program(program);
-//     }
+        // Construct kernel consisting only of the kernel completion logic
+        acir_format::mock_sumcheck_ivc_accumulation(ivc, SumcheckClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
+        AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+        program.witness = {}; // remove the witness to mimick VK construction context
+        kernel_vk = construct_kernel_vk_from_acir_program(program);
+    }
 
-//     // Compare the VK constructed via running the IVc with the one constructed via mocking
-//     EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
-// }
+    // Compare the VK constructed via running the IVc with the one constructed via mocking
+    EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
+}
 
-// // Test generation of "tail" kernel VK via dummy IVC data
-// TEST_F(SumcheckIvcRecursionConstraintTest, GenerateTailKernelVKFromConstraints)
-// {
-//     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
-//     std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
-//     {
-//         auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits=*/5);
+// Test generation of "tail" kernel VK via dummy IVC data
+TEST_F(SumcheckIvcRecursionConstraintTest, GenerateTailKernelVKFromConstraints)
+{
+    // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
+    std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
+    {
+        auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits=*/5);
 
-//         const ProgramMetadata metadata{ ivc };
+        const ProgramMetadata metadata{ ivc };
 
-//         // Construct and accumulate mock app_circuit
-//         construct_and_accumulate_mock_app(ivc);
+        // Construct and accumulate mock app_circuit
+        construct_and_accumulate_mock_app(ivc);
 
-//         // Construct and accumulate a mock INIT kernel (oink recursion for app accumulation)
-//         construct_and_accumulate_mock_kernel(ivc);
+        // Construct and accumulate a mock INIT kernel (oink recursion for app accumulation)
+        construct_and_accumulate_mock_kernel(ivc);
 
-//         // Construct and accumulate a mock RESET kernel (PG recursion for kernel accumulation)
-//         construct_and_accumulate_mock_kernel(ivc);
+        // Construct and accumulate a mock RESET kernel (PG recursion for kernel accumulation)
+        construct_and_accumulate_mock_kernel(ivc);
 
-//         // Construct and accumulate a mock TAIL kernel (PG recursion for kernel accumulation)
-//         EXPECT_TRUE(ivc->verification_queue.size() == 1);
-//         EXPECT_TRUE(ivc->verification_queue[0].type == bb::SumcheckClientIVC::QUEUE_TYPE::PG_TAIL);
-//         construct_and_accumulate_mock_kernel(ivc);
+        // Construct and accumulate a mock TAIL kernel (PG recursion for kernel accumulation)
+        EXPECT_TRUE(ivc->verification_queue.size() == 1);
+        EXPECT_TRUE(ivc->verification_queue[0].type == bb::SumcheckClientIVC::QUEUE_TYPE::PG_TAIL);
+        construct_and_accumulate_mock_kernel(ivc);
 
-//         expected_kernel_vk = ivc->verification_queue.back().honk_vk;
-//     }
+        expected_kernel_vk = ivc->verification_queue.back().honk_vk;
+    }
 
-//     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
-//     std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
-//     {
-//         auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits=*/5);
+    // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
+    std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
+    {
+        auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits=*/5);
 
-//         // Construct kernel consisting only of the kernel completion logic
-//         acir_format::mock_sumcheck_ivc_accumulation(ivc, SumcheckClientIVC::QUEUE_TYPE::PG_TAIL, /*is_kernel=*/true);
-//         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
-//         program.witness = {}; // remove the witness to mimick VK construction context
+        // Construct kernel consisting only of the kernel completion logic
+        acir_format::mock_sumcheck_ivc_accumulation(ivc, SumcheckClientIVC::QUEUE_TYPE::PG_TAIL, /*is_kernel=*/true);
+        AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+        program.witness = {}; // remove the witness to mimick VK construction context
 
-//         kernel_vk = construct_kernel_vk_from_acir_program(program);
-//     }
+        kernel_vk = construct_kernel_vk_from_acir_program(program);
+    }
 
-//     // Compare the VK constructed via running the IVc with the one constructed via mocking
-//     EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
-// }
+    // Compare the VK constructed via running the IVc with the one constructed via mocking
+    EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
+}
 
-// // Test generation of "inner" kernel VK via dummy IVC data
-// TEST_F(SumcheckIvcRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
-// {
-//     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
-//     std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
-//     {
-//         // we have to set the number of circuits one more than the number of circuits we're accumulating as otherwise
-//         // the last circuit will be seen as a tail
-//         auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits=*/6);
+// Test generation of "inner" kernel VK via dummy IVC data
+TEST_F(SumcheckIvcRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
+{
+    // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
+    std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
+    {
+        // we have to set the number of circuits one more than the number of circuits we're accumulating as otherwise
+        // the last circuit will be seen as a tail
+        auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits=*/6);
 
-//         const ProgramMetadata metadata{ ivc };
+        const ProgramMetadata metadata{ ivc };
 
-//         { // Construct and accumulate mock app_circuit
-//             construct_and_accumulate_mock_app(ivc);
-//         }
+        { // Construct and accumulate mock app_circuit
+            construct_and_accumulate_mock_app(ivc);
+        }
 
-//         // Construct and accumulate a mock INIT kernel (oink recursion for app accumulation)
-//         construct_and_accumulate_mock_kernel(ivc);
+        // Construct and accumulate a mock INIT kernel (oink recursion for app accumulation)
+        construct_and_accumulate_mock_kernel(ivc);
 
-//         { // Construct and accumulate a second mock app_circuit
-//             construct_and_accumulate_mock_app(ivc);
-//         }
+        { // Construct and accumulate a second mock app_circuit
+            construct_and_accumulate_mock_app(ivc);
+        }
 
-//         { // Construct and accumulate a mock INNER kernel (PG recursion for kernel accumulation)
-//             EXPECT_TRUE(ivc->verification_queue.size() == 2);
-//             EXPECT_TRUE(ivc->verification_queue[1].type == bb::SumcheckClientIVC::QUEUE_TYPE::PG);
-//             construct_and_accumulate_mock_kernel(ivc);
-//         }
+        { // Construct and accumulate a mock INNER kernel (PG recursion for kernel accumulation)
+            EXPECT_TRUE(ivc->verification_queue.size() == 2);
+            EXPECT_TRUE(ivc->verification_queue[1].type == bb::SumcheckClientIVC::QUEUE_TYPE::PG);
+            construct_and_accumulate_mock_kernel(ivc);
+        }
 
-//         expected_kernel_vk = ivc->verification_queue.back().honk_vk;
-//     }
+        expected_kernel_vk = ivc->verification_queue.back().honk_vk;
+    }
 
-//     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
-//     std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
-//     {
-//         auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits=*/4);
+    // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
+    std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
+    {
+        auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits=*/4);
 
-//         // Construct kernel consisting only of the kernel completion logic
-//         acir_format::mock_sumcheck_ivc_accumulation(ivc, SumcheckClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
-//         acir_format::mock_sumcheck_ivc_accumulation(ivc, SumcheckClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/false);
-//         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
-//         program.witness = {}; // remove the witness to mimick VK construction context
+        // Construct kernel consisting only of the kernel completion logic
+        acir_format::mock_sumcheck_ivc_accumulation(ivc, SumcheckClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
+        acir_format::mock_sumcheck_ivc_accumulation(ivc, SumcheckClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/false);
+        AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+        program.witness = {}; // remove the witness to mimick VK construction context
 
-//         kernel_vk = construct_kernel_vk_from_acir_program(program);
-//     }
+        kernel_vk = construct_kernel_vk_from_acir_program(program);
+    }
 
-//     // Compare the VK constructed via running the IVc with the one constructed via mocking
-//     EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
-// }
+    // Compare the VK constructed via running the IVc with the one constructed via mocking
+    EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
+}
 
-// // Test generation of "hiding" kernel VK via dummy IVC data
-// TEST_F(SumcheckIvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
-// {
-//     // First, construct the kernel VK by running the full IVC
-//     std::shared_ptr<MegaFlavor::VerificationKey> expected_hiding_kernel_vk;
-//     {
-//         auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits=*/5);
-//         const ProgramMetadata metadata{ ivc };
+// Test generation of "hiding" kernel VK via dummy IVC data
+TEST_F(SumcheckIvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
+{
+    // First, construct the kernel VK by running the full IVC
+    std::shared_ptr<MegaFlavor::VerificationKey> expected_hiding_kernel_vk;
+    {
+        auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits=*/5);
+        const ProgramMetadata metadata{ ivc };
 
-//         {
-//             // Construct and accumulate mock app_circuit
-//             construct_and_accumulate_mock_app(ivc);
-//         }
+        {
+            // Construct and accumulate mock app_circuit
+            construct_and_accumulate_mock_app(ivc);
+        }
 
-//         {
-//             // Construct and accumulate a mock INIT kernel (oink recursion for app accumulation)
-//             construct_and_accumulate_mock_kernel(ivc);
-//         }
+        {
+            // Construct and accumulate a mock INIT kernel (oink recursion for app accumulation)
+            construct_and_accumulate_mock_kernel(ivc);
+        }
 
-//         construct_and_accumulate_trailing_kernels(ivc);
+        construct_and_accumulate_trailing_kernels(ivc);
 
-//         // The single entry in the verification queue corresponds to the hiding kernel
-//         expected_hiding_kernel_vk = ivc->verification_queue[0].honk_vk;
-//     }
+        // The single entry in the verification queue corresponds to the hiding kernel
+        expected_hiding_kernel_vk = ivc->verification_queue[0].honk_vk;
+    }
 
-//     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
-//     std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
-//     {
-//         // mock IVC accumulation increases the num_circuits_accumualted, hence we need to assume the tail kernel has
-//         // been accumulated
-//         auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits=*/5);
-//         // construct a mock tail kernel
-//         acir_format::mock_sumcheck_ivc_accumulation(ivc, SumcheckClientIVC::QUEUE_TYPE::PG_FINAL,
-//         /*is_kernel=*/true); AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
-//         program.witness = {}; // remove the witness to mimick VK construction context
-//         kernel_vk = construct_kernel_vk_from_acir_program(program);
-//     }
+    // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
+    std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
+    {
+        // mock IVC accumulation increases the num_circuits_accumualted, hence we need to assume the tail kernel has
+        // been accumulated
+        auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits=*/5);
+        // construct a mock tail kernel
+        acir_format::mock_sumcheck_ivc_accumulation(ivc,
+                                                    SumcheckClientIVC::QUEUE_TYPE::PG_FINAL,
+                                                    /*is_kernel=*/true);
+        AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+        program.witness = {}; // remove the witness to mimick VK construction context
+        kernel_vk = construct_kernel_vk_from_acir_program(program);
+    }
 
-//     // Compare the VK constructed via running the IVc with the one constructed via mocking
-//     EXPECT_EQ(*kernel_vk.get(), *expected_hiding_kernel_vk.get());
-// }
+    // Compare the VK constructed via running the IVc with the one constructed via mocking
+    EXPECT_EQ(*kernel_vk.get(), *expected_hiding_kernel_vk.get());
+}
 
-// /**
-//  * @brief Test IVC accumulation of a one app and one kernel. The app includes a UltraHonk Recursive Verifier.
-//  * This test was copied from the AccumulateTwo test.
-//  */
-// TEST_F(SumcheckIvcRecursionConstraintTest, RecursiveVerifierAppCircuitTest)
-// {
-//     auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits*/ 5);
+/**
+ * @brief Test IVC accumulation of a one app and one kernel. The app includes a UltraHonk Recursive Verifier.
+ */
+TEST_F(SumcheckIvcRecursionConstraintTest, RecursiveVerifierAppCircuit)
+{
+    auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits*/ 5);
 
-//     // construct a mock app_circuit with an UH recursion call
-//     Builder app_circuit = construct_mock_UH_recursion_app_circuit(ivc, /*tamper_vk=*/false);
+    // construct a mock app_circuit with an UH recursion call
+    Builder app_circuit = construct_mock_UH_recursion_app_circuit(ivc, /*tamper_vk=*/false);
 
-//     // Complete instance and generate an oink proof
-//     ivc->accumulate(app_circuit, get_verification_key(app_circuit));
+    // Complete instance and generate an oink proof
+    ivc->accumulate(app_circuit, get_verification_key(app_circuit));
 
-//     // Construct kernel consisting only of the kernel completion logic
-//     construct_and_accumulate_mock_kernel(ivc);
+    // Construct kernel consisting only of the kernel completion logic
+    construct_and_accumulate_mock_kernel(ivc);
 
-//     construct_and_accumulate_trailing_kernels(ivc);
+    construct_and_accumulate_trailing_kernels(ivc);
 
-//     auto proof = ivc->prove();
-//     EXPECT_TRUE(SumcheckClientIVC::verify(proof, ivc->get_vk()));
-// }
+    auto proof = ivc->prove();
+    EXPECT_TRUE(SumcheckClientIVC::verify(proof, ivc->get_vk()));
+}
 
-// /**
-//  * @brief Test IVC accumulation of a one app and one kernel. The app includes a UltraHonk Recursive Verifier that
-//  * verifies a failed proof. This test was copied from the AccumulateTwo test.
-//  */
-// TEST_F(SumcheckIvcRecursionConstraintTest, BadRecursiveVerifierAppCircuitTest)
-// {
-//     BB_DISABLE_ASSERTS(); // Disable assert in PG prover
+/**
+ * @brief Test IVC accumulation of a one app and one kernel. The app includes a UltraHonk Recursive Verifier that
+ * verifies an invalid proof.
+ */
+TEST_F(SumcheckIvcRecursionConstraintTest, RecursiveVerifierAppCircuitFailure)
+{
+    BB_DISABLE_ASSERTS(); // Disable assert in PG prover
 
-//     auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits*/ 5);
+    auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits*/ 5);
 
-//     // construct and accumulate mock app_circuit that has bad pairing point object
-//     Builder app_circuit = construct_mock_UH_recursion_app_circuit(ivc, /*tamper_vk=*/true);
-//     ivc->accumulate(app_circuit, get_verification_key(app_circuit));
+    // construct and accumulate mock app_circuit that has bad pairing point object
+    Builder app_circuit = construct_mock_UH_recursion_app_circuit(ivc, /*tamper_vk=*/true);
+    ivc->accumulate(app_circuit, get_verification_key(app_circuit));
 
-//     // Construct kernel consisting only of the kernel completion logic
-//     construct_and_accumulate_mock_kernel(ivc);
+    // Construct kernel consisting only of the kernel completion logic
+    construct_and_accumulate_mock_kernel(ivc);
 
-//     // add the trailing kernels
-//     construct_and_accumulate_trailing_kernels(ivc);
+    // add the trailing kernels
+    construct_and_accumulate_trailing_kernels(ivc);
 
-//     // We expect the CIVC proof to fail due to the app with a failed UH recursive verification
-//     auto proof = ivc->prove();
-//     EXPECT_FALSE(SumcheckClientIVC::verify(proof, ivc->get_vk()));
-// }
+    // We expect the CIVC proof to fail due to the app with a failed UH recursive verification
+    auto proof = ivc->prove();
+    EXPECT_FALSE(SumcheckClientIVC::verify(proof, ivc->get_vk()));
+}
