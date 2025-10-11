@@ -20,14 +20,14 @@ struct DummyClaim : MultilinearBatchingProverClaim {
         for (size_t i = 0; i < MultilinearBatchingFlavor::VIRTUAL_LOG_N; i++) {
             challenge[i] = FF::random_element();
         }
-        auto non_shifted_polynomial = Polynomial(16);
-        auto pre_shift_polynomial = Polynomial::shiftable(16);
-        for (size_t i = 1; i < 16; i++) {
-            non_shifted_polynomial.at(i) = FF::random_element();
-            pre_shift_polynomial.at(i) = FF::random_element();
-        }
-        auto shifted_polynomial = pre_shift_polynomial.shifted();
+        const size_t dyadic_size = 16;
+        auto non_shifted_polynomial = Polynomial(dyadic_size);
+        auto to_be_shifted_polynomial = Polynomial::shiftable(dyadic_size);
         non_shifted_polynomial.at(0) = FF::random_element();
+        for (size_t i = 1; i < dyadic_size; i++) {
+            non_shifted_polynomial.at(i) = FF::random_element();
+            to_be_shifted_polynomial.at(i) = FF::random_element();
+        }
         auto non_shifted_commitment = Commitment::random_element();
         auto shifted_commitment = Commitment::random_element();
 
@@ -45,12 +45,12 @@ struct DummyClaim : MultilinearBatchingProverClaim {
         }
         this->challenge = challenge;
         this->non_shifted_polynomial = non_shifted_polynomial;
-        this->shifted_polynomial = shifted_polynomial;
+        this->shifted_polynomial = to_be_shifted_polynomial;
         this->non_shifted_commitment = non_shifted_commitment;
         this->shifted_commitment = shifted_commitment;
         this->shifted_evaluation = accumulator_evaluations[1];
         this->non_shifted_evaluation = accumulator_evaluations[0];
-        this->dyadic_size = 4;
+        this->dyadic_size = dyadic_size;
     }
 };
 
