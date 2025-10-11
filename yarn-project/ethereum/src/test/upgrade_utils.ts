@@ -34,9 +34,9 @@ export async function executeGovernanceProposal(
   const cheatCodes = new EthCheatCodes(rpcUrls, new DateProvider(), logger);
 
   const timeToActive = proposal.creation + proposal.config.votingDelay;
-  logger.info(`Warping to ${timeToActive + 1n}`);
+  logger.info('Warping to %d', timeToActive + 1n);
   await cheatCodes.warp(Number(timeToActive + 1n));
-  logger.info(`Warped to ${timeToActive + 1n}`);
+  logger.info('Warped to %d', timeToActive + 1n);
   await waitL1Block();
 
   logger.info(`Voting`);
@@ -45,9 +45,9 @@ export async function executeGovernanceProposal(
   logger.info(`Voted`);
 
   const timeToExecutable = timeToActive + proposal.config.votingDuration + proposal.config.executionDelay + 1n;
-  logger.info(`Warping to ${timeToExecutable}`);
+  logger.info('Warping to %d', timeToExecutable);
   await cheatCodes.warp(Number(timeToExecutable));
-  logger.info(`Warped to ${timeToExecutable}`);
+  logger.info('Warped to %d', timeToExecutable);
   await waitL1Block();
 
   const executeTx = await governance.write.execute([proposalId], { account: privateKey });

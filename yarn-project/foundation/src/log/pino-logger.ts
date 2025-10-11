@@ -17,26 +17,48 @@ export function createLogger(module: string): Logger {
 
   // We check manually for isLevelEnabled to avoid calling processLogData unnecessarily.
   // Note that isLevelEnabled is missing from the browser version of pino.
-  const logFn = (level: LogLevel, msg: string, data?: unknown) =>
-    isLevelEnabled(pinoLogger, level) && pinoLogger[level](processLogData((data as LogData) ?? {}), msg);
+  const logFn = (level: LogLevel, msg: string, ...args: unknown[]) => {
+    if (!isLevelEnabled(pinoLogger, level)) {
+      return;
+    }
+    
+    // Check if the last argument is structured data (LogData)
+    const lastArg = args[args.length - 1];
+    const isLastArgStructuredData = lastArg && typeof lastArg === 'object' && !Array.isArray(lastArg) && 
+      Object.values(lastArg).every(val => 
+        typeof val === 'string' || typeof val === 'number' || typeof val === 'bigint' || 
+        typeof val === 'boolean' || val === null || val === undefined || 
+        (val && typeof val === 'object' && typeof val.toString === 'function')
+      );
+    
+    if (isLastArgStructuredData) {
+      // Last argument is structured data, process it and pass other args for substitution
+      const structuredData = processLogData(lastArg as LogData);
+      const substitutionArgs = args.slice(0, -1);
+      pinoLogger[level](structuredData, msg, ...substitutionArgs);
+    } else {
+      // No structured data, all args are for substitution
+      pinoLogger[level]({}, msg, ...args);
+    }
+  };
 
   return {
     silent: () => {},
     // TODO(palla/log): Should we move err to data instead of the text message?
     /** Log as fatal. Use when an error has brought down the system. */
-    fatal: (msg: string, err?: unknown, data?: unknown) => logFn('fatal', formatErr(msg, err), data),
+    fatal: (msg: string, err?: unknown, ...args: unknown[]) => logFn('fatal', formatErr(msg, err), ...args),
     /** Log as error. Use for errors in general. */
-    error: (msg: string, err?: unknown, data?: unknown) => logFn('error', formatErr(msg, err), data),
+    error: (msg: string, err?: unknown, ...args: unknown[]) => logFn('error', formatErr(msg, err), ...args),
     /** Log as warn. Use for when we stray from the happy path. */
-    warn: (msg: string, data?: unknown) => logFn('warn', msg, data),
+    warn: (msg: string, ...args: unknown[]) => logFn('warn', msg, ...args),
     /** Log as info. Use for providing an operator with info on what the system is doing. */
-    info: (msg: string, data?: unknown) => logFn('info', msg, data),
+    info: (msg: string, ...args: unknown[]) => logFn('info', msg, ...args),
     /** Log as verbose. Use for when we need additional insight on what a subsystem is doing. */
-    verbose: (msg: string, data?: unknown) => logFn('verbose', msg, data),
+    verbose: (msg: string, ...args: unknown[]) => logFn('verbose', msg, ...args),
     /** Log as debug. Use for when we need debugging info to troubleshoot an issue on a specific component. */
-    debug: (msg: string, data?: unknown) => logFn('debug', msg, data),
+    debug: (msg: string, ...args: unknown[]) => logFn('debug', msg, ...args),
     /** Log as trace. Use for when we want to denial-of-service any recipient of the logs. */
-    trace: (msg: string, data?: unknown) => logFn('trace', msg, data),
+    trace: (msg: string, ...args: unknown[]) => logFn('trace', msg, ...args),
     /** Level of the logger */
     level: pinoLogger.level as LogLevel,
     /** Whether the given level is enabled for this logger. */
@@ -251,7 +273,7 @@ export function registerLoggingStream(stream: Writable): void {
 }
 
 /** Log function that accepts an exception object */
-type ErrorLogFn = (msg: string, err?: unknown, data?: LogData) => void;
+type ErrorLogFn = (msg: string, err?: unknown, ...args: unknown[]) => void;
 
 /**
  * Logger that supports multiple severity levels.

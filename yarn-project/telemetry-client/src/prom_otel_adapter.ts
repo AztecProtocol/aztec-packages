@@ -404,7 +404,7 @@ function parseLabelsSafely<Labels extends LabelsGeneric>(labelStr: string, logge
   try {
     return JSON.parse(labelStr) as Labels;
   } catch {
-    logger.error(`Failed to parse label string: ${labelStr}`);
+    logger.error('Failed to parse label string: %s', labelStr);
     return null;
   }
 }

@@ -156,7 +156,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   async txeAdvanceBlocksBy(blocks: number) {
-    this.logger.debug(`time traveling ${blocks} blocks`);
+    this.logger.debug('time traveling %d blocks', blocks);
 
     for (let i = 0; i < blocks; i++) {
       await this.mineBlock();
@@ -164,7 +164,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   txeAdvanceTimestampBy(duration: UInt64) {
-    this.logger.debug(`time traveling ${duration} seconds`);
+    this.logger.debug('time traveling %d seconds', duration);
     this.nextBlockTimestamp += duration;
   }
 
@@ -184,21 +184,21 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     } else {
       await this.contractDataProvider.addContractInstance(instance);
       await this.contractDataProvider.addContractArtifact(instance.currentContractClassId, artifact);
-      this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
+      this.logger.debug('Deployed %s at %s', artifact.name, instance.address);
     }
   }
 
   async txeAddAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
     const partialAddress = await computePartialAddress(instance);
 
-    this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
+    this.logger.debug('Deployed %s at %s', artifact.name, instance.address);
     await this.contractDataProvider.addContractInstance(instance);
     await this.contractDataProvider.addContractArtifact(instance.currentContractClassId, artifact);
 
     const completeAddress = await this.keyStore.addAccount(secret, partialAddress);
     await this.accountDataProvider.setAccount(completeAddress.address, completeAddress);
     await this.addressDataProvider.addCompleteAddress(completeAddress);
-    this.logger.debug(`Created account ${completeAddress.address}`);
+    this.logger.debug('Created account %s', completeAddress.address);
 
     return completeAddress;
   }
@@ -208,7 +208,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const completeAddress = await this.keyStore.addAccount(secret, secret);
     await this.accountDataProvider.setAccount(completeAddress.address, completeAddress);
     await this.addressDataProvider.addCompleteAddress(completeAddress);
-    this.logger.debug(`Created account ${completeAddress.address}`);
+    this.logger.debug('Created account %s', completeAddress.address);
 
     return completeAddress;
   }
@@ -251,7 +251,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     await forkedWorldTrees.close();
 
-    this.logger.info(`Created block ${blockNumber} with timestamp ${block.header.globalVariables.timestamp}`);
+    this.logger.info('Created block %d with timestamp %d', blockNumber, block.header.globalVariables.timestamp);
 
     await this.stateMachine.handleL2Block(block);
   }

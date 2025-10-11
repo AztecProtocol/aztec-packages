@@ -246,7 +246,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
 
     try {
       const { duration, response } = await this.instance.sendMessage(messageType, body);
-      this.log.trace(`Call ${WorldStateMessageType[messageType]} took (ms)`, {
+      this.log.trace('Call %s took (ms)', WorldStateMessageType[messageType], {
         duration,
         ...logMetadata,
       });
@@ -254,7 +254,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
       this.instrumentation.recordRoundTrip(duration.totalUs, messageType);
       return response;
     } catch (error) {
-      this.log.error(`Call ${WorldStateMessageType[messageType]} failed: ${error}`, error, logMetadata);
+      this.log.error('Call %s failed: %s', WorldStateMessageType[messageType], error, error, logMetadata);
       throw error;
     }
   }

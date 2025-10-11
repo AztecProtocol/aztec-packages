@@ -133,7 +133,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       const epochDirectory = file.name;
       const epochNumber = parseInt(epochDirectory, 10);
       if (!Number.isSafeInteger(epochNumber) || epochNumber < 0) {
-        logger.warn(`Found invalid epoch directory ${fullDirectory} when loading epoch databases, ignoring`);
+        logger.warn('Found invalid epoch directory %s when loading epoch databases, ignoring', fullDirectory);
         continue;
       }
       logger.info(

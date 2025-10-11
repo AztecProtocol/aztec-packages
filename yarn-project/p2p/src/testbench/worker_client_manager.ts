@@ -78,7 +78,7 @@ class WorkerClientManager {
     // Handle unexpected child process exit
     childProcess.on('exit', (code, signal) => {
       if (code !== 0) {
-        this.logger.warn(`Worker ${clientIndex} exited unexpectedly with code ${code} and signal ${signal}`);
+        this.logger.warn('Worker %d exited unexpectedly with code %d and signal %s', clientIndex, code, signal);
       }
     });
 
@@ -138,7 +138,7 @@ class WorkerClientManager {
       const readySignals: Promise<void>[] = [];
 
       for (let i = 0; i < numberOfClients; i++) {
-        this.logger.info(`Creating client ${i}`);
+        this.logger.info('Creating client %d', i);
 
         // Maximum seed with 10 other peers to allow peer discovery to connect them at a smoother rate
         const otherNodes = this.peerEnrs.filter((_, ind) => ind < Math.min(i, 10));
@@ -195,7 +195,7 @@ class WorkerClientManager {
       // Wait for the process to be ready with a timeout
       await sleep(10000);
 
-      this.logger.info(`Changing port for client ${clientIndex} to ${newPort}`);
+      this.logger.info('Changing port for client %d to %d', clientIndex, newPort);
 
       // Update the port in the ports array
       this.ports[clientIndex] = newPort;
@@ -208,7 +208,7 @@ class WorkerClientManager {
         (_, ind) => ind !== clientIndex && ind < Math.min(this.peerEnrs.length, 10),
       );
 
-      this.logger.info(`Changing port for client ${clientIndex} to ${newPort} with other nodes `, otherNodes);
+      this.logger.info('Changing port for client %d to %d with other nodes ', clientIndex, newPort, otherNodes);
 
       const config = this.createClientConfig(clientIndex, newPort, otherNodes);
       const [childProcess, readySignal] = this.spawnWorkerProcess(config, clientIndex);
@@ -223,7 +223,7 @@ class WorkerClientManager {
         ),
       ]);
     } catch (error) {
-      this.logger.error(`Error during changePort for client ${clientIndex}:`, error);
+      this.logger.error('Error during changePort for client %d:', clientIndex, error);
       // Only clean up the specific process that had an issue
       await this.terminateProcess(this.processes[clientIndex], clientIndex);
       throw error;
@@ -241,11 +241,11 @@ class WorkerClientManager {
     return new Promise<void>(resolve => {
       // Set a timeout for the graceful exit
       const forceKillTimeout = setTimeout(() => {
-        this.logger.warn(`Process ${index} didn't exit gracefully, force killing...`);
+        this.logger.warn('Process %d didn\'t exit gracefully, force killing...', index);
         try {
           process.kill('SIGKILL'); // Force kill
         } catch (e) {
-          this.logger.error(`Error force killing process ${index}:`, e);
+          this.logger.error('Error force killing process %d:', index, e);
         }
       }, 5000); // 5 second timeout for graceful exit
 
@@ -264,7 +264,7 @@ class WorkerClientManager {
         try {
           process.kill('SIGKILL');
         } catch (killError) {
-          this.logger.error(`Error force killing process ${index}:`, killError);
+          this.logger.error('Error force killing process %d:', index, killError);
         }
         resolve();
       }
@@ -275,7 +275,7 @@ class WorkerClientManager {
    * Cleans up all worker processes with timeout and force kill if needed
    */
   async cleanup() {
-    this.logger.info(`Cleaning up ${this.processes.length} worker processes`);
+    this.logger.info('Cleaning up %d worker processes', this.processes.length);
 
     // Create array of promises for each process termination
     const terminationPromises = this.processes.map((process, index) => this.terminateProcess(process, index));

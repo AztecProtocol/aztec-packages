@@ -27,14 +27,14 @@ export async function createFileStore(
       throw new Error(`File store URL only supports local paths (got host ${url.host} from ${config})`);
     }
     const path = url.pathname;
-    logger.info(`Creating local file file store at ${path}`);
+    logger.info('Creating local file file store at %s', path);
     return new LocalFileStore(path);
   } else if (config.startsWith('gs://')) {
     try {
       const url = new URL(config);
       const bucket = url.host;
       const path = url.pathname.replace(/^\/+/, '');
-      logger.info(`Creating google cloud file store at ${bucket} ${path}`);
+      logger.info('Creating google cloud file store at %s %s', bucket, path);
       const store = new GoogleCloudFileStore(bucket, path);
       await store.checkCredentials();
       return store;
@@ -48,7 +48,7 @@ export async function createFileStore(
       const path = url.pathname.replace(/^\/+/, '');
       const endpoint = url.searchParams.get('endpoint');
       const publicBaseUrl = url.searchParams.get('publicBaseUrl') ?? undefined;
-      logger.info(`Creating S3 file store at ${bucket} ${path}`);
+      logger.info('Creating S3 file store at %s %s', bucket, path);
       const store = new S3FileStore(bucket, path, { endpoint: endpoint ?? undefined, publicBaseUrl });
       return store;
     } catch {
@@ -68,7 +68,7 @@ export async function createReadOnlyFileStore(
   if (config === undefined) {
     return undefined;
   } else if (config.startsWith('http://') || config.startsWith('https://')) {
-    logger.info(`Creating read-only HTTP file store at ${config}`);
+    logger.info('Creating read-only HTTP file store at %s', config);
     return new HttpFileStore(config, logger);
   } else {
     return await createFileStore(config, logger);

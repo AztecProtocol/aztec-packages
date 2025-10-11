@@ -230,7 +230,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
           .join(', ')}`,
       );
     } else {
-      this.log.info(`Started validator with addresses: ${myAddresses.map(a => a.toString()).join(', ')}`);
+      this.log.info('Started validator with addresses: %s', myAddresses.map(a => a.toString()).join(', '));
     }
     this.epochCacheUpdateLoop.start();
 
@@ -268,7 +268,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const incFailedAttestation = (reason: string) => this.metrics.incFailedAttestations(1, reason, partOfCommittee);
 
     const proposalInfo = { ...proposal.toBlockInfo(), proposer: proposer.toString() };
-    this.log.info(`Received proposal for block ${proposal.blockNumber} at slot ${slotNumber}`, {
+    this.log.info('Received proposal for block %d at slot %d', proposal.blockNumber, slotNumber, {
       ...proposalInfo,
       txHashes: proposal.txHashes.map(t => t.toString()),
     });
@@ -288,7 +288,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     );
 
     if (!validationResult.isValid) {
-      this.log.warn(`Proposal validation failed: ${validationResult.reason}`, proposalInfo);
+      this.log.warn('Proposal validation failed: %s', validationResult.reason, proposalInfo);
       incFailedAttestation(validationResult.reason || 'unknown');
 
       // Slash invalid block proposals

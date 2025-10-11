@@ -73,7 +73,7 @@ export async function tokenTest(
   expectToBeTrue(burnResult.revertCode.isOK());
   await checkBalance(tester, token, sender, receiver, 0n, expectToBeTrue);
 
-  logger.info(`TokenContract test took ${timer.ms()}ms\n`);
+  logger.info('TokenContract test took %dms\n', timer.ms());
 }
 
 export async function setUpToken(

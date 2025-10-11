@@ -105,7 +105,7 @@ export class L1TokenManager {
       throw new Error('Minting handler was not provided');
     }
     const mintAmount = await this.getMintAmount();
-    this.logger.info(`Minting ${mintAmount} tokens for ${stringifyEthAddress(address, addressName)}`);
+    this.logger.info('Minting %s tokens for %s', mintAmount, stringifyEthAddress(address, addressName));
     // NOTE: the handler mints a fixed amount.
     await this.handler.write.mint([address]);
   }
@@ -117,7 +117,7 @@ export class L1TokenManager {
    * @param addressName - Optional name of the address for logging.
    */
   public async approve(amount: bigint, address: Hex, addressName = '') {
-    this.logger.info(`Approving ${amount} tokens for ${stringifyEthAddress(address, addressName)}`);
+    this.logger.info('Approving %s tokens for %s', amount, stringifyEthAddress(address, addressName));
     await this.extendedClient.waitForTransactionReceipt({
       hash: await this.contract.write.approve([address, amount]),
     });
