@@ -1,35 +1,45 @@
-import { BarretenbergSync, Fr as FrBarretenberg } from '../index.js';
-import { BarretenbergApiSync } from '../barretenberg_api/index.js';
+import { BarretenbergSync, Fr } from '../index.js';
+import { OutputType, serializeBufferable } from '../serialize/index.js';
 
 describe('poseidon2Hash benchmark: msgpack vs direct WASM', () => {
-  const ITERATIONS = 10000;
-  const SIZES = [1, 2, 5, 10, 100];
+  const ITERATIONS = 5000;
+  const SIZES = [2, 4, 8, 16, 32];
 
   var api: BarretenbergSync;
-  var directApi: BarretenbergApiSync;
 
   beforeAll(async () => {
     await BarretenbergSync.initSingleton();
     api = BarretenbergSync.getSingleton();
-    directApi = new BarretenbergApiSync(api.getWasm());
   });
+
+  function directPoseidon2Hash(inputsBuffer: Fr[]): Fr {
+    const inArgs = [inputsBuffer].map(serializeBufferable);
+    const outTypes: OutputType[] = [Fr];
+    const result = api.getWasm().callWasmExport(
+      'poseidon2_hash',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
 
   it.each(SIZES)('benchmark with %p field elements', size => {
     // Generate random inputs
     const inputs = Array(size)
       .fill(0)
-      .map(() => FrBarretenberg.random());
+      .map(() => Fr.random());
 
     // Warm up phase (100 iterations each)
     for (let i = 0; i < 100; i++) {
-      directApi.poseidon2Hash(inputs);
+      directPoseidon2Hash(inputs);
       api.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
     }
 
     // Benchmark old direct WASM API
     const directStart = performance.now();
     for (let i = 0; i < ITERATIONS; i++) {
-      directApi.poseidon2Hash(inputs);
+      directPoseidon2Hash(inputs);
     }
     const directTime = performance.now() - directStart;
 
@@ -58,36 +68,25 @@ describe('poseidon2Hash benchmark: msgpack vs direct WASM', () => {
     process.stdout.write(`└───────────────────────────────────────────┘\n`);
 
     // Sanity check: verify both produce same result
-    const directResult = directApi.poseidon2Hash(inputs);
+    const directResult = directPoseidon2Hash(inputs);
     const msgpackResult = api.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
     expect(Buffer.from(msgpackResult.hash)).toEqual(directResult.toBuffer());
 
     // Test always passes, this is just for measuring performance
     expect(true).toBe(true);
   });
-});
 
-describe('poseidon2Hash API equivalence', () => {
   const TEST_VECTORS = [1, 2, 3, 5, 10, 50, 100];
   const NUM_RANDOM_TESTS = 10;
-
-  var api: BarretenbergSync;
-  var directApi: BarretenbergApiSync;
-
-  beforeAll(async () => {
-    await BarretenbergSync.initSingleton();
-    api = BarretenbergSync.getSingleton();
-    directApi = new BarretenbergApiSync(api.getWasm());
-  });
 
   it.each(TEST_VECTORS)('produces identical results for %p field elements', size => {
     // Test with multiple random input vectors
     for (let test = 0; test < NUM_RANDOM_TESTS; test++) {
       const inputs = Array(size)
         .fill(0)
-        .map(() => FrBarretenberg.random());
+        .map(() => Fr.random());
 
-      const directResult = directApi.poseidon2Hash(inputs);
+      const directResult = directPoseidon2Hash(inputs);
       const msgpackResult = api.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
       expect(Buffer.from(msgpackResult.hash)).toEqual(directResult.toBuffer());
@@ -95,10 +94,10 @@ describe('poseidon2Hash API equivalence', () => {
   });
 
   it('produces identical results for known test vectors', () => {
-    const zero = new FrBarretenberg(0n);
-    const one = new FrBarretenberg(1n);
-    const two = new FrBarretenberg(2n);
-    const max = new FrBarretenberg(FrBarretenberg.MODULUS - 1n);
+    const zero = new Fr(0n);
+    const one = new Fr(1n);
+    const two = new Fr(2n);
+    const max = new Fr(Fr.MODULUS - 1n);
 
     // Test with specific known values
     const testCases = [
@@ -115,7 +114,7 @@ describe('poseidon2Hash API equivalence', () => {
     ];
 
     for (const inputs of testCases) {
-      const directResult = directApi.poseidon2Hash(inputs);
+      const directResult = directPoseidon2Hash(inputs);
       const msgpackResult = api.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
       expect(Buffer.from(msgpackResult.hash)).toEqual(directResult.toBuffer());
@@ -123,12 +122,12 @@ describe('poseidon2Hash API equivalence', () => {
   });
 
   it('handles edge case: all zeros', () => {
-    const zero = new FrBarretenberg(0n);
+    const zero = new Fr(0n);
 
     for (const size of [1, 10, 100]) {
       const inputs = Array(size).fill(zero);
 
-      const directResult = directApi.poseidon2Hash(inputs);
+      const directResult = directPoseidon2Hash(inputs);
       const msgpackResult = api.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
       expect(Buffer.from(msgpackResult.hash)).toEqual(directResult.toBuffer());
@@ -136,12 +135,12 @@ describe('poseidon2Hash API equivalence', () => {
   });
 
   it('handles edge case: all ones', () => {
-    const one = new FrBarretenberg(1n);
+    const one = new Fr(1n);
 
     for (const size of [1, 10, 100]) {
       const inputs = Array(size).fill(one);
 
-      const directResult = directApi.poseidon2Hash(inputs);
+      const directResult = directPoseidon2Hash(inputs);
       const msgpackResult = api.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
       expect(Buffer.from(msgpackResult.hash)).toEqual(directResult.toBuffer());
@@ -149,12 +148,12 @@ describe('poseidon2Hash API equivalence', () => {
   });
 
   it('handles edge case: maximum field elements', () => {
-    const maxElement = new FrBarretenberg(FrBarretenberg.MODULUS - 1n);
+    const maxElement = new Fr(Fr.MODULUS - 1n);
 
     for (const size of [1, 5, 10]) {
       const inputs = Array(size).fill(maxElement);
 
-      const directResult = directApi.poseidon2Hash(inputs);
+      const directResult = directPoseidon2Hash(inputs);
       const msgpackResult = api.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
       expect(Buffer.from(msgpackResult.hash)).toEqual(directResult.toBuffer());
