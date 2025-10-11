@@ -27,7 +27,6 @@
     "build:esm": "tsc -b tsconfig.esm.json && chmod +x ./dest/node/main.js",
     "build:cjs": "tsc -b tsconfig.cjs.json && ./scripts/cjs_postprocess.sh",
     "build:browser": "tsc -b tsconfig.browser.json && ./scripts/browser_postprocess.sh",
-    "build:bindings": "cd .. && ./scripts/bindgen.sh",
     "generate": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 ts-node src/cbind/generate.ts",
     "formatting": "prettier --check ./src && eslint --max-warnings 0 ./src",
     "formatting:fix": "prettier -w ./src",
