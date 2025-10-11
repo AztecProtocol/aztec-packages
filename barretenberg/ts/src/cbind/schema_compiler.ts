@@ -296,10 +296,15 @@ export class SchemaCompiler {
     switch (type) {
       case 'array': {
         const [subtype, size] = args[0];
+        // Special case: byte arrays should be Uint8Array
+        if (subtype === 'unsigned char') {
+          return { typeName: 'Uint8Array' };
+        }
+        // For other types, use T[] - idiomatic TypeScript for fixed-length homogeneous arrays
         const subtypeInfo = this.processSchema(subtype);
         return {
-          typeName: `Tuple<${subtypeInfo.typeName}, ${size}>`,
-          msgpackTypeName: `Tuple<${subtypeInfo.msgpackTypeName || subtypeInfo.typeName}, ${size}>`,
+          typeName: `${subtypeInfo.typeName}[]`,
+          msgpackTypeName: `${subtypeInfo.msgpackTypeName || subtypeInfo.typeName}[]`,
         };
       }
 
@@ -392,6 +397,7 @@ export class SchemaCompiler {
       case 'unsigned int':
       case 'unsigned short':
       case 'unsigned long':
+      case 'unsigned char':
       case 'double':
         return { typeName: 'number' };
       case 'string':
@@ -531,8 +537,8 @@ ${conversions}
       }
     }
 
-    // Handle custom types
-    if (typeInfo.declaration) {
+    // Handle custom types that have conversion methods (not just type aliases)
+    if (typeInfo.toMethod || typeInfo.fromMethod) {
       return `${direction}${typeInfo.typeName}(${value})`;
     }
 

@@ -2,7 +2,10 @@
 
 #include "barretenberg/bbapi/bbapi_client_ivc.hpp"
 #include "barretenberg/bbapi/bbapi_crypto.hpp"
+#include "barretenberg/bbapi/bbapi_ecc.hpp"
+#include "barretenberg/bbapi/bbapi_ecdsa.hpp"
 #include "barretenberg/bbapi/bbapi_kzg.hpp"
+#include "barretenberg/bbapi/bbapi_schnorr.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -33,7 +36,36 @@ using Command = NamedUnion<CircuitProve,
                            KzgVerifyProof,
                            KzgVerifyBlobProof,
                            KzgVerifyBlobProofBatch,
-                           Poseidon2Hash>;
+                           Poseidon2Hash,
+                           Poseidon2Permutation,
+                           Poseidon2HashAccumulate,
+                           PedersenCommit,
+                           PedersenHash,
+                           PedersenHashBuffer,
+                           Blake2s,
+                           Blake2sToField,
+                           AesEncrypt,
+                           AesDecrypt,
+                           GrumpkinMul,
+                           GrumpkinAdd,
+                           GrumpkinBatchMul,
+                           GrumpkinGetRandomFr,
+                           GrumpkinReduce512,
+                           Secp256k1Mul,
+                           Secp256k1GetRandomFr,
+                           Secp256k1Reduce512,
+                           Bn254FrSqrt,
+                           SchnorrComputePublicKey,
+                           SchnorrConstructSignature,
+                           SchnorrVerifySignature,
+                           EcdsaSecp256k1ComputePublicKey,
+                           EcdsaSecp256r1ComputePublicKey,
+                           EcdsaSecp256k1ConstructSignature,
+                           EcdsaSecp256r1ConstructSignature,
+                           EcdsaSecp256k1RecoverPublicKey,
+                           EcdsaSecp256r1RecoverPublicKey,
+                           EcdsaSecp256k1VerifySignature,
+                           EcdsaSecp256r1VerifySignature>;
 
 using CommandResponse = NamedUnion<CircuitProve::Response,
                                    CircuitComputeVk::Response,
@@ -58,7 +90,36 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
                                    KzgVerifyProof::Response,
                                    KzgVerifyBlobProof::Response,
                                    KzgVerifyBlobProofBatch::Response,
-                                   Poseidon2Hash::Response>;
+                                   Poseidon2Hash::Response,
+                                   Poseidon2Permutation::Response,
+                                   Poseidon2HashAccumulate::Response,
+                                   PedersenCommit::Response,
+                                   PedersenHash::Response,
+                                   PedersenHashBuffer::Response,
+                                   Blake2s::Response,
+                                   Blake2sToField::Response,
+                                   AesEncrypt::Response,
+                                   AesDecrypt::Response,
+                                   GrumpkinMul::Response,
+                                   GrumpkinAdd::Response,
+                                   GrumpkinBatchMul::Response,
+                                   GrumpkinGetRandomFr::Response,
+                                   GrumpkinReduce512::Response,
+                                   Secp256k1Mul::Response,
+                                   Secp256k1GetRandomFr::Response,
+                                   Secp256k1Reduce512::Response,
+                                   Bn254FrSqrt::Response,
+                                   SchnorrComputePublicKey::Response,
+                                   SchnorrConstructSignature::Response,
+                                   SchnorrVerifySignature::Response,
+                                   EcdsaSecp256k1ComputePublicKey::Response,
+                                   EcdsaSecp256r1ComputePublicKey::Response,
+                                   EcdsaSecp256k1ConstructSignature::Response,
+                                   EcdsaSecp256r1ConstructSignature::Response,
+                                   EcdsaSecp256k1RecoverPublicKey::Response,
+                                   EcdsaSecp256r1RecoverPublicKey::Response,
+                                   EcdsaSecp256k1VerifySignature::Response,
+                                   EcdsaSecp256r1VerifySignature::Response>;
 
 /**
  * @brief Executes a command by visiting a variant of all possible commands.

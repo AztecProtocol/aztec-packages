@@ -4,36 +4,111 @@
  */
 #include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/crypto/aes128/aes128.hpp"
+#include "barretenberg/crypto/blake2s/blake2s.hpp"
+#include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
+#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
 
 namespace bb::bbapi {
 
 Poseidon2Hash::Response Poseidon2Hash::execute(BBApiRequest& request) &&
 {
-    (void)request; // Unused, but kept for API consistency
+    (void)request;
+    return { crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(inputs) };
+}
 
-    // Deserialize input field elements
-    std::vector<fr> to_hash;
-    to_hash.reserve(inputs.size());
+Poseidon2Permutation::Response Poseidon2Permutation::execute(BBApiRequest& request) &&
+{
+    (void)request;
+    using Permutation = crypto::Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams>;
 
-    for (const auto& input_bytes : inputs) {
-        if (input_bytes.size() != 32) {
-            throw_or_abort("Invalid field element size. Expected 32 bytes.");
-        }
-        fr field_element = fr::serialize_from_buffer(input_bytes.data());
-        to_hash.push_back(field_element);
+    // inputs is already std::array<fr, 4>, direct use
+    return { Permutation::permutation(inputs) };
+}
+
+Poseidon2HashAccumulate::Response Poseidon2HashAccumulate::execute(BBApiRequest& request) &&
+{
+    (void)request;
+
+    if (inputs.empty()) {
+        throw_or_abort("Poseidon2HashAccumulate requires at least one input");
     }
 
-    // Compute hash
-    auto result = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(to_hash);
+    fr result = inputs[0];
+    for (size_t i = 1; i < inputs.size(); ++i) {
+        result = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash({ inputs[i], result });
+    }
 
-    // Serialize result
-    Response response;
-    response.hash.resize(32);
-    fr::serialize_to_buffer(result, response.hash.data());
+    return { result };
+}
 
-    return response;
+PedersenCommit::Response PedersenCommit::execute(BBApiRequest& request) &&
+{
+    (void)request;
+
+    crypto::GeneratorContext<curve::Grumpkin> ctx;
+    ctx.offset = static_cast<size_t>(hash_index);
+    return { crypto::pedersen_commitment::commit_native(inputs, ctx) };
+}
+
+PedersenHash::Response PedersenHash::execute(BBApiRequest& request) &&
+{
+    (void)request;
+
+    crypto::GeneratorContext<curve::Grumpkin> ctx;
+    ctx.offset = static_cast<size_t>(hash_index);
+    return { crypto::pedersen_hash::hash(inputs, ctx) };
+}
+
+PedersenHashBuffer::Response PedersenHashBuffer::execute(BBApiRequest& request) &&
+{
+    (void)request;
+
+    crypto::GeneratorContext<curve::Grumpkin> ctx;
+    ctx.offset = static_cast<size_t>(hash_index);
+    return { crypto::pedersen_hash::hash_buffer(input, ctx) };
+}
+
+Blake2s::Response Blake2s::execute(BBApiRequest& request) &&
+{
+    (void)request;
+    return { crypto::blake2s(data) };
+}
+
+Blake2sToField::Response Blake2sToField::execute(BBApiRequest& request) &&
+{
+    (void)request;
+
+    auto hash_result = crypto::blake2s(data);
+    return { fr::serialize_from_buffer(hash_result.data()) };
+}
+
+AesEncrypt::Response AesEncrypt::execute(BBApiRequest& request) &&
+{
+    (void)request;
+
+    // Copy plaintext as AES encrypts in-place
+    std::vector<uint8_t> result = plaintext;
+    result.resize(length);
+
+    crypto::aes128_encrypt_buffer_cbc(result.data(), iv.data(), key.data(), length);
+
+    return { std::move(result) };
+}
+
+AesDecrypt::Response AesDecrypt::execute(BBApiRequest& request) &&
+{
+    (void)request;
+
+    // Copy ciphertext as AES decrypts in-place
+    std::vector<uint8_t> result = ciphertext;
+    result.resize(length);
+
+    crypto::aes128_decrypt_buffer_cbc(result.data(), iv.data(), key.data(), length);
+
+    return { std::move(result) };
 }
 
 } // namespace bb::bbapi
