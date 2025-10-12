@@ -11,6 +11,7 @@ if(ENABLE_STACKTRACES)
     ExternalProject_Add(
         backward
         PREFIX ${BACKWARD_PREFIX}
+        # We need to go through some hoops to do a shallow clone of a fixed commit (as opposed to a tag).
         DOWNLOAD_COMMAND
             sh -c "mkdir -p ${BACKWARD_PREFIX}/src/backward && cd ${BACKWARD_PREFIX}/src/backward && git init . && (git remote add origin https://github.com/bombela/backward-cpp || true) && git fetch --depth 1 origin 51f0700452cf71c57d43c2d028277b24cde32502 && git checkout FETCH_HEAD"
         SOURCE_DIR ${BACKWARD_PREFIX}/src/backward

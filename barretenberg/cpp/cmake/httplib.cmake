@@ -1,24 +1,25 @@
-include(ExternalProject)
+include(FetchContent)
 
-set(HTTPLIB_PREFIX "${CMAKE_BINARY_DIR}/_deps/httplib")
-set(HTTPLIB_INCLUDE "${HTTPLIB_PREFIX}/src/httplib")
+set(HTTPLIB_INCLUDE "${CMAKE_BINARY_DIR}/_deps/httplib-src")
 
-# Create directory structure for ExternalProject
-file(MAKE_DIRECTORY ${HTTPLIB_INCLUDE})
-
-ExternalProject_Add(
+FetchContent_Declare(
     httplib
-    PREFIX ${HTTPLIB_PREFIX}
-    DOWNLOAD_COMMAND
-        sh -c "mkdir -p ${HTTPLIB_INCLUDE} && cd ${HTTPLIB_INCLUDE} && git init . && (git remote add origin https://github.com/yhirose/cpp-httplib.git || true) && git fetch --depth 1 origin v0.15.3 && git checkout FETCH_HEAD"
-    SOURCE_DIR ${HTTPLIB_INCLUDE}
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND ""
-    INSTALL_COMMAND ""
-    UPDATE_COMMAND ""
+    GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
+    GIT_TAG v0.15.3
+    GIT_SHALLOW TRUE
 )
+
+# Disable SSL/TLS support to avoid OpenSSL dependency
+set(HTTPLIB_REQUIRE_OPENSSL OFF CACHE BOOL "")
+set(HTTPLIB_USE_OPENSSL_IF_AVAILABLE OFF CACHE BOOL "")
+set(HTTPLIB_USE_ZLIB_IF_AVAILABLE OFF CACHE BOOL "")
+set(HTTPLIB_USE_BROTLI_IF_AVAILABLE OFF CACHE BOOL "")
+
+FetchContent_GetProperties(httplib)
+if(NOT httplib_POPULATED)
+    FetchContent_Populate(httplib)
+endif()
 
 # Create interface library for httplib
 add_library(httplib_headers INTERFACE)
-add_dependencies(httplib_headers httplib)
-target_include_directories(httplib_headers SYSTEM INTERFACE ${HTTPLIB_INCLUDE})
+target_include_directories(httplib_headers SYSTEM INTERFACE ${httplib_SOURCE_DIR})

@@ -9,6 +9,7 @@ set(LMDB_OBJECT "${LMDB_INCLUDE}/*.o")
 ExternalProject_Add(
     lmdb_repo
     PREFIX ${LMDB_PREFIX}
+    # We need to go through some hoops to do a shallow clone of a fixed commit (as opposed to a tag).
     DOWNLOAD_COMMAND
         sh -c "mkdir -p ${LMDB_PREFIX}/src/lmdb_repo && cd ${LMDB_PREFIX}/src/lmdb_repo && git init . && (git remote add origin https://github.com/LMDB/lmdb.git || true) && git fetch --depth 1 origin ddd0a773e2f44d38e4e31ec9ed81af81f4e4ccbb && git checkout FETCH_HEAD"
     SOURCE_DIR ${LMDB_PREFIX}/src/lmdb_repo
