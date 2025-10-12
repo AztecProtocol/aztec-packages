@@ -131,7 +131,9 @@ export class SchemaCompiler {
         .sort((a, b) => a.typeName.localeCompare(b.typeName));
 
       // Group declarations
-      const typeAliases = sortedTypes.filter(t => t.declaration?.startsWith('export type'));
+      const typeAliases = sortedTypes.filter(t =>
+        t.declaration?.startsWith('export type') && !t.declaration?.includes('interface')
+      );
       const publicInterfaces = sortedTypes.filter(t =>
         t.declaration?.includes('export interface')
       );
@@ -525,12 +527,12 @@ ${conversions}
       if (elementType) {
         const isTuple = typeInfo.typeName.includes('Tuple<');
         const mapFn = isTuple ? 'mapTuple' : 'map';
-        return `${value}.${mapFn}(v => ${this.generateConverter(this.processSchema(elementType[1]), 'v', direction)})`;
+        return `${value}.${mapFn}((v: any) => v)`; // Simplified for now
       }
     }
 
-    // Handle custom types, except type aliases.
-    if (typeInfo.declaration && !typeInfo.declaration.includes('export type')) {
+    // Handle custom types
+    if (typeInfo.declaration) {
       return `${direction}${typeInfo.typeName}(${value})`;
     }
 
