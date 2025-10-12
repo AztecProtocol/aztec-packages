@@ -1,7 +1,4 @@
-import { proxy } from 'comlink';
-import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/factory/node/index.js';
-import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
-import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
+import { BarretenbergWasmMain } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import { IMsgpackBackendSync, IMsgpackBackendAsync } from './interface.js';
 
@@ -36,17 +33,19 @@ export class BarretenbergWasmSyncBackend implements IMsgpackBackendSync {
 }
 
 /**
- * Asynchronous WASM backend that wraps BarretenbergWasmMainWorker.
- * Encapsulates worker creation, WASM initialization, and resource management.
+ * Asynchronous WASM backend that wraps BarretenbergWasmMain directly (no worker).
+ *
+ * Note: We use direct WASM access instead of a worker to avoid worker communication
+ * overhead. While workers prevent blocking the main thread, the serialize/deserialize
+ * overhead for each call makes them impractical for high-frequency operations.
+ * For tight loops with many calls, direct access is ~3-4x faster.
  */
 export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
-  private constructor(
-    private wasm: BarretenbergWasmMainWorker,
-    private worker: any,
-  ) {}
+  private constructor(private wasm: BarretenbergWasmMain) {}
 
   /**
    * Create and initialize an asynchronous WASM backend.
+   * Uses direct WASM access (no worker) for better performance.
    * @param threads Number of threads (defaults to hardware availability)
    * @param wasmPath Optional path to WASM files
    * @param logger Optional logging function
@@ -60,25 +59,19 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       memory?: { initial?: number; maximum?: number };
     } = {},
   ): Promise<BarretenbergWasmAsyncBackend> {
-    const worker = await createMainWorker();
-    const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
-    const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath, options.logger);
-    await wasm.init(
-      module,
-      threads,
-      proxy(options.logger ?? (() => {})),
-      options.memory?.initial,
-      options.memory?.maximum,
-    );
-    return new BarretenbergWasmAsyncBackend(wasm, worker);
+    const wasm = new BarretenbergWasmMain();
+    // Default to 1 thread for better startup time, user can override if needed
+    const { module, threads } = await fetchModuleAndThreads(options.threads ?? 1, options.wasmPath, options.logger);
+    await wasm.init(module, threads, options.logger, options.memory?.initial, options.memory?.maximum);
+    return new BarretenbergWasmAsyncBackend(wasm);
   }
 
   async call(inputBuffer: Uint8Array): Promise<Uint8Array> {
-    return await this.wasm.cbindCall('bbapi', inputBuffer);
+    // Return Promise.resolve to maintain async interface but avoid worker overhead
+    return this.wasm.cbindCall('bbapi', inputBuffer);
   }
 
   async destroy(): Promise<void> {
     await this.wasm.destroy();
-    await this.worker.terminate();
   }
 }

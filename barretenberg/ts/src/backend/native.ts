@@ -1,7 +1,6 @@
-import { spawn, spawnSync, ChildProcess } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import { IMsgpackBackendSync, IMsgpackBackendAsync } from './interface.js';
-import { sign } from 'crypto';
 
 /**
  * Synchronous native backend that communicates with bb binary via stdin/stdout.
@@ -22,7 +21,6 @@ export class BarretenbergNativeSyncBackend implements IMsgpackBackendSync {
    */
   private readSyncWithRetry(fd: number, buffer: Buffer, offset: number, length: number): number {
     const maxRetries = 1000;
-    const retryDelayMs = 1;
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {

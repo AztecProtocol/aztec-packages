@@ -1,31 +1,29 @@
-import { BarretenbergSync, Fr } from '../index.js';
+import { Barretenberg, Fr } from '../index.js';
 import { serializeBufferable } from '../serialize/index.js';
 import { BarretenbergWasmMain } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import { findBbBinary } from '../backend/platform.js';
 
 /**
- * We keep some old api stuff lingering for insights into msgpack overheads.
- * Once this is no longer needed we can delete:
- * - barretenberg/poseidon2_benchmark.test.ts
- * - barretenberg_wasm/barretenberg_wasm_main/heap_allocator.ts
- * - serialize/serialize.ts
- * and the following methods from BarretenbergWasmMain:
- * - callWasmExport
- * - getOutputArgs
+ * Async API benchmark test: WASM vs Native with proper non-blocking I/O
+ *
+ * This test uses the async Barretenberg API which properly handles:
+ * - Non-blocking I/O for native backend (event-based)
+ * - Concurrent operations via promises
+ * - Better performance for native backend compared to sync API
  */
-describe('poseidon2Hash benchmark: WASM vs Native', () => {
+describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
   const ITERATIONS = 5000;
   const SIZES = [2, 4, 8, 16, 32];
 
-  let wasmApi: BarretenbergSync;
-  let nativeApi: BarretenbergSync | null = null;
+  let wasmApi: Barretenberg;
+  let nativeApi: Barretenberg | null = null;
   let wasm: BarretenbergWasmMain;
   let hasNative: boolean = false;
 
   beforeAll(async () => {
-    // Setup WASM API (force WASM by passing empty bbPath which won't exist)
-    wasmApi = await BarretenbergSync['new']({ bbPath: '/nonexistent/bb' });
+    // Setup WASM API (force WASM by passing non-existent bbPath)
+    wasmApi = await Barretenberg.new({ bbPath: '/nonexistent/bb' });
 
     // Setup direct WASM access for baseline benchmark
     wasm = new BarretenbergWasmMain();
@@ -33,21 +31,22 @@ describe('poseidon2Hash benchmark: WASM vs Native', () => {
     await wasm.init(module, 1);
 
     // Try to setup native API if available
-    const bbPath = findBbBinary();
-    // '/mnt/user-data/charlie/aztec-repos/aztec-packages/barretenberg/cpp/build-no-avm/bin/bb',
+    const bbPath = findBbBinary(
+      '/mnt/user-data/charlie/aztec-repos/aztec-packages/barretenberg/cpp/build-no-avm/bin/bb',
+    );
     if (bbPath) {
       hasNative = true;
-      nativeApi = await BarretenbergSync['new']({ bbPath });
+      nativeApi = await Barretenberg.new({ bbPath });
     }
   }, 20000);
 
   afterAll(async () => {
     await wasm.destroy();
     if (wasmApi) {
-      wasmApi.destroy();
+      await wasmApi.destroy();
     }
     if (nativeApi) {
-      nativeApi.destroy();
+      await nativeApi.destroy();
     }
   });
 
@@ -63,7 +62,7 @@ describe('poseidon2Hash benchmark: WASM vs Native', () => {
     return out[0];
   }
 
-  it.each(SIZES)('benchmark with %p field elements', size => {
+  it.each(SIZES)('benchmark with %p field elements', async size => {
     // Generate random inputs
     const inputs = Array(size)
       .fill(0)
@@ -72,32 +71,32 @@ describe('poseidon2Hash benchmark: WASM vs Native', () => {
     // Warm up phase (100 iterations each)
     for (let i = 0; i < 100; i++) {
       directPoseidon2Hash(inputs);
-      wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      await wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
       if (hasNative && nativeApi) {
-        nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+        await nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
       }
     }
 
-    // Benchmark 1: Direct WASM API (baseline)
+    // Benchmark 1: Direct WASM API (baseline - synchronous)
     const directStart = performance.now();
     for (let i = 0; i < ITERATIONS; i++) {
       directPoseidon2Hash(inputs);
     }
     const directTime = performance.now() - directStart;
 
-    // Benchmark 2: WASM msgpack API
+    // Benchmark 2: WASM msgpack API (async)
     const wasmMsgpackStart = performance.now();
     for (let i = 0; i < ITERATIONS; i++) {
-      wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      await wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
     }
     const wasmMsgpackTime = performance.now() - wasmMsgpackStart;
 
-    // Benchmark 3: Native msgpack API (if available)
+    // Benchmark 3: Native msgpack API (async with proper non-blocking I/O)
     let nativeTime = 0;
     if (hasNative && nativeApi) {
       const nativeStart = performance.now();
       for (let i = 0; i < ITERATIONS; i++) {
-        nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+        await nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
       }
       nativeTime = performance.now() - nativeStart;
     }
@@ -142,11 +141,11 @@ describe('poseidon2Hash benchmark: WASM vs Native', () => {
 
     // Sanity check: verify all produce same result
     const directResult = directPoseidon2Hash(inputs);
-    const wasmMsgpackResult = wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+    const wasmMsgpackResult = await wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
     expect(Buffer.from(wasmMsgpackResult.hash)).toEqual(directResult.toBuffer());
 
     if (hasNative && nativeApi) {
-      const nativeMsgpackResult = nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      const nativeMsgpackResult = await nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
       expect(Buffer.from(nativeMsgpackResult.hash)).toEqual(directResult.toBuffer());
     }
 
@@ -157,7 +156,7 @@ describe('poseidon2Hash benchmark: WASM vs Native', () => {
   const TEST_VECTORS = [1, 2, 3, 5, 10, 50, 100];
   const NUM_RANDOM_TESTS = 10;
 
-  it.each(TEST_VECTORS)('produces identical results for %p field elements', size => {
+  it.each(TEST_VECTORS)('produces identical results for %p field elements', async size => {
     // Test with multiple random input vectors
     for (let test = 0; test < NUM_RANDOM_TESTS; test++) {
       const inputs = Array(size)
@@ -165,19 +164,19 @@ describe('poseidon2Hash benchmark: WASM vs Native', () => {
         .map(() => Fr.random());
 
       const directResult = directPoseidon2Hash(inputs);
-      const wasmResult = wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      const wasmResult = await wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
       expect(Buffer.from(wasmResult.hash)).toEqual(directResult.toBuffer());
 
       // Also test native if available
       if (hasNative && nativeApi) {
-        const nativeResult = nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+        const nativeResult = await nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
         expect(Buffer.from(nativeResult.hash)).toEqual(directResult.toBuffer());
       }
     }
   });
 
-  it('produces identical results for known test vectors', () => {
+  it('produces identical results for known test vectors', async () => {
     const zero = new Fr(0n);
     const one = new Fr(1n);
     const two = new Fr(2n);
@@ -199,70 +198,70 @@ describe('poseidon2Hash benchmark: WASM vs Native', () => {
 
     for (const inputs of testCases) {
       const directResult = directPoseidon2Hash(inputs);
-      const wasmResult = wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      const wasmResult = await wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
       expect(Buffer.from(wasmResult.hash)).toEqual(directResult.toBuffer());
 
       // Also test native if available
       if (hasNative && nativeApi) {
-        const nativeResult = nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+        const nativeResult = await nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
         expect(Buffer.from(nativeResult.hash)).toEqual(directResult.toBuffer());
       }
     }
   });
 
-  it('handles edge case: all zeros', () => {
+  it('handles edge case: all zeros', async () => {
     const zero = new Fr(0n);
 
     for (const size of [1, 10, 100]) {
       const inputs = Array(size).fill(zero);
 
       const directResult = directPoseidon2Hash(inputs);
-      const wasmResult = wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      const wasmResult = await wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
       expect(Buffer.from(wasmResult.hash)).toEqual(directResult.toBuffer());
 
       // Also test native if available
       if (hasNative && nativeApi) {
-        const nativeResult = nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+        const nativeResult = await nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
         expect(Buffer.from(nativeResult.hash)).toEqual(directResult.toBuffer());
       }
     }
   });
 
-  it('handles edge case: all ones', () => {
+  it('handles edge case: all ones', async () => {
     const one = new Fr(1n);
 
     for (const size of [1, 10, 100]) {
       const inputs = Array(size).fill(one);
 
       const directResult = directPoseidon2Hash(inputs);
-      const wasmResult = wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      const wasmResult = await wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
       expect(Buffer.from(wasmResult.hash)).toEqual(directResult.toBuffer());
 
       // Also test native if available
       if (hasNative && nativeApi) {
-        const nativeResult = nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+        const nativeResult = await nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
         expect(Buffer.from(nativeResult.hash)).toEqual(directResult.toBuffer());
       }
     }
   });
 
-  it('handles edge case: maximum field elements', () => {
+  it('handles edge case: maximum field elements', async () => {
     const maxElement = new Fr(Fr.MODULUS - 1n);
 
     for (const size of [1, 5, 10]) {
       const inputs = Array(size).fill(maxElement);
 
       const directResult = directPoseidon2Hash(inputs);
-      const wasmResult = wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      const wasmResult = await wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
       expect(Buffer.from(wasmResult.hash)).toEqual(directResult.toBuffer());
 
       // Also test native if available
       if (hasNative && nativeApi) {
-        const nativeResult = nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+        const nativeResult = await nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
         expect(Buffer.from(nativeResult.hash)).toEqual(directResult.toBuffer());
       }
     }
