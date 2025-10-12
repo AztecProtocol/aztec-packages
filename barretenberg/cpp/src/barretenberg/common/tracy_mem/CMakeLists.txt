@@ -1,3 +1,2 @@
 add_library(tracy_mem OBJECT overload_operator_new.cpp)
-add_dependencies(tracy_mem tracy_project)
 target_compile_definitions(tracy_mem PRIVATE TRACY_MEMORY)
