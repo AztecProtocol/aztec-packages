@@ -1,5 +1,7 @@
 import { BarretenbergSync, Fr } from '../index.js';
 import { serializeBufferable } from '../serialize/index.js';
+import { BarretenbergWasmMain } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
+import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 
 /**
  * We keep some old api stuff lingering for insights into msgpack overheads.
@@ -16,16 +18,24 @@ describe('poseidon2Hash benchmark: msgpack vs direct WASM', () => {
   const SIZES = [2, 4, 8, 16, 32];
 
   var api: BarretenbergSync;
+  let wasm: BarretenbergWasmMain;
 
   beforeAll(async () => {
     await BarretenbergSync.initSingleton();
     api = BarretenbergSync.getSingleton();
+    wasm = new BarretenbergWasmMain();
+    const { module } = await fetchModuleAndThreads();
+    await wasm.init(module, 1);
+  }, 20000);
+
+  afterAll(async () => {
+    await wasm.destroy();
   });
 
   function directPoseidon2Hash(inputsBuffer: Fr[]): Fr {
     const inArgs = [inputsBuffer].map(serializeBufferable);
     const outTypes = [Fr];
-    const result = api.getWasm().callWasmExport(
+    const result = wasm.callWasmExport(
       'poseidon2_hash',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),

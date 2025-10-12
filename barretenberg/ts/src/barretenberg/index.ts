@@ -1,12 +1,11 @@
-import { proxy } from 'comlink';
-import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/factory/node/index.js';
-import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
-import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
 import { Crs, GrumpkinCrs } from '../crs/index.js';
-import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import { createDebugLogger } from '../log/index.js';
 import { AsyncApi } from '../cbind/generated/async.js';
 import { SyncApi } from '../cbind/generated/sync.js';
+import { IMsgpackBackendSync, IMsgpackBackendAsync } from '../backend/interface.js';
+import { BarretenbergNativeSyncBackend, BarretenbergNativeAsyncBackend } from '../backend/native.js';
+import { BarretenbergWasmSyncBackend, BarretenbergWasmAsyncBackend } from '../backend/wasm.js';
+import { findBbBinary } from '../backend/platform.js';
 
 export { UltraHonkBackend, UltraHonkVerifierBackend, AztecClientBackend } from './backend.js';
 
@@ -39,37 +38,38 @@ export type CircuitOptions = {
 export class Barretenberg extends AsyncApi {
   private options: BackendOptions;
 
-  private constructor(
-    private worker: any,
-    wasm: BarretenbergWasmMainWorker,
-    options: BackendOptions,
-  ) {
-    super(wasm);
+  private constructor(backend: IMsgpackBackendAsync, options: BackendOptions) {
+    super(backend);
     this.options = options;
   }
 
   /**
    * Constructs an instance of Barretenberg.
-   * Launches it within a worker. This is necessary as it blocks waiting on child threads to complete,
-   * and blocking the main thread in the browser is not allowed.
-   * It threads > 1 (defaults to hardware availability), child threads will be created on their own workers.
+   * Tries to use native backend first (if available), otherwise launches WASM in a worker.
+   * For WASM: it blocks waiting on child threads to complete, so blocking the main thread
+   * in the browser is not allowed. If threads > 1 (defaults to hardware availability),
+   * child threads will be created on their own workers.
    */
   static async new(options: BackendOptions = {}) {
-    const worker = await createMainWorker();
-    const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
-    const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath, options.logger);
-    await wasm.init(
-      module,
-      threads,
-      proxy(options.logger ?? createDebugLogger('bb_wasm_async')),
-      options.memory?.initial,
-      options.memory?.maximum,
-    );
-    return new Barretenberg(worker, wasm, options);
-  }
+    const logger = options.logger ?? createDebugLogger('bb_async');
 
-  async getNumThreads() {
-    return await this.wasm.getNumThreads();
+    // Try native backend first
+    const bbPath = findBbBinary();
+    if (bbPath) {
+      logger(`Using native backend: ${bbPath}`);
+      const native = new BarretenbergNativeAsyncBackend(bbPath);
+      return new Barretenberg(native, options);
+    }
+
+    // Fallback to WASM
+    logger('Native backend not found, using WASM');
+    const wasm = await BarretenbergWasmAsyncBackend.new({
+      threads: options.threads,
+      wasmPath: options.wasmPath,
+      logger,
+      memory: options.memory,
+    });
+    return new Barretenberg(wasm, options);
   }
 
   async initSRSForCircuitSize(circuitSize: number): Promise<void> {
@@ -124,12 +124,7 @@ export class Barretenberg extends AsyncApi {
   }
 
   async destroy() {
-    await this.wasm.destroy();
-    await this.worker.terminate();
-  }
-
-  getWasm() {
-    return this.wasm;
+    return super.destroy();
   }
 }
 
@@ -137,18 +132,26 @@ let barretenbergSyncSingletonPromise: Promise<BarretenbergSync>;
 let barretenbergSyncSingleton: BarretenbergSync;
 
 export class BarretenbergSync extends SyncApi {
-  private constructor(wasm: BarretenbergWasmMain) {
-    super(wasm);
+  private constructor(backend: IMsgpackBackendSync) {
+    super(backend);
   }
 
-  private static async new(wasmPath?: string, logger: (msg: string) => void = createDebugLogger('bb_wasm_sync')) {
-    const wasm = new BarretenbergWasmMain();
-    const { module, threads } = await fetchModuleAndThreads(1, wasmPath, logger);
-    await wasm.init(module, threads, logger);
+  private static async new(wasmPath?: string, logger: (msg: string) => void = createDebugLogger('bb_sync')) {
+    // Try native backend first
+    const bbPath = findBbBinary();
+    if (bbPath) {
+      logger(`Using native backend: ${bbPath}`);
+      const native = new BarretenbergNativeSyncBackend(bbPath);
+      return new BarretenbergSync(native);
+    }
+
+    // Fallback to WASM
+    logger('Native backend not found, using WASM');
+    const wasm = await BarretenbergWasmSyncBackend.new(wasmPath, logger);
     return new BarretenbergSync(wasm);
   }
 
-  static async initSingleton(wasmPath?: string, logger: (msg: string) => void = createDebugLogger('bb_wasm_sync')) {
+  static async initSingleton(wasmPath?: string, logger: (msg: string) => void = createDebugLogger('bb_sync')) {
     if (!barretenbergSyncSingletonPromise) {
       barretenbergSyncSingletonPromise = BarretenbergSync.new(wasmPath, logger);
     }
@@ -162,9 +165,5 @@ export class BarretenbergSync extends SyncApi {
       throw new Error('First call BarretenbergSync.initSingleton() on @aztec/bb.js module.');
     }
     return barretenbergSyncSingleton;
-  }
-
-  getWasm() {
-    return this.wasm;
   }
 }

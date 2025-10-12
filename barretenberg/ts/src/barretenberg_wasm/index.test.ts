@@ -1,17 +1,20 @@
-import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from './barretenberg_wasm_main/index.js';
-import { Barretenberg } from '../index.js';
+import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/factory/node/index.js';
+import { BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
+import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
+import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 
 describe('barretenberg wasm', () => {
-  let api: Barretenberg;
   let wasm: BarretenbergWasmMainWorker;
 
   beforeAll(async () => {
-    api = await Barretenberg.new({ threads: 2 });
-    wasm = api.getWasm();
+    const worker = await createMainWorker();
+    wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
+    const { module, threads } = await fetchModuleAndThreads(2);
+    await wasm.init(module, threads);
   }, 20000);
 
   afterAll(async () => {
-    await api.destroy();
+    await wasm.destroy();
   });
 
   it('should new malloc, transfer and slice mem', async () => {
