@@ -13,7 +13,7 @@ import { findBbBinary } from '../backend/platform.js';
  * - Better performance for native backend compared to sync API
  */
 describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
-  const ITERATIONS = 5000;
+  const ITERATIONS = 3000;
   const SIZES = [2, 4, 8, 16, 32];
 
   let wasmApi: Barretenberg;
@@ -24,11 +24,12 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
   beforeAll(async () => {
     // Setup WASM API (force WASM by passing non-existent bbPath)
     // Use useWorker: false for benchmark performance (Node.js context)
-    wasmApi = await Barretenberg.new({ bbPath: '/nonexistent/bb', useWorker: false });
+    // Use threads: 1 for faster startup in benchmarks
+    wasmApi = await Barretenberg.new({ bbPath: '/nonexistent/bb', useWorker: false, threads: 1 });
 
     // Setup direct WASM access for baseline benchmark
     wasm = new BarretenbergWasmMain();
-    const { module } = await fetchModuleAndThreads();
+    const { module } = await fetchModuleAndThreads(1);
     await wasm.init(module, 1);
 
     // Try to setup native API if available

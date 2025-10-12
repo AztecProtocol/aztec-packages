@@ -55,7 +55,7 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
 
   /**
    * Create and initialize an asynchronous WASM backend.
-   * @param options.threads Number of threads (defaults to 1 for faster startup)
+   * @param options.threads Number of threads (defaults to hardware max, up to 32 for parallel proving)
    * @param options.wasmPath Optional path to WASM files
    * @param options.logger Optional logging function
    * @param options.memory Optional initial and maximum memory configuration
@@ -77,21 +77,13 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       // Worker-based mode: runs on worker thread (browser-safe)
       const worker = await createMainWorker();
       const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
-      const { module, threads } = await fetchModuleAndThreads(
-        options.threads ?? 1,
-        options.wasmPath,
-        options.logger,
-      );
+      const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath, options.logger);
       await wasm.init(module, threads, options.logger, options.memory?.initial, options.memory?.maximum);
       return new BarretenbergWasmAsyncBackend(wasm, true);
     } else {
       // Direct mode: runs on calling thread (faster but blocks thread)
       const wasm = new BarretenbergWasmMain();
-      const { module, threads } = await fetchModuleAndThreads(
-        options.threads ?? 1,
-        options.wasmPath,
-        options.logger,
-      );
+      const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath, options.logger);
       await wasm.init(module, threads, options.logger, options.memory?.initial, options.memory?.maximum);
       return new BarretenbergWasmAsyncBackend(wasm, false);
     }
