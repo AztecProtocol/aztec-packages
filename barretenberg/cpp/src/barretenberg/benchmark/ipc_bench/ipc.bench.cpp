@@ -165,9 +165,9 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
                         hash_cmd.inputs = { uint256_t(bx), uint256_t(by) };
                         bb::bbapi::Command command{ std::move(hash_cmd) };
 
-                        // Serialize command
+                        // Serialize command with tuple wrapping for CBIND compatibility
                         msgpack::sbuffer cmd_buffer;
-                        msgpack::pack(cmd_buffer, command);
+                        msgpack::pack(cmd_buffer, std::make_tuple(command));
 
                         // Send and receive (keep load on server)
                         if (clients[i]->send(cmd_buffer.data(), cmd_buffer.size())) {
@@ -201,9 +201,9 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
             bb::bbapi::Shutdown shutdown_cmd;
             bb::bbapi::Command command{ std::move(shutdown_cmd) };
 
-            // Serialize command to msgpack
+            // Serialize command with tuple wrapping for CBIND compatibility
             msgpack::sbuffer cmd_buffer;
-            msgpack::pack(cmd_buffer, command);
+            msgpack::pack(cmd_buffer, std::make_tuple(command));
 
             // Send shutdown command
             std::array<uint8_t, 1024> resp_buffer{};
@@ -241,9 +241,9 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
             hash_cmd.inputs = { uint256_t(x), uint256_t(y) };
             bb::bbapi::Command command{ std::move(hash_cmd) };
 
-            // Serialize command to msgpack
+            // Serialize command with tuple wrapping for CBIND compatibility
             msgpack::sbuffer cmd_buffer;
-            msgpack::pack(cmd_buffer, command);
+            msgpack::pack(cmd_buffer, std::make_tuple(command));
 
             // Send command
             if (!clients[0]->send(cmd_buffer.data(), cmd_buffer.size())) {

@@ -139,31 +139,47 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm)
     server->run([](int client_id, std::span<const uint8_t> request) -> std::vector<uint8_t> {
         try {
             // Deserialize msgpack command
+            // The buffer should contain a tuple of arguments (array) matching the bbapi function signature.
+            // Since bbapi(Command) takes one argument, we expect a 1-element array containing the Command.
             auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(request.data()), request.size());
             auto obj = unpacked.get();
 
-            // Validate msgpack structure
+            // First, expect an array (the tuple of arguments)
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 2) {
-                std::cerr << "Error: Invalid msgpack format from client " << client_id << std::endl;
+            if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 1) {
+                std::cerr << "Error: Expected an array of size 1 (tuple of arguments) from client " << client_id
+                          << std::endl;
                 return {}; // Return empty to skip response
             }
 
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            auto& arr = obj.via.array;
-            if (arr.ptr[0].type != msgpack::type::STR) {
-                std::cerr << "Error: Invalid command format from client " << client_id << std::endl;
+            auto& tuple_arr = obj.via.array;
+            auto& command_obj = tuple_arr.ptr[0];
+
+            // Now access the Command itself, which should be an array of size 2 [command-name, payload]
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
+            if (command_obj.type != msgpack::type::ARRAY || command_obj.via.array.size != 2) {
+                std::cerr << "Error: Expected Command to be an array of size 2 [command-name, payload] from client "
+                          << client_id << std::endl;
+                return {};
+            }
+
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
+            auto& command_arr = command_obj.via.array;
+            if (command_arr.ptr[0].type != msgpack::type::STR) {
+                std::cerr << "Error: Expected first element of Command to be a string (type name) from client "
+                          << client_id << std::endl;
                 return {};
             }
 
             // Check if this is a Shutdown command
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            std::string command_name(arr.ptr[0].via.str.ptr, arr.ptr[0].via.str.size);
+            std::string command_name(command_arr.ptr[0].via.str.ptr, command_arr.ptr[0].via.str.size);
             bool is_shutdown = (command_name == "Shutdown");
 
             // Convert to Command and execute
             bb::bbapi::Command command;
-            obj.convert(command);
+            command_obj.convert(command);
             auto response = bbapi::bbapi(std::move(command));
 
             // Serialize response
