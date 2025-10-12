@@ -1636,7 +1636,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-types": "npm:1.0.0-beta.13"
+    "@aztec/noir-types": "npm:1.0.0-beta.14"
     glob: "npm:^11.0.3"
     ts-command-line-args: "npm:^2.5.1"
   bin:
@@ -1645,14 +1645,14 @@ __metadata:
   linkType: soft
 
 "@aztec/noir-noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 1.0.0-beta.13
-  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=d642c8&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  version: 1.0.0-beta.14
+  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=7df487&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-acvm_js": "npm:1.0.0-beta.13"
-    "@aztec/noir-noirc_abi": "npm:1.0.0-beta.13"
-    "@aztec/noir-types": "npm:1.0.0-beta.13"
+    "@aztec/noir-acvm_js": "npm:1.0.0-beta.14"
+    "@aztec/noir-noirc_abi": "npm:1.0.0-beta.14"
+    "@aztec/noir-types": "npm:1.0.0-beta.14"
     pako: "npm:^2.1.0"
-  checksum: 10/b21aff9aa2b8d50261730b80bda25201015a540d259917c706fc9c9f9f6c38a7d50b6a91e26b6452814acfb79a05a8854772bac53b50b820441a5532a147cbaa
+  checksum: 10/dbff74125d3251fe87acf5471f8d1ad4c9f05531c35b54b60701b7eb67de97174e2dd6773eeefb35cebcb345fb61b7ba27a483bb7af643271e81fb852740f171
   languageName: node
   linkType: hard
 
@@ -1660,7 +1660,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-types": "npm:1.0.0-beta.13"
+    "@aztec/noir-types": "npm:1.0.0-beta.14"
   languageName: node
   linkType: soft
 

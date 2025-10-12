@@ -3,12 +3,8 @@ use crate::reset::transient_data::{
     transient_data_squashing_hint::TransientDataSquashingHint,
 };
 use dep::types::{
-    abis::{
-        note_hash::ScopedNoteHash,
-        nullifier::ScopedNullifier,
-        private_log::PrivateLogData,
-        side_effect::{Ordered, scoped::Scoped},
-    },
+    abis::{note_hash::NoteHash, nullifier::Nullifier, private_log::PrivateLogData},
+    side_effect::{Counted, Ordered, Scoped},
     traits::Empty,
     utils::arrays::ClaimedLengthArray,
 };
@@ -25,11 +21,11 @@ use dep::types::{
 ///
 /// @returns Updated `note_hashes`, `nullifiers`, and `logs` arrays with the squashable elements removed.
 pub unconstrained fn squash_transient_data<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let SquashingHintsLen: u32>(
-    note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
-    nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
-    logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
+    note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
+    nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
+    logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, LogsLen>,
     transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
-    ) -> (ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>, ClaimedLengthArray<ScopedNullifier, NullifiersLen>, ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>) {
+    ) -> (ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>, ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>, ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, LogsLen>) {
     // Create a flag for each note hash and nullifier, indicating whether it is squashed.
     let mut note_hash_squash_flags = [false; NoteHashesLen];
     let mut nullifier_squash_flags = [false; NullifiersLen];
@@ -42,8 +38,7 @@ pub unconstrained fn squash_transient_data<let NoteHashesLen: u32, let Nullifier
     }
 
     // Propagate note hashes that are not squashed:
-    let mut kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen> =
-        ClaimedLengthArray::empty();
+    let mut kept_note_hashes = ClaimedLengthArray::empty();
     for i in 0..note_hashes.length {
         if !note_hash_squash_flags[i] {
             kept_note_hashes.push(note_hashes.array[i]);
@@ -51,19 +46,17 @@ pub unconstrained fn squash_transient_data<let NoteHashesLen: u32, let Nullifier
     }
 
     // Propagate nullifiers that are not squashed:
-    let mut kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen> =
-        ClaimedLengthArray::empty();
+    let mut kept_nullifiers = ClaimedLengthArray::empty();
     for i in 0..nullifiers.length {
         if !nullifier_squash_flags[i] {
             kept_nullifiers.push(nullifiers.array[i]);
         }
     }
 
-    let mut kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen> =
-        ClaimedLengthArray::empty();
+    let mut kept_logs = ClaimedLengthArray::empty();
     for i in 0..logs.length {
         let log = logs.array[i];
-        if log.inner.note_hash_counter == 0 {
+        if log.innermost().note_hash_counter == 0 {
             // The log is not associated with any note hash.
             kept_logs.push(log);
         } else {
@@ -72,9 +65,8 @@ pub unconstrained fn squash_transient_data<let NoteHashesLen: u32, let Nullifier
             // Note: Every note log must be linked to either a kept or squashed note hash (see implementation in
             // `validate_log_squashing.nr`). If a log were allowed to link to a non-existent note hash, we would need to
             // keep such logs too. But since that cannot happen, this check is sufficient.
-            let is_linked_to_kept_note_hash = kept_note_hashes.array.any(|n: ScopedNoteHash| {
-                (n.counter() == log.inner.note_hash_counter)
-            });
+            let is_linked_to_kept_note_hash =
+                kept_note_hashes.array.any(|n| (n.counter() == log.innermost().note_hash_counter));
             if is_linked_to_kept_note_hash {
                 kept_logs.push(log);
             }
@@ -88,7 +80,8 @@ mod tests {
     use crate::reset::transient_data::tests::{mock_log, TransientDataFixtureBuilder};
     use super::squash_transient_data;
     use dep::types::{
-        abis::{note_hash::NoteHash, nullifier::Nullifier, private_log::PrivateLogData},
+        abis::{nullifier::Nullifier, private_log::PrivateLogData},
+        side_effect::Counted,
         tests::utils::assert_array_eq,
     };
 
@@ -97,26 +90,26 @@ mod tests {
         let mut builder = TransientDataFixtureBuilder::new();
 
         builder.add_note_hashes([
-            NoteHash { value: 11, counter: 1 },
-            NoteHash { value: 22, counter: 2 },
-            NoteHash { value: 33, counter: 3 },
-            NoteHash { value: 44, counter: 4 },
-            NoteHash { value: 55, counter: 5 },
+            Counted::new(11, 1),
+            Counted::new(22, 2),
+            Counted::new(33, 3),
+            Counted::new(44, 4),
+            Counted::new(55, 5),
         ]);
 
         builder.add_nullifiers([
-            Nullifier { value: 66, counter: 6, note_hash: 0 },
-            Nullifier { value: 77, counter: 7, note_hash: 11 }, // Nullify note_hashes[0]
-            Nullifier { value: 88, counter: 8, note_hash: 101 },
-            Nullifier { value: 99, counter: 9, note_hash: 44 }, // Nullify note_hashes[3]
+            Nullifier { value: 66, note_hash: 0 }.count(6),
+            Nullifier { value: 77, note_hash: 11 }.count(7), // Nullify note_hashes[0]
+            Nullifier { value: 88, note_hash: 101 }.count(8),
+            Nullifier { value: 99, note_hash: 44 }.count(9), // Nullify note_hashes[3]
         ]);
 
         builder.add_logs([
-            PrivateLogData { log: mock_log(101), counter: 9, note_hash_counter: 1 }, // Linked to note_hashes[0]
-            PrivateLogData { log: mock_log(202), counter: 10, note_hash_counter: 4 }, // Linked to note_hashes[3]
-            PrivateLogData { log: mock_log(303), counter: 11, note_hash_counter: 2 },
-            PrivateLogData { log: mock_log(404), counter: 12, note_hash_counter: 0 },
-            PrivateLogData { log: mock_log(505), counter: 13, note_hash_counter: 1 }, // Linked to note_hashes[0]
+            PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(9), // Linked to note_hashes[0]
+            PrivateLogData { log: mock_log(202), note_hash_counter: 4 }.count(10), // Linked to note_hashes[3]
+            PrivateLogData { log: mock_log(303), note_hash_counter: 2 }.count(11),
+            PrivateLogData { log: mock_log(404), note_hash_counter: 0 }.count(12),
+            PrivateLogData { log: mock_log(505), note_hash_counter: 1 }.count(13), // Linked to note_hashes[0]
         ]);
 
         builder.add_squashing_hint(0, 1); // Squash note_hashes[0] with nullifier[1]

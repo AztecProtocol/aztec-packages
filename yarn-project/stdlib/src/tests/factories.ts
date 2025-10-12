@@ -193,7 +193,7 @@ function makeNoteHash(seed: number) {
 }
 
 function makeNullifier(seed: number) {
-  return new Nullifier(fr(seed), seed + 1, fr(seed + 2));
+  return new Nullifier(fr(seed), fr(seed + 1), seed + 2);
 }
 
 function makePrivateLog(seed: number) {

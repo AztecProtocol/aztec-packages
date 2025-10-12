@@ -1,15 +1,15 @@
 use dep::types::{
-    abis::validation_requests::ScopedKeyValidationRequestAndGenerator, hash::compute_app_secret_key,
-    scalar::Scalar,
+    abis::validation_requests::KeyValidationRequestAndGenerator, hash::compute_app_secret_key,
+    scalar::Scalar, side_effect::Scoped,
 };
 use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
 pub fn validate_key_validation_request(
-    scoped_request: ScopedKeyValidationRequestAndGenerator,
+    scoped_request: Scoped<KeyValidationRequestAndGenerator>,
     sk_m: Scalar,
 ) {
     let contract_address = scoped_request.contract_address;
-    let request_and_generator = scoped_request.request;
+    let request_and_generator = scoped_request.inner;
     let request = request_and_generator.request;
     let sk_app_generator = request_and_generator.sk_app_generator;
 

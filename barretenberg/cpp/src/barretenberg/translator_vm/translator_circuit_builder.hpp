@@ -339,7 +339,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         , evaluation_input_x(evaluation_input_x_)
         , avm_mode(avm_mode_)
     {
-        this->zero_idx = add_variable(Fr::zero());
+        this->set_zero_idx(add_variable(Fr::zero()));
     };
 
     /**

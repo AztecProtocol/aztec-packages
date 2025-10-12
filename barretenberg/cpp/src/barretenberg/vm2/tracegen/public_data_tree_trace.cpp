@@ -5,6 +5,8 @@
 #include "barretenberg/vm2/generated/relations/lookups_public_data_check.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_public_data_squash.hpp"
 #include "barretenberg/vm2/generated/relations/perms_public_data_check.hpp"
+#include "barretenberg/vm2/generated/relations/perms_sstore.hpp"
+#include "barretenberg/vm2/generated/relations/perms_tx.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/tracegen/lib/discard_reconstruction.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
@@ -51,6 +53,9 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
         }
 
         bool write = event.write_data.has_value();
+        // Note: the protocol_write and non_protocol_write are set by the MultiPermutationBuilder, but I also set them
+        // here for clarity/testing. Can remove, but would need to change the NegativeSetProtocolWrite test.
+        bool protocol_write = event.execution_id == std::numeric_limits<uint32_t>::max();
         bool should_insert = !exists && write;
         bool nondiscarded_write = write && !discard;
         bool should_write_to_public_inputs =
@@ -90,6 +95,8 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
                       { C::public_data_check_tree_size_before_write, event.prev_snapshot.nextAvailableLeafIndex },
                       { C::public_data_check_tree_size_after_write, next_snapshot.nextAvailableLeafIndex },
                       { C::public_data_check_write, write },
+                      { C::public_data_check_protocol_write, protocol_write },
+                      { C::public_data_check_non_protocol_write, write && !protocol_write },
                       { C::public_data_check_clk, clk },
                       { C::public_data_check_discard, discard },
                       { C::public_data_check_low_leaf_slot, event.low_leaf_preimage.leaf.slot },
@@ -249,6 +256,8 @@ const InteractionDefinition PublicDataTreeTraceBuilder::interactions =
         .add<lookup_public_data_check_new_leaf_poseidon2_0_settings, InteractionType::LookupGeneric>()
         .add<lookup_public_data_check_new_leaf_poseidon2_1_settings, InteractionType::LookupGeneric>()
         .add<lookup_public_data_check_new_leaf_merkle_check_settings, InteractionType::LookupGeneric>()
+        .add<InteractionType::MultiPermutation, perm_sstore_storage_write_settings, perm_tx_balance_update_settings>(
+            Column::public_data_check_write)
         .add<perm_public_data_check_squashing_settings, InteractionType::Permutation>()
         .add<lookup_public_data_check_write_writes_length_to_public_inputs_settings,
              InteractionType::LookupIntoIndexedByClk>()

@@ -8,6 +8,9 @@
 #include <cstddef>
 #include <iomanip>
 #include <iostream>
+#ifndef NO_MULTITHREADING
+#include <mutex>
+#endif
 
 #if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__)
 #include <sys/resource.h>
@@ -62,6 +65,11 @@ std::size_t peak_rss_bytes()
 //---------------------------------------------------------------------
 extern "C" void logstr(char const* msg)
 {
+#ifndef NO_MULTITHREADING
+    static std::mutex log_mutex;
+    std::lock_guard<std::mutex> lock(log_mutex);
+#endif
+
     static bool disable_mem_usage = std::getenv("BB_DISABLE_MEM_USAGE") != nullptr;
     if (disable_mem_usage) {
         std::cerr << msg << '\n';

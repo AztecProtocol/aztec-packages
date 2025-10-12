@@ -13,7 +13,7 @@ description: "Connect to Aztec Alpha Testnet, explore the ecosystem, and start b
 
 ## Take part
 
-- [Run a node](./the_aztec_network/guides/run_nodes/how_to_run_sequencer.md)
+- [Run a node](./the_aztec_network/setup/sequencer_management.md)
 - [Interact with testnet using Playground, a tool for deploying & interacting with contracts](https://play.aztec.network/)
 - [Get inspiration for what you could build](https://github.com/AztecProtocol/Horizon)
 
