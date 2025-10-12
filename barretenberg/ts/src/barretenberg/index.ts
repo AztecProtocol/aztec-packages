@@ -28,6 +28,13 @@ export type BackendOptions = {
 
   /** @description Logging function */
   logger?: (msg: string) => void;
+
+  /**
+   * @description Run WASM on a worker thread (default: true)
+   * - true: Browser-safe, runs on worker thread (slower due to serialization overhead)
+   * - false: Faster performance but blocks the calling thread (use for Node.js/benchmarks)
+   */
+  useWorker?: boolean;
 };
 
 export type CircuitOptions = {
@@ -72,6 +79,7 @@ export class Barretenberg extends AsyncApi {
       wasmPath: options.wasmPath,
       logger,
       memory: options.memory,
+      useWorker: options.useWorker,
     });
     return new Barretenberg(wasm, options);
   }

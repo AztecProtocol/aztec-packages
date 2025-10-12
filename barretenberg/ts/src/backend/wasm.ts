@@ -1,6 +1,8 @@
-import { BarretenbergWasmMain } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
+import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import { IMsgpackBackendSync, IMsgpackBackendAsync } from './interface.js';
+import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/factory/node/index.js';
+import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
 
 /**
  * Synchronous WASM backend that wraps BarretenbergWasmMain.
@@ -33,23 +35,31 @@ export class BarretenbergWasmSyncBackend implements IMsgpackBackendSync {
 }
 
 /**
- * Asynchronous WASM backend that wraps BarretenbergWasmMain directly (no worker).
+ * Asynchronous WASM backend that supports both direct WASM and worker-based modes.
  *
- * Note: We use direct WASM access instead of a worker to avoid worker communication
- * overhead. While workers prevent blocking the main thread, the serialize/deserialize
- * overhead for each call makes them impractical for high-frequency operations.
- * For tight loops with many calls, direct access is ~3-4x faster.
+ * Worker mode (default): Runs WASM on a worker thread to avoid blocking the main thread.
+ *   - Browser-safe: Won't block UI during long operations
+ *   - Overhead: ~3-4x slower due to serialize/deserialize for each call
+ *   - Use for: Browser environments, long-running operations
+ *
+ * Direct mode (useWorker: false): Runs WASM directly on the calling thread.
+ *   - Performance: ~3-4x faster (no serialize/deserialize overhead)
+ *   - Warning: Will block the thread during operations
+ *   - Use for: Node.js, benchmarks, tight loops where performance is critical
  */
 export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
-  private constructor(private wasm: BarretenbergWasmMain) {}
+  private constructor(
+    private wasm: BarretenbergWasmMain | BarretenbergWasmMainWorker,
+    private isWorker: boolean,
+  ) {}
 
   /**
    * Create and initialize an asynchronous WASM backend.
-   * Uses direct WASM access (no worker) for better performance.
-   * @param threads Number of threads (defaults to hardware availability)
-   * @param wasmPath Optional path to WASM files
-   * @param logger Optional logging function
-   * @param memory Optional initial and maximum memory configuration
+   * @param options.threads Number of threads (defaults to 1 for faster startup)
+   * @param options.wasmPath Optional path to WASM files
+   * @param options.logger Optional logging function
+   * @param options.memory Optional initial and maximum memory configuration
+   * @param options.useWorker Run on worker thread (default: true for browser safety)
    */
   static async new(
     options: {
@@ -57,17 +67,37 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       wasmPath?: string;
       logger?: (msg: string) => void;
       memory?: { initial?: number; maximum?: number };
+      useWorker?: boolean;
     } = {},
   ): Promise<BarretenbergWasmAsyncBackend> {
-    const wasm = new BarretenbergWasmMain();
-    // Default to 1 thread for better startup time, user can override if needed
-    const { module, threads } = await fetchModuleAndThreads(options.threads ?? 1, options.wasmPath, options.logger);
-    await wasm.init(module, threads, options.logger, options.memory?.initial, options.memory?.maximum);
-    return new BarretenbergWasmAsyncBackend(wasm);
+    // Default to worker mode for browser safety
+    const useWorker = options.useWorker ?? true;
+
+    if (useWorker) {
+      // Worker-based mode: runs on worker thread (browser-safe)
+      const worker = await createMainWorker();
+      const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
+      const { module, threads } = await fetchModuleAndThreads(
+        options.threads ?? 1,
+        options.wasmPath,
+        options.logger,
+      );
+      await wasm.init(module, threads, options.logger, options.memory?.initial, options.memory?.maximum);
+      return new BarretenbergWasmAsyncBackend(wasm, true);
+    } else {
+      // Direct mode: runs on calling thread (faster but blocks thread)
+      const wasm = new BarretenbergWasmMain();
+      const { module, threads } = await fetchModuleAndThreads(
+        options.threads ?? 1,
+        options.wasmPath,
+        options.logger,
+      );
+      await wasm.init(module, threads, options.logger, options.memory?.initial, options.memory?.maximum);
+      return new BarretenbergWasmAsyncBackend(wasm, false);
+    }
   }
 
   async call(inputBuffer: Uint8Array): Promise<Uint8Array> {
-    // Return Promise.resolve to maintain async interface but avoid worker overhead
     return this.wasm.cbindCall('bbapi', inputBuffer);
   }
 

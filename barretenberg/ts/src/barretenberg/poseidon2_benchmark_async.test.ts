@@ -23,7 +23,8 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
 
   beforeAll(async () => {
     // Setup WASM API (force WASM by passing non-existent bbPath)
-    wasmApi = await Barretenberg.new({ bbPath: '/nonexistent/bb' });
+    // Use useWorker: false for benchmark performance (Node.js context)
+    wasmApi = await Barretenberg.new({ bbPath: '/nonexistent/bb', useWorker: false });
 
     // Setup direct WASM access for baseline benchmark
     wasm = new BarretenbergWasmMain();
