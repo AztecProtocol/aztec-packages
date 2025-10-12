@@ -34,7 +34,7 @@ class MultilinearBatchingRecursiveFlavor {
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = NativeFlavor::USE_PADDING;
-    static constexpr size_t NUM_WIRES = 6;
+    static constexpr size_t NUM_WIRES = 4;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     static constexpr size_t NUM_ALL_ENTITIES = 6;

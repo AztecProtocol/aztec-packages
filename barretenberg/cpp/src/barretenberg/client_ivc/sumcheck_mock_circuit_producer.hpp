@@ -140,8 +140,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
      * @brief Precompute the verification key for the given circuit.
      *
      */
-    static std::shared_ptr<VerificationKey> get_verification_key(ClientCircuit& builder_in,
-                                                                 TraceSettings& trace_settings)
+    static std::shared_ptr<VerificationKey> get_verification_key(ClientCircuit& builder_in)
     {
         // This is a workaround to ensure that the circuit is finalized before we create the verification key
         // In practice, this should not be needed as the circuit will be finalized when it is accumulated into the IVC
@@ -151,7 +150,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
         // Deepcopy the opqueue to avoid modifying the original one when finalising the circuit
         builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
         std::shared_ptr<SumcheckClientIVC::ProverInstance> prover_instance =
-            std::make_shared<SumcheckClientIVC::ProverInstance>(builder, trace_settings);
+            std::make_shared<SumcheckClientIVC::ProverInstance>(builder);
         std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
         return vk;
     }
@@ -205,11 +204,10 @@ class PrivateFunctionExecutionMockCircuitProducer {
         // If this is a mock hiding kernel, remove the settings and use a default (non-structured) trace
         if (ivc.num_circuits_accumulated == ivc.get_num_circuits() - 1) {
             settings = TestSettings{};
-            ivc.trace_settings = TraceSettings{};
         }
         info("setting gates ", settings.log2_num_gates);
         auto circuit = create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs);
-        return { circuit, get_verification_key(circuit, ivc.trace_settings) };
+        return { circuit, get_verification_key(circuit) };
     }
 
     void construct_and_accumulate_next_circuit(SumcheckClientIVC& ivc, TestSettings settings = {})

@@ -23,8 +23,7 @@ std::pair<SumcheckClientIVC::Proof, SumcheckClientIVC::VerificationKey> accumula
 {
     PrivateFunctionExecutionMockCircuitProducer circuit_producer(num_app_circuits, large_first_app);
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    SumcheckClientIVC ivc{ NUM_CIRCUITS, trace_settings };
+    SumcheckClientIVC ivc{ NUM_CIRCUITS };
 
     BB_ASSERT_EQ(precomputed_vks.size(), NUM_CIRCUITS, "There should be a precomputed VK for each circuit");
 
@@ -46,19 +45,13 @@ std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> sumcheck_prec
     using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
     CircuitProducer circuit_producer(num_app_circuits, large_first_app);
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    SumcheckClientIVC ivc{ NUM_CIRCUITS, trace_settings };
+    SumcheckClientIVC ivc{ NUM_CIRCUITS };
 
     std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> vkeys;
     for (size_t j = 0; j < NUM_CIRCUITS; ++j) {
 
         auto circuit = circuit_producer.create_next_circuit(ivc);
-
-        // Hiding kernel does not use structured trace
-        if (j == NUM_CIRCUITS - 1) {
-            trace_settings = TraceSettings{};
-        }
-        auto vk = CircuitProducer::get_verification_key(circuit, trace_settings);
+        auto vk = CircuitProducer::get_verification_key(circuit);
         vkeys.push_back(vk);
         ivc.accumulate(circuit, vk);
     }

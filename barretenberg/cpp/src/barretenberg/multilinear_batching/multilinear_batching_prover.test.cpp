@@ -80,7 +80,7 @@ TEST(MultilinearBatchingVerifier, VerifyProof)
     verifier_transcript->load_proof(proof);
     MultilinearBatchingVerifier<MultilinearBatchingFlavor> verifier{ verifier_transcript };
 
-    auto [verified, sumcheck_output] = verifier.verify_proof(proof);
+    auto [verified, sumcheck_output] = verifier.verify_proof();
     EXPECT_TRUE(verified);
     auto challenge = sumcheck_output.challenge;
     auto new_challenge = std::vector<FF>(MultilinearBatchingFlavor::VIRTUAL_LOG_N);

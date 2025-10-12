@@ -22,21 +22,20 @@ template <typename Flavor_> class MultilinearBatchingVerifier {
     using FF = typename Flavor::FF;
     using Curve = typename Flavor::Curve;
     using Transcript = typename Flavor::Transcript;
-    using SumcheckOutput = SumcheckOutput<Flavor>;
 
     using Commitment = typename Flavor::Commitment;
     using Sumcheck = SumcheckVerifier<Flavor>;
-    using MultilinearBatchingVerifierClaim = MultilinearBatchingVerifierClaim<Curve>;
+    using VerifierClaim = MultilinearBatchingVerifierClaim<Curve>;
     using Proof = std::vector<FF>;
 
     explicit MultilinearBatchingVerifier(const std::shared_ptr<Transcript>& transcript);
 
-    std::pair<bool, MultilinearBatchingVerifierClaim> verify_proof(const Proof& proof);
+    std::pair<bool, VerifierClaim> verify_proof();
 
   private:
     std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<MultilinearBatchingVerifierClaim> accumulator_claim;
-    std::shared_ptr<MultilinearBatchingVerifierClaim> instance_claim;
+    std::shared_ptr<VerifierClaim> accumulator_claim;
+    std::shared_ptr<VerifierClaim> instance_claim;
     RelationParameters<FF> relation_parameters;
 };
 

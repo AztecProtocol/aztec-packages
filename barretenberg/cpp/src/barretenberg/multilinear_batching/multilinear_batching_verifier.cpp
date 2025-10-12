@@ -15,19 +15,17 @@ MultilinearBatchingVerifier<Flavor_>::MultilinearBatchingVerifier(const std::sha
 {}
 
 template <typename Flavor_>
-std::pair<bool, typename MultilinearBatchingVerifier<Flavor_>::MultilinearBatchingVerifierClaim>
-MultilinearBatchingVerifier<Flavor_>::verify_proof([[maybe_unused]] const Proof& proof)
+std::pair<bool, typename MultilinearBatchingVerifier<Flavor_>::VerifierClaim> MultilinearBatchingVerifier<
+    Flavor_>::verify_proof()
 {
-    // transcript->load_proof(proof);
-
     // Receive commitments
-    [[maybe_unused]] auto non_shifted_accumulator_commitment =
+    auto non_shifted_accumulator_commitment =
         transcript->template receive_from_prover<Commitment>("non_shifted_accumulator_commitment");
-    [[maybe_unused]] auto shifted_accumulator_commitment =
+    auto shifted_accumulator_commitment =
         transcript->template receive_from_prover<Commitment>("shifted_accumulator_commitment");
-    [[maybe_unused]] auto non_shifted_instance_commitment =
+    auto non_shifted_instance_commitment =
         transcript->template receive_from_prover<Commitment>("non_shifted_instance_commitment");
-    [[maybe_unused]] auto shifted_instance_commitment =
+    auto shifted_instance_commitment =
         transcript->template receive_from_prover<Commitment>("shifted_instance_commitment");
     std::vector<FF> accumulator_challenges(Flavor::VIRTUAL_LOG_N);
     std::vector<FF> instance_challenges(Flavor::VIRTUAL_LOG_N);
@@ -58,8 +56,7 @@ MultilinearBatchingVerifier<Flavor_>::verify_proof([[maybe_unused]] const Proof&
         gate_challenges[idx] = FF(1);
     }
 
-    std::vector<FF> padding_indicator(Flavor::VIRTUAL_LOG_N);
-    std::ranges::fill(padding_indicator, FF{ 1 });
+    std::vector<FF> padding_indicator(Flavor::VIRTUAL_LOG_N, FF{ 1 });
 
     auto target_sum = (((instance_shifted_evaluation * alpha + accumulator_shifted_evaluation) * alpha +
                         instance_non_shifted_evaluation) *
@@ -70,7 +67,7 @@ MultilinearBatchingVerifier<Flavor_>::verify_proof([[maybe_unused]] const Proof&
 
     // Construct new claim
     auto claim_batching_challenge = transcript->template get_challenge<FF>("claim_batching_challenge");
-    MultilinearBatchingVerifierClaim verifier_claim;
+    VerifierClaim verifier_claim;
     verifier_claim.non_shifted_commitment =
         non_shifted_accumulator_commitment + non_shifted_instance_commitment * claim_batching_challenge;
     verifier_claim.shifted_commitment =

@@ -1,6 +1,5 @@
 # avm-transpiler static library configuration
 # AVM_TRANSPILER_LIB should be set by the CMake preset to point to the appropriate library
-if (NOT DISABLE_AZTEC_VM)
 if(NOT AVM_TRANSPILER_LIB)
     message(FATAL_ERROR "AVM_TRANSPILER_LIB is not set. Set it in your CMake preset to the path of libavm_transpiler.a")
 endif()
@@ -26,4 +25,3 @@ add_definitions(-DENABLE_AVM_TRANSPILER)
 
 message(STATUS "avm-transpiler library: ${AVM_TRANSPILER_LIB}")
 message(STATUS "avm-transpiler include: ${AVM_TRANSPILER_INCLUDE}")
-endif()

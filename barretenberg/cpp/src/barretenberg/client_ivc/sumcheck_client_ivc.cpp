@@ -17,17 +17,14 @@
 namespace bb {
 
 // Constructor
-SumcheckClientIVC::SumcheckClientIVC(size_t num_circuits, TraceSettings trace_settings)
-    : trace_usage_tracker(trace_settings)
-    , num_circuits(num_circuits)
-    , trace_settings(trace_settings)
+SumcheckClientIVC::SumcheckClientIVC(size_t num_circuits)
+    : num_circuits(num_circuits)
     , goblin(bn254_commitment_key)
 {
     BB_ASSERT_GT(num_circuits, 0UL, "Number of circuits must be specified and greater than 0.");
-    // Allocate BN254 commitment key based on the max dyadic Mega structured trace size and translator circuit size.
+    // Allocate BN254 commitment key based on translator circuit size.
     // https://github.com/AztecProtocol/barretenberg/issues/1319): Account for Translator only when it's necessary
-    size_t commitment_key_size =
-        std::max(trace_settings.dyadic_size(), 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
+    size_t commitment_key_size = 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
     info("BN254 commitment key size: ", commitment_key_size);
     bn254_commitment_key = CommitmentKey<curve::BN254>(commitment_key_size);
 }
@@ -132,7 +129,7 @@ SumcheckClientIVC::RecursiveVerifierAccumulator SumcheckClientIVC::perform_foldi
     }
 
     MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor> batching_verifier(transcript);
-    auto [verified, new_accumulator] = batching_verifier.verify_proof(proof);
+    auto [verified, new_accumulator] = batching_verifier.verify_proof();
     BB_ASSERT_EQ(verified || circuit.has_dummy_witnesses,
                  true,
                  "Batching Sumcheck: Failed to recursively verify sumcheck batching.");
@@ -592,7 +589,7 @@ void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr
     ASSERT(precomputed_vk != nullptr, "SumcheckClientIVC::accumulate - VK expected for the provided circuit");
 
     // Construct the prover instance for circuit
-    std::shared_ptr<ProverInstance> prover_instance = std::make_shared<ProverInstance>(circuit, trace_settings);
+    std::shared_ptr<ProverInstance> prover_instance = std::make_shared<ProverInstance>(circuit);
 
     // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
@@ -601,7 +598,6 @@ void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr
         goblin.commitment_key = bn254_commitment_key;
     }
     prover_instance->commitment_key = bn254_commitment_key;
-    trace_usage_tracker.update(circuit);
 
     // We're accumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
     // verifiers for all the entries previously present in the verification queue) and if it's not the first accumulate
@@ -970,7 +966,7 @@ void SumcheckClientIVC::update_native_verifier_accumulator(const VerifierInputs&
 
     if (queue_entry.type != QUEUE_TYPE::OINK) {
         MultilinearBatchingVerifier<MultilinearBatchingFlavor> batching_verifier(verifier_transcript);
-        auto [verified, new_accumulator] = batching_verifier.verify_proof(queue_entry.proof);
+        auto [verified, new_accumulator] = batching_verifier.verify_proof();
         BB_ASSERT_EQ(verified, true, "Batching Sumcheck: Failed native sumcheck batching verification");
 
         native_verifier_accum = VerifierAccumulator{

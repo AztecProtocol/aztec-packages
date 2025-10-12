@@ -42,7 +42,7 @@ class MultilinearBatchingFlavor {
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = true;
-    static constexpr size_t NUM_WIRES = 6; // 4?
+    static constexpr size_t NUM_WIRES = 4;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     static constexpr size_t NUM_ALL_ENTITIES = 6;
@@ -191,13 +191,6 @@ class MultilinearBatchingFlavor {
             return result;
         }
 
-        // void set_shifted()
-        // {
-        //     for (auto [shifted, to_be_shifted] : zip_view(get_shifted(), get_to_be_shifted())) {
-        //         shifted = to_be_shifted.shifted();
-        //     }
-        // }
-
         void increase_polynomials_virtual_size(const size_t size_in)
         {
             for (auto& polynomial : this->get_all()) {
@@ -212,9 +205,6 @@ class MultilinearBatchingFlavor {
      */
     class ProvingKey {
       public:
-        // size_t circuit_size = 1UL << CONST_MULTILINEAR_BATCHING_LOG_N;
-        // size_t log_circuit_size = CONST_MULTILINEAR_BATCHING_LOG_N;
-
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
         std::vector<FF> accumulator_challenge;
         std::vector<FF> instance_challenge;
@@ -242,13 +232,6 @@ class MultilinearBatchingFlavor {
 
       public:
         PartiallyEvaluatedMultivariates() = default;
-        PartiallyEvaluatedMultivariates(const size_t circuit_size)
-        {
-            // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
-            for (auto& poly : this->get_all()) {
-                poly = Polynomial(circuit_size / 2);
-            }
-        }
         PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
         {
             for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {

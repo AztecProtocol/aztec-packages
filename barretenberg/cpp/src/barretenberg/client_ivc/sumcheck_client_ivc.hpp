@@ -9,7 +9,6 @@
 #include "barretenberg/client_ivc/client_ivc_base.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
-#include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
@@ -595,9 +594,6 @@ class SumcheckClientIVC : public IVCBase {
     };
     using StdlibVerificationQueue = std::deque<StdlibVerifierInputs>;
 
-    // Utility for tracking the max size of each block across the full IVC
-    ExecutionTraceUsageTracker trace_usage_tracker;
-
   private:
     // Transcript for CIVC prover (shared between Hiding circuit, Merge, ECCVM, and Translator)
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
@@ -624,9 +620,6 @@ class SumcheckClientIVC : public IVCBase {
     // Management of linking databus commitments between circuits in the IVC
     DataBusDepot bus_depot;
 
-    // Settings related to the use of fixed block sizes for each gate in the execution trace
-    TraceSettings trace_settings;
-
     typename MegaFlavor::CommitmentKey bn254_commitment_key;
 
     Goblin goblin;
@@ -637,7 +630,7 @@ class SumcheckClientIVC : public IVCBase {
     Goblin& get_goblin() override { return goblin; }
     const Goblin& get_goblin() const override { return goblin; }
 
-    SumcheckClientIVC(size_t num_circuits, TraceSettings trace_settings = {});
+    SumcheckClientIVC(size_t num_circuits);
 
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                                                const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
