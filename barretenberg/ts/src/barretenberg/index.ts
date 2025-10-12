@@ -22,6 +22,9 @@ export type BackendOptions = {
   /** @description Path to download WASM files */
   wasmPath?: string;
 
+  /** @description Custom path to bb binary for native backend (overrides automatic detection) */
+  bbPath?: string;
+
   /** @description Logging function */
   logger?: (msg: string) => void;
 };
@@ -53,8 +56,8 @@ export class Barretenberg extends AsyncApi {
   static async new(options: BackendOptions = {}) {
     const logger = options.logger ?? createDebugLogger('bb_async');
 
-    // Try native backend first
-    const bbPath = findBbBinary();
+    // Try native backend first (check custom path or auto-detect)
+    const bbPath = findBbBinary(options.bbPath);
     if (bbPath) {
       logger(`Using native backend: ${bbPath}`);
       const native = new BarretenbergNativeAsyncBackend(bbPath);
@@ -136,9 +139,16 @@ export class BarretenbergSync extends SyncApi {
     super(backend);
   }
 
-  private static async new(wasmPath?: string, logger: (msg: string) => void = createDebugLogger('bb_sync')) {
+  /**
+   * Create a new BarretenbergSync instance.
+   * Tries to use native backend first (if available), otherwise uses WASM.
+   * @param options Backend configuration options
+   */
+  private static async new(options: BackendOptions = {}) {
+    const logger = options.logger ?? createDebugLogger('bb_sync');
+
     // Try native backend first
-    const bbPath = findBbBinary();
+    const bbPath = findBbBinary(options.bbPath);
     if (bbPath) {
       logger(`Using native backend: ${bbPath}`);
       const native = new BarretenbergNativeSyncBackend(bbPath);
@@ -147,13 +157,17 @@ export class BarretenbergSync extends SyncApi {
 
     // Fallback to WASM
     logger('Native backend not found, using WASM');
-    const wasm = await BarretenbergWasmSyncBackend.new(wasmPath, logger);
+    const wasm = await BarretenbergWasmSyncBackend.new(options.wasmPath, logger);
     return new BarretenbergSync(wasm);
   }
 
-  static async initSingleton(wasmPath?: string, logger: (msg: string) => void = createDebugLogger('bb_sync')) {
+  /**
+   * Initialize the singleton instance.
+   * @param options Backend configuration options
+   */
+  static async initSingleton(options: BackendOptions = {}) {
     if (!barretenbergSyncSingletonPromise) {
-      barretenbergSyncSingletonPromise = BarretenbergSync.new(wasmPath, logger);
+      barretenbergSyncSingletonPromise = BarretenbergSync.new(options);
     }
 
     barretenbergSyncSingleton = await barretenbergSyncSingletonPromise;

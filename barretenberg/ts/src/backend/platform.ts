@@ -42,11 +42,25 @@ export function detectPlatform(): Platform | null {
 }
 
 /**
- * Find the bb binary in the build directory for the current platform.
- * Searches in <package-root>/build/<platform>/bb
+ * Find the bb binary for the native backend.
+ * @param customPath Optional custom path to bb binary (overrides automatic detection)
  * @returns Absolute path to bb binary, or null if not found
+ *
+ * Search order:
+ * 1. If customPath is provided and exists, return it
+ * 2. Otherwise search in <package-root>/build/<platform>/bb
  */
-export function findBbBinary(): string | null {
+export function findBbBinary(customPath?: string): string | null {
+  // Check custom path first if provided
+  if (customPath) {
+    if (fs.existsSync(customPath)) {
+      return path.resolve(customPath);
+    }
+    // Custom path provided but doesn't exist - return null
+    return null;
+  }
+
+  // Automatic detection
   const platform = detectPlatform();
   if (!platform) {
     return null;

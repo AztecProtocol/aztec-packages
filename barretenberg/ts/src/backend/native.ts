@@ -1,6 +1,7 @@
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, spawnSync, ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import { IMsgpackBackendSync, IMsgpackBackendAsync } from './interface.js';
+import { sign } from 'crypto';
 
 /**
  * Synchronous native backend that communicates with bb binary via stdin/stdout.
@@ -15,17 +16,74 @@ export class BarretenbergNativeSyncBackend implements IMsgpackBackendSync {
   private stdinFd: number;
   private stdoutFd: number;
 
+  /**
+   * Read from a file descriptor with retry on EAGAIN.
+   * Since Node.js pipes are non-blocking, readSync can return EAGAIN when data isn't ready.
+   */
+  private readSyncWithRetry(fd: number, buffer: Buffer, offset: number, length: number): number {
+    const maxRetries = 1000;
+    const retryDelayMs = 1;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return fs.readSync(fd, buffer, offset, length, null);
+      } catch (err: any) {
+        if (err.code === 'EAGAIN' || err.code === 'EWOULDBLOCK') {
+          // // Sleep briefly before retrying
+          // const start = Date.now();
+          // while (Date.now() - start < retryDelayMs) {
+          //   // Busy wait
+          // }
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw new Error(`Failed to read from fd ${fd} after ${maxRetries} retries (EAGAIN)`);
+  }
+
   constructor(bbBinaryPath: string) {
     this.process = spawn(bbBinaryPath, ['msgpack', 'run'], {
       stdio: ['pipe', 'pipe', 'inherit'], // stdin, stdout, inherit stderr
     });
 
+    // Validate stdin/stdout streams exist
+    if (!this.process.stdin) {
+      throw new Error('Failed to create stdin pipe for native backend process');
+    }
+    if (!this.process.stdout) {
+      throw new Error('Failed to create stdout pipe for native backend process');
+    }
+
     // Get file descriptors for synchronous I/O
-    this.stdinFd = (this.process.stdin as any).fd;
-    this.stdoutFd = (this.process.stdout as any).fd;
+    // Try multiple ways to access the file descriptor
+    const stdin = this.process.stdin as any;
+    const stdout = this.process.stdout as any;
+
+    const stdinFd = stdin.fd ?? stdin._handle?.fd;
+    const stdoutFd = stdout.fd ?? stdout._handle?.fd;
+
+    if (typeof stdinFd !== 'number') {
+      throw new Error(
+        `Failed to get stdin file descriptor from native backend process. ` +
+          `Available properties: ${Object.keys(stdin).join(', ')}`,
+      );
+    }
+    if (typeof stdoutFd !== 'number') {
+      throw new Error(
+        `Failed to get stdout file descriptor from native backend process. ` +
+          `Available properties: ${Object.keys(stdout).join(', ')}`,
+      );
+    }
+
+    this.stdinFd = stdinFd;
+    this.stdoutFd = stdoutFd;
+
+    // Note: Node.js pipes are non-blocking by default, which means fs.readSync() can return EAGAIN.
+    // We handle this in the call() method by retrying reads when EAGAIN occurs.
 
     // Handle process errors
-    this.process.on('error', (err) => {
+    this.process.on('error', err => {
       throw new Error(`Native backend process error: ${err.message}`);
     });
 
@@ -33,7 +91,7 @@ export class BarretenbergNativeSyncBackend implements IMsgpackBackendSync {
       if (code !== null && code !== 0) {
         throw new Error(`Native backend process exited with code ${code}`);
       }
-      if (signal) {
+      if (signal && signal != 'SIGTERM') {
         throw new Error(`Native backend process killed with signal ${signal}`);
       }
     });
@@ -46,19 +104,19 @@ export class BarretenbergNativeSyncBackend implements IMsgpackBackendSync {
     fs.writeSync(this.stdinFd, lengthBuf);
     fs.writeSync(this.stdinFd, inputBuffer);
 
-    // Read response length: 4 bytes little-endian
+    // Read response length: 4 bytes little-endian (with EAGAIN retry)
     const responseLengthBuf = Buffer.alloc(4);
-    let bytesRead = fs.readSync(this.stdoutFd, responseLengthBuf, 0, 4, null);
+    let bytesRead = this.readSyncWithRetry(this.stdoutFd, responseLengthBuf, 0, 4);
     if (bytesRead !== 4) {
       throw new Error(`Failed to read response length: got ${bytesRead} bytes, expected 4`);
     }
     const responseLength = responseLengthBuf.readUInt32LE(0);
 
-    // Read response data: msgpack buffer
+    // Read response data: msgpack buffer (with EAGAIN retry)
     const responseBuffer = Buffer.alloc(responseLength);
     let totalRead = 0;
     while (totalRead < responseLength) {
-      bytesRead = fs.readSync(this.stdoutFd, responseBuffer, totalRead, responseLength - totalRead, null);
+      bytesRead = this.readSyncWithRetry(this.stdoutFd, responseBuffer, totalRead, responseLength - totalRead);
       if (bytesRead === 0) {
         throw new Error(`Unexpected EOF while reading response: got ${totalRead} bytes, expected ${responseLength}`);
       }
@@ -103,7 +161,7 @@ export class BarretenbergNativeAsyncBackend implements IMsgpackBackendAsync {
       this.handleData(chunk);
     });
 
-    this.process.on('error', (err) => {
+    this.process.on('error', err => {
       if (this.pendingReject) {
         this.pendingReject(new Error(`Native backend process error: ${err.message}`));
         this.pendingReject = null;
@@ -116,7 +174,9 @@ export class BarretenbergNativeAsyncBackend implements IMsgpackBackendAsync {
         if (code !== null && code !== 0) {
           this.pendingReject(new Error(`Native backend process exited with code ${code}`));
         } else if (signal) {
-          this.pendingReject(new Error(`Native backend process killed with signal ${signal}`));
+          if (signal != 'SIGTERM') {
+            this.pendingReject(new Error(`Native backend process killed with signal ${signal}`));
+          }
         } else {
           this.pendingReject(new Error('Native backend process exited unexpectedly'));
         }
@@ -189,7 +249,7 @@ export class BarretenbergNativeAsyncBackend implements IMsgpackBackendAsync {
 
   async destroy(): Promise<void> {
     this.process.kill();
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       this.process.once('exit', () => resolve());
     });
   }

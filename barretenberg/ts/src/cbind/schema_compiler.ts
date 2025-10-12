@@ -609,9 +609,8 @@ ${methods}
     const msgpackCallHelper = `${this.config.mode === 'async' ? 'async ' : ''}function msgpackCall(backend: ${this.getBackendType()}, input: any[]) {` +
     `  const inputBuffer = new Encoder({ useRecords: false }).pack(input);` +
     `  const encodedResult = ${this.config.mode === 'async' ? 'await ' : ''}backend.call(inputBuffer);` +
-    `  return new Decoder({ useRecords: false }).unpack(encodedResult);` +
-    `}\n`;
-    const destroyMethod = this.config.mode === 'sync'
+    `  return new Decoder({ useRecords: false, useBuffer: true }).unpack(encodedResult);` +
+    `}\n`;    const destroyMethod = this.config.mode === 'sync'
       ? `  destroy(): void {
     if (this.backend.destroy) this.backend.destroy();
   }`
@@ -727,7 +726,7 @@ class StreamBuffer {
 }
 
 export class NativeApi implements BbApiBase {
-  private decoder = new Decoder({ useRecords: false });
+  private decoder = new Decoder({ useRecords: false, useBuffer: true });
   private encoder = new Encoder({ useRecords: false });
   private pendingRequests: NativeApiRequest[] = [];
 

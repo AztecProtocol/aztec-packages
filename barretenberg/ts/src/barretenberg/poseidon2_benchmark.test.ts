@@ -2,6 +2,7 @@ import { BarretenbergSync, Fr } from '../index.js';
 import { serializeBufferable } from '../serialize/index.js';
 import { BarretenbergWasmMain } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
+import { findBbBinary } from '../backend/platform.js';
 
 /**
  * We keep some old api stuff lingering for insights into msgpack overheads.
@@ -13,23 +14,42 @@ import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
  * - callWasmExport
  * - getOutputArgs
  */
-describe('poseidon2Hash benchmark: msgpack vs direct WASM', () => {
-  const ITERATIONS = 5000;
+describe('poseidon2Hash benchmark: WASM vs Native', () => {
+  const ITERATIONS = 100;
   const SIZES = [2, 4, 8, 16, 32];
 
-  var api: BarretenbergSync;
+  let wasmApi: BarretenbergSync;
+  let nativeApi: BarretenbergSync | null = null;
   let wasm: BarretenbergWasmMain;
+  let hasNative: boolean = false;
 
   beforeAll(async () => {
-    await BarretenbergSync.initSingleton();
-    api = BarretenbergSync.getSingleton();
+    // Setup WASM API (force WASM by passing empty bbPath which won't exist)
+    wasmApi = await BarretenbergSync['new']({ bbPath: '/nonexistent/bb' });
+
+    // Setup direct WASM access for baseline benchmark
     wasm = new BarretenbergWasmMain();
     const { module } = await fetchModuleAndThreads();
     await wasm.init(module, 1);
+
+    // Try to setup native API if available
+    const bbPath = findBbBinary(
+      '/mnt/user-data/charlie/aztec-repos/aztec-packages/barretenberg/cpp/build-no-avm/bin/bb',
+    );
+    if (bbPath) {
+      hasNative = true;
+      nativeApi = await BarretenbergSync['new']({ bbPath });
+    }
   }, 20000);
 
   afterAll(async () => {
     await wasm.destroy();
+    if (wasmApi) {
+      wasmApi.destroy();
+    }
+    if (nativeApi) {
+      nativeApi.destroy();
+    }
   });
 
   function directPoseidon2Hash(inputsBuffer: Fr[]): Fr {
@@ -53,44 +73,83 @@ describe('poseidon2Hash benchmark: msgpack vs direct WASM', () => {
     // Warm up phase (100 iterations each)
     for (let i = 0; i < 100; i++) {
       directPoseidon2Hash(inputs);
-      api.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      if (hasNative && nativeApi) {
+        nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      }
     }
 
-    // Benchmark old direct WASM API
+    // Benchmark 1: Direct WASM API (baseline)
     const directStart = performance.now();
     for (let i = 0; i < ITERATIONS; i++) {
       directPoseidon2Hash(inputs);
     }
     const directTime = performance.now() - directStart;
 
-    // Benchmark new msgpack API
-    const msgpackStart = performance.now();
+    // Benchmark 2: WASM msgpack API
+    const wasmMsgpackStart = performance.now();
     for (let i = 0; i < ITERATIONS; i++) {
-      api.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
     }
-    const msgpackTime = performance.now() - msgpackStart;
+    const wasmMsgpackTime = performance.now() - wasmMsgpackStart;
 
-    // Calculate overhead
-    const overhead = ((msgpackTime - directTime) / directTime) * 100;
+    // Benchmark 3: Native msgpack API (if available)
+    let nativeTime = 0;
+    if (hasNative && nativeApi) {
+      const nativeStart = performance.now();
+      for (let i = 0; i < ITERATIONS; i++) {
+        nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      }
+      nativeTime = performance.now() - nativeStart;
+    }
+
+    // Calculate metrics
+    const wasmOverhead = ((wasmMsgpackTime - directTime) / directTime) * 100;
     const avgDirectTimeUs = (directTime / ITERATIONS) * 1000; // microseconds
-    const avgMsgpackTimeUs = (msgpackTime / ITERATIONS) * 1000; // microseconds
+    const avgWasmMsgpackTimeUs = (wasmMsgpackTime / ITERATIONS) * 1000;
 
-    process.stdout.write(`┌─ Size ${size.toString().padStart(3)} field elements ─────────────────┐\n`);
+    process.stdout.write(`┌─ Size ${size.toString().padStart(3)} field elements ─────────────────────────┐\n`);
     process.stdout.write(
-      `│ Direct WASM:  ${directTime.toFixed(2).padStart(8)}ms (${avgDirectTimeUs.toFixed(2).padStart(7)}µs/call) │\n`,
+      `│ Direct WASM:    ${directTime.toFixed(2).padStart(8)}ms (${avgDirectTimeUs.toFixed(2).padStart(7)}µs/call) │\n`,
     );
     process.stdout.write(
-      `│ Msgpack API:  ${msgpackTime.toFixed(2).padStart(8)}ms (${avgMsgpackTimeUs.toFixed(2).padStart(7)}µs/call) │\n`,
+      `│ WASM Msgpack:   ${wasmMsgpackTime.toFixed(2).padStart(8)}ms (${avgWasmMsgpackTimeUs.toFixed(2).padStart(7)}µs/call) │\n`,
     );
-    process.stdout.write(
-      `│ Overhead:     ${overhead >= 0 ? '+' : ''}${overhead.toFixed(2).padStart(7)}%                   │\n`,
-    );
-    process.stdout.write(`└───────────────────────────────────────────┘\n`);
 
-    // Sanity check: verify both produce same result
+    if (hasNative && nativeApi) {
+      const avgNativeTimeUs = (nativeTime / ITERATIONS) * 1000;
+      const nativeVsWasm = ((nativeTime - wasmMsgpackTime) / wasmMsgpackTime) * 100;
+      const nativeVsDirect = ((nativeTime - directTime) / directTime) * 100;
+
+      process.stdout.write(
+        `│ Native Msgpack: ${nativeTime.toFixed(2).padStart(8)}ms (${avgNativeTimeUs.toFixed(2).padStart(7)}µs/call) │\n`,
+      );
+      process.stdout.write(
+        `│ WASM overhead:  ${wasmOverhead >= 0 ? '+' : ''}${wasmOverhead.toFixed(2).padStart(7)}%                      │\n`,
+      );
+      process.stdout.write(
+        `│ Native vs WASM: ${nativeVsWasm >= 0 ? '+' : ''}${nativeVsWasm.toFixed(2).padStart(7)}%                      │\n`,
+      );
+      process.stdout.write(
+        `│ Native vs Base: ${nativeVsDirect >= 0 ? '+' : ''}${nativeVsDirect.toFixed(2).padStart(7)}%                      │\n`,
+      );
+    } else {
+      process.stdout.write(
+        `│ WASM overhead:  ${wasmOverhead >= 0 ? '+' : ''}${wasmOverhead.toFixed(2).padStart(7)}%                      │\n`,
+      );
+      process.stdout.write(`│ Native backend: Not available                    │\n`);
+    }
+    process.stdout.write(`└──────────────────────────────────────────────────┘\n`);
+
+    // Sanity check: verify all produce same result
     const directResult = directPoseidon2Hash(inputs);
-    const msgpackResult = api.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
-    expect(Buffer.from(msgpackResult.hash)).toEqual(directResult.toBuffer());
+    const wasmMsgpackResult = wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+    expect(Buffer.from(wasmMsgpackResult.hash)).toEqual(directResult.toBuffer());
+
+    if (hasNative && nativeApi) {
+      const nativeMsgpackResult = nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      expect(Buffer.from(nativeMsgpackResult.hash)).toEqual(directResult.toBuffer());
+    }
 
     // Test always passes, this is just for measuring performance
     expect(true).toBe(true);
@@ -107,9 +166,15 @@ describe('poseidon2Hash benchmark: msgpack vs direct WASM', () => {
         .map(() => Fr.random());
 
       const directResult = directPoseidon2Hash(inputs);
-      const msgpackResult = api.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      const wasmResult = wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
-      expect(Buffer.from(msgpackResult.hash)).toEqual(directResult.toBuffer());
+      expect(Buffer.from(wasmResult.hash)).toEqual(directResult.toBuffer());
+
+      // Also test native if available
+      if (hasNative && nativeApi) {
+        const nativeResult = nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+        expect(Buffer.from(nativeResult.hash)).toEqual(directResult.toBuffer());
+      }
     }
   });
 
@@ -135,9 +200,15 @@ describe('poseidon2Hash benchmark: msgpack vs direct WASM', () => {
 
     for (const inputs of testCases) {
       const directResult = directPoseidon2Hash(inputs);
-      const msgpackResult = api.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      const wasmResult = wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
-      expect(Buffer.from(msgpackResult.hash)).toEqual(directResult.toBuffer());
+      expect(Buffer.from(wasmResult.hash)).toEqual(directResult.toBuffer());
+
+      // Also test native if available
+      if (hasNative && nativeApi) {
+        const nativeResult = nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+        expect(Buffer.from(nativeResult.hash)).toEqual(directResult.toBuffer());
+      }
     }
   });
 
@@ -148,9 +219,15 @@ describe('poseidon2Hash benchmark: msgpack vs direct WASM', () => {
       const inputs = Array(size).fill(zero);
 
       const directResult = directPoseidon2Hash(inputs);
-      const msgpackResult = api.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      const wasmResult = wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
-      expect(Buffer.from(msgpackResult.hash)).toEqual(directResult.toBuffer());
+      expect(Buffer.from(wasmResult.hash)).toEqual(directResult.toBuffer());
+
+      // Also test native if available
+      if (hasNative && nativeApi) {
+        const nativeResult = nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+        expect(Buffer.from(nativeResult.hash)).toEqual(directResult.toBuffer());
+      }
     }
   });
 
@@ -161,9 +238,15 @@ describe('poseidon2Hash benchmark: msgpack vs direct WASM', () => {
       const inputs = Array(size).fill(one);
 
       const directResult = directPoseidon2Hash(inputs);
-      const msgpackResult = api.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      const wasmResult = wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
-      expect(Buffer.from(msgpackResult.hash)).toEqual(directResult.toBuffer());
+      expect(Buffer.from(wasmResult.hash)).toEqual(directResult.toBuffer());
+
+      // Also test native if available
+      if (hasNative && nativeApi) {
+        const nativeResult = nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+        expect(Buffer.from(nativeResult.hash)).toEqual(directResult.toBuffer());
+      }
     }
   });
 
@@ -174,9 +257,15 @@ describe('poseidon2Hash benchmark: msgpack vs direct WASM', () => {
       const inputs = Array(size).fill(maxElement);
 
       const directResult = directPoseidon2Hash(inputs);
-      const msgpackResult = api.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      const wasmResult = wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
-      expect(Buffer.from(msgpackResult.hash)).toEqual(directResult.toBuffer());
+      expect(Buffer.from(wasmResult.hash)).toEqual(directResult.toBuffer());
+
+      // Also test native if available
+      if (hasNative && nativeApi) {
+        const nativeResult = nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+        expect(Buffer.from(nativeResult.hash)).toEqual(directResult.toBuffer());
+      }
     }
   });
 });
