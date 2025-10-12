@@ -196,8 +196,10 @@ export class BarretenbergNativeSocketSyncBackend implements IMsgpackBackendSync 
   }
 
   destroy(): void {
-    this.process.kill();
     this.cleanup();
+    this.process.kill('SIGTERM');
+    // Remove process event listeners to prevent hanging
+    this.process.removeAllListeners();
   }
 }
 
@@ -218,6 +220,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
   private socket: net.Socket | null = null;
   private socketPath: string;
   private connectionPromise: Promise<void>;
+  private connectionTimeout: NodeJS.Timeout | null = null;
 
   private pendingResolve: ((data: Uint8Array) => void) | null = null;
   private pendingReject: ((error: Error) => void) | null = null;
@@ -303,7 +306,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
       });
 
     // Set a timeout for connection
-    setTimeout(() => {
+    this.connectionTimeout = setTimeout(() => {
       if (connectionReject) {
         connectionReject(new Error('Timeout waiting for bb socket connection'));
         connectionReject = null;
@@ -338,6 +341,11 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
 
       // Set up event handlers
       this.socket.once('connect', () => {
+        // Clear connection timeout on successful connection
+        if (this.connectionTimeout) {
+          clearTimeout(this.connectionTimeout);
+          this.connectionTimeout = null;
+        }
         resolve();
       });
 
@@ -439,21 +447,50 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
 
   private cleanup(): void {
     try {
-      this.socket?.destroy();
+      // Remove all event listeners to prevent hanging
+      if (this.socket) {
+        this.socket.removeAllListeners();
+        this.socket.destroy();
+      }
     } catch (e) {
       // Ignore errors during cleanup
     }
+
+    // Clear connection timeout if still pending
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
+
+    // Remove process event listeners to prevent hanging
+    this.process.removeAllListeners();
 
     // Don't try to unlink socket - bb owns it and will clean it up
   }
 
   async destroy(): Promise<void> {
-    this.process.kill();
-    await new Promise<void>(resolve => {
-      this.process.once('exit', () => {
-        this.cleanup();
-        resolve();
-      });
+    // Send SIGTERM for graceful shutdown
+    this.process.kill('SIGTERM');
+
+    // Wait for exit with 1-second timeout
+    await Promise.race([
+      new Promise<void>(resolve => {
+        this.process.once('exit', () => {
+          this.cleanup();
+          resolve();
+        });
+      }),
+      new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout waiting for process exit')), 1000),
+      ),
+    ]).catch(() => {
+      // If timeout or error, force kill and cleanup
+      try {
+        this.process.kill('SIGKILL');
+      } catch (e) {
+        // Process already dead
+      }
+      this.cleanup();
     });
   }
 }
