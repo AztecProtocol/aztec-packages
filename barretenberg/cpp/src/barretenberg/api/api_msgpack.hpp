@@ -5,9 +5,12 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/ipc/ipc_server.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include <csignal>
 #include <cstdint>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <unistd.h>
 #include <vector>
 
 namespace bb {
@@ -132,6 +135,30 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm)
         return 1;
     }
 
+    // Store socket path for signal handler cleanup (only for Unix sockets, not shared memory)
+    static std::string global_socket_path;
+    if (!use_shm) {
+        global_socket_path = path;
+    }
+
+    // Register signal handlers for graceful cleanup
+    // SIGTERM: Sent by processes/test frameworks on shutdown
+    // SIGINT: Sent by Ctrl+C
+    auto signal_handler = [](int signal) {
+        std::cerr << "\nReceived signal " << signal << ", cleaning up..." << std::endl;
+
+        // Clean up socket file if it exists
+        if (!global_socket_path.empty()) {
+            unlink(global_socket_path.c_str());
+            std::cerr << "Removed socket file: " << global_socket_path << std::endl;
+        }
+
+        std::exit(0);
+    };
+
+    std::signal(SIGTERM, signal_handler);
+    std::signal(SIGINT, signal_handler);
+
     std::cerr << (use_shm ? "Shared memory" : "Socket") << " server ready at " << path << std::endl;
     std::cerr << "Max clients: " << MAX_CLIENTS << std::endl;
 
@@ -202,6 +229,12 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm)
             return {};
         }
     });
+
+    // Clean up socket file on normal exit (e.g., after Shutdown command)
+    if (!use_shm && !global_socket_path.empty()) {
+        unlink(global_socket_path.c_str());
+        std::cerr << "Cleaned up socket file: " << global_socket_path << std::endl;
+    }
 
     return 0;
 }

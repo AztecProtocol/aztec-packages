@@ -33,8 +33,9 @@ describe('poseidon2Hash benchmark: WASM vs Native', () => {
     await wasm.init(module, 1);
 
     // Try to setup native API if available
-    const bbPath = findBbBinary();
-    // '/mnt/user-data/charlie/aztec-repos/aztec-packages/barretenberg/cpp/build-no-avm/bin/bb',
+    const bbPath = findBbBinary(
+      '/mnt/user-data/charlie/aztec-repos/aztec-packages/barretenberg/cpp/build-no-avm/bin/bb',
+    );
     if (bbPath) {
       hasNative = true;
       nativeApi = await BarretenbergSync['new']({ bbPath });

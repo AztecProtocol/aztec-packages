@@ -4,6 +4,7 @@ import { AsyncApi } from '../cbind/generated/async.js';
 import { SyncApi } from '../cbind/generated/sync.js';
 import { IMsgpackBackendSync, IMsgpackBackendAsync } from '../backend/interface.js';
 import { BarretenbergNativeSyncBackend, BarretenbergNativeAsyncBackend } from '../backend/native.js';
+import { BarretenbergNativeSocketAsyncBackend } from '../backend/native_socket.js';
 import { BarretenbergWasmSyncBackend, BarretenbergWasmAsyncBackend } from '../backend/wasm.js';
 import { findBbBinary } from '../backend/platform.js';
 
@@ -60,7 +61,7 @@ export class Barretenberg extends AsyncApi {
     const bbPath = findBbBinary(options.bbPath);
     if (bbPath) {
       logger(`Using native backend: ${bbPath}`);
-      const native = new BarretenbergNativeAsyncBackend(bbPath);
+      const native = new BarretenbergNativeSocketAsyncBackend(bbPath);
       return new Barretenberg(native, options);
     }
 
@@ -142,15 +143,16 @@ export class BarretenbergSync extends SyncApi {
   /**
    * Create a new BarretenbergSync instance.
    * Tries to use native backend first (if available), otherwise uses WASM.
+   * Uses pipe-based backend for sync operations (stdin/stdout) as it works better with blocking I/O.
    * @param options Backend configuration options
    */
   private static async new(options: BackendOptions = {}) {
     const logger = options.logger ?? createDebugLogger('bb_sync');
 
-    // Try native backend first
+    // Try native backend first (using pipes for sync operations)
     const bbPath = findBbBinary(options.bbPath);
     if (bbPath) {
-      logger(`Using native backend: ${bbPath}`);
+      logger(`Using native pipe backend: ${bbPath}`);
       const native = new BarretenbergNativeSyncBackend(bbPath);
       return new BarretenbergSync(native);
     }
