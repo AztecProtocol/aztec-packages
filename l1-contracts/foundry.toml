@@ -5,8 +5,9 @@ script = 'script'
 out = 'out'
 libs = ['lib']
 solc = "0.8.27"
-evm_version = 'cancun'
+evm_version = 'prague'
 optimizer = true
+optimizer_runs = 1
 
 match_path = "test/**/*.t.sol"
 # Helper to get all the contract names in the src/governance and src/core directories
