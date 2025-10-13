@@ -7,7 +7,6 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_ecc_mem.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_scalar_mul.hpp"
-#include "barretenberg/vm2/generated/relations/perms_ecc_mem.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
@@ -250,8 +249,6 @@ const InteractionDefinition EccTraceBuilder::interactions =
         // Comparison
         .add<lookup_ecc_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         // Lookup into ECC Add Subtrace
-        .add<lookup_ecc_mem_input_output_ecc_add_settings, InteractionType::LookupGeneric>()
-        // Dispatch Permutation
-        .add<perm_ecc_mem_dispatch_exec_ecc_add_settings, InteractionType::Permutation>();
+        .add<lookup_ecc_mem_input_output_ecc_add_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

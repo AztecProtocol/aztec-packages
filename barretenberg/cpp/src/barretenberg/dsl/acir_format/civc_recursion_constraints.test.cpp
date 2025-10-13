@@ -65,7 +65,8 @@ class CivcRecursionConstraintTest : public ::testing::Test {
                 proof_witnesses,
                 key_witnesses,
                 key_hash_witness,
-                /*num_public_inputs_to_extract=*/civc_data.mega_vk->num_public_inputs - PUBLIC_INPUTS_SIZE);
+                /*num_public_inputs_to_extract=*/static_cast<size_t>(civc_data.mega_vk->num_public_inputs) -
+                    PUBLIC_INPUTS_SIZE);
 
         auto constraint = RecursionConstraint{ .key = key_indices,
                                                .proof = proof_indices,

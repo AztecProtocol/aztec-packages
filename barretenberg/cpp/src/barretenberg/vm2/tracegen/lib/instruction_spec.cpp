@@ -115,34 +115,34 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
 FF get_subtrace_id(SubtraceSel subtrace_sel)
 {
     switch (subtrace_sel) {
+    case SubtraceSel::EXECUTION:
+        return AVM_SUBTRACE_ID_EXECUTION;
     case SubtraceSel::ALU:
         return AVM_SUBTRACE_ID_ALU;
-    case SubtraceSel::CAST:
-        return AVM_SUBTRACE_ID_CAST;
-    case SubtraceSel::SET:
-        return AVM_SUBTRACE_ID_SET;
     case SubtraceSel::BITWISE:
         return AVM_SUBTRACE_ID_BITWISE;
-    case SubtraceSel::TORADIXBE:
-        return AVM_SUBTRACE_ID_TO_RADIX;
-    case SubtraceSel::POSEIDON2PERM:
-        return AVM_SUBTRACE_ID_POSEIDON_PERM;
-    case SubtraceSel::ECC:
-        return AVM_SUBTRACE_ID_ECC;
+    case SubtraceSel::CAST:
+        return AVM_SUBTRACE_ID_CAST;
     case SubtraceSel::CALLDATACOPY:
         return AVM_SUBTRACE_ID_CALLDATA_COPY;
     case SubtraceSel::RETURNDATACOPY:
         return AVM_SUBTRACE_ID_RETURNDATA_COPY;
-    case SubtraceSel::EXECUTION:
-        return AVM_SUBTRACE_ID_EXECUTION;
-    case SubtraceSel::KECCAKF1600:
-        return AVM_SUBTRACE_ID_KECCAKF1600;
+    case SubtraceSel::SET:
+        return AVM_SUBTRACE_ID_SET;
     case SubtraceSel::GETCONTRACTINSTANCE:
         return AVM_SUBTRACE_ID_GETCONTRACTINSTANCE;
     case SubtraceSel::EMITUNENCRYPTEDLOG:
         return AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG;
+    case SubtraceSel::POSEIDON2PERM:
+        return AVM_SUBTRACE_ID_POSEIDON2_PERM;
     case SubtraceSel::SHA256COMPRESSION:
         return AVM_SUBTRACE_ID_SHA256_COMPRESSION;
+    case SubtraceSel::KECCAKF1600:
+        return AVM_SUBTRACE_ID_KECCAKF1600;
+    case SubtraceSel::ECC:
+        return AVM_SUBTRACE_ID_ECC;
+    case SubtraceSel::TORADIXBE:
+        return AVM_SUBTRACE_ID_TO_RADIX;
     }
 
     // clangd will complain if we miss a case.
@@ -155,34 +155,34 @@ Column get_subtrace_selector(SubtraceSel subtrace_sel)
     using C = Column;
 
     switch (subtrace_sel) {
-    case SubtraceSel::ALU:
-        return C::execution_sel_execute_alu;
-    case SubtraceSel::CAST:
-        return C::execution_sel_execute_cast;
-    case SubtraceSel::SET:
-        return C::execution_sel_execute_set;
-    case SubtraceSel::BITWISE:
-        return C::execution_sel_execute_bitwise;
-    case SubtraceSel::TORADIXBE:
-        return C::execution_sel_execute_to_radix;
-    case SubtraceSel::POSEIDON2PERM:
-        return C::execution_sel_execute_poseidon2_perm;
-    case SubtraceSel::ECC:
-        return C::execution_sel_execute_ecc_add;
-    case SubtraceSel::CALLDATACOPY:
-        return C::execution_sel_execute_calldata_copy;
-    case SubtraceSel::RETURNDATACOPY:
-        return C::execution_sel_execute_returndata_copy;
     case SubtraceSel::EXECUTION:
-        return C::execution_sel_execute_execution;
-    case SubtraceSel::KECCAKF1600:
-        return C::execution_sel_execute_keccakf1600;
+        return C::execution_sel_exec_dispatch_execution;
+    case SubtraceSel::ALU:
+        return C::execution_sel_exec_dispatch_alu;
+    case SubtraceSel::BITWISE:
+        return C::execution_sel_exec_dispatch_bitwise;
+    case SubtraceSel::CAST:
+        return C::execution_sel_exec_dispatch_cast;
+    case SubtraceSel::CALLDATACOPY:
+        return C::execution_sel_exec_dispatch_calldata_copy;
+    case SubtraceSel::RETURNDATACOPY:
+        return C::execution_sel_exec_dispatch_returndata_copy;
+    case SubtraceSel::SET:
+        return C::execution_sel_exec_dispatch_set;
     case SubtraceSel::GETCONTRACTINSTANCE:
-        return C::execution_sel_execute_get_contract_instance;
+        return C::execution_sel_exec_dispatch_get_contract_instance;
     case SubtraceSel::EMITUNENCRYPTEDLOG:
-        return C::execution_sel_execute_emit_unencrypted_log;
+        return C::execution_sel_exec_dispatch_emit_unencrypted_log;
+    case SubtraceSel::POSEIDON2PERM:
+        return C::execution_sel_exec_dispatch_poseidon2_perm;
     case SubtraceSel::SHA256COMPRESSION:
-        return C::execution_sel_execute_sha256_compression;
+        return C::execution_sel_exec_dispatch_sha256_compression;
+    case SubtraceSel::KECCAKF1600:
+        return C::execution_sel_exec_dispatch_keccakf1600;
+    case SubtraceSel::ECC:
+        return C::execution_sel_exec_dispatch_ecc_add;
+    case SubtraceSel::TORADIXBE:
+        return C::execution_sel_exec_dispatch_to_radix;
     }
 
     // clangd will complain if we miss a case.

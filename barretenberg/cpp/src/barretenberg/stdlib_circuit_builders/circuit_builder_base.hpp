@@ -79,7 +79,7 @@ template <typename FF_> class CircuitBuilderBase {
     CircuitBuilderBase& operator=(const CircuitBuilderBase& other) = default;
     CircuitBuilderBase& operator=(CircuitBuilderBase&& other) noexcept = default;
     virtual ~CircuitBuilderBase() = default;
-    bool has_dummy_witnesses() const { return has_dummy_witnesses_; }
+
     bool operator==(const CircuitBuilderBase& other) const = default;
 
     virtual size_t get_num_finalized_gates() const;
