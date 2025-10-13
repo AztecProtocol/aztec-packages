@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/tracegen/memory_trace.hpp"
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -51,14 +52,13 @@ void MemoryTraceBuilder::process(const simulation::EventEmitterInterface<simulat
 
     // We pre-compute the inverses for the tag values.
     // It serves to speed up trace generation of column C::memory_tag_ff_diff_inv values.
-    // TODO: Introduce a global cache for these values to speed up generation of other sub-traces.
     constexpr size_t NUM_TAGS = static_cast<size_t>(MemoryTag::MAX) + 1;
-    std::array<FF, NUM_TAGS> tag_inverts{};
-    tag_inverts.at(0) = FF(0);
-    tag_inverts.at(1) = FF(1);
-    for (size_t i = 2; i < NUM_TAGS; i++) {
-        tag_inverts.at(i) = FF(i).invert();
+    // Precomputed inverses from 0, 1 ... NUM_TAGS.
+    std::array<FF, NUM_TAGS> tag_inverts;
+    for (size_t i = 0; i < NUM_TAGS; i++) {
+        tag_inverts.at(i) = FF(i);
     }
+    FF::batch_invert(tag_inverts);
 
     // We use shift in this trace and keep the first row empty.
     uint32_t row = 1;
@@ -100,7 +100,7 @@ void MemoryTraceBuilder::process(const simulation::EventEmitterInterface<simulat
                       { C::memory_global_addr, global_addr },
                       { C::memory_timestamp, timestamp },
                       { C::memory_last_access, last_access },
-                      { C::memory_glob_addr_diff_inv, global_addr_diff != 0 ? FF(global_addr_diff).invert() : FF(0) },
+                      { C::memory_glob_addr_diff_inv, global_addr_diff }, // Will be inverted in batch later
                       { C::memory_diff, diff },
                       { C::memory_limb_0_, diff & 0xFFFF },
                       { C::memory_limb_1_, (diff >> 16) & 0xFFFF },
@@ -112,6 +112,9 @@ void MemoryTraceBuilder::process(const simulation::EventEmitterInterface<simulat
                   } });
         row++;
     }
+
+    // Batch invert the columns.
+    trace.invert_columns({ { C::memory_glob_addr_diff_inv } });
 }
 
 const InteractionDefinition MemoryTraceBuilder::interactions =

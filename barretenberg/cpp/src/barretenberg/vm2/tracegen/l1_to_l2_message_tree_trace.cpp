@@ -25,7 +25,7 @@ void L1ToL2MessageTreeCheckTraceBuilder::process(
     uint32_t row = 0;
     for (const auto& event : events) {
         bool exists = event.leaf_value == event.msg_hash;
-        FF leaf_value_msg_hash_diff_inv = exists ? 0 : (event.leaf_value - event.msg_hash).invert();
+        FF leaf_value_msg_hash_diff = event.leaf_value - event.msg_hash;
 
         trace.set(row,
                   { { { C::l1_to_l2_message_tree_check_sel, 1 },
@@ -34,10 +34,14 @@ void L1ToL2MessageTreeCheckTraceBuilder::process(
                       { C::l1_to_l2_message_tree_check_leaf_index, event.leaf_index },
                       { C::l1_to_l2_message_tree_check_root, event.snapshot.root },
                       { C::l1_to_l2_message_tree_check_leaf_value, event.leaf_value },
-                      { C::l1_to_l2_message_tree_check_leaf_value_msg_hash_diff_inv, leaf_value_msg_hash_diff_inv },
+                      { C::l1_to_l2_message_tree_check_leaf_value_msg_hash_diff_inv,
+                        leaf_value_msg_hash_diff }, // Will be inverted in batch later
                       { C::l1_to_l2_message_tree_check_l1_to_l2_message_tree_height, L1_TO_L2_MSG_TREE_HEIGHT } } });
         row++;
     }
+
+    // Batch invert the columns.
+    trace.invert_columns({ { C::l1_to_l2_message_tree_check_leaf_value_msg_hash_diff_inv } });
 }
 
 const InteractionDefinition L1ToL2MessageTreeCheckTraceBuilder::interactions =
