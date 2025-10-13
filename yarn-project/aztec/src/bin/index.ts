@@ -4,7 +4,6 @@ import { injectCommands as injectBuilderCommands } from '@aztec/builder';
 import { injectCommands as injectWalletCommands } from '@aztec/cli-wallet';
 import { enrichEnvironmentWithChainConfig, enrichEnvironmentWithNetworkConfig } from '@aztec/cli/config';
 import { injectCommands as injectContractCommands } from '@aztec/cli/contracts';
-import { injectCommands as injectDevnetCommands } from '@aztec/cli/devnet';
 import { injectCommands as injectInfrastructureCommands } from '@aztec/cli/infrastructure';
 import { injectCommands as injectL1Commands } from '@aztec/cli/l1';
 import { injectCommands as injectMiscCommands } from '@aztec/cli/misc';
@@ -53,7 +52,6 @@ async function main() {
   program = injectL1Commands(program, userLog, debugLogger);
   program = injectPXECommands(program, userLog, debugLogger);
   program = injectMiscCommands(program, userLog);
-  program = injectDevnetCommands(program, userLog, debugLogger);
   program = injectWalletCommands(program, userLog, debugLogger);
 
   await program.parseAsync(process.argv);
