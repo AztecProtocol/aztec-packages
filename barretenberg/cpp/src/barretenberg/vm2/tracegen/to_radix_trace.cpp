@@ -8,7 +8,6 @@
 #include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_to_radix.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_to_radix_mem.hpp"
-#include "barretenberg/vm2/generated/relations/perms_to_radix_mem.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
@@ -252,8 +251,6 @@ const InteractionDefinition ToRadixTraceBuilder::interactions =
         .add<lookup_to_radix_mem_check_radix_lt_2_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_to_radix_mem_check_radix_gt_256_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         // Dispatch to To Radix
-        .add<lookup_to_radix_mem_input_output_to_radix_settings, InteractionType::LookupGeneric>()
-        // Permutation to execution (should be moved later)
-        .add<perm_to_radix_mem_dispatch_exec_to_radix_settings, InteractionType::Permutation>();
+        .add<lookup_to_radix_mem_input_output_to_radix_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen
