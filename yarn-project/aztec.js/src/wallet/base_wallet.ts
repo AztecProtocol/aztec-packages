@@ -4,6 +4,8 @@ import {
   GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
   GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
 } from '@aztec/constants';
+import { AccountFeePaymentMethodOptions, type DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
+import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -36,12 +38,10 @@ import type {
 import { inspect } from 'util';
 
 import type { Account } from '../account/account.js';
-import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 import type { CallIntent, IntentInnerHash } from '../utils/authwit.js';
 import type {
   Aliased,
-  ChainInfo,
   ContractInstanceAndArtifact,
   ProfileOptions,
   SendOptions,
@@ -54,17 +54,13 @@ import type {
  * Options to configure fee payment for a transaction
  */
 export type FeeOptions = {
-  /** Whether to use an specific payment method */
-  paymentMethod?: FeePaymentMethod;
   /**
-   * Whether the account contract assembling the tx should set itself as fee payer or not
+   * A wallet-provided fallback fee payment method that is used only if the transaction that is being constructed
+   * doesn't already include one
    */
-  isFeePayer: boolean;
-  /**
-   * In case no external fee payment method is provided, whether the account
-   * contract executing the transaction should end the setup phase
-   */
-  endSetup: boolean;
+  walletFeePaymentMethod?: FeePaymentMethod;
+  /** Configuration options for the account to properly handle the selected fee payment method */
+  accountFeePaymentMethodOptions: AccountFeePaymentMethodOptions;
   /** The gas settings to use for the transaction */
   gasSettings: GasSettings;
 };
@@ -105,12 +101,11 @@ export abstract class BaseWallet implements Wallet {
     from: AztecAddress,
     feeOptions: FeeOptions,
   ): Promise<TxExecutionRequest> {
-    const feeExecutionPayload = await feeOptions.paymentMethod?.getExecutionPayload();
-    const executionOptions = {
+    const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
+    const executionOptions: DefaultAccountEntrypointOptions = {
       txNonce: Fr.random(),
       cancellable: this.cancellableTransactions,
-      isFeePayer: feeOptions.isFeePayer,
-      endSetup: feeOptions.endSetup,
+      feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions,
     };
     const finalExecutionPayload = feeExecutionPayload
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
@@ -138,25 +133,24 @@ export abstract class BaseWallet implements Wallet {
     const maxFeesPerGas =
       userFeeOptions?.gasSettings?.maxFeesPerGas ??
       (await this.aztecNode.getCurrentBaseFees()).mul(1 + this.baseFeePadding);
-    let paymentMethod;
-    let endSetup = false;
-    let isFeePayer = false;
-    // The transaction does not include a fee payment method, so we set a default
+    let accountFeePaymentMethodOptions;
+    // The transaction does not include a fee payment method, so we set the flag
+    // for the account to use its fee juice balance
     if (!userFeeOptions?.embeddedPaymentMethodFeePayer) {
-      paymentMethod = new FeeJuicePaymentMethod(from);
-      endSetup = true;
-      isFeePayer = true;
+      accountFeePaymentMethodOptions = AccountFeePaymentMethodOptions.PREEXISTING_FEE_JUICE;
     } else {
-      // The transaction includes fee payment method, so we check if we are the fee payer for it (it could only be FeeJuiceWithClaim)
-      isFeePayer = from.equals(userFeeOptions.embeddedPaymentMethodFeePayer);
+      // The transaction includes fee payment method, so we check if we are the fee payer for it
+      // (this can only happen if the embedded payment method is FeeJuiceWithClaim)
+      accountFeePaymentMethodOptions = from.equals(userFeeOptions.embeddedPaymentMethodFeePayer)
+        ? AccountFeePaymentMethodOptions.FEE_JUICE_WITH_CLAIM
+        : AccountFeePaymentMethodOptions.EXTERNAL;
     }
     const gasSettings: GasSettings = GasSettings.default({ ...userFeeOptions?.gasSettings, maxFeesPerGas });
     this.log.debug(`Using L2 gas settings`, gasSettings);
     return {
       gasSettings,
-      paymentMethod,
-      isFeePayer,
-      endSetup,
+      walletFeePaymentMethod: undefined,
+      accountFeePaymentMethodOptions,
     };
   }
 

@@ -3,9 +3,7 @@ import type { AztecAsyncArray, AztecAsyncKVStore, AztecAsyncMap } from '@aztec/k
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 
-import type { DataProvider } from '../data_provider.js';
-
-export class AddressDataProvider implements DataProvider {
+export class AddressDataProvider {
   #store: AztecAsyncKVStore;
   #completeAddresses: AztecAsyncArray<Buffer>;
   #completeAddressIndex: AztecAsyncMap<string, number>;
@@ -63,9 +61,5 @@ export class AddressDataProvider implements DataProvider {
     return await Promise.all(
       (await toArray(this.#completeAddresses.valuesAsync())).map(v => CompleteAddress.fromBuffer(v)),
     );
-  }
-
-  async getSize(): Promise<number> {
-    return (await this.#completeAddresses.lengthAsync()) * CompleteAddress.SIZE_IN_BYTES;
   }
 }

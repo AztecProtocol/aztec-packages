@@ -1,6 +1,6 @@
 import {
-  BlobAccumulatorPublicInputs,
-  FinalBlobAccumulatorPublicInputs,
+  BlobAccumulator,
+  FinalBlobAccumulator,
   FinalBlobBatchingChallenges,
   Poseidon2Sponge,
   SpongeBlob,
@@ -67,7 +67,7 @@ import type {
   BLS12_381_Fq as BLS12FqNoir,
   BLS12_381_Fr as BLS12FrNoir,
   BLS12_381 as BLS12PointNoir,
-  BlobAccumulatorPublicInputs as BlobAccumulatorPublicInputsNoir,
+  BlobAccumulator as BlobAccumulatorNoir,
   BlockConstantData as BlockConstantDataNoir,
   BlockMergeRollupPrivateInputs as BlockMergeRollupPrivateInputsNoir,
   BlockRollupPublicInputs as BlockRollupPublicInputsNoir,
@@ -84,7 +84,7 @@ import type {
   CheckpointRootSingleBlockRollupPrivateInputs as CheckpointRootSingleBlockRollupPrivateInputsNoir,
   EpochConstantData as EpochConstantDataNoir,
   FeeRecipient as FeeRecipientNoir,
-  FinalBlobAccumulatorPublicInputs as FinalBlobAccumulatorPublicInputsNoir,
+  FinalBlobAccumulator as FinalBlobAccumulatorNoir,
   FinalBlobBatchingChallenges as FinalBlobBatchingChallengesNoir,
   FixedLengthArray,
   Field as NoirField,
@@ -136,6 +136,7 @@ import {
   mapPrivateToPublicAccumulatedDataFromNoir,
   mapPrivateToPublicKernelCircuitPublicInputsToNoir,
   mapPrivateToRollupKernelCircuitPublicInputsToNoir,
+  mapProtocolContractsToNoir,
   mapPublicCallRequestArrayLengthsToNoir,
   mapPublicCallRequestFromNoir,
   mapPublicCallRequestToNoir,
@@ -292,9 +293,7 @@ function mapFinalBlobBatchingChallengesFromNoir(
  * @param blobPublicInputs - The stdlib blob accumulator inputs.
  * @returns The noir blob accumulator public inputs.
  */
-function mapBlobAccumulatorPublicInputsToNoir(
-  blobPublicInputs: BlobAccumulatorPublicInputs,
-): BlobAccumulatorPublicInputsNoir {
+function mapBlobAccumulatorToNoir(blobPublicInputs: BlobAccumulator): BlobAccumulatorNoir {
   return {
     blob_commitments_hash_acc: mapFieldToNoir(blobPublicInputs.blobCommitmentsHashAcc),
     z_acc: mapFieldToNoir(blobPublicInputs.zAcc),
@@ -310,10 +309,8 @@ function mapBlobAccumulatorPublicInputsToNoir(
  * @param blobPublicInputs - The noir blob accumulator public inputs.
  * @returns The stdlib blob accumulator inputs.
  */
-function mapBlobAccumulatorPublicInputsFromNoir(
-  blobPublicInputs: BlobAccumulatorPublicInputsNoir,
-): BlobAccumulatorPublicInputs {
-  return new BlobAccumulatorPublicInputs(
+function mapBlobAccumulatorFromNoir(blobPublicInputs: BlobAccumulatorNoir): BlobAccumulator {
+  return new BlobAccumulator(
     mapFieldFromNoir(blobPublicInputs.blob_commitments_hash_acc),
     mapFieldFromNoir(blobPublicInputs.z_acc),
     mapBLS12FrFromNoir(blobPublicInputs.y_acc),
@@ -328,10 +325,8 @@ function mapBlobAccumulatorPublicInputsFromNoir(
  * @param finalBlobPublicInputs - The noir blob accumulator public inputs.
  * @returns The stdlib final blob accumulator inputs.
  */
-function mapFinalBlobAccumulatorPublicInputsFromNoir(
-  finalBlobPublicInputs: FinalBlobAccumulatorPublicInputsNoir,
-): FinalBlobAccumulatorPublicInputs {
-  return new FinalBlobAccumulatorPublicInputs(
+function mapFinalBlobAccumulatorFromNoir(finalBlobPublicInputs: FinalBlobAccumulatorNoir): FinalBlobAccumulator {
+  return new FinalBlobAccumulator(
     mapFieldFromNoir(finalBlobPublicInputs.blob_commitments_hash),
     mapFieldFromNoir(finalBlobPublicInputs.z),
     mapBLS12FrFromNoir(finalBlobPublicInputs.y),
@@ -344,7 +339,7 @@ function mapBlockConstantDataFromNoir(constants: BlockConstantDataNoir) {
     mapAppendOnlyTreeSnapshotFromNoir(constants.last_archive),
     mapAppendOnlyTreeSnapshotFromNoir(constants.l1_to_l2_tree_snapshot),
     mapFieldFromNoir(constants.vk_tree_root),
-    mapFieldFromNoir(constants.protocol_contract_tree_root),
+    mapFieldFromNoir(constants.protocol_contracts_hash),
     mapGlobalVariablesFromNoir(constants.global_variables),
     mapFieldFromNoir(constants.prover_id),
   );
@@ -355,7 +350,7 @@ function mapBlockConstantDataToNoir(constants: BlockConstantData): BlockConstant
     last_archive: mapAppendOnlyTreeSnapshotToNoir(constants.lastArchive),
     l1_to_l2_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(constants.l1ToL2TreeSnapshot),
     vk_tree_root: mapFieldToNoir(constants.vkTreeRoot),
-    protocol_contract_tree_root: mapFieldToNoir(constants.protocolContractTreeRoot),
+    protocol_contracts_hash: mapFieldToNoir(constants.protocolContractsHash),
     global_variables: mapGlobalVariablesToNoir(constants.globalVariables),
     prover_id: mapFieldToNoir(constants.proverId),
   };
@@ -366,7 +361,7 @@ function mapCheckpointConstantDataFromNoir(constants: CheckpointConstantDataNoir
     mapFieldFromNoir(constants.chain_id),
     mapFieldFromNoir(constants.version),
     mapFieldFromNoir(constants.vk_tree_root),
-    mapFieldFromNoir(constants.protocol_contract_tree_root),
+    mapFieldFromNoir(constants.protocol_contracts_hash),
     mapFieldFromNoir(constants.prover_id),
     mapFieldFromNoir(constants.slot_number),
     mapEthAddressFromNoir(constants.coinbase),
@@ -380,7 +375,7 @@ function mapCheckpointConstantDataToNoir(constants: CheckpointConstantData): Che
     chain_id: mapFieldToNoir(constants.chainId),
     version: mapFieldToNoir(constants.version),
     vk_tree_root: mapFieldToNoir(constants.vkTreeRoot),
-    protocol_contract_tree_root: mapFieldToNoir(constants.protocolContractTreeRoot),
+    protocol_contracts_hash: mapFieldToNoir(constants.protocolContractsHash),
     prover_id: mapFieldToNoir(constants.proverId),
     slot_number: mapFieldToNoir(constants.slotNumber),
     coinbase: mapEthAddressToNoir(constants.coinbase),
@@ -394,7 +389,7 @@ function mapEpochConstantDataFromNoir(data: EpochConstantDataNoir) {
     mapFieldFromNoir(data.chain_id),
     mapFieldFromNoir(data.version),
     mapFieldFromNoir(data.vk_tree_root),
-    mapFieldFromNoir(data.protocol_contract_tree_root),
+    mapFieldFromNoir(data.protocol_contracts_hash),
     mapFieldFromNoir(data.prover_id),
   );
 }
@@ -404,7 +399,7 @@ function mapEpochConstantDataToNoir(data: EpochConstantData): EpochConstantDataN
     chain_id: mapFieldToNoir(data.chainId),
     version: mapFieldToNoir(data.version),
     vk_tree_root: mapFieldToNoir(data.vkTreeRoot),
-    protocol_contract_tree_root: mapFieldToNoir(data.protocolContractTreeRoot),
+    protocol_contracts_hash: mapFieldToNoir(data.protocolContractsHash),
     prover_id: mapFieldToNoir(data.proverId),
   };
 }
@@ -480,7 +475,7 @@ export function mapRootRollupPublicInputsFromNoir(
     mapTupleFromNoir(rootRollupPublicInputs.checkpoint_header_hashes, AZTEC_MAX_EPOCH_DURATION, mapFieldFromNoir),
     mapTupleFromNoir(rootRollupPublicInputs.fees, AZTEC_MAX_EPOCH_DURATION, mapFeeRecipientFromNoir),
     mapEpochConstantDataFromNoir(rootRollupPublicInputs.constants),
-    mapFinalBlobAccumulatorPublicInputsFromNoir(rootRollupPublicInputs.blob_public_inputs),
+    mapFinalBlobAccumulatorFromNoir(rootRollupPublicInputs.blob_public_inputs),
   );
 }
 
@@ -555,7 +550,7 @@ function mapAvmAccumulatedDataArrayLengthsToNoir(
 export function mapAvmCircuitPublicInputsToNoir(inputs: AvmCircuitPublicInputs): AvmCircuitPublicInputsNoir {
   return {
     global_variables: mapGlobalVariablesToNoir(inputs.globalVariables),
-    protocol_contract_tree_root: mapFieldToNoir(inputs.protocolContractTreeRoot),
+    protocol_contracts: mapProtocolContractsToNoir(inputs.protocolContracts),
     start_tree_snapshots: mapTreeSnapshotsToNoir(inputs.startTreeSnapshots),
     start_gas_used: mapGasToNoir(inputs.startGasUsed),
     gas_settings: mapGasSettingsToNoir(inputs.gasSettings),
@@ -630,8 +625,8 @@ export function mapCheckpointRollupPublicInputsFromNoir(inputs: CheckpointRollup
     mapAppendOnlyTreeSnapshotFromNoir(inputs.new_archive),
     mapTupleFromNoir(inputs.checkpoint_header_hashes, AZTEC_MAX_EPOCH_DURATION, mapFieldFromNoir),
     mapTupleFromNoir(inputs.fees, AZTEC_MAX_EPOCH_DURATION, mapFeeRecipientFromNoir),
-    mapBlobAccumulatorPublicInputsFromNoir(inputs.start_blob_accumulator),
-    mapBlobAccumulatorPublicInputsFromNoir(inputs.end_blob_accumulator),
+    mapBlobAccumulatorFromNoir(inputs.start_blob_accumulator),
+    mapBlobAccumulatorFromNoir(inputs.end_blob_accumulator),
     mapFinalBlobBatchingChallengesFromNoir(inputs.final_blob_challenges),
   );
 }
@@ -645,8 +640,8 @@ export function mapCheckpointRollupPublicInputsToNoir(
     new_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.newArchive),
     checkpoint_header_hashes: mapTuple(inputs.checkpointHeaderHashes, mapFieldToNoir),
     fees: mapTuple(inputs.fees, mapFeeRecipientToNoir),
-    start_blob_accumulator: mapBlobAccumulatorPublicInputsToNoir(inputs.startBlobAccumulator),
-    end_blob_accumulator: mapBlobAccumulatorPublicInputsToNoir(inputs.endBlobAccumulator),
+    start_blob_accumulator: mapBlobAccumulatorToNoir(inputs.startBlobAccumulator),
+    end_blob_accumulator: mapBlobAccumulatorToNoir(inputs.endBlobAccumulator),
     final_blob_challenges: mapFinalBlobBatchingChallengesToNoir(inputs.finalBlobChallenges),
   };
 }
@@ -865,7 +860,7 @@ function mapCheckpointRootRollupHintsToNoir(hints: CheckpointRootRollupHints): C
   return {
     previous_block_header: mapBlockHeaderToNoir(hints.previousBlockHeader),
     previous_archive_sibling_path: mapTuple(hints.previousArchiveSiblingPath, mapFieldToNoir),
-    start_blob_accumulator: mapBlobAccumulatorPublicInputsToNoir(hints.startBlobAccumulator),
+    start_blob_accumulator: mapBlobAccumulatorToNoir(hints.startBlobAccumulator),
     final_blob_challenges: mapFinalBlobBatchingChallengesToNoir(hints.finalBlobChallenges),
     blobs_fields: mapFieldArrayToNoir(hints.blobFields),
     blob_commitments: mapTuple(hints.blobCommitments, mapBLS12PointToNoir),

@@ -121,3 +121,6 @@ export const NODEJS_EVENT_LOOP_STATE = 'nodejs.eventloop.state';
 export const TOPIC_NAME = 'aztec.gossip.topic_name';
 
 export const TX_COLLECTION_METHOD = 'aztec.tx_collection.method';
+
+/** Scope of L1 transaction (sequencer, prover, or other) */
+export const L1_TX_SCOPE = 'aztec.l1_tx.scope';

@@ -8,6 +8,7 @@
 # - cacheDirectory is used to separate jests greedy consuming /tmp space for transforms. TODO: Fix 80+MB contract json.
 #   Note that jests --no-cache is a lie, that just means don't use the cache. It still creates the cache. Unavoidable.
 # - runInBand is provided, to run the test in the main thread (no child process). It avoids various issues.
+# - testNamePattern is used to filter by test name when a specific test is provided.
 set -eu
 
 cd $(dirname $0)/..
@@ -19,14 +20,22 @@ export LOG_LEVEL=${LOG_LEVEL:-verbose}
 export NODE_NO_WARNINGS=1
 export FORCE_COLOR=1
 
-if [[ "$1" == *".sh" ]]; then
-  $1
+test_file=$1
+test_name=${2:-}
+
+if [[ "$test_file" == *".sh" ]]; then
+  $test_file
 else
-  [ -n "${JEST_CACHE_DIR:-}" ] && args="--cacheDirectory=$JEST_CACHE_DIR"
+  cache_dir_arg=()
+  test_name_arg=()
+  [ -n "${JEST_CACHE_DIR:-}" ] && cache_dir_arg=(--cacheDirectory="$JEST_CACHE_DIR")
+  [ -n "${test_name:-}" ] && test_name_arg=(--testNamePattern="$test_name")
+
   node --experimental-vm-modules ../node_modules/.bin/jest \
   --testTimeout=300000 \
   --forceExit \
   --no-cache \
-  ${args:-} \
-  --runInBand $1
+  "${cache_dir_arg[@]}" \
+  "${test_name_arg[@]}" \
+  --runInBand "$1"
 fi

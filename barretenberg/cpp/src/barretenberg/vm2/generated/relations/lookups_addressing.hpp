@@ -17,7 +17,7 @@ struct lookup_addressing_relative_overflow_result_0_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_0";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_0_;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_do_overflow_check_0_;
     static constexpr Column DST_SELECTOR = Column::gt_sel_addressing;
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_result_0_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_result_0_inv;
@@ -43,7 +43,7 @@ struct lookup_addressing_relative_overflow_result_1_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_1";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_1_;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_do_overflow_check_1_;
     static constexpr Column DST_SELECTOR = Column::gt_sel_addressing;
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_result_1_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_result_1_inv;
@@ -69,7 +69,7 @@ struct lookup_addressing_relative_overflow_result_2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_2";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_2_;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_do_overflow_check_2_;
     static constexpr Column DST_SELECTOR = Column::gt_sel_addressing;
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_result_2_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_result_2_inv;
@@ -95,7 +95,7 @@ struct lookup_addressing_relative_overflow_result_3_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_3";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_3_;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_do_overflow_check_3_;
     static constexpr Column DST_SELECTOR = Column::gt_sel_addressing;
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_result_3_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_result_3_inv;
@@ -121,7 +121,7 @@ struct lookup_addressing_relative_overflow_result_4_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_4";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_4_;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_do_overflow_check_4_;
     static constexpr Column DST_SELECTOR = Column::gt_sel_addressing;
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_result_4_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_result_4_inv;
@@ -147,7 +147,7 @@ struct lookup_addressing_relative_overflow_result_5_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_5";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_5_;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_do_overflow_check_5_;
     static constexpr Column DST_SELECTOR = Column::gt_sel_addressing;
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_result_5_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_result_5_inv;
@@ -173,7 +173,7 @@ struct lookup_addressing_relative_overflow_result_6_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_6";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_6_;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_do_overflow_check_6_;
     static constexpr Column DST_SELECTOR = Column::gt_sel_addressing;
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_result_6_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_result_6_inv;

@@ -14,7 +14,7 @@ import {
   getMessageHashFromIntent,
   lookupValidity,
 } from '@aztec/aztec.js';
-import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
+import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -84,9 +84,7 @@ export abstract class BaseTestWallet extends BaseWallet {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
       const chainInfo = await this.getChainInfo();
-      account = new SignerlessAccount(
-        new DefaultMultiCallEntrypoint(chainInfo.chainId.toNumber(), chainInfo.version.toNumber()),
-      );
+      account = new SignerlessAccount(chainInfo);
     } else {
       account = this.accounts.get(address?.toString() ?? '');
     }
@@ -199,12 +197,11 @@ export abstract class BaseTestWallet extends BaseWallet {
       const feeOptions = opts.fee?.estimateGas
         ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
         : await this.getDefaultFeeOptions(opts.from, opts.fee);
-      const feeExecutionPayload = await feeOptions.paymentMethod?.getExecutionPayload();
-      const executionOptions = {
+      const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
+      const executionOptions: DefaultAccountEntrypointOptions = {
         txNonce: Fr.random(),
         cancellable: this.cancellableTransactions,
-        isFeePayer: feeOptions.isFeePayer,
-        endSetup: feeOptions.endSetup,
+        feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions,
       };
       const finalExecutionPayload = feeExecutionPayload
         ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])

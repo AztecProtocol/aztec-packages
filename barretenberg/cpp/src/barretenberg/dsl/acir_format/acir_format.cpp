@@ -661,7 +661,7 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const Progr
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 
-    Builder builder{ metadata.size_hint, witness, constraints.public_inputs, constraints.varnum, metadata.recursive };
+    Builder builder{ metadata.size_hint, witness, constraints.public_inputs, constraints.varnum };
 
     build_constraints(builder, program, metadata);
 

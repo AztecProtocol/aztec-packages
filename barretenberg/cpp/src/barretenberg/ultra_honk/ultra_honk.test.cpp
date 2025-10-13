@@ -420,9 +420,9 @@ TYPED_TEST(UltraHonkTests, NonTrivialTagPermutation)
     auto d_idx = circuit_builder.add_variable(a);
 
     circuit_builder.create_add_gate(
-        { a_idx, b_idx, circuit_builder.zero_idx, fr::one(), fr::one(), fr::zero(), fr::zero() });
+        { a_idx, b_idx, circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), fr::zero() });
     circuit_builder.create_add_gate(
-        { c_idx, d_idx, circuit_builder.zero_idx, fr::one(), fr::one(), fr::zero(), fr::zero() });
+        { c_idx, d_idx, circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), fr::zero() });
 
     circuit_builder.create_tag(1, 2);
     circuit_builder.create_tag(2, 1);
@@ -464,11 +464,11 @@ TYPED_TEST(UltraHonkTests, NonTrivialTagPermutationAndCycles)
     circuit_builder.assign_tag(g_idx, 2);
 
     circuit_builder.create_add_gate(
-        { b_idx, a_idx, circuit_builder.zero_idx, fr::one(), fr::neg_one(), fr::zero(), fr::zero() });
+        { b_idx, a_idx, circuit_builder.zero_idx(), fr::one(), fr::neg_one(), fr::zero(), fr::zero() });
     circuit_builder.create_add_gate(
-        { c_idx, g_idx, circuit_builder.zero_idx, fr::one(), -fr::one(), fr::zero(), fr::zero() });
+        { c_idx, g_idx, circuit_builder.zero_idx(), fr::one(), -fr::one(), fr::zero(), fr::zero() });
     circuit_builder.create_add_gate(
-        { e_idx, f_idx, circuit_builder.zero_idx, fr::one(), -fr::one(), fr::zero(), fr::zero() });
+        { e_idx, f_idx, circuit_builder.zero_idx(), fr::one(), -fr::one(), fr::zero(), fr::zero() });
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
@@ -486,8 +486,8 @@ TYPED_TEST(UltraHonkTests, BadTagPermutation)
         auto c_idx = circuit_builder.add_variable(b);
         auto d_idx = circuit_builder.add_variable(a + 1);
 
-        circuit_builder.create_add_gate({ a_idx, b_idx, circuit_builder.zero_idx, 1, 1, 0, 0 });
-        circuit_builder.create_add_gate({ c_idx, d_idx, circuit_builder.zero_idx, 1, 1, 0, -1 });
+        circuit_builder.create_add_gate({ a_idx, b_idx, circuit_builder.zero_idx(), 1, 1, 0, 0 });
+        circuit_builder.create_add_gate({ c_idx, d_idx, circuit_builder.zero_idx(), 1, 1, 0, -1 });
 
         circuit_builder.create_tag(1, 2);
         circuit_builder.create_tag(2, 1);
@@ -511,8 +511,8 @@ TYPED_TEST(UltraHonkTests, BadTagPermutation)
         auto c_idx = circuit_builder.add_variable(b);
         auto d_idx = circuit_builder.add_variable(a + 1);
 
-        circuit_builder.create_add_gate({ a_idx, b_idx, circuit_builder.zero_idx, 1, 1, 0, 0 });
-        circuit_builder.create_add_gate({ c_idx, d_idx, circuit_builder.zero_idx, 1, 1, 0, -1 });
+        circuit_builder.create_add_gate({ a_idx, b_idx, circuit_builder.zero_idx(), 1, 1, 0, 0 });
+        circuit_builder.create_add_gate({ c_idx, d_idx, circuit_builder.zero_idx(), 1, 1, 0, -1 });
         TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
@@ -664,7 +664,7 @@ TYPED_TEST(UltraHonkTests, RangeConstraint)
             circuit_builder.create_new_range_constraint(indices[i], 3);
         }
         // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
-        circuit_builder.create_dummy_constraints(indices);
+        circuit_builder.create_unconstrained_gates(indices);
 
         TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -689,7 +689,7 @@ TYPED_TEST(UltraHonkTests, RangeConstraint)
         for (size_t i = 0; i < indices.size(); i++) {
             circuit_builder.create_new_range_constraint(indices[i], 128);
         }
-        circuit_builder.create_dummy_constraints(indices);
+        circuit_builder.create_unconstrained_gates(indices);
 
         TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -702,7 +702,7 @@ TYPED_TEST(UltraHonkTests, RangeConstraint)
         for (size_t i = 0; i < indices.size(); i++) {
             circuit_builder.create_new_range_constraint(indices[i], 79);
         }
-        circuit_builder.create_dummy_constraints(indices);
+        circuit_builder.create_unconstrained_gates(indices);
 
         TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -715,7 +715,7 @@ TYPED_TEST(UltraHonkTests, RangeConstraint)
         for (size_t i = 0; i < indices.size(); i++) {
             circuit_builder.create_new_range_constraint(indices[i], 79);
         }
-        circuit_builder.create_dummy_constraints(indices);
+        circuit_builder.create_unconstrained_gates(indices);
 
         TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -731,12 +731,14 @@ TYPED_TEST(UltraHonkTests, RangeWithGates)
         circuit_builder.create_new_range_constraint(idx[i], 8);
     }
 
-    circuit_builder.create_add_gate({ idx[0], idx[1], circuit_builder.zero_idx, fr::one(), fr::one(), fr::zero(), -3 });
-    circuit_builder.create_add_gate({ idx[2], idx[3], circuit_builder.zero_idx, fr::one(), fr::one(), fr::zero(), -7 });
     circuit_builder.create_add_gate(
-        { idx[4], idx[5], circuit_builder.zero_idx, fr::one(), fr::one(), fr::zero(), -11 });
+        { idx[0], idx[1], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -3 });
     circuit_builder.create_add_gate(
-        { idx[6], idx[7], circuit_builder.zero_idx, fr::one(), fr::one(), fr::zero(), -15 });
+        { idx[2], idx[3], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -7 });
+    circuit_builder.create_add_gate(
+        { idx[4], idx[5], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -11 });
+    circuit_builder.create_add_gate(
+        { idx[6], idx[7], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -15 });
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -751,12 +753,14 @@ TYPED_TEST(UltraHonkTests, RangeWithGatesWhereRangeIsNotAPowerOfTwo)
         circuit_builder.create_new_range_constraint(idx[i], 12);
     }
 
-    circuit_builder.create_add_gate({ idx[0], idx[1], circuit_builder.zero_idx, fr::one(), fr::one(), fr::zero(), -3 });
-    circuit_builder.create_add_gate({ idx[2], idx[3], circuit_builder.zero_idx, fr::one(), fr::one(), fr::zero(), -7 });
     circuit_builder.create_add_gate(
-        { idx[4], idx[5], circuit_builder.zero_idx, fr::one(), fr::one(), fr::zero(), -11 });
+        { idx[0], idx[1], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -3 });
     circuit_builder.create_add_gate(
-        { idx[6], idx[7], circuit_builder.zero_idx, fr::one(), fr::one(), fr::zero(), -15 });
+        { idx[2], idx[3], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -7 });
+    circuit_builder.create_add_gate(
+        { idx[4], idx[5], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -11 });
+    circuit_builder.create_add_gate(
+        { idx[6], idx[7], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -15 });
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -819,7 +823,7 @@ TYPED_TEST(UltraHonkTests, ComposedRangeConstraint)
     auto d = uint256_t(c).slice(0, 133);
     auto e = fr(d);
     auto a_idx = circuit_builder.add_variable(fr(e));
-    circuit_builder.create_add_gate({ a_idx, circuit_builder.zero_idx, circuit_builder.zero_idx, 1, 0, 0, -fr(e) });
+    circuit_builder.create_add_gate({ a_idx, circuit_builder.zero_idx(), circuit_builder.zero_idx(), 1, 0, 0, -fr(e) });
     circuit_builder.decompose_into_default_range(a_idx, 134);
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
@@ -984,9 +988,9 @@ TYPED_TEST(UltraHonkTests, Ram)
         true);
     circuit_builder.create_big_add_gate(
         {
-            circuit_builder.zero_idx,
-            circuit_builder.zero_idx,
-            circuit_builder.zero_idx,
+            circuit_builder.zero_idx(),
+            circuit_builder.zero_idx(),
+            circuit_builder.zero_idx(),
             e_idx,
             0,
             0,

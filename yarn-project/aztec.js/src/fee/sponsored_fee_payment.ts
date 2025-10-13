@@ -4,13 +4,6 @@ import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
 
-/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
-
-/** AppConfigurableFeePaymentMethod branding */
-export interface SponsoredFeePaymentMethod {
-  /** Brand. */
-  _branding: 'AppConfigurableFeePaymentMethod';
-}
 /**
  * A fee payment method that uses a contract that blindly sponsors transactions.
  * This contract is expected to be prefunded in testing environments.

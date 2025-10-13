@@ -86,11 +86,7 @@ mod tests {
         },
     };
     use dep::types::{
-        abis::{
-            gas::Gas, kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
-            note_hash::ScopedNoteHash, nullifier::ScopedNullifier, private_log::PrivateLogData,
-            side_effect::scoped::Scoped,
-        },
+        abis::{gas::Gas, kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs},
         address::{AztecAddress, EthAddress},
         point::Point,
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
@@ -198,11 +194,8 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        let output_nullifiers = builder
-            .previous_kernel
-            .nullifiers
-            .storage()
-            .map(|n: ScopedNullifier| n.nullifier.value);
+        let output_nullifiers =
+            builder.previous_kernel.nullifiers.storage().map(|n| n.expose_to_public());
 
         assert_array_eq(
             public_inputs.non_revertible_accumulated_data.nullifiers,
@@ -235,11 +228,8 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        let exposed_note_hashes = builder
-            .previous_kernel
-            .note_hashes
-            .storage()
-            .map(|n: ScopedNoteHash| n.note_hash.value);
+        let exposed_note_hashes =
+            builder.previous_kernel.note_hashes.storage().map(|n| n.expose_to_public());
 
         assert_array_eq(
             public_inputs.non_revertible_accumulated_data.note_hashes,
@@ -272,11 +262,8 @@ mod tests {
         // expect 2 revertible note hashes
         builder.previous_kernel.append_siloed_private_logs_for_note(3, 12);
 
-        let exposed_private_logs = builder
-            .previous_kernel
-            .private_logs
-            .storage()
-            .map(|l: Scoped<PrivateLogData>| l.expose_to_public());
+        let exposed_private_logs =
+            builder.previous_kernel.private_logs.storage().map(|l| l.expose_to_public());
 
         let public_inputs = builder.execute();
 
@@ -322,7 +309,7 @@ mod tests {
     fn first_nullifier_validation() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         let mut first_nullifier = builder.previous_kernel.nullifiers.get(0);
-        first_nullifier.nullifier.value += 1;
+        first_nullifier.inner.inner.value += 1;
         builder.previous_kernel.nullifiers.set(0, first_nullifier);
         builder.failed();
     }
@@ -331,7 +318,7 @@ mod tests {
     fn first_nullifier_non_revertible_validation() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         let mut first_nullifier = builder.previous_kernel.nullifiers.get(0);
-        first_nullifier.nullifier.counter =
+        first_nullifier.inner.counter =
             builder.previous_kernel.min_revertible_side_effect_counter + 1;
         builder.previous_kernel.nullifiers.set(0, first_nullifier);
         builder.failed();
@@ -493,7 +480,8 @@ mod tests {
         let public_inputs = builder.execute();
 
         // Note hashes.
-        let note_hashes = builder.previous_kernel.note_hashes.storage().map(|n| n.note_hash.value);
+        let note_hashes =
+            builder.previous_kernel.note_hashes.storage().map(|n| n.expose_to_public());
         assert_array_eq(
             public_inputs.non_revertible_accumulated_data.note_hashes,
             [note_hashes[0], note_hashes[1], note_hashes[5], note_hashes[6], note_hashes[7]],
@@ -504,7 +492,7 @@ mod tests {
         );
 
         // Nullifiers.
-        let nullifiers = builder.previous_kernel.nullifiers.storage().map(|n| n.nullifier.value);
+        let nullifiers = builder.previous_kernel.nullifiers.storage().map(|n| n.expose_to_public());
         assert_array_eq(
             public_inputs.non_revertible_accumulated_data.nullifiers,
             [nullifiers[0], nullifiers[1], nullifiers[2], nullifiers[5]],
@@ -515,7 +503,8 @@ mod tests {
         );
 
         // Private logs.
-        let private_logs = builder.previous_kernel.private_logs.storage().map(|l| l.inner.log);
+        let private_logs =
+            builder.previous_kernel.private_logs.storage().map(|l| l.innermost().log);
         assert_array_eq(
             public_inputs.non_revertible_accumulated_data.private_logs,
             [private_logs[0], private_logs[4]],

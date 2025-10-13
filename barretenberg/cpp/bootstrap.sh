@@ -8,17 +8,26 @@ export native_preset=${NATIVE_PRESET:-clang20}
 export pic_preset=${PIC_PRESET:-clang20-pic}
 export hash=$(cache_content_hash .rebuild_patterns)
 
-if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
-  # Enable AVM for release builds (when REF_NAME is a valid semver), disable for CI/PR builds
-  if ! semver check "${REF_NAME:-}"; then
-    export DISABLE_AZTEC_VM=1
-  fi
-fi
-
 if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
   # Make sure the different envs don't read from each other's caches.
   export hash="$hash-no-avm"
 fi
+
+function ensure_zig {
+  if command -v zig &>/dev/null; then
+    return
+  fi
+  local arch=$(uname -m)
+  local zig_version=0.15.1
+  local bin_path=/opt/zig-${arch}-linux-${zig_version}
+  if [ -f $bin_path/zig ]; then
+    export PATH="$bin_path:$PATH"
+    return
+  fi
+  echo "Installing zig $zig_version..."
+  curl -sL https://ziglang.org/download/$zig_version/zig-${arch}-linux-$zig_version.tar.xz | sudo tar -xJ -C /opt
+  export PATH="$bin_path:$PATH"
+}
 
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
@@ -48,7 +57,11 @@ function build_preset() {
   local preset=$1
   shift
   # DISABLE_AZTEC_VM is set to 1 in CI for arm64, or in dev usage if you export DISABLE_AZTEC_VM=1
-  cmake --fresh --preset "$preset" ${DISABLE_AZTEC_VM:+-DDISABLE_AZTEC_VM=$DISABLE_AZTEC_VM}
+  local cmake_args=()
+  if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
+    cmake_args+=(-DDISABLE_AZTEC_VM=1 -DAVM_TRANSPILER_LIB="")
+  fi
+  cmake --fresh --preset "$preset" "${cmake_args[@]}"
   cmake --build --preset "$preset" "$@"
 }
 
@@ -76,28 +89,33 @@ function build_asan_fast {
 
 function build_nodejs_module {
   set -eu
+  ensure_zig
   (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
   if ! cache_download barretenberg-native-nodejs-module-$hash.zst; then
-    build_preset $pic_preset --target nodejs_module
-    cache_upload barretenberg-native-nodejs-module-$hash.zst build-pic/lib/nodejs_module.node
+    parallel --line-buffered --tag --halt now,fail=1 build_preset ::: \
+      zig-node-amd64-linux \
+      zig-node-arm64-linux \
+      zig-node-amd64-macos \
+      zig-node-arm64-macos
+    cache_upload barretenberg-native-nodejs-module-$hash.zst build-zig-*-*/lib/nodejs_module.node
   fi
 }
 
-function build_darwin {
+function build_darwin_arm64 {
   set -eu
-  local arch=${1:-$(arch)}
-  if ! cache_download barretenberg-darwin-$hash.zst; then
-    # Download sdk.
-    local osx_sdk="MacOSX14.0.sdk"
-    if ! [ -d "/opt/osxcross/SDK/$osx_sdk" ]; then
-      echo "Downloading $osx_sdk..."
-      local osx_sdk_url="https://github.com/joseluisq/macosx-sdks/releases/download/14.0/${osx_sdk}.tar.xz"
-      curl -sSL "$osx_sdk_url" | sudo tar -xJ -C /opt/osxcross/SDK
-      sudo rm -rf /opt/osxcross/SDK/$osx_sdk/System
-    fi
+  ensure_zig
+  if ! cache_download barretenberg-arm64-macos-$hash.zst; then
+    build_preset zig-arm64-macos --target bb
+    cache_upload barretenberg-arm64-macos-$hash.zst build-zig-arm64-macos/bin
+  fi
+}
 
-    build_preset darwin-$arch --target bb
-    cache_upload barretenberg-darwin-$hash.zst build-darwin-$arch/bin
+function build_darwin_amd64 {
+  set -eu
+  ensure_zig
+  if ! cache_download barretenberg-amd64-macos-$hash.zst; then
+    build_preset zig-amd64-macos --target bb
+    cache_upload barretenberg-amd64-macos-$hash.zst build-zig-amd64-macos/bin
   fi
 }
 
@@ -154,13 +172,18 @@ function build_smt_verification {
     return
   fi
 
-  sudo apt update && sudo apt install -y python3-pip python3-venv m4 bison
+  if ! dpkg -l python3-pip python3-venv m4 bison >/dev/null 2>&1; then
+    sudo apt update && sudo apt install -y python3-pip python3-venv m4 bison
+  fi
   cmake --preset smt-verification
- 
+
   cvc5_cmake_hash=$(cache_content_hash ^barretenberg/cpp/src/barretenberg/smt_verification/CMakeLists.txt)
-  if ! cache_download barretenberg-cvc5-$cvc5_cmake_hash.zst; then
-      cmake --build build-smt --target cvc5
-      cache_upload barretenberg-cvc5-$cvc5_cmake_hash.zst build-smt/_deps/cvc5
+  if cache_download barretenberg-cvc5-$cvc5_cmake_hash.zst; then
+    # Restore machine-dependent paths after downloading cache
+    find build-smt/_deps/cvc5 -type f -name "*.cmake" -exec sed -i "s|/workspace|$(pwd)|g" {} \;
+  else
+    cmake --build build-smt --target cvc5
+    cache_upload barretenberg-cvc5-$cvc5_cmake_hash.zst build-smt/_deps/cvc5
   fi
 
   cmake --build build-smt --target smt_verification_tests
@@ -176,19 +199,41 @@ function build_release {
   inject_version build-release/bb
   tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build-release --remove-files bb
 
-  # Only release wasms built on amd64.
+  # Only release wasms and macOS builds on amd64.
   if [ "$arch" == "amd64" ]; then
     tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
     tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
     tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
     tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
+
+    # Download ldid for code signing
+    if [ ! -f build/ldid ]; then
+      echo "Downloading ldid for macOS code signing..."
+      curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 -o build/ldid
+      chmod +x build/ldid
+    fi
+
+    if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
+      # Package arm64-macos
+      cp build-zig-arm64-macos/bin/bb build-release/bb
+      inject_version build-release/bb
+      build/ldid -S build-release/bb
+      tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb
+
+      # Package amd64-macos
+      cp build-zig-amd64-macos/bin/bb build-release/bb
+      inject_version build-release/bb
+      build/ldid -S build-release/bb
+      tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
+    fi
   fi
 }
 
-export -f build_preset build_native build_asan_fast build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
+export -f ensure_zig build_preset build_native build_asan_fast build_darwin_amd64 build_darwin_arm64 build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
 
 function build {
   echo_header "bb cpp build"
+  ensure_zig
   builds=(
     build_native
     build_nodejs_module
@@ -198,8 +243,10 @@ function build {
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
     builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast build_smt_verification)
   fi
-  if [ "$CI_FULL" -eq 1 ]; then
-    builds+=(build_darwin)
+  if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
+    # macOS builds require the avm-transpiler linked.
+    # We build them using zig cross-compilation.
+    builds+=(build_darwin_arm64 build_darwin_amd64)
   fi
   parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${builds[@]}
   build_release
@@ -361,7 +408,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench|bench_cmds|build_bench|release|build_native|build_nodejs_module|build_asan_fast|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|build_smt_verification|inject_version)
+  test|test_cmds|bench|bench_cmds|build_bench|release|build_native|build_nodejs_module|build_asan_fast|build_darwin_arm64|build_darwin_amd64|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|build_smt_verification|inject_version)
     $cmd "$@"
     ;;
   *)

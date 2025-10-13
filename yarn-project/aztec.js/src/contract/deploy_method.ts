@@ -23,14 +23,14 @@ import { DeployProvenTx } from './deploy_proven_tx.js';
 import { DeploySentTx } from './deploy_sent_tx.js';
 import { getGasLimits } from './get_gas_limits.js';
 import {
-  type ProfileMethodOptions,
-  type RequestMethodOptions,
-  type SendMethodOptions,
+  type ProfileInteractionOptions,
+  type RequestInteractionOptions,
+  type SendInteractionOptions,
   type SimulationInteractionFeeOptions,
   type SimulationReturn,
-  sanitizeProfileOptions,
-  sanitizeSendOptions,
-  sanitizeSimulateOptions,
+  toProfileOptions,
+  toSendOptions,
+  toSimulateOptions,
 } from './interaction_options.js';
 
 /**
@@ -38,7 +38,7 @@ import {
  * Allows specifying a contract address salt and different options to tweak contract publication
  * and initialization
  */
-export type RequestDeployOptions = RequestMethodOptions & {
+export type RequestDeployOptions = RequestInteractionOptions & {
   /** An optional salt value used to deterministically calculate the contract address. */
   contractAddressSalt?: Fr;
   /**
@@ -63,7 +63,7 @@ export type DeployOptions = Omit<RequestDeployOptions, 'deployer'> & {
    * is mutually exclusive with "deployer"
    */
   universalDeploy?: boolean;
-} & Pick<SendMethodOptions, 'from' | 'fee'>;
+} & Pick<SendInteractionOptions, 'from' | 'fee'>;
 // docs:end:deploy_options
 // TODO(@spalladino): Add unit tests for this class!
 
@@ -231,7 +231,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
 
   override async proveInternal(options: DeployOptions): Promise<TxProvingResult> {
     const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
-    const proveOptions = await sanitizeSendOptions(options);
+    const proveOptions = await toSendOptions(options);
     return await this.wallet.proveTx(executionPayload, proveOptions);
   }
 
@@ -295,7 +295,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public async simulate(options: SimulateDeployOptions): Promise<SimulationReturn<true>> {
     const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
-    const simulatedTx = await this.wallet.simulateTx(executionPayload, await sanitizeSimulateOptions(options));
+    const simulatedTx = await this.wallet.simulateTx(executionPayload, await toSimulateOptions(options));
 
     const { gasLimits, teardownGasLimits } = getGasLimits(simulatedTx, options.fee?.estimatedGasPadding);
     this.log.verbose(
@@ -315,10 +315,10 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    *
    * @returns An object containing the function return value and profile result.
    */
-  public async profile(options: DeployOptions & ProfileMethodOptions): Promise<TxProfileResult> {
+  public async profile(options: DeployOptions & ProfileInteractionOptions): Promise<TxProfileResult> {
     const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
     return await this.wallet.profileTx(executionPayload, {
-      ...(await sanitizeProfileOptions(options)),
+      ...(await toProfileOptions(options)),
       profileMode: options.profileMode,
       skipProofGeneration: options.skipProofGeneration,
     });

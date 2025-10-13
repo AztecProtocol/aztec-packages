@@ -1,8 +1,8 @@
 import {
-  type AppConfigurableFeePaymentMethod,
   AztecAddress,
   type AztecNode,
   FeeJuicePaymentMethodWithClaim,
+  type FeePaymentMethod,
   type Logger,
   PrivateFeePaymentMethod,
   SponsoredFeePaymentMethod,
@@ -49,10 +49,7 @@ import { type ClientFlowsConfig, FULL_FLOWS_CONFIG, KEY_FLOWS_CONFIG } from './c
 const { E2E_DATA_PATH: dataPath, BENCHMARK_CONFIG } = process.env;
 
 export type AccountType = 'ecdsar1' | 'schnorr';
-export type FeePaymentMethodGetter = (
-  wallet: Wallet,
-  sender: AztecAddress,
-) => Promise<AppConfigurableFeePaymentMethod | undefined>;
+export type FeePaymentMethodGetter = (wallet: Wallet, sender: AztecAddress) => Promise<FeePaymentMethod | undefined>;
 export type BenchmarkingFeePaymentMethod = 'bridged_fee_juice' | 'private_fpc' | 'sponsored_fpc' | 'fee_juice';
 
 export class ClientFlowsBenchmark {

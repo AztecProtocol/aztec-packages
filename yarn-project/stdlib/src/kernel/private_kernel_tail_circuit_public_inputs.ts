@@ -173,7 +173,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       this.constants.anchorBlockHeader,
       this.constants.txContext,
       this.constants.vkTreeRoot,
-      this.constants.protocolContractTreeRoot,
+      this.constants.protocolContractsHash,
     );
     return new PrivateToRollupKernelCircuitPublicInputs(
       constants,

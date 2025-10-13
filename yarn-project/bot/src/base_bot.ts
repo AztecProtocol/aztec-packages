@@ -2,7 +2,7 @@ import {
   AztecAddress,
   BatchCall,
   ContractFunctionInteraction,
-  type SendMethodOptions,
+  type SendInteractionOptions,
   SentTx,
   TxHash,
   TxReceipt,
@@ -11,7 +11,7 @@ import {
 } from '@aztec/aztec.js';
 import { Gas } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import type { BotConfig } from './config.js';
 
@@ -71,7 +71,9 @@ export abstract class BaseBot {
     return Promise.resolve();
   }
 
-  protected async getSendMethodOpts(interaction: ContractFunctionInteraction | BatchCall): Promise<SendMethodOptions> {
+  protected async getSendMethodOpts(
+    interaction: ContractFunctionInteraction | BatchCall,
+  ): Promise<SendInteractionOptions> {
     const { l2GasLimit, daGasLimit, baseFeePadding } = this.config;
 
     this.wallet.setBaseFeePadding(baseFeePadding);

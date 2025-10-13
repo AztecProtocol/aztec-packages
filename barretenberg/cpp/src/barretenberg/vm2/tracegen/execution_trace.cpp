@@ -34,6 +34,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_send_l2_to_l1_msg.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
+#include "barretenberg/vm2/generated/relations/perms_data_copy.hpp"
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -83,13 +84,12 @@ constexpr std::array<Column, AVM_MAX_OPERANDS> OPERAND_RELATIVE_OVERFLOW_COLUMNS
     C::execution_sel_relative_overflow_3_, C::execution_sel_relative_overflow_4_, C::execution_sel_relative_overflow_5_,
     C::execution_sel_relative_overflow_6_,
 };
-constexpr std::array<Column, AVM_MAX_OPERANDS> OPERAND_IS_RELATIVE_EFFECTIVE_COLUMNS = {
-    C::execution_sel_op_is_relative_effective_0_, C::execution_sel_op_is_relative_effective_1_,
-    C::execution_sel_op_is_relative_effective_2_, C::execution_sel_op_is_relative_effective_3_,
-    C::execution_sel_op_is_relative_effective_4_, C::execution_sel_op_is_relative_effective_5_,
-    C::execution_sel_op_is_relative_effective_6_,
+constexpr std::array<Column, AVM_MAX_OPERANDS> OPERAND_IS_RELATIVE_VALID_BASE_COLUMNS = {
+    C::execution_sel_op_do_overflow_check_0_, C::execution_sel_op_do_overflow_check_1_,
+    C::execution_sel_op_do_overflow_check_2_, C::execution_sel_op_do_overflow_check_3_,
+    C::execution_sel_op_do_overflow_check_4_, C::execution_sel_op_do_overflow_check_5_,
+    C::execution_sel_op_do_overflow_check_6_,
 };
-
 constexpr size_t TOTAL_INDIRECT_BITS = 16;
 static_assert(AVM_MAX_OPERANDS * 2 <= TOTAL_INDIRECT_BITS);
 constexpr std::array<Column, TOTAL_INDIRECT_BITS / 2> OPERAND_IS_RELATIVE_WIRE_COLUMNS = {
@@ -301,7 +301,6 @@ void ExecutionTraceBuilder::process(
     FailingContexts failures = preprocess_for_discard(ex_events);
 
     uint32_t last_seen_parent_id = 0;
-    FF cached_parent_id_inv = 0;
 
     // Some variables updated per loop iteration to track
     // whether or not the upcoming row should "discard" [side effects].
@@ -318,14 +317,13 @@ void ExecutionTraceBuilder::process(
             is_phase_discarded(ex_event.after_context_event.phase, failures)) {
             discard = 1;
             dying_context_id = dying_context_for_phase(ex_event.after_context_event.phase, failures);
-            dying_context_id_inv = FF(dying_context_id).invert();
+            dying_context_id_inv = dying_context_id; // Will be inverted in batch later.
         }
 
         // Cache the parent id inversion since we will repeatedly just be doing the same expensive inversion
         bool has_parent = ex_event.after_context_event.parent_id != 0;
         if (last_seen_parent_id != ex_event.after_context_event.parent_id) {
             last_seen_parent_id = ex_event.after_context_event.parent_id;
-            cached_parent_id_inv = has_parent ? FF(ex_event.after_context_event.parent_id).invert() : 0;
         }
 
         /**************************************************************************************************
@@ -428,7 +426,7 @@ void ExecutionTraceBuilder::process(
                   ex_event.after_context_event.side_effect_states.numL2ToL1Messages },
                 // Helpers for identifying parent context
                 { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
-                { C::execution_is_parent_id_inv, cached_parent_id_inv },
+                { C::execution_is_parent_id_inv, has_parent ? last_seen_parent_id : 0 },
             } });
 
         // Internal stack
@@ -620,9 +618,7 @@ void ExecutionTraceBuilder::process(
             } else if (exec_opcode == ExecutionOpCode::INTERNALRETURN) {
                 trace.set(C::execution_internal_call_return_id_inv,
                           row,
-                          ex_event.before_context_event.internal_call_return_id != 0
-                              ? FF(ex_event.before_context_event.internal_call_return_id).invert()
-                              : 0);
+                          ex_event.before_context_event.internal_call_return_id); // Will be inverted in batch later.
             } else if (exec_opcode == ExecutionOpCode::SSTORE) {
                 uint32_t remaining_data_writes = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX -
                                                  ex_event.before_context_event.tree_states.publicDataTree.counter;
@@ -631,7 +627,7 @@ void ExecutionTraceBuilder::process(
                           { {
                               { C::execution_max_data_writes_reached, remaining_data_writes == 0 },
                               { C::execution_remaining_data_writes_inv,
-                                remaining_data_writes == 0 ? 0 : FF(remaining_data_writes).invert() },
+                                remaining_data_writes }, // Will be inverted in batch later.
                               { C::execution_sel_write_public_data, !opcode_execution_failed },
                           } });
             } else if (exec_opcode == ExecutionOpCode::NOTEHASHEXISTS) {
@@ -652,7 +648,7 @@ void ExecutionTraceBuilder::process(
                           { {
                               { C::execution_sel_reached_max_note_hashes, remaining_note_hashes == 0 },
                               { C::execution_remaining_note_hashes_inv,
-                                remaining_note_hashes == 0 ? 0 : FF(remaining_note_hashes).invert() },
+                                remaining_note_hashes }, // Will be inverted in batch later.
                               { C::execution_sel_write_note_hash, !opcode_execution_failed },
                           } });
             } else if (exec_opcode == ExecutionOpCode::L1TOL2MSGEXISTS) {
@@ -675,7 +671,7 @@ void ExecutionTraceBuilder::process(
                           { {
                               { C::execution_sel_reached_max_nullifiers, remaining_nullifiers == 0 },
                               { C::execution_remaining_nullifiers_inv,
-                                remaining_nullifiers == 0 ? 0 : FF(remaining_nullifiers).invert() },
+                                remaining_nullifiers }, // Will be inverted in batch later.
                               { C::execution_sel_write_nullifier,
                                 remaining_nullifiers != 0 && !ex_event.before_context_event.is_static },
                           } });
@@ -686,7 +682,7 @@ void ExecutionTraceBuilder::process(
                 trace.set(row,
                           { { { C::execution_sel_l2_to_l1_msg_limit_error, remaining_l2_to_l1_msgs == 0 },
                               { C::execution_remaining_l2_to_l1_msgs_inv,
-                                remaining_l2_to_l1_msgs == 0 ? 0 : FF(remaining_l2_to_l1_msgs).invert() },
+                                remaining_l2_to_l1_msgs }, // Will be inverted in batch later.
                               { C::execution_sel_write_l2_to_l1_msg, !opcode_execution_failed && !discard },
                               {
                                   C::execution_public_inputs_index,
@@ -716,9 +712,7 @@ void ExecutionTraceBuilder::process(
         if (!is_dying_context) {
             // Compute inversion when context_id != dying_context_id
             FF diff = FF(ex_event.after_context_event.id) - FF(dying_context_id);
-            if (!diff.is_zero()) {
-                dying_context_diff_inv = diff.invert();
-            }
+            dying_context_diff_inv = diff; // Will be inverted in batch later.
         }
 
         // Needed for bc retrieval
@@ -771,7 +765,7 @@ void ExecutionTraceBuilder::process(
             // context is dying. NOTE: if a [STATIC]CALL instruction _itself_ errors, we don't set the
             // discard flag because we aren't actually entering a new context!
             dying_context_id = ex_event.next_context_id;
-            dying_context_id_inv = FF(dying_context_id).invert();
+            dying_context_id_inv = dying_context_id; // Will be inverted in batch later.
             discard = 1;
         }
         // Otherwise, we aren't entering or exiting a dying context,
@@ -791,6 +785,9 @@ void ExecutionTraceBuilder::process(
     if (!ex_events.empty()) {
         trace.set(C::execution_last, row - 1, 1);
     }
+
+    // Batch invert the columns.
+    invert_columns(trace);
 }
 
 void ExecutionTraceBuilder::process_instr_fetching(const simulation::Instruction& instruction,
@@ -915,19 +912,26 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     std::array<uint8_t, AVM_MAX_OPERANDS> resolved_operand_tag{};
     uint8_t num_relative_operands = 0;
 
+    bool base_address_invalid = false;
+    bool do_base_check = false;
+
     // Gather operand information.
     for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
         const auto& resolution_info = resolution_info_vec.at(i);
         bool op_is_address = i < ex_spec.num_addresses;
         relative_oob[i] = resolution_info.error.has_value() &&
                           *resolution_info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB;
+        base_address_invalid =
+            base_address_invalid ||
+            (resolution_info.error.has_value() && *resolution_info.error == AddressingEventError::BASE_ADDRESS_INVALID);
         is_indirect_effective[i] = op_is_address && is_operand_indirect(instruction.indirect, i);
         is_relative_effective[i] = op_is_address && is_operand_relative(instruction.indirect, i);
-        should_apply_indirection[i] = is_indirect_effective[i] && !relative_oob[i];
+        should_apply_indirection[i] = is_indirect_effective[i] && !relative_oob[i] && !base_address_invalid;
         resolved_operand_tag[i] = static_cast<uint8_t>(resolution_info.resolved_operand.get_tag());
         after_relative[i] = resolution_info.after_relative;
         resolved_operand[i] = resolution_info.resolved_operand;
         if (is_relative_effective[i]) {
+            do_base_check = true;
             num_relative_operands++;
         }
     }
@@ -939,7 +943,8 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                       { OPERAND_RELATIVE_OVERFLOW_COLUMNS[i], relative_oob[i] ? 1 : 0 },
                       { OPERAND_AFTER_RELATIVE_COLUMNS[i], after_relative[i] },
                       { OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS[i], should_apply_indirection[i] ? 1 : 0 },
-                      { OPERAND_IS_RELATIVE_EFFECTIVE_COLUMNS[i], is_relative_effective[i] ? 1 : 0 },
+                      { OPERAND_IS_RELATIVE_VALID_BASE_COLUMNS[i],
+                        is_relative_effective[i] && !base_address_invalid ? 1 : 0 },
                       { RESOLVED_OPERAND_COLUMNS[i], resolved_operand[i] },
                       { RESOLVED_OPERAND_TAG_COLUMNS[i], resolved_operand_tag[i] },
                   } });
@@ -957,14 +962,10 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                   } });
     }
 
-    // Base address check.
-    bool do_base_check = num_relative_operands != 0;
-    bool base_address_invalid = do_base_check && addr_event.base_address.get_tag() != MemoryTag::U32;
-    FF base_address_tag_diff_inv =
-        base_address_invalid
-            ? (FF(static_cast<uint8_t>(addr_event.base_address.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::U32)))
-                  .invert()
-            : 0;
+    // Inverse when base address is invalid.
+    FF base_address_tag_diff_inv = base_address_invalid ? FF(static_cast<uint8_t>(addr_event.base_address.get_tag())) -
+                                                              FF(static_cast<uint8_t>(MemoryTag::U32))
+                                                        : 0; // Will be inverted in batch later.
 
     // Tag check after indirection.
     bool some_final_check_failed =
@@ -980,7 +981,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                 FF(is_indirect_effective[i]) * power_of_2 * (FF(resolved_operand_tag[i]) - FF(MEM_TAG_U32));
             power_of_2 *= 8; // 2^3
         }
-        batched_tags_diff_inv = batched_tags_diff != 0 ? batched_tags_diff.invert() : 0;
+        batched_tags_diff_inv = batched_tags_diff; // Will be inverted in batch later.
     }
 
     // Collect addressing errors. See PIL file for reference.
@@ -1005,8 +1006,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                                   }) +
                   // Some invalid address after indirection.
                   (some_final_check_failed ? 1 : 0))
-                  .invert()
-            : 0;
+            : 0; // Will be inverted in batch later.
 
     trace.set(row,
               { {
@@ -1017,10 +1017,35 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                   { C::execution_base_address_tag_diff_inv, base_address_tag_diff_inv },
                   { C::execution_sel_some_final_check_failed, some_final_check_failed ? 1 : 0 },
                   { C::execution_sel_base_address_failure, base_address_invalid ? 1 : 0 },
-                  { C::execution_num_relative_operands_inv, do_base_check ? FF(num_relative_operands).invert() : 0 },
+                  { C::execution_num_relative_operands_inv,
+                    do_base_check ? num_relative_operands : 0 }, // Will be inverted in batch later.
                   { C::execution_sel_do_base_check, do_base_check ? 1 : 0 },
                   { C::execution_highest_address, AVM_HIGHEST_MEM_ADDRESS },
               } });
+}
+
+void ExecutionTraceBuilder::invert_columns(TraceContainer& trace)
+{
+    trace.invert_columns({ {
+        // Registers.
+        C::execution_batched_tags_diff_inv_reg,
+        // Context.
+        C::execution_is_parent_id_inv,
+        C::execution_internal_call_return_id_inv,
+        // Trees.
+        C::execution_remaining_data_writes_inv,
+        C::execution_remaining_note_hashes_inv,
+        C::execution_remaining_nullifiers_inv,
+        // L1ToL2MsgExists.
+        C::execution_remaining_l2_to_l1_msgs_inv,
+        // Discard.
+        C::execution_dying_context_id_inv,
+        C::execution_dying_context_diff_inv,
+        // Addressing.
+        C::execution_addressing_error_collection_inv,
+        C::execution_base_address_tag_diff_inv,
+        C::execution_num_relative_operands_inv,
+    } });
 }
 
 void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
@@ -1082,7 +1107,7 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
             }
             power_of_2 *= 8; // 2^3
         }
-        batched_tags_diff_inv_reg = batched_tags_diff != 0 ? batched_tags_diff.invert() : 0;
+        batched_tags_diff_inv_reg = batched_tags_diff; // Will be inverted in batch later.
     }
 
     trace.set(row,
@@ -1174,6 +1199,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
             Column::gt_sel)
         // Dispatch to gadget sub-traces
         .add<perm_execution_dispatch_keccakf1600_settings, InteractionType::Permutation>()
+        .add<perm_data_copy_dispatch_cd_copy_settings, InteractionType::Permutation>()
+        .add<perm_data_copy_dispatch_rd_copy_settings, InteractionType::Permutation>()
         // GetEnvVar opcode
         .add<lookup_get_env_var_precomputed_info_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_get_env_var_read_from_public_inputs_col0_settings, InteractionType::LookupIntoIndexedByClk>()
@@ -1182,7 +1209,6 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_sload_storage_read_settings, InteractionType::LookupGeneric>()
         // Sstore opcode
         .add<lookup_sstore_record_written_storage_slot_settings, InteractionType::LookupSequential>()
-        .add<lookup_sstore_storage_write_settings, InteractionType::LookupGeneric>()
         // NoteHashExists
         .add<lookup_notehash_exists_note_hash_read_settings, InteractionType::LookupSequential>()
         .add<lookup_notehash_exists_note_hash_leaf_index_in_range_settings, InteractionType::LookupGeneric>(

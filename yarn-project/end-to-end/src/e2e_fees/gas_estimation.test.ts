@@ -1,9 +1,9 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import {
-  type AppConfigurableFeePaymentMethod,
   type AztecAddress,
   type AztecNode,
   type DeployOptions,
+  type FeePaymentMethod,
   PublicFeePaymentMethod,
   type Wallet,
 } from '@aztec/aztec.js';
@@ -60,7 +60,7 @@ describe('e2e_fees gas_estimation', () => {
   // Sends two txs with transfers of public tokens: one with limits based on the estimate, another one without
   const sendTransfers = (
     limits: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>,
-    paymentMethod?: AppConfigurableFeePaymentMethod,
+    paymentMethod?: FeePaymentMethod,
   ) =>
     Promise.all(
       [GasSettings.from({ ...gasSettings, ...limits }), gasSettings].map(gasSettings =>

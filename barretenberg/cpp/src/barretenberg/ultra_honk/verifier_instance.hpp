@@ -13,9 +13,14 @@ namespace bb {
 /**
  * @brief The VerifierInstance encapsulates all the necessary information for a Mega Honk Verifier to verify a
  * proof (sumcheck + Shplemini). In the context of folding, this is returned by the Protogalaxy verifier with non-zero
- * target sum and gate challenges.
+ * target sum.
  *
- * @details This is ϕ in the paper.
+ * @details This is \f$\phi\f$ in the Protogalaxy paper. It is the committed version of a ProverInstance_. With the
+ * notation used in ProverInstance_, a prover instance is \f$\omega = (p_1, \dots, p_M, \theta_1, \dots, \theta_6,
+ * \alpha_{1,1}, \dots, \alpha_{n,r_n})\f$ where the \f$p_i\f$'s are the prover polynomials, the \f$\theta_i\f$'s are
+ * the relation parameters, and the \f$\alpha_{i,j}\f$'s are the subrelation batching parameters. Then, \f$\phi\f$ is
+ * given by \f$\omega = ([p_1], \dots, [p_M], \theta_1, \dots, \theta_6, \alpha_{1,1}, \dots, \alpha_{n,r_n})\f$m where
+ * [p_i] denotes the commitment to the i-th prover polynomial.
  */
 template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
   public:
@@ -50,6 +55,8 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
 
     FF hash_through_transcript(const std::string& domain_separator, Transcript& transcript) const
     {
+        BB_ASSERT_EQ(is_complete, true, "Trying to hash a verifier instance that has not been completed.");
+
         transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_log_circuit_size",
                                                   this->vk->log_circuit_size);
         transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_num_public_inputs",

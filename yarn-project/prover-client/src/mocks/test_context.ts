@@ -6,7 +6,7 @@ import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { ProtocolContractsList } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { SimpleContractDataSource } from '@aztec/simulator/public/fixtures';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
@@ -175,7 +175,7 @@ export class TestContext {
     const tx = await makeBloatedProcessedTx({
       header,
       vkTreeRoot: getVKTreeRoot(),
-      protocolContractTreeRoot,
+      protocolContracts: ProtocolContractsList,
       globalVariables: this.globalVariables,
       feePayer: this.feePayer,
       ...opts,

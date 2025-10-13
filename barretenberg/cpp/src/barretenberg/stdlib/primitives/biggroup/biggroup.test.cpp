@@ -398,6 +398,155 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    static void test_incomplete_assert_equal_success()
+    {
+        // Case 1: Should pass because the points are identical
+        {
+            Builder builder;
+            size_t num_repetitions = 10;
+            for (size_t i = 0; i < num_repetitions; ++i) {
+                affine_element input_a(element::random_element());
+                element_ct a = element_ct::from_witness(&builder, input_a);
+                element_ct b = element_ct::from_witness(&builder, input_a);
+
+                // Set different tags in a and b
+                a.set_origin_tag(submitted_value_origin_tag);
+                b.set_origin_tag(challenge_origin_tag);
+
+                a.incomplete_assert_equal(b, "elements don't match");
+            }
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
+        // Case 2: Should pass because the points are identical and at infinity
+        {
+            Builder builder;
+            size_t num_repetitions = 10;
+            for (size_t i = 0; i < num_repetitions; ++i) {
+                affine_element input_a(element::random_element());
+                element_ct a = element_ct::from_witness(&builder, input_a);
+                element_ct b = element_ct::from_witness(&builder, input_a);
+
+                // Set different tags in a and b
+                a.set_origin_tag(submitted_value_origin_tag);
+                b.set_origin_tag(challenge_origin_tag);
+
+                a.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
+                b.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
+
+                a.incomplete_assert_equal(b, "elements don't match");
+            }
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
+        // Case 3: Self-assertion (point equals itself)
+        {
+            Builder builder;
+            affine_element input(element::random_element());
+            element_ct a = element_ct::from_witness(&builder, input);
+
+            a.incomplete_assert_equal(a, "self assertion test");
+
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
+    }
+
+    static void test_incomplete_assert_equal_failure()
+    {
+        // Case 1: Should fail because the points are different
+        {
+            Builder builder;
+            affine_element input_a(element::random_element());
+            affine_element input_b(element::random_element());
+            // Ensure inputs are different
+            while (input_a == input_b) {
+                input_b = element::random_element();
+            }
+            element_ct a = element_ct::from_witness(&builder, input_a);
+            element_ct b = element_ct::from_witness(&builder, input_b);
+
+            // Set different tags in a and b
+            a.set_origin_tag(submitted_value_origin_tag);
+            b.set_origin_tag(challenge_origin_tag);
+
+            a.incomplete_assert_equal(b, "elements don't match");
+
+            // Circuit should fail (Circuit checker doesn't fail because it doesn't actually check copy constraints,
+            // it only checks gate constraints)
+            EXPECT_EQ(builder.failed(), true);
+            EXPECT_EQ(builder.err(), "elements don't match (x coordinate)");
+        }
+        // Case 2: Should fail because the points have same x but different y
+        {
+            Builder builder;
+            affine_element input_a(element::random_element());
+            affine_element input_b(element::random_element());
+            // Ensure inputs are different
+            while (input_a == input_b) {
+                input_b = element::random_element();
+            }
+            element_ct a = element_ct::from_witness(&builder, input_a);
+            element_ct b = element_ct::from_witness(&builder, input_b);
+
+            // Set different tags in a and b
+            a.set_origin_tag(submitted_value_origin_tag);
+            b.set_origin_tag(challenge_origin_tag);
+
+            // Make the x-coordinates equal, so we should get an error message about y-coordinates
+            b.x = a.x;
+            a.incomplete_assert_equal(b, "elements don't match");
+
+            // Circuit should fail
+            EXPECT_EQ(builder.failed(), true);
+            EXPECT_EQ(builder.err(), "elements don't match (y coordinate)");
+        }
+        // Case 3: Infinity flag mismatch (one point at infinity, one not)
+        {
+            Builder builder;
+            affine_element input_a(element::random_element());
+            affine_element input_b(element::random_element());
+
+            element_ct a = element_ct::from_witness(&builder, input_a);
+            element_ct b = element_ct::from_witness(&builder, input_b);
+
+            // Set only one point at infinity
+            a.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));  // at infinity
+            b.set_point_at_infinity(bool_ct(witness_ct(&builder, false))); // not at infinity
+
+            a.incomplete_assert_equal(b, "infinity flag mismatch test");
+
+            EXPECT_EQ(builder.failed(), true);
+            EXPECT_EQ(builder.err(), "infinity flag mismatch test (infinity flag)");
+        }
+    }
+
+    static void test_incomplete_assert_equal_edge_cases()
+    {
+        Builder builder;
+        // Check that two points at infinity with different x,y coords fail the equality check
+        affine_element input_a(element::random_element());
+        affine_element input_b(element::random_element());
+
+        // Ensure inputs are different
+        while (input_a == input_b) {
+            input_b = element::random_element();
+        }
+        element_ct a = element_ct::from_witness(&builder, input_a);
+        element_ct b = element_ct::from_witness(&builder, input_b);
+
+        const bool_ct is_infinity = bool_ct(witness_ct(&builder, 1));
+        a.set_point_at_infinity(is_infinity);
+        b.set_point_at_infinity(is_infinity);
+
+        // Set different tags in a and b
+        a.set_origin_tag(submitted_value_origin_tag);
+        b.set_origin_tag(challenge_origin_tag);
+
+        a.incomplete_assert_equal(b, "points at infinity with different x,y should not be equal");
+
+        // Circuit should fail
+        EXPECT_EQ(builder.failed(), true);
+        EXPECT_EQ(builder.err(), "points at infinity with different x,y should not be equal (x coordinate)");
+    }
+
     static void test_montgomery_ladder()
     {
         Builder builder;
@@ -1738,6 +1887,18 @@ TYPED_TEST(stdlib_biggroup, conditional_negate)
 TYPED_TEST(stdlib_biggroup, conditional_select)
 {
     TestFixture::test_conditional_select();
+}
+TYPED_TEST(stdlib_biggroup, incomplete_assert_equal)
+{
+    TestFixture::test_incomplete_assert_equal_success();
+}
+TYPED_TEST(stdlib_biggroup, incomplete_assert_equal_fails)
+{
+    TestFixture::test_incomplete_assert_equal_failure();
+}
+TYPED_TEST(stdlib_biggroup, incomplete_assert_equal_edge_cases)
+{
+    TestFixture::test_incomplete_assert_equal_edge_cases();
 }
 TYPED_TEST(stdlib_biggroup, montgomery_ladder)
 {

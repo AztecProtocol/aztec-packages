@@ -1,9 +1,9 @@
 import { generateSchnorrAccounts } from '@aztec/accounts/testing';
 import {
-  type AppConfigurableFeePaymentMethod,
   AztecAddress,
   type AztecNode,
   FeeJuicePaymentMethodWithClaim,
+  type FeePaymentMethod,
   Fr,
   L1FeeJuicePortalManager,
   SponsoredFeePaymentMethod,
@@ -15,7 +15,7 @@ import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import type { Logger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet';
+import { registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet/server';
 import { TestWallet } from '@aztec/test-wallet/server';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
@@ -215,7 +215,7 @@ async function deployTokenAndMint(
   accounts: AztecAddress[],
   admin: AztecAddress,
   mintAmount: bigint,
-  paymentMethod: AppConfigurableFeePaymentMethod | undefined,
+  paymentMethod: FeePaymentMethod | undefined,
   logger: Logger,
 ) {
   logger.verbose(`Deploying TokenContract...`);
@@ -257,7 +257,7 @@ export async function performTransfers({
   rounds: number;
   transferAmount: bigint;
   logger: Logger;
-  feePaymentMethod?: AppConfigurableFeePaymentMethod;
+  feePaymentMethod?: FeePaymentMethod;
 }) {
   const recipient = testAccounts.recipientAddress;
   // Default to sponsored fee payment if no fee method is provided

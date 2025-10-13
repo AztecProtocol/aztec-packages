@@ -89,9 +89,18 @@ TEST_F(CalldataHashingTest, Hash)
 TEST_F(CalldataHashingTest, Empty)
 {
     std::vector<FF> calldata = {};
-    // We do not emit events for empty calldata:
+    // If we recieve empty calldata, we just hash the separator:
+    std::vector<FF> prepended_calldata_fields = { GENERATOR_INDEX__PUBLIC_CALLDATA };
+
+    auto hash = RawPoseidon2::hash(prepended_calldata_fields);
+    EXPECT_CALL(poseidon2, hash(prepended_calldata_fields)).WillOnce(Return(hash));
+
     calldata_hasher.compute_calldata_hash(calldata);
-    EXPECT_THAT(calldata_events.dump_events(), AllOf(SizeIs(0)));
+    EXPECT_THAT(calldata_events.dump_events(),
+                AllOf(SizeIs(1),
+                      ElementsAre(AllOf(Field(&CalldataEvent::context_id, 1),
+                                        Field(&CalldataEvent::calldata_size, 0),
+                                        Field(&CalldataEvent::calldata, calldata)))));
 }
 
 } // namespace

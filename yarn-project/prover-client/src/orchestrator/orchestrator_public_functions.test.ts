@@ -2,7 +2,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { mockTx } from '@aztec/stdlib/testing';
 
 import TOML from '@iarna/toml';
@@ -34,7 +34,7 @@ describe('prover/orchestrator/public-functions', () => {
       });
       tx.data.constants.anchorBlockHeader = context.getBlockHeader(0);
       tx.data.constants.vkTreeRoot = getVKTreeRoot();
-      tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
+      tx.data.constants.protocolContractsHash = protocolContractsHash;
       await tx.recomputeHash();
 
       // Since this TX is mocked/garbage, it will revert because it calls a non-existent contract,
@@ -78,7 +78,7 @@ describe('prover/orchestrator/public-functions', () => {
       });
       tx.data.constants.anchorBlockHeader = context.getBlockHeader(0);
       tx.data.constants.vkTreeRoot = getVKTreeRoot();
-      tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
+      tx.data.constants.protocolContractsHash = protocolContractsHash;
 
       const [processed, _] = await context.processPublicFunctions([tx]);
       const {

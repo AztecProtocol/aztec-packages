@@ -1,3 +1,4 @@
+import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ABIParameterVisibility, type FunctionAbi, type FunctionCall, FunctionType } from '@aztec/stdlib/abi';
@@ -8,13 +9,13 @@ import type { TxProfileResult } from '@aztec/stdlib/tx';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import type {
-  ProfileMethodOptions,
-  SendMethodOptions,
-  SimulateMethodOptions,
+  ProfileInteractionOptions,
+  SendInteractionOptions,
+  SimulateInteractionOptions,
   SimulationReturn,
 } from '../contract/interaction_options.js';
 import type { SentTx } from '../contract/sent_tx.js';
-import type { ChainInfo, Wallet } from '../wallet/index.js';
+import type { Wallet } from '../wallet/index.js';
 
 /** Intent with an inner hash */
 export type IntentInnerHash = {
@@ -253,7 +254,7 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the transaction as returned by the contract function.
    */
-  public override proveInternal(options: Omit<SendMethodOptions, 'from'>) {
+  public override proveInternal(options: Omit<SendInteractionOptions, 'from'>) {
     return super.proveInternal({ ...options, from: this.from });
   }
 
@@ -263,12 +264,12 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the transaction as returned by the contract function.
    */
-  public override simulate<T extends SimulateMethodOptions>(
+  public override simulate<T extends SimulateInteractionOptions>(
     options: Omit<T, 'from'>,
   ): Promise<SimulationReturn<T['includeMetadata']>>;
   // eslint-disable-next-line jsdoc/require-jsdoc
   public override simulate(
-    options: Omit<SimulateMethodOptions, 'from'> = {},
+    options: Omit<SimulateInteractionOptions, 'from'> = {},
   ): Promise<SimulationReturn<typeof options.includeMetadata>> {
     return super.simulate({ ...options, from: this.from });
   }
@@ -280,7 +281,7 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
    * @returns An object containing the function return value and profile result.
    */
   public override profile(
-    options: Omit<ProfileMethodOptions, 'from'> = { profileMode: 'gates' },
+    options: Omit<ProfileInteractionOptions, 'from'> = { profileMode: 'gates' },
   ): Promise<TxProfileResult> {
     return super.profile({ ...options, from: this.from });
   }
@@ -291,7 +292,7 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
    * @param options - An optional object containing 'fee' options information
    * @returns A SentTx instance for tracking the transaction status and information.
    */
-  public override send(options: Omit<SendMethodOptions, 'from'> = {}): SentTx {
+  public override send(options: Omit<SendInteractionOptions, 'from'> = {}): SentTx {
     return super.send({ ...options, from: this.from });
   }
 

@@ -26,7 +26,7 @@ describe('Rollup', () => {
   let cheatCodes: EthCheatCodes;
 
   let vkTreeRoot: Fr;
-  let protocolContractTreeRoot: Fr;
+  let protocolContractsHash: Fr;
   let rollupAddress: `0x${string}`;
   let rollup: RollupContract;
 
@@ -35,7 +35,7 @@ describe('Rollup', () => {
     // this is the 6th address that gets funded by the junk mnemonic
     privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
     vkTreeRoot = Fr.random();
-    protocolContractTreeRoot = Fr.random();
+    protocolContractsHash = Fr.random();
 
     ({ anvil, rpcUrl } = await startAnvil());
 
@@ -46,7 +46,7 @@ describe('Rollup', () => {
       ...DefaultL1ContractsConfig,
       salt: undefined,
       vkTreeRoot,
-      protocolContractTreeRoot,
+      protocolContractsHash,
       genesisArchiveRoot: Fr.random(),
       realVerifier: false,
     });

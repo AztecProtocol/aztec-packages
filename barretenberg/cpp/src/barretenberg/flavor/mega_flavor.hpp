@@ -179,8 +179,6 @@ class MegaFlavor {
                               databus_id            // column 30 // id polynomial, i.e. id_i = i
         )
 
-        static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
-
         auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; };
         auto get_gate_selectors()
         {

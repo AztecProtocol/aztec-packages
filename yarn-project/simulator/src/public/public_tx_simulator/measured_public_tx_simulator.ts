@@ -48,11 +48,10 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator {
     this.metrics.recordPrivateEffectsInsertion(timer.us(), 'non-revertible');
   }
 
-  protected override async insertRevertiblesFromPrivate(context: PublicTxContext, tx: Tx): Promise<boolean> {
+  protected override async insertRevertiblesFromPrivate(context: PublicTxContext, tx: Tx) {
     const timer = new Timer();
-    const result = await super.insertRevertiblesFromPrivate(context, tx);
+    await super.insertRevertiblesFromPrivate(context, tx);
     this.metrics.recordPrivateEffectsInsertion(timer.us(), 'revertible');
-    return result;
   }
 
   protected override async simulatePhase(phase: TxExecutionPhase, context: PublicTxContext): Promise<ProcessedPhase> {
