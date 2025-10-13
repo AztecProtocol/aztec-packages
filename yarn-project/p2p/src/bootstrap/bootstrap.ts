@@ -3,10 +3,10 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { P2PBootstrapApi } from '@aztec/stdlib/interfaces/server';
 import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
 
-import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
-import { ENR, type SignableENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
+import { Discv5, type Discv5EventEmitter } from '@nethermindeth/discv5';
+import { ENR, type SignableENR } from '@nethermindeth/enr';
 
 import type { BootnodeConfig } from '../config.js';
 import { createBootnodeENRandPeerId } from '../enr/generate-enr.js';
