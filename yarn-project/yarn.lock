@@ -1766,8 +1766,8 @@ __metadata:
     "@libp2p/prometheus-metrics": "npm:^4.2.4"
     "@libp2p/tcp": "npm:9.0.24"
     "@multiformats/multiaddr": "npm:12.1.14"
-    "@nethermindeth/discv5": "npm:9.0.0-backport-306"
-    "@nethermindeth/enr": "npm:3.0.0-backport-306"
+    "@nethermindeth/discv5": "npm:9.0.0-backport-306-v2"
+    "@nethermindeth/enr": "npm:3.0.0-backport-306-v2"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
     get-port: "npm:^7.1.0"
@@ -5134,27 +5134,27 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@nethermindeth/discv5@npm:9.0.0-backport-306":
-  version: 9.0.0-backport-306
-  resolution: "@nethermindeth/discv5@npm:9.0.0-backport-306"
+"@nethermindeth/discv5@npm:9.0.0-backport-306-v2":
+  version: 9.0.0-backport-306-v2
+  resolution: "@nethermindeth/discv5@npm:9.0.0-backport-306-v2"
   dependencies:
     "@ethereumjs/rlp": "npm:^5.0.2"
     "@libp2p/crypto": "npm:^4.0.1"
     "@libp2p/interface": "npm:^1.1.1"
     "@multiformats/multiaddr": "npm:^12.1.10"
-    "@nethermindeth/enr": "npm:3.0.0-backport-306"
+    "@nethermindeth/enr": "npm:^3.0.0-backport-306-v2"
     "@noble/hashes": "npm:^1.7.0"
     "@noble/secp256k1": "npm:^2.2.2"
     debug: "npm:^4.3.1"
     lru-cache: "npm:^10.1.0"
     strict-event-emitter-types: "npm:^2.0.0"
-  checksum: 10/d54210696bbbd1642ab0677f8dc278f5559ae76e4b84186448c808db90e4663084118eb9411736b58379a65235bc1961ab1b08be989aae3b4b026dbb0917f0ff
+  checksum: 10/7c86401c4a0d89256040a0fb7b3edd27b915e4411e689ac9941e7fc46843c7f5d24452f480c198d1446f92dae53e7fbaf000a7eea0151c7bdf36e2f37d849099
   languageName: node
   linkType: hard
 
-"@nethermindeth/enr@npm:3.0.0-backport-306":
-  version: 3.0.0-backport-306
-  resolution: "@nethermindeth/enr@npm:3.0.0-backport-306"
+"@nethermindeth/enr@npm:3.0.0-backport-306-v2, @nethermindeth/enr@npm:^3.0.0-backport-306-v2":
+  version: 3.0.0-backport-306-v2
+  resolution: "@nethermindeth/enr@npm:3.0.0-backport-306-v2"
   dependencies:
     "@ethereumjs/rlp": "npm:^5.0.2"
     "@libp2p/crypto": "npm:^4.0.1"
@@ -5163,7 +5163,7 @@ __metadata:
     "@multiformats/multiaddr": "npm:^12.1.10"
     "@scure/base": "npm:^1.2.1"
     ethereum-cryptography: "npm:^2.2.0"
-  checksum: 10/807dcfe2847504c552e3aaec01d363ce0a7da82f942a7b5de50503343629ea743c9203d07ed4546448b281e666272381b595b5e415ffb5dcd4134497d82d3682
+  checksum: 10/554085c0ef907611010a078fbaed1542822becf6cac925af091d5415975e7b759355be77bc4cc03b3c869afc8a5d5c6af133c45233c0ba2bbcbad6b579a691bc
   languageName: node
   linkType: hard
 
