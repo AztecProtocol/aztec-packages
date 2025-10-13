@@ -1015,6 +1015,7 @@ template <typename Builder> class BigFieldBase {
                 auto new_el = other.bf() + to_add;
 
                 this->bf().assert_equal(new_el);
+                return;
             }
 
             bigfield_t lhs, rhs;
