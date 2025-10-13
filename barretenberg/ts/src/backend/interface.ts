@@ -11,9 +11,9 @@ export interface IMsgpackBackend {
   call(inputBuffer: Uint8Array): Uint8Array | Promise<Uint8Array>;
 
   /**
-   * Clean up resources (optional).
+   * Clean up resources.
    */
-  destroy?(): void | Promise<void>;
+  destroy(): void | Promise<void>;
 }
 
 /**
@@ -22,7 +22,7 @@ export interface IMsgpackBackend {
  */
 export interface IMsgpackBackendSync extends IMsgpackBackend {
   call(inputBuffer: Uint8Array): Uint8Array;
-  destroy?(): void;
+  destroy(): void;
 }
 
 /**
@@ -31,5 +31,5 @@ export interface IMsgpackBackendSync extends IMsgpackBackend {
  */
 export interface IMsgpackBackendAsync extends IMsgpackBackend {
   call(inputBuffer: Uint8Array): Promise<Uint8Array>;
-  destroy?(): Promise<void>;
+  destroy(): Promise<void>;
 }

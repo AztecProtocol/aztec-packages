@@ -2,10 +2,10 @@ import { Barretenberg, Fr } from '../index.js';
 import { serializeBufferable } from '../serialize/index.js';
 import { BarretenbergWasmMain } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
-import { findBbBinary } from '../backend/platform.js';
+import { BackendType } from './index.js';
 
 /**
- * Async API benchmark test: WASM vs Native with proper non-blocking I/O
+ * Async API benchmark test: WASM vs Native backends with proper non-blocking I/O
  *
  * This test uses the async Barretenberg API which properly handles:
  * - Non-blocking I/O for native backend (event-based)
@@ -17,18 +17,22 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
   const SIZES = [2, 4, 8, 16, 32];
 
   let wasmApi: Barretenberg;
-  let nativeApi: Barretenberg;
+  let nativeSocketApi: Barretenberg;
+  let nativeShmApi: Barretenberg;
   let wasm: BarretenbergWasmMain;
 
   beforeAll(async () => {
-    // Setup WASM API (force WASM by passing non-existent bbPath)
+    // Setup WASM API
     // Use threads: 1 for faster startup in benchmarks
-    wasmApi = await Barretenberg.new({ forceWasm: true, threads: 1 });
+    wasmApi = await Barretenberg.new({ backend: BackendType.Wasm, threads: 1 });
 
-    // Setup native API.
-    nativeApi = await Barretenberg.new({ forceNative: true });
+    // Setup native socket API
+    nativeSocketApi = await Barretenberg.new({ backend: BackendType.NativeUnixSocket, threads: 1 });
 
-    // Setup direct WASM access for baseline benchmark (no msgpack).
+    // Setup native shared memory API
+    nativeShmApi = await Barretenberg.new({ backend: BackendType.NativeSharedMemory, threads: 1 });
+
+    // Setup direct WASM access for baseline benchmark
     wasm = new BarretenbergWasmMain();
     const { module } = await fetchModuleAndThreads(1);
     await wasm.init(module, 1);
@@ -39,12 +43,15 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
     if (wasmApi) {
       await wasmApi.destroy();
     }
-    if (nativeApi) {
-      await nativeApi.destroy();
+    if (nativeSocketApi) {
+      await nativeSocketApi.destroy();
+    }
+    if (nativeShmApi) {
+      await nativeShmApi.destroy();
     }
   });
 
-  function directPoseidon2Hash(inputsBuffer: Fr[]): Fr {
+  async function directPoseidon2Hash(inputsBuffer: Fr[]): Promise<Fr> {
     const inArgs = [inputsBuffer].map(serializeBufferable);
     const outTypes = [Fr];
     const result = wasm.callWasmExport(
@@ -53,7 +60,7 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
     const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
+    return Promise.resolve(out[0]);
   }
 
   it.each(SIZES)('benchmark with %p field elements', async size => {
@@ -64,71 +71,75 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
 
     // Warm up phase (100 iterations each)
     for (let i = 0; i < 100; i++) {
-      directPoseidon2Hash(inputs);
+      await directPoseidon2Hash(inputs);
       await wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
-      await nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      await nativeSocketApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      await nativeShmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
     }
 
-    // Benchmark 1: Direct WASM API (baseline - synchronous)
+    // Benchmark 1: Direct WASM (baseline)
     const directStart = performance.now();
     for (let i = 0; i < ITERATIONS; i++) {
-      directPoseidon2Hash(inputs);
+      await directPoseidon2Hash(inputs);
     }
     const directTime = performance.now() - directStart;
 
-    // Benchmark 2: WASM msgpack API (async)
-    const wasmMsgpackStart = performance.now();
+    // Benchmark 2: WASM (async)
+    const wasmStart = performance.now();
     for (let i = 0; i < ITERATIONS; i++) {
       await wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
     }
-    const wasmMsgpackTime = performance.now() - wasmMsgpackStart;
+    const wasmTime = performance.now() - wasmStart;
 
-    // Benchmark 3: Native msgpack API (async with proper non-blocking I/O)
-    let nativeTime = 0;
-    const nativeStart = performance.now();
+    // Benchmark 3: Native Socket (async with non-blocking I/O)
+    const nativeSocketStart = performance.now();
     for (let i = 0; i < ITERATIONS; i++) {
-      await nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      await nativeSocketApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
     }
-    nativeTime = performance.now() - nativeStart;
+    const nativeSocketTime = performance.now() - nativeSocketStart;
 
-    // Calculate metrics
-    const wasmOverhead = ((wasmMsgpackTime - directTime) / directTime) * 100;
+    // Benchmark 4: Native Shared Memory (async)
+    const nativeShmStart = performance.now();
+    for (let i = 0; i < ITERATIONS; i++) {
+      await nativeShmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+    }
+    const nativeShmTime = performance.now() - nativeShmStart;
+
+    // Calculate metrics (all relative to Direct WASM)
+    const wasmOverhead = ((wasmTime - directTime) / directTime) * 100;
+    const nativeSocketOverhead = ((nativeSocketTime - directTime) / directTime) * 100;
+    const nativeShmOverhead = ((nativeShmTime - directTime) / directTime) * 100;
+
     const avgDirectTimeUs = (directTime / ITERATIONS) * 1000; // microseconds
-    const avgWasmMsgpackTimeUs = (wasmMsgpackTime / ITERATIONS) * 1000;
+    const avgWasmTimeUs = (wasmTime / ITERATIONS) * 1000;
+    const avgNativeSocketTimeUs = (nativeSocketTime / ITERATIONS) * 1000;
+    const avgNativeShmTimeUs = (nativeShmTime / ITERATIONS) * 1000;
 
-    process.stdout.write(`┌─ Size ${size.toString().padStart(3)} field elements ─────────────────────────┐\n`);
+    process.stdout.write(`┌─ Size ${size.toString().padStart(3)} field elements ────────────────────────────────┐\n`);
     process.stdout.write(
-      `│ Direct WASM:    ${directTime.toFixed(2).padStart(8)}ms (${avgDirectTimeUs.toFixed(2).padStart(7)}µs/call) │\n`,
+      `│ Direct WASM:      ${directTime.toFixed(2).padStart(8)}ms (${avgDirectTimeUs.toFixed(2).padStart(7)}µs/call) [baseline] │\n`,
     );
     process.stdout.write(
-      `│ WASM Msgpack:   ${wasmMsgpackTime.toFixed(2).padStart(8)}ms (${avgWasmMsgpackTimeUs.toFixed(2).padStart(7)}µs/call) │\n`,
-    );
-
-    const avgNativeTimeUs = (nativeTime / ITERATIONS) * 1000;
-    const nativeVsWasm = ((nativeTime - wasmMsgpackTime) / wasmMsgpackTime) * 100;
-    const nativeVsDirect = ((nativeTime - directTime) / directTime) * 100;
-
-    process.stdout.write(
-      `│ Native Msgpack: ${nativeTime.toFixed(2).padStart(8)}ms (${avgNativeTimeUs.toFixed(2).padStart(7)}µs/call) │\n`,
+      `│ WASM:             ${wasmTime.toFixed(2).padStart(8)}ms (${avgWasmTimeUs.toFixed(2).padStart(7)}µs/call) ${wasmOverhead >= 0 ? '+' : ''}${wasmOverhead.toFixed(1).padStart(6)}%   │\n`,
     );
     process.stdout.write(
-      `│ WASM overhead:  ${wasmOverhead >= 0 ? '+' : ''}${wasmOverhead.toFixed(2).padStart(7)}%                      │\n`,
+      `│ Native Socket:    ${nativeSocketTime.toFixed(2).padStart(8)}ms (${avgNativeSocketTimeUs.toFixed(2).padStart(7)}µs/call) ${nativeSocketOverhead >= 0 ? '+' : ''}${nativeSocketOverhead.toFixed(1).padStart(6)}%   │\n`,
     );
     process.stdout.write(
-      `│ Native vs WASM: ${nativeVsWasm >= 0 ? '+' : ''}${nativeVsWasm.toFixed(2).padStart(7)}%                      │\n`,
+      `│ Native Shared:    ${nativeShmTime.toFixed(2).padStart(8)}ms (${avgNativeShmTimeUs.toFixed(2).padStart(7)}µs/call) ${nativeShmOverhead >= 0 ? '+' : ''}${nativeShmOverhead.toFixed(1).padStart(6)}%   │\n`,
     );
-    process.stdout.write(
-      `│ Native vs Base: ${nativeVsDirect >= 0 ? '+' : ''}${nativeVsDirect.toFixed(2).padStart(7)}%                      │\n`,
-    );
-    process.stdout.write(`└──────────────────────────────────────────────────┘\n`);
+    process.stdout.write(`└──────────────────────────────────────────────────────────┘\n`);
 
     // Sanity check: verify all produce same result
-    const directResult = directPoseidon2Hash(inputs);
-    const wasmMsgpackResult = await wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
-    expect(Buffer.from(wasmMsgpackResult.hash)).toEqual(directResult.toBuffer());
+    const directResult = await directPoseidon2Hash(inputs);
+    const wasmResult = await wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+    expect(Buffer.from(wasmResult.hash)).toEqual(directResult.toBuffer());
 
-    const nativeMsgpackResult = await nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
-    expect(Buffer.from(nativeMsgpackResult.hash)).toEqual(directResult.toBuffer());
+    const nativeSocketResult = await nativeSocketApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+    expect(Buffer.from(nativeSocketResult.hash)).toEqual(directResult.toBuffer());
+
+    const nativeShmResult = await nativeShmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+    expect(Buffer.from(nativeShmResult.hash)).toEqual(directResult.toBuffer());
 
     // Test always passes, this is just for measuring performance
     expect(true).toBe(true);
@@ -144,13 +155,16 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
         .fill(0)
         .map(() => Fr.random());
 
-      const directResult = directPoseidon2Hash(inputs);
+      const directResult = await directPoseidon2Hash(inputs);
       const wasmResult = await wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
       expect(Buffer.from(wasmResult.hash)).toEqual(directResult.toBuffer());
 
-      const nativeResult = await nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
-      expect(Buffer.from(nativeResult.hash)).toEqual(directResult.toBuffer());
+      const nativeSocketResult = await nativeSocketApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      expect(Buffer.from(nativeSocketResult.hash)).toEqual(directResult.toBuffer());
+
+      const nativeShmResult = await nativeShmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      expect(Buffer.from(nativeShmResult.hash)).toEqual(directResult.toBuffer());
     }
   });
 
@@ -175,13 +189,16 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
     ];
 
     for (const inputs of testCases) {
-      const directResult = directPoseidon2Hash(inputs);
+      const directResult = await directPoseidon2Hash(inputs);
       const wasmResult = await wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
       expect(Buffer.from(wasmResult.hash)).toEqual(directResult.toBuffer());
 
-      const nativeResult = await nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
-      expect(Buffer.from(nativeResult.hash)).toEqual(directResult.toBuffer());
+      const nativeSocketResult = await nativeSocketApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      expect(Buffer.from(nativeSocketResult.hash)).toEqual(directResult.toBuffer());
+
+      const nativeShmResult = await nativeShmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      expect(Buffer.from(nativeShmResult.hash)).toEqual(directResult.toBuffer());
     }
   });
 
@@ -191,13 +208,16 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
     for (const size of [1, 10, 100]) {
       const inputs = Array(size).fill(zero);
 
-      const directResult = directPoseidon2Hash(inputs);
+      const directResult = await directPoseidon2Hash(inputs);
       const wasmResult = await wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
       expect(Buffer.from(wasmResult.hash)).toEqual(directResult.toBuffer());
 
-      const nativeResult = await nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
-      expect(Buffer.from(nativeResult.hash)).toEqual(directResult.toBuffer());
+      const nativeSocketResult = await nativeSocketApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      expect(Buffer.from(nativeSocketResult.hash)).toEqual(directResult.toBuffer());
+
+      const nativeShmResult = await nativeShmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      expect(Buffer.from(nativeShmResult.hash)).toEqual(directResult.toBuffer());
     }
   });
 
@@ -207,13 +227,16 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
     for (const size of [1, 10, 100]) {
       const inputs = Array(size).fill(one);
 
-      const directResult = directPoseidon2Hash(inputs);
+      const directResult = await directPoseidon2Hash(inputs);
       const wasmResult = await wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
       expect(Buffer.from(wasmResult.hash)).toEqual(directResult.toBuffer());
 
-      const nativeResult = await nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
-      expect(Buffer.from(nativeResult.hash)).toEqual(directResult.toBuffer());
+      const nativeSocketResult = await nativeSocketApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      expect(Buffer.from(nativeSocketResult.hash)).toEqual(directResult.toBuffer());
+
+      const nativeShmResult = await nativeShmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      expect(Buffer.from(nativeShmResult.hash)).toEqual(directResult.toBuffer());
     }
   });
 
@@ -223,13 +246,16 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
     for (const size of [1, 5, 10]) {
       const inputs = Array(size).fill(maxElement);
 
-      const directResult = directPoseidon2Hash(inputs);
+      const directResult = await directPoseidon2Hash(inputs);
       const wasmResult = await wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
       expect(Buffer.from(wasmResult.hash)).toEqual(directResult.toBuffer());
 
-      const nativeResult = await nativeApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
-      expect(Buffer.from(nativeResult.hash)).toEqual(directResult.toBuffer());
+      const nativeSocketResult = await nativeSocketApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      expect(Buffer.from(nativeSocketResult.hash)).toEqual(directResult.toBuffer());
+
+      const nativeShmResult = await nativeShmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
+      expect(Buffer.from(nativeShmResult.hash)).toEqual(directResult.toBuffer());
     }
   });
 });

@@ -135,11 +135,9 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm)
         return 1;
     }
 
-    // Store socket path for signal handler cleanup (only for Unix sockets, not shared memory)
-    static std::string global_socket_path;
-    if (!use_shm) {
-        global_socket_path = path;
-    }
+    // Store server pointer for signal handler cleanup (works for both socket and shared memory)
+    static ipc::IpcServer* global_server = nullptr;
+    global_server = server.get();
 
     // Register signal handlers for graceful cleanup
     // SIGTERM: Sent by processes/test frameworks on shutdown
@@ -147,10 +145,10 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm)
     auto signal_handler = [](int signal) {
         std::cerr << "\nReceived signal " << signal << ", cleaning up..." << std::endl;
 
-        // Clean up socket file if it exists
-        if (!global_socket_path.empty()) {
-            unlink(global_socket_path.c_str());
-            std::cerr << "Removed socket file: " << global_socket_path << std::endl;
+        // Clean up IPC resources (socket file or shared memory segments)
+        if (global_server) {
+            global_server->close();
+            std::cerr << "Cleaned up IPC resources" << std::endl;
         }
 
         std::exit(0);
@@ -230,11 +228,10 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm)
         }
     });
 
-    // Clean up socket file on normal exit (e.g., after Shutdown command)
-    if (!use_shm && !global_socket_path.empty()) {
-        unlink(global_socket_path.c_str());
-        std::cerr << "Cleaned up socket file: " << global_socket_path << std::endl;
-    }
+    // Clean up IPC resources on normal exit (e.g., after Shutdown command)
+    // The close() method handles cleanup for both socket and shared memory
+    server->close();
+    std::cerr << "Cleaned up IPC resources" << std::endl;
 
     return 0;
 }

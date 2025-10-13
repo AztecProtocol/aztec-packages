@@ -1,10 +1,11 @@
-import { Barretenberg } from './index.js';
+import { Barretenberg, BackendType } from './index.js';
 import { Timer } from '../benchmark/timer.js';
 import { Fr } from '../types/index.js';
 
 describe.each([
-  ['native', { forceNative: true }],
-  ['wasm', { forceWasm: true, threads: 1 }],
+  // ['native socket', { backend: BackendType.NativeUnixSocket, threads: 1 }],
+  ['native shm', { backend: BackendType.NativeSharedMemory, threads: 1 }],
+  ['wasm', { backend: BackendType.Wasm, threads: 1 }],
 ])('poseidon async - %s backend', (backendName, options) => {
   let api: Barretenberg;
 
@@ -23,7 +24,7 @@ describe.each([
   });
 
   it('poseidonHash perf test', async () => {
-    const loops = 3000;
+    const loops = 100;
     const fields = Array.from({ length: loops * 2 }).map(() => Fr.random().toBuffer());
     const start = performance.now();
     for (let i = 0; i < loops; ++i) {

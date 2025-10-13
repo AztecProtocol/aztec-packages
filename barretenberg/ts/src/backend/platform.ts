@@ -83,3 +83,37 @@ export function findBbBinary(customPath?: string): string | null {
 
   return null;
 }
+
+export function findNapiBinary(customPath?: string): string | null {
+  // Check custom path first if provided
+  if (customPath) {
+    if (fs.existsSync(customPath)) {
+      return path.resolve(customPath);
+    }
+    // Custom path provided but doesn't exist - return null
+    return null;
+  }
+
+  // Automatic detection
+  const platform = detectPlatform();
+  if (!platform) {
+    return null;
+  }
+
+  const buildDir = PLATFORM_TO_BUILD_DIR[platform];
+
+  // Get package root (barretenberg/ts directory)
+  // This file is at src/backend/platform.ts, so go up to package root
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const packageRoot = path.resolve(__dirname, '../..');
+
+  // Check in build/<platform>/bb
+  const bbPath = path.join(packageRoot, 'build', buildDir, 'nodejs_module.node');
+
+  if (fs.existsSync(bbPath)) {
+    return bbPath;
+  }
+
+  return null;
+}

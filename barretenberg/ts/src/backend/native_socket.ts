@@ -238,7 +238,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
   private responseBuffer: Buffer | null = null;
   private responseBytesRead: number = 0;
 
-  constructor(bbBinaryPath: string) {
+  constructor(bbBinaryPath: string, threads?: number) {
     // Create a unique socket path in temp directory
     this.socketPath = path.join(os.tmpdir(), `bb-${process.pid}-${Date.now()}.sock`);
 
@@ -255,9 +255,13 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
       connectionReject = reject;
     });
 
+    // Set HARDWARE_CONCURRENCY if threads specified
+    const env = threads !== undefined ? { ...process.env, HARDWARE_CONCURRENCY: threads.toString() } : process.env;
+
     // Spawn bb process - it will create the socket server
     this.process = spawn(bbBinaryPath, ['msgpack', 'run', '--input', this.socketPath], {
       stdio: ['ignore', 'ignore', 'inherit'],
+      env,
     });
 
     this.process.on('error', err => {
