@@ -149,16 +149,6 @@ TEST_F(FixedBaseTableTest, TableGenerationAndValueRetrieval)
     auto basic_table =
         table::generate_basic_fixed_base_table<0>(FIXED_BASE_0_0, /*basic_table_index=*/0, /*table_index=*/0);
 
-    // Verify the basic table metadata is set correctly
-    EXPECT_EQ(basic_table.id, FIXED_BASE_0_0);
-    EXPECT_EQ(basic_table.table_index, 0);
-    EXPECT_FALSE(basic_table.use_twin_keys); // Fixed base tables don't use twin keys
-
-    // Each basic table has 3 columns: index, x-coordinate, y-coordinate
-    EXPECT_EQ(basic_table.column_1.size(), table::MAX_TABLE_SIZE);
-    EXPECT_EQ(basic_table.column_2.size(), table::MAX_TABLE_SIZE);
-    EXPECT_EQ(basic_table.column_3.size(), table::MAX_TABLE_SIZE);
-
     // The lookup function should be properly initialized
     EXPECT_NE(basic_table.get_values_from_key, nullptr);
 

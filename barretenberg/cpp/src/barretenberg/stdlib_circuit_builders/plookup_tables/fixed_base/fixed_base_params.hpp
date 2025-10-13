@@ -17,7 +17,7 @@ namespace bb::plookup {
 /**
  * @brief Parameters definitions for our fixed-base-scalar-multiplication lookup tables
  * @details  We split each 254-bit scalar mul into two scalar muls of size BITS_PER_LO_SCALAR, BITS_PER_HI_SCALAR. This
- * enables us to efficiently decompose our input scalar multiplier into two chunks of a known size. (i.e. we get free
+ * enables us to efficiently decompose our input scalar multiplier into two chunks of a known size (i.e. we get free
  * BITS_PER_LO_SCALAR, BITS_PER_HI_SCALAR range checks as part of the lookup table subroutine). This in turn allows us
  * to perform a primality test more efficiently, i.e. check that input scalar < prime modulus when evaluated over the
  * integers. (The primality check requires us to split the input into high / low bit chunks so getting this for free as

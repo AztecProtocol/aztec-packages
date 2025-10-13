@@ -25,7 +25,7 @@ table::single_lookup_table table::generate_single_lookup_table(const affine_elem
                                                                const affine_element& offset_generator)
 {
 
-    // Construct the raw table in projective coordinates, then batch normalize
+    // Construct the table in projective coordinates, then batch normalize
     std::vector<element> table_raw(MAX_TABLE_SIZE);
     element accumulator = offset_generator;
     for (element& raw_entry : table_raw) {
@@ -233,7 +233,7 @@ BasicTable table::generate_basic_fixed_base_table(BasicTableId id, size_t basic_
 }
 
 /**
- * @brief Generate a multi-table that describes the lookups required to cover a fixed-base-scalar-mul of num_bits
+ * @brief Generate a multi-table that describes the lookups required to cover a fixed-base-scalar-mul of `num_bits`
  * @details Creates a MultiTable that manages multiple BasicTables to perform scalar multiplication. The scalar is split
  * into ceil(num_bits/BITS_PER_TABLE) slices, each handled by a BasicTable. This function sets up the metadata and
  * function pointers for combining the basic table lookups.
