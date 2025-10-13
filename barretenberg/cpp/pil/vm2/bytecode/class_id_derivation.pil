@@ -15,7 +15,7 @@ namespace class_id_derivation;
     // Members of Contract Class Id, looked up with bc_retrieval
     pol commit artifact_hash;
     pol commit private_function_root;
-    pol commit public_bytecode_commitment; // This is constrained via bc_retrieval's lookup to bc_hashing
+    pol commit public_bytecode_commitment; // This is constrained via executions's lookup to instr_fetching, which looks up bc_decomposition <-> bc_hashing
     // The result of
     // H(GENERATOR_INDEX__CONTRACT_LEAF, artifact_hash, private_function_root, public_bytecode_commitment)
     pol commit class_id;

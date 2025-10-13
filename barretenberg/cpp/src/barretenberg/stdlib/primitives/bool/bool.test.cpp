@@ -175,7 +175,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
 
             EXPECT_EQ(builder.get_estimated_num_finalized_gates() - num_gates_start, expected);
 
-            builder.create_dummy_constraints(indices);
+            builder.create_unconstrained_gates(indices);
 
             EXPECT_TRUE(CircuitChecker::check(builder));
         }

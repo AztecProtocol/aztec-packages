@@ -22,7 +22,7 @@ static constexpr uint32_t DUMMY_TAG = 0;
 template <typename FF_> class CircuitBuilderBase {
   public:
     using FF = FF_;
-    using EmbeddedCurve = std::conditional_t<std::same_as<FF, bb::g1::Fq>, curve::BN254, curve::Grumpkin>;
+    using EmbeddedCurve = curve::Grumpkin;
 
   private:
     // A container for all of the witness values used by the circuit
@@ -32,17 +32,36 @@ template <typename FF_> class CircuitBuilderBase {
 
     bool public_inputs_finalized_ = false; // Addition of new public inputs disallowed after this is set to true.
 
-  public:
-    size_t num_gates = 0;
     // true if we have dummy witnesses (in the write_vk case)
     bool has_dummy_witnesses = false;
-
-    std::unordered_map<uint32_t, std::string> variable_names;
 
     // index of next variable in equivalence class (=REAL_VARIABLE if you're last)
     std::vector<uint32_t> next_var_index;
     // index of  previous variable in equivalence class (=FIRST if you're in a cycle alone)
     std::vector<uint32_t> prev_var_index;
+
+    bool _failed = false;
+    std::string _err;
+
+    static constexpr uint32_t REAL_VARIABLE = UINT32_MAX - 1;
+    static constexpr uint32_t FIRST_VARIABLE_IN_CLASS = UINT32_MAX - 2;
+
+    // Index at which we store a witness constrained to be equal to 0
+    uint32_t _zero_idx = 0;
+
+  protected:
+    std::unordered_map<uint32_t, std::string> variable_names;
+
+    void set_zero_idx(uint32_t value) { _zero_idx = value; }
+
+  public:
+    size_t num_gates = 0;
+
+    // The permutation on variable tags. See
+    // https://github.com/AztecProtocol/plonk-with-lookups-private/blob/new-stuff/GenPermuations.pdf
+    // DOCTODO(#231): replace with the relevant wiki link.
+    std::map<uint32_t, uint32_t> tau;
+
     // The "real_variable_index" acts as a map from a "witness index" (e.g. the one stored by a stdlib object) to an
     // index into the variables array. This extra layer of indirection is used to support copy constraints by allowing,
     // for example, two witnesses with differing witness indices to have the same "real variable index" and thus the
@@ -51,23 +70,8 @@ template <typename FF_> class CircuitBuilderBase {
     std::vector<uint32_t> real_variable_index;
     std::vector<uint32_t> real_variable_tags;
     uint32_t current_tag = DUMMY_TAG;
-    // The permutation on variable tags. See
-    // https://github.com/AztecProtocol/plonk-with-lookups-private/blob/new-stuff/GenPermuations.pdf
-    // DOCTODO(#231): replace with the relevant wiki link.
-    std::map<uint32_t, uint32_t> tau;
 
-    // We know from the CLI arguments during proving whether a circuit should use a prover which produces
-    // proofs that are friendly to verify in a circuit themselves. A verifier does not need a full circuit
-    // description and should be able to verify a proof with just the verification key and the proof.
-    // This field exists to later set the same field in the verification key, and make sure
-    // that we are using the correct prover/verifier.
-    bool is_recursive_circuit = false;
-
-    bool _failed = false;
-    std::string _err;
-    static constexpr uint32_t REAL_VARIABLE = UINT32_MAX - 1;
-    static constexpr uint32_t FIRST_VARIABLE_IN_CLASS = UINT32_MAX - 2;
-
+  public:
     CircuitBuilderBase(size_t size_hint = 0, bool has_dummy_witnesses = false);
 
     CircuitBuilderBase(const CircuitBuilderBase& other) = default;
@@ -82,10 +86,9 @@ template <typename FF_> class CircuitBuilderBase {
     virtual size_t get_estimated_num_finalized_gates() const;
     virtual void print_num_estimated_finalized_gates() const;
     virtual size_t get_num_variables() const;
-    // TODO(#216)(Adrian): Feels wrong to let the zero_idx be changed.
-    uint32_t zero_idx = 0;
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1546): Do we need `one_idx`?
-    uint32_t one_idx = 1;
+
+    // Non-owning getter for the index at which a fixed witness 0 is stored
+    uint32_t zero_idx() const { return _zero_idx; }
 
     virtual void create_add_gate(const add_triple_<FF>& in) = 0;
     virtual void create_mul_gate(const mul_triple_<FF>& in) = 0;
@@ -193,15 +196,6 @@ template <typename FF_> class CircuitBuilderBase {
     virtual void set_variable_name(uint32_t index, const std::string& name);
 
     /**
-     * After assert_equal() merge two class names if present.
-     * Preserves the first name in class.
-     *
-     * @param index Index of the variable you have previously named and used in assert_equal.
-     *
-     */
-    virtual void update_variable_names(uint32_t index);
-
-    /**
      * Export the existing circuit as msgpack compatible buffer.
      *
      * @return msgpack compatible buffer
@@ -244,7 +238,6 @@ template <typename FF_> class CircuitBuilderBase {
     bool failed() const;
     const std::string& err() const;
 
-    void set_err(std::string msg);
     void failure(std::string msg);
 };
 
@@ -557,7 +550,7 @@ template <typename FF> struct CircuitSchemaInternal {
  *
  *
  *
- * The (subgroup.size() * program_width) elements of sigma_mappings are of the form:
+ * The (subgroup.size() * num_wires) elements of sigma_mappings are of the form:
  * {
  *     row_index: j, // iterates over all rows in the subgroup
  *     column_index: i, // l,r,o,4

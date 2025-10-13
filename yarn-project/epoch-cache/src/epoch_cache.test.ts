@@ -6,11 +6,21 @@ import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { EpochCache } from './epoch_cache.js';
+import { EpochCache, type EpochCommitteeInfo } from './epoch_cache.js';
+
+class TestEpochCache extends EpochCache {
+  public seedCache(epoch: bigint, committeeInfo: EpochCommitteeInfo): void {
+    this.cache.set(epoch, committeeInfo);
+  }
+
+  public setCacheSize(size: number): void {
+    this.config.cacheSize = size;
+  }
+}
 
 describe('EpochCache', () => {
   let rollupContract: MockProxy<RollupContract>;
-  let epochCache: EpochCache;
+  let epochCache: TestEpochCache;
 
   // Test constants
   const SLOT_DURATION = 12;
@@ -49,7 +59,9 @@ describe('EpochCache', () => {
       proofSubmissionEpochs: 1,
     };
 
-    epochCache = new EpochCache(rollupContract, 0n, testCommittee, 0n, testConstants);
+    epochCache = new TestEpochCache(rollupContract, testConstants);
+    // Initialize the cache with the initial epoch's committee
+    epochCache.seedCache(0n, { epoch: 0n, committee: testCommittee, seed: 0n });
   });
 
   afterEach(() => {
@@ -120,7 +132,7 @@ describe('EpochCache', () => {
   });
 
   it('should compute the correct timestamp for a given slot', async () => {
-    const { l1GenesisTime, slotDuration, epochDuration } = (epochCache as any).l1constants as L1RollupConstants;
+    const { l1GenesisTime, slotDuration, epochDuration } = epochCache.getL1Constants();
 
     // generate a random slot greater than `epochDuration`
     const targetSlot = BigInt(epochDuration) + BigInt(Math.floor(Math.random() * 1000));
@@ -167,7 +179,7 @@ describe('EpochCache', () => {
 
   it('should purge old epochs', async () => {
     // Set the cache size to 3 epochs
-    (epochCache as any).config.cacheSize = 3;
+    epochCache.setCacheSize(3);
 
     const extraValidators = [4, 5, 6, 7].map(EthAddress.fromNumber);
     const committees = times(4, i => [...testCommittee, ...extraValidators.slice(0, i)]);

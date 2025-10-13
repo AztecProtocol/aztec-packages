@@ -365,3 +365,23 @@
 [[redirects]]
     from = "/developers/tutorials/codealong/faceid_wallet"
     to = "/developers/docs/guides/local_env/advanced/faceid_wallet"
+
+[[redirects]]
+    from = "/the_aztec_network/guides/run_nodes/how_to_run_sequencer"
+    to = "/the_aztec_network/guides/sequencer_management"
+
+[[redirects]]
+    from = "/the_aztec_network/guides/run_nodes/how_to_run_prover"
+    to = "/the_aztec_network/guides/running_a_prover"
+
+[[redirects]]
+    from = "/the_aztec_network/guides/run_nodes"
+    to = "/the_aztec_network/guides/running_a_node"
+
+[[redirects]]
+    from = "/the_aztec_network/reference/operator_faq"
+    to = "/the_aztec_network/operation/operator_faq"
+
+[[redirects]]
+    from = "/the_aztec_network/reference/useful_commands"
+    to = "/the_aztec_network/guides/useful_commands"
