@@ -127,7 +127,7 @@ struct lookup_data_copy_col_read_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::data_copy_value,
         ColumnAndShifts::data_copy_dst_context_id,
-        ColumnAndShifts::data_copy_read_addr
+        ColumnAndShifts::data_copy_read_addr_plus_one
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::calldata_value, ColumnAndShifts::calldata_context_id, ColumnAndShifts::calldata_index

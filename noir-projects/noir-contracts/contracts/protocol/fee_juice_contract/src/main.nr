@@ -5,6 +5,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract FeeJuice {
     use dep::aztec::{
+        context::private_context::PrivateContext,
         macros::{functions::{internal, private, public, view}, storage::storage},
         protocol_types::{
             address::{AztecAddress, EthAddress},
@@ -24,8 +25,16 @@ pub contract FeeJuice {
         balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
     }
 
-    #[private]
-    fn claim(to: AztecAddress, amount: u128, secret: Field, message_leaf_index: Field) {
+    /// Verifies that a message from L1 exists with the correct claim imformation, consumes it (emitting a nullifier)
+    /// and enqueues the increase in public balance of the recipient
+    #[contract_library_method]
+    fn claim_helper(
+        context: &mut PrivateContext,
+        to: AztecAddress,
+        amount: u128,
+        secret: Field,
+        message_leaf_index: Field,
+    ) {
         let content_hash = get_bridge_gas_msg_hash(to, amount);
         let portal_address = EthAddress::from_field(FEE_JUICE_ADDRESS.to_field());
         assert(!portal_address.is_zero());
@@ -35,9 +44,28 @@ pub contract FeeJuice {
 
         // TODO(palla/gas) Emit an unencrypted log to announce which L1 to L2 message has been claimed
         // Otherwise, we cannot trace L1 deposits to their corresponding claims on L2
-        FeeJuice::at(context.this_address())._increase_public_balance(to, amount).enqueue(
-            &mut context,
-        );
+        FeeJuice::at(context.this_address())._increase_public_balance(to, amount).enqueue(context);
+    }
+
+    /// Claims FeeJuice by consuming an L1 to L2 message with the provided information.
+    #[private]
+    fn claim(to: AztecAddress, amount: u128, secret: Field, message_leaf_index: Field) {
+        claim_helper(&mut context, to, amount, secret, message_leaf_index);
+    }
+
+    /// Claims FeeJuice by consuming an L1 to L2 message with the provided information. After enqueuing the
+    /// the balance increase it ends the setup phase, making sure the claim happens in the non-revertible phase
+    /// of the transaction. This variant should only be used when the intent is to pay the transaction fee via
+    /// the claimed fee juice in a single interaction.
+    #[private]
+    fn claim_and_end_setup(
+        to: AztecAddress,
+        amount: u128,
+        secret: Field,
+        message_leaf_index: Field,
+    ) {
+        claim_helper(&mut context, to, amount, secret, message_leaf_index);
+        context.end_setup();
     }
 
     #[public]

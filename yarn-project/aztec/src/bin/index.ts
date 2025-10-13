@@ -2,9 +2,8 @@
 //
 import { injectCommands as injectBuilderCommands } from '@aztec/builder';
 import { injectCommands as injectAztecNodeCommands } from '@aztec/cli/aztec_node';
-import { enrichEnvironmentWithChainConfig } from '@aztec/cli/config';
+import { enrichEnvironmentWithChainConfig, enrichEnvironmentWithNetworkConfig } from '@aztec/cli/config';
 import { injectCommands as injectContractCommands } from '@aztec/cli/contracts';
-import { injectCommands as injectDevnetCommands } from '@aztec/cli/devnet';
 import { injectCommands as injectInfrastructureCommands } from '@aztec/cli/infrastructure';
 import { injectCommands as injectL1Commands } from '@aztec/cli/l1';
 import { injectCommands as injectMiscCommands } from '@aztec/cli/misc';
@@ -38,7 +37,9 @@ async function main() {
     networkValue = args[networkIndex].split('=')[1] || args[networkIndex + 1];
   }
 
-  await enrichEnvironmentWithChainConfig(getActiveNetworkName(networkValue));
+  const networkName = getActiveNetworkName(networkValue);
+  await enrichEnvironmentWithChainConfig(networkName);
+  await enrichEnvironmentWithNetworkConfig(networkName);
 
   const cliVersion = getCliVersion();
   let program = new Command('aztec');
@@ -50,7 +51,6 @@ async function main() {
   program = injectL1Commands(program, userLog, debugLogger);
   program = injectAztecNodeCommands(program, userLog, debugLogger);
   program = injectMiscCommands(program, userLog);
-  program = injectDevnetCommands(program, userLog, debugLogger);
 
   await program.parseAsync(process.argv);
 }

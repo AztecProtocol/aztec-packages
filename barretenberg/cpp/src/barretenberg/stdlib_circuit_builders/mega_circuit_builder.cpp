@@ -178,8 +178,8 @@ ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra
     op_tuple.z_2 = this->add_variable(ultra_op.z_2);
 
     // Set the indices for the op values for each of the two rows
-    uint32_t op_val_idx_1 = op_tuple.op;    // genuine op code value
-    uint32_t op_val_idx_2 = this->zero_idx; // second row value always set to 0
+    uint32_t op_val_idx_1 = op_tuple.op;      // genuine op code value
+    uint32_t op_val_idx_2 = this->zero_idx(); // second row value always set to 0
     // If this is a random operation, the op values are randomized
     if (ultra_op.op_code.is_random_op) {
         op_val_idx_1 = this->add_variable(ultra_op.op_code.random_value_1);
@@ -224,7 +224,7 @@ template <typename FF> void MegaCircuitBuilder_<FF>::queue_ecc_random_op()
 
 template <typename FF> void MegaCircuitBuilder_<FF>::set_goblin_ecc_op_code_constant_variables()
 {
-    null_op_idx = this->zero_idx; // constant 0 is is associated with the zero index
+    null_op_idx = this->zero_idx(); // constant 0 is is associated with the zero index
     add_accum_op_idx = this->put_constant_variable(FF(EccOpCode{ .add = true }.value()));
     mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode{ .mul = true }.value()));
     equality_op_idx = this->put_constant_variable(FF(EccOpCode{ .eq = true, .reset = true }.value()));
@@ -268,7 +268,7 @@ template <typename FF>
 void MegaCircuitBuilder_<FF>::create_databus_read_gate(const databus_lookup_gate_<FF>& in, const BusId bus_idx)
 {
     auto& block = this->blocks.busread;
-    block.populate_wires(in.value, in.index, this->zero_idx, this->zero_idx);
+    block.populate_wires(in.value, in.index, this->zero_idx(), this->zero_idx());
     apply_databus_selectors(bus_idx);
 
     this->check_selector_length_consistency();
@@ -298,18 +298,10 @@ template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(con
         break;
     }
     }
-    block.q_busread().emplace_back(1);
+    block.q_4().emplace_back(0);
     block.q_m().emplace_back(0);
     block.q_c().emplace_back(0);
-    block.q_delta_range().emplace_back(0);
-    block.q_arith().emplace_back(0);
-    block.q_4().emplace_back(0);
-    block.q_lookup_type().emplace_back(0);
-    block.q_elliptic().emplace_back(0);
-    block.q_memory().emplace_back(0);
-    block.q_nnf().emplace_back(0);
-    block.q_poseidon2_external().emplace_back(0);
-    block.q_poseidon2_internal().emplace_back(0);
+    block.set_gate_selector(1);
 }
 
 template class MegaCircuitBuilder_<bb::fr>;

@@ -1,6 +1,7 @@
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
+#include "barretenberg/ultra_honk/oink_verifier.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 
 #include <gtest/gtest.h>
@@ -10,10 +11,13 @@ using namespace bb;
 class OinkTests : public ::testing::Test {
   public:
     using Flavor = MegaFlavor;
+    using Transcript = Flavor::Transcript;
     using OinkProver = OinkProver<Flavor>;
+    using OinkVerifier = OinkVerifier<Flavor>;
     using Builder = Flavor::CircuitBuilder;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
+    using VerifierInstance = VerifierInstance_<Flavor>;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
 };
@@ -72,4 +76,31 @@ TEST_F(OinkTests, OinkProverIsDeterministic)
          zip_view(prover_instance->polynomials.get_databus_inverses().get_copy(), databus_inverses)) {
         BB_ASSERT_EQ(new_databus, old_databus);
     };
+}
+
+TEST_F(OinkTests, OinkProverCommitments)
+{
+    Builder circuit;
+    circuit.add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero(); // Ensure all polys are non-zero
+    auto prover_instance = std::make_shared<ProverInstance>(circuit);
+    auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+    auto verifier_instance = std::make_shared<VerifierInstance>(verification_key);
+
+    OinkProver prover(prover_instance, verification_key);
+    prover.prove();
+    HonkProof proof = prover.export_proof();
+
+    Flavor::VerifierCommitments prover_commitments(verification_key, prover_instance->commitments);
+
+    auto transcript = std::make_shared<Transcript>();
+    OinkVerifier verifier(verifier_instance, transcript);
+    transcript->load_proof(proof);
+    verifier.verify();
+
+    Flavor::VerifierCommitments verifier_commitments(verifier_instance->vk, verifier_instance->witness_commitments);
+
+    for (auto [prover_comm, verifier_comm, label] : zip_view(
+             prover_commitments.get_all(), verifier_commitments.get_all(), Flavor::VerifierCommitments::get_labels())) {
+        EXPECT_EQ(prover_comm, verifier_comm) << "Mismatch in commitments " << label;
+    }
 }

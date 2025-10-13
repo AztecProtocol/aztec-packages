@@ -1,7 +1,6 @@
 /**
  * Tests for KeystoreManager
  */
-import { getAddressFromPrivateKey } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -13,7 +12,7 @@ import { join } from 'path';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { KeystoreError, KeystoreManager } from '../src/keystore_manager.js';
-import { RemoteSigner } from '../src/signer.js';
+import { LocalSigner, RemoteSigner } from '../src/signer.js';
 import type { KeyStore } from '../src/types.js';
 
 describe('KeystoreManager', () => {
@@ -112,6 +111,47 @@ describe('KeystoreManager', () => {
   });
 
   describe('signer creation', () => {
+    it('should create signers from combined { eth, bls } and from mixed arrays (eth only)', async () => {
+      const ethPk1 = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as any;
+      const blsPk1 = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as any;
+
+      // Single combined object
+      const ks1: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: { eth: ethPk1, bls: blsPk1 } as any,
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
+
+      const m1 = new KeystoreManager(ks1);
+      const s1 = m1.createAttesterSigners(0);
+      expect(s1).toHaveLength(1);
+      const expected1 = new LocalSigner(Buffer32.fromString(ethPk1));
+      expect(s1[0].address.equals(expected1.address)).toBeTruthy();
+
+      // Mixed array: {eth, bls} and plain EthAccount
+      const ethPk2 = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc' as any;
+      const ks2: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: [{ eth: ethPk1, bls: blsPk1 } as any, ethPk2] as any,
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
+
+      const m2 = new KeystoreManager(ks2);
+      const s2 = m2.createAttesterSigners(0);
+      expect(s2).toHaveLength(2);
+      const expected2a = new LocalSigner(Buffer32.fromString(ethPk1));
+      const expected2b = new LocalSigner(Buffer32.fromString(ethPk2));
+      const addrs = s2.map(x => x.address.toString()).sort();
+      expect(addrs).toEqual([expected2a.address.toString(), expected2b.address.toString()].sort());
+    });
     it('should create attester signers from private key', async () => {
       const keystore: KeyStore = {
         schemaVersion: 1,
@@ -202,8 +242,8 @@ describe('KeystoreManager', () => {
       };
 
       const manager = new KeystoreManager(keystore);
-      const coinbase = manager.getCoinbaseAddress(0);
       const attesterSigners = manager.createAttesterSigners(0);
+      const coinbase = manager.getCoinbaseAddress(0, attesterSigners[0].address);
 
       expect(coinbase.toString()).toBe(attesterSigners[0].address.toString());
     });
@@ -221,9 +261,38 @@ describe('KeystoreManager', () => {
       };
 
       const manager = new KeystoreManager(keystore);
-      const coinbase = manager.getCoinbaseAddress(0);
+      const attesterSigners = manager.createAttesterSigners(0);
+      const coinbase = manager.getCoinbaseAddress(0, attesterSigners[0].address);
 
       expect(coinbase.toString()).toBe('0x9876543210987654321098765432109876543210');
+    });
+
+    it('should get coinbase address for each attester when no explicit coinbase is set', async () => {
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: [
+              '0x1234567890123456789012345678901234567890123456789012345678901234',
+              '0x2345678901234567890123456789012345678901234567890123456789012345',
+              '0x3456789012345678901234567890123456789012345678901234567890123456',
+            ] as any[],
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
+
+      const manager = new KeystoreManager(keystore);
+      const attesterSigners = manager.createAttesterSigners(0);
+
+      // Each attester should get its own address as coinbase
+      const coinbase0 = manager.getCoinbaseAddress(0, attesterSigners[0].address);
+      const coinbase1 = manager.getCoinbaseAddress(0, attesterSigners[1].address);
+      const coinbase2 = manager.getCoinbaseAddress(0, attesterSigners[2].address);
+
+      expect(coinbase0.toString()).toBe(attesterSigners[0].address.toString());
+      expect(coinbase1.toString()).toBe(attesterSigners[1].address.toString());
+      expect(coinbase2.toString()).toBe(attesterSigners[2].address.toString());
     });
   });
 
@@ -934,10 +1003,10 @@ describe('KeystoreManager', () => {
         proverSigners!.id!.equals(EthAddress.fromString('0x1234567890123456789012345678901234567890')),
       ).toBeTruthy();
 
-      const expectedAddress = getAddressFromPrivateKey(
-        '0x1234567890123456789012345678901234567890123456789012345678901234',
+      const expectedSigner = new LocalSigner(
+        Buffer32.fromString('0x1234567890123456789012345678901234567890123456789012345678901234' as any),
       );
-      expect(proverSigners!.signers[0].address.toChecksumString()).toBe(expectedAddress);
+      expect(proverSigners!.signers[0].address.equals(expectedSigner.address)).toBeTruthy();
     });
 
     it('should return mnemonic prover signers via getter', () => {

@@ -69,7 +69,7 @@ std::pair<field_t<Builder>, field_t<Builder>> split_unique(const field_t<Builder
 
     // Component 1: Reconstruction constraint lo + hi * 2^lo_bits - field == 0
     const uint256_t shift = uint256_t(1) << lo_bits;
-    auto zero = field_t<Builder>::from_witness_index(ctx, ctx->zero_idx);
+    auto zero = field_t<Builder>::from_witness_index(ctx, ctx->zero_idx());
     field_t<Builder>::evaluate_linear_identity(lo, hi * shift, -field, zero);
 
     // Set the origin tag for the limbs

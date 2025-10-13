@@ -120,7 +120,7 @@ class MockCircuits {
             val_idx_1,
             val_idx_2,
             val_idx_3,
-            builder.zero_idx,
+            builder.zero_idx(),
             1,
             1,
             1,

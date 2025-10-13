@@ -1,9 +1,7 @@
 use crate::{
-    abis::validation_requests::{
-        key_validation_request::KeyValidationRequest,
-        scoped_key_validation_request_and_generator::ScopedKeyValidationRequestAndGenerator,
-    },
+    abis::validation_requests::key_validation_request::KeyValidationRequest,
     address::AztecAddress,
+    side_effect::Scoped,
     traits::{Deserialize, Empty, Serialize},
 };
 use std::meta::derive;
@@ -24,8 +22,8 @@ impl Empty for KeyValidationRequestAndGenerator {
 }
 
 impl KeyValidationRequestAndGenerator {
-    pub fn scope(self, contract_address: AztecAddress) -> ScopedKeyValidationRequestAndGenerator {
-        ScopedKeyValidationRequestAndGenerator { request: self, contract_address }
+    pub fn scope(self, contract_address: AztecAddress) -> Scoped<KeyValidationRequestAndGenerator> {
+        Scoped::new(self, contract_address)
     }
 }
 

@@ -538,6 +538,7 @@ TYPED_TEST(CycleGroupTest, TestDblConstantPoints)
     }
 }
 
+#ifndef NDEBUG
 TYPED_TEST(CycleGroupTest, TestDblMixedConstantWitness)
 {
     STDLIB_TYPE_ALIASES;
@@ -556,12 +557,12 @@ TYPED_TEST(CycleGroupTest, TestDblMixedConstantWitness)
     // The issue is that when we have mixed constant/witness coordinates, the dbl()
     // implementation tries to access witness indices that don't exist for constants
 
-    // In test builds, assertions throw exceptions rather than terminating
     EXPECT_THROW(
         { [[maybe_unused]] cycle_group_ct result = a.dbl(); },
         std::exception // Expect exception from assertion failure
     );
 }
+#endif
 
 TYPED_TEST(CycleGroupTest, TestUnconditionalAddNonConstantPoints)
 {
@@ -1317,6 +1318,65 @@ TYPED_TEST(CycleGroupTest, TestSubtract)
     }
 
     check_circuit_and_gate_count(builder, 267);
+}
+
+TYPED_TEST(CycleGroupTest, TestSubtractConstantPoints)
+{
+    STDLIB_TYPE_ALIASES;
+
+    // Test subtracting constant points - this takes a completely different path than witness points
+    // The existing TestSubtract only tests witness points
+    {
+        auto builder = Builder();
+        auto lhs = TestFixture::generators[5];
+        auto rhs = TestFixture::generators[6];
+
+        cycle_group_ct a(lhs);
+        cycle_group_ct b(rhs);
+
+        cycle_group_ct result = a - b;
+
+        AffineElement expected(Element(lhs) - Element(rhs));
+        EXPECT_EQ(result.get_value(), expected);
+        EXPECT_TRUE(result.is_constant());
+
+        // No gates needed for constant arithmetic
+        check_circuit_and_gates(builder, 0);
+    }
+
+    // Test constant point - constant infinity (early return optimization)
+    {
+        auto builder = Builder();
+        auto lhs = TestFixture::generators[7];
+
+        cycle_group_ct a(lhs);
+        cycle_group_ct b = cycle_group_ct::constant_infinity(&builder);
+
+        cycle_group_ct result = a - b;
+
+        EXPECT_EQ(result.get_value(), lhs);
+        EXPECT_TRUE(result.is_constant());
+
+        // Uses early return for constant infinity
+        check_circuit_and_gates(builder, 0);
+    }
+
+    // Test constant infinity - constant point (early return optimization)
+    {
+        auto builder = Builder();
+        auto rhs = TestFixture::generators[7];
+
+        cycle_group_ct a = cycle_group_ct::constant_infinity(&builder);
+        cycle_group_ct b(rhs);
+
+        cycle_group_ct result = a - b;
+
+        EXPECT_EQ(result.get_value(), -rhs);
+        EXPECT_TRUE(result.is_constant());
+
+        // Uses early return for constant infinity
+        check_circuit_and_gates(builder, 0);
+    }
 }
 
 /**

@@ -43,6 +43,11 @@ class UltraTraceBlock : public ExecutionTraceBlock<fr, 4> {
                           q_poseidon2_internal() };
     }
 
+    /**
+     * @brief Default implementation does nothing
+     */
+    virtual void set_gate_selector([[maybe_unused]] const fr& value) {}
+
   private:
     std::array<ZeroSelector<fr>, 8> zero_selectors;
 };
@@ -53,6 +58,18 @@ class UltraTraceLookupBlock : public UltraTraceBlock {
   public:
     SelectorType& q_lookup_type() override { return gate_selector; }
 
+    void set_gate_selector(const fr& value) override
+    {
+        gate_selector.emplace_back(value);
+        q_arith().emplace_back(0);
+        q_delta_range().emplace_back(0);
+        q_elliptic().emplace_back(0);
+        q_memory().emplace_back(0);
+        q_nnf().emplace_back(0);
+        q_poseidon2_external().emplace_back(0);
+        q_poseidon2_internal().emplace_back(0);
+    }
+
   private:
     SlabVectorSelector<fr> gate_selector;
 };
@@ -60,6 +77,18 @@ class UltraTraceLookupBlock : public UltraTraceBlock {
 class UltraTraceArithmeticBlock : public UltraTraceBlock {
   public:
     SelectorType& q_arith() override { return gate_selector; }
+
+    void set_gate_selector(const fr& value) override
+    {
+        q_lookup_type().emplace_back(0);
+        gate_selector.emplace_back(value);
+        q_delta_range().emplace_back(0);
+        q_elliptic().emplace_back(0);
+        q_memory().emplace_back(0);
+        q_nnf().emplace_back(0);
+        q_poseidon2_external().emplace_back(0);
+        q_poseidon2_internal().emplace_back(0);
+    }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -69,6 +98,18 @@ class UltraTraceDeltaRangeBlock : public UltraTraceBlock {
   public:
     SelectorType& q_delta_range() override { return gate_selector; }
 
+    void set_gate_selector(const fr& value) override
+    {
+        q_lookup_type().emplace_back(0);
+        q_arith().emplace_back(0);
+        gate_selector.emplace_back(value);
+        q_elliptic().emplace_back(0);
+        q_memory().emplace_back(0);
+        q_nnf().emplace_back(0);
+        q_poseidon2_external().emplace_back(0);
+        q_poseidon2_internal().emplace_back(0);
+    }
+
   private:
     SlabVectorSelector<fr> gate_selector;
 };
@@ -76,6 +117,18 @@ class UltraTraceDeltaRangeBlock : public UltraTraceBlock {
 class UltraTraceEllipticBlock : public UltraTraceBlock {
   public:
     SelectorType& q_elliptic() override { return gate_selector; }
+
+    void set_gate_selector(const fr& value) override
+    {
+        q_lookup_type().emplace_back(0);
+        q_arith().emplace_back(0);
+        q_delta_range().emplace_back(0);
+        gate_selector.emplace_back(value);
+        q_memory().emplace_back(0);
+        q_nnf().emplace_back(0);
+        q_poseidon2_external().emplace_back(0);
+        q_poseidon2_internal().emplace_back(0);
+    }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -85,6 +138,18 @@ class UltraTraceMemoryBlock : public UltraTraceBlock {
   public:
     SelectorType& q_memory() override { return gate_selector; }
 
+    void set_gate_selector(const fr& value) override
+    {
+        q_lookup_type().emplace_back(0);
+        q_arith().emplace_back(0);
+        q_delta_range().emplace_back(0);
+        q_elliptic().emplace_back(0);
+        gate_selector.emplace_back(value);
+        q_nnf().emplace_back(0);
+        q_poseidon2_external().emplace_back(0);
+        q_poseidon2_internal().emplace_back(0);
+    }
+
   private:
     SlabVectorSelector<fr> gate_selector;
 };
@@ -92,6 +157,18 @@ class UltraTraceMemoryBlock : public UltraTraceBlock {
 class UltraTraceNonNativeFieldBlock : public UltraTraceBlock {
   public:
     SelectorType& q_nnf() override { return gate_selector; }
+
+    void set_gate_selector(const fr& value) override
+    {
+        q_lookup_type().emplace_back(0);
+        q_arith().emplace_back(0);
+        q_delta_range().emplace_back(0);
+        q_elliptic().emplace_back(0);
+        q_memory().emplace_back(0);
+        gate_selector.emplace_back(value);
+        q_poseidon2_external().emplace_back(0);
+        q_poseidon2_internal().emplace_back(0);
+    }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -101,6 +178,18 @@ class UltraTracePoseidon2ExternalBlock : public UltraTraceBlock {
   public:
     SelectorType& q_poseidon2_external() override { return gate_selector; }
 
+    void set_gate_selector(const fr& value) override
+    {
+        q_lookup_type().emplace_back(0);
+        q_arith().emplace_back(0);
+        q_delta_range().emplace_back(0);
+        q_elliptic().emplace_back(0);
+        q_memory().emplace_back(0);
+        q_nnf().emplace_back(0);
+        gate_selector.emplace_back(value);
+        q_poseidon2_internal().emplace_back(0);
+    }
+
   private:
     SlabVectorSelector<fr> gate_selector;
 };
@@ -108,6 +197,18 @@ class UltraTracePoseidon2ExternalBlock : public UltraTraceBlock {
 class UltraTracePoseidon2InternalBlock : public UltraTraceBlock {
   public:
     SelectorType& q_poseidon2_internal() override { return gate_selector; }
+
+    void set_gate_selector(const fr& value) override
+    {
+        q_lookup_type().emplace_back(0);
+        q_arith().emplace_back(0);
+        q_delta_range().emplace_back(0);
+        q_elliptic().emplace_back(0);
+        q_memory().emplace_back(0);
+        q_nnf().emplace_back(0);
+        q_poseidon2_external().emplace_back(0);
+        gate_selector.emplace_back(value);
+    }
 
   private:
     SlabVectorSelector<fr> gate_selector;

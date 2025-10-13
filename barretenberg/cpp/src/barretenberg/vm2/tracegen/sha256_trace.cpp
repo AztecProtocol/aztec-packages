@@ -11,7 +11,6 @@
 
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256_mem.hpp"
-#include "barretenberg/vm2/generated/relations/perms_sha256_mem.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
@@ -622,8 +621,6 @@ const InteractionDefinition Sha256TraceBuilder::interactions =
         .add<lookup_sha256_mem_check_state_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_sha256_mem_check_input_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_sha256_mem_check_output_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        // Dispatch Permutation
-        .add<perm_sha256_mem_dispatch_sha256_settings, InteractionType::Permutation>()
         // Bitwise operations
         .add<lookup_sha256_w_s_0_xor_0_settings, InteractionType::LookupGeneric>(Column::bitwise_sel)
         .add<lookup_sha256_w_s_0_xor_1_settings, InteractionType::LookupGeneric>(Column::bitwise_sel)

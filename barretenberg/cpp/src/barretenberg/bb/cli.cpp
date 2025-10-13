@@ -18,6 +18,7 @@
 #include "barretenberg/api/api_client_ivc.hpp"
 #include "barretenberg/api/api_msgpack.hpp"
 #include "barretenberg/api/api_ultra_honk.hpp"
+#include "barretenberg/api/aztec_process.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/bb/cli11_formatter.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
@@ -25,6 +26,7 @@
 #include "barretenberg/bbapi/c_bind.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/common/version.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -32,9 +34,6 @@
 #include <iostream>
 
 namespace bb {
-// This is updated in-place by bootstrap.sh during the release process. This prevents
-// the version string from needing to be present at build-time, simplifying e.g. caching.
-const char* const BB_VERSION_PLACEHOLDER = "00000000.00000000.00000000";
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1257): Remove unused/seemingly unnecessary flags.
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1258): Improve defaults.
@@ -109,6 +108,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
     name += "\nAztec Virtual Machine (AVM): disabled";
 #else
     name += "\nAztec Virtual Machine (AVM): enabled";
+#endif
+#ifdef ENABLE_AVM_TRANSPILER
+    name += "\nAVM Transpiler: enabled";
+#else
+    name += "\nAVM Transpiler: disabled";
 #endif
 #ifdef STARKNET_GARAGA_FLAVORS
     name += "\nStarknet Garaga Extensions: enabled";
@@ -199,6 +203,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
         return subcommand->add_flag("--disable_zk",
                                     flags.disable_zk,
                                     "Use a non-zk version of --scheme. This flag is set to false by default.");
+    };
+
+    const auto add_use_sumcheck_ivc_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--use-sumcheck-ivc",
+                                    bbapi::USE_SUMCHECK_IVC,
+                                    "Use SumcheckClientIVC instead of ClientIVC for IVC proving.");
     };
 
     const auto add_bytecode_path_option = [&](CLI::App* subcommand) {
@@ -331,6 +341,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(gates);
     add_bytecode_path_option(gates);
     add_include_gates_per_opcode_flag(gates);
+    add_oracle_hash_option(gates);
+    add_ipa_accumulation_flag(gates);
 
     /***************************************************************************************************************
      * Subcommand: prove
@@ -350,6 +362,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_write_vk_flag(prove);
     add_ipa_accumulation_flag(prove);
     remove_zk_option(prove);
+    add_use_sumcheck_ivc_flag(prove);
     add_slow_low_memory_flag(prove);
     add_print_bench_flag(prove);
     add_bench_out_option(prove);
@@ -414,51 +427,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_crs_path_option(write_solidity_verifier);
     add_optimized_solidity_verifier_flag(write_solidity_verifier);
 
-    /***************************************************************************************************************
-     * Subcommand: OLD_API
-     ***************************************************************************************************************/
-    CLI::App* OLD_API = app.add_subcommand("OLD_API", "Access some old API commands");
-
-    /***************************************************************************************************************
-     * Subcommand: OLD_API write_arbitrary_valid_client_ivc_proof_and_vk_to_file
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file =
-        OLD_API->add_subcommand("write_arbitrary_valid_client_ivc_proof_and_vk_to_file", "");
-    add_verbose_flag(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file);
-    add_debug_flag(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file);
-    add_crs_path_option(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file);
-    std::string arbitrary_valid_proof_path{ "./proofs/proof" };
-    add_output_path_option(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file, arbitrary_valid_proof_path);
-
-    /***************************************************************************************************************
-     * Subcommand: OLD_API gates
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_gates = OLD_API->add_subcommand("gates", "");
-    add_verbose_flag(OLD_API_gates);
-    add_debug_flag(OLD_API_gates);
-    add_crs_path_option(OLD_API_gates);
-    add_bytecode_path_option(OLD_API_gates);
-
-    /***************************************************************************************************************
-     * Subcommand: OLD_API verify
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_verify = OLD_API->add_subcommand("verify", "");
-    add_verbose_flag(OLD_API_verify);
-    add_debug_flag(OLD_API_verify);
-    add_crs_path_option(OLD_API_verify);
-    add_bytecode_path_option(OLD_API_verify);
-    add_proof_path_option(OLD_API_verify);
-    add_vk_path_option(OLD_API_verify);
-
-    /***************************************************************************************************************
-     * Subcommand: OLD_API prove_and_verify
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_prove_and_verify = OLD_API->add_subcommand("prove_and_verify", "");
-    add_verbose_flag(OLD_API_prove_and_verify);
-    add_debug_flag(OLD_API_prove_and_verify);
-    add_crs_path_option(OLD_API_prove_and_verify);
-    add_bytecode_path_option(OLD_API_prove_and_verify);
-
     std::filesystem::path avm_inputs_path{ "./target/avm_inputs.bin" };
     const auto add_avm_inputs_option = [&](CLI::App* subcommand) {
         return subcommand->add_option("--avm-inputs", avm_inputs_path, "");
@@ -510,6 +478,29 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_avm_public_inputs_option(avm_verify_command);
     add_proof_path_option(avm_verify_command);
     add_vk_path_option(avm_verify_command);
+
+    /***************************************************************************************************************
+     * Subcommand: aztec_process_artifact
+     ***************************************************************************************************************/
+    CLI::App* aztec_process = app.add_subcommand(
+        "aztec_process",
+        "Process Aztec contract artifacts: transpile and generate verification keys for all private functions.\n"
+        "If input is a directory (and no output specified), recursively processes all artifacts found in the "
+        "directory.");
+
+    std::string artifact_input_path;
+    std::string artifact_output_path;
+    bool force_regenerate = false;
+
+    aztec_process->add_option(
+        "-i,--input",
+        artifact_input_path,
+        "Input artifact JSON path or directory to search (optional, defaults to current directory)");
+    aztec_process->add_option(
+        "-o,--output", artifact_output_path, "Output artifact JSON path (optional, same as input if not specified)");
+    aztec_process->add_flag("-f,--force", force_regenerate, "Force regeneration of verification keys");
+    add_verbose_flag(aztec_process);
+    add_debug_flag(aztec_process);
 
     /***************************************************************************************************************
      * Subcommand: msgpack
@@ -598,6 +589,29 @@ int parse_and_run_cli_command(int argc, char* argv[])
         if (msgpack_run_command->parsed()) {
             return execute_msgpack_run(msgpack_input_file);
         }
+        if (aztec_process->parsed()) {
+#ifdef __wasm__
+            throw_or_abort("Aztec artifact processing is not supported in WASM builds.");
+#else
+            // Default input to current directory if not specified
+            std::string input = artifact_input_path.empty() ? "." : artifact_input_path;
+
+            // Check if input is a directory
+            if (std::filesystem::is_directory(input)) {
+                // If output specified for directory input, that's an error
+                if (!artifact_output_path.empty()) {
+                    throw_or_abort(
+                        "Cannot specify --output when input is a directory. Artifacts are updated in-place.");
+                }
+                // Recursively process all artifacts in directory
+                return process_all_artifacts(input, force_regenerate) ? 0 : 1;
+            }
+
+            // Input is a file, process single artifact
+            std::string output = artifact_output_path.empty() ? input : artifact_output_path;
+            return process_aztec_artifact(input, output, force_regenerate) ? 0 : 1;
+#endif
+        }
         // AVM
 #ifndef DISABLE_AZTEC_VM
         else if (avm_prove_command->parsed()) {
@@ -616,13 +630,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
             throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
         }
 #endif
-        else if (OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file->parsed()) {
-            write_arbitrary_valid_client_ivc_proof_and_vk_to_file(arbitrary_valid_proof_path);
-            return 0;
-        }
-        // NEW STANDARD API
-        // NOTE(AD): We likely won't really have a standard API if our main flavours are UH or CIVC, with CIVC so
-        // different
         else if (flags.scheme == "client_ivc") {
             ClientIVCAPI api;
             if (prove->parsed()) {

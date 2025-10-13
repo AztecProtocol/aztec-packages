@@ -15,7 +15,7 @@ void l1_to_l2_message_existsImpl<FF_>::accumulate(ContainerOverSubrelations& eva
 {
     using C = ColumnAndShifts;
 
-    const auto constants_L1_TO_L2_MSG_TREE_LEAF_COUNT = FF(549755813888UL);
+    const auto constants_L1_TO_L2_MSG_TREE_LEAF_COUNT = FF(68719476736UL);
     const auto constants_MEM_TAG_U1 = FF(1);
 
     {

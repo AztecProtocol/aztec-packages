@@ -48,6 +48,7 @@ export async function uploadSnapshotToIndex(
 
   await store.save(getSnapshotIndexPath(metadata), Buffer.from(jsonStringify(snapshotsIndex, true)), {
     public: true, // Make the index publicly accessible
+    compress: false, // Ensure index.json is not gzipped
     metadata: { ['Cache-control']: 'no-store' }, // Do not cache object versions
   });
   return newSnapshotMetadata;

@@ -1,8 +1,6 @@
-use crate::blob_batching_public_inputs::{
-    BlobAccumulatorPublicInputs, BLSPoint, FinalBlobBatchingChallenges,
-};
+use crate::abis::{BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges};
 use types::{
-    constants::{BLOB_ACCUMULATOR_PUBLIC_INPUTS, FIELDS_PER_BLOB},
+    constants::{BLOB_ACCUMULATOR_LENGTH, FIELDS_PER_BLOB},
     traits::{Deserialize, Serialize},
 };
 
@@ -15,8 +13,8 @@ pub unconstrained fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     expected_blob_fields_hash: Field,
     kzg_commitments: [BLSPoint; NumBlobs],
     final_blob_challenges: FinalBlobBatchingChallenges,
-    start_accumulator: BlobAccumulatorPublicInputs,
-) -> BlobAccumulatorPublicInputs {
+    start_accumulator: BlobAccumulator,
+) -> BlobAccumulator {
     let fields = evaluate_blobs_oracle(
         NumBlobs,
         blobs_as_fields,
@@ -26,7 +24,7 @@ pub unconstrained fn evaluate_blobs_and_batch<let NumBlobs: u32>(
         final_blob_challenges,
         start_accumulator.serialize(), // Serialize makes reading info easier in foreign_call_handler
     );
-    BlobAccumulatorPublicInputs::deserialize(fields)
+    BlobAccumulator::deserialize(fields)
 }
 
 #[oracle(evaluateBlobs)]
@@ -37,5 +35,5 @@ unconstrained fn evaluate_blobs_oracle<let NumBlobs: u32>(
     expected_blob_fields_hash: Field,
     kzg_commitments: [BLSPoint; NumBlobs],
     final_blob_challenges: FinalBlobBatchingChallenges,
-    start_accumulator: [Field; BLOB_ACCUMULATOR_PUBLIC_INPUTS],
-) -> [Field; BLOB_ACCUMULATOR_PUBLIC_INPUTS] {}
+    start_accumulator: [Field; BLOB_ACCUMULATOR_LENGTH],
+) -> [Field; BLOB_ACCUMULATOR_LENGTH] {}

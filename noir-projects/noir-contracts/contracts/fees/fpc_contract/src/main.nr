@@ -101,6 +101,8 @@ pub contract FPC {
 
         // Set the FPC as the fee payer of the tx.
         context.set_as_fee_payer();
+        // End the setup phase, from now on all side effects are revertible
+        context.end_setup();
     }
     // docs:end:fee_entrypoint_private
 
@@ -162,10 +164,14 @@ pub contract FPC {
             .enqueue(&mut context);
         // docs:end:public_call
 
-        context.set_as_fee_payer();
         FPC::at(context.this_address())
             ._pay_refund(context.msg_sender(), max_fee, config.accepted_asset)
             .set_as_teardown(&mut context);
+
+        // Set the FPC as the fee payer of the tx.
+        context.set_as_fee_payer();
+        // End the setup phase, from now on all side effects are revertible
+        context.end_setup();
     }
 
     /// Pays the refund to the `refund_recipient` as part of the public fee payment flow. The refund is the difference

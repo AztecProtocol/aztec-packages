@@ -1,9 +1,10 @@
 use crate::{
     data::public_data_tree_leaf::PublicDataTreeLeaf,
     merkle_tree::{IndexedTreeLeafPreimage, LeafPreimage},
-    traits::{Empty, Hash},
+    traits::{Deserialize, Empty, Hash, Serialize},
 };
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct PublicDataTreeLeafPreimage {
     pub slot: Field,
     pub value: Field,
@@ -14,15 +15,6 @@ pub struct PublicDataTreeLeafPreimage {
 impl Empty for PublicDataTreeLeafPreimage {
     fn empty() -> Self {
         Self { slot: 0, value: 0, next_slot: 0, next_index: 0 }
-    }
-}
-
-impl Eq for PublicDataTreeLeafPreimage {
-    fn eq(self, other: Self) -> bool {
-        (self.slot == other.slot)
-            & (self.value == other.value)
-            & (self.next_slot == other.next_slot)
-            & (self.next_index == other.next_index)
     }
 }
 

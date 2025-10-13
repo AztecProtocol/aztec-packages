@@ -12,10 +12,12 @@
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_decomposition.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_hashing.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_retrieval.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_instr_fetching.hpp"
+#include "barretenberg/vm2/generated/relations/perms_bc_hashing.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
@@ -30,6 +32,10 @@ void BytecodeTraceBuilder::process_decomposition(
     TraceContainer& trace)
 {
     using C = Column;
+    // Since next_packed_pc - pc is always in the range [0, 31), we can precompute the inverses:
+    std::vector<FF> next_packed_pc_min_pc_inverses = { 0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15,
+                                                       16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30 };
+    FF::batch_invert(next_packed_pc_min_pc_inverses);
 
     // We start from row 1 because we need a row of zeroes for the shifts.
     uint32_t row = 1;
@@ -50,60 +56,60 @@ void BytecodeTraceBuilder::process_decomposition(
             static_assert(MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS * 32 <= 0xffffff);
 
             // We set the decomposition in bytes, and other values.
-            trace.set(
-                row + i,
-                { {
-                    { C::bc_decomposition_sel, 1 },
-                    { C::bc_decomposition_id, id },
-                    { C::bc_decomposition_pc, i },
-                    { C::bc_decomposition_last_of_contract, is_last ? 1 : 0 },
-                    { C::bc_decomposition_bytes_remaining, remaining },
-                    { C::bc_decomposition_bytes_rem_inv, FF(remaining).invert() }, // remaining != 0 for activated rows
-                    { C::bc_decomposition_bytes_rem_min_one_inv, is_last ? 0 : FF(remaining - 1).invert() },
-                    { C::bc_decomposition_bytes_to_read, bytes_to_read },
-                    { C::bc_decomposition_sel_windows_gt_remaining, DECOMPOSE_WINDOW_SIZE > remaining ? 1 : 0 },
-                    { C::bc_decomposition_windows_min_remaining_inv,
-                      is_windows_eq_remaining ? 0 : (FF(DECOMPOSE_WINDOW_SIZE) - FF(remaining)).invert() },
-                    { C::bc_decomposition_is_windows_eq_remaining, is_windows_eq_remaining ? 1 : 0 },
-                    // Sliding window.
-                    { C::bc_decomposition_bytes, bytecode_at(i) },
-                    { C::bc_decomposition_bytes_pc_plus_1, bytecode_at(i + 1) },
-                    { C::bc_decomposition_bytes_pc_plus_2, bytecode_at(i + 2) },
-                    { C::bc_decomposition_bytes_pc_plus_3, bytecode_at(i + 3) },
-                    { C::bc_decomposition_bytes_pc_plus_4, bytecode_at(i + 4) },
-                    { C::bc_decomposition_bytes_pc_plus_5, bytecode_at(i + 5) },
-                    { C::bc_decomposition_bytes_pc_plus_6, bytecode_at(i + 6) },
-                    { C::bc_decomposition_bytes_pc_plus_7, bytecode_at(i + 7) },
-                    { C::bc_decomposition_bytes_pc_plus_8, bytecode_at(i + 8) },
-                    { C::bc_decomposition_bytes_pc_plus_9, bytecode_at(i + 9) },
-                    { C::bc_decomposition_bytes_pc_plus_10, bytecode_at(i + 10) },
-                    { C::bc_decomposition_bytes_pc_plus_11, bytecode_at(i + 11) },
-                    { C::bc_decomposition_bytes_pc_plus_12, bytecode_at(i + 12) },
-                    { C::bc_decomposition_bytes_pc_plus_13, bytecode_at(i + 13) },
-                    { C::bc_decomposition_bytes_pc_plus_14, bytecode_at(i + 14) },
-                    { C::bc_decomposition_bytes_pc_plus_15, bytecode_at(i + 15) },
-                    { C::bc_decomposition_bytes_pc_plus_16, bytecode_at(i + 16) },
-                    { C::bc_decomposition_bytes_pc_plus_17, bytecode_at(i + 17) },
-                    { C::bc_decomposition_bytes_pc_plus_18, bytecode_at(i + 18) },
-                    { C::bc_decomposition_bytes_pc_plus_19, bytecode_at(i + 19) },
-                    { C::bc_decomposition_bytes_pc_plus_20, bytecode_at(i + 20) },
-                    { C::bc_decomposition_bytes_pc_plus_21, bytecode_at(i + 21) },
-                    { C::bc_decomposition_bytes_pc_plus_22, bytecode_at(i + 22) },
-                    { C::bc_decomposition_bytes_pc_plus_23, bytecode_at(i + 23) },
-                    { C::bc_decomposition_bytes_pc_plus_24, bytecode_at(i + 24) },
-                    { C::bc_decomposition_bytes_pc_plus_25, bytecode_at(i + 25) },
-                    { C::bc_decomposition_bytes_pc_plus_26, bytecode_at(i + 26) },
-                    { C::bc_decomposition_bytes_pc_plus_27, bytecode_at(i + 27) },
-                    { C::bc_decomposition_bytes_pc_plus_28, bytecode_at(i + 28) },
-                    { C::bc_decomposition_bytes_pc_plus_29, bytecode_at(i + 29) },
-                    { C::bc_decomposition_bytes_pc_plus_30, bytecode_at(i + 30) },
-                    { C::bc_decomposition_bytes_pc_plus_31, bytecode_at(i + 31) },
-                    { C::bc_decomposition_bytes_pc_plus_32, bytecode_at(i + 32) },
-                    { C::bc_decomposition_bytes_pc_plus_33, bytecode_at(i + 33) },
-                    { C::bc_decomposition_bytes_pc_plus_34, bytecode_at(i + 34) },
-                    { C::bc_decomposition_bytes_pc_plus_35, bytecode_at(i + 35) },
-                    { C::bc_decomposition_bytes_pc_plus_36, bytecode_at(i + 36) },
-                } });
+            trace.set(row + i,
+                      { {
+                          { C::bc_decomposition_sel, 1 },
+                          { C::bc_decomposition_id, id },
+                          { C::bc_decomposition_pc, i },
+                          { C::bc_decomposition_last_of_contract, is_last ? 1 : 0 },
+                          { C::bc_decomposition_bytes_remaining, remaining },
+                          { C::bc_decomposition_bytes_to_read, bytes_to_read },
+                          { C::bc_decomposition_sel_windows_gt_remaining, DECOMPOSE_WINDOW_SIZE > remaining ? 1 : 0 },
+                          { C::bc_decomposition_is_windows_eq_remaining, is_windows_eq_remaining ? 1 : 0 },
+                          // Inverses will be calculated in batch later.
+                          { C::bc_decomposition_bytes_rem_inv, remaining },
+                          { C::bc_decomposition_bytes_rem_min_one_inv, is_last ? 0 : FF(remaining - 1) },
+                          { C::bc_decomposition_windows_min_remaining_inv,
+                            is_windows_eq_remaining ? 0 : FF(DECOMPOSE_WINDOW_SIZE) - FF(remaining) },
+                          // Sliding window.
+                          { C::bc_decomposition_bytes, bytecode_at(i) },
+                          { C::bc_decomposition_bytes_pc_plus_1, bytecode_at(i + 1) },
+                          { C::bc_decomposition_bytes_pc_plus_2, bytecode_at(i + 2) },
+                          { C::bc_decomposition_bytes_pc_plus_3, bytecode_at(i + 3) },
+                          { C::bc_decomposition_bytes_pc_plus_4, bytecode_at(i + 4) },
+                          { C::bc_decomposition_bytes_pc_plus_5, bytecode_at(i + 5) },
+                          { C::bc_decomposition_bytes_pc_plus_6, bytecode_at(i + 6) },
+                          { C::bc_decomposition_bytes_pc_plus_7, bytecode_at(i + 7) },
+                          { C::bc_decomposition_bytes_pc_plus_8, bytecode_at(i + 8) },
+                          { C::bc_decomposition_bytes_pc_plus_9, bytecode_at(i + 9) },
+                          { C::bc_decomposition_bytes_pc_plus_10, bytecode_at(i + 10) },
+                          { C::bc_decomposition_bytes_pc_plus_11, bytecode_at(i + 11) },
+                          { C::bc_decomposition_bytes_pc_plus_12, bytecode_at(i + 12) },
+                          { C::bc_decomposition_bytes_pc_plus_13, bytecode_at(i + 13) },
+                          { C::bc_decomposition_bytes_pc_plus_14, bytecode_at(i + 14) },
+                          { C::bc_decomposition_bytes_pc_plus_15, bytecode_at(i + 15) },
+                          { C::bc_decomposition_bytes_pc_plus_16, bytecode_at(i + 16) },
+                          { C::bc_decomposition_bytes_pc_plus_17, bytecode_at(i + 17) },
+                          { C::bc_decomposition_bytes_pc_plus_18, bytecode_at(i + 18) },
+                          { C::bc_decomposition_bytes_pc_plus_19, bytecode_at(i + 19) },
+                          { C::bc_decomposition_bytes_pc_plus_20, bytecode_at(i + 20) },
+                          { C::bc_decomposition_bytes_pc_plus_21, bytecode_at(i + 21) },
+                          { C::bc_decomposition_bytes_pc_plus_22, bytecode_at(i + 22) },
+                          { C::bc_decomposition_bytes_pc_plus_23, bytecode_at(i + 23) },
+                          { C::bc_decomposition_bytes_pc_plus_24, bytecode_at(i + 24) },
+                          { C::bc_decomposition_bytes_pc_plus_25, bytecode_at(i + 25) },
+                          { C::bc_decomposition_bytes_pc_plus_26, bytecode_at(i + 26) },
+                          { C::bc_decomposition_bytes_pc_plus_27, bytecode_at(i + 27) },
+                          { C::bc_decomposition_bytes_pc_plus_28, bytecode_at(i + 28) },
+                          { C::bc_decomposition_bytes_pc_plus_29, bytecode_at(i + 29) },
+                          { C::bc_decomposition_bytes_pc_plus_30, bytecode_at(i + 30) },
+                          { C::bc_decomposition_bytes_pc_plus_31, bytecode_at(i + 31) },
+                          { C::bc_decomposition_bytes_pc_plus_32, bytecode_at(i + 32) },
+                          { C::bc_decomposition_bytes_pc_plus_33, bytecode_at(i + 33) },
+                          { C::bc_decomposition_bytes_pc_plus_34, bytecode_at(i + 34) },
+                          { C::bc_decomposition_bytes_pc_plus_35, bytecode_at(i + 35) },
+                          { C::bc_decomposition_bytes_pc_plus_36, bytecode_at(i + 36) },
+                      } });
         }
 
         // We set the packed field every 31 bytes.
@@ -124,12 +130,27 @@ void BytecodeTraceBuilder::process_decomposition(
                       { {
                           { C::bc_decomposition_sel_packed, 1 },
                           { C::bc_decomposition_packed_field, bytecode_field_at(i) },
+                          { C::bc_decomposition_next_packed_pc, i },
+                          { C::bc_decomposition_next_packed_pc_min_pc_inv, 0 },
                       } });
+            for (uint32_t j = i + 1; j < std::min(bytecode_len, i + 31); j++) {
+                trace.set(
+                    row + j,
+                    { {
+                        { C::bc_decomposition_next_packed_pc, i + 31 },
+                        { C::bc_decomposition_next_packed_pc_min_pc_inv, next_packed_pc_min_pc_inverses[i + 31 - j] },
+                    } });
+            }
         }
 
         // We advance to the next bytecode.
         row += bytecode_len;
     }
+
+    // Batch invert the columns.
+    trace.invert_columns({ { C::bc_decomposition_bytes_rem_inv,
+                             C::bc_decomposition_bytes_rem_min_one_inv,
+                             C::bc_decomposition_windows_min_remaining_inv } });
 }
 
 void BytecodeTraceBuilder::process_hashing(
@@ -156,6 +177,7 @@ void BytecodeTraceBuilder::process_hashing(
             uint32_t pc_index_1 = start_of_bytecode ? 0 : pc_index + 31;
             trace.set(row,
                       { { { C::bc_hashing_sel, 1 },
+                          { C::bc_hashing_start, start_of_bytecode },
                           { C::bc_hashing_sel_not_start, !start_of_bytecode },
                           { C::bc_hashing_latch, end_of_bytecode },
                           { C::bc_hashing_bytecode_id, id },
@@ -227,8 +249,7 @@ void BytecodeTraceBuilder::process_retrieval(
 
                 // Limit handling
                 { C::bc_retrieval_no_remaining_bytecodes, remaining_bytecodes == 0 },
-                { C::bc_retrieval_remaining_bytecodes_inv,
-                  remaining_bytecodes == 0 ? 0 : FF(remaining_bytecodes).invert() },
+                { C::bc_retrieval_remaining_bytecodes_inv, remaining_bytecodes }, // Will be inverted in batch later.
                 { C::bc_retrieval_is_new_class, event.is_new_class },
                 { C::bc_retrieval_should_retrieve, !error },
 
@@ -239,6 +260,9 @@ void BytecodeTraceBuilder::process_retrieval(
             } });
         row++;
     }
+
+    // Batch invert the columns.
+    trace.invert_columns({ { C::bc_retrieval_remaining_bytecodes_inv } });
 }
 
 void BytecodeTraceBuilder::process_instruction_fetching(
@@ -414,19 +438,19 @@ void BytecodeTraceBuilder::process_instruction_fetching(
 const InteractionDefinition BytecodeTraceBuilder::interactions =
     InteractionDefinition()
         // Bytecode Hashing
-        .add<lookup_bc_hashing_get_packed_field_0_settings, InteractionType::LookupSequential>()
-        .add<lookup_bc_hashing_get_packed_field_1_settings, InteractionType::LookupSequential>()
-        .add<lookup_bc_hashing_get_packed_field_2_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_hashing_check_final_bytes_remaining_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_hashing_poseidon2_hash_settings, InteractionType::LookupSequential>()
         // Bytecode Retrieval
-        .add<lookup_bc_retrieval_bytecode_hash_is_correct_settings, InteractionType::LookupGeneric>()
         .add<lookup_bc_retrieval_class_id_derivation_settings, InteractionType::LookupGeneric>()
         .add<lookup_bc_retrieval_contract_instance_retrieval_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_retrieval_is_new_class_check_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_retrieval_retrieved_bytecodes_insertion_settings, InteractionType::LookupSequential>()
         // Bytecode Decomposition
         .add<lookup_bc_decomposition_bytes_are_bytes_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<InteractionType::MultiPermutation,
+             perm_bc_hashing_get_packed_field_0_settings,
+             perm_bc_hashing_get_packed_field_1_settings,
+             perm_bc_hashing_get_packed_field_2_settings>(Column::bc_decomposition_sel_packed)
         // Instruction Fetching
         .add<lookup_instr_fetching_bytes_from_bc_dec_settings, InteractionType::LookupGeneric>()
         .add<lookup_instr_fetching_bytecode_size_from_bc_dec_settings, InteractionType::LookupGeneric>()

@@ -4,8 +4,8 @@ global:
     tag: latest
     pullPolicy: IfNotPresent
   kubectlImage:
-    repository: bitnami/kubectl
-    tag: 1.33.4
+    repository: registry.suse.com/suse/kubectl
+    tag: 1.33
     pullPolicy: Always
 
 mnemonic:
@@ -34,6 +34,20 @@ publishers:
   addressConfigMap:
     create: true
     name: "" # if empty name will be generated based on Release.Name
+
+provers:
+  proverCount: 1
+  publishersPerProver: 1
+  mnemonicStartIndex: 8000
+  keyStoreSecret:
+    create: true
+    name: "" # if empty name will be generated based on Release.Name
+  addressConfigMap:
+    create: true
+    name: "" # if empty name will be generated based on Release.Name
+
+keystores:
+  secretName: "" # if empty, will be generated as {Release.Name}-keystores
 
 serviceAccount:
   create: true

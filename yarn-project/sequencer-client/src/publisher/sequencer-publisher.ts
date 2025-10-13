@@ -5,12 +5,11 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import {
   type EmpireSlashingProposerContract,
   FormattedViemError,
-  type GasPrice,
   type GovernanceProposerContract,
   type IEmpireBase,
   type L1BlobInputs,
   type L1ContractsConfig,
-  type L1GasConfig,
+  type L1TxConfig,
   type L1TxRequest,
   MULTI_CALL_3_ADDRESS,
   Multicall3,
@@ -41,7 +40,6 @@ import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
 import { StateReference } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import pick from 'lodash.pick';
 import { type TransactionReceipt, type TypedDataDefinition, encodeFunctionData, toHex } from 'viem';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
@@ -94,11 +92,11 @@ interface RequestWithExpiry {
   action: Action;
   request: L1TxRequest;
   lastValidL2Slot: bigint;
-  gasConfig?: Pick<L1GasConfig, 'txTimeoutAt' | 'gasLimit'>;
+  gasConfig?: Pick<L1TxConfig, 'txTimeoutAt' | 'gasLimit'>;
   blobConfig?: L1BlobInputs;
   checkSuccess: (
     request: L1TxRequest,
-    result?: { receipt: TransactionReceipt; gasPrice: GasPrice; stats?: TransactionStats; errorMsg?: string },
+    result?: { receipt: TransactionReceipt; stats?: TransactionStats; errorMsg?: string },
   ) => boolean;
 }
 
@@ -249,18 +247,21 @@ export class SequencerPublisher {
     const gasLimit = gasLimits.length > 0 ? sumBigint(gasLimits) : undefined; // sum
     const txTimeoutAts = gasConfigs.map(g => g?.txTimeoutAt).filter((g): g is Date => g !== undefined);
     const txTimeoutAt = txTimeoutAts.length > 0 ? new Date(Math.min(...txTimeoutAts.map(g => g.getTime()))) : undefined; // earliest
-    const gasConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
+    const txConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
 
     // Sort the requests so that proposals always go first
     // This ensures the committee gets precomputed correctly
     validRequests.sort((a, b) => compareActions(a.action, b.action));
 
     try {
-      this.log.debug('Forwarding transactions', { validRequests: validRequests.map(request => request.action) });
+      this.log.debug('Forwarding transactions', {
+        validRequests: validRequests.map(request => request.action),
+        txConfig,
+      });
       const result = await Multicall3.forward(
         validRequests.map(request => request.request),
         this.l1TxUtils,
-        gasConfig,
+        txConfig,
         blobConfig,
         this.rollupContract.address,
         this.log,
@@ -285,7 +286,7 @@ export class SequencerPublisher {
 
   private callbackBundledTransactions(
     requests: RequestWithExpiry[],
-    result?: { receipt: TransactionReceipt; gasPrice: GasPrice } | FormattedViemError,
+    result?: { receipt: TransactionReceipt } | FormattedViemError,
   ) {
     const actionsListStr = requests.map(r => r.action).join(', ');
     if (result instanceof FormattedViemError) {
@@ -809,7 +810,8 @@ export class SequencerPublisher {
     // We issued the simulation against the rollup contract, so we need to account for the overhead of the multicall3
     const gasLimit = this.l1TxUtils.bumpGasLimit(BigInt(Math.ceil((Number(request.gasUsed) * 64) / 63)));
 
-    const logData = { ...pick(request, 'gasUsed', 'blockNumber'), gasLimit, opts };
+    const { gasUsed, blockNumber } = request;
+    const logData = { gasUsed, blockNumber, gasLimit, opts };
     this.log.verbose(`Enqueuing invalidate block request`, logData);
     this.addRequest({
       action: `invalidate-by-${request.reason}`,
@@ -1079,13 +1081,16 @@ export class SequencerPublisher {
         if (success) {
           const endBlock = receipt.blockNumber;
           const inclusionBlocks = Number(endBlock - startBlock);
+          const { calldataGas, calldataSize, sender } = stats!;
           const publishStats: L1PublishBlockStats = {
             gasPrice: receipt.effectiveGasPrice,
             gasUsed: receipt.gasUsed,
             blobGasUsed: receipt.blobGasUsed ?? 0n,
             blobDataGas: receipt.blobGasPrice ?? 0n,
             transactionHash: receipt.transactionHash,
-            ...pick(stats!, 'calldataGas', 'calldataSize', 'sender'),
+            calldataGas,
+            calldataSize,
+            sender,
             ...block.getStats(),
             eventName: 'rollup-published-to-l1',
             blobCount: encodedData.blobs.length,

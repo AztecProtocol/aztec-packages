@@ -1,4 +1,4 @@
-import { BlobAccumulatorPublicInputs, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
+import { BlobAccumulator, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import { ARCHIVE_HEIGHT, BLOBS_PER_BLOCK, FIELDS_PER_BLOB } from '@aztec/constants';
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
@@ -23,7 +23,7 @@ export class CheckpointRootRollupHints {
     /**
      * The current blob accumulation state across the epoch.
      */
-    public startBlobAccumulator: BlobAccumulatorPublicInputs,
+    public startBlobAccumulator: BlobAccumulator,
     /**
      * Finalized challenges z and gamma for performing blob batching. Shared value across the epoch.
      */
@@ -70,7 +70,7 @@ export class CheckpointRootRollupHints {
     return new CheckpointRootRollupHints(
       BlockHeader.fromBuffer(reader),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
-      reader.readObject(BlobAccumulatorPublicInputs),
+      reader.readObject(BlobAccumulator),
       reader.readObject(FinalBlobBatchingChallenges),
       // Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
       // reader.readArray(FIELDS_PER_BLOB, Fr),

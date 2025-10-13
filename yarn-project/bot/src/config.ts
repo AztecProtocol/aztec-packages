@@ -13,7 +13,7 @@ import {
 import { Fr } from '@aztec/foundation/fields';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { type ZodFor, schemas } from '@aztec/stdlib/schemas';
 import type { ComponentsVersions } from '@aztec/stdlib/versioning';
 
@@ -54,6 +54,8 @@ export type BotConfig = {
   publicTransfersPerTx: number;
   /** How to handle fee payments. */
   feePaymentMethod: 'fee_juice';
+  /** 'How much is the bot willing to overpay vs. the current base fee' */
+  baseFeePadding: number;
   /** True to not automatically setup or start the bot on initialization. */
   noStart: boolean;
   /** How long to wait for a tx to be mined before reporting an error. */
@@ -93,6 +95,7 @@ export const BotConfigSchema = z
     privateTransfersPerTx: z.number().int().nonnegative(),
     publicTransfersPerTx: z.number().int().nonnegative(),
     feePaymentMethod: z.literal('fee_juice'),
+    baseFeePadding: z.number().int().nonnegative(),
     noStart: z.boolean(),
     txMinedWaitSeconds: z.number(),
     followChain: z.enum(BotFollowChain),
@@ -188,6 +191,11 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     parseEnv: val => (val as 'fee_juice') || undefined,
     defaultValue: 'fee_juice',
   },
+  baseFeePadding: {
+    env: 'BOT_BASE_FEE_PADDING',
+    description: 'How much is the bot willing to overpay vs. the current base fee',
+    ...numberConfigHelper(3),
+  },
   noStart: {
     env: 'BOT_NO_START',
     description: 'True to not automatically setup or start the bot on initialization.',
@@ -272,7 +280,7 @@ export function getBotDefaultConfig(): BotConfig {
 
 export function getVersions(): Partial<ComponentsVersions> {
   return {
-    l2ProtocolContractsTreeRoot: protocolContractTreeRoot.toString(),
+    l2ProtocolContractsHash: protocolContractsHash.toString(),
     l2CircuitsVkTreeRoot: getVKTreeRoot().toString(),
   };
 }

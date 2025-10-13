@@ -22,7 +22,7 @@ struct lookup_contract_instance_retrieval_check_protocol_address_range_settings_
     static constexpr Column COUNTS = Column::lookup_contract_instance_retrieval_check_protocol_address_range_counts;
     static constexpr Column INVERSES = Column::lookup_contract_instance_retrieval_check_protocol_address_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::contract_instance_retrieval_max_protocol_contract_address,
+        ColumnAndShifts::contract_instance_retrieval_max_protocol_contracts,
         ColumnAndShifts::contract_instance_retrieval_address_sub_one,
         ColumnAndShifts::contract_instance_retrieval_is_protocol_contract
     };
@@ -36,6 +36,34 @@ using lookup_contract_instance_retrieval_check_protocol_address_range_settings =
 template <typename FF_>
 using lookup_contract_instance_retrieval_check_protocol_address_range_relation =
     lookup_relation_base<FF_, lookup_contract_instance_retrieval_check_protocol_address_range_settings>;
+
+/////////////////// lookup_contract_instance_retrieval_read_derived_address_from_public_inputs ///////////////////
+
+struct lookup_contract_instance_retrieval_read_derived_address_from_public_inputs_settings_ {
+    static constexpr std::string_view NAME =
+        "LOOKUP_CONTRACT_INSTANCE_RETRIEVAL_READ_DERIVED_ADDRESS_FROM_PUBLIC_INPUTS";
+    static constexpr std::string_view RELATION_NAME = "contract_instance_retrieval";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::contract_instance_retrieval_is_protocol_contract;
+    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr Column COUNTS =
+        Column::lookup_contract_instance_retrieval_read_derived_address_from_public_inputs_counts;
+    static constexpr Column INVERSES =
+        Column::lookup_contract_instance_retrieval_read_derived_address_from_public_inputs_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::contract_instance_retrieval_derived_address_pi_index,
+        ColumnAndShifts::contract_instance_retrieval_derived_address
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+    };
+};
+
+using lookup_contract_instance_retrieval_read_derived_address_from_public_inputs_settings =
+    lookup_settings<lookup_contract_instance_retrieval_read_derived_address_from_public_inputs_settings_>;
+template <typename FF_>
+using lookup_contract_instance_retrieval_read_derived_address_from_public_inputs_relation =
+    lookup_relation_base<FF_, lookup_contract_instance_retrieval_read_derived_address_from_public_inputs_settings>;
 
 /////////////////// lookup_contract_instance_retrieval_deployment_nullifier_read ///////////////////
 
@@ -68,32 +96,6 @@ using lookup_contract_instance_retrieval_deployment_nullifier_read_settings =
 template <typename FF_>
 using lookup_contract_instance_retrieval_deployment_nullifier_read_relation =
     lookup_relation_base<FF_, lookup_contract_instance_retrieval_deployment_nullifier_read_settings>;
-
-/////////////////// lookup_contract_instance_retrieval_protocol_contract_derived_address ///////////////////
-
-struct lookup_contract_instance_retrieval_protocol_contract_derived_address_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_CONTRACT_INSTANCE_RETRIEVAL_PROTOCOL_CONTRACT_DERIVED_ADDRESS";
-    static constexpr std::string_view RELATION_NAME = "contract_instance_retrieval";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::contract_instance_retrieval_is_protocol_contract;
-    static constexpr Column DST_SELECTOR = Column::protocol_contract_sel;
-    static constexpr Column COUNTS =
-        Column::lookup_contract_instance_retrieval_protocol_contract_derived_address_counts;
-    static constexpr Column INVERSES = Column::lookup_contract_instance_retrieval_protocol_contract_derived_address_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::contract_instance_retrieval_address,
-        ColumnAndShifts::contract_instance_retrieval_derived_address
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::protocol_contract_canonical_address, ColumnAndShifts::protocol_contract_derived_address
-    };
-};
-
-using lookup_contract_instance_retrieval_protocol_contract_derived_address_settings =
-    lookup_settings<lookup_contract_instance_retrieval_protocol_contract_derived_address_settings_>;
-template <typename FF_>
-using lookup_contract_instance_retrieval_protocol_contract_derived_address_relation =
-    lookup_relation_base<FF_, lookup_contract_instance_retrieval_protocol_contract_derived_address_settings>;
 
 /////////////////// lookup_contract_instance_retrieval_address_derivation ///////////////////
 

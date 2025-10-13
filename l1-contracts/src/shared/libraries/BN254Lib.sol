@@ -203,11 +203,10 @@ library BN254Lib {
     bool found = false;
     uint256 attempts = 0;
     while (true) {
-      uint256 x = uint256(keccak256(abi.encode(domain, message, attempts))) % BASE_FIELD_ORDER;
+      uint256 x = uint256(keccak256(abi.encode(domain, message, attempts)));
       attempts++;
 
-      // In the very rare case you should hit 0 based on the hash, we disregard it and try again
-      if (x == 0) {
+      if (x >= BASE_FIELD_ORDER) {
         continue;
       }
 
@@ -224,7 +223,8 @@ library BN254Lib {
           (y0, y1) = (y1, y0);
         }
 
-        if ((x & 1) == 0) {
+        uint256 b = uint256(keccak256(abi.encode(domain, message, type(uint256).max)));
+        if (b & 1 == 0) {
           output = G1Point({x: x, y: y0});
         } else {
           output = G1Point({x: x, y: y1});

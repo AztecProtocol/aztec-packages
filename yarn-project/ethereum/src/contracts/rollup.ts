@@ -268,8 +268,7 @@ export class RollupContract {
 
   @memoize
   async getGenesisArchiveTreeRoot(): Promise<`0x${string}`> {
-    const block = await this.rollup.read.getBlock([0n]);
-    return block.archive;
+    return await this.rollup.read.archiveAt([0n]);
   }
 
   /**
@@ -426,8 +425,8 @@ export class RollupContract {
     return result;
   }
 
-  getBlock(blockNumber: bigint) {
-    return this.rollup.read.getBlock([blockNumber]);
+  getBlock(blockNumber: bigint | number) {
+    return this.rollup.read.getBlock([BigInt(blockNumber)]);
   }
 
   getTips() {

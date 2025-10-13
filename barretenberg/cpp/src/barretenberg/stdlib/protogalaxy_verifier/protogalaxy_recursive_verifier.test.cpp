@@ -560,6 +560,7 @@ TEST_F(ProtogalaxyRecursiveTests, TamperedDeciderProof)
 
 TEST_F(ProtogalaxyRecursiveTests, TamperedAccumulator)
 {
+    BB_DISABLE_ASSERTS(); // Disable assert in PG prover
     ProtogalaxyRecursiveTests::test_tampered_accumulator();
 }
 

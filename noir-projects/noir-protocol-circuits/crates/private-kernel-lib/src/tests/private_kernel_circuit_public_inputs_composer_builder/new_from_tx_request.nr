@@ -2,10 +2,7 @@ use crate::{
     components::private_kernel_circuit_public_inputs_composer::create_protocol_nullifier,
     tests::private_kernel_circuit_public_inputs_composer_builder::PrivateKernelCircuitPublicInputsComposerBuilder,
 };
-use dep::types::{
-    abis::side_effect::OrderedValue, constants::MAX_U64_VALUE, tests::utils::make_fixture,
-    traits::Empty,
-};
+use dep::types::{constants::MAX_U64_VALUE, tests::utils::make_fixture, traits::Empty};
 
 #[test]
 fn new_from_tx_request_succeeds() {
@@ -32,7 +29,7 @@ fn new_from_tx_request_succeeds() {
     assert_eq(output.end.nullifiers.array[0], protocol_nullifier);
 
     // Check the nullifier claim is set to the protocol nullifier
-    assert_eq(output.claimed_first_nullifier, protocol_nullifier.value());
+    assert_eq(output.claimed_first_nullifier, protocol_nullifier.innermost().value);
 
     // Check include_by_timestamp is set to max u64,
     // so that it can be overwritten by the private call's include_by_timestamp later.

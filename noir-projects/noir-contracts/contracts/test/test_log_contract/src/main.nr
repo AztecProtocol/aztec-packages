@@ -62,12 +62,10 @@ pub contract TestLog {
 
     #[public]
     fn emit_unencrypted_events(preimages: [Field; 4]) {
-        // docs:start:emit_public
         emit_event_in_public(
             ExampleEvent0 { value0: preimages[0], value1: preimages[1] },
             &mut context,
         );
-        // docs:end:emit_public
 
         emit_event_in_public(
             ExampleEvent1 {

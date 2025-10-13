@@ -4,9 +4,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { getProtocolContractLeafAndMembershipWitness, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { ProtocolContractsList } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { computeContractAddressFromInstance } from '@aztec/stdlib/contract';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import {
   HidingKernelToPublicPrivateInputs,
@@ -168,7 +167,7 @@ export class PrivateKernelExecutionProver {
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(
           txRequest,
           getVKTreeRoot(),
-          protocolContractTreeRoot,
+          ProtocolContractsList,
           privateCallData,
           isPrivateOnlyTx,
           executionResult.firstNullifier,
@@ -392,17 +391,6 @@ export class PrivateKernelExecutionProver {
     const { artifactHash: contractClassArtifactHash, publicBytecodeCommitment: contractClassPublicBytecodeCommitment } =
       await this.oracle.getContractClassIdPreimage(currentContractClassId);
 
-    // This will be the address computed in the kernel by the executed class. We need to provide non membership of it in the protocol contract tree.
-    // This would only be equal to contractAddress if the currentClassId is equal to the original class id (no update happened).
-    const computedAddress = await computeContractAddressFromInstance({
-      originalContractClassId: currentContractClassId,
-      saltedInitializationHash,
-      publicKeys,
-    });
-
-    const { lowLeaf: protocolContractLeaf, witness: protocolContractMembershipWitness } =
-      await getProtocolContractLeafAndMembershipWitness(contractAddress, computedAddress);
-
     const updatedClassIdHints = await this.oracle.getUpdatedClassIdHints(contractAddress);
     return PrivateCallData.from({
       publicInputs,
@@ -413,8 +401,6 @@ export class PrivateKernelExecutionProver {
         contractClassPublicBytecodeCommitment,
         saltedInitializationHash,
         functionLeafMembershipWitness,
-        protocolContractMembershipWitness,
-        protocolContractLeaf,
         updatedClassIdHints,
       }),
     });

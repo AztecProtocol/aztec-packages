@@ -1,4 +1,4 @@
-import { AVM_MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
+import { AVM_MAX_PROCESSABLE_L2_GAS, DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -73,6 +73,7 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
     overrides?.isStaticCall ?? false,
     overrides?.calldata ?? [],
     overrides?.clientInitiatedSimulation ?? true, // default to true for testing even though internal default is false
+    overrides?.maxDebugLogMemoryReads ?? DEFAULT_MAX_DEBUG_LOG_MEMORY_READS,
   );
 }
 

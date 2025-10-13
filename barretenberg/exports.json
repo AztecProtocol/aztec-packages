@@ -241,10 +241,6 @@
       {
         "name": "num_points",
         "type": "const uint32_t *"
-      },
-      {
-        "name": "g2_point_buf",
-        "type": "const uint8_t *"
       }
     ],
     "outArgs": [],
@@ -447,7 +443,7 @@
     "isAsync": false
   },
   {
-    "functionName": "acir_get_proving_key",
+    "functionName": "acir_get_prover_instance",
     "inArgs": [
       {
         "name": "acir_composer_ptr",
@@ -580,6 +576,10 @@
       {
         "name": "witness_vec",
         "type": "const uint8_t *"
+      },
+      {
+        "name": "vk_buf",
+        "type": "const uint8_t *"
       }
     ],
     "outArgs": [
@@ -599,6 +599,10 @@
       },
       {
         "name": "witness_vec",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "vk_buf",
         "type": "const uint8_t *"
       }
     ],
@@ -620,6 +624,10 @@
       {
         "name": "witness_vec",
         "type": "const uint8_t *"
+      },
+      {
+        "name": "vk_buf",
+        "type": "const uint8_t *"
       }
     ],
     "outArgs": [
@@ -640,6 +648,10 @@
       {
         "name": "witness_vec",
         "type": "const uint8_t *"
+      },
+      {
+        "name": "vk_buf",
+        "type": "const uint8_t *"
       }
     ],
     "outArgs": [
@@ -659,6 +671,10 @@
       },
       {
         "name": "witness_vec",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "vk_buf",
         "type": "const uint8_t *"
       }
     ],

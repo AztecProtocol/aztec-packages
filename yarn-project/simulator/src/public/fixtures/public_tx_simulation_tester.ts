@@ -52,15 +52,11 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     super(contractDataSource, merkleTree);
 
     const contractsDB = new PublicContractsDB(contractDataSource);
-    this.simulator = new MeasuredPublicTxSimulator(
-      merkleTree,
-      contractsDB,
-      globals,
-      /*doMerkleOperations=*/ true,
-      /*skipFeeEnforcement=*/ false,
-      /*clientInitiatedSimulation=*/ true,
-      this.metrics,
-    );
+    this.simulator = new MeasuredPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, {
+      doMerkleOperations: true,
+      skipFeeEnforcement: false,
+      clientInitiatedSimulation: true,
+    });
   }
 
   public static async create(

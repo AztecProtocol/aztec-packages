@@ -17,7 +17,7 @@ class MockGetContractInstance : public GetContractInstanceInterface {
     MOCK_METHOD(
         void,
         get_contract_instance,
-        (MemoryInterface & memory, AztecAddress contract_address, MemoryAddress dst_offset, uint8_t member_enum),
+        (MemoryInterface & memory, const AztecAddress& contract_address, MemoryAddress dst_offset, uint8_t member_enum),
         (override));
 };
 

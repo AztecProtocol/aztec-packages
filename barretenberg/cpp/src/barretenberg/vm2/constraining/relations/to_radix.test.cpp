@@ -17,6 +17,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
+#include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -28,6 +29,7 @@ namespace {
 using ::testing::Return;
 using ::testing::StrictMock;
 
+using tracegen::ExecutionTraceBuilder;
 using tracegen::GreaterThanTraceBuilder;
 using tracegen::PrecomputedTraceBuilder;
 using tracegen::TestTraceContainer;
@@ -70,8 +72,8 @@ TEST(ToRadixConstrainingTest, ToLeBitsBasicTest)
     EXPECT_EQ(bits.size(), 254);
     EXPECT_FALSE(truncated);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder builder;
@@ -94,8 +96,8 @@ TEST(ToRadixConstrainingTest, ToLeBitsPMinusOne)
     EXPECT_EQ(bits.size(), 254);
     EXPECT_FALSE(truncated);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder builder;
@@ -118,8 +120,8 @@ TEST(ToRadixConstrainingTest, ToLeBitsShortest)
     EXPECT_EQ(bits.size(), 1);
     EXPECT_FALSE(truncated);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder builder;
@@ -142,8 +144,8 @@ TEST(ToRadixConstrainingTest, ToLeBitsPadded)
     EXPECT_EQ(bits.size(), 500);
     EXPECT_FALSE(truncated);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder builder;
@@ -170,8 +172,8 @@ TEST(ToRadixConstrainingTest, ToLeRadixBasic)
     EXPECT_EQ(bytes, expected_bytes);
     EXPECT_FALSE(truncated);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder builder;
@@ -198,8 +200,8 @@ TEST(ToRadixConstrainingTest, ToLeRadixPMinusOne)
     EXPECT_EQ(bytes, expected_bytes);
     EXPECT_FALSE(truncated);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder builder;
@@ -223,8 +225,8 @@ TEST(ToRadixConstrainingTest, ToLeRadixOneByte)
     EXPECT_EQ(bytes, expected_bytes);
     EXPECT_FALSE(truncated);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder builder;
@@ -252,8 +254,8 @@ TEST(ToRadixConstrainingTest, ToLeRadixPadded)
     EXPECT_EQ(bytes, expected_bytes);
     EXPECT_FALSE(truncated);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder builder;
@@ -273,8 +275,8 @@ TEST(ToRadixConstrainingTest, ToLeBitsInteractions)
 
     to_radix_simulator.to_le_bits(FF::neg_one(), 254);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder to_radix_builder;
@@ -306,8 +308,8 @@ TEST(ToRadixConstrainingTest, ToLeRadixInteractions)
 
     to_radix_simulator.to_le_radix(FF::neg_one(), 32, 256);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder to_radix_builder;
@@ -331,8 +333,8 @@ TEST(ToRadixConstrainingTest, ToLeRadixInteractions)
 
 TEST(ToRadixConstrainingTest, NegativeOverflowCheck)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     std::vector<uint8_t> modulus_le_bits(256, 0);
@@ -360,8 +362,8 @@ TEST(ToRadixConstrainingTest, NegativeConsistency)
 
     to_radix_simulator.to_le_radix(FF(256), 32, 256);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     ToRadixTraceBuilder builder;
@@ -420,7 +422,7 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::gt_res, 0 }, // GT should return true
             // Execution Trace (No gas)
             { C::execution_sel, 1 },
-            { C::execution_sel_execute_to_radix, 1 },
+            { C::execution_sel_exec_dispatch_to_radix, 1 },
             { C::execution_register_0_, value },
             { C::execution_register_1_, radix },
             { C::execution_register_2_, num_limbs },
@@ -624,7 +626,7 @@ TEST(ToRadixMemoryConstrainingTest, DstOutOfRange)
         {
             // Execution Trace (No gas)
             { C::execution_sel, 1 },
-            { C::execution_sel_execute_to_radix, 1 },
+            { C::execution_sel_exec_dispatch_to_radix, 1 },
             { C::execution_register_0_, value },
             { C::execution_register_1_, radix },
             { C::execution_register_2_, num_limbs },
@@ -664,9 +666,8 @@ TEST(ToRadixMemoryConstrainingTest, DstOutOfRange)
     });
 
     check_relation<to_radix_mem>(trace);
-    check_interaction<ToRadixTraceBuilder,
-                      lookup_to_radix_mem_check_dst_addr_in_range_settings,
-                      perm_to_radix_mem_dispatch_exec_to_radix_settings>(trace);
+    check_interaction<ToRadixTraceBuilder, lookup_to_radix_mem_check_dst_addr_in_range_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, perm_execution_dispatch_to_to_radix_settings>(trace);
 }
 
 TEST(ToRadixMemoryConstrainingTest, InvalidRadix)

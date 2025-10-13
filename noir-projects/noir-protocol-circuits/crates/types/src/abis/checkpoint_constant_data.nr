@@ -13,7 +13,7 @@ pub struct CheckpointConstantData {
     pub chain_id: Field,
     pub version: Field,
     pub vk_tree_root: Field,
-    pub protocol_contract_tree_root: Field,
+    pub protocol_contracts_hash: Field,
     pub prover_id: Field,
 
     // Additional constants that remain the same for all blocks within a checkpoint.
@@ -29,7 +29,7 @@ impl Empty for CheckpointConstantData {
             chain_id: 0,
             version: 0,
             vk_tree_root: 0,
-            protocol_contract_tree_root: 0,
+            protocol_contracts_hash: 0,
             prover_id: 0,
             slot_number: 0,
             coinbase: EthAddress::empty(),

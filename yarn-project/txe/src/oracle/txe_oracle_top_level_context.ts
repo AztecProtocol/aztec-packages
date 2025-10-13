@@ -8,7 +8,7 @@ import {
 } from '@aztec/constants';
 import { Schnorr } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import { LogLevels, type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
 import {
@@ -121,8 +121,13 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   // We instruct users to debug contracts via this oracle, so it makes sense that they'd expect it to also work in tests
-  utilityDebugLog(message: string, fields: Fr[]): void {
-    this.logger.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
+  utilityDebugLog(level: number, message: string, fields: Fr[]): void {
+    if (!LogLevels[level]) {
+      throw new Error(`Invalid debug log level: ${level}`);
+    }
+    const levelName = LogLevels[level];
+
+    this.logger[levelName](`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
   }
 
   async txeGetNextBlockNumber(): Promise<number> {
@@ -369,7 +374,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       globals,
       guardedMerkleTrees,
       contractsDB,
-      new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, true, true),
+      new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, {
+        doMerkleOperations: true,
+        skipFeeEnforcement: true,
+      }),
       new TestDateProvider(),
     );
 
@@ -475,7 +483,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(blockNumber, this.contractDataProvider));
     const guardedMerkleTrees = new GuardedMerkleTreeOperations(forkedWorldTrees);
-    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, true, true);
+    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, {
+      doMerkleOperations: true,
+      skipFeeEnforcement: true,
+    });
     const processor = new PublicProcessor(globals, guardedMerkleTrees, contractsDB, simulator, new TestDateProvider());
 
     // We're simulating a scenario in which private execution immediately enqueues a public call and halts. The private

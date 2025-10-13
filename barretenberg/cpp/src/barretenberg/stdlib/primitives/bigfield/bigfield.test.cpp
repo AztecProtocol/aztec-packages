@@ -1291,7 +1291,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
     static void test_assert_is_in_field_fails()
     {
         auto builder = Builder();
-        size_t num_repetitions = 10;
+        size_t num_repetitions = 1000;
         fq_ct c_ct = fq_ct::zero();
         fq_native expected = fq_native::zero();
         for (size_t i = 0; i < num_repetitions; ++i) {
@@ -1303,10 +1303,12 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
                 c_ct += a_ct * b_ct;
                 expected += a_native * b_native;
             }
-        }
 
-        // Ensure that c has exceeded p (as mul and add have been performed without reduction so far)
-        EXPECT_EQ(c_ct.get_value() >= fq_ct::modulus, true);
+            // Break out of the loop if c has exceeded the modulus
+            if (c_ct.get_value() >= fq_ct::modulus) {
+                break;
+            }
+        }
 
         // this will fail because mult and add have been performed without reduction
         c_ct.assert_is_in_field();
@@ -1350,10 +1352,10 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
     static void test_assert_less_than_fails()
     {
         auto builder = Builder();
-        size_t num_repetitions = 10;
         constexpr size_t num_bits = 200;
         constexpr uint256_t bit_mask = (uint256_t(1) << num_bits) - 1;
 
+        size_t num_repetitions = 1000;
         fq_ct c_ct = fq_ct::zero();
         fq_native expected = fq_native::zero();
         for (size_t i = 0; i < num_repetitions; ++i) {
@@ -1372,10 +1374,12 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
                 c_ct += a_ct * b_ct;
                 expected += fq_native(a_u256) * fq_native(b_u256);
             }
-        }
 
-        // Ensure that c has exceeded 200 bits
-        EXPECT_EQ(c_ct.get_value().get_msb() >= num_bits, true);
+            // Break out of the loop if c has exceeded 200 bits
+            if (c_ct.get_value().get_msb() >= num_bits) {
+                break;
+            }
+        }
 
         // check that assert_less_than fails
         c_ct.assert_less_than(bit_mask + 1);

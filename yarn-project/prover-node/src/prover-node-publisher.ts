@@ -1,4 +1,4 @@
-import { type BatchedBlob, FinalBlobAccumulatorPublicInputs } from '@aztec/blob-lib';
+import { type BatchedBlob, FinalBlobAccumulator } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import type { L1TxUtils, RollupContract, ViemCommitteeAttestation } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
@@ -7,7 +7,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { Tuple } from '@aztec/foundation/serialize';
-import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
@@ -35,8 +34,6 @@ export type L1SubmitEpochProofArgs = {
 };
 
 export class ProverNodePublisher {
-  private interruptibleSleep = new InterruptibleSleep();
-  private sleepTimeMs: number;
   private interrupted = false;
   private metrics: ProverNodePublisherMetrics;
 
@@ -54,8 +51,6 @@ export class ProverNodePublisher {
       telemetry?: TelemetryClient;
     },
   ) {
-    this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
-
     const telemetry = deps.telemetry ?? getTelemetryClient();
 
     this.metrics = new ProverNodePublisherMetrics(telemetry, 'ProverNode');
@@ -76,12 +71,13 @@ export class ProverNodePublisher {
    */
   public interrupt() {
     this.interrupted = true;
-    this.interruptibleSleep.interrupt();
+    this.l1TxUtils.interrupt();
   }
 
   /** Restarts the publisher after calling `interrupt`. */
   public restart() {
     this.interrupted = false;
+    this.l1TxUtils.restart();
   }
 
   public getSenderAddress() {
@@ -99,6 +95,7 @@ export class ProverNodePublisher {
   }): Promise<boolean> {
     const { epochNumber, fromBlock, toBlock } = args;
     const ctx = { epochNumber, fromBlock, toBlock };
+
     if (!this.interrupted) {
       const timer = new Timer();
       // Validate epoch proof range and hashes are correct before submitting
@@ -139,7 +136,6 @@ export class ProverNodePublisher {
 
       this.metrics.recordFailedTx();
       this.log.error(`Rollup.submitEpochProof tx status failed ${txReceipt.transactionHash}`, undefined, ctx);
-      await this.sleepOrInterrupted();
     }
 
     this.log.verbose('L2 block data syncing interrupted', ctx);
@@ -184,9 +180,9 @@ export class ProverNodePublisher {
     }
 
     // Check the batched blob inputs from the root rollup against the batched blob computed in ts
-    if (!publicInputs.blobPublicInputs.equals(FinalBlobAccumulatorPublicInputs.fromBatchedBlob(batchedBlobInputs))) {
+    if (!publicInputs.blobPublicInputs.equals(FinalBlobAccumulator.fromBatchedBlob(batchedBlobInputs))) {
       throw new Error(
-        `Batched blob mismatch: ${inspect(publicInputs.blobPublicInputs)} !== ${inspect(FinalBlobAccumulatorPublicInputs.fromBatchedBlob(batchedBlobInputs))}`,
+        `Batched blob mismatch: ${inspect(publicInputs.blobPublicInputs)} !== ${inspect(FinalBlobAccumulator.fromBatchedBlob(batchedBlobInputs))}`,
       );
     }
 
@@ -292,9 +288,5 @@ export class ProverNodePublisher {
       blobInputs: argsArray[4],
       proof: proofHex,
     };
-  }
-
-  protected async sleepOrInterrupted() {
-    await this.interruptibleSleep.sleep(this.sleepTimeMs);
   }
 }
