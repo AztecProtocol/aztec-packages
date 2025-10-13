@@ -1,4 +1,4 @@
-import { BackendType, Barretenberg } from '@aztec/bb.js';
+import { Barretenberg } from '@aztec/bb.js';
 
 import { loadTrustedSetup } from './trusted_setup_loader.js';
 

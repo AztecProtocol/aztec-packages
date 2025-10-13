@@ -241,6 +241,21 @@ void* spsc_claim(struct spsc_shm* r, size_t want, size_t* n)
         return NULL;
     }
 
+    // After wrapping, we'll write at the beginning of the ring (position 0).
+    // Verify that the region [0, want) is actually free.
+    // Even if total free space is sufficient, the beginning might still be occupied.
+    uint64_t tail_pos = tail & mask;
+    uint64_t new_head = head + till_end;
+
+    // If tail is still at the beginning of the buffer (position < want),
+    // we can't safely wrap and write there
+    if (tail_pos < want && tail < new_head) {
+        // Beginning of buffer is still occupied
+        if (n)
+            *n = 0;
+        return NULL;
+    }
+
     // Write zero-length marker as padding and advance head to wrap point
     // This makes the padding visible to the consumer to skip
     if (till_end >= sizeof(uint32_t)) {
