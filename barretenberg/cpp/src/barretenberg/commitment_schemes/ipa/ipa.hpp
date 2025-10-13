@@ -875,14 +875,14 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         requires Curve::is_stdlib_type
     {
         using NativeCurve = curve::Grumpkin;
+        // Sanity check that we are not using Grumpkin with MegaCircuitBuilder designed to delegate BN254 ops.
         static_assert(IsAnyOf<typename Curve::Builder, UltraCircuitBuilder>);
         // Step 1: Run the partial verifier for each IPA instance
         VerifierAccumulator verifier_accumulator_1 = reduce_verify(claim_1, transcript_1);
         VerifierAccumulator verifier_accumulator_2 = reduce_verify(claim_2, transcript_2);
 
         // Step 2: Generate the challenges by hashing the pairs
-        using StdlibTranscript = UltraStdlibTranscript;
-        StdlibTranscript transcript;
+        UltraStdlibTranscript transcript;
         transcript.add_to_hash_buffer("u_challenges_inv_1", verifier_accumulator_1.u_challenges_inv);
         transcript.add_to_hash_buffer("U_1", verifier_accumulator_1.comm);
         transcript.add_to_hash_buffer("u_challenges_inv_2", verifier_accumulator_2.u_challenges_inv);
