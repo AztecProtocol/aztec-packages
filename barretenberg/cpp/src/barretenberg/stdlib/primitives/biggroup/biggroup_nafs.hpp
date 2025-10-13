@@ -126,7 +126,7 @@ Fr element<C, Fq, Fr, G>::reconstruct_bigfield_from_wnaf(Builder* builder,
 
     // Convert this value to bigfield element
     Fr reconstructed_positive_part =
-        Fr(sum, field_t<C>::from_witness_index(builder, builder->zero_idx), /*can_overflow*/ false);
+        Fr(sum, field_t<C>::from_witness_index(builder, builder->zero_idx()), /*can_overflow*/ false);
 
     // Double the final value and add the positive skew
     reconstructed_positive_part =
