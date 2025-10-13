@@ -225,8 +225,8 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
      * ==========================
      *
      * Inputs:
-     * - betas: β⃗ = (β₀, β₁, ..., βₖ₋₁) - gate challenge vector
-     * - deltas: δ⃗ = (δ₀, δ₁, ..., δₖ₋₁) - delta challenge vector
+     * - betas: β = (β₀, β₁, ..., βₖ₋₁) - gate challenge vector
+     * - deltas: δ = (δ₀, δ₁, ..., δₖ₋₁) - delta challenge vector
      * - current_level_buffer: Coefficients from previous level (flat buffer)
      * - current_width: Number of nodes at current level
      * - current_degree: Polynomial degree + 1 (number of coefficients per node)
@@ -241,9 +241,9 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
      *
      *   Pℓ[p](X) = Pℓ₋₁[2p](X) + Pℓ₋₁[2p+1](X) · (βℓ + δℓX)
      *
-     * In coefficient form:
-     *   Pℓ[p][d]   = Pℓ₋₁[2p][d] + Pℓ₋₁[2p+1][d] · βℓ    for d ∈ [0, ℓ]
-     *   Pℓ[p][d+1] += Pℓ₋₁[2p+1][d] · δℓ                 for d ∈ [0, ℓ]
+     * In Lagrange basis:
+     *   Pℓ[p][d]   = Pℓ₋₁[2p][d] + Pℓ₋₁[2p+1][d] · βℓ    for d ∈ [0, ℓ+1]
+     *   Pℓ[p][d+1] += Pℓ₋₁[2p+1][d] · δℓ                 for d ∈ [0, ℓ+1]
      *
      * Note: Pℓ[p] has degree ℓ+1 (requires ℓ+2 coefficients)
      *
@@ -341,8 +341,8 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
      *
      * Inputs:
      * - ℰ = {e₀, e₁, ..., eₙ₋₁}: Full Honk relation evaluations (size n = 2^k)
-     * - β⃗ = (β₀, β₁, ..., βₖ₋₁): Gate challenge vector
-     * - δ⃗ = (δ₀, δ₁, ..., δₖ₋₁): Delta challenge vector
+     * - β = (β₀, β₁, ..., βₖ₋₁): Gate challenge vector
+     * - δ = (δ₀, δ₁, ..., δₖ₋₁): Delta challenge vector
      *
      * Output: F(X) = Σᵢ fᵢXⁱ - perturbator polynomial of degree k
      *
