@@ -1,4 +1,4 @@
-import { BarretenbergSync } from '@aztec/bb.js';
+import { Barretenberg } from '@aztec/bb.js';
 
 import { Fr } from '../../fields/fields.js';
 import { type Fieldable, serializeToFields } from '../../serialize/serialize.js';
@@ -12,8 +12,8 @@ export async function pedersenCommit(input: Buffer[], offset = 0) {
     throw new Error('All Pedersen Commit input buffers must be <= 32 bytes.');
   }
   input = input.map(i => (i.length < 32 ? Buffer.concat([Buffer.alloc(32 - i.length, 0), i]) : i));
-  const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-  const response = api.pedersenCommit({
+  const api = await Barretenberg.initSingleton();
+  const response = await api.pedersenCommit({
     inputs: input,
     hashIndex: offset,
   });
@@ -28,8 +28,8 @@ export async function pedersenCommit(input: Buffer[], offset = 0) {
  */
 export async function pedersenHash(input: Fieldable[], index = 0): Promise<Fr> {
   const inputFields = serializeToFields(input);
-  const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-  const response = api.pedersenHash({
+  const api = await Barretenberg.initSingleton();
+  const response = await api.pedersenHash({
     inputs: inputFields.map(i => i.toBuffer()),
     hashIndex: index,
   });
@@ -40,8 +40,8 @@ export async function pedersenHash(input: Fieldable[], index = 0): Promise<Fr> {
  * Create a pedersen hash from an arbitrary length buffer.
  */
 export async function pedersenHashBuffer(input: Buffer, index = 0) {
-  const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-  const response = api.pedersenHashBuffer({
+  const api = await Barretenberg.initSingleton();
+  const response = await api.pedersenHashBuffer({
     input,
     hashIndex: index,
   });

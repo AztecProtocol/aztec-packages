@@ -94,9 +94,9 @@ export class Barretenberg extends AsyncApi {
     if (bbPath) {
       try {
         logger(`Attempting native Unix socket backend: ${bbPath}`);
-        return await Barretenberg.createBackend(BackendType.NativeUnixSocket, { ...options, bbPath }, logger);
+        return await Barretenberg.createBackend(BackendType.NativeSharedMemory, { ...options, bbPath }, logger);
       } catch (err: any) {
-        logger(`Native socket unavailable (${err.message}), falling back to WASM`);
+        logger(`Native shm unavailable (${err.message}), falling back to WASM`);
       }
     }
 

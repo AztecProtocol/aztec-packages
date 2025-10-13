@@ -1,4 +1,4 @@
-import { Barretenberg } from '@aztec/bb.js';
+import { BackendType, Barretenberg } from '@aztec/bb.js';
 
 import { loadTrustedSetup } from './trusted_setup_loader.js';
 
@@ -7,13 +7,7 @@ import { loadTrustedSetup } from './trusted_setup_loader.js';
  * This is called lazily on first use to avoid initializing at module load time.
  */
 export async function ensureKzgInitialized(): Promise<void> {
-  const api = await Barretenberg.initSingleton({
-    wasmPath: process.env.BB_WASM_PATH,
-    bbPath: '/mnt/user-data/charlie/aztec-repos/aztec-packages/barretenberg/cpp/build-no-avm/bin/bb',
-    useWorker: false,
-    threads: 1,
-  });
+  const api = await Barretenberg.initSingleton({ threads: 1, backend: BackendType.NativeUnixSocket });
   const { g1Lagrange, g1Monomial, g2Monomial } = loadTrustedSetup();
-
   await api.kzgLoadTrustedSetup({ g1Lagrange, g1Monomial, g2Monomial });
 }

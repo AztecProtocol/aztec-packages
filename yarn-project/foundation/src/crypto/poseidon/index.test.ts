@@ -5,11 +5,7 @@ import { poseidon2Permutation } from './index.js';
 
 describe('poseidon2Permutation', () => {
   beforeAll(async () => {
-    await Barretenberg.initSingleton({
-      useWorker: false,
-      threads: 1,
-      bbPath: '/mnt/user-data/charlie/aztec-repos/aztec-packages/barretenberg/cpp/build-no-avm/bin/bb',
-    });
+    await Barretenberg.initSingleton({ threads: 1 });
   });
 
   afterAll(async () => {

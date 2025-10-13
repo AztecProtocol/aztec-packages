@@ -1,6 +1,7 @@
 export { Crs, GrumpkinCrs } from './crs/index.js';
 export {
   type BackendOptions,
+  BackendType,
   Barretenberg,
   BarretenbergSync,
   UltraHonkVerifierBackend,

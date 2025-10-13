@@ -3,206 +3,7 @@ import * as net from 'net';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { IMsgpackBackendSync, IMsgpackBackendAsync } from './interface.js';
-
-/**
- * Synchronous native backend that communicates with bb binary via Unix Domain Socket.
- * Uses blocking socket I/O to maintain synchronous semantics.
- *
- * Architecture: bb acts as the SERVER, TypeScript is the CLIENT
- * - bb creates the socket and listens for connections
- * - TypeScript waits for socket file to exist, then connects
- *
- * Protocol:
- * - Request: 4-byte little-endian length + msgpack buffer
- * - Response: 4-byte little-endian length + msgpack buffer
- */
-export class BarretenbergNativeSocketSyncBackend implements IMsgpackBackendSync {
-  private process: ChildProcess;
-  private socket: net.Socket;
-  private socketPath: string;
-
-  constructor(bbBinaryPath: string) {
-    // Create a unique socket path in temp directory
-    this.socketPath = path.join(os.tmpdir(), `bb-${process.pid}-${Date.now()}.sock`);
-
-    // Ensure socket path doesn't already exist (cleanup from previous crashes)
-    if (fs.existsSync(this.socketPath)) {
-      fs.unlinkSync(this.socketPath);
-    }
-
-    // Spawn bb process - it will create the socket server
-    this.process = spawn(bbBinaryPath, ['msgpack', 'run', '--input', this.socketPath], {
-      stdio: ['ignore', 'ignore', 'ignore'],
-    });
-
-    // Handle process errors
-    this.process.on('error', err => {
-      throw new Error(`Native backend process error: ${err.message}`);
-    });
-
-    this.process.on('exit', (code, signal) => {
-      if (code !== null && code !== 0) {
-        throw new Error(`Native backend process exited with code ${code}`);
-      }
-      if (signal && signal !== 'SIGTERM') {
-        throw new Error(`Native backend process killed with signal ${signal}`);
-      }
-    });
-
-    // Wait for bb to create the socket file (bb is the server)
-    const startTime = Date.now();
-    while (!fs.existsSync(this.socketPath)) {
-      if (Date.now() - startTime > 5000) {
-        this.cleanup();
-        throw new Error('Timeout waiting for bb to create socket file');
-      }
-      // Busy wait 10ms
-      const sleepStart = Date.now();
-      while (Date.now() - sleepStart < 10) {
-        // Busy wait
-      }
-    }
-
-    // Additional check: ensure it's actually a socket
-    try {
-      const stats = fs.statSync(this.socketPath);
-      if (!stats.isSocket()) {
-        this.cleanup();
-        throw new Error(`Path exists but is not a socket: ${this.socketPath}`);
-      }
-    } catch (err: any) {
-      this.cleanup();
-      throw new Error(`Failed to stat socket file: ${err.message}`);
-    }
-
-    // Connect to bb's socket server
-    this.socket = net.connect(this.socketPath);
-
-    // Disable Nagle's algorithm for lower latency
-    this.socket.setNoDelay(true);
-
-    // Wait for connection to be established (busy-wait pattern for sync API)
-    let connected = false;
-    let connectionError: Error | null = null;
-
-    this.socket.once('connect', () => {
-      connected = true;
-    });
-
-    this.socket.once('error', (err: Error) => {
-      connectionError = err;
-    });
-
-    // Busy-wait for connection (timeout after 5 seconds)
-    const connectStartTime = Date.now();
-    while (!connected && !connectionError) {
-      if (Date.now() - connectStartTime > 5000) {
-        this.cleanup();
-        throw new Error('Timeout waiting for socket connection to bb server');
-      }
-      // Busy wait 10ms
-      const sleepStart = Date.now();
-      while (Date.now() - sleepStart < 10) {
-        // Busy wait
-      }
-    }
-
-    if (!connected) {
-      // If not connected, there must have been an error
-      this.cleanup();
-      throw new Error(`Failed to connect to bb socket: ${String(connectionError || 'Unknown connection error')}`);
-    }
-  }
-
-  call(inputBuffer: Uint8Array): Uint8Array {
-    // Write request: 4-byte little-endian length + msgpack data
-    const lengthBuf = Buffer.alloc(4);
-    lengthBuf.writeUInt32LE(inputBuffer.length, 0);
-    this.socket.write(lengthBuf);
-    this.socket.write(inputBuffer);
-
-    // Read response length: 4 bytes little-endian
-    const responseLengthBuf = this.readExactly(4);
-    const responseLength = responseLengthBuf.readUInt32LE(0);
-
-    // Read response data: msgpack buffer
-    const responseBuffer = this.readExactly(responseLength);
-
-    return new Uint8Array(responseBuffer);
-  }
-
-  /**
-   * Read exactly the specified number of bytes from the socket.
-   * Blocks until all bytes are available.
-   */
-  private readExactly(length: number): Buffer {
-    const buffer = Buffer.alloc(length);
-    let totalRead = 0;
-
-    while (totalRead < length) {
-      // Try to read from socket
-      const chunk = this.socket.read(length - totalRead);
-
-      if (chunk === null) {
-        // No data available yet, wait for 'readable' event
-        // Use a synchronous wait pattern
-        let dataAvailable = false;
-        const readableHandler = () => {
-          dataAvailable = true;
-        };
-
-        this.socket.once('readable', readableHandler);
-
-        // Wait for data with timeout
-        const startTime = Date.now();
-        while (!dataAvailable) {
-          if (Date.now() - startTime > 30000) {
-            // 30 second timeout
-            this.socket.removeListener('readable', readableHandler);
-            throw new Error(`Timeout reading from socket: got ${totalRead} bytes, expected ${length}`);
-          }
-          // Small sleep to avoid spinning
-          const sleepStart = Date.now();
-          while (Date.now() - sleepStart < 1) {
-            // Busy wait 1ms
-          }
-        }
-
-        continue;
-      }
-
-      // Copy chunk to buffer
-      const bytesToCopy = Math.min(chunk.length, length - totalRead);
-      chunk.copy(buffer, totalRead, 0, bytesToCopy);
-      totalRead += bytesToCopy;
-
-      // If we read more than needed, put the extra back
-      if (chunk.length > bytesToCopy) {
-        this.socket.unshift(chunk.subarray(bytesToCopy));
-      }
-    }
-
-    return buffer;
-  }
-
-  private cleanup(): void {
-    try {
-      this.socket?.destroy();
-    } catch (e) {
-      // Ignore errors during cleanup
-    }
-
-    // Don't try to unlink socket - bb owns it and will clean it up
-  }
-
-  destroy(): void {
-    this.cleanup();
-    this.process.kill('SIGTERM');
-    // Remove process event listeners to prevent hanging
-    this.process.removeAllListeners();
-  }
-}
+import { IMsgpackBackendAsync } from './interface.js';
 
 /**
  * Asynchronous native backend that communicates with bb binary via Unix Domain Socket.
@@ -470,7 +271,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
       if (this.socket) {
         this.socket.removeAllListeners();
         // Unref so socket doesn't keep event loop alive
-        this.socket.unref();
+        // this.socket.unref();
         this.socket.destroy();
       }
     } catch (e) {
@@ -485,7 +286,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
 
     // Remove process event listeners and unref to not block event loop
     this.process.removeAllListeners();
-    this.process.unref();
+    // this.process.unref();
 
     // Don't try to unlink socket - bb owns it and will clean it up
   }

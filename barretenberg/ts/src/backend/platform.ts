@@ -3,6 +3,26 @@ import * as fs from 'fs';
 import { fileURLToPath } from 'url';
 
 /**
+ * Find package root by climbing directory tree until package.json is found.
+ * @param startDir Starting directory to search from
+ * @returns Absolute path to package root, or null if not found
+ */
+function findPackageRoot(startDir: string): string | null {
+  let currentDir = path.resolve(startDir);
+  const root = path.parse(currentDir).root;
+
+  while (currentDir !== root) {
+    const packageJsonPath = path.join(currentDir, 'package.json');
+    if (fs.existsSync(packageJsonPath)) {
+      return currentDir;
+    }
+    currentDir = path.dirname(currentDir);
+  }
+
+  return null;
+}
+
+/**
  * Supported platform/architecture combinations.
  */
 export type Platform = 'x86_64-linux' | 'x86_64-darwin' | 'aarch64-linux' | 'aarch64-darwin';
@@ -68,11 +88,14 @@ export function findBbBinary(customPath?: string): string | null {
 
   const buildDir = PLATFORM_TO_BUILD_DIR[platform];
 
-  // Get package root (barretenberg/ts directory)
-  // This file is at src/backend/platform.ts, so go up to package root
+  // Get package root by climbing directory tree to find package.json
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-  const packageRoot = path.resolve(__dirname, '../..');
+  const packageRoot = findPackageRoot(__dirname);
+
+  if (!packageRoot) {
+    return null;
+  }
 
   // Check in build/<platform>/bb
   const bbPath = path.join(packageRoot, 'build', buildDir, 'bb');
@@ -102,13 +125,16 @@ export function findNapiBinary(customPath?: string): string | null {
 
   const buildDir = PLATFORM_TO_BUILD_DIR[platform];
 
-  // Get package root (barretenberg/ts directory)
-  // This file is at src/backend/platform.ts, so go up to package root
+  // Get package root by climbing directory tree to find package.json
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-  const packageRoot = path.resolve(__dirname, '../..');
+  const packageRoot = findPackageRoot(__dirname);
 
-  // Check in build/<platform>/bb
+  if (!packageRoot) {
+    return null;
+  }
+
+  // Check in build/<platform>/nodejs_module.node
   const bbPath = path.join(packageRoot, 'build', buildDir, 'nodejs_module.node');
 
   if (fs.existsSync(bbPath)) {
