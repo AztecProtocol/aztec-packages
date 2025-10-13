@@ -12,7 +12,7 @@
 namespace bb {
 template <typename FF_>
 CircuitBuilderBase<FF_>::CircuitBuilderBase(size_t size_hint, bool has_dummy_witnesses)
-    : has_dummy_witnesses(has_dummy_witnesses)
+    : has_dummy_witnesses_(has_dummy_witnesses)
 {
     variables.reserve(size_hint * 3);
     variable_names.reserve(size_hint * 3);
@@ -208,7 +208,7 @@ template <typename FF_> const std::string& CircuitBuilderBase<FF_>::err() const
 template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
 {
 #ifndef FUZZING_DISABLE_WARNINGS
-    if (!has_dummy_witnesses) {
+    if (!has_dummy_witnesses_) {
         // Not a catch-all error log. We have a builder failure when we have real witnesses which is a mistake.
         info("(Experimental) WARNING: Builder failure when we have real witnesses! Ignore if writing vk.");
     }

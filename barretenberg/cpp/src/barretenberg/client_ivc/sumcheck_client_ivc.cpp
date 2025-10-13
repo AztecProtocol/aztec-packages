@@ -83,7 +83,7 @@ SumcheckClientIVC::RecursiveVerifierAccumulator SumcheckClientIVC::execute_first
     OinkRecursiveVerifier verifier{ &circuit, verifier_instance, transcript };
     verifier.verify_proof(proof);
 
-    verifier_instance->target_sum = StdlibFF::from_witness_index(&circuit, circuit.zero_idx);
+    verifier_instance->target_sum = StdlibFF::from_witness_index(&circuit, circuit.zero_idx());
     // Get the gate challenges for sumcheck/combiner computation
     verifier_instance->gate_challenges =
         transcript->template get_powers_of_challenge<StdlibFF>("gate_challenge", Flavor::VIRTUAL_LOG_N);
@@ -96,7 +96,7 @@ SumcheckClientIVC::RecursiveVerifierAccumulator SumcheckClientIVC::execute_first
     SumcheckOutput<RecursiveFlavor> sumcheck_output = sumcheck.verify(
         verifier_instance->relation_parameters, verifier_instance->gate_challenges, padding_indicator_array);
 
-    BB_ASSERT_EQ(sumcheck_output.verified || circuit.has_dummy_witnesses,
+    BB_ASSERT_EQ(sumcheck_output.verified || circuit.has_dummy_witnesses(),
                  true,
                  "Sumcheck: Failed to recursively verify first sumcheck.");
 
@@ -130,7 +130,7 @@ SumcheckClientIVC::RecursiveVerifierAccumulator SumcheckClientIVC::perform_foldi
 
     MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor> batching_verifier(transcript);
     auto [verified, new_accumulator] = batching_verifier.verify_proof();
-    BB_ASSERT_EQ(verified || circuit.has_dummy_witnesses,
+    BB_ASSERT_EQ(verified || circuit.has_dummy_witnesses(),
                  true,
                  "Batching Sumcheck: Failed to recursively verify sumcheck batching.");
 

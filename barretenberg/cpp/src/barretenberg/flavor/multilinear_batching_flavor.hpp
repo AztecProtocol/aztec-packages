@@ -12,8 +12,6 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
-#include "barretenberg/flavor/repeated_commitments_data.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/multilinear_batching/multilinear_batching_relation.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -46,16 +44,10 @@ class MultilinearBatchingFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     static constexpr size_t NUM_ALL_ENTITIES = 6;
-    // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
-    // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 0;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 4;
     // The number of shifted witness entities including derived witness entities
     static constexpr size_t NUM_SHIFTED_WITNESSES = 2;
-
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
-        NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_WITNESSES);
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
@@ -63,16 +55,11 @@ class MultilinearBatchingFlavor {
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
-    static_assert(MAX_TOTAL_RELATION_LENGTH == 3);
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
-
-    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
-    static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
 
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
     // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
@@ -100,9 +87,11 @@ class MultilinearBatchingFlavor {
      */
     template <typename DataType> class WitnessEntities : public WireEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>)
-
-        auto get_wires() { return WireEntities<DataType>::get_all(); };
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              w_non_shifted_accumulator, // column 0
+                              w_non_shifted_instance,    // column 1
+                              w_evaluations_accumulator, // column 2
+                              w_evaluations_instance);   // column 3
 
         MSGPACK_FIELDS(this->w_non_shifted_accumulator,
                        this->w_non_shifted_instance,
@@ -122,7 +111,6 @@ class MultilinearBatchingFlavor {
         auto get_shifted() { return RefArray{ w_shifted_accumulator, w_shifted_instance }; };
     };
 
-  public:
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
      * sumcheck) in this Honk variant along with particular subsets of interest
@@ -138,7 +126,6 @@ class MultilinearBatchingFlavor {
         DEFINE_COMPOUND_GET_ALL(WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
         auto get_unshifted() { return WitnessEntities<DataType>::get_all(); };
-        auto get_witness() { return WitnessEntities<DataType>::get_all(); };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
     };
 
@@ -176,21 +163,7 @@ class MultilinearBatchingFlavor {
                 poly = Polynomial{ /*memory size*/ circuit_size, /*largest possible index*/ 1 << VIRTUAL_LOG_N };
             }
         }
-        ProverPolynomials& operator=(const ProverPolynomials&) = delete;
-        ProverPolynomials(const ProverPolynomials& o) = delete;
-        ProverPolynomials(ProverPolynomials&& o) noexcept = default;
-        ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
-        ~ProverPolynomials() = default;
         [[nodiscard]] size_t get_polynomial_size() const { return w_non_shifted_accumulator.size(); }
-        [[nodiscard]] AllValues get_row(size_t row_idx) const
-        {
-            AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
-                result_field = polynomial[row_idx];
-            }
-            return result;
-        }
-
         void increase_polynomials_virtual_size(const size_t size_in)
         {
             for (auto& polynomial : this->get_all()) {
@@ -247,14 +220,6 @@ class MultilinearBatchingFlavor {
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
     template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
-
-    /**
-     * @brief A container for univariates used during Protogalaxy folding and sumcheck with some of the computation
-     * optmistically ignored.
-     * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
-     */
-    template <size_t LENGTH, size_t SKIP_COUNT>
-    using ProverUnivariatesWithOptimisticSkipping = AllEntities<bb::Univariate<FF, LENGTH, 0, SKIP_COUNT>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
