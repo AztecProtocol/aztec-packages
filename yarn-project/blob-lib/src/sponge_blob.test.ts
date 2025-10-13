@@ -1,3 +1,4 @@
+import { Barretenberg } from '@aztec/bb.js';
 import { SPONGE_BLOB_LENGTH } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -10,6 +11,10 @@ describe('SpongeBlob', () => {
 
   beforeAll(() => {
     spongeBlob = makeSpongeBlob(1);
+  });
+
+  afterAll(async () => {
+    await Barretenberg.destroySingleton();
   });
 
   it('serializes to buffer and deserializes it back', () => {

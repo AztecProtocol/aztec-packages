@@ -1,4 +1,4 @@
-import { BarretenbergSync } from '@aztec/bb.js';
+import { Barretenberg } from '@aztec/bb.js';
 import { Fr, type GrumpkinScalar, Point } from '@aztec/foundation/fields';
 
 /**
@@ -28,8 +28,8 @@ export class Grumpkin {
    * @returns Result of the multiplication.
    */
   public async mul(point: Point, scalar: GrumpkinScalar): Promise<Point> {
-    const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-    const response = api.grumpkinMul({
+    const api = await Barretenberg.initSingleton();
+    const response = await api.grumpkinMul({
       point: { x: point.x.toBuffer(), y: point.y.toBuffer() },
       scalar: scalar.toBuffer(),
     });
@@ -43,8 +43,8 @@ export class Grumpkin {
    * @returns Result of the addition.
    */
   public async add(a: Point, b: Point): Promise<Point> {
-    const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-    const response = api.grumpkinAdd({
+    const api = await Barretenberg.initSingleton();
+    const response = await api.grumpkinAdd({
       pointA: { x: a.x.toBuffer(), y: a.y.toBuffer() },
       pointB: { x: b.x.toBuffer(), y: b.y.toBuffer() },
     });
@@ -58,8 +58,8 @@ export class Grumpkin {
    * @returns Points multiplied by the scalar.
    */
   public async batchMul(points: Point[], scalar: GrumpkinScalar) {
-    const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-    const response = api.grumpkinBatchMul({
+    const api = await Barretenberg.initSingleton();
+    const response = await api.grumpkinBatchMul({
       points: points.map(p => ({ x: p.x.toBuffer(), y: p.y.toBuffer() })),
       scalar: scalar.toBuffer(),
     });
@@ -72,8 +72,8 @@ export class Grumpkin {
    * @returns Random field element.
    */
   public async getRandomFr(): Promise<Fr> {
-    const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-    const response = api.grumpkinGetRandomFr({ dummy: 0 });
+    const api = await Barretenberg.initSingleton();
+    const response = await api.grumpkinGetRandomFr({ dummy: 0 });
     return Fr.fromBuffer(Buffer.from(response.value));
   }
 
@@ -83,8 +83,8 @@ export class Grumpkin {
    * @returns Buffer representation of the field element.
    */
   public async reduce512BufferToFr(uint512Buf: Buffer): Promise<Fr> {
-    const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-    const response = api.grumpkinReduce512({ input: uint512Buf });
+    const api = await Barretenberg.initSingleton();
+    const response = await api.grumpkinReduce512({ input: uint512Buf });
     return Fr.fromBuffer(Buffer.from(response.value));
   }
 }

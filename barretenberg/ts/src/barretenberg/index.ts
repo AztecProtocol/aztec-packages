@@ -89,11 +89,11 @@ export class Barretenberg extends AsyncApi {
       return Barretenberg.createBackend(options.backend, options, logger);
     }
 
-    // Default: try native socket, fallback to WASM
+    // Default: try native shm, fallback to WASM
     const bbPath = findBbBinary(options.bbPath);
     if (bbPath) {
       try {
-        logger(`Attempting native Unix socket backend: ${bbPath}`);
+        logger(`Attempting native shm backend: ${bbPath}`);
         return await Barretenberg.createBackend(BackendType.NativeSharedMemory, { ...options, bbPath }, logger);
       } catch (err: any) {
         logger(`Native shm unavailable (${err.message}), falling back to WASM`);

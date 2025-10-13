@@ -1,4 +1,4 @@
-import { BarretenbergSync } from '@aztec/bb.js';
+import { Barretenberg } from '@aztec/bb.js';
 import { type GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { numToInt32BE } from '@aztec/foundation/serialize';
 
@@ -17,8 +17,8 @@ export class Schnorr {
    * @returns A grumpkin public key.
    */
   public async computePublicKey(privateKey: GrumpkinScalar): Promise<Point> {
-    const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-    const response = api.schnorrComputePublicKey({ privateKey: privateKey.toBuffer() });
+    const api = await Barretenberg.initSingleton();
+    const response = await api.schnorrComputePublicKey({ privateKey: privateKey.toBuffer() });
     return Point.fromBuffer(Buffer.concat([Buffer.from(response.publicKey.x), Buffer.from(response.publicKey.y)]));
   }
 
@@ -29,9 +29,9 @@ export class Schnorr {
    * @returns A Schnorr signature of the form (s, e).
    */
   public async constructSignature(msg: Uint8Array, privateKey: GrumpkinScalar) {
-    const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
+    const api = await Barretenberg.initSingleton();
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const response = api.schnorrConstructSignature({
+    const response = await api.schnorrConstructSignature({
       message: messageArray,
       privateKey: privateKey.toBuffer(),
     });
@@ -46,9 +46,9 @@ export class Schnorr {
    * @returns True or false.
    */
   public async verifySignature(msg: Uint8Array, pubKey: Point, sig: SchnorrSignature) {
-    const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
+    const api = await Barretenberg.initSingleton();
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const response = api.schnorrVerifySignature({
+    const response = await api.schnorrVerifySignature({
       message: messageArray,
       publicKey: { x: pubKey.x.toBuffer(), y: pubKey.y.toBuffer() },
       s: sig.s,

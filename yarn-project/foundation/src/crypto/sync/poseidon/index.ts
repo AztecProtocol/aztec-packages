@@ -1,4 +1,4 @@
-import { BarretenbergSync } from '@aztec/bb.js';
+import { Barretenberg } from '@aztec/bb.js';
 
 import { Fr } from '../../../fields/fields.js';
 import { type Fieldable, serializeToFields } from '../../../serialize/serialize.js';
@@ -8,9 +8,10 @@ import { type Fieldable, serializeToFields } from '../../../serialize/serialize.
  * @param input - The input fields to hash.
  * @returns The poseidon hash.
  */
-export function poseidon2Hash(input: Fieldable[]): Fr {
+export async function poseidon2Hash(input: Fieldable[]): Promise<Fr> {
   const inputFields = serializeToFields(input);
-  const response = BarretenbergSync.getSingleton().poseidon2Hash({
+  const api = Barretenberg.getSingleton();
+  const response = await api.poseidon2Hash({
     inputs: inputFields.map(i => i.toBuffer()),
   });
   return Fr.fromBuffer(Buffer.from(response.hash));
@@ -22,19 +23,21 @@ export function poseidon2Hash(input: Fieldable[]): Fr {
  * @param separator - The domain separator.
  * @returns The poseidon hash.
  */
-export function poseidon2HashWithSeparator(input: Fieldable[], separator: number): Fr {
+export async function poseidon2HashWithSeparator(input: Fieldable[], separator: number): Promise<Fr> {
   const inputFields = serializeToFields(input);
   inputFields.unshift(new Fr(separator));
 
-  const response = BarretenbergSync.getSingleton().poseidon2Hash({
+  const api = Barretenberg.getSingleton();
+  const response = await api.poseidon2Hash({
     inputs: inputFields.map(i => i.toBuffer()),
   });
   return Fr.fromBuffer(Buffer.from(response.hash));
 }
 
-export function poseidon2HashAccumulate(input: Fieldable[]): Fr {
+export async function poseidon2HashAccumulate(input: Fieldable[]): Promise<Fr> {
   const inputFields = serializeToFields(input);
-  const response = BarretenbergSync.getSingleton().poseidon2HashAccumulate({
+  const api = Barretenberg.getSingleton();
+  const response = await api.poseidon2HashAccumulate({
     inputs: inputFields.map(i => i.toBuffer()),
   });
   return Fr.fromBuffer(Buffer.from(response.hash));
@@ -45,11 +48,12 @@ export function poseidon2HashAccumulate(input: Fieldable[]): Fr {
  * @param input the input state. Expected to be of size 4.
  * @returns the output state, size 4.
  */
-export function poseidon2Permutation(input: Fieldable[]): Fr[] {
+export async function poseidon2Permutation(input: Fieldable[]): Promise<Fr[]> {
   const inputFields = serializeToFields(input);
   // We'd like this assertion but it's not possible to use it in the browser.
   // assert(input.length === 4, 'Input state must be of size 4');
-  const response = BarretenbergSync.getSingleton().poseidon2Permutation({
+  const api = Barretenberg.getSingleton();
+  const response = await api.poseidon2Permutation({
     inputs: inputFields.map(i => i.toBuffer()),
   });
   // We'd like this assertion but it's not possible to use it in the browser.
@@ -57,7 +61,7 @@ export function poseidon2Permutation(input: Fieldable[]): Fr[] {
   return response.outputs.map(o => Fr.fromBuffer(Buffer.from(o)));
 }
 
-export function poseidon2HashBytes(input: Buffer): Fr {
+export async function poseidon2HashBytes(input: Buffer): Promise<Fr> {
   const inputFields = [];
   for (let i = 0; i < input.length; i += 31) {
     const fieldBytes = Buffer.alloc(32, 0);
@@ -68,7 +72,8 @@ export function poseidon2HashBytes(input: Buffer): Fr {
     inputFields.push(Fr.fromBuffer(fieldBytes));
   }
 
-  const response = BarretenbergSync.getSingleton().poseidon2Hash({
+  const api = Barretenberg.getSingleton();
+  const response = await api.poseidon2Hash({
     inputs: inputFields.map(i => i.toBuffer()),
   });
 
