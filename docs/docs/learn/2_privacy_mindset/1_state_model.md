@@ -122,6 +122,7 @@ Note commitments are stored in an _append-only_ **Note hash Merkle tree** (one o
 [TODO] diagram of the note commitment tree
 
 Commitments have **two key properties**:
+
 - **Hiding**: The commitment reveals nothing about the note contents or owner.
 - **Binding**: The data (the note) cannot be modified once it has been committed to.
 
@@ -149,9 +150,9 @@ To "spend" a note, the user must prove that they know the **preimage** to the co
 ## Five State Trees
 
 1. The **Note hash Merkle tree** holds commitments (hashes) of private notes. It is append-only and used for membership proofs when spending.
-2.  The **Nullifier tree** holds nullifiers (unique "spent" markers) to prevent reusing the same note.
+2. The **Nullifier tree** holds nullifiers (unique "spent" markers) to prevent reusing the same note.
 3. The **Public data tree** holds public contract storage (keyed by contract and slot e.g. `contract_address: slot_1`). It is transparent like traditional blockchains.
-4. The **Contract tree** records data related deployed contracts and their functions. Some deployment details are evolving toward nullifier-based storage, but conceptually this tree tracks deployments. [TODO] what does this mean "some deployment details..."
+4. The **L1-to-L2 Message tree** holds messages sent from L1 to L2.
 5. The **Archive Tree** tracks historical roots to enable proving against past states (e.g., "as of block N"). [TODO] historical note roots? Roots of which tree?
 
 :::note

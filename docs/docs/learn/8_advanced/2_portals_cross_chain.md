@@ -233,7 +233,7 @@ Without knowing the secret, no one can link the nullifier back to the original L
 
 Every message is cryptographically verified at multiple levels:
 
-1. **Contract tree verification** - The rollup circuits check that sender/recipient pairs exist in the contracts tree
+1. **L1-to-L2 Message tree verification** - The rollup circuits check that sender/recipient pairs exist in the L1-to-L2 Message tree
 2. **Content hash matching** - Consumers must recreate the exact content hash
 3. **Nullifier uniqueness** - Each message can only be consumed once
 4. **Merkle proof verification** - L2→L1 messages include proofs of inclusion
