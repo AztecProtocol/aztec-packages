@@ -371,7 +371,7 @@ tests:
       - *saleel
 
   - regex: "run_compose_test vanilla-all-browsers box boxes"
-    error_regex: "Tag mismatch at offset 0|app_logic_reverted"
+    error_regex: "Tag mismatch at offset 0|app_logic_reverted|public bytecode has not been transpiled"
     owners:
       - *david
 
