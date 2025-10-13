@@ -219,62 +219,199 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
         return aggregated_relation_evaluations;
     }
     /**
-     * @brief  Recursively compute the parent nodes of each level in the tree, starting from the leaves. Note that at
-     * each level, the resulting parent nodes will be polynomials of degree (level+1) because we multiply by an
-     * additional factor of X.
+     * @brief Non-recursively compute the parent nodes of each level in the tree, starting from the leaves.
+     *
+     * MATHEMATICAL SPECIFICATION
+     * ==========================
+     *
+     * Inputs:
+     * - betas: β = (β₀, β₁, ..., βₖ₋₁) - gate challenge vector
+     * - deltas: δ = (δ₀, δ₁, ..., δₖ₋₁) - delta challenge vector
+     * - current_level_buffer: Coefficients from previous level (flat buffer)
+     * - current_width: Number of nodes at current level
+     * - current_degree: Polynomial degree + 1 (number of coefficients per node)
+     *
+     * Output: F(X) = Σᵢ fᵢXⁱ - perturbator polynomial coefficient vector
+     *
+     * Algorithm: Binary Tree Construction (Iterative)
+     * -----------------------------------------------
+     *
+     * Level ℓ (General Case):
+     * For parent node p ∈ [0, n/2ℓ) with children at 2p and 2p+1:
+     *
+     *   Pℓ[p](X) = Pℓ₋₁[2p](X) + Pℓ₋₁[2p+1](X) · (βℓ + δℓX)
+     *
+     * In Lagrange basis:
+     *   Pℓ[p][d]   = Pℓ₋₁[2p][d] + Pℓ₋₁[2p+1][d] · βℓ    for d ∈ [0, ℓ+1]
+     *   Pℓ[p][d+1] += Pℓ₋₁[2p+1][d] · δℓ                 for d ∈ [0, ℓ+1]
+     *
+     * Note: Pℓ[p] has degree ℓ+1 (requires ℓ+2 coefficients)
+     *
+     * Flat Buffer Layout:
+     * ------------------
+     * At level ℓ with w nodes and stride s = ℓ+2:
+     * - Parent p offset:      p_offset = p · (ℓ+2)
+     * - Left child offset:    l_offset = (2p) · (ℓ+1)
+     * - Right child offset:   r_offset = (2p+1) · (ℓ+1)
+     *
+     * Complexity:
+     * - Time: O(n) - each leaf combined once per level
+     * - Space: O(n) - two buffers with alternating roles
+     * - Parallelism: n/2ℓ independent tasks per level
+     *
+     * @details This iterative implementation uses flat contiguous buffers that alternate roles as source and
+     * destination, enabling efficient parallel initialization and better cache locality.
      */
     static std::vector<FF> construct_coefficients_tree(std::span<const FF> betas,
                                                        std::span<const FF> deltas,
-                                                       const std::vector<std::vector<FF>>& prev_level_coeffs,
-                                                       size_t level = 1)
+                                                       std::vector<FF>& current_level_buffer,
+                                                       size_t current_width,
+                                                       size_t current_degree)
     {
-        if (level == betas.size()) {
-            return prev_level_coeffs[0];
+        if (betas.size() == 1) {
+            return std::vector<FF>(current_level_buffer.begin(),
+                                   current_level_buffer.begin() + static_cast<std::ptrdiff_t>(current_degree));
         }
 
-        auto degree = level + 1;
-        auto prev_level_width = prev_level_coeffs.size();
-        std::vector<std::vector<FF>> level_coeffs(prev_level_width / 2, std::vector<FF>(degree + 1, 0));
-        parallel_for_heuristic(
-            prev_level_width / 2,
-            [&](size_t parent) {
-                size_t node = parent * 2;
-                std::copy(prev_level_coeffs[node].begin(), prev_level_coeffs[node].end(), level_coeffs[parent].begin());
-                for (size_t d = 0; d < degree; d++) {
-                    level_coeffs[parent][d] += prev_level_coeffs[node + 1][d] * betas[level];
-                    level_coeffs[parent][d + 1] += prev_level_coeffs[node + 1][d] * deltas[level];
-                }
-            },
-            /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * degree * 3);
-        return construct_coefficients_tree(betas, deltas, level_coeffs, level + 1);
+        size_t num_levels = betas.size();
+
+        // Pre-allocate buffers with maximum size needed
+        // At each level i, we have width/(2^i) nodes, each with degree i+1
+        // Calculate total size needed for the next level buffer
+        size_t max_next_buffer_size = 0;
+        size_t temp_width = current_width;
+        for (size_t level = 1; level < num_levels; ++level) {
+            temp_width /= 2;
+            size_t degree = level + 1;
+            max_next_buffer_size = std::max(max_next_buffer_size, temp_width * (degree + 1));
+        }
+
+        std::vector<FF> next_level_buffer(max_next_buffer_size);
+
+        // Iterate through levels 1 to num_levels-1
+        for (size_t level = 1; level < num_levels; ++level) {
+            size_t next_degree = level + 1;
+            size_t next_width = current_width / 2;
+            size_t next_stride = next_degree + 1;
+            size_t current_stride = current_degree;
+
+            // Parallel initialization and computation
+            parallel_for_heuristic(
+                next_width,
+                [&](size_t parent) {
+                    size_t node = parent * 2;
+                    size_t parent_offset = parent * next_stride;
+                    size_t left_child_offset = node * current_stride;
+                    size_t right_child_offset = (node + 1) * current_stride;
+
+                    // Copy left child coefficients and zero-initialize remaining
+                    for (size_t d = 0; d < current_stride; d++) {
+                        next_level_buffer[parent_offset + d] = current_level_buffer[left_child_offset + d];
+                    }
+                    for (size_t d = current_stride; d < next_stride; d++) {
+                        next_level_buffer[parent_offset + d] = FF(0);
+                    }
+
+                    // Add right child contribution: n_r * (β_i + δ_i X)
+                    for (size_t d = 0; d < current_stride; d++) {
+                        next_level_buffer[parent_offset + d] +=
+                            current_level_buffer[right_child_offset + d] * betas[level];
+                        next_level_buffer[parent_offset + d + 1] +=
+                            current_level_buffer[right_child_offset + d] * deltas[level];
+                    }
+                },
+                /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * next_degree * 3);
+
+            // Swap buffers: next becomes current
+            std::swap(current_level_buffer, next_level_buffer);
+            current_width = next_width;
+            current_degree = next_stride;
+        }
+
+        // Return the final result (the root node)
+        return std::vector<FF>(current_level_buffer.begin(),
+                               current_level_buffer.begin() + static_cast<std::ptrdiff_t>(current_degree));
     }
 
     /**
-     * @brief We construct the coefficients of the perturbator polynomial in O(n) time following the technique in
-     * Claim 4.4. Consider a binary tree whose leaves are the evaluations of the full Honk relation at each row in the
-     * execution trace. The subsequent levels in the tree are constructed using the following technique: At level i in
-     * the tree, label the branch connecting the left node n_l to its parent by 1 and for the right node n_r by β_i +
-     * δ_i X. The value of the parent node n will be constructed as n = n_l + n_r * (β_i + δ_i X). Recurse over each
-     * layer until the root is reached which will correspond to the perturbator polynomial F(X).
-     * TODO(https://github.com/AztecProtocol/barretenberg/issues/745): make computation of perturbator more memory
-     * efficient, operate in-place and use std::resize; add multithreading
+     * @brief Construct the perturbator polynomial F(X) coefficients in O(n) time using binary tree reduction.
+     *
+     * MATHEMATICAL SPECIFICATION
+     * ==========================
+     *
+     * Inputs:
+     * - ℰ = {e₀, e₁, ..., eₙ₋₁}: Full Honk relation evaluations (size n = 2^k)
+     * - β = (β₀, β₁, ..., βₖ₋₁): Gate challenge vector
+     * - δ = (δ₀, δ₁, ..., δₖ₋₁): Delta challenge vector
+     *
+     * Output: F(X) = Σᵢ fᵢXⁱ - perturbator polynomial of degree k
+     *
+     * Algorithm (following Claim 4.4 from Protogalaxy paper):
+     * -------------------------------------------------------
+     *
+     * Level 0 (Leaves): L₀[i] = eᵢ for i ∈ [0, n)
+     *
+     * Level 1 (First Combination):
+     * For parent p ∈ [0, n/2) with children at 2p and 2p+1:
+     *   P₁[p](X) = e₂ₚ + e₂ₚ₊₁ · (β₀ + δ₀X)
+     *
+     * Expanding to coefficients:
+     *   P₁[p][0] = e₂ₚ + e₂ₚ₊₁ · β₀
+     *   P₁[p][1] = e₂ₚ₊₁ · δ₀
+     *
+     * General Level ℓ ∈ [1, k):
+     * For parent p with children from previous level:
+     *   Pℓ[p](X) = Pℓ₋₁[2p](X) + Pℓ₋₁[2p+1](X) · (βℓ + δℓX)
+     *
+     * Final Result: F(X) = Pₖ[0](X) (root node after k levels)
+     *
+     * Tree Structure Example (n=8):
+     *   Level 0:  e₀ e₁ e₂ e₃ e₄ e₅ e₆ e₇   (degree 0, 8 nodes)
+     *             └─┬┘  └─┬┘  └─┬┘  └─┬┘
+     *               ↓β₀   ↓β₀   ↓β₀   ↓β₀
+     *   Level 1:   P₁[0] P₁[1] P₁[2] P₁[3] (degree 1, 4 nodes)
+     *              └────┬────┘  └────┬────┘
+     *                   ↓β₁          ↓β₁
+     *   Level 2:       P₂[0]       P₂[1]   (degree 2, 2 nodes)
+     *                  └──────┬──────┘
+     *                         ↓β₂
+     *   Level 3:            P₃[0]          (degree 3, 1 node)
+     *                         ↓
+     *                       F(X)
+     *
+     * Properties:
+     * - Degree growth: At level ℓ, polynomials have degree ℓ
+     * - Tree reduction: Each level halves the number of nodes
+     * - Zeroth coefficient: F(0) = f₀ equals the target sum
+     *
+     * @details This implementation is non-recursive and uses flat contiguous buffers with alternating roles,
+     * enabling efficient parallel initialization and minimizing memory allocations.
      */
     static std::vector<FF> construct_perturbator_coefficients(std::span<const FF> betas,
                                                               std::span<const FF> deltas,
                                                               const Polynomial<FF>& full_honk_evaluations)
     {
+        BB_BENCH();
+
         auto width = full_honk_evaluations.size();
-        std::vector<std::vector<FF>> first_level_coeffs(width / 2, std::vector<FF>(2, 0));
+
+        // Construct first level coefficients (degree 1 polynomials from leaf pairs)
+        // Use flat buffer: each node has 2 coefficients (degree 1)
+        size_t first_level_width = width / 2;
+        std::vector<FF> first_level_buffer(first_level_width * 2);
+
         parallel_for_heuristic(
-            width / 2,
+            first_level_width,
             [&](size_t parent) {
                 size_t node = parent * 2;
-                first_level_coeffs[parent][0] =
-                    full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
-                first_level_coeffs[parent][1] = full_honk_evaluations[node + 1] * deltas[0];
+                size_t offset = parent * 2;
+                first_level_buffer[offset] = full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
+                first_level_buffer[offset + 1] = full_honk_evaluations[node + 1] * deltas[0];
             },
             /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * 3);
-        return construct_coefficients_tree(betas, deltas, first_level_coeffs);
+
+        // Build the tree iteratively in-place
+        return construct_coefficients_tree(betas, deltas, first_level_buffer, first_level_width, 2);
     }
 
     /**
