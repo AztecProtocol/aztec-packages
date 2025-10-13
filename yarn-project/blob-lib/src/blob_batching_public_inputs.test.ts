@@ -1,3 +1,4 @@
+import { Barretenberg } from '@aztec/bb.js';
 import { BLOBS_PER_BLOCK, BLOB_ACCUMULATOR_LENGTH } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
@@ -6,13 +7,19 @@ import { Fr } from '@aztec/foundation/fields';
 import { Blob } from './blob.js';
 import { BatchedBlob } from './blob_batching.js';
 import { BlobAccumulator, FinalBlobAccumulator } from './blob_batching_public_inputs.js';
+import { ensureKzgInitialized } from './kzg_init.js';
 import { makeBatchedBlobAccumulator } from './testing.js';
 
 describe('BlobAccumulator', () => {
   let blobPI: BlobAccumulator;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     blobPI = BlobAccumulator.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(randomInt(1000)));
+    await ensureKzgInitialized();
+  });
+
+  afterAll(async () => {
+    await Barretenberg.destroySingleton();
   });
 
   it('serializes to buffer and deserializes it back', () => {
@@ -32,8 +39,13 @@ describe('BlobAccumulator', () => {
 describe('FinalBlobAccumulator', () => {
   let blobPI: FinalBlobAccumulator;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     blobPI = FinalBlobAccumulator.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(randomInt(1000)));
+    await ensureKzgInitialized();
+  });
+
+  afterAll(async () => {
+    await Barretenberg.destroySingleton();
   });
 
   it('serializes to buffer and deserializes it back', () => {

@@ -84,7 +84,7 @@ export class BarretenbergNativeSocketSyncBackend implements IMsgpackBackendSync 
 
     // Wait for connection to be established (busy-wait pattern for sync API)
     let connected = false;
-    let connectionError: Error | undefined = undefined;
+    let connectionError: Error | null = null;
 
     this.socket.once('connect', () => {
       connected = true;
@@ -108,9 +108,10 @@ export class BarretenbergNativeSocketSyncBackend implements IMsgpackBackendSync 
       }
     }
 
-    if (connectionError) {
+    if (!connected) {
+      // If not connected, there must have been an error
       this.cleanup();
-      throw new Error(`Failed to connect to bb socket: ${connectionError.message}`);
+      throw new Error(`Failed to connect to bb socket: ${String(connectionError || 'Unknown connection error')}`);
     }
   }
 
@@ -222,8 +223,12 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
   private connectionPromise: Promise<void>;
   private connectionTimeout: NodeJS.Timeout | null = null;
 
-  private pendingResolve: ((data: Uint8Array) => void) | null = null;
-  private pendingReject: ((error: Error) => void) | null = null;
+  // Queue of pending callbacks for pipelined requests
+  // Responses come back in FIFO order, so we match them with queued callbacks
+  private pendingCallbacks: Array<{
+    resolve: (data: Uint8Array) => void;
+    reject: (error: Error) => void;
+  }> = [];
 
   // State machine for reading responses
   private readingLength: boolean = true;
@@ -252,7 +257,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
 
     // Spawn bb process - it will create the socket server
     this.process = spawn(bbBinaryPath, ['msgpack', 'run', '--input', this.socketPath], {
-      stdio: ['ignore', 'ignore', 'inherit'],
+      stdio: ['ignore', 'ignore', 'ignore'],
     });
 
     this.process.on('error', err => {
@@ -261,11 +266,12 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
         connectionReject = null;
         connectionResolve = null;
       }
-      if (this.pendingReject) {
-        this.pendingReject(new Error(`Native backend process error: ${err.message}`));
-        this.pendingReject = null;
-        this.pendingResolve = null;
+      // Reject all pending callbacks
+      const error = new Error(`Native backend process error: ${err.message}`);
+      for (const callback of this.pendingCallbacks) {
+        callback.reject(error);
       }
+      this.pendingCallbacks = [];
     });
 
     this.process.on('exit', (code, signal) => {
@@ -281,11 +287,12 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
         connectionReject = null;
         connectionResolve = null;
       }
-      if (this.pendingReject) {
-        this.pendingReject(new Error(errorMsg));
-        this.pendingReject = null;
-        this.pendingResolve = null;
+      // Reject all pending callbacks
+      const error = new Error(errorMsg);
+      for (const callback of this.pendingCallbacks) {
+        callback.reject(error);
       }
+      this.pendingCallbacks = [];
     });
 
     // Wait for bb to create socket file, then connect
@@ -360,19 +367,21 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
 
       // Handle ongoing errors after initial connection
       this.socket.on('error', err => {
-        if (this.pendingReject) {
-          this.pendingReject(new Error(`Socket error: ${err.message}`));
-          this.pendingReject = null;
-          this.pendingResolve = null;
+        // Reject all pending callbacks
+        const error = new Error(`Socket error: ${err.message}`);
+        for (const callback of this.pendingCallbacks) {
+          callback.reject(error);
         }
+        this.pendingCallbacks = [];
       });
 
       this.socket.on('end', () => {
-        if (this.pendingReject) {
-          this.pendingReject(new Error('Socket connection ended unexpectedly'));
-          this.pendingReject = null;
-          this.pendingResolve = null;
+        // Reject all pending callbacks
+        const error = new Error('Socket connection ended unexpectedly');
+        for (const callback of this.pendingCallbacks) {
+          callback.reject(error);
         }
+        this.pendingCallbacks = [];
       });
     });
   }
@@ -403,11 +412,13 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
         offset += bytesToCopy;
 
         if (this.responseBytesRead === this.responseLength) {
-          // Response is complete
-          if (this.pendingResolve) {
-            this.pendingResolve(new Uint8Array(this.responseBuffer!));
-            this.pendingResolve = null;
-            this.pendingReject = null;
+          // Response is complete - dequeue the next pending callback (FIFO)
+          const callback = this.pendingCallbacks.shift();
+          if (callback) {
+            callback.resolve(new Uint8Array(this.responseBuffer!));
+          } else {
+            // This shouldn't happen - response without a pending request
+            console.warn('Received response but no pending callback');
           }
 
           // Reset state for next message
@@ -429,15 +440,12 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
       throw new Error('Socket not connected');
     }
 
-    if (this.pendingResolve) {
-      throw new Error('Cannot call while another call is pending (no pipelining supported)');
-    }
-
     return new Promise((resolve, reject) => {
-      this.pendingResolve = resolve;
-      this.pendingReject = reject;
+      // Enqueue this promise's callbacks (FIFO order)
+      this.pendingCallbacks.push({ resolve, reject });
 
       // Write request: 4-byte little-endian length + msgpack data
+      // Socket will buffer these if needed, maintaining order
       const lengthBuf = Buffer.alloc(4);
       lengthBuf.writeUInt32LE(inputBuffer.length, 0);
       this.socket!.write(lengthBuf);
@@ -446,10 +454,19 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
   }
 
   private cleanup(): void {
+    // Reject any remaining pending callbacks
+    const error = new Error('Backend connection closed');
+    for (const callback of this.pendingCallbacks) {
+      callback.reject(error);
+    }
+    this.pendingCallbacks = [];
+
     try {
       // Remove all event listeners to prevent hanging
       if (this.socket) {
         this.socket.removeAllListeners();
+        // Unref so socket doesn't keep event loop alive
+        this.socket.unref();
         this.socket.destroy();
       }
     } catch (e) {
@@ -462,35 +479,23 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
       this.connectionTimeout = null;
     }
 
-    // Remove process event listeners to prevent hanging
+    // Remove process event listeners and unref to not block event loop
     this.process.removeAllListeners();
+    this.process.unref();
 
     // Don't try to unlink socket - bb owns it and will clean it up
   }
 
   async destroy(): Promise<void> {
-    // Send SIGTERM for graceful shutdown
-    this.process.kill('SIGTERM');
+    // Cleanup first (closes socket, unrefs everything)
+    this.cleanup();
 
-    // Wait for exit with 1-second timeout
-    await Promise.race([
-      new Promise<void>(resolve => {
-        this.process.once('exit', () => {
-          this.cleanup();
-          resolve();
-        });
-      }),
-      new Promise<void>((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout waiting for process exit')), 1000),
-      ),
-    ]).catch(() => {
-      // If timeout or error, force kill and cleanup
-      try {
-        this.process.kill('SIGKILL');
-      } catch (e) {
-        // Process already dead
-      }
-      this.cleanup();
-    });
+    // Send SIGTERM for graceful shutdown
+    // Process is unref'd so won't block event loop - just kill and return
+    try {
+      this.process.kill('SIGTERM');
+    } catch (e) {
+      // Already dead
+    }
   }
 }

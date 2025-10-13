@@ -1,4 +1,4 @@
-import { BarretenbergSync, Buffer32, Buffer48 } from '@aztec/bb.js';
+import { Barretenberg } from '@aztec/bb.js';
 import { poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -6,7 +6,6 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { deserializeEncodedBlobToFields, extractBlobFieldsFromBuffer } from './deserialize.js';
 import { BlobDeserializationError } from './errors.js';
 import type { BlobJson } from './interface.js';
-import { ensureKzgInitialized } from './kzg_init.js';
 
 // Constants re-exported from index.ts to avoid circular dependency
 const BYTES_PER_BLOB = 131072;
@@ -74,9 +73,8 @@ export class Blob {
 
     // This matches the output of SpongeBlob.squeeze() in the blob circuit
     const fieldsHash = multiBlobFieldsHash ? multiBlobFieldsHash : await poseidon2Hash(fields);
-    await ensureKzgInitialized();
-    const api = BarretenbergSync.getSingleton();
-    const res = api.kzgBlobToCommitment({ blobData: data });
+    const api = Barretenberg.getSingleton();
+    const res = await api.kzgBlobToCommitment({ blobData: data });
     const commitment = Buffer.from(res.commitment);
     const challengeZ = await poseidon2Hash([fieldsHash, ...commitmentToFields(commitment)]);
 
@@ -211,11 +209,11 @@ export class Blob {
    *  y: Buffer -  Evaluation y = p(z), where p() is the blob polynomial. BLS12 field element, rep. as BigNum in nr, bigint in ts
    *  proof: Buffer - KZG opening proof for y = p(z). The commitment to quotient polynomial Q, used in compressed BLS12 point format (48 bytes).
    */
-  evaluate(challengeZ?: Fr): { y: Buffer32; proof: Buffer48 } {
+  async evaluate(challengeZ?: Fr): Promise<{ y: Buffer; proof: Buffer }> {
     const z = challengeZ || this.challengeZ;
-    const api = BarretenbergSync.getSingleton();
-    const res = api.kzgComputeProof({ blobData: this.data, z: z.toBuffer() });
-    const verifyRes = api.kzgVerifyProof({
+    const api = Barretenberg.getSingleton();
+    const res = await api.kzgComputeProof({ blobData: this.data, z: z.toBuffer() });
+    const verifyRes = await api.kzgVerifyProof({
       commitment: this.commitment,
       z: z.toBuffer(),
       y: res.y,
@@ -224,9 +222,7 @@ export class Blob {
     if (!verifyRes.valid) {
       throw new Error(`KZG proof did not verify.`);
     }
-    const proof = new Buffer48(res.proof);
-    const y = new Buffer32(res.y);
-    return { y, proof };
+    return { y: Buffer.from(res.y), proof: Buffer.from(res.proof) };
   }
 
   /**
@@ -288,16 +284,16 @@ export class Blob {
   }
 
   static getViemKzgInstance(): {
-    blobToKzgCommitment: (blob: Uint8Array) => { buffer: Uint8Array };
-    computeBlobKzgProof: (blob: Uint8Array, commitment: Uint8Array) => { buffer: Uint8Array };
+    blobToKzgCommitment: (blob: Uint8Array) => Promise<{ buffer: Uint8Array }>;
+    computeBlobKzgProof: (blob: Uint8Array, commitment: Uint8Array) => Promise<{ buffer: Uint8Array }>;
   } {
-    const api = BarretenbergSync.getSingleton();
+    const api = Barretenberg.getSingleton();
     return {
-      blobToKzgCommitment: (blob: Uint8Array) => ({
-        buffer: new Uint8Array(api.kzgBlobToCommitment({ blobData: blob }).commitment),
+      blobToKzgCommitment: async (blob: Uint8Array) => ({
+        buffer: new Uint8Array((await api.kzgBlobToCommitment({ blobData: blob })).commitment),
       }),
-      computeBlobKzgProof: (blob: Uint8Array, commitment: Uint8Array) => ({
-        buffer: api.kzgComputeBlobProof({ blobData: blob, commitment }).proof,
+      computeBlobKzgProof: async (blob: Uint8Array, commitment: Uint8Array) => ({
+        buffer: (await api.kzgComputeBlobProof({ blobData: blob, commitment })).proof,
       }),
     };
   }

@@ -1,4 +1,4 @@
-import { BarretenbergSync } from '@aztec/bb.js';
+import { Barretenberg } from '@aztec/bb.js';
 import { AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_BLOCK } from '@aztec/constants';
 import { poseidon2Hash, sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { BLS12Field, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
@@ -72,10 +72,11 @@ export class BatchedBlob {
     for (let i = 1; i < blobs.length; i++) {
       z = await poseidon2Hash([z, blobs[i].challengeZ]);
     }
-    // Now we have a shared challenge for all blobs, evaluate them...
+    // Now we have a shared challenge for all blobs, evaluate them in parallel...
     await ensureKzgInitialized();
-    const api = BarretenbergSync.getSingleton();
-    const proofObjects = blobs.map(b => api.kzgComputeProof({ blobData: b.data, z: z.toBuffer() }));
+    const api = Barretenberg.getSingleton();
+    // Use Promise.all for parallel proof computation - now safe with pipelined backend!
+    const proofObjects = await Promise.all(blobs.map(b => api.kzgComputeProof({ blobData: b.data, z: z.toBuffer() })));
     const evaluations = proofObjects.map(res => BLS12Fr.fromBuffer(Buffer.from(res.y)));
     // ...and find the challenge for the linear combination of blobs.
     let gamma = await hashNoirBigNumLimbs(evaluations[0]);
@@ -208,8 +209,8 @@ export class BatchedBlobAccumulator {
     blob: Blob,
     finalBlobChallenges: FinalBlobBatchingChallenges,
   ): Promise<BatchedBlobAccumulator> {
-    const api = BarretenbergSync.getSingleton();
-    const res = api.kzgComputeProof({
+    const api = Barretenberg.getSingleton();
+    const res = await api.kzgComputeProof({
       blobData: blob.data,
       z: finalBlobChallenges.z.toBuffer(),
     });
@@ -254,8 +255,8 @@ export class BatchedBlobAccumulator {
     if (this.isEmptyState()) {
       return BatchedBlobAccumulator.initialize(blob, this.finalBlobChallenges);
     } else {
-      const api = BarretenbergSync.getSingleton();
-      const res = api.kzgComputeProof({
+      const api = Barretenberg.getSingleton();
+      const res = await api.kzgComputeProof({
         blobData: blob.data,
         z: this.finalBlobChallenges.z.toBuffer(),
       });
@@ -317,8 +318,8 @@ export class BatchedBlobAccumulator {
         `Blob batching mismatch: accumulated gamma ${calculatedGamma} does not equal injected gamma ${this.finalBlobChallenges.gamma.toBN254Fr()}`,
       );
     }
-    const api = BarretenbergSync.getSingleton();
-    const verifyRes = api.kzgVerifyProof({
+    const api = Barretenberg.getSingleton();
+    const verifyRes = await api.kzgVerifyProof({
       commitment: this.cAcc.compress(),
       z: this.zAcc.toBuffer(),
       y: this.yAcc.toBuffer(),

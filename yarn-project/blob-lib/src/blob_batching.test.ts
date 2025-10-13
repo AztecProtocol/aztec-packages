@@ -1,4 +1,4 @@
-import { BarretenbergSync } from '@aztec/bb.js';
+import { Barretenberg } from '@aztec/bb.js';
 import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB } from '@aztec/constants';
 import { fromHex } from '@aztec/foundation/bigint-buffer';
 import { poseidon2Hash, randomInt, sha256ToField } from '@aztec/foundation/crypto';
@@ -19,6 +19,10 @@ const trustedSetup = JSON.parse(
 describe('Blob Batching', () => {
   beforeAll(async () => {
     await ensureKzgInitialized();
+  });
+
+  afterAll(async () => {
+    await Barretenberg.destroySingleton();
   });
 
   it.each([10, 100, 400])('our BLS library should correctly commit to a blob of %p items', async size => {
@@ -50,7 +54,7 @@ describe('Blob Batching', () => {
     const blobs = await Blob.getBlobsPerBlock(blobItems);
 
     // Challenge for the final opening (z)
-    const api = BarretenbergSync.getSingleton();
+    const api = Barretenberg.getSingleton();
     const zis = blobs.map(b => b.challengeZ);
     const finalZ = zis[0];
 
@@ -58,10 +62,12 @@ describe('Blob Batching', () => {
     const commitments = blobs.map(b => BLS12Point.decompress(b.commitment));
 
     // 'Batched' evaluation
-    const proofObjects = blobs.map(b => {
-      const res = api.kzgComputeProof({ blobData: b.data, z: finalZ.toBuffer() });
-      return [Buffer.from(res.proof), Buffer.from(res.y)] as const;
-    });
+    const proofObjects = await Promise.all(
+      blobs.map(async b => {
+        const res = await api.kzgComputeProof({ blobData: b.data, z: finalZ.toBuffer() });
+        return [Buffer.from(res.proof), Buffer.from(res.y)] as const;
+      }),
+    );
     const evalYs = proofObjects.map(p => BLS12Fr.fromBuffer(Buffer.from(p[1])));
     const qs = proofObjects.map(p => BLS12Point.decompress(Buffer.from(p[0])));
 
@@ -98,7 +104,7 @@ describe('Blob Batching', () => {
     expect(finalY.equals(batchedBlob.y)).toBeTruthy();
     expect(finalBlobCommitmentsHash.equals(batchedBlob.blobCommitmentsHash.toBuffer())).toBeTruthy();
 
-    const verifyRes = api.kzgVerifyProof({
+    const verifyRes = await api.kzgVerifyProof({
       commitment: batchedC.compress(),
       z: finalZ.toBuffer(),
       y: finalY.toBuffer(),
@@ -110,7 +116,7 @@ describe('Blob Batching', () => {
   it('should construct and verify a batch of 3 full blobs', async () => {
     // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr -> test_full_blobs_batched
     // Initialize enough fields to require 3 blobs
-    const api = BarretenbergSync.getSingleton();
+    const api = Barretenberg.getSingleton();
     const items = [new Fr(3), new Fr(4), new Fr(5)].map(f =>
       new Array(FIELDS_PER_BLOB).fill(f).map((elt, i) => elt.mul(new Fr(i + 1))),
     );
@@ -125,10 +131,12 @@ describe('Blob Batching', () => {
 
     // Batched evaluation
     // NB: we share the same finalZ between blobs
-    const proofObjects = blobs.map(b => {
-      const res = api.kzgComputeProof({ blobData: b.data, z: finalZ.toBuffer() });
-      return [Buffer.from(res.proof), Buffer.from(res.y)] as const;
-    });
+    const proofObjects = await Promise.all(
+      blobs.map(async b => {
+        const res = await api.kzgComputeProof({ blobData: b.data, z: finalZ.toBuffer() });
+        return [Buffer.from(res.proof), Buffer.from(res.y)] as const;
+      }),
+    );
     const evalYs = proofObjects.map(p => BLS12Fr.fromBuffer(Buffer.from(p[1])));
     const qs = proofObjects.map(p => BLS12Point.decompress(Buffer.from(p[0])));
 
@@ -166,7 +174,7 @@ describe('Blob Batching', () => {
     expect(finalY.equals(batchedBlob.y)).toBeTruthy();
     expect(finalBlobCommitmentsHash.equals(batchedBlob.blobCommitmentsHash.toBuffer())).toBeTruthy();
 
-    const verifyRes = api.kzgVerifyProof({
+    const verifyRes = await api.kzgVerifyProof({
       commitment: batchedC.compress(),
       z: finalZ.toBuffer(),
       y: finalY.toBuffer(),
@@ -193,24 +201,24 @@ describe('Blob Batching', () => {
     // BatchedBlob.batch() performs a verification check:
     await BatchedBlob.batch(blobs);
   });
-});
 
-describe('BatchedBlobAccumulator', () => {
-  let acc: BatchedBlobAccumulator;
-  let blobs: Blob[];
+  describe('BatchedBlobAccumulator', () => {
+    let acc: BatchedBlobAccumulator;
+    let blobs: Blob[];
 
-  beforeAll(async () => {
-    const items = new Array(FIELD_ELEMENTS_PER_BLOB * BLOBS_PER_BLOCK)
-      .fill(Fr.ZERO)
-      .map((_, i) => new Fr(i + randomInt(120)));
-    blobs = await Blob.getBlobsPerBlock(items);
-    acc = await BatchedBlob.newAccumulator(blobs);
-  });
+    beforeAll(async () => {
+      const items = new Array(FIELD_ELEMENTS_PER_BLOB * BLOBS_PER_BLOCK)
+        .fill(Fr.ZERO)
+        .map((_, i) => new Fr(i + randomInt(120)));
+      blobs = await Blob.getBlobsPerBlock(items);
+      acc = await BatchedBlob.newAccumulator(blobs);
+    });
 
-  it('clones correctly', async () => {
-    const clone = acc.clone();
-    expect(acc).toEqual(clone);
-    const modified = await clone.accumulate(blobs[0]);
-    expect(acc).not.toEqual(modified);
+    it('clones correctly', async () => {
+      const clone = acc.clone();
+      expect(acc).toEqual(clone);
+      const modified = await clone.accumulate(blobs[0]);
+      expect(acc).not.toEqual(modified);
+    });
   });
 });

@@ -138,7 +138,41 @@ export class Barretenberg extends AsyncApi {
   async destroy() {
     return super.destroy();
   }
+
+  /**
+   * Initialize the singleton instance of Barretenberg.
+   * @param options Backend configuration options
+   */
+  static async initSingleton(options: BackendOptions = {}) {
+    if (!barretenbergSingletonPromise) {
+      barretenbergSingletonPromise = Barretenberg.new(options);
+    }
+    barretenbergSingleton = await barretenbergSingletonPromise;
+    return barretenbergSingleton;
+  }
+
+  static async destroySingleton() {
+    if (barretenbergSingleton) {
+      await barretenbergSingleton.destroy();
+      barretenbergSingleton = undefined!;
+      barretenbergSingletonPromise = undefined!;
+    }
+  }
+
+  /**
+   * Get the singleton instance of Barretenberg.
+   * Must call initSingleton() first.
+   */
+  static getSingleton() {
+    if (!barretenbergSingleton) {
+      throw new Error('First call Barretenberg.initSingleton() on @aztec/bb.js module.');
+    }
+    return barretenbergSingleton;
+  }
 }
+
+let barretenbergSingletonPromise: Promise<Barretenberg>;
+let barretenbergSingleton: Barretenberg;
 
 let barretenbergSyncSingletonPromise: Promise<BarretenbergSync>;
 let barretenbergSyncSingleton: BarretenbergSync;
@@ -182,6 +216,14 @@ export class BarretenbergSync extends SyncApi {
 
     barretenbergSyncSingleton = await barretenbergSyncSingletonPromise;
     return barretenbergSyncSingleton;
+  }
+
+  static destroySingleton() {
+    if (barretenbergSyncSingleton) {
+      barretenbergSyncSingleton.destroy();
+      barretenbergSyncSingleton = undefined!;
+      barretenbergSyncSingletonPromise = undefined!;
+    }
   }
 
   static getSingleton() {
