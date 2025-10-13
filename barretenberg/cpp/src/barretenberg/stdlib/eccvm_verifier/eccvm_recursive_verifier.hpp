@@ -8,7 +8,7 @@
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
 class ECCVMRecursiveVerifier {

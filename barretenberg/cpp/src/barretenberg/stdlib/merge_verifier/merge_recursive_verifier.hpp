@@ -10,7 +10,7 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion::goblin {
 template <typename CircuitBuilder> class MergeRecursiveVerifier_ {

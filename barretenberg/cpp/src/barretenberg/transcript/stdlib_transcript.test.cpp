@@ -3,8 +3,8 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion::honk {
 
