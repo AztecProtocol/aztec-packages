@@ -124,16 +124,8 @@ struct SET_8_Instruction {
     uint8_t value;
 };
 
-/// @brief RETURN instruction
-struct RETURN_Instruction {
-    uint8_t return_size;
-    MemoryTag return_value_tag;
-    uint16_t return_value_offset_index;
-};
-
 using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      SET_8_Instruction,
-                                     RETURN_Instruction,
                                      SUB_8_Instruction,
                                      MUL_8_Instruction,
                                      DIV_8_Instruction,
@@ -151,62 +143,91 @@ template <class... Ts> struct overloaded_instruction : Ts... {
 };
 template <class... Ts> overloaded_instruction(Ts...) -> overloaded_instruction<Ts...>;
 
+inline std::ostream& operator<<(std::ostream& os, const MemoryTag& tag)
+{
+    switch (tag) {
+    case MemoryTag::U1:
+        os << "U1";
+        break;
+    case MemoryTag::U8:
+        os << "U8";
+        break;
+    case MemoryTag::U16:
+        os << "U16";
+        break;
+    case MemoryTag::U32:
+        os << "U32";
+        break;
+    case MemoryTag::U64:
+        os << "U64";
+        break;
+    case MemoryTag::U128:
+        os << "U128";
+        break;
+    case MemoryTag::FF:
+        os << "FF";
+        break;
+    default:
+        os << "Unknown";
+        break;
+    }
+    return os;
+}
+
 inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruction)
 {
     std::visit(overloaded_instruction{
                    [&](ADD_8_Instruction arg) {
-                       os << "ADD_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
-                          << arg.result_offset;
+                       os << "ADD_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
                    },
                    [&](SET_8_Instruction arg) {
-                       os << "SET_8_Instruction " << static_cast<int>(arg.offset) << " " << static_cast<int>(arg.value);
-                   },
-                   [&](RETURN_Instruction arg) {
-                       os << "RETURN_Instruction " << arg.return_size << " " << arg.return_value_offset_index;
+                       os << "SET_8_Instruction " << arg.value_tag << " " << static_cast<int>(arg.offset) << " "
+                          << static_cast<int>(arg.value);
                    },
                    [&](SUB_8_Instruction arg) {
-                       os << "SUB_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
-                          << arg.result_offset;
+                       os << "SUB_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
                    },
                    [&](MUL_8_Instruction arg) {
-                       os << "MUL_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
-                          << arg.result_offset;
+                       os << "MUL_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
                    },
                    [&](DIV_8_Instruction arg) {
-                       os << "DIV_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
-                          << arg.result_offset;
+                       os << "DIV_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
                    },
                    [&](EQ_8_Instruction arg) {
-                       os << "EQ_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
-                          << arg.result_offset;
+                       os << "EQ_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
                    },
                    [&](LT_8_Instruction arg) {
-                       os << "LT_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
-                          << arg.result_offset;
+                       os << "LT_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
                    },
                    [&](LTE_8_Instruction arg) {
-                       os << "LTE_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
-                          << arg.result_offset;
+                       os << "LTE_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
                    },
                    [&](AND_8_Instruction arg) {
-                       os << "AND_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
-                          << arg.result_offset;
+                       os << "AND_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
                    },
                    [&](OR_8_Instruction arg) {
-                       os << "OR_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
-                          << arg.result_offset;
+                       os << "OR_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
                    },
                    [&](XOR_8_Instruction arg) {
-                       os << "XOR_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
-                          << arg.result_offset;
+                       os << "XOR_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
                    },
                    [&](SHL_8_Instruction arg) {
-                       os << "SHL_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
-                          << arg.result_offset;
+                       os << "SHL_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
                    },
                    [&](SHR_8_Instruction arg) {
-                       os << "SHR_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
-                          << arg.result_offset;
+                       os << "SHR_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
                    },
                    [&](auto) { os << "Unknown instruction"; },
                },

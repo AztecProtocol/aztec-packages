@@ -27,5 +27,6 @@ std::vector<uint8_t> create_bytecode(const std::vector<bb::avm2::simulation::Ins
 
 std::vector<uint8_t> ControlFlow::build_bytecode()
 {
+    current_block->finalize_with_return(1, bb::avm2::MemoryTag::U8, 0);
     return create_bytecode(current_block->get_instructions());
 }

@@ -74,11 +74,6 @@ FuzzInstruction generate_instruction(std::mt19937_64& rng)
         return SET_8_Instruction{ .value_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
                                   .offset = generate_random_uint8(rng),
                                   .value = generate_random_uint8(rng) };
-    case InstructionGenerationOptions::RETURN:
-        return RETURN_Instruction{ .return_size = generate_random_uint8(rng),
-                                   .return_value_tag =
-                                       generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                   .return_value_offset_index = generate_random_uint16(rng) };
     }
 }
 template <typename BinaryInstructionType>
@@ -117,7 +112,7 @@ void mutate_set_8_instruction(SET_8_Instruction& instruction, std::mt19937_64& r
     }
 }
 
-void mutate_return_instruction(RETURN_Instruction& instruction, std::mt19937_64& rng)
+/*void mutate_return_instruction(RETURN_Instruction& instruction, std::mt19937_64& rng)
 {
     ReturnMutationOptions option = BASIC_RETURN_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
@@ -132,7 +127,7 @@ void mutate_return_instruction(RETURN_Instruction& instruction, std::mt19937_64&
         mutate_uint16_t(instruction.return_value_offset_index, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
         break;
     }
-}
+}*/
 
 void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
 {
@@ -149,7 +144,6 @@ void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
                                        [&rng](SHL_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
                                        [&rng](SHR_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },
                                        [&rng](SET_8_Instruction& instr) { mutate_set_8_instruction(instr, rng); },
-                                       [&rng](RETURN_Instruction& instr) { mutate_return_instruction(instr, rng); },
                                        [](auto&) { throw std::runtime_error("Unknown instruction"); } },
                instruction);
 }

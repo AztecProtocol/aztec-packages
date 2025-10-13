@@ -24,16 +24,12 @@
 
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "instruction.hpp"
+#include "memory_manager.hpp"
 
 class ProgramBlock {
   private:
-    // map of Tag -> vector of memory addresses
-    std::map<bb::avm2::MemoryTag, std::vector<uint16_t>> stored_variables;
-
+    MemoryManager memory_manager;
     std::vector<bb::avm2::simulation::Instruction> instructions;
-
-    std::optional<uint16_t> get_16_bit_offset_by_tag_and_index(bb::avm2::MemoryTag tag, uint16_t index);
-    std::optional<uint8_t> get_8_bit_offset_by_tag_and_index(bb::avm2::MemoryTag tag, uint16_t index);
 
     void process_add_8_instruction(ADD_8_Instruction instruction);
     void process_sub_8_instruction(SUB_8_Instruction instruction);
@@ -48,7 +44,6 @@ class ProgramBlock {
     void process_shl_8_instruction(SHL_8_Instruction instruction);
     void process_shr_8_instruction(SHR_8_Instruction instruction);
     void process_set_8_instruction(SET_8_Instruction instruction);
-    void process_return_instruction(RETURN_Instruction instruction);
 
   public:
     ProgramBlock() = default;
@@ -58,6 +53,11 @@ class ProgramBlock {
     /// Updates `instructions` with the instruction
     /// If arguments of the instruction are not in stored_variables, the instruction is skipped
     void process_instruction(FuzzInstruction instruction);
+
+    /// @brief finalize the program block with a return instruction
+    /// Tries to find memory address with the given `return_value_tag`, if there are no such address (zero variables of
+    /// such tag are stored), it tries other memory tags
+    void finalize_with_return(uint8_t return_size, MemoryTag return_value_tag, uint16_t return_value_offset_index);
 
     std::vector<bb::avm2::simulation::Instruction> get_instructions();
 };

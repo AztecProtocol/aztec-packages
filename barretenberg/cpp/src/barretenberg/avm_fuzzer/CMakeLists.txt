@@ -6,6 +6,7 @@ add_executable(avm_fuzzer_bin
     fuzz_lib/program_block.cpp
     fuzz_lib/fuzz.cpp
     fuzz_lib/simulator.cpp
+    fuzz_lib/memory_manager.cpp
     mutations/fuzzer_data.cpp
     mutations/instructions/instruction_vec.cpp
     mutations/instructions/instruction.cpp

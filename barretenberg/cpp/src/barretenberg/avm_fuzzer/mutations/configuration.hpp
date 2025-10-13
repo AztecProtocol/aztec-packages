@@ -112,10 +112,9 @@ enum class InstructionGenerationOptions {
     SHL_8,
     SHR_8,
     SET_8,
-    RETURN
 };
 
-using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 14>;
+using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 13>;
 
 constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION = InstructionGenerationConfig({
     { InstructionGenerationOptions::ADD_8, 1 },
@@ -131,9 +130,7 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::SHL_8, 1 },
     { InstructionGenerationOptions::SHR_8, 1 },
     { InstructionGenerationOptions::SET_8, 1 },
-    { InstructionGenerationOptions::RETURN, 1 },
 });
-
 
 enum class FuzzerDataMutationOptions { InstructionMutation, CalldataMutation };
 
