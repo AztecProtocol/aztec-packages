@@ -27,6 +27,7 @@ std::optional<uint8_t> ProgramBlock::get_8_bit_offset_by_tag_and_index(bb::avm2:
         return std::nullopt;
     }
 
+    // todo (ok?)
     // live is life nanananana
     // most of the 8bit wide ops will fail
     // i have no clue how to handle this
@@ -266,7 +267,7 @@ void ProgramBlock::process_return_instruction(RETURN_Instruction instruction)
 
     // TODO(defkit) fix, should return something... or just not throw
     if (!return_addr.has_value()) {
-        throw std::runtime_error("Return variable not found");
+        return_addr = std::optional<uint16_t>(0);
     }
 
     // TODO(defkit) temp
@@ -301,7 +302,7 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
                    [this](SHR_8_Instruction instruction) { return this->process_shr_8_instruction(instruction); },
                    [this](SET_8_Instruction instruction) { return this->process_set_8_instruction(instruction); },
                    [this](RETURN_Instruction instruction) { return this->process_return_instruction(instruction); },
-                   [](auto) { throw std::runtime_error("Invalid instruction"); },
+                   [](auto) { throw std::runtime_error("Unknown instruction"); },
                },
                instruction);
 }

@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/vm2/common/memory_types.hpp"
-#include <concepts>
 #include <cstdint>
 #include <variant>
 
@@ -49,6 +48,7 @@ struct DIV_8_Instruction {
 };
 
 // TODO(defkit) FDIV skipping for now
+
 /// @brief mem[result_offset] = mem[a_address] == mem[b_address]
 struct EQ_8_Instruction {
     MemoryTag argument_tag;
@@ -145,11 +145,71 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      XOR_8_Instruction,
                                      SHL_8_Instruction,
                                      SHR_8_Instruction>;
+
 template <class... Ts> struct overloaded_instruction : Ts... {
     using Ts::operator()...;
 };
 template <class... Ts> overloaded_instruction(Ts...) -> overloaded_instruction<Ts...>;
 
-class InstructionBuilder {
-    static std::vector<uint8_t> build_instruction(FuzzInstruction instruction);
-};
+inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruction)
+{
+    std::visit(overloaded_instruction{
+                   [&](ADD_8_Instruction arg) {
+                       os << "ADD_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
+                          << arg.result_offset;
+                   },
+                   [&](SET_8_Instruction arg) {
+                       os << "SET_8_Instruction " << static_cast<int>(arg.offset) << " " << static_cast<int>(arg.value);
+                   },
+                   [&](RETURN_Instruction arg) {
+                       os << "RETURN_Instruction " << arg.return_size << " " << arg.return_value_offset_index;
+                   },
+                   [&](SUB_8_Instruction arg) {
+                       os << "SUB_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
+                          << arg.result_offset;
+                   },
+                   [&](MUL_8_Instruction arg) {
+                       os << "MUL_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
+                          << arg.result_offset;
+                   },
+                   [&](DIV_8_Instruction arg) {
+                       os << "DIV_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
+                          << arg.result_offset;
+                   },
+                   [&](EQ_8_Instruction arg) {
+                       os << "EQ_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
+                          << arg.result_offset;
+                   },
+                   [&](LT_8_Instruction arg) {
+                       os << "LT_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
+                          << arg.result_offset;
+                   },
+                   [&](LTE_8_Instruction arg) {
+                       os << "LTE_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
+                          << arg.result_offset;
+                   },
+                   [&](AND_8_Instruction arg) {
+                       os << "AND_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
+                          << arg.result_offset;
+                   },
+                   [&](OR_8_Instruction arg) {
+                       os << "OR_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
+                          << arg.result_offset;
+                   },
+                   [&](XOR_8_Instruction arg) {
+                       os << "XOR_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
+                          << arg.result_offset;
+                   },
+                   [&](SHL_8_Instruction arg) {
+                       os << "SHL_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
+                          << arg.result_offset;
+                   },
+                   [&](SHR_8_Instruction arg) {
+                       os << "SHR_8_Instruction " << arg.a_offset_index << " " << arg.b_offset_index << " "
+                          << arg.result_offset;
+                   },
+                   [&](auto) { os << "Unknown instruction"; },
+               },
+               instruction);
+    return os;
+}
