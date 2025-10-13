@@ -440,20 +440,20 @@ export class RollupContract {
     return this.rollup.read.getEntryQueueLength();
   }
 
-  async getEpochNumber(blockNumber?: bigint) {
-    blockNumber ??= await this.getBlockNumber();
+  getCurrentEpochNumber(): Promise<bigint> {
+    return this.rollup.read.getCurrentEpoch();
+  }
+
+  getEpochNumberForBlock(blockNumber: bigint) {
     return this.rollup.read.getEpochForBlock([BigInt(blockNumber)]);
   }
+
   getAvailableValidatorFlushes() {
     return this.rollup.read.getAvailableValidatorFlushes();
   }
 
   getNextFlushableEpoch() {
     return this.rollup.read.getNextFlushableEpoch();
-  }
-
-  getCurrentEpochNumber(): Promise<bigint> {
-    return this.rollup.read.getCurrentEpoch();
   }
 
   async getRollupAddresses(): Promise<L1RollupContractAddresses> {
