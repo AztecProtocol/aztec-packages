@@ -30,15 +30,15 @@ The testnet serves several important purposes:
 
 Understanding the differences helps you develop more effectively:
 
-| Aspect | Sandbox | Testnet |
-|--------|---------|---------|
-| **Environment** | Local Docker container | Live network on Ethereum Sepolia |
-| **Speed** | Instant blocks | ~12 second block times |
-| **Fees** | Free (dev mode) | Requires testnet FeeJuice tokens |
-| **State** | Reset when restarted | Persistent across sessions |
-| **Accounts** | Pre-funded dev accounts | Must create and fund manually |
-| **Network** | Isolated | Shared with other developers |
-| **Proving** | Optional | Full proving required |
+| Aspect          | Sandbox                 | Testnet                          |
+| --------------- | ----------------------- | -------------------------------- |
+| **Environment** | Local Docker container  | Live network on Ethereum Sepolia |
+| **Speed**       | Instant blocks          | ~12 second block times           |
+| **Fees**        | Free (dev mode)         | Requires testnet FeeJuice tokens |
+| **State**       | Reset when restarted    | Persistent across sessions       |
+| **Accounts**    | Pre-funded dev accounts | Must create and fund manually    |
+| **Network**     | Isolated                | Shared with other developers     |
+| **Proving**     | Optional                | Full proving required            |
 
 ## Configuration Changes
 
@@ -46,10 +46,10 @@ To connect to testnet instead of sandbox, you'll need to update your PXE connect
 
 ```typescript
 // Sandbox (local development)
-const pxe = await createPXEClient('http://localhost:8080');
+const pxe = await createPXEClient("http://localhost:8080");
 
 // Testnet (live network)
-const pxe = await createPXEClient('https://api.aztec.network/testnet');
+const pxe = await createPXEClient("https://api.aztec.network/testnet");
 ```
 
 Check the [testnet guide](../../try_testnet.md) for the current testnet RPC endpoint, as it may change with network updates.
@@ -130,16 +130,17 @@ Ensure your fee payment logic works correctly. Unlike the sandbox's free transac
 For comprehensive testnet information and resources, see:
 
 - [Testnet Guide](../../try_testnet.md) - Complete guide to using the Aztec testnet
-- [Aztec Starter](../../7_testnet_and_aztec_starter.md) - Example deployments and patterns
+- [Aztec Starter](../testnet_and_aztec_starter) - Example deployments and patterns
 - [Getting Started on Testnet](../../developers/getting_started_on_testnet.md) - Step-by-step deployment walkthrough
 
 Once you're comfortable with testnet deployment, you'll be ready to take your application to mainnet when it launches!
 
 ## Community Resources
 
-- **Discord**: Join #testnet-support for help and updates
 - **Status Page**: Check current testnet status and scheduled maintenance
 - **Faucet**: Get testnet tokens for development
 - **Explorer**: View transactions and contracts on testnet
+  - https://aztecscan.xyz
+  - https://aztecexplorer.xyz
 
 Remember, the testnet is a learning environment. Don't be afraid to experiment, break things, and iterate. That's exactly what it's for!

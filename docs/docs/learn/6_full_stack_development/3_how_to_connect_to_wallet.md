@@ -32,9 +32,10 @@ Aztec wallets serve a similar role to MetaMask or other Web3 wallets, but with s
 The Aztec wallet interface is actively being developed and standardized. The patterns and APIs for wallet integration are evolving as the ecosystem matures. This page will be updated with comprehensive guides once the wallet interface specification is finalized.
 
 In the meantime, for development and testing purposes, you'll typically work with:
+
 - **Sandbox accounts**: Pre-generated accounts available in your local sandbox
 - **Programmatic account creation**: Creating accounts directly in your code (covered in the next section)
-:::
+  :::
 
 ## Development Workflow
 
@@ -45,7 +46,7 @@ For now, when building full-stack Aztec applications, you'll typically:
 3. **Create Wallets**: Instantiate wallet objects that wrap account contracts
 4. **Interact with Contracts**: Use these wallets to sign and send transactions
 
-The next section, [Creating Accounts](./4_how_to_create_account.md), shows you how to create accounts programmatically, which is the current primary method for development.
+The next section, [Creating Accounts](how_to_create_account), shows you how to create accounts programmatically, which is the current primary method for development.
 
 <!-- TODO: add include_code for wallet page -->
 
@@ -60,10 +61,9 @@ As the Aztec wallet ecosystem develops, you can expect:
 - **Social Recovery**: Built-in account recovery mechanisms
 
 For the latest information on wallet development and integration patterns, refer to:
-- [Aztec.js Wallet Documentation](../../developers/docs/apis/aztec-js/interfaces/Wallet)
-- [Aztec Discord Community](https://discord.gg/aztec) - #dev-chat channel
+
 - [Aztec Starter Repository](https://github.com/AztecProtocol/aztec-starter) - Example implementations
 
 ## Next Steps
 
-Ready to get your hands dirty? Move on to [Creating Accounts](./4_how_to_create_account.md) to learn how to create and manage accounts in your Aztec application. This is currently the primary method for development and testing.
+Ready to get your hands dirty? Move on to [Creating Accounts](how_to_create_account) to learn how to create and manage accounts in your Aztec application. This is currently the primary method for development and testing.
