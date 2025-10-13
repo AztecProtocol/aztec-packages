@@ -29,10 +29,11 @@ namespace bb::avm2::simulation {
 
 // For every opcode execution method (e.g. Execution::add(), Execution::sub(), etc), it is crucial to preserve the
 // following order of operations (temporality groups 3,4,5,6):
-// 1. Set the inputs and validate them. (RegisterValidationException might be thrown.)
-// 2. Consume gas. (OutOfGasException might be thrown.)
-// 3. Execute the opcode. (OpcodeExecutionException might be thrown.)
-// 4. Set the output.
+// 1. Temporality group 3 (Register read): Set the inputs and validate them. (RegisterValidationException might be
+// thrown.)
+// 2. Temporality group 4 (Gas): Consume gas. (OutOfGasException might be thrown.)
+// 3. Temporality group 5 (Opcode execution): Execute the opcode. (OpcodeExecutionException might be thrown.)
+// 4. Temporality group 6 (Register write): Set the output.
 
 // This order is crucial for the completeness of the circuit. In tracegen, we rely on this order to correctly
 // populate the execution trace. In particular, we stop processing if any of the above exceptions are thrown.
@@ -1088,14 +1089,14 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             ex_event.next_context_id = context_provider.get_next_context_id();
             auto pc = context.get_pc();
 
-            //// Temporality group 1 starts ////
+            // Temporality group 1: Bytecode retrieval. //
 
             // We try to get the bytecode id. This can throw if the contract is not deployed or if we have retrieved too
             // many unique class ids. Note: bytecode_id is tracked in context events, not in the top-level execution
             // event. It is already included in the before_context_event (defaulting to 0 on error/not-found).
             context.get_bytecode_manager().get_bytecode_id();
 
-            //// Temporality group 2 starts ////
+            // Temporality group 2: Instruction fetching and addressing. //
 
             // We try to fetch an instruction.
             Instruction instruction = context.get_bytecode_manager().read_instruction(pc);
