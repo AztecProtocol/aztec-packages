@@ -150,6 +150,7 @@ enum class ExecutionOpCode {
     KECCAKF1600,
     ECADD,
     TORADIXBE,
+    MAX = TORADIXBE, // Keep this at the end. Serves looping over all opcodes.
 };
 
 std::ostream& operator<<(std::ostream& os, const ExecutionOpCode& op);

@@ -1,5 +1,4 @@
-import type { AccountContract, AccountInterface, AuthWitnessProvider } from '@aztec/aztec.js/account';
-import type { ChainInfo } from '@aztec/aztec.js/wallet';
+import type { AccountContract, AccountInterface, AuthWitnessProvider, ChainInfo } from '@aztec/aztec.js/account';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 

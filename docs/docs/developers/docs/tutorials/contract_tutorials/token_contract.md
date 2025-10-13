@@ -210,9 +210,9 @@ async function main() {
     const aliceAccount = await wallet.createSchnorrAccount(aliceWalletData.secret, aliceWalletData.salt);
     const bobClinicAccount = await wallet.createSchnorrAccount(bobClinicWalletData.secret, bobClinicWalletData.salt);
 
-    const giggleAddress = giggleAccount.getAddress();
-    const aliceAddress = aliceAccount.getAddress();
-    const bobClinicAddress = bobClinicAccount.getAddress();
+    const giggleAddress = (await giggleAccount.getAccount()).getAddress();
+    const aliceAddress = (await aliceAccount.getAccount()).getAddress();
+    const bobClinicAddress = (await bobAccount.getAccount()).getAddress();
 
     const bobToken = await BobTokenContract
         .deploy(

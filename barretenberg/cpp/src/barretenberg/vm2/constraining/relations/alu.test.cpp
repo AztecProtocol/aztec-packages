@@ -180,7 +180,7 @@ class AluAddConstrainingTest : public AluConstrainingTest,
                 { C::execution_register_0_, a },                                // = ia
                 { C::execution_register_1_, b },                                // = ib
                 { C::execution_register_2_, c },                                // = ic
-                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                      // = sel
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_ADD }, // = alu_op_id
             },
         });
@@ -237,7 +237,7 @@ class AluAddConstrainingTest : public AluConstrainingTest,
                 { C::execution_register_0_, a },                                // = ia
                 { C::execution_register_1_, b },                                // = ib
                 { C::execution_register_2_, c },                                // = ic
-                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                      // = sel
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_ADD }, // = alu_op_id
             },
         });
@@ -273,7 +273,7 @@ TEST_P(AluAddConstrainingTest, AluBasicAdd)
 {
     auto trace = process_basic_add_trace(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -281,7 +281,7 @@ TEST_P(AluAddConstrainingTest, AluBasicAddTraceGen)
 {
     auto trace = process_basic_add_with_tracegen(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -289,7 +289,7 @@ TEST_P(AluAddConstrainingTest, AluCarryAdd)
 {
     auto trace = process_carry_add_trace(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -297,7 +297,7 @@ TEST_P(AluAddConstrainingTest, AluCarryAddTraceGen)
 {
     auto trace = process_carry_add_with_tracegen(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -316,7 +316,7 @@ TEST_P(AluAddConstrainingTest, NegativeAluCarryAdd)
     auto correct_max_value = trace.get(Column::alu_max_value, 0);
     auto is_ff = std::get<0>(params).get_tag() == MemoryTag::FF;
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
     // We get the correct overflowed result 'for free' with FF whether cf is on or not
     if (!is_ff) {
@@ -372,7 +372,7 @@ TEST_P(AluAddConstrainingTest, NegativeAddTraceGenWrongTagABMismatch)
     auto trace = process_basic_add_with_tracegen(
         { a, MemoryValue::from_tag(TAG_ERROR_TEST_VALUES.at(b.get_tag()), b.as_ff()), c }, true);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -427,7 +427,7 @@ class AluSubConstrainingTest : public AluConstrainingTest,
                 { C::execution_register_0_, a },                                // = ia
                 { C::execution_register_1_, b },                                // = ib
                 { C::execution_register_2_, c },                                // = ic
-                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                      // = sel
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_SUB }, // = alu_op_id
             },
         });
@@ -460,7 +460,7 @@ TEST_P(AluSubConstrainingTest, AluSub)
 {
     auto trace = process_sub_trace(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -468,7 +468,7 @@ TEST_P(AluSubConstrainingTest, AluSubTraceGen)
 {
     auto trace = process_sub_with_tracegen(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -478,7 +478,7 @@ TEST_P(AluSubConstrainingTest, AluSubNegative)
     auto is_ff = std::get<0>(params).get_tag() == MemoryTag::FF;
     auto trace = process_sub_trace(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 
     auto c = trace.get(Column::alu_ic, 0);
@@ -550,7 +550,7 @@ class AluMulConstrainingTest : public AluConstrainingTest,
                 { C::execution_register_0_, a },                                // = ia
                 { C::execution_register_1_, b },                                // = ib
                 { C::execution_register_2_, c },                                // = ic
-                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                      // = sel
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_MUL }, // = alu_op_id
             },
         });
@@ -627,7 +627,7 @@ TEST_P(AluMulConstrainingTest, AluMul)
 {
     auto trace = process_mul_trace(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -635,7 +635,7 @@ TEST_P(AluMulConstrainingTest, AluMulTraceGen)
 {
     auto trace = process_mul_with_tracegen(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -687,7 +687,7 @@ TEST_F(AluConstrainingTest, AluMulU128Carry)
             { C::execution_register_0_, a },                                // = ia
             { C::execution_register_1_, b },                                // = ib
             { C::execution_register_2_, c },                                // = ic
-            { C::execution_sel_execute_alu, 1 },                            // = sel
+            { C::execution_sel_exec_dispatch_alu, 1 },                      // = sel
             { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_MUL }, // = alu_op_id
         },
     });
@@ -702,7 +702,7 @@ TEST_F(AluConstrainingTest, AluMulU128Carry)
                                 trace);
 
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 
     // Below = (a * b mod p) mod 2^128
@@ -715,7 +715,7 @@ TEST_P(AluMulConstrainingTest, NegativeAluMul)
 {
     auto trace = process_mul_trace(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
     trace.set(Column::alu_ic, 0, trace.get(Column::alu_ic, 0) + 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_MUL");
@@ -777,7 +777,7 @@ class AluDivConstrainingTest : public AluConstrainingTest,
                 { C::execution_register_0_, a },                                // = ia
                 { C::execution_register_1_, b },                                // = ib
                 { C::execution_register_2_, c },                                // = ic
-                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                      // = sel
                 { C::execution_sel_opcode_error, div_0_error ? 1 : 0 },         // = sel_err
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_DIV }, // = alu_op_id
             },
@@ -856,7 +856,7 @@ TEST_P(AluDivConstrainingTest, AluDiv)
 {
     auto trace = process_div_trace(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -864,7 +864,7 @@ TEST_P(AluDivConstrainingTest, AluDivTraceGen)
 {
     auto trace = process_div_with_tracegen(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -876,7 +876,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivUnderflow)
     auto c = a / b;
     auto trace = process_div_trace({ a, b, c });
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 
     // Good path: 2/5 gives 0 with remainder = 2
@@ -904,7 +904,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivU128Carry)
     auto trace = process_div_trace({ a, b, c });
 
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 
     // Check we cannot provide a c s.t. a - r = b * c over/underflows
@@ -937,7 +937,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZero)
     for (const bool with_tracegen : { false, true }) {
         auto trace = with_tracegen ? process_div_with_tracegen({ a, b, c }) : process_div_trace({ a, b, c });
         check_all_interactions<AluTraceBuilder>(trace);
-        check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+        check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
         check_relation<alu>(trace);
 
         // Set b, b_inv to 0...
@@ -983,7 +983,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivFF)
     trace.set(Column::alu_sel_err, 0, 1);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
 }
 
 TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFF)
@@ -1004,7 +1004,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFF)
     trace.set(Column::alu_sel_div_no_0_err, 0, 0);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
 }
 
 TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFFTagMismatch)
@@ -1033,7 +1033,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFFTagMismatch)
     trace.set(Column::alu_sel_div_no_0_err, 0, 0);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
 }
 
 // FDIV TESTS
@@ -1089,7 +1089,7 @@ class AluFDivConstrainingTest : public AluConstrainingTest,
                 { C::execution_register_0_, a },                                 // = ia
                 { C::execution_register_1_, b },                                 // = ib
                 { C::execution_register_2_, c },                                 // = ic
-                { C::execution_sel_execute_alu, 1 },                             // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                       // = sel
                 { C::execution_sel_opcode_error, div_0_error ? 1 : 0 },          // = sel_err
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_FDIV }, // = alu_op_id
             },
@@ -1133,7 +1133,7 @@ TEST_P(AluFDivConstrainingTest, AluFDiv)
 {
     auto trace = process_fdiv_trace(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -1141,7 +1141,7 @@ TEST_P(AluFDivConstrainingTest, AluFDivTraceGen)
 {
     auto trace = process_fdiv_with_tracegen(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -1152,7 +1152,7 @@ TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZero)
     auto c = a / b;
     auto trace = process_fdiv_trace({ a, b, c });
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 
     // Set b, b_inv to 0...
@@ -1202,7 +1202,7 @@ TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZeroNonFFTagMismatch)
             { C::execution_register_0_, a },                                      // = ia
             { C::execution_register_1_, b },                                      // = ib
             { C::execution_register_2_, c },                                      // = ic
-            { C::execution_sel_execute_alu, 1 },                                  // = sel
+            { C::execution_sel_exec_dispatch_alu, 1 },                            // = sel
             { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_FDIV },      // = alu_op_id
         },
     });
@@ -1219,7 +1219,7 @@ TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZeroNonFFTagMismatch)
     trace.set(Column::execution_sel_opcode_error, 0, 1);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
 
     // For FDIV, we can have both FF and dividing by zero errors:
     trace.set(Column::alu_ib, 0, 0);
@@ -1229,7 +1229,7 @@ TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZeroNonFFTagMismatch)
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
     trace.set(Column::execution_register_1_, 0, 0);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
 
     // Setting b to u16 also creates a tag mismatch we can handle with the same selectors:
     trace.set(Column::alu_ib_tag, 0, static_cast<uint8_t>(MemoryTag::U16));
@@ -1272,7 +1272,7 @@ TEST_P(AluEQConstrainingTest, AluEQTraceGen)
     auto trace =
         process_eq_with_tracegen(ThreeOperandTestParams{ param, param, MemoryValue::from_tag(MemoryTag::U1, 1) });
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -1280,7 +1280,7 @@ TEST_P(AluEQConstrainingTest, AluInEQTraceGen)
 {
     auto trace = process_eq_with_tracegen(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -1294,7 +1294,7 @@ TEST_P(AluEQConstrainingTest, NegativeAluEqResult)
                                                     : params);
         check_relation<alu>(trace);
         check_all_interactions<AluTraceBuilder>(trace);
-        check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+        check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
         bool c = trace.get(Column::alu_ic, 0) == 1;
         // Swap the result bool:
         trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
@@ -1307,7 +1307,7 @@ TEST_P(AluEQConstrainingTest, NegativeAluEqHelper)
     auto trace = process_eq_with_tracegen(GetParam());
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     auto helper = trace.get(Column::alu_helper1, 0);
     trace.set(Column::alu_helper1, 0, helper + 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "EQ_OP_MAIN");
@@ -1360,7 +1360,7 @@ class AluLTConstrainingTest : public AluConstrainingTest, public ::testing::With
                 { C::execution_register_0_, a },                                      // = ia
                 { C::execution_register_1_, b },                                      // = ib
                 { C::execution_register_2_, c },                                      // = ic
-                { C::execution_sel_execute_alu, 1 },                                  // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                            // = sel
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_LT },        // = alu_op_id
             },
         });
@@ -1411,7 +1411,7 @@ TEST_P(AluLTConstrainingTest, AluLT)
 {
     auto trace = process_lt_trace(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -1419,7 +1419,7 @@ TEST_P(AluLTConstrainingTest, AluLTTraceGen)
 {
     auto trace = process_lt_with_tracegen(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -1430,7 +1430,7 @@ TEST_P(AluLTConstrainingTest, NegativeAluLT)
     auto is_ff = std::get<0>(params).get_tag() == MemoryTag::FF;
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     bool c = trace.get(Column::alu_ic, 0) == 1;
     // Swap the result bool:
     trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
@@ -1489,7 +1489,7 @@ class AluLTEConstrainingTest : public AluConstrainingTest,
                 { C::execution_register_0_, a },                                      // = ia
                 { C::execution_register_1_, b },                                      // = ib
                 { C::execution_register_2_, c },                                      // = ic
-                { C::execution_sel_execute_alu, 1 },                                  // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                            // = sel
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_LTE },       // = alu_op_id
             },
         });
@@ -1541,7 +1541,7 @@ TEST_P(AluLTEConstrainingTest, AluLTE)
 {
     auto trace = process_lte_trace(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -1549,7 +1549,7 @@ TEST_P(AluLTEConstrainingTest, AluLTEEq)
 {
     auto trace = process_lte_trace(GetParam(), true);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -1557,7 +1557,7 @@ TEST_P(AluLTEConstrainingTest, AluLTETraceGen)
 {
     auto trace = process_lte_with_tracegen(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -1565,7 +1565,7 @@ TEST_P(AluLTEConstrainingTest, AluLTEEqTraceGen)
 {
     auto trace = process_lte_with_tracegen(GetParam(), true);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -1578,7 +1578,7 @@ TEST_P(AluLTEConstrainingTest, NegativeAluLTEResult)
         auto is_ff = std::get<0>(params).get_tag() == MemoryTag::FF;
         check_relation<alu>(trace);
         check_all_interactions<AluTraceBuilder>(trace);
-        check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+        check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
         bool c = trace.get(Column::alu_ic, 0) == 1;
         // Swap the result bool:
         trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
@@ -1604,7 +1604,7 @@ TEST_P(AluLTEConstrainingTest, NegativeAluLTEInput)
         auto is_ff = std::get<0>(params).get_tag() == MemoryTag::FF;
         check_relation<alu>(trace);
         check_all_interactions<AluTraceBuilder>(trace);
-        check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+        check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
         bool c = trace.get(Column::alu_ic, 0) == 1;
         auto a = trace.get(Column::alu_ia, 0);
         auto wrong_b = c ? a - 1 : a + 1;
@@ -1668,7 +1668,7 @@ TEST_P(AluNotConstrainingTest, AluNotTraceGen)
 {
     auto trace = process_not_with_tracegen(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -1677,7 +1677,7 @@ TEST_P(AluNotConstrainingTest, NegativeAluNotTraceGen)
     auto params = GetParam();
     auto trace = process_not_with_tracegen(params);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
     trace.set(Column::alu_ib, 0, trace.get(Column::alu_ib, 0) + 1); // Mutate output
     // The FF case <==> tag_err for NOT, so NOT_OP_MAIN is gated:
@@ -1692,7 +1692,7 @@ TEST_P(AluNotConstrainingTest, AluNotTraceGenTagError)
     auto trace = process_not_with_tracegen(
         TwoOperandTestParams{ a, MemoryValue::from_tag(TAG_ERROR_TEST_VALUES.at(b.get_tag()), b.as_ff()) }, true);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -1759,7 +1759,7 @@ class AluShlConstrainingTest : public AluConstrainingTest,
                 { C::execution_register_0_, a },                                // = ia
                 { C::execution_register_1_, b },                                // = ib
                 { C::execution_register_2_, c },                                // = ic
-                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                      // = sel
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_SHL }, // = alu_op_id
 
             },
@@ -1809,7 +1809,7 @@ TEST_P(AluShlConstrainingTest, AluShl)
 {
     auto trace = process_shl_trace(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -1817,7 +1817,7 @@ TEST_P(AluShlConstrainingTest, AluShlTraceGen)
 {
     auto trace = process_shl_with_tracegen(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -1833,12 +1833,12 @@ TEST_F(AluShlConstrainingTest, NegativeAluShlFF)
     trace.set(Column::alu_sel_err, 0, 1);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     // Check the edge case of FF tag (=> max_bits = 0) and b = 0:
     trace.set(Column::alu_ib, 0, 0);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
 }
 
 TEST_F(AluShlConstrainingTest, NegativeAluShlTagMismatchOverflow)
@@ -1858,7 +1858,7 @@ TEST_F(AluShlConstrainingTest, NegativeAluShlTagMismatchOverflow)
     trace.set(Column::alu_sel_err, 0, 1);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
 }
 
 // SHR TESTS
@@ -1924,7 +1924,7 @@ class AluShrConstrainingTest : public AluConstrainingTest,
                 { C::execution_register_0_, a },                                // = ia
                 { C::execution_register_1_, b },                                // = ib
                 { C::execution_register_2_, c },                                // = ic
-                { C::execution_sel_execute_alu, 1 },                            // = sel
+                { C::execution_sel_exec_dispatch_alu, 1 },                      // = sel
                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_SHR }, // = alu_op_id
 
             },
@@ -1974,7 +1974,7 @@ TEST_P(AluShrConstrainingTest, AluShr)
 {
     auto trace = process_shr_trace(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -1982,7 +1982,7 @@ TEST_P(AluShrConstrainingTest, AluShrTraceGen)
 {
     auto trace = process_shr_with_tracegen(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -1998,12 +1998,12 @@ TEST_F(AluShrConstrainingTest, NegativeAluShrFF)
     trace.set(Column::alu_sel_err, 0, 1);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     // Check the edge case of FF tag (=> max_bits = 0) and b = 0:
     trace.set(Column::alu_ib, 0, 0);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
 }
 
 TEST_F(AluShrConstrainingTest, NegativeAluShrTagMismatchOverflow)
@@ -2023,7 +2023,7 @@ TEST_F(AluShrConstrainingTest, NegativeAluShrTagMismatchOverflow)
     trace.set(Column::alu_sel_err, 0, 1);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
 }
 
 // TRUNCATE operation (SET/CAST opcodes)
@@ -2139,7 +2139,7 @@ class AluTruncateConstrainingTest : public AluConstrainingTest,
         auto c = MemoryValue::from_tag_truncating(dst_tag, a);
         trace.set(0,
                   { {
-                      { Column::execution_sel_execute_set, 1 },
+                      { Column::execution_sel_exec_dispatch_set, 1 },
                       { Column::execution_rop_2_, a },
                       { Column::execution_rop_1_, static_cast<uint8_t>(dst_tag) },
                       { Column::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_TRUNCATE },
@@ -2160,7 +2160,7 @@ class AluTruncateConstrainingTest : public AluConstrainingTest,
         auto c = MemoryValue::from_tag_truncating(dst_tag, a);
         trace.set(0,
                   { {
-                      { Column::execution_sel_execute_cast, 1 },
+                      { Column::execution_sel_exec_dispatch_cast, 1 },
                       { Column::execution_register_0_, a },
                       { Column::execution_rop_2_, static_cast<uint8_t>(dst_tag) },
                       { Column::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_TRUNCATE },
@@ -2180,7 +2180,7 @@ TEST_P(AluTruncateConstrainingTest, AluSet)
 {
     auto trace = process_set_with_tracegen(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_exec_dispatching_set_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_set_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -2188,7 +2188,7 @@ TEST_P(AluTruncateConstrainingTest, AluCast)
 {
     auto trace = process_cast_with_tracegen(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_exec_dispatching_set_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_set_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -2281,11 +2281,11 @@ TEST_F(AluTruncateConstrainingTest, NegativeCastWrongDispatching)
                                      MemoryValue::from_tag(MemoryTag::U32, 2) });
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_exec_dispatching_cast_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_cast_settings>(trace);
     trace.set(Column::execution_register_0_, 0, trace.get(Column::execution_register_0_, 0) + 1);
     EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<ExecutionTraceBuilder, lookup_alu_exec_dispatching_cast_settings>(trace)),
-        "Failed.*EXEC_DISPATCHING_CAST. Could not find tuple in destination.");
+        (check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_cast_settings>(trace)),
+        "Failed.*EXECUTION_DISPATCH_TO_CAST. Could not find tuple in destination.");
 }
 
 TEST_F(AluTruncateConstrainingTest, NegativeSetWrongDispatching)
@@ -2295,11 +2295,11 @@ TEST_F(AluTruncateConstrainingTest, NegativeSetWrongDispatching)
                                              MemoryValue::from_tag(MemoryTag::U32, 2) });
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_exec_dispatching_set_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_set_settings>(trace);
     trace.set(Column::execution_rop_2_, 0, trace.get(Column::execution_rop_2_, 0) + 1);
     EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<ExecutionTraceBuilder, lookup_alu_exec_dispatching_set_settings>(trace)),
-        "Failed.*EXEC_DISPATCHING_SET. Could not find tuple in destination.");
+        (check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_set_settings>(trace)),
+        "Failed.*EXECUTION_DISPATCH_TO_SET. Could not find tuple in destination.");
 }
 
 } // namespace

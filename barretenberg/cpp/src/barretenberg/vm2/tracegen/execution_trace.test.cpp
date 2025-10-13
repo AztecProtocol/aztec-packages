@@ -131,7 +131,7 @@ TEST(ExecutionTraceGenTest, RegisterAllocation)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // First real row
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_execute_alu, 1),
+                          ROW_FIELD_EQ(execution_sel_exec_dispatch_alu, 1),
                           ROW_FIELD_EQ(execution_register_0_, 5),
                           ROW_FIELD_EQ(execution_register_1_, 3),
                           ROW_FIELD_EQ(execution_register_2_, 8),

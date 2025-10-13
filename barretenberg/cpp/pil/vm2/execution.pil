@@ -18,10 +18,10 @@ include "public_inputs.pil";
 include "data_copy.pil";
 include "internal_call_stack.pil";
 
-include "execution/discard.pil";
 include "execution/addressing.pil";
-include "execution/registers.pil";
+include "execution/discard.pil";
 include "execution/gas.pil";
+include "execution/registers.pil";
 
 include "trees/merkle_check.pil";
 include "trees/nullifier_check.pil";
@@ -147,6 +147,10 @@ pol commit op[7];  // operands
 // ideally want to leave it unconstrained. This is why we do 2 lookups instead of 1.
 // TODO: We can consider optimizing this later, but it is probably the cleanest right now.
 
+// Note: the below lookups additionally constrain that the bytecode with bytecode_id has
+// been correctly hashed due to instr_fetching's lookups into bc_decomposition, where
+// there is a multipermutation with bc_hashing.
+
 #[INSTRUCTION_FETCHING_RESULT]
 sel_bytecode_retrieval_success {
     pc, bytecode_id, sel_instruction_fetching_failure
@@ -183,8 +187,6 @@ sel_instruction_fetching_success {
  *  - Addressing
  **************************************************************************************************/
 
-// TODO(fcarreiro): Ideally we would use this one as selector for readability, but it's not supported yet.
-// pol SEL_SHOULD_READ_EXEC_SPEC = sel_instruction_fetching_success;
 #[EXEC_SPEC_READ]
 sel_instruction_fetching_success {
     ex_opcode,
@@ -260,8 +262,9 @@ precomputed.sel_exec_spec {
 
 //////// ADDRESSING ////////
 
-// This is an "input" to addressing.pil.
-pol SEL_SHOULD_RESOLVE_ADDRESS = /*should do instruction fetching*/sel_bytecode_retrieval_success * sel_instruction_fetching_success;
+// We run "addressing" whenever sel_instruction_fetching_success is 1.
+// For readability we alias it to SEL_SHOULD_RESOLVE_ADDRESS.
+pol SEL_SHOULD_RESOLVE_ADDRESS = sel_instruction_fetching_success;
 
 // resolved operands
 pol commit rop[7];
@@ -409,50 +412,51 @@ pol commit dyn_gas_id;
 // Each of these selectors takes into account both which opcode we are considering executing
 // and whether there was any error before the actual execution step. Therefore, the
 // selector can be used to gate the execution of the opcode/dispatching logic (which comes after gas, etc).
-pol commit sel_execute_alu;
-pol commit sel_execute_bitwise;
-pol commit sel_execute_cast;
-pol commit sel_execute_set;
-pol commit sel_execute_to_radix;
-pol commit sel_execute_poseidon2_perm;
-pol commit sel_execute_ecc_add;
-pol commit sel_execute_execution;
-pol commit sel_execute_calldata_copy;
-pol commit sel_execute_returndata_copy;
-pol commit sel_execute_keccakf1600;
-pol commit sel_execute_get_contract_instance;
-pol commit sel_execute_emit_unencrypted_log;
-pol commit sel_execute_sha256_compression;
-sel_execute_alu * (1 - sel_execute_alu) = 0;
-sel_execute_bitwise * (1 - sel_execute_bitwise) = 0;
-sel_execute_cast * (1 - sel_execute_cast) = 0;
-sel_execute_set * (1 - sel_execute_set) = 0;
-sel_execute_to_radix * (1 - sel_execute_to_radix) = 0;
-sel_execute_poseidon2_perm * (1 - sel_execute_poseidon2_perm) = 0;
-sel_execute_ecc_add * (1 - sel_execute_ecc_add) = 0;
-sel_execute_execution * (1 - sel_execute_execution) = 0;
-sel_execute_calldata_copy * (1 - sel_execute_calldata_copy) = 0;
-sel_execute_returndata_copy * (1 - sel_execute_returndata_copy) = 0;
-sel_execute_keccakf1600 * (1 - sel_execute_keccakf1600) = 0;
-sel_execute_get_contract_instance * (1 - sel_execute_get_contract_instance) = 0;
-sel_execute_emit_unencrypted_log * (1 - sel_execute_emit_unencrypted_log) = 0;
-sel_execute_sha256_compression * (1 - sel_execute_sha256_compression) = 0;
+// These dispatching lookups are placed at the end of this file.
+pol commit sel_exec_dispatch_execution;
+pol commit sel_exec_dispatch_alu;
+pol commit sel_exec_dispatch_bitwise;
+pol commit sel_exec_dispatch_cast;
+pol commit sel_exec_dispatch_calldata_copy;
+pol commit sel_exec_dispatch_returndata_copy;
+pol commit sel_exec_dispatch_set;
+pol commit sel_exec_dispatch_get_contract_instance;
+pol commit sel_exec_dispatch_emit_unencrypted_log;
+pol commit sel_exec_dispatch_poseidon2_perm;
+pol commit sel_exec_dispatch_sha256_compression;
+pol commit sel_exec_dispatch_keccakf1600;
+pol commit sel_exec_dispatch_ecc_add;
+pol commit sel_exec_dispatch_to_radix;
+sel_exec_dispatch_execution * (1 - sel_exec_dispatch_execution) = 0;
+sel_exec_dispatch_alu * (1 - sel_exec_dispatch_alu) = 0;
+sel_exec_dispatch_bitwise * (1 - sel_exec_dispatch_bitwise) = 0;
+sel_exec_dispatch_cast * (1 - sel_exec_dispatch_cast) = 0;
+sel_exec_dispatch_calldata_copy * (1 - sel_exec_dispatch_calldata_copy) = 0;
+sel_exec_dispatch_returndata_copy * (1 - sel_exec_dispatch_returndata_copy) = 0;
+sel_exec_dispatch_set * (1 - sel_exec_dispatch_set) = 0;
+sel_exec_dispatch_get_contract_instance * (1 - sel_exec_dispatch_get_contract_instance) = 0;
+sel_exec_dispatch_emit_unencrypted_log * (1 - sel_exec_dispatch_emit_unencrypted_log) = 0;
+sel_exec_dispatch_poseidon2_perm * (1 - sel_exec_dispatch_poseidon2_perm) = 0;
+sel_exec_dispatch_sha256_compression * (1 - sel_exec_dispatch_sha256_compression) = 0;
+sel_exec_dispatch_keccakf1600 * (1 - sel_exec_dispatch_keccakf1600) = 0;
+sel_exec_dispatch_ecc_add * (1 - sel_exec_dispatch_ecc_add) = 0;
+sel_exec_dispatch_to_radix * (1 - sel_exec_dispatch_to_radix) = 0;
 
 #[SUBTRACE_ID_DECOMPOSITION]
-sel_execute_execution * constants.AVM_SUBTRACE_ID_EXECUTION +
-sel_execute_alu * constants.AVM_SUBTRACE_ID_ALU +
-sel_execute_cast * constants.AVM_SUBTRACE_ID_CAST +
-sel_execute_set * constants.AVM_SUBTRACE_ID_SET +
-sel_execute_bitwise * constants.AVM_SUBTRACE_ID_BITWISE +
-sel_execute_poseidon2_perm * constants.AVM_SUBTRACE_ID_POSEIDON_PERM +
-sel_execute_to_radix * constants.AVM_SUBTRACE_ID_TO_RADIX +
-sel_execute_ecc_add * constants.AVM_SUBTRACE_ID_ECC +
-sel_execute_keccakf1600 * constants.AVM_SUBTRACE_ID_KECCAKF1600 +
-sel_execute_calldata_copy * constants.AVM_SUBTRACE_ID_CALLDATA_COPY +
-sel_execute_get_contract_instance * constants.AVM_SUBTRACE_ID_GETCONTRACTINSTANCE +
-sel_execute_emit_unencrypted_log * constants.AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG +
-sel_execute_sha256_compression * constants.AVM_SUBTRACE_ID_SHA256_COMPRESSION +
-sel_execute_returndata_copy * constants.AVM_SUBTRACE_ID_RETURNDATA_COPY
+sel_exec_dispatch_execution * constants.AVM_SUBTRACE_ID_EXECUTION +
+sel_exec_dispatch_alu * constants.AVM_SUBTRACE_ID_ALU +
+sel_exec_dispatch_bitwise * constants.AVM_SUBTRACE_ID_BITWISE +
+sel_exec_dispatch_cast * constants.AVM_SUBTRACE_ID_CAST +
+sel_exec_dispatch_calldata_copy * constants.AVM_SUBTRACE_ID_CALLDATA_COPY +
+sel_exec_dispatch_returndata_copy * constants.AVM_SUBTRACE_ID_RETURNDATA_COPY +
+sel_exec_dispatch_set * constants.AVM_SUBTRACE_ID_SET +
+sel_exec_dispatch_get_contract_instance * constants.AVM_SUBTRACE_ID_GETCONTRACTINSTANCE +
+sel_exec_dispatch_emit_unencrypted_log * constants.AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG +
+sel_exec_dispatch_poseidon2_perm * constants.AVM_SUBTRACE_ID_POSEIDON2_PERM +
+sel_exec_dispatch_sha256_compression * constants.AVM_SUBTRACE_ID_SHA256_COMPRESSION +
+sel_exec_dispatch_keccakf1600 * constants.AVM_SUBTRACE_ID_KECCAKF1600 +
+sel_exec_dispatch_ecc_add * constants.AVM_SUBTRACE_ID_ECC +
+sel_exec_dispatch_to_radix * constants.AVM_SUBTRACE_ID_TO_RADIX
 // We force the selectors to be 0 if we are not executing an opcode.
 = sel_should_execute_opcode * subtrace_id;
 
@@ -527,7 +531,7 @@ sel_execute_emit_nullifier * constants.AVM_EXEC_OP_ID_EMIT_NULLIFIER +
 sel_execute_send_l2_to_l1_msg * constants.AVM_EXEC_OP_ID_SENDL2TOL1MSG
 // We force the selectors to be 0 if we are not executing an opcode
 // or when we are not in the execution subtrace.
-= sel_should_execute_opcode * sel_execute_execution * subtrace_operation_id;
+= sel_should_execute_opcode * sel_exec_dispatch_execution * subtrace_operation_id;
 
 // Dynamic gas opcode selectors.
 // Each of these selectors takes into account both which opcode we are considering executing
@@ -560,42 +564,6 @@ sel_gas_sstore * constants.AVM_DYN_GAS_ID_SSTORE
 // Whether the opcode logic failed.
 pol commit sel_opcode_failure;
 sel_opcode_failure * (1 - sel_opcode_failure) = 0;
-
-/**************************************************************************************************
- *  Dispatch permutations to the gadget subtraces
- **************************************************************************************************/
-
-#[DISPATCH_KECCAKF1600]
-sel_execute_keccakf1600 { precomputed.clk, rop[0], rop[1], context_id, sel_opcode_error }
-is
-keccakf1600.start { keccakf1600.clk, keccakf1600.dst_addr, keccakf1600.src_addr, keccakf1600.space_id, keccakf1600.error };
-
-// Note: GetContractInstance performs its memory writes internally, so it doesn't have any "outputs" back
-// to execution except its "error".
-#[DISPATCH_GET_CONTRACT_INSTANCE]
-sel_execute_get_contract_instance {
-    // inputs
-    precomputed.clk,
-    /*contract_address=*/ register[0],
-    /*dst_offset=*/ rop[1],
-    /*member_enum=*/ rop[2],
-    /*space_id=*/ context_id,
-    /*nullifier_tree_root=*/ nullifier_tree_root,
-    /*public_data_tree_root=*/ public_data_tree_root,
-    // outputs/errors
-    sel_opcode_error
-} is get_contract_instance.sel {
-    // inputs
-    get_contract_instance.clk,
-    get_contract_instance.contract_address,
-    get_contract_instance.dst_offset,
-    get_contract_instance.member_enum,
-    get_contract_instance.space_id,
-    get_contract_instance.nullifier_tree_root,
-    get_contract_instance.public_data_tree_root,
-    // outputs/errors
-    get_contract_instance.sel_error
-};
 
 /**************************************************************************************************
  *  Opcode specific constraints
@@ -647,7 +615,7 @@ sel * (1 - sel_execute_emit_nullifier) * (prev_nullifier_tree_size - nullifier_t
 #[NUM_NULLIFIERS_EMITTED_NOT_CHANGED]
 sel * (1 - sel_execute_emit_nullifier) * (prev_num_nullifiers_emitted - num_nullifiers_emitted) = 0;
 #[NUM_UNENCRYPTED_LOGS_NOT_CHANGED]
-sel * (1 - sel_execute_emit_unencrypted_log) * (prev_num_unencrypted_log_fields - num_unencrypted_log_fields) = 0;
+sel * (1 - sel_exec_dispatch_emit_unencrypted_log) * (prev_num_unencrypted_log_fields - num_unencrypted_log_fields) = 0;
 #[NUM_L2_TO_L1_MESSAGES_NOT_CHANGED]
 sel * (1 - sel_execute_send_l2_to_l1_msg) * (prev_num_l2_to_l1_messages - num_l2_to_l1_messages) = 0;
 // Retrieved bytecodes tree state can only change in the first row of a new context
@@ -684,3 +652,246 @@ pol commit sel_error;
 // Observe that the errors are mutually exclusive.
 sel_error = sel_bytecode_retrieval_failure + sel_instruction_fetching_failure + sel_addressing_error + sel_register_read_error + sel_out_of_gas + sel_opcode_error;
 
+
+/**************************************************************************************************
+ *  Dispatching to other subtraces
+ **************************************************************************************************/
+
+// This contains all the lookups dispatching opcode computation to their pertaining sub-trace.
+// For every entry in the enum SubtraceSel, there is a lookup table except for SubtraceSel::EXECUTION
+// which are handled by the execution subtrace.
+// These lookups are placed in this file for code organization purposes but are fully part of the execution trace.
+
+#[DISPATCH_TO_ALU]
+sel_exec_dispatch_alu {
+    register[0], mem_tag_reg[0], register[1],
+    mem_tag_reg[1], register[2], mem_tag_reg[2], subtrace_operation_id, sel_opcode_error
+} in alu.sel {
+    alu.ia, alu.ia_tag, alu.ib, alu.ib_tag, alu.ic, alu.ic_tag, alu.op_id, alu.sel_err
+};
+
+#[DISPATCH_TO_BITWISE]
+sel_exec_dispatch_bitwise {
+    subtrace_operation_id, sel_opcode_error,
+    register[0], mem_tag_reg[0],
+    register[1], mem_tag_reg[1],
+    register[2], mem_tag_reg[2]
+} in bitwise.sel {
+    bitwise.op_id, bitwise.err,
+    bitwise.acc_ia, bitwise.tag_a,
+    bitwise.acc_ib, bitwise.tag_b,
+    bitwise.acc_ic, bitwise.tag_c
+};
+
+// CAST DISPATCHING
+// Serialization layout is: src_addr, dst_addr, dst_tag
+// src_addr --> register[0], dst_addr --> register[1], dst_tag --> rop[2] (immediate and therefore not sent to register)
+// Reminder: mem_tag_reg[0] is ignored and might be different than ia_tag.
+
+// Inputs are:
+// - register[0] (ia: value (as FF) to truncate)
+// - rop[2] (ia_tag: destination tag)
+// - subtrace_operation_id (op_id)
+
+// Outputs are:
+// - register[1] (ic: truncated value)
+// - mem_tag_reg[1] (ic_tag: write tag == ia_tag as enforced by #[C_TAG_CHECK])
+// Note that we enforce the output tag through this dispatching lookup by having ia_tag matching both mem_tag_reg[1] and rop[2].
+#[DISPATCH_TO_CAST]
+sel_exec_dispatch_cast {
+    register[0], rop[2], subtrace_operation_id, register[1], mem_tag_reg[1], sel_opcode_error
+} in alu.sel_op_truncate {
+    alu.ia, alu.ia_tag, alu.op_id, alu.ic, alu.ia_tag, /*sel_opcode_error=*/ precomputed.zero
+};
+
+#[DISPATCH_TO_CD_COPY]
+sel_exec_dispatch_calldata_copy {
+        precomputed.clk,
+        parent_id, context_id,
+        register[0], register[1], rop[2],
+        parent_calldata_addr, parent_calldata_size,
+        sel_exec_dispatch_calldata_copy/*=1*/, sel_opcode_error
+} is data_copy.sel_cd_copy_start {
+        data_copy.clk,
+        data_copy.src_context_id, data_copy.dst_context_id,
+        data_copy.copy_size, data_copy.offset, data_copy.dst_addr,
+        data_copy.src_addr, data_copy.src_data_size,
+        data_copy.sel_cd_copy, data_copy.err
+};
+
+#[DISPATCH_TO_RD_COPY]
+sel_exec_dispatch_returndata_copy {
+        precomputed.clk,
+        last_child_id, context_id,
+        register[0], register[1], rop[2],
+        last_child_returndata_addr, last_child_returndata_size,
+        sel_exec_dispatch_returndata_copy/*=1*/, sel_opcode_error
+} is data_copy.sel_rd_copy_start {
+        data_copy.clk,
+        data_copy.src_context_id, data_copy.dst_context_id,
+        data_copy.copy_size, data_copy.offset, data_copy.dst_addr,
+        data_copy.src_addr, data_copy.src_data_size,
+        data_copy.sel_rd_copy, data_copy.err
+};
+
+// SET DISPATCHING
+// Serialization layout is: dst_addr, dst_tag, value (immediate)
+// dst_addr --> register[0], dst_tag --> rop[1], value --> rop[2] (dst_tag and value are
+// immediate and therefore not sent to register)
+
+// Inputs are:
+// - rop[2] (ia: value (as FF) to truncate)
+// - rop[1] (ia_tag: destination tag)
+// - subtrace_operation_id (op_id)
+
+// Outputs are:
+// - register[0] (ic: truncated value)
+// - mem_tag_reg[0] (ic_tag: write tag == ia_tag as enforced by #[C_TAG_CHECK])
+// Note that we enforce the output tag through this dispatching lookup by having ia_tag matching both mem_tag_reg[0] and rop[1].
+#[DISPATCH_TO_SET]
+sel_exec_dispatch_set {
+    rop[2], rop[1], subtrace_operation_id, register[0], mem_tag_reg[0], sel_opcode_error
+} in alu.sel_op_truncate {
+    alu.ia, alu.ia_tag, alu.op_id, alu.ic, alu.ia_tag, /*sel_opcode_error=*/ precomputed.zero
+};
+
+// Note: GetContractInstance performs its memory writes internally, so it doesn't have any "outputs" back
+// to execution except its "error".
+#[DISPATCH_TO_GET_CONTRACT_INSTANCE]
+sel_exec_dispatch_get_contract_instance {
+    // inputs
+    precomputed.clk,
+    /*contract_address=*/ register[0],
+    /*dst_offset=*/ rop[1],
+    /*member_enum=*/ rop[2],
+    /*space_id=*/ context_id,
+    /*nullifier_tree_root=*/ nullifier_tree_root,
+    /*public_data_tree_root=*/ public_data_tree_root,
+    // outputs/errors
+    sel_opcode_error
+} is get_contract_instance.sel {
+    // inputs
+    get_contract_instance.clk,
+    get_contract_instance.contract_address,
+    get_contract_instance.dst_offset,
+    get_contract_instance.member_enum,
+    get_contract_instance.space_id,
+    get_contract_instance.nullifier_tree_root,
+    get_contract_instance.public_data_tree_root,
+    // outputs/errors
+    get_contract_instance.sel_error
+};
+
+#[DISPATCH_TO_EMIT_UNENCRYPTED_LOG]
+sel_exec_dispatch_emit_unencrypted_log {
+        precomputed.clk,
+        context_id,
+        // Message offset
+        rop[1],
+        // Message size
+        register[0],
+        contract_address,
+        // Context
+        prev_num_unencrypted_log_fields,
+        num_unencrypted_log_fields,
+        is_static,
+        // Error
+        sel_opcode_error,
+        discard
+} in emit_unencrypted_log.start {
+        emit_unencrypted_log.execution_clk,
+        emit_unencrypted_log.space_id,
+        emit_unencrypted_log.log_address,
+        emit_unencrypted_log.log_size,
+        emit_unencrypted_log.contract_address,
+        emit_unencrypted_log.prev_num_unencrypted_log_fields,
+        emit_unencrypted_log.next_num_unencrypted_log_fields,
+        emit_unencrypted_log.is_static,
+        emit_unencrypted_log.error,
+        emit_unencrypted_log.discard
+};
+
+#[DISPATCH_TO_POSEIDON2_PERM]
+sel_exec_dispatch_poseidon2_perm {
+        precomputed.clk,
+        context_id,
+        rop[0],
+        rop[1],
+        sel_opcode_error
+} is poseidon2_perm_mem.sel {
+        poseidon2_perm_mem.execution_clk,
+        poseidon2_perm_mem.space_id,
+        poseidon2_perm_mem.read_address[0],
+        poseidon2_perm_mem.write_address[0],
+        poseidon2_perm_mem.err
+};
+
+#[DISPATCH_TO_SHA256_COMPRESSION]
+sel_exec_dispatch_sha256_compression {
+    precomputed.clk, context_id, rop[0], rop[1], rop[2], sel_opcode_error
+} is sha256.start {
+    sha256.execution_clk, sha256.space_id, sha256.output_addr, sha256.state_addr, sha256.input_addr, sha256.err
+};
+
+#[DISPATCH_TO_KECCAKF1600]
+sel_exec_dispatch_keccakf1600 {
+     precomputed.clk, rop[0], rop[1], context_id, sel_opcode_error
+} is keccakf1600.start {
+     keccakf1600.clk, keccakf1600.dst_addr, keccakf1600.src_addr, keccakf1600.space_id, keccakf1600.error
+};
+
+#[DISPATCH_TO_ECC_ADD]
+sel_exec_dispatch_ecc_add {
+        precomputed.clk,
+        context_id,
+        // Point P
+        register[0],
+        register[1],
+        register[2],
+        // Point Q
+        register[3],
+        register[4],
+        register[5],
+        // Dst address
+        rop[6],
+        // Error
+        sel_opcode_error
+} is ecc_add_mem.sel {
+        ecc_add_mem.execution_clk,
+        ecc_add_mem.space_id,
+        // Point P
+        ecc_add_mem.p_x,
+        ecc_add_mem.p_y,
+        ecc_add_mem.p_is_inf,
+        // Point Q
+        ecc_add_mem.q_x,
+        ecc_add_mem.q_y,
+        ecc_add_mem.q_is_inf,
+        // Dst address
+        ecc_add_mem.dst_addr[0],
+        // Error
+        ecc_add_mem.err
+};
+
+#[DISPATCH_TO_TO_RADIX]
+sel_exec_dispatch_to_radix {
+        precomputed.clk,
+        context_id,
+        register[0],
+        register[1],
+        register[2],
+        register[3],
+        rop[4],
+        // Error
+        sel_opcode_error
+} is to_radix_mem.start {
+        to_radix_mem.execution_clk,
+        to_radix_mem.space_id,
+        to_radix_mem.value_to_decompose,
+        to_radix_mem.radix,
+        to_radix_mem.num_limbs,
+        to_radix_mem.is_output_bits,
+        to_radix_mem.dst_addr,
+        // Error
+        to_radix_mem.err
+};

@@ -40,6 +40,8 @@ import {
 } from '@aztec/telemetry-client';
 import { ForkCheckpoint } from '@aztec/world-state/native';
 
+import { AssertionError } from 'assert';
+
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import {
   type PublicTxSimulator,
@@ -306,7 +308,7 @@ export class PublicProcessor implements Traceable {
         // Roll back state to start of TX before proceeding to next TX
         await checkpoint.revert();
         await this.guardedMerkleTree.getUnderlyingFork().revertAllCheckpoints();
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        const errorMessage = err instanceof Error || err instanceof AssertionError ? err.message : 'Unknown error';
         this.log.warn(`Failed to process tx ${txHash.toString()}: ${errorMessage} ${err?.stack}`);
         failed.push({ tx, error: err instanceof Error ? err : new Error(errorMessage) });
         returns.push(new NestedProcessReturnValues([]));

@@ -18,6 +18,20 @@ impl<Context> AccountActions<Context> {
     }
 }
 
+// See AccountFeePaymentMethodOptions enum in Aztec.js for docs:
+// https://github.com/AztecProtocol/aztec-packages/blob/next/yarn-project/entrypoints/src/account_entrypoint.ts
+pub struct AccountFeePaymentMethodOptionsEnum {
+    pub EXTERNAL: u8,
+    pub PREEXISTING_FEE_JUICE: u8,
+    pub FEE_JUICE_WITH_CLAIM: u8,
+}
+
+pub global AccountFeePaymentMethodOptions: AccountFeePaymentMethodOptionsEnum = AccountFeePaymentMethodOptionsEnum {
+    EXTERNAL: 0,
+    PREEXISTING_FEE_JUICE: 1,
+    FEE_JUICE_WITH_CLAIM: 2,
+};
+
 /**
  * An implementation of the Account Action struct for the private context.
  *
@@ -40,22 +54,17 @@ impl AccountActions<&mut PrivateContext> {
     /// sent with a higher priority fee. This can be used to cancel the first transaction sent, assuming it hasn't been mined yet.
     ///
     // docs:start:entrypoint
-    pub fn entrypoint(
-        self,
-        app_payload: AppPayload,
-        is_fee_payer: bool,
-        end_setup: bool,
-        cancellable: bool,
-    ) {
+    pub fn entrypoint(self, app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
         let valid_fn = self.is_valid_impl;
 
         assert(valid_fn(self.context, app_payload.hash()));
 
-        if is_fee_payer {
+        if fee_payment_method == AccountFeePaymentMethodOptions.PREEXISTING_FEE_JUICE {
             self.context.set_as_fee_payer();
-        }
-        if end_setup {
             self.context.end_setup();
+        }
+        if fee_payment_method == AccountFeePaymentMethodOptions.FEE_JUICE_WITH_CLAIM {
+            self.context.set_as_fee_payer();
         }
         app_payload.execute_calls(self.context);
 

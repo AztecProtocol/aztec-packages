@@ -1,0 +1,57 @@
+# Ensure multiple environments have all publisher keys funded
+# This workflow checks and funds publisher keys for staging-public, next-net, staging-ignition, and testnet
+name: Ensure Funded Environments
+
+on:
+  workflow_dispatch:
+    inputs:
+      low_watermark:
+        description: 'Minimum ETH balance'
+        required: false
+        type: string
+        default: '0.5'
+      high_watermark:
+        description: 'Target ETH balance when funding'
+        required: false
+        type: string
+        default: '1.0'
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+concurrency:
+  group: ensure-funded-environments
+  cancel-in-progress: false  # Don't cancel funding operations
+
+jobs:
+  # fund-staging-public:
+  #   uses: ./.github/workflows/ensure-funded-environment.yml
+  #   with:
+  #     environment: staging-public
+  #     low_watermark: ${{ inputs.low_watermark || '0.5' }}
+  #     high_watermark: ${{ inputs.high_watermark || '1.0' }}
+  #   secrets: inherit
+
+  fund-next-net:
+    uses: ./.github/workflows/ensure-funded-environment.yml
+    with:
+      environment: next-net
+      low_watermark: ${{ inputs.low_watermark || '0.5' }}
+      high_watermark: ${{ inputs.high_watermark || '1.0' }}
+    secrets: inherit
+
+  # fund-staging-ignition:
+  #   uses: ./.github/workflows/ensure-funded-environment.yml
+  #   with:
+  #     environment: staging-ignition
+  #     low_watermark: ${{ inputs.low_watermark || '0.5' }}
+  #     high_watermark: ${{ inputs.high_watermark || '1.0' }}
+  #   secrets: inherit
+
+  # fund-testnet:
+  #   uses: ./.github/workflows/ensure-funded-environment.yml
+  #   with:
+  #     environment: testnet
+  #     low_watermark: ${{ inputs.low_watermark || '0.5' }}
+  #     high_watermark: ${{ inputs.high_watermark || '1.0' }}
+  #   secrets: inherit

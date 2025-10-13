@@ -5,6 +5,10 @@ authors = ["The Aztec Team <hello@aztecprotocol.com>"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
 
+[lib]
+name = "avm_transpiler"
+crate-type = ["staticlib", "rlib"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -14,6 +18,9 @@ noirc_errors = { path = "../noir/noir-repo/compiler/noirc_errors" }
 noirc_abi = { path = "../noir/noir-repo/tooling/noirc_abi" }
 noirc_evaluator = { path = "../noir/noir-repo/compiler/noirc_evaluator", features = ["bn254"] }
 noirc_frontend = { path = "../noir/noir-repo/compiler/noirc_frontend", features = ["test_utils"] }
+
+# FFI
+libc = "0.2"
 
 # external
 base64 = "0.21"

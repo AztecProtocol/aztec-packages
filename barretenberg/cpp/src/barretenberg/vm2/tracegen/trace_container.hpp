@@ -57,6 +57,9 @@ class TraceContainer {
     // Number of columns (without shifts).
     static constexpr size_t num_columns() { return NUM_COLUMNS_WITHOUT_SHIFTS; }
 
+    // Batch inverts a set of columns.
+    void invert_columns(std::span<const Column> cols);
+
     // Free column memory.
     void clear_column(Column col);
 
@@ -77,6 +80,8 @@ class TraceContainer {
     // Even if the _content_ of each unordered_map is always heap-allocated, if we have 3k columns
     // we could unnecessarily put strain on the stack with sizeof(unordered_map) * 3k bytes.
     std::unique_ptr<std::array<SparseColumn, NUM_COLUMNS_WITHOUT_SHIFTS>> trace;
+
+    void invert_column(Column col);
 };
 
 } // namespace bb::avm2::tracegen

@@ -4,7 +4,7 @@ import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { Capsule, TxProvingResult } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
-import { type RequestMethodOptions, type SendMethodOptions, sanitizeSendOptions } from './interaction_options.js';
+import { type RequestInteractionOptions, type SendInteractionOptions, toSendOptions } from './interaction_options.js';
 import { ProvenTx } from './proven_tx.js';
 import { SentTx } from './sent_tx.js';
 
@@ -27,7 +27,7 @@ export abstract class BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns An execution request wrapped in promise.
    */
-  public abstract request(options?: RequestMethodOptions): Promise<ExecutionPayload>;
+  public abstract request(options?: RequestInteractionOptions): Promise<ExecutionPayload>;
 
   /**
    * Creates a transaction execution request, simulates and proves it. Differs from .prove in
@@ -36,9 +36,9 @@ export abstract class BaseContractInteraction {
    * @param options - optional arguments to be used in the creation of the transaction
    * @returns The proving result.
    */
-  protected async proveInternal(options: SendMethodOptions): Promise<TxProvingResult> {
+  protected async proveInternal(options: SendInteractionOptions): Promise<TxProvingResult> {
     const executionPayload = await this.request(options);
-    const proveOptions = await sanitizeSendOptions(options);
+    const proveOptions = await toSendOptions(options);
     return await this.wallet.proveTx(executionPayload, proveOptions);
   }
 
@@ -48,7 +48,7 @@ export abstract class BaseContractInteraction {
    * @param options - optional arguments to be used in the creation of the transaction
    * @returns The resulting transaction
    */
-  public async prove(options: SendMethodOptions): Promise<ProvenTx> {
+  public async prove(options: SendInteractionOptions): Promise<ProvenTx> {
     // docs:end:prove
     const txProvingResult = await this.proveInternal(options);
     return new ProvenTx(
@@ -69,7 +69,7 @@ export abstract class BaseContractInteraction {
    * the AztecAddress of the sender. If not provided, the default address is used.
    * @returns A SentTx instance for tracking the transaction status and information.
    */
-  public send(options: SendMethodOptions): SentTx {
+  public send(options: SendInteractionOptions): SentTx {
     // docs:end:send
     const sendTx = async () => {
       const txProvingResult = await this.proveInternal(options);

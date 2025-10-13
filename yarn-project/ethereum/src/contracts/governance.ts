@@ -187,7 +187,7 @@ export class GovernanceContract extends ReadOnlyGovernanceContract {
     retries: number;
     logger: Logger;
   }) {
-    const l1TxUtils = createL1TxUtilsFromViemWallet(this.client, logger);
+    const l1TxUtils = createL1TxUtilsFromViemWallet(this.client, { logger });
     const retryDelaySeconds = 12;
 
     voteAmount = voteAmount ?? (await this.getPower());
@@ -244,7 +244,7 @@ export class GovernanceContract extends ReadOnlyGovernanceContract {
     retries: number;
     logger: Logger;
   }) {
-    const l1TxUtils = createL1TxUtilsFromViemWallet(this.client, logger);
+    const l1TxUtils = createL1TxUtilsFromViemWallet(this.client, { logger });
     const retryDelaySeconds = 12;
     let success = false;
     for (let i = 0; i < retries; i++) {

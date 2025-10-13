@@ -8,7 +8,6 @@
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_mem.hpp"
-#include "barretenberg/vm2/generated/relations/perms_poseidon2_mem.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
@@ -517,8 +516,6 @@ const InteractionDefinition Poseidon2TraceBuilder::interactions =
         .add<lookup_poseidon2_mem_input_output_poseidon2_perm_settings, InteractionType::LookupSequential>()
         // Lookups to Greater Than Subtrace
         .add<lookup_poseidon2_mem_check_src_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        .add<lookup_poseidon2_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        // Dispatch from Execution Trace
-        .add<perm_poseidon2_mem_dispatch_exec_pos2_settings, InteractionType::Permutation>();
+        .add<lookup_poseidon2_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel);
 
 } // namespace bb::avm2::tracegen

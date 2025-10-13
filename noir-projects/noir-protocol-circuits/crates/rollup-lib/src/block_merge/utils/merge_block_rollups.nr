@@ -1,5 +1,4 @@
-use crate::abis::BlockRollupPublicInputs;
-use dep::types::hash::accumulate_sha256;
+use crate::{abis::BlockRollupPublicInputs, tx_merge::accumulate_out_hash};
 
 pub fn merge_block_rollups(
     left: BlockRollupPublicInputs,
@@ -9,8 +8,7 @@ pub fn merge_block_rollups(
     // only. It's checked in `validate_consecutive_block_rollups` to make sure only the left rollup carries it.
     let in_hash = left.in_hash;
 
-    // TODO(#15974): Ignore zero hashes when accumulating.
-    let out_hash = accumulate_sha256(left.out_hash, right.out_hash);
+    let out_hash = accumulate_out_hash(left.out_hash, right.out_hash);
 
     let accumulated_fees = left.accumulated_fees + right.accumulated_fees;
 

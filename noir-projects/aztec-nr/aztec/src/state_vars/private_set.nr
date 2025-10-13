@@ -11,10 +11,7 @@ use crate::note::{
 };
 use crate::note::retrieved_note::RetrievedNote;
 use crate::state_vars::storage::HasStorageSlot;
-use dep::protocol_types::{
-    abis::read_request::ReadRequest, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    traits::Packable,
-};
+use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable};
 
 mod test;
 
@@ -393,8 +390,7 @@ where
     ///
     pub fn remove(self, retrieved_note: RetrievedNote<Note>) {
         let note_hash = compute_note_hash_for_read_request(retrieved_note, self.storage_slot);
-        let has_been_read =
-            self.context.note_hash_read_requests.any(|r: ReadRequest| r.value == note_hash);
+        let has_been_read = self.context.note_hash_read_requests.any(|r| r.inner == note_hash);
         assert(has_been_read, "Can only remove a note that has been read from the set.");
 
         destroy_note_unsafe(self.context, retrieved_note, note_hash);

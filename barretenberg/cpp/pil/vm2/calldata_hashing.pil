@@ -26,7 +26,12 @@ include "constants_gen.pil";
 //     0      |     1     |     2    |      1     |    sep   |   0x111  |   0x222  |  cd_hash_0  |   0   |   1   |     2      |    0    |       4       |
 //     3      |     4     |     5    |      1     |   0x333  |   0x444  |     0    |  cd_hash_0  |   1   |   0   |     1      |    1    |       4       |
 //     0      |     1     |     2    |      2     |    sep   |   0xaaa  |   0xbbb  |  cd_hash_1  |   1   |   1   |     1      |    0    |       2       |
-
+//
+// For empty calldata, we lookup a special row to the calldata.pil trace where index = 0 and latch = 1 for the context_id:
+//   index_0_ |  index_1_ | index_2_ | context_id | input_0_ | input_1_ | input_2_ | output_hash | latch | start | rounds_rem | padding | calldata_size |
+// -----------+-----------+----------+------------+----------+----------+----------+-------------+-------+-------+------------+---------+---------------+
+//     0      |     1     |     2    |      1     |    sep   |     0    |     0    |   H([sep])  |   1   |   1   |     1      |    2    |       0       |
+//
 namespace calldata_hashing;
 
     #[skippable_if]
@@ -164,6 +169,7 @@ namespace calldata_hashing;
     // index[] looked up above.
     // Note: we could probably utilise the other value lookups to check this, but would need to define col.s like
     // input_1_is_final to check against calldata.latch for each value at every row. Worth the overhead?
+    // For empty calldata, the below looks up a special row where calldata.latch = 1 and calldata.index = 0:
     #[CHECK_FINAL_SIZE]
     latch { calldata_size, context_id }
     in

@@ -259,9 +259,9 @@ export interface ExecutionDataProvider {
   ): Promise<void>;
 
   /**
-   * Removes all of a contract's notes that have been nullified from the note database.
+   * Looks for nullifiers of active contract notes and marks them as nullified in the db if a nullifier is found.
    */
-  removeNullifiedNotes(contractAddress: AztecAddress): Promise<void>;
+  syncNoteNullifiers(contractAddress: AztecAddress): Promise<void>;
 
   /**
    * Stores arbitrary information in a per-contract non-volatile database, which can later be retrieved with `loadCapsule`.

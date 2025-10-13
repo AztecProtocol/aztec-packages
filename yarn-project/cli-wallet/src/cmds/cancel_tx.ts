@@ -1,7 +1,7 @@
 import {
-  type AppConfigurableFeePaymentMethod,
   AztecAddress,
-  type FeeOptions,
+  type FeePaymentMethod,
+  type InteractionFeeOptions,
   SentTx,
   type TxHash,
   TxStatus,
@@ -21,8 +21,13 @@ export async function cancelTx(
     gasSettings: prevTxGasSettings,
     txNonce,
     cancellable,
-  }: { txHash: TxHash; gasSettings: GasSettings; txNonce: Fr; cancellable: boolean },
-  paymentMethod: AppConfigurableFeePaymentMethod | undefined,
+  }: {
+    txHash: TxHash;
+    gasSettings: GasSettings;
+    txNonce: Fr;
+    cancellable: boolean;
+  },
+  paymentMethod: FeePaymentMethod | undefined,
   increasedFees: GasFees,
   maxFeesPerGas: GasFees | undefined,
   log: LogFn,
@@ -38,15 +43,13 @@ export async function cancelTx(
     prevTxGasSettings.maxPriorityFeesPerGas.feePerL2Gas + increasedFees.feePerL2Gas,
   );
 
-  const feeOptions: FeeOptions = {
+  const feeOptions: InteractionFeeOptions = {
     paymentMethod,
     gasSettings: GasSettings.from({
       ...prevTxGasSettings,
       maxPriorityFeesPerGas,
       maxFeesPerGas: maxFeesPerGas ?? prevTxGasSettings.maxFeesPerGas,
     }),
-    endSetup: false,
-    isFeePayer: false,
   };
 
   const txProvingResult = await wallet.proveCancellationTx(from, txNonce, feeOptions);

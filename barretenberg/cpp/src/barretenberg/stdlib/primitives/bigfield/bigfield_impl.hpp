@@ -173,8 +173,11 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
     // NOTE(https://github.com/AztecProtocol/barretenberg/issues/879): Optimisation opportunity to use a single gate
     // (and remove dummy gate). Currently, dummy gate is necessary for preceeding big add gate as these gates fall in
     // the arithmetic block. More details on the linked Github issue.
-    ctx->create_dummy_gate(
-        ctx->blocks.arithmetic, ctx->zero_idx, ctx->zero_idx, ctx->zero_idx, limb_0.get_normalized_witness_index());
+    ctx->create_unconstrained_gate(ctx->blocks.arithmetic,
+                                   ctx->zero_idx(),
+                                   ctx->zero_idx(),
+                                   ctx->zero_idx(),
+                                   limb_0.get_normalized_witness_index());
 
     uint64_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
 
@@ -1933,7 +1936,8 @@ void bigfield<Builder, T>::unsafe_assert_less_than(const uint256_t& upper_limit,
 // When one of the elements is a constant and another is a witness we check equality of limbs, so if the witness
 // bigfield element is in an unreduced form, it needs to be reduced first. We don't have automatice reduced form
 // detection for now, so it is up to the circuit writer to detect this
-template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(const bigfield& other) const
+template <typename Builder, typename T>
+void bigfield<Builder, T>::assert_equal(const bigfield& other, std::string const& msg) const
 {
     Builder* ctx = this->context ? this->context : other.context;
     if (is_constant() && other.is_constant()) {
@@ -1961,9 +1965,15 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
         t4.assert_is_zero();
         return;
     } else if (is_constant()) {
-        other.assert_equal(*this);
+        other.assert_equal(*this, msg);
         return;
     } else {
+        // Catch the error if the reduced value of the two elements are not equal
+        uint512_t lhs_reduced_value = get_value() % modulus_u512;
+        uint512_t rhs_reduced_value = other.get_value() % modulus_u512;
+        if ((lhs_reduced_value != rhs_reduced_value) && !get_context()->failed()) {
+            get_context()->failure(msg);
+        }
 
         // Remove tags, we don't want to cause violations on assert_equal
         const auto original_tag = get_origin_tag();
@@ -2072,9 +2082,9 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
     BB_ASSERT_LT((uint1024_t(1) << maximum_quotient_bits) * uint1024_t(modulus_u512) + DEFAULT_MAXIMUM_REMAINDER,
                  get_maximum_crt_product());
     quotient.binary_basis_limbs[0] = Limb(quotient_limb, uint256_t(1) << maximum_quotient_bits);
-    quotient.binary_basis_limbs[1] = Limb(field_t<Builder>::from_witness_index(context, context->zero_idx), 0);
-    quotient.binary_basis_limbs[2] = Limb(field_t<Builder>::from_witness_index(context, context->zero_idx), 0);
-    quotient.binary_basis_limbs[3] = Limb(field_t<Builder>::from_witness_index(context, context->zero_idx), 0);
+    quotient.binary_basis_limbs[1] = Limb(field_t<Builder>::from_witness_index(context, context->zero_idx()), 0);
+    quotient.binary_basis_limbs[2] = Limb(field_t<Builder>::from_witness_index(context, context->zero_idx()), 0);
+    quotient.binary_basis_limbs[3] = Limb(field_t<Builder>::from_witness_index(context, context->zero_idx()), 0);
     quotient.prime_basis_limb = quotient_limb;
     // this constructor with can_overflow=false will enforce remainder of size<2^s
     bigfield remainder = bigfield(
@@ -2275,10 +2285,10 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
 
     std::array<field_t<Builder>, NUM_LIMBS> remainder_limbs{
         field_t<Builder>::accumulate(limb_0_accumulator),
-        needs_normalize ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx)
+        needs_normalize ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx())
                         : remainders[0].binary_basis_limbs[1].element,
         field_t<Builder>::accumulate(limb_2_accumulator),
-        needs_normalize ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx)
+        needs_normalize ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx())
                         : remainders[0].binary_basis_limbs[3].element,
     };
     field_t<Builder> remainder_prime_limb = field_t<Builder>::accumulate(prime_limb_accumulator);
@@ -2572,12 +2582,12 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         accumulated_hi =
             field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(accumulated_hi.get_value()));
     }
-    field_t<Builder> remainder1 = no_remainders ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx)
+    field_t<Builder> remainder1 = no_remainders ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx())
                                                 : remainders[0].binary_basis_limbs[1].element;
     if (remainder1.is_constant()) {
         remainder1 = field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(remainder1.get_value()));
     }
-    field_t<Builder> remainder3 = no_remainders ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx)
+    field_t<Builder> remainder3 = no_remainders ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx())
                                                 : remainders[0].binary_basis_limbs[3].element;
     if (remainder3.is_constant()) {
         remainder3 = field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(remainder3.get_value()));

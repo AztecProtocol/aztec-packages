@@ -4,7 +4,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import type { Capsule, OffchainEffect, SimulationStats } from '@aztec/stdlib/tx';
 
-import type { AppConfigurableFeePaymentMethod } from '../fee/fee_payment_method.js';
+import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 import type { ProfileOptions, SendOptions, SimulateOptions } from '../wallet/index.js';
 
 /**
@@ -23,7 +23,7 @@ export type FeeEstimationOptions = {
  */
 export type FeePaymentMethodOption = {
   /** Fee payment method to embed in the interaction */
-  paymentMethod?: AppConfigurableFeePaymentMethod;
+  paymentMethod?: FeePaymentMethod;
 };
 
 /**
@@ -35,10 +35,8 @@ export type GasSettingsOption = {
   gasSettings?: Partial<FieldsOf<GasSettings>>;
 };
 
-// docs:start:user_fee_options
 /** Fee options as set by a user. */
 export type InteractionFeeOptions = GasSettingsOption & FeePaymentMethodOption;
-// docs:end:user_fee_options
 
 /**  Fee options that can be set for simulation *only* */
 export type SimulationInteractionFeeOptions = InteractionFeeOptions & FeeEstimationOptions;
@@ -47,7 +45,7 @@ export type SimulationInteractionFeeOptions = InteractionFeeOptions & FeeEstimat
  * Represents the options to configure a request from a contract interaction.
  * Allows specifying additional auth witnesses and capsules to use during execution
  */
-export type RequestMethodOptions = {
+export type RequestInteractionOptions = {
   /** Extra authwits to use during execution */
   authWitnesses?: AuthWitness[];
   /** Extra capsules to use during execution */
@@ -59,7 +57,7 @@ export type RequestMethodOptions = {
 /**
  * Represents options for calling a (constrained) function in a contract.
  */
-export type SendMethodOptions = RequestMethodOptions & {
+export type SendInteractionOptions = RequestInteractionOptions & {
   /** The sender's Aztec address. */
   from: AztecAddress;
   /** The fee options for the transaction. */
@@ -71,7 +69,7 @@ export type SendMethodOptions = RequestMethodOptions & {
  * Allows specifying the address from which the method should be called.
  * Disregarded for simulation of public functions
  */
-export type SimulateMethodOptions = Omit<SendMethodOptions, 'fee'> & {
+export type SimulateInteractionOptions = Omit<SendInteractionOptions, 'fee'> & {
   /** The fee options for the transaction. */
   fee?: SimulationInteractionFeeOptions;
   /** Simulate without checking for the validity of the resulting transaction, e.g. whether it emits any existing nullifiers. */
@@ -86,7 +84,7 @@ export type SimulateMethodOptions = Omit<SendMethodOptions, 'fee'> & {
 /**
  * Represents the options for profiling an interaction.
  */
-export type ProfileMethodOptions = SimulateMethodOptions & {
+export type ProfileInteractionOptions = SimulateInteractionOptions & {
   /** Whether to return gates information or the bytecode/witnesses. */
   profileMode: 'gates' | 'execution-steps' | 'full';
   /** Whether to generate a ClientIVC proof or not */
@@ -96,7 +94,7 @@ export type ProfileMethodOptions = SimulateMethodOptions & {
 /**
  * Represents the result type of a simulation.
  * By default, it will just be the return value of the simulated function
- * If `includeMetadata` is set to true in `SimulateMethodOptions` on the input of `simulate(...)`,
+ * If `includeMetadata` is set to true in `SimulateInteractionOptions` on the input of `simulate(...)`,
  * it will provide extra information.
  */
 export type SimulationReturn<T extends boolean | undefined> = T extends true
@@ -113,13 +111,15 @@ export type SimulationReturn<T extends boolean | undefined> = T extends true
   : any;
 
 /**
- * Transforms and cleans up the higher level SendMethodOptions defined by the interaction into
+ * Transforms and cleans up the higher level SendInteractionOptions defined by the interaction into
  * SendOptions, which are the ones that can be serialized and forwarded to the wallet
  */
-export async function sanitizeSendOptions(options: SendMethodOptions): Promise<SendOptions> {
+export async function toSendOptions(options: SendInteractionOptions): Promise<SendOptions> {
   return {
     ...options,
     fee: {
+      // If this interaction includes a fee payment method, pass the fee payer
+      // as a hint to the wallet
       embeddedPaymentMethodFeePayer: await options.fee?.paymentMethod?.getFeePayer(),
       // If a payment method that includes gas settings was used,
       // try to reuse as much as possible while still allowing
@@ -133,13 +133,15 @@ export async function sanitizeSendOptions(options: SendMethodOptions): Promise<S
 }
 
 /**
- * Transforms and cleans up the higher level SimulateMethodOptions defined by the interaction into
+ * Transforms and cleans up the higher level SimulateInteractionOptions defined by the interaction into
  * SimulateOptions, which are the ones that can be serialized and forwarded to the wallet
  */
-export async function sanitizeSimulateOptions(options: SimulateMethodOptions): Promise<SimulateOptions> {
+export async function toSimulateOptions(options: SimulateInteractionOptions): Promise<SimulateOptions> {
   return {
     ...options,
     fee: {
+      // If this interaction includes a fee payment method, pass the fee payer
+      // as a hint to the wallet
       embeddedPaymentMethodFeePayer: await options.fee?.paymentMethod?.getFeePayer(),
       // If a payment method that includes gas settings was used,
       // try to reuse as much as possible while still allowing
@@ -155,12 +157,12 @@ export async function sanitizeSimulateOptions(options: SimulateMethodOptions): P
 }
 
 /**
- * Transforms and cleans up the higher level ProfileMethodOptions defined by the interaction into
+ * Transforms and cleans up the higher level ProfileInteractionOptions defined by the interaction into
  * ProfileOptions, which are the ones that can be serialized and forwarded to the wallet
  */
-export async function sanitizeProfileOptions(options: ProfileMethodOptions): Promise<ProfileOptions> {
+export async function toProfileOptions(options: ProfileInteractionOptions): Promise<ProfileOptions> {
   return {
-    ...(await sanitizeSimulateOptions(options)),
+    ...(await toSimulateOptions(options)),
     profileMode: options.profileMode,
     skipProofGeneration: options.skipProofGeneration,
   };

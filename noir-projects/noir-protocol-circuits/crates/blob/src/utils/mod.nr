@@ -1,0 +1,5 @@
+mod compress_to_blob_commitment;
+mod validate_final_blob_batching_challenges;
+
+pub use compress_to_blob_commitment::compress_to_blob_commitment;
+pub use validate_final_blob_batching_challenges::validate_final_blob_batching_challenges;

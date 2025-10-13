@@ -1,4 +1,4 @@
-import type { AppConfigurableFeePaymentMethod, AztecNode, FeeOptions, FieldsOf, Wallet } from '@aztec/aztec.js';
+import type { AztecNode, FeeOptions, FeePaymentMethod, FieldsOf, Wallet } from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -19,7 +19,7 @@ export type RawCliFeeArgs = {
 };
 
 export type ParsedFeeOptions = {
-  paymentMethod?: AppConfigurableFeePaymentMethod;
+  paymentMethod?: FeePaymentMethod;
   gasSettings?: Partial<FieldsOf<GasSettings>>;
 };
 
@@ -111,11 +111,7 @@ export function parsePaymentMethod(
   payment: string,
   log: LogFn,
   db?: WalletDB,
-): (
-  wallet: Wallet,
-  from: AztecAddress,
-  gasSettings: GasSettings,
-) => Promise<AppConfigurableFeePaymentMethod | undefined> {
+): (wallet: Wallet, from: AztecAddress, gasSettings: GasSettings) => Promise<FeePaymentMethod | undefined> {
   const parsed = payment.split(',').reduce(
     (acc, item) => {
       const [dimension, value] = item.split('=');
@@ -245,7 +241,7 @@ export class CLIFeeArgs {
       wallet: Wallet,
       feePayer: AztecAddress,
       gasSettings: GasSettings,
-    ) => Promise<AppConfigurableFeePaymentMethod | undefined>,
+    ) => Promise<FeePaymentMethod | undefined>,
     private gasSettings: Partial<FieldsOf<GasSettings>>,
   ) {}
 

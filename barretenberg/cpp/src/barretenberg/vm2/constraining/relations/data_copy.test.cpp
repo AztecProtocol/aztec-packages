@@ -23,6 +23,7 @@
 #include "barretenberg/vm2/tooling/debugger.hpp"
 #include "barretenberg/vm2/tracegen/calldata_trace.hpp"
 #include "barretenberg/vm2/tracegen/data_copy_trace.hpp"
+#include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -35,6 +36,7 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::StrictMock;
 using tracegen::DataCopyTraceBuilder;
+using tracegen::ExecutionTraceBuilder;
 using tracegen::TestTraceContainer;
 
 using FF = AvmFlavorSettings::FF;
@@ -234,12 +236,7 @@ TEST_F(EnqueuedCdConstrainingBuilderTest, CdZeroCopy)
     gt_builder.process(gt_event_emitter.dump_events(), trace);
 
     check_relation<data_copy>(trace);
-    check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_col_read_settings,
-                      lookup_data_copy_max_read_index_gt_settings,
-                      lookup_data_copy_offset_gt_max_read_index_settings,
-                      lookup_data_copy_check_src_addr_in_range_settings,
-                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
+    check_all_interactions<DataCopyTraceBuilder>(trace);
 }
 
 TEST_F(EnqueuedCdConstrainingBuilderTest, SimpleEnqueuedCdCopy)
@@ -258,12 +255,7 @@ TEST_F(EnqueuedCdConstrainingBuilderTest, SimpleEnqueuedCdCopy)
     gt_builder.process(gt_event_emitter.dump_events(), trace);
 
     check_relation<data_copy>(trace);
-    check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_col_read_settings,
-                      lookup_data_copy_max_read_index_gt_settings,
-                      lookup_data_copy_offset_gt_max_read_index_settings,
-                      lookup_data_copy_check_src_addr_in_range_settings,
-                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
+    check_all_interactions<DataCopyTraceBuilder>(trace);
 }
 
 TEST_F(EnqueuedCdConstrainingBuilderTest, EnqueuedCallCdCopyPadding)
@@ -285,12 +277,7 @@ TEST_F(EnqueuedCdConstrainingBuilderTest, EnqueuedCallCdCopyPadding)
     gt_builder.process(gt_event_emitter.dump_events(), trace);
 
     check_relation<data_copy>(trace);
-    check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_col_read_settings,
-                      lookup_data_copy_max_read_index_gt_settings,
-                      lookup_data_copy_offset_gt_max_read_index_settings,
-                      lookup_data_copy_check_src_addr_in_range_settings,
-                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
+    check_all_interactions<DataCopyTraceBuilder>(trace);
 }
 
 TEST_F(EnqueuedCdConstrainingBuilderTest, EnqueuedCallCdCopyPartial)
@@ -312,12 +299,88 @@ TEST_F(EnqueuedCdConstrainingBuilderTest, EnqueuedCallCdCopyPartial)
     gt_builder.process(gt_event_emitter.dump_events(), trace);
 
     check_relation<data_copy>(trace);
-    check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_col_read_settings,
-                      lookup_data_copy_max_read_index_gt_settings,
-                      lookup_data_copy_offset_gt_max_read_index_settings,
-                      lookup_data_copy_check_src_addr_in_range_settings,
-                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
+    check_all_interactions<DataCopyTraceBuilder>(trace);
+}
+
+class EnqueuedEmptyCdConstrainingBuilderTest : public DataCopyConstrainingBuilderTest {
+  protected:
+    EnqueuedEmptyCdConstrainingBuilderTest()
+    {
+        // Set up for enqueued call
+        EXPECT_CALL(context, has_parent).WillRepeatedly(Return(false));
+        EXPECT_CALL(context, get_parent_id).WillRepeatedly(Return(0));
+        EXPECT_CALL(context, get_context_id).WillRepeatedly(Return(1));
+        EXPECT_CALL(context, get_parent_cd_size).WillRepeatedly(Return(0));
+        EXPECT_CALL(context, get_parent_cd_addr).WillRepeatedly(Return(0));
+
+        // Build Calldata Column
+        tracegen::CalldataTraceBuilder calldata_builder;
+        CalldataEvent cd_event = {
+            .context_id = 1,
+            .calldata_size = 0,
+            .calldata = {},
+        };
+        calldata_builder.process_retrieval({ cd_event }, trace);
+    }
+};
+
+TEST_F(EnqueuedEmptyCdConstrainingBuilderTest, CdZeroCopy)
+{
+    uint32_t copy_size = 0;
+    uint32_t cd_offset = 0; // Offset into calldata
+
+    EXPECT_CALL(context, get_calldata(cd_offset, copy_size)).WillOnce(::testing::Return(std::vector<FF>{}));
+
+    copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
+
+    tracegen::DataCopyTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<data_copy>(trace);
+    check_all_interactions<DataCopyTraceBuilder>(trace);
+}
+
+TEST_F(EnqueuedEmptyCdConstrainingBuilderTest, SimpleEnqueuedCdCopy)
+{
+    uint32_t copy_size = 4;
+    uint32_t cd_offset = 0;
+
+    EXPECT_CALL(context, get_calldata(cd_offset, copy_size)).WillOnce(Return(std::vector<FF>{ 0, 0, 0, 0 }));
+
+    copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
+
+    DataCopyTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<data_copy>(trace);
+    check_all_interactions<DataCopyTraceBuilder>(trace);
+}
+
+TEST_F(EnqueuedEmptyCdConstrainingBuilderTest, EnqueuedCallCdCopyPadding)
+{
+    uint32_t cd_offset = 0;
+    std::vector<FF> result_cd = {};
+    result_cd.resize(10, 0);                                  // Pad with zeros to 10 elements
+    auto copy_size = static_cast<uint32_t>(result_cd.size()); // Request more than available
+
+    EXPECT_CALL(context, get_calldata(cd_offset, copy_size)).WillOnce(Return(result_cd));
+
+    copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
+
+    DataCopyTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<data_copy>(trace);
+    check_all_interactions<DataCopyTraceBuilder>(trace);
 }
 
 /////////////////////////////////////////////
@@ -368,7 +431,7 @@ TEST(DataCopyWithExecutionPerm, CdCopy)
             { C::execution_sel, 1 },
             { C::execution_context_id, context_id },
             { C::execution_parent_id, parent_context_id },
-            { C::execution_sel_execute_calldata_copy, 1 },
+            { C::execution_sel_exec_dispatch_calldata_copy, 1 },
             { C::execution_register_0_, copy_size },
             { C::execution_register_1_, cd_offset },
             { C::execution_rop_2_, dst_addr },
@@ -384,9 +447,9 @@ TEST(DataCopyWithExecutionPerm, CdCopy)
     builder.process(event_emitter.dump_events(), trace);
 
     check_relation<data_copy>(trace);
-    check_interaction<DataCopyTraceBuilder,
-                      perm_data_copy_dispatch_cd_copy_settings,
-                      perm_data_copy_dispatch_rd_copy_settings>(trace);
+    check_interaction<ExecutionTraceBuilder,
+                      perm_execution_dispatch_to_cd_copy_settings,
+                      perm_execution_dispatch_to_rd_copy_settings>(trace);
 }
 
 class NestedRdConstrainingBuilderTest : public DataCopyConstrainingBuilderTest {
@@ -418,11 +481,7 @@ TEST_F(NestedRdConstrainingBuilderTest, RdZeroCopy)
     gt_builder.process(gt_event_emitter.dump_events(), trace);
 
     check_relation<data_copy>(trace);
-    check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_max_read_index_gt_settings,
-                      lookup_data_copy_offset_gt_max_read_index_settings,
-                      lookup_data_copy_check_src_addr_in_range_settings,
-                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
+    check_all_interactions<DataCopyTraceBuilder>(trace);
 }
 
 TEST(DataCopyWithExecutionPerm, RdCopy)
@@ -466,7 +525,7 @@ TEST(DataCopyWithExecutionPerm, RdCopy)
             { C::execution_sel, 1 },
             { C::execution_context_id, context_id },
             { C::execution_last_child_id, child_context_id },
-            { C::execution_sel_execute_returndata_copy, 1 },
+            { C::execution_sel_exec_dispatch_returndata_copy, 1 },
             { C::execution_register_0_, copy_size },
             { C::execution_register_1_, rd_offset },
             { C::execution_rop_2_, dst_addr },
@@ -482,9 +541,9 @@ TEST(DataCopyWithExecutionPerm, RdCopy)
     builder.process(event_emitter.dump_events(), trace);
 
     check_relation<data_copy>(trace);
-    check_interaction<DataCopyTraceBuilder,
-                      perm_data_copy_dispatch_cd_copy_settings,
-                      perm_data_copy_dispatch_rd_copy_settings>(trace);
+    check_interaction<ExecutionTraceBuilder,
+                      perm_execution_dispatch_to_cd_copy_settings,
+                      perm_execution_dispatch_to_rd_copy_settings>(trace);
 }
 
 TEST(DataCopyWithExecutionPerm, ErrorPropagation)
@@ -523,7 +582,7 @@ TEST(DataCopyWithExecutionPerm, ErrorPropagation)
             { C::execution_sel, 1 },
             { C::execution_context_id, context_id },
             { C::execution_last_child_id, child_context_id },
-            { C::execution_sel_execute_returndata_copy, 1 },
+            { C::execution_sel_exec_dispatch_returndata_copy, 1 },
             { C::execution_register_0_, copy_size },
             { C::execution_register_1_, rd_offset },
             { C::execution_rop_2_, big_dst_addr },
@@ -540,9 +599,9 @@ TEST(DataCopyWithExecutionPerm, ErrorPropagation)
     builder.process(event_emitter.dump_events(), trace);
 
     check_relation<data_copy>(trace);
-    check_interaction<DataCopyTraceBuilder,
-                      perm_data_copy_dispatch_cd_copy_settings,
-                      perm_data_copy_dispatch_rd_copy_settings>(trace);
+    check_interaction<ExecutionTraceBuilder,
+                      perm_execution_dispatch_to_cd_copy_settings,
+                      perm_execution_dispatch_to_rd_copy_settings>(trace);
 }
 
 } // namespace

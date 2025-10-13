@@ -9,14 +9,14 @@ import {
   type Aliased,
   type AztecNode,
   BaseWallet,
-  type FeeOptions,
+  type InteractionFeeOptions,
   SignerlessAccount,
   type SimulateOptions,
   UniqueNote,
   getContractInstanceFromInstantiationParams,
   getGasLimits,
 } from '@aztec/aztec.js';
-import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
+import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
@@ -66,23 +66,31 @@ export class CLIWallet extends BaseWallet {
     return Promise.resolve(accounts.map(({ key, value }) => ({ alias: value, item: AztecAddress.fromString(key) })));
   }
 
-  private async createCancellationTxExecutionRequest(from: AztecAddress, txNonce: Fr, increasedFee: FeeOptions) {
-    const feeExecutionPayload = await increasedFee.paymentMethod?.getExecutionPayload();
+  private async createCancellationTxExecutionRequest(
+    from: AztecAddress,
+    txNonce: Fr,
+    increasedFee: InteractionFeeOptions,
+  ) {
+    const feeOptions = await this.getDefaultFeeOptions(from, increasedFee);
+    const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const fromAccount = await this.getAccountFromAddress(from);
-    const executionOptions = {
+    const executionOptions: DefaultAccountEntrypointOptions = {
       txNonce,
       cancellable: this.cancellableTransactions,
-      isFeePayer: increasedFee.isFeePayer,
-      endSetup: increasedFee.endSetup,
+      feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions,
     };
     return await fromAccount.createTxExecutionRequest(
       feeExecutionPayload ?? ExecutionPayload.empty(),
-      increasedFee.gasSettings,
+      feeOptions.gasSettings,
       executionOptions,
     );
   }
 
-  async proveCancellationTx(from: AztecAddress, txNonce: Fr, increasedFee: FeeOptions): Promise<TxProvingResult> {
+  async proveCancellationTx(
+    from: AztecAddress,
+    txNonce: Fr,
+    increasedFee: InteractionFeeOptions,
+  ): Promise<TxProvingResult> {
     const cancellationTxRequest = await this.createCancellationTxExecutionRequest(from, txNonce, increasedFee);
     return await this.pxe.proveTx(cancellationTxRequest);
   }
@@ -91,9 +99,7 @@ export class CLIWallet extends BaseWallet {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
       const chainInfo = await this.getChainInfo();
-      account = new SignerlessAccount(
-        new DefaultMultiCallEntrypoint(chainInfo.chainId.toNumber(), chainInfo.version.toNumber()),
-      );
+      account = new SignerlessAccount(chainInfo);
     } else if (this.accountCache.has(address.toString())) {
       return this.accountCache.get(address.toString())!;
     } else {
@@ -113,8 +119,7 @@ export class CLIWallet extends BaseWallet {
     const instance = accountManager.getInstance();
     const artifact = await contract.getContractArtifact();
 
-    await this.pxe.registerContract({ artifact, instance });
-    await this.pxe.registerAccount(secret, (await accountManager.getCompleteAddress()).partialAddress);
+    await this.registerContract(instance, artifact, secret);
     this.accountCache.set(accountManager.address.toString(), await accountManager.getAccount());
     return accountManager;
   }
@@ -202,16 +207,16 @@ export class CLIWallet extends BaseWallet {
     const feeOptions = opts.fee?.estimateGas
       ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
       : await this.getDefaultFeeOptions(opts.from, opts.fee);
-    const feeExecutionPayload = await feeOptions.paymentMethod?.getExecutionPayload();
-    const executionOptions = {
+    const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
+    const executionOptions: DefaultAccountEntrypointOptions = {
       txNonce: Fr.random(),
       cancellable: this.cancellableTransactions,
-      isFeePayer: feeOptions.isFeePayer,
-      endSetup: feeOptions.endSetup,
+      feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions,
     };
     const finalExecutionPayload = feeExecutionPayload
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
       : executionPayload;
+
     // Kernelless simulations using the multicall entrypoints are not currently supported,
     // since we only override proper account contracts.
     // TODO: allow disabling kernels even when no overrides are necessary
@@ -242,6 +247,7 @@ export class CLIWallet extends BaseWallet {
         contracts: contractOverrides,
       });
     }
+
     if (opts.fee?.estimateGas) {
       const limits = getGasLimits(simulationResults, opts.fee?.estimatedGasPadding);
       printGasEstimates(feeOptions, limits, this.userLog);

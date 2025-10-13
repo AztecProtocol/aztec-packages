@@ -4,7 +4,6 @@ import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { computePartialAddress } from '@aztec/stdlib/contract';
 import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
@@ -96,10 +95,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       deadline,
     );
     const crowdfundingInstance = await crowdfundingDeployment.getInstance();
-    await wallet.registerKeysForEscrowContract(
-      crowdfundingSecretKey,
-      await computePartialAddress(crowdfundingInstance),
-    );
+    await wallet.registerContract(crowdfundingInstance, CrowdfundingContract.artifact, crowdfundingSecretKey);
     crowdfundingContract = await crowdfundingDeployment.send({ from: operatorAddress }).deployed();
     logger.info(`Crowdfunding contract deployed at ${crowdfundingContract.address}`);
 

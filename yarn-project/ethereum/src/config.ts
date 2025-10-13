@@ -160,6 +160,8 @@ export const getGovernanceConfiguration = (networkName: NetworkNames) => {
   switch (networkName) {
     case 'local':
       return LocalGovernanceConfiguration;
+    case 'next-net':
+      return LocalGovernanceConfiguration;
     case 'staging-public':
       return StagingPublicGovernanceConfiguration;
     case 'testnet':
@@ -185,6 +187,7 @@ const DefaultRewardConfig = {
 export const getRewardConfig = (networkName: NetworkNames) => {
   switch (networkName) {
     case 'local':
+    case 'next-net':
     case 'staging-public':
     case 'testnet':
     case 'staging-ignition':
@@ -212,7 +215,7 @@ const LocalEntryQueueConfig = {
   bootstrapFlushSize: 0n,
   normalFlushSizeMin: 48n,
   normalFlushSizeQuotient: 2n,
-  maxQueueFlushSize: 32n,
+  maxQueueFlushSize: 48n,
 };
 
 const StagingPublicEntryQueueConfig = {
@@ -242,6 +245,8 @@ const StagingIgnitionEntryQueueConfig = {
 export const getEntryQueueConfig = (networkName: NetworkNames) => {
   switch (networkName) {
     case 'local':
+      return LocalEntryQueueConfig;
+    case 'next-net':
       return LocalEntryQueueConfig;
     case 'staging-public':
       return StagingPublicEntryQueueConfig;

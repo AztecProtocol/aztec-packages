@@ -137,7 +137,10 @@ async function createKeyFiles() {
 
   await createKeyFile6(file6, MNEMONIC, 5, coinbaseAddresses[5], feeRecipientAddresses[5]);
 
-  await refreshWeb3Signer(web3signerUrl);
+  await refreshWeb3Signer(
+    web3signerUrl,
+    ...[proverPrivateKey, ...validators.slice(2, 5)].map(sk => addressForPrivateKey(sk).toString()),
+  );
 
   return directory;
 }

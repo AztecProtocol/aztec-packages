@@ -3,7 +3,7 @@ telemetry:
 
 snapshots:
   uploadLocation: ""
-  syncUrl: "https://pub-f4a8c34d4bb7441ebf8f48d904512180.r2.dev/snapshots/staging-public/"
+  syncUrl: "https://aztec-labs-snapshots.com/staging-public/"
   frequency: "0 0 * * *" # daily uploads at midnight
 
 network:

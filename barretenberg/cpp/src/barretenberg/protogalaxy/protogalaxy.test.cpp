@@ -392,8 +392,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         // Erroneously set a non-zero wire value to zero in one of the lookup gates
         for (auto& wire_3_witness_idx : builder1.blocks.lookup.w_o()) {
-            if (wire_3_witness_idx != builder1.zero_idx) {
-                wire_3_witness_idx = builder1.zero_idx;
+            if (wire_3_witness_idx != builder1.zero_idx()) {
+                wire_3_witness_idx = builder1.zero_idx();
                 break;
             }
         }
@@ -668,6 +668,7 @@ TYPED_TEST(ProtogalaxyTests, TamperedCommitment)
 
 TYPED_TEST(ProtogalaxyTests, TamperedAccumulatorPolynomial)
 {
+    BB_DISABLE_ASSERTS(); // Disable assert in PG prover
     TestFixture::test_tampered_accumulator_polynomial();
 }
 

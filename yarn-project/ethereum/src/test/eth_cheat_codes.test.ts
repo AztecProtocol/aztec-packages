@@ -1,6 +1,7 @@
 import { Blob } from '@aztec/blob-lib';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
@@ -52,6 +53,7 @@ describe('EthCheatCodes', () => {
 
   describe('reorgs', () => {
     const deployToken = async () => {
+      logger.warn(`Deploying token contract`);
       const { address, txHash } = await deployL1Contract(l1Client, TestERC20Abi, TestERC20Bytecode, [
         'Test Token',
         'TEST',
@@ -207,6 +209,56 @@ describe('EthCheatCodes', () => {
       expect(txReceipt.status).toEqual('success');
       expect(tx.blobVersionedHashes?.length).toBeGreaterThan(0);
       expect(tx.maxFeePerBlobGas).toBeGreaterThan(0);
+    });
+  });
+
+  describe('mineEmptyBlock', () => {
+    it('mines an empty block while preserving pending transactions', async () => {
+      // Deploy a token first (with automine enabled)
+      const { address, txHash } = await deployL1Contract(l1Client, TestERC20Abi, TestERC20Bytecode, [
+        'Test Token',
+        'TEST',
+        sender,
+      ]);
+      await l1Client.waitForTransactionReceipt({ hash: txHash! });
+      const token = getContract({ address: address.toString(), abi: TestERC20Abi, client: l1Client });
+
+      // Now disable automine so we can have pending transactions
+      await cheatCodes.setAutomine(false);
+
+      // Get initial block number
+      const blockNumberBefore = await l1Client.getBlockNumber({ cacheTime: 0 });
+
+      // Send a transaction that will remain pending
+      const mintHash = await token.write.mint([sender, 100n]);
+      await sleep(100);
+
+      // Verify transaction is pending in the mempool
+      expect(await l1Client.getTransaction({ hash: mintHash }).then(t => t.hash)).toEqual(mintHash);
+      await expect(l1Client.getTransactionReceipt({ hash: mintHash })).rejects.toThrow();
+
+      // Mine an empty block
+      await cheatCodes.mineEmptyBlock();
+
+      // Verify block number increased
+      const blockNumberAfter = await l1Client.getBlockNumber({ cacheTime: 0 });
+      expect(blockNumberAfter).toBe(blockNumberBefore + 1n);
+
+      // Verify the mined block is empty (no transactions)
+      const block = await l1Client.getBlock({ blockNumber: blockNumberAfter });
+      expect(block.transactions.length).toBe(0);
+
+      // Verify the pending transaction is still pending (can be mined later)
+      await expect(l1Client.getTransactionReceipt({ hash: mintHash })).rejects.toThrow();
+
+      // Mine another block to confirm the transaction is still in the pool
+      await cheatCodes.mine(1);
+      const receipt = await l1Client.getTransactionReceipt({ hash: mintHash });
+      expect(receipt.status).toBe('success');
+      expect(receipt.blockNumber).toBe(blockNumberAfter + 1n);
+
+      // Verify the mint worked
+      await expect(token.read.balanceOf([sender])).resolves.toEqual(100n);
     });
   });
 });

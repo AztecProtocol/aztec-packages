@@ -36,7 +36,7 @@ describe('RemoteSigner integration: Web3Signer (compose)', () => {
     chainId = parseInt(L1_CHAIN_ID, 10);
 
     await createWeb3SignerKeystore(getWeb3SignerTestKeystoreDir(), privateKey.toString());
-    await refreshWeb3Signer(web3SignerUrl);
+    await refreshWeb3Signer(web3SignerUrl, address.toString());
   });
 
   beforeEach(() => {

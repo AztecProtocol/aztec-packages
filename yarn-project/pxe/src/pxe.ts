@@ -36,7 +36,6 @@ import type {
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type ContractOverrides,
   PrivateExecutionResult,
@@ -383,20 +382,6 @@ export class PXE {
   }
 
   // Public API
-
-  /** Returns an estimate of the db size in bytes. */
-  public async estimateDbSize() {
-    const treeRootsSize = Object.keys(MerkleTreeId).length * Fr.SIZE_IN_BYTES;
-    const dbSizes = await Promise.all([
-      this.addressDataProvider.getSize(),
-      this.capsuleDataProvider.getSize(),
-      this.contractDataProvider.getSize(),
-      this.noteDataProvider.getSize(),
-      this.syncDataProvider.getSize(),
-      this.taggingDataProvider.getSize(),
-    ]);
-    return [...dbSizes, treeRootsSize].reduce((sum, size) => sum + size, 0);
-  }
 
   public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return this.contractDataProvider.getContractInstance(address);

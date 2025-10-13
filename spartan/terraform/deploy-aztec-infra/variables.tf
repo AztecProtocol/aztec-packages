@@ -199,16 +199,22 @@ variable "PROVER_MNEMONIC" {
   default     = "test test test test test test test test test test test junk"
 }
 
-variable "PROVER_MNEMONIC_START_INDEX" {
-  description = "The prover mnemonic start index"
-  type        = string
-  default     = 1000
-}
-
 variable "PROVER_REPLICAS" {
   description = "The number of prover replicas"
   type        = string
   default     = 4
+}
+
+variable "PROVER_PUBLISHERS_PER_PROVER" {
+  description = "Number of publisher keys per prover"
+  type        = string
+  default     = 1
+}
+
+variable "PROVER_PUBLISHER_MNEMONIC_START_INDEX" {
+  description = "The prover publisher mnemonic start index"
+  type        = string
+  default     = 8000
 }
 
 variable "OTEL_COLLECTOR_ENDPOINT" {
@@ -463,4 +469,10 @@ variable "PROVER_FAILED_PROOF_STORE" {
   type        = string
   nullable    = false
   default     = ""
+}
+
+variable "RPC_REPLICAS" {
+  description = "The number of RPC replicas"
+  type        = string
+  default     = 1
 }

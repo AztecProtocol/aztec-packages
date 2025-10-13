@@ -1,11 +1,10 @@
-import type { AuthWitnessProvider } from '@aztec/entrypoints/interfaces';
+import type { AuthWitnessProvider, ChainInfo } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/fields';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { deriveKeys } from '@aztec/stdlib/keys';
 
-import type { ChainInfo } from '../wallet/index.js';
 import type { AccountInterface } from './interface.js';
 
 /**
