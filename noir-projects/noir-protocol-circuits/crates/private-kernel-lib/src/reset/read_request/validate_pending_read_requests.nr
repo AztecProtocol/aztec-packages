@@ -1,5 +1,5 @@
 use dep::types::{
-    abis::{read_request::ScopedReadRequest, side_effect::{Ordered, Readable}},
+    side_effect::{Counted, Ordered, Readable, Scoped},
     utils::arrays::ClaimedLengthArray,
 };
 
@@ -35,12 +35,12 @@ impl PendingReadHint {
 // - https://discourse.aztec.network/t/to-read-or-not-to-read/178
 // - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
 pub fn validate_pending_read_requests<let ReadRequestLen: u32, Value, let PendingValueLen: u32, let PendingReadHintsLen: u32>(
-    read_requests: ClaimedLengthArray<ScopedReadRequest, ReadRequestLen>,
+    read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, ReadRequestLen>,
     pending_values: ClaimedLengthArray<Value, PendingValueLen>,
     hints: [PendingReadHint; PendingReadHintsLen],
 )
 where
-    Value: Readable<ScopedReadRequest> + Ordered,
+    Value: Readable + Ordered,
 {
     for hint in hints {
         let read_request_index = hint.read_request_index;

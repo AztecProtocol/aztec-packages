@@ -1,7 +1,7 @@
 use crate::{
-    abis::{read_request::ScopedReadRequest, side_effect::Readable},
     hash::compute_siloed_nullifier,
     merkle_tree::{IndexedTreeLeafPreimage, LeafPreimage},
+    side_effect::{Counted, Readable, Scoped},
     traits::{Deserialize, Empty, Hash, Serialize},
 };
 
@@ -61,10 +61,10 @@ impl IndexedTreeLeafPreimage<Field> for NullifierLeafPreimage {
     }
 }
 
-impl Readable<ScopedReadRequest> for NullifierLeafPreimage {
-    fn assert_match_read_request(self, read_request: ScopedReadRequest) {
+impl Readable for NullifierLeafPreimage {
+    fn assert_match_read_request(self, read_request: Scoped<Counted<Field>>) {
         let siloed_value =
-            compute_siloed_nullifier(read_request.contract_address, read_request.value());
+            compute_siloed_nullifier(read_request.contract_address, read_request.innermost());
         assert_eq(
             self.nullifier,
             siloed_value,

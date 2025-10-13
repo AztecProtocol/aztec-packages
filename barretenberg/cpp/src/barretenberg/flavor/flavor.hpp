@@ -494,9 +494,18 @@ template <typename RelationsTuple> constexpr auto create_sumcheck_tuple_of_tuple
 }
 
 /**
- * @brief Construct tuple of arrays
- * @details Container for storing value of each identity in each relation. Each Relation contributes an array of
- * length num-identities.
+ * @brief Create a tuple of arrays
+ *
+ * @details This function is used to declare a type whose instances are containers for the evaluations of the Ultra/Mega
+ * Honk subrelations. More precisely, the function returns a tuple of length equal to the number of relations defined by
+ * RelationsTuple, where the element at index idx in the tuple is an array of FF elements of length equal to the number
+ * of subrelations that made up the the relation at index idx in RelationsTuple.
+ *
+ * @example if RelationsTuple = UltraFlavor::Relations_, then the tuple returned by the function is a tuple of length 9,
+ * where the first element of the tuple is an array of length 2 (as the first relation in UltraFlavor::Relations_ is the
+ * UltraArithmeticRelation, which is made up by two subrelations).
+ *
+ * @tparam RelationsTuple
  */
 template <typename RelationsTuple> constexpr auto create_tuple_of_arrays_of_values()
 {

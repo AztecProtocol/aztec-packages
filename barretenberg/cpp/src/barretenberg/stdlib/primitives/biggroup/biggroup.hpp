@@ -197,7 +197,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
     static element point_at_infinity(Builder* ctx)
     {
-        Fr zero = Fr::from_witness_index(ctx, ctx->zero_idx);
+        Fr zero = Fr::from_witness_index(ctx, ctx->zero_idx());
         zero.unset_free_witness_tag();
         Fq x_fq(zero, zero);
         Fq y_fq(zero, zero);
@@ -281,6 +281,24 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         result._is_infinity =
             bool_ct::conditional_assign(predicate, other.is_point_at_infinity(), result.is_point_at_infinity());
         return result;
+    }
+
+    /**
+     * @brief Asserts that two group elements are equal (i.e., x, y coordinates and infinity flag are all equal).
+     *
+     * @param other
+     * @param msg
+     *
+     * @details Note that checking the coordinates as well as the infinity flag opens up the possibility of honest
+     * prover unable to satisfy constraints if both points are at infinity but have different x, y. This is not a
+     * problem in practice as we should never have multiple representations of the point at infinity in a circuit.
+     */
+    void incomplete_assert_equal(const element& other,
+                                 const std::string msg = "biggroup::incomplete_assert_equal") const
+    {
+        is_point_at_infinity().assert_equal(other.is_point_at_infinity(), msg + " (infinity flag)");
+        x.assert_equal(other.x, msg + " (x coordinate)");
+        y.assert_equal(other.y, msg + " (y coordinate)");
     }
 
     element normalize() const
