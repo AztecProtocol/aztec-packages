@@ -30,11 +30,24 @@ export type BackendOptions = {
   logger?: (msg: string) => void;
 
   /**
-   * @description Run WASM on a worker thread (default: true)
+   * @description Run WASM on a worker thread (default: auto-detect based on environment)
    * - true: Browser-safe, runs on worker thread (slower due to serialization overhead)
    * - false: Faster performance but blocks the calling thread (use for Node.js/benchmarks)
+   * - undefined: Auto-detect (true in browser, false in Node.js)
    */
   useWorker?: boolean;
+
+  /**
+   * @description Force WASM backend even if native backend is available (default: false)
+   * Useful for testing WASM implementation or when native backend has compatibility issues
+   */
+  forceWasm?: boolean;
+
+  /**
+   * @description Force native backend and error if not available (default: false)
+   * Useful for ensuring native backend is used in production or when WASM is not acceptable
+   */
+  forceNative?: boolean;
 };
 
 export type CircuitOptions = {
@@ -64,22 +77,42 @@ export class Barretenberg extends AsyncApi {
   static async new(options: BackendOptions = {}) {
     const logger = options.logger ?? createDebugLogger('bb_async');
 
-    // Try native backend first (check custom path or auto-detect)
-    const bbPath = findBbBinary(options.bbPath);
-    if (bbPath) {
-      logger(`Using native backend: ${bbPath}`);
-      const native = new BarretenbergNativeSocketAsyncBackend(bbPath);
-      return new Barretenberg(native, options);
+    // Validate mutually exclusive options
+    if (options.forceWasm && options.forceNative) {
+      throw new Error('Cannot specify both forceWasm and forceNative options');
     }
 
-    // Fallback to WASM
-    logger('Native backend not found, using WASM');
+    // Try native backend first (check custom path or auto-detect)
+    // Skip if forceWasm is explicitly set
+    if (!options.forceWasm) {
+      const bbPath = findBbBinary(options.bbPath);
+      if (bbPath) {
+        logger(`Using native backend: ${bbPath}`);
+        const native = new BarretenbergNativeSocketAsyncBackend(bbPath);
+        return new Barretenberg(native, options);
+      }
+
+      // If forceNative is set and no binary found, error out
+      if (options.forceNative) {
+        throw new Error(
+          'Native backend forced but bb binary not found. ' +
+            'Set BB_BINARY_PATH environment variable or bbPath option, or remove forceNative option.',
+        );
+      }
+    }
+
+    // Fallback to WASM (or forced WASM)
+    logger(options.forceWasm ? 'Forcing WASM backend' : 'Native backend not found, using WASM');
+
+    // Default useWorker based on environment: true in browser, false in Node.js
+    const useWorker = options.useWorker ?? (typeof window !== 'undefined');
+
     const wasm = await BarretenbergWasmAsyncBackend.new({
       threads: options.threads,
       wasmPath: options.wasmPath,
       logger,
       memory: options.memory,
-      useWorker: options.useWorker,
+      useWorker,
     });
     return new Barretenberg(wasm, options);
   }
@@ -147,8 +180,15 @@ export class Barretenberg extends AsyncApi {
     if (!barretenbergSingletonPromise) {
       barretenbergSingletonPromise = Barretenberg.new(options);
     }
-    barretenbergSingleton = await barretenbergSingletonPromise;
-    return barretenbergSingleton;
+    try {
+      barretenbergSingleton = await barretenbergSingletonPromise;
+      return barretenbergSingleton;
+    } catch (error) {
+      // If initialization fails, clear the singleton so next call can retry
+      barretenbergSingleton = undefined!;
+      barretenbergSingletonPromise = undefined!;
+      throw error;
+    }
   }
 
   static async destroySingleton() {
@@ -191,16 +231,32 @@ export class BarretenbergSync extends SyncApi {
   private static async new(options: BackendOptions = {}) {
     const logger = options.logger ?? createDebugLogger('bb_sync');
 
-    // Try native backend first (using pipes for sync operations)
-    const bbPath = findBbBinary(options.bbPath);
-    if (bbPath) {
-      logger(`Using native pipe backend: ${bbPath}`);
-      const native = new BarretenbergNativeSyncBackend(bbPath);
-      return new BarretenbergSync(native);
+    // Validate mutually exclusive options
+    if (options.forceWasm && options.forceNative) {
+      throw new Error('Cannot specify both forceWasm and forceNative options');
     }
 
-    // Fallback to WASM
-    logger('Native backend not found, using WASM');
+    // Try native backend first (using pipes for sync operations)
+    // Skip if forceWasm is explicitly set
+    if (!options.forceWasm) {
+      const bbPath = findBbBinary(options.bbPath);
+      if (bbPath) {
+        logger(`Using native pipe backend: ${bbPath}`);
+        const native = new BarretenbergNativeSyncBackend(bbPath);
+        return new BarretenbergSync(native);
+      }
+
+      // If forceNative is set and no binary found, error out
+      if (options.forceNative) {
+        throw new Error(
+          'Native backend forced but bb binary not found. ' +
+            'Set BB_BINARY_PATH environment variable or bbPath option, or remove forceNative option.',
+        );
+      }
+    }
+
+    // Fallback to WASM (or forced WASM)
+    logger(options.forceWasm ? 'Forcing WASM backend' : 'Native backend not found, using WASM');
     const wasm = await BarretenbergWasmSyncBackend.new(options.wasmPath, logger);
     return new BarretenbergSync(wasm);
   }

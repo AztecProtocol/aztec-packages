@@ -257,7 +257,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
 
     // Spawn bb process - it will create the socket server
     this.process = spawn(bbBinaryPath, ['msgpack', 'run', '--input', this.socketPath], {
-      stdio: ['ignore', 'ignore', 'ignore'],
+      stdio: ['ignore', 'ignore', 'inherit'],
     });
 
     this.process.on('error', err => {

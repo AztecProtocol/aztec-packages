@@ -9,6 +9,10 @@ describe('pedersen sync', () => {
     api = await BarretenbergSync.initSingleton();
   });
 
+  afterAll(async () => {
+    BarretenbergSync.destroySingleton();
+  });
+
   it('pedersenHash', () => {
     const response = api.pedersenHash({ inputs: [new Fr(4n).toBuffer(), new Fr(8n).toBuffer()], hashIndex: 7 });
     const result = Fr.fromBuffer(response.hash);

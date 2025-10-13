@@ -5,7 +5,15 @@ import { poseidon2Permutation } from './index.js';
 
 describe('poseidon2Permutation', () => {
   beforeAll(async () => {
-    await Barretenberg.initSingleton({ useWorker: false, threads: 1 });
+    await Barretenberg.initSingleton({
+      useWorker: false,
+      threads: 1,
+      bbPath: '/mnt/user-data/charlie/aztec-repos/aztec-packages/barretenberg/cpp/build-no-avm/bin/bb',
+    });
+  });
+
+  afterAll(async () => {
+    await Barretenberg.destroySingleton();
   });
 
   it('test vectors from cpp should match', async () => {
