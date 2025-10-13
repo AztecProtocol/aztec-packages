@@ -19,6 +19,7 @@ namespace bb::stdlib {
 
 template <typename Field> class StdlibCodec {
   public:
+    using DataType = Field;
     using Builder = typename Field::Builder;
     using fr = field_t<Builder>;
     using fq = bigfield<Builder, bb::Bn254FqParams>;
@@ -53,15 +54,15 @@ template <typename Field> class StdlibCodec {
      * @brief  A stdlib Transcript method needed to convert an `fr` challenge to a `bigfield` one. Assumes that
      * `challenge` is "short".
      *
-     * @tparam T fr<Builder> or fq<Builder>
+     * @tparam T fr or fq
      * @param challenge a 128- or a 126- bit limb of a full challenge
      * @return T
      */
-    template <typename Builder, typename T> inline T convert_challenge(const fr<Builder>& challenge)
+    template <typename T> static T convert_challenge(const fr& challenge)
     {
-        if constexpr (std::is_same_v<T, fr<Builder>>) {
+        if constexpr (std::is_same_v<T, fr>) {
             return challenge;
-        } else if constexpr (std::is_same_v<T, fq<Builder>>) {
+        } else if constexpr (std::is_same_v<T, fq>) {
             // Sanity check that the input challenge fits into the first 2 bigfield limbs.
             BB_ASSERT_LT(static_cast<uint256_t>(challenge.get_value()).get_msb(),
                          T::NUM_LIMB_BITS * 2,
@@ -70,7 +71,7 @@ template <typename Field> class StdlibCodec {
             // All challenges must be circuit witnesses.
             ASSERT(builder);
             ASSERT(!challenge.is_constant());
-            return T(challenge, fr<Builder>::from_witness_index(builder, builder->zero_idx()));
+            return T(challenge, fr::from_witness_index(builder, builder->zero_idx()));
         }
     }
 

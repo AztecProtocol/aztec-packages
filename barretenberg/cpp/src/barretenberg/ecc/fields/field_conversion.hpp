@@ -16,17 +16,16 @@
 
 namespace bb {
 
-template <typename Field> class NativeCodec {
+class FrCodec {
   public:
+    using DataType = bb::fr;
     using fr = bb::fr;
     using fq = grumpkin::fr;
     using bn254_point = curve::BN254::AffineElement;
     using grumpkin_point = curve::Grumpkin::AffineElement;
 
     // Size calculators
-    template <typename T>
-    static constexpr size_t calc_num_fields()
-        requires(IsAnyOf<Field, bb::fr>)
+    template <typename T> static constexpr size_t calc_num_fields()
     {
         if constexpr (IsAnyOf<T, uint32_t, uint64_t, bool>) {
             return 1;
@@ -40,29 +39,11 @@ template <typename Field> class NativeCodec {
         }
     }
 
-    template <typename T>
-    static constexpr size_t calc_num_fields()
-        requires(IsAnyOf<Field, uint256_t>)
-
-    {
-        if constexpr (IsAnyOf<T, uint32_t, uint64_t, uint256_t, bool, fq, bb::fr>) {
-            return 1;
-        } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
-            // In contrast to bb::fr, bn254 points can be represented by only 2 uint256_t elements
-            return 2;
-        } else {
-            // Array or Univariate
-            return calc_num_fields<typename T::value_type>() * (std::tuple_size<T>::value);
-        }
-    }
-
     /**
      * @brief Converts 2 bb::fr elements to fq
      * @details Splits into 136-bit lower chunk and 118-bit upper chunk to mirror stdlib bigfield limbs (68-bit each).
      */
     static fq convert_grumpkin_fr_from_bn254_frs(std::span<const bb::fr> fr_vec)
-        requires(IsAnyOf<Field, bb::fr>)
-
     {
         // expects 2 fr limbs; caller already asserts size
         constexpr uint64_t NUM_LIMB_BITS = stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION; // 68
@@ -84,8 +65,6 @@ template <typename Field> class NativeCodec {
      * @brief Converts fq to 2 bb::fr elements (inverse of the above).
      */
     static std::vector<bb::fr> convert_grumpkin_fr_to_bn254_frs(const fq& val)
-        requires(IsAnyOf<Field, bb::fr>)
-
     {
         constexpr uint64_t NUM_LIMB_BITS = stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION; // 68
         constexpr uint64_t TOTAL_BITS = 254;
@@ -107,10 +86,7 @@ template <typename Field> class NativeCodec {
     // ---------------------------------------------------------------------
     // Deserialize
     // ---------------------------------------------------------------------
-    template <typename T>
-    static T deserialize_from_fields(std::span<const fr> fr_vec)
-        requires(IsAnyOf<Field, bb::fr>)
-
+    template <typename T> static T deserialize_from_fields(std::span<const fr> fr_vec)
     {
         BB_ASSERT_EQ(fr_vec.size(), calc_num_fields<T>());
         if constexpr (IsAnyOf<T, bool>) {
@@ -143,47 +119,10 @@ template <typename Field> class NativeCodec {
         }
     }
 
-    template <typename T>
-    static T deserialize_from_fields(std::span<const uint256_t> vec)
-        requires(IsAnyOf<Field, uint256_t>)
-
-    {
-        BB_ASSERT_EQ(vec.size(), calc_num_fields<T>());
-        if constexpr (IsAnyOf<T, bool>) {
-            return static_cast<bool>(vec[0]);
-        } else if constexpr (IsAnyOf<T, uint32_t, uint64_t, uint256_t, bb::fr, fq>) {
-            return static_cast<T>(vec[0]);
-        } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
-            using BaseField = typename T::Fq;
-            constexpr size_t N = calc_num_fields<BaseField>();
-            T val;
-            val.x = deserialize_from_fields<BaseField>(vec.subspan(0, N));
-            val.y = deserialize_from_fields<BaseField>(vec.subspan(N, N));
-            if (val.x == BaseField::zero() && val.y == BaseField::zero()) {
-                val.self_set_infinity();
-            }
-            ASSERT(val.on_curve());
-            return val;
-        } else {
-            // Array or Univariate
-            T val;
-            constexpr size_t SZ = calc_num_fields<typename T::value_type>();
-            size_t i = 0;
-            for (auto& x : val) {
-                x = deserialize_from_fields<typename T::value_type>(vec.subspan(SZ * i, SZ));
-                ++i;
-            }
-            return val;
-        }
-    }
-
     /**
      * @brief Conversion from transcript values to bb::frs
      */
-    template <typename T>
-    static std::vector<fr> serialize_to_fields(const T& val)
-        requires(IsAnyOf<Field, bb::fr>)
-
+    template <typename T> static std::vector<fr> serialize_to_fields(const T& val)
     {
         if constexpr (IsAnyOf<T, bool, uint32_t, uint64_t, bb::fr>) {
             return { val };
@@ -215,12 +154,101 @@ template <typename Field> class NativeCodec {
     }
 
     /**
+     * @brief Split a challenge field element into two half-width challenges
+     * @details `lo` is 128 bits and `hi` is 126 bits which should provide significantly more than our security
+     * parameter bound: 100 bits. The decomposition is constrained to be unique.
+     *
+     * @param challenge
+     * @return std::array<bb::fr, 2>
+     */
+    static std::array<bb::fr, 2> split_challenge(const bb::fr& challenge)
+    {
+        static constexpr size_t LO_BITS = bb::fr::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR; // 128
+        static constexpr size_t HI_BITS = bb::fr::modulus.get_msb() + 1 - LO_BITS;          // 126
+
+        const uint256_t u = static_cast<uint256_t>(challenge);
+        const uint256_t lo = u.slice(0, LO_BITS);
+        const uint256_t hi = u.slice(LO_BITS, LO_BITS + HI_BITS);
+
+        return { bb::fr(lo), bb::fr(hi) };
+    }
+
+    /**
+     * @brief Convert an `fr` challenge to a target type (fr or fq). Assumes challenge is "short".
+     */
+    template <typename T> static T convert_challenge(const bb::fr& challenge)
+    {
+        if constexpr (std::is_same_v<T, bb::fr>) {
+            return challenge;
+        } else if constexpr (std::is_same_v<T, fq>) {
+            BB_ASSERT_LT(static_cast<uint256_t>(challenge).get_msb(),
+                         2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION,
+                         "field_conversion: convert challenge");
+            return fq(challenge);
+        }
+    }
+};
+
+class U256Codec {
+  public:
+    using DataType = uint256_t;
+    using fr = bb::fr;
+    using fq = grumpkin::fr;
+    using bn254_point = curve::BN254::AffineElement;
+    using grumpkin_point = curve::Grumpkin::AffineElement;
+
+    // Size calculators
+    template <typename T> static constexpr size_t calc_num_fields()
+    {
+        if constexpr (IsAnyOf<T, uint32_t, uint64_t, uint256_t, bool, fq, bb::fr>) {
+            return 1;
+        } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
+            // In contrast to bb::fr, bn254 points can be represented by only 2 uint256_t elements
+            return 2;
+        } else {
+            // Array or Univariate
+            return calc_num_fields<typename T::value_type>() * (std::tuple_size<T>::value);
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Deserialize
+    // ---------------------------------------------------------------------
+    template <typename T> static T deserialize_from_fields(std::span<const uint256_t> vec)
+    {
+        BB_ASSERT_EQ(vec.size(), calc_num_fields<T>());
+        if constexpr (IsAnyOf<T, bool>) {
+            return static_cast<bool>(vec[0]);
+        } else if constexpr (IsAnyOf<T, uint32_t, uint64_t, uint256_t, bb::fr, fq>) {
+            return static_cast<T>(vec[0]);
+        } else if constexpr (IsAnyOf<T, bn254_point, grumpkin_point>) {
+            using BaseField = typename T::Fq;
+            constexpr size_t N = calc_num_fields<BaseField>();
+            T val;
+            val.x = deserialize_from_fields<BaseField>(vec.subspan(0, N));
+            val.y = deserialize_from_fields<BaseField>(vec.subspan(N, N));
+            if (val.x == BaseField::zero() && val.y == BaseField::zero()) {
+                val.self_set_infinity();
+            }
+            ASSERT(val.on_curve());
+            return val;
+        } else {
+            // Array or Univariate
+            T val;
+            constexpr size_t SZ = calc_num_fields<typename T::value_type>();
+            size_t i = 0;
+            for (auto& x : val) {
+                x = deserialize_from_fields<typename T::value_type>(vec.subspan(SZ * i, SZ));
+                ++i;
+            }
+            return val;
+        }
+    }
+
+    /**
      * @brief Conversion from transcript values to `uint256_t`s
      */
-
-    template <typename T>
-    static std::vector<uint256_t> serialize_to_fields(const T& val)
-        requires(IsAnyOf<Field, uint256_t>)
+    template <typename T> static std::vector<uint256_t> serialize_to_fields(const T& val)
     {
         if constexpr (IsAnyOf<T, bool, uint32_t, uint64_t, uint256_t, bb::fr, fq>) {
             return { val };
@@ -257,9 +285,9 @@ template <typename Field> class NativeCodec {
      * parameter bound: 100 bits. The decomposition is constrained to be unique.
      *
      * @param challenge
-     * @return std::array<DataType, 2>
+     * @return std::array<uint256_t, 2>
      */
-    static std::array<Field, 2> split_challenge(const Field& challenge)
+    static std::array<uint256_t, 2> split_challenge(const uint256_t& challenge)
     {
         static constexpr size_t LO_BITS = bb::fr::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR; // 128
         static constexpr size_t HI_BITS = bb::fr::modulus.get_msb() + 1 - LO_BITS;          // 126
@@ -268,14 +296,13 @@ template <typename Field> class NativeCodec {
         const uint256_t lo = u.slice(0, LO_BITS);
         const uint256_t hi = u.slice(LO_BITS, LO_BITS + HI_BITS);
 
-        return { Field(lo), Field(hi) };
+        return { uint256_t(lo), uint256_t(hi) };
     }
 
     /**
      * @brief Convert an `fr` challenge to a target type (fr or fq). Assumes challenge is "short".
      */
     template <typename T> static T convert_challenge(const bb::fr& challenge)
-
     {
         if constexpr (std::is_same_v<T, bb::fr>) {
             return challenge;
@@ -287,8 +314,5 @@ template <typename Field> class NativeCodec {
         }
     }
 };
-
-using FrCodec = NativeCodec<bb::fr>;
-using U256Codec = NativeCodec<uint256_t>;
 
 } // namespace bb

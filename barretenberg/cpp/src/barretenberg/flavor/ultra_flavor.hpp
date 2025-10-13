@@ -344,10 +344,9 @@ class UltraFlavor {
      * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
      *
      */
-    template <typename DataType, typename HashFunction>
-    class Transcript_ : public BaseTranscript<DataType, HashFunction> {
+    template <typename Codec, typename HashFunction> class Transcript_ : public BaseTranscript<Codec, HashFunction> {
       public:
-        using Base = BaseTranscript<DataType, HashFunction>;
+        using Base = BaseTranscript<Codec, HashFunction>;
 
         // Transcript objects defined as public member variables for easy access and modification
         std::vector<FF> public_inputs;
@@ -460,7 +459,7 @@ class UltraFlavor {
         }
     };
 
-    using Transcript = Transcript_<FF, crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>>;
+    using Transcript = Transcript_<FrCodec, crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>>;
 
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
