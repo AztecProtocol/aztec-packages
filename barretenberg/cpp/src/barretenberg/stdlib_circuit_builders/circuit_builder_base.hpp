@@ -33,7 +33,7 @@ template <typename FF_> class CircuitBuilderBase {
     bool public_inputs_finalized_ = false; // Addition of new public inputs disallowed after this is set to true.
 
     // true if we have dummy witnesses (in the write_vk case)
-    bool has_dummy_witnesses = false;
+    bool has_dummy_witnesses_ = false;
 
     // index of next variable in equivalence class (=REAL_VARIABLE if you're last)
     std::vector<uint32_t> next_var_index;
@@ -80,6 +80,7 @@ template <typename FF_> class CircuitBuilderBase {
     CircuitBuilderBase& operator=(CircuitBuilderBase&& other) noexcept = default;
     virtual ~CircuitBuilderBase() = default;
 
+    bool has_dummy_witnesses() const { return has_dummy_witnesses_; }
     bool operator==(const CircuitBuilderBase& other) const = default;
 
     virtual size_t get_num_finalized_gates() const;
