@@ -682,9 +682,6 @@ std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::c
 /**
  * @brief Generic batch multiplication that works for all elliptic curve types.
  *
- * @details Implementation is identical to `bn254_endo_batch_mul` but WITHOUT the endomorphism transforms OR
- * support for short scalars See `bn254_endo_batch_mul` for description of algorithm.
- *
  * @tparam C The circuit builder type.
  * @tparam Fq The field of definition of the points in `_points`.
  * @tparam Fr The field of scalars acting on `_points`.
@@ -757,9 +754,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     }
     for (size_t i = 0; i < num_points; ++i) {
         element skew = accumulator - points[i];
-        Fq out_x = accumulator.x.conditional_select(skew.x, naf_entries[i][num_rounds]);
-        Fq out_y = accumulator.y.conditional_select(skew.y, naf_entries[i][num_rounds]);
-        accumulator = element(out_x, out_y);
+        accumulator = accumulator.conditional_select(skew, naf_entries[i][num_rounds]);
     }
     accumulator = accumulator - offset_generators.second;
 
@@ -816,16 +811,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar, const 
 
     bool_ct is_point_at_infinity = this->is_point_at_infinity();
 
-    const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
-
-    element result;
-    if (max_num_bits != 0) {
-        // The case of short scalars
-        result = element::bn254_endo_batch_mul({}, {}, { *this }, { scalar }, num_rounds);
-    } else {
-        // The case of arbitrary length scalars
-        result = element::bn254_endo_batch_mul({ *this }, { scalar }, {}, {}, num_rounds);
-    };
+    element result = element::batch_mul({ *this }, { scalar }, max_num_bits, /*with_edgecases=*/false);
 
     // Handle point at infinity
     result.x = Fq::conditional_assign(is_point_at_infinity, x, result.x);

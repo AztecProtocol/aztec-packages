@@ -96,9 +96,7 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
             // if scalar multiplier is 0 and also a constant, we can skip
             continue;
         }
-        Fq updated_x = Fq::conditional_assign(is_point_at_infinity, one.x, _point.x);
-        Fq updated_y = Fq::conditional_assign(is_point_at_infinity, one.y, _point.y);
-        element point(updated_x, updated_y);
+        element point = _point.conditional_select(one, is_point_at_infinity);
         Fr scalar = Fr::conditional_assign(is_point_at_infinity, 0, _scalar);
 
         points.push_back(point);

@@ -622,7 +622,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         Builder builder;
         const size_t max_num_bits = 128;
 
-        // We only test even bit lengths, because `bn254_endo_batch_mul` used in 'scalar_mul' can't handle odd lengths.
+        // TODO: add support for odd lengths.
         for (size_t i = 2; i < max_num_bits; i += 2) {
             affine_element input(element::random_element());
             // Get a random 256 integer
@@ -667,7 +667,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         Builder builder;
         const size_t max_num_bits = 254;
 
-        // We only test even bit lengths, because `bn254_endo_batch_mul` used in 'scalar_mul' can't handle odd lengths.
+        // TODO: add support for odd lengths.
         for (size_t i = 128; i < max_num_bits; i += 2) {
             affine_element input(element::random_element());
             // Get a random 256-bit integer
@@ -748,8 +748,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             // The second point is finite, hence we flip the flag
             expect_infinity = false;
         }
-        // Check that the numbers of gates are equal in both cases.
-        EXPECT_EQ(gates[0], gates[1]);
+        // Check that the numbers of gates are greater when multiplying by point at infinity,
+        // because we transform (s * ∞) into (0 * G), and NAF representation of 0 ≡ NAF(r) which is 254 bits long.
+        EXPECT_GT(gates[0], gates[1]);
     }
 
     static void test_twin_mul()
@@ -1453,83 +1454,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    static void test_bn254_endo_batch_mul()
-    {
-        const size_t num_big_points = 2;
-        const size_t num_small_points = 1;
-        Builder builder;
-        std::vector<affine_element> big_points;
-        std::vector<fr> big_scalars;
-        std::vector<affine_element> small_points;
-        std::vector<fr> small_scalars;
-
-        for (size_t i = 0; i < num_big_points; ++i) {
-            big_points.push_back(affine_element(element::random_element()));
-            big_scalars.push_back(fr::random_element());
-        }
-        for (size_t i = 0; i < num_small_points; ++i) {
-            small_points.push_back(affine_element(element::random_element()));
-            uint256_t scalar_raw = fr::random_element();
-            scalar_raw.data[2] = 0ULL;
-            scalar_raw.data[3] = 0ULL;
-            small_scalars.push_back(fr(scalar_raw));
-        }
-
-        std::vector<element_ct> big_circuit_points;
-        std::vector<scalar_ct> big_circuit_scalars;
-        std::vector<element_ct> small_circuit_points;
-        std::vector<scalar_ct> small_circuit_scalars;
-        OriginTag union_tag{};
-        for (size_t i = 0; i < num_big_points; ++i) {
-            big_circuit_points.push_back(element_ct::from_witness(&builder, big_points[i]));
-            big_circuit_scalars.push_back(scalar_ct::from_witness(&builder, big_scalars[i]));
-            // Set tags for points to the submitted value tag for round i and for scalars to challenge tag for the same
-            // round
-            big_circuit_points[i].set_origin_tag(
-                OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/true));
-            big_circuit_scalars[i].set_origin_tag(
-                OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/false));
-            union_tag =
-                OriginTag(union_tag, big_circuit_points[i].get_origin_tag(), big_circuit_scalars[i].get_origin_tag());
-        }
-        for (size_t i = 0; i < num_small_points; ++i) {
-            small_circuit_points.push_back(element_ct::from_witness(&builder, small_points[i]));
-            small_circuit_scalars.push_back(scalar_ct::from_witness(&builder, small_scalars[i]));
-            // Set tags for points to the submitted value tag for round i and for scalars to challenge tag for the same
-            // round
-            small_circuit_points[i].set_origin_tag(
-                OriginTag(/*parent_index=*/0, /*child_index=*/i + num_big_points, /*is_submitted=*/true));
-            small_circuit_scalars[i].set_origin_tag(
-                OriginTag(/*parent_index=*/0, /*child_index=*/i + num_big_points, /*is_submitted=*/false));
-            union_tag = OriginTag(
-                union_tag, small_circuit_points[i].get_origin_tag(), small_circuit_scalars[i].get_origin_tag());
-        }
-
-        element_ct result_point = element_ct::bn254_endo_batch_mul(
-            big_circuit_points, big_circuit_scalars, small_circuit_points, small_circuit_scalars, 128);
-
-        // Check that the resulting tag is a union of input tags
-        EXPECT_EQ(result_point.get_origin_tag(), union_tag);
-
-        element expected_point = g1::one;
-        expected_point.self_set_infinity();
-        for (size_t i = 0; i < num_big_points; ++i) {
-            expected_point += (element(big_points[i]) * big_scalars[i]);
-        }
-        for (size_t i = 0; i < num_small_points; ++i) {
-            expected_point += (element(small_points[i]) * small_scalars[i]);
-        }
-
-        expected_point = expected_point.normalize();
-        fq result_x(result_point.x.get_value().lo);
-        fq result_y(result_point.y.get_value().lo);
-
-        EXPECT_EQ(result_x, expected_point.x);
-        EXPECT_EQ(result_y, expected_point.y);
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
     static void test_mixed_mul_bn254_endo()
     {
         Builder builder;
@@ -1543,32 +1467,12 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             return t1.to_montgomery_form();
         };
         for (size_t i = 0; i < num_repetitions; ++i) {
-            std::vector<element_ct> small_points(25);
-            std::vector<element_ct> big_points(5);
             std::vector<element_ct> double_points(11);
-            std::vector<scalar_ct> small_scalars(25);
-            std::vector<scalar_ct> big_scalars(5);
             std::vector<scalar_ct> double_scalars(11);
 
-            std::vector<affine_element> small_points_w(25);
-            std::vector<affine_element> big_points_w(5);
             std::vector<affine_element> double_points_w(11);
-            std::vector<fr> small_scalars_w(25);
-            std::vector<fr> big_scalars_w(5);
             std::vector<fr> double_scalars_w(11);
 
-            for (size_t i = 0; i < 25; ++i) {
-                small_points_w[i] = affine_element(element::random_element());
-                small_scalars_w[i] = get_small_scalar();
-                small_points[i] = element_ct::from_witness(&builder, small_points_w[i]);
-                small_scalars[i] = scalar_ct::from_witness(&builder, small_scalars_w[i]);
-            }
-            for (size_t i = 0; i < 5; ++i) {
-                big_points_w[i] = affine_element(element::random_element());
-                big_scalars_w[i] = fr::random_element();
-                big_points[i] = element_ct::from_witness(&builder, big_points_w[i]);
-                big_scalars[i] = scalar_ct::from_witness(&builder, big_scalars_w[i]);
-            }
             for (size_t i = 0; i < 11; ++i) {
                 double_points_w[i] = affine_element(element::random_element());
                 double_scalars_w[i] = get_small_scalar();
@@ -1576,34 +1480,17 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
                 double_scalars[i] = scalar_ct::from_witness(&builder, double_scalars_w[i]);
             }
 
-            fr omega = get_small_scalar();
-
             const auto double_opening_result = element_ct::batch_mul(double_points, double_scalars, 128);
-            small_points.push_back(double_opening_result);
-            small_scalars.push_back(scalar_ct::from_witness(&builder, omega));
-
-            auto opening_result =
-                element_ct::bn254_endo_batch_mul(big_points, big_scalars, small_points, small_scalars, 128);
-
-            opening_result = opening_result + double_opening_result;
-            opening_result = opening_result.normalize();
 
             element expected = g1::one;
             expected.self_set_infinity();
             for (size_t i = 0; i < 11; ++i) {
                 expected += (double_points_w[i] * double_scalars_w[i]);
             }
-            expected *= (omega + 1);
-            for (size_t i = 0; i < 25; ++i) {
-                expected += (small_points_w[i] * small_scalars_w[i]);
-            }
-            for (size_t i = 0; i < 5; ++i) {
-                expected += (big_points_w[i] * big_scalars_w[i]);
-            }
             expected = expected.normalize();
 
-            fq result_x(opening_result.x.get_value().lo);
-            fq result_y(opening_result.y.get_value().lo);
+            fq result_x(double_opening_result.x.get_value().lo);
+            fq result_y(double_opening_result.y.get_value().lo);
 
             EXPECT_EQ(result_x, expected.x);
             EXPECT_EQ(result_y, expected.y);
@@ -1815,18 +1702,6 @@ HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_4)
 }
 
 /* The following tests are specific to BN254 and don't work when Fr is a bigfield */
-HEAVY_TYPED_TEST(stdlib_biggroup, bn254_endo_batch_mul)
-{
-    if constexpr (TypeParam::Curve::type == CurveType::BN254 && !TypeParam::use_bigfield) {
-        if constexpr (HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP();
-        } else {
-            TestFixture::test_bn254_endo_batch_mul();
-        };
-    } else {
-        GTEST_SKIP();
-    }
-}
 HEAVY_TYPED_TEST(stdlib_biggroup, mixed_mul_bn254_endo)
 {
     if constexpr (TypeParam::Curve::type == CurveType::BN254 && !TypeParam::use_bigfield) {

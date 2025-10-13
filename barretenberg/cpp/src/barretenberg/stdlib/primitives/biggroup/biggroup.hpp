@@ -26,6 +26,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
   public:
     using Builder = Builder_;
     using bool_ct = stdlib::bool_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
     using biggroup_tag = element; // Facilitates a constexpr check IsBigGroup
     using BaseField = Fq;
 
@@ -124,7 +125,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             out.x = x;
             out.y = y;
         }
-        out.set_point_at_infinity(witness_t<Builder>(ctx, input.is_point_at_infinity()));
+        out.set_point_at_infinity(witness_ct(ctx, input.is_point_at_infinity()));
 
         // Mark the element as coming out of nowhere
         out.set_free_witness_tag();
@@ -376,26 +377,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
                              const std::vector<Fr>& scalars,
                              const size_t max_num_bits = 0,
                              const bool with_edgecases = false);
-
-    // we want to conditionally compile this method iff our curve params are the BN254 curve.
-    // This is a bit tricky to do with `std::enable_if`, because `bn254_endo_batch_mul` is a member function of a class
-    // template
-    // && the compiler can't perform partial template specialization on member functions of class templates
-    // => our template parameter cannot be a value but must instead by a type
-    // Our input to `std::enable_if` is a comparison between two types (NativeGroup and bb::g1), which
-    // resolves to either `true/false`.
-    // If `std::enable_if` resolves to `true`, it resolves to a `typedef` that equals `void`
-    // If `std::enable_if` resolves to `false`, there is no member typedef
-    // We want to take the *type* of the output typedef of `std::enable_if`
-    // i.e. for the bn254 curve, the template param is `typename = void`
-    // for any other curve, there is no template param
-    template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, bb::g1>::value>>
-        requires(IsNotMegaBuilder<Builder>)
-    static element bn254_endo_batch_mul(const std::vector<element>& big_points,
-                                        const std::vector<Fr>& big_scalars,
-                                        const std::vector<element>& small_points,
-                                        const std::vector<Fr>& small_scalars,
-                                        const size_t max_num_small_bits);
 
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, secp256k1::g1>::value>>
     static element secp256k1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2);
