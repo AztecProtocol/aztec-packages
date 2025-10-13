@@ -25,29 +25,29 @@
     "l2ToL1Messages": []
   },
   "block": {
-    "archive": "0x228d4789111677b2063883a1d79694c88d8a4f6e5c954a54761629867b9e1605",
+    "archive": "0x251f72fa1dd660da0294c0cb2cad7024b4997904cb890eada9c00d87e627fe41",
     "blobCommitments": "0x0183d27470dde07f76d48b7a2649d0e0470ece5b4bb789ead0018d75beee43d49b5494aadce0bd97af25e130ea8e2e34b7",
     "batchedBlobInputs": "0x01b3c791d91f8bd20ad24700636312ec9a9e1bfad72a91fb7ed1b184ca1e29ef08b789ecc069f33e37567cced97993b6d693faf3d97133ca073c70cd7e95b0fb5dae53b1277eeb809d8226e5acff01a87378bd57565c63f9186db20a0b58a810abff878c4b59bc23d410ae83c32a739595ccefd1c0df808cab83f1cb0aae49c7598b07c3370c8dc89763b0b2282a73c889470eabf8ca3dedeb2717c1276266f5b7ea51c3b9e482f0628f051d6c2a71544b44dd14fb0b86985866860aa23dc5f4",
     "blockNumber": 2,
     "body": "0x00000000",
     "header": {
-      "lastArchiveRoot": "0x1b72b1a2eba9b490a938d521e9813907ecc3961c1a768fb79af5c824ea59bd64",
+      "lastArchiveRoot": "0x260c3adf5ce493884074c4277f4544844cfeb54f00c72f47b4338cadcb5c0b8d",
       "contentCommitment": {
         "blobsHash": "0x00037077d6b94ce99fcfe346182c4bb458a304f075a4f09c8df75f7ce1caadbb",
-        "inHash": "0x008b98b6f566f9bf78cf5edbe955467c2bd3a9cd9d179fe806a853a23fc97111",
+        "inHash": "0x00bab8b9435929f9a80c223de82e4dd230ded5b118af083fe26e425b975af0ef",
         "outHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
       },
-      "slotNumber": 76,
-      "timestamp": 1755018127,
-      "coinbase": "0xcb486390cb1e8799bfdc7b2f66905dd9579576cd",
-      "feeRecipient": "0x0391c2c6d0d6bc8283ae38f44173ccd23da5261c89e689c6b797bc3d85232463",
+      "slotNumber": 108,
+      "timestamp": 1760351473,
+      "coinbase": "0x712ba2ecefa3586b7fe21fd00a2915e15a5dc4f9",
+      "feeRecipient": "0x11054aaf6d7aec40175319d4ebf7d57e23ad63bfa02c170a7ef9edf31da51d82",
       "gasFees": {
         "feePerDaGas": 0,
-        "feePerL2Gas": 2170
+        "feePerL2Gas": 1490
       },
       "totalManaUsed": 0
     },
-    "headerHash": "0x0007944424c96680ffb947402b173a311d83c585d5a73bbc2fa4e2dd2b0c7c9c",
+    "headerHash": "0x00e93c927a3559ec5b6ec17128b5d2359585504921c41c14435e586c2e536cdf",
     "numTxs": 0
   }
 }

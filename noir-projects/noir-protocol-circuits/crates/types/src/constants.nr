@@ -28,31 +28,16 @@ pub global MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS: u32 = 16_000;
  */
 
 // docs:start:constants
-// "PER CALL" CONSTANTS
-pub global MAX_NOTE_HASHES_PER_CALL: u32 = 16;
-pub global MAX_NULLIFIERS_PER_CALL: u32 = 16;
-pub global MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL: u32 = 5;
-pub global MAX_ENQUEUED_CALLS_PER_CALL: u32 = 16;
-pub global MAX_L2_TO_L1_MSGS_PER_CALL: u32 = 2;
-pub global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL: u32 = 63;
-pub global MAX_PUBLIC_DATA_READS_PER_CALL: u32 = 64;
-pub global MAX_NOTE_HASH_READ_REQUESTS_PER_CALL: u32 = 16;
-pub global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: u32 = 16;
-pub global MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL: u32 = 16;
-pub global MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL: u32 = 16;
-pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = 16;
-pub global MAX_PRIVATE_LOGS_PER_CALL: u32 = 16;
-pub global MAX_CONTRACT_CLASS_LOGS_PER_CALL: u32 = 1;
-
 // TREES RELATED CONSTANTS
-pub global ARCHIVE_HEIGHT: u32 = 29;
+pub global ARCHIVE_HEIGHT: u32 = 30; // 4-second blocks for 100 years.
 pub global VK_TREE_HEIGHT: u32 = 7;
-pub global FUNCTION_TREE_HEIGHT: u32 = 5;
-pub global NOTE_HASH_TREE_HEIGHT: u32 = 40;
-pub global PUBLIC_DATA_TREE_HEIGHT: u32 = 40;
-pub global NULLIFIER_TREE_HEIGHT: u32 = 40;
-pub global L1_TO_L2_MSG_TREE_HEIGHT: u32 = 39;
-pub global ARTIFACT_FUNCTION_TREE_MAX_HEIGHT: u32 = 5;
+pub global FUNCTION_TREE_HEIGHT: u32 = 7; // The number of private functions in a contract.
+pub global NOTE_HASH_TREE_HEIGHT: u32 = 42; // 64 notes/tx (static because of base rollup insertion), 15tps, for 100 years.
+pub global PUBLIC_DATA_TREE_HEIGHT: u32 = 40; // Average of 16 updates/tx (guess), 15tps, 100 years.
+pub global NULLIFIER_TREE_HEIGHT: u32 = NOTE_HASH_TREE_HEIGHT;
+pub global L1_TO_L2_MSG_TREE_HEIGHT: u32 = 36; // 1024 messages per checkpoint, with 72 seconds per checkpoint, for 100 years.
+pub global ARTIFACT_FUNCTION_TREE_MAX_HEIGHT: u32 = FUNCTION_TREE_HEIGHT; // The number of unconstrained functions in a contract. Set to equal the number of private functions in a contract.
+
 pub global NULLIFIER_TREE_ID: Field = 0;
 pub global NOTE_HASH_TREE_ID: Field = 1;
 pub global PUBLIC_DATA_TREE_ID: Field = 2;
@@ -65,7 +50,7 @@ pub global L1_TO_L2_MSG_TREE_LEAF_COUNT: u64 = 1 << (L1_TO_L2_MSG_TREE_HEIGHT as
 pub global NOTE_HASH_SUBTREE_HEIGHT: u32 = 6;
 pub global NULLIFIER_SUBTREE_HEIGHT: u32 = 6;
 pub global PUBLIC_DATA_SUBTREE_HEIGHT: u32 = 6;
-pub global L1_TO_L2_MSG_SUBTREE_HEIGHT: u32 = 4;
+pub global L1_TO_L2_MSG_SUBTREE_HEIGHT: u32 = 4; // TODO: Update this to publish 1024 messages per checkpoint
 pub global NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
     NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT;
 pub global NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
@@ -96,10 +81,26 @@ pub global MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX: u32 = 64;
 pub global MAX_KEY_VALIDATION_REQUESTS_PER_TX: u32 = 64;
 pub global MAX_PRIVATE_LOGS_PER_TX: u32 = 32;
 pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
+
+// "PER CALL" CONSTANTS
+pub global MAX_NOTE_HASHES_PER_CALL: u32 = 16;
+pub global MAX_NULLIFIERS_PER_CALL: u32 = 16;
+pub global MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL: u32 = 5;
+pub global MAX_ENQUEUED_CALLS_PER_CALL: u32 = 16;
+pub global MAX_L2_TO_L1_MSGS_PER_CALL: u32 = 2;
+pub global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL: u32 = 63;
+pub global MAX_PUBLIC_DATA_READS_PER_CALL: u32 = 64;
+pub global MAX_NOTE_HASH_READ_REQUESTS_PER_CALL: u32 = 16;
+pub global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: u32 = 16;
+pub global MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL: u32 = 16;
+pub global MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL: u32 = 16;
+pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = 16;
+pub global MAX_PRIVATE_LOGS_PER_CALL: u32 = 16;
+pub global MAX_CONTRACT_CLASS_LOGS_PER_CALL: u32 = 1;
 // docs:end:constants
 
 // ROLLUP CONTRACT CONSTANTS - constants used only in l1-contracts
-pub global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u32 = 16;
+pub global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u32 = 1 << L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
 // VK TREE CONSTANTS
 pub comptime global PRIVATE_KERNEL_INIT_INDEX: u32 = 0;
@@ -138,9 +139,9 @@ pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
 pub global MAX_INCLUDE_BY_TIMESTAMP_DURATION: u64 = 86400; // 1 day
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
-    0x1946c22774242c1aae3d73ff44bd250fa7c0d1a83b55c8a5d3642a518c530ffb;
+    0x0dc66232e4edff2923217f4fdf80ecc23ed4bd047e743df85a6827878bf6c4d6;
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x2a5d53da0a767a07c6e731af7ac9dad7f3bf4f19feea9ad7d177711f19a34cbe;
+    0x1f8c805403d88ee809d3cb3e52eeba0a104f69968cdb844a9cbdf1e9e00b3a95;
 // Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
 pub global PUBLIC_DISPATCH_SELECTOR: Field = 0xd5441b0d;
 
@@ -151,10 +152,30 @@ pub global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u32 = 3000;
 pub global MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS: u32 = 3000;
 // Same for utility functions: the size is per function.
 pub global MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS: u32 = 3000;
+
 // How many fields are on the serialized ClassPrivateFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS.
-pub global CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 19;
+pub global CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 =/* magic value */ 1
+    + 1 /* contract_class_id */
+    + 1 /* artifact_metadata_hash */
+    + 1 /* utility_functions_artifact_tree_root */
+    + FUNCTION_TREE_HEIGHT /* private_function_tree_sibling_path */
+    + 1 /* private_function_tree_leaf_index */
+    + ARTIFACT_FUNCTION_TREE_MAX_HEIGHT /* artifact_function_tree_sibling_path */
+    + 1 /* artifact_function_tree_leaf_index */
+    + 1 /* function selector */
+    + 1 /* function metadata_hash */
+    + 1 /* function vk_hash */;
+
 // How many fields are on the serialized ClassUtilityFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS.
-pub global CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 12;
+pub global CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 =/* magic value */ 1
+    + 1 /* contract_class_id */
+    + 1 /* artifact_metadata_hash */
+    + 1 /* private_functions_artifact_tree_root */
+    + ARTIFACT_FUNCTION_TREE_MAX_HEIGHT /* artifact_function_tree_sibling_path */
+    + 1 /* artifact_function_tree_leaf_index */
+    + 1 /* function selector */
+    + 1 /* function metadata_hash */;
+
 // Since we are not yet emitting selectors we'll use this magic value to identify events emitted by the ClassRegistry.
 // This is just a stopgap until we implement proper selectors.
 // sha224sum 'struct ContractClassPublished {contract_class_id: ContractClassId, version: Field, artifact_hash: Field, private_functions_root: Field, packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] }'
@@ -539,8 +560,6 @@ pub global CONTRACT_DATA_NUM_BYTES_PER_BASE_ROLLUP_UNPADDED: Field = 52;
 pub global L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP: Field = 256;
 pub global LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP: Field = 64;
 pub global NUM_MSGS_PER_BASE_PARITY: u32 = 4;
-// pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP / NUM_MSGS_PER_BASE_PARITY;
-// FIX: Sadly, writing this as above causes a type error in type_conversion.ts.
 pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
 // Lengths of the different types of proofs in fields
@@ -1131,6 +1150,10 @@ mod test {
         SIDE_EFFECT_MASKING_ADDRESS,
     };
     use crate::traits::FromField;
+    use super::{
+        NUM_BASE_PARITY_PER_ROOT_PARITY, NUM_MSGS_PER_BASE_PARITY,
+        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+    };
 
     #[test]
     unconstrained fn test_constants() {
@@ -1174,6 +1197,14 @@ mod test {
         assert_eq(
             SIDE_EFFECT_MASKING_ADDRESS,
             AztecAddress::from_field(MAX_PROTOCOL_CONTRACTS as Field + 1),
+        );
+    }
+
+    #[test]
+    unconstrained fn parity_covers_all_l1_to_l2_msgs() {
+        assert_eq(
+            NUM_BASE_PARITY_PER_ROOT_PARITY * NUM_MSGS_PER_BASE_PARITY,
+            NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
         );
     }
 
