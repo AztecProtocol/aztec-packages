@@ -743,6 +743,14 @@ export class RPCTranslator {
     return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
+  async utilityEmitOffchainEffect(_foreignData: ForeignCallArray) {
+    const data = fromArray(_foreignData);
+
+    await this.handlerAsPrivate().utilityEmitOffchainEffect(data);
+
+    return toForeignCallResult([]);
+  }
+
   emitOffchainEffect(_foreignData: ForeignCallArray) {
     throw new Error('Offchain effects are not yet supported in the TestEnvironment');
   }
@@ -1010,3 +1018,24 @@ export class RPCTranslator {
     return toForeignCallResult([toSingle(nextAppTag)]);
   }
 }
+
+// Compile-time check: ensure RPCTranslator implements all oracle methods
+// across Misc, Utility, Private, AVM, and TXE interfaces.
+type MethodNames<T> = {
+  [K in keyof T]: T[K] extends (...args: any[]) => any ? K : never;
+}[keyof T];
+
+type AllOracleInterfaces =
+  | IMiscOracle
+  | IUtilityExecutionOracle
+  | IPrivateExecutionOracle
+  | IAvmExecutionOracle
+  | ITxeExecutionOracle;
+
+type OracleMethodNames = MethodNames<AllOracleInterfaces>;
+type TranslatorMethodNames = MethodNames<RPCTranslator>;
+
+// If any oracle method name is missing from RPCTranslator, this type will not be `true`
+// and the following constant assignment will fail at compile-time.
+type MissingOracleHandlers = Exclude<OracleMethodNames, TranslatorMethodNames>;
+const __rpcTranslatorImplementsAllOracles: MissingOracleHandlers extends never ? true : never = true;
