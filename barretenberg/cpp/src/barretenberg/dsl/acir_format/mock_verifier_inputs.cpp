@@ -6,6 +6,7 @@
 
 #include "mock_verifier_inputs.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
@@ -81,6 +82,97 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_oink_proof(
 
     // Populate mock witness polynomial commitments
     populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES);
+
+    return proof;
+}
+
+template <typename Flavor> HonkProof create_mock_sumcheck_proof()
+{
+    using FF = typename Flavor::FF;
+    HonkProof proof;
+
+    // Sumcheck univariates
+    const size_t TOTAL_SIZE_SUMCHECK_UNIVARIATES = Flavor::VIRTUAL_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
+    populate_field_elements<FF>(proof, TOTAL_SIZE_SUMCHECK_UNIVARIATES);
+
+    // Sumcheck multilinear evaluations
+    populate_field_elements<FF>(proof, Flavor::NUM_ALL_ENTITIES);
+
+    return proof;
+}
+
+HonkProof create_mock_multilinear_batch_proof()
+{
+    using Flavor = MultilinearBatchingFlavor;
+    using FF = typename Flavor::FF;
+    HonkProof proof;
+
+    // Populate mock witness polynomial commitments
+    populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES);
+
+    // Accumulator and instance multivariate challenges
+    populate_field_elements<FF>(proof, Flavor::VIRTUAL_LOG_N * 2);
+
+    // Witness polynomial evaluations
+    populate_field_elements<FF>(proof, Flavor::NUM_WITNESS_ENTITIES);
+
+    // Sumcheck proof
+    HonkProof sumcheck_proof = create_mock_sumcheck_proof<Flavor>();
+
+    proof.insert(proof.end(), sumcheck_proof.begin(), sumcheck_proof.end());
+
+    return proof;
+}
+
+template <typename Flavor, class PublicInputs> HonkProof create_mock_hyper_nova_proof(bool include_fold)
+{
+    HonkProof oink_proof = create_mock_oink_proof<Flavor, PublicInputs>(/*inner_public_inputs_size=*/0);
+    HonkProof sumcheck_proof = create_mock_sumcheck_proof<Flavor>();
+    HonkProof multilinear_batch_proof;
+    if (include_fold) {
+        multilinear_batch_proof = create_mock_multilinear_batch_proof();
+    }
+    HonkProof proof;
+    proof.reserve(oink_proof.size() + sumcheck_proof.size() + multilinear_batch_proof.size());
+    proof.insert(proof.end(), oink_proof.begin(), oink_proof.end());
+    proof.insert(proof.end(), sumcheck_proof.begin(), sumcheck_proof.end());
+    proof.insert(proof.end(), multilinear_batch_proof.begin(), multilinear_batch_proof.end());
+
+    return proof;
+}
+
+// WORKTODO: use these methods in places where this logic is duplicated
+template <typename Flavor> HonkProof create_mock_pcs_proof()
+{
+    using FF = Flavor::FF;
+    using Curve = Flavor::Curve;
+    HonkProof proof;
+
+    // Gemini fold commitments
+    const size_t NUM_GEMINI_FOLD_COMMITMENTS = Flavor::VIRTUAL_LOG_N - 1;
+    populate_field_elements_for_mock_commitments<Curve>(proof, NUM_GEMINI_FOLD_COMMITMENTS);
+
+    // Gemini fold evaluations
+    const size_t NUM_GEMINI_FOLD_EVALUATIONS = Flavor::VIRTUAL_LOG_N;
+    populate_field_elements<FF>(proof, NUM_GEMINI_FOLD_EVALUATIONS);
+
+    if constexpr (std::is_same_v<Flavor, TranslatorFlavor>) {
+        // Gemini P pos evaluation
+        populate_field_elements<FF>(proof, 1);
+
+        // Gemini P neg evaluation
+        populate_field_elements<FF>(proof, 1);
+    }
+
+    if constexpr (Flavor::HasZK) {
+        // NUM_SMALL_IPA_EVALUATIONS libra evals
+        populate_field_elements<FF>(proof, NUM_SMALL_IPA_EVALUATIONS);
+    }
+
+    // Shplonk batched quotient commitment
+    populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
+    // KZG quotient commitment
+    populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
 
     return proof;
 }
@@ -476,6 +568,8 @@ template HonkProof create_mock_oink_proof<UltraZKFlavor, stdlib::recursion::honk
     const size_t);
 template HonkProof create_mock_oink_proof<UltraRollupFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
 
+template HonkProof create_mock_pcs_proof<MegaFlavor>();
+
 template HonkProof create_mock_decider_proof<MegaFlavor>();
 template HonkProof create_mock_decider_proof<UltraFlavor>();
 template HonkProof create_mock_decider_proof<UltraZKFlavor>();
@@ -500,6 +594,10 @@ template HonkProof create_mock_honk_proof<UltraRollupFlavor, stdlib::recursion::
 template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::AppIO>();
 template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>();
 template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>();
+
+template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(
+    bool);
+template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>(bool);
 
 template HonkProof create_mock_civc_proof<UltraCircuitBuilder>(const size_t);
 template HonkProof create_mock_civc_proof<MegaCircuitBuilder>(const size_t);

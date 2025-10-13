@@ -75,6 +75,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     using Circuit = typename Flavor::CircuitBuilder;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
+    using WitnessCommitments = typename Flavor::WitnessCommitments;
     using Polynomial = typename Flavor::Polynomial;
     using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
@@ -90,7 +91,8 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
 
     std::vector<FF> public_inputs;
     ProverPolynomials polynomials; // the multilinear polynomials used by the prover
-    SubrelationSeparators alphas;  // a challenge for each subrelation
+    WitnessCommitments commitments;
+    SubrelationSeparators alphas; // a challenge for each subrelation
     bb::RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
     FF target_sum{ 0 }; // Sumcheck target sum; typically nonzero for a ProtogalaxyProver's accumulator

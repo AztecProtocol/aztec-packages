@@ -67,6 +67,8 @@ class UltraFlavor {
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
     // The number of shifted witness entities including derived witness entities
     static constexpr size_t NUM_SHIFTED_WITNESSES = 5;
+    // The number of unshifted witness entities
+    static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
     // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
@@ -600,45 +602,24 @@ class UltraFlavor {
         VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key,
                              const std::optional<WitnessEntities<Commitment>>& witness_commitments = std::nullopt)
         {
-            this->q_m = verification_key->q_m;
-            this->q_c = verification_key->q_c;
-            this->q_l = verification_key->q_l;
-            this->q_r = verification_key->q_r;
-            this->q_o = verification_key->q_o;
-            this->q_4 = verification_key->q_4;
-            this->q_lookup = verification_key->q_lookup;
-            this->q_arith = verification_key->q_arith;
-            this->q_delta_range = verification_key->q_delta_range;
-            this->q_elliptic = verification_key->q_elliptic;
-            this->q_memory = verification_key->q_memory;
-            this->q_nnf = verification_key->q_nnf;
-            this->q_poseidon2_external = verification_key->q_poseidon2_external;
-            this->q_poseidon2_internal = verification_key->q_poseidon2_internal;
-            this->sigma_1 = verification_key->sigma_1;
-            this->sigma_2 = verification_key->sigma_2;
-            this->sigma_3 = verification_key->sigma_3;
-            this->sigma_4 = verification_key->sigma_4;
-            this->id_1 = verification_key->id_1;
-            this->id_2 = verification_key->id_2;
-            this->id_3 = verification_key->id_3;
-            this->id_4 = verification_key->id_4;
-            this->table_1 = verification_key->table_1;
-            this->table_2 = verification_key->table_2;
-            this->table_3 = verification_key->table_3;
-            this->table_4 = verification_key->table_4;
-            this->lagrange_first = verification_key->lagrange_first;
-            this->lagrange_last = verification_key->lagrange_last;
+            // Copy the precomputed polynomial commitments into this
+            for (auto [precomputed, precomputed_in] : zip_view(this->get_precomputed(), verification_key->get_all())) {
+                precomputed = precomputed_in;
+            }
 
+            // If provided, copy the witness polynomial commitments into this
             if (witness_commitments.has_value()) {
-                auto commitments = witness_commitments.value();
-                this->w_l = commitments.w_l;
-                this->w_r = commitments.w_r;
-                this->w_o = commitments.w_o;
-                this->lookup_inverses = commitments.lookup_inverses;
-                this->lookup_read_counts = commitments.lookup_read_counts;
-                this->lookup_read_tags = commitments.lookup_read_tags;
-                this->w_4 = commitments.w_4;
-                this->z_perm = commitments.z_perm;
+                for (auto [witness, witness_in] :
+                     zip_view(this->get_witness(), witness_commitments.value().get_all())) {
+                    witness = witness_in;
+                }
+
+                // Set shifted commitments
+                this->w_l_shift = witness_commitments->w_l;
+                this->w_r_shift = witness_commitments->w_r;
+                this->w_o_shift = witness_commitments->w_o;
+                this->w_4_shift = witness_commitments->w_4;
+                this->z_perm_shift = witness_commitments->z_perm;
             }
         }
     }; // namespace bb
