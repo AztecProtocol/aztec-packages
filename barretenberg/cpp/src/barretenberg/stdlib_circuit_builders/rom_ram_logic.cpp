@@ -76,6 +76,7 @@ void RomRamLogic_<ExecutionTrace>::set_ROM_element_pair(CircuitBuilder* builder,
     };
     rom_array.state[index_value][0] = value_witnesses[0];
     rom_array.state[index_value][1] = value_witnesses[1];
+    // `create_ROM_gate` fills in the `gate_index` of the `RamRecord`.
     create_ROM_gate(builder, new_record);
     rom_array.records.emplace_back(new_record);
 }
@@ -103,7 +104,6 @@ uint32_t RomRamLogic_<ExecutionTrace>::read_ROM_array(CircuitBuilder* builder,
     create_ROM_gate(builder, new_record);
     rom_array.records.emplace_back(new_record);
 
-    // create_read_gate
     return value_witness;
 }
 
@@ -135,14 +135,17 @@ std::array<uint32_t, 2> RomRamLogic_<ExecutionTrace>::read_ROM_array_pair(Circui
     create_ROM_gate(builder, new_record);
     rom_array.records.emplace_back(new_record);
 
-    // create_read_gate
     return value_witnesses;
 }
+
+// There is one key difference between `create_ROM_gate` and `create_sorted_ROM_gate`: we apply a different memory
+// selectors. We also only call `update_used_witnesses` for `record_witness` in the latter, but this is just for
+// Boomerang value detection.
 
 template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::create_ROM_gate(CircuitBuilder* builder, RomRecord& record)
 {
-    // Record wire value can't yet be computed
+    // Record wire value can't yet be computed; it will be filled in later.
     record.record_witness = builder->add_variable(0);
     builder->apply_memory_selectors(CircuitBuilder::MEMORY_SELECTORS::ROM_READ);
     builder->blocks.memory.populate_wires(
@@ -172,6 +175,7 @@ template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, const size_t rom_id)
 {
     auto& rom_array = rom_arrays[rom_id];
+    // set up copy constraints
     const auto read_tag = builder->get_new_tag();        // current_tag + 1;
     const auto sorted_list_tag = builder->get_new_tag(); // current_tag + 2;
     builder->create_tag(read_tag, sorted_list_tag);
@@ -195,7 +199,7 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
         const auto value1 = builder->get_variable(record.value_column1_witness);
         const auto value2 = builder->get_variable(record.value_column2_witness);
         const auto index_witness = builder->add_variable(FF((uint64_t)index));
-        // the same thing as with the record witness
+        BB_ASSERT_EQ(builder->get_variable(index_witness), builder->get_variable(record.index_witness));
         builder->update_used_witnesses(index_witness);
         const auto value1_witness = builder->add_variable(value1);
         const auto value2_witness = builder->add_variable(value2);
@@ -400,7 +404,7 @@ void RomRamLogic_<ExecutionTrace>::create_final_sorted_RAM_gate(CircuitBuilder* 
     // Note: record the index into the block that contains the RAM/ROM gates
     record.gate_index = builder->blocks.memory.size(); // no -1 since we havent added the gate yet
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): This method used to add a single arithmetic gate
+    // NOTE(https://github.com/AztecProtocol/barretenberg/issues/879): This method used to add a single arithmetic gate
     // with two purposes: (1) to provide wire values to the previous RAM gate via shifts, and (2) to perform a
     // consistency check on the value in wire 1. These two purposes have been split into a dummy gate and a simplified
     // arithmetic gate, respectively. This allows both purposes to be served even after arithmetic gates are sorted out
@@ -434,6 +438,7 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
     RamTranscript& ram_array = ram_arrays[ram_id];
     const auto access_tag = builder->get_new_tag();      // current_tag + 1;
     const auto sorted_list_tag = builder->get_new_tag(); // current_tag + 2;
+    // set up the copy constraints
     builder->create_tag(access_tag, sorted_list_tag);
     builder->create_tag(sorted_list_tag, access_tag);
 
@@ -455,7 +460,8 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
 
     std::vector<RamRecord> sorted_ram_records;
 
-    // Iterate over all but final RAM record.
+    // Iterate over all but final RAM record. This is because one of the checks for the "interior" RAM gates is that the
+    // next gate is also a RAM gate. We therfore apply a simplified check for the last gate.
     for (size_t i = 0; i < ram_array.records.size(); ++i) {
         const RamRecord& record = ram_array.records[i];
 

@@ -13,9 +13,11 @@ template <typename ExecutionTrace_> class UltraCircuitBuilder_;
 static constexpr uint32_t UNINITIALIZED_MEMORY_RECORD = UINT32_MAX;
 
 /**
- * @brief A ROM memory record that can be ordered
+ * @brief A ROM memory record that can be ordered, where the ordering is given by the index (a.k.a. position in the ROM
+ * array).
  *
  * @note A `RomRecord` is used both for setting ROM elements and reading ROM elements.
+ * @note See `relations/memory_relation.hpp` for more details.
  */
 struct RomRecord {
     uint32_t index_witness = 0; // Witness value of the index in the particular ROM block that contains this row.
@@ -35,6 +37,9 @@ struct RomRecord {
 
 /**
  * @brief A RAM memory record that can be ordered.
+ *
+ * @note In distinction to a `RomRecord`, this also contains an `access_type` member, which records if the memory
+ * operation is a READ or WRITE.
  */
 struct RamRecord {
     enum AccessType {
@@ -47,8 +52,8 @@ struct RamRecord {
     uint32_t index = 0;
     uint32_t timestamp = 0;
     AccessType access_type = AccessType::READ;
-    uint32_t record_witness = 0;
-    size_t gate_index = 0;
+    uint32_t record_witness = 0; // Record, a.k.a. "fingerprint" of the row.
+    size_t gate_index = 0;       // Index in the memory block where the RAM gate will live.
     bool operator<(const RamRecord& other) const
     {
         bool index_test = (index) < (other.index);
@@ -125,7 +130,7 @@ template <typename ExecutionTrace> class RomRamLogic_ {
      */
     std::vector<RamTranscript> ram_arrays;
     /**
-     * @brief Each entry in ram_arrays represents an independent ROM table.
+     * @brief Each entry in rom_arrays represents an independent ROM table.
      * RomTranscript tracks the current table state,
      * as well as the 'records' produced by each read operation.
      * Used in `compute_prover_instance` to generate consistency check gates required to validate the ROM read history
