@@ -45,7 +45,7 @@ const config = {
     mermaid: true,
     hooks: {
       onBrokenMarkdownLinks: process.env.ENV === "dev" ? "warn" : "throw",
-    }
+    },
   },
   themes: ["@docusaurus/theme-mermaid", "docusaurus-theme-search-typesense"],
   presets: [
@@ -70,6 +70,7 @@ const config = {
           includeCurrentVersion: true,
           // There should be 2 versions, nightly and stable
           // The stable version is second in the list
+          lastVersion: versions[1],
           versions: {
             [versions[0]]: {
               ...(versions[0].includes("nightly") && { path: "nightly" }),
@@ -143,7 +144,7 @@ const config = {
     // ["./src/plugins/plugin-embed-code", {}],
   ],
   customFields: {
-    MATOMO_ENV: process.env.ENV,
+    ENV: process.env.ENV,
   },
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
@@ -186,12 +187,6 @@ const config = {
             position: "left",
             dropdownActiveClassDisabled: true,
           },
-          // {
-          //   type: "docSidebar",
-          //   sidebarId: "learnSidebar",
-          //   position: "left",
-          //   label: "Learn",
-          // },
           {
             type: "docSidebar",
             sidebarId: "sidebar",
