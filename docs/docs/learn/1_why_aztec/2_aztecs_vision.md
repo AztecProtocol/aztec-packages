@@ -98,7 +98,8 @@ Let's be clear about what we mean by privacy:
 - **Computational Privacy**: Even the execution of functions can be private
 - **Selective Transparency**: You control what becomes public
 - **Forward Privacy**: Past transactions remain private even with future technology
-  :::
+
+:::
 
 This isn't like using a mixer or a privacy coin where you're just obscuring transactions. This is fundamental, cryptographic privacy built into every layer of the system.
 
@@ -358,7 +359,7 @@ You now understand:
 **Feeling inspired?** You should be! You're about to learn how to build applications that were literally impossible before Aztec.
 
 - [TODO] maybe add a link to create a tweet to say you're on the learning journey? Could be good for our metric tracking?
-:::
+  :::
 
 ---
 

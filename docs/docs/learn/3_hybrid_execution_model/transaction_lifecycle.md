@@ -7,7 +7,11 @@ tags: [transaction, lifecycle]
 
 import Image from '@theme/IdealImage';
 
-You've learned about private state with notes and client-side execution of private functions with zero-knowledge proofs. Now let's see how these concepts come together in the lifecycle of an Aztec transaction. By the end of this lesson, you'll understand exactly what happens from the moment you click "send" to when your transaction becomes final on Ethereum.
+Great job making it this far! You've learned about private state with notes and client-side execution with zero-knowledge proofs. Now, let's see how all these concepts come together in the lifecycle of an actual Aztec transaction.
+
+By the end of this lesson, you'll understand exactly what happens from the moment you click "send" in your wallet to when your transaction becomes final on Ethereum. This is where everything clicks into place!
+
+Understanding how a transaction flows through Aztec is like watching all the puzzle pieces fit together. We'll follow a transaction from creation to finality, seeing exactly how your PXE, the sequencer network, provers, and Ethereum L1 all interact at each stage. This walkthrough will transform abstract concepts like "client-side execution" and "zero-knowledge proofs" into concrete steps in a real process. You're building a complete mental model of how Aztec actually works!
 
 ## What you'll learn
 
@@ -19,6 +23,7 @@ You've learned about private state with notes and client-side execution of priva
 ## Prerequisites
 
 Understanding of:
+
 - Notes, commitments, and nullifiers from the [State model lesson](../2_privacy_mindset/1_state_model.md)
 - Private function client-side execution from the [previous lesson](../2_privacy_mindset/2_client_side_execution.md)
 - Basic knowledge of Ethereum and rollups
@@ -44,44 +49,46 @@ But unlike a regular postal system, at each step there are cryptographic guarant
 
 ## Step 1: Local execution
 
-Let's say you want to send 100 private tokens to your friend Alice. Here's what happens the moment you click "Send" in your wallet:
+Let's make this concrete with a real example! Imagine you want to send 100 private tokens to your friend Alice. Here's what happens the moment you click "Send" in your wallet - and remember, all of this happens on *your* device first:
 
 ### Private execution
 
-Running entirely on your device, your PXE:
+Running entirely on your device, your PXE does the following:
 
-[TODO] do they not use multiple notes? I assume its - do they have one with exact amount or more, if not combine multiple notes
-
-1. **Retrieves your notes**: Finds your note(s) to a total of at least 100 tokens
-2. **Executes the transfer locally**: Runs the smart contract's transfer function with your inputs
+1. **Retrieves your notes**: Finds one or more of your notes that add up to at least 100 tokens (remember, notes work like cash bills!)
+2. **Executes the transfer locally**: Runs the smart contract's transfer function with your private inputs
 3. **Creates new notes**:
-   - One note for Alice with 100 tokens
-   - One change note for you if your input note(s) were larger than 100
-4. **Generates the proof**: Creates a zero-knowledge proof that all of this was done correctly including:
-   - You own the notes you're spending (without revealing which notes)
-   - You have sufficient balance (without revealing how much)
+   - One note for Alice with exactly 100 tokens
+   - One change note for you if your input note(s) totaled more than 100 (just like getting change when you pay with a $20 bill for a $15 item)
+4. **Generates the proof**: Creates a zero-knowledge proof that mathematically guarantees all of this was done correctly, including:
+   - You own the notes you're spending (without revealing which specific notes)
+   - You have sufficient balance (without revealing your total balance)
    - The transfer follows all the contract's rules
    - The new notes are created correctly
-   - The math all adds up (inputs = outputs, no tokens created from thin air)
+   - The math all adds up perfectly (inputs = outputs, no tokens created from thin air!)
 
-This all happens on your device. Your actual balance, Alice's address, and the amount never leave your computer in plain text.
+Pretty amazing, right? This all happens on your device. Your actual balance, Alice's address, and the amount never leave your computer in plain text. Privacy from the very first step!
 
 ## Step 2: Network execution
 
-Now your transaction needs to leave the safety of your PXE and enter the wider network, while maintaining privacy.
+Now your transaction needs to leave the safety of your PXE and enter the wider network. But don't worry - privacy is maintained every step of the way!
 
 Your PXE transmits:
-- The zero-knowledge proof(s)
-- New note commitments (not the notes themselves to maintain privacy)
-- Nullifiers (to mark your spent notes as consumed)
-- Any public function calls that need to be executed
-- Optionally: encrypted note to post onchain (so Alice can later discover and decrypt her new tokens). These notes can also be shared offchain to save onchain storage costs.
 
-Notice what's NOT sent:
+- The zero-knowledge proof(s) (remember, these prove correctness without revealing details!)
+- New note commitments (not the notes themselves - maintaining privacy!)
+- Nullifiers (to mark your spent notes as consumed and prevent double-spending)
+- Any public function calls that need to be executed
+- Optionally: the encrypted note to post onchain (so Alice can later discover and decrypt her new tokens). These notes can also be shared directly offchain to save onchain storage costs!
+
+Here's what's really cool - notice what's NOT sent:
+
 - Your actual balance
 - The real transfer amount
 - Alice's address in plain text
-- Which notes you're actually spending
+- Which specific notes you're spending
+
+The network gets everything it needs to verify your transaction is valid, but nothing about your private data!
 
 ### The kernel circuits
 
@@ -98,7 +105,9 @@ The kernel circuits use **recursive proofs**, which we learned about in the prev
 
 ## Step 3: The sequencer's role
 
-Your transaction has now reached the sequencer network. In Aztec, **sequencers are full nodes responsible for the production of blocks within the network**. Like air traffic controllers, they take all the incoming transactions and organize them into orderly blocks. Importantly, they have no visibility into the contents, purpose, or origin of any transactions they are sequencing, unless that transaction explicitly has public elements.
+Your transaction has now reached the sequencer network! In Aztec, **sequencers are full nodes responsible for producing blocks within the network**. Think of them like air traffic controllers - they take all the incoming transactions and organize them into orderly blocks.
+
+Here's something important to understand: even though sequencers are handling your transaction, they have zero visibility into its private contents, purpose, or origin unless you explicitly made parts of it public. They're organizing encrypted packages they can't open!
 
 ### Selection and validation
 
@@ -201,76 +210,20 @@ This verification takes just milliseconds and costs a fraction of what executing
 "Finality" in Aztec follows a two-phase approach:
 
 **On Aztec** (fast confirmations):
+
 - Block included by sequencers
 - Secured by sequencer stake
 - Provides quick user feedback
 - Can theoretically be reversed if sequencers misbehave
 
 **On Ethereum** (true finality):
+
 - Zero-knowledge proof generated by provers
 - Proof verified on Ethereum L1
 - Transaction included in an Ethereum block
 - Irreversible without Ethereum reorganization
 
 At this point, reversing your transaction would require reversing Ethereum itself, economically infeasible!
-
-## The complete picture: Following a DeFi transaction
-
-[TODO] remove, feels like it doesn't add any extra info from above?
-
-Let's trace through a real example - swapping private tokens for public tokens on a DEX:
-
-### 1. Initiation (Your device)
-
-You want to swap 100 private DAI for public ETH. You click "Swap" in your wallet.
-
-### 2. Private execution (PXE - still your device)
-
-- Retrieve your private DAI notes
-- Execute the swap contract's private function
-- Generate proof of valid execution
-- Create nullifiers for spent DAI notes
-- Prepare a message for the public DEX function
-
-### 3. Transmission (PXE → Network)
-
-Your PXE sends:
-
-- Private execution proof
-- Nullifiers (marking DAI as spent)
-- Encrypted message for the public DEX
-- Gas fee payment proof
-
-### 4. Sequencing (Sequencer node)
-
-- Verify your private proof
-- Check nullifiers are unique
-- Queue public DEX call
-- Execute public swap:
-  - DEX receives your private DAI commitment
-  - Calculates ETH output amount
-  - Updates public pool reserves
-  - Assigns public ETH to your address
-
-### 5. Proving (Block provers)
-
-- Aggregate transaction proofs from the block(s)
-- Create recursive proofs through rollup circuits
-- Generate final epoch or partial epoch proof
-
-### 6. Settlement (Ethereum)
-
-- Submit proof to L1
-- Ethereum verifies
-- State root updated
-- Your swap is final!
-
-Throughout this entire process:
-
-- Your DAI balance stayed private
-- The swap amount was hidden
-- Only the public pool update was visible
-- Everything was cryptographically guaranteed
 
 ## Key takeaways
 

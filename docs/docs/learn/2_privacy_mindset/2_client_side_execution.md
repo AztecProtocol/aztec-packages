@@ -24,15 +24,15 @@ You can write and deploy smart contracts to Aztec, just like Ethereum. Expect th
 
 Whether a function is **public** or **private** changes the **execution environment**.
 
-
 ## Public and private execution environments
 
 Public functions execute onchain via the nodes in the Aztec network in the public VM.
 
 Private functions are executed client-side in your private execution environment (PXE). This is offchain. This could be:
+
 - In your browser in an application
 - Locally when using a CLI
-This means that all your private data is not visible to anyone but you. All private data and computation is done offchain, locally.
+  This means that all your private data is not visible to anyone but you. All private data and computation is done offchain, locally.
 
 ## Why client-side execution matters for privacy
 
@@ -96,11 +96,11 @@ In the world of zero-knowledge proofs, there are always two parties:
 
 ### Proving and verification keys: The magical key pair
 
-How does the verifier know what to check?" This is where proving and verification keys come in. Think of them as a special pair of puzzle pieces that fit together perfectly:
+How does the verifier know what to check? This is where proving and verification keys come in. Think of them as a special pair of puzzle pieces that fit together perfectly:
 
 [TODO] proving keys??? Not witness????? Or ACIR so like bytecode????
 
-- **Proving Key**: A large file that contains all the mathematical constraints (like specific rules your programme inputs must follow to satisfy the requirements) of your program. Your PXE uses this to generate proofs.
+- **Proving Key**: A large file that contains all the mathematical constraints (like specific rules your program inputs must follow to satisfy the requirements) of your program. Your PXE uses this to generate proofs.
 - **Verification Key**: A small file that contains the essential information needed to verify proofs. The network uses this to check your work.
 
 These keys are generated once when a smart contract is deployed, and they mathematically encode what the contract is supposed to do. It's impossible to generate a valid proof that doesn't follow the contract's rules, the math simply won't work out.
@@ -224,6 +224,7 @@ When you write a private function in your Aztec smart contract, you're creating 
 
 These circuits are the engine that makes Aztec work created by the Aztec protocol core developers. They enforce protocol rules and maintain system integrity
 **Examples**:
+
 - **Private kernel circuit**: Verifies your private function executed correctly and enforces protocol rules
 - **Public kernel circuit**: Processes public function calls and manages state updates
 - **Base rollup circuit**: Processes a batch of transactions and produces the first layer of aggregation
@@ -233,6 +234,57 @@ These circuits are the engine that makes Aztec work created by the Aztec protoco
 You don't write these circuits, but they work behind the scenes to ensure your application circuits integrate properly with the rest of the network. Think of them as the operating system that your applications run on.
 
 ### How they work together
+
+Here's how your application circuits flow through Aztec's protocol circuits to create a final proof for Ethereum:
+
+```mermaid
+graph TD
+    subgraph Developer["Aztec Contract"]
+        AppCircuit["Application Circuit<br/><br/>Example: transfer_private function"]
+    end
+
+    subgraph PrivateLayer["Private Execution Environment"]
+        PrivateKernel["Private Kernel Circuit<br/><br/>Verifies app proof<br/>+ Checks authorization<br/>+ Validates note logic"]
+    end
+
+    subgraph PublicLayer["Public Execution (Optional)"]
+        PublicKernel["Public Kernel Circuit<br/><br/>Handles public state updates"]
+    end
+
+    subgraph RollupLayer["Rollup Aggregation Layer"]
+        BaseRollup["Base Rollup Circuit<br/>Processes batch of transactions"]
+        MergeRollup["Merge Rollup Circuit<br/>Combines multiple base proofs<br/>(recursive aggregation)"]
+        RootRollup["Root Rollup Circuit<br/>Creates final proof for L1"]
+    end
+
+    subgraph Ethereum["Ethereum (Layer 1)"]
+        L1Verifier["Smart Contract Verifier<br/>Validates final proof<br/>+ Updates state root"]
+    end
+
+    AppCircuit -->|"App Proof"| PrivateKernel
+    PrivateKernel -->|"Private Kernel Proof"| PublicKernel
+    PrivateKernel -.->|"If no public calls"| BaseRollup
+    PublicKernel -->|"Public Kernel Proof"| BaseRollup
+    BaseRollup -->|"Base Proof"| MergeRollup
+    MergeRollup -->|"Merged Proof"| RootRollup
+    MergeRollup -.->|"Multiple levels possible"| MergeRollup
+    RootRollup -->|"Final Rollup Proof"| L1Verifier
+
+    Note1["📌 Recursive Proof Magic:<br/>Each circuit verifies the previous proof<br/>and adds its own checks,<br/>creating a single proof that validates everything"]
+
+    Note2["✏️ You: Write application circuit logic<br/>⚙️ Aztec: Handles all protocol circuits"]
+
+    style Developer fill:#e1f5ff,stroke:#0288d1,stroke-width:3px
+    style AppCircuit fill:#bbdefb,stroke:#1976d2,stroke-width:2px
+    style PrivateKernel fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style PublicKernel fill:#ffe0b2,stroke:#e64a19,stroke-width:2px
+    style BaseRollup fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style MergeRollup fill:#e1bee7,stroke:#6a1b9a,stroke-width:2px
+    style RootRollup fill:#ce93d8,stroke:#4a148c,stroke-width:2px
+    style L1Verifier fill:#c8e6c9,stroke:#388e3c,stroke-width:3px
+    style Note1 fill:#fff9c4,stroke:#f9a825,stroke-width:2px,text-align:left
+    style Note2 fill:#c5e1a5,stroke:#689f38,stroke-width:2px,text-align:left
+```
 
 These two types of circuits work in harmony using the recursive proof technique we just learned about:
 
@@ -244,48 +296,11 @@ These two types of circuits work in harmony using the recursive proof technique 
 
 Each circuit verifies the proofs from the previous layer while adding its own logic. Each layer mathematically guarantees the correctness of everything that came before it.
 
-## Putting it all together
-
-[TODO] remove? Seems like it's just a shit version of the next lesson to me?
-
-Let's trace through what happens when you make a private token transfer:
-
-1. **You initiate**: "Send 100 tokens to Alice"
-
-2. **Your PXE springs into action**:
-
-   - Retrieves your private balance notes from your local database
-   - Executes the transfer function locally with your private data
-   - Generates a ZK proof using the contract's proving key
-   - Nullifies used notes and creates new notes for Alice with her updated balance
-
-3. **The proof journey begins**:
-
-   - Your application circuit proof is wrapped by kernel circuits (the mega, outer circuit)
-   - The wrapped proof is sent to the network
-   - Sequencers verify it using the verification key
-   - Multiple transactions are batched together
-
-4. **Aggregation**:
-
-   - The base rollup circuit processes your transaction batch
-   - Layer by layer, multiple base rollup proofs are recursively aggregated
-   - Finally, the root rollup circuit creates one proof representing thousands of transactions
-
-5. **Final settlement**:
-   - The single aggregated proof is submitted to Ethereum
-   - Ethereum verifies this one proof
-   - All transactions in the batch are finalized together
-   - You share the L1 cost with everyone else in the batch
-
-Throughout this entire process, your balance, Alice's address, and the amount remain completely private. The network only sees that a transaction happened and that it is valid.
-
 ## Key takeaways
 
 Before we move on, let's reinforce what you've learned:
 
-- **Client-side execution** means your device does the computation, keeping your data private with selective disclosure
- makes.
+- **Client-side execution** means your device does the computation, keeping your data private with selective disclosure that lets you choose what to reveal.
 - **Zero-knowledge proofs** let you prove something is true without revealing the details with the proof verification being fast regardless of the complexity of the thing being proved (like correct computation).
 - **You're the prover** when you execute transactions; the network is the verifier.
 - **Recursive proofs** allow you to recursively combine lots of ZK proofs into one to maker verifying lots of data computationally simple.

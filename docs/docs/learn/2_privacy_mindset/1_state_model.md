@@ -7,7 +7,7 @@ tags: [privacy, notes, commitments, nullifiers, state]
 
 import Image from "@theme/IdealImage";
 
-This page introduces the core ideas behind Aztec’s private state model: what notes are, how commitments and nullifiers work, and the state Merkle trees that hold everything together.
+Welcome! In this lesson, we're going to explore one of Aztec's most important concepts: how private state actually works. Don't worry if this seems complex at first - we'll build your understanding step by step. By the end, you'll understand notes, commitments, nullifiers, and how Aztec's state trees keep everything secure and private.
 
 ## What you’ll learn
 
@@ -49,7 +49,7 @@ This is how **public state** works on Aztec. This public data, which follows thi
 
 ### Private state: UTXO based
 
-**Private state** works differently. Why? Let's go through it. Let's imagine we are still working with an account-based model but let's now say we encrypt the data:
+Now, **private state** works differently, and there's a really good reason for this! Let's explore why. Imagine we're still using an account-based model, but now we encrypt the data:
 
 ```
 0x$$$_$$$_balance: $
@@ -57,11 +57,11 @@ This is how **public state** works on Aztec. This public data, which follows thi
 
 When we send a transaction, it will modify this specific slot directly. So, even if the key and value themselves are encrypted, the data location is leaked. Using correlation techniques, this would expose information about the contract and variable being updated and break the privacy assumption.
 
-Therefore, we use a different model that breaks the link between the user and their balance. This means that balances can be updated whilst keeping the account and their associated data separate and private.
+Therefore, we use a different model that breaks the link between the user and their balance. This means balances can be updated while keeping the account and their associated data separate and private.
 
-Enter UTXO-based private state using **notes**, which we will go through shortly. For now, just think of them as a sealed envelope that contains the data (e.g. a balance) sealed inside.
+Enter UTXO-based private state using **notes**! We'll dive deep into what notes are shortly. For now, just think of them as a sealed envelope that contains data (like a balance) sealed inside, and only you have the key to open it.
 
-We have explained UTXO-based state models in a previous lesson, but let's do a recap.
+You might remember UTXO-based state models from our previous lesson, but let's do a quick recap to refresh your memory.
 
 Think of the UTXO model like physical cash. When you have cash in your wallet, you don't have "a balance", you have individual bills: a \$20 bill, two \$10 bills, and some $5 bills.
 
@@ -86,13 +86,15 @@ Result: Bob has a 25-token note, Alice has a 5-token note.
 
 Only the people involved in the transaction know their respective amounts and identities (Alice knows how much she sent to Bob and her remaining balance and Bob only knows that he received 25 tokens _not_ Alice's remaining balance). Everyone else just sees "some transaction happened" without knowing who, what, or how much. There's no "Alice has 30 tokens" stored anywhere, only individual hashed notes that _only she can knows the preimage for_. Each note is committed to (hashed) and stored separately, rather than the balance being stored in a single note. This allows the connection between a user and their total balance to be broken.
 
-But what actually is a note?
+But what actually is a note? Great question! Let's dive in.
 
 <Image img={require("@site/static/img/public-and-private-state-diagram.png")} />
 
 ## Notes
 
-A note is a piece of private data that can optionally be encrypted to share with other users. Notes are fundamental building blocks of private state. They are hashed to create commitments which are stored in a Merkle tree and may be posted onchain to make the data easily retrievable by their intended owner, but it is not required.
+Here's where things get interesting! A note is a piece of private data that can optionally be encrypted and shared with other users. Think of notes as the fundamental building blocks of private state - they're what make privacy possible on Aztec.
+
+When you create a note, it gets hashed to create a commitment which is then stored in a Merkle tree. The note itself may be posted onchain to make the data easily retrievable by its intended owner, but this isn't required - you can also share notes directly offchain!
 
 Think of a note as an envelope or sealed box that contains tokens inside, and only the note owner has the key to open:
 
@@ -100,7 +102,7 @@ Think of a note as an envelope or sealed box that contains tokens inside, and on
 - Location: In order to maintain privacy, notes aren't tied to a fixed storage slot like an Ethereum account balance. Instead they are appended to the note hash Merkle tree.
 - UTXO-like: To "spend" or "update", you consume old notes and create new ones.
 
-But what actually is a note? A note is just a `struct`, plus some methods, written in Noir, that specify the information about the note itself. Here's an example of what a note looks like:
+But what actually is a note in code? Don't worry - it's simpler than you might think! A note is just a `struct` (a data structure) written in Noir, along with some methods that specify how to handle the note. Let's look at an example:
 
 ```rust
 #[note]
@@ -111,15 +113,62 @@ pub struct ValueNote {
 }
 ```
 
-[TODO] check this cos like what about ID etc?
+Pretty straightforward, right? This simple structure contains everything needed for a private token: the amount (value), who owns it (owner), and some randomness to keep it private.
 
 ## Commitments
 
-Raw notes are not stored onchain. Instead, a commitment of the note is stored. A commitment is just a **hash** of the note content plus some randomness to ensure that the commitment is not linkable to the note and so that observers cannot brute-force hash note preimages to reveal the note data.
+Now, here's an important detail about how notes work: raw notes are never stored directly onchain. Instead, we store a **commitment** to the note.
+
+Think of a commitment like a sealed envelope with a unique stamp. A commitment is just a **hash** of the note content plus some randomness. This randomness is crucial - it ensures that observers can't link the commitment back to the original note or brute-force guess what's inside. It's like adding a secret ingredient to your recipe that makes it impossible for others to reverse-engineer!
 
 Note commitments are stored in an _append-only_ **Note hash Merkle tree** (one of Aztec's 5 Merkle trees). To spend a note, the owner proves knowledge of the note by providing the associated commitment's "preimage".
 
-[TODO] diagram of the note commitment tree
+Let's visualize how a private note becomes a commitment in Aztec's append-only tree:
+
+```mermaid
+graph TB
+    subgraph "User's Private Data"
+        Note1["📝 Private Note<br/>(e.g., token amount, owner)"]
+        Random1["🎲 Random Value<br/>(ensures uniqueness)"]
+    end
+
+    subgraph "Commitment Process"
+        Hash1["⚡ Hash Function<br/>note + randomness"]
+        Commitment1["🔒 Note Commitment<br/>(cryptographic hash)"]
+    end
+
+    subgraph "Append-Only Note Hash Merkle Tree"
+        Root["🌳 Merkle Root<br/>(published on-chain)"]
+
+        L1["Internal Node"]
+        L2["Internal Node"]
+
+        Leaf1["Commitment 1"]
+        Leaf2["Commitment 2"]
+        Leaf3["Commitment 3"]
+        Leaf4["✨ New Commitment<br/>(appended)"]
+
+        Root --> L1
+        Root --> L2
+        L1 --> Leaf1
+        L1 --> Leaf2
+        L2 --> Leaf3
+        L2 --> Leaf4
+    end
+
+    Note1 --> Hash1
+    Random1 --> Hash1
+    Hash1 --> Commitment1
+    Commitment1 -.->|"Appended as new leaf"| Leaf4
+
+    Note[" 🔑 Key Points:<br/>✓ Tree is append-only (no deletions)<br/>✓ Only commitments (hashes) are stored<br/>✓ Original note data stays private<br/>✓ Tree root proves note existence"]
+
+    style Note1 fill:#e1f5ff,stroke:#0288d1,stroke-width:2px
+    style Commitment1 fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style Leaf4 fill:#c8e6c9,stroke:#388e3c,stroke-width:3px
+    style Root fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style Note fill:#fffde7,stroke:#f9a825,stroke-width:2px,text-align:left
+```
 
 Commitments have **two key properties**:
 
@@ -130,14 +179,16 @@ Note commitments let users prove note ownership, and the protocol check that a n
 
 ## Nullifiers
 
-To prevent double-spends, we need a public record that "this specific note commitment is now used" without revealing which note.
+Now you might be wondering: "If notes are private, how do we prevent someone from spending the same note twice?" Excellent question! This is where nullifiers come in.
 
-- A nullifier is a unique value, derived from the note and owner secrets.
-- It's designed so that outsiders can't link it to a specific commitment.
-- Nullifiers live in one of the five state trees, **the Nullifier Tree**.
-- No transaction can emit a nullifier that already exists in the tree.
+To prevent double-spends, we need a public record saying "this specific note has been used" without revealing which note it was or who spent it. That's exactly what a nullifier does:
 
-Together, commitments say "a note was created", and nullifiers say "a note was consumed once—and only once".
+- A nullifier is a unique value derived from the note and the owner's secrets
+- It's cleverly designed so outsiders can't link it back to a specific commitment (maintaining privacy!)
+- Nullifiers live in one of Aztec's five state trees: **the Nullifier Tree**
+- No transaction can emit a nullifier that already exists in the tree - this is enforced by the protocol
+
+Think of it this way: commitments say "a note was created somewhere by someone", and nullifiers say "a note was consumed once—and only once". Together, they create a complete system of private, double-spend-proof transactions!
 
 ## Summary
 
@@ -149,11 +200,13 @@ To "spend" a note, the user must prove that they know the **preimage** to the co
 
 ## Five State Trees
 
-1. The **Note hash Merkle tree** holds commitments (hashes) of private notes. It is append-only and used for membership proofs when spending.
-2. The **Nullifier tree** holds nullifiers (unique "spent" markers) to prevent reusing the same note.
-3. The **Public data tree** holds public contract storage (keyed by contract and slot e.g. `contract_address: slot_1`). It is transparent like traditional blockchains.
-4. The **L1-to-L2 Message tree** holds messages sent from L1 to L2.
-5. The **Archive Tree** tracks historical roots to enable proving against past states (e.g., "as of block N"). [TODO] historical note roots? Roots of which tree?
+Let's talk about how Aztec organizes all this data. Aztec uses five specialized Merkle trees, each with a specific purpose:
+
+1. **Note hash Merkle tree**: Holds commitments (hashes) of private notes. It's append-only and used for membership proofs when you're spending a note.
+2. **Nullifier tree**: Holds nullifiers (those unique "spent" markers we just learned about) to prevent anyone from reusing the same note.
+3. **Public data tree**: Holds public contract storage (keyed by contract and slot, like `contract_address: slot_1`). It's transparent just like traditional blockchains.
+4. **L1-to-L2 Message tree**: Holds messages sent from Ethereum L1 to Aztec L2, enabling cross-chain communication.
+5. **Archive Tree**: Tracks historical state roots, enabling proofs against past states (e.g., "as of block N, this was true").
 
 :::note
 Why append‑only for private data?
