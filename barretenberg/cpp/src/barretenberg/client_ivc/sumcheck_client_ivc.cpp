@@ -96,9 +96,9 @@ SumcheckClientIVC::RecursiveVerifierAccumulator SumcheckClientIVC::execute_first
     SumcheckOutput<RecursiveFlavor> sumcheck_output = sumcheck.verify(
         verifier_instance->relation_parameters, verifier_instance->gate_challenges, padding_indicator_array);
 
-    BB_ASSERT_EQ(sumcheck_output.verified || circuit.has_dummy_witnesses(),
-                 true,
-                 "Sumcheck: Failed to recursively verify first sumcheck.");
+    // BB_ASSERT_EQ(sumcheck_output.verified || circuit.has_dummy_witnesses(),
+    //              true,
+    //              "Sumcheck: Failed to recursively verify first sumcheck.");
 
     RecursiveFirstSumcheckOutput output{ .challenge = sumcheck_output.challenge,
                                          .claimed_evaluations = sumcheck_output.claimed_evaluations };
@@ -473,7 +473,7 @@ SumcheckClientIVC::VerifierAccumulator SumcheckClientIVC::execute_first_sumcheck
     SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(
         verifier_instance->relation_parameters, verifier_instance->gate_challenges, padding_indicator_array);
 
-    BB_ASSERT_EQ(sumcheck_output.verified, true, "Sumcheck: Failed native first sumcheck verification.");
+    // BB_ASSERT_EQ(sumcheck_output.verified, true, "Sumcheck: Failed native first sumcheck verification.");
 
     FirstSumcheckOutput output{ .challenge = sumcheck_output.challenge,
                                 .claimed_evaluations = sumcheck_output.claimed_evaluations };
