@@ -30,18 +30,55 @@ function get_projects {
 }
 
 function format {
-  local arg=${1:-"-w"}
-  find ./*/src -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' | \
+  local arg="-w"
+  local package=""
+  local pattern="./*/src"
+
+  # Check if first arg is a format option
+  if [ "${1:-}" == "--check" ]; then
+    arg="--check"
+    shift 1
+  elif [ "${1:-}" == "-w" ] || [ "${1:-}" == "--write" ]; then
+    arg="-w"
+    shift 1
+  fi
+
+  # Check if next arg is a package name (doesn't start with -)
+  if [ -n "${1:-}" ] && [[ ! "$1" =~ ^- ]]; then
+    package="$1"
+    pattern="./$package/src"
+  fi
+
+  find $pattern -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' 2>/dev/null | \
     parallel -N30 ./node_modules/.bin/prettier --log-level warn "$arg"
 }
 
 function lint {
   local arg="--fix"
+  local package=""
+
+  # Check if first arg is a lint option
   if [ "${1-}" == "--check" ]; then
     arg=""
     shift 1
+  elif [ "${1-}" == "--fix" ]; then
+    arg="--fix"
+    shift 1
   fi
-  get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache $arg ./src"
+
+  # Check if next arg is a package name (and not empty)
+  if [ -n "${1:-}" ] && [[ ! "$1" =~ ^- ]]; then
+    package="$1"
+    shift 1
+  fi
+
+  if [ -n "$package" ]; then
+    # Lint single package
+    cd "$package" && ../node_modules/.bin/eslint "$@" --cache $arg ./src
+  else
+    # Lint all packages
+    get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache $arg ./src"
+  fi
 }
 
 function compile_all {
