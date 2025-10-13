@@ -227,7 +227,7 @@ template <typename Curve> class ShplonkProver_ {
             current_nu *= nu_challenge;
         }
         // Return opening pair (z, 0) and polynomial G(X) = Q(X) - Q_z(X)
-        return { .polynomial = G, .opening_pair = { .challenge = z_challenge, .evaluation = Fr::zero() } };
+        return { .polynomial = std::move(G), .opening_pair = { .challenge = z_challenge, .evaluation = Fr::zero() } };
     };
     /**
      * @brief Compute evaluations of fold polynomials Fold_i at r^{2^i} for i>0.

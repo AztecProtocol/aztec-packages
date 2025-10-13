@@ -270,21 +270,10 @@ template <typename Curve> class GeminiProver_ {
         {
             BB_BENCH_NAME("compute_batched");
 
-            size_t challenge_idx = 0;
+            Polynomial full_batched = shift ? Polynomial::shiftable(full_batched_size) : Polynomial(full_batched_size);
 
-            if (shift) {
-                auto full_batched = Polynomial::shiftable(full_batched_size);
-                for (auto& poly : polynomials_to_batch) {
-                    full_batched.add_scaled(poly, challenges[challenge_idx]);
-                    challenge_idx += 1;
-                }
-                return full_batched;
-            }
-
-            Polynomial full_batched(full_batched_size);
-            for (auto& poly : polynomials_to_batch) {
-                full_batched.add_scaled(poly, challenges[challenge_idx]);
-                challenge_idx += 1;
+            for (auto [poly, challenge] : zip_view(polynomials_to_batch, challenges)) {
+                full_batched.add_scaled(poly, challenge);
             }
 
             return full_batched;

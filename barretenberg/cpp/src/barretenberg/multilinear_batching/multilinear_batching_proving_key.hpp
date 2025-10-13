@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include <memory>
 #include <utility>
 
 #include "barretenberg/common/assert.hpp"
@@ -31,17 +32,17 @@ class MultilinearBatchingProvingKey {
     Polynomial preshifted_instance;
     MultilinearBatchingProvingKey() = default;
 
-    MultilinearBatchingProvingKey(ProverPolynomials& polynomials,
-                                  std::vector<FF> accumulator_challenge,
-                                  std::vector<FF> instance_challenge,
-                                  std::vector<FF> accumulator_evaluations,
-                                  std::vector<FF> instance_evaluations,
+    MultilinearBatchingProvingKey(ProverPolynomials&& polynomials,
+                                  std::vector<FF>&& accumulator_challenge,
+                                  std::vector<FF>&& instance_challenge,
+                                  std::vector<FF>&& accumulator_evaluations,
+                                  std::vector<FF>&& instance_evaluations,
                                   Commitment non_shifted_accumulator_commitment,
                                   Commitment shifted_accumulator_commitment,
                                   Commitment non_shifted_instance_commitment,
                                   Commitment shifted_instance_commitment,
-                                  Polynomial preshifted_accumulator,
-                                  Polynomial preshifted_instance)
+                                  Polynomial&& preshifted_accumulator,
+                                  Polynomial&& preshifted_instance)
     {
         BB_BENCH_NAME("MultilinearBatchingProvingKey(ProverPolynomials&)");
 
@@ -55,8 +56,8 @@ class MultilinearBatchingProvingKey {
         this->shifted_accumulator_commitment = shifted_accumulator_commitment;
         this->non_shifted_instance_commitment = non_shifted_instance_commitment;
         this->shifted_instance_commitment = shifted_instance_commitment;
-        this->preshifted_accumulator = preshifted_accumulator;
-        this->preshifted_instance = preshifted_instance;
+        this->preshifted_accumulator = std::move(preshifted_accumulator);
+        this->preshifted_instance = std::move(preshifted_instance);
     };
 };
 } // namespace bb

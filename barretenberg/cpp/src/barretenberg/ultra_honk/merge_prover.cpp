@@ -125,7 +125,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
         partially_evaluated_difference.add_scaled(right_table[idx], pow_kappa);
         partially_evaluated_difference -= merged_table[idx];
 
-        opening_claims.emplace_back(OpeningClaim{ partially_evaluated_difference, { kappa, FF(0) } });
+        opening_claims.emplace_back(OpeningClaim{ std::move(partially_evaluated_difference), { kappa, FF(0) } });
     }
     // Compute evaluation l_j(1/kappa), g_j(\kappa), send to verifier, and set opening claims
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
@@ -134,12 +134,12 @@ MergeProver::MergeProof MergeProver::construct_proof()
         // Evaluate l_j(1/kappa)
         evaluation = left_table[idx].evaluate(kappa_inv);
         transcript->send_to_verifier("left_table_eval_kappa_inv_" + std::to_string(idx), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ left_table[idx], { kappa_inv, evaluation } });
+        opening_claims.emplace_back(OpeningClaim{ std::move(left_table[idx]), { kappa_inv, evaluation } });
 
         // Evaluate g_j(\kappa)
         evaluation = left_table_reversed[idx].evaluate(kappa);
         transcript->send_to_verifier("left_table_reversed_eval" + std::to_string(idx), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ left_table_reversed[idx], { kappa, evaluation } });
+        opening_claims.emplace_back(OpeningClaim{ std::move(left_table_reversed[idx]), { kappa, evaluation } });
     }
 
     // Shplonk prover

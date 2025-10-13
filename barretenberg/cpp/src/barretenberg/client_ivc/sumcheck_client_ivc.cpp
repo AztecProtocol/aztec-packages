@@ -505,8 +505,8 @@ HonkProof SumcheckClientIVC::construct_folding_proof(const std::shared_ptr<Prove
         .challenge = prover_accumulator.challenge,
         .shifted_evaluation = prover_accumulator.batched_evaluations[1],
         .non_shifted_evaluation = prover_accumulator.batched_evaluations[0],
-        .non_shifted_polynomial = prover_accumulator.batched_polynomials[0],
-        .shifted_polynomial = prover_accumulator.batched_polynomials[1],
+        .non_shifted_polynomial = prover_accumulator.batched_polynomials[0].share(),
+        .shifted_polynomial = prover_accumulator.batched_polynomials[1].share(),
         .non_shifted_commitment = prover_accumulator.batched_commitments[0],
         .shifted_commitment = prover_accumulator.batched_commitments[1],
         .dyadic_size = prover_accumulator.dyadic_size
@@ -516,25 +516,24 @@ HonkProof SumcheckClientIVC::construct_folding_proof(const std::shared_ptr<Prove
         .challenge = incoming_accumulator.challenge,
         .shifted_evaluation = incoming_accumulator.batched_evaluations[1],
         .non_shifted_evaluation = incoming_accumulator.batched_evaluations[0],
-        .non_shifted_polynomial = incoming_accumulator.batched_polynomials[0],
-        .shifted_polynomial = incoming_accumulator.batched_polynomials[1],
+        .non_shifted_polynomial = std::move(incoming_accumulator.batched_polynomials[0]),
+        .shifted_polynomial = std::move(incoming_accumulator.batched_polynomials[1]),
         .non_shifted_commitment = incoming_accumulator.batched_commitments[0],
         .shifted_commitment = incoming_accumulator.batched_commitments[1],
         .dyadic_size = incoming_accumulator.dyadic_size
     };
 
-    MultilinearBatchingProver batching_prover(std::make_shared<MultilinearBatchingProverClaim>(accumulator_claim),
-                                              std::make_shared<MultilinearBatchingProverClaim>(incoming_claim),
-                                              transcript);
+    MultilinearBatchingProver batching_prover(accumulator_claim, incoming_claim, transcript);
 
     HonkProof proof = batching_prover.construct_proof();
     batching_prover.compute_new_claim();
-    auto new_accumulator = batching_prover.get_new_claim();
+    const MultilinearBatchingProverClaim& new_accumulator = batching_prover.get_new_claim();
 
     prover_accumulator = ProverAccumulator{
         .challenge = new_accumulator.challenge,
         .batched_evaluations = { new_accumulator.non_shifted_evaluation, new_accumulator.shifted_evaluation },
-        .batched_polynomials = { new_accumulator.non_shifted_polynomial, new_accumulator.shifted_polynomial },
+        .batched_polynomials = { new_accumulator.non_shifted_polynomial.share(),
+                                 new_accumulator.shifted_polynomial.share() },
         .batched_commitments = { new_accumulator.non_shifted_commitment, new_accumulator.shifted_commitment },
         .dyadic_size = new_accumulator.dyadic_size,
     };

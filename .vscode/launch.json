@@ -81,9 +81,9 @@
       "name": "Debug BB ClientIVC Test",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/client_ivc_tests",
-      "args": ["--gtest_filter=ClientIVCTests.ProveAndVerifyFileBasedFlow"],
-      "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-fast-no-avm/bin/client_ivc_tests",
+      "args": ["--gtest_filter=SumcheckClientIVCTests.BasicStructured"],
+      "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug-fast-no-avm",
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
       ],

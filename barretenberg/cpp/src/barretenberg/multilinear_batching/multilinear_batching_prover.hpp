@@ -27,10 +27,8 @@ class MultilinearBatchingProver {
     using PCS = typename Flavor::PCS;
     using Transcript = typename Flavor::Transcript;
 
-    // explicit MultilinearBatchingProver(const std::shared_ptr<MultilinearBatchingProvingKey>& key,
-    //                                    const std::shared_ptr<Transcript>& transcript);
-    explicit MultilinearBatchingProver(const std::shared_ptr<MultilinearBatchingProverClaim>& accumulator_claim,
-                                       const std::shared_ptr<MultilinearBatchingProverClaim>& instance_claim,
+    explicit MultilinearBatchingProver(MultilinearBatchingProverClaim& accumulator_claim,
+                                       MultilinearBatchingProverClaim& instance_claim,
                                        const std::shared_ptr<Transcript>& transcript);
 
     BB_PROFILE void execute_commitments_round();
@@ -40,7 +38,7 @@ class MultilinearBatchingProver {
     HonkProof export_proof();
     HonkProof construct_proof();
 
-    MultilinearBatchingProverClaim get_new_claim() { return new_claim; };
+    const MultilinearBatchingProverClaim& get_new_claim() const { return new_claim; };
 
     std::shared_ptr<Transcript> transcript;
 

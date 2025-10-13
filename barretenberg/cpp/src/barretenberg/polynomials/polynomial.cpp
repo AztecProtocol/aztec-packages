@@ -21,6 +21,7 @@
 #include <mutex>
 #include <span>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <unordered_map>
 #include <utility>
 

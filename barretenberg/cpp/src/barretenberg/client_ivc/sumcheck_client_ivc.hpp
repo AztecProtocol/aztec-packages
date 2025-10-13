@@ -249,13 +249,13 @@ class SumcheckClientIVC : public IVCBase {
         {
             std::vector<bb::fr> elements;
 
-            std::vector<bb::fr> mega_elements = mega->to_field_elements();
+            auto mega_elements = mega->to_field_elements();
             elements.insert(elements.end(), mega_elements.begin(), mega_elements.end());
 
-            std::vector<bb::fr> eccvm_elements = eccvm->to_field_elements();
+            auto eccvm_elements = eccvm->to_field_elements();
             elements.insert(elements.end(), eccvm_elements.begin(), eccvm_elements.end());
 
-            std::vector<bb::fr> translator_elements = translator->to_field_elements();
+            auto translator_elements = translator->to_field_elements();
             elements.insert(elements.end(), translator_elements.begin(), translator_elements.end());
 
             return elements;
@@ -396,45 +396,45 @@ class SumcheckClientIVC : public IVCBase {
                                 const std::shared_ptr<Transcript>& transcript)
         {
             // Generate challenges to batch shifted and unshifted polynomials/evaluation
-            auto unshifted_challenges = sumcheck_civc_generate_challenges<FF, Flavor::NUM_UNSHIFTED_ENTITIES>(
-                transcript, "unshifted_challenge_");
-            auto shifted_challenges =
+            std::array<FF, Flavor::NUM_UNSHIFTED_ENTITIES> unshifted_challenges =
+                sumcheck_civc_generate_challenges<FF, Flavor::NUM_UNSHIFTED_ENTITIES>(transcript,
+                                                                                      "unshifted_challenge_");
+            std::array<FF, Flavor::NUM_SHIFTED_WITNESSES> shifted_challenges =
                 sumcheck_civc_generate_challenges<FF, Flavor::NUM_SHIFTED_WITNESSES>(transcript, "shifted_challenge_");
 
             // Batch polynomials
-            auto unshifted = polynomials.get_unshifted();
-            auto shifted = polynomials.get_to_be_shifted();
+            RefArray unshifted = polynomials.get_unshifted();
+            RefArray shifted = polynomials.get_to_be_shifted();
 
-            auto batched_unshifted = PolynomialBatcher::compute_batched<Flavor::NUM_UNSHIFTED_ENTITIES>(
+            Polynomial<FF> batched_unshifted = PolynomialBatcher::compute_batched<Flavor::NUM_UNSHIFTED_ENTITIES>(
                 unshifted, full_batched_size, unshifted_challenges);
-            auto batched_shifted = PolynomialBatcher::compute_batched<Flavor::NUM_SHIFTED_WITNESSES>(
+            Polynomial<FF> batched_shifted = PolynomialBatcher::compute_batched<Flavor::NUM_SHIFTED_WITNESSES>(
                 shifted, full_batched_size, shifted_challenges, true);
 
-            // Batch evaluations
-            auto unshifted_evaluations = claimed_evaluations.get_unshifted();
-            auto shifted_evaluations = claimed_evaluations.get_shifted();
+            // Batch evaluations (FFs)
+            RefArray unshifted_evaluations = claimed_evaluations.get_unshifted();
+            RefArray shifted_evaluations = claimed_evaluations.get_shifted();
 
-            auto batched_unshifted_evaluation =
+            FF batched_unshifted_evaluation =
                 sumcheck_civc_compute_batched_evaluation<FF, Flavor::NUM_UNSHIFTED_ENTITIES>(unshifted_evaluations,
                                                                                              unshifted_challenges);
-            auto batched_shifted_evaluation =
-                sumcheck_civc_compute_batched_evaluation<FF, Flavor::NUM_SHIFTED_WITNESSES>(shifted_evaluations,
-                                                                                            shifted_challenges);
+            FF batched_shifted_evaluation = sumcheck_civc_compute_batched_evaluation<FF, Flavor::NUM_SHIFTED_WITNESSES>(
+                shifted_evaluations, shifted_challenges);
 
-            // Batch commitments
-            auto unshifted_commitments = commitments.get_unshifted();
-            auto shifted_commitments = commitments.get_to_be_shifted();
-            auto batched_unshifted_commitment =
+            // Batch commitments (Point's)
+            RefArray unshifted_commitments = commitments.get_unshifted();
+            RefArray shifted_commitments = commitments.get_to_be_shifted();
+            Point batched_unshifted_commitment =
                 sumcheck_civc_compute_batched_commitment<Commitment, FF, Flavor::NUM_UNSHIFTED_ENTITIES>(
                     unshifted_commitments, unshifted_challenges);
-            auto batched_shifted_commitment =
+            Point batched_shifted_commitment =
                 sumcheck_civc_compute_batched_commitment<Commitment, FF, Flavor::NUM_SHIFTED_WITNESSES>(
                     shifted_commitments, shifted_challenges);
 
             return ProverAccumulator{
-                .challenge = challenge,
+                .challenge = std::move(challenge),
                 .batched_evaluations = { batched_unshifted_evaluation, batched_shifted_evaluation },
-                .batched_polynomials = { batched_unshifted, batched_shifted },
+                .batched_polynomials = { batched_unshifted.share(), batched_shifted.share() },
                 .batched_commitments = { batched_unshifted_commitment, batched_shifted_commitment },
                 .dyadic_size = full_batched_size,
             };
