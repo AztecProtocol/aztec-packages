@@ -26,6 +26,64 @@
 
 namespace bb {
 
+// Helper functions for batching challenges, evaluations, and commitments
+template <typename FF, size_t N>
+std::array<FF, N> sumcheck_civc_generate_challenges(const std::shared_ptr<NativeTranscript>& transcript,
+                                                    const std::string& label)
+{
+    std::array<std::string, N> labels;
+    for (size_t idx = 0; idx < labels.size(); idx++) {
+        labels[idx] = label + std::to_string(idx);
+    }
+
+    std::array<FF, N> challenges;
+    challenges = transcript->template get_challenges<FF>(labels);
+
+    return challenges;
+}
+
+template <typename StdlibFF, size_t N>
+std::array<StdlibFF, N> sumcheck_civc_generate_challenges_stdlib(
+    const std::shared_ptr<typename MegaRecursiveFlavor_<bb::MegaCircuitBuilder>::Transcript>& transcript,
+    const std::string& label)
+{
+    std::array<std::string, N> labels;
+    for (size_t idx = 0; idx < labels.size(); idx++) {
+        labels[idx] = label + std::to_string(idx);
+    }
+
+    std::array<StdlibFF, N> challenges;
+    challenges = transcript->template get_challenges<StdlibFF>(labels);
+
+    return challenges;
+}
+
+template <typename FF, size_t N>
+FF sumcheck_civc_compute_batched_evaluation(RefArray<FF, N> claimed_evaluations, RefArray<FF, N> challenges)
+{
+    FF result(0);
+    for (auto [eval, challenge] : zip_view(claimed_evaluations, challenges)) {
+        result += eval * challenge;
+    }
+    return result;
+}
+
+template <typename Commitment, typename FF, size_t N>
+Commitment sumcheck_civc_compute_batched_commitment(RefArray<Commitment, N> commitments, RefArray<FF, N> challenges)
+{
+    std::vector<Commitment> points;
+    std::vector<FF> scalars;
+    for (auto [commitment, scalar] : zip_view(commitments, challenges)) {
+        points.emplace_back(commitment);
+        scalars.emplace_back(scalar);
+    }
+    if constexpr (std::is_same_v<Commitment, bb::g1::affine_element>) {
+        return batch_mul_native(points, scalars);
+    } else {
+        return Commitment::batch_mul(points, scalars);
+    }
+}
+
 /**
  * @brief The IVC scheme used by the aztec client for private function execution
  * @details Combines Protogalaxy with Goblin to accumulate one circuit at a time with efficient EC group
@@ -191,13 +249,13 @@ class SumcheckClientIVC : public IVCBase {
         {
             std::vector<bb::fr> elements;
 
-            auto mega_elements = mega->to_field_elements();
+            std::vector<bb::fr> mega_elements = mega->to_field_elements();
             elements.insert(elements.end(), mega_elements.begin(), mega_elements.end());
 
-            auto eccvm_elements = eccvm->to_field_elements();
+            std::vector<bb::fr> eccvm_elements = eccvm->to_field_elements();
             elements.insert(elements.end(), eccvm_elements.begin(), eccvm_elements.end());
 
-            auto translator_elements = translator->to_field_elements();
+            std::vector<bb::fr> translator_elements = translator->to_field_elements();
             elements.insert(elements.end(), translator_elements.begin(), translator_elements.end());
 
             return elements;
@@ -337,48 +395,11 @@ class SumcheckClientIVC : public IVCBase {
                                 VerifierCommitments& commitments,
                                 const std::shared_ptr<Transcript>& transcript)
         {
-            auto generate_challenges = [&transcript]<size_t N>(const std::string& label) -> std::array<FF, N> {
-                std::array<std::string, N> labels;
-                for (size_t idx = 0; idx < labels.size(); idx++) {
-                    labels[idx] = label + std::to_string(idx);
-                }
-
-                std::array<FF, N> challenges;
-                challenges = transcript->template get_challenges<FF>(labels);
-
-                return challenges;
-            };
-
-            auto compute_batched_evaluation = []<size_t N>(RefArray<FF, N> claimed_evaluations,
-                                                           RefArray<FF, N> challenges) {
-                FF result(0);
-                for (auto [eval, challenge] : zip_view(claimed_evaluations, challenges)) {
-                    result += eval * challenge;
-                }
-                return result;
-            };
-
-            auto compute_batched_commitment = []<size_t N>(RefArray<Commitment, N> commitments,
-                                                           RefArray<FF, N> challenges) {
-                std::vector<Commitment> points;
-                std::vector<FF> scalars;
-                size_t idx = 0;
-                for (auto [commitment, scalar] : zip_view(commitments, challenges)) {
-                    if (commitment.is_point_at_infinity()) {
-                        info("Commitment at index ", idx, " is zero");
-                    }
-                    points.emplace_back(commitment);
-                    scalars.emplace_back(scalar);
-                    idx++;
-                }
-                return batch_mul_native(points, scalars);
-            };
-
             // Generate challenges to batch shifted and unshifted polynomials/evaluation
-            auto unshifted_challenges =
-                generate_challenges.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>("unshifted_challenge_");
+            auto unshifted_challenges = sumcheck_civc_generate_challenges<FF, Flavor::NUM_UNSHIFTED_ENTITIES>(
+                transcript, "unshifted_challenge_");
             auto shifted_challenges =
-                generate_challenges.operator()<Flavor::NUM_SHIFTED_WITNESSES>("shifted_challenge_");
+                sumcheck_civc_generate_challenges<FF, Flavor::NUM_SHIFTED_WITNESSES>(transcript, "shifted_challenge_");
 
             // Batch polynomials
             auto unshifted = polynomials.get_unshifted();
@@ -393,18 +414,22 @@ class SumcheckClientIVC : public IVCBase {
             auto unshifted_evaluations = claimed_evaluations.get_unshifted();
             auto shifted_evaluations = claimed_evaluations.get_shifted();
 
-            auto batched_unshifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
-                unshifted_evaluations, unshifted_challenges);
-            auto batched_shifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_SHIFTED_WITNESSES>(
-                shifted_evaluations, shifted_challenges);
+            auto batched_unshifted_evaluation =
+                sumcheck_civc_compute_batched_evaluation<FF, Flavor::NUM_UNSHIFTED_ENTITIES>(unshifted_evaluations,
+                                                                                             unshifted_challenges);
+            auto batched_shifted_evaluation =
+                sumcheck_civc_compute_batched_evaluation<FF, Flavor::NUM_SHIFTED_WITNESSES>(shifted_evaluations,
+                                                                                            shifted_challenges);
 
             // Batch commitments
             auto unshifted_commitments = commitments.get_unshifted();
             auto shifted_commitments = commitments.get_to_be_shifted();
-            auto batched_unshifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
-                unshifted_commitments, unshifted_challenges);
-            auto batched_shifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_SHIFTED_WITNESSES>(
-                shifted_commitments, shifted_challenges);
+            auto batched_unshifted_commitment =
+                sumcheck_civc_compute_batched_commitment<Commitment, FF, Flavor::NUM_UNSHIFTED_ENTITIES>(
+                    unshifted_commitments, unshifted_challenges);
+            auto batched_shifted_commitment =
+                sumcheck_civc_compute_batched_commitment<Commitment, FF, Flavor::NUM_SHIFTED_WITNESSES>(
+                    shifted_commitments, shifted_challenges);
 
             return ProverAccumulator{
                 .challenge = challenge,
@@ -418,64 +443,36 @@ class SumcheckClientIVC : public IVCBase {
         VerifierAccumulator batch(const std::shared_ptr<VerifierInstance>& verifier_instance,
                                   const std::shared_ptr<Transcript>& transcript)
         {
-            auto generate_challenges = [&transcript]<size_t N>(const std::string& label) -> std::array<FF, N> {
-                std::array<std::string, N> labels;
-                for (size_t idx = 0; idx < labels.size(); idx++) {
-                    labels[idx] = label + std::to_string(idx);
-                }
-
-                std::array<FF, N> challenges;
-                challenges = transcript->template get_challenges<FF>(labels);
-
-                return challenges;
-            };
-
-            auto compute_batched_evaluation = []<size_t N>(RefArray<FF, N> claimed_evaluations,
-                                                           RefArray<FF, N> challenges) {
-                FF result(0);
-                for (auto [eval, challenge] : zip_view(claimed_evaluations, challenges)) {
-                    result += eval * challenge;
-                }
-                return result;
-            };
-
-            auto compute_batched_commitment = []<size_t N>(RefArray<Commitment, N> commitments,
-                                                           RefArray<FF, N> challenges) {
-                std::vector<Commitment> points;
-                std::vector<FF> scalars;
-                for (auto [commitment, scalar] : zip_view(commitments, challenges)) {
-                    points.emplace_back(commitment);
-                    scalars.emplace_back(scalar);
-                }
-                return batch_mul_native(points, scalars);
-            };
-
             // NOTE: THIS MIGHT BE SLOW!!!!!!
             Flavor::VerifierCommitments verifier_commitments(verifier_instance->vk,
                                                              verifier_instance->witness_commitments);
 
             // Generate challenges to batch shifted and unshifted polynomials/evaluation
-            auto unshifted_challenges =
-                generate_challenges.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>("unshifted_challenge_");
+            auto unshifted_challenges = sumcheck_civc_generate_challenges<FF, Flavor::NUM_UNSHIFTED_ENTITIES>(
+                transcript, "unshifted_challenge_");
             auto shifted_challenges =
-                generate_challenges.operator()<Flavor::NUM_SHIFTED_WITNESSES>("shifted_challenge_");
+                sumcheck_civc_generate_challenges<FF, Flavor::NUM_SHIFTED_WITNESSES>(transcript, "shifted_challenge_");
 
             // Batch evaluations
             auto unshifted_evaluations = claimed_evaluations.get_unshifted();
             auto shifted_evaluations = claimed_evaluations.get_to_be_shifted();
 
-            auto batched_unshifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
-                unshifted_evaluations, unshifted_challenges);
-            auto batched_shifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_SHIFTED_WITNESSES>(
-                shifted_evaluations, shifted_challenges);
+            auto batched_unshifted_evaluation =
+                sumcheck_civc_compute_batched_evaluation<FF, Flavor::NUM_UNSHIFTED_ENTITIES>(unshifted_evaluations,
+                                                                                             unshifted_challenges);
+            auto batched_shifted_evaluation =
+                sumcheck_civc_compute_batched_evaluation<FF, Flavor::NUM_SHIFTED_WITNESSES>(shifted_evaluations,
+                                                                                            shifted_challenges);
 
             // Batch commitments
             auto unshifted_commitments = verifier_commitments.get_unshifted();
             auto shifted_commitments = verifier_commitments.get_to_be_shifted();
-            auto batched_unshifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
-                unshifted_commitments, unshifted_challenges);
-            auto batched_shifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_SHIFTED_WITNESSES>(
-                shifted_commitments, shifted_challenges);
+            auto batched_unshifted_commitment =
+                sumcheck_civc_compute_batched_commitment<Commitment, FF, Flavor::NUM_UNSHIFTED_ENTITIES>(
+                    unshifted_commitments, unshifted_challenges);
+            auto batched_shifted_commitment =
+                sumcheck_civc_compute_batched_commitment<Commitment, FF, Flavor::NUM_SHIFTED_WITNESSES>(
+                    shifted_commitments, shifted_challenges);
 
             return VerifierAccumulator{
                 .challenge = challenge,
@@ -496,70 +493,37 @@ class SumcheckClientIVC : public IVCBase {
         RecursiveVerifierAccumulator batch(const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
                                            const std::shared_ptr<RecursiveTranscript>& transcript)
         {
-            auto generate_challenges = [&transcript]<size_t N>(const std::string& label) -> std::array<StdlibFF, N> {
-                std::array<std::string, N> labels;
-                for (size_t idx = 0; idx < labels.size(); idx++) {
-                    labels[idx] = label + std::to_string(idx);
-                }
-
-                std::array<StdlibFF, N> challenges;
-                challenges = transcript->template get_challenges<StdlibFF>(labels);
-
-                return challenges;
-            };
-
-            auto compute_batched_evaluation = []<size_t N>(RefArray<StdlibFF, N> claimed_evaluations,
-                                                           RefArray<StdlibFF, N> challenges) {
-                StdlibFF result(0);
-                for (auto [eval, challenge] : zip_view(claimed_evaluations, challenges)) {
-                    result += eval * challenge;
-                }
-                return result;
-            };
-
-            auto compute_batched_commitment = []<size_t N>(RefArray<RecursiveCommitment, N> commitments,
-                                                           RefArray<StdlibFF, N> challenges) {
-                std::vector<RecursiveCommitment> points;
-                std::vector<StdlibFF> scalars;
-                for (auto [commitment, scalar] : zip_view(commitments, challenges)) {
-                    if (commitment.is_point_at_infinity().get_value()) {
-                        info("HELLO");
-                    }
-                    if (scalar.is_zero().get_value()) {
-                        info("HELLO");
-                    }
-                    points.emplace_back(commitment);
-                    scalars.emplace_back(scalar);
-                }
-                return RecursiveCommitment::batch_mul(points, scalars);
-            };
-
             // NOTE: THIS MIGHT BE SLOW!!!!!!
             RecursiveFlavor::VerifierCommitments verifier_commitments(verifier_instance->vk_and_hash->vk,
                                                                       verifier_instance->witness_commitments);
 
             // Generate challenges to batch shifted and unshifted polynomials/evaluation
             auto unshifted_challenges =
-                generate_challenges.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>("unshifted_challenge_");
-            auto shifted_challenges =
-                generate_challenges.operator()<Flavor::NUM_SHIFTED_WITNESSES>("shifted_challenge_");
+                sumcheck_civc_generate_challenges_stdlib<StdlibFF, Flavor::NUM_UNSHIFTED_ENTITIES>(
+                    transcript, "unshifted_challenge_");
+            auto shifted_challenges = sumcheck_civc_generate_challenges_stdlib<StdlibFF, Flavor::NUM_SHIFTED_WITNESSES>(
+                transcript, "shifted_challenge_");
 
             // Batch evaluations
             auto unshifted_evaluations = claimed_evaluations.get_unshifted();
             auto shifted_evaluations = claimed_evaluations.get_to_be_shifted();
 
-            auto batched_unshifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
-                unshifted_evaluations, unshifted_challenges);
-            auto batched_shifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_SHIFTED_WITNESSES>(
-                shifted_evaluations, shifted_challenges);
+            auto batched_unshifted_evaluation =
+                sumcheck_civc_compute_batched_evaluation<StdlibFF, Flavor::NUM_UNSHIFTED_ENTITIES>(
+                    unshifted_evaluations, unshifted_challenges);
+            auto batched_shifted_evaluation =
+                sumcheck_civc_compute_batched_evaluation<StdlibFF, Flavor::NUM_SHIFTED_WITNESSES>(shifted_evaluations,
+                                                                                                  shifted_challenges);
 
             // Batch commitments
             auto unshifted_verifier_commitments = verifier_commitments.get_unshifted();
             auto shifted_witness_commitments = verifier_commitments.get_to_be_shifted();
-            auto batched_unshifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
-                unshifted_verifier_commitments, unshifted_challenges);
-            auto batched_shifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_SHIFTED_WITNESSES>(
-                shifted_witness_commitments, shifted_challenges);
+            auto batched_unshifted_commitment =
+                sumcheck_civc_compute_batched_commitment<RecursiveCommitment, StdlibFF, Flavor::NUM_UNSHIFTED_ENTITIES>(
+                    unshifted_verifier_commitments, unshifted_challenges);
+            auto batched_shifted_commitment =
+                sumcheck_civc_compute_batched_commitment<RecursiveCommitment, StdlibFF, Flavor::NUM_SHIFTED_WITNESSES>(
+                    shifted_witness_commitments, shifted_challenges);
 
             return RecursiveVerifierAccumulator(challenge,
                                                 { batched_unshifted_evaluation, batched_shifted_evaluation },
