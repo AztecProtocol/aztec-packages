@@ -410,7 +410,7 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
     C* ctx = scalar.context;
 
     // To compute the NAF representation, we first reduce the scalar modulo r (the scalar field modulus).
-    uint512_t scalar_multiplier_512 = uint512_t(scalar.get_value() % Fr::modulus);
+    uint512_t scalar_multiplier_512 = uint512_t(scalar.get_value()) % uint512_t(Fr::modulus);
     uint256_t scalar_multiplier = scalar_multiplier_512.lo;
 
     // Number of rounds is either the max_num_bits provided, or the full size of the scalar field modulus.
