@@ -10,10 +10,11 @@ source $(git rev-parse --show-toplevel)/ci3/source
 
 type=$1
 test=$2
+test_name=${3:-}
 
 case "$type" in
   "simple")
-    exec ./test_simple.sh $test
+    exec ./test_simple.sh "$test" "$test_name"
   ;;
   "compose")
     # TODO: Replace this file with test_simple.sh, and just emit the below as part of test_cmds.
