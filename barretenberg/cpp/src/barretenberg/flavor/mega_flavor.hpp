@@ -67,6 +67,8 @@ class MegaFlavor {
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
     // The number of shifted witness entities including derived witness entities
     static constexpr size_t NUM_SHIFTED_WITNESSES = 5;
+    // The number of unshifted witness entities
+    static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
         NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_WITNESSES);
@@ -598,6 +600,13 @@ class MegaFlavor {
                      zip_view(this->get_witness(), witness_commitments.value().get_all())) {
                     witness = witness_in;
                 }
+
+                // Set shifted commitments
+                this->w_l_shift = witness_commitments->w_l;
+                this->w_r_shift = witness_commitments->w_r;
+                this->w_o_shift = witness_commitments->w_o;
+                this->w_4_shift = witness_commitments->w_4;
+                this->z_perm_shift = witness_commitments->z_perm;
             }
         }
     };
