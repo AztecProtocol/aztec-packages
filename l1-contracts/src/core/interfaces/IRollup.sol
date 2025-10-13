@@ -49,7 +49,7 @@ struct BlockHeaderValidationFlags {
 
 struct GenesisState {
   bytes32 vkTreeRoot;
-  bytes32 protocolContractTreeRoot;
+  bytes32 protocolContractsHash;
   bytes32 genesisArchiveRoot;
 }
 
@@ -80,7 +80,7 @@ struct RollupConfigInput {
 
 struct RollupConfig {
   bytes32 vkTreeRoot;
-  bytes32 protocolContractTreeRoot;
+  bytes32 protocolContractsHash;
   uint32 version;
   IERC20 feeAsset;
   IFeeJuicePortal feeAssetPortal;
@@ -142,6 +142,7 @@ interface IRollupCore {
   function setRewardConfig(RewardConfig memory _config) external;
   function updateManaTarget(uint256 _manaTarget) external;
 
+  function isRewardsClaimable() external view returns (bool);
   // solhint-disable-next-line func-name-mixedcase
   function L1_BLOCK_AT_GENESIS() external view returns (uint256);
 }

@@ -8,9 +8,11 @@ import {
   CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE,
   FEE_JUICE_ADDRESS,
+  MAX_PROTOCOL_CONTRACTS,
   MULTI_CALL_ENTRYPOINT_ADDRESS,
   ROUTER_ADDRESS,
 } from '@aztec/constants';
+import { makeTuple } from '@aztec/foundation/array';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createConsoleLogger } from '@aztec/foundation/log';
@@ -18,11 +20,10 @@ import { loadContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { type NoirCompiledContract } from '@aztec/stdlib/noir';
+import { ProtocolContracts } from '@aztec/stdlib/tx';
 
 import { promises as fs } from 'fs';
 import path from 'path';
-
-import { buildProtocolContractTree } from '../build_protocol_contract_tree.js';
 
 const log = createConsoleLogger('autogenerate');
 
@@ -30,7 +31,6 @@ const noirContractsRoot = '../../noir-projects/noir-contracts';
 const srcPath = path.join(noirContractsRoot, './target');
 const destArtifactsDir = './artifacts';
 const outputFilePath = './src/protocol_contract_data.ts';
-const cppOutputFilePath = '../../barretenberg/cpp/src/barretenberg/vm2/common/protocol_contract_data.hpp';
 
 const salt = new Fr(1);
 
@@ -66,18 +66,9 @@ async function copyArtifact(srcName: string, destName: string) {
   return artifact;
 }
 
-async function computeContractLeaf(artifact: NoirCompiledContract) {
+async function computeAddress(artifact: NoirCompiledContract) {
   const instance = await getContractInstanceFromInstantiationParams(loadContractArtifact(artifact), { salt });
   return instance.address;
-}
-
-async function computeRoot(names: string[], leaves: Fr[]) {
-  const data = names.map((name, i) => ({
-    address: new AztecAddress(new Fr(contractAddressMapping[name])),
-    leaf: leaves[i],
-  }));
-  const tree = await buildProtocolContractTree(data);
-  return Fr.fromBuffer(tree.root);
 }
 
 async function generateDeclarationFile(destName: string) {
@@ -116,18 +107,32 @@ function generateContractAddresses(names: string[]) {
   `;
 }
 
-function generateContractLeaves(names: string[], leaves: Fr[]) {
+function generateDerivedAddresses(names: string[], derivedAddresses: AztecAddress[]) {
   return `
-    export const ProtocolContractLeaves = {
-      ${leaves.map((leaf, i) => `${names[i]}: Fr.fromHexString('${leaf.toString()}')`).join(',\n')}
+    export const ProtocolContractDerivedAddress = {
+      ${derivedAddresses.map((address, i) => `${names[i]}: AztecAddress.fromString('${address.toString()}')`).join(',\n')}
     };
   `;
 }
 
-async function generateRoot(names: string[], leaves: Fr[]) {
-  const root = await computeRoot(names, leaves);
+async function generateProtocolContractsList(names: string[], derivedAddresses: AztecAddress[]) {
+  const list = makeTuple(MAX_PROTOCOL_CONTRACTS, () => AztecAddress.zero());
+  for (let i = 0; i < names.length; i++) {
+    const name = names[i];
+    const address = contractAddressMapping[name];
+    const derivedAddressIndex = address - 1;
+    if (!list[derivedAddressIndex].equals(AztecAddress.zero())) {
+      throw new Error(`Duplicate protocol contract address: ${address.toString()}`);
+    }
+    list[derivedAddressIndex] = derivedAddresses[i];
+  }
+
   return `
-    export const protocolContractTreeRoot = Fr.fromHexString('${root.toString()}');
+    export const ProtocolContractsList = new ProtocolContracts([
+      ${list.map(address => `AztecAddress.fromString('${address.toString()}')`).join(',\n')}
+    ]);
+
+    export const protocolContractsHash = Fr.fromString('${(await new ProtocolContracts(list).hash()).toString()}');
   `;
 }
 
@@ -141,11 +146,12 @@ async function generateLogTags() {
   `;
 }
 
-async function generateOutputFile(names: string[], leaves: Fr[]) {
+async function generateOutputFile(names: string[], derivedAddresses: AztecAddress[]) {
   const content = `
     // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:data\`
     import { Fr } from '@aztec/foundation/fields';
     import { AztecAddress } from '@aztec/stdlib/aztec-address';
+    import { ProtocolContracts } from '@aztec/stdlib/tx';
 
     ${generateNames(names)}
 
@@ -153,9 +159,9 @@ async function generateOutputFile(names: string[], leaves: Fr[]) {
 
     ${generateContractAddresses(names)}
 
-    ${generateContractLeaves(names, leaves)}
+    ${generateDerivedAddresses(names, derivedAddresses)}
 
-    ${await generateRoot(names, leaves)}
+    ${await generateProtocolContractsList(names, derivedAddresses)}
 
     ${await generateLogTags()}
   `;
@@ -169,18 +175,17 @@ async function main() {
     await fs.readFile(path.join(noirContractsRoot, 'protocol_contracts.json'), 'utf8'),
   ) as string[];
 
-  const leaves: Fr[] = [];
+  const derivedAddresses: AztecAddress[] = [];
   const destNames = srcNames.map(n => n.split('-')[1]);
   for (let i = 0; i < srcNames.length; i++) {
     const srcName = srcNames[i];
     const destName = destNames[i];
     const artifact = await copyArtifact(srcName, destName);
     await generateDeclarationFile(destName);
-    const contractLeaf = await computeContractLeaf(artifact);
-    leaves.push(contractLeaf.toField());
+    derivedAddresses.push(await computeAddress(artifact));
   }
 
-  await generateOutputFile(destNames, leaves);
+  await generateOutputFile(destNames, derivedAddresses);
 }
 
 try {

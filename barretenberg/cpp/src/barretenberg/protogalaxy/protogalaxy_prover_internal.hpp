@@ -300,6 +300,13 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
         for (size_t idx = log_circuit_size; idx < CONST_PG_LOG_N; ++idx) {
             perturbator.emplace_back(FF(0));
         }
+
+        // Check that the perturbator zeroth coefficient is equal to the target sum stored in the accumulator
+        BB_ASSERT_EQ(perturbator[0],
+                     accumulator->target_sum,
+                     "ProtogalaxyProver: the zeroth coefficient of the perturbator is different from the target sum "
+                     "stored in the accumulator.");
+
         return Polynomial<FF>{ perturbator };
     }
 

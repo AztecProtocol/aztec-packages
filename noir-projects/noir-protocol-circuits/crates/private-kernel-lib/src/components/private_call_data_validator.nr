@@ -6,16 +6,12 @@ use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_call_request::PrivateCallRequest,
-        private_kernel::private_call_data::PrivateCallData,
-        public_call_request::PublicCallRequest,
-        side_effect::{Ordered, RangeOrdered},
-        transaction::tx_request::TxRequest,
+        private_kernel::private_call_data::PrivateCallData, protocol_contracts::ProtocolContracts,
+        public_call_request::PublicCallRequest, transaction::tx_request::TxRequest,
     },
     address::AztecAddress,
-    constants::{
-        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
-        MAX_FIELD_VALUE, PRIVATE_LOG_SIZE_IN_FIELDS,
-    },
+    constants::MAX_FIELD_VALUE,
+    side_effect::{Ordered, RangeOrdered},
     traits::FromField,
     utils::arrays::ClaimedLengthArray,
 };
@@ -98,9 +94,9 @@ impl PrivateCallDataValidator {
 
     /// Validate properties of the PrivateCallData, which are "common" to both
     /// the Init and Inner circuits.
-    pub fn validate_common(self, protocol_contract_tree_root: Field) {
+    pub fn validate_common(self, protocol_contracts: ProtocolContracts) {
         // Validate that the vk exists within the called contract address:
-        validate_contract_address(self.data, protocol_contract_tree_root);
+        validate_contract_address(self.data, protocol_contracts);
 
         self.restrict_side_effects();
 
@@ -108,7 +104,6 @@ impl PrivateCallDataValidator {
         self.validate_public_call_requests();
 
         self.validate_that_side_effect_counters_are_strictly_increasing_and_within_bounds();
-        self.validate_log_lengths();
     }
 
     /// For Init only.
@@ -243,18 +238,6 @@ impl PrivateCallDataValidator {
                 "contract_class_logs_hashes must be empty for static calls",
             );
         }
-
-        // TODO(#15092): consider removing this assertion.
-        // Would it be bad if we enabled other functions to emit these logs?
-        // Oh, maybe the AVM does stuff with those logs, with the presumption that they
-        // contain avm bytecode that needs to be validated by the avm?
-        if (self.data.public_inputs.contract_class_logs_hashes.length != 0) {
-            assert_eq(
-                call_context.contract_address,
-                CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
-                "only the class registry may emit contract class logs",
-            );
-        }
     }
 
     // TODO: Maybe we should loop once over each array. This will be the 2nd time we iterate over this array (the first time being the length validation).
@@ -371,26 +354,5 @@ impl PrivateCallDataValidator {
             counter_end,
             public_inputs.public_call_requests,
         );
-    }
-
-    fn validate_log_lengths(self) {
-        let public_inputs = self.data.public_inputs;
-
-        // Private logs.
-        let logs = public_inputs.private_logs;
-        for i in 0..logs.array.len() {
-            let log = logs.array[i];
-            assert(log.log.length <= PRIVATE_LOG_SIZE_IN_FIELDS, "private log length is too large");
-        }
-
-        // Contract class logs.
-        let logs = public_inputs.contract_class_logs_hashes;
-        for i in 0..logs.array.len() {
-            let log = logs.array[i];
-            assert(
-                log.inner.length <= CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-                "contract class log length is too large",
-            );
-        }
     }
 }

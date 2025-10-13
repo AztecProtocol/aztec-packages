@@ -230,8 +230,8 @@ function build {
   # These projects are dependent on each other and must be built linearly.
   serial_projects=(
     noir
-    barretenberg
     avm-transpiler
+    barretenberg
     noir-projects
     l1-contracts
     yarn-project

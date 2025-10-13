@@ -72,11 +72,6 @@ export class DeployTest {
     await wallet.registerContract(instance, contractArtifact.artifact);
     return contractArtifact.at(instance.address, wallet);
   }
-
-  async registerRandomAccount(): Promise<AztecAddress> {
-    const completeAddress = await this.wallet.registerAccount(Fr.random(), Fr.random());
-    return completeAddress.address;
-  }
 }
 
 export type StatefulContractCtorArgs = Parameters<StatefulTestContract['methods']['constructor']>;

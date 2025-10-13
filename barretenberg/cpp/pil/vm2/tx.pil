@@ -3,6 +3,7 @@ include "execution.pil";
 include "precomputed.pil";
 include "trees/note_hash_tree_check.pil";
 include "poseidon2_hash.pil";
+include "calldata_hashing.pil";
 include "tx_context.pil";
 include "tx_discard.pil";
 
@@ -67,9 +68,12 @@ namespace tx;
     // end_phase = 1, remaining_phase - 1 = 0;
     pol commit is_revertible;
     pol commit reverted;
+    reverted * (1 - reverted) = 0;
+    #[END_PHASE_ON_REVERT]
+    sel * reverted * (1 - end_phase) = 0;
     // phase_value stays the same unless we are at end_phase or reverted
     #[PHASE_VALUE_CONTINUITY]
-    NOT_PHASE_END * (1 - reverted) * (1 - precomputed.first_row) * (phase_value' - phase_value) = 0;
+    NOT_PHASE_END * (1 - precomputed.first_row) * (phase_value' - phase_value) = 0;
     // At the start of a new phase, we need to increment the phase value
     #[INCR_PHASE_VALUE_ON_END]
     NOT_LAST * (1 - reverted) * end_phase * (phase_value' - (phase_value + 1)) = 0;
@@ -94,7 +98,7 @@ namespace tx;
     pol REM_COUNT_MINUS_1 = remaining_phase_counter - 1;
     // If remaining_phase_counter == 1, end_phase = 1
     #[REM_COUNT_IS_ONE]
-    sel * (1 - is_padded) * (REM_COUNT_MINUS_1 * (end_phase * (1 - remaining_phase_minus_one_inv) + remaining_phase_minus_one_inv) - 1 + end_phase) = 0;
+    sel * (1 - reverted) * (1 - is_padded) * (REM_COUNT_MINUS_1 * (end_phase * (1 - remaining_phase_minus_one_inv) + remaining_phase_minus_one_inv) - 1 + end_phase) = 0;
 
     // TODO: Add constraints to propagate down the things read from precomputed
     // while NOT_PHASE_END
@@ -180,7 +184,20 @@ namespace tx;
     pol commit msg_sender;
     pol commit contract_addr;
     pol commit is_static;
+    pol commit calldata_size;
     pol commit calldata_hash;
+
+    // TODO: Consider if a permutation is preferable here, and whether that work work with gas:
+    #[READ_CALLDATA_HASH]
+    should_process_call_request {
+        calldata_hash,
+        calldata_size,
+        next_context_id
+    } in calldata_hashing.latch {
+        calldata_hashing.output_hash,
+        calldata_hashing.calldata_size,
+        calldata_hashing.context_id
+    };
 
     // Read information relating to the public call request from public inputs
     #[READ_PUBLIC_CALL_REQUEST_PHASE]
@@ -228,6 +245,7 @@ namespace tx;
         contract_addr,
         fee,
         is_static,
+        calldata_size,
         // Tree State
         prev_note_hash_tree_root,
         prev_note_hash_tree_size,
@@ -258,6 +276,7 @@ namespace tx;
         execution.contract_address,
         execution.transaction_fee,
         execution.is_static,
+        execution.parent_calldata_size,
         // Tree State
         execution.prev_note_hash_tree_root,
         execution.prev_note_hash_tree_size,
@@ -556,7 +575,6 @@ namespace tx;
     pol commit uint32_max;
     is_collect_fee * (uint32_max - 0xffffffff) = 0;
 
-    // TODO: Lookup for now: will need multipermutation
     #[BALANCE_UPDATE]
     is_collect_fee {
         fee_payer_new_balance,
@@ -568,7 +586,7 @@ namespace tx;
         prev_public_data_tree_size,
         next_public_data_tree_size,
         uint32_max
-    } in public_data_check.write {
+    } is public_data_check.protocol_write {
         public_data_check.value,
         public_data_check.address,
         public_data_check.slot,

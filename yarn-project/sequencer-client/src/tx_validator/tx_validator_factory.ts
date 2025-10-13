@@ -12,7 +12,7 @@ import {
   TxPermittedValidator,
   TxProofValidator,
 } from '@aztec/p2p';
-import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { ProtocolContractAddress, protocolContractsHash } from '@aztec/protocol-contracts';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { GasFees } from '@aztec/stdlib/gas';
 import type {
@@ -59,7 +59,7 @@ export function createValidatorForAcceptingTxs(
       rollupVersion: new Fr(rollupVersion),
       timestamp,
       blockNumber,
-      protocolContractTreeRoot,
+      protocolContractsHash,
       vkTreeRoot: getVKTreeRoot(),
     }),
     new DoubleSpendTxValidator(new NullifierCache(db)),
@@ -116,7 +116,7 @@ function preprocessValidator(
       rollupVersion: globalVariables.version,
       timestamp: globalVariables.timestamp,
       blockNumber: globalVariables.blockNumber,
-      protocolContractTreeRoot,
+      protocolContractsHash,
       vkTreeRoot: getVKTreeRoot(),
     }),
     new DoubleSpendTxValidator(nullifierCache),

@@ -73,10 +73,10 @@ template <class Builder> class goblin_field {
         return result;
     }
 
-    void assert_equal(const goblin_field& other) const
+    void assert_equal(const goblin_field& other, const std::string& msg = "goblin_field::assert_equal") const
     {
-        limbs[0].assert_equal(other.limbs[0]);
-        limbs[1].assert_equal(other.limbs[1]);
+        limbs[0].assert_equal(other.limbs[0], msg);
+        limbs[1].assert_equal(other.limbs[1], msg);
     }
     static goblin_field zero() { return goblin_field{ 0, 0 }; }
 

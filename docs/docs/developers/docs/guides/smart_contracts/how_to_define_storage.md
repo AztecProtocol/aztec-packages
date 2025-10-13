@@ -50,6 +50,12 @@ storage.admin.read();
 
 Maps store key-value pairs where keys are `Field` elements or serializable types, like `AztecAddress`, and values can be any type.
 
+You can import `Map` as:
+
+```noir
+use dep::aztec::state_vars::Map;
+```
+
 ### Understand map structure
 
 - Keys: Always `Field` or serializable types

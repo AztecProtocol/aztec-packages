@@ -12,7 +12,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { computeUniqueNoteHash, siloNoteHash } from '@aztec/stdlib/hash';
+import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import type { ContractClassLog } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
@@ -186,6 +186,16 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
+   * Returns the next app tag for a given sender and recipient pair.
+   * @param sender - The address sending the log
+   * @param recipient - The address receiving the log
+   * @returns An app tag to be used in a log.
+   */
+  public async privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Fr> {
+    return await this.executionDataProvider.getNextAppTagAsSender(this.contractAddress, sender, recipient);
+  }
+
+  /**
    * Store values in the execution cache.
    * @param values - Values to store.
    * @returns The hash of the values.
@@ -205,6 +215,23 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       throw new Error(`Preimage for hash ${hash.toString()} not found in cache`);
     }
     return Promise.resolve(preimage);
+  }
+
+  override async utilityCheckNullifierExists(innerNullifier: Fr): Promise<boolean> {
+    // This oracle must be overridden because while utility execution can only meaningfully check if a nullifier exists
+    // in the synched block, during private execution there's also the possibility of it being pending, i.e. created
+    // in the current transaction.
+
+    this.log.debug(`Checking existence of inner nullifier ${innerNullifier}`, {
+      contractAddress: this.contractAddress,
+    });
+
+    const nullifier = (await siloNullifier(this.contractAddress, innerNullifier)).toBigInt();
+
+    return (
+      this.noteCache.getNullifiers(this.contractAddress).has(nullifier) ||
+      (await super.utilityCheckNullifierExists(innerNullifier))
+    );
   }
 
   /**
@@ -358,6 +385,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param noteHash - A hash of the new note.
    */
   public privateNotifyCreatedNullifier(innerNullifier: Fr) {
+    this.log.debug(`Notified of new inner nullifier ${innerNullifier}`, { contractAddress: this.contractAddress });
     return this.noteCache.nullifierCreated(this.callContext.contractAddress, innerNullifier);
   }
 
@@ -547,10 +575,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
   public getDebugFunctionName() {
     return this.executionDataProvider.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
-  }
-
-  public async privateIncrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress) {
-    await this.executionDataProvider.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
   }
 
   public utilityEmitOffchainEffect(data: Fr[]): Promise<void> {

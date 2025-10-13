@@ -1,155 +1,293 @@
 ---
 title: Keys
 tags: [accounts, keys]
-description: Understand the key pairs used in Aztec accounts - nullifier keys, address keys, incoming viewing keys, and signing keys - and how they enable privacy and authentication.
+description: Understand the specialized key pairs used in Aztec accounts - nullifier keys, address keys, incoming viewing keys, and signing keys - and how they enable privacy, security, and flexible authentication.
 ---
 
 import Image from "@theme/IdealImage";
 
-In this section, you will learn what keys are used in Aztec, and how the addresses are derived.
+## Account Keys in Aztec
 
-## Types of keys
+Unlike traditional blockchains where accounts use a single key pair, Aztec accounts use **multiple specialized key pairs**, each serving a distinct cryptographic purpose. This separation is fundamental to Aztec's privacy model and enables powerful security features that aren't possible with single-key systems.
 
-Each Aztec account is backed by four key pairs:
+## Why Multiple Keys?
 
-- Nullifier keys – used to spend notes.
-- Address keys – this is an auxiliary key used for the address derivation; it’s internally utilized by the protocol and does not require any action from developers.
-- Incoming viewing keys – used to encrypt a note for the recipient.
-- Signing keys – an optional key pair used for account authorization.
+The separation of keys in Aztec serves critical purposes:
 
-The first three pairs are embedded into the protocol while the signing key is abstracted up to the account contract developer.
+- **Privacy isolation**: Different keys for different operations prevent correlation attacks
+- **Selective disclosure**: Share viewing access without compromising spending ability
+- **Damage limitation**: If one key is compromised, others remain secure
+- **Flexible authorization**: Choose any authentication method without affecting core protocol keys
+- **Per-application security**: Keys can be scoped to specific contracts to minimize exposure
 
-### Nullifier keys
+This multi-key architecture is what enables Aztec to provide strong privacy guarantees while maintaining flexibility and security.
 
-Nullifier keys are presented as a pair of the master nullifier public key (`Npk_m`) and the master nullifier secret key (`nsk_m`).
+## The Four Key Types
 
-To spend a note, the user computes a nullifier corresponding to this note. A nullifier is a hash of the note hash and app-siloed nullifier secret key, the latter is derived using the nullifier master secret key. To compute the nullifier, the protocol checks that the app-siloed key is derived from the master key for this contract and that master nullifier public key is linked to the note owner's address.
+Each Aztec account is backed by four distinct key pairs:
 
-### Address keys
+| Key Type | Purpose | Protocol Managed | Rotatable |
+|----------|---------|-----------------|-----------|
+| **Nullifier Keys** | Spending notes (destroying private state) | Yes | No |
+| **Incoming Viewing Keys** | Decrypting received notes | Yes | No |
+| **Signing Keys** | Transaction authorization | No (app-defined) | Yes |
+| **Address Keys** | Address derivation and note encryption setup | Yes | No |
 
-Address keys are used for account [address derivation](../accounts/index.md).
+The first three key pairs are embedded into the protocol and cannot be changed once an account is created. The signing key is abstracted to the account contract developer, allowing complete flexibility in authentication methods.
 
-<Image img={require("@site/static/img/address_derivation.png")} />
+### Nullifier Keys
 
-Address keys are a pair of keys `AddressPublicKey` and `address_sk` where `address_sk` is a scalar defined as `address_sk = pre_address + ivsk` and `AddressPublicKey` is an elliptic curve point defined as `AddressPublicKey = address_sk * G`. This is useful for encrypting notes for the recipient with only their address.
+**Purpose**: Spending notes (private state consumption)
 
-`pre_address` can be thought of as a hash of all account’s key pairs and functions in the account contract.
+Nullifier keys enable spending private notes. When using a note (like spending a token), the spender must prove they have the right to nullify it - essentially marking it as "spent" without revealing which note is being spent.
 
-In particular,
+**How it works:**
 
-```
-pre_address := poseidon2(public_keys_hash, partial_address)
-public_keys_hash := poseidon2(Npk_m, Ivpk_m, Ovpk_m, Tpk_m)
-partial_address := poseidon2(contract_class_id, salted_initialization_hash)
-contract_class_id := poseidon2(artifact_hash, fn_tree_root, public bytecode commitment)
-salted_initialization_hash := poseidon2(deployer_address, salt, constructor_hash)
-```
+1. Each account has a master nullifier key pair (`Npk_m`, `nsk_m`)
+2. For each application, an **app-siloed** key is derived: `nsk_app = hash(nsk_m, app_contract_address)`
+3. To spend a note, compute its nullifier using the note hash and app-siloed key
+4. The protocol verifies the app-siloed key comes from your master key and that your master public key is in your address
 
-where
+This ensures only the rightful owner can spend notes, while the app-siloing provides additional security isolation between contracts.
 
-- `artifact_hash` – hashes data from the Contract Artifact file that contains the data needed to interact with a specific contract, including its name, functions that can be executed, and the interface and code of those functions.
-- `fn_tree_root` – hashes pairs of verification keys and function selector (`fn_selector`) of each private function in the contract.
-- `fn_selector` – the first four bytes of the hashed `function signature` where the last one is a string consisting of the function's name followed by the data types of its parameters.
-- `public bytecode commitment` – takes contract's code as an input and returns short commitment.
-- `deployer_address` – account address of the contract deploying the contract.
-- `salt` – a user-specified 32-byte value that adds uniqueness to the deployment.
-- `constructor_hash` – hashes `constructor_fn_selector` and `constructor_args` where the last one means public inputs of the contract.
+:::tip
 
-:::note
-Under the current design Aztec protocol does not use `Ovpk` (outgoing viewing key) and `Tpk` (tagging key). However, formally they still exist and can be used by developers for some non-trivial design choices if needed.
+This last point could be confusing for most developers: how could a protocol verify a secret key is derived from another secret key without knowing it? Well, _you_ make that derivation, generating a ZK proof for it. The protocol just verifies that ZK proof!
+
 :::
 
-### Incoming viewing keys
+### Incoming Viewing Keys
 
-The incoming viewing public key (`Ivpk`) is used by the sender to encrypt a note for the recipient. The corresponding incoming viewing secret key (`ivsk`) is used by the recipient to decrypt the note.
+**Purpose**: Receiving and decrypting private notes
 
-When it comes to notes encryption and decryption:
+Incoming viewing keys enable private information to be shared with recipients. The sender uses the recipient's public viewing key (`Ivpk`) to encrypt notes, and the recipient uses their secret viewing key (`ivsk`) to decrypt them.
 
-- For each note, there is a randomly generated ephemeral key pair (`esk`, `Epk`) where `Epk = esk * G`.
-- The `AddressPublicKey` (derived from the `ivsk`) together with `esk` are encrypted as a secret `S`, `S = esk * AddressPublicKey`.
-- `symmetric_encryption_key = hash(S)`
-- `Ciphertext = aes_encrypt(note, symmetric_encryption_key)`
-- The recipient gets a pair (`Epk`, `Ciphertext`)
-- The recipient uses the `address_sk` to decrypt the secret: `S = Epk * address_sk`.
-- The recipient uses the decrypted secret to decrypt the ciphertext.
+**The encryption flow:**
 
-### Signing keys
+```mermaid
+graph TB
+    A[Sender generates<br/>ephemeral key esk] --> B[Computes shared secret<br/>S = esk × AddressPublicKey]
+    B --> C[Derives encryption key<br/>key = hash S]
+    C --> D[Encrypts note<br/>ciphertext = AES note, key]
+    D --> E[Sends: Epk, ciphertext]
 
-Thanks to the native [account abstraction](../accounts/index.md), authorization logic can be implemented in an alternative way that is up to the developer (e.g. using Google authorization credentials, vanilla password logic or Face ID mechanism). In these cases, signing keys may not be relevant.
+    E -.->|transmitted| F[Recipient computes<br/>S = Epk × address_sk]
+    F --> G[Derives same key<br/>key = hash S]
+    G --> H[Decrypts note]
+```
 
-However if one wants to implement authorization logic containing signatures (e.g. ECDSA or Shnorr) they will need signing keys. Usually, an account contract will validate a signature of the incoming payload against a known signing public key.
+This uses elliptic curve Diffie-Hellman: both parties compute the same shared secret `S`, but only the recipient has the private key needed to decrypt.
 
-This is a snippet of our Schnorr Account contract implementation, which uses Schnorr signatures for authentication:
+Like nullifier keys, incoming viewing keys are **app-siloed** for each contract, enabling per-application auditability - you can share a viewing key for one app without exposing your activity in others.
+
+### Signing Keys
+
+**Purpose**: Transaction authorization (optional, application-defined)
+
+Unlike the previous three key types which are protocol-mandated, signing keys are **completely abstracted** - thanks to [native account abstraction](../accounts/index.md), any authorization method can be implemented:
+
+- **Signature-based**: ECDSA, Schnorr, BLS, multi-signature
+- **Biometric**: Face ID, fingerprint
+- **Web2 credentials**: Google OAuth, passkeys
+- **Custom logic**: Time locks, spending limits, multi-party authorization
+
+**Traditional signature approach:**
+
+When using signatures, the account contract validates the signature against a stored public key. Here's an example from the Schnorr account contract:
 
 #include_code is_valid_impl noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr rust
 
-### Storing signing keys
+The flexibility of signing key storage and rotation is entirely up to your account contract implementation.
 
-Since signatures are fully abstracted, how the public key is stored in the contract is abstracted as well and left to the developer of the account contract. Among a few common approaches are storing the key in a private note, in an immutable private note, using delayed public mutable state, reusing other in-protocol keys, or a separate keystore. Below, we elaborate on these approaches.
+### Address Keys
 
-#### Using a private note​
+**Purpose**: Address derivation and note encryption setup
 
-Storing the signing public key in a private note makes it accessible from the `entrypoint` function, which is required to be a private function, and allows for rotating the key when needed. However, keep in mind that reading a private note requires nullifying it to ensure it is up-to-date, so each transaction you send will destroy and recreate the public key so the protocol circuits can be sure that the notes are not stale. This incurs cost for every transaction.
+Address keys are the foundation for [deterministic address computation](../accounts/index.md#address-derivation). They enable a critical feature: anyone can encrypt notes to your address without needing additional keys, just your address.
 
-#### Using an immutable private note​
+The address key pair consists of:
 
-Using an immutable private note removes the need to nullify the note on every read. This generates no nullifiers or new commitments per transaction. However, it does not allow the user to rotate their key.
+- Private key: `address_sk = pre_address + ivsk`
+- Public key: `AddressPublicKey = address_sk * G` (elliptic curve point)
+
+#### How Addresses are Computed
+
+The `pre_address` binds together your keys and account contract code, making each address unique and deterministic:
+
+<Image img={require("@site/static/img/address_derivation.png")} />
+
+```
+pre_address = hash(public_keys_hash, partial_address)
+
+where:
+  public_keys_hash = hash(Npk_m, Ivpk_m, Ovpk_m, Tpk_m)
+  partial_address = hash(contract_class_id, salted_initialization_hash)
+  contract_class_id = hash(artifact_hash, fn_tree_root, public_bytecode_commitment)
+  salted_initialization_hash = hash(deployer_address, salt, constructor_hash)
+```
+
+This derivation ensures:
+
+- Your address is deterministic (can be computed before deployment)
+- Keys and contract code are cryptographically bound to the address
+- The address proves ownership of the nullifier key needed to spend notes
+
+:::note
+While the `Ovpk` (outgoing viewing key) exists in the protocol, it is not currently used. It's available for future protocol upgrades or custom implementations.
+:::
+
+## Key Management
+
+### Key Generation and Derivation
+
+Protocol keys (nullifier, address, and incoming viewing keys) are automatically generated by the [Private Execution Environment (PXE)](../pxe/index.md) when creating an account. The PXE handles:
+
+- Initial key pair generation
+- App-siloed key derivation
+- Secure key storage and oracle access
+- Key material never leaves the client
+
+All keys use elliptic curve cryptography on the Grumpkin curve:
+
+- Secret keys are scalars
+- Public keys are elliptic curve points (secret × generator point)
+- Exception: Address private key uses `address_sk = pre_address + ivsk`
+
+Signing keys are application-defined and managed by your account contract logic.
+
+### App-Siloed Keys
+
+Nullifier and incoming viewing keys are **app-siloed** - scoped to each contract that uses them. This provides crucial security isolation:
+
+**How it works:**
+```
+nsk_app = hash(nsk_m, app_contract_address)
+ivsk_app = hash(ivsk_m, app_contract_address)
+```
+
+**Security benefits:**
+
+1. **Damage containment**: If a key for one app leaks, other apps remain secure
+2. **Selective auditability**: Share viewing access for one app without exposing entire activity
+3. **Privacy preservation**: Activity in different apps cannot be correlated via keys
+
+For example, a block explorer could be given a viewing key for a DEX contract to display trades, while keeping activity in other contracts completely private.
+
+### Key Rotation
+
+**Protocol keys (nullifier, address, incoming viewing):** Cannot be rotated. They are embedded in the address, which is immutable. If compromised, a new account must be deployed.
+
+**Signing keys:** Fully rotatable, depending on the account contract implementation. Options include:
+
+- Change keys on a schedule
+- Rotate after suspicious activity
+- Implement time-delayed rotation for security
+- Use different storage patterns that enable rotation (mutable notes, delayed public state, keystore contracts)
+
+## Signing Key Storage Patterns
+
+Since signing keys are application-defined, how the public key is stored is entirely up to the account contract design. Each approach has different trade-offs:
+
+### Immutable Private Note (Recommended for Most Cases)
+
+Stores the key in a private note that is never nullified, providing the best balance of security and cost.
 
 #include_code public_key noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr rust
 
-:::note
-When it comes to storing the signing key in a private note, there are several details that rely on the wallets:
+**Pros:**
 
-- A note with a key is managed similar to any other private note. Wallets are expected to backup all the notes so that they can be restored on another device (e.g. if the user wants to move to another device).
-- The note with the key might exist locally only (in PXE) or it can be broadcasted as an encrypted note by the wallet to itself. In the second case, this note will also exist on Aztec.
-  :::
+- No additional cost per transaction
+- Key remains private
+- Simple implementation
 
-#### Using Delayed Public Mutable state
+**Cons:**
 
-By [Delayed Public Mutable](../../guides/smart_contracts/how_to_define_storage.md#delayed-public-mutable) we mean privately readable publicly mutable state.
+- Cannot rotate the key
+- If key is compromised, must deploy a new account
 
-To make public state accessible privately, there is a delay window in public state updates. One needs this window to be able to generate proofs client-side. This approach would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the delayed mutable state, as well as imposing restrictions on how fast keys can be rotated due to minimum delays.
+:::note Wallet Responsibilities
+Private note storage relies on wallet infrastructure:
 
-#### Reusing some of the in-protocol keys
+- Wallets must backup all notes for device restoration
+- Notes can exist locally (PXE only) or be broadcast encrypted to yourself (exists onchain)
+:::
 
-It is possible to use some of the key pairs defined in protocol (e.g. incoming viewing keys) as the signing key. Since this key is part of the address preimage, it can be validated against the account contract address rather than having to store it. However, this approach is not recommended since it reduces the security of the user's account.
+### Mutable Private Note
 
-#### Using a separate keystore
+Stores the key in a note that can be updated, enabling key rotation.
 
-Since there are no restrictions on the actions that an account contract may execute for authenticating a transaction (as long as these are all private function executions), the signing public keys can be stored in a separate keystore contract that is checked on every call. In this case, each user could keep a single contract that acts as a keystore, and have multiple account contracts that check against that keystore for authorization. This will incur a higher proving time for each transaction, but has no additional cost in terms of fees.
+**Pros:**
 
-### Keys generation
+- Supports key rotation
+- Key remains private
 
-All key pairs (except for the signing keys) are generated in the [Private Execution Environment](../pxe/index.md) (PXE) when a user creates an account. PXE is also responsible for the further key management (oracle access to keys, app siloed keys derivation, etc.)
+**Cons:**
 
-### Keys derivation
+- Each transaction nullifies and recreates the note (expensive)
+- Higher cost per transaction
 
-All key pairs are derived using elliptic curve public-key cryptography on the [Grumpkin curve](https://github.com/AztecProtocol/aztec-connect/blob/9374aae687ec5ea01adeb651e7b9ab0d69a1b33b/markdown/specs/aztec-connect/src/primitives.md), where the secret key is represented as a scalar and the public key is represented as an elliptic curve point multiplied by that scalar.
+### Delayed Public Mutable State
 
-The address private key is an exception and derived in a way described above in the [Address keys](#address-keys) section.
+Stores the key in [delayed public mutable state](../../guides/smart_contracts/how_to_define_storage.md#delayed-public-mutable) - publicly accessible but privately readable with a delay window.
 
-### The special case of escrow contracts
+**Pros:**
 
-Typically, for account contracts the public keys will be non-zero and for non-account contracts zero.
+- Supports key rotation
+- No extra nullifiers/commitments per transaction
 
-An exception (a non-account contract which would have some of the keys non-zero) is an escrow contract. Escrow contract is a type of contract which on its own is an "owner" of a note meaning that it has a `Npk_m` registered and the notes contain this `Npk_m`.
+**Cons:**
 
-Participants in this escrow contract would then somehow get a hold of the escrow's `nsk_m` and nullify the notes based on the logic of the escrow. An example of an escrow contract is a betting contract. In this scenario, both parties involved in the bet would be aware of the escrow's `nsk_m`. The escrow would then release the reward only to the party that provides a "proof of winning".
+- Transactions have time-to-live constraints (determined by delay window)
+- Minimum delays restrict rotation frequency
+- Key is public
 
-### App-siloed keys
+### Keystore Contract
 
-Nullifier keys and Incoming view keys are app-siloed meaning they are scoped to the contract that requests them. This means that the keys used for the same user in two different application contracts will be different.
+Stores keys in a separate contract that multiple accounts can reference.
 
-App-siloed keys allow to minimize damage of potential key leaks as a leak of the scoped keys would only affect one application.
+**Pros:**
 
-App-siloed keys are derived from the corresponding master keys and the contract address. For example, for the app-siloed nullifier secret key: `nsk_app = hash(nsk_m, app_contract_address)`.
+- One keystore serves multiple accounts
+- Centralized key management
+- No fee overhead (just proving time)
 
-App-siloed keys [are derived](../advanced/storage/storage_slots.md#implementation) in PXE every time the user interacts with the application.
+**Cons:**
 
-App-siloed incoming viewing key also allows per-application auditability. A user may choose to disclose this key for a given application to an auditor or regulator (or for 3rd party interfaces, e.g. giving access to a block explorer to display my activity), as a means to reveal all their activity within that context, while retaining privacy across all other applications in the network.
+- Higher proving time per transaction
+- More complex architecture
 
-### Key rotation
+## Non-Account Contracts with Keys
 
-Key rotation is the process of creating new signing keys to replace existing keys. By rotating encryption keys on a regular schedule or after specific events, you can reduce the potential consequences of the key being compromised.
+Typically, only account contracts have non-default public keys. However, some contracts like **escrow** or **custodial** contracts need keys even though they aren't accounts.
 
-On Aztec, key rotation is impossible for nullifier keys, incoming viewing keys and address keys as all of them are embedded into the address and address is unchangeable. In the meanwhile, signing keys can be rotated.
+**Example: Betting Escrow**
+
+A betting contract acts as the "owner" of escrowed funds:
+
+1. The escrow contract has a registered `Npk_m`
+2. Both betting participants know the escrow's `nsk_m`
+3. Only the winner (who provides proof of winning) can nullify the escrow's notes
+4. The contract logic determines who can use the nullifier key
+
+This pattern enables trustless escrow while maintaining privacy - the funds are locked in notes that only the contract's logic can unlock.
+
+## Summary
+
+Aztec's multi-key architecture is fundamental to its privacy and security model:
+
+| Key Type | Purpose | App-Siloed | Rotatable | Managed By |
+|----------|---------|------------|-----------|------------|
+| **Nullifier** | Spend notes | Yes | No | Protocol (PXE) |
+| **Address** | Address derivation | No | No | Protocol (PXE) |
+| **Incoming Viewing** | Decrypt received notes | Yes | No | Protocol (PXE) |
+| **Signing** | Transaction authorization | N/A | Yes | Application |
+
+**Key takeaways:**
+
+- **Separation enables privacy**: Different keys for different operations prevent correlation and limit damage from compromise
+- **App-siloing adds security**: Per-contract keys isolate risk and enable selective disclosure
+- **Flexibility in authorization**: Signing keys are completely abstracted - use any authentication method
+- **Protocol keys are permanent**: Nullifier, address, and viewing keys are embedded in your address and cannot be changed
+- **Client-side security**: All key material is generated and managed in the PXE, never exposed to the network
+
+This architecture allows Aztec to provide strong privacy guarantees while maintaining the flexibility needed for various security models and use cases.

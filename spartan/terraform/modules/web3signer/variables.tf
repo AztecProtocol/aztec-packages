@@ -38,7 +38,12 @@ variable "NODE_COUNT" {
   type        = number
 }
 
-variable "MNEMONIC_INDEX_START" {
+variable "VALIDATOR_MNEMONIC_START_INDEX" {
+  description = "Mnemonic index start for key derivation"
+  type        = number
+}
+
+variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
   description = "Mnemonic index start for key derivation"
   type        = number
 }
@@ -58,5 +63,23 @@ variable "WEB3SIGNER_DOCKER_IMAGE" {
 variable "KUBECTL_DOCKER_IMAGE" {
   description = "The kubectl image to use"
   type        = string
-  default     = "bitnami/kubectl:1.33.4"
+  default     = "registry.suse.com/suse/kubectl:1.33"
+}
+
+variable "PROVER_COUNT" {
+  description = "Number of provers to generate keys for"
+  type        = number
+  default     = 1
+}
+
+variable "PUBLISHERS_PER_PROVER" {
+  description = "Number of publisher keys per prover"
+  type        = number
+  default     = 1
+}
+
+variable "PROVER_PUBLISHER_MNEMONIC_START_INDEX" {
+  description = "Mnemonic index start for prover publisher key derivation"
+  type        = number
+  default     = 8000
 }

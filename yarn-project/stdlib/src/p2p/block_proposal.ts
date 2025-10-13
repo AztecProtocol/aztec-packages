@@ -26,6 +26,8 @@ export class BlockProposalHash extends Buffer32 {
 
 export type BlockProposalOptions = {
   publishFullTxs: boolean;
+  /** Whether to generate an invalid block proposal for broadcasting. Use only for testing. */
+  broadcastInvalidBlockProposal?: boolean;
 };
 
 /**

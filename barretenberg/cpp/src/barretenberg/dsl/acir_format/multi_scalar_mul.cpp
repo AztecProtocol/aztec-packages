@@ -32,12 +32,21 @@ void create_multi_scalar_mul_constraint(Builder& builder,
         // Instantiate the input point/variable base as `cycle_group_ct`
         cycle_group_ct input_point = to_grumpkin_point(
             input.points[i], input.points[i + 1], input.points[i + 2], has_valid_witness_assignments, builder);
-
+        input_point = valid_point(input_point, input.predicate, builder);
         //  Reconstruct the scalar from the low and high limbs
         field_ct scalar_low_as_field = to_field_ct(input.scalars[2 * (i / 3)], builder);
         field_ct scalar_high_as_field = to_field_ct(input.scalars[2 * (i / 3) + 1], builder);
         cycle_scalar_ct scalar(scalar_low_as_field, scalar_high_as_field);
 
+        // Avoid mixing constant/witness coordinates because of issue
+        // https://github.com/AztecProtocol/aztec-packages/issues/17514
+        if (input_point.x.is_constant() != input_point.y.is_constant()) {
+            if (input_point.x.is_constant()) {
+                input_point.x.convert_constant_to_fixed_witness(&builder);
+            } else if (input_point.y.is_constant()) {
+                input_point.y.convert_constant_to_fixed_witness(&builder);
+            }
+        }
         // Add the point and scalar to the vectors
         points.push_back(input_point);
         scalars.push_back(scalar);

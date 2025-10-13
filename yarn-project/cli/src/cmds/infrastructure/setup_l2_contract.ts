@@ -3,7 +3,7 @@ import { AccountManager, type AztecAddress, type WaitOpts, createAztecNodeClient
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet';
+import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet/server';
 
 export async function setupL2Contracts(nodeUrl: string, testAccounts: boolean, json: boolean, log: LogFn) {
   const waitOpts: WaitOpts = {
@@ -19,13 +19,13 @@ export async function setupL2Contracts(nodeUrl: string, testAccounts: boolean, j
   if (testAccounts) {
     log('setupL2Contracts: Deploying test accounts...');
     const initialAccountsData = await getInitialTestAccountsData();
-    deployedAccountManagers = await deployFundedSchnorrAccounts(wallet, initialAccountsData, waitOpts);
+    deployedAccountManagers = await deployFundedSchnorrAccounts(wallet, node, initialAccountsData, waitOpts);
   }
 
   if (json) {
     const toPrint: Record<string, AztecAddress> = { ...ProtocolContractAddress };
     deployedAccountManagers.forEach((a, i) => {
-      toPrint[`testAccount${i}`] = a.getAddress();
+      toPrint[`testAccount${i}`] = a.address;
     });
     log(JSON.stringify(toPrint, null, 2));
   }

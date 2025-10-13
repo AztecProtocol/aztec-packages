@@ -1,12 +1,11 @@
 use crate::{
-    abis::{
-        public_data_write::PublicDataWrite, public_logs::PublicLogs, side_effect::scoped::Scoped,
-    },
+    abis::{public_data_write::PublicDataWrite, public_logs::PublicLogs},
     constants::{
         MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     },
     messaging::l2_to_l1_message::L2ToL1Message,
+    side_effect::Scoped,
     traits::{Deserialize, Empty, Serialize},
     utils::arrays::array_length,
 };

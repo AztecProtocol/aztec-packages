@@ -672,8 +672,12 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     auto result_x = field_t::conditional_assign(double_predicate, dbl_result.x, sub_result.x);
     auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, sub_result.y);
 
-    context->update_used_witnesses(result_x.witness_index);
-    context->update_used_witnesses(result_y.witness_index);
+    if (!result_x.is_constant()) {
+        context->update_used_witnesses(result_x.witness_index);
+    }
+    if (!result_y.is_constant()) {
+        context->update_used_witnesses(result_y.witness_index);
+    }
 
     // If the lhs is the point at infinity, return -rhs
     const bool_t lhs_infinity = is_point_at_infinity();
@@ -867,7 +871,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         }
         // Add the contribution from each point's scalar slice for this round
         for (size_t j = 0; j < num_points; ++j) {
-            const field_t scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
+            const field_t scalar_slice = scalar_slices[j][num_rounds - i - 1];
             BB_ASSERT_EQ(scalar_slice.get_value(), scalar_slices[j].slices_native[num_rounds - i - 1]); // Sanity check
             const cycle_group point = point_tables[j].read(scalar_slice);
             if (!unconditional_add) {

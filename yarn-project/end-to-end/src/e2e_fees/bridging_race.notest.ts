@@ -48,7 +48,7 @@ describe('e2e_fees bridging_race', () => {
       salt: bobsSalt,
       contract: new SchnorrAccountContract(bobsPrivateSigningKey),
     });
-    bobsAddress = bobsAccountManager.getAddress();
+    bobsAddress = bobsAccountManager.address;
   });
 
   it('Alice bridges funds to Bob', async () => {

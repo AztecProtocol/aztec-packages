@@ -35,33 +35,4 @@ using perm_to_radix_mem_write_mem_settings = permutation_settings<perm_to_radix_
 template <typename FF_>
 using perm_to_radix_mem_write_mem_relation = permutation_relation_base<FF_, perm_to_radix_mem_write_mem_settings>;
 
-/////////////////// perm_to_radix_mem_dispatch_exec_to_radix ///////////////////
-
-struct perm_to_radix_mem_dispatch_exec_to_radix_settings_ {
-    static constexpr std::string_view NAME = "PERM_TO_RADIX_MEM_DISPATCH_EXEC_TO_RADIX";
-    static constexpr std::string_view RELATION_NAME = "to_radix_mem";
-    static constexpr size_t COLUMNS_PER_SET = 8;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_to_radix;
-    static constexpr Column DST_SELECTOR = Column::to_radix_mem_start;
-    static constexpr Column INVERSES = Column::perm_to_radix_mem_dispatch_exec_to_radix_inv;
-    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,       ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_register_0_, ColumnAndShifts::execution_register_1_,
-        ColumnAndShifts::execution_register_2_, ColumnAndShifts::execution_register_3_,
-        ColumnAndShifts::execution_rop_4_,      ColumnAndShifts::execution_sel_opcode_error
-    };
-    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
-        ColumnAndShifts::to_radix_mem_execution_clk,      ColumnAndShifts::to_radix_mem_space_id,
-        ColumnAndShifts::to_radix_mem_value_to_decompose, ColumnAndShifts::to_radix_mem_radix,
-        ColumnAndShifts::to_radix_mem_num_limbs,          ColumnAndShifts::to_radix_mem_is_output_bits,
-        ColumnAndShifts::to_radix_mem_dst_addr,           ColumnAndShifts::to_radix_mem_err
-    };
-};
-
-using perm_to_radix_mem_dispatch_exec_to_radix_settings =
-    permutation_settings<perm_to_radix_mem_dispatch_exec_to_radix_settings_>;
-template <typename FF_>
-using perm_to_radix_mem_dispatch_exec_to_radix_relation =
-    permutation_relation_base<FF_, perm_to_radix_mem_dispatch_exec_to_radix_settings>;
-
 } // namespace bb::avm2

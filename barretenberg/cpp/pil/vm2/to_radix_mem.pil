@@ -1,6 +1,5 @@
 include "to_radix.pil";
 include "gt.pil";
-include "execution.pil";
 include "precomputed.pil";
 
 /**
@@ -283,32 +282,3 @@ namespace to_radix_mem;
         memory.address,          memory.value,
         memory.tag,              memory.rw
     };
-
-
-    ////////////////////////////////////////////////
-    // Dispatch from execution trace to TO RADIX
-    ////////////////////////////////////////////////
-    #[DISPATCH_EXEC_TO_RADIX]
-    execution.sel_execute_to_radix {
-        precomputed.clk,
-        execution.context_id,
-        execution.register[0],
-        execution.register[1],
-        execution.register[2],
-        execution.register[3],
-        execution.rop[4],
-        // Error
-        execution.sel_opcode_error
-    } is
-    start {
-        execution_clk,
-        space_id,
-        value_to_decompose,
-        radix,
-        num_limbs,
-        is_output_bits,
-        dst_addr,
-        // Error
-        err
-    };
-

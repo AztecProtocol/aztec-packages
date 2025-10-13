@@ -1,6 +1,8 @@
 #pragma once
 
 #include <memory>
+#include <stdexcept>
+#include <string>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
@@ -24,6 +26,20 @@ class ExecutionInterface {
     virtual ~ExecutionInterface() = default;
     // Returns the top-level execution result. TODO: This should only be top level enqueud calls
     virtual ExecutionResult execute(std::unique_ptr<ContextInterface> context) = 0;
+};
+
+class RegisterValidationException : public std::runtime_error {
+  public:
+    RegisterValidationException(const std::string& message)
+        : std::runtime_error(message)
+    {}
+};
+
+class OpcodeExecutionException : public std::runtime_error {
+  public:
+    OpcodeExecutionException(const std::string& message)
+        : std::runtime_error(message)
+    {}
 };
 
 } // namespace bb::avm2::simulation

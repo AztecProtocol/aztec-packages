@@ -3,6 +3,7 @@ import { Point } from '@aztec/foundation/fields';
 
 import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1 } from '../avm_memory_types.js';
+import { EcAddPointNotOnCurveError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -65,7 +66,7 @@ export class EcAdd extends Instruction {
     const p1IsInfinite = memory.get(p1IsInfiniteOffset).toNumber() === 1;
     const p1 = new Point(p1X.toFr(), p1Y.toFr(), p1IsInfinite);
     if (!p1.isOnGrumpkin()) {
-      throw new Error(`Point1 is not on the curve`);
+      throw new EcAddPointNotOnCurveError(/*pointIndex=*/ 1, p1);
     }
 
     const p2X = memory.get(p2XOffset);
@@ -74,7 +75,7 @@ export class EcAdd extends Instruction {
     const p2IsInfinite = memory.get(p2IsInfiniteOffset).toNumber() === 1;
     const p2 = new Point(p2X.toFr(), p2Y.toFr(), p2IsInfinite);
     if (!p2.isOnGrumpkin()) {
-      throw new Error(`Point1 is not on the curve`);
+      throw new EcAddPointNotOnCurveError(/*pointIndex=*/ 2, p2);
     }
 
     const grumpkin = new Grumpkin();

@@ -64,6 +64,8 @@ interface NoirFunctionEntry {
 export interface NoirCompiledContract {
   /** The name of the contract. */
   name: string;
+  /** Is the contract's public bytecode transpiled? */
+  transpiled?: boolean;
   /** The functions of the contract. */
   functions: NoirFunctionEntry[];
   /** The events of the contract */

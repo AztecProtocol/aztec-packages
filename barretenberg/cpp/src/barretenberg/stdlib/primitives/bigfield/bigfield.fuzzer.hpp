@@ -1000,35 +1000,70 @@ template <typename Builder> class BigFieldBase {
                 bigfield_t::msub_div(
                     input_left_bf, input_right_bf, divisor.bigfield, to_sub_bf, enable_divisor_nz_check));
         }
-        // assert_equal uses assert_is_in_field in some cases, so we don't need to check that separately
+
+        // assert_equal uses assert_is_in_field in some cases, so we don't need
+        // to check that separately
         void assert_equal(ExecutionHandler& other)
         {
-            if (other.bf().is_constant()) {
-                if (this->bf().is_constant()) {
-                    // Assert equal does nothing in this case
-                    return;
+            if (other.bf().is_constant() && this->bf().is_constant()) {
+                // Assert equal does nothing in this case
+                return;
+            }
+
+            if (!other.bf().is_constant() && !this->bf().is_constant()) {
+                auto to_add = bigfield_t(this->bf().context, uint256_t(this->base - other.base));
+                auto new_el = other.bf() + to_add;
+
+                this->bf().assert_equal(new_el);
+            }
+
+            bigfield_t lhs, rhs;
+            if (other.bf().is_constant() && !this->bf().is_constant()) {
+                auto to_add = bigfield_t(this->bigfield.context, uint256_t(this->base - other.base));
+                auto new_el = other.bf() + to_add;
+                ASSERT(new_el.is_constant());
+
+                lhs = this->bigfield;
+                rhs = new_el;
+            }
+
+            if (!other.bf().is_constant() && this->bf().is_constant()) {
+                auto to_add = bigfield_t(this->bf().context, uint256_t(this->base - other.base));
+                auto new_el = other.bf() + to_add;
+
+                lhs = new_el;
+                rhs = this->bf();
+            }
+
+            ASSERT(!lhs.is_constant());
+            ASSERT(rhs.is_constant());
+
+            bool overflow = lhs.get_value() >= bb::fq::modulus;
+            bool reduce = VarianceRNG.next() & 1;
+
+#ifdef FUZZING_SHOW_INFORMATION
+            std::cout << "reduce? " << reduce << std::endl;
+            std::cout << "overflow? " << overflow << std::endl;
+#endif
+
+            if (!reduce) {
+                if (overflow) {
+                    // In case we overflow the modulus, the assert will fail
+                    // see NOTE(https://github.com/AztecProtocol/barretenberg/issues/998)
+                    circuit_should_fail = true;
                 } else {
-                    /* Operate on this->bigfield rather than this->bf() to prevent
-                     * that assert_is_in_field is called on a different object than
-                     * assert_equal.
-                     *
-                     * See also: https://github.com/AztecProtocol/aztec2-internal/issues/1242
-                     */
-                    this->bigfield.assert_is_in_field();
-                    auto to_add = bigfield_t(this->bigfield.context, uint256_t(this->base - other.base));
-                    this->bigfield.assert_equal(other.bf() + to_add);
+                    // In case we do not overflow, we can be sure that this will pass
+                    lhs.assert_is_in_field();
                 }
             } else {
-                if (this->bf().is_constant()) {
-                    auto to_add = bigfield_t(this->bf().context, uint256_t(this->base - other.base));
-                    auto new_el = other.bf() + to_add;
-                    new_el.assert_is_in_field();
-                    this->bf().assert_equal(new_el);
-                } else {
-                    auto to_add = bigfield_t(this->bf().context, uint256_t(this->base - other.base));
-                    this->bf().assert_equal(other.bf() + to_add);
-                }
+                // otherwise force reduce so we pass it anyway
+                lhs.reduce_mod_target_modulus();
             }
+
+            // swap the sides
+            if (VarianceRNG.next() & 1)
+                std::swap(lhs, rhs);
+            lhs.assert_equal(rhs);
         }
 
         void assert_not_equal(ExecutionHandler& other)

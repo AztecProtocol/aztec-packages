@@ -1,7 +1,6 @@
 use crate::abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs, TxRollupPublicInputs};
-use blob::blob_batching_public_inputs::{
-    BatchingBlobCommitment, BlobAccumulatorPublicInputs, BLSPoint, FinalBlobBatchingChallenges,
-};
+use bignum::BigNum;
+use blob::abis::{BatchingBlobCommitment, BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges};
 use parity_lib::ParityPublicInputs;
 use types::{
     abis::{
@@ -34,7 +33,7 @@ pub struct RollupFixtureBuilder {
     pub chain_id: Field,
     pub version: Field,
     pub vk_tree_root: Field,
-    pub protocol_contract_tree_root: Field,
+    pub protocol_contracts_hash: Field,
     pub prover_id: Field,
 
     // Used to identify the first block, which will have an empty start_sponge_blob, and non-empty in_hash.
@@ -53,7 +52,7 @@ impl RollupFixtureBuilder {
             chain_id: 1,
             version: 2,
             vk_tree_root,
-            protocol_contract_tree_root: 98765,
+            protocol_contracts_hash: 98765,
             prover_id: 76543,
             start_block_number: 11,
             start_slot_number: 7,
@@ -81,7 +80,7 @@ impl RollupFixtureBuilder {
                 self.get_block_header(block_number).hash(),
             ]
         };
-        let insert_index = block_number - block_number % 2;
+        let insert_index = (block_number - block_number % 2) as Field;
         let tree = SingleSubtreeMerkleTree::<2, 1, ARCHIVE_HEIGHT>::new_at_index(
             block_header_hashes,
             insert_index,
@@ -89,11 +88,11 @@ impl RollupFixtureBuilder {
 
         let snapshot = AppendOnlyTreeSnapshot {
             root: tree.get_root(),
-            next_available_leaf_index: block_number + 1,
+            next_available_leaf_index: (block_number + 1) as Field,
         };
 
         // Get the sibling path for the current block.
-        let sibling_path = tree.get_sibling_path(block_number);
+        let sibling_path = tree.get_sibling_path(block_number as Field);
 
         (snapshot, sibling_path)
     }
@@ -110,16 +109,16 @@ impl RollupFixtureBuilder {
         }
         let tree = SingleSubtreeMerkleTree::<4, 2, ARCHIVE_HEIGHT>::new_at_index(
             block_header_hashes,
-            insert_index,
+            insert_index as Field,
         );
 
         let previous_snapshot = AppendOnlyTreeSnapshot {
             root: tree.get_root(),
-            next_available_leaf_index: block_number,
+            next_available_leaf_index: block_number as Field,
         };
 
         // Get the sibling path for inserting the current block header hash.
-        let sibling_path_for_insertion = tree.get_sibling_path(block_number);
+        let sibling_path_for_insertion = tree.get_sibling_path(block_number as Field);
 
         (previous_snapshot, sibling_path_for_insertion)
     }
@@ -130,6 +129,7 @@ impl RollupFixtureBuilder {
     ) -> (AppendOnlyTreeSnapshot, [Field; L1_TO_L2_MSG_TREE_HEIGHT - L1_TO_L2_MSG_SUBTREE_HEIGHT], AppendOnlyTreeSnapshot) {
         // Create a subtree of size 4 filled with subtree roots before the current slot.
         let new_slot_index = self.get_l1_to_l2_message_next_available_leaf_index(slot_number - 1)
+             as u32
             >> L1_TO_L2_MSG_SUBTREE_HEIGHT;
         let start_slot_index = new_slot_index - new_slot_index % 4;
         let mut subtree_roots = [0; 4];
@@ -142,7 +142,7 @@ impl RollupFixtureBuilder {
 
         let mut tree = SingleSubtreeMerkleTree::<4, 2, L1_TO_L2_MSG_TREE_HEIGHT - L1_TO_L2_MSG_SUBTREE_HEIGHT>::new_tree_roots_at_index::<L1_TO_L2_MSG_SUBTREE_HEIGHT>(
             subtree_roots,
-            start_slot_index,
+            start_slot_index as Field,
         );
         let previous_snapshot = AppendOnlyTreeSnapshot {
             root: tree.get_root(),
@@ -152,10 +152,13 @@ impl RollupFixtureBuilder {
         };
 
         // Get the sibling path for inserting the current l1-to-l2 messages.
-        let sibling_path_for_insertion = tree.get_sibling_path(new_slot_index);
+        let sibling_path_for_insertion = tree.get_sibling_path(new_slot_index as Field);
 
         // Insert subtree of the current l1-to-l2 messages.
-        tree.update_leaf(new_slot_index, self.get_l1_to_l2_message_subtree_root(slot_number));
+        tree.update_leaf(
+            new_slot_index as Field,
+            self.get_l1_to_l2_message_subtree_root(slot_number),
+        );
         let new_snapshot = AppendOnlyTreeSnapshot {
             root: tree.get_root(),
             next_available_leaf_index: self.get_l1_to_l2_message_next_available_leaf_index(
@@ -171,7 +174,7 @@ impl RollupFixtureBuilder {
             chain_id: self.chain_id,
             version: self.version,
             vk_tree_root: self.vk_tree_root,
-            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            protocol_contracts_hash: self.protocol_contracts_hash,
             prover_id: self.prover_id,
         }
     }
@@ -181,7 +184,7 @@ impl RollupFixtureBuilder {
             chain_id: self.chain_id,
             version: self.version,
             vk_tree_root: self.vk_tree_root,
-            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            protocol_contracts_hash: self.protocol_contracts_hash,
             prover_id: self.prover_id,
             slot_number,
             coinbase: self.get_coinbase(slot_number),
@@ -209,7 +212,7 @@ impl RollupFixtureBuilder {
             last_archive: self.get_archive(block_number - 1),
             l1_to_l2_tree_snapshot: self.get_l1_to_l2_message_tree_snapshot(self.start_slot_number),
             vk_tree_root: self.vk_tree_root,
-            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            protocol_contracts_hash: self.protocol_contracts_hash,
             prover_id: self.prover_id,
             global_variables: self.get_global_variables(block_number),
         }
@@ -242,7 +245,7 @@ impl RollupFixtureBuilder {
             anchor_block_header: self.get_block_header(block_number),
             tx_context: TxContext { chain_id: self.chain_id, version: self.version, gas_settings },
             vk_tree_root: self.vk_tree_root,
-            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            protocol_contracts_hash: self.protocol_contracts_hash,
         }
     }
 
@@ -356,10 +359,10 @@ impl RollupFixtureBuilder {
         sponge
     }
 
-    pub fn get_blob_accumulator(self, slot_number: Field) -> BlobAccumulatorPublicInputs {
+    pub fn get_blob_accumulator(self, slot_number: Field) -> BlobAccumulator {
         if slot_number == (self.start_slot_number - 1) {
             // The first checkpoint in an epoch should start with an empty blob accumulator.
-            BlobAccumulatorPublicInputs::empty()
+            BlobAccumulator::empty()
         } else {
             self.make_fixture(slot_number, 0, 1)
         }
@@ -381,7 +384,7 @@ impl RollupFixtureBuilder {
         let z = end_block_accumulator.z_acc;
         // Safety: This is only for testing.
         let gamma = unsafe { __from_field(poseidon2_hash([end_block_accumulator.gamma_acc, z])) };
-        FinalBlobBatchingChallenges { z, gamma: bigint::bignum::BigNum::from_limbs(gamma) }
+        FinalBlobBatchingChallenges { z, gamma: BigNum::from_limbs(gamma) }
     }
 
     fn get_fee(_self: Self, tx_or_block_number: u32) -> Field {
@@ -447,8 +450,8 @@ impl RollupFixtureBuilder {
         slot_number * 7639901
     }
 
-    fn get_l1_to_l2_message_next_available_leaf_index(_self: Self, slot_number: Field) -> u32 {
-        (slot_number as u32 + 1) * (1 << L1_TO_L2_MSG_SUBTREE_HEIGHT)
+    fn get_l1_to_l2_message_next_available_leaf_index(_self: Self, slot_number: Field) -> Field {
+        (slot_number + 1) * (1 << L1_TO_L2_MSG_SUBTREE_HEIGHT) as Field
     }
 
     fn get_l1_to_l2_message_tree_snapshot(self, slot_number: Field) -> AppendOnlyTreeSnapshot {
@@ -460,7 +463,7 @@ impl RollupFixtureBuilder {
     fn get_archive(_self: Self, block_number: u32) -> AppendOnlyTreeSnapshot {
         AppendOnlyTreeSnapshot {
             root: block_number as Field * 30785,
-            next_available_leaf_index: block_number + 1,
+            next_available_leaf_index: (block_number + 1) as Field,
         }
     }
 

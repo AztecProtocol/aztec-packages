@@ -1,4 +1,4 @@
-import { BatchedBlob, BlobAccumulatorPublicInputs, FinalBlobBatchingChallenges, SpongeBlob } from '@aztec/blob-lib';
+import { BatchedBlob, BlobAccumulator, FinalBlobBatchingChallenges, SpongeBlob } from '@aztec/blob-lib';
 import {
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
@@ -1006,7 +1006,7 @@ export class ProvingOrchestrator implements EpochProver {
         },
       ),
       result => {
-        const computedEndBlobAccumulatorState = BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(
+        const computedEndBlobAccumulatorState = BlobAccumulator.fromBatchedBlobAccumulator(
           provingState.getEndBlobAccumulator()!,
         );
         const circuitEndBlobAccumulatorState = result.inputs.endBlobAccumulator;

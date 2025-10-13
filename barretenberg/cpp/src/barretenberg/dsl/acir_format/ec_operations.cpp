@@ -23,6 +23,8 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
         input.input1_x, input.input1_y, input.input1_infinite, has_valid_witness_assignments, builder);
     auto input2_point = to_grumpkin_point(
         input.input2_x, input.input2_y, input.input2_infinite, has_valid_witness_assignments, builder);
+    input1_point = valid_point(input1_point, input.predicate, builder);
+    input2_point = valid_point(input2_point, input.predicate, builder);
 
     // Addition
     cycle_group_ct result = input1_point + input2_point;

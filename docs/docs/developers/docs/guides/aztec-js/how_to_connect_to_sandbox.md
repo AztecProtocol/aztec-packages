@@ -70,7 +70,7 @@ Now that we have a PXE running, we can create a Wallet:
 
 ```typescript
 import { createAztecNodeClient } from "@aztec/aztec.js";
-import { TestWallet } from "@aztec/test-wallet";
+import { TestWallet } from "@aztec/test-wallet/server";
 
 const node = createAztecNodeClient("http://localhost:8080");
 const wallet = await TestWallet.create(node);

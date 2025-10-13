@@ -221,12 +221,12 @@ impl NoteHash for CustomNote {
         poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
     }
 
-    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
+    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullification: Field) -> Field {
         let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
         let secret = context.request_nsk_app(owner_npk_m_hash);
         poseidon2_hash_with_separator(
             [
-            note_hash_for_nullify,
+            note_hash_for_nullification,
             secret
         ],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field
@@ -237,12 +237,12 @@ impl NoteHash for CustomNote {
         // We set the note_hash_counter to 0 as the note is not transient and the concept of transient note does
         // not make sense in an unconstrained context.
         let retrieved_note = RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
-        let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
+        let note_hash_for_nullification = compute_note_hash_for_nullification(retrieved_note, storage_slot);
         let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
         let secret = get_nsk_app(owner_npk_m_hash);
         poseidon2_hash_with_separator(
             [
-            note_hash_for_nullify,
+            note_hash_for_nullification,
             secret
         ],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field

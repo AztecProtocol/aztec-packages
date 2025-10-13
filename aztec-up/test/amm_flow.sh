@@ -57,7 +57,7 @@ aztec-wallet \
 aztec-wallet \
   --prover none \
   deploy-account \
-  -f accounts:main \
+  main \
   $SPONSORED_FPC_PAYMENT_METHOD
 
 echo "Deploying AMM setup"

@@ -28,32 +28,16 @@ pub global MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS: u32 = 16_000;
  */
 
 // docs:start:constants
-// "PER CALL" CONSTANTS
-pub global MAX_NOTE_HASHES_PER_CALL: u32 = 16;
-pub global MAX_NULLIFIERS_PER_CALL: u32 = 16;
-pub global MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL: u32 = 5;
-pub global MAX_ENQUEUED_CALLS_PER_CALL: u32 = 16;
-pub global MAX_L2_TO_L1_MSGS_PER_CALL: u32 = 2;
-pub global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL: u32 = 63;
-pub global MAX_PUBLIC_DATA_READS_PER_CALL: u32 = 64;
-pub global MAX_NOTE_HASH_READ_REQUESTS_PER_CALL: u32 = 16;
-pub global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: u32 = 16;
-pub global MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL: u32 = 16;
-pub global MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL: u32 = 16;
-pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = 16;
-pub global MAX_PRIVATE_LOGS_PER_CALL: u32 = 16;
-pub global MAX_CONTRACT_CLASS_LOGS_PER_CALL: u32 = 1;
-
 // TREES RELATED CONSTANTS
-pub global ARCHIVE_HEIGHT: u32 = 29;
+pub global ARCHIVE_HEIGHT: u32 = 30; // 4-second blocks for 100 years.
 pub global VK_TREE_HEIGHT: u32 = 7;
-pub global PROTOCOL_CONTRACT_TREE_HEIGHT: u32 = 3;
-pub global FUNCTION_TREE_HEIGHT: u32 = 5;
-pub global NOTE_HASH_TREE_HEIGHT: u32 = 40;
-pub global PUBLIC_DATA_TREE_HEIGHT: u32 = 40;
-pub global NULLIFIER_TREE_HEIGHT: u32 = 40;
-pub global L1_TO_L2_MSG_TREE_HEIGHT: u32 = 39;
-pub global ARTIFACT_FUNCTION_TREE_MAX_HEIGHT: u32 = 5;
+pub global FUNCTION_TREE_HEIGHT: u32 = 7; // The number of private functions in a contract.
+pub global NOTE_HASH_TREE_HEIGHT: u32 = 42; // 64 notes/tx (static because of base rollup insertion), 15tps, for 100 years.
+pub global PUBLIC_DATA_TREE_HEIGHT: u32 = 40; // Average of 16 updates/tx (guess), 15tps, 100 years.
+pub global NULLIFIER_TREE_HEIGHT: u32 = NOTE_HASH_TREE_HEIGHT;
+pub global L1_TO_L2_MSG_TREE_HEIGHT: u32 = 36; // 1024 messages per checkpoint, with 72 seconds per checkpoint, for 100 years.
+pub global ARTIFACT_FUNCTION_TREE_MAX_HEIGHT: u32 = FUNCTION_TREE_HEIGHT; // The number of unconstrained functions in a contract. Set to equal the number of private functions in a contract.
+
 pub global NULLIFIER_TREE_ID: Field = 0;
 pub global NOTE_HASH_TREE_ID: Field = 1;
 pub global PUBLIC_DATA_TREE_ID: Field = 2;
@@ -66,7 +50,7 @@ pub global L1_TO_L2_MSG_TREE_LEAF_COUNT: u64 = 1 << (L1_TO_L2_MSG_TREE_HEIGHT as
 pub global NOTE_HASH_SUBTREE_HEIGHT: u32 = 6;
 pub global NULLIFIER_SUBTREE_HEIGHT: u32 = 6;
 pub global PUBLIC_DATA_SUBTREE_HEIGHT: u32 = 6;
-pub global L1_TO_L2_MSG_SUBTREE_HEIGHT: u32 = 4;
+pub global L1_TO_L2_MSG_SUBTREE_HEIGHT: u32 = 4; // TODO: Update this to publish 1024 messages per checkpoint
 pub global NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
     NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT;
 pub global NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
@@ -97,10 +81,26 @@ pub global MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX: u32 = 64;
 pub global MAX_KEY_VALIDATION_REQUESTS_PER_TX: u32 = 64;
 pub global MAX_PRIVATE_LOGS_PER_TX: u32 = 32;
 pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
+
+// "PER CALL" CONSTANTS
+pub global MAX_NOTE_HASHES_PER_CALL: u32 = 16;
+pub global MAX_NULLIFIERS_PER_CALL: u32 = 16;
+pub global MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL: u32 = 5;
+pub global MAX_ENQUEUED_CALLS_PER_CALL: u32 = 16;
+pub global MAX_L2_TO_L1_MSGS_PER_CALL: u32 = 2;
+pub global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL: u32 = 63;
+pub global MAX_PUBLIC_DATA_READS_PER_CALL: u32 = 64;
+pub global MAX_NOTE_HASH_READ_REQUESTS_PER_CALL: u32 = 16;
+pub global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: u32 = 16;
+pub global MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL: u32 = 16;
+pub global MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL: u32 = 16;
+pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = 16;
+pub global MAX_PRIVATE_LOGS_PER_CALL: u32 = 16;
+pub global MAX_CONTRACT_CLASS_LOGS_PER_CALL: u32 = 1;
 // docs:end:constants
 
 // ROLLUP CONTRACT CONSTANTS - constants used only in l1-contracts
-pub global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u32 = 16;
+pub global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u32 = 1 << L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
 // VK TREE CONSTANTS
 pub comptime global PRIVATE_KERNEL_INIT_INDEX: u32 = 0;
@@ -139,9 +139,9 @@ pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
 pub global MAX_INCLUDE_BY_TIMESTAMP_DURATION: u64 = 86400; // 1 day
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
-    0x1946c22774242c1aae3d73ff44bd250fa7c0d1a83b55c8a5d3642a518c530ffb;
+    0x0dc66232e4edff2923217f4fdf80ecc23ed4bd047e743df85a6827878bf6c4d6;
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x2a5d53da0a767a07c6e731af7ac9dad7f3bf4f19feea9ad7d177711f19a34cbe;
+    0x1f8c805403d88ee809d3cb3e52eeba0a104f69968cdb844a9cbdf1e9e00b3a95;
 // Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
 pub global PUBLIC_DISPATCH_SELECTOR: Field = 0xd5441b0d;
 
@@ -152,10 +152,30 @@ pub global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u32 = 3000;
 pub global MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS: u32 = 3000;
 // Same for utility functions: the size is per function.
 pub global MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS: u32 = 3000;
+
 // How many fields are on the serialized ClassPrivateFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS.
-pub global CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 19;
+pub global CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 =/* magic value */ 1
+    + 1 /* contract_class_id */
+    + 1 /* artifact_metadata_hash */
+    + 1 /* utility_functions_artifact_tree_root */
+    + FUNCTION_TREE_HEIGHT /* private_function_tree_sibling_path */
+    + 1 /* private_function_tree_leaf_index */
+    + ARTIFACT_FUNCTION_TREE_MAX_HEIGHT /* artifact_function_tree_sibling_path */
+    + 1 /* artifact_function_tree_leaf_index */
+    + 1 /* function selector */
+    + 1 /* function metadata_hash */
+    + 1 /* function vk_hash */;
+
 // How many fields are on the serialized ClassUtilityFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS.
-pub global CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 12;
+pub global CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 =/* magic value */ 1
+    + 1 /* contract_class_id */
+    + 1 /* artifact_metadata_hash */
+    + 1 /* private_functions_artifact_tree_root */
+    + ARTIFACT_FUNCTION_TREE_MAX_HEIGHT /* artifact_function_tree_sibling_path */
+    + 1 /* artifact_function_tree_leaf_index */
+    + 1 /* function selector */
+    + 1 /* function metadata_hash */;
+
 // Since we are not yet emitting selectors we'll use this magic value to identify events emitted by the ClassRegistry.
 // This is just a stopgap until we implement proper selectors.
 // sha224sum 'struct ContractClassPublished {contract_class_id: ContractClassId, version: Field, artifact_hash: Field, private_functions_root: Field, packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] }'
@@ -178,15 +198,15 @@ pub global CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field =
     0x0e92f9f8a534e858fcf777da206e08b0c620ecf9deb21d13479813f6;
 
 // CANONICAL CONTRACT ADDRESSES
-pub global MAX_PROTOCOL_CONTRACTS: u32 = (1 << PROTOCOL_CONTRACT_TREE_HEIGHT) - 1; // Index 0 can't be used.
+pub global MAX_PROTOCOL_CONTRACTS: u32 = 11; // Chosen to be a multiple of 3 (12) - 1 for the separator, to optimize the poseidon2 hash.
 pub global CANONICAL_AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(1);
 pub global CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(2);
 pub global CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(3);
 pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_field(4);
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
 pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
-pub global MAX_PROTOCOL_CONTRACT_ADDRESS: AztecAddress = ROUTER_ADDRESS; // Set to the highest canonical address
-pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(7);
+// MAX_PROTOCOL_CONTRACTS + 1, but can't automatically derive or constants generator fails
+pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(12);
 
 // Randomly chosen slot for the bytecode capsule.
 pub global CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT: Field = 79025834455612;
@@ -243,18 +263,17 @@ pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES: u32 = 36;
 pub global SPONGE_BLOB_LENGTH: u32 = 11;
 pub global BLS12_FR_LIMBS: u32 = 3; // TODO(#14646): get this from bignum
 pub global BLS12_FQ_LIMBS: u32 = 4; // TODO(#14646): get this from bignum
-pub global BLS12_POINT: u32 = 2 * BLS12_FQ_LIMBS + 1; // TODO(#14646): reduce num fields needed here?
+pub global BLS12_POINT_LENGTH: u32 = 2 * BLS12_FQ_LIMBS + 1; // TODO(#14646): reduce num fields needed here?
 pub global BLS12_POINT_COMPRESSED_BYTES: u32 = 48; // TODO(#14646): get this from bignum
-pub global BLOB_ACCUMULATOR_PUBLIC_INPUTS: u32 = 3 /* v_acc, z_acc, and gamma_acc */
+pub global BLOB_ACCUMULATOR_LENGTH: u32 = 3 /* v_acc, z_acc, and gamma_acc */
     + 2 * BLS12_FR_LIMBS /* y_acc and gamma^i */
-    + BLS12_POINT /* c_acc */;
+    + BLS12_POINT_LENGTH /* c_acc */;
 pub global FINAL_BLOB_BATCHING_CHALLENGES_LENGTH: u32 = 1 /* z */
     + BLS12_FR_LIMBS /* gamma */;
-pub global FINAL_BLOB_ACCUMULATOR_PUBLIC_INPUTS: u32 = 1 /* blob_commitments_hash */
+pub global FINAL_BLOB_ACCUMULATOR_LENGTH: u32 = 1 /* blob_commitments_hash */
     + 1 /* z */
     + BLS12_FR_LIMBS /* y */
     + 2 /* c */;
-pub global BLOB_PUBLIC_INPUTS: u32 = 6;
 pub global L1_TO_L2_MESSAGE_LENGTH: u32 = 6;
 pub global L2_TO_L1_MESSAGE_LENGTH: u32 = 1 /* recipient */ + 1 /* content */;
 pub global COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
@@ -396,7 +415,7 @@ pub global PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_
 pub global TX_CONSTANT_DATA_LENGTH: u32 = BLOCK_HEADER_LENGTH
     + TX_CONTEXT_LENGTH
     + 1 /* vk_tree_root */
-    + 1 /* protocol_contract_tree_root */;
+    + 1 /* protocol_contracts_hash */;
 pub global COMBINED_CONSTANT_DATA_LENGTH: u32 = TX_CONSTANT_DATA_LENGTH + GLOBAL_VARIABLES_LENGTH;
 
 pub global PRIVATE_ACCUMULATED_DATA_LENGTH: u32 =
@@ -452,12 +471,13 @@ pub global PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONST
     + 1 /* include_by_timestamp */;
 
 pub global AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = GLOBAL_VARIABLES_LENGTH
-    + 1 /* protocol_contract_tree_root */
+    + MAX_PROTOCOL_CONTRACTS /* protocol_contracts */
     + TREE_SNAPSHOTS_LENGTH /* start_tree_snapshots */
     + GAS_LENGTH /* start_gas_used */
     + GAS_SETTINGS_LENGTH
     + GAS_FEES_LENGTH /* effective_gas_fees */
     + 1 /* fee_payer */
+    + 1 /* prover_id */
     + NUM_PUBLIC_CALL_REQUEST_ARRAYS /* public_call_request_array_lengths */
     + (MAX_ENQUEUED_CALLS_PER_TX * PUBLIC_CALL_REQUEST_LENGTH) /* public_setup_call_requests */
     + (MAX_ENQUEUED_CALLS_PER_TX * PUBLIC_CALL_REQUEST_LENGTH) /* public_app_logic_call_requests */
@@ -476,13 +496,13 @@ pub global AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = GLOBAL_VARIABLES_LENGTH
 pub global BLOCK_CONSTANT_DATA_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* last_archive */
     + APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* new_l1_to_l2_message_tree */
     + 1 /* vk_tree_root */
-    + 1 /* protocol_contract_tree_root */
+    + 1 /* protocol_contracts_hash */
     + 1 /* prover_id */
     + GLOBAL_VARIABLES_LENGTH;
 pub global CHECKPOINT_CONSTANT_DATA_LENGTH: u32 = 1 /* chain_id */
     + 1 /* version */
     + 1 /* vk_tree_root */
-    + 1 /* protocol_contract_tree_root */
+    + 1 /* protocol_contracts_hash */
     + 1 /* prover_id */
     + 1 /* slot_number */
     + ETH_ADDRESS_LENGTH /* coinbase */
@@ -491,7 +511,7 @@ pub global CHECKPOINT_CONSTANT_DATA_LENGTH: u32 = 1 /* chain_id */
 pub global EPOCH_CONSTANT_DATA_LENGTH: u32 = 1 /* chain_id */
     + 1 /* version */
     + 1 /* vk_tree_root */
-    + 1 /* protocol_contract_tree_root */
+    + 1 /* protocol_contracts_hash */
     + 1 /* prover_id */;
 
 pub global TX_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = BLOCK_CONSTANT_DATA_LENGTH
@@ -516,18 +536,18 @@ pub global CHECKPOINT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = EPOCH_CONSTANT_DATA_LEN
     + 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* previous_archive and new_archive */
     + AZTEC_MAX_EPOCH_DURATION /* checkpoint_header_hashes */
     + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH /* fees */
-    + 2 * BLOB_ACCUMULATOR_PUBLIC_INPUTS /* start and end blob accumulators */
+    + 2 * BLOB_ACCUMULATOR_LENGTH /* start and end blob accumulators */
     + FINAL_BLOB_BATCHING_CHALLENGES_LENGTH;
 pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
     + 1 /* end_archive_root */
     + 1 /* chain_id */
     + 1 /* version */
     + 1 /* vk_tree_root */
-    + 1 /* protocol_contract_tree_root */
+    + 1 /* protocol_contracts_hash */
     + 1 /* prover_id */
     + AZTEC_MAX_EPOCH_DURATION /* checkpoint_header_hashes */
     + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH /* fees */
-    + FINAL_BLOB_ACCUMULATOR_PUBLIC_INPUTS /* blob_public_inputs */;
+    + FINAL_BLOB_ACCUMULATOR_LENGTH /* blob_public_inputs */;
 pub global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NOTE_HASHES_PER_TX;
 pub global NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NULLIFIERS_PER_TX;
 pub global PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP: u32 =
@@ -540,8 +560,6 @@ pub global CONTRACT_DATA_NUM_BYTES_PER_BASE_ROLLUP_UNPADDED: Field = 52;
 pub global L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP: Field = 256;
 pub global LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP: Field = 64;
 pub global NUM_MSGS_PER_BASE_PARITY: u32 = 4;
-// pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP / NUM_MSGS_PER_BASE_PARITY;
-// FIX: Sadly, writing this as above causes a type error in type_conversion.ts.
 pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
 // Lengths of the different types of proofs in fields
@@ -628,6 +646,7 @@ pub global GENERATOR_INDEX__EVENT_COMMITMENT: u32 = 59;
 // TODO(8974): this likely belongs in the middle of the list, but was placed
 // here to avoid changing all of the key generators.
 pub global GENERATOR_INDEX__PUBLIC_BYTECODE: u32 = 60;
+pub global GENERATOR_INDEX__PROTOCOL_CONTRACTS: u32 = 61;
 
 // AVM memory tags
 pub global MEM_TAG_FF: Field = 0;
@@ -652,20 +671,21 @@ pub global AVM_KECCAKF1600_NUM_ROUNDS: u8 = 24;
 pub global AVM_KECCAKF1600_STATE_SIZE: u8 = 25;
 
 // Subtrace IDs.
+// Execution, ALU, BITWISE and then we follow the order given by ExecutionOpCode enum.
 pub global AVM_SUBTRACE_ID_EXECUTION: u32 = 1;
 pub global AVM_SUBTRACE_ID_ALU: u32 = 2 * AVM_SUBTRACE_ID_EXECUTION;
-pub global AVM_SUBTRACE_ID_CAST: u32 = 2 * AVM_SUBTRACE_ID_ALU;
-pub global AVM_SUBTRACE_ID_SET: u32 = 2 * AVM_SUBTRACE_ID_CAST;
-pub global AVM_SUBTRACE_ID_BITWISE: u32 = 2 * AVM_SUBTRACE_ID_SET;
-pub global AVM_SUBTRACE_ID_POSEIDON_PERM: u32 = 2 * AVM_SUBTRACE_ID_BITWISE;
-pub global AVM_SUBTRACE_ID_TO_RADIX: u32 = 2 * AVM_SUBTRACE_ID_POSEIDON_PERM;
-pub global AVM_SUBTRACE_ID_ECC: u32 = 2 * AVM_SUBTRACE_ID_TO_RADIX;
-pub global AVM_SUBTRACE_ID_KECCAKF1600: u32 = 2 * AVM_SUBTRACE_ID_ECC;
-pub global AVM_SUBTRACE_ID_CALLDATA_COPY: u32 = 2 * AVM_SUBTRACE_ID_KECCAKF1600;
-pub global AVM_SUBTRACE_ID_GETCONTRACTINSTANCE: u32 = 2 * AVM_SUBTRACE_ID_CALLDATA_COPY;
+pub global AVM_SUBTRACE_ID_BITWISE: u32 = 2 * AVM_SUBTRACE_ID_ALU;
+pub global AVM_SUBTRACE_ID_CAST: u32 = 2 * AVM_SUBTRACE_ID_BITWISE;
+pub global AVM_SUBTRACE_ID_CALLDATA_COPY: u32 = 2 * AVM_SUBTRACE_ID_CAST;
+pub global AVM_SUBTRACE_ID_RETURNDATA_COPY: u32 = 2 * AVM_SUBTRACE_ID_CALLDATA_COPY;
+pub global AVM_SUBTRACE_ID_SET: u32 = 2 * AVM_SUBTRACE_ID_RETURNDATA_COPY;
+pub global AVM_SUBTRACE_ID_GETCONTRACTINSTANCE: u32 = 2 * AVM_SUBTRACE_ID_SET;
 pub global AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG: u32 = 2 * AVM_SUBTRACE_ID_GETCONTRACTINSTANCE;
-pub global AVM_SUBTRACE_ID_SHA256_COMPRESSION: u32 = 2 * AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG;
-pub global AVM_SUBTRACE_ID_RETURNDATA_COPY: u32 = 2 * AVM_SUBTRACE_ID_SHA256_COMPRESSION;
+pub global AVM_SUBTRACE_ID_POSEIDON2_PERM: u32 = 2 * AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG;
+pub global AVM_SUBTRACE_ID_SHA256_COMPRESSION: u32 = 2 * AVM_SUBTRACE_ID_POSEIDON2_PERM;
+pub global AVM_SUBTRACE_ID_KECCAKF1600: u32 = 2 * AVM_SUBTRACE_ID_SHA256_COMPRESSION;
+pub global AVM_SUBTRACE_ID_ECC: u32 = 2 * AVM_SUBTRACE_ID_KECCAKF1600;
+pub global AVM_SUBTRACE_ID_TO_RADIX: u32 = 2 * AVM_SUBTRACE_ID_ECC;
 
 // Dynamic Gas Opcode IDs
 pub global AVM_DYN_GAS_ID_CALLDATACOPY: u32 = 1;
@@ -736,14 +756,14 @@ pub global AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_FEE_RECIPIENT_ROW_IDX: u32 =
 pub global AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX: u32 =
     AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_FEE_RECIPIENT_ROW_IDX + 1;
 // Note: gas fees ^, despite being 2 entries, is split across 2 columns. So wee only bump by 1 (below) to progress.
-// Start Protocol Contract Tree Root
-pub global AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACT_TREE_ROOT: u32 =
+// Start Protocol Contracts
+pub global AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACTS_ROW_IDX: u32 =
     AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX + 1;
 
 // Start Tree Snapshots
 // start alias
 pub global AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_ROW_IDX: u32 =
-    AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACT_TREE_ROOT + 1;
+    AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACTS_ROW_IDX + MAX_PROTOCOL_CONTRACTS;
 // Note: each tree snapshot ^, despite being 2 entries (root, index), is split across 2 columns. So we only bump by 1 (below) to progress.
 // members
 pub global AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX: u32 =
@@ -781,9 +801,12 @@ pub global AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX: u32 =
 pub global AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX: u32 =
     AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX + 1;
 
+// Prover ID
+pub global AVM_PUBLIC_INPUTS_PROVER_ID_ROW_IDX: u32 = AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX + 1;
+
 // Public Call Request Array Lengths
 pub global AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_ROW_IDX: u32 =
-    AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX + 1;
+    AVM_PUBLIC_INPUTS_PROVER_ID_ROW_IDX + 1;
 pub global AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX: u32 =
     AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_ROW_IDX;
 pub global AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX: u32 =
@@ -1115,11 +1138,22 @@ pub global UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE: u32 =
 pub global GRUMPKIN_ONE_X: Field = 1;
 pub global GRUMPKIN_ONE_Y: Field = 17631683881184975370165255887551781615748388533673675138860;
 
+// Excessive memory reads due to debug logging can open a DOS vector to nodes that perform public tx simulation for users.
+// This default limit (4MB) can be configured further by node runners via the `RPC_SIMULATE_PUBLIC_MAX_DEBUG_LOG_MEMORY_READS` environment variable.
+pub global DEFAULT_MAX_DEBUG_LOG_MEMORY_READS: u32 = 125000;
+
 mod test {
+    use crate::address::aztec_address::AztecAddress;
     use crate::constants::{
         AVM_RETRIEVED_BYTECODES_TREE_HEIGHT, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT,
-        MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        MAX_PROTOCOL_CONTRACTS, MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        SIDE_EFFECT_MASKING_ADDRESS,
+    };
+    use crate::traits::FromField;
+    use super::{
+        NUM_BASE_PARITY_PER_ROOT_PARITY, NUM_MSGS_PER_BASE_PARITY,
+        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
     };
 
     #[test]
@@ -1156,6 +1190,22 @@ mod test {
         assert(
             1 << (AVM_RETRIEVED_BYTECODES_TREE_HEIGHT - 1)
                 < MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1,
+        );
+    }
+
+    #[test]
+    unconstrained fn test_side_effect_masking_address() {
+        assert_eq(
+            SIDE_EFFECT_MASKING_ADDRESS,
+            AztecAddress::from_field(MAX_PROTOCOL_CONTRACTS as Field + 1),
+        );
+    }
+
+    #[test]
+    unconstrained fn parity_covers_all_l1_to_l2_msgs() {
+        assert_eq(
+            NUM_BASE_PARITY_PER_ROOT_PARITY * NUM_MSGS_PER_BASE_PARITY,
+            NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
         );
     }
 

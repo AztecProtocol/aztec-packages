@@ -1,5 +1,4 @@
 include "constants_gen.pil";
-include "execution.pil";
 include "ff_gt.pil";
 include "gt.pil";
 include "precomputed.pil";
@@ -82,15 +81,8 @@ op_id = sel_op_add * constants.AVM_EXEC_OP_ID_ALU_ADD
 
 // Note: sel captures sel_op_truncate which is dispatched differently (see #[EXEC_DISPATCHING_CAST]). This is not an issue because
 // sel_alu never selects an op_id = AVM_EXEC_OP_ID_ALU_TRUNCATE as prescribed by SUBTRACE_INFO_MAP.
-#[REGISTER_TAG_VALUE]
-execution.sel_execute_alu {
-    execution.register[0], execution.mem_tag_reg[0], execution.register[1],
-    execution.mem_tag_reg[1], execution.register[2], execution.mem_tag_reg[2], execution.subtrace_operation_id, execution.sel_opcode_error
-} in sel {
-    ia, ia_tag, ib, ib_tag, ic, ic_tag, op_id, sel_err
-};
 
-// MW Note: No need to range check values fit in their tag's max bits. Inputs a and b are reads (already checked), and c is checked in memory.
+// Note: No need to range check values fit in their tag's max bits. Inputs a and b are reads (already checked), and c is checked in memory.
 // Though in this circuit we could incorrectly set cf = false when we would overflow, the memory range check would catch that c is too large.
 
 // IS_FF CHECKING
@@ -495,49 +487,6 @@ sel_shift_ops_no_overflow { shift_lo_bits, two_pow_shift_lo_bits } in precompute
 // the tag of the input is in general not equal to ia_tag.
 
 sel_op_truncate * (1 - sel_op_truncate) = 0;
-
-
-// CAST DISPATCHING
-// Serialization layout is: src_addr, dst_addr, dst_tag
-// src_addr --> register[0], dst_addr --> register[1], dst_tag --> rop[2] (immediate and therefore not sent to register)
-// Reminder: mem_tag_reg[0] is ignored and might be different than ia_tag.
-
-// Inputs are:
-// - register[0] (ia: value (as FF) to truncate)
-// - rop[2] (ia_tag: destination tag)
-// - subtrace_operation_id (op_id)
-
-// Outputs are:
-// - register[1] (ic: truncated value)
-// - mem_tag_reg[1] (ic_tag: write tag == ia_tag as enforced by #[C_TAG_CHECK])
-// Note that we enforce the output tag through this dispatching lookup by having ia_tag matching both mem_tag_reg[1] and rop[2].
-#[EXEC_DISPATCHING_CAST]
-execution.sel_execute_cast {
-    execution.register[0], execution.rop[2], execution.subtrace_operation_id, execution.register[1], execution.mem_tag_reg[1], execution.sel_opcode_error
-} in sel_op_truncate {
-    ia, ia_tag, op_id, ic, ia_tag, /*sel_opcode_error=*/ precomputed.zero
-};
-
-// SET DISPATCHING
-// Serialization layout is: dst_addr, dst_tag, value (immediate)
-// dst_addr --> register[0], dst_tag --> rop[1], value --> rop[2] (dst_tag and value are
-// immediate and therefore not sent to register)
-
-// Inputs are:
-// - rop[2] (ia: value (as FF) to truncate)
-// - rop[1] (ia_tag: destination tag)
-// - subtrace_operation_id (op_id)
-
-// Outputs are:
-// - register[0] (ic: truncated value)
-// - mem_tag_reg[0] (ic_tag: write tag == ia_tag as enforced by #[C_TAG_CHECK])
-// Note that we enforce the output tag through this dispatching lookup by having ia_tag matching both mem_tag_reg[0] and rop[1].
-#[EXEC_DISPATCHING_SET]
-execution.sel_execute_set {
-    execution.rop[2], execution.rop[1], execution.subtrace_operation_id, execution.register[0], execution.mem_tag_reg[0], execution.sel_opcode_error
-} in sel_op_truncate {
-    ia, ia_tag, op_id, ic, ic_tag, /*sel_opcode_error=*/ precomputed.zero
-};
 
 // 3 cases for truncation:
 // - No truncation required (ia <= max_value)

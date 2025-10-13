@@ -44,7 +44,6 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     await t.teardown();
   });
 
-  // docs:start:e2e_private_cross_chain
   it('Privately deposit funds from L1 -> L2 and withdraw back to L1', async () => {
     // Generate a claim secret using pedersen
     const l1TokenBalance = 1000000n;
@@ -66,7 +65,6 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     // time to withdraw the funds again!
     logger.info('Withdrawing funds from L2');
 
-    // docs:start:authwit_to_another_sc
     // 4. Give approval to bridge to burn owner's funds:
     const withdrawAmount = 9n;
     const authwitNonce = Fr.random();
@@ -74,7 +72,6 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
       caller: l2Bridge.address,
       action: l2Token.methods.burn_private(ownerAddress, withdrawAmount, authwitNonce),
     });
-    // docs:end:authwit_to_another_sc
 
     // 5. Withdraw owner's funds from L2 to L1
     const l2ToL1Message = await crossChainTestHarness.getL2ToL1MessageLeaf(withdrawAmount);
@@ -104,7 +101,6 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);
   });
-  // docs:end:e2e_private_cross_chain
 
   // This test checks that it's enough to have the claim secret to claim the funds to whoever we want.
   it('Claim secret is enough to consume the message', async () => {

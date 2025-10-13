@@ -23,26 +23,24 @@ use crate::{
             PrivateToRollupKernelCircuitPublicInputs,
         },
         log_hash::LogHash,
-        note_hash::{NoteHash, ScopedNoteHash},
-        nullifier::{Nullifier, ScopedNullifier},
+        note_hash::NoteHash,
+        nullifier::Nullifier,
         partial_state_reference::PartialStateReference,
         private_call_request::PrivateCallRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::{PrivateCallData, PrivateVerificationKeyHints},
         private_kernel_data::PrivateKernelData,
         private_log::{PrivateLog, PrivateLogData},
-        protocol_contract_leaf_preimage::ProtocolContractLeafPreimage,
+        private_tx_constant_data::PrivateTxConstantData,
+        protocol_contracts::ProtocolContracts,
         public_call_request::{PublicCallRequest, PublicCallRequestArrayLengths},
         public_data_write::PublicDataWrite,
         public_logs::PublicLogs,
-        read_request::{ReadRequest, ScopedReadRequest},
-        side_effect::{Counted, Ordered, scoped::Scoped},
         transaction::{tx_context::TxContext, tx_request::TxRequest},
         tree_snapshots::TreeSnapshots,
         tx_constant_data::TxConstantData,
         validation_requests::{
             KeyValidationRequest, KeyValidationRequestAndGenerator, PrivateValidationRequests,
-            ScopedKeyValidationRequestAndGenerator,
         },
     },
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
@@ -55,9 +53,9 @@ use crate::{
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_U32_VALUE, MEGA_VK_LENGTH_IN_FIELDS,
-        PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT,
-        PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_DATA_TREE_HEIGHT, SIDE_EFFECT_MASKING_ADDRESS,
-        UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
+        PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_CALL_REQUEST_LENGTH,
+        PUBLIC_DATA_TREE_HEIGHT, SIDE_EFFECT_MASKING_ADDRESS, UPDATED_CLASS_IDS_SLOT,
+        VK_TREE_HEIGHT,
     },
     contract_class_id::ContractClassId,
     data::{
@@ -78,6 +76,7 @@ use crate::{
     point::Point,
     proof::{verification_key::{MegaVerificationKey, VerificationKey}, vk_data::VkData},
     public_keys::PublicKeys,
+    side_effect::{Counted, Ordered, Scoped},
     storage::map::derive_storage_slot_in_map,
     tests::fixtures::{
         self,
@@ -86,7 +85,7 @@ use crate::{
         public_data_tree::empty_public_data_tree,
         vk_tree::{get_vk_data, vk_tree_root},
     },
-    traits::{Deserialize, Empty, FromField, Hash, Packable, ToField},
+    traits::{Deserialize, Empty, FromField, Hash, Packable},
     utils::arrays::ClaimedLengthArray,
 };
 
@@ -143,10 +142,10 @@ pub struct FixtureBuilder {
     pub global_variables: GlobalVariables,
 
     // Accumulated data.
-    pub note_hashes: BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
-    pub nullifiers: BoundedVec<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
+    pub note_hashes: BoundedVec<Scoped<Counted<NoteHash>>, MAX_NOTE_HASHES_PER_TX>,
+    pub nullifiers: BoundedVec<Scoped<Counted<Nullifier>>, MAX_NULLIFIERS_PER_TX>,
     pub l2_to_l1_msgs: BoundedVec<Scoped<Counted<L2ToL1Message>>, MAX_L2_TO_L1_MSGS_PER_TX>,
-    pub private_logs: BoundedVec<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
+    pub private_logs: BoundedVec<Scoped<Counted<PrivateLogData>>, MAX_PRIVATE_LOGS_PER_TX>,
     pub public_logs: PublicLogs,
     pub contract_class_logs_hashes: BoundedVec<Scoped<Counted<LogHash>>, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     pub contract_class_log_fields: BoundedVec<[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS], MAX_CONTRACT_CLASS_LOGS_PER_TX>,
@@ -160,9 +159,9 @@ pub struct FixtureBuilder {
     pub reverted: bool,
 
     // Validation requests.
-    pub note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-    pub nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-    pub scoped_key_validation_requests_and_generators: BoundedVec<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+    pub note_hash_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+    pub nullifier_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+    pub scoped_key_validation_requests_and_generators: BoundedVec<Scoped<KeyValidationRequestAndGenerator>, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
     pub validation_requests_split_counter: Option<u32>,
 
     // Function.
@@ -180,7 +179,7 @@ pub struct FixtureBuilder {
 
     // Public call.
     pub bytecode_hash: Field,
-    pub prover_address: AztecAddress,
+    pub prover_id: Field,
 
     // Proof.
     pub vk: MegaVerificationKey,
@@ -189,9 +188,7 @@ pub struct FixtureBuilder {
     pub vk_tree_root: Field,
 
     // Protocol contracts.
-    pub protocol_contract_tree_root: Field,
-    pub protocol_contract_membership_witness: MembershipWitness<PROTOCOL_CONTRACT_TREE_HEIGHT>,
-    pub protocol_contract_leaf: ProtocolContractLeafPreimage,
+    pub protocol_contracts: ProtocolContracts,
 
     // Contract updates
     pub updated_class_id_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
@@ -247,6 +244,8 @@ impl FixtureBuilder {
         builder.counter_start = counter_start;
         builder.counter = counter_start + 1;
 
+        builder.protocol_contracts = fixtures::protocol_contracts::get_protocol_contracts();
+
         let contract_data = fixtures::contracts::default_contract;
         let contract_function = fixtures::contract_functions::default_private_function;
 
@@ -271,46 +270,14 @@ impl FixtureBuilder {
 
         *self
     }
-
-    pub fn set_protocol_contract_root(&mut self) {
-        let (tree, protocol_contract_leaves) =
-            fixtures::protocol_contract_tree::get_protocol_contract_tree();
-        let contract_address_field = self.contract_address.to_field();
-        self.protocol_contract_tree_root = tree.get_root();
-        for i in 0..protocol_contract_leaves.len() {
-            let leaf = protocol_contract_leaves[i];
-            // The below is true if leaf is a valid low_leaf for self.contract_address
-            // This is used in validate_contract_address where is_protocol_contract = false.
-            if (leaf.address != 0)
-                & (leaf.address.lt(contract_address_field))
-                & ((contract_address_field.lt(leaf.next_address)) | (leaf.next_address == 0)) {
-                self.protocol_contract_leaf = leaf;
-                self.protocol_contract_membership_witness = MembershipWitness {
-                    leaf_index: i as Field,
-                    sibling_path: tree.get_sibling_path(i),
-                };
-            }
-        }
-    }
-
     // contract_index should be the same as contract address.
     pub fn use_protocol_contract(&mut self, contract_index: u32) -> Self {
-        let (tree, protocol_contract_leaves) =
-            fixtures::protocol_contract_tree::get_protocol_contract_tree();
-        self.protocol_contract_tree_root = tree.get_root();
-        // This is used in validate_contract_address where is_protocol_contract = true.
-        self.protocol_contract_membership_witness = MembershipWitness {
-            leaf_index: contract_index as Field,
-            sibling_path: tree.get_sibling_path(contract_index),
-        };
-        self.protocol_contract_leaf = protocol_contract_leaves[contract_index];
-
         let contract_data = fixtures::contracts::get_protocol_contract(contract_index);
         let function_data =
             fixtures::contract_functions::get_protocol_contract_function(contract_index);
 
         let _ = self.use_contract(contract_data);
-        self.contract_address = AztecAddress::from_field(contract_index as Field);
+        self.contract_address = AztecAddress::from_field(contract_index as Field + 1);
 
         self.use_function(function_data, fixtures::contract_functions::default_vk)
     }
@@ -321,7 +288,6 @@ impl FixtureBuilder {
         self.public_keys = contract_data.public_keys;
         self.contract_class_artifact_hash = contract_data.artifact_hash;
         self.contract_class_public_bytecode_commitment = contract_data.public_bytecode_commitment;
-        self.set_protocol_contract_root();
 
         *self
     }
@@ -352,7 +318,16 @@ impl FixtureBuilder {
             anchor_block_header: self.anchor_block_header,
             tx_context: self.tx_context,
             vk_tree_root: self.vk_tree_root,
-            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            protocol_contracts_hash: self.protocol_contracts.hash(),
+        }
+    }
+
+    pub fn to_private_tx_constant_data(self) -> PrivateTxConstantData {
+        PrivateTxConstantData {
+            anchor_block_header: self.anchor_block_header,
+            tx_context: self.tx_context,
+            vk_tree_root: self.vk_tree_root,
+            protocol_contracts: self.protocol_contracts,
         }
     }
 
@@ -394,34 +369,26 @@ impl FixtureBuilder {
             is_fee_payer: self.is_fee_payer,
             include_by_timestamp: self.include_by_timestamp,
             note_hash_read_requests: ClaimedLengthArray {
-                array: subarray(self.note_hash_read_requests.storage().map(|r: ScopedReadRequest| {
-                    r.read_request
-                })),
+                array: subarray(self.note_hash_read_requests.storage().map(|r| r.inner)),
                 length: self.note_hash_read_requests.len(),
             },
             nullifier_read_requests: ClaimedLengthArray {
-                array: subarray(self.nullifier_read_requests.storage().map(|r: ScopedReadRequest| {
-                    r.read_request
-                })),
+                array: subarray(self.nullifier_read_requests.storage().map(|r| r.inner)),
                 length: self.nullifier_read_requests.len(),
             },
             key_validation_requests_and_generators: ClaimedLengthArray {
                 array: subarray(self
                     .scoped_key_validation_requests_and_generators
                     .storage()
-                    .map(|r: ScopedKeyValidationRequestAndGenerator| r.request)),
+                    .map(|r| r.inner)),
                 length: self.scoped_key_validation_requests_and_generators.len(),
             },
             note_hashes: ClaimedLengthArray {
-                array: subarray(
-                    self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash),
-                ),
+                array: subarray(self.note_hashes.storage().map(|n| n.inner)),
                 length: self.note_hashes.len(),
             },
             nullifiers: ClaimedLengthArray {
-                array: subarray(
-                    self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier),
-                ),
+                array: subarray(self.nullifiers.storage().map(|n| n.inner)),
                 length: self.nullifiers.len(),
             },
             private_call_requests: ClaimedLengthArray {
@@ -443,9 +410,7 @@ impl FixtureBuilder {
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
             private_logs: ClaimedLengthArray {
-                array: subarray(self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
-                    l.inner
-                })),
+                array: subarray(self.private_logs.storage().map(|l| l.inner)),
                 length: self.private_logs.len(),
             },
             contract_class_logs_hashes: ClaimedLengthArray {
@@ -468,8 +433,6 @@ impl FixtureBuilder {
             contract_class_artifact_hash: self.contract_class_artifact_hash,
             contract_class_public_bytecode_commitment: self
                 .contract_class_public_bytecode_commitment,
-            protocol_contract_membership_witness: self.protocol_contract_membership_witness,
-            protocol_contract_leaf: self.protocol_contract_leaf,
             updated_class_id_witness: self.updated_class_id_witness,
             updated_class_id_leaf: self.updated_class_id_leaf,
             updated_class_id_delayed_public_mutable_values: DelayedPublicMutableValues::new(
@@ -483,17 +446,19 @@ impl FixtureBuilder {
     pub fn compute_update_tree_and_hints(&mut self) {
         let public_data_prefill = 2;
         let mut public_data_tree = empty_public_data_tree::<8, 3>(public_data_prefill);
+        let last_leaf_index = (public_data_prefill - 1) as Field;
+        let new_leaf_index = last_leaf_index + 1;
 
         if self.updated_class_id_value_change.is_empty()
             & self.updated_class_id_delay_change.is_empty() {
             self.anchor_block_header.state.partial.public_data_tree.root =
                 public_data_tree.get_root();
             self.anchor_block_header.state.partial.public_data_tree.next_available_leaf_index =
-                public_data_prefill;
+                public_data_prefill as Field;
 
             self.updated_class_id_witness = MembershipWitness {
-                leaf_index: (public_data_prefill - 1) as Field,
-                sibling_path: public_data_tree.get_sibling_path(public_data_prefill - 1),
+                leaf_index: last_leaf_index,
+                sibling_path: public_data_tree.get_sibling_path(last_leaf_index),
             };
             self.updated_class_id_leaf = PublicDataTreeLeafPreimage {
                 slot: (public_data_prefill - 1) as Field,
@@ -517,12 +482,12 @@ impl FixtureBuilder {
                 hash_slot,
             );
             public_data_tree.update_leaf(
-                public_data_prefill - 1,
+                last_leaf_index,
                 PublicDataTreeLeafPreimage {
                     slot: (public_data_prefill - 1) as Field,
                     value: 0,
                     next_slot: hash_leaf_slot,
-                    next_index: public_data_prefill,
+                    next_index: last_leaf_index + 1,
                 }
                     .hash(),
             );
@@ -532,14 +497,14 @@ impl FixtureBuilder {
                 next_slot: 0,
                 next_index: 0,
             };
-            public_data_tree.update_leaf(public_data_prefill, self.updated_class_id_leaf.hash());
+            public_data_tree.update_leaf(new_leaf_index, self.updated_class_id_leaf.hash());
             self.anchor_block_header.state.partial.public_data_tree.root =
                 public_data_tree.get_root();
             self.anchor_block_header.state.partial.public_data_tree.next_available_leaf_index =
-                public_data_prefill + 1;
+                new_leaf_index + 1;
             self.updated_class_id_witness = MembershipWitness {
-                leaf_index: public_data_prefill as Field,
-                sibling_path: public_data_tree.get_sibling_path(public_data_prefill),
+                leaf_index: new_leaf_index,
+                sibling_path: public_data_tree.get_sibling_path(new_leaf_index),
             };
         }
     }
@@ -590,37 +555,33 @@ impl FixtureBuilder {
         revertible: bool,
     ) -> PrivateToPublicAccumulatedData {
         PrivateToPublicAccumulatedData {
-            note_hashes: self
-                .get_split_ordered_side_effects(self.note_hashes, revertible)
-                .map(|n: ScopedNoteHash| n.note_hash.value),
-            nullifiers: self
-                .get_split_ordered_side_effects(self.nullifiers, revertible)
-                .map(|n: ScopedNullifier| n.nullifier.value),
+            note_hashes: self.get_split_ordered_side_effects(self.note_hashes, revertible).map(|n| {
+                n.expose_to_public()
+            }),
+            nullifiers: self.get_split_ordered_side_effects(self.nullifiers, revertible).map(|n| {
+                n.expose_to_public()
+            }),
             l2_to_l1_msgs: self
                 .get_split_ordered_side_effects(self.l2_to_l1_msgs, revertible)
-                .map(|m: Scoped<Counted<L2ToL1Message>>| m.expose_to_public()),
+                .map(|m| m.expose_to_public()),
             private_logs: self
                 .get_split_ordered_side_effects(self.private_logs, revertible)
-                .map(|l: Scoped<PrivateLogData>| l.expose_to_public()),
+                .map(|l| l.expose_to_public()),
             contract_class_logs_hashes: self
                 .get_split_ordered_side_effects(self.contract_class_logs_hashes, revertible)
-                .map(|l: Scoped<Counted<LogHash>>| l.expose_to_public()),
+                .map(|l| l.expose_to_public()),
             public_call_requests: self
                 .get_split_ordered_side_effects(self.public_call_requests, revertible)
-                .map(|cr: Counted<PublicCallRequest>| cr.inner),
+                .map(|cr| cr.inner),
         }
     }
 
     pub fn to_private_to_rollup_accumulated_data(self) -> PrivateToRollupAccumulatedData {
         PrivateToRollupAccumulatedData {
-            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
-            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: Scoped<Counted<L2ToL1Message>>| {
-                m.expose_to_public()
-            }),
-            private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
-                l.expose_to_public()
-            }),
+            note_hashes: self.note_hashes.storage().map(|n| n.expose_to_public()),
+            nullifiers: self.nullifiers.storage().map(|n| n.expose_to_public()),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m| m.expose_to_public()),
+            private_logs: self.private_logs.storage().map(|l| l.expose_to_public()),
             contract_class_logs_hashes: self
                 .contract_class_logs_hashes
                 .storage()
@@ -644,7 +605,7 @@ impl FixtureBuilder {
     }
 
     pub fn to_private_kernel_circuit_public_inputs(self) -> PrivateKernelCircuitPublicInputs {
-        let constants = self.to_tx_constant_data();
+        let constants = self.to_private_tx_constant_data();
         let end = self.to_private_accumulated_data();
         let validation_requests = self.to_private_validation_requests();
         let public_teardown_call_request = self.public_teardown_call_request;
@@ -705,8 +666,8 @@ impl FixtureBuilder {
 
     pub fn to_avm_accumulated_data(self) -> AvmAccumulatedData {
         AvmAccumulatedData {
-            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
-            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
+            note_hashes: self.note_hashes.storage().map(|n| n.expose_to_public()),
+            nullifiers: self.nullifiers.storage().map(|n| n.expose_to_public()),
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: Scoped<Counted<L2ToL1Message>>| {
                 m.expose_to_public()
             }),
@@ -720,12 +681,12 @@ impl FixtureBuilder {
         revertible: bool,
     ) -> PrivateToAvmAccumulatedData {
         PrivateToAvmAccumulatedData {
-            note_hashes: self
-                .get_split_ordered_side_effects(self.note_hashes, revertible)
-                .map(|n: ScopedNoteHash| n.note_hash.value),
-            nullifiers: self
-                .get_split_ordered_side_effects(self.nullifiers, revertible)
-                .map(|n: ScopedNullifier| n.nullifier.value),
+            note_hashes: self.get_split_ordered_side_effects(self.note_hashes, revertible).map(|n| {
+                n.expose_to_public()
+            }),
+            nullifiers: self.get_split_ordered_side_effects(self.nullifiers, revertible).map(|n| {
+                n.expose_to_public()
+            }),
             l2_to_l1_msgs: self
                 .get_split_ordered_side_effects(self.l2_to_l1_msgs, revertible)
                 .map(|m: Scoped<Counted<L2ToL1Message>>| m.expose_to_public()),
@@ -759,12 +720,13 @@ impl FixtureBuilder {
 
         AvmCircuitPublicInputs {
             global_variables: self.global_variables,
-            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            protocol_contracts: self.protocol_contracts,
             start_tree_snapshots: self.start_tree_snapshots,
             start_gas_used: self.start_gas_used,
             gas_settings: self.tx_context.gas_settings,
             effective_gas_fees: self.effective_gas_fees,
             fee_payer: self.fee_payer,
+            prover_id: self.prover_id,
             public_call_request_array_lengths,
             public_setup_call_requests,
             public_app_logic_call_requests,
@@ -782,15 +744,13 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_new_note_hash(&mut self, value: Field) {
-        self.note_hashes.push(NoteHash { value, counter: self.next_counter() }.scope(
-            self.contract_address,
-        ));
+    pub fn add_new_note_hash(&mut self, value: NoteHash) {
+        self.note_hashes.push(Counted::new(value, self.next_counter()).scope(self.contract_address));
     }
 
-    pub fn add_siloed_note_hash(&mut self, value: Field) {
+    pub fn add_siloed_note_hash(&mut self, value: NoteHash) {
         let siloed_value = compute_siloed_note_hash(self.contract_address, value);
-        self.note_hashes.push(NoteHash { value: siloed_value, counter: self.next_counter() }.scope(
+        self.note_hashes.push(Counted::new(siloed_value, self.next_counter()).scope(
             AztecAddress::zero(),
         ));
     }
@@ -804,8 +764,9 @@ impl FixtureBuilder {
             current_index,
         );
 
-        self.note_hashes.push(NoteHash { value: unique_siloed_value, counter: self.next_counter() }
-            .scope(AztecAddress::zero()));
+        self.note_hashes.push(Counted::new(unique_siloed_value, self.next_counter()).scope(
+            AztecAddress::zero(),
+        ));
     }
 
     pub fn append_note_hashes(&mut self, num_note_hashes: u32) {
@@ -857,8 +818,9 @@ impl FixtureBuilder {
                 // Silo and clear the contract address here because the padded note hashes are siloed when added in the
                 // reset circuit. We can only see the siloed version of it in the public inputs.
                 let siloed_value = compute_siloed_note_hash(SIDE_EFFECT_MASKING_ADDRESS, value);
-                self.note_hashes.push(NoteHash { value: siloed_value, counter: MAX_U32_VALUE }
-                    .scope(AztecAddress::zero()));
+                self.note_hashes.push(Counted::new(siloed_value, MAX_U32_VALUE).scope(
+                    AztecAddress::zero(),
+                ));
             }
         }
     }
@@ -867,7 +829,7 @@ impl FixtureBuilder {
         assert_eq(self.nullifiers.len(), 0, "first nullifier already set");
         let value = self.mock_nullifier_value(0);
         let first_nullifier =
-            Nullifier { value, counter: 0, note_hash: 0 }.scope(AztecAddress::zero());
+            Nullifier { value, note_hash: 0 }.count(0).scope(AztecAddress::zero());
         self.nullifiers.push(first_nullifier);
         self.claimed_first_nullifier = value;
     }
@@ -878,7 +840,7 @@ impl FixtureBuilder {
     }
 
     pub fn add_nullifier_for_note_hash(&mut self, value: Field, note_hash: Field) {
-        self.nullifiers.push(Nullifier { value, counter: self.next_counter(), note_hash }.scope(
+        self.nullifiers.push(Nullifier { value, note_hash }.count(self.next_counter()).scope(
             self.contract_address,
         ));
     }
@@ -890,11 +852,8 @@ impl FixtureBuilder {
 
     pub fn add_siloed_nullifier_for_note_hash(&mut self, value: Field, note_hash: Field) {
         let siloed_value = compute_siloed_nullifier(self.contract_address, value);
-        self.nullifiers.push(Nullifier {
-            value: siloed_value,
-            counter: self.next_counter(),
-            note_hash,
-        }
+        self.nullifiers.push(Nullifier { value: siloed_value, note_hash }
+            .count(self.next_counter())
             .scope(AztecAddress::zero()));
     }
 
@@ -926,11 +885,8 @@ impl FixtureBuilder {
                 // Silo and clear the contract address here because the padded nullifiers are siloed when added in the
                 // reset circuit. We can only see the siloed version of it in the public inputs.
                 let siloed_value = compute_siloed_nullifier(SIDE_EFFECT_MASKING_ADDRESS, value);
-                self.nullifiers.push(Nullifier {
-                    value: siloed_value,
-                    counter: MAX_U32_VALUE,
-                    note_hash: 0,
-                }
+                self.nullifiers.push(Nullifier { value: siloed_value, note_hash: 0 }
+                    .count(MAX_U32_VALUE)
                     .scope(AztecAddress::zero()));
             }
         }
@@ -952,13 +908,16 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u32) -> u32 {
+    pub fn add_note_hash_read_request(&mut self, value: Field) -> u32 {
         let read_request_index = self.note_hash_read_requests.len();
-        let value = self.mock_note_hash_value(note_hash_index);
-        let read_request =
-            ReadRequest { value, counter: self.next_counter() }.scope(self.contract_address);
+        let read_request = Counted::new(value, self.next_counter()).scope(self.contract_address);
         self.note_hash_read_requests.push(read_request);
         read_request_index
+    }
+
+    pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u32) -> u32 {
+        let value = self.mock_note_hash_value(note_hash_index);
+        self.add_note_hash_read_request(value)
     }
 
     pub fn append_note_hash_read_requests(&mut self, num_reads: u32) {
@@ -966,22 +925,21 @@ impl FixtureBuilder {
         for i in 0..self.note_hash_read_requests.max_len() {
             if i < num_reads {
                 let value = self.mock_note_hash_read_value(index_offset + i);
-                let read_request = ReadRequest { value, counter: self.next_counter() }.scope(
-                    self.contract_address,
-                );
-                self.note_hash_read_requests.push(read_request);
+                let _ = self.add_note_hash_read_request(value);
             }
         }
     }
 
-    pub fn add_read_request_for_pending_nullifier(&mut self, nullifier_index: u32) -> u32 {
+    pub fn add_nullifier_read_request(&mut self, value: Field) -> u32 {
         let read_request_index = self.nullifier_read_requests.len();
-        let nullifier = self.mock_nullifier_value(nullifier_index);
-        let read_request = ReadRequest { value: nullifier, counter: self.next_counter() }.scope(
-            self.contract_address,
-        );
+        let read_request = Counted::new(value, self.next_counter()).scope(self.contract_address);
         self.nullifier_read_requests.push(read_request);
         read_request_index
+    }
+
+    pub fn add_read_request_for_pending_nullifier(&mut self, nullifier_index: u32) -> u32 {
+        let value = self.mock_nullifier_value(nullifier_index);
+        self.add_nullifier_read_request(value)
     }
 
     pub fn append_nullifier_read_requests(&mut self, num_reads: u32) {
@@ -989,10 +947,7 @@ impl FixtureBuilder {
         for i in 0..self.nullifier_read_requests.max_len() {
             if i < num_reads {
                 let value = self.mock_nullifier_read_value(index_offset + i);
-                let read_request = ReadRequest { value, counter: self.next_counter() }.scope(
-                    self.contract_address,
-                );
-                self.nullifier_read_requests.push(read_request);
+                let _ = self.add_nullifier_read_request(value);
             }
         }
     }
@@ -1031,7 +986,7 @@ impl FixtureBuilder {
         note_hash_counter: u32,
     ) {
         let log = PrivateLog { fields, length };
-        let logData = PrivateLogData { log, note_hash_counter, counter: self.next_counter() }.scope(
+        let logData = PrivateLogData { log, note_hash_counter }.count(self.next_counter()).scope(
             self.contract_address,
         );
         self.private_logs.push(logData);
@@ -1071,11 +1026,8 @@ impl FixtureBuilder {
         length: u32,
         note_hash_counter: u32,
     ) {
-        let log = PrivateLogData {
-            log: PrivateLog { fields, length },
-            note_hash_counter,
-            counter: self.next_counter(),
-        }
+        let log = PrivateLogData { log: PrivateLog { fields, length }, note_hash_counter }
+            .count(self.next_counter())
             .scope(AztecAddress::zero()); // When siloed, the address is set to zero by the reset kernel.
         self.private_logs.push(log);
     }
@@ -1120,8 +1072,8 @@ impl FixtureBuilder {
                 self.private_logs.push(PrivateLogData {
                     log: PrivateLog { fields, length: fields.len() },
                     note_hash_counter: 0,
-                    counter: MAX_U32_VALUE,
                 }
+                    .count(MAX_U32_VALUE)
                     .scope(AztecAddress::zero()));
             }
         }

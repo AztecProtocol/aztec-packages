@@ -1,7 +1,6 @@
 #include "barretenberg/vm2/simulation/gadgets/concrete_dbs.hpp"
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/simulation/gadgets/protocol_contracts.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 
@@ -18,8 +17,11 @@ std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAdd
     }
     // If we did get a contract instance, we need to prove that the address is derived from the instance.
     // For protocol contracts the input address is the canonical address, we need to retrieve the derived address.
-    AztecAddress derived_address =
-        protocol_contracts_set.contains(address) ? protocol_contracts_set.get_derived_address(address) : address;
+    AztecAddress derived_address = is_protocol_contract_address(address)
+                                       ? get_derived_address(protocol_contracts, address)
+                                             .value() /* We can assume that get_derived_address will not return a
+                                                         nullopt, since we have succesfully fetched the instance.*/
+                                       : address;
     address_derivation.assert_derivation(derived_address, instance.value());
     return instance;
 }
@@ -138,17 +140,17 @@ bool MerkleDB::nullifier_exists_internal(std::optional<AztecAddress> contract_ad
     return present;
 }
 
-bool MerkleDB::nullifier_write(const AztecAddress& contract_address, const FF& nullifier)
+void MerkleDB::nullifier_write(const AztecAddress& contract_address, const FF& nullifier)
 {
     return nullifier_write_internal(contract_address, nullifier);
 }
 
-bool MerkleDB::siloed_nullifier_write(const FF& nullifier)
+void MerkleDB::siloed_nullifier_write(const FF& nullifier)
 {
     return nullifier_write_internal(/*contract_address*/ std::nullopt, nullifier);
 }
 
-bool MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_address, const FF& nullifier)
+void MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_address, const FF& nullifier)
 {
     uint32_t nullifier_counter = tree_counters_stack.top().nullifier_counter;
     FF siloed_nullifier = nullifier;
@@ -191,9 +193,9 @@ bool MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_add
 
     if (!present) {
         tree_counters_stack.top().nullifier_counter++;
+    } else {
+        throw NullifierCollisionException(format("Nullifier ", nullifier, " already exists"));
     }
-
-    return !present;
 }
 
 bool MerkleDB::note_hash_exists(uint64_t leaf_index, const FF& unique_note_hash) const

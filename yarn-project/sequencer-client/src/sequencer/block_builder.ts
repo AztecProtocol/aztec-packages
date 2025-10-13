@@ -124,10 +124,12 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
       guardedFork,
       contractsDB,
       globalVariables,
-      /*doMerkleOperations=*/ true,
-      /*skipFeeEnforcement=*/ true,
-      /*clientInitiatedSimulation=*/ false,
       this.telemetryClient,
+      {
+        doMerkleOperations: true,
+        skipFeeEnforcement: true,
+        clientInitiatedSimulation: false,
+      },
     );
 
     const processor = new PublicProcessor(
