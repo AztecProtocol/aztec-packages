@@ -379,14 +379,17 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
     }
 
     /**
-     * @brief Compute the combiner polynomial $G$ in the Protogalaxy paper
+     * @brief Compute the combiner polynomial \f$G\f$ in the Protogalaxy paper
+     *
      * @details We have implemented an optimization that (eg in the case where we fold one instance-witness pair at a
      * time) assumes the value G(1) is 0, which is true in the case where the witness to be folded is valid.
      * @todo (https://github.com/AztecProtocol/barretenberg/issues/968) Make combiner tests better
      *
-     * @tparam skip_zero_computations whether to use the optimization that skips computing zero.
-     * @param
+     * @param instances
      * @param gate_separators
+     * @param relation_parameters
+     * @param alphas
+     * @param univariate_accumulators
      * @return ExtendedUnivariateWithRandomization
      */
     ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
@@ -403,8 +406,6 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
         const size_t common_polynomial_size = instances[0]->polynomials.w_l.virtual_size();
         const size_t num_threads = compute_num_threads(common_polynomial_size);
 
-        // Univariates are optimized for usual PG, but we need the unoptimized version for tests (it's a version that
-        // doesn't skip computation), so we need to define types depending on the template instantiation
         using ThreadAccumulators = TupleOfTuplesOfUnivariates;
 
         // Construct univariate accumulator containers; one per thread
@@ -421,16 +422,25 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
 
             for (const ExecutionTraceUsageTracker::Range& range : trace_usage_tracker.thread_ranges[thread_idx]) {
                 for (size_t idx = range.first; idx < range.second; idx++) {
-                    // Instantiate univariates, possibly with skipping to ignore computation in those indices
-                    // (they are still available for skipping relations, but all derived univariate will ignore
-                    // those evaluations) No need to initialize extended_univariates to 0, as it's assigned to.
+                    // Instantiate extended univariates: they contain the evaluations of the prover polynomials from the
+                    // instances being folded and are extended to length EXTENDED_LENGTH, which is the maximum length of
+                    // a folded subrelation polynomial. We set skip_count to NUM_INSTANCES - 1 = 1 because the
+                    // relations evaluate to zero on valid keys, and the evaluations of the combiner on the point 1,
+                    // is exactly the relation contributions coming from the key being folded (note that the Univariate
+                    // class skips computing evaluations between 1 and skip_count).
+                    //
+                    // The values of the evaluations are still available for skipping relations, but all
+                    // derived univariates (coming from addition, multiplication, etc) will ignore those evaluations.
+                    //
+                    // No need to initialize extended_univariates to 0, as it's assigned to a value in the following
+                    // function.
                     extend_univariates<SKIP_COUNT>(extended_univariates, instances, idx);
 
                     const FF pow_challenge = gate_separators[idx];
 
                     // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed
                     // to this function have already been folded. Moreover, linear-dependent relations that act over
-                    // the entire execution trace rather than on rows, will not be multiplied by the pow challenge.
+                    // the entire execution trace rather than on rows will not be multiplied by the pow challenge.
                     accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
                                                     extended_univariates,
                                                     relation_parameters, // these parameters have already been folded
@@ -447,18 +457,9 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
         // This does nothing if TupleOfTuples is TupleOfTuplesOfUnivariates
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping deoptimized_univariates =
             deoptimize_univariates(univariate_accumulators);
-        //  Batch the univariate contributions from each sub-relation to obtain the round univariate
+        // Batch the univariate contributions from each folded sub-relation using the folded batching challenges to
+        // obtain the combiner
         return batch_over_relations(deoptimized_univariates, alphas);
-    }
-
-    ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
-                                                         const GateSeparatorPolynomial<FF>& gate_separators,
-                                                         const UnivariateRelationParameters& relation_parameters,
-                                                         const UnivariateSubrelationSeparators& alphas)
-    {
-        // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
-        TupleOfTuplesOfUnivariates accumulators{};
-        return compute_combiner(instances, gate_separators, relation_parameters, alphas, accumulators);
     }
 
     /**
@@ -487,6 +488,18 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
         return result;
     }
 
+    /**
+     * @brief Given the univariate accumulators and the batching challenges, compute the combiner by batching the
+     * subrelations.
+     *
+     * @details univariate_accumulators contain the contributions from the entire trace for each folded subrelation. To
+     * complete the calculation of the combiner, we have to batch these contributions using the folded batching
+     * challenges.
+     *
+     * @param univariate_accumulators
+     * @param alphas
+     * @return ExtendedUnivariateWithRandomization
+     */
     static ExtendedUnivariateWithRandomization batch_over_relations(
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping& univariate_accumulators,
         const UnivariateSubrelationSeparators& alphas)
@@ -499,6 +512,7 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
                 return;
             }
 
+            // Extend folded subrelation polynomials to the length of the combiner
             auto extended = element.template extend_to<BATCHED_EXTENDED_LENGTH>();
             extended *= alphas[idx];
             result += extended;
@@ -511,6 +525,10 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
         return result;
     }
 
+    /**
+     * @brief Compute the vanishing polynomial \f$Z(X) = X * (X - 1)\f$ and Lagranges \f$L_0(X) = 1 - X, L_1(X) = X\f$
+     * at the challenge.
+     */
     static std::pair<typename ProverInstance::FF, std::array<typename ProverInstance::FF, NUM_INSTANCES>>
     compute_vanishing_polynomial_and_lagranges(const FF& challenge)
     {
@@ -525,6 +543,12 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
     /**
      * @brief Compute the combiner quotient defined as $K$ polynomial in the paper specialised for only folding two
      * instances at once.
+     *
+     * @details The combiner quotient is defined by the formula \f$G(X) = F(\alpha) L_0(X) + Z(X) K(X)\f$. The
+     * polynomial \f$Z(X)\f$ is the vanishing polynomial of the set 0, NUM_INSTANCES-1 = 1. Therefore, we cannot
+     * compute the value of \f$K(X)\f$ on these values. We evaluate \f$K(X)\f$ on NUM_INSTANCES = 2, ...,
+     * BATCHED_EXTENDED_LENGTH (the length of the combiner) and we return the univariate over this domain.
+     *
      */
     static Univariate<FF, BATCHED_EXTENDED_LENGTH, NUM_INSTANCES> compute_combiner_quotient(
         FF perturbator_evaluation, ExtendedUnivariateWithRandomization combiner)
@@ -543,8 +567,17 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
     }
 
     /**
-     * @brief For each parameter, collect the value in each decider pvogin key in a univariate and extend for use in the
-     * combiner compute.
+     * @brief For each parameter, collect the value in each ProverInstance in a univariate and extend for use in the
+     * combiner computation.
+     *
+     * @note Univariates are in Lagrange basis. Therefore, this function returns the folded relation parameters.
+     *
+     * @details The ProverInstance is made of prover polynomials, relation parameters, and subrelations batching
+     * challenges. As the relation parameters are part of the instance, they must be folded. This function arranges the
+     * relation parameters from the instances in a matrix where column i represents the relation parameters from the
+     * i-th instance to be folded and then defines a univariate for each row of the matrix by using the relation
+     * parameters in that row as coefficients. The univariates are extended up to length EXTENDED_LENGTH, which is the
+     * max length of a subrelation when the relation parameters are considered as variables.
      */
     template <typename ExtendedRelationParameters>
     static ExtendedRelationParameters compute_extended_relation_parameters(const ProverInstances& instances)
@@ -565,6 +598,15 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
     /**
      * @brief Combine the relation batching parameters (alphas) from each prover instance into a univariate for the
      * combiner computation.
+     *
+     * @note Univariates are in Lagrange basis. Therefore, this function returns the folded batching challenges.
+     *
+     * @details The ProverInstance is made of prover polynomials, relation parameters, and subrelations batching
+     * challenges: the alphas. As the alphas are part of the instance, they must be folded. This function arranges the
+     * alphas from the instances in a matrix where column i represents the alphas from the i-th instance to be folded
+     * and then defines a univariate for each row of the matrix by using the alphas in that row as coefficients. The
+     * univariates are extended up to length BATCHED_EXTENDED_LENGTH, which is the max degree of the
+     * \f$f_i\f$'s in the relation calculation.
      */
     static UnivariateSubrelationSeparators compute_and_extend_alphas(const ProverInstances& instances)
     {

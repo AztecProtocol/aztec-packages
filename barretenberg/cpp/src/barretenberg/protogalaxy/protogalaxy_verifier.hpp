@@ -60,28 +60,20 @@ template <class VerifierInstance> class ProtogalaxyVerifier_ {
     };
 
     /**
-     * @brief Get data to be folded grouped by commitment index
-     * @example Assume the VKs are arranged as follows
-     *           VK 0    VK 1    VK 2    VK 3
-     *           q_c_0   q_c_1   q_c_2   q_c_3
-     *           q_l_0   q_l_1   q_l_2   q_l_3
-     *             ⋮        ⋮        ⋮       ⋮
-     * If we wanted to extract the commitments from the verification keys in order to fold them, we would pass to the
-     * function the type parameter FOLDING_DATA::PRECOMPUTED_COMMITMETS, and the function would return
-     * {{q_c_0, q_c_1, q_c_2, q_c_3}, {q_l_0, q_l_1, q_l_2, q_l_3},...}. Here the "commitment index" is the index of the
+     * @brief Get data to be folded grouped by commitment index. Here the "commitment index" is the index of the
      * row in the matrix whose columns are given be the instance components to be folded.
      *
      * @tparam FoldingData The type of the parameter to be folded
      */
     template <FOLDING_DATA FoldingData> auto get_data_to_fold() const
     {
-        using PrecomputeCommDataType = RefArray<Commitment, Flavor::NUM_PRECOMPUTED_ENTITIES>;
+        using PrecomputedCommDataType = RefArray<Commitment, Flavor::NUM_PRECOMPUTED_ENTITIES>;
         using WitnessCommitmentsDataType = RefArray<Commitment, Flavor::NUM_WITNESS_ENTITIES>;
         using AlphasDataType = Flavor::SubrelationSeparators;
         using RelationParametersDataType = RefArray<FF, RelationParameters<FF>::NUM_TO_FOLD>;
         using DataType = std::conditional_t<
             FoldingData == FOLDING_DATA::PRECOMPUTED_COMMITMENTS,
-            PrecomputeCommDataType,
+            PrecomputedCommDataType,
             std::conditional_t<
                 FoldingData == FOLDING_DATA::WITNESS_COMMITMENTS,
                 WitnessCommitmentsDataType,
@@ -110,9 +102,9 @@ template <class VerifierInstance> class ProtogalaxyVerifier_ {
 
         const size_t num_to_fold = data[0].size();
         std::vector<std::vector<ReturnValue>> result(num_to_fold, std::vector<ReturnValue>(NUM_INSTANCES));
-        for (size_t idx = 0; auto& commitment_at_idx : result) {
-            commitment_at_idx[0] = data[0][idx];
-            commitment_at_idx[1] = data[1][idx];
+        for (size_t idx = 0; auto& data_at_idx : result) {
+            data_at_idx[0] = data[0][idx];
+            data_at_idx[1] = data[1][idx];
             idx++;
         }
         return result;
