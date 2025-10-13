@@ -228,11 +228,15 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveSucceed)
     STDLIB_TYPE_ALIASES;
     Builder builder;
 
-    auto lhs = TestFixture::generators[0];
-    cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
-    a.validate_on_curve();
+    auto point_val = TestFixture::generators[0];
+    auto x = stdlib::field_t<Builder>::from_witness(&builder, point_val.x);
+    auto y = stdlib::field_t<Builder>::from_witness(&builder, point_val.y);
+    auto is_infinity = bool_ct(witness_ct(&builder, point_val.is_point_at_infinity()));
+
+    cycle_group_ct point(x, y, is_infinity);
+    point.validate_on_curve();
     EXPECT_FALSE(builder.failed());
-    check_circuit_and_gate_count(builder, 11);
+    check_circuit_and_gate_count(builder, 6);
 }
 
 /**
