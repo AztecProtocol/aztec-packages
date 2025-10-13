@@ -50,7 +50,7 @@ export class BarretenbergShmSyncBackend implements IMsgpackBackendSync {
 
     // Spawn bb process with shared memory mode
     this.process = spawn(bbBinaryPath, ['msgpack', 'run', '--input', `${this.shmName}.shm`], {
-      stdio: ['ignore', 'ignore', 'inherit'], // Ignore stdin/stdout, inherit stderr for debugging
+      stdio: ['ignore', 'ignore', 'ignore'],
       env,
     });
 

@@ -276,7 +276,7 @@ export class BarretenbergSync extends SyncApi {
    * Supported backends: Wasm, NativeSharedMem
    * Not supported: WasmWorker (no workers in sync), NativeUnixSocket (async only)
    */
-  private static async new(options: BackendOptions = {}) {
+  static async new(options: BackendOptions = {}) {
     const logger = options.logger ?? createDebugLogger('bb_sync');
 
     if (options.backend) {

@@ -33,7 +33,7 @@ export class BarretenbergNativeSocketSyncBackend implements IMsgpackBackendSync 
 
     // Spawn bb process - it will create the socket server
     this.process = spawn(bbBinaryPath, ['msgpack', 'run', '--input', this.socketPath], {
-      stdio: ['ignore', 'ignore', 'inherit'], // Ignore stdin/stdout, inherit stderr
+      stdio: ['ignore', 'ignore', 'ignore'],
     });
 
     // Handle process errors
@@ -260,7 +260,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
 
     // Spawn bb process - it will create the socket server
     this.process = spawn(bbBinaryPath, ['msgpack', 'run', '--input', this.socketPath], {
-      stdio: ['ignore', 'ignore', 'inherit'],
+      stdio: ['ignore', 'ignore', 'ignore'],
       env,
     });
 
