@@ -315,6 +315,10 @@ tests:
     error_regex: "only slashes validator inactive for N consecutive epochs"
     owners:
       - *palla
+  - regex: "archiver/src/archiver/archiver.test.ts"
+    error_regex: "Received number of calls: 1"
+    owners:
+      - *palla
 
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"
