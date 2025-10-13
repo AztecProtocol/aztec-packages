@@ -138,7 +138,7 @@ graph TB
     end
 
     subgraph "Append-Only Note Hash Merkle Tree"
-        Root["🌳 Merkle Root<br/>(published on-chain)"]
+        Root["🌳 Merkle Root<br/>(published onchain)"]
 
         L1["Internal Node"]
         L2["Internal Node"]
