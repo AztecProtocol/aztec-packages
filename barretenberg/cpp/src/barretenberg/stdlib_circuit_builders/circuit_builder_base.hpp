@@ -73,7 +73,7 @@ template <typename FF_> class CircuitBuilderBase {
 
   public:
     CircuitBuilderBase(size_t size_hint = 0, bool has_dummy_witnesses = false);
-
+    bool has_dummy_witnesses() { return has_dummy_witnesses_; }
     CircuitBuilderBase(const CircuitBuilderBase& other) = default;
     CircuitBuilderBase(CircuitBuilderBase&& other) noexcept = default;
     CircuitBuilderBase& operator=(const CircuitBuilderBase& other) = default;
