@@ -230,6 +230,7 @@ locals {
       })] : []
       custom_settings = {
         "nodeType"                       = "rpc"
+        "replicaCount"                   = var.RPC_REPLICAS
         "node.env.NETWORK"               = var.NETWORK
         "node.proverRealProofs"          = var.PROVER_REAL_PROOFS
         "ingress.rpc.enabled"            = var.RPC_INGRESS_ENABLED

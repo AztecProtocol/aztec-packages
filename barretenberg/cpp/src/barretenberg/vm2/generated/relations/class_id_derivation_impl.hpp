@@ -26,7 +26,7 @@ void class_id_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::class_id_derivation_sel)) *
-                   (static_cast<View>(in.get(C::class_id_derivation_temp_constant_for_lookup)) -
+                   (static_cast<View>(in.get(C::class_id_derivation_gen_index_contract_leaf)) -
                     CView(constants_GENERATOR_INDEX__CONTRACT_LEAF));
         std::get<1>(evals) += (tmp * scaling_factor);
     }

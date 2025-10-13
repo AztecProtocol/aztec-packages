@@ -100,6 +100,7 @@ SumcheckClientIVC::RecursiveVerifierAccumulator SumcheckClientIVC::execute_first
     //              true,
     //              "Sumcheck: Failed to recursively verify first sumcheck.");
 
+
     RecursiveFirstSumcheckOutput output{ .challenge = sumcheck_output.challenge,
                                          .claimed_evaluations = sumcheck_output.claimed_evaluations };
     auto recursive_accumulator = output.batch(verifier_instance, transcript);
