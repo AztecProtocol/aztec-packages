@@ -207,8 +207,8 @@ std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr,
     bool_ct positive_skew(witness_t<Builder>(builder, is_negative ? skew : 0), /*use_range_constraint*/ true);
 
     // Enforce that both positive_skew, negative_skew are not set at the same time
-    bool_ct both_skew_cannot_be_zero = !(positive_skew & negative_skew);
-    both_skew_cannot_be_zero.assert_equal(
+    bool_ct both_skews_cannot_be_one = !(positive_skew & negative_skew);
+    both_skews_cannot_be_one.assert_equal(
         bool_ct(builder, true), "biggroup_nafs: both positive and negative skews cannot be set at the same time");
 
     // Initialize stagger witness
