@@ -10,9 +10,11 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/bc_decomposition.hpp"
+#include "barretenberg/vm2/generated/relations/perms_bc_hashing.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
+#include "barretenberg/vm2/tracegen/lib/multi_permutation_builder.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -34,6 +36,29 @@ void init_trace(TestTraceContainer& trace)
     trace.set(C::precomputed_first_row, 0, 1);
 }
 
+void set_perm_selectors(TestTraceContainer& trace)
+{
+    // These are normally set by the MultiPermutationBuilder e.g.:
+    // MultiPermutationBuilder<perm_bc_hashing_get_packed_field_0_settings,
+    //                         perm_bc_hashing_get_packed_field_1_settings,
+    //                         perm_bc_hashing_get_packed_field_2_settings>
+    //     perm_builder(C::bc_decomposition_sel_packed);
+    // perm_builder.process(trace);
+    // ...But since we are only testing decomp (without hashing) in some cases, this helper sets the selectors so we
+    // don't fail:
+    constexpr std::array<C, 3> selectors = { C::bc_decomposition_sel_packed_read_0_,
+                                             C::bc_decomposition_sel_packed_read_1_,
+                                             C::bc_decomposition_sel_packed_read_2_ };
+    for (uint32_t r = 0; r < trace.get_num_rows();) {
+        uint32_t bytes_remaining = static_cast<uint32_t>(trace.get(C::bc_decomposition_bytes_remaining, r));
+        for (uint32_t i = r; i < r + bytes_remaining; i += 31) {
+            // Cycle through the permutation selectors for each packed_field:
+            trace.set(i, { { { selectors[((i - r) % 31) % 3], 1 } } });
+        }
+        r += bytes_remaining > 0 ? bytes_remaining : 1;
+    }
+}
+
 TEST(BytecodeDecompositionConstrainingTest, EmptyRow)
 {
     check_relation<bc_decomposition>(testing::empty_trace());
@@ -53,6 +78,7 @@ TEST(BytecodeDecompositionConstrainingTest, SingleBytecode)
 
     precomputed_builder.process_misc(trace, 256);
     precomputed_builder.process_sel_range_8(trace);
+    set_perm_selectors(trace);
 
     check_relation<bc_decomposition>(trace);
     check_interaction<BytecodeTraceBuilder, lookup_bc_decomposition_bytes_are_bytes_settings>(trace);
@@ -73,6 +99,7 @@ TEST(BytecodeDecompositionConstrainingTest, ShortSingleBytecode)
 
     precomputed_builder.process_misc(trace, 256);
     precomputed_builder.process_sel_range_8(trace);
+    set_perm_selectors(trace);
 
     check_relation<bc_decomposition>(trace);
     check_interaction<BytecodeTraceBuilder, lookup_bc_decomposition_bytes_are_bytes_settings>(trace);
@@ -94,6 +121,7 @@ TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodes)
 
     precomputed_builder.process_misc(trace, 256);
     precomputed_builder.process_sel_range_8(trace);
+    set_perm_selectors(trace);
 
     check_relation<bc_decomposition>(trace);
     check_interaction<BytecodeTraceBuilder, lookup_bc_decomposition_bytes_are_bytes_settings>(trace);
@@ -118,6 +146,7 @@ TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodesWithShortOnes)
 
     precomputed_builder.process_misc(trace, 256);
     precomputed_builder.process_sel_range_8(trace);
+    set_perm_selectors(trace);
 
     check_relation<bc_decomposition>(trace);
     check_interaction<BytecodeTraceBuilder, lookup_bc_decomposition_bytes_are_bytes_settings>(trace);
@@ -463,6 +492,97 @@ TEST(BytecodeDecompositionConstrainingTest, NegativeSelPackedNotSel)
     trace.set(C::bc_decomposition_sel, 0, 0); // Mutate to wrong value
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_SEL_TOGGLED_AT_PACKED),
                               "SEL_TOGGLED_AT_PACKED");
+}
+
+// Negative test where sel_packed == 0 at pc = 0
+TEST(BytecodeDecompositionConstrainingTest, NegativeSelPackedInit)
+{
+    TestTraceContainer trace;
+    init_trace(trace);
+    BytecodeTraceBuilder builder;
+
+    builder.process_decomposition(
+        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(10)) } }, trace);
+    set_perm_selectors(trace);
+    check_relation<bc_decomposition>(trace);
+
+    // First bytecode row should be packed:
+    trace.set(C::bc_decomposition_sel_packed, 1, 0); // Mutate to wrong value
+    trace.set(C::bc_decomposition_sel_packed_read_0_, 1, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_SEL_PACKED_INIT),
+                              "SEL_PACKED_INIT");
+}
+
+// Negative test where sel_packed == 0 at pc = 31
+TEST(BytecodeDecompositionConstrainingTest, NegativeSelNotPacked)
+{
+    TestTraceContainer trace;
+    init_trace(trace);
+    BytecodeTraceBuilder builder;
+
+    builder.process_decomposition(
+        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) } }, trace);
+    set_perm_selectors(trace);
+    check_relation<bc_decomposition>(trace);
+
+    // At row 32, pc = 31 and should be packed:
+    ASSERT_EQ(trace.get(C::bc_decomposition_pc, 32), 31);
+    trace.set(C::bc_decomposition_sel_packed, 32, 0); // Mutate to wrong value
+    trace.set(C::bc_decomposition_sel_packed_read_1_, 32, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_PC_IS_PACKED),
+                              "PC_IS_PACKED");
+}
+
+// Negative test where sel_packed == 1 at incorrect pc:
+TEST(BytecodeDecompositionConstrainingTest, NegativeSelPacked)
+{
+    TestTraceContainer trace;
+    init_trace(trace);
+    BytecodeTraceBuilder builder;
+
+    builder.process_decomposition(
+        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) } }, trace);
+    set_perm_selectors(trace);
+    check_relation<bc_decomposition>(trace);
+
+    // Should only be packed every 31 bytes:
+    trace.set(C::bc_decomposition_sel_packed, 20, 1); // Mutate to wrong value
+    trace.set(C::bc_decomposition_sel_packed_read_0_, 20, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_PC_IS_PACKED),
+                              "PC_IS_PACKED");
+}
+
+// Negative test where next_packed_pc is set incorrectly:
+TEST(BytecodeDecompositionConstrainingTest, NegativePackedPc)
+{
+    TestTraceContainer trace;
+    init_trace(trace);
+    BytecodeTraceBuilder builder;
+
+    builder.process_decomposition(
+        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(20)) } }, trace);
+    set_perm_selectors(trace);
+    check_relation<bc_decomposition>(trace);
+
+    // Try to claim that when pc = 10, we should have sel_packed = 1:
+    ASSERT_EQ(trace.get(C::bc_decomposition_pc, 11), 10);
+    trace.set(C::bc_decomposition_sel_packed, 11, 1); // Mutate to wrong value
+    trace.set(C::bc_decomposition_sel_packed_read_0_, 11, 1);
+    trace.set(C::bc_decomposition_next_packed_pc, 11, 10);
+    trace.set(C::bc_decomposition_next_packed_pc_min_pc_inv, 11, 0);
+    // Passes main relation...
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_PC_IS_PACKED);
+    // ...but fails propagation:
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_NEXT_PACKED_PC_PROPAGATION),
+                              "NEXT_PACKED_PC_PROPAGATION failed at row 10");
+    // We cannot set every row up to 11, because we force pc = 0 <==> sel_packed = 1, which then increments
+    // next_packed_pc by 31:
+    for (uint32_t i = 2; i < 11; i++) {
+        trace.set(C::bc_decomposition_next_packed_pc, i, 10);
+        trace.set(C::bc_decomposition_next_packed_pc_min_pc_inv, i, FF(10 - i + 1).invert());
+    }
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_NEXT_PACKED_PC_PROPAGATION),
+                              "NEXT_PACKED_PC_PROPAGATION failed at row 1");
 }
 
 } // namespace

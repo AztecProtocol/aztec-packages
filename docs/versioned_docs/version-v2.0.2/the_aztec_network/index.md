@@ -1,131 +1,149 @@
 ---
 id: index
 sidebar_position: 0
-title: Running a Full Node
-description: A guide about how to run a full node on the Aztec network.
+title: Introduction
+description: Learn about the Aztec network, node types, roles, best practices, and how to participate in the network.
 ---
-
-## Background
-
-This guide will go over the steps required to run a full node on Aztec with a basic setup.
-
-A full node allows users to connect and interact with the network. It provides users an interface to send and receive transactions and state updates without relying on a third party.
-
-A user should run their own full node if they want to interact with the network in the most privacy preserving way. Furthermore, it is a great way to support the Aztec network and get involved with the community.
-
-Please note that there are two other types of nodes available that we are not covering in this guide. One is a sequencer node, and the other is a prover node. You can find more information on the other types of nodes and how they act in the protocol, as well as advanced guides that go into more feature-complete setups in Guides section of the sidebar.
-
-## Prerequisites
-
-Minimum hardware requirements:
-
-- 2 core / 4 vCPU
-- 16 GB RAM
-- 1 TB NVMe SDD
-- 25 Mbps network connection
-
-Please note that these requirements are subject to change as the network throughput increases.
-
-Along with the above minimum hardware requirements, it is assumed that the user has access to a performant Ethereum RPC endpoint. Furthermore, this guide expects the user to be using a "standard" Linux distribution like Debian / Ubuntu when following along with the steps.
 
 ## Overview
 
-1. Install Docker
-2. Install Aztec
-3. Configure the node
-4. Start the node!
+The Aztec network is a decentralized privacy-focused rollup on Ethereum. Network nodes work together to process transactions, maintain state, and generate proofs that ensure rollup integrity. This guide provides an overview of node types, their roles, best practices, and how to get started.
 
-## Install and set up Docker
+## Actors and Roles
 
-Ensure Docker is installed. If not, here is a convenient way to install it.
-This uses the script at
-[https://get.docker.com/](https://get.docker.com/) to install the
-latest stable release of Docker on Linux:
+The Aztec network consists of several types of actors, each serving a specific purpose:
 
-```console
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
+### Full Nodes
+
+Full nodes provide users with the ability to connect and interact with the network. They maintain a complete copy of the blockchain state and allow users to send and receive transactions without relying on third parties.
+
+**Key responsibilities:**
+- Maintain synchronized copy of the blockchain state
+- Provide RPC interface for transaction submission
+- Validate and relay transactions
+- Offer privacy-preserving interaction with the network
+
+[Learn more about running a full node →](./setup/running_a_node.md)
+
+### Sequencer Nodes
+
+Sequencer nodes order transactions and produce blocks. Selected via a proof-of-stake mechanism, they play a critical role in the consensus process.
+
+**Key responsibilities:**
+- Assemble unprocessed transactions and propose new blocks
+- Execute public functions in transactions
+- Attest to correct execution when part of the sequencer committee
+- Submit successfully attested blocks to L1
+
+Before publication, blocks must be validated by a committee of sequencer nodes who re-execute public transactions and verify private function proofs. Committee members attest to validity by signing the block header. Once sufficient attestations are collected (two-thirds of the committee plus one), the block can be submitted to L1.
+
+[Learn more about running a sequencer →](./setup/sequencer_management.md)
+
+### Provers
+
+Provers generate cryptographic proofs that attest to transaction correctness. They produce the final rollup proof submitted to Ethereum, ensuring rollup integrity.
+
+**Key components and responsibilities:**
+- **Prover node**: Polls L1 for unproven epochs, creates prover jobs, and submits final proofs
+- **Prover broker**: Manages job queues and distributes work to agents
+- **Prover agents**: Execute proof generation jobs in a stateless manner
+
+Note that running provers require:
+- High-performance hardware (typically data center-grade)
+- Significant computational resources for proof generation
+- Technical expertise in operating distributed systems
+
+[Learn more about running a prover →](./setup/running_a_prover.md)
+
+## How Nodes Work Together
+
+The Aztec network operates through the coordinated interaction of these different node types:
+
+1. **Transaction Flow**: Users submit transactions to full nodes, which validate and propagate them through the P2P network
+2. **Block Production**: Sequencer nodes collect transactions from the mempool, order them, and propose new blocks
+3. **Consensus**: The sequencer committee validates proposed blocks and provides attestations
+4. **Proof Generation**: Prover nodes generate cryptographic proofs for epochs of blocks
+5. **L1 Submission**: Sequencers submit attested blocks and provers submit epoch proofs to Ethereum
+
+## Best Practices
+
+### Snapshot Sync
+
+Nodes can synchronize state in two ways:
+
+1. **L1 sync**: Queries the rollup and data availability layer for historical state directly from Layer 1
+2. **Snapshot sync**: Downloads pre-built state snapshots from a storage location for faster synchronization
+
+Since Aztec uses blobs, syncing from L1 requires an archive node that stores complete blob history from Aztec's deployment. Snapshot sync is significantly faster, doesn't require archive nodes, and reduces load on L1 infrastructure, making it the recommended approach for most deployments.
+
+**Configuring sync mode:**
+
+```bash
+aztec start --node --sync-mode [MODE]
 ```
 
-Afterwards, the currently logged in user must be added to the docker group, so `sudo` is not needed to invoke docker.
+Available sync modes:
+- **`snapshot`**: Downloads and uses a snapshot only if no local data exists (default behavior)
+- **`force-snapshot`**: Downloads and uses a snapshot even if local data exists, overwriting it
+- **`l1`**: Syncs directly from Layer 1 without using snapshots
 
-```console
-sudo groupadd docker
-sudo usermod -aG docker $USER
-newgrp docker
-# Invoke docker without sudo to test if the above changes have been applied successfully
-docker run hello-world
+[Learn more about using and uploading snapshots →](./setup/syncing_best_practices.md)
+
+### Using Bootnodes
+
+Bootnodes facilitate peer discovery by maintaining lists of active peers that new nodes can connect to. To connect your node to a bootnode, pass the bootnode's ENR (Ethereum Node Record) at startup:
+
+```bash
+aztec start --node --p2p.bootstrapNodes [ENR1],[ENR2],[ENR3]
 ```
 
-## Install Aztec
+[Learn more about bootnodes →](./setup/bootnode_operation.md)
 
-Run these commands to grab the Aztec stack and add them to path.
+### Using Your Own L1 Node
 
-```console
-bash -i <(curl -s https://install.aztec.network)
-# Users should check that it is installed by using
-ls ~/.aztec/bin
-# aztec, aztec-up, aztec-nargo and aztec-wallet should show up here
-echo 'export PATH="$HOME/.aztec/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
+For optimal performance and reliability, it's highly recommended to run your own Ethereum L1 node rather than relying on third-party RPC providers.
+
+**Benefits:**
+- Better performance and lower latency
+- No rate limiting or request throttling
+- Greater reliability and uptime control
+- Enhanced privacy for your node operations
+
+**Requirements:**
+- Access to both execution and consensus client endpoints
+- Endpoints must support high throughput
+- Must be connected to Sepolia testnet for Aztec testnet
+
+See [Eth Docker's guide](https://ethdocker.com/Usage/QuickStart) for setting up your own L1 node.
+
+## Node Reference
+
+For detailed configuration options and command-line reference, see:
+
+- [CLI Reference](./reference/cli_reference.md) - Complete list of all available flags and environment variables
+- [Useful Commands](./operation/sequencer_management/useful_commands.md) - Common operational commands
+- [Operator FAQ](./operation/operator_faq.md) - Frequently asked questions for node operators
+
+## Full Node Quick Start
+
+Get a full node running quickly with this one-liner:
+
+```bash
+aztec supervised-start --node --archiver --p2p.p2pIp $(curl -s ipv4.icanhazip.com) --network testnet --l1-rpc-urls [YOUR_L1_EXECUTION_RPC] --l1-consensus-host-urls [YOUR_L1_CONSENSUS_RPC]
 ```
 
-The next step is to install the correct version of aztec that is running on testnet. The correct version of the aztec network currently is `2.0.2`. If that is not the version that was installed in the previous step, please run this to ensure the correct version is installed.
+Replace `[YOUR_L1_EXECUTION_RPC]` and `[YOUR_L1_CONSENSUS_RPC]` with your Ethereum Sepolia endpoints.
 
-```console
-aztec-up 2.0.2
-```
+**Before running this command:**
+- Ensure you've met the [prerequisites](./prerequisites.md) for the CLI method
+- Configure port forwarding for ports 8080 (HTTP) and 40400 (P2P, both TCP/UDP)
 
-The user can confirm that they are running on the correct version with:
+[Full installation guide →](./setup/running_a_node.md)
 
-```console
-aztec --version
-```
+## Next Steps
 
-## Configure the node
-
-Now that the correct version of the node is installed, it needs to be configured correctly. Let's start by making a new directory where the node data can be stored.
-
-```console
-mkdir aztec-node && cd ./aztec-node
-```
-
-Next, set some required configuration options. This guide will use `custom_named` environment variables (e.g. `AZTEC_NODE_P2P_IP`) but this is not necessary; you can pass values directly into the command without specifying them as environment variables. The external IP address of the node, and the L1 RPC endpoints must be defined when starting a node. Also, configuration defining the network version should be set, as this will let the node define the other required protocol variables, like rollup address, registry address etc. Note that the specified RPC endpoints must support high throughput, otherwise the node will suffer degraded performance.
-
-```console
-export AZTEC_NODE_NETWORK=testnet
-export AZTEC_NODE_P2P_IP=IP
-export AZTEC_NODE_ETH_HOSTS=<execution endpoint>
-export AZTEC_NODE_CONSENSUS_HOSTS=<consensus endpoint>
-```
-
-:::tip
-
-The ports used by the node must be accessible to other Aztec nodes on the internet. This will require disabling the firewall for and / or forwarding these ports. The router must be able to send UDP and TCP traffic on port 40400 (unless the defaults were changed) to the node IP address on its local network. Failure to do so may result in the node not participating in p2p duties.
-
-Running the command `curl ipv4.icanhazip.com` can retrieve your public IP address for you.
-:::
-
-## Run the node
-
-```console
-aztec supervised-start --node --archiver --p2p.p2pIp $AZTEC_NODE_P2P_IP --network $AZTEC_NODE_NETWORK --l1-rpc-urls $AZTEC_NODE_ETH_HOSTS --l1-consensus-host-urls $AZTEC_NODE_CONSENSUS_HOSTS
-```
-
-To verify the node is working, run these commands in another terminal window:
-
-```console
-# Rule 1: For HTTP traffic on port 8080
-curl -X POST http://localhost:8080 --data '{"method": "node_getL2Tips"}'
-# should return JSON data in the format of "{"result":{"latest":{"number":"...}}}"
-
-# Rule 2: For TCP traffic on port 40400 (set by default)
-nc -vz [YOUR_EXTERNAL_IP] 40400
-# should return "Connection to [YOUR_EXTERNAL_IP] 40400 port [tcp/*] succeeded!" if port open
-
-# Rule 3: For UDP traffic on port 40400 (set by default)
-nc -vu [YOUR_EXTERNAL_IP] 40400
-# should return "Connection to [YOUR_EXTERNAL_IP] 40400 port [udp/*] succeeded!" if port open
-```
-
-Congrats, the node should be up, running, and connected to the network!
+- **Check Prerequisites**: Review the [prerequisites guide](./prerequisites.md) to ensure you have everything needed
+- **Run a Full Node**: Follow the [complete full node guide](./setup/running_a_node.md) for detailed setup instructions
+- **Operate a Sequencer**: Learn how to [run a sequencer node](./setup/sequencer_management.md) and join the validator set
+- **Operate a Prover**: Set up [prover infrastructure](./setup/running_a_prover.md) to generate rollup proofs
+- **Join the Community**: Connect with other operators on [Discord](https://discord.gg/aztec)

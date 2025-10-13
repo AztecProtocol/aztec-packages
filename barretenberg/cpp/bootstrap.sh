@@ -8,13 +8,6 @@ export native_preset=${NATIVE_PRESET:-clang20}
 export pic_preset=${PIC_PRESET:-clang20-pic}
 export hash=$(cache_content_hash .rebuild_patterns)
 
-if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
-  # Enable AVM for release builds (when REF_NAME is a valid semver), disable for CI/PR builds
-  if ! semver check "$REF_NAME"; then
-    export DISABLE_AZTEC_VM=1
-  fi
-fi
-
 if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
   # Make sure the different envs don't read from each other's caches.
   export hash="$hash-no-avm"
@@ -185,9 +178,12 @@ function build_smt_verification {
   cmake --preset smt-verification
 
   cvc5_cmake_hash=$(cache_content_hash ^barretenberg/cpp/src/barretenberg/smt_verification/CMakeLists.txt)
-  if ! cache_download barretenberg-cvc5-$cvc5_cmake_hash.zst; then
-      cmake --build build-smt --target cvc5
-      cache_upload barretenberg-cvc5-$cvc5_cmake_hash.zst build-smt/_deps/cvc5
+  if cache_download barretenberg-cvc5-$cvc5_cmake_hash.zst; then
+    # Restore machine-dependent paths after downloading cache
+    find build-smt/_deps/cvc5 -type f -name "*.cmake" -exec sed -i "s|/workspace|$(pwd)|g" {} \;
+  else
+    cmake --build build-smt --target cvc5
+    cache_upload barretenberg-cvc5-$cvc5_cmake_hash.zst build-smt/_deps/cvc5
   fi
 
   cmake --build build-smt --target smt_verification_tests

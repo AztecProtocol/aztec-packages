@@ -67,7 +67,7 @@ template <typename Builder, typename T> inline T convert_challenge(const fr<Buil
         // All challenges must be circuit witnesses.
         ASSERT(builder);
         ASSERT(!challenge.is_constant());
-        return T(challenge, fr<Builder>::from_witness_index(builder, builder->zero_idx));
+        return T(challenge, fr<Builder>::from_witness_index(builder, builder->zero_idx()));
     }
 }
 

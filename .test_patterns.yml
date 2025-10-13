@@ -249,6 +249,11 @@ tests:
     error_regex: "Timeout waiting for proposal execution"
     owners:
       - *palla
+  # http://ci.aztec-labs.com/3055aa95e441471f
+  - regex: "src/e2e_p2p/e2e_p2p_broadcasted_invalid_block_proposal_slash.test.ts"
+    error_regex: "Timeout awaiting non-empty offenses"
+    owners:
+      - *palla
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"

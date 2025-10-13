@@ -99,6 +99,13 @@ namespace public_data_check;
     write * (1 - write) = 0;
     // If write is on, sel must be on too.
     write * (1 - sel) = 0;
+    // Whether the write is a protocol or non-protocol write (permutation selectors (sstore.pil, tx.pil))
+    pol commit protocol_write;
+    protocol_write * (1 - protocol_write) = 0;
+    pol commit non_protocol_write;
+    non_protocol_write * (1 - non_protocol_write) = 0;
+    #[PROTOCOL_WRITE_CHECK]
+    protocol_write + non_protocol_write = write;
     pol commit clk;
     pol commit discard;
 
@@ -296,7 +303,7 @@ namespace public_data_check;
         write_idx,
         leaf_slot,
         final_value
-    }in public_inputs.sel {
+    } in public_inputs.sel {
         precomputed.clk,
         public_inputs.cols[0],
         public_inputs.cols[1]
@@ -318,7 +325,7 @@ namespace public_data_check;
     end {
         length_pi_idx,
         public_data_writes_length
-    }in public_inputs.sel {
+    } in public_inputs.sel {
         precomputed.clk,
         public_inputs.cols[0]
     };

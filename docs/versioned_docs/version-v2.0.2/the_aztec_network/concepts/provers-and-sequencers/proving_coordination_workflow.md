@@ -14,9 +14,7 @@ However, Aztec Nodes will support two optional mechanisms that provers can use t
 
 To send a quote via the P2P, do not set the environment variable `PROVER_COORDINATION_NODE_URL` and make sure that `P2P_ENABLED` is set to `true`.
 
-:::note
-For S&P Testnet, please make sure that you are gossiping quotes via the P2P. Set `P2P_ENABLED` to `true` and do not use `PROVER_COORDINATION_NODE_URL`.
-:::
+**For S&P Testnet:** Please make sure that you are gossiping quotes via the P2P. Set `P2P_ENABLED` to `true` and do not use `PROVER_COORDINATION_NODE_URL`.
 
 
 ```rust
@@ -88,7 +86,7 @@ The response is also expected in JSON and to contain `basisPointFee` and `bondAm
 
 If no `QUOTE_PROVIDER_URL` is passed along to the Prover Node, then a `SimpleQuoteProvider` is used, which always returns the same `basisPointFee` and `bondAmount` as set in the `QUOTE_PROVIDER_BASIS_POINT_FEE` and `QUOTE_PROVIDER_BOND_AMOUNT` environment variables.
 
-:::warning
+:::warning Quote Requirements
 If the `QuoteProvider` does not return a `bondAmount` or a `basisPointFee`, the Prover Node will not generate nor submit a quote to the proposer.
 :::
 
@@ -106,4 +104,4 @@ The Prover Node will call this method at least once per L2 slot to check for unc
 
 ## Run a prover
 
-Go to the [Prover Guide](../../guides/run_nodes/how_to_run_prover.md) to run a prover.
+Go to the [Prover Guide](../../setup/running_a_prover.md) to run a prover.
