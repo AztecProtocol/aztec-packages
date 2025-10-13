@@ -1341,7 +1341,7 @@ TYPED_TEST(CycleGroupTest, TestSubtractConstantPoints)
         EXPECT_TRUE(result.is_constant());
 
         // No gates needed for constant arithmetic
-        check_circuit_and_gates(builder, 0);
+        check_circuit_and_gate_count(builder, 0);
     }
 
     // Test constant point - constant infinity (early return optimization)
@@ -1358,7 +1358,7 @@ TYPED_TEST(CycleGroupTest, TestSubtractConstantPoints)
         EXPECT_TRUE(result.is_constant());
 
         // Uses early return for constant infinity
-        check_circuit_and_gates(builder, 0);
+        check_circuit_and_gate_count(builder, 0);
     }
 
     // Test constant infinity - constant point (early return optimization)
@@ -1375,7 +1375,7 @@ TYPED_TEST(CycleGroupTest, TestSubtractConstantPoints)
         EXPECT_TRUE(result.is_constant());
 
         // Uses early return for constant infinity
-        check_circuit_and_gates(builder, 0);
+        check_circuit_and_gate_count(builder, 0);
     }
 }
 
