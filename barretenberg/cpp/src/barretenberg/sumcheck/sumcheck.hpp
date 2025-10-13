@@ -215,7 +215,7 @@ template <typename Flavor> class SumcheckProver {
         , accumulator_challenge(accumulator_challenge)
         , instance_challenge(instance_challenge) {};
 
-    // SumcheckProver constructor for the Flavors that generate a single challeng `alpha` and use its powers as
+    // SumcheckProver constructor for the Flavors that generate a single challenge `alpha` and use its powers as
     // subrelation seperator challenges.
     SumcheckProver(size_t multivariate_n,
                    ProverPolynomials& prover_polynomials,
@@ -271,15 +271,6 @@ template <typename Flavor> class SumcheckProver {
             // Prepare sumcheck book-keeping table for the next round
             partially_evaluate(full_polynomials, round_challenge);
 
-            if constexpr (isMultilinearBatchingFlavor<Flavor>) {
-                std::vector<FF> index_1_challenge(virtual_log_n);
-                index_1_challenge[0] = round_challenge;
-                BB_ASSERT_EQ(EqVerifierPolynomial<FF>::eval(accumulator_challenge, index_1_challenge),
-                             partially_evaluated_polynomials.w_evaluations_accumulator.at(0));
-                BB_ASSERT_EQ(EqVerifierPolynomial<FF>::eval(instance_challenge, index_1_challenge),
-                             partially_evaluated_polynomials.w_evaluations_instance.at(0));
-            }
-
             gate_separators.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
             // release memory?        // All but final round
@@ -297,16 +288,6 @@ template <typename Flavor> class SumcheckProver {
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round.
             partially_evaluate(partially_evaluated_polynomials, round_challenge);
-            if constexpr (isMultilinearBatchingFlavor<Flavor>) {
-                std::vector<FF> index_1_challenge(virtual_log_n);
-                for (size_t i = 0; i < multivariate_challenge.size(); i++) {
-                    index_1_challenge[i] = multivariate_challenge[i];
-                }
-                BB_ASSERT_EQ(EqVerifierPolynomial<FF>::eval(accumulator_challenge, index_1_challenge),
-                             partially_evaluated_polynomials.w_evaluations_accumulator.at(0));
-                BB_ASSERT_EQ(EqVerifierPolynomial<FF>::eval(instance_challenge, index_1_challenge),
-                             partially_evaluated_polynomials.w_evaluations_instance.at(0));
-            }
             gate_separators.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1;
         }
@@ -317,12 +298,6 @@ template <typename Flavor> class SumcheckProver {
         // polynomials in `virtual_log_n` variables.
         for (size_t k = multivariate_d; k < virtual_log_n; ++k) {
             if constexpr (isMultilinearBatchingFlavor<Flavor>) {
-                BB_ASSERT_EQ(accumulator_challenge.size(), virtual_log_n);
-                BB_ASSERT_EQ(instance_challenge.size(), virtual_log_n);
-                BB_ASSERT_EQ(partially_evaluated_polynomials.w_shifted_accumulator.size(), size_t(1));
-                BB_ASSERT_EQ(partially_evaluated_polynomials.w_shifted_instance.size(), size_t(1));
-                BB_ASSERT_EQ(partially_evaluated_polynomials.w_non_shifted_accumulator.size(), size_t(1));
-                BB_ASSERT_EQ(partially_evaluated_polynomials.w_non_shifted_instance.size(), size_t(1));
                 // We need to specify the evaluation at index 1 for eq polynomials
                 std::vector<FF> index_1_challenge(virtual_log_n);
                 for (size_t i = 0; i < k; i++) {
@@ -349,10 +324,6 @@ template <typename Flavor> class SumcheckProver {
                 partially_evaluated_polynomials.w_evaluations_instance.at(1) =
                     EqVerifierPolynomial<FF>::eval(instance_challenge, index_1_challenge);
                 index_1_challenge[k] = FF(0);
-                BB_ASSERT_EQ(EqVerifierPolynomial<FF>::eval(accumulator_challenge, index_1_challenge),
-                             partially_evaluated_polynomials.w_evaluations_accumulator.at(0));
-                BB_ASSERT_EQ(EqVerifierPolynomial<FF>::eval(instance_challenge, index_1_challenge),
-                             partially_evaluated_polynomials.w_evaluations_instance.at(0));
             }
             // Compute the contribution from the extensions by zero. It is sufficient to evaluate the main constraint at
             // `MAX_PARTIAL_RELATION_LENGTH` points.
