@@ -113,6 +113,7 @@ class ShmServer : public IpcServer {
             return -1;
         }
 
+        // mpsc_peek now skips padding automatically
         size_t n = 0;
         void* data = mpsc_peek(consumer_, static_cast<size_t>(client_id), &n);
         if (!data || n < sizeof(uint32_t)) {
@@ -157,10 +158,11 @@ class ShmServer : public IpcServer {
         // Add 4-byte length prefix to match socket behavior
         size_t total_len = sizeof(uint32_t) + len;
 
-        if (!spsc_wait_for_space(response_ring, total_len, 1000000)) { // 1s timeout
+        if (!spsc_wait_for_space(response_ring, total_len, 10000000)) { // 10ms
             return false;
         }
 
+        // spsc_claim now handles wrapping internally
         size_t granted = 0;
         void* buf = spsc_claim(response_ring, total_len, &granted);
         if (granted < total_len) {

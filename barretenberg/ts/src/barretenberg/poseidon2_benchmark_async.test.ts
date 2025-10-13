@@ -119,14 +119,20 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
     process.stdout.write(
       `│ Direct WASM:      ${directTime.toFixed(2).padStart(8)}ms (${avgDirectTimeUs.toFixed(2).padStart(7)}µs/call) [baseline] │\n`,
     );
+    const formatOverhead = (overhead: number): string => {
+      const sign = overhead >= 0 ? '+' : '-';
+      const value = Math.abs(overhead).toFixed(1).padStart(6);
+      return `${sign}${value}%`;
+    };
+
     process.stdout.write(
-      `│ WASM:             ${wasmTime.toFixed(2).padStart(8)}ms (${avgWasmTimeUs.toFixed(2).padStart(7)}µs/call) ${wasmOverhead >= 0 ? '+' : ''}${wasmOverhead.toFixed(1).padStart(6)}%   │\n`,
+      `│ WASM:             ${wasmTime.toFixed(2).padStart(8)}ms (${avgWasmTimeUs.toFixed(2).padStart(7)}µs/call) ${formatOverhead(wasmOverhead)}   │\n`,
     );
     process.stdout.write(
-      `│ Native Socket:    ${nativeSocketTime.toFixed(2).padStart(8)}ms (${avgNativeSocketTimeUs.toFixed(2).padStart(7)}µs/call) ${nativeSocketOverhead >= 0 ? '+' : ''}${nativeSocketOverhead.toFixed(1).padStart(6)}%   │\n`,
+      `│ Native Socket:    ${nativeSocketTime.toFixed(2).padStart(8)}ms (${avgNativeSocketTimeUs.toFixed(2).padStart(7)}µs/call) ${formatOverhead(nativeSocketOverhead)}   │\n`,
     );
     process.stdout.write(
-      `│ Native Shared:    ${nativeShmTime.toFixed(2).padStart(8)}ms (${avgNativeShmTimeUs.toFixed(2).padStart(7)}µs/call) ${nativeShmOverhead >= 0 ? '+' : ''}${nativeShmOverhead.toFixed(1).padStart(6)}%   │\n`,
+      `│ Native Shared:    ${nativeShmTime.toFixed(2).padStart(8)}ms (${avgNativeShmTimeUs.toFixed(2).padStart(7)}µs/call) ${formatOverhead(nativeShmOverhead)}   │\n`,
     );
     process.stdout.write(`└──────────────────────────────────────────────────────────┘\n`);
 

@@ -213,31 +213,64 @@ void* spsc_claim(struct spsc_shm* r, size_t want, size_t* n)
             *n = 0;
         return NULL;
     }
-    if (want > freeb)
-        want = (size_t)freeb;
+    if (want > freeb) {
+        // Not enough free space at all
+        if (n)
+            *n = 0;
+        return NULL;
+    }
 
     uint64_t pos = head & mask;
     uint64_t till_end = cap - pos;
-    size_t grant = (size_t)((want <= till_end) ? want : till_end);
+
+    // Check if we have enough contiguous space
+    if (want <= till_end) {
+        // Fits contiguously - normal path
+        if (n)
+            *n = want;
+        return r->buf + pos;
+    }
+
+    // Not enough contiguous space - need to wrap
+    // But first check if we'll have enough space after wrapping
+    // After padding, we'll lose `till_end` bytes
+    if (freeb < till_end + want) {
+        // Not enough space even if we wrap
+        if (n)
+            *n = 0;
+        return NULL;
+    }
+
+    // Write zero-length marker as padding and advance head to wrap point
+    // This makes the padding visible to the consumer to skip
+    if (till_end >= sizeof(uint32_t)) {
+        uint32_t zero_marker = 0;
+        memcpy(r->buf + pos, &zero_marker, sizeof(uint32_t));
+    }
+
+    // Advance head past the padding to wrap to beginning
+    // NOTE: We don't wake the consumer here - the caller will wake via publish()
+    // after writing the actual message data
+    head += till_end;
+    atomic_store_explicit(&r->ctrl->head, head, memory_order_release);
+
+    // Now claim from the beginning of the ring
+    pos = head & mask; // Should be 0 or close to 0
 
     if (n)
-        *n = grant;
+        *n = want;
     return r->buf + pos;
 }
 
 void spsc_publish(struct spsc_shm* r, size_t n)
 {
-    // Check if queue was empty before publish
     uint64_t head = atomic_load_explicit(&r->ctrl->head, memory_order_relaxed);
-    uint64_t tail = atomic_load_explicit(&r->ctrl->tail, memory_order_acquire);
-    int was_empty = (head == tail);
-
     atomic_store_explicit(&r->ctrl->head, head + n, memory_order_release);
 
-    if (was_empty) {
-        atomic_fetch_add_explicit(&r->ctrl->data_seq, 1, memory_order_release);
-        futex_wake((volatile uint32_t*)&r->ctrl->data_seq, 1);
-    }
+    // Always wake consumer - spsc_claim() may have already advanced head during wrapping,
+    // so we can't rely on was_empty check. Futex wake is cheap if no one is waiting.
+    atomic_fetch_add_explicit(&r->ctrl->data_seq, 1, memory_order_release);
+    futex_wake((volatile uint32_t*)&r->ctrl->data_seq, 1);
 }
 
 void* spsc_peek(struct spsc_shm* r, size_t* n)
@@ -245,23 +278,44 @@ void* spsc_peek(struct spsc_shm* r, size_t* n)
     uint64_t cap = r->ctrl->capacity;
     uint64_t mask = r->ctrl->mask;
 
-    uint64_t head = atomic_load_explicit(&r->ctrl->head, memory_order_acquire);
-    uint64_t tail = atomic_load_explicit(&r->ctrl->tail, memory_order_relaxed);
+    // Loop to automatically skip padding messages
+    while (true) {
+        uint64_t head = atomic_load_explicit(&r->ctrl->head, memory_order_acquire);
+        uint64_t tail = atomic_load_explicit(&r->ctrl->tail, memory_order_relaxed);
 
-    uint64_t avail = head - tail;
-    if (avail == 0) {
+        uint64_t avail = head - tail;
+        if (avail == 0) {
+            if (n)
+                *n = 0;
+            return NULL;
+        }
+
+        uint64_t pos = tail & mask;
+        uint64_t till_end = cap - pos;
+        size_t grant = (size_t)((avail <= till_end) ? avail : till_end);
+
+        // Check for padding marker (zero-length message)
+        if (grant >= sizeof(uint32_t)) {
+            uint32_t marker;
+            memcpy(&marker, r->buf + pos, sizeof(uint32_t));
+            if (marker == 0) {
+                // This is padding - skip it by releasing and continuing
+                atomic_store_explicit(&r->ctrl->tail, tail + grant, memory_order_release);
+
+                // Wake producer if ring was full
+                if (avail == cap) {
+                    atomic_fetch_add_explicit(&r->ctrl->space_seq, 1, memory_order_release);
+                    futex_wake((volatile uint32_t*)&r->ctrl->space_seq, 1);
+                }
+                continue; // Try again from wrapped position
+            }
+        }
+
+        // Not padding - return the data
         if (n)
-            *n = 0;
-        return NULL;
+            *n = grant;
+        return r->buf + pos;
     }
-
-    uint64_t pos = tail & mask;
-    uint64_t till_end = cap - pos;
-    size_t grant = (size_t)((avail <= till_end) ? avail : till_end);
-
-    if (n)
-        *n = grant;
-    return r->buf + pos;
 }
 
 void spsc_release(struct spsc_shm* r, size_t n)

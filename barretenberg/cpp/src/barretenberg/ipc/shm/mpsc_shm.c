@@ -287,19 +287,15 @@ void* mpsc_claim(struct mpsc_producer* p, size_t want, size_t* granted)
 
 void mpsc_publish(struct mpsc_producer* p, size_t n)
 {
-    /* Check if ring was empty before publish */
     uint64_t head = atomic_load_explicit(&p->ring->ctrl->head, memory_order_relaxed);
-    uint64_t tail = atomic_load_explicit(&p->ring->ctrl->tail, memory_order_acquire);
-    int was_empty = (head == tail);
 
     /* Update ring head (standard SPSC publish) */
     atomic_store_explicit(&p->ring->ctrl->head, head + n, memory_order_release);
 
-    /* Ring doorbell if was empty */
-    if (was_empty) {
-        atomic_fetch_add_explicit(&p->doorbell->seq, 1, memory_order_release);
-        mpsc_futex_wake((volatile uint32_t*)&p->doorbell->seq, 1);
-    }
+    /* Always ring doorbell - spsc_claim() may have already advanced head during wrapping,
+     * so we can't rely on was_empty check. Futex wake is cheap if no one is waiting. */
+    atomic_fetch_add_explicit(&p->doorbell->seq, 1, memory_order_release);
+    mpsc_futex_wake((volatile uint32_t*)&p->doorbell->seq, 1);
 }
 
 int mpsc_wait_for_space(struct mpsc_producer* p, size_t need, uint32_t spin_ns)

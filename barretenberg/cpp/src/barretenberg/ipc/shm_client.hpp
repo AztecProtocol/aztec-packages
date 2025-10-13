@@ -76,25 +76,29 @@ class ShmClient : public IpcClient {
 
     bool send(const void* data, size_t len, uint64_t timeout_ns) override
     {
+        (void)timeout_ns; // TODO: Use timeout parameter
+
         if (!producer_) {
             return false;
         }
 
         // Add 4-byte length prefix to match socket behavior
         size_t total_len = sizeof(uint32_t) + len;
-        uint64_t timeout_us = timeout_ns > 0 ? timeout_ns / 1000 : 1000000000; // Default 1s
+        uint32_t spin_time_ns = 10000000; // 10ms
 
-        if (!mpsc_wait_for_space(producer_, total_len, static_cast<uint32_t>(timeout_us))) {
+        // Wait for enough space
+        if (!mpsc_wait_for_space(producer_, total_len, spin_time_ns)) {
             return false;
         }
 
+        // Claim space - mpsc_claim now handles wrapping internally
         size_t granted = 0;
         void* buf = mpsc_claim(producer_, total_len, &granted);
         if (granted < total_len) {
-            return false;
+            return false; // Not enough space
         }
 
-        // Write length prefix then data
+        // Write message with length prefix
         auto len_u32 = static_cast<uint32_t>(len);
         std::memcpy(buf, &len_u32, sizeof(uint32_t));
         std::memcpy(static_cast<uint8_t*>(buf) + sizeof(uint32_t), data, len);
@@ -109,40 +113,46 @@ class ShmClient : public IpcClient {
             return -1;
         }
 
-        uint64_t timeout_us = timeout_ns > 0 ? timeout_ns / 1000 : 1000000000; // Default 1s
+        uint32_t spin_time_ns = 10000000; // 10ms
+        const int max_retries = timeout_ns > 0 ? static_cast<int>(timeout_ns / spin_time_ns) : 100;
 
-        if (!spsc_wait_for_data(response_ring_, static_cast<uint32_t>(timeout_us))) {
-            return -1;
-        }
+        for (int retry = 0; retry < max_retries; retry++) {
+            if (spsc_wait_for_data(response_ring_, spin_time_ns)) {
+                // Data available - spsc_peek now skips padding automatically
+                size_t n = 0;
+                void* data = spsc_peek(response_ring_, &n);
+                if (!data || n < sizeof(uint32_t)) {
+                    if (n > 0) {
+                        spsc_release(response_ring_, n);
+                    }
+                    continue;
+                }
 
-        size_t n = 0;
-        void* data = spsc_peek(response_ring_, &n);
-        if (!data || n < sizeof(uint32_t)) {
-            if (n > 0) {
-                spsc_release(response_ring_, n);
+                // Read length prefix
+                uint32_t msg_len = 0;
+                std::memcpy(&msg_len, data, sizeof(uint32_t));
+
+                if (n < sizeof(uint32_t) + msg_len) {
+                    // Incomplete message - with our ring buffer padding implementation,
+                    // messages should always be contiguous, so this indicates corruption
+                    // or the message is still being written. Wait and retry.
+                    continue;
+                }
+
+                if (msg_len > max_len) {
+                    spsc_release(response_ring_, sizeof(uint32_t) + msg_len);
+                    return -1; // Buffer too small
+                }
+
+                // Copy message data (skip length prefix)
+                std::memcpy(buffer, static_cast<const uint8_t*>(data) + sizeof(uint32_t), msg_len);
+                spsc_release(response_ring_, sizeof(uint32_t) + msg_len);
+
+                return static_cast<ssize_t>(msg_len);
             }
-            return -1;
         }
 
-        // Read length prefix
-        uint32_t msg_len = 0;
-        std::memcpy(&msg_len, data, sizeof(uint32_t));
-
-        if (n < sizeof(uint32_t) + msg_len) {
-            spsc_release(response_ring_, n);
-            return -1; // Incomplete message
-        }
-
-        if (msg_len > max_len) {
-            spsc_release(response_ring_, n);
-            return -1; // Buffer too small
-        }
-
-        // Copy message data (skip length prefix)
-        std::memcpy(buffer, static_cast<const uint8_t*>(data) + sizeof(uint32_t), msg_len);
-        spsc_release(response_ring_, sizeof(uint32_t) + msg_len);
-
-        return static_cast<ssize_t>(msg_len);
+        return -1; // Timeout
     }
 
     void close() override
