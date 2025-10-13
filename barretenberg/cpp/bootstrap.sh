@@ -297,7 +297,7 @@ function test_cmds {
   fi
 
   # Run the SMT compatibility tests
-  if [ "$(arch)" == "amd64" ] &&  [ "$CI" -eq 1 ]; then
+  if [ "$(arch)" == "amd64" ] &&  [ "$CI_FULL" -eq 1 ]; then
     local prefix="$hash:CPUS=4:MEM=8g"
     echo -e "$prefix barretenberg/cpp/build-smt/bin/smt_verification_tests"
   fi
