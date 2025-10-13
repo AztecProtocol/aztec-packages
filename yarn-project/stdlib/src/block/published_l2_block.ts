@@ -83,11 +83,17 @@ export class PublishedL2Block {
   }
 }
 
+/**
+ * Extracts block attestations from a published L2 block.
+ * Returns undefined for attestations with empty signatures, preserving array indices.
+ */
 export function getAttestationsFromPublishedL2Block(
   block: Pick<PublishedL2Block, 'attestations' | 'block'>,
-): BlockAttestation[] {
+): (BlockAttestation | undefined)[] {
   const payload = ConsensusPayload.fromBlock(block.block);
-  return block.attestations
-    .filter(attestation => !attestation.signature.isEmpty())
-    .map(attestation => new BlockAttestation(block.block.number, payload, attestation.signature));
+  return block.attestations.map(attestation =>
+    attestation.signature.isEmpty()
+      ? undefined
+      : new BlockAttestation(block.block.number, payload, attestation.signature),
+  );
 }

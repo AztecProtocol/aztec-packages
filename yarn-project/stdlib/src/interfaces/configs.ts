@@ -52,6 +52,8 @@ export interface SequencerConfig {
   skipCollectingAttestations?: boolean;
   /** Do not invalidate the previous block if invalid when we are the proposer (for testing only) */
   skipInvalidateBlockAsProposer?: boolean;
+  /** Inject a fake attestation (for testing only) */
+  injectFakeAttestation?: boolean;
 }
 
 export const SequencerConfigSchema = z.object({
@@ -75,4 +77,5 @@ export const SequencerConfigSchema = z.object({
   skipCollectingAttestations: z.boolean().optional(),
   secondsBeforeInvalidatingBlockAsCommitteeMember: z.number(),
   secondsBeforeInvalidatingBlockAsNonCommitteeMember: z.number(),
+  injectFakeAttestation: z.boolean().optional(),
 }) satisfies ZodFor<SequencerConfig>;

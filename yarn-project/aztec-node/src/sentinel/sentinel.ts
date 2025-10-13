@@ -1,5 +1,12 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { countWhile, filterAsync, fromEntries, getEntries, mapValues } from '@aztec/foundation/collection';
+import {
+  compactArray,
+  countWhile,
+  filterAsync,
+  fromEntries,
+  getEntries,
+  mapValues,
+} from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -91,7 +98,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
         this.slotNumberToBlock.set(block.block.header.getSlot(), {
           blockNumber: block.block.number,
           archive: block.block.archive.root.toString(),
-          attestors: getAttestationsFromPublishedL2Block(block).map(att => att.getSender()),
+          attestors: compactArray(getAttestationsFromPublishedL2Block(block)).map(att => att.getSender()),
         });
       }
 

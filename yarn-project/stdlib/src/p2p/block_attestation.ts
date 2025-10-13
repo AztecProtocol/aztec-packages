@@ -81,6 +81,18 @@ export class BlockAttestation extends Gossipable {
     return this.sender;
   }
 
+  /**
+   * Tries to get the sender of the attestation
+   * @returns The sender of the attestation or undefined if it fails during recovery
+   */
+  tryGetSender(): EthAddress | undefined {
+    try {
+      return this.getSender();
+    } catch {
+      return undefined;
+    }
+  }
+
   getPayload(): Buffer {
     return this.payload.getPayloadToSign(SignatureDomainSeparator.blockAttestation);
   }
@@ -104,5 +116,13 @@ export class BlockAttestation extends Gossipable {
 
   getSize(): number {
     return 4 /* blockNumber */ + this.payload.getSize() + this.signature.getSize();
+  }
+
+  toInspect() {
+    return {
+      blockNumber: this.blockNumber,
+      payload: this.payload.toInspect(),
+      signature: this.signature.toString(),
+    };
   }
 }
