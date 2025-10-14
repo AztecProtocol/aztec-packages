@@ -541,6 +541,7 @@ TYPED_TEST(CycleGroupTest, TestDblConstantPoints)
     }
 }
 
+#ifndef NDEBUG
 TYPED_TEST(CycleGroupTest, TestDblMixedConstantWitness)
 {
     STDLIB_TYPE_ALIASES;
@@ -564,6 +565,7 @@ TYPED_TEST(CycleGroupTest, TestDblMixedConstantWitness)
         std::exception // Expect exception from assertion failure
     );
 }
+#endif
 
 TYPED_TEST(CycleGroupTest, TestUnconditionalAddNonConstantPoints)
 {

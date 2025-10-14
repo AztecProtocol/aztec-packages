@@ -485,7 +485,7 @@ TEST(Sha256MemoryConstrainingTest, PropagateError)
             // First invocation fails
             { C::execution_sel, 1 },
             { C::execution_context_id, mem.get_space_id() },
-            { C::execution_sel_execute_sha256_compression, 1 },
+            { C::execution_sel_exec_dispatch_sha256_compression, 1 },
             { C::execution_rop_0_, output_addr },
             { C::execution_rop_1_, state_addr },
             { C::execution_rop_2_, input_addr },
@@ -585,7 +585,7 @@ TEST(Sha256MemoryConstrainingTest, Complex)
             // First invocation fails
             { C::execution_sel, 1 },
             { C::execution_context_id, mem.get_space_id() },
-            { C::execution_sel_execute_sha256_compression, 1 },
+            { C::execution_sel_exec_dispatch_sha256_compression, 1 },
             { C::execution_rop_0_, static_cast<MemoryAddress>(AVM_HIGHEST_MEM_ADDRESS - 1) },
             { C::execution_rop_1_, state_addr },
             { C::execution_rop_2_, input_addr },
@@ -595,7 +595,7 @@ TEST(Sha256MemoryConstrainingTest, Complex)
             // Second invocation passes
             { C::execution_sel, 1 },
             { C::execution_context_id, mem.get_space_id() },
-            { C::execution_sel_execute_sha256_compression, 1 },
+            { C::execution_sel_exec_dispatch_sha256_compression, 1 },
             { C::execution_rop_0_, output_addr },
             { C::execution_rop_1_, state_addr },
             { C::execution_rop_2_, input_addr },

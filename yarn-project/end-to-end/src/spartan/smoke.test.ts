@@ -69,12 +69,27 @@ describe('smoke test', () => {
           return committee !== undefined;
         },
         'committee',
-        60 * 60, // wait up to 1 hour, since if the rollup was just deployed there will be no committee for 2 epochs
+        60 * 60 * 2, // wait up to 2 hours, since if the rollup was just deployed there will be no committee for 2 epochs
         12, // 12 seconds between each check
       );
     },
     60 * 60 * 1000,
   );
+
+  it('should have mined a block', async () => {
+    const nodeInfo = await aztecNode.getNodeInfo();
+    const rollup = new RollupContract(ethereumClient, nodeInfo.l1ContractAddresses.rollupAddress);
+    logger.info('Waiting for the first block to mine');
+    await retryUntil(
+      async () => {
+        const blockNumber = await rollup.getBlockNumber();
+        return blockNumber >= 1n;
+      },
+      'get block number',
+      60 * 60, // This should be quick since the committee is already formed (see test case above)
+      12,
+    );
+  });
 
   it('can add chaos', async () => {
     const chaosValuesFile = process.env.CHAOS_SCENARIO_VALUES || 'prover-kill.yaml';

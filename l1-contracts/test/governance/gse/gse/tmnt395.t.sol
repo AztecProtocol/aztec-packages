@@ -95,9 +95,9 @@ contract Tmnt395Test is TestBase {
     }
 
     vm.expectRevert(abi.encodeWithSelector(CoreErrors.Staking__DepositOutOfGas.selector));
-    INSTANCE.flushEntryQueue{gas: 500_000}();
+    INSTANCE.flushEntryQueue{gas: 600_000}();
 
-    INSTANCE.flushEntryQueue{gas: 1_500_000}();
+    INSTANCE.flushEntryQueue{gas: 1_800_000}();
 
     // Ensure that only one of the attesters were added
     assertEq(INSTANCE.getActiveAttesterCount(), 1, "invalid active attester count");

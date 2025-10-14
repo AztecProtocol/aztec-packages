@@ -135,7 +135,6 @@ TEST(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
 
     check_relation<bc_retrieval>(trace);
     check_interaction<BytecodeTraceBuilder,
-                      lookup_bc_retrieval_bytecode_hash_is_correct_settings,
                       lookup_bc_retrieval_class_id_derivation_settings,
                       lookup_bc_retrieval_contract_instance_retrieval_settings,
                       lookup_bc_retrieval_is_new_class_check_settings,

@@ -450,15 +450,16 @@ void ExecutionTraceBuilder::process(
                   } });
 
         /**************************************************************************************************
-         *  Temporality group 2: Instruction fetching.
+         *  Temporality group 2: Instruction fetching. Mapping from wire to execution and addressing.
          **************************************************************************************************/
 
         // This will only have a value if instruction fetching succeeded.
         std::optional<ExecutionOpCode> exec_opcode;
-        bool process_instruction_fetching = !bytecode_retrieval_failed;
-        bool instruction_fetching_failed = ex_event.error == ExecutionError::INSTRUCTION_FETCHING;
-        trace.set(C::execution_sel_instruction_fetching_failure, row, instruction_fetching_failed ? 1 : 0);
-        if (process_instruction_fetching && !instruction_fetching_failed) {
+        bool error_in_instruction_fetching = ex_event.error == ExecutionError::INSTRUCTION_FETCHING;
+        bool instruction_fetching_success = !bytecode_retrieval_failed && !error_in_instruction_fetching;
+        trace.set(C::execution_sel_instruction_fetching_failure, row, error_in_instruction_fetching ? 1 : 0);
+
+        if (instruction_fetching_success) {
             exec_opcode = ex_event.wire_instruction.get_exec_opcode();
             process_instr_fetching(ex_event.wire_instruction, trace, row);
             // If we fetched an instruction successfully, we can set the next PC.
@@ -467,23 +468,13 @@ void ExecutionTraceBuilder::process(
                           { C::execution_next_pc,
                             ex_event.before_context_event.pc + ex_event.wire_instruction.size_in_bytes() },
                       } });
-        }
 
-        /**************************************************************************************************
-         *  Temporality group 2: Mapping from wire to execution and addressing.
-         **************************************************************************************************/
-
-        // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
-        bool should_read_exec_spec = process_instruction_fetching && !instruction_fetching_failed;
-        if (should_read_exec_spec) {
+            // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
             process_execution_spec(ex_event, trace, row);
-        }
 
-        bool should_resolve_address = should_read_exec_spec;
-        // pol SEL_SHOULD_RESOLVE_ADDRESS = sel_bytecode_retrieval_success * sel_instruction_fetching_success;
-        if (should_resolve_address) {
             process_addressing(ex_event.addressing_event, ex_event.wire_instruction, trace, row);
         }
+
         bool addressing_failed = ex_event.error == ExecutionError::ADDRESSING;
 
         /**************************************************************************************************
@@ -492,8 +483,8 @@ void ExecutionTraceBuilder::process(
 
         // Note that if addressing did not fail, register reading will not fail.
         std::array<TaggedValue, AVM_MAX_REGISTERS> registers;
-        std::fill(registers.begin(), registers.end(), TaggedValue::from<FF>(0));
-        bool should_process_registers = should_resolve_address && !addressing_failed;
+        std::ranges::fill(registers.begin(), registers.end(), TaggedValue::from<FF>(0));
+        bool should_process_registers = instruction_fetching_success && !addressing_failed;
         bool register_processing_failed = ex_event.error == ExecutionError::REGISTER_READ;
         if (should_process_registers) {
             process_registers(*exec_opcode, ex_event.inputs, ex_event.output, registers, trace, row);
@@ -560,7 +551,7 @@ void ExecutionTraceBuilder::process(
                           // Exit reason - opcode or error
                           { C::execution_sel_execute_return, should_execute_return ? 1 : 0 },
                           { C::execution_sel_execute_revert, should_execute_revert ? 1 : 0 },
-                          { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
+                          { C::execution_sel_exit_call, 1 },
                           { C::execution_nested_return, should_execute_return && has_parent ? 1 : 0 },
                           // Enqueued or nested exit dependent on if we are a child context
                           { C::execution_enqueued_call_end, !has_parent ? 1 : 0 },
@@ -1160,9 +1151,8 @@ void ExecutionTraceBuilder::process_get_env_var_opcode(TaggedValue envvar_enum,
 
 const InteractionDefinition ExecutionTraceBuilder::interactions =
     InteractionDefinition()
-        // Execution
+        // Execution specification (precomputed)
         .add<lookup_execution_exec_spec_read_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_execution_check_written_storage_slot_settings, InteractionType::LookupSequential>()
         // Bytecode retrieval
         .add<lookup_execution_bytecode_retrieval_result_settings, InteractionType::LookupGeneric>()
         // Instruction fetching
@@ -1188,6 +1178,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_execution_check_radix_gt_256_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_execution_get_p_limbs_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_get_max_limbs_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        // Dynamic Gas - SStore
+        .add<lookup_execution_check_written_storage_slot_settings, InteractionType::LookupSequential>()
         // Context Stack
         .add<lookup_context_ctx_stack_call_settings, InteractionType::LookupGeneric>()
         .add<lookup_context_ctx_stack_rollback_settings, InteractionType::LookupGeneric>()
@@ -1197,10 +1189,6 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
             Column::gt_sel)
         .add<lookup_external_call_call_is_da_gas_allocated_lt_left_settings, InteractionType::LookupGeneric>(
             Column::gt_sel)
-        // Dispatch to gadget sub-traces
-        .add<perm_execution_dispatch_keccakf1600_settings, InteractionType::Permutation>()
-        .add<perm_data_copy_dispatch_cd_copy_settings, InteractionType::Permutation>()
-        .add<perm_data_copy_dispatch_rd_copy_settings, InteractionType::Permutation>()
         // GetEnvVar opcode
         .add<lookup_get_env_var_precomputed_info_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_get_env_var_read_from_public_inputs_col0_settings, InteractionType::LookupIntoIndexedByClk>()
@@ -1209,7 +1197,6 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_sload_storage_read_settings, InteractionType::LookupGeneric>()
         // Sstore opcode
         .add<lookup_sstore_record_written_storage_slot_settings, InteractionType::LookupSequential>()
-        .add<lookup_sstore_storage_write_settings, InteractionType::LookupGeneric>()
         // NoteHashExists
         .add<lookup_notehash_exists_note_hash_read_settings, InteractionType::LookupSequential>()
         .add<lookup_notehash_exists_note_hash_leaf_index_in_range_settings, InteractionType::LookupGeneric>(
@@ -1218,18 +1205,26 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_nullifier_exists_nullifier_exists_check_settings, InteractionType::LookupSequential>()
         // EmitNullifier
         .add<lookup_emit_nullifier_write_nullifier_settings, InteractionType::LookupSequential>()
-        // GetContractInstance opcode
-        .add<perm_execution_dispatch_get_contract_instance_settings, InteractionType::Permutation>()
         // EmitNoteHash
         .add<lookup_emit_notehash_notehash_tree_write_settings, InteractionType::LookupSequential>()
         // L1ToL2MsgExists
         .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_settings, InteractionType::LookupGeneric>(
             Column::gt_sel)
         .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_settings, InteractionType::LookupSequential>()
-        // Alu dispatching
-        .add<lookup_alu_register_tag_value_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_exec_dispatching_cast_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_exec_dispatching_set_settings, InteractionType::LookupGeneric>()
+        // Dispatching to other sub-traces
+        .add<lookup_execution_dispatch_to_alu_settings, InteractionType::LookupGeneric>()
+        .add<lookup_execution_dispatch_to_bitwise_settings, InteractionType::LookupGeneric>()
+        .add<perm_execution_dispatch_to_cd_copy_settings, InteractionType::Permutation>()
+        .add<perm_execution_dispatch_to_rd_copy_settings, InteractionType::Permutation>()
+        .add<lookup_execution_dispatch_to_cast_settings, InteractionType::LookupGeneric>()
+        .add<lookup_execution_dispatch_to_set_settings, InteractionType::LookupGeneric>()
+        .add<perm_execution_dispatch_to_get_contract_instance_settings, InteractionType::Permutation>()
+        .add<lookup_execution_dispatch_to_emit_unencrypted_log_settings, InteractionType::LookupGeneric>()
+        .add<perm_execution_dispatch_to_poseidon2_perm_settings, InteractionType::Permutation>()
+        .add<perm_execution_dispatch_to_sha256_compression_settings, InteractionType::Permutation>()
+        .add<perm_execution_dispatch_to_keccakf1600_settings, InteractionType::Permutation>()
+        .add<perm_execution_dispatch_to_ecc_add_settings, InteractionType::Permutation>()
+        .add<perm_execution_dispatch_to_to_radix_settings, InteractionType::Permutation>()
         // SendL2ToL1Msg
         .add<lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_settings, InteractionType::LookupIntoIndexedByClk>();
 

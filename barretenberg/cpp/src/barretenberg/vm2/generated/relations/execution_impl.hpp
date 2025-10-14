@@ -19,18 +19,18 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_MEM_TAG_U32 = FF(4);
     const auto constants_AVM_SUBTRACE_ID_EXECUTION = FF(1);
     const auto constants_AVM_SUBTRACE_ID_ALU = FF(2);
-    const auto constants_AVM_SUBTRACE_ID_CAST = FF(4);
-    const auto constants_AVM_SUBTRACE_ID_SET = FF(8);
-    const auto constants_AVM_SUBTRACE_ID_BITWISE = FF(16);
-    const auto constants_AVM_SUBTRACE_ID_POSEIDON_PERM = FF(32);
-    const auto constants_AVM_SUBTRACE_ID_TO_RADIX = FF(64);
-    const auto constants_AVM_SUBTRACE_ID_ECC = FF(128);
-    const auto constants_AVM_SUBTRACE_ID_KECCAKF1600 = FF(256);
-    const auto constants_AVM_SUBTRACE_ID_CALLDATA_COPY = FF(512);
-    const auto constants_AVM_SUBTRACE_ID_GETCONTRACTINSTANCE = FF(1024);
-    const auto constants_AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG = FF(2048);
-    const auto constants_AVM_SUBTRACE_ID_SHA256_COMPRESSION = FF(4096);
-    const auto constants_AVM_SUBTRACE_ID_RETURNDATA_COPY = FF(8192);
+    const auto constants_AVM_SUBTRACE_ID_BITWISE = FF(4);
+    const auto constants_AVM_SUBTRACE_ID_CAST = FF(8);
+    const auto constants_AVM_SUBTRACE_ID_CALLDATA_COPY = FF(16);
+    const auto constants_AVM_SUBTRACE_ID_RETURNDATA_COPY = FF(32);
+    const auto constants_AVM_SUBTRACE_ID_SET = FF(64);
+    const auto constants_AVM_SUBTRACE_ID_GETCONTRACTINSTANCE = FF(128);
+    const auto constants_AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG = FF(256);
+    const auto constants_AVM_SUBTRACE_ID_POSEIDON2_PERM = FF(512);
+    const auto constants_AVM_SUBTRACE_ID_SHA256_COMPRESSION = FF(1024);
+    const auto constants_AVM_SUBTRACE_ID_KECCAKF1600 = FF(2048);
+    const auto constants_AVM_SUBTRACE_ID_ECC = FF(4096);
+    const auto constants_AVM_SUBTRACE_ID_TO_RADIX = FF(8192);
     const auto constants_AVM_DYN_GAS_ID_CALLDATACOPY = FF(1);
     const auto constants_AVM_DYN_GAS_ID_RETURNDATACOPY = FF(2);
     const auto constants_AVM_DYN_GAS_ID_TORADIX = FF(4);
@@ -59,8 +59,7 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_AVM_EXEC_OP_ID_EMIT_NULLIFIER = FF(524288);
     const auto constants_AVM_EXEC_OP_ID_SENDL2TOL1MSG = FF(1048576);
     const auto execution_NOT_LAST_EXEC = in.get(C::execution_sel) * in.get(C::execution_sel_shift);
-    const auto execution_SEL_SHOULD_RESOLVE_ADDRESS =
-        in.get(C::execution_sel_bytecode_retrieval_success) * in.get(C::execution_sel_instruction_fetching_success);
+    const auto execution_SEL_SHOULD_RESOLVE_ADDRESS = in.get(C::execution_sel_instruction_fetching_success);
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
@@ -202,113 +201,115 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_alu)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_alu)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_execution)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_execution)));
         std::get<20>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_bitwise)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_bitwise)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_alu)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_alu)));
         std::get<21>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_cast)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_cast)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_bitwise)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_bitwise)));
         std::get<22>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_set)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_set)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_cast)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_cast)));
         std::get<23>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_to_radix)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_to_radix)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_calldata_copy)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_calldata_copy)));
         std::get<24>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<25, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_poseidon2_perm)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_poseidon2_perm)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_returndata_copy)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_returndata_copy)));
         std::get<25>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<26, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_ecc_add)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_ecc_add)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_set)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_set)));
         std::get<26>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<27, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_execution)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_execution)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_get_contract_instance)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_get_contract_instance)));
         std::get<27>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<28, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_calldata_copy)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_calldata_copy)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_emit_unencrypted_log)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_emit_unencrypted_log)));
         std::get<28>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<29, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_returndata_copy)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_returndata_copy)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_poseidon2_perm)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_poseidon2_perm)));
         std::get<29>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<30, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_keccakf1600)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_keccakf1600)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_sha256_compression)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_sha256_compression)));
         std::get<30>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<31, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_get_contract_instance)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_get_contract_instance)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_keccakf1600)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_keccakf1600)));
         std::get<31>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<32, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_emit_unencrypted_log)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_unencrypted_log)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_ecc_add)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_ecc_add)));
         std::get<32>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<33, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_sha256_compression)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_sha256_compression)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_to_radix)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_to_radix)));
         std::get<33>(evals) += (tmp * scaling_factor);
     }
     { // SUBTRACE_ID_DECOMPOSITION
         using View = typename std::tuple_element_t<34, ContainerOverSubrelations>::View;
         auto tmp =
-            ((static_cast<View>(in.get(C::execution_sel_execute_execution)) *
+            ((static_cast<View>(in.get(C::execution_sel_exec_dispatch_execution)) *
                   CView(constants_AVM_SUBTRACE_ID_EXECUTION) +
-              static_cast<View>(in.get(C::execution_sel_execute_alu)) * CView(constants_AVM_SUBTRACE_ID_ALU) +
-              static_cast<View>(in.get(C::execution_sel_execute_cast)) * CView(constants_AVM_SUBTRACE_ID_CAST) +
-              static_cast<View>(in.get(C::execution_sel_execute_set)) * CView(constants_AVM_SUBTRACE_ID_SET) +
-              static_cast<View>(in.get(C::execution_sel_execute_bitwise)) * CView(constants_AVM_SUBTRACE_ID_BITWISE) +
-              static_cast<View>(in.get(C::execution_sel_execute_poseidon2_perm)) *
-                  CView(constants_AVM_SUBTRACE_ID_POSEIDON_PERM) +
-              static_cast<View>(in.get(C::execution_sel_execute_to_radix)) * CView(constants_AVM_SUBTRACE_ID_TO_RADIX) +
-              static_cast<View>(in.get(C::execution_sel_execute_ecc_add)) * CView(constants_AVM_SUBTRACE_ID_ECC) +
-              static_cast<View>(in.get(C::execution_sel_execute_keccakf1600)) *
-                  CView(constants_AVM_SUBTRACE_ID_KECCAKF1600) +
-              static_cast<View>(in.get(C::execution_sel_execute_calldata_copy)) *
+              static_cast<View>(in.get(C::execution_sel_exec_dispatch_alu)) * CView(constants_AVM_SUBTRACE_ID_ALU) +
+              static_cast<View>(in.get(C::execution_sel_exec_dispatch_bitwise)) *
+                  CView(constants_AVM_SUBTRACE_ID_BITWISE) +
+              static_cast<View>(in.get(C::execution_sel_exec_dispatch_cast)) * CView(constants_AVM_SUBTRACE_ID_CAST) +
+              static_cast<View>(in.get(C::execution_sel_exec_dispatch_calldata_copy)) *
                   CView(constants_AVM_SUBTRACE_ID_CALLDATA_COPY) +
-              static_cast<View>(in.get(C::execution_sel_execute_get_contract_instance)) *
+              static_cast<View>(in.get(C::execution_sel_exec_dispatch_returndata_copy)) *
+                  CView(constants_AVM_SUBTRACE_ID_RETURNDATA_COPY) +
+              static_cast<View>(in.get(C::execution_sel_exec_dispatch_set)) * CView(constants_AVM_SUBTRACE_ID_SET) +
+              static_cast<View>(in.get(C::execution_sel_exec_dispatch_get_contract_instance)) *
                   CView(constants_AVM_SUBTRACE_ID_GETCONTRACTINSTANCE) +
-              static_cast<View>(in.get(C::execution_sel_execute_emit_unencrypted_log)) *
+              static_cast<View>(in.get(C::execution_sel_exec_dispatch_emit_unencrypted_log)) *
                   CView(constants_AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG) +
-              static_cast<View>(in.get(C::execution_sel_execute_sha256_compression)) *
+              static_cast<View>(in.get(C::execution_sel_exec_dispatch_poseidon2_perm)) *
+                  CView(constants_AVM_SUBTRACE_ID_POSEIDON2_PERM) +
+              static_cast<View>(in.get(C::execution_sel_exec_dispatch_sha256_compression)) *
                   CView(constants_AVM_SUBTRACE_ID_SHA256_COMPRESSION) +
-              static_cast<View>(in.get(C::execution_sel_execute_returndata_copy)) *
-                  CView(constants_AVM_SUBTRACE_ID_RETURNDATA_COPY)) -
+              static_cast<View>(in.get(C::execution_sel_exec_dispatch_keccakf1600)) *
+                  CView(constants_AVM_SUBTRACE_ID_KECCAKF1600) +
+              static_cast<View>(in.get(C::execution_sel_exec_dispatch_ecc_add)) * CView(constants_AVM_SUBTRACE_ID_ECC) +
+              static_cast<View>(in.get(C::execution_sel_exec_dispatch_to_radix)) *
+                  CView(constants_AVM_SUBTRACE_ID_TO_RADIX)) -
              static_cast<View>(in.get(C::execution_sel_should_execute_opcode)) *
                  static_cast<View>(in.get(C::execution_subtrace_id)));
         std::get<34>(evals) += (tmp * scaling_factor);
@@ -476,7 +477,7 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
               static_cast<View>(in.get(C::execution_sel_execute_send_l2_to_l1_msg)) *
                   CView(constants_AVM_EXEC_OP_ID_SENDL2TOL1MSG)) -
              static_cast<View>(in.get(C::execution_sel_should_execute_opcode)) *
-                 static_cast<View>(in.get(C::execution_sel_execute_execution)) *
+                 static_cast<View>(in.get(C::execution_sel_exec_dispatch_execution)) *
                  static_cast<View>(in.get(C::execution_subtrace_operation_id)));
         std::get<56>(evals) += (tmp * scaling_factor);
     }
@@ -679,7 +680,7 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // NUM_UNENCRYPTED_LOGS_NOT_CHANGED
         using View = typename std::tuple_element_t<83, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_unencrypted_log))) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_emit_unencrypted_log))) *
                    (static_cast<View>(in.get(C::execution_prev_num_unencrypted_log_fields)) -
                     static_cast<View>(in.get(C::execution_num_unencrypted_log_fields)));
         std::get<83>(evals) += (tmp * scaling_factor);

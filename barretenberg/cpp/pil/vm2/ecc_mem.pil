@@ -1,6 +1,5 @@
 include "ecc.pil";
 include "gt.pil";
-include "execution.pil";
 
 /**
  * This handles the memory writes when the ECCADD opcode is executed by user code.
@@ -164,42 +163,5 @@ namespace ecc_add_mem;
     } is
     memory.sel_ecc_write[2] {
         memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw
-    };
-
-    ////////////////////////////////////////////////
-    // Dispatch from execution trace to ECC Add
-    ////////////////////////////////////////////////
-    #[DISPATCH_EXEC_ECC_ADD]
-    execution.sel_execute_ecc_add {
-        precomputed.clk,
-        execution.context_id,
-        // Point P
-        execution.register[0],
-        execution.register[1],
-        execution.register[2],
-        // Point Q
-        execution.register[3],
-        execution.register[4],
-        execution.register[5],
-        // Dst address
-        execution.rop[6],
-        // Error
-        execution.sel_opcode_error
-    } is
-    sel {
-        execution_clk,
-        space_id,
-        // Point P
-        p_x,
-        p_y,
-        p_is_inf,
-        // Point Q
-        q_x,
-        q_y,
-        q_is_inf,
-        // Dst address
-        dst_addr[0],
-        // Error
-        err
     };
 

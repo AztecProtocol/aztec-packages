@@ -28,16 +28,79 @@ jobs:
     if: github.event.pull_request.merged == true && needs.label_checker.outputs.state == 'success'
     runs-on: ubuntu-latest
     steps:
-      - name: Backport Action
-        uses: sorenlouv/backport-github-action@ad888e978060bc1b2798690dd9d03c4036560947
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          github_token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          auto_backport_label_prefix: backport-to-
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
-      - name: Info log
-        if: ${{ success() }}
-        run: cat ~/.backport/backport.info.log
+      - name: Extract target branch from labels
+        id: extract-branch
+        run: |
+          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          echo "All labels: $LABELS"
 
-      - name: Debug log
-        if: ${{ failure() }}
-        run: cat ~/.backport/backport.debug.log
+          # Extract the branch name from backport-to-* label
+          TARGET_BRANCH=$(echo "$LABELS" | jq -r '.[] | select(startswith("backport-to-")) | sub("backport-to-"; "")')
+
+          if [ -z "$TARGET_BRANCH" ]; then
+            echo "No backport-to-* label found"
+            exit 1
+          fi
+
+          echo "target_branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
+          echo "Target branch: $TARGET_BRANCH"
+
+      - name: Run backport script
+        id: backport
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          ./scripts/backport_to_staging.sh \
+            ${{ github.event.pull_request.number }} \
+            ${{ steps.extract-branch.outputs.target_branch }}
+
+      - name: Comment on original PR (success)
+        if: steps.backport.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          TARGET_BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
+          STAGING_BRANCH="backport-to-${TARGET_BRANCH}-staging"
+          COMMIT_COUNT=$(gh pr view "${{ github.event.pull_request.number }}" --json commits --jq '.commits | length')
+
+          gh pr comment "${{ github.event.pull_request.number }}" --body \
+            "✅ Successfully cherry-picked $COMMIT_COUNT commit(s) to backport staging branch \`$STAGING_BRANCH\`."
+
+      - name: Comment on original PR (failure)
+        if: steps.backport.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          TARGET_BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
+
+          gh pr comment "${{ github.event.pull_request.number }}" --body \
+            "❌ Failed to cherry-pick to \`$TARGET_BRANCH\` due to conflicts. Please backport manually."
+
+      - name: Notify Slack on backport failure
+        if: steps.backport.outcome == 'failure'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          TARGET_BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
+          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          data=$(cat <<EOF
+          {
+            "channel": "#team-alpha",
+            "text": "⚠️ Automatic backport failed\n• PR #$PR_NUMBER - $PR_TITLE\n• Target: $TARGET_BRANCH\n• Reason: Cherry-pick conflicts\n\nAction needed: Manual backport required\n<$WORKFLOW_URL|View Run>"
+          }
+          EOF
+          )
+          curl -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-type: application/json" \
+            --data "$data"

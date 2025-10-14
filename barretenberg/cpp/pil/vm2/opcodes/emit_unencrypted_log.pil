@@ -1,5 +1,4 @@
 include "../gt.pil";
-include "../execution.pil";
 include "../memory.pil";
 include "../constants_gen.pil";
 
@@ -290,38 +289,5 @@ namespace emit_unencrypted_log;
     public_inputs.sel {
         precomputed.clk,
         public_inputs.cols[0]
-    };
-
-    ////////////////////////////////////////////////////////
-    // Dispatch from execution trace to Emit Unencrypted Log
-    ////////////////////////////////////////////////////////
-    #[DISPATCH_EXEC_EMIT_UNENCRYPTED_LOG]
-    execution.sel_execute_emit_unencrypted_log {
-        precomputed.clk,
-        execution.context_id,
-        // Message offset
-        execution.rop[1],
-        // Message size
-        execution.register[0],
-        execution.contract_address,
-        // Context
-        execution.prev_num_unencrypted_log_fields,
-        execution.num_unencrypted_log_fields,
-        execution.is_static,
-        // Error
-        execution.sel_opcode_error,
-        execution.discard
-    } in
-    start {
-        execution_clk,
-        space_id,
-        log_address,
-        log_size,
-        contract_address,
-        prev_num_unencrypted_log_fields,
-        next_num_unencrypted_log_fields,
-        is_static,
-        error,
-        discard
     };
 

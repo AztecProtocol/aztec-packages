@@ -28,7 +28,7 @@ void ClassIdDerivationTraceBuilder::process(
                       { C::class_id_derivation_public_bytecode_commitment, event.klass.public_bytecode_commitment },
 
                       // This is temp because aliasing is not allowed in lookups
-                      { C::class_id_derivation_temp_constant_for_lookup, GENERATOR_INDEX__CONTRACT_LEAF },
+                      { C::class_id_derivation_gen_index_contract_leaf, GENERATOR_INDEX__CONTRACT_LEAF },
                       { C::class_id_derivation_const_two, 2 },
                   } });
         row++;

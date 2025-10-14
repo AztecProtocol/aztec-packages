@@ -106,7 +106,8 @@ TEST(ExecOpIdConstrainingTest, WireOpcodeListCompleteness)
         if (SUBTRACE_INFO_MAP.contains(exec_opcode)) {
             const auto& subtrace_info = SUBTRACE_INFO_MAP.at(exec_opcode);
             if (subtrace_info.subtrace_selector == SubtraceSel::EXECUTION) {
-                EXPECT_TRUE(std::find(WIRE_OPCODES.begin(), WIRE_OPCODES.end(), wire_opcode) != WIRE_OPCODES.end());
+                EXPECT_TRUE(std::ranges::find(WIRE_OPCODES.begin(), WIRE_OPCODES.end(), wire_opcode) !=
+                            WIRE_OPCODES.end());
             }
         }
     }
@@ -117,13 +118,13 @@ TEST(ExecOpIdConstrainingTest, WireOpcodeListCompleteness)
 // number of SET wire opcodes. This is the execution opcode with the largest number of wire opcodes.
 constexpr size_t INCREMENT_FOR_NEGATIVE_TEST = 6;
 
-// TODO(fcarreiro): enable.
-TEST(ExecOpIdConstrainingTest, DISABLED_Decomposition)
+TEST(ExecOpIdConstrainingTest, Decomposition)
 {
     for (size_t i = 0; i < WIRE_OPCODES.size(); i++) {
         TestTraceContainer trace({
             {
-                { C::execution_sel_execute_execution, 1 },
+                { C::execution_sel_exec_dispatch_execution, 1 },
+                { C::execution_sel_should_execute_opcode, 1 },
                 { C::execution_subtrace_operation_id, OPERATION_IDS.at(i) },
                 { SELECTOR_COLUMNS.at(i), 1 },
             },
@@ -143,11 +144,10 @@ TEST(ExecOpIdConstrainingTest, DISABLED_Decomposition)
     }
 }
 
-// TODO(fcarreiro): enable.
 // Show that the precomputed trace contains the correct execution operation id
 // which maps to the correct opcode selectors.
 // Show also that execution relations are satisfied.
-TEST(ExecOpIdConstrainingTest, DISABLED_InteractionWithExecInstructionSpec)
+TEST(ExecOpIdConstrainingTest, InteractionWithExecInstructionSpec)
 {
     PrecomputedTraceBuilder precomputed_builder;
 
@@ -172,15 +172,16 @@ TEST(ExecOpIdConstrainingTest, DISABLED_InteractionWithExecInstructionSpec)
     for (size_t i = 0; i < WIRE_OPCODES.size(); i++) {
         ASSERT_EQ(trace.get(C::execution_subtrace_operation_id, static_cast<uint32_t>(i + 1)), OPERATION_IDS.at(i));
         ASSERT_EQ(trace.get(C::execution_subtrace_id, static_cast<uint32_t>(i + 1)), AVM_SUBTRACE_ID_EXECUTION);
-        ASSERT_EQ(trace.get(C::execution_sel_execute_execution, static_cast<uint32_t>(i + 1)), 1);
     }
 
     // Activate the lookup selector execution_sel_instruction_fetching_success for each row.
-    // Activate the execution selector execution_sel for each row.
+    // Activate the selectors should_execute_opcode, exec_dispatch_execution, and the execution opcode selector.
     // Set the execution opcode for each row.
     for (size_t i = 0; i < WIRE_OPCODES.size(); i++) {
         trace.set(C::execution_sel_instruction_fetching_success, static_cast<uint32_t>(i + 1), 1);
-        trace.set(C::execution_sel, static_cast<uint32_t>(i + 1), 1);
+        trace.set(C::execution_sel_should_execute_opcode, static_cast<uint32_t>(i + 1), 1);
+        trace.set(C::execution_sel_exec_dispatch_execution, static_cast<uint32_t>(i + 1), 1);
+        trace.set(SELECTOR_COLUMNS.at(i), static_cast<uint32_t>(i + 1), 1);
         trace.set(C::execution_ex_opcode,
                   static_cast<uint32_t>(i + 1),
                   static_cast<uint8_t>(events.at(i).wire_instruction.get_exec_opcode()));

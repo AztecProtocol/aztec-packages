@@ -200,10 +200,23 @@ function(barretenberg_module MODULE_NAME)
                 ${MODULE_LINK_NAME}
                 ${ARGN}
             )
+
+            if(ENABLE_STACKTRACES)
+                target_link_libraries(
+                    ${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer
+                    PUBLIC
+                    Backward::Interface
+                )
+                target_link_options(
+                    ${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer
+                    PRIVATE
+                    -ldw -lelf
+                )
+            endif()
         endforeach()
     endif()
-    file(GLOB_RECURSE BENCH_SOURCE_FILES *.bench.cpp)
 
+    file(GLOB_RECURSE BENCH_SOURCE_FILES *.bench.cpp)
     if(BENCH_SOURCE_FILES AND NOT FUZZING)
         foreach(BENCHMARK_SOURCE ${BENCH_SOURCE_FILES})
             get_filename_component(BENCHMARK_NAME ${BENCHMARK_SOURCE} NAME_WE) # extract name without extension

@@ -65,6 +65,7 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
         : builder(builder)
         , vk_and_hash(vk_and_hash) {};
 
+    // Constructor from native verifier instance
     RecursiveVerifierInstance_(Builder* builder, std::shared_ptr<NativeVerifierInstance> verification_key)
         : RecursiveVerifierInstance_(builder, verification_key->vk)
     {
@@ -145,6 +146,7 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
 
     FF hash_through_transcript(const std::string& domain_separator, Transcript& transcript) const
     {
+        BB_ASSERT_EQ(is_complete, true, "Trying to hash a recursive verifier instance that has not been completed.");
         transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_log_circuit_size",
                                                   this->vk_and_hash->vk->log_circuit_size);
         transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_num_public_inputs",

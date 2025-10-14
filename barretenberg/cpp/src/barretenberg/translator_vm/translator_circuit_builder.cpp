@@ -410,7 +410,7 @@ void TranslatorCircuitBuilder::populate_wires_from_ultra_op(const UltraOp& ultra
         op_wire.push_back(add_variable(ultra_op.op_code.value()));
         // Similarly to the ColumnPolynomials in the merge protocol, the op_wire is 0 at every second index for a
         // genuine op
-        op_wire.push_back(zero_idx);
+        op_wire.push_back(zero_idx());
     }
     insert_pair_into_wire(WireIds::X_LOW_Y_HI, ultra_op.x_lo, ultra_op.y_hi);
 
@@ -532,8 +532,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // Although only the first index needs to be zero, we add two zeros to maintain consistency since each actual
     // UltraOp populates two polynomial indices.
     for (auto& wire : wires) {
-        wire.push_back(zero_idx);
-        wire.push_back(zero_idx);
+        wire.push_back(zero_idx());
+        wire.push_back(zero_idx());
     }
     num_gates += 2;
 
@@ -542,8 +542,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         populate_wires_from_ultra_op(ultra_op);
         // Populate the other wires with zeros
         for (size_t i = WireIds::Y_LOW_Z_2 + 1; i < wires.size(); i++) {
-            wires[i].push_back(zero_idx);
-            wires[i].push_back(zero_idx);
+            wires[i].push_back(zero_idx());
+            wires[i].push_back(zero_idx());
         }
         num_gates += 2;
     };
@@ -598,8 +598,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
             // previous row are well-formed and that the accumulator value is correctly propagated throughout
             // the entire no-op range for both even and odd indices.
             for (size_t j = 0; j < ACCUMULATORS_BINARY_LIMBS_0; j++) {
-                wires[j].push_back(zero_idx);
-                wires[j].push_back(zero_idx);
+                wires[j].push_back(zero_idx());
+                wires[j].push_back(zero_idx());
             }
             size_t idx = 0;
             for (size_t j = ACCUMULATORS_BINARY_LIMBS_0; j < ACCUMULATORS_BINARY_LIMBS_3 + 1; j++) {
@@ -608,8 +608,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
                 idx++;
             }
             for (size_t j = ACCUMULATORS_BINARY_LIMBS_3 + 1; j < TOTAL_COUNT; j++) {
-                wires[j].push_back(zero_idx);
-                wires[j].push_back(zero_idx);
+                wires[j].push_back(zero_idx());
+                wires[j].push_back(zero_idx());
             }
             num_gates += 2;
             continue;
