@@ -1,6 +1,8 @@
 import { Grumpkin, poseidon2Hash } from '@aztec/foundation/crypto';
 import { type Fq, Fr, type Point } from '@aztec/foundation/fields';
 
+import { z } from 'zod';
+
 import type { AztecAddress } from '../aztec-address/index.js';
 import type { CompleteAddress } from '../contract/complete_address.js';
 import { computeAddressSecret, computePreaddress } from '../keys/derivation.js';
@@ -70,3 +72,7 @@ async function computeSharedTaggingSecret(
   // leads to a positive y-coordinate, which is the only valid address point
   return curve.mul(externalAddressPoint, await computeAddressSecret(knownPreaddress, localIvsk));
 }
+
+export const DirectionalAppTaggingSecretSchema = z.object({
+  value: Fr.schema,
+});

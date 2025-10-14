@@ -10,7 +10,6 @@ import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, NodeStats } from '@aztec/stdlib/tx';
 
-import type { Tag } from '../tagging/tag.js';
 import type { NoteData } from './oracle/interfaces.js';
 import type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
 
@@ -240,12 +239,11 @@ export interface ExecutionDataProvider {
   syncTaggedLogsAsSender(secret: DirectionalAppTaggingSecret, contractAddress: AztecAddress): Promise<void>;
 
   /**
-   * Returns the next app tag for a given directional app tagging secret.
-   * @param secret - The secret that's unique for (sender, recipient, contract) tuple while
-   * direction of sender -> recipient matters.
-   * @returns The computed tag.
+   * Returns the next index to be used to compute a tag when sending a log.
+   * @param secret - The directional app tagging secret.
+   * @returns The next index to be used to compute a tag for the given directional app tagging secret.
    */
-  getNextAppTagAsSender(secret: DirectionalAppTaggingSecret): Promise<Tag>;
+  getNextIndexAsSender(secret: DirectionalAppTaggingSecret): Promise<number>;
 
   /**
    * Synchronizes the private logs tagged with scoped addresses and all the senders in the address book. Stores the found

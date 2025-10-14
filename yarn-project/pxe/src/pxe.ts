@@ -736,10 +736,23 @@ export class PXE {
         };
 
         this.log.debug(`Proving completed in ${totalTime}ms`, { timings });
-        return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!, {
+
+        const txProvingResult = new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!, {
           timings,
           nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,
         });
+
+        const indexedTaggingSecretsIncrementedInTheTx = privateExecutionResult.entrypoint.indexedTaggingSecrets;
+        if (indexedTaggingSecretsIncrementedInTheTx.length > 0) {
+          await this.taggingDataProvider.setNextIndexesAsSender(indexedTaggingSecretsIncrementedInTheTx);
+          this.log.debug(`Incremented next tagging secret indexes as sender for the tx`, {
+            indexedTaggingSecretsIncrementedInTheTx,
+          });
+        } else {
+          this.log.debug(`No next tagging secret indexes incremented in the tx`);
+        }
+
+        return txProvingResult;
       } catch (err: any) {
         throw this.#contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
       }

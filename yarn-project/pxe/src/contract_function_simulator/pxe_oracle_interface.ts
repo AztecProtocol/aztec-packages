@@ -269,32 +269,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return this.taggingDataProvider.getSenderAddresses();
   }
 
-  /**
-   * Returns the next app tag for a given sender and recipient pair.
-   * @param contractAddress - The contract address emitting the log.
-   * @param sender - The address sending the note
-   * @param recipient - The address receiving the note
-   * @returns The computed tag.
-   * TODO(benesjan): In a follow-up PR this will only return the index and that's it.
-   */
-  public async getNextAppTagAsSender(secret: DirectionalAppTaggingSecret): Promise<Tag> {
-    const index = await this.taggingDataProvider.getNextIndexAsSender(secret);
-
-    // TODO(benesjan): This will be reworked in a follow-up PR where we will store the new indexes in the db once
-    // the execution finishes (then we dump the contents of the ExecutionTaggingIndexCache into the db)
-    // Increment the index for next time
-    // const contractName = await this.contractDataProvider.getDebugContractName(contractAddress);
-    // this.log.debug(`Incrementing app tagging secret at ${contractName}(${contractAddress})`, {
-    //   directionalAppTaggingSecret,
-    //   sender,
-    //   recipient,
-    //   contractName,
-    //   contractAddress,
-    // });
-    await this.taggingDataProvider.setNextIndexesAsSender([{ secret, index: index + 1 }]);
-
-    // Compute and return the tag using the current index
-    return Tag.compute({ secret, index });
+  public getNextIndexAsSender(secret: DirectionalAppTaggingSecret): Promise<number> {
+    return this.taggingDataProvider.getNextIndexAsSender(secret);
   }
 
   public async calculateDirectionalAppTaggingSecret(

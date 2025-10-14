@@ -19,6 +19,7 @@ import {
 } from '@aztec/pxe/server';
 import {
   ExecutionNoteCache,
+  ExecutionTaggingIndexCache,
   HashedValuesCache,
   type IMiscOracle,
   Oracle,
@@ -292,6 +293,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const txRequestHash = getSingleTxBlockRequestHash(blockNumber);
     const noteCache = new ExecutionNoteCache(txRequestHash);
+    const taggingIndexCache = new ExecutionTaggingIndexCache();
 
     const simulator = new WASMSimulator();
 
@@ -307,6 +309,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       [],
       HashedValuesCache.create([new HashedValues(args, argsHash)]),
       noteCache,
+      taggingIndexCache,
       this.pxeOracleInterface,
       0,
       1,

@@ -65,7 +65,6 @@ import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import { Tag } from '../../tagging/tag.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
@@ -303,8 +302,8 @@ describe('Private Execution test suite', () => {
       throw new Error(`Unknown address: ${address}. Recipient: ${recipient}, Owner: ${owner}`);
     });
 
-    executionDataProvider.getNextAppTagAsSender.mockImplementation((_secret: DirectionalAppTaggingSecret) => {
-      return Promise.resolve(Tag.compute({ secret: _secret, index: 0 }));
+    executionDataProvider.getNextIndexAsSender.mockImplementation((_secret: DirectionalAppTaggingSecret) => {
+      return Promise.resolve(0);
     });
     executionDataProvider.getFunctionArtifact.mockImplementation(async (address, selector) => {
       const contract = contracts[address.toString()];
@@ -331,8 +330,12 @@ describe('Private Execution test suite', () => {
     });
 
     executionDataProvider.syncTaggedLogs.mockImplementation((_, __) => Promise.resolve());
-    executionDataProvider.calculateDirectionalAppTaggingSecret.mockResolvedValue(
-      DirectionalAppTaggingSecret.fromString('0x1'),
+    // Provide tagging-related mocks expected by private log emission
+    executionDataProvider.calculateDirectionalAppTaggingSecret.mockImplementation((_contract, _sender, _recipient) => {
+      return Promise.resolve(DirectionalAppTaggingSecret.fromString('0x1'));
+    });
+    executionDataProvider.syncTaggedLogsAsSender.mockImplementation((_directionalAppTaggingSecret, _contractAddress) =>
+      Promise.resolve(),
     );
     executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 

@@ -14,7 +14,7 @@ import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import type { ContractClassLog } from '@aztec/stdlib/logs';
+import type { ContractClassLog, IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
   type BlockHeader,
@@ -26,9 +26,10 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
-import type { Tag } from '../../tagging/tag.js';
+import { Tag } from '../../tagging/tag.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import type { ExecutionNoteCache } from '../execution_note_cache.js';
+import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import type { HashedValuesCache } from '../hashed_values_cache.js';
 import { pickNotes } from '../pick_notes.js';
 import type { IPrivateExecutionOracle, NoteData } from './interfaces.js';
@@ -76,6 +77,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     capsules: Capsule[],
     private readonly executionCache: HashedValuesCache,
     private readonly noteCache: ExecutionNoteCache,
+    private readonly taggingIndexCache: ExecutionTaggingIndexCache,
     executionDataProvider: ExecutionDataProvider,
     private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
@@ -150,6 +152,13 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
+   * Return the tagging indexes incremented by this execution along with the directional app tagging secrets.
+   */
+  public getIndexedTaggingSecrets(): IndexedTaggingSecret[] {
+    return this.taggingIndexCache.getIndexedTaggingSecrets();
+  }
+
+  /**
    * Return the nested execution results during this execution.
    */
   public getNestedExecutionResults() {
@@ -193,21 +202,40 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @returns An app tag to be used in a log.
    */
   public async privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag> {
-    const directionalAppTaggingSecret = await this.executionDataProvider.calculateDirectionalAppTaggingSecret(
+    const secret = await this.executionDataProvider.calculateDirectionalAppTaggingSecret(
       this.contractAddress,
       sender,
       recipient,
     );
 
-    // TODO(benesjan): In a follow-up PR we will load here the index from the ExecutionTaggingIndexCache if present
-    // and if not we will obtain it from the execution data provider.
+    // If we have the tagging index in the cache, we use it. If not we obtain it from the execution data provider.
+    // TODO(benesjan): Make this be `getLastUsedIndex` and refactor this function to look as proposed in this comment:
+    // https://github.com/AztecProtocol/aztec-packages/pull/17445#discussion_r2400365845
+    const maybeTaggingIndex = this.taggingIndexCache.getTaggingIndex(secret);
+    let taggingIndex: number;
 
-    this.log.debug(`Syncing tagged logs as sender ${sender} for contract ${this.contractAddress}`, {
-      directionalAppTaggingSecret,
-      recipient,
-    });
-    await this.executionDataProvider.syncTaggedLogsAsSender(directionalAppTaggingSecret, this.contractAddress);
-    return this.executionDataProvider.getNextAppTagAsSender(directionalAppTaggingSecret);
+    if (maybeTaggingIndex !== undefined) {
+      taggingIndex = maybeTaggingIndex;
+    } else {
+      // This is a tagging secret we've not yet used in this tx, so first sync our store to make sure its indices
+      // are up to date. We do this here because this store is not synced as part of the global sync because
+      // that'd be wasteful as most tagging secrets are not used in each tx.
+      this.log.debug(`Syncing tagged logs as sender ${sender} for contract ${this.contractAddress}`, {
+        directionalAppTaggingSecret: secret,
+        recipient,
+      });
+      await this.executionDataProvider.syncTaggedLogsAsSender(secret, this.contractAddress);
+      taggingIndex = await this.executionDataProvider.getNextIndexAsSender(secret);
+    }
+
+    // Now we increment the index by 1 and store it in the cache.
+    const nextTaggingIndex = taggingIndex + 1;
+    this.log.debug(
+      `Incrementing tagging index for sender: ${sender}, recipient: ${recipient}, contract: ${this.contractAddress} to ${nextTaggingIndex}`,
+    );
+    this.taggingIndexCache.setTaggingIndex(secret, nextTaggingIndex);
+
+    return Tag.compute({ secret, index: taggingIndex });
   }
 
   /**
@@ -480,6 +508,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.capsules,
       this.executionCache,
       this.noteCache,
+      this.taggingIndexCache,
       this.executionDataProvider,
       this.totalPublicCalldataCount,
       sideEffectCounter,

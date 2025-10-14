@@ -1,4 +1,11 @@
-import type { DirectionalAppTaggingSecret } from './directional_app_tagging_secret.js';
+import { schemas } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
+
+import {
+  type DirectionalAppTaggingSecret,
+  DirectionalAppTaggingSecretSchema,
+} from './directional_app_tagging_secret.js';
 
 /**
  * Represents a preimage of a private log tag (see `Tag` in `pxe/src/tagging`).
@@ -11,3 +18,8 @@ export type IndexedTaggingSecret = {
   secret: DirectionalAppTaggingSecret;
   index: number;
 };
+
+export const IndexedTaggingSecretSchema = z.object({
+  secret: DirectionalAppTaggingSecretSchema,
+  index: schemas.Integer,
+});
