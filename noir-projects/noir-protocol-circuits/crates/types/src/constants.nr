@@ -1003,7 +1003,7 @@ pub global L2_GAS_PER_L2_TO_L1_MSG: u32 = 200; // TODO: Update and explain this.
 // AVM - misc constants
 pub global AVM_PC_SIZE_IN_BITS: u32 = 32;
 pub global AVM_MAX_OPERANDS: u32 = 7;
-pub global AVM_MAX_REGISTERS: u32 = 7;
+pub global AVM_MAX_REGISTERS: u32 = 6;
 
 /**
  * GAS COSTS FOR AVM OPCODES
