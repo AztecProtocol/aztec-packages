@@ -9,6 +9,7 @@ export {
   type SimulateOptions,
   type SendOptions,
   type ProfileOptions,
+  type ContractInstanceAndArtifact,
 } from '../wallet/index.js';
 
 export { type DeployAccountOptions, DeployAccountMethod } from '../wallet/deploy_account_method.js';
