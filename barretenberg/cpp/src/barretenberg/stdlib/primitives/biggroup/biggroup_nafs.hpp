@@ -198,7 +198,7 @@ std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr,
         get_staggered_wnaf_fragment_value<wnaf_size>(stagger_scalar, stagger, is_negative, skew_without_stagger);
 
     // Get wnaf witnesses
-    // We don't range constrain the wnaf entries here because we will use them to lookup in a ROM/regular table.
+    // Note that we only range constrain the wnaf entries if range_constrain_wnaf is set to true.
     std::vector<field_t<C>> wnaf = convert_wnaf_values_to_witnesses<wnaf_size>(
         builder, &wnaf_values[0], is_negative, num_rounds_excluding_stagger_bits, range_constrain_wnaf);
 
