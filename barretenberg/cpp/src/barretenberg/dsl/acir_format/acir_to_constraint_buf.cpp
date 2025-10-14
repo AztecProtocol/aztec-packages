@@ -694,6 +694,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 af.multi_scalar_mul_constraints.push_back(MultiScalarMul{
                     .points = transform::map(arg.points, [](auto& e) { return parse_input(e); }),
                     .scalars = transform::map(arg.scalars, [](auto& e) { return parse_input(e); }),
+                    .predicate = parse_input(arg.predicate),
                     .out_point_x = (*arg.outputs)[0].value,
                     .out_point_y = (*arg.outputs)[1].value,
                     .out_point_is_infinite = (*arg.outputs)[2].value,
@@ -709,6 +710,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 auto input_2_x = parse_input((*arg.input2)[0]);
                 auto input_2_y = parse_input((*arg.input2)[1]);
                 auto input_2_infinite = parse_input((*arg.input2)[2]);
+                auto predicate = parse_input(arg.predicate);
 
                 af.ec_add_constraints.push_back(EcAdd{
                     .input1_x = input_1_x,
@@ -717,6 +719,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .input2_x = input_2_x,
                     .input2_y = input_2_y,
                     .input2_infinite = input_2_infinite,
+                    .predicate = predicate,
                     .result_x = (*arg.outputs)[0].value,
                     .result_y = (*arg.outputs)[1].value,
                     .result_infinite = (*arg.outputs)[2].value,
