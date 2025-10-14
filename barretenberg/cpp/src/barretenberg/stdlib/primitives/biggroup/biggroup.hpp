@@ -991,8 +991,7 @@ using element = std::conditional_t<IsGoblinBigGroup<C, Fq, Fr, G>,
                                    element_goblin::goblin_element<C, goblin_field<C>, Fr, G>,
                                    element_default::element<C, Fq, Fr, G>>;
 } // namespace bb::stdlib
-#include "biggroup_batch_mul.hpp"
-#include "biggroup_bn254.hpp"
+#include "biggroup_edgecase_handling.hpp"
 #include "biggroup_goblin.hpp"
 #include "biggroup_impl.hpp"
 #include "biggroup_nafs.hpp"
