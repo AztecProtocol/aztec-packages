@@ -6,13 +6,13 @@
 
 #pragma once
 
+#include "barretenberg/client_ivc/client_ivc_base.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
-#include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
@@ -20,6 +20,7 @@
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
+#include "barretenberg/ultra_honk/oink_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include <algorithm>
@@ -35,7 +36,7 @@ namespace bb {
  * of circuits being accumulated is even.
  *
  */
-class ClientIVC {
+class ClientIVC : public IVCBase {
 
   public:
     using Flavor = MegaFlavor;
@@ -64,7 +65,7 @@ class ClientIVC {
     using RecursiveVKAndHash = RecursiveFlavor::VKAndHash;
     using FoldingRecursiveVerifier =
         bb::stdlib::recursion::honk::ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstance>;
-    using OinkRecursiveVerifier = stdlib::recursion::honk::OinkRecursiveVerifier_<RecursiveFlavor>;
+    using OinkRecursiveVerifier = bb::OinkVerifier<RecursiveFlavor>;
     using DeciderRecursiveVerifier = stdlib::recursion::honk::DeciderRecursiveVerifier_<RecursiveFlavor>;
     using RecursiveTranscript = RecursiveFlavor::Transcript;
 
@@ -286,6 +287,10 @@ class ClientIVC {
 
     size_t get_num_circuits() const { return num_circuits; }
 
+    // IVCBase interface
+    Goblin& get_goblin() override { return goblin; }
+    const Goblin& get_goblin() const override { return goblin; }
+
     ClientIVC(size_t num_circuits, TraceSettings trace_settings = {});
 
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
@@ -311,7 +316,7 @@ class ClientIVC {
      * set using the proving key produced from `circuit` in order to pass some assertions in the Oink prover.
      * @param mock_vk A boolean to say whether the precomputed vk should have its metadata set.
      */
-    void accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
+    void accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk) override;
 
     Proof prove();
 
