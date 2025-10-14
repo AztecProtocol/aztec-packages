@@ -42,7 +42,9 @@ class MultilinearBatchingRecursiveFlavor {
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
-    template <typename FF> using Relations_ = std::tuple<bb::MultilinearBatchingRelation<FF>>;
+    template <typename FF>
+    using Relations_ =
+        std::tuple<bb::MultilinearBatchingAccumulatorRelation<FF>, bb::MultilinearBatchingInstanceRelation<FF>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = NativeFlavor::MAX_PARTIAL_RELATION_LENGTH;
