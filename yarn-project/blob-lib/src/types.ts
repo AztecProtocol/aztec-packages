@@ -11,4 +11,5 @@ export interface BlobKzgInstance {
   blobToKzgCommitment(blob: Uint8Array): Uint8Array;
   /** Function to compute KZG proof for blob data */
   computeBlobKzgProof(blob: Uint8Array, commitment: Uint8Array): Uint8Array;
+  computeCellsAndKzgProofs(blob: Uint8Array): [Uint8Array[], Uint8Array[]];
 }

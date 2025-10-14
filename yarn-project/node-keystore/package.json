@@ -67,7 +67,7 @@
     "@aztec/stdlib": "workspace:^",
     "@ethersproject/wallet": "^5.7.0",
     "tslib": "^2.4.0",
-    "viem": "2.23.7",
+    "viem": "patch:viem@npm%3A2.23.7#~/.yarn/patches/viem-npm-2.23.7-0552761b08.patch",
     "zod": "^3.23.8"
   },
   "devDependencies": {

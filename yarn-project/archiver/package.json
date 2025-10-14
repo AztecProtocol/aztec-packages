@@ -82,7 +82,7 @@
     "lodash.omit": "^4.5.0",
     "tsc-watch": "^6.0.0",
     "tslib": "^2.5.0",
-    "viem": "2.23.7"
+    "viem": "patch:viem@npm%3A2.23.7#~/.yarn/patches/viem-npm-2.23.7-0552761b08.patch"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",

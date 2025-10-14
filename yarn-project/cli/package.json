@@ -89,7 +89,7 @@
     "semver": "^7.5.4",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0",
-    "viem": "2.23.7"
+    "viem": "patch:viem@npm%3A2.23.7#~/.yarn/patches/viem-npm-2.23.7-0552761b08.patch"
   },
   "devDependencies": {
     "@aztec/accounts": "workspace:^",

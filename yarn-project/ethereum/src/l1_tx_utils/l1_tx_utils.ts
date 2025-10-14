@@ -5,6 +5,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
+import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
@@ -22,6 +23,7 @@ import {
   formatGwei,
   serializeTransaction,
 } from 'viem';
+import { defaultPrepareTransactionRequestParameters } from 'viem/actions';
 import { jsonRpc } from 'viem/nonce';
 
 import type { ViemClient } from '../types.js';
@@ -157,11 +159,23 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
   private async signTransaction(txRequest: TransactionSerializable): Promise<`0x${string}`> {
     const signature = await this.signer(txRequest, this.getSenderAddress());
-    return serializeTransaction(txRequest, signature);
+    const res = serializeTransaction(txRequest, signature);
+    return res;
   }
 
   protected async prepareSignedTransaction(txData: PrepareTransactionRequestRequest) {
-    const txRequest = await this.client.prepareTransactionRequest(txData);
+    const txRequest = await this.client.prepareTransactionRequest({
+      ...txData,
+      parameters: [...defaultPrepareTransactionRequestParameters, 'sidecars'],
+    });
+    const kzg = txData.kzg! as any;
+
+    for (let i = 0; i < txData.blobs!.length; i++) {
+      const blob = txData.blobs![i];
+      const [_, cellProofs] = kzg.computeCellsAndKzgProofs(blob) as [Uint8Array[], Uint8Array[]];
+      txRequest.sidecars![i]!.proof = cellProofs.map(el => bufferToHex(Buffer.from(el))) as any;
+      i++;
+    }
     return await this.signTransaction(txRequest as TransactionSerializable);
   }
 

@@ -52,7 +52,7 @@
     "@aztec/world-state": "workspace:^",
     "lodash.chunk": "^4.2.0",
     "tslib": "^2.4.0",
-    "viem": "2.23.7"
+    "viem": "patch:viem@npm%3A2.23.7#~/.yarn/patches/viem-npm-2.23.7-0552761b08.patch"
   },
   "devDependencies": {
     "@aztec/archiver": "workspace:^",
