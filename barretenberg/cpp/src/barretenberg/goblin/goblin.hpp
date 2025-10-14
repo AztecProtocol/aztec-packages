@@ -43,7 +43,7 @@ class Goblin {
     using MergeCommitments = MergeVerifier::InputCommitments;
     using RecursiveMergeCommitments = MergeRecursiveVerifier::InputCommitments;
     using RecursiveCommitment = MergeRecursiveVerifier::Commitment;
-    using RecursiveTranscript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<MegaBuilder>>;
+    using RecursiveTranscript = MegaStdlibTranscript;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
     CommitmentKey<curve::BN254> commitment_key;

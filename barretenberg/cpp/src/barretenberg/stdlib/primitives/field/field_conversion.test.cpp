@@ -12,13 +12,14 @@ template <typename Builder> using grumpkin_element = cycle_group<Builder>;
 
 template <typename Builder> class stdlib_field_conversion : public ::testing::Test {
   public:
+    using Codec = StdlibCodec<field_t<Builder>>;
     // Serialize and deserialize
     template <typename T> void check_conversion(T in, bool valid_circuit = true, bool point_at_infinity = false)
     {
-        size_t len = bb::stdlib::field_conversion::calc_num_bn254_frs<Builder, T>();
-        auto frs = bb::stdlib::field_conversion::convert_to_bn254_frs<Builder, T>(in);
+        size_t len = Codec::template calc_num_fields<T>();
+        auto frs = Codec::serialize_to_fields(in);
         EXPECT_EQ(len, frs.size());
-        auto out = bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(frs);
+        auto out = Codec::template deserialize_from_fields<T>(frs);
         bool expected = std::is_same_v<Builder, UltraCircuitBuilder> ? !point_at_infinity : true;
 
         EXPECT_EQ(in.get_value() == out.get_value(), expected);
@@ -30,10 +31,10 @@ template <typename Builder> class stdlib_field_conversion : public ::testing::Te
 
     template <typename T> void check_conversion_iterable(T x)
     {
-        size_t len = bb::stdlib::field_conversion::calc_num_bn254_frs<Builder, T>();
-        auto frs = bb::stdlib::field_conversion::convert_to_bn254_frs<Builder, T>(x);
+        size_t len = Codec::template calc_num_fields<T>();
+        auto frs = Codec::template serialize_to_fields<T>(x);
         EXPECT_EQ(len, frs.size());
-        auto y = bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(frs);
+        auto y = Codec::template deserialize_from_fields<T>(frs);
         EXPECT_EQ(x.size(), y.size());
         for (auto [val1, val2] : zip_view(x, y)) {
             EXPECT_EQ(val1.get_value(), val2.get_value());
@@ -187,6 +188,7 @@ TYPED_TEST(stdlib_field_conversion, FieldConversionGrumpkinAffineElement)
 TYPED_TEST(stdlib_field_conversion, DeserializePointAtInfinity)
 {
     using Builder = TypeParam;
+    using Codec = StdlibCodec<field_t<Builder>>;
     Builder builder;
     const fr<Builder> zero(fr<Builder>::from_witness_index(&builder, builder.zero_idx()));
 
@@ -194,7 +196,7 @@ TYPED_TEST(stdlib_field_conversion, DeserializePointAtInfinity)
         std::vector<fr<Builder>> zeros(4, zero);
 
         bn254_element<Builder> point_at_infinity =
-            field_conversion::convert_from_bn254_frs<Builder, bn254_element<Builder>>(zeros);
+            Codec::template deserialize_from_fields<bn254_element<Builder>>(zeros);
 
         EXPECT_TRUE(point_at_infinity.is_point_at_infinity().get_value());
         EXPECT_TRUE(CircuitChecker::check(builder));
@@ -203,7 +205,7 @@ TYPED_TEST(stdlib_field_conversion, DeserializePointAtInfinity)
         std::vector<fr<Builder>> zeros(2, zero);
 
         grumpkin_element<Builder> point_at_infinity =
-            field_conversion::convert_from_bn254_frs<Builder, grumpkin_element<Builder>>(zeros);
+            Codec::template deserialize_from_fields<grumpkin_element<Builder>>(zeros);
 
         EXPECT_TRUE(point_at_infinity.is_point_at_infinity().get_value());
         EXPECT_TRUE(CircuitChecker::check(builder));

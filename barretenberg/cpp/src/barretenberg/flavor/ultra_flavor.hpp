@@ -109,8 +109,8 @@ class UltraFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
-    static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
+    static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
+    static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
 
     // Proof length formula methods
     static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
@@ -346,9 +346,9 @@ class UltraFlavor {
      * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
      *
      */
-    template <typename Params> class Transcript_ : public BaseTranscript<Params> {
+    template <typename Codec, typename HashFunction> class Transcript_ : public BaseTranscript<Codec, HashFunction> {
       public:
-        using Base = BaseTranscript<Params>;
+        using Base = BaseTranscript<Codec, HashFunction>;
 
         // Transcript objects defined as public member variables for easy access and modification
         std::vector<FF> public_inputs;
@@ -461,7 +461,7 @@ class UltraFlavor {
         }
     };
 
-    using Transcript = Transcript_<NativeTranscriptParams>;
+    using Transcript = Transcript_<FrCodec, crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>>;
 
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)

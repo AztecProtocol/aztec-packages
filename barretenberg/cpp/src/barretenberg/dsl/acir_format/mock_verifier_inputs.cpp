@@ -31,7 +31,7 @@ template <class Curve = curve::BN254>
 void populate_field_elements_for_mock_commitments(std::vector<fr>& fields, const size_t& num_commitments)
 {
     auto mock_commitment = Curve::AffineElement::one();
-    std::vector<fr> mock_commitment_frs = field_conversion::convert_to_bn254_frs(mock_commitment);
+    std::vector<fr> mock_commitment_frs = FrCodec::serialize_to_fields(mock_commitment);
     for (size_t i = 0; i < num_commitments; ++i) {
         for (const fr& val : mock_commitment_frs) {
             fields.emplace_back(val);
@@ -52,9 +52,8 @@ void populate_field_elements(std::vector<fr>& fields,
                              std::optional<FF> value = std::nullopt)
 {
     for (size_t i = 0; i < num_elements; ++i) {
-        std::vector<fr> field_elements = value.has_value()
-                                             ? field_conversion::convert_to_bn254_frs(value.value())
-                                             : field_conversion::convert_to_bn254_frs(FF::random_element());
+        std::vector<fr> field_elements = value.has_value() ? FrCodec::serialize_to_fields(value.value())
+                                                           : FrCodec::serialize_to_fields(FF::random_element());
         fields.insert(fields.end(), field_elements.begin(), field_elements.end());
     }
 }
