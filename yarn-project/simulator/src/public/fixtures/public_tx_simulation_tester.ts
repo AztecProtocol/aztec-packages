@@ -60,11 +60,12 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   }
 
   public static async create(
+    worldStateService: NativeWorldStateService, // make sure to close this later
     globals: GlobalVariables = defaultGlobals(),
     metrics: TestExecutorMetrics = new TestExecutorMetrics(),
   ): Promise<PublicTxSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
-    const merkleTree = await (await NativeWorldStateService.tmp()).fork();
+    const merkleTree = await worldStateService.fork();
     return new PublicTxSimulationTester(merkleTree, contractDataSource, globals, metrics);
   }
 

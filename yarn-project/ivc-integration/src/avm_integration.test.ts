@@ -7,10 +7,11 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
-import { PublicTxSimulationTester, bulkTest, simAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
+import { PublicTxSimulationTester, bulkTest, executeAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
+import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { jest } from '@jest/globals';
 import path from 'path';
@@ -82,6 +83,7 @@ describe('AVM Integration', () => {
   let civcProof: ProofAndVerificationKey<typeof CIVC_PROOF_LENGTH>;
   let clientIVCPublicInputs: KernelPublicInputs;
 
+  let worldStateService: NativeWorldStateService;
   let simTester: PublicTxSimulationTester;
 
   beforeAll(async () => {
@@ -96,7 +98,12 @@ describe('AVM Integration', () => {
     //Create a temp working dir
     bbWorkingDirectory = await getWorkingDirectory('bb-avm-integration-');
 
-    simTester = await PublicTxSimulationTester.create();
+    worldStateService = await NativeWorldStateService.tmp();
+    simTester = await PublicTxSimulationTester.create(worldStateService);
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
   });
 
   it('Should generate and verify an ultra honk proof from an AVM verification of the bulk test', async () => {
@@ -114,7 +121,7 @@ describe('AVM Integration', () => {
   }, 240_000);
 
   it('Should generate and verify an ultra honk proof from an AVM verification for the minimal TX with skipping public inputs validation', async () => {
-    const result = await simAvmMinimalPublicTx();
+    const result = await executeAvmMinimalPublicTx(simTester);
     expect(result.revertCode.isOK()).toBe(true);
 
     await proveMockPublicBaseRollup(
