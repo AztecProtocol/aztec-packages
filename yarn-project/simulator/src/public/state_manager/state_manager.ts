@@ -185,8 +185,10 @@ export class PublicPersistableStateManager {
    * @returns true if the note hash exists at the given leaf index, false otherwise
    */
   public async checkNoteHashExists(contractAddress: AztecAddress, noteHash: Fr, leafIndex: bigint): Promise<boolean> {
+    // accrued substate -> here
     const gotLeafValue = await this.treesDB.getNoteHash(leafIndex);
     const exists = gotLeafValue !== undefined && gotLeafValue.equals(noteHash);
+    console.log('in state_manager.ts, gotLeafValue: ', gotLeafValue, 'at: ', leafIndex);
     this.log.trace(
       `noteHashes(${contractAddress})@${noteHash} ?? leafIndex: ${leafIndex} | gotLeafValue: ${gotLeafValue}, exists: ${exists}.`,
     );

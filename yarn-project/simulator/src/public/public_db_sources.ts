@@ -338,10 +338,13 @@ export class PublicTreesDB implements PublicStateDBInterface {
   }
 
   public async getNoteHash(leafIndex: bigint): Promise<Fr | undefined> {
+    // accrued substate -> state manager -> here
     const timer = new Timer();
     const leafValue = await this.db.getLeafValue(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
     // TODO: We need this for the hints. See class comment for more details.
     await this.db.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
+
+    console.log('in public_db_sources.ts, leafValue: ', leafValue, 'at: ', leafIndex);
 
     this.logger.debug(`Fetched note hash leaf value (leafIndex=${leafIndex}, value=${leafValue})`, {
       eventName: 'public-db-access',
