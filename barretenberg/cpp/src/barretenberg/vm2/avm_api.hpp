@@ -13,6 +13,7 @@ class AvmAPI {
     using AvmProof = AvmProvingHelper::Proof;
     using AvmVerificationKey = std::vector<uint8_t>;
     using ProvingInputs = AvmProvingInputs;
+    using FastSimulationInputs = AvmFastSimulationInputs;
 
     AvmAPI() = default;
 
@@ -21,7 +22,7 @@ class AvmAPI {
     bool check_circuit(const ProvingInputs& inputs);
     bool verify(const AvmProof& proof, const PublicInputs& pi, const AvmVerificationKey& vk_data);
 
-    void simulate(const ExecutionHints& hints, world_state::WorldStateRevision& ws_revision);
+    void simulate(const FastSimulationInputs& inputs);
 };
 
 } // namespace bb::avm2
