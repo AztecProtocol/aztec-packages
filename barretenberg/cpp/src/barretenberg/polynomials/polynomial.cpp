@@ -294,23 +294,6 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::create_non_parallel_zero_i
     return p;
 }
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1113): Optimizing based on actual sizes would involve using
-// expand, but it is currently unused.
-template <typename Fr>
-Polynomial<Fr> Polynomial<Fr>::expand(const size_t new_start_index, const size_t new_end_index) const
-{
-    BB_ASSERT_LTE(new_end_index, virtual_size());
-    BB_ASSERT_LTE(new_start_index, start_index());
-    BB_ASSERT_GTE(new_end_index, end_index());
-    if (new_start_index == start_index() && new_end_index == end_index()) {
-        return *this;
-    }
-    Polynomial result = *this;
-    // Make new_start_index..new_end_index usable
-    result.coefficients_ = _clone(coefficients_, new_end_index - end_index(), start_index() - new_start_index);
-    return result;
-}
-
 template <typename Fr> void Polynomial<Fr>::shrink_end_index(const size_t new_end_index)
 {
     BB_ASSERT_LTE(new_end_index, end_index());

@@ -380,27 +380,6 @@ TYPED_TEST(PolynomialTests, evaluation_domain_roots)
     }
 }
 
-TYPED_TEST(PolynomialTests, compute_interpolation)
-{
-    using FF = TypeParam;
-    constexpr size_t n = 100;
-    FF src[n], poly[n], x[n];
-
-    for (size_t i = 0; i < n; ++i) {
-        poly[i] = FF::random_element();
-    }
-
-    for (size_t i = 0; i < n; ++i) {
-        x[i] = FF::random_element();
-        src[i] = polynomial_arithmetic::evaluate(poly, x[i], n);
-    }
-    polynomial_arithmetic::compute_interpolation(src, src, x, n);
-
-    for (size_t i = 0; i < n; ++i) {
-        EXPECT_EQ(src[i], poly[i]);
-    }
-}
-
 TYPED_TEST(PolynomialTests, compute_efficient_interpolation)
 {
     using FF = TypeParam;

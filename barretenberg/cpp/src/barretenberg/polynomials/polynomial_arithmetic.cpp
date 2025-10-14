@@ -658,52 +658,6 @@ template <typename Fr> Fr compute_linear_polynomial_product_evaluation(const Fr*
     return result;
 }
 
-template <typename Fr> void compute_interpolation(const Fr* src, Fr* dest, const Fr* evaluation_points, const size_t n)
-{
-    std::vector<Fr> local_roots;
-    Fr local_polynomial[n];
-    Fr denominator = 1;
-    Fr multiplicand;
-    Fr temp_dest[n];
-
-    if (n == 1) {
-        temp_dest[0] = src[0];
-        return;
-    }
-
-    // Initialize dest
-    for (size_t i = 0; i < n; ++i) {
-        temp_dest[i] = 0;
-    }
-
-    for (size_t i = 0; i < n; ++i) {
-
-        // fill in local roots
-        denominator = 1;
-        for (size_t j = 0; j < n; ++j) {
-            if (j == i) {
-                continue;
-            }
-            local_roots.push_back(evaluation_points[j]);
-            denominator *= (evaluation_points[i] - evaluation_points[j]);
-        }
-
-        // bring local roots to coefficient form
-        compute_linear_polynomial_product(&local_roots[0], local_polynomial, n - 1);
-
-        // store the resulting coefficients
-        multiplicand = src[i] / denominator;
-        for (size_t j = 0; j < n; ++j) {
-            temp_dest[j] += multiplicand * local_polynomial[j];
-        }
-
-        // clear up local roots
-        local_roots.clear();
-    }
-
-    memcpy((void*)dest, (void*)temp_dest, n * sizeof(Fr));
-}
-
 template <typename Fr>
 void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluation_points, const size_t n)
 {
@@ -841,17 +795,12 @@ template void coset_ifft<fr>(fr*, const EvaluationDomain<fr>&);
 template void coset_ifft<fr>(std::vector<fr*>, const EvaluationDomain<fr>&);
 template fr compute_sum<fr>(const fr*, const size_t);
 template void compute_linear_polynomial_product<fr>(const fr*, fr*, const size_t);
-template void compute_interpolation<fr>(const fr*, fr*, const fr*, const size_t);
 template void compute_efficient_interpolation<fr>(const fr*, fr*, const fr*, const size_t);
 
 template grumpkin::fr evaluate<grumpkin::fr>(const grumpkin::fr*, const grumpkin::fr&, const size_t);
 template grumpkin::fr evaluate<grumpkin::fr>(const std::vector<grumpkin::fr*>, const grumpkin::fr&, const size_t);
 template grumpkin::fr compute_sum<grumpkin::fr>(const grumpkin::fr*, const size_t);
 template void compute_linear_polynomial_product<grumpkin::fr>(const grumpkin::fr*, grumpkin::fr*, const size_t);
-template void compute_interpolation<grumpkin::fr>(const grumpkin::fr*,
-                                                  grumpkin::fr*,
-                                                  const grumpkin::fr*,
-                                                  const size_t);
 template void compute_efficient_interpolation<grumpkin::fr>(const grumpkin::fr*,
                                                             grumpkin::fr*,
                                                             const grumpkin::fr*,
