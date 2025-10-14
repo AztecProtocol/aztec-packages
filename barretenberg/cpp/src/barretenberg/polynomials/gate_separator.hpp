@@ -141,7 +141,9 @@ template <typename FF> struct GateSeparatorPolynomial {
      * when we generate CONST_SIZE_PROOF_LOG_N, currently 28, challenges but the real circuit size is less than 1 <<
      * CONST_SIZE_PROOF_LOG_N, we should compute unnecessarily a vector of beta_products of length 1 << 28 )
      */
-    BB_PROFILE static Polynomial<FF> compute_beta_products(const std::vector<FF>& betas, const size_t log_num_monomials)
+    BB_PROFILE static Polynomial<FF> compute_beta_products(const std::vector<FF>& betas,
+                                                           const size_t log_num_monomials,
+                                                           const FF& scaling_factor = FF(1))
     {
         BB_BENCH_NAME("GateSeparatorPolynomial::compute_beta_products");
         size_t pow_size = 1 << log_num_monomials;
@@ -180,7 +182,7 @@ template <typename FF> struct GateSeparatorPolynomial {
 
         // Compute the prefix products for each thread
         std::vector<FF> thread_prefix_beta_products(num_threads);
-        thread_prefix_beta_products.at(0) = 1;
+        thread_prefix_beta_products.at(0) = scaling_factor;
 
         // Same algorithm applies for the prefix products. The difference is that we start at a beta which is not the
         // first one (index 0), but the one at index num_betas_per_thread. We process the high bits only.

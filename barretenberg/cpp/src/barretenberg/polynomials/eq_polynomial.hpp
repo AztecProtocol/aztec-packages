@@ -21,11 +21,8 @@ template <typename FF> class ProverEqPolynomial {
   public:
     static Polynomial<FF> construct(std::span<const FF> challenge, size_t log_num_monomials)
     {
-        std::vector<FF> pow_betas = transform_challenge(challenge);
-        FF scaling_factor = compute_scaling_factor(challenge);
-        Polynomial<FF> out = GateSeparatorPolynomial<FF>::compute_beta_products(pow_betas, log_num_monomials);
-        out *= scaling_factor;
-        return out;
+        return GateSeparatorPolynomial<FF>::compute_beta_products(
+            transform_challenge(challenge), log_num_monomials, compute_scaling_factor(challenge));
     };
 
     static FF compute_scaling_factor(std::span<const FF> challenge)
