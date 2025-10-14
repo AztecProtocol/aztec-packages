@@ -136,7 +136,7 @@ export abstract class BaseWallet implements Wallet {
       // 2. `args` matches the parameter types of that specific method
       // 3. The return type is correctly mapped in BatchResults<T>
       // We use dynamic dispatch here for simplicity, but the types are enforced at the call site.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const fn = this[name] as (...args: any[]) => Promise<any>;
       const result = await fn.apply(this, args);
       results.push(result);
