@@ -1,0 +1,1 @@
+barretenberg_module(stdlib_hypernova hypernova stdlib_honk_verifier)

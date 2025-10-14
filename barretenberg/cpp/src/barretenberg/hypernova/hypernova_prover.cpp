@@ -14,6 +14,8 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_a
     const std::shared_ptr<typename HypernovaFoldingProver::ProverInstance>& instance,
     const std::shared_ptr<typename HypernovaFoldingProver::VerificationKey>& honk_vk)
 {
+    BB_BENCH();
+
     // Generate challenges to batch shifted and unshifted polynomials/commitments/evaluation
     std::array<std::string, Flavor::NUM_UNSHIFTED_ENTITIES> labels_unshifted_entities;
     std::array<std::string, Flavor::NUM_SHIFTED_WITNESSES> labels_shifted_witnesses;
@@ -83,7 +85,7 @@ template <size_t N>
 HypernovaFoldingProver::Polynomial HypernovaFoldingProver::batch_polynomials(
     RefArray<Polynomial, N> polynomials_to_batch, const size_t& full_batched_size, const std::array<FF, N>& challenges)
 {
-    BB_BENCH_NAME("compute_batched");
+    BB_BENCH();
     BB_ASSERT_EQ(full_batched_size,
                  polynomials_to_batch[0].virtual_size(),
                  "The virtual size of the first polynomial is different from the full batched size.");
@@ -105,7 +107,7 @@ HypernovaFoldingProver::Polynomial HypernovaFoldingProver::batch_polynomials(
 HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumulator(
     const std::shared_ptr<typename HypernovaFoldingProver::ProverInstance>& instance)
 {
-    BB_BENCH_NAME("HypernovaFoldingProver::instance_to_accumulator");
+    BB_BENCH();
 
     vinfo("HypernovaFoldingProver: converting instance to accumulator...");
 
@@ -115,7 +117,7 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
     oink_prover.prove();
 
     instance->gate_challenges = transcript->template get_powers_of_challenge<FF>(
-        "HypernovaFoldignProver:gate_challenge", Flavor::VIRTUAL_LOG_N);
+        "HypernovaFoldingProver:gate_challenge", Flavor::VIRTUAL_LOG_N);
 
     // Run Sumcheck with padding
     MegaSumcheckProver sumcheck(instance->dyadic_size(),

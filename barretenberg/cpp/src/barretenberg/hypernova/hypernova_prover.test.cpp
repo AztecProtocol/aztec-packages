@@ -88,8 +88,6 @@ class HypernovaFoldingProverTests : public ::testing::Test {
         // Folding
         auto incoming_instance = generate_new_instance(5);
 
-        info(validate_accumulator(accumulator));
-
         auto folding_transcript = std::make_shared<Transcript>();
         HypernovaFoldingProver folding_prover(folding_transcript);
         auto [_, folded_accumulator] = folding_prover.fold(accumulator, incoming_instance);
