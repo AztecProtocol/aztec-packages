@@ -53,6 +53,50 @@ fn output_zero_when_both_out_hashes_are_zero() {
     assert_eq(pi.out_hash, 0);
 }
 
+#[test]
+fn non_zero_in_hash_in_left_rollup() {
+    let mut builder = TestBuilder::default();
+
+    builder.left_rollup.in_hash = 123;
+
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+
+    assert_eq(pi.in_hash, 123);
+}
+
+#[test]
+fn zero_in_hash_in_both_rollups() {
+    let mut builder = TestBuilder::default();
+
+    builder.left_rollup.in_hash = 0;
+    builder.right_rollup.in_hash = 0;
+
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+
+    assert_eq(pi.in_hash, 0);
+}
+
+#[test(should_fail_with = "Right rollup must not carry in_hash")]
+fn non_zero_in_hash_in_right_rollup() {
+    let mut builder = TestBuilder::default();
+
+    builder.right_rollup.in_hash = 123;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "Right rollup must not carry in_hash")]
+fn non_zero_in_hash_in_both_rollups() {
+    let mut builder = TestBuilder::default();
+
+    builder.left_rollup.in_hash = 123;
+    builder.right_rollup.in_hash = 123;
+
+    builder.execute_and_fail();
+}
+
 #[test(should_fail_with = "Mismatched constants in block rollups")]
 fn mismatch_chain_id() {
     let mut builder = TestBuilder::default();
