@@ -296,7 +296,7 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
 }
 
 void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints,
-                                        world_state::WorldStateRevision& world_state_revision)
+                                        const world_state::WorldStateRevision& world_state_revision)
 {
     BB_BENCH_NAME("AvmSimulationHelper::simulate_fast");
 
