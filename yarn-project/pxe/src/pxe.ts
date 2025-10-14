@@ -265,6 +265,7 @@ export class PXE {
       selector: await FunctionSelector.fromNameAndParameters(functionDao.name, functionDao.parameters),
       type: functionDao.functionType,
       to,
+      hideMsgSender: false,
       isStatic: functionDao.isStatic,
       returnTypes: functionDao.returnTypes,
     };
@@ -1028,7 +1029,6 @@ export class PXE {
         const syncTimer = new Timer();
         await this.synchronizer.sync();
         const syncTime = syncTimer.ms();
-        // TODO - Should check if `from` has the permission to call the view function.
         const functionCall = await this.#getFunctionCall(functionName, args, to);
         const functionTimer = new Timer();
         const contractFunctionSimulator = this.#getSimulatorForTx();

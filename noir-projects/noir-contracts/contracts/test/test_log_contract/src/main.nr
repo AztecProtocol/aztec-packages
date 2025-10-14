@@ -36,7 +36,7 @@ pub contract TestLog {
         emit_event_in_private(
             event0,
             &mut context,
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
 
@@ -56,7 +56,7 @@ pub contract TestLog {
         emit_event_in_private(
             event1,
             &mut context,
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }

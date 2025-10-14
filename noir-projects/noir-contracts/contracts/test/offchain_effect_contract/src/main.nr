@@ -54,7 +54,7 @@ contract OffchainEffect {
         emit_event_in_private(
             TestEvent { a, b, c },
             &mut context,
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
             MessageDelivery.UNCONSTRAINED_OFFCHAIN,
         );
     }
@@ -65,7 +65,7 @@ contract OffchainEffect {
 
         storage.balances.at(owner).insert(note).emit(
             &mut context,
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
             MessageDelivery.UNCONSTRAINED_OFFCHAIN,
         );
     }
