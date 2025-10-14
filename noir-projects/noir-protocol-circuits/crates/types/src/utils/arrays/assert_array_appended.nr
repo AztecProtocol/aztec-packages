@@ -12,7 +12,7 @@ pub fn assert_array_appended_to_empty_dest<T, let N: u32, let M: u32>(
 where
     T: Empty,
 {
-    std::static_assert(M < N, "Source array larger than dest array");
+    std::static_assert(M <= N, "Source array larger than dest array");
     for i in 0..M {
         assert_eq(dest.array[i], source.array[i], "source item does not append to dest");
     }
@@ -27,7 +27,7 @@ pub fn assert_array_appended_reversed_to_empty_dest<T, let N: u32, let M: u32>(
 where
     T: Empty,
 {
-    std::static_assert(M < N, "Source array larger than dest array");
+    std::static_assert(M <= N, "Source array larger than dest array");
 
     let last_index = if source.length == 0 {
         0
