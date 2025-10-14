@@ -3,6 +3,7 @@
 #include <random>
 #include <vector>
 
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "fuzz_lib/control_flow.hpp"
 #include "fuzz_lib/fuzz.hpp"
 #include "fuzz_lib/fuzzer_data.hpp"
@@ -20,11 +21,15 @@ int main()
     fuzz(fuzzer_data);
     std::mt19937_64 rng(std::random_device{}());
 
-    for (int i = 0; i < 1000; i++) {
+    for (int i = 0; i < 100; i++) {
         mutate_fuzzer_data(fuzzer_data, rng);
         fuzzer_data.instructions.push_back(set_instruction);
         std::cout << "Fuzzer data: " << fuzzer_data << std::endl << "i = " << i << std::endl;
         fuzz(fuzzer_data);
+
+        auto [buffer, size] = msgpack_encode_buffer(fuzzer_data);
+        FuzzerData deserialized_data;
+        msgpack::unpack((const char*)buffer, size).get().convert(deserialized_data);
     }
 
     return 0;

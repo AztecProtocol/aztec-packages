@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/serialize/msgpack.hpp"
 #include "instruction.hpp"
 #include <vector>
 
@@ -11,6 +12,7 @@ struct FuzzerData {
     std::vector<bb::avm2::FF> calldata;
     // TODO(defkit) CFG + other options
     // InsertInstruction
+    MSGPACK_FIELDS(instructions, calldata);
 };
 
 #include <iostream>

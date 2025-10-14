@@ -1,9 +1,31 @@
 #pragma once
+#include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include <cstdint>
 #include <variant>
 
 using MemoryTag = bb::avm2::MemoryTag;
+
+/// @brief Wrapper for MemoryTag to allow for msgpack packing and unpacking
+struct MemoryTagWrapper {
+    MemoryTag value;
+
+    MemoryTagWrapper() = default;
+    MemoryTagWrapper(MemoryTag v)
+        : value(v)
+    {}
+
+    operator MemoryTag() const { return value; }
+
+    void msgpack_pack(auto& packer) const { packer.pack(static_cast<int>(value)); }
+
+    void msgpack_unpack(auto o)
+    {
+        int int_value;
+        o.convert(int_value);
+        value = static_cast<MemoryTag>(int_value);
+    }
+};
 
 /// Docs to offset_index struct fields
 /// The way we store used variables is a map of Tag: Vec[memory_address]
@@ -21,6 +43,7 @@ struct ADD_8_Instruction {
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
 };
 
 /// @brief mem[result_offset] = mem[a_address] - mem[b_address]
@@ -29,6 +52,7 @@ struct SUB_8_Instruction {
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
 };
 
 /// @brief mem[result_offset] = mem[a_address] * mem[b_address]
@@ -37,6 +61,7 @@ struct MUL_8_Instruction {
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
 };
 
 /// @brief mem[result_offset] = mem[a_address] / mem[b_address]
@@ -45,6 +70,7 @@ struct DIV_8_Instruction {
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
 };
 
 // TODO(defkit) FDIV skipping for now
@@ -55,6 +81,7 @@ struct EQ_8_Instruction {
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
 };
 
 /// @brief mem[result_offset] = mem[a_address] < mem[b_address]
@@ -63,6 +90,7 @@ struct LT_8_Instruction {
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
 };
 
 /// @brief mem[result_offset] = mem[a_address] <= mem[b_address]
@@ -71,6 +99,7 @@ struct LTE_8_Instruction {
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
 };
 
 /// @brief mem[result_offset] = mem[a_address] & mem[b_address]
@@ -79,6 +108,7 @@ struct AND_8_Instruction {
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
 };
 
 /// @brief mem[result_offset] = mem[a_address] | mem[b_address]
@@ -87,6 +117,7 @@ struct OR_8_Instruction {
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
 };
 
 /// @brief mem[result_offset] = mem[a_address] ^ mem[b_address]
@@ -95,6 +126,7 @@ struct XOR_8_Instruction {
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
 };
 
 // TODO(defkit) not skipping for now
@@ -106,6 +138,7 @@ struct SHL_8_Instruction {
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
 };
 
 /// @brief mem[result_offset] = mem[a_address] >> mem[b_address]
@@ -114,14 +147,15 @@ struct SHR_8_Instruction {
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
 };
 
 /// @brief SET_8 instruction
 struct SET_8_Instruction {
-    // TODO(defkit) need this? SET_8 seems to set only u8
     MemoryTag value_tag;
     uint8_t offset;
     uint8_t value;
+    MSGPACK_FIELDS(value_tag, offset, value);
 };
 
 using FuzzInstruction = std::variant<ADD_8_Instruction,
