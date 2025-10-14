@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { IMsgpackBackendAsync } from './interface.js';
+import { findPackageRoot } from './platform.js';
 
 /**
  * Asynchronous native backend that communicates with bb binary via Unix Domain Socket.
@@ -60,10 +61,13 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
     const env = threads !== undefined ? { ...process.env, HARDWARE_CONCURRENCY: threads.toString() } : process.env;
 
     // Spawn bb process - it will create the socket server
-    this.process = spawn(bbBinaryPath, ['msgpack', 'run', '--input', this.socketPath], {
+    const args = [bbBinaryPath, 'msgpack', 'run', '--input', this.socketPath];
+    this.process = spawn(findPackageRoot() + '/scripts/kill_wrapper.sh', args, {
       stdio: ['ignore', 'ignore', 'ignore'],
       env,
     });
+    // Disconnect from event loop so process can exit. The kill wrapper will reap bb once parent (node) dies.
+    this.process.unref();
 
     this.process.on('error', err => {
       if (connectionReject) {
@@ -153,6 +157,8 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
 
       // Set up event handlers
       this.socket.once('connect', () => {
+        this.socket!.unref();
+
         // Clear connection timeout on successful connection
         if (this.connectionTimeout) {
           clearTimeout(this.connectionTimeout);

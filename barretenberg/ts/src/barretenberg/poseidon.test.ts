@@ -209,18 +209,18 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
     // Test with specific known values
     const testCases = [
       // Single zero
-      [zero],
+      { name: 'single_zero', inputs: [zero] },
       // Single one
-      [one],
+      { name: 'single_one', inputs: [one] },
       // Two zeros
-      [zero, zero],
+      { name: 'two_zeros', inputs: [zero, zero] },
       // Sequential values
-      [zero, one, two],
+      { name: 'sequential_0_1_2', inputs: [zero, one, two] },
       // Maximum field element
-      [max],
+      { name: 'max_field_element', inputs: [max] },
     ];
 
-    for (const inputs of testCases) {
+    for (const { name, inputs } of testCases) {
       const directResult = await directPoseidon2Hash(inputs);
       const wasmResult = await wasmApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
 
@@ -234,6 +234,13 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
 
       const nativeShmSyncResult = nativeShmSyncApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
       expect(Buffer.from(nativeShmSyncResult.hash)).toEqual(directResult.toBuffer());
+
+      // Snapshot the result to detect regressions
+      expect({
+        testCase: name,
+        inputs: inputs.map(fr => fr.toString()),
+        hash: directResult.toString(),
+      }).toMatchSnapshot();
     }
   });
 
@@ -256,6 +263,13 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
 
       const nativeShmSyncResult = nativeShmSyncApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
       expect(Buffer.from(nativeShmSyncResult.hash)).toEqual(directResult.toBuffer());
+
+      // Snapshot the result to detect regressions
+      expect({
+        testCase: `all_zeros_size_${size}`,
+        size,
+        hash: directResult.toString(),
+      }).toMatchSnapshot();
     }
   });
 
@@ -278,6 +292,13 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
 
       const nativeShmSyncResult = nativeShmSyncApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
       expect(Buffer.from(nativeShmSyncResult.hash)).toEqual(directResult.toBuffer());
+
+      // Snapshot the result to detect regressions
+      expect({
+        testCase: `all_ones_size_${size}`,
+        size,
+        hash: directResult.toString(),
+      }).toMatchSnapshot();
     }
   });
 
@@ -300,6 +321,14 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
 
       const nativeShmSyncResult = nativeShmSyncApi.poseidon2Hash({ inputs: inputs.map(fr => fr.toBuffer()) });
       expect(Buffer.from(nativeShmSyncResult.hash)).toEqual(directResult.toBuffer());
+
+      // Snapshot the result to detect regressions
+      expect({
+        testCase: `max_field_element_size_${size}`,
+        size,
+        inputValue: maxElement.toString(),
+        hash: directResult.toString(),
+      }).toMatchSnapshot();
     }
   });
 });

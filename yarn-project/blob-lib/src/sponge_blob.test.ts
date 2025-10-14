@@ -13,10 +13,6 @@ describe('SpongeBlob', () => {
     spongeBlob = makeSpongeBlob(1);
   });
 
-  afterAll(async () => {
-    await Barretenberg.destroySingleton();
-  });
-
   it('serializes to buffer and deserializes it back', () => {
     const buffer = spongeBlob.toBuffer();
     const res = SpongeBlob.fromBuffer(buffer);

@@ -10,10 +10,6 @@ describe('pedersen', () => {
     setupCustomSnapshotSerializers(expect);
   });
 
-  afterAll(async () => {
-    await Barretenberg.destroySingleton();
-  });
-
   it('pedersen commit', async () => {
     const r = await pedersenCommit([toBufferBE(1n, 32), toBufferBE(1n, 32)]);
     expect(r).toEqual([

@@ -21,10 +21,6 @@ describe('Blob Batching', () => {
     await ensureKzgInitialized();
   });
 
-  afterAll(async () => {
-    await Barretenberg.destroySingleton();
-  });
-
   it.each([10, 100, 400])('our BLS library should correctly commit to a blob of %p items', async size => {
     const blobItems: Fr[] = Array(size).fill(new Fr(size + 1));
     const ourBlob = await Blob.fromFields(blobItems);

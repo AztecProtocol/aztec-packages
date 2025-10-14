@@ -2,12 +2,14 @@ import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/fa
 import { BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
+import { Worker } from 'worker_threads';
 
 describe('barretenberg wasm', () => {
   let wasm: BarretenbergWasmMainWorker;
+  let worker: Worker;
 
   beforeAll(async () => {
-    const worker = await createMainWorker();
+    worker = await createMainWorker();
     wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
     const { module, threads } = await fetchModuleAndThreads(2);
     await wasm.init(module, threads);
@@ -15,6 +17,7 @@ describe('barretenberg wasm', () => {
 
   afterAll(async () => {
     await wasm.destroy();
+    worker.terminate();
   });
 
   it('should new malloc, transfer and slice mem', async () => {

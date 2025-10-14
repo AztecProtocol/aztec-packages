@@ -18,10 +18,6 @@ describe('blob', () => {
     await ensureKzgInitialized();
   });
 
-  afterAll(async () => {
-    await Barretenberg.destroySingleton();
-  });
-
   it('bb.js KZG should verify a batch of blobs', async () => {
     // This test is taken from the blob-lib repo
     const api = Barretenberg.getSingleton();

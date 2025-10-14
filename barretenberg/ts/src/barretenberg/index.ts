@@ -3,10 +3,9 @@ import { createDebugLogger } from '../log/index.js';
 import { AsyncApi } from '../cbind/generated/async.js';
 import { SyncApi } from '../cbind/generated/sync.js';
 import { IMsgpackBackendSync, IMsgpackBackendAsync } from '../backend/interface.js';
-import { BarretenbergNativeSyncBackend, BarretenbergNativeAsyncBackend } from '../backend/native.js';
 import { BarretenbergNativeSocketAsyncBackend } from '../backend/native_socket.js';
 import { BarretenbergWasmSyncBackend, BarretenbergWasmAsyncBackend } from '../backend/wasm.js';
-import { BarretenbergShmSyncBackend } from '../backend/shm.js';
+import { BarretenbergNativeShmSyncBackend } from '../backend/native_shm.js';
 import { SyncToAsyncAdapter } from '../backend/sync_to_async_adapter.js';
 import { findBbBinary } from '../backend/platform.js';
 
@@ -95,21 +94,23 @@ export class Barretenberg extends AsyncApi {
       return Barretenberg.createBackend(options.backend, options, logger);
     }
 
-    // Default: try native shm, fallback to WASM
-    const bbPath = findBbBinary(options.bbPath);
-    if (bbPath) {
-      try {
-        logger(`Attempting native shm backend: ${bbPath}`);
-        return await Barretenberg.createBackend(BackendType.NativeSharedMemory, { ...options, bbPath }, logger);
-      } catch (err: any) {
-        logger(`Native shm unavailable (${err.message}), falling back to WASM`);
+    if (typeof window === 'undefined') {
+      // Default: try native shm, fallback to WASM
+      const bbPath = findBbBinary(options.bbPath);
+      if (bbPath) {
+        try {
+          logger(`Attempting native shm backend: ${bbPath}`);
+          return await Barretenberg.createBackend(BackendType.NativeSharedMemory, { ...options, bbPath }, logger);
+        } catch (err: any) {
+          logger(`Native shm unavailable (${err.message}), falling back to WASM`);
+        }
       }
+    } else {
+      logger(`In browser, using WASM backend.`);
     }
 
-    // Fallback to WASM (worker in browser, direct in Node.js)
-    const defaultWasm = typeof window !== 'undefined' ? BackendType.WasmWorker : BackendType.Wasm;
-    logger(`Using default WASM backend: ${defaultWasm}`);
-    return Barretenberg.createBackend(defaultWasm, options, logger);
+    // Fallback to WASM.
+    return Barretenberg.createBackend(BackendType.Wasm, options, logger);
   }
 
   /**
@@ -142,7 +143,7 @@ export class Barretenberg extends AsyncApi {
         }
         logger(`Using native shared memory backend (via sync adapter): ${bbPath}`);
         // Use sync backend with adapter to provide async interface
-        const syncBackend = await BarretenbergShmSyncBackend.new(bbPath, options.threads, options.maxClients);
+        const syncBackend = await BarretenbergNativeShmSyncBackend.new(bbPath, options.threads, options.maxClients);
         const asyncBackend = new SyncToAsyncAdapter(syncBackend);
         return new Barretenberg(asyncBackend, options);
       }
@@ -329,7 +330,7 @@ export class BarretenbergSync extends SyncApi {
           );
         }
         logger(`Using native shared memory backend: ${bbPath}`);
-        const shm = await BarretenbergShmSyncBackend.new(bbPath, options.threads, options.maxClients);
+        const shm = await BarretenbergNativeShmSyncBackend.new(bbPath, options.threads, options.maxClients);
         return new BarretenbergSync(shm);
       }
 

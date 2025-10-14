@@ -18,10 +18,6 @@ describe('BlobAccumulator', () => {
     await ensureKzgInitialized();
   });
 
-  afterAll(async () => {
-    await Barretenberg.destroySingleton();
-  });
-
   it('serializes to buffer and deserializes it back', () => {
     const buffer = blobPI.toBuffer();
     const res = BlobAccumulator.fromBuffer(buffer);
@@ -42,10 +38,6 @@ describe('FinalBlobAccumulator', () => {
   beforeAll(async () => {
     blobPI = FinalBlobAccumulator.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(randomInt(1000)));
     await ensureKzgInitialized();
-  });
-
-  afterAll(async () => {
-    await Barretenberg.destroySingleton();
   });
 
   it('serializes to buffer and deserializes it back', () => {

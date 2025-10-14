@@ -8,10 +8,6 @@ describe('poseidon2Permutation', () => {
     await Barretenberg.initSingleton({ threads: 1 });
   });
 
-  afterAll(async () => {
-    await Barretenberg.destroySingleton();
-  });
-
   it('test vectors from cpp should match', async () => {
     const init = [0, 1, 2, 3];
     await expect(poseidon2Permutation(init)).resolves.toEqual([

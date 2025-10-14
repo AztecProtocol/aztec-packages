@@ -7,7 +7,9 @@ import { fileURLToPath } from 'url';
  * @param startDir Starting directory to search from
  * @returns Absolute path to package root, or null if not found
  */
-function findPackageRoot(startDir: string): string | null {
+export function findPackageRoot(): string | null {
+  const __filename = fileURLToPath(import.meta.url);
+  const startDir = path.dirname(__filename);
   let currentDir = path.resolve(startDir);
   const root = path.parse(currentDir).root;
 
@@ -89,9 +91,7 @@ export function findBbBinary(customPath?: string): string | null {
   const buildDir = PLATFORM_TO_BUILD_DIR[platform];
 
   // Get package root by climbing directory tree to find package.json
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  const packageRoot = findPackageRoot(__dirname);
+  const packageRoot = findPackageRoot();
 
   if (!packageRoot) {
     return null;
@@ -126,9 +126,7 @@ export function findNapiBinary(customPath?: string): string | null {
   const buildDir = PLATFORM_TO_BUILD_DIR[platform];
 
   // Get package root by climbing directory tree to find package.json
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  const packageRoot = findPackageRoot(__dirname);
+  const packageRoot = findPackageRoot();
 
   if (!packageRoot) {
     return null;

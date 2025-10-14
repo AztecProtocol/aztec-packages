@@ -1,7 +1,7 @@
 import { createRequire } from 'module';
 import { spawn, ChildProcess } from 'child_process';
 import { IMsgpackBackendSync } from './interface.js';
-import { findNapiBinary } from './platform.js';
+import { findNapiBinary, findPackageRoot } from './platform.js';
 
 // Import the NAPI module
 // The addon is built to the nodejs_module directory
@@ -29,7 +29,7 @@ try {
  * Protocol:
  * - Handled internally by IpcClient (no manual length prefixes needed)
  */
-export class BarretenbergShmSyncBackend implements IMsgpackBackendSync {
+export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
   private process: ChildProcess;
   private client: any; // NAPI MsgpackClient instance
 
@@ -44,7 +44,11 @@ export class BarretenbergShmSyncBackend implements IMsgpackBackendSync {
    * @param threads Optional number of threads
    * @param maxClients Optional maximum concurrent clients (default: 1)
    */
-  static async new(bbBinaryPath: string, threads?: number, maxClients?: number): Promise<BarretenbergShmSyncBackend> {
+  static async new(
+    bbBinaryPath: string,
+    threads?: number,
+    maxClients?: number,
+  ): Promise<BarretenbergNativeShmSyncBackend> {
     if (!addon || !addon.MsgpackClient) {
       throw new Error(
         'NAPI addon not available. The nodejs_module must be built with shared memory support. ' +
@@ -62,19 +66,18 @@ export class BarretenbergShmSyncBackend implements IMsgpackBackendSync {
     const env = threads !== undefined ? { ...process.env, HARDWARE_CONCURRENCY: threads.toString() } : process.env;
 
     // Spawn bb process with shared memory mode
-    const args = ['msgpack', 'run', '--input', `${shmName}.shm`, '--max-clients', clientCount.toString()];
-
-    // Capture stderr to detect startup errors
-    let stderrOutput = '';
-    const bbProcess = spawn(bbBinaryPath, args, {
-      stdio: ['ignore', 'ignore', 'pipe'],
+    const args = [bbBinaryPath, 'msgpack', 'run', '--input', `${shmName}.shm`, '--max-clients', clientCount.toString()];
+    const bbProcess = spawn(findPackageRoot() + '/scripts/kill_wrapper.sh', args, {
+      stdio: ['ignore', 'ignore', 'ignore'],
       env,
     });
+    // Disconnect from event loop so process can exit. The kill wrapper will reap bb once parent (node) dies.
+    bbProcess.unref();
 
     // Capture stderr for error diagnostics
-    bbProcess.stderr?.on('data', (data: Buffer) => {
-      stderrOutput += data.toString();
-    });
+    // bbProcess.stderr?.on('data', (data: Buffer) => {
+    //   stderrOutput += data.toString();
+    // });
 
     // Track if process has exited
     let processExited = false;
@@ -88,14 +91,8 @@ export class BarretenbergShmSyncBackend implements IMsgpackBackendSync {
     bbProcess.on('exit', (code, signal) => {
       processExited = true;
       if (code !== null && code !== 0) {
-        const stderrInfo = stderrOutput ? `\nStderr: ${stderrOutput.trim()}` : '';
-        const hint =
-          stderrOutput.includes('shared memory exhaustion')
-            ? `\nHint: Try reducing maxClients (currently ${clientCount})`
-            : '';
-        exitError = new Error(`Native backend process exited with code ${code}${stderrInfo}${hint}`);
+        exitError = new Error(`Native backend process exited with code ${code}`);
       } else if (signal && signal !== 'SIGTERM') {
-        // Note: SIGBUS is now caught by C++ signal handler and exits with code 1
         exitError = new Error(`Native backend process killed with signal ${signal}`);
       }
     });
@@ -139,7 +136,7 @@ export class BarretenbergShmSyncBackend implements IMsgpackBackendSync {
         throw new Error('Failed to create client connection');
       }
 
-      return new BarretenbergShmSyncBackend(bbProcess, client);
+      return new BarretenbergNativeShmSyncBackend(bbProcess, client);
     } finally {
       // If we failed to connect, ensure the process is killed
       // kill() returns false if process already exited, but doesn't throw
