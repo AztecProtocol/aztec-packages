@@ -26,6 +26,7 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
+import type { Tag } from '../../tagging/tag.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import type { ExecutionNoteCache } from '../execution_note_cache.js';
 import type { HashedValuesCache } from '../hashed_values_cache.js';
@@ -191,8 +192,22 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param recipient - The address receiving the log
    * @returns An app tag to be used in a log.
    */
-  public async privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Fr> {
-    return await this.executionDataProvider.getNextAppTagAsSender(this.contractAddress, sender, recipient);
+  public async privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag> {
+    const directionalAppTaggingSecret = await this.executionDataProvider.calculateDirectionalAppTaggingSecret(
+      this.contractAddress,
+      sender,
+      recipient,
+    );
+
+    // TODO(benesjan): In a follow-up PR we will load here the index from the ExecutionTaggingIndexCache if present
+    // and if not we will obtain it from the execution data provider.
+
+    this.log.debug(`Syncing tagged logs as sender ${sender} for contract ${this.contractAddress}`, {
+      directionalAppTaggingSecret,
+      recipient,
+    });
+    await this.executionDataProvider.syncTaggedLogsAsSender(directionalAppTaggingSecret, this.contractAddress);
+    return this.executionDataProvider.getNextAppTagAsSender(directionalAppTaggingSecret);
   }
 
   /**

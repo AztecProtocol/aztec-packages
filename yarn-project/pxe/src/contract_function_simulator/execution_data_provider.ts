@@ -5,10 +5,12 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
+import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, NodeStats } from '@aztec/stdlib/tx';
 
+import type { Tag } from '../tagging/tag.js';
 import type { NoteData } from './oracle/interfaces.js';
 import type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
 
@@ -214,13 +216,36 @@ export interface ExecutionDataProvider {
   assertCompatibleOracleVersion(version: number): void;
 
   /**
-   * Returns the next app tag for a given sender and recipient pair.
+   * Calculates the directional app tagging secret for a given contract, sender and recipient.
    * @param contractAddress - The contract address to silo the secret for
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
+   * @returns The directional app tagging secret
+   */
+  calculateDirectionalAppTaggingSecret(
+    contractAddress: AztecAddress,
+    sender: AztecAddress,
+    recipient: AztecAddress,
+  ): Promise<DirectionalAppTaggingSecret>;
+
+  /**
+   * Updates the local index of the shared tagging secret of a (sender, recipient, contract) tuple if a log with
+   * a larger index is found from the node.
+   * @param secret - The secret that's unique for (sender, recipient, contract) tuple while the direction
+   * of sender -> recipient matters.
+   * @param contractAddress - The address of the contract that the logs are tagged for. Needs to be provided to store
+   * because the function performs second round of siloing which is necessary because kernels do it as well (they silo
+   * first field of the private log which corresponds to the tag).
+   */
+  syncTaggedLogsAsSender(secret: DirectionalAppTaggingSecret, contractAddress: AztecAddress): Promise<void>;
+
+  /**
+   * Returns the next app tag for a given directional app tagging secret.
+   * @param secret - The secret that's unique for (sender, recipient, contract) tuple while
+   * direction of sender -> recipient matters.
    * @returns The computed tag.
    */
-  getNextAppTagAsSender(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress): Promise<Fr>;
+  getNextAppTagAsSender(secret: DirectionalAppTaggingSecret): Promise<Tag>;
 
   /**
    * Synchronizes the private logs tagged with scoped addresses and all the senders in the address book. Stores the found

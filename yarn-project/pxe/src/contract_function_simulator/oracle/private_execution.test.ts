@@ -47,6 +47,7 @@ import {
 } from '@aztec/stdlib/hash';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
+import { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { Note } from '@aztec/stdlib/note';
 import { makeHeader } from '@aztec/stdlib/testing';
@@ -64,6 +65,7 @@ import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
+import { Tag } from '../../tagging/tag.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
@@ -301,11 +303,9 @@ describe('Private Execution test suite', () => {
       throw new Error(`Unknown address: ${address}. Recipient: ${recipient}, Owner: ${owner}`);
     });
 
-    executionDataProvider.getNextAppTagAsSender.mockImplementation(
-      (_contractAddress: AztecAddress, _sender: AztecAddress, _recipient: AztecAddress) => {
-        return Promise.resolve(Fr.random());
-      },
-    );
+    executionDataProvider.getNextAppTagAsSender.mockImplementation((_secret: DirectionalAppTaggingSecret) => {
+      return Promise.resolve(Tag.compute({ secret: _secret, index: 0 }));
+    });
     executionDataProvider.getFunctionArtifact.mockImplementation(async (address, selector) => {
       const contract = contracts[address.toString()];
       if (!contract) {
@@ -331,6 +331,9 @@ describe('Private Execution test suite', () => {
     });
 
     executionDataProvider.syncTaggedLogs.mockImplementation((_, __) => Promise.resolve());
+    executionDataProvider.calculateDirectionalAppTaggingSecret.mockResolvedValue(
+      DirectionalAppTaggingSecret.fromString('0x1'),
+    );
     executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     executionDataProvider.getPublicStorageAt.mockImplementation(
