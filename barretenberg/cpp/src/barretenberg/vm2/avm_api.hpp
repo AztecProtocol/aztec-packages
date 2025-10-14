@@ -11,6 +11,7 @@ class AvmAPI : public AvmSimAPI {
     using AvmProof = AvmProvingHelper::Proof;
     using AvmVerificationKey = std::vector<uint8_t>;
     using ProvingInputs = AvmProvingInputs;
+    using FastSimulationInputs = AvmFastSimulationInputs;
 
     AvmAPI() = default;
 
