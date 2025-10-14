@@ -107,6 +107,35 @@ export type SendOptions = Omit<SendInteractionOptions, 'fee'> & {
 };
 
 /**
+ * Helper type that represents all methods that can be batched.
+ */
+export type BatchableMethods = Pick<Wallet, 'registerContract' | 'proveTx' | 'registerSender'>;
+
+/**
+ * From the batchable methods, we create a type that represents a method call with its name and arguments.
+ * This is what the wallet will accept as arguments to the `batch` method.
+ */
+export type BatchedMethod<T extends keyof BatchableMethods> = {
+  /** The method name */
+  name: T;
+  /** The method arguments */
+  args: Parameters<BatchableMethods[T]>;
+};
+
+/**
+ * Helper type to extract the return type of a batched method
+ */
+export type BatchedMethodResult<T> =
+  T extends BatchedMethod<infer K> ? Awaited<ReturnType<BatchableMethods[K]>> : never;
+
+/**
+ * Maps a tuple of BatchedMethod to a tuple of their return types
+ */
+export type BatchResults<T extends readonly BatchedMethod<keyof BatchableMethods>[]> = {
+  [K in keyof T]: BatchedMethodResult<T[K]>;
+};
+
+/**
  * The wallet interface.
  */
 export type Wallet = {
@@ -126,8 +155,15 @@ export type Wallet = {
   getAccounts(): Promise<Aliased<AztecAddress>[]>;
   registerContract(
     instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
-    artifact?: ContractArtifact,
-    secretKey?: Fr,
+  ): Promise<ContractInstanceWithAddress>;
+  registerContract(
+    instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
+    artifact: ContractArtifact,
+  ): Promise<ContractInstanceWithAddress>;
+  registerContract(
+    instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
+    artifact: ContractArtifact | undefined,
+    secretKey: Fr | undefined,
   ): Promise<ContractInstanceWithAddress>;
   simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult>;
   simulateUtility(
@@ -143,6 +179,7 @@ export type Wallet = {
     from: AztecAddress,
     messageHashOrIntent: Fr | Buffer<ArrayBuffer> | IntentInnerHash | CallIntent,
   ): Promise<AuthWitness>;
+  batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(methods: T): Promise<BatchResults<T>>;
 };
 
 const ContractInstantiationDataSchema = z.object({
@@ -228,6 +265,21 @@ const MessageHashOrIntentSchema = z.union([
   }),
 ]);
 
+const BatchedMethodSchema = z.union([
+  z.object({
+    name: z.literal('registerSender'),
+    args: z.tuple([schemas.AztecAddress, optional(z.string())]),
+  }),
+  z.object({
+    name: z.literal('registerContract'),
+    args: z.tuple([InstanceDataSchema, optional(ContractArtifactSchema), optional(schemas.Fr)]),
+  }),
+  z.object({
+    name: z.literal('proveTx'),
+    args: z.tuple([ExecutionPayloadSchema, SendOptionsSchema]),
+  }),
+]);
+
 const ContractMetadataSchema = z.object({
   contractInstance: z.union([ContractInstanceWithAddressSchema, z.undefined()]),
   isContractInitialized: z.boolean(),
@@ -267,7 +319,6 @@ export const WalletSchema: ApiSchemaFor<Wallet> = {
     .function()
     .args()
     .returns(z.array(z.object({ alias: z.string(), item: schemas.AztecAddress }))),
-  // @ts-expect-error Zod doesn't like optionals
   registerContract: z
     .function()
     .args(InstanceDataSchema, optional(ContractArtifactSchema), optional(schemas.Fr))
@@ -281,4 +332,8 @@ export const WalletSchema: ApiSchemaFor<Wallet> = {
   proveTx: z.function().args(ExecutionPayloadSchema, SendOptionsSchema).returns(TxProvingResult.schema),
   sendTx: z.function().args(Tx.schema).returns(TxHash.schema),
   createAuthWit: z.function().args(schemas.AztecAddress, MessageHashOrIntentSchema).returns(AuthWitness.schema),
+  batch: z
+    .function()
+    .args(z.array(BatchedMethodSchema))
+    .returns(z.array(z.union([schemas.AztecAddress, ContractInstanceWithAddressSchema, TxProvingResult.schema]))),
 };
