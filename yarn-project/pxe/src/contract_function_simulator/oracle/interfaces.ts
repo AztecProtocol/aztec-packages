@@ -9,6 +9,7 @@ import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
+import type { Tag } from '../../tagging/tag.js';
 import type { UtilityContext } from '../noir-structs/utility_context.js';
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
@@ -154,6 +155,6 @@ export interface IPrivateExecutionOracle {
   privateNotifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void>;
   privateGetSenderForTags(): Promise<AztecAddress | undefined>;
   privateSetSenderForTags(senderForTags: AztecAddress): Promise<void>;
-  privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Fr>;
+  privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag>;
   utilityEmitOffchainEffect(data: Fr[]): Promise<void>;
 }

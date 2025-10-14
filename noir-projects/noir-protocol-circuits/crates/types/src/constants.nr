@@ -208,6 +208,11 @@ pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 // MAX_PROTOCOL_CONTRACTS + 1, but can't automatically derive or constants generator fails
 pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(12);
 
+// NULL MSG_SENDER CONTRACT ADDRESS (not part of the protocol contracts tree).
+pub global NULL_MSG_SENDER_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(
+    21888242871839275222246405745257275088548364400416034343698204186575808495616,
+); // This is `-1`.
+
 // Randomly chosen slot for the bytecode capsule.
 pub global CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT: Field = 79025834455612;
 
