@@ -36,7 +36,7 @@ struct RomRecord {
 };
 
 /**
- * @brief A RAM memory record that can be ordered.
+ * @brief A RAM memory record that can be ordered, first by index, then by timestamp.
  *
  * @note In distinction to a `RomRecord`, this also contains an `access_type` member, which records if the memory
  * operation is a READ or WRITE.

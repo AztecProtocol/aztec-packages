@@ -174,7 +174,7 @@ template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, const size_t rom_id)
 {
     auto& rom_array = rom_arrays[rom_id];
-    // set up copy constraints
+
     const auto read_tag = builder->get_new_tag();        // current_tag + 1;
     const auto sorted_list_tag = builder->get_new_tag(); // current_tag + 2;
     builder->create_tag(read_tag, sorted_list_tag);
@@ -195,35 +195,48 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
 #endif
 
     for (const RomRecord& record : rom_array.records) {
-        // build a sorted record, which is a copy of `record`, except with a different `gate_index`. This latter member
-        // will be set by `create_sorted_ROM_gate`.
-        RomRecord sorted_record(record);
+        const auto index = record.index;
+        const auto value1 = builder->get_variable(record.value_column1_witness);
+        const auto value2 = builder->get_variable(record.value_column2_witness);
+        const auto index_witness = builder->add_variable(FF((uint64_t)index));
+        BB_ASSERT_EQ(builder->get_variable(index_witness), builder->get_variable(record.index_witness));
+        builder->update_used_witnesses(index_witness);
+        const auto value1_witness = builder->add_variable(value1);
+        const auto value2_witness = builder->add_variable(value2);
+        // (the real values in) `sorted_record` will be identical to (those in) `record`, except with a different
+        // `gate_index` field, which will be filled out by `create_sorted_ROM_Gate`.
+        RomRecord sorted_record{
+            .index_witness = index_witness,
+            .value_column1_witness = value1_witness,
+            .value_column2_witness = value2_witness,
+            .index = index,
+            .record_witness = 0,
+            .gate_index = 0,
+        };
         create_sorted_ROM_gate(builder, sorted_record);
-        builder->update_used_witnesses(sorted_record.index_witness);
 
         builder->assign_tag(record.record_witness, read_tag);
         builder->assign_tag(sorted_record.record_witness, sorted_list_tag);
 
         // For ROM/RAM gates, the 'record' wire value (wire column 4) is a linear combination of the first 3 wire
-        // values. However, the record value uses the random challenge 'eta', generated after the first 3 wires are
+        // values. However...the record value uses the random challenge 'eta', generated after the first 3 wires are
         // committed to. i.e. we can't compute the record witness here because we don't know what `eta` is! Take the
-        // gate indices of the two rom gates (original read gate + sorted gate) and store in `memory_records`. Once
-        // we generate the `eta` challenge, we'll use `memory_records` to figure out which gates need a record wire
-        // value to be computed. record (w4) = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag (0 for reads, 1 for
-        // writes). Separate containers used to store gate indices of reads and writes. Need to differentiate because of
+        // gate indices of the two rom gates (original read gate + sorted gate) and store in `memory_records`. Once we
+        // generate the `eta` challenge, we'll use `memory_records` to figure out which gates need a record wire value
+        // to be computed.
+        // `record` (w4) = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag (0 for reads, 1 for writes)
+        // Separate containers used to store gate indices of reads and writes. Need to differentiate because of
         // `read_write_flag` (N.B. all ROM accesses are considered reads. Writes are for RAM operations)
         builder->memory_read_records.push_back(static_cast<uint32_t>(sorted_record.gate_index));
         builder->memory_read_records.push_back(static_cast<uint32_t>(record.gate_index));
     }
-    // One of the checks we run on the sorted list is to validate the difference between the index field across two
+    // One of the checks we run on the sorted list, is to validate the difference between the index field across two
     // gates is either 0 or 1. If we add a dummy gate at the end of the sorted list, where we force the first wire to
     // equal `m + 1`, where `m` is the maximum allowed index in the sorted list, we have validated that all ROM reads
     // are correctly constrained
     FF max_index_value((uint64_t)rom_array.state.size());
     uint32_t max_index = builder->add_variable(max_index_value);
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): This was formerly a single arithmetic gate. A
-    // dummy gate has been added to allow the previous gate to access the required wire data via shifts, allowing the
-    // arithmetic gate to occur out of sequence.
+
     builder->create_unconstrained_gate(
         builder->blocks.memory, max_index, builder->zero_idx(), builder->zero_idx(), builder->zero_idx());
     builder->create_big_add_gate(
@@ -275,13 +288,14 @@ void RomRamLogic_<ExecutionTrace>::init_RAM_element(CircuitBuilder* builder,
     RamRecord new_record{ .index_witness = index_witness,
                           .timestamp_witness = builder->put_constant_variable((uint64_t)ram_array.access_count),
                           .value_witness = value_witness,
-                          .index = static_cast<uint32_t>(index_value), // TODO: size_t?
+                          .index = static_cast<uint32_t>(index_value),
                           .timestamp = static_cast<uint32_t>(ram_array.access_count),
                           .access_type = RamRecord::AccessType::WRITE,
                           .record_witness = 0,
                           .gate_index = 0 };
     ram_array.state[index_value] = value_witness;
     ram_array.access_count++;
+    // mutates the gate_index
     create_RAM_gate(builder, new_record);
     ram_array.records.emplace_back(new_record);
 }
@@ -307,6 +321,8 @@ uint32_t RomRamLogic_<ExecutionTrace>::read_RAM_array(CircuitBuilder* builder,
                           .access_type = RamRecord::AccessType::READ,
                           .record_witness = 0,
                           .gate_index = 0 };
+
+    // mutates `gate_index`
     create_RAM_gate(builder, new_record);
     ram_array.records.emplace_back(new_record);
 
@@ -337,6 +353,7 @@ void RomRamLogic_<ExecutionTrace>::write_RAM_array(CircuitBuilder* builder,
                           .access_type = RamRecord::AccessType::WRITE,
                           .record_witness = 0,
                           .gate_index = 0 };
+    // mutates `gate_index`
     create_RAM_gate(builder, new_record);
     ram_array.records.emplace_back(new_record);
 
@@ -350,7 +367,7 @@ void RomRamLogic_<ExecutionTrace>::write_RAM_array(CircuitBuilder* builder,
 template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::create_RAM_gate(CircuitBuilder* builder, RamRecord& record)
 {
-    // Record wire value can't yet be computed (uses randomnes generated during proof construction).
+    // Record wire value can't yet be computed (uses randomness generated during proof construction).
     // However it needs a distinct witness index,
     // we will be applying copy constraints + set membership constraints.
     // Later on during proof construction we will compute the record wire value + assign it
@@ -386,16 +403,15 @@ void RomRamLogic_<ExecutionTrace>::create_final_sorted_RAM_gate(CircuitBuilder* 
 {
     record.record_witness = builder->add_variable(0);
     // Note: record the index into the block that contains the RAM/ROM gates
-    record.gate_index = builder->blocks.memory.size(); // no -1 since we havent added the gate yet
+    record.gate_index = builder->blocks.memory.size(); // no -1 since we _haven't_ added the gate yet
 
-    // NOTE(https://github.com/AztecProtocol/barretenberg/issues/879): This method used to add a single arithmetic gate
-    // with two purposes: (1) to provide wire values to the previous RAM gate via shifts, and (2) to perform a
-    // consistency check on the value in wire 1. These two purposes have been split into a dummy gate and a simplified
-    // arithmetic gate, respectively. This allows both purposes to be served even after arithmetic gates are sorted out
-    // of sequence with the RAM gates.
+    // NOTE: This method used to add a single arithmetic gate with two purposes: (1) to provide wire values to the
+    // previous RAM gate via shifts, and (2) to perform a consistency check on the value in wire 1. These two purposes
+    // have been split into a unconstrained gate and a simplified arithmetic gate, respectively. This allows both
+    // purposes to be served even after arithmetic gates are sorted out of sequence with the RAM gates.
 
-    // Create a final gate with all selectors zero; wire values are accessed by the previous RAM gate via
-    // shifted wires
+    // Create a final gate with all selectors zero (hence unconstrained); wire values are accessed by the previous RAM
+    // gate via shifted wires
     builder->create_unconstrained_gate(builder->blocks.memory,
                                        record.index_witness,
                                        record.timestamp_witness,
@@ -426,12 +442,14 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
     builder->create_tag(access_tag, sorted_list_tag);
     builder->create_tag(sorted_list_tag, access_tag);
 
-    // Make sure that every cell has been initialized
-    // TODO: throw some kind of error here? Circuit should initialize all RAM elements to prevent errors.
-    // e.g. if a RAM record is uninitialized but the index of that record is a function of public/private inputs,
-    // different public iputs will produce different circuit constraints.
+    // Make sure that every cell has been initialized.
+    // NOTE: should we throw some kind of error here? Circuit should initialize all RAM elements to prevent errors.
+    // e.g. if a RAM record is uninitialized but the index of that record is a function of witness data (e.g.
+    // public/private inputs), different public inputs will produce different circuit constraints.
     for (size_t i = 0; i < ram_array.state.size(); ++i) {
         if (ram_array.state[i] == UNINITIALIZED_MEMORY_RECORD) {
+            info("WARNING: RAM array ", ram_id, " element ", i, " was uninitialized. Initializing to zero.");
+            // throw_or_abort("Uninitialized RAM element: ", i, "in index " ram_id);
             init_RAM_element(builder, ram_id, static_cast<uint32_t>(i), builder->zero_idx());
         }
     }
@@ -450,16 +468,15 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
         const RamRecord& record = ram_array.records[i];
 
         const auto index = record.index;
-        // const auto value = builder->get_variable(record.value_witness);
-        const auto value_witness = record.value_witness;
-        // const auto index_witness = builder->add_variable(FF((uint64_t)index));
-        const auto index_witness = record.index_witness;
-        const auto timestamp_witness = record.timestamp_witness;
-        // const auto timestamp_witess = builder->add_variable(record.timestamp);
-        // const auto value_witness = builder->add_variable(value);
-        [[maybe_unused]] RamRecord old_sorted_record{
+        const auto value = builder->get_variable(record.value_witness);
+        const auto index_witness = builder->add_variable(FF((uint64_t)index));
+        const auto timestamp_witess = builder->add_variable(record.timestamp);
+        const auto value_witness = builder->add_variable(value);
+        // (the values in) `sorted_record` will be identical to (the values in) `record`, except with a different
+        // `gate_index` field, which will be fixed by `create_sorted_RAM_Gate` (resp. `created_final_sorted_RAM_Gate`).
+        RamRecord sorted_record{
             .index_witness = index_witness,
-            .timestamp_witness = timestamp_witness,
+            .timestamp_witness = timestamp_witess,
             .value_witness = value_witness,
             .index = index,
             .timestamp = record.timestamp,
@@ -467,9 +484,6 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
             .record_witness = 0,
             .gate_index = 0,
         };
-        // created a new `sorted_record`, which is the same as `record`, but will have the `gate_index` changed by the
-        // `create_sorted_RAM_gate` (resp. `create_final_sorted_RAM_gate`) method.
-        RamRecord sorted_record(record);
 
         // create a list of sorted ram records
         sorted_ram_records.emplace_back(sorted_record);
@@ -489,10 +503,11 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
         builder->assign_tag(sorted_record.record_witness, sorted_list_tag);
 
         // For ROM/RAM gates, the 'record' wire value (wire column 4) is a linear combination of the first 3 wire
-        // values. However...the record value uses the random challenge 'eta', generated after the first 3 wires are
-        // committed to. i.e. we can't compute the record witness here because we don't know what `eta` is! Take the
-        // gate indices of the two rom gates (original read gate + sorted gate) and store in `memory_records`. Once
-        // we generate the `eta` challenge, we'll use `memory_records` to figure out which gates need a record wire
+        // values. However, the record value uses the random challenge 'eta', generated after the first 3 wires are
+        // committed to. i.e. we can't compute the record witness here because we don't know what `eta` is!
+        //
+        // Take the gate indices of the two rom gates (original read gate + sorted gate) and store in `memory_records`.
+        // Once we generate the `eta` challenge, we'll use `memory_records` to figure out which gates need a record wire
         // value to be computed.
 
         switch (record.access_type) {
@@ -516,7 +531,6 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
 
     std::vector<uint32_t> timestamp_deltas;
     for (size_t i = 0; i < sorted_ram_records.size() - 1; ++i) {
-        // create_RAM_timestamp_gate(sorted_records[i], sorted_records[i + 1])
         const auto& current = sorted_ram_records[i];
         const auto& next = sorted_ram_records[i + 1];
 
