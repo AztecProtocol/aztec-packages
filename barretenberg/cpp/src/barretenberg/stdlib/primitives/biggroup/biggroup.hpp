@@ -27,6 +27,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
   public:
     using Builder = Builder_;
     using bool_ct = stdlib::bool_t<Builder>;
+    using field_ct = stdlib::field_t<Builder>;
     using witness_ct = stdlib::witness_t<Builder>;
     using biggroup_tag = element; // Facilitates a constexpr check IsBigGroup
     using BaseField = Fq;
@@ -34,10 +35,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     // Number of bb::fr field elements used to represent a goblin element in the public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = BIGGROUP_PUBLIC_INPUTS_SIZE;
     struct secp256k1_wnaf {
-        std::vector<field_t<Builder>> wnaf;
+        std::vector<field_ct> wnaf;
         bool_ct positive_skew;
         bool_ct negative_skew;
-        field_t<Builder> least_significant_wnaf_fragment;
+        field_ct least_significant_wnaf_fragment;
         bool has_wnaf_fragment = false;
     };
     struct secp256k1_wnaf_pair {
@@ -525,18 +526,18 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      * @param wnaf_values
      * @param is_negative
      * @param rounds
-     * @return std::vector<field_t<Builder>>
+     * @return std::vector<field_ct>
      *
      * @details For 4-bit window, each wNAF value is in the range [-15, 15]. We convert these to the range [0, 30] by
      * adding 15 if `is_negative = false` and by subtracting from 15 if `is_negative = true`. This ensures that all
      * values are non-negative, which is required for the ROM table lookup.
      */
     template <size_t wnaf_size>
-    static std::vector<field_t<Builder>> convert_wnaf_values_to_witnesses(Builder* builder,
-                                                                          const uint64_t* wnaf_values,
-                                                                          bool is_negative,
-                                                                          size_t rounds,
-                                                                          const bool range_constrain_wnaf = true);
+    static std::vector<field_ct> convert_wnaf_values_to_witnesses(Builder* builder,
+                                                                  const uint64_t* wnaf_values,
+                                                                  bool is_negative,
+                                                                  size_t rounds,
+                                                                  const bool range_constrain_wnaf = true);
 
     /**
      * @brief Reconstruct a scalar from its wNAF representation in circuit
@@ -551,10 +552,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     template <size_t wnaf_size>
     static Fr reconstruct_bigfield_from_wnaf(Builder* builder,
-                                             const std::vector<field_t<Builder>>& wnaf,
+                                             const std::vector<field_ct>& wnaf,
                                              const bool_ct& positive_skew,
                                              const bool_ct& negative_skew,
-                                             const field_t<Builder>& stagger_fragment,
+                                             const field_ct& stagger_fragment,
                                              const size_t stagger,
                                              const size_t rounds);
 
@@ -564,7 +565,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
     template <size_t num_elements>
     static element read_group_element_rom_tables(const std::array<twin_rom_table<Builder>, Fq::NUM_LIMBS + 1>& tables,
-                                                 const field_t<Builder>& index,
+                                                 const field_ct& index,
                                                  const std::array<uint256_t, Fq::NUM_LIMBS * 2>& limb_max);
 
     static std::pair<element, element> compute_offset_generators(const size_t num_rounds);
@@ -585,7 +586,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         four_bit_table_plookup& operator=(four_bit_table_plookup&& other) noexcept = default;
         ~four_bit_table_plookup() = default;
 
-        element operator[](const field_t<Builder>& index) const;
+        element operator[](const field_ct& index) const;
         element operator[](const size_t idx) const { return element_table[idx]; }
         std::array<element, 16> element_table;
 
@@ -613,7 +614,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         eight_bit_fixed_base_table& operator=(eight_bit_fixed_base_table&& other) noexcept = default;
         ~eight_bit_fixed_base_table() = default;
 
-        element operator[](const field_t<Builder>& index) const;
+        element operator[](const field_ct& index) const;
 
         element operator[](const size_t index) const;
 
