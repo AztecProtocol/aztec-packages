@@ -9,8 +9,8 @@
 
 namespace bb::avm2::tracegen {
 
+// Map each ExecutionOpcode to a SubtraceInfo - ordered to match ExecutionOpCode enum
 const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
-    // Map each ExecutionOpcode to a SubtraceInfo - ordered to match ExecutionOpCode enum
     { ExecutionOpCode::ADD,
       { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_ADD } },
     { ExecutionOpCode::SUB,
