@@ -43,13 +43,13 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
         const bool discard = events_with_metadata[i].discard;
 
         bool exists = event.low_leaf_preimage.leaf.slot == event.leaf_slot;
-        FF slot_low_leaf_slot_diff_inv = exists ? 0 : (event.leaf_slot - event.low_leaf_preimage.leaf.slot).invert();
+        FF slot_low_leaf_slot_diff = event.leaf_slot - event.low_leaf_preimage.leaf.slot;
 
         bool next_slot_is_nonzero = false;
-        FF next_slot_inv = 0;
+        FF next_slot = 0;
         if (!exists) {
             next_slot_is_nonzero = event.low_leaf_preimage.nextKey != 0;
-            next_slot_inv = next_slot_is_nonzero ? event.low_leaf_preimage.nextKey.invert() : 0;
+            next_slot = event.low_leaf_preimage.nextKey;
         }
 
         bool write = event.write_data.has_value();
@@ -112,9 +112,10 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
                       { C::public_data_check_leaf_slot, event.leaf_slot },
                       { C::public_data_check_siloing_separator, GENERATOR_INDEX__PUBLIC_LEAF_INDEX },
                       { C::public_data_check_leaf_not_exists, !exists },
-                      { C::public_data_check_leaf_slot_low_leaf_slot_diff_inv, slot_low_leaf_slot_diff_inv },
+                      { C::public_data_check_leaf_slot_low_leaf_slot_diff_inv,
+                        slot_low_leaf_slot_diff }, // Will be inverted in batch later
                       { C::public_data_check_next_slot_is_nonzero, next_slot_is_nonzero },
-                      { C::public_data_check_next_slot_inv, next_slot_inv },
+                      { C::public_data_check_next_slot_inv, next_slot }, // Will be inverted in batch later
                       { C::public_data_check_low_leaf_hash, event.low_leaf_hash },
                       { C::public_data_check_intermediate_root, intermediate_root },
                       { C::public_data_check_tree_height, PUBLIC_DATA_TREE_HEIGHT },
@@ -240,6 +241,10 @@ void PublicDataTreeTraceBuilder::process(
                       });
 
     process_squashing_trace(nondiscarded_writes, first_write_per_slot, last_value_per_slot, trace);
+
+    // Batch invert the columns.
+    trace.invert_columns(
+        { { Column::public_data_check_leaf_slot_low_leaf_slot_diff_inv, Column::public_data_check_next_slot_inv } });
 }
 
 const InteractionDefinition PublicDataTreeTraceBuilder::interactions =

@@ -39,7 +39,6 @@ void EmitUnencryptedLogTraceBuilder::process(
             bool is_contract_address_row = i == 1;
             bool is_value_row = i > 1;
             uint32_t remaining_rows = PUBLIC_LOG_HEADER_LENGTH + event.log_size - 1 - i;
-            FF remaining_rows_inv = remaining_rows == 0 ? 0 : FF(remaining_rows).invert();
 
             FF value = 0;
             ValueTag tag = ValueTag::FF;
@@ -56,8 +55,6 @@ void EmitUnencryptedLogTraceBuilder::process(
             if (!correct_tag) {
                 seen_wrong_tag = true;
             }
-            uint8_t numeric_tag = static_cast<uint8_t>(tag);
-            FF tag_inv = correct_tag ? 0 : FF(numeric_tag).invert();
 
             uint32_t expected_next_log_fields =
                 event.prev_num_unencrypted_log_fields + PUBLIC_LOG_HEADER_LENGTH + event.log_size;
@@ -89,7 +86,7 @@ void EmitUnencryptedLogTraceBuilder::process(
                     { C::emit_unencrypted_log_start, i == 0 },
                     { C::emit_unencrypted_log_end, i == event.log_size + PUBLIC_LOG_HEADER_LENGTH - 1 },
                     { C::emit_unencrypted_log_remaining_rows, remaining_rows },
-                    { C::emit_unencrypted_log_remaining_rows_inv, remaining_rows_inv },
+                    { C::emit_unencrypted_log_remaining_rows_inv, remaining_rows }, // Will be inverted in batch later
                     { C::emit_unencrypted_log_error_out_of_bounds, event.error_memory_out_of_bounds },
                     { C::emit_unencrypted_log_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
                     { C::emit_unencrypted_log_end_log_address, log_address + event.log_size - 1 },
@@ -106,9 +103,9 @@ void EmitUnencryptedLogTraceBuilder::process(
                     { C::emit_unencrypted_log_sel_should_read_memory,
                       is_value_row && !event.error_memory_out_of_bounds },
                     { C::emit_unencrypted_log_value, value },
-                    { C::emit_unencrypted_log_tag, numeric_tag },
+                    { C::emit_unencrypted_log_tag, static_cast<uint8_t>(tag) },
                     { C::emit_unencrypted_log_correct_tag, correct_tag },
-                    { C::emit_unencrypted_log_tag_inv, tag_inv },
+                    { C::emit_unencrypted_log_tag_inv, static_cast<uint8_t>(tag) }, // Will be inverted in batch later
                     { C::emit_unencrypted_log_public_inputs_index,
                       AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX + FLAT_PUBLIC_LOGS_HEADER_LENGTH +
                           event.prev_num_unencrypted_log_fields + i },
@@ -121,6 +118,9 @@ void EmitUnencryptedLogTraceBuilder::process(
             }
         }
     });
+
+    // Batch invert the columns.
+    trace.invert_columns({ { C::emit_unencrypted_log_remaining_rows_inv, C::emit_unencrypted_log_tag_inv } });
 }
 
 const InteractionDefinition EmitUnencryptedLogTraceBuilder::interactions =
