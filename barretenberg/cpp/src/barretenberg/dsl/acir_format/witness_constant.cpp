@@ -13,7 +13,7 @@ using namespace bb;
 using namespace bb::stdlib;
 
 /**
- * @brief Convert WitnessOrConstant inputs representing a Grumpkin point into a cycle_group element.
+ * @brief Convert inputs representing a Grumpkin point into a cycle_group element.
  * @details Inputs x, y, and is_infinite are used to construct the point. If no valid witness is provided or if the
  * predicate is constant false, the point is set to the generator point. If the predicate is a non-constant witness, the
  * point is conditionally assigned to the generator point based on the predicate value. This ensures that the point is
