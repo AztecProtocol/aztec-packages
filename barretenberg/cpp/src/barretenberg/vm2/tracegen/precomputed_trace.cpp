@@ -231,33 +231,27 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
 {
     using C = Column;
 
-    constexpr size_t NUM_REGISTERS = 7;
-    constexpr std::array<Column, NUM_REGISTERS> MEM_OP_REG_COLUMNS = {
+    constexpr std::array<Column, AVM_MAX_REGISTERS> MEM_OP_REG_COLUMNS = {
         Column::precomputed_sel_mem_op_reg_0_, Column::precomputed_sel_mem_op_reg_1_,
         Column::precomputed_sel_mem_op_reg_2_, Column::precomputed_sel_mem_op_reg_3_,
         Column::precomputed_sel_mem_op_reg_4_, Column::precomputed_sel_mem_op_reg_5_,
-        Column::precomputed_sel_mem_op_reg_6_,
     };
-    constexpr std::array<Column, NUM_REGISTERS> RW_COLUMNS = {
+    constexpr std::array<Column, AVM_MAX_REGISTERS> RW_COLUMNS = {
         Column::precomputed_rw_reg_0_, Column::precomputed_rw_reg_1_, Column::precomputed_rw_reg_2_,
         Column::precomputed_rw_reg_3_, Column::precomputed_rw_reg_4_, Column::precomputed_rw_reg_5_,
-        Column::precomputed_rw_reg_6_,
     };
-    constexpr std::array<Column, NUM_REGISTERS> DO_TAG_CHECK_COLUMNS = {
+    constexpr std::array<Column, AVM_MAX_REGISTERS> DO_TAG_CHECK_COLUMNS = {
         Column::precomputed_sel_tag_check_reg_0_, Column::precomputed_sel_tag_check_reg_1_,
         Column::precomputed_sel_tag_check_reg_2_, Column::precomputed_sel_tag_check_reg_3_,
         Column::precomputed_sel_tag_check_reg_4_, Column::precomputed_sel_tag_check_reg_5_,
-        Column::precomputed_sel_tag_check_reg_6_,
     };
-    constexpr std::array<Column, NUM_REGISTERS> EXPECTED_TAG_COLUMNS = {
+    constexpr std::array<Column, AVM_MAX_REGISTERS> EXPECTED_TAG_COLUMNS = {
         Column::precomputed_expected_tag_reg_0_, Column::precomputed_expected_tag_reg_1_,
         Column::precomputed_expected_tag_reg_2_, Column::precomputed_expected_tag_reg_3_,
         Column::precomputed_expected_tag_reg_4_, Column::precomputed_expected_tag_reg_5_,
-        Column::precomputed_expected_tag_reg_6_,
     };
 
-    constexpr size_t NUM_OPERANDS = 7;
-    constexpr std::array<Column, NUM_OPERANDS> SEL_OP_IS_ADDRESS_COLUMNS = {
+    constexpr std::array<Column, AVM_MAX_OPERANDS> SEL_OP_IS_ADDRESS_COLUMNS = {
         Column::precomputed_sel_op_is_address_0_, Column::precomputed_sel_op_is_address_1_,
         Column::precomputed_sel_op_is_address_2_, Column::precomputed_sel_op_is_address_3_,
         Column::precomputed_sel_op_is_address_4_, Column::precomputed_sel_op_is_address_5_,
@@ -277,7 +271,7 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
 
         // Register information.
         const auto& register_info = EXEC_INSTRUCTION_SPEC.at(exec_opcode).register_info;
-        for (size_t i = 0; i < NUM_REGISTERS; i++) {
+        for (size_t i = 0; i < AVM_MAX_REGISTERS; i++) {
             trace.set(MEM_OP_REG_COLUMNS.at(i), static_cast<uint32_t>(exec_opcode), register_info.is_active(i) ? 1 : 0);
             trace.set(RW_COLUMNS.at(i), static_cast<uint32_t>(exec_opcode), register_info.is_write(i) ? 1 : 0);
             trace.set(DO_TAG_CHECK_COLUMNS.at(i),
@@ -289,7 +283,7 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
         }
 
         // Whether an operand is an address
-        for (size_t i = 0; i < NUM_OPERANDS; i++) {
+        for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
             trace.set(SEL_OP_IS_ADDRESS_COLUMNS.at(i),
                       static_cast<uint32_t>(exec_opcode),
                       i < exec_instruction_spec.num_addresses ? 1 : 0);
