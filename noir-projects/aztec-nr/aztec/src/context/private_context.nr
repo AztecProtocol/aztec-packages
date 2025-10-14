@@ -1112,6 +1112,7 @@ impl PrivateContext {
             log.concat([0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
         // Note: the length is not always N, it is the number of fields we want to broadcast, omitting trailing zeros to save blob space.
         // Safety: The below length is constrained in the base rollup, which will make sure that all the fields beyond length are zero.
+        // However, it won't be able to check that we didn't add extra padding (trailing zeroes)
         let length = unsafe { trimmed_array_length_hint(log_to_emit) };
         // We hash the entire padded log to ensure a user cannot pass a shorter length and so emit incorrect shorter bytecode.
         let log_hash = poseidon2_hash(log_to_emit);
