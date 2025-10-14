@@ -389,4 +389,16 @@ struct AvmProvingInputs {
     MSGPACK_FIELDS(publicInputs, hints);
 };
 
+struct AvmFastSimulationInputs {
+    // TODO(dbanks12): remove public inputs and hints once fast simulation is standalone
+    PublicInputs publicInputs;
+    ExecutionHints hints;
+    world_state::WorldStateRevision wsRevision;
+
+    static AvmFastSimulationInputs from(const std::vector<uint8_t>& data);
+    bool operator==(const AvmFastSimulationInputs& other) const = default;
+
+    MSGPACK_FIELDS(publicInputs, hints, wsRevision);
+};
+
 } // namespace bb::avm2
