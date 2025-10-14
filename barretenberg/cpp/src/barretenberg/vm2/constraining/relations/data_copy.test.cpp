@@ -431,7 +431,7 @@ TEST(DataCopyWithExecutionPerm, CdCopy)
             { C::execution_sel, 1 },
             { C::execution_context_id, context_id },
             { C::execution_parent_id, parent_context_id },
-            { C::execution_sel_execute_calldata_copy, 1 },
+            { C::execution_sel_exec_dispatch_calldata_copy, 1 },
             { C::execution_register_0_, copy_size },
             { C::execution_register_1_, cd_offset },
             { C::execution_rop_2_, dst_addr },
@@ -448,8 +448,8 @@ TEST(DataCopyWithExecutionPerm, CdCopy)
 
     check_relation<data_copy>(trace);
     check_interaction<ExecutionTraceBuilder,
-                      perm_data_copy_dispatch_cd_copy_settings,
-                      perm_data_copy_dispatch_rd_copy_settings>(trace);
+                      perm_execution_dispatch_to_cd_copy_settings,
+                      perm_execution_dispatch_to_rd_copy_settings>(trace);
 }
 
 class NestedRdConstrainingBuilderTest : public DataCopyConstrainingBuilderTest {
@@ -525,7 +525,7 @@ TEST(DataCopyWithExecutionPerm, RdCopy)
             { C::execution_sel, 1 },
             { C::execution_context_id, context_id },
             { C::execution_last_child_id, child_context_id },
-            { C::execution_sel_execute_returndata_copy, 1 },
+            { C::execution_sel_exec_dispatch_returndata_copy, 1 },
             { C::execution_register_0_, copy_size },
             { C::execution_register_1_, rd_offset },
             { C::execution_rop_2_, dst_addr },
@@ -542,8 +542,8 @@ TEST(DataCopyWithExecutionPerm, RdCopy)
 
     check_relation<data_copy>(trace);
     check_interaction<ExecutionTraceBuilder,
-                      perm_data_copy_dispatch_cd_copy_settings,
-                      perm_data_copy_dispatch_rd_copy_settings>(trace);
+                      perm_execution_dispatch_to_cd_copy_settings,
+                      perm_execution_dispatch_to_rd_copy_settings>(trace);
 }
 
 TEST(DataCopyWithExecutionPerm, ErrorPropagation)
@@ -582,7 +582,7 @@ TEST(DataCopyWithExecutionPerm, ErrorPropagation)
             { C::execution_sel, 1 },
             { C::execution_context_id, context_id },
             { C::execution_last_child_id, child_context_id },
-            { C::execution_sel_execute_returndata_copy, 1 },
+            { C::execution_sel_exec_dispatch_returndata_copy, 1 },
             { C::execution_register_0_, copy_size },
             { C::execution_register_1_, rd_offset },
             { C::execution_rop_2_, big_dst_addr },
@@ -600,8 +600,8 @@ TEST(DataCopyWithExecutionPerm, ErrorPropagation)
 
     check_relation<data_copy>(trace);
     check_interaction<ExecutionTraceBuilder,
-                      perm_data_copy_dispatch_cd_copy_settings,
-                      perm_data_copy_dispatch_rd_copy_settings>(trace);
+                      perm_execution_dispatch_to_cd_copy_settings,
+                      perm_execution_dispatch_to_rd_copy_settings>(trace);
 }
 
 } // namespace

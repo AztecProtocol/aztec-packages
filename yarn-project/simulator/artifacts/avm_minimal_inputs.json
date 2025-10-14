@@ -88,15 +88,15 @@
     ],
     "startingTreeRoots": {
       "l1ToL2MessageTree": {
-        "root": "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6",
+        "root": "0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5",
         "nextAvailableLeafIndex": 0
       },
       "noteHashTree": {
-        "root": "0x1fd848aa69e1633722fe249a5b7f53b094f1c9cef9f5c694b073fd1cc5850dfb",
+        "root": "0x2ac5dda169f6bb3b9ca09bbac34e14c94d1654597db740153a1288d859a8a30a",
         "nextAvailableLeafIndex": 0
       },
       "nullifierTree": {
-        "root": "0x13223dc7d3f70ef884b53611dc940832ee7a7d0982a6f927061c0a0dc2e4a822",
+        "root": "0x2351fda006fd57b87234f166affbc69ae310fdd3cfc1d3ebf50df423cd3dfc31",
         "nextAvailableLeafIndex": 129
       },
       "publicDataTree": {
@@ -107,7 +107,7 @@
     "getSiblingPathHints": [
       {
         "hintKey": {
-          "root": "0x13223dc7d3f70ef884b53611dc940832ee7a7d0982a6f927061c0a0dc2e4a822",
+          "root": "0x2351fda006fd57b87234f166affbc69ae310fdd3cfc1d3ebf50df423cd3dfc31",
           "nextAvailableLeafIndex": 129
         },
         "treeId": 0,
@@ -152,12 +152,14 @@
           "0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5",
           "0x0f55a0d491a9da093eb999fa0dffaf904620cbc78d07e63c6f795c5c7512b523",
           "0x21849764e1aa64b83a69e39d27eedaec2a8f97066e5ddb74634ffdb11388dd9a",
-          "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
+          "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6",
+          "0x1fd848aa69e1633722fe249a5b7f53b094f1c9cef9f5c694b073fd1cc5850dfb",
+          "0x1a180441acbe2e25177de322888800476d75191e3c2c753300dedf84de7d2053"
         ]
       },
       {
         "hintKey": {
-          "root": "0x2506a978dddc8e7647f33ecb0833656caeafed4b285197668b5bc04b4c718504",
+          "root": "0x2cc3fc9009fb95858b6f47c3e3952f5799d73e15dec7bc310f7980bfaedfa79c",
           "nextAvailableLeafIndex": 130
         },
         "treeId": 0,
@@ -202,7 +204,9 @@
           "0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5",
           "0x0f55a0d491a9da093eb999fa0dffaf904620cbc78d07e63c6f795c5c7512b523",
           "0x21849764e1aa64b83a69e39d27eedaec2a8f97066e5ddb74634ffdb11388dd9a",
-          "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
+          "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6",
+          "0x1fd848aa69e1633722fe249a5b7f53b094f1c9cef9f5c694b073fd1cc5850dfb",
+          "0x1a180441acbe2e25177de322888800476d75191e3c2c753300dedf84de7d2053"
         ]
       },
       {
@@ -459,7 +463,7 @@
     "getPreviousValueIndexHints": [
       {
         "hintKey": {
-          "root": "0x13223dc7d3f70ef884b53611dc940832ee7a7d0982a6f927061c0a0dc2e4a822",
+          "root": "0x2351fda006fd57b87234f166affbc69ae310fdd3cfc1d3ebf50df423cd3dfc31",
           "nextAvailableLeafIndex": 129
         },
         "treeId": 0,
@@ -469,7 +473,7 @@
       },
       {
         "hintKey": {
-          "root": "0x2506a978dddc8e7647f33ecb0833656caeafed4b285197668b5bc04b4c718504",
+          "root": "0x2cc3fc9009fb95858b6f47c3e3952f5799d73e15dec7bc310f7980bfaedfa79c",
           "nextAvailableLeafIndex": 130
         },
         "treeId": 0,
@@ -608,7 +612,7 @@
     "getLeafPreimageHintsNullifierTree": [
       {
         "hintKey": {
-          "root": "0x13223dc7d3f70ef884b53611dc940832ee7a7d0982a6f927061c0a0dc2e4a822",
+          "root": "0x2351fda006fd57b87234f166affbc69ae310fdd3cfc1d3ebf50df423cd3dfc31",
           "nextAvailableLeafIndex": 129
         },
         "index": "127",
@@ -620,7 +624,7 @@
       },
       {
         "hintKey": {
-          "root": "0x2506a978dddc8e7647f33ecb0833656caeafed4b285197668b5bc04b4c718504",
+          "root": "0x2cc3fc9009fb95858b6f47c3e3952f5799d73e15dec7bc310f7980bfaedfa79c",
           "nextAvailableLeafIndex": 130
         },
         "index": "128",
@@ -758,11 +762,11 @@
     "sequentialInsertHintsNullifierTree": [
       {
         "hintKey": {
-          "root": "0x13223dc7d3f70ef884b53611dc940832ee7a7d0982a6f927061c0a0dc2e4a822",
+          "root": "0x2351fda006fd57b87234f166affbc69ae310fdd3cfc1d3ebf50df423cd3dfc31",
           "nextAvailableLeafIndex": 129
         },
         "stateAfter": {
-          "root": "0x2506a978dddc8e7647f33ecb0833656caeafed4b285197668b5bc04b4c718504",
+          "root": "0x2cc3fc9009fb95858b6f47c3e3952f5799d73e15dec7bc310f7980bfaedfa79c",
           "nextAvailableLeafIndex": 130
         },
         "treeId": 0,
@@ -814,7 +818,9 @@
             "0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5",
             "0x0f55a0d491a9da093eb999fa0dffaf904620cbc78d07e63c6f795c5c7512b523",
             "0x21849764e1aa64b83a69e39d27eedaec2a8f97066e5ddb74634ffdb11388dd9a",
-            "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
+            "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6",
+            "0x1fd848aa69e1633722fe249a5b7f53b094f1c9cef9f5c694b073fd1cc5850dfb",
+            "0x1a180441acbe2e25177de322888800476d75191e3c2c753300dedf84de7d2053"
           ]
         },
         "insertionWitnessData": {
@@ -864,7 +870,9 @@
             "0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5",
             "0x0f55a0d491a9da093eb999fa0dffaf904620cbc78d07e63c6f795c5c7512b523",
             "0x21849764e1aa64b83a69e39d27eedaec2a8f97066e5ddb74634ffdb11388dd9a",
-            "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
+            "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6",
+            "0x1fd848aa69e1633722fe249a5b7f53b094f1c9cef9f5c694b073fd1cc5850dfb",
+            "0x1a180441acbe2e25177de322888800476d75191e3c2c753300dedf84de7d2053"
           ]
         }
       }
@@ -902,15 +910,15 @@
     },
     "startTreeSnapshots": {
       "l1ToL2MessageTree": {
-        "root": "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6",
+        "root": "0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5",
         "nextAvailableLeafIndex": 0
       },
       "noteHashTree": {
-        "root": "0x1fd848aa69e1633722fe249a5b7f53b094f1c9cef9f5c694b073fd1cc5850dfb",
+        "root": "0x2ac5dda169f6bb3b9ca09bbac34e14c94d1654597db740153a1288d859a8a30a",
         "nextAvailableLeafIndex": 0
       },
       "nullifierTree": {
-        "root": "0x13223dc7d3f70ef884b53611dc940832ee7a7d0982a6f927061c0a0dc2e4a822",
+        "root": "0x2351fda006fd57b87234f166affbc69ae310fdd3cfc1d3ebf50df423cd3dfc31",
         "nextAvailableLeafIndex": 129
       },
       "publicDataTree": {
@@ -1711,15 +1719,15 @@
     },
     "endTreeSnapshots": {
       "l1ToL2MessageTree": {
-        "root": "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6",
+        "root": "0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5",
         "nextAvailableLeafIndex": 0
       },
       "noteHashTree": {
-        "root": "0x1fd848aa69e1633722fe249a5b7f53b094f1c9cef9f5c694b073fd1cc5850dfb",
+        "root": "0x2ac5dda169f6bb3b9ca09bbac34e14c94d1654597db740153a1288d859a8a30a",
         "nextAvailableLeafIndex": 64
       },
       "nullifierTree": {
-        "root": "0x2506a978dddc8e7647f33ecb0833656caeafed4b285197668b5bc04b4c718504",
+        "root": "0x2cc3fc9009fb95858b6f47c3e3952f5799d73e15dec7bc310f7980bfaedfa79c",
         "nextAvailableLeafIndex": 193
       },
       "publicDataTree": {

@@ -94,6 +94,7 @@ add_subdirectory(barretenberg/flavor)
 add_subdirectory(barretenberg/goblin)
 add_subdirectory(barretenberg/grumpkin_srs_gen)
 add_subdirectory(barretenberg/lmdblib)
+add_subdirectory(barretenberg/multilinear_batching)
 add_subdirectory(barretenberg/numeric)
 add_subdirectory(barretenberg/op_queue)
 add_subdirectory(barretenberg/polynomials)
@@ -155,6 +156,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:flavor_objects>
     $<TARGET_OBJECTS:goblin_objects>
     $<TARGET_OBJECTS:honk>
+    $<TARGET_OBJECTS:multilinear_batching_objects>
     $<TARGET_OBJECTS:numeric_objects>
     $<TARGET_OBJECTS:op_queue_objects>
     $<TARGET_OBJECTS:polynomials_objects>
@@ -257,7 +259,7 @@ if(WASM)
         DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
     )
 
-    if(CHECK_CIRCUIT_STACKTRACES OR ENABLE_STACKTRACES)
+    if(ENABLE_STACKTRACES)
         target_link_libraries(
             barretenberg.wasm
             PUBLIC

@@ -1,6 +1,5 @@
 ---
 title: Accounts
-sidebar_position: 1
 tags: [accounts]
 description: Deep dive into Aztec's native account abstraction system - understanding how smart contract accounts work, their architecture, key management, and authorization mechanisms in a privacy-preserving blockchain.
 ---

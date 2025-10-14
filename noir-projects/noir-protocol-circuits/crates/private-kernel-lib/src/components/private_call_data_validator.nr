@@ -6,14 +6,12 @@ use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_call_request::PrivateCallRequest,
-        private_kernel::private_call_data::PrivateCallData,
-        protocol_contracts::ProtocolContracts,
-        public_call_request::PublicCallRequest,
-        side_effect::{Ordered, RangeOrdered},
-        transaction::tx_request::TxRequest,
+        private_kernel::private_call_data::PrivateCallData, protocol_contracts::ProtocolContracts,
+        public_call_request::PublicCallRequest, transaction::tx_request::TxRequest,
     },
     address::AztecAddress,
-    constants::{CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_FIELD_VALUE, PRIVATE_LOG_SIZE_IN_FIELDS},
+    constants::MAX_FIELD_VALUE,
+    side_effect::{Ordered, RangeOrdered},
     traits::FromField,
     utils::arrays::ClaimedLengthArray,
 };
@@ -106,7 +104,6 @@ impl PrivateCallDataValidator {
         self.validate_public_call_requests();
 
         self.validate_that_side_effect_counters_are_strictly_increasing_and_within_bounds();
-        self.validate_log_lengths();
     }
 
     /// For Init only.
@@ -357,26 +354,5 @@ impl PrivateCallDataValidator {
             counter_end,
             public_inputs.public_call_requests,
         );
-    }
-
-    fn validate_log_lengths(self) {
-        let public_inputs = self.data.public_inputs;
-
-        // Private logs.
-        let logs = public_inputs.private_logs;
-        for i in 0..logs.array.len() {
-            let log = logs.array[i];
-            assert(log.log.length <= PRIVATE_LOG_SIZE_IN_FIELDS, "private log length is too large");
-        }
-
-        // Contract class logs.
-        let logs = public_inputs.contract_class_logs_hashes;
-        for i in 0..logs.array.len() {
-            let log = logs.array[i];
-            assert(
-                log.inner.length <= CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-                "contract class log length is too large",
-            );
-        }
     }
 }

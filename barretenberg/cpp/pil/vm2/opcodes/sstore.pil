@@ -1,4 +1,5 @@
 include "../constants_gen.pil";
+include "../precomputed.pil";
 include "../trees/public_data_check.pil";
 include "../trees/written_public_data_slots_tree_check.pil";
 
@@ -70,7 +71,6 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         written_public_data_slots_tree_check.tree_size_after_write
     };
 
-    // This should be a multipermutation
     #[STORAGE_WRITE]
     sel_write_public_data {
         register[0], // value
@@ -78,18 +78,18 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         register[1], // slot
         discard,
         prev_public_data_tree_root,
-        prev_public_data_tree_size,
         public_data_tree_root,
+        prev_public_data_tree_size,
         public_data_tree_size,
         precomputed.clk
-    } in public_data_check.write {
+    } is public_data_check.non_protocol_write {
         public_data_check.value,
         public_data_check.address,
         public_data_check.slot,
         public_data_check.discard,
         public_data_check.root,
-        public_data_check.tree_size_before_write,
         public_data_check.write_root,
+        public_data_check.tree_size_before_write,
         public_data_check.tree_size_after_write,
         public_data_check.clk
     };

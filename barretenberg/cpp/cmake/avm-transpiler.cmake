@@ -1,6 +1,5 @@
 # avm-transpiler static library configuration
 # AVM_TRANSPILER_LIB should be set by the CMake preset to point to the appropriate library
-
 if(NOT AVM_TRANSPILER_LIB)
     message(FATAL_ERROR "AVM_TRANSPILER_LIB is not set. Set it in your CMake preset to the path of libavm_transpiler.a")
 endif()

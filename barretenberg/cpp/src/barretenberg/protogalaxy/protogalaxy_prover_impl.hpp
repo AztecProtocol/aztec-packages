@@ -58,7 +58,7 @@ std::tuple<std::vector<typename Flavor::FF>, Polynomial<typename Flavor::FF>> Pr
 
     const std::vector<FF> deltas = transcript->template get_powers_of_challenge<FF>("delta", CONST_PG_LOG_N);
     // An honest prover with valid initial key computes that the perturbator is 0 in the first round
-    const Polynomial<FF> perturbator = accumulator->from_first_instance
+    const Polynomial<FF> perturbator = accumulator->is_relaxed_instance
                                            ? pg_internal.compute_perturbator(accumulator, deltas)
                                            : Polynomial<FF>(CONST_PG_LOG_N + 1);
     // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
@@ -82,13 +82,19 @@ ProtogalaxyProver_<Flavor>::combiner_quotient_round(const std::vector<FF>& gate_
 {
     BB_BENCH_NAME("ProtogalaxyProver_::combiner_quotient_round");
 
+    // Generate the challenge (\alpha in the paper) at which to evaluate the perturbator (F in the paper)
     const FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
 
+    // Step 8. in the paper: \beta is updated to \beta + \alpha * \delta
     const std::vector<FF> updated_gate_challenges =
         update_gate_challenges(perturbator_challenge, gate_challenges, deltas);
-    const UnivariateSubrelationSeparators alphas = PGInternal::compute_and_extend_alphas(instances);
+
     const GateSeparatorPolynomial<FF> gate_separators{ updated_gate_challenges,
                                                        numeric::get_msb(get_max_dyadic_size()) };
+
+    // Fold the batching challenges (\alphas in the ProverInstances)
+    const UnivariateSubrelationSeparators alphas = PGInternal::compute_and_extend_alphas(instances);
+    // Fold the relation parameters in the ProverInstances
     const UnivariateRelationParameters relation_parameters =
         PGInternal::template compute_extended_relation_parameters<UnivariateRelationParameters>(instances);
 
@@ -108,7 +114,7 @@ ProtogalaxyProver_<Flavor>::combiner_quotient_round(const std::vector<FF>& gate_
 }
 
 /**
- * @brief Given the challenge \gamma, compute Z(\gamma) and {L_0(\gamma),L_1(\gamma)}
+ * @brief Given the challenge \f$\gamma\f$, compute \f$Z(\gamma)\f$ and \f$L_0(\gamma),L_1(\gamma)\f$
  */
 template <IsUltraOrMegaHonk Flavor>
 void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
@@ -122,14 +128,15 @@ void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
 
     std::shared_ptr<ProverInstance> accumulator = instances[0];
     std::shared_ptr<ProverInstance> incoming = instances[1];
-    accumulator->from_first_instance = true;
+    accumulator->is_relaxed_instance = true;
 
     // At this point the virtual sizes of the polynomials should already agree
     BB_ASSERT_EQ(accumulator->polynomials.w_l.virtual_size(), incoming->polynomials.w_l.virtual_size());
 
+    // Step 12., \gamma challenge
     const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
 
-    // Compute the next target sum (for its own use; verifier must compute its own values)
+    // Step 13., compute the next target sum (for its own use; verifier must compute its own values)
     auto [vanishing_polynomial_at_challenge, lagranges] =
         PGInternal::compute_vanishing_polynomial_and_lagranges(combiner_challenge);
     accumulator->target_sum = perturbator_evaluation * lagranges[0] +

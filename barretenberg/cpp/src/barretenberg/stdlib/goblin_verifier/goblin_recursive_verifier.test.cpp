@@ -30,12 +30,12 @@ class GoblinRecursiveVerifierTests : public testing::Test {
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     // Compute the size of a Translator commitment (in bb::fr's)
-    static constexpr size_t comm_frs = bb::field_conversion::calc_num_bn254_frs<Commitment>(); // 4
-    static constexpr size_t eval_frs = bb::field_conversion::calc_num_bn254_frs<FF>();         // 1
+    static constexpr size_t comm_frs = FrCodec::calc_num_fields<Commitment>(); // 4
+    static constexpr size_t eval_frs = FrCodec::calc_num_fields<FF>();         // 1
 
     // The `op` wire commitment is currently the second element of the proof, following the
     // `accumulated_result` which is a BN254 BaseField element.
-    static constexpr size_t offset = bb::field_conversion::calc_num_bn254_frs<BF>();
+    static constexpr size_t offset = FrCodec::calc_num_fields<BF>();
 
     struct ProverOutput {
         GoblinProof proof;
@@ -51,11 +51,11 @@ class GoblinRecursiveVerifierTests : public testing::Test {
 
         // Extract `op` fields and convert them to a Commitment object
         auto element_frs = std::span{ translator_proof }.subspan(offset, comm_frs);
-        auto op_commitment = NativeTranscriptParams::template deserialize<Commitment>(element_frs);
+        auto op_commitment = NativeTranscript::template deserialize<Commitment>(element_frs);
         // Modify the commitment
         op_commitment = op_commitment * FF(2);
         // Serialize the tampered commitment into the proof (overwriting the valid one).
-        auto op_commitment_reserialized = bb::NativeTranscriptParams::serialize(op_commitment);
+        auto op_commitment_reserialized = NativeTranscript::serialize(op_commitment);
         std::copy(op_commitment_reserialized.begin(),
                   op_commitment_reserialized.end(),
                   translator_proof.begin() + static_cast<std::ptrdiff_t>(offset));

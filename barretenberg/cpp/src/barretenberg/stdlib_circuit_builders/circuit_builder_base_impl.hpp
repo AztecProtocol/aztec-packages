@@ -12,7 +12,7 @@
 namespace bb {
 template <typename FF_>
 CircuitBuilderBase<FF_>::CircuitBuilderBase(size_t size_hint, bool has_dummy_witnesses)
-    : has_dummy_witnesses(has_dummy_witnesses)
+    : has_dummy_witnesses_(has_dummy_witnesses)
 {
     variables.reserve(size_hint * 3);
     variable_names.reserve(size_hint * 3);
@@ -34,7 +34,7 @@ template <typename FF_> size_t CircuitBuilderBase<FF_>::get_estimated_num_finali
 
 template <typename FF_> void CircuitBuilderBase<FF_>::print_num_estimated_finalized_gates() const
 {
-    std::cout << num_gates << std::endl;
+    info(num_gates);
 }
 
 template <typename FF_> size_t CircuitBuilderBase<FF_>::get_num_variables() const
@@ -91,6 +91,7 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_variable(const FF&
     return index;
 }
 
+// AUDITTODO: is this used?
 template <typename FF_> void CircuitBuilderBase<FF_>::set_variable_name(uint32_t index, const std::string& name)
 {
     ASSERT_DEBUG(variables.size() > index);
@@ -101,31 +102,6 @@ template <typename FF_> void CircuitBuilderBase<FF_>::set_variable_name(uint32_t
         return;
     }
     variable_names.insert({ first_idx, name });
-}
-
-template <typename FF_> void CircuitBuilderBase<FF_>::update_variable_names(uint32_t index)
-{
-    uint32_t first_idx = get_first_variable_in_class(index);
-
-    uint32_t cur_idx = next_var_index[first_idx];
-    while (cur_idx != REAL_VARIABLE && !variable_names.contains(cur_idx)) {
-        cur_idx = next_var_index[cur_idx];
-    }
-
-    if (variable_names.contains(first_idx)) {
-        if (cur_idx != REAL_VARIABLE) {
-            variable_names.extract(cur_idx);
-        }
-        return;
-    }
-
-    if (cur_idx != REAL_VARIABLE) {
-        std::string var_name = variable_names.find(cur_idx)->second;
-        variable_names.erase(cur_idx);
-        variable_names.insert({ first_idx, var_name });
-        return;
-    }
-    failure("No previously assigned names found");
 }
 
 template <typename FF_> size_t CircuitBuilderBase<FF_>::get_circuit_subgroup_size(const size_t num_gates) const
@@ -210,11 +186,13 @@ void CircuitBuilderBase<FF>::assert_equal(const uint32_t a_variable_idx,
 }
 
 template <typename FF_>
-void CircuitBuilderBase<FF_>::assert_valid_variables(const std::vector<uint32_t>& variable_indices)
+void CircuitBuilderBase<FF_>::assert_valid_variables([[maybe_unused]] const std::vector<uint32_t>& variable_indices)
 {
+#ifndef NDEBUG
     for (const auto& variable_index : variable_indices) {
         BB_ASSERT_LT(variable_index, variables.size());
     }
+#endif
 }
 
 template <typename FF_> bool CircuitBuilderBase<FF_>::failed() const
@@ -227,20 +205,15 @@ template <typename FF_> const std::string& CircuitBuilderBase<FF_>::err() const
     return _err;
 }
 
-template <typename FF_> void CircuitBuilderBase<FF_>::set_err(std::string msg)
-{
-    _err = std::move(msg);
-}
-
 template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
 {
 #ifndef FUZZING_DISABLE_WARNINGS
-    if (!has_dummy_witnesses) {
+    if (!has_dummy_witnesses_) {
         // Not a catch-all error log. We have a builder failure when we have real witnesses which is a mistake.
         info("(Experimental) WARNING: Builder failure when we have real witnesses! Ignore if writing vk.");
     }
 #endif
     _failed = true;
-    set_err(std::move(msg));
+    _err = msg;
 }
 } // namespace bb

@@ -285,12 +285,14 @@ TEST(Protogalaxy, CombinerOn2Keys)
                       0    0    0    0    0    0    0              0    0    6   18   36   60   90      */
 
             GateSeparatorPolynomial<FF> gate_separators({ 2 }, /*log_num_monomials=*/1);
-            PGInternalTest::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
+            PGInternalTest::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skipping;
             PGInternalTest::UnivariateRelationParameters univariate_relation_parameters;
             auto result_no_skipping = pg_internal.compute_combiner_no_optimistic_skipping(
-                keys, gate_separators, univariate_relation_parameters_no_skpping, alphas);
-            auto result_with_skipping =
-                pg_internal.compute_combiner(keys, gate_separators, univariate_relation_parameters, alphas);
+                keys, gate_separators, univariate_relation_parameters_no_skipping, alphas);
+            // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
+            PGInternalTest::TupleOfTuplesOfUnivariates accumulators{};
+            auto result_with_skipping = pg_internal.compute_combiner(
+                keys, gate_separators, univariate_relation_parameters, alphas, accumulators);
             auto expected_result =
                 Univariate<FF, 12>(std::array<FF, 12>{ 0, 0, 12, 36, 72, 120, 180, 252, 336, 432, 540, 660 });
 
@@ -407,8 +409,10 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             PGInternalTest::UnivariateRelationParameters univariate_relation_parameters;
             auto result_no_skipping = pg_internal.compute_combiner_no_optimistic_skipping(
                 keys, gate_separators, univariate_relation_parameters_no_skpping, alphas);
-            auto result_with_skipping =
-                pg_internal.compute_combiner(keys, gate_separators, univariate_relation_parameters, alphas);
+            // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
+            PGInternalTest::TupleOfTuplesOfUnivariates accumulators{};
+            auto result_with_skipping = pg_internal.compute_combiner(
+                keys, gate_separators, univariate_relation_parameters, alphas, accumulators);
 
             EXPECT_EQ(result_no_skipping, expected_result);
             EXPECT_EQ(result_with_skipping, expected_result);
@@ -477,8 +481,10 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             PGInternalTest::UnivariateRelationParameters univariate_relation_parameters;
             auto result_no_skipping = pg_internal.compute_combiner_no_optimistic_skipping(
                 keys, gate_separators, univariate_relation_parameters_no_skpping, alphas);
-            auto result_with_skipping =
-                pg_internal.compute_combiner(keys, gate_separators, univariate_relation_parameters, alphas);
+            // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
+            PGInternalTest::TupleOfTuplesOfUnivariates accumulators{};
+            auto result_with_skipping = pg_internal.compute_combiner(
+                keys, gate_separators, univariate_relation_parameters, alphas, accumulators);
             auto expected_result =
                 Univariate<FF, 12>(std::array<FF, 12>{ 0, 0, 12, 36, 72, 120, 180, 252, 336, 432, 540, 660 });
 

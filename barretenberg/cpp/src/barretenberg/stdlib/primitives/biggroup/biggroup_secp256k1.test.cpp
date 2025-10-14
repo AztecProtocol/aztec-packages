@@ -41,22 +41,175 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
         EXPECT_EQ(CircuitChecker::check(builder), expected_result);
     };
 
+    // Primitives functions for computing wnafs over secp256k1 scalars
+    template <size_t wnaf_size> void test_get_staggered_wnaf_fragment_value()
+    {
+        // Helper for easier invocation
+        auto get_val = [](uint64_t fragment_u64, uint64_t stagger, bool is_negative, bool wnaf_skew) {
+            return stdlib::element_default::element_test_accessor::
+                get_staggered_wnaf_fragment_value<Builder, typename Curve::fq_ct, scalar_ct, g1, wnaf_size>(
+                    fragment_u64, stagger, is_negative, wnaf_skew);
+        };
+
+        // Test: stagger == 0 returns (0, wnaf_skew)
+        {
+            auto [frag, skew] = get_val(123, 0, false, false);
+            EXPECT_EQ(frag, 0);
+            EXPECT_EQ(skew, false);
+
+            auto [frag2, skew2] = get_val(456, 0, true, true);
+            EXPECT_EQ(frag2, 0);
+            EXPECT_EQ(skew2, true);
+        }
+        // Test: random positive values (honest case)
+        {
+            for (size_t i = 0; i < 20; ++i) {
+                // Check for various stagger values ≤ 10
+                for (size_t num_stagger_bits = 1; num_stagger_bits <= 10; ++num_stagger_bits) {
+                    uint64_t input_frag = engine.get_random_uint32() % (1ULL << num_stagger_bits);
+                    bool inp_skew = engine.get_random_uint32() & 1;
+                    bool is_negative = false;
+
+                    auto [output_frag, output_skew] = get_val(input_frag, num_stagger_bits, is_negative, inp_skew);
+
+                    // input_frag - inp_skew * 2^t == output_wnaf - output_skew
+                    int lhs = static_cast<int>(input_frag) - static_cast<int>(inp_skew * (1ULL << num_stagger_bits));
+
+                    int output_wnaf_value =
+                        (2 * static_cast<int>(output_frag) + 1) - static_cast<int>(1ULL << wnaf_size);
+                    int rhs = output_wnaf_value - static_cast<int>(output_skew);
+
+                    EXPECT_EQ(lhs, rhs);
+                }
+            }
+        }
+        // Test: random negative values
+        {
+            for (size_t i = 0; i < 20; ++i) {
+                // Check for various stagger values ≤ 10
+                for (size_t num_stagger_bits = 1; num_stagger_bits <= 10; ++num_stagger_bits) {
+                    uint64_t input_frag = engine.get_random_uint32() % (1ULL << num_stagger_bits);
+                    bool inp_skew = engine.get_random_uint32() & 1;
+                    bool is_negative = true;
+
+                    auto [output_frag, output_skew] = get_val(input_frag, num_stagger_bits, is_negative, inp_skew);
+
+                    // In case of is_negative = true and input is even, we subtract 1 to make it odd and set skew = 1,
+                    // which must be added to the output wnaf value.
+                    // - input_frag + inp_skew * 2^t == output_wnaf + output_skew
+                    int lhs = -static_cast<int>(input_frag) + static_cast<int>(inp_skew * (1ULL << num_stagger_bits));
+
+                    int output_wnaf_value =
+                        (2 * static_cast<int>(output_frag) + 1) - static_cast<int>(1ULL << wnaf_size);
+                    int rhs = output_wnaf_value + static_cast<int>(output_skew);
+                    EXPECT_EQ(lhs, rhs);
+                }
+            }
+        }
+    }
+
     // Add the necessary utility methods used in tests
     static void test_wnaf_secp256k1()
     {
         Builder builder = Builder();
-        size_t num_repetitions = 1;
-        for (size_t i = 0; i < num_repetitions; ++i) {
+        {
+            // Generate a random even scalar
             fr scalar_a(fr::random_element());
             if ((uint256_t(scalar_a).get_bit(0) & 1) == 1) {
                 scalar_a -= fr(1); // skew bit is 1
             }
             scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);
-            element_ct::template compute_secp256k1_endo_wnaf<4, 0, 3>(x_a);
-            element_ct::template compute_secp256k1_endo_wnaf<4, 1, 2>(x_a);
-            element_ct::template compute_secp256k1_endo_wnaf<4, 2, 1>(x_a);
-            element_ct::template compute_secp256k1_endo_wnaf<4, 3, 0>(x_a);
+            element_ct::template compute_secp256k1_endo_wnaf<4, 0, 3>(x_a, false);
+            element_ct::template compute_secp256k1_endo_wnaf<4, 1, 2>(x_a, false);
+            element_ct::template compute_secp256k1_endo_wnaf<4, 2, 1>(x_a, false);
+            element_ct::template compute_secp256k1_endo_wnaf<4, 3, 0>(x_a, false);
         }
+        {
+            // Generate a random odd scalar
+            fr scalar_b(fr::random_element());
+            if ((uint256_t(scalar_b).get_bit(0) & 1) == 0) {
+                scalar_b += fr(1); // skew bit is 0
+            }
+            scalar_ct x_b = scalar_ct::from_witness(&builder, scalar_b);
+            element_ct::template compute_secp256k1_endo_wnaf<4, 0, 3>(x_b, false);
+            element_ct::template compute_secp256k1_endo_wnaf<4, 1, 2>(x_b, false);
+            element_ct::template compute_secp256k1_endo_wnaf<4, 2, 1>(x_b, false);
+            element_ct::template compute_secp256k1_endo_wnaf<4, 3, 0>(x_b, false);
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_wnaf_secp256k1_stagger_out_of_range_fails()
+    {
+        Builder builder = Builder();
+
+        // Generate a random even scalar
+        fr scalar_a(fr::random_element());
+        if ((uint256_t(scalar_a).get_bit(0) & 1) == 1) {
+            scalar_a -= fr(1); // skew bit is 1
+        }
+        scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);
+
+        // If we range constrain the wnaf entries, but the stagger is out of range, the circuit should
+        // fail.
+        element_ct::template compute_secp256k1_endo_wnaf</*wnaf_size=*/4, /*lo_stagger=*/10, /*hi_stagger=*/0>(
+            x_a, /*range_constrain_wnaf=*/true);
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder, false);
+        EXPECT_EQ(builder.err(), "biggroup_nafs: stagger fragment is not in range");
+    }
+
+    static void test_wnaf_secp256k1_scalar_exceeding_modulus_regression_1()
+    {
+        Builder builder = Builder();
+        const uint512_t scalar_field_modulus = scalar_ct::modulus_u512;
+
+        // Generate a random scalar k < r (r is the scalar field modulus).
+        const fr scalar_a = fr::random_element();
+        scalar_ct scalar_a_ct = scalar_ct::from_witness(&builder, scalar_a);
+
+        // Generate a large scalar k' := (k + mr) > r where r is the scalar field modulus and m >= 1
+        // We need k' be larger than 256 bits to test the edge case properly. We achieve this by choosing
+        // m = 2^256 / r + 1, which guarantees that r < 2^256 < k'.
+        uint512_t m = ((uint512_t(1) << 256) / scalar_field_modulus) + 1;
+        uint512_t large_value = uint512_t(scalar_a) + (m * scalar_field_modulus);
+        scalar_ct large_scalar_ct = scalar_ct::create_from_u512_as_witness(&builder, large_value, true);
+        EXPECT_EQ(large_scalar_ct.get_value() >= (uint512_t(1) << 256), true);
+        EXPECT_EQ(large_scalar_ct.get_value() >= uint512_t(scalar_field_modulus), true);
+        EXPECT_EQ(large_scalar_ct.get_value() % uint512_t(scalar_field_modulus), uint512_t(scalar_a));
+
+        // circuit wnaf computation should work fine for scalar k
+        element_ct::template compute_secp256k1_endo_wnaf<4, 0, 1>(scalar_a_ct, false);
+
+        // circuit wnaf computation should also work for the large scalar k'
+        element_ct::template compute_secp256k1_endo_wnaf<4, 0, 1>(large_scalar_ct, false);
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_wnaf_secp256k1_scalar_exceeding_modulus_regression_2()
+    {
+        Builder builder = Builder();
+        const uint512_t scalar_field_modulus = scalar_ct::modulus_u512;
+
+        // Generate a scalar k such that k < (2^256 - r)
+        const size_t num_allowed_bits = ((uint512_t(1) << 256) - scalar_field_modulus).get_msb();
+        const fr scalar_a = uint256_t(fr::random_element()) & ((uint256_t(1) << num_allowed_bits) - 1);
+        scalar_ct scalar_a_ct = scalar_ct::from_witness(&builder, scalar_a);
+
+        // Generate a large scalar k' := (k + r) < 2^256 (because k < 2^256 - r)
+        uint512_t large_value = uint512_t(scalar_a) + scalar_field_modulus;
+        scalar_ct large_scalar_ct = scalar_ct::create_from_u512_as_witness(&builder, large_value, true);
+        EXPECT_EQ(large_scalar_ct.get_value() < (uint512_t(1) << 256), true);
+        EXPECT_EQ(large_scalar_ct.get_value() >= uint512_t(scalar_field_modulus), true);
+        EXPECT_EQ(large_scalar_ct.get_value() % uint512_t(scalar_field_modulus), uint512_t(scalar_a));
+
+        // circuit wnaf computation should work fine for scalar k
+        element_ct::template compute_secp256k1_endo_wnaf<4, 0, 1>(scalar_a_ct, false);
+
+        // circuit wnaf computation should also work for the large scalar k'
+        element_ct::template compute_secp256k1_endo_wnaf<4, 0, 1>(large_scalar_ct, false);
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
@@ -64,17 +217,28 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
     static void test_wnaf_8bit_secp256k1()
     {
         Builder builder = Builder();
-        size_t num_repetitions = 1;
-        for (size_t i = 0; i < num_repetitions; ++i) {
+        { // Generate a random even scalar
             fr scalar_a(fr::random_element());
             if ((uint256_t(scalar_a).get_bit(0) & 1) == 1) {
                 scalar_a -= fr(1); // skew bit is 1
             }
             scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);
-            element_ct::template compute_secp256k1_endo_wnaf<8, 0, 3>(x_a);
-            element_ct::template compute_secp256k1_endo_wnaf<8, 1, 2>(x_a);
-            element_ct::template compute_secp256k1_endo_wnaf<8, 2, 1>(x_a);
-            element_ct::template compute_secp256k1_endo_wnaf<8, 3, 0>(x_a);
+            element_ct::template compute_secp256k1_endo_wnaf<8, 0, 3>(x_a, false);
+            element_ct::template compute_secp256k1_endo_wnaf<8, 1, 2>(x_a, false);
+            element_ct::template compute_secp256k1_endo_wnaf<8, 2, 1>(x_a, false);
+            element_ct::template compute_secp256k1_endo_wnaf<8, 3, 0>(x_a, false);
+        }
+        {
+            // Generate a random odd scalar
+            fr scalar_b(fr::random_element());
+            if ((uint256_t(scalar_b).get_bit(0) & 1) == 0) {
+                scalar_b += fr(1); // skew bit is 0
+            }
+            scalar_ct x_b = scalar_ct::from_witness(&builder, scalar_b);
+            element_ct::template compute_secp256k1_endo_wnaf<8, 0, 3>(x_b, false);
+            element_ct::template compute_secp256k1_endo_wnaf<8, 1, 2>(x_b, false);
+            element_ct::template compute_secp256k1_endo_wnaf<8, 2, 1>(x_b, false);
+            element_ct::template compute_secp256k1_endo_wnaf<8, 3, 0>(x_b, false);
         }
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
@@ -141,7 +305,8 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
         // accumulator in this case, i.e., we must do:
         // result.x = u2_high_skew ? result.x : acc.x;
         // result.y = u2_high_skew ? result.y : acc.y;
-        // result._is_point_at_infinity = u2_high_skew ? result._is_point_at_infinity : acc._is_point_at_infinity;
+        // result._is_point_at_infinity = u2_high_skew ? result._is_point_at_infinity :
+        // acc._is_point_at_infinity;
         //
         // We define a new function `conditional_select` that does this operation and use it to handle the skew
         // addition.
@@ -178,18 +343,17 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
     static void test_secp256k1_ecdsa_mul_stagger_regression()
     {
         // This test uses the same idea as the skew handling regression test above.
-        // However, in this test, we use scalars to ensure that we are correctly handling the stagger offsets before
-        // adding the skew points. The scalars s1, u1, u2 are chosen such that:
-        // Public key: P = (s1 * G)
+        // However, in this test, we use scalars to ensure that we are correctly handling the stagger offsets
+        // before adding the skew points. The scalars s1, u1, u2 are chosen such that: Public key: P = (s1 * G)
         //
         // u1 * G + u2 * (s1 * G) = ø
         //
         // where ø is the point at infinity. For this set of scalars, we have all the skews as 0.
-        // This means that we will reach the point at infinity while adding the stagger fragments of the scalars.
-        // Since we compute the wnaf with stagger offsets:
+        // This means that we will reach the point at infinity while adding the stagger fragments of the
+        // scalars. Since we compute the wnaf with stagger offsets:
         //
-        // compute_secp256k1_endo_wnaf<8, 2, 3>(u1);
-        // compute_secp256k1_endo_wnaf<4, 0, 1>(u2);
+        // compute_secp256k1_endo_wnaf<8, 2, 3>(u1, false);
+        // compute_secp256k1_endo_wnaf<4, 0, 1>(u2, false);
         //
         // we have the following stagger offsets:
         // u1_low stagger bits:   2  <== add_3 = 2G
@@ -202,9 +366,9 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
         //
         // After adding add_2, the x-coordinate of the accumulator is equal to the x-coordinate of add_3.
         // Using incomplete addition formulae, we catch a circuit error as the addition is not valid if the
-        // x-coordinates are equal. To avoid this, we use the complete addition formulae to add add_1, add_2, add_3
-        // to the accumulator. The increases the circuit size for secp256k1_ecdsa_mul by 730 gates but we accept that
-        // for now to ensure correctness.
+        // x-coordinates are equal. To avoid this, we use the complete addition formulae to add add_1, add_2,
+        // add_3 to the accumulator. The increases the circuit size for secp256k1_ecdsa_mul by 730 gates but we
+        // accept that for now to ensure correctness.
         //
         const uint256_t scalar_g1("0x9d496650d261d31af6aa4cf41e435ed739d0fe2c34728a21a0df5c66a3504ccd");
         const uint256_t scalar_u1("0xf3d9f52f0f55d3da6f902aa842aa604005633f3d165bc800f3a3aa661b18df5f");
@@ -239,9 +403,29 @@ using Secp256k1TestTypes =
 TYPED_TEST_SUITE(stdlibBiggroupSecp256k1, Secp256k1TestTypes);
 
 // Define the individual tests
+TYPED_TEST(stdlibBiggroupSecp256k1, GetStaggeredWnafFragmentValue4bit)
+{
+    TestFixture::template test_get_staggered_wnaf_fragment_value<4>();
+}
+TYPED_TEST(stdlibBiggroupSecp256k1, GetStaggeredWnafFragmentValue8bit)
+{
+    TestFixture::template test_get_staggered_wnaf_fragment_value<8>();
+}
 TYPED_TEST(stdlibBiggroupSecp256k1, WnafSecp256k1)
 {
     TestFixture::test_wnaf_secp256k1();
+}
+TYPED_TEST(stdlibBiggroupSecp256k1, WnafSecp256k1StaggerOutOfRangeFails)
+{
+    TestFixture::test_wnaf_secp256k1_stagger_out_of_range_fails();
+}
+TYPED_TEST(stdlibBiggroupSecp256k1, WnafSecp256k1LargeScalarRegression1)
+{
+    TestFixture::test_wnaf_secp256k1_scalar_exceeding_modulus_regression_1();
+}
+TYPED_TEST(stdlibBiggroupSecp256k1, WnafSecp256k1LargeScalarRegression2)
+{
+    TestFixture::test_wnaf_secp256k1_scalar_exceeding_modulus_regression_2();
 }
 TYPED_TEST(stdlibBiggroupSecp256k1, Wnaf8bitSecp256k1)
 {

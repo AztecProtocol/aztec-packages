@@ -2,10 +2,11 @@
 pub mod traits;
 
 // The modules below are in a specific order that makes derivation of serde traits work.
-pub mod utils;
 pub mod address;
 pub mod debug_log;
 pub mod debug;
+pub mod side_effect;
+pub mod utils;
 pub mod public_keys;
 pub mod point;
 pub mod scalar;

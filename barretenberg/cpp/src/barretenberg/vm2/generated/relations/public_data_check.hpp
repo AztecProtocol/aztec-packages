@@ -14,8 +14,9 @@ template <typename FF_> class public_data_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 28> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 5, 4,
-                                                                            4, 4, 3, 3, 4, 3, 4, 2, 4, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 31> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 3, 2, 3, 3,
+                                                                            3, 3, 5, 3, 5, 4, 4, 4, 3, 3, 4,
+                                                                            3, 4, 2, 4, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -37,22 +38,25 @@ template <typename FF> class public_data_check : public Relation<public_data_che
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_START_CONDITION = 1;
-    static constexpr size_t SR_CLK_DIFF_DECOMP = 6;
-    static constexpr size_t SR_EXISTS_FLAG_CHECK = 10;
-    static constexpr size_t SR_NEXT_SLOT_IS_ZERO_CHECK = 12;
-    static constexpr size_t SR_LOW_LEAF_VALUE_UPDATE = 13;
-    static constexpr size_t SR_LOW_LEAF_NEXT_INDEX_UPDATE = 14;
-    static constexpr size_t SR_LOW_LEAF_NEXT_SLOT_UPDATE = 15;
-    static constexpr size_t SR_VALUE_IS_CORRECT = 18;
-    static constexpr size_t SR_UPDATE_ROOT_VALIDATION = 20;
-    static constexpr size_t SR_WRITE_IDX_INITIAL_VALUE = 22;
-    static constexpr size_t SR_WRITE_IDX_INCREMENT = 25;
+    static constexpr size_t SR_PROTOCOL_WRITE_CHECK = 8;
+    static constexpr size_t SR_CLK_DIFF_DECOMP = 9;
+    static constexpr size_t SR_EXISTS_FLAG_CHECK = 13;
+    static constexpr size_t SR_NEXT_SLOT_IS_ZERO_CHECK = 15;
+    static constexpr size_t SR_LOW_LEAF_VALUE_UPDATE = 16;
+    static constexpr size_t SR_LOW_LEAF_NEXT_INDEX_UPDATE = 17;
+    static constexpr size_t SR_LOW_LEAF_NEXT_SLOT_UPDATE = 18;
+    static constexpr size_t SR_VALUE_IS_CORRECT = 21;
+    static constexpr size_t SR_UPDATE_ROOT_VALIDATION = 23;
+    static constexpr size_t SR_WRITE_IDX_INITIAL_VALUE = 25;
+    static constexpr size_t SR_WRITE_IDX_INCREMENT = 28;
 
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
         case SR_START_CONDITION:
             return "START_CONDITION";
+        case SR_PROTOCOL_WRITE_CHECK:
+            return "PROTOCOL_WRITE_CHECK";
         case SR_CLK_DIFF_DECOMP:
             return "CLK_DIFF_DECOMP";
         case SR_EXISTS_FLAG_CHECK:

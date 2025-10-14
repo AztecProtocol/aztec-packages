@@ -1,12 +1,10 @@
 use crate::{
-    abis::{
-        read_request::ScopedReadRequest,
-        validation_requests::scoped_key_validation_request_and_generator::ScopedKeyValidationRequestAndGenerator,
-    },
+    abis::validation_requests::key_validation_request_and_generator::KeyValidationRequestAndGenerator,
     constants::{
         MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX,
     },
+    side_effect::{Counted, Scoped},
     traits::Empty,
     utils::arrays::ClaimedLengthArray,
 };
@@ -14,24 +12,18 @@ use std::meta::derive;
 
 #[derive(Eq)]
 pub struct PrivateValidationRequests {
-    pub note_hash_read_requests: ClaimedLengthArray<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-    pub nullifier_read_requests: ClaimedLengthArray<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-    pub scoped_key_validation_requests_and_generators: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+    pub note_hash_read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+    pub nullifier_read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+    pub scoped_key_validation_requests_and_generators: ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
     pub split_counter: Option<u32>,
 }
 
 impl Empty for PrivateValidationRequests {
     fn empty() -> Self {
-        let empty_note_hash_read_requests: ClaimedLengthArray<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX> =
-            ClaimedLengthArray::empty();
-        let empty_nullifier_read_requests: ClaimedLengthArray<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX> =
-            ClaimedLengthArray::empty();
-        let empty_scoped_key_validation_requests: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX> =
-            ClaimedLengthArray::empty();
         PrivateValidationRequests {
-            note_hash_read_requests: empty_note_hash_read_requests,
-            nullifier_read_requests: empty_nullifier_read_requests,
-            scoped_key_validation_requests_and_generators: empty_scoped_key_validation_requests,
+            note_hash_read_requests: ClaimedLengthArray::empty(),
+            nullifier_read_requests: ClaimedLengthArray::empty(),
+            scoped_key_validation_requests_and_generators: ClaimedLengthArray::empty(),
             split_counter: Option::none(),
         }
     }

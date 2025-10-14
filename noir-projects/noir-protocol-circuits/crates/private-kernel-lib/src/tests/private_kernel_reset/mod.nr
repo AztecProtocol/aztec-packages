@@ -14,14 +14,10 @@ use crate::{
 };
 use dep::types::{
     abis::{
-        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        note_hash::ScopedNoteHash,
-        note_hash_leaf_preimage::NoteHashLeafPreimage,
-        nullifier::ScopedNullifier,
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::NoteHash,
+        note_hash_leaf_preimage::NoteHashLeafPreimage, nullifier::Nullifier,
         nullifier_leaf_preimage::NullifierLeafPreimage,
-        private_kernel_data::PrivateKernelDataWithoutPublicInputs,
-        private_log::PrivateLogData,
-        side_effect::{Ordered, scoped::Scoped},
+        private_kernel_data::PrivateKernelDataWithoutPublicInputs, private_log::PrivateLogData,
     },
     address::AztecAddress,
     constants::{
@@ -35,6 +31,7 @@ use dep::types::{
         silo_note_hash, silo_nullifier, silo_private_log,
     },
     merkle_tree::{LeafPreimage, MembershipWitness},
+    side_effect::{Counted, Ordered, Scoped},
     tests::{
         fixture_builder::FixtureBuilder,
         merkle_tree_utils::SingleSubtreeMerkleTree,
@@ -186,9 +183,9 @@ impl TestBuilder {
     }
 
     pub fn nullify_pending_note_hash(&mut self, nullifier_index: u32, note_hash_index: u32) {
-        let note_hash = self.previous_kernel.note_hashes.get(note_hash_index).note_hash;
+        let note_hash = self.previous_kernel.note_hashes.get(note_hash_index).innermost();
         let mut nullifier = self.previous_kernel.nullifiers.get(nullifier_index);
-        nullifier.nullifier.note_hash = note_hash.value;
+        nullifier.inner.inner.note_hash = note_hash;
         self.previous_kernel.nullifiers.set(nullifier_index, nullifier);
         // Safety: this is only used in tests.
         let num_hints = unsafe {
@@ -224,8 +221,8 @@ impl TestBuilder {
 
     pub fn compute_output_note_hashes<let N: u32>(
         self: Self,
-        note_hashes: [ScopedNoteHash; N],
-    ) -> [ScopedNoteHash; N] {
+        note_hashes: [Scoped<Counted<NoteHash>>; N],
+    ) -> [Scoped<Counted<NoteHash>>; N] {
         let is_private_only = self.previous_kernel.is_private_only;
         let min_revertible_side_effect_counter =
             self.previous_kernel.min_revertible_side_effect_counter;
@@ -240,7 +237,7 @@ impl TestBuilder {
                 i,
             );
             // We don't silo with nonce revertible note hashes, since we don't know their final position in the tx
-            output[i].note_hash.value = if is_private_only
+            output[i].inner.inner = if is_private_only
                 | (note_hash.counter() < min_revertible_side_effect_counter) {
                 unique_note_hash
             } else {
@@ -253,11 +250,11 @@ impl TestBuilder {
 
     pub fn compute_output_nullifiers<let N: u32>(
         _self: Self,
-        nullifiers: [ScopedNullifier; N],
-    ) -> [ScopedNullifier; N] {
+        nullifiers: [Scoped<Counted<Nullifier>>; N],
+    ) -> [Scoped<Counted<Nullifier>>; N] {
         let mut output = nullifiers;
         for i in 0..N {
-            output[i].nullifier.value = silo_nullifier(nullifiers[i]);
+            output[i].inner.inner.value = silo_nullifier(nullifiers[i]);
             output[i].contract_address = AztecAddress::zero();
         }
         output
@@ -265,14 +262,14 @@ impl TestBuilder {
 
     pub fn compute_output_private_logs<let N: u32>(
         _self: Self,
-        private_logs: [Scoped<PrivateLogData>; N],
-    ) -> [Scoped<PrivateLogData>; N] {
-        private_logs.map(|l: Scoped<PrivateLogData>| {
+        private_logs: [Scoped<Counted<PrivateLogData>>; N],
+    ) -> [Scoped<Counted<PrivateLogData>>; N] {
+        private_logs.map(|l| {
             PrivateLogData {
                 log: silo_private_log(l),
-                note_hash_counter: l.inner.note_hash_counter,
-                counter: l.inner.counter,
+                note_hash_counter: l.innermost().note_hash_counter,
             }
+                .count(l.inner.counter)
                 .scope(AztecAddress::zero())
         })
     }

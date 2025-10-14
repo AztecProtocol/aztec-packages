@@ -86,7 +86,7 @@ fn settled_note_hash_read_request_non_existing_leaf() {
     builder.read_settled_note_hash(1);
     // Change the read request to read a value that does not exist in the note hash tree.
     let mut read_request = builder.previous_kernel.note_hash_read_requests.pop();
-    read_request.read_request.value = 99;
+    read_request.inner.inner = 99;
     builder.previous_kernel.note_hash_read_requests.push(read_request);
 
     // Change the hint to a different value.
@@ -194,7 +194,7 @@ fn settled_nullifier_read_request_non_existing_leaf() {
     builder.read_settled_nullifier(1);
     // Change the read request to read a value that does not exist in the nullifier tree.
     let mut read_request = builder.previous_kernel.nullifier_read_requests.pop();
-    read_request.read_request.value = 99;
+    read_request.inner.inner = 99;
     builder.previous_kernel.nullifier_read_requests.push(read_request);
 
     // Change the hint to a different value.
