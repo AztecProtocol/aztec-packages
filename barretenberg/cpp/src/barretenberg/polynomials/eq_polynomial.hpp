@@ -220,7 +220,7 @@ template <typename FF> struct VerifierEqPolynomial {
         }
     }
 
-    // ---- One-shot evaluation: eq(r, u) ----
+    // ---- Evaluate eq(X, r) at u ----
     FF evaluate(std::span<const FF> u) const
     {
         assert(u.size() == r.size());
@@ -232,7 +232,7 @@ template <typename FF> struct VerifierEqPolynomial {
         return acc;
     }
 
-    // ---- Static convenience: one-shot eq(r, u) without constructing the object ----
+    // ---- Compute eq(r, u) without constructing the object ----
     static FF eval(std::span<const FF> r_in, std::span<const FF> u)
     {
         assert(r_in.size() == u.size());
