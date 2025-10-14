@@ -165,17 +165,16 @@ void PrecomputedTraceBuilder::process_tag_parameters(TraceContainer& trace)
     using C = Column;
     using bb::avm2::MemoryTag;
 
-    // Column number corresponds to MemoryTag enum value.
-    // TODO(MW): Q: is there a better way to iterate over all values in an enum?
-    const auto tags = { MemoryTag::FF,  MemoryTag::U1,  MemoryTag::U8,  MemoryTag::U16,
-                        MemoryTag::U32, MemoryTag::U64, MemoryTag::U128 };
-
-    for (const auto& tag : tags) {
-        trace.set(static_cast<uint32_t>(tag),
-                  { { { C::precomputed_sel_tag_parameters, 1 },
+    constexpr uint32_t NUM_TAGS = static_cast<uint32_t>(MemoryTag::MAX) + 1;
+    for (uint32_t i = 0; i < NUM_TAGS; i++) {
+        const auto tag = static_cast<MemoryTag>(i);
+        trace.set(i, // Column number corresponds to MemoryTag enum value.
+                  { {
+                      { C::precomputed_sel_tag_parameters, 1 },
                       { C::precomputed_tag_byte_length, get_tag_bytes(tag) },
                       { C::precomputed_tag_max_bits, get_tag_bits(tag) },
-                      { C::precomputed_tag_max_value, get_tag_max_value(tag) } } });
+                      { C::precomputed_tag_max_value, get_tag_max_value(tag) },
+                  } });
     }
 }
 
