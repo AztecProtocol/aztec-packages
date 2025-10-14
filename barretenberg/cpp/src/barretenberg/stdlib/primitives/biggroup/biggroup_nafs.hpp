@@ -403,9 +403,6 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
 template <typename C, class Fq, class Fr, class G>
 std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, const size_t max_num_bits)
 {
-    // We are not handling the case of odd bit lengths here.
-    BB_ASSERT_EQ(max_num_bits % 2, 0U);
-
     // Get the circuit builder
     C* ctx = scalar.context;
 
@@ -435,7 +432,7 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
     naf_entries[num_rounds].set_origin_tag(scalar.get_origin_tag());
 
     for (size_t i = 0; i < num_rounds - 1; ++i) {
-        // If the next entry is false, we need to flip the sign of the current entry. i.e. make negative
+        // If the next entry is false, we need to flip the sign of the current entry (naf_entry := (1 - next_bit)).
         // Apply a basic range constraint per bool, and not a full 1-bit range gate. Results in ~`num_rounds`/4 gates
         // per scalar.
         const bool next_entry = scalar_multiplier.get_bit(i + 1);
@@ -445,8 +442,10 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
         naf_entries[num_rounds - i - 1].set_origin_tag(scalar.get_origin_tag());
     }
 
-    // The most significant NAF entry is always false as we are working with scalars < r.
-    naf_entries[0] = bool_ct(ctx, false);
+    // The most significant NAF entry is always (+1) as we are working with scalars < 2^{max_num_bits}.
+    // Recall that true represents (-1) and false represents (+1).
+    naf_entries[0] = bool_ct(witness_ct(ctx, false), /*use_range_constraint*/ true);
+    naf_entries[0].set_origin_tag(scalar.get_origin_tag());
 
     // validate correctness of NAF
     if constexpr (!Fr::is_composite) {
@@ -464,7 +463,6 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
         scalar.assert_equal(accumulator_result);
     } else {
         const auto reconstruct_half_naf = [](bool_ct* nafs, const size_t half_round_length) {
-            // Q: need constraint to start from zero?
             field_t<C> negative_accumulator(0);
             field_t<C> positive_accumulator(0);
             for (size_t i = 0; i < half_round_length; ++i) {

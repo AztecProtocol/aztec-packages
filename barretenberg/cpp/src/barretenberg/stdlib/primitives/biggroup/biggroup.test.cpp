@@ -1290,8 +1290,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     {
         Builder builder = Builder();
         size_t max_num_bits = 254;
-        // Our design of NAF and the way it is used assumes the even length of scalars.
-        for (size_t length = 2; length < max_num_bits; length += 2) {
+        for (size_t length = 2; length < max_num_bits; length += 1) {
 
             fr scalar_val;
 
@@ -1313,7 +1312,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
                 // Check that the tag is propagated to bits
                 EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
             }
-            // scalar = -naf[254] + \sum_{i=0}^{253}(1-2*naf[i]) 2^{253-i}
+            // scalar = -naf[L] + \sum_{i=0}^{L-1}(1-2*naf[i]) 2^{L-1-i}
             fr reconstructed_val(0);
             for (size_t i = 0; i < length; i++) {
                 reconstructed_val += (fr(1) - fr(2) * fr(naf[i].get_value())) * fr(uint256_t(1) << (length - 1 - i));
@@ -1321,6 +1320,40 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             reconstructed_val -= fr(naf[length].get_value());
             EXPECT_EQ(scalar_val, reconstructed_val);
         }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_compute_naf_zero()
+    {
+        Builder builder = Builder();
+        size_t length = 254;
+
+        // Our algorithm for input 0 outputs the NAF representation of r (the field modulus)
+        fr scalar_val(0);
+
+        scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
+
+        // Set tag for scalar
+        scalar.set_origin_tag(submitted_value_origin_tag);
+        auto naf = element_ct::compute_naf(scalar, length);
+
+        for (const auto& bit : naf) {
+            // Check that the tag is propagated to bits
+            EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
+        }
+
+        // scalar = -naf[L] + \sum_{i=0}^{L-1}(1-2*naf[i]) 2^{L-1-i}
+        fr reconstructed_val(0);
+        uint256_t reconstructed_u256(0);
+        for (size_t i = 0; i < length; i++) {
+            reconstructed_val += (fr(1) - fr(2) * fr(naf[i].get_value())) * fr(uint256_t(1) << (length - 1 - i));
+            reconstructed_u256 +=
+                (uint256_t(1) - uint256_t(2) * uint256_t(naf[i].get_value())) * (uint256_t(1) << (length - 1 - i));
+        };
+        reconstructed_val -= fr(naf[length].get_value());
+        EXPECT_EQ(scalar_val, reconstructed_val);
+        EXPECT_EQ(reconstructed_u256, uint256_t(fr::modulus));
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
@@ -1672,6 +1705,16 @@ HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
         for (size_t i = 0; i < num_repetitions; i++) {
             TestFixture::test_compute_naf();
         }
+    } else {
+        GTEST_SKIP();
+    }
+}
+
+TYPED_TEST(stdlib_biggroup, compute_naf_zero)
+{
+    // ULTRATODO: make this work for secp curves
+    if constexpr ((TypeParam::Curve::type == CurveType::BN254) && !HasGoblinBuilder<TypeParam>) {
+        TestFixture::test_compute_naf_zero();
     } else {
         GTEST_SKIP();
     }
