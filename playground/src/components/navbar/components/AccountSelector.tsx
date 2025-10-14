@@ -14,7 +14,7 @@ import SwitchAccountIcon from '@mui/icons-material/SwitchAccount';
 import { trackButtonClick } from '../../../utils/matomo';
 
 export function AccountSelector() {
-  const { setFrom, wallet, from, currentTx } = useContext(AztecContext);
+  const { setFrom, wallet, from, currentTx, isEmbeddedWalletSelected } = useContext(AztecContext);
 
   const [areAccountsLoading, setAreAccountsLoading] = useState(false);
   const [accounts, setAccounts] = useState<Aliased<AztecAddress>[]>([]);
@@ -82,7 +82,7 @@ export function AccountSelector() {
           renderValue={selected => {
             const account = accounts.find(account => account.item.toString() === selected);
             if (account) {
-              return `${account?.alias.split(':')[1]} (${formatFrAsString(account?.item.toString())})`;
+              return `${isEmbeddedWalletSelected ? account?.alias.split(':')[1] : account.alias} (${formatFrAsString(account?.item.toString())})`;
             }
             return selected ?? 'Select Account';
           }}
@@ -105,7 +105,7 @@ export function AccountSelector() {
 
           {accounts.map(account => (
             <MenuItem key={account.alias} value={account.item.toString()}>
-              {account.alias.split(':')[1]}&nbsp;(
+              {isEmbeddedWalletSelected ? account.alias.split(':')[1] : account.alias}&nbsp;(
               {formatFrAsString(account.item.toString())})
             </MenuItem>
           ))}

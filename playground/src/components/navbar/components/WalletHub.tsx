@@ -1,6 +1,6 @@
 import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
 import WalletIcon from '@mui/icons-material/Wallet';
-import { CircularProgress, css, FormControl, IconButton, MenuItem, Select, Typography } from '@mui/material';
+import { CircularProgress, FormControl, IconButton, MenuItem, Select, Typography } from '@mui/material';
 
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -26,7 +26,7 @@ export function WalletHub() {
   const [open, setOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [openWalletModal, setOpenWalletModal] = useState(false);
-  const { setWallet, network, wallet, setIsEmbeddedWalletSelected, node } = useContext(AztecContext);
+  const { setWallet, network, wallet, node } = useContext(AztecContext);
   const { sendTx } = useTransaction();
 
   useEffect(() => {
