@@ -10,6 +10,7 @@ import { PrivateCircuitPublicInputs } from '../kernel/private_circuit_public_inp
 import type { IsEmpty } from '../kernel/utils/interfaces.js';
 import { sortByCounter } from '../kernel/utils/order_and_comparison.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/contract_class_log.js';
+import { type IndexedTaggingSecret, IndexedTaggingSecretSchema } from '../logs/indexed_tagging_secret.js';
 import { Note } from '../note/note.js';
 import { type ZodFor, mapSchema, schemas } from '../schemas/index.js';
 import type { UInt32 } from '../types/index.js';
@@ -135,6 +136,8 @@ export class PrivateCallExecutionResult {
     public returnValues: Fr[],
     /** The offchain effects emitted during execution of this function call via the `emit_offchain_effect` oracle. */
     public offchainEffects: { data: Fr[] }[],
+    /** The tagging indexes incremented by this execution along with the directional app tagging secrets. */
+    public indexedTaggingSecrets: IndexedTaggingSecret[],
     /** The nested executions. */
     public nestedExecutionResults: PrivateCallExecutionResult[],
     /**
@@ -158,6 +161,7 @@ export class PrivateCallExecutionResult {
         noteHashNullifierCounterMap: mapSchema(z.coerce.number(), z.number()),
         returnValues: z.array(schemas.Fr),
         offchainEffects: z.array(z.object({ data: z.array(schemas.Fr) })),
+        indexedTaggingSecrets: z.array(IndexedTaggingSecretSchema),
         nestedExecutionResults: z.array(z.lazy(() => PrivateCallExecutionResult.schema)),
         contractClassLogs: z.array(CountedContractClassLog.schema),
       })
@@ -175,6 +179,7 @@ export class PrivateCallExecutionResult {
       fields.noteHashNullifierCounterMap,
       fields.returnValues,
       fields.offchainEffects,
+      fields.indexedTaggingSecrets,
       fields.nestedExecutionResults,
       fields.contractClassLogs,
     );
@@ -195,6 +200,7 @@ export class PrivateCallExecutionResult {
           data: [Fr.random()],
         },
       ],
+      [],
       await timesParallel(nested, () => PrivateCallExecutionResult.random(0)),
       [new CountedContractClassLog(await ContractClassLog.random(), randomInt(10))],
     );

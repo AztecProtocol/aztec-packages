@@ -1,7 +1,6 @@
 include "poseidon2_perm.pil";
 include "constants_gen.pil";
 include "precomputed.pil";
-include "execution.pil";
 include "gt.pil";
 
 /**
@@ -216,23 +215,3 @@ namespace poseidon2_perm_mem;
         memory.address,                  memory.value,
         memory.tag,                      memory.rw
     };
-
-    ////////////////////////////////////////////////
-    // Dispatch from execution trace
-    ////////////////////////////////////////////////
-    #[DISPATCH_EXEC_POS2]
-    execution.sel_execute_poseidon2_perm {
-        precomputed.clk,
-        execution.context_id,
-        execution.rop[0],
-        execution.rop[1],
-        execution.sel_opcode_error
-    } is
-    sel {
-        execution_clk,
-        space_id,
-        read_address[0],
-        write_address[0],
-        err
-    };
-

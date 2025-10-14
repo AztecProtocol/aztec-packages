@@ -324,7 +324,7 @@ export class NodeKeystoreAdapter implements ExtendedValidatorKeyStore {
    */
   getCoinbaseAddress(attesterAddress: EthAddress): EthAddress {
     const validatorIndex = this.findValidatorIndexForAttester(attesterAddress);
-    return this.keystoreManager.getCoinbaseAddress(validatorIndex);
+    return this.keystoreManager.getCoinbaseAddress(validatorIndex, attesterAddress);
   }
 
   /**

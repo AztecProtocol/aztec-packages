@@ -7,38 +7,38 @@ import type { Ordered } from './utils/interfaces.js';
 export class Nullifier implements Ordered {
   constructor(
     public value: Fr,
-    public counter: number,
     public noteHash: Fr,
+    public counter: number,
   ) {}
 
   toFields(): Fr[] {
-    return [this.value, new Fr(this.counter), this.noteHash];
+    return [this.value, this.noteHash, new Fr(this.counter)];
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return new Nullifier(reader.readField(), reader.readU32(), reader.readField());
+    return new Nullifier(reader.readField(), reader.readField(), reader.readU32());
   }
 
   isEmpty() {
-    return this.value.isZero() && !this.counter && this.noteHash.isZero();
+    return this.value.isZero() && this.noteHash.isZero() && !this.counter;
   }
 
   static empty() {
-    return new Nullifier(Fr.zero(), 0, Fr.zero());
+    return new Nullifier(Fr.zero(), Fr.zero(), 0);
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer(this.value, this.counter, this.noteHash);
+    return serializeToBuffer(this.value, this.noteHash, this.counter);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new Nullifier(Fr.fromBuffer(reader), reader.readNumber(), Fr.fromBuffer(reader));
+    return new Nullifier(Fr.fromBuffer(reader), Fr.fromBuffer(reader), reader.readNumber());
   }
 
   toString(): string {
-    return `value=${this.value} counter=${this.counter} noteHash=${this.noteHash}`;
+    return `value=${this.value} noteHash=${this.noteHash} counter=${this.counter}`;
   }
 
   scope(contractAddress: AztecAddress) {

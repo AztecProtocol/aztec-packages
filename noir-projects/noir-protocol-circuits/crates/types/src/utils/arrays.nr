@@ -16,8 +16,7 @@ pub mod sort_by_counter;
 pub use assert_array_appended::{
     assert_array_appended, assert_array_appended_and_scoped,
     assert_array_appended_reversed_to_empty_dest, assert_array_appended_reversed_up_to_some_length,
-    assert_array_appended_scoped, assert_array_appended_to_empty_dest,
-    assert_array_appended_to_empty_dest_and_scoped, assert_array_appended_to_empty_dest_scoped,
+    assert_array_appended_to_empty_dest, assert_array_appended_to_empty_dest_and_scoped,
 };
 pub use assert_array_prepended::{assert_array_prepended, assert_array_prepended_up_to_some_length};
 pub use assert_exposed_sorted_transformed_value_array::{

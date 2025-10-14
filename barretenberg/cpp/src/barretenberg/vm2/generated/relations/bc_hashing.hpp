@@ -42,7 +42,7 @@ template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {
     static constexpr size_t SR_PC_INCREMENTS = 7;
     static constexpr size_t SR_PC_INCREMENTS_1 = 8;
     static constexpr size_t SR_PC_INCREMENTS_2 = 9;
-    static constexpr size_t SR_ID_CONSISTENCY = 10;
+    static constexpr size_t SR_ID_PROPAGATION = 10;
     static constexpr size_t SR_START_IS_SEPARATOR = 11;
     static constexpr size_t SR_PADDING_CONSISTENCY = 14;
     static constexpr size_t SR_PADDING_END = 15;
@@ -51,7 +51,7 @@ template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {
     static constexpr size_t SR_PADDING_CORRECTNESS = 18;
     static constexpr size_t SR_BYTECODE_LENGTH_FIELDS = 19;
     static constexpr size_t SR_ROUNDS_DECREMENT = 20;
-    static constexpr size_t SR_HASH_CONSISTENCY = 21;
+    static constexpr size_t SR_HASH_IS_ID = 21;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -68,8 +68,8 @@ template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {
             return "PC_INCREMENTS_1";
         case SR_PC_INCREMENTS_2:
             return "PC_INCREMENTS_2";
-        case SR_ID_CONSISTENCY:
-            return "ID_CONSISTENCY";
+        case SR_ID_PROPAGATION:
+            return "ID_PROPAGATION";
         case SR_START_IS_SEPARATOR:
             return "START_IS_SEPARATOR";
         case SR_PADDING_CONSISTENCY:
@@ -86,8 +86,8 @@ template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {
             return "BYTECODE_LENGTH_FIELDS";
         case SR_ROUNDS_DECREMENT:
             return "ROUNDS_DECREMENT";
-        case SR_HASH_CONSISTENCY:
-            return "HASH_CONSISTENCY";
+        case SR_HASH_IS_ID:
+            return "HASH_IS_ID";
         }
         return std::to_string(index);
     }

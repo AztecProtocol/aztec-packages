@@ -223,7 +223,7 @@ mod tests {
     fn first_nullifier_validation() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         let mut first_nullifier = builder.previous_kernel.nullifiers.get(0);
-        first_nullifier.nullifier.value += 1;
+        first_nullifier.inner.inner.value += 1;
         builder.previous_kernel.nullifiers.set(0, first_nullifier);
         builder.failed();
     }
@@ -321,21 +321,23 @@ mod tests {
         let public_inputs = builder.execute();
 
         // Note hashes.
-        let note_hashes = builder.previous_kernel.note_hashes.storage().map(|n| n.note_hash.value);
+        let note_hashes =
+            builder.previous_kernel.note_hashes.storage().map(|n| n.expose_to_public());
         assert_array_eq(
             public_inputs.end.note_hashes,
             [note_hashes[0], note_hashes[1], note_hashes[2], note_hashes[3]],
         );
 
         // Nullifiers.
-        let nullifiers = builder.previous_kernel.nullifiers.storage().map(|n| n.nullifier.value);
+        let nullifiers = builder.previous_kernel.nullifiers.storage().map(|n| n.expose_to_public());
         assert_array_eq(
             public_inputs.end.nullifiers,
             [nullifiers[0], nullifiers[1], nullifiers[2], nullifiers[3]],
         );
 
         // Private logs.
-        let private_logs = builder.previous_kernel.private_logs.storage().map(|l| l.inner.log);
+        let private_logs =
+            builder.previous_kernel.private_logs.storage().map(|l| l.innermost().log);
         assert_array_eq(
             public_inputs.end.private_logs,
             [private_logs[0], private_logs[1], private_logs[2], private_logs[3]],

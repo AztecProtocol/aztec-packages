@@ -7,7 +7,7 @@ description: Pay transaction fees on Aztec using different payment methods and f
 
 import { Fees } from '@site/src/components/Snippets/general_snippets';
 
-This guide shows you how to pay transaction fees on Aztec using various payment methods.
+This guide walks you through paying transaction fees on Aztec using various payment methods.
 
 ## Prerequisites
 
@@ -21,7 +21,9 @@ This guide shows you how to pay transaction fees on Aztec using various payment 
 
 ## Pay with Fee Juice
 
-Fee Juice is the native fee token on Aztec. Fees are paid using this token:
+Fee Juice is the native fee token on Aztec.
+
+If your account has Fee Juice (for example, from a faucet), is [deployed](./how_to_create_account.md), and is registered in your wallet, you can pay for a function call using the `FeeJuicePaymentMethod`:
 
 ```typescript
 import { FeeJuicePaymentMethod } from '@aztec/aztec.js';
@@ -42,13 +44,15 @@ const tx = await contract.methods
 console.log('Transaction fee:', tx.transactionFee);
 ```
 
+## Use Fee Payment Contracts
+
+Fee Payment Contracts (FPC) pay fees on your behalf, typically accepting a different token than Fee Juice. Since Fee Juice is non-transferable on L2, FPCs are the most common fee payment method.
+
 ### Sponsored Fee Payment Contracts
 
-Fee Payment Contracts (FPC) are contracts that pay on your behalf, usually accepting a different token than fee-juice. Since fee-juice is non-transferrable on Aztec, this will likely be the most used way to pay for fees.
+The Sponsored FPC pays for fees unconditionally without requiring payment in return. It is available on both the sandbox and the testnet (deployed by Aztec Labs).
 
-The Sponsored FPC is just an FPC that pays for your fees, except... it doesn't want anything in return. It unconditionally pays for your fees.
-
-You can derive the Sponsored FPC address just by knowing its deployment parameters and salt (which defaults to `0`):
+You can derive the Sponsored FPC address from its deployment parameters and salt (which defaults to `0`):
 
 ```typescript
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
@@ -57,30 +61,31 @@ import { getContractInstanceFromInstantiationParams, SponsoredFeePaymentMethod }
 const sponsoredFPCInstance = await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
   salt: new Fr(0),
 });
+```
 
-// you need to tell your PXE about this new contract
-await pxe.registerContract({ instance: sponsoredFPCInstance, artifact: SponsoredFPCContract.artifact });
+Register the contract with your wallet before deploying and using it:
+
+```typescript
+await wallet.registerContract(sponsoredFPCInstance, SponsoredFPCContract.artifact);
 const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPCInstance.address);
 
-// Deploy account for free
-await yourAccount.deploy({
-    fee: { sponsoredPaymentMethod }
-}).wait();
+// deploy account for free
+const deployMethod = await yourAccount.getDeployMethod();
+const txHash = await deployMethod.send({
+    from: AztecAddress.ZERO,
+    fee: { paymentMethod: sponsoredPaymentMethod}
+}).wait()
 
 ```
 
-## Use Other Fee Paying Contracts (FPCs)
+### Use other Fee Paying Contracts
 
-On a different scenario, a third-party would be glad to pay for your fees using their own logic like accepting a different token instead of Fee Juice.
+Third-party FPCs can pay for your fees using custom logic, such as accepting different tokens instead of Fee Juice.
 
-### Private fee payments
-
-Pay fees privately using a private FPC:
+Private FPCs enable fee payments without revealing the payer's identity onchain:
 
 ```typescript
 import { PrivateFeePaymentMethod } from '@aztec/aztec.js';
-
-// Private FPCs enable fee payments without revealing the payer's identity onchain.
 const paymentMethod = new PrivateFeePaymentMethod(
     fpcAddress,
     senderAddress,
@@ -98,7 +103,7 @@ const tx = await contract.methods
     .wait();
 ```
 
-A Public FPC payment method would look something like:
+Public FPCs can be used in the same way:
 
 ```typescript
 
@@ -112,11 +117,77 @@ const paymentMethod = new PublicFeePaymentMethod(
 
 ```
 
+## Bridge Fee Juice from L1
+
+Fee Juice is non-transferable on L2, but you can bridge it from L1, claim it on L2, and use it. This involves a few components that are part of a running network's infrastructure:
+
+- An L1 fee juice contract
+- An L1 fee juice portal
+- An L2 fee juice portal
+- An L2 fee juice contract
+
+`aztec.js` provides helpers to simplify the process:
+
+```typescript
+// essentially returns an extended wallet from Viem
+import { createExtendedL1Client } from '@aztec/ethereum';
+const walletClient = createExtendedL1Client(
+    ['https://your-ethereum-host'], // ex. http://localhost:8545 on the Sandbox (yes it runs Anvil under the hood)
+    privateKey // the private key for some account, needs funds for gas!
+);
+
+// a helper to interact with the L1 fee juice portal
+import { L1FeeJuicePortalManager } from '@aztec/aztec.js';
+const portalManager = await L1FeeJuicePortalManager.new(
+    node, // your Aztec node, ex. https://aztec-testnet-fullnode.zkv.xyz, or http://localhost:8080 for Sandbox
+    walletClient,
+    logger, // a logger, ex. import { createLogger } from "@aztec/aztec.js"
+)
+```
+
+Under the hood, `L1FeeJuicePortalManager` gets the L1 addresses from the node `node_getNodeInfo` endpoint. It then exposes an easy method `bridgeTokensPublic` which mints fee juice on L1 and sends it to an L2 address via the L1 portal:
+
+```typescript
+const claim = await portalManager.bridgeTokensPublic(
+    acc.address, // the L2 address
+    1000000000000000000000n, // the amount to send to the L1 portal
+    true, // whether to mint or not (set to false if your walletClient account already has fee juice!)
+);
+
+console.log('Claim secret:', claim.claimSecret);
+console.log('Claim amount:', claim.claimAmount);
+```
+
+After this transaction is minted on L1 and a few blocks pass, you can claim the message on L2 and use it directly to pay for fees:
+
+```typescript
+import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js';
+const feeJuiceWithClaim = new FeeJuicePaymentMethodWithClaim(acc.address, claim) // the l2 address and the claim
+
+yourContract.methods.some_method(acc.address).send({ from: acc.address, fee: { paymentMethod: feeJuiceWithClaim } }).wait()
+```
+
+
+:::tip Creating blocks
+
+To advance time quickly, send a couple of dummy transactions and `.wait()` for them. For example:
+
+```typescript
+// using the `sponsoredFeePaymentMethod` so the network has transactions to build blocks with!
+await contract.methods.some_other_method(acc.address).send({ from: acc.address, fee: { paymentMethod: sponsoredFeePaymentMethod } }).wait();
+await contract.methods.some_other_method(acc.address).send({ from: acc.address, fee: { paymentMethod: sponsoredFeePaymentMethod } }).wait();
+```
+
+This will add a transaction to each block!
+
+:::
+
+
 ## Configure gas settings
 
 ### Set custom gas limits
 
-You can set custom gas limits easily by importing from the `stdlib`:
+Set custom gas limits by importing from `stdlib`:
 
 ```typescript
 import { GasSettings, Gas, GasFees } from '@aztec/stdlib/gas';

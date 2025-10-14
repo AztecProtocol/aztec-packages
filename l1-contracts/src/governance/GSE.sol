@@ -218,12 +218,13 @@ contract GSECore is IGSECore, Ownable {
   // Must exceed the happy path gas consumption to ensure deposits succeed.
   // Acts as a cap on unhappy path gas usage to prevent excessive consumption.
   //
-  // - Happy path average: 140K gas
-  // - Buffer: 60K gas (~40% margin)
+  // - Happy path average: 150K gas
+  // - Buffer for loop: 50K gas
+  // - Buffer for opcode cost changes: 50K gas
   //
   // WARNING: If set below happy path requirements, all deposits will fail.
   // Governance can adjust this value via proposal.
-  uint64 public proofOfPossessionGasLimit = 200_000;
+  uint64 public proofOfPossessionGasLimit = 250_000;
 
   /**
    * @dev enforces that the caller is a registered rollup.

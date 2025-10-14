@@ -5,6 +5,7 @@ import { padArrayEnd, times, timesParallel } from '@aztec/foundation/collection'
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
+import type { FieldsOf } from '@aztec/foundation/types';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractsList } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
@@ -170,13 +171,14 @@ export class TestContext {
   }
 
   async makeProcessedTx(opts?: Parameters<typeof makeBloatedProcessedTx>[0]): Promise<ProcessedTx> {
-    const blockNum = (opts?.globalVariables ?? this.globalVariables).blockNumber;
-    const header = opts?.header ?? this.getBlockHeader(blockNum - 1);
+    const globalVariables = opts?.globalVariables ?? this.globalVariables;
+    const blockNumber = globalVariables.blockNumber;
+    const header = opts?.header ?? this.getBlockHeader(blockNumber - 1);
     const tx = await makeBloatedProcessedTx({
       header,
       vkTreeRoot: getVKTreeRoot(),
       protocolContracts: ProtocolContractsList,
-      globalVariables: this.globalVariables,
+      globalVariables,
       feePayer: this.feePayer,
       ...opts,
     });
@@ -237,13 +239,21 @@ export class TestContext {
       numTxsPerBlock = 1,
       numL1ToL2Messages = 0,
       firstBlockNumber = this.blockNumber + checkpointIndex * numBlocks,
+      makeGlobalVariablesOpts = () => ({}),
       makeProcessedTxOpts = () => ({}),
     }: {
       checkpointIndex?: number;
       numTxsPerBlock?: number | number[];
       numL1ToL2Messages?: number;
       firstBlockNumber?: number;
-      makeProcessedTxOpts?: (index: number) => Partial<Parameters<typeof makeBloatedProcessedTx>[0]>;
+      makeGlobalVariablesOpts?: (
+        blockNumber: number,
+        checkpointIndex: number,
+      ) => Partial<FieldsOf<GlobalVariables> & FieldsOf<CheckpointConstantData>>;
+      makeProcessedTxOpts?: (
+        blockGlobalVariables: GlobalVariables,
+        txIndex: number,
+      ) => Partial<Parameters<typeof makeBloatedProcessedTx>[0]>;
     } = {},
   ) {
     const slotNumber = this.firstCheckpointNumber.toNumber() + checkpointIndex;
@@ -255,7 +265,9 @@ export class TestContext {
     );
     const newL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, merkleTrees);
 
-    const blockGlobalVariables = times(numBlocks, i => makeGlobals(firstBlockNumber + i, slotNumber));
+    const blockGlobalVariables = times(numBlocks, i =>
+      makeGlobals(firstBlockNumber + i, slotNumber, makeGlobalVariablesOpts(firstBlockNumber + i, checkpointIndex)),
+    );
     let totalTxs = 0;
     const blockTxs = await timesParallel(numBlocks, blockIndex => {
       const txIndexOffset = totalTxs;
@@ -267,7 +279,7 @@ export class TestContext {
           globalVariables: blockGlobalVariables[blockIndex],
           header: this.getBlockHeader(firstBlockNumber - 1),
           newL1ToL2Snapshot,
-          ...makeProcessedTxOpts(txIndexOffset + txIndex),
+          ...makeProcessedTxOpts(blockGlobalVariables[blockIndex], txIndexOffset + txIndex),
         }),
       );
     });

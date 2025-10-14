@@ -279,8 +279,10 @@ TEST(SStoreConstrainingTest, Interactions)
     check_relation<sstore>(trace);
     check_interaction<ExecutionTraceBuilder,
                       lookup_execution_check_written_storage_slot_settings,
-                      lookup_sstore_record_written_storage_slot_settings,
-                      lookup_sstore_storage_write_settings>(trace);
+                      lookup_sstore_record_written_storage_slot_settings>(trace);
+    check_multipermutation_interaction<PublicDataTreeTraceBuilder,
+                                       perm_sstore_storage_write_settings,
+                                       perm_tx_balance_update_settings>(trace);
 }
 
 } // namespace

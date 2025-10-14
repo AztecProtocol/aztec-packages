@@ -187,7 +187,14 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
     const slashingExecutionDelayInRounds = BigInt(this.settings.slashingExecutionDelayInRounds);
     const executableRound = currentRound - slashingExecutionDelayInRounds - 1n;
     const lookBack = BigInt(this.config.slashExecuteRoundsLookBack);
-    const oldestExecutableRound = maxBigint(0n, executableRound - lookBack);
+    const slashingLifetimeInRounds = BigInt(this.settings.slashingLifetimeInRounds);
+
+    // Compute the oldest executable round considering both lookBack and lifetimeInRounds
+    // A round is only executable if currentRound <= round + lifetimeInRounds
+    // So the oldest round we can execute is: currentRound - lifetimeInRounds
+    const oldestByLifetime = maxBigint(0n, currentRound - slashingLifetimeInRounds);
+    const oldestByLookBack = maxBigint(0n, executableRound - lookBack);
+    const oldestExecutableRound = maxBigint(oldestByLifetime, oldestByLookBack);
 
     // Check if slashing is enabled at all
     if (!(await this.slasher.isSlashingEnabled())) {
@@ -199,10 +206,12 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
       slotNumber,
       currentRound,
       oldestExecutableRound,
+      oldestByLifetime,
+      oldestByLookBack,
       executableRound,
       slashingExecutionDelayInRounds,
       lookBack,
-      slashingLifetimeInRounds: this.settings.slashingLifetimeInRounds,
+      slashingLifetimeInRounds,
     });
 
     // Iterate over all rounds, starting from the oldest, until we find one that is executable
@@ -220,6 +229,7 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
   /**
    * Checks if a given round is executable and returns an execute-slash action for it if so.
    * Assumes round number has already been checked against lifetime and execution delay.
+   * @param executableRound - The round to check for execution
    */
   private async tryGetRoundExecuteAction(executableRound: bigint): Promise<ProposerSlashAction | undefined> {
     let logData: Record<string, unknown> = { executableRound };

@@ -1,5 +1,6 @@
 use crate::{
-    abis::{call_context::CallContext, side_effect::{Ordered, RangeOrdered}},
+    abis::call_context::CallContext,
+    side_effect::{Ordered, RangeOrdered},
     traits::{Deserialize, Empty, Serialize},
 };
 

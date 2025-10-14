@@ -91,6 +91,7 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_variable(const FF&
     return index;
 }
 
+// AUDITTODO: is this used?
 template <typename FF_> void CircuitBuilderBase<FF_>::set_variable_name(uint32_t index, const std::string& name)
 {
     ASSERT_DEBUG(variables.size() > index);
@@ -101,31 +102,6 @@ template <typename FF_> void CircuitBuilderBase<FF_>::set_variable_name(uint32_t
         return;
     }
     variable_names.insert({ first_idx, name });
-}
-
-template <typename FF_> void CircuitBuilderBase<FF_>::update_variable_names(uint32_t index)
-{
-    uint32_t first_idx = get_first_variable_in_class(index);
-
-    uint32_t cur_idx = next_var_index[first_idx];
-    while (cur_idx != REAL_VARIABLE && !variable_names.contains(cur_idx)) {
-        cur_idx = next_var_index[cur_idx];
-    }
-
-    if (variable_names.contains(first_idx)) {
-        if (cur_idx != REAL_VARIABLE) {
-            variable_names.extract(cur_idx);
-        }
-        return;
-    }
-
-    if (cur_idx != REAL_VARIABLE) {
-        std::string var_name = variable_names.find(cur_idx)->second;
-        variable_names.erase(cur_idx);
-        variable_names.insert({ first_idx, var_name });
-        return;
-    }
-    failure("No previously assigned names found");
 }
 
 template <typename FF_> size_t CircuitBuilderBase<FF_>::get_circuit_subgroup_size(const size_t num_gates) const
@@ -227,11 +203,6 @@ template <typename FF_> const std::string& CircuitBuilderBase<FF_>::err() const
     return _err;
 }
 
-template <typename FF_> void CircuitBuilderBase<FF_>::set_err(std::string msg)
-{
-    _err = std::move(msg);
-}
-
 template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
 {
 #ifndef FUZZING_DISABLE_WARNINGS
@@ -241,6 +212,6 @@ template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
     }
 #endif
     _failed = true;
-    set_err(std::move(msg));
+    _err = msg;
 }
 } // namespace bb
