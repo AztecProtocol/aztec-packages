@@ -20,7 +20,7 @@ class MultilinearBatchingRecursiveFlavor {
     using PCS = KZG<Curve>;
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::Element;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
 
     // An upper bound on the size of the MultilinearBatching-circuits. `CONST_PG_LOG_N` bounds the log circuit sizes in
     // the CIVC context. `MEGA_AVM_LOG_N` is determined by the size of the AVMRecursiveVerifier.
