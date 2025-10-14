@@ -46,10 +46,10 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
         // For tag_a != FF
         // Rely below on MemoryTag::FF being 0
         static_assert(static_cast<uint8_t>(MemoryTag::FF) == 0);
-        uint8_t tag_a_u8 = static_cast<uint8_t>(event.a.get_tag());
-        uint8_t tag_b_u8 = static_cast<uint8_t>(event.b.get_tag());
+        const uint8_t tag_a_u8 = static_cast<uint8_t>(event.a.get_tag());
+        const uint8_t tag_b_u8 = static_cast<uint8_t>(event.b.get_tag());
 
-        FF tag_a_inv = precomputed_inverses[static_cast<uint8_t>(event.a.get_tag())];
+        FF tag_a_inv = precomputed_inverses[tag_a_u8];
         // For tag_a != tag_b
         FF tag_ab_diff_inv = 0;
         if (tag_a_u8 > tag_b_u8) {
@@ -73,9 +73,9 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
                           { C::bitwise_ia_byte, uint256_t::from_uint128(input_a) },
                           { C::bitwise_ib_byte, uint256_t::from_uint128(input_b) },
                           { C::bitwise_ic_byte, uint256_t::from_uint128(output_c) },
-                          { C::bitwise_tag_a, static_cast<uint8_t>(event.a.get_tag()) },
-                          { C::bitwise_tag_b, static_cast<uint8_t>(event.b.get_tag()) },
-                          { C::bitwise_tag_c, static_cast<uint8_t>(event.a.get_tag()) }, // same as tag_a
+                          { C::bitwise_tag_a, tag_a_u8 },
+                          { C::bitwise_tag_b, tag_b_u8 },
+                          { C::bitwise_tag_c, tag_a_u8 }, // same as tag_a
                           // Err Flags
                           { C::bitwise_sel_tag_ff_err, is_tag_ff ? 1 : 0 },
                           { C::bitwise_sel_tag_mismatch_err, is_tag_mismatch ? 1 : 0 },
@@ -107,9 +107,9 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
                           { C::bitwise_ia_byte, uint256_t::from_uint128(input_a & mask_low_byte) },
                           { C::bitwise_ib_byte, uint256_t::from_uint128(input_b & mask_low_byte) },
                           { C::bitwise_ic_byte, uint256_t::from_uint128(output_c & mask_low_byte) },
-                          { C::bitwise_tag_a, is_start ? static_cast<uint8_t>(event.a.get_tag()) : 0 },
-                          { C::bitwise_tag_b, is_start ? static_cast<uint8_t>(event.b.get_tag()) : 0 },
-                          { C::bitwise_tag_c, is_start ? static_cast<uint8_t>(event.a.get_tag()) : 0 }, // same as tag_a
+                          { C::bitwise_tag_a, is_start ? tag_a_u8 : 0 },
+                          { C::bitwise_tag_b, is_start ? tag_b_u8 : 0 },
+                          { C::bitwise_tag_c, is_start ? tag_a_u8 : 0 }, // same as tag_a
                           { C::bitwise_ctr, ctr },
                           { C::bitwise_ctr_inv, precomputed_inverses[static_cast<uint8_t>(ctr)] },
                           { C::bitwise_ctr_min_one_inv, precomputed_inverses[static_cast<uint8_t>(ctr - 1)] },

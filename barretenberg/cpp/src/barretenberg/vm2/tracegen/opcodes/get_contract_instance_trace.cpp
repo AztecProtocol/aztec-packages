@@ -69,11 +69,12 @@ void GetContractInstanceTraceBuilder::process(
                 { C::get_contract_instance_public_data_tree_root, event.public_data_tree_root },
                 { C::get_contract_instance_nullifier_tree_root, event.nullifier_tree_root },
                 { C::get_contract_instance_sel_error, has_error ? 1 : 0 },
+
                 // Intermediate selectors and error flags
                 { C::get_contract_instance_is_valid_writes_in_bounds, writes_are_in_bounds ? 1 : 0 },
-                { C::get_contract_instance_dst_offset_diff_max_inv,
-                  dst_offset_diff_max }, // Will be inverted in batch later
-                                         // Columns from precomputed table
+                { C::get_contract_instance_dst_offset_diff_max_inv, dst_offset_diff_max }, // Will be inverted in batch
+
+                // Columns from precomputed table
                 { C::get_contract_instance_is_valid_member_enum, is_valid_member_enum ? 1 : 0 },
                 { C::get_contract_instance_is_deployer, is_deployer ? 1 : 0 },
                 { C::get_contract_instance_is_class_id, is_class_id ? 1 : 0 },

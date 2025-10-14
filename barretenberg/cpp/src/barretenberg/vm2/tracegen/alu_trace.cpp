@@ -17,13 +17,25 @@
 
 namespace bb::avm2::tracegen {
 
-namespace {
+AluTraceBuilder::AluTraceBuilder()
+{
+    for (size_t i = 0; i < NUM_TAGS; i++) {
+        tag_inverses.at(i) = FF(i);
+    }
+    FF::batch_invert(tag_inverses);
+}
 
-constexpr size_t NUM_TAGS = static_cast<size_t>(MemoryTag::MAX) + 1;
+FF AluTraceBuilder::get_tag_diff_inverse(const MemoryTag a_tag, const MemoryTag b_tag) const
+{
+    if (static_cast<uint8_t>(a_tag) >= static_cast<uint8_t>(b_tag)) {
+        return tag_inverses[static_cast<uint8_t>(a_tag) - static_cast<uint8_t>(b_tag)];
+    }
 
-// TODO(MW): Rename to something useful! Helper fn to get operation specific values.
-std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEvent& event,
-                                                         const std::array<FF, NUM_TAGS>& tag_inverses)
+    return -tag_inverses[static_cast<uint8_t>(b_tag) - static_cast<uint8_t>(a_tag)];
+}
+
+std::vector<std::pair<Column, FF>> AluTraceBuilder::get_operation_specific_columns(
+    const simulation::AluEvent& event) const
 {
     const MemoryTag a_tag = event.a.get_tag();
     bool is_ff = a_tag == MemoryTag::FF;
@@ -48,14 +60,6 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
     case simulation::AluOperation::MUL: {
         uint256_t a_int = static_cast<uint256_t>(event.a.as_ff());
         uint256_t b_int = static_cast<uint256_t>(event.b.as_ff());
-        FF tag_u128_diff_inv = 0;
-        if (static_cast<uint8_t>(a_tag) >= static_cast<uint8_t>(MemoryTag::U128)) {
-            tag_u128_diff_inv = tag_inverses[static_cast<uint8_t>(a_tag) - static_cast<uint8_t>(MemoryTag::U128)];
-        } else {
-            // (-x)^(-1) = -x^(-1) for a field element x.
-            tag_u128_diff_inv =
-                FF(0) - tag_inverses[static_cast<uint8_t>(MemoryTag::U128) - static_cast<uint8_t>(a_tag)];
-        }
 
         // Columns shared for all tags in a MUL:
         std::vector<std::pair<Column, FF>> res = {
@@ -63,7 +67,7 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::MUL).subtrace_operation_id },
             { Column::alu_constant_64, 64 },
             { Column::alu_sel_is_u128, is_u128 },
-            { Column::alu_tag_u128_diff_inv, tag_u128_diff_inv },
+            { Column::alu_tag_u128_diff_inv, get_tag_diff_inverse(a_tag, MemoryTag::U128) },
         };
         if (is_u128) {
             // For u128s, we decompose a and b into 64 bit chunks:
@@ -94,14 +98,6 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
     case simulation::AluOperation::DIV: {
         bool div_0_error = event.error == simulation::AluError::DIV_0_ERROR;
         auto remainder = no_tag_err && !div_0_error ? event.a - event.b * event.c : MemoryValue::from_tag(a_tag, 0);
-        FF tag_u128_diff_inv = 0;
-        if (static_cast<uint8_t>(a_tag) >= static_cast<uint8_t>(MemoryTag::U128)) {
-            tag_u128_diff_inv = tag_inverses[static_cast<uint8_t>(a_tag) - static_cast<uint8_t>(MemoryTag::U128)];
-        } else {
-            // (-x)^(-1) = -x^(-1) for a field element x.
-            tag_u128_diff_inv =
-                FF(0) - tag_inverses[static_cast<uint8_t>(MemoryTag::U128) - static_cast<uint8_t>(a_tag)];
-        }
 
         // Columns shared for all tags in a DIV:
         std::vector<std::pair<Column, FF>> res = {
@@ -112,7 +108,7 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             { Column::alu_sel_is_ff, is_ff },
             { Column::alu_tag_ff_diff_inv, tag_inverses[static_cast<uint8_t>(a_tag)] }, // Relies on MemoryTag::FF is 0
             { Column::alu_sel_is_u128, is_u128 },
-            { Column::alu_tag_u128_diff_inv, tag_u128_diff_inv },
+            { Column::alu_tag_u128_diff_inv, get_tag_diff_inverse(a_tag, MemoryTag::U128) },
             { Column::alu_b_inv, div_0_error ? 0 : event.b.as_ff() }, // Will be inverted in batch later
             { Column::alu_sel_div_no_0_err, div_0_error ? 0 : 1 },
         };
@@ -274,7 +270,7 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
     }
 }
 
-std::vector<std::pair<Column, FF>> get_tag_error_columns(const simulation::AluEvent& event)
+std::vector<std::pair<Column, FF>> AluTraceBuilder::get_tag_error_columns(const simulation::AluEvent& event) const
 {
     const MemoryTag a_tag = event.a.get_tag();
     const FF a_tag_ff = static_cast<FF>(static_cast<uint8_t>(a_tag));
@@ -297,7 +293,7 @@ std::vector<std::pair<Column, FF>> get_tag_error_columns(const simulation::AluEv
     if (ab_tags_mismatch) {
         return { { Column::alu_sel_tag_err, 1 },
                  { Column::alu_sel_ab_tag_mismatch, 1 },
-                 { Column::alu_ab_tags_diff_inv, (a_tag_ff - b_tag_ff) } }; // Will be inverted in batch later
+                 { Column::alu_ab_tags_diff_inv, get_tag_diff_inverse(a_tag, b_tag) } };
     }
     if (ff_tag_err) {
         // Note: There is no 'alu_sel_ff_tag_err' because we can handle this with existing selectors:
@@ -309,20 +305,11 @@ std::vector<std::pair<Column, FF>> get_tag_error_columns(const simulation::AluEv
     return {};
 }
 
-} // namespace
-
 void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation::AluEvent>::Container& events,
                               TraceContainer& trace)
 {
     using C = Column;
     using simulation::AluError;
-
-    // Precomputed inverses for tag values.
-    std::array<FF, NUM_TAGS> tag_inverses;
-    for (size_t i = 0; i < NUM_TAGS; i++) {
-        tag_inverses.at(i) = FF(i);
-    }
-    FF::batch_invert(tag_inverses);
 
     uint32_t row = 0;
     for (const auto& event : events) {
@@ -349,7 +336,7 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
         }
 
         // Operation specific columns:
-        trace.set(row, get_operation_columns(event, tag_inverses));
+        trace.set(row, get_operation_specific_columns(event));
 
         trace.set(row,
                   { {
@@ -370,7 +357,7 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
     }
 
     // Batch invert the columns.
-    trace.invert_columns({ { C::alu_ab_diff_inv, C::alu_b_inv, C::alu_ab_tags_diff_inv } });
+    trace.invert_columns({ { C::alu_ab_diff_inv, C::alu_b_inv } });
 }
 
 const InteractionDefinition AluTraceBuilder::interactions =
