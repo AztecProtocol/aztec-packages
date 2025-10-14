@@ -33,7 +33,7 @@ pub fn validate_tx_constant_data(
     let tx_version = tx_constants.tx_context.version;
     let tx_gas_settings = tx_constants.tx_context.gas_settings;
     let tx_vk_tree_root = tx_constants.vk_tree_root;
-    let protocol_contracts_hash = tx_constants.protocol_contracts_hash;
+    let tx_protocol_contracts_hash = tx_constants.protocol_contracts_hash;
 
     // Values from `block_constants` to be checked against those from `tx_constants`:
     let block_last_archive_root = block_constants.last_archive.root;
@@ -76,12 +76,13 @@ pub fn validate_tx_constant_data(
     );
 
     assert_eq(
-        protocol_contracts_hash,
+        tx_protocol_contracts_hash,
         block_protocol_contracts_hash,
         "Mismatched protocol_contracts_hash between kernel and rollup",
     );
 
     // Ensure that the `max_fees_per_gas` specified by the tx is greater than or equal to the `gas_fees` for the block.
+    // Note that for private only txs, the gas against the limit is checked on tail, since it doesn't have public execution.
     assert(
         tx_gas_settings.max_fees_per_gas.fee_per_da_gas >= block_gas_fees.fee_per_da_gas,
         "da gas is higher than the maximum specified by the tx",
@@ -124,6 +125,7 @@ pub fn validate_contract_class_logs(
         // `CONTRACT_CLASS_LOG_SIZE_IN_FIELDS` fields.
         // This mismatch would make it impossible to verify the contract class later, because the correct hash could no
         // longer be recomputed from the emitted blob data.
+        // Note: The length is also validated to be <= `CONTRACT_CLASS_LOG_SIZE_IN_FIELDS` in the private kernel.
         assert(
             array_padded_with(log_fields, log_hash.inner.length, 0),
             "Incorrect contract class log length",
