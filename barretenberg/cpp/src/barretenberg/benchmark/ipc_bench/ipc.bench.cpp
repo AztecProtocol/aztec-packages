@@ -33,7 +33,7 @@ void poseiden_hash_direct(State& state) noexcept
 BENCHMARK(poseiden_hash_direct)->Unit(benchmark::kMicrosecond)->Iterations(10000);
 
 // Helper: Spawn bb binary for msgpack benchmarks
-static pid_t spawn_bb_msgpack_server(const std::string& path)
+static pid_t spawn_bb_msgpack_server(const std::string& path, int max_clients = 1)
 {
     pid_t bb_pid = fork();
     if (bb_pid == 0) {
@@ -45,6 +45,9 @@ static pid_t spawn_bb_msgpack_server(const std::string& path)
             close(devnull);
         }
 
+        // Convert max_clients to string for execl
+        std::string max_clients_str = std::to_string(max_clients);
+
         // Try multiple bb binary paths
         const std::array<const char*, 5> bb_paths = { "./bin/bb",              // From build-no-avm/ or build/
                                                       "./build-no-avm/bin/bb", // From cpp/
@@ -52,7 +55,15 @@ static pid_t spawn_bb_msgpack_server(const std::string& path)
                                                       "../bin/bb",             // From subdirectory
                                                       "bb" };                  // From PATH
         for (const char* bb_path : bb_paths) {
-            execl(bb_path, bb_path, "msgpack", "run", "--input", path.c_str(), nullptr);
+            execl(bb_path,
+                  bb_path,
+                  "msgpack",
+                  "run",
+                  "--input",
+                  path.c_str(),
+                  "--max-clients",
+                  max_clients_str.c_str(),
+                  nullptr);
         }
         _exit(1);
     }
@@ -105,8 +116,8 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
     {
         stop_background.store(false, std::memory_order_relaxed);
 
-        // Spawn bb binary in IPC server mode
-        bb_pid = spawn_bb_msgpack_server(ipc_path);
+        // Spawn bb binary in IPC server mode with max_clients = NumClients
+        bb_pid = spawn_bb_msgpack_server(ipc_path, static_cast<int>(NumClients));
         if (bb_pid < 0) {
             throw std::runtime_error("Failed to fork bb process");
         }
