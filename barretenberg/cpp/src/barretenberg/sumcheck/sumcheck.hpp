@@ -320,9 +320,9 @@ template <typename Flavor> class SumcheckProver {
                     partially_evaluated_polynomials.w_evaluations_instance = new_polynomial;
                 }
                 partially_evaluated_polynomials.w_evaluations_accumulator.at(1) =
-                    EqVerifierPolynomial<FF>::eval(accumulator_challenge, index_1_challenge);
+                    VerifierEqPolynomial<FF>::eval(accumulator_challenge, index_1_challenge);
                 partially_evaluated_polynomials.w_evaluations_instance.at(1) =
-                    EqVerifierPolynomial<FF>::eval(instance_challenge, index_1_challenge);
+                    VerifierEqPolynomial<FF>::eval(instance_challenge, index_1_challenge);
                 index_1_challenge[k] = FF(0);
             }
             // Compute the contribution from the extensions by zero. It is sufficient to evaluate the main constraint at

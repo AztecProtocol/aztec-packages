@@ -147,7 +147,7 @@ template <typename FF> struct GateSeparatorPolynomial {
     {
         BB_BENCH_NAME("GateSeparatorPolynomial::compute_beta_products");
         size_t pow_size = 1 << log_num_monomials;
-        Polynomial<FF> beta_products(pow_size);
+        Polynomial<FF> beta_products(pow_size, Polynomial<FF>::DontZeroMemory::FLAG);
 
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
