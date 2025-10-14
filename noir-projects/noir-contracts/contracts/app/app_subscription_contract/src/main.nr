@@ -47,7 +47,7 @@ pub contract AppSubscription {
         macros::{functions::{initializer, private, public, utility}, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::notes::set_sender_for_tags,
-        protocol_types::{address::AztecAddress, constants::MAX_FIELD_VALUE, traits::ToField},
+        protocol_types::address::AztecAddress,
         state_vars::{Map, PrivateMutable, PublicImmutable},
         utils::comparison::Comparator,
     };
@@ -73,8 +73,6 @@ pub contract AppSubscription {
         // will manage to find the notes even if this contract is not registered as a sender
         unsafe { set_sender_for_tags(user_address) };
 
-        // Default msg_sender for entrypoints is now Fr.max_value rather than 0 addr (see #7190 & #7404)
-        assert(context.msg_sender().to_field() == MAX_FIELD_VALUE);
         // This function takes a generic argument that corresponds to the number of params
         // the parent takes. See aztec-nr/src/authwit/auth.nr for more details.
         assert_current_call_valid_authwit::<2>(&mut context, user_address);
@@ -139,7 +137,7 @@ pub contract AppSubscription {
 
         Token::at(config.subscription_token_address)
             .transfer_in_private(
-                context.msg_sender(),
+                context.msg_sender().unwrap(),
                 config.subscription_recipient_address,
                 config.subscription_price,
                 authwit_nonce,

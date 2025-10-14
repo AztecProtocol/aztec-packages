@@ -14,18 +14,17 @@ use dep::types::{
     proof::proof_data::RollupHonkProofData,
 };
 
-global ALLOWED_PREVIOUS_VK_INDICES: [u32; 6] = [
-    // The first block roots may only appear as the left child of the block merge rollup. Instead of defining two
-    // separate allowed lists, we rely on the rules in  `validate_consecutive_block_rollups` to enforce this.
-    // These rules also ensure that the first block root is only used once - a condition that cannot be constrained
-    // simply by using two allowed lists.
+global ALLOWED_RIGHT_ROLLUP_VK_INDICES: [u32; 3] =
+    [BLOCK_ROOT_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX, BLOCK_MERGE_ROLLUP_VK_INDEX];
+
+global ALLOWED_LEFT_ROLLUP_VK_INDICES: [u32; 6] = ALLOWED_RIGHT_ROLLUP_VK_INDICES.concat([
+    // The first block roots may only appear as the left child of the block merge rollup.
+    // However, this doesn't prevent having 2 first block roots in the same checkpoint. We rely on the checks in
+    // `validate_consecutive_block_rollups` and `checkpoint_root_inputs_validator` to enforce this.
     BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
     BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
     BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
-    BLOCK_ROOT_ROLLUP_VK_INDEX,
-    BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
-    BLOCK_MERGE_ROLLUP_VK_INDEX,
-];
+]);
 
 pub struct BlockMergeRollupPrivateInputs {
     pub(crate) previous_rollups: [RollupHonkProofData<BlockRollupPublicInputs>; 2],
@@ -44,11 +43,11 @@ impl BlockMergeRollupPrivateInputs {
         let vk_tree_root = self.previous_rollups[0].public_inputs.constants.vk_tree_root;
         self.previous_rollups[0].vk_data.validate_allowed_in_vk_tree(
             vk_tree_root,
-            ALLOWED_PREVIOUS_VK_INDICES,
+            ALLOWED_LEFT_ROLLUP_VK_INDICES,
         );
         self.previous_rollups[1].vk_data.validate_allowed_in_vk_tree(
             vk_tree_root,
-            ALLOWED_PREVIOUS_VK_INDICES,
+            ALLOWED_RIGHT_ROLLUP_VK_INDICES,
         );
 
         // Validate the public inputs.

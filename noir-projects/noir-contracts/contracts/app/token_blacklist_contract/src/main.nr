@@ -85,7 +85,7 @@ pub contract TokenBlacklist {
 
     #[public]
     fn update_roles(user: AztecAddress, roles: UserFlags) {
-        let caller_roles = storage.roles.at(context.msg_sender()).get_current_value();
+        let caller_roles = storage.roles.at(context.msg_sender().unwrap()).get_current_value();
         assert(caller_roles.is_admin, "caller is not admin");
 
         storage.roles.at(user).schedule_value_change(roles);
@@ -96,7 +96,7 @@ pub contract TokenBlacklist {
         let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        let caller_roles = storage.roles.at(context.msg_sender()).get_current_value();
+        let caller_roles = storage.roles.at(context.msg_sender().unwrap()).get_current_value();
         assert(caller_roles.is_minter, "caller is not minter");
 
         let new_balance = storage.public_balances.at(to).read().add(amount);
@@ -108,7 +108,7 @@ pub contract TokenBlacklist {
 
     #[public]
     fn mint_private(amount: u128, secret_hash: Field) {
-        let caller_roles = storage.roles.at(context.msg_sender()).get_current_value();
+        let caller_roles = storage.roles.at(context.msg_sender().unwrap()).get_current_value();
         assert(caller_roles.is_minter, "caller is not minter");
 
         let pending_shields = storage.pending_shields;

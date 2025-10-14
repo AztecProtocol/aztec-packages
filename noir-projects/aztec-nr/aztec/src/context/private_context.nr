@@ -39,7 +39,7 @@ use dep::protocol_types::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
-        PRIVATE_LOG_SIZE_IN_FIELDS,
+        NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     hash::poseidon2_hash,
     messaging::l2_to_l1_message::L2ToL1Message,
@@ -236,23 +236,33 @@ impl PrivateContext {
     /// This is similar to `msg.sender` in Solidity (hence the name).
     ///
     /// Important Note: Since Aztec doesn't have a concept of an EoA (
-    /// Externally-owned Account), the msg_sender is "undefined" for the first
-    /// function call of every transaction. A value of `-1` is returned in such
-    /// cases.
+    /// Externally-owned Account), the msg_sender is "null" for the first
+    /// function call of every transaction.
     /// The first function call of a tx is likely to be a call to the user's
     /// account contract, so this quirk will most often be handled by account
     /// contract developers.
     ///
-    /// TODO(https://github.com/AztecProtocol/aztec-packages/issues/14025) - we
-    /// are considering making msg_sender: Option<AztecAddress>, since
-    /// a returned value of `Option:none` will be clearer to developers.
-    ///
     /// # Returns
-    /// * `AztecAddress` - The address of the smart contract that called
+    /// * `Option<AztecAddress>` - The address of the smart contract that called
     ///   this function (be it an app contract or a user's account contract).
-    ///   Returns `-1` for the first function call of the tx.
+    ///   Returns `Option<AztecAddress>::none` for the first function call of
+    ///   the tx. No other _private_ function calls in the tx will have a `none`
+    ///   msg_sender, but _public_ function calls might (see the PublicContext).
     ///
-    pub fn msg_sender(self) -> AztecAddress {
+    pub fn msg_sender(self) -> Option<AztecAddress> {
+        let maybe_msg_sender = self.inputs.call_context.msg_sender;
+        if maybe_msg_sender == NULL_MSG_SENDER_CONTRACT_ADDRESS {
+            Option::none()
+        } else {
+            Option::some(maybe_msg_sender)
+        }
+    }
+
+    /// "Unsafe" versus calling `context.msg_sender()`, because it doesn't
+    /// translate `NULL_MSG_SENDER_CONTRACT_ADDRESS` as
+    /// `Option<AztecAddress>::none`.
+    /// Used by some internal aztecnr functions.
+    pub fn msg_sender_unsafe(self) -> AztecAddress {
         self.inputs.call_context.msg_sender
     }
 
@@ -1191,8 +1201,8 @@ impl PrivateContext {
     /// Makes a read-only call to a private function on another contract.
     ///
     /// This is similar to Solidity's `staticcall`. The called function
-    /// cannot modify state or emit events. Any nested calls are constrained to
-    /// also be staticcalls.
+    /// cannot modify state, emit L2->L2 messages, nor emit events. Any nested
+    /// calls are constrained to also be staticcalls.
     ///
     /// See `call_private_function` for more general info on private function
     /// calls.
@@ -1363,17 +1373,25 @@ impl PrivateContext {
     /// * `contract_address` - Address of the contract containing the function
     /// * `function_selector` - 4-byte identifier of the function to call
     /// * `args` - Array of arguments to pass to the public function
+    /// * `hide_msg_sender` - the called function will see a "null" value for
+    ///                       `msg_sender` if set to `true`
     ///
     pub fn call_public_function<let ArgsCount: u32>(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ArgsCount],
+        hide_msg_sender: bool,
     ) {
         let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
-        self.call_public_function_with_calldata_hash(contract_address, calldata_hash, false)
+        self.call_public_function_with_calldata_hash(
+            contract_address,
+            calldata_hash,
+            false,
+            hide_msg_sender,
+        )
     }
 
     /// Enqueues a read-only call to a public function.
@@ -1389,17 +1407,25 @@ impl PrivateContext {
     /// * `contract_address` - Address of the contract containing the function
     /// * `function_selector` - 4-byte identifier of the function to call
     /// * `args` - Array of arguments to pass to the public function
+    /// * `hide_msg_sender` - the called function will see a "null" value for
+    ///                       `msg_sender` if set to `true`
     ///
     pub fn static_call_public_function<let ArgsCount: u32>(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ArgsCount],
+        hide_msg_sender: bool,
     ) {
         let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
-        self.call_public_function_with_calldata_hash(contract_address, calldata_hash, true)
+        self.call_public_function_with_calldata_hash(
+            contract_address,
+            calldata_hash,
+            true,
+            hide_msg_sender,
+        )
     }
 
     /// Enqueues a call to a public function that takes no arguments.
@@ -1411,14 +1437,22 @@ impl PrivateContext {
     /// # Arguments
     /// * `contract_address` - Address of the contract containing the function
     /// * `function_selector` - 4-byte identifier of the function to call
+    /// * `hide_msg_sender` - the called function will see a "null" value for
+    ///                       `msg_sender` if set to `true`
     ///
     pub fn call_public_function_no_args(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
+        hide_msg_sender: bool,
     ) {
         let calldata_hash = hash_calldata_array([function_selector.to_field()]);
-        self.call_public_function_with_calldata_hash(contract_address, calldata_hash, false)
+        self.call_public_function_with_calldata_hash(
+            contract_address,
+            calldata_hash,
+            false,
+            hide_msg_sender,
+        )
     }
 
     /// Enqueues a read-only call to a public function with no arguments.
@@ -1429,14 +1463,22 @@ impl PrivateContext {
     /// # Arguments
     /// * `contract_address` - Address of the contract containing the function
     /// * `function_selector` - 4-byte identifier of the function to call
+    /// * `hide_msg_sender` - the called function will see a "null" value for
+    ///                       `msg_sender` if set to `true`
     ///
     pub fn static_call_public_function_no_args(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
+        hide_msg_sender: bool,
     ) {
         let calldata_hash = hash_calldata_array([function_selector.to_field()]);
-        self.call_public_function_with_calldata_hash(contract_address, calldata_hash, true)
+        self.call_public_function_with_calldata_hash(
+            contract_address,
+            calldata_hash,
+            true,
+            hide_msg_sender,
+        )
     }
 
     /// Low-level public function call.
@@ -1453,12 +1495,15 @@ impl PrivateContext {
     /// * `contract_address` - Address of the contract containing the function
     /// * `calldata_hash` - Hash of the function calldata
     /// * `is_static_call` - Whether this should be a read-only call
+    /// * `hide_msg_sender` - the called function will see a "null" value for
+    ///                       `msg_sender` if set to `true`
     ///
     pub fn call_public_function_with_calldata_hash(
         &mut self,
         contract_address: AztecAddress,
         calldata_hash: Field,
         is_static_call: bool,
+        hide_msg_sender: bool,
     ) {
         let counter = self.next_counter();
 
@@ -1471,12 +1516,14 @@ impl PrivateContext {
             is_static_call,
         );
 
-        let call_request = PublicCallRequest {
-            msg_sender: self.this_address(),
-            contract_address,
-            is_static_call,
-            calldata_hash,
+        let msg_sender = if hide_msg_sender {
+            NULL_MSG_SENDER_CONTRACT_ADDRESS
+        } else {
+            self.this_address()
         };
+
+        let call_request =
+            PublicCallRequest { msg_sender, contract_address, is_static_call, calldata_hash };
 
         self.public_call_requests.push(Counted::new(call_request, counter));
     }
@@ -1502,19 +1549,32 @@ impl PrivateContext {
     /// tx side-effects) might exceed the refund amount. For app logic with
     /// fairly stable and predictable gas consumption, a material refund amount
     /// is unlikely. For app logic with unpredictable gas consumption, a
-    /// refund might be important to the user (e.g. if a heft function reverts
+    /// refund might be important to the user (e.g. if a hefty function reverts
     /// very early). Wallet/FPC/Paymaster developers should be mindful of this.
     ///
+    /// # Arguments
+    /// * `contract_address` - Address of the contract containing the teardown
+    ///                        function
+    /// * `function_selector` - 4-byte identifier of the function to call
+    /// * `args` - An array of fields to pass to the function.
+    /// * `hide_msg_sender` - the called function will see a "null" value for
+    ///                       `msg_sender` if set to `true`
     pub fn set_public_teardown_function<let ArgsCount: u32>(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ArgsCount],
+        hide_msg_sender: bool,
     ) {
         let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
-        self.set_public_teardown_function_with_calldata_hash(contract_address, calldata_hash, false)
+        self.set_public_teardown_function_with_calldata_hash(
+            contract_address,
+            calldata_hash,
+            false,
+            hide_msg_sender,
+        )
     }
 
     /// Low-level function to set the public teardown function.
@@ -1531,12 +1591,15 @@ impl PrivateContext {
     ///                        function
     /// * `calldata_hash` - Hash of the function calldata
     /// * `is_static_call` - Whether this should be a read-only call
+    /// * `hide_msg_sender` - the called function will see a "null" value for
+    ///                       `msg_sender` if set to `true`
     ///
     pub fn set_public_teardown_function_with_calldata_hash(
         &mut self,
         contract_address: AztecAddress,
         calldata_hash: Field,
         is_static_call: bool,
+        hide_msg_sender: bool,
     ) {
         let counter = self.next_counter();
 
@@ -1549,12 +1612,14 @@ impl PrivateContext {
             is_static_call,
         );
 
-        self.public_teardown_call_request = PublicCallRequest {
-            msg_sender: self.this_address(),
-            contract_address,
-            is_static_call,
-            calldata_hash,
+        let msg_sender = if hide_msg_sender {
+            NULL_MSG_SENDER_CONTRACT_ADDRESS
+        } else {
+            self.this_address()
         };
+
+        self.public_teardown_call_request =
+            PublicCallRequest { msg_sender, contract_address, is_static_call, calldata_hash };
     }
 
     /// Increments the side-effect counter.

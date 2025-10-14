@@ -261,7 +261,7 @@ pub fn assert_current_call_valid_authwit<let N: u32>(
     let args_hash: Field = context.get_args_hash();
 
     let authorization = CallAuthorization {
-        msg_sender: context.msg_sender(),
+        msg_sender: context.msg_sender().unwrap(),
         selector: context.selector(),
         args_hash,
     };
@@ -318,7 +318,7 @@ pub unconstrained fn assert_current_call_valid_authwit_public(
     on_behalf_of: AztecAddress,
 ) {
     let inner_hash = compute_inner_authwit_hash([
-        (*context).msg_sender().to_field(),
+        (*context).msg_sender().unwrap().to_field(),
         (*context).selector().to_field(),
         (*context).get_args_hash(),
     ]);

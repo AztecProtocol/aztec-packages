@@ -9,6 +9,96 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## 2.0.2
 
+### `msg_sender` is now an `Option<AztecAddress>` type.
+
+Because Aztec has native account abstraction, the very first function call of a tx has no `msg_sender`. (Recall, the first function call of an Aztec transaction is always a _private_ function call).
+
+Previously (before this change) we'd been silently setting this first `msg_sender` to be `AztecAddress::from_field(-1);`, and enforcing this value in the protocol's kernel circuits. Now we're passing explicitness to smart contract developers by wrapping `msg_sender` in an `Option` type. We'll explain the syntax shortly.
+
+We've also added a new protocol feature. Previously (before this change) whenever a public function call was enqueued by a private function (a so-called private->public call), the called public function (and hence the whole world) would be able to see `msg_sender`. For some use cases, visibility of `msg_sender` is important, to ensure the caller executed certain checks in private-land. For `#[internal]` public functions, visibility of `msg_sender` is unavoidable (the caller of an internal function must be the same contract address by definition). But for _some_ use cases, a visible `msg_sender` is an unnecessary privacy leakage.
+We therefore have added a feature where `msg_sender` can be optionally set to `Option<AztecAddress>::none()` for enqueued public function calls (aka private->public calls). We've been colloquially referring to this as "setting msg_sender to null".
+
+#### Aztec.nr diffs
+
+Given the above, the syntax for accessing `msg_sender` in Aztec.nr is slightly different:
+
+For most public and private functions, to adjust to this change, you can make this change to your code:
+
+```diff
+- let sender: AztecAddress = context.msg_sender();
++ let sender: AztecAddress = context.msg_sender().unwrap();
+```
+
+Recall that `Option::unwrap()` will throw if the Option is "none".
+
+Indeed, most smart contract functions will require access to a proper contract address (instead of a "null" value), in order to do bookkeeping (allocation of state variables against user addresses), and so in such cases throwing is sensible behaviour.
+
+If you want to output a useful error message when unwrapping fails, you can use `Option::expect`:
+
+```diff
+- let sender: AztecAddress = context.msg_sender();
++ let sender: AztecAddress = context.msg_sender().expect(f"Sender must not be none!");
+```
+
+For a minority of functions, a "null" msg_sender will be acceptable:
+
+- A private entrypoint function.
+- A public function which doesn't seek to do bookkeeping against `msg_sender`.
+
+Some apps might even want to _assert_ that the `msg_sender` is "null" to force their users into strong privacy practices:
+
+```rust
+let sender: Option<AztecAddress> = context.msg_sender();
+assert(sender.is_none());
+```
+
+##### Enqueueing public function calls
+
+###### Auto-generated contract interfaces
+
+When you use the `#[aztec]` macro, it will generate a noir contract interface for your contract, behind the scenes.
+
+This provides pretty syntax when you come to call functions of that contract. E.g.:
+
+```rust
+Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
+```
+
+In keeping with this new feature of being able to enqueue public function calls with a hidden `msg_sender`, there are some new methods that can be chained instead of `.enqueue(...)`:
+
+- `enqueue_incognito` -- akin to `enqueue`, but `msg_sender` is set "null".
+- `enqueue_view_incognito` -- akin to `enqueue_view`, but `msg_sender` is "null".
+- `set_as_teardown_incognito` -- akin to `set_as_teardown`, but `msg_sender` is "null".
+
+> The name "incognito" has been chosen to imply "msg_sender will not be visible to observers".
+
+These new functions enable the _calling_ contract to specify that it wants its address to not be visible to the called public function. This is worth re-iterating: it is the _caller's_ choice. A smart contract developer who uses these functions must be sure that the target public function will accept a "null" `msg_sender`. It would not be good (for example) if the called public function did `context.msg_sender().unwrap()`, because then a public function that is called via `enqueue_incognito` would _always fail_! Hopefully smart contract developers will write sufficient tests to catch such problems during development!
+
+###### Making lower-level public function calls from the private context
+
+This is discouraged vs using the auto-generated contract interfaces described directly above.
+
+If you do use any of these low-level methods of the `PrivateContext` in your contract:
+
+- `call_public_function`
+- `static_call_public_function`
+- `call_public_function_no_args`
+- `static_call_public_function_no_args`
+- `call_public_function_with_calldata_hash`
+- `set_public_teardown_function`
+- `set_public_teardown_function_with_calldata_hash`
+
+... there is a new `hide_msg_sender: bool` parameter that you will need to specify.
+
+#### Aztec.js diffs
+
+When lining up a new tx, the `FunctionCall` struct has been extended to include a `hide_msg_sender: bool` field.
+
+- `is_public & hide_msg_sender` -- will make a public call with `msg_sender` set to "null".
+- `is_public & !hide_msg_sender` -- will make a public call with a visible `msg_sender`, as was the case before this new feature.
+- `!is_public & hide_msg_sender` -- Incompatible flags.
+- `!is_public & !hide_msg_sender` -- will make a private call with a visible `msg_sender` (noting that since it's a private function call, the `msg_sender` will only be visible to the called private function, but not to the rest of the world).
+
 ## [Aztec Tools]
 
 ### Contract compilation now requires two steps
@@ -286,7 +376,7 @@ The following code will no longer work since `notes` is no longer available on t
 const valueNoteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
 ```
 
-## [core protocol, Aztec.nr, Aztec.js] Max block number property changed to be seconds based
+## [Core protocol, Aztec.nr, Aztec.js] Max block number property changed to be seconds based
 
 ### `max_block_number` -> `include_by_timestamp`
 
@@ -345,7 +435,9 @@ The protocol circuits compute the `include_by_timestamp` for contract updates du
 
 No client-side changes are required. However, please note that transactions now have a maximum lifespan of 24 hours and will be removed from the transaction pool once expired.
 
-## 0.88.0
+---
+
+# 0.88.0
 
 ## [Aztec.nr] Deprecation of the `authwit` library
 
@@ -362,7 +454,9 @@ and stale dependencies removed from `Nargo.toml`
 -authwit = { path = "../../../../aztec-nr/authwit" }
 ```
 
-## 0.87.0
+---
+
+# 0.87.0
 
 ## [Aztec.js/TS libraries]
 

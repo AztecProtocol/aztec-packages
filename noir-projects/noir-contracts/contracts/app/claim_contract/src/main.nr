@@ -41,7 +41,7 @@ pub contract Claim {
             target_address == proof_retrieved_note.contract_address,
             "Note does not correspond to the target contract",
         );
-        assert_eq(owner, context.msg_sender(), "Note does not belong to the sender");
+        assert_eq(owner, context.msg_sender().unwrap(), "Note does not belong to the sender");
 
         // 2) Prove that the note hash exists in the note hash tree
         // Note: The note has been inserted into the donation_receipts set in a map under the owner address in

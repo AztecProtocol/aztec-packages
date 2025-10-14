@@ -9,10 +9,8 @@ use dep::types::{
         private_kernel::private_call_data::PrivateCallData, protocol_contracts::ProtocolContracts,
         public_call_request::PublicCallRequest, transaction::tx_request::TxRequest,
     },
-    address::AztecAddress,
-    constants::MAX_FIELD_VALUE,
+    constants::NULL_MSG_SENDER_CONTRACT_ADDRESS,
     side_effect::{Ordered, RangeOrdered},
-    traits::FromField,
     utils::arrays::ClaimedLengthArray,
 };
 use validate_contract_address::validate_contract_address;
@@ -114,9 +112,9 @@ impl PrivateCallDataValidator {
 
         assert_eq(call_context.is_static_call, false, "Users cannot make a static call");
 
-        // Notice: msg_sender MUST be `-1` for the first function call in a tx.
+        // Notice: msg_sender MUST be "null" for the first function call in a tx.
         assert(
-            call_context.msg_sender == AztecAddress::from_field(MAX_FIELD_VALUE),
+            call_context.msg_sender == NULL_MSG_SENDER_CONTRACT_ADDRESS,
             "Users cannot set msg_sender in first call",
         );
     }
@@ -286,11 +284,23 @@ impl PrivateCallDataValidator {
 
     fn validate_public_call_request(self, call_request: PublicCallRequest) {
         let this_context = self.data.public_inputs.call_context;
-        assert_eq(
-            call_request.msg_sender,
-            this_context.contract_address,
-            "incorrect msg_sender for call request",
-        );
+
+        if call_request.msg_sender != NULL_MSG_SENDER_CONTRACT_ADDRESS {
+            // We assert that the caller's address is copied-over as the
+            // msg_sender of the called function (the call_request), with one
+            // exception:
+            // The calling contract can instead elect to set the msg_sender as
+            // the `NULL_MSG_SENDER_CONTRACT_ADDRESS`, so as not to leak to
+            // the world which address made the public call.
+            // It is up to the called public function to determine whether a
+            // "null" value is acceptable for its use case, and revert if not.
+            assert_eq(
+                call_request.msg_sender,
+                this_context.contract_address,
+                "incorrect msg_sender for call request",
+            );
+        }
+
         if !call_request.is_static_call {
             assert(
                 this_context.is_static_call == false,

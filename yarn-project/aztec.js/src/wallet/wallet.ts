@@ -160,6 +160,7 @@ const FunctionCallSchema = z.object({
   selector: schemas.FunctionSelector,
   type: z.nativeEnum(FunctionType),
   isStatic: z.boolean(),
+  hideMsgSender: z.boolean(),
   args: z.array(schemas.Fr),
   returnTypes: z.array(AbiTypeSchema),
 });
@@ -183,7 +184,7 @@ const UserFeeOptionsSchema = z.object({
   embeddedPaymentMethodFeePayer: optional(schemas.AztecAddress),
 });
 
-const WalletSimulationFeeOptionschema = UserFeeOptionsSchema.extend({
+const WalletSimulationFeeOptionSchema = UserFeeOptionsSchema.extend({
   estimatedGasPadding: optional(z.number()),
   estimateGas: optional(z.boolean()),
 });
@@ -199,7 +200,7 @@ const SimulateOptionsSchema = z.object({
   from: schemas.AztecAddress,
   authWitnesses: optional(z.array(AuthWitness.schema)),
   capsules: optional(z.array(Capsule.schema)),
-  fee: optional(WalletSimulationFeeOptionschema),
+  fee: optional(WalletSimulationFeeOptionSchema),
   skipTxValidation: optional(z.boolean()),
   skipFeeEnforcement: optional(z.boolean()),
   includeMetadata: optional(z.boolean()),
