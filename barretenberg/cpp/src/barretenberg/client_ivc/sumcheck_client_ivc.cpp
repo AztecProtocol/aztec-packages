@@ -80,8 +80,9 @@ SumcheckClientIVC::RecursiveVerifierAccumulator SumcheckClientIVC::execute_first
     using VerifierCommitments = typename RecursiveFlavor::VerifierCommitments;
     using Sumcheck = ::bb::SumcheckVerifier<RecursiveFlavor>;
 
-    OinkRecursiveVerifier verifier{ &circuit, verifier_instance, transcript };
-    verifier.verify_proof(proof);
+    transcript->load_proof(proof);
+    OinkRecursiveVerifier verifier{ verifier_instance, transcript };
+    verifier.verify();
 
     verifier_instance->target_sum = StdlibFF::from_witness_index(&circuit, circuit.zero_idx());
     // Get the gate challenges for sumcheck/combiner computation
@@ -456,8 +457,8 @@ SumcheckClientIVC::VerifierAccumulator SumcheckClientIVC::execute_first_sumcheck
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
 
-    OinkVerifier verifier{ verifier_instance, transcript };
     transcript->load_proof(proof);
+    OinkVerifier<Flavor> verifier{ verifier_instance, transcript };
     verifier.verify();
 
     verifier_instance->target_sum = 0;

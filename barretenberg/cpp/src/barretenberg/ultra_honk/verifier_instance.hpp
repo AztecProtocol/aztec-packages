@@ -53,6 +53,12 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
         : vk(vk)
     {}
 
+    /**
+     * @brief Get the verification key
+     * @return Verification key shared pointer
+     */
+    std::shared_ptr<VerificationKey> get_vk() const { return vk; }
+
     FF hash_through_transcript(const std::string& domain_separator, Transcript& transcript) const
     {
         BB_ASSERT_EQ(is_complete, true, "Trying to hash a verifier instance that has not been completed.");

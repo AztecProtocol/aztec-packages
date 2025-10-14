@@ -169,6 +169,7 @@ TYPED_TEST(stdlib_field_conversion, FieldConversionGrumpkinAffineElement)
     }
 
     { // Serialize and deserialize "coordinates" that do not correspond to any point on the curve
+        BB_DISABLE_ASSERTS(); // Avoid on_curve assertion failure in cycle_group constructor
         Builder builder;
 
         curve::Grumpkin::AffineElement group_element_val(12, 100);

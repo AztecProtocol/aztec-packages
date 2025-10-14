@@ -8,7 +8,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
-#include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
+#include "barretenberg/ultra_honk/oink_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
 
@@ -22,7 +22,7 @@ void ProtogalaxyRecursiveVerifier_<VerifierInstance>::run_oink_verifier_on_each_
 
     // If the first instance to be folded in pure we need to complete it and generate the gate challenges
     if (!key->is_complete) {
-        OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
+        bb::OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
         oink_verifier.verify();
         key->target_sum = FF::from_witness_index(builder, builder->zero_idx());
         // Get the gate challenges for sumcheck/combiner computation
@@ -33,7 +33,7 @@ void ProtogalaxyRecursiveVerifier_<VerifierInstance>::run_oink_verifier_on_each_
     // Complete the second instance (Step 1 of the paper)
     key = insts_to_fold[1];
     domain_separator = std::to_string(1);
-    OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
+    bb::OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
     oink_verifier.verify();
 }
 
