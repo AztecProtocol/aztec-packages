@@ -58,11 +58,11 @@ struct AggregateEntry {
     // For convenience, even though redundant with map store
     OperationKey key;
     OperationKey parent;
-    std::size_t time = 0;
-    std::size_t count = 0;
+    uint64_t time = 0;
+    uint64_t count = 0;
     size_t num_threads = 0;
     double time_mean = 0;
-    std::size_t time_max = 0;
+    uint64_t time_max = 0;
     double time_stddev = 0;
 
     // Welford's algorithm state
@@ -105,19 +105,19 @@ extern GlobalBenchStatsContainer GLOBAL_BENCH_STATS;
 // but doesn't provide recursive parent-child relationships through the entire call stack.
 struct TimeStats {
     TimeStatsEntry* parent = nullptr;
-    std::size_t count = 0;
-    std::size_t time = 0;
+    uint64_t count = 0;
+    uint64_t time = 0;
     // Used if the parent changes from last call - chains to handle multiple parent contexts
     std::unique_ptr<TimeStats> next;
 
     TimeStats() = default;
-    TimeStats(TimeStatsEntry* parent_ptr, std::size_t count_val, std::size_t time_val)
+    TimeStats(TimeStatsEntry* parent_ptr, uint64_t count_val, uint64_t time_val)
         : parent(parent_ptr)
         , count(count_val)
         , time(time_val)
     {}
 
-    void track(TimeStatsEntry* current_parent, std::size_t time_val)
+    void track(TimeStatsEntry* current_parent, uint64_t time_val)
     {
         // Try to track with current stats if parent matches
         // Check if 'next' already handles this parent to avoid creating duplicates
@@ -137,7 +137,7 @@ struct TimeStats {
 
   private:
     // Returns true if successfully tracked (parent matches), false otherwise
-    bool raw_track(TimeStatsEntry* expected_parent, std::size_t time_val)
+    bool raw_track(TimeStatsEntry* expected_parent, uint64_t time_val)
     {
         if (parent != expected_parent) {
             return false;
@@ -180,7 +180,7 @@ template <OperationLabel Op> struct ThreadBenchStats {
 struct BenchReporter {
     TimeStatsEntry* parent;
     TimeStatsEntry* stats;
-    std::size_t time;
+    uint64_t time;
     BenchReporter(TimeStatsEntry* entry);
     ~BenchReporter();
 };

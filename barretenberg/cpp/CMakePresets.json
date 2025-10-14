@@ -467,8 +467,8 @@
       "description": "Build for pthread enabled WASM with BB_BENCH support enabled",
       "inherits": "wasm-threads",
       "binaryDir": "build-wasm-threads-bench",
-      "environment": {
-        "CXXFLAGS": "-DENABLE_WASM_BENCH"
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS -DENABLE_WASM_BENCH"
       }
     },
     {
