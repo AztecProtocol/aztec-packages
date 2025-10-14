@@ -29,7 +29,7 @@ pub contract Spam {
 
     #[private]
     fn spam(nullifier_seed: Field, nullifier_count: u32, call_public: bool) {
-        let caller = context.msg_sender();
+        let caller = context.msg_sender().unwrap();
         let amount = 1 as u128;
 
         for _ in 0..MAX_NOTE_HASHES_PER_CALL {

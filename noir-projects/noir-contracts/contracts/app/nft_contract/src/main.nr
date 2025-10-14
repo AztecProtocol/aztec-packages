@@ -72,14 +72,14 @@ pub contract NFT {
 
     #[public]
     fn set_admin(new_admin: AztecAddress) {
-        assert(storage.admin.read().eq(context.msg_sender()), "caller is not an admin");
+        assert(storage.admin.read().eq(context.msg_sender().unwrap()), "caller is not an admin");
         storage.admin.write(new_admin);
     }
 
     // docs:start:set_minter
     #[public]
     fn set_minter(minter: AztecAddress, approve: bool) {
-        assert(storage.admin.read().eq(context.msg_sender()), "caller is not an admin");
+        assert(storage.admin.read().eq(context.msg_sender().unwrap()), "caller is not an admin");
         storage.minters.at(minter).write(approve);
     }
     // docs:end:set_minter
@@ -87,7 +87,7 @@ pub contract NFT {
     #[public]
     fn mint(to: AztecAddress, token_id: Field) {
         assert(token_id != 0, "zero token ID not supported");
-        assert(storage.minters.at(context.msg_sender()).read(), "caller is not a minter");
+        assert(storage.minters.at(context.msg_sender().unwrap()).read(), "caller is not a minter");
         assert(storage.nft_exists.at(token_id).read() == false, "token already exists");
 
         storage.nft_exists.at(token_id).write(true);
@@ -148,7 +148,7 @@ pub contract NFT {
     // Transfers token with `token_id` from public balance of message sender to a private balance of `to`.
     #[private]
     fn transfer_to_private(to: AztecAddress, token_id: Field) {
-        let from = context.msg_sender();
+        let from = context.msg_sender().unwrap();
 
         let nft = NFT::at(context.this_address());
 
@@ -184,7 +184,7 @@ pub contract NFT {
             storage.private_nfts.at(to).storage_slot,
             context,
             to,
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
         );
 
         partial_note
@@ -202,7 +202,7 @@ pub contract NFT {
     fn finalize_transfer_to_private(token_id: Field, partial_note: PartialNFTNote) {
         // Completer is the entity that can complete the partial note. In this case, it's the same as the account
         // `from` from whose account the token is being transferred.
-        let from_and_completer = context.msg_sender();
+        let from_and_completer = context.msg_sender().unwrap();
         _finalize_transfer_to_private(
             from_and_completer,
             token_id,
@@ -257,7 +257,7 @@ pub contract NFT {
      */
     #[private]
     fn cancel_authwit(inner_hash: Field) {
-        let on_behalf_of = context.msg_sender();
+        let on_behalf_of = context.msg_sender().unwrap();
         let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
         context.push_nullifier(nullifier);
     }

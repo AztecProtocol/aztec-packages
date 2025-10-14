@@ -50,6 +50,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       type: this.functionDao.functionType,
       to: this.contractAddress,
       isStatic: this.functionDao.isStatic,
+      hideMsgSender: false /** Only set to `true` for enqueued public function calls */,
       returnTypes: this.functionDao.returnTypes,
     };
   }

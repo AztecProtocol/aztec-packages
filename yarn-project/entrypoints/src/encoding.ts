@@ -21,6 +21,8 @@ export type EncodedFunctionCall = {
   target_address: Fr;
   /** Whether the function is public or private */
   is_public: boolean;
+  /** Only applicable for enqueued public function calls. Whether the msg_sender will be set to "null". */
+  hide_msg_sender: boolean;
   /** Whether the function can alter state */
   is_static: boolean;
 };
@@ -88,6 +90,7 @@ export class EncodedAppEntrypointCalls implements EncodedCalls {
       call.function_selector,
       call.target_address,
       new Fr(call.is_public),
+      new Fr(call.hide_msg_sender),
       new Fr(call.is_static),
     ]);
   }
@@ -134,6 +137,7 @@ export async function encode(calls: FunctionCall[]): Promise<EncodedCalls> {
     function_selector: call.selector.toField(),
     target_address: call.to.toField(),
     is_public: call.type == FunctionType.PUBLIC,
+    hide_msg_sender: call.hideMsgSender,
     is_static: call.isStatic,
   }));
 

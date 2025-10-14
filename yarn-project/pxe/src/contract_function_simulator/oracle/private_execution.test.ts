@@ -2,6 +2,7 @@ import {
   GeneratorIndex,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
+  NULL_MSG_SENDER_CONTRACT_ADDRESS,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
@@ -157,7 +158,8 @@ describe('Private Execution test suite', () => {
     artifact,
     functionName,
     args = [],
-    msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
+    /** Notice that we're defaulting to the "null" msg_sender, which many public functions will fail to unwrap, and will revert. */
+    msgSender = AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS),
     contractAddress = undefined,
     txContext = {},
   }: {
@@ -411,6 +413,7 @@ describe('Private Execution test suite', () => {
         artifact: StatefulTestContractArtifact,
         functionName: 'constructor',
         contractAddress: instance.address,
+        msgSender: AztecAddress.fromNumber(1234),
       });
       const result = executionResult.entrypoint.nestedExecutionResults[0];
 
