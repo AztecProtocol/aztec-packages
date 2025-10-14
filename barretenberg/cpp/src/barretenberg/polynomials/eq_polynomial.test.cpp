@@ -1,3 +1,4 @@
+#include "barretenberg/polynomials/eq_polynomial.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "gate_separator.hpp"
 #include <array>
