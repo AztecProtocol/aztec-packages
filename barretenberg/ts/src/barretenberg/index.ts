@@ -142,7 +142,7 @@ export class Barretenberg extends AsyncApi {
         }
         logger(`Using native shared memory backend (via sync adapter): ${bbPath}`);
         // Use sync backend with adapter to provide async interface
-        const syncBackend = new BarretenbergShmSyncBackend(bbPath, options.threads, options.maxClients);
+        const syncBackend = await BarretenbergShmSyncBackend.new(bbPath, options.threads, options.maxClients);
         const asyncBackend = new SyncToAsyncAdapter(syncBackend);
         return new Barretenberg(asyncBackend, options);
       }
@@ -329,7 +329,7 @@ export class BarretenbergSync extends SyncApi {
           );
         }
         logger(`Using native shared memory backend: ${bbPath}`);
-        const shm = new BarretenbergShmSyncBackend(bbPath, options.threads, options.maxClients);
+        const shm = await BarretenbergShmSyncBackend.new(bbPath, options.threads, options.maxClients);
         return new BarretenbergSync(shm);
       }
 

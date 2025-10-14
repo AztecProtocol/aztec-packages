@@ -130,19 +130,16 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm, int
     auto server = use_shm ? ipc::IpcServer::create_shm(path, static_cast<size_t>(max_clients))
                           : ipc::IpcServer::create_socket(path, max_clients);
 
-    if (!server->listen()) {
-        std::cerr << "Error: Could not start IPC server at " << path << std::endl;
-        return 1;
-    }
-
     // Store server pointer for signal handler cleanup (works for both socket and shared memory)
+    // MUST be set before listen() since SIGBUS can occur during listen()
     static ipc::IpcServer* global_server = nullptr;
     global_server = server.get();
 
     // Register signal handlers for graceful cleanup
+    // MUST be registered before listen() since SIGBUS can occur during initialization
     // SIGTERM: Sent by processes/test frameworks on shutdown
     // SIGINT: Sent by Ctrl+C
-    auto signal_handler = [](int signal) {
+    auto graceful_shutdown_handler = [](int signal) {
         std::cerr << "\nReceived signal " << signal << ", cleaning up..." << std::endl;
 
         // Clean up IPC resources (socket file or shared memory segments)
@@ -154,8 +151,31 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm, int
         std::exit(0);
     };
 
-    std::signal(SIGTERM, signal_handler);
-    std::signal(SIGINT, signal_handler);
+    // Register handlers for fatal memory errors (SIGBUS, SIGSEGV)
+    // These occur when shared memory exhaustion happens during initialization
+    auto fatal_error_handler = [](int signal) {
+        const char* signal_name = (signal == SIGBUS) ? "SIGBUS" : (signal == SIGSEGV) ? "SIGSEGV" : "UNKNOWN";
+        std::cerr << "\nFatal error: received " << signal_name << " during initialization" << std::endl;
+        std::cerr << "This likely means shared memory exhaustion (try reducing --max-clients)" << std::endl;
+
+        // Clean up IPC resources before exiting
+        if (global_server) {
+            global_server->close();
+            std::cerr << "Cleaned up IPC resources" << std::endl;
+        }
+
+        std::exit(1); // Exit with error code
+    };
+
+    std::signal(SIGTERM, graceful_shutdown_handler);
+    std::signal(SIGINT, graceful_shutdown_handler);
+    std::signal(SIGBUS, fatal_error_handler);
+    std::signal(SIGSEGV, fatal_error_handler);
+
+    if (!server->listen()) {
+        std::cerr << "Error: Could not start IPC server at " << path << std::endl;
+        return 1;
+    }
 
     std::cerr << (use_shm ? "Shared memory" : "Socket") << " server ready at " << path << std::endl;
     std::cerr << "Max clients: " << max_clients << std::endl;
