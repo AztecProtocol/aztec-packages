@@ -114,21 +114,21 @@ inline int process_msgpack_commands(std::istream& input_stream)
 /**
  * @brief Execute msgpack commands over IPC (shared memory or Unix domain socket)
  *
- * This function creates an IPC server that accepts up to 10 concurrent clients.
+ * This function creates an IPC server that accepts concurrent clients.
  * Clients can send msgpack commands independently, and responses are automatically
  * routed back to the correct client.
  *
  * @param path Path or name for IPC endpoint
  * @param use_shm If true, use shared memory; otherwise use Unix domain socket
+ * @param max_clients Maximum number of concurrent clients (default: 1)
  * @return int Status code: 0 for success, non-zero for errors
  */
-inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm)
+inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm, int max_clients = 1)
 {
-    constexpr int MAX_CLIENTS = 10;
-
     // Create IPC server (either socket or shared memory)
-    auto server =
-        use_shm ? ipc::IpcServer::create_shm(path, MAX_CLIENTS) : ipc::IpcServer::create_socket(path, MAX_CLIENTS);
+    // Socket server uses int, shared memory uses size_t
+    auto server = use_shm ? ipc::IpcServer::create_shm(path, static_cast<size_t>(max_clients))
+                          : ipc::IpcServer::create_socket(path, max_clients);
 
     if (!server->listen()) {
         std::cerr << "Error: Could not start IPC server at " << path << std::endl;
@@ -158,7 +158,7 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm)
     std::signal(SIGINT, signal_handler);
 
     std::cerr << (use_shm ? "Shared memory" : "Socket") << " server ready at " << path << std::endl;
-    std::cerr << "Max clients: " << MAX_CLIENTS << std::endl;
+    std::cerr << "Max clients: " << max_clients << std::endl;
 
     // Run server with msgpack handler
     server->run([](int client_id, std::span<const uint8_t> request) -> std::vector<uint8_t> {
@@ -245,22 +245,23 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm)
  *
  * @param msgpack_input_file Path to input file (empty string means use stdin,
  *                          .sock suffix means Unix socket, .shm suffix means shared memory)
+ * @param max_clients Maximum number of concurrent clients for IPC servers (default: 1)
  * @return int Status code: 0 for success, non-zero for errors
  */
-inline int execute_msgpack_run(const std::string& msgpack_input_file)
+inline int execute_msgpack_run(const std::string& msgpack_input_file, int max_clients = 1)
 {
     // Check if this is a shared memory path (ends with .shm)
     if (!msgpack_input_file.empty() && msgpack_input_file.size() >= 4 &&
         msgpack_input_file.substr(msgpack_input_file.size() - 4) == ".shm") {
         // Strip .shm suffix to get base name
         std::string base_name = msgpack_input_file.substr(0, msgpack_input_file.size() - 4);
-        return execute_msgpack_ipc_server(base_name, true);
+        return execute_msgpack_ipc_server(base_name, true, max_clients);
     }
 
     // Check if this is a Unix domain socket path (ends with .sock)
     if (!msgpack_input_file.empty() && msgpack_input_file.size() >= 5 &&
         msgpack_input_file.substr(msgpack_input_file.size() - 5) == ".sock") {
-        return execute_msgpack_ipc_server(msgpack_input_file, false);
+        return execute_msgpack_ipc_server(msgpack_input_file, false, max_clients);
     }
 
     // Process msgpack API commands from stdin or file

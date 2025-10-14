@@ -34,7 +34,7 @@ export class BarretenbergShmSyncBackend implements IMsgpackBackendSync {
   private client: any; // NAPI MsgpackClient instance
   private shmName: string;
 
-  constructor(bbBinaryPath: string, threads?: number) {
+  constructor(bbBinaryPath: string, threads?: number, maxClients?: number) {
     if (!addon || !addon.MsgpackClient) {
       throw new Error(
         'NAPI addon not available. The nodejs_module must be built with shared memory support. ' +
@@ -45,11 +45,15 @@ export class BarretenbergShmSyncBackend implements IMsgpackBackendSync {
     // Create a unique shared memory name
     this.shmName = `bb-${process.pid}-${Date.now()}`;
 
+    // Default maxClients to 1 if not specified
+    const clientCount = maxClients ?? 1;
+
     // Set HARDWARE_CONCURRENCY if threads specified
     const env = threads !== undefined ? { ...process.env, HARDWARE_CONCURRENCY: threads.toString() } : process.env;
 
     // Spawn bb process with shared memory mode
-    this.process = spawn(bbBinaryPath, ['msgpack', 'run', '--input', `${this.shmName}.shm`], {
+    const args = ['msgpack', 'run', '--input', `${this.shmName}.shm`, '--max-clients', clientCount.toString()];
+    this.process = spawn(bbBinaryPath, args, {
       stdio: ['ignore', 'ignore', 'ignore'],
       env,
     });
@@ -69,29 +73,31 @@ export class BarretenbergShmSyncBackend implements IMsgpackBackendSync {
     });
 
     // Wait for bb to create shared memory
-    // Retry connection with exponential backoff
-    const maxRetries = 20;
-    const baseDelay = 10; // ms
+    // Retry connection every 100ms for up to 3 seconds
+    const retryInterval = 100; // ms
+    const timeout = 3000; // ms
+    const maxAttempts = Math.floor(timeout / retryInterval);
     let connected = false;
 
-    for (let attempt = 0; attempt < maxRetries && !connected; attempt++) {
-      // Wait before attempting connection
-      const delay = baseDelay * Math.pow(1.5, attempt);
-      const start = Date.now();
-      while (Date.now() - start < delay) {
-        // Busy wait
+    for (let attempt = 0; attempt < maxAttempts && !connected; attempt++) {
+      // Wait before attempting connection (except first attempt)
+      if (attempt > 0) {
+        const start = Date.now();
+        while (Date.now() - start < retryInterval) {
+          // Busy wait
+        }
       }
 
       try {
-        // Create NAPI client (max_clients = 10)
-        this.client = new addon.MsgpackClient(this.shmName, 10);
+        // Create NAPI client with matching max_clients value
+        this.client = new addon.MsgpackClient(this.shmName, clientCount);
         connected = true;
       } catch (err: any) {
         // Connection failed, will retry
-        if (attempt === maxRetries - 1) {
+        if (attempt === maxAttempts - 1) {
           // Last attempt failed
           this.cleanup();
-          throw new Error(`Failed to connect to shared memory after ${maxRetries} attempts: ${err.message}`);
+          throw new Error(`Failed to connect to shared memory after ${timeout}ms: ${err.message}`);
         }
       }
     }

@@ -46,6 +46,12 @@ export type BackendOptions = {
   logger?: (msg: string) => void;
 
   /**
+   * @description Maximum concurrent clients for shared memory IPC server (default: 1)
+   * Only applies to NativeSharedMemory backend
+   */
+  maxClients?: number;
+
+  /**
    * @description Specify exact backend to use
    * - If unset: tries backends in default order with fallback
    * - If set: must succeed with specified backend or throw error (no fallback)
@@ -136,7 +142,7 @@ export class Barretenberg extends AsyncApi {
         }
         logger(`Using native shared memory backend (via sync adapter): ${bbPath}`);
         // Use sync backend with adapter to provide async interface
-        const syncBackend = new BarretenbergShmSyncBackend(bbPath, options.threads);
+        const syncBackend = new BarretenbergShmSyncBackend(bbPath, options.threads, options.maxClients);
         const asyncBackend = new SyncToAsyncAdapter(syncBackend);
         return new Barretenberg(asyncBackend, options);
       }
@@ -323,7 +329,7 @@ export class BarretenbergSync extends SyncApi {
           );
         }
         logger(`Using native shared memory backend: ${bbPath}`);
-        const shm = new BarretenbergShmSyncBackend(bbPath, options.threads);
+        const shm = new BarretenbergShmSyncBackend(bbPath, options.threads, options.maxClients);
         return new BarretenbergSync(shm);
       }
 
