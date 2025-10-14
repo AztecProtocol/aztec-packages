@@ -53,18 +53,6 @@ inline bool is_power_of_two(uint64_t x)
 }
 
 template <typename Fr>
-void copy_polynomial(const Fr* src, Fr* dest, size_t num_src_coefficients, size_t num_target_coefficients)
-{
-    // TODO: fiddle around with avx asm to see if we can speed up
-    memcpy((void*)dest, (void*)src, num_src_coefficients * sizeof(Fr));
-
-    if (num_target_coefficients > num_src_coefficients) {
-        // fill out the polynomial coefficients with zeroes
-        memset((void*)(dest + num_src_coefficients), 0, (num_target_coefficients - num_src_coefficients) * sizeof(Fr));
-    }
-}
-
-template <typename Fr>
 void scale_by_generator(Fr* coeffs,
                         Fr* target,
                         const EvaluationDomain<Fr>& domain,
@@ -494,34 +482,6 @@ void coset_fft(Fr* coeffs,
 
 template <typename Fr>
     requires SupportsFFT<Fr>
-void coset_fft_with_constant(Fr* coeffs, const EvaluationDomain<Fr>& domain, const Fr& constant)
-{
-    Fr start = constant;
-    scale_by_generator(coeffs, coeffs, domain, start, domain.generator, domain.generator_size);
-    fft(coeffs, domain);
-}
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void coset_fft_with_generator_shift(Fr* coeffs, const EvaluationDomain<Fr>& domain, const Fr& constant)
-{
-    scale_by_generator(coeffs, coeffs, domain, Fr::one(), domain.generator * constant, domain.generator_size);
-    fft(coeffs, domain);
-}
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void ifft_with_constant(Fr* coeffs, const EvaluationDomain<Fr>& domain, const Fr& value)
-{
-    fft_inner_parallel({ coeffs }, domain, domain.root_inverse, domain.get_inverse_round_roots());
-    Fr T0 = domain.domain_inverse * value;
-    ITERATE_OVER_DOMAIN_START(domain);
-    coeffs[i] *= T0;
-    ITERATE_OVER_DOMAIN_END;
-}
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
 void coset_ifft(Fr* coeffs, const EvaluationDomain<Fr>& domain)
 {
     ifft(coeffs, domain);
@@ -866,7 +826,6 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
 
 template fr evaluate<fr>(const fr*, const fr&, const size_t);
 template fr evaluate<fr>(const std::vector<fr*>, const fr&, const size_t);
-template void copy_polynomial<fr>(const fr*, fr*, size_t, size_t);
 template void fft_inner_parallel<fr>(std::vector<fr*>, const EvaluationDomain<fr>&, const fr&, const std::vector<fr*>&);
 template void fft<fr>(fr*, const EvaluationDomain<fr>&);
 template void fft<fr>(fr*, fr*, const EvaluationDomain<fr>&);
@@ -875,12 +834,9 @@ template void coset_fft<fr>(fr*, const EvaluationDomain<fr>&);
 template void coset_fft<fr>(fr*, fr*, const EvaluationDomain<fr>&);
 template void coset_fft<fr>(std::vector<fr*>, const EvaluationDomain<fr>&);
 template void coset_fft<fr>(fr*, const EvaluationDomain<fr>&, const EvaluationDomain<fr>&, const size_t);
-template void coset_fft_with_constant<fr>(fr*, const EvaluationDomain<fr>&, const fr&);
-template void coset_fft_with_generator_shift<fr>(fr*, const EvaluationDomain<fr>&, const fr&);
 template void ifft<fr>(fr*, const EvaluationDomain<fr>&);
 template void ifft<fr>(fr*, fr*, const EvaluationDomain<fr>&);
 template void ifft<fr>(std::vector<fr*>, const EvaluationDomain<fr>&);
-template void ifft_with_constant<fr>(fr*, const EvaluationDomain<fr>&, const fr&);
 template void coset_ifft<fr>(fr*, const EvaluationDomain<fr>&);
 template void coset_ifft<fr>(std::vector<fr*>, const EvaluationDomain<fr>&);
 template fr compute_sum<fr>(const fr*, const size_t);
@@ -890,7 +846,6 @@ template void compute_efficient_interpolation<fr>(const fr*, fr*, const fr*, con
 
 template grumpkin::fr evaluate<grumpkin::fr>(const grumpkin::fr*, const grumpkin::fr&, const size_t);
 template grumpkin::fr evaluate<grumpkin::fr>(const std::vector<grumpkin::fr*>, const grumpkin::fr&, const size_t);
-template void copy_polynomial<grumpkin::fr>(const grumpkin::fr*, grumpkin::fr*, size_t, size_t);
 template grumpkin::fr compute_sum<grumpkin::fr>(const grumpkin::fr*, const size_t);
 template void compute_linear_polynomial_product<grumpkin::fr>(const grumpkin::fr*, grumpkin::fr*, const size_t);
 template void compute_interpolation<grumpkin::fr>(const grumpkin::fr*,

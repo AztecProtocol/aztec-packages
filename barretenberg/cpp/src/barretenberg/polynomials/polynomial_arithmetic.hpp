@@ -31,8 +31,6 @@ template <typename Fr> Fr evaluate(std::span<const Fr> coeffs, const Fr& z)
     return evaluate(coeffs, z, coeffs.size());
 };
 template <typename Fr> Fr evaluate(const std::vector<Fr*> coeffs, const Fr& z, const size_t large_n);
-template <typename Fr>
-void copy_polynomial(const Fr* src, Fr* dest, size_t num_src_coefficients, size_t num_target_coefficients);
 
 //  2. Compute a lookup table of the roots of unity, and suffer through cache misses from nonlinear access patterns
 template <typename Fr>
@@ -70,13 +68,6 @@ void coset_fft(Fr* coeffs,
 
 template <typename Fr>
     requires SupportsFFT<Fr>
-void coset_fft_with_constant(Fr* coeffs, const EvaluationDomain<Fr>& domain, const Fr& constant);
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void coset_fft_with_generator_shift(Fr* coeffs, const EvaluationDomain<Fr>& domain, const Fr& constant);
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
 void ifft(Fr* coeffs, const EvaluationDomain<Fr>& domain);
 template <typename Fr>
     requires SupportsFFT<Fr>
@@ -84,10 +75,6 @@ void ifft(Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain);
 template <typename Fr>
     requires SupportsFFT<Fr>
 void ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain);
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void ifft_with_constant(Fr* coeffs, const EvaluationDomain<Fr>& domain, const Fr& value);
 
 template <typename Fr>
     requires SupportsFFT<Fr>
