@@ -108,6 +108,8 @@ spec:
                   prover_ppk="$(cast wallet private-key --mnemonic "$MNEMONIC" --mnemonic-index "$prover_pub_idx")"
                   prover_paddr="$(cast wallet address --private-key $prover_ppk)"
 
+                  echo "Derived prover publisher key index $idx for node $i pulisher $j: $addr"
+
                   # write keystore file-separated entries
                   [[ $p -gt 0 ]] && echo '---' >> "$PROVER_PUB_KS_FILE"
                   printf 'type: file-raw\nkeyType: SECP256K1\nprivateKey: %s\n' "$prover_ppk" >> "$PROVER_PUB_KS_FILE"

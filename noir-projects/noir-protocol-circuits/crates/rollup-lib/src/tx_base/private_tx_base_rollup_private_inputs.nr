@@ -59,7 +59,6 @@ impl PrivateTxBaseRollupPrivateInputs {
         let validator = PrivateTxBaseInputsValidator::new(
             self.hiding_kernel_proof_data,
             self.constants,
-            self.start_tree_snapshots,
             self.contract_class_log_fields,
             self.fee_payer_balance_leaf_preimage,
             self.anchor_block_archive_sibling_path,

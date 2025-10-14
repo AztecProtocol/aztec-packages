@@ -1,10 +1,7 @@
 use dep::types::{
-    abis::{
-        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        log_hash::LogHash,
-        side_effect::{Counted, scoped::Scoped},
-    },
+    abis::{kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, log_hash::LogHash},
     constants::{MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX},
+    side_effect::{Counted, Scoped},
     utils::arrays::{get_order_hints_asc, OrderHint, sort_by_counter_asc},
 };
 

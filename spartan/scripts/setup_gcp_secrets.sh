@@ -13,18 +13,15 @@ if [[ ! -f "$ENV_FILE" ]]; then
 fi
 
 # Read the network name from the env file
-NETWORK=$(grep "^NETWORK=" "$ENV_FILE" | cut -d'=' -f2)
-if [[ -z "$NETWORK" ]]; then
-    echo "NETWORK not found in environment file" >&2
-    exit 1
-fi
+NETWORK=$(grep "^NETWORK=" "$ENV_FILE" | cut -d'=' -f2 || true)
+NETWORK=${NETWORK:-}
 
 echo "Setting up GCP secrets for network: $NETWORK"
 
 # Function to get secret from GCP Secret Manager
 get_secret() {
     local secret_name="$1"
-    gcloud secrets versions access latest --secret="$secret_name" 2>/dev/null || {
+    gcloud secrets versions access latest --secret="$secret_name" --project="$GCP_PROJECT_ID" 2>/dev/null || {
         echo "Failed to read secret: $secret_name" >&2
         exit 1
     }
@@ -50,15 +47,16 @@ declare -A SECRET_MAPPINGS=(
 # Replace placeholders with actual secrets
 for env_var in "${!SECRET_MAPPINGS[@]}"; do
     secret_name="${SECRET_MAPPINGS[$env_var]}"
-    echo "Fetching secret: $secret_name for $env_var"
 
     if grep -q "^${env_var}=REPLACE_WITH_GCP_SECRET" "$ENV_FILE"; then
         # Export the secret value
+        echo "Fetching secret: $secret_name for $env_var"
         secret_value=$(get_secret "$secret_name")
         export $env_var="${secret_value}"
     elif grep -q "^${env_var}=REPLACE_WITH_GCP_SECRET/" "$ENV_FILE"; then
         # Handle cases like STORE_SNAPSHOT_URL=REPLACE_WITH_GCP_SECRET/network/
         suffix=$(grep "^${env_var}=REPLACE_WITH_GCP_SECRET/" "$ENV_FILE" | cut -d'/' -f2-)
+        echo "Fetching secret: $secret_name for $env_var"
         secret_value=$(get_secret "$secret_name")
         export $env_var='${secret_value}/'$suffix
     fi

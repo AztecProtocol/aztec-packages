@@ -1,3 +1,4 @@
+import type { FUNCTION_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import type { MembershipWitness } from '@aztec/foundation/trees';
@@ -247,7 +248,7 @@ export class ContractDataProvider {
   public async getFunctionMembershipWitness(
     contractClassId: Fr,
     selector: FunctionSelector,
-  ): Promise<MembershipWitness<5> | undefined> {
+  ): Promise<MembershipWitness<typeof FUNCTION_TREE_HEIGHT> | undefined> {
     const tree = await this.#getPrivateFunctionTreeForClassId(contractClassId);
     return tree?.getFunctionMembershipWitness(selector);
   }

@@ -7,8 +7,6 @@ pub mod public_call_request;
 pub mod log;
 pub mod private_log;
 
-pub mod side_effect;
-pub mod read_request;
 pub mod public_logs;
 pub mod public_data_write;
 

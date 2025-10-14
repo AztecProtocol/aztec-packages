@@ -227,11 +227,11 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_sort_const
         in order to pad a size of indices to gate width. But tool has to ignore these additional variables
         */
         for (const auto& var_idx : row_variables) {
-            if (var_idx != circuit_builder.zero_idx) {
+            if (var_idx != circuit_builder.zero_idx()) {
                 gate_variables.emplace_back(var_idx);
             }
         }
-        if (index != block.size() - 1 && block.w_l()[index + 1] != circuit_builder.zero_idx) {
+        if (index != block.size() - 1 && block.w_l()[index + 1] != circuit_builder.zero_idx()) {
             gate_variables.emplace_back(block.w_l()[index + 1]);
         }
     }
@@ -502,10 +502,10 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_rom_table_
                 // By default ROM read gate uses variables (w_1, w_2, w_3, w_4) = (index_witness, vc1_witness,
                 // vc2_witness, record_witness) So we can update all of them
                 gate_variables.emplace_back(index_witness);
-                if (vc1_witness != circuit_builder.zero_idx) {
+                if (vc1_witness != circuit_builder.zero_idx()) {
                     gate_variables.emplace_back(vc1_witness);
                 }
-                if (vc2_witness != circuit_builder.zero_idx) {
+                if (vc2_witness != circuit_builder.zero_idx()) {
                     gate_variables.emplace_back(vc2_witness);
                 }
                 gate_variables.emplace_back(record_witness);
@@ -556,10 +556,10 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_ram_table_
                 // By default RAM read/write gate uses variables (w_1, w_2, w_3, w_4) = (index_witness,
                 // timestamp_witness, value_witness, record_witness) So we can update all of them
                 gate_variables.emplace_back(index_witness);
-                if (timestamp_witness != circuit_builder.zero_idx) {
+                if (timestamp_witness != circuit_builder.zero_idx()) {
                     gate_variables.emplace_back(timestamp_witness);
                 }
-                if (value_witness != circuit_builder.zero_idx) {
+                if (value_witness != circuit_builder.zero_idx()) {
                     gate_variables.emplace_back(value_witness);
                 }
                 gate_variables.emplace_back(record_witness);
@@ -617,7 +617,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_part
     std::vector<uint32_t> second_row_variables;
     auto w1 = blk.w_l()[index]; // get opcode of operation, because function get_ecc_op_idx returns type
                                 // uint32_t and it adds as w1
-    if (w1 != circuit_builder.zero_idx) {
+    if (w1 != circuit_builder.zero_idx()) {
         // this is opcode and start of the UltraOp element
         first_row_variables.insert(
             first_row_variables.end(),
@@ -809,7 +809,7 @@ void StaticAnalyzer_<FF, CircuitBuilder>::connect_all_variables_in_vector(const 
                  variables_vector.end(),
                  std::back_inserter(filtered_variables_vector),
                  [&](uint32_t variable_index) {
-                     return variable_index != circuit_builder.zero_idx &&
+                     return variable_index != circuit_builder.zero_idx() &&
                             this->check_is_not_constant_variable(variable_index);
                  });
     // Remove duplicates
@@ -975,7 +975,7 @@ template <typename FF, typename CircuitBuilder>
 inline size_t StaticAnalyzer_<FF, CircuitBuilder>::process_current_decompose_chain(size_t index)
 {
     auto& arithmetic_block = circuit_builder.blocks.arithmetic;
-    auto zero_idx = circuit_builder.zero_idx;
+    auto zero_idx = circuit_builder.zero_idx();
     size_t current_index = index;
     std::vector<uint32_t> accumulators_indices;
     while (true) {

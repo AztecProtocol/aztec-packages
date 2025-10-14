@@ -8,18 +8,9 @@ use crate::{
     },
 };
 use dep::types::{
-    abis::{
-        kernel_circuit_public_inputs::{
-            PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
-        },
-        log_hash::LogHash,
-        note_hash::ScopedNoteHash,
-        nullifier::ScopedNullifier,
-        private_log::{PrivateLog, PrivateLogData},
-        public_call_request::PublicCallRequest,
-        side_effect::{Counted, scoped::Scoped},
+    abis::kernel_circuit_public_inputs::{
+        PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
     },
-    messaging::l2_to_l1_message::L2ToL1Message,
     utils::arrays::{
         assert_split_sorted_transformed_value_arrays_asc, assert_split_transformed_padded_arrays,
     },
@@ -106,9 +97,7 @@ impl TailToPublicOutputValidator {
             prev_data.note_hashes.array,
             output_non_revertible.note_hashes,
             output_revertible.note_hashes,
-            |prev: ScopedNoteHash, out: Field| {
-                assert_eq(out, prev.note_hash.value, "invalid transformed value")
-            },
+            |prev, out| assert_eq(out, prev.expose_to_public(), "invalid transformed value"),
             split_counter,
             self.padded_side_effect_amounts.non_revertible_note_hashes,
         );
@@ -118,9 +107,7 @@ impl TailToPublicOutputValidator {
             prev_data.nullifiers.array,
             output_non_revertible.nullifiers,
             output_revertible.nullifiers,
-            |prev: ScopedNullifier, out: Field| {
-                assert_eq(out, prev.nullifier.value, "invalid transformed value")
-            },
+            |prev, out| assert_eq(out, prev.expose_to_public(), "invalid transformed value"),
             split_counter,
             self.padded_side_effect_amounts.non_revertible_nullifiers,
         );
@@ -130,9 +117,7 @@ impl TailToPublicOutputValidator {
             prev_data.private_logs.array,
             output_non_revertible.private_logs,
             output_revertible.private_logs,
-            |prev: Scoped<PrivateLogData>, out: PrivateLog| {
-                assert_eq(out, prev.expose_to_public(), "invalid transformed value")
-            },
+            |prev, out| assert_eq(out, prev.expose_to_public(), "invalid transformed value"),
             split_counter,
             self.padded_side_effect_amounts.non_revertible_private_logs,
         );
@@ -148,9 +133,7 @@ impl TailToPublicOutputValidator {
         // l2_to_l1_msgs
         assert_split_sorted_transformed_value_arrays_asc(
             prev_data.l2_to_l1_msgs.array,
-            prev_data.l2_to_l1_msgs.array.map(|msg: Scoped<Counted<L2ToL1Message>>| {
-                msg.expose_to_public()
-            }),
+            prev_data.l2_to_l1_msgs.array.map(|msg| msg.expose_to_public()),
             split_counter,
             output_non_revertible.l2_to_l1_msgs,
             output_revertible.l2_to_l1_msgs,
@@ -160,9 +143,7 @@ impl TailToPublicOutputValidator {
         // contract_class_logs_hashes
         assert_split_sorted_transformed_value_arrays_asc(
             prev_data.contract_class_logs_hashes.array,
-            prev_data.contract_class_logs_hashes.array.map(|log: Scoped<Counted<LogHash>>| {
-                log.expose_to_public()
-            }),
+            prev_data.contract_class_logs_hashes.array.map(|log| log.expose_to_public()),
             split_counter,
             output_non_revertible.contract_class_logs_hashes,
             output_revertible.contract_class_logs_hashes,
@@ -172,7 +153,7 @@ impl TailToPublicOutputValidator {
         // public_call_requests
         assert_split_sorted_transformed_value_arrays_asc(
             prev_data.public_call_requests.array,
-            prev_data.public_call_requests.array.map(|cr: Counted<PublicCallRequest>| cr.inner),
+            prev_data.public_call_requests.array.map(|cr| cr.expose_to_public()),
             split_counter,
             output_non_revertible.public_call_requests,
             output_revertible.public_call_requests,

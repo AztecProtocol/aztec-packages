@@ -383,13 +383,24 @@ template <class T> constexpr field<T> field<T>::invert() const noexcept
     return pow(modulus_minus_two);
 }
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1166)
 template <class T> void field<T>::batch_invert(field* coeffs, const size_t n) noexcept
 {
     batch_invert(std::span{ coeffs, n });
 }
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1166)
 template <class T> void field<T>::batch_invert(std::span<field> coeffs) noexcept
+{
+    batch_invert<decltype(coeffs)>(coeffs);
+}
+
+template <class T>
+template <typename C>
+    requires requires(C& c) {
+        { c.size() } -> std::convertible_to<size_t>;
+        { c[0] };
+    }
+void field<T>::batch_invert(C& coeffs) noexcept
 {
     const size_t n = coeffs.size();
 

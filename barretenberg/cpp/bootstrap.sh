@@ -8,13 +8,6 @@ export native_preset=${NATIVE_PRESET:-clang20}
 export pic_preset=${PIC_PRESET:-clang20-pic}
 export hash=$(cache_content_hash .rebuild_patterns)
 
-if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
-  # Enable AVM for release builds (when REF_NAME is a valid semver), disable for CI/PR builds
-  if ! semver check "${REF_NAME:-}"; then
-    export DISABLE_AZTEC_VM=1
-  fi
-fi
-
 if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
   # Make sure the different envs don't read from each other's caches.
   export hash="$hash-no-avm"
@@ -185,9 +178,12 @@ function build_smt_verification {
   cmake --preset smt-verification
 
   cvc5_cmake_hash=$(cache_content_hash ^barretenberg/cpp/src/barretenberg/smt_verification/CMakeLists.txt)
-  if ! cache_download barretenberg-cvc5-$cvc5_cmake_hash.zst; then
-      cmake --build build-smt --target cvc5
-      cache_upload barretenberg-cvc5-$cvc5_cmake_hash.zst build-smt/_deps/cvc5
+  if cache_download barretenberg-cvc5-$cvc5_cmake_hash.zst; then
+    # Restore machine-dependent paths after downloading cache
+    find build-smt/_deps/cvc5 -type f -name "*.cmake" -exec sed -i "s|/workspace|$(pwd)|g" {} \;
+  else
+    cmake --build build-smt --target cvc5
+    cache_upload barretenberg-cvc5-$cvc5_cmake_hash.zst build-smt/_deps/cvc5
   fi
 
   cmake --build build-smt --target smt_verification_tests
@@ -217,7 +213,7 @@ function build_release {
       chmod +x build/ldid
     fi
 
-    if [ "${DISABLE_AZTEC_VM:-0}" -eq 0 ]; then
+    if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
       # Package arm64-macos
       cp build-zig-arm64-macos/bin/bb build-release/bb
       inject_version build-release/bb
@@ -245,12 +241,15 @@ function build {
     build_wasm_threads
   )
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
-    builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast build_smt_verification)
+    builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
+  fi
+  if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
+    builds+=(build_smt_verification)
+  fi
+  if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
     # macOS builds require the avm-transpiler linked.
     # We build them using zig cross-compilation.
-    if [ "${DISABLE_AZTEC_VM:-0}" -eq 0 ]; then
-      builds+=(build_darwin_arm64 build_darwin_amd64)
-    fi
+    builds+=(build_darwin_arm64 build_darwin_amd64)
   fi
   parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${builds[@]}
   build_release
@@ -298,7 +297,7 @@ function test_cmds {
   fi
 
   # Run the SMT compatibility tests
-  if [ "$(arch)" == "amd64" ] &&  [ "$CI" -eq 1 ]; then
+  if [ "$(arch)" == "amd64" ] &&  [ "$CI_FULL" -eq 1 ]; then
     local prefix="$hash:CPUS=4:MEM=8g"
     echo -e "$prefix barretenberg/cpp/build-smt/bin/smt_verification_tests"
   fi
@@ -412,7 +411,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench|bench_cmds|build_bench|release|build_native|build_nodejs_module|build_asan_fast|build_darwin_arm64|build_darwin_amd64|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|build_smt_verification|inject_version)
+  test|test_cmds|bench|bench_cmds|build_preset|build_bench|release|build_native|build_nodejs_module|build_asan_fast|build_darwin_arm64|build_darwin_amd64|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|build_smt_verification|inject_version)
     $cmd "$@"
     ;;
   *)

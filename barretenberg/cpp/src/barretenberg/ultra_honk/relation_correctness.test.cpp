@@ -50,7 +50,7 @@ template <typename Flavor> void create_some_add_gates(auto& circuit_builder)
     FF e = a + b + c + d;
     uint32_t e_idx = circuit_builder.add_variable(e);
 
-    uint32_t zero_idx = circuit_builder.zero_idx;
+    uint32_t zero_idx = circuit_builder.zero_idx();
     circuit_builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, -1, -1, -1, -1, 0 }, true); // use next row
     circuit_builder.create_big_add_gate({ zero_idx, zero_idx, zero_idx, e_idx, 0, 0, 0, 0, 0 }, false);
 }
@@ -126,9 +126,9 @@ template <typename Flavor> void create_some_RAM_gates(auto& circuit_builder)
     circuit_builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, -1, -1, -1, -1, 0 }, true);
     circuit_builder.create_big_add_gate(
         {
-            circuit_builder.zero_idx,
-            circuit_builder.zero_idx,
-            circuit_builder.zero_idx,
+            circuit_builder.zero_idx(),
+            circuit_builder.zero_idx(),
+            circuit_builder.zero_idx(),
             e_idx,
             0,
             0,

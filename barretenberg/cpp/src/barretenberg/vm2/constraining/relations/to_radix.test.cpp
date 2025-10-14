@@ -17,6 +17,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
+#include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -28,6 +29,7 @@ namespace {
 using ::testing::Return;
 using ::testing::StrictMock;
 
+using tracegen::ExecutionTraceBuilder;
 using tracegen::GreaterThanTraceBuilder;
 using tracegen::PrecomputedTraceBuilder;
 using tracegen::TestTraceContainer;
@@ -420,7 +422,7 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::gt_res, 0 }, // GT should return true
             // Execution Trace (No gas)
             { C::execution_sel, 1 },
-            { C::execution_sel_execute_to_radix, 1 },
+            { C::execution_sel_exec_dispatch_to_radix, 1 },
             { C::execution_register_0_, value },
             { C::execution_register_1_, radix },
             { C::execution_register_2_, num_limbs },
@@ -624,7 +626,7 @@ TEST(ToRadixMemoryConstrainingTest, DstOutOfRange)
         {
             // Execution Trace (No gas)
             { C::execution_sel, 1 },
-            { C::execution_sel_execute_to_radix, 1 },
+            { C::execution_sel_exec_dispatch_to_radix, 1 },
             { C::execution_register_0_, value },
             { C::execution_register_1_, radix },
             { C::execution_register_2_, num_limbs },
@@ -664,9 +666,8 @@ TEST(ToRadixMemoryConstrainingTest, DstOutOfRange)
     });
 
     check_relation<to_radix_mem>(trace);
-    check_interaction<ToRadixTraceBuilder,
-                      lookup_to_radix_mem_check_dst_addr_in_range_settings,
-                      perm_to_radix_mem_dispatch_exec_to_radix_settings>(trace);
+    check_interaction<ToRadixTraceBuilder, lookup_to_radix_mem_check_dst_addr_in_range_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, perm_execution_dispatch_to_to_radix_settings>(trace);
 }
 
 TEST(ToRadixMemoryConstrainingTest, InvalidRadix)

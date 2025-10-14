@@ -1,12 +1,10 @@
 use super::read_request_action::{ReadRequestAction, ReadRequestActions};
-use dep::types::{
-    abis::read_request::ScopedReadRequest, traits::Empty, utils::arrays::ClaimedLengthArray,
-};
+use dep::types::{side_effect::{Counted, Scoped}, traits::Empty, utils::arrays::ClaimedLengthArray};
 
 pub unconstrained fn get_propagated_read_requests<let ReadRequestLen: u32>(
-    read_requests: ClaimedLengthArray<ScopedReadRequest, ReadRequestLen>,
+    read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, ReadRequestLen>,
     read_request_actions: [ReadRequestAction; ReadRequestLen],
-) -> ClaimedLengthArray<ScopedReadRequest, ReadRequestLen> {
+) -> ClaimedLengthArray<Scoped<Counted<Field>>, ReadRequestLen> {
     let mut propagated_read_requests = ClaimedLengthArray::empty();
     for i in 0..read_requests.length {
         let read_request = read_requests.array[i];

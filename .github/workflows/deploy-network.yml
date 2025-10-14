@@ -91,7 +91,6 @@ jobs:
           echo "MAJOR_VERSION=$major_version" >> $GITHUB_ENV
 
       - name: Store the GCP key in a file
-        if: env.MAJOR_VERSION == '2'
         env:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
@@ -101,7 +100,6 @@ jobs:
           jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
 
       - name: Setup GCP authentication
-        if: env.MAJOR_VERSION == '2'
         run: |
           gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
 
@@ -120,7 +118,6 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Deploy network
-        if: env.MAJOR_VERSION == '2'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -141,7 +138,7 @@ jobs:
           ./scripts/network_deploy.sh "${{ inputs.network }}"
 
       - name: Update testnet monitoring (testnet only)
-        if: env.MAJOR_VERSION == '2' && inputs.network == 'testnet' && !contains(inputs.semver, '-')
+        if: inputs.network == 'testnet' && !contains(inputs.semver, '-')
         env:
           MONITORING_NAMESPACE: testnet-block-height-monitor
         run: |
@@ -149,7 +146,7 @@ jobs:
           ./spartan/metrics/testnet-monitor/scripts/update-monitoring.sh testnet ${{ env.MONITORING_NAMESPACE }}
 
       - name: Notify Slack on failure
-        if: failure() && env.MAJOR_VERSION == '2'
+        if: failure()
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |

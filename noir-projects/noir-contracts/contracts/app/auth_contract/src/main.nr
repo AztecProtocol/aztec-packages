@@ -31,7 +31,7 @@ pub contract Auth {
 
     #[public]
     fn set_authorized(authorized: AztecAddress) {
-        assert_eq(storage.admin.read(), context.msg_sender(), "caller is not admin");
+        assert_eq(storage.admin.read(), context.msg_sender().unwrap(), "caller is not admin");
         storage.authorized.schedule_value_change(authorized);
     }
 
@@ -67,7 +67,7 @@ pub contract Auth {
         // the DelayedPublicMutable, which is as far as the circuit can guarantee the value will not change from some
         // historical value (due to CHANGE_AUTHORIZED_DELAY).
         let authorized = storage.authorized.get_current_value();
-        assert_eq(authorized, context.msg_sender(), "caller is not authorized");
+        assert_eq(authorized, context.msg_sender().unwrap(), "caller is not authorized");
     }
 
     #[private]

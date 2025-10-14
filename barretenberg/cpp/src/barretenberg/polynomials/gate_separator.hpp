@@ -27,7 +27,7 @@ template <typename FF> struct GateSeparatorPolynomial {
      * identified with the integers \f$\ell = 0,\ldots, 2^d-1\f$
      *
      */
-    std::vector<FF> beta_products;
+    Polynomial<FF> beta_products;
     /**
      * @brief In Round \f$ i\f$ of Sumcheck, it points to the \f$ i \f$-th element in \f$ \vec \beta \f$
      *
@@ -88,7 +88,7 @@ template <typename FF> struct GateSeparatorPolynomial {
      * @param idx
      * @return FF const&
      */
-    FF const& operator[](size_t idx) const { return beta_products[idx]; }
+    FF const& operator[](size_t idx) const { return beta_products.at(idx); }
     /**
      * @brief Computes the component  at index #current_element_idx in #betas.
      *
@@ -141,12 +141,11 @@ template <typename FF> struct GateSeparatorPolynomial {
      * when we generate CONST_SIZE_PROOF_LOG_N, currently 28, challenges but the real circuit size is less than 1 <<
      * CONST_SIZE_PROOF_LOG_N, we should compute unnecessarily a vector of beta_products of length 1 << 28 )
      */
-    BB_PROFILE static std::vector<FF> compute_beta_products(const std::vector<FF>& betas,
-                                                            const size_t log_num_monomials)
+    BB_PROFILE static Polynomial<FF> compute_beta_products(const std::vector<FF>& betas, const size_t log_num_monomials)
     {
         BB_BENCH_NAME("GateSeparatorPolynomial::compute_beta_products");
         size_t pow_size = 1 << log_num_monomials;
-        std::vector<FF> beta_products(pow_size);
+        Polynomial<FF> beta_products(pow_size);
 
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
@@ -287,5 +286,96 @@ with the integers \f$\ell = 0,\ldots, 2^d-1\f$ represented in binary are pre-com
 in #beta_products.
  *
  */
+
+template <typename FF> class ProverEqPolynomial {
+
+  public:
+    static Polynomial<FF> construct(std::span<const FF> challenge, size_t log_num_monomials)
+    {
+        std::vector<FF> pow_betas = transform_challenge(challenge);
+        FF scaling_factor = compute_scaling_factor(challenge);
+        Polynomial<FF> out = GateSeparatorPolynomial<FF>::compute_beta_products(pow_betas, log_num_monomials);
+        out *= scaling_factor;
+        return out;
+    };
+
+    static FF compute_scaling_factor(std::span<const FF> challenge)
+    {
+        FF out(1);
+
+        const FF one(1);
+
+        for (auto u_i : challenge) {
+            out *= (one - u_i);
+        }
+        return out;
+    }
+
+    static std::vector<FF> transform_challenge(std::span<const FF> betas)
+    {
+        std::vector<FF> transformed_betas;
+        for (const auto& beta : betas) {
+            transformed_betas.push_back((FF(1) - beta).invert() * beta);
+        }
+
+        return transformed_betas;
+    }
+};
+/**
+ * @brief Verifier-side polynomial for division-free evaluation of eq(r, u).
+ *
+ * eq(r,u) = ∏_i ((1 - r_i)(1 - u_i) + r_i u_i)
+ *         = ∏_i ( b_i + u_i * a_i ), where:
+ *             a_i = 2 r_i - 1
+ *             b_i = 1 - r_i
+ *
+ * Features:
+ *  - O(d) evaluation with no divisions.
+ *  - Incremental "combiner challenge" updates: multiply in the i-th factor and advance.
+ */
+template <typename FF> struct EqVerifierPolynomial {
+    // --- Instance data (fixed for a proof) ---
+    std::vector<FF> r; // instance challenges r_i
+    std::vector<FF> a; // a_i = 2 r_i - 1
+    std::vector<FF> b; // b_i = 1 - r_i
+
+    explicit EqVerifierPolynomial(const std::vector<FF>& r_in) { initialize(r_in); }
+
+    void initialize(const std::vector<FF>& r_in)
+    {
+        r = r_in;
+        a.resize(r.size());
+        b.resize(r.size());
+        for (size_t i = 0; i < r.size(); ++i) {
+            a[i] = r[i] + r[i] - FF(1); // 2 r_i - 1
+            b[i] = FF(1) - r[i];        // 1 - r_i
+        }
+    }
+
+    // ---- One-shot evaluation: eq(r, u) ----
+    FF evaluate(std::span<const FF> u) const
+    {
+        assert(u.size() == r.size());
+        FF acc = FF(1);
+        for (size_t i = 0; i < u.size(); ++i) {
+            // term_i = b_i + u_i * a_i
+            acc *= (b[i] + u[i] * a[i]);
+        }
+        return acc;
+    }
+
+    // ---- Static convenience: one-shot eq(r, u) without constructing the object ----
+    static FF eval(std::span<const FF> r_in, std::span<const FF> u)
+    {
+        assert(r_in.size() == u.size());
+        FF acc = FF(1);
+        for (size_t i = 0; i < r_in.size(); ++i) {
+            const FF ai = r_in[i] + r_in[i] - FF(1);
+            const FF bi = FF(1) - r_in[i];
+            acc *= (bi + u[i] * ai);
+        }
+        return acc;
+    }
+};
 
 } // namespace bb

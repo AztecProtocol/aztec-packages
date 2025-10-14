@@ -77,11 +77,11 @@ template <typename Builder> class Poseidon2Permutation {
      */
     static void propagate_current_state_to_next_row(Builder* builder, const State& state, auto& block)
     {
-        builder->create_dummy_gate(block,
-                                   state[0].get_witness_index(),
-                                   state[1].get_witness_index(),
-                                   state[2].get_witness_index(),
-                                   state[3].get_witness_index());
+        builder->create_unconstrained_gate(block,
+                                           state[0].get_witness_index(),
+                                           state[1].get_witness_index(),
+                                           state[2].get_witness_index(),
+                                           state[3].get_witness_index());
     };
 };
 

@@ -32,9 +32,9 @@ class ECCVMTranscriptTests : public ::testing::Test {
     {
         TranscriptManifest manifest_expected;
         // Size of types is number of bb::frs needed to represent the type
-        size_t frs_per_Fq = bb::field_conversion::calc_num_bn254_frs<FF>();
-        size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<Flavor::BF>();
-        size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<typename Flavor::Commitment>();
+        size_t frs_per_Fq = FrCodec::calc_num_fields<FF>();
+        size_t frs_per_Fr = FrCodec::calc_num_fields<Flavor::BF>();
+        size_t frs_per_G = FrCodec::calc_num_fields<typename Flavor::Commitment>();
         size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fq;
 
         size_t round = 0;
@@ -220,8 +220,8 @@ class ECCVMTranscriptTests : public ::testing::Test {
     {
         TranscriptManifest manifest_expected;
         // Size of types is number of bb::frs needed to represent the type
-        size_t frs_per_Fq = bb::field_conversion::calc_num_bn254_frs<FF>();
-        size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<typename Flavor::Commitment>();
+        size_t frs_per_Fq = FrCodec::calc_num_fields<FF>();
+        size_t frs_per_G = FrCodec::calc_num_fields<Flavor::Commitment>();
         size_t round = 0;
 
         manifest_expected.add_entry(round, "IPA:commitment", frs_per_G);

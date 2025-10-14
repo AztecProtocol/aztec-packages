@@ -188,7 +188,9 @@ $$
 a &= \left(\sum_{i=0}^{n-1} (2 \cdot e'_i + 1)
 \cdot \windex{2^{wi}} \right) \cdot \windex{2^t} + (2 \cdot c' + 1) - \mathfrak{s}_c - \underbrace{\left( \left( \sum_{i=0}^{n-1} \windex{2^{w}} \cdot \windex{2^{wi}} \right) \cdot \windex{2^t} + \windex{2^{w}} \right)}_{\textsf{bias correction due to b and c}} \\
 &= \left(\sum_{i=0}^{n-1} (2 \cdot e'_i)
-\cdot \windex{2^{wi}} \right) \cdot \windex{2^t} + (2 \cdot c') - \mathfrak{s}_c - \underbrace{\left( \left( \sum_{i=0}^{n-1} (\windex{2^{w} - 1}) \cdot \windex{2^{wi}} \right) \cdot \windex{2^t} + (\windex{2^{w} - 1}) \right)}_{\textsf{adjusted bias correction}}
+\cdot \windex{2^{wi}} \right) \cdot \windex{2^t} + (2 \cdot c') - \mathfrak{s}_c - \underbrace{\left( \left( \sum_{i=0}^{n-1} (\windex{2^{w} - 1}) \cdot \windex{2^{wi}} \right) \cdot \windex{2^t} + (\windex{2^{w} - 1}) \right)}_{\textsf{adjusted bias correction}} \\
+&= \underbrace{2 \cdot \left( \left(\sum_{i=0}^{n-1} e'_i \cdot \windex{2^{wi}} \right) \cdot \windex{2^t} + c' \right)}_{\textsf{positive part}} -
+\underbrace{\left(\mathfrak{s}_c + \left( \sum_{i=0}^{n-1} (\windex{2^{w} - 1}) \cdot \windex{2^{wi}} \right) \cdot \windex{2^t} + (\windex{2^{w} - 1}) \right)}_{\textsf{negative part}} \\
 \end{aligned}
 $$
 

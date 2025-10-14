@@ -89,6 +89,64 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 
     BB_ASSERT_EQ(offset, proof_size + public_inputs_size);
 }
+
+/**
+ * @brief Creates a vkey and proof object.
+ * @details if has_valid_witness_assignments is false, generates a dummy proof and vkey matching the given sizes.
+ * the data is not meaningful but its structure is correct.
+ * if has_valid_witness_assignments is true, generates a valid proof and vkey for a simple circuit, matching the given
+ * sizes. This simple proof will be used if the recursion is done under a false predicate. In that case, the recursive
+ * verification must not fail so that's why a valid proof is needed.
+ * @param builder
+ * @param proof_size Size of proof with NO public inputs
+ * @param public_inputs_size Total size of public inputs including aggregation object
+ * @param key_fields
+ * @param proof_fields
+ */
+template <typename Flavor>
+void place_holder_proof_and_vk(typename Flavor::CircuitBuilder& builder,
+                               std::vector<fr>& place_holder_vk_fields,
+                               HonkProof& place_holder_proof,
+                               field_ct<typename Flavor::CircuitBuilder>& place_holder_vk_hash,
+                               bool has_valid_witness_assignments,
+                               size_t proof_size,
+                               size_t public_inputs_size,
+                               const std::vector<field_ct<typename Flavor::CircuitBuilder>>& vk_fields,
+                               const std::vector<field_ct<typename Flavor::CircuitBuilder>>& proof_fields)
+{
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>,
+                                  stdlib::recursion::honk::RollupIO,
+                                  stdlib::recursion::honk::DefaultIO<Builder>>;
+    // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
+    if (!has_valid_witness_assignments) {
+        // In the constraint, the agg object public inputs are still contained in the proof. To get the 'raw' size of
+        // the proof and public_inputs we subtract and add the corresponding amount from the respective sizes.
+        size_t size_of_proof_with_no_pub_inputs = proof_size - IO::PUBLIC_INPUTS_SIZE;
+        size_t total_num_public_inputs = public_inputs_size + IO::PUBLIC_INPUTS_SIZE;
+        // Set a dummy vkey and proof in the builder
+        create_dummy_vkey_and_proof<Flavor>(
+            builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, vk_fields, proof_fields);
+        // Generate a mock place holder proof, vk and vk hash, to keep the circuit the same independent of whether a
+        // witness is provided or not.
+        uint32_t pub_inputs_offset = Flavor::NativeFlavor::has_zero_row ? 1 : 0;
+
+        // Generate mock honk vk
+        auto honk_vk = create_mock_honk_vk<typename Flavor::NativeFlavor, IO>(
+            1 << Flavor::VIRTUAL_LOG_N, pub_inputs_offset, public_inputs_size);
+        place_holder_vk_fields = honk_vk->to_field_elements();
+        place_holder_proof = create_mock_honk_proof<typename Flavor::NativeFlavor, IO>(public_inputs_size);
+        place_holder_vk_hash = honk_vk->hash();
+    } else {
+        // If we have an actual witness, the place holder proof and VK should be an actual verifiable honk proof and
+        // honk vk. Otherwise the recursive verification would fail if the predicate is false.
+        auto [place_holder_honk_proof, place_holder_vk] =
+            construct_honk_proof_for_simple_circuit<typename Flavor::NativeFlavor>(public_inputs_size);
+        place_holder_proof = place_holder_honk_proof;
+        place_holder_vk_fields = place_holder_vk->to_field_elements();
+        place_holder_vk_hash = place_holder_vk->hash();
+    }
+}
+
 } // namespace
 
 /**
@@ -106,6 +164,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     requires(IsRecursiveFlavor<Flavor> && IsUltraHonk<typename Flavor::NativeFlavor>)
 {
     using Builder = typename Flavor::CircuitBuilder;
+    using bool_ct = bb::stdlib::bool_t<Builder>;
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVKAndHash = Flavor::VKAndHash;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
@@ -119,7 +178,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     // Construct an in-circuit representation of the verification key.
     // For now, the v-key is a circuit constant and is fixed for the circuit.
     // (We may need a separate recursion opcode for this to vary, or add more config witnesses to this opcode)
-    std::vector<field_ct<Builder>> key_fields = RecursionConstraint::fields_from_witnesses(builder, input.key);
+    std::vector<field_ct<Builder>> vk_fields = RecursionConstraint::fields_from_witnesses(builder, input.key);
 
     // Create circuit type for vkey hash.
     auto vk_hash = field_ct<Builder>::from_witness_index(&builder, input.key_hash);
@@ -129,19 +188,65 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         ProofSurgeon<uint256_t>::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
     stdlib::Proof<Builder> proof_fields = RecursionConstraint::fields_from_witnesses(builder, proof_indices);
 
-    // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
-    if (!has_valid_witness_assignments) {
-        // In the constraint, the agg object public inputs are still contained in the proof. To get the 'raw' size of
-        // the proof and public_inputs we subtract and add the corresponding amount from the respective sizes.
-        size_t size_of_proof_with_no_pub_inputs = input.proof.size() - IO::PUBLIC_INPUTS_SIZE;
-        size_t total_num_public_inputs = input.public_inputs.size() + IO::PUBLIC_INPUTS_SIZE;
+    // Recursion constraints come with a predicate (e.g. when the black-box call is done in an if conditional depending
+    // on a witness value in a Noir circuit) To keep the circuit constants (selectors and copy constraints) the same
+    // independent of value of the conditional, we create a place holder proof, vk and vk_hash and conditionally select
+    // between the two (in circuit) depending on the predicate value.
+    std::vector<fr> place_holder_vk_fields;
+    HonkProof place_holder_proof;
 
-        create_dummy_vkey_and_proof<Flavor>(
-            builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, key_fields, proof_fields);
+    field_ct<Builder> place_holder_vk_hash;
+
+    place_holder_proof_and_vk<Flavor>(builder,
+                                      place_holder_vk_fields,
+                                      place_holder_proof,
+                                      place_holder_vk_hash,
+                                      has_valid_witness_assignments,
+                                      input.proof.size(),
+                                      input.public_inputs.size(),
+                                      vk_fields,
+                                      proof_fields);
+
+    if (!input.predicate.is_constant) {
+        bool_ct predicate_witness = bool_ct::from_witness_index_unsafe(&builder, input.predicate.index);
+        stdlib::Proof<Builder> result_proof;
+        std::vector<field_ct<Builder>> result_vk;
+        result_proof.reserve(proof_fields.size());
+        result_vk.reserve(vk_fields.size());
+        // Replace the proof by the placeholder proof in case the predicate is 1
+        for (uint32_t i = 0; i < proof_fields.size(); ++i) {
+            field_ct<Builder> place_holder_proof_witness =
+                field_ct<Builder>::from_witness(&builder, place_holder_proof[i]);
+            // Note: we have essentially created a dangling witness. However, this is not a problem given the
+            // context. When this witness is being conditionally assigned, we are in a scenario where we are using
+            // an place holder proof instead of the real proof. Hence, it is not a soundness issue if we use the
+            // specific place holder proof generated by construct_honk_proof_for_simple_circuit or another one. We
+            // manually unset the free_witness_tag to ensure the automatic tooling does not catch this as a free
+            // witness
+            place_holder_proof_witness.unset_free_witness_tag();
+            auto valid_proof =
+                field_ct<Builder>::conditional_assign(predicate_witness, proof_fields[i], place_holder_proof_witness);
+            result_proof.push_back(valid_proof);
+        }
+
+        // Replace the VK with the placeholder vk in case the predicate is 1
+        for (uint32_t i = 0; i < vk_fields.size(); ++i) {
+            field_ct<Builder> place_holder_vk_witness =
+                field_ct<Builder>::from_witness(&builder, place_holder_vk_fields[i]);
+            // Same as above. This witness being a free witness is not a soundness issue
+            place_holder_vk_witness.unset_free_witness_tag();
+            auto valid_vk =
+                field_ct<Builder>::conditional_assign(predicate_witness, vk_fields[i], place_holder_vk_witness);
+            result_vk.push_back(valid_vk);
+        }
+        vk_hash = field_ct<Builder>::conditional_assign(
+            predicate_witness, vk_hash, field_ct<Builder>::from_witness(&builder, place_holder_vk_hash.get_value()));
+        proof_fields = result_proof;
+        vk_fields = result_vk;
     }
 
     // Recursively verify the proof
-    auto vkey = std::make_shared<RecursiveVerificationKey>(key_fields);
+    auto vkey = std::make_shared<RecursiveVerificationKey>(vk_fields);
     auto vk_and_hash = std::make_shared<RecursiveVKAndHash>(vkey, vk_hash);
     RecursiveVerifier verifier(&builder, vk_and_hash);
     UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.template verify_proof<IO>(proof_fields);

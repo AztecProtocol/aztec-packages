@@ -13,7 +13,8 @@ add_definitions(-DLIBDEFLATE_ASSEMBLER_DOES_NOT_SUPPORT_SHA3)
 FetchContent_Declare(
   libdeflate
   GIT_REPOSITORY https://github.com/ebiggers/libdeflate.git
-  GIT_TAG        96836d7d9d10e3e0d53e6edb54eb908514e336c4
+  GIT_TAG        v1.24
+  GIT_SHALLOW    TRUE
 )
 
 # Download and populate libdeflate

@@ -14,10 +14,10 @@ template <typename FF_> class bc_decompositionImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 54> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 5, 3, 4, 4, 3, 3, 3, 5, 3, 3,
-                                                                            4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 61> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 4, 4, 5, 3, 4, 4, 3, 3, 3, 5, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 5, 3, 3
+    };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -49,8 +49,12 @@ template <typename FF> class bc_decomposition : public Relation<bc_decomposition
     static constexpr size_t SR_SEL_WINDOWS_GT_REMAINING_INIT = 12;
     static constexpr size_t SR_SEL_WINDOWS_GT_REMAINING_PROPAGATION = 13;
     static constexpr size_t SR_SET_BYTES_TO_READ = 14;
-    static constexpr size_t SR_SEL_TOGGLED_AT_PACKED = 52;
-    static constexpr size_t SR_BC_DECOMPOSITION_REPACKING = 53;
+    static constexpr size_t SR_PACKED_ROW_NEEDS_PERM_SELECTOR = 55;
+    static constexpr size_t SR_SEL_TOGGLED_AT_PACKED = 56;
+    static constexpr size_t SR_SEL_PACKED_INIT = 57;
+    static constexpr size_t SR_PC_IS_PACKED = 58;
+    static constexpr size_t SR_NEXT_PACKED_PC_PROPAGATION = 59;
+    static constexpr size_t SR_BC_DECOMPOSITION_REPACKING = 60;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -77,8 +81,16 @@ template <typename FF> class bc_decomposition : public Relation<bc_decomposition
             return "SEL_WINDOWS_GT_REMAINING_PROPAGATION";
         case SR_SET_BYTES_TO_READ:
             return "SET_BYTES_TO_READ";
+        case SR_PACKED_ROW_NEEDS_PERM_SELECTOR:
+            return "PACKED_ROW_NEEDS_PERM_SELECTOR";
         case SR_SEL_TOGGLED_AT_PACKED:
             return "SEL_TOGGLED_AT_PACKED";
+        case SR_SEL_PACKED_INIT:
+            return "SEL_PACKED_INIT";
+        case SR_PC_IS_PACKED:
+            return "PC_IS_PACKED";
+        case SR_NEXT_PACKED_PC_PROPAGATION:
+            return "NEXT_PACKED_PC_PROPAGATION";
         case SR_BC_DECOMPOSITION_REPACKING:
             return "BC_DECOMPOSITION_REPACKING";
         }
