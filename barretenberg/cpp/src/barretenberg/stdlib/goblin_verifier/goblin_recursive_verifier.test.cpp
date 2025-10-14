@@ -207,6 +207,7 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
  */
 TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
 {
+    BB_DISABLE_ASSERTS(); // Avoid on_curve assertion failure in cycle_group etc
     Builder builder;
 
     auto [proof, verifier_input, merge_commitments, recursive_merge_commitments] =
@@ -222,6 +223,7 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
 
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
     GoblinRecursiveVerifierOutput goblin_rec_verifier_output = verifier.verify(proof, recursive_merge_commitments);
+    EXPECT_FALSE(CircuitChecker::check(builder));
 
     srs::init_file_crs_factory(bb::srs::bb_crs_path());
     auto crs_factory = srs::get_grumpkin_crs_factory();
@@ -231,9 +233,9 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     auto native_ipa_proof = goblin_rec_verifier_output.ipa_proof.get_value();
     native_ipa_transcript->load_proof(native_ipa_proof);
 
-    EXPECT_THROW_OR_ABORT(
-        IPA<curve::Grumpkin>::reduce_verify(grumpkin_verifier_commitment_key, native_claim, native_ipa_transcript),
-        ".*IPA verification fails.*");
+    bool native_result =
+        IPA<curve::Grumpkin>::reduce_verify(grumpkin_verifier_commitment_key, native_claim, native_ipa_transcript);
+    EXPECT_FALSE(native_result);
 }
 
 /**
