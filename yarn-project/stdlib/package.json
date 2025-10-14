@@ -87,7 +87,7 @@
     "msgpackr": "^1.11.2",
     "pako": "^2.1.0",
     "tslib": "^2.4.0",
-    "viem": "2.23.7",
+    "viem": "2.38.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {

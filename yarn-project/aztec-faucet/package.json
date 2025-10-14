@@ -70,7 +70,7 @@
     "koa": "^2.16.1",
     "koa-bodyparser": "^4.4.1",
     "koa-router": "^13.1.1",
-    "viem": "2.23.7",
+    "viem": "2.38.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {

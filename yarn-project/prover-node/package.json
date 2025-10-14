@@ -79,7 +79,7 @@
     "@aztec/world-state": "workspace:^",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0",
-    "viem": "2.23.7"
+    "viem": "2.38.2"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",
