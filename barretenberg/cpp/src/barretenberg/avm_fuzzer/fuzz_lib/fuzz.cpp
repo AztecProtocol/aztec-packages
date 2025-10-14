@@ -11,12 +11,12 @@ SimulatorResult fuzz(FuzzerData& fuzzer_data)
     auto result = cpp_simulator.simulate(bytecode, fuzzer_data.calldata);
     auto js_result = js_simulator.simulate(bytecode, fuzzer_data.calldata);
     if (compare_simulator_results(result, js_result)) {
-        std::cout << "Simulator results are the same" << std::endl;
-        // TODO(defkit) remove / log
-        for (const auto& output : result.output) {
-            std::cout << output << std::endl;
+        // std::cout << "Simulator results are the same" << std::endl;
+        //  TODO(defkit) remove / log
+        for (const auto& _ : result.output) {
+            // std::cout << output << std::endl;
         }
-        std::cout << "Reverted: " << result.reverted << std::endl;
+        // std::cout << "Reverted: " << result.reverted << std::endl;
     } else {
         std::cout << "Simulator results are different" << std::endl;
         throw std::runtime_error("Simulator results are different");

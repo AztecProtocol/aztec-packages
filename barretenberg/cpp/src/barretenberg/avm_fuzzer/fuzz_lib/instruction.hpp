@@ -1,7 +1,10 @@
 #pragma once
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include <cstdint>
+#include <cstring>
+#include <stdexcept>
 #include <variant>
 
 using MemoryTag = bb::avm2::MemoryTag;
@@ -17,13 +20,26 @@ struct MemoryTagWrapper {
 
     operator MemoryTag() const { return value; }
 
-    void msgpack_pack(auto& packer) const { packer.pack(static_cast<int>(value)); }
-
-    void msgpack_unpack(auto o)
+    void msgpack_pack(auto& packer) const
     {
-        int int_value;
-        o.convert(int_value);
-        value = static_cast<MemoryTag>(int_value);
+        uint64_t value_to_serialize = static_cast<uint64_t>(this->value);
+        packer.pack_bin(sizeof(value_to_serialize));
+        packer.pack_bin_body((char*)&value_to_serialize, sizeof(value_to_serialize)); // NOLINT
+    }
+
+    void msgpack_unpack(msgpack::object const& o)
+    {
+        // Handle binary data unpacking
+        if (o.type == msgpack::type::BIN) {
+            auto bin = o.via.bin;
+            if (bin.size == sizeof(uint64_t)) {
+                uint64_t value_to_deserialize = 0;
+                std::memcpy(&value_to_deserialize, bin.ptr, sizeof(value_to_deserialize));
+                *this = MemoryTagWrapper(static_cast<MemoryTag>(value_to_deserialize));
+            } else {
+                throw std::runtime_error("Invalid binary data size for MemoryTag");
+            }
+        }
     }
 };
 
@@ -39,7 +55,7 @@ struct MemoryTagWrapper {
 
 /// @brief mem[result_offset] = mem[a_address] + mem[b_address]
 struct ADD_8_Instruction {
-    MemoryTag argument_tag;
+    MemoryTagWrapper argument_tag;
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
@@ -48,7 +64,7 @@ struct ADD_8_Instruction {
 
 /// @brief mem[result_offset] = mem[a_address] - mem[b_address]
 struct SUB_8_Instruction {
-    MemoryTag argument_tag;
+    MemoryTagWrapper argument_tag;
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
@@ -57,7 +73,7 @@ struct SUB_8_Instruction {
 
 /// @brief mem[result_offset] = mem[a_address] * mem[b_address]
 struct MUL_8_Instruction {
-    MemoryTag argument_tag;
+    MemoryTagWrapper argument_tag;
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
@@ -66,7 +82,7 @@ struct MUL_8_Instruction {
 
 /// @brief mem[result_offset] = mem[a_address] / mem[b_address]
 struct DIV_8_Instruction {
-    MemoryTag argument_tag;
+    MemoryTagWrapper argument_tag;
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
@@ -77,7 +93,7 @@ struct DIV_8_Instruction {
 
 /// @brief mem[result_offset] = mem[a_address] == mem[b_address]
 struct EQ_8_Instruction {
-    MemoryTag argument_tag;
+    MemoryTagWrapper argument_tag;
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
@@ -86,7 +102,7 @@ struct EQ_8_Instruction {
 
 /// @brief mem[result_offset] = mem[a_address] < mem[b_address]
 struct LT_8_Instruction {
-    MemoryTag argument_tag;
+    MemoryTagWrapper argument_tag;
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
@@ -95,7 +111,7 @@ struct LT_8_Instruction {
 
 /// @brief mem[result_offset] = mem[a_address] <= mem[b_address]
 struct LTE_8_Instruction {
-    MemoryTag argument_tag;
+    MemoryTagWrapper argument_tag;
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
@@ -104,7 +120,7 @@ struct LTE_8_Instruction {
 
 /// @brief mem[result_offset] = mem[a_address] & mem[b_address]
 struct AND_8_Instruction {
-    MemoryTag argument_tag;
+    MemoryTagWrapper argument_tag;
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
@@ -113,7 +129,7 @@ struct AND_8_Instruction {
 
 /// @brief mem[result_offset] = mem[a_address] | mem[b_address]
 struct OR_8_Instruction {
-    MemoryTag argument_tag;
+    MemoryTagWrapper argument_tag;
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
@@ -122,7 +138,7 @@ struct OR_8_Instruction {
 
 /// @brief mem[result_offset] = mem[a_address] ^ mem[b_address]
 struct XOR_8_Instruction {
-    MemoryTag argument_tag;
+    MemoryTagWrapper argument_tag;
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
@@ -134,7 +150,7 @@ struct XOR_8_Instruction {
 
 /// @brief mem[result_offset] = mem[a_address] << mem[b_address]
 struct SHL_8_Instruction {
-    MemoryTag argument_tag;
+    MemoryTagWrapper argument_tag;
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
@@ -143,7 +159,7 @@ struct SHL_8_Instruction {
 
 /// @brief mem[result_offset] = mem[a_address] >> mem[b_address]
 struct SHR_8_Instruction {
-    MemoryTag argument_tag;
+    MemoryTagWrapper argument_tag;
     uint16_t a_offset_index;
     uint16_t b_offset_index;
     uint8_t result_offset;
@@ -152,7 +168,7 @@ struct SHR_8_Instruction {
 
 /// @brief SET_8 instruction
 struct SET_8_Instruction {
-    MemoryTag value_tag;
+    MemoryTagWrapper value_tag;
     uint8_t offset;
     uint8_t value;
     MSGPACK_FIELDS(value_tag, offset, value);

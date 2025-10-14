@@ -309,7 +309,6 @@
       "binaryDir": "build-fuzzing",
       "cacheVariables": {
         "FUZZING": "ON",
-        "DISABLE_AZTEC_VM": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
@@ -321,7 +320,6 @@
       "binaryDir": "build-fuzzing-noasm",
       "cacheVariables": {
         "FUZZING": "ON",
-        "DISABLE_AZTEC_VM": "ON",
         "DISABLE_ASM": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert"
       }

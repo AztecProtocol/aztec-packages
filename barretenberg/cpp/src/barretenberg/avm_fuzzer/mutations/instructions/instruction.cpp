@@ -82,7 +82,7 @@ void mutate_binary_instruction_8(BinaryInstructionType& instruction, std::mt1993
     BinaryInstruction8MutationOptions option = BASIC_BINARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case BinaryInstruction8MutationOptions::memory_tag:
-        mutate_memory_tag(instruction.argument_tag, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
+        mutate_memory_tag(instruction.argument_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
         break;
     case BinaryInstruction8MutationOptions::a_offset_index:
         mutate_uint16_t(instruction.a_offset_index, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
@@ -101,7 +101,7 @@ void mutate_set_8_instruction(SET_8_Instruction& instruction, std::mt19937_64& r
     Set8MutationOptions option = BASIC_SET_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case Set8MutationOptions::value_tag:
-        mutate_memory_tag(instruction.value_tag, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
+        mutate_memory_tag(instruction.value_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
         break;
     case Set8MutationOptions::offset:
         mutate_uint8_t(instruction.offset, rng, BASIC_UINT8_T_MUTATION_CONFIGURATION);

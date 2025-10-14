@@ -1,6 +1,7 @@
 // TODO(defkit) GET RID OF STATIC CASTS, EVERY INSTRUCTION SHOULD DESCRIBE IT
 
 #include "program_block.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
@@ -8,8 +9,8 @@
 
 void ProgramBlock::process_add_8_instruction(ADD_8_Instruction instruction)
 {
-    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.a_offset_index);
-    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.b_offset_index);
+    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.a_offset_index);
+    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.b_offset_index);
     if (!a_addr.has_value() || !b_addr.has_value()) {
         return;
     }
@@ -20,14 +21,14 @@ void ProgramBlock::process_add_8_instruction(ADD_8_Instruction instruction)
                                  .operand(instruction.result_offset)
                                  .build();
     instructions.push_back(add_8_instruction);
-    memory_manager.set_memory_address(instruction.argument_tag, instruction.result_offset);
+    memory_manager.set_memory_address(instruction.argument_tag.value, instruction.result_offset);
 }
 
 void ProgramBlock::process_sub_8_instruction(SUB_8_Instruction instruction)
 {
 
-    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.a_offset_index);
-    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.b_offset_index);
+    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.a_offset_index);
+    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.b_offset_index);
     if (!a_addr.has_value() || !b_addr.has_value()) {
         return;
     }
@@ -38,13 +39,13 @@ void ProgramBlock::process_sub_8_instruction(SUB_8_Instruction instruction)
                                  .operand(instruction.result_offset)
                                  .build();
     instructions.push_back(sub_8_instruction);
-    memory_manager.set_memory_address(instruction.argument_tag, instruction.result_offset);
+    memory_manager.set_memory_address(instruction.argument_tag.value, instruction.result_offset);
 }
 
 void ProgramBlock::process_mul_8_instruction(MUL_8_Instruction instruction)
 {
-    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.a_offset_index);
-    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.b_offset_index);
+    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.a_offset_index);
+    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.b_offset_index);
     if (!a_addr.has_value() || !b_addr.has_value()) {
         return;
     }
@@ -55,14 +56,14 @@ void ProgramBlock::process_mul_8_instruction(MUL_8_Instruction instruction)
                                  .operand(instruction.result_offset)
                                  .build();
     instructions.push_back(mul_8_instruction);
-    memory_manager.set_memory_address(instruction.argument_tag, instruction.result_offset);
+    memory_manager.set_memory_address(instruction.argument_tag.value, instruction.result_offset);
 }
 
 void ProgramBlock::process_div_8_instruction(DIV_8_Instruction instruction)
 {
 
-    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.a_offset_index);
-    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.b_offset_index);
+    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.a_offset_index);
+    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.b_offset_index);
     if (!a_addr.has_value() || !b_addr.has_value()) {
         return;
     }
@@ -73,13 +74,13 @@ void ProgramBlock::process_div_8_instruction(DIV_8_Instruction instruction)
                                  .operand(instruction.result_offset)
                                  .build();
     instructions.push_back(div_8_instruction);
-    memory_manager.set_memory_address(instruction.argument_tag, instruction.result_offset);
+    memory_manager.set_memory_address(instruction.argument_tag.value, instruction.result_offset);
 }
 
 void ProgramBlock::process_eq_8_instruction(EQ_8_Instruction instruction)
 {
-    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.a_offset_index);
-    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.b_offset_index);
+    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.a_offset_index);
+    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.b_offset_index);
     if (!a_addr.has_value() || !b_addr.has_value()) {
         return;
     }
@@ -96,8 +97,8 @@ void ProgramBlock::process_eq_8_instruction(EQ_8_Instruction instruction)
 void ProgramBlock::process_lt_8_instruction(LT_8_Instruction instruction)
 {
 
-    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.a_offset_index);
-    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.b_offset_index);
+    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.a_offset_index);
+    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.b_offset_index);
     if (!a_addr.has_value() || !b_addr.has_value()) {
         return;
     }
@@ -113,8 +114,8 @@ void ProgramBlock::process_lt_8_instruction(LT_8_Instruction instruction)
 
 void ProgramBlock::process_lte_8_instruction(LTE_8_Instruction instruction)
 {
-    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.a_offset_index);
-    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.b_offset_index);
+    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.a_offset_index);
+    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.b_offset_index);
     if (!a_addr.has_value() || !b_addr.has_value()) {
         return;
     }
@@ -131,8 +132,8 @@ void ProgramBlock::process_lte_8_instruction(LTE_8_Instruction instruction)
 void ProgramBlock::process_and_8_instruction(AND_8_Instruction instruction)
 {
 
-    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.a_offset_index);
-    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.b_offset_index);
+    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.a_offset_index);
+    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.b_offset_index);
     if (!a_addr.has_value() || !b_addr.has_value()) {
         return;
     }
@@ -143,14 +144,14 @@ void ProgramBlock::process_and_8_instruction(AND_8_Instruction instruction)
                                  .operand(instruction.result_offset)
                                  .build();
     instructions.push_back(and_8_instruction);
-    memory_manager.set_memory_address(instruction.argument_tag, instruction.result_offset);
+    memory_manager.set_memory_address(instruction.argument_tag.value, instruction.result_offset);
 }
 
 void ProgramBlock::process_or_8_instruction(OR_8_Instruction instruction)
 {
 
-    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.a_offset_index);
-    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.b_offset_index);
+    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.a_offset_index);
+    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.b_offset_index);
     if (!a_addr.has_value() || !b_addr.has_value()) {
         return;
     }
@@ -161,7 +162,7 @@ void ProgramBlock::process_or_8_instruction(OR_8_Instruction instruction)
                                 .operand(instruction.result_offset)
                                 .build();
     instructions.push_back(or_8_instruction);
-    memory_manager.set_memory_address(instruction.argument_tag, instruction.result_offset);
+    memory_manager.set_memory_address(instruction.argument_tag.value, instruction.result_offset);
 }
 
 void ProgramBlock::process_xor_8_instruction(XOR_8_Instruction instruction)
@@ -179,14 +180,14 @@ void ProgramBlock::process_xor_8_instruction(XOR_8_Instruction instruction)
                                  .operand(instruction.result_offset)
                                  .build();
     instructions.push_back(xor_8_instruction);
-    memory_manager.set_memory_address(instruction.argument_tag, instruction.result_offset);
+    memory_manager.set_memory_address(instruction.argument_tag.value, instruction.result_offset);
 }
 
 void ProgramBlock::process_shl_8_instruction(SHL_8_Instruction instruction)
 {
 
-    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.a_offset_index);
-    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.b_offset_index);
+    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.a_offset_index);
+    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.b_offset_index);
     if (!a_addr.has_value() || !b_addr.has_value()) {
         return;
     }
@@ -197,14 +198,14 @@ void ProgramBlock::process_shl_8_instruction(SHL_8_Instruction instruction)
                                  .operand(instruction.result_offset)
                                  .build();
     instructions.push_back(shl_8_instruction);
-    memory_manager.set_memory_address(instruction.argument_tag, instruction.result_offset);
+    memory_manager.set_memory_address(instruction.argument_tag.value, instruction.result_offset);
 }
 
 void ProgramBlock::process_shr_8_instruction(SHR_8_Instruction instruction)
 {
 
-    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.a_offset_index);
-    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.b_offset_index);
+    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.a_offset_index);
+    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.b_offset_index);
     if (!a_addr.has_value() || !b_addr.has_value()) {
         return;
     }
@@ -215,17 +216,17 @@ void ProgramBlock::process_shr_8_instruction(SHR_8_Instruction instruction)
                                  .operand(instruction.result_offset)
                                  .build();
     instructions.push_back(shr_8_instruction);
-    memory_manager.set_memory_address(instruction.argument_tag, instruction.result_offset);
+    memory_manager.set_memory_address(instruction.argument_tag.value, instruction.result_offset);
 }
 
 void ProgramBlock::process_set_8_instruction(SET_8_Instruction instruction)
 {
     instructions.push_back(bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SET_8)
                                .operand(instruction.offset)
-                               .operand(instruction.value_tag)
+                               .operand(instruction.value_tag.value)
                                .operand(instruction.value)
                                .build());
-    memory_manager.set_memory_address(instruction.value_tag, instruction.offset);
+    memory_manager.set_memory_address(instruction.value_tag.value, instruction.offset);
 }
 
 /* void ProgramBlock::process_return_instruction(RETURN_Instruction instruction)
@@ -254,10 +255,10 @@ void ProgramBlock::process_set_8_instruction(SET_8_Instruction instruction)
 } */
 
 void ProgramBlock::finalize_with_return(uint8_t return_size,
-                                        MemoryTag return_value_tag,
+                                        MemoryTagWrapper return_value_tag,
                                         uint16_t return_value_offset_index)
 {
-    auto return_addr = memory_manager.get_memory_offset_16_bit(return_value_tag, return_value_offset_index);
+    auto return_addr = memory_manager.get_memory_offset_16_bit(return_value_tag.value, return_value_offset_index);
     if (!return_addr.has_value()) {
         return_addr = std::optional<uint16_t>(0);
     }
