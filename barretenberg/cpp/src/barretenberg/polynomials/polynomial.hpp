@@ -223,8 +223,6 @@ template <typename Fr> class Polynomial {
 
     Fr compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
         requires polynomial_arithmetic::SupportsFFT<Fr>;
-    Fr compute_kate_opening_coefficients(const Fr& z)
-        requires polynomial_arithmetic::SupportsFFT<Fr>;
 
     /**
      * @brief Divides p(X) by (X-r) in-place.

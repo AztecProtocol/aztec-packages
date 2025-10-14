@@ -99,10 +99,6 @@ void coset_ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain);
 // void populate_with_vanishing_polynomial(Fr* coeffs, const size_t num_non_zero_entries, const EvaluationDomain<Fr>&
 // src_domain, const EvaluationDomain<Fr>& target_domain);
 
-template <typename Fr>
-    requires SupportsFFT<Fr>
-Fr compute_kate_opening_coefficients(const Fr* src, Fr* dest, const Fr& z, const size_t n);
-
 fr compute_barycentric_evaluation(const fr* coeffs,
                                   unsigned long num_coeffs,
                                   const fr& z,

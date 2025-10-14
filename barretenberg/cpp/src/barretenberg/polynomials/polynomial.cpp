@@ -251,13 +251,6 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
 }
 
 template <typename Fr>
-Fr Polynomial<Fr>::compute_kate_opening_coefficients(const Fr& z)
-    requires polynomial_arithmetic::SupportsFFT<Fr>
-{
-    return polynomial_arithmetic::compute_kate_opening_coefficients(data(), data(), z, size());
-}
-
-template <typename Fr>
 Fr Polynomial<Fr>::compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {

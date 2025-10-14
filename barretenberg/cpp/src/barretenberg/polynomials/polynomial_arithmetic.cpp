@@ -602,33 +602,6 @@ template <typename Fr> Fr evaluate(const std::vector<Fr*> coeffs, const Fr& z, c
     return r;
 }
 
-template <typename Fr>
-    requires SupportsFFT<Fr>
-Fr compute_kate_opening_coefficients(const Fr* src, Fr* dest, const Fr& z, const size_t n)
-{
-    // if `coeffs` represents F(X), we want to compute W(X)
-    // where W(X) = F(X) - F(z) / (X - z)
-    // i.e. divide by the degree-1 polynomial [-z, 1]
-
-    // We assume that the commitment is well-formed and that there is no remainder term.
-    // Under these conditions we can perform this polynomial division in linear time with good constants
-    Fr f = evaluate(src, z, n);
-
-    // compute (1 / -z)
-    Fr divisor = -z.invert();
-
-    // we're about to shove these coefficients into a pippenger multi-exponentiation routine, where we need
-    // to convert out of montgomery form. So, we can use lazy reduction techniques here without triggering overflows
-    dest[0] = src[0] - f;
-    dest[0] *= divisor;
-    for (size_t i = 1; i < n; ++i) {
-        dest[i] = src[i] - dest[i - 1];
-        dest[i] *= divisor;
-    }
-
-    return f;
-}
-
 // Computes r = \sum_{i=0}^{num_coeffs-1} (L_{i+1}(ʓ).f_i)
 //
 //                     (ʓ^n - 1)
@@ -910,7 +883,6 @@ template void ifft<fr>(std::vector<fr*>, const EvaluationDomain<fr>&);
 template void ifft_with_constant<fr>(fr*, const EvaluationDomain<fr>&, const fr&);
 template void coset_ifft<fr>(fr*, const EvaluationDomain<fr>&);
 template void coset_ifft<fr>(std::vector<fr*>, const EvaluationDomain<fr>&);
-template fr compute_kate_opening_coefficients<fr>(const fr*, fr*, const fr&, const size_t);
 template fr compute_sum<fr>(const fr*, const size_t);
 template void compute_linear_polynomial_product<fr>(const fr*, fr*, const size_t);
 template void compute_interpolation<fr>(const fr*, fr*, const fr*, const size_t);

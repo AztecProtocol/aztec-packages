@@ -283,55 +283,6 @@ TEST(polynomials, fft_coset_ifft_cross_consistency)
     }
 }
 
-TEST(polynomials, compute_kate_opening_coefficients)
-{
-    // generate random polynomial F(X) = coeffs
-    constexpr size_t n = 256;
-    fr* coeffs = static_cast<fr*>(aligned_alloc(64, sizeof(fr) * 2 * n));
-    fr* W = static_cast<fr*>(aligned_alloc(64, sizeof(fr) * 2 * n));
-    for (size_t i = 0; i < n; ++i) {
-        coeffs[i] = fr::random_element();
-        coeffs[i + n] = fr::zero();
-    }
-    polynomial_arithmetic::copy_polynomial(coeffs, W, 2 * n, 2 * n);
-
-    // generate random evaluation point z
-    fr z = fr::random_element();
-
-    // compute opening polynomial W(X), and evaluation f = F(z)
-    fr f = polynomial_arithmetic::compute_kate_opening_coefficients(W, W, z, n);
-
-    // validate that W(X)(X - z) = F(X) - F(z)
-    // compute (X - z) in coefficient form
-    fr* multiplicand = static_cast<fr*>(aligned_alloc(64, sizeof(fr) * 2 * n));
-    multiplicand[0] = -z;
-    multiplicand[1] = fr::one();
-    for (size_t i = 2; i < 2 * n; ++i) {
-        multiplicand[i] = fr::zero();
-    }
-
-    // set F(X) = F(X) - F(z)
-    coeffs[0] -= f;
-
-    // compute fft of polynomials
-    auto domain = evaluation_domain(2 * n);
-    domain.compute_lookup_table();
-    polynomial_arithmetic::coset_fft(coeffs, domain);
-    polynomial_arithmetic::coset_fft(W, domain);
-    polynomial_arithmetic::coset_fft(multiplicand, domain);
-
-    // validate that, at each evaluation, W(X)(X - z) = F(X) - F(z)
-    fr result;
-    for (size_t i = 0; i < domain.size; ++i) {
-        result = W[i] * multiplicand[i];
-        EXPECT_EQ((result == coeffs[i]), true);
-    }
-
-    aligned_free(coeffs);
-    aligned_free(W);
-    aligned_free(multiplicand);
-}
-
 TEST(polynomials, barycentric_weight_evaluations)
 {
     constexpr size_t n = 16;
