@@ -83,7 +83,7 @@ template <typename Flavor> class OinkVerifier {
         if constexpr (IsRecursiveFlavor<Flavor>) {
             return static_cast<size_t>(static_cast<uint32_t>(vk->num_public_inputs.get_value()));
         } else {
-            return vk->num_public_inputs;
+            return static_cast<size_t>(vk->num_public_inputs);
         }
     }
 };
