@@ -156,6 +156,7 @@ export type Wallet = {
   registerContract(
     instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
   ): Promise<ContractInstanceWithAddress>;
+  // Overloaded definition to avoid zod issues
   registerContract(
     instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
     artifact: ContractArtifact,
@@ -182,7 +183,7 @@ export type Wallet = {
   batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(methods: T): Promise<BatchResults<T>>;
 };
 
-const ContractInstantiationDataSchema = z.object({
+export const ContractInstantiationDataSchema = z.object({
   constructorArtifact: optional(z.union([FunctionAbiSchema, z.string()])),
   constructorArgs: optional(z.array(z.any())),
   skipArgsDecoding: optional(z.boolean()),
@@ -191,7 +192,7 @@ const ContractInstantiationDataSchema = z.object({
   deployer: optional(schemas.AztecAddress),
 });
 
-const FunctionCallSchema = z.object({
+export const FunctionCallSchema = z.object({
   name: z.string(),
   to: schemas.AztecAddress,
   selector: schemas.FunctionSelector,
@@ -202,14 +203,14 @@ const FunctionCallSchema = z.object({
   returnTypes: z.array(AbiTypeSchema),
 });
 
-const ExecutionPayloadSchema = z.object({
+export const ExecutionPayloadSchema = z.object({
   calls: z.array(FunctionCallSchema),
   authWitnesses: z.array(AuthWitness.schema),
   capsules: z.array(Capsule.schema),
   extraHashedArgs: z.array(HashedValues.schema),
 });
 
-const UserFeeOptionsSchema = z.object({
+export const UserFeeOptionsSchema = z.object({
   gasSettings: optional(
     z.object({
       gasLimits: optional(Gas.schema),
@@ -221,19 +222,19 @@ const UserFeeOptionsSchema = z.object({
   embeddedPaymentMethodFeePayer: optional(schemas.AztecAddress),
 });
 
-const WalletSimulationFeeOptionSchema = UserFeeOptionsSchema.extend({
+export const WalletSimulationFeeOptionSchema = UserFeeOptionsSchema.extend({
   estimatedGasPadding: optional(z.number()),
   estimateGas: optional(z.boolean()),
 });
 
-const SendOptionsSchema = z.object({
+export const SendOptionsSchema = z.object({
   from: schemas.AztecAddress,
   authWitnesses: optional(z.array(AuthWitness.schema)),
   capsules: optional(z.array(Capsule.schema)),
   fee: optional(UserFeeOptionsSchema),
 });
 
-const SimulateOptionsSchema = z.object({
+export const SimulateOptionsSchema = z.object({
   from: schemas.AztecAddress,
   authWitnesses: optional(z.array(AuthWitness.schema)),
   capsules: optional(z.array(Capsule.schema)),
@@ -243,19 +244,19 @@ const SimulateOptionsSchema = z.object({
   includeMetadata: optional(z.boolean()),
 });
 
-const ProfileOptionsSchema = SimulateOptionsSchema.extend({
+export const ProfileOptionsSchema = SimulateOptionsSchema.extend({
   profileMode: z.enum(['gates', 'execution-steps', 'full']),
   skipProofGeneration: optional(z.boolean()),
 });
 
-const InstanceDataSchema = z.union([
+export const InstanceDataSchema = z.union([
   schemas.AztecAddress,
   ContractInstanceWithAddressSchema,
   ContractInstantiationDataSchema,
   z.object({ instance: ContractInstanceWithAddressSchema, artifact: ContractArtifactSchema }),
 ]);
 
-const MessageHashOrIntentSchema = z.union([
+export const MessageHashOrIntentSchema = z.union([
   schemas.Fr,
   schemas.Buffer,
   z.object({ consumer: schemas.AztecAddress, innerHash: z.union([schemas.Buffer, schemas.Fr]) }),
@@ -265,7 +266,7 @@ const MessageHashOrIntentSchema = z.union([
   }),
 ]);
 
-const BatchedMethodSchema = z.union([
+export const BatchedMethodSchema = z.union([
   z.object({
     name: z.literal('registerSender'),
     args: z.tuple([schemas.AztecAddress, optional(z.string())]),
@@ -280,13 +281,13 @@ const BatchedMethodSchema = z.union([
   }),
 ]);
 
-const ContractMetadataSchema = z.object({
+export const ContractMetadataSchema = z.object({
   contractInstance: z.union([ContractInstanceWithAddressSchema, z.undefined()]),
   isContractInitialized: z.boolean(),
   isContractPublished: z.boolean(),
 }) satisfies ZodFor<ContractMetadata>;
 
-const ContractClassMetadataSchema = z.object({
+export const ContractClassMetadataSchema = z.object({
   contractClass: z.union([ContractClassWithIdSchema, z.undefined()]),
   isContractClassPubliclyRegistered: z.boolean(),
   artifact: z.union([ContractArtifactSchema, z.undefined()]),
@@ -332,6 +333,7 @@ export const WalletSchema: ApiSchemaFor<Wallet> = {
   proveTx: z.function().args(ExecutionPayloadSchema, SendOptionsSchema).returns(TxProvingResult.schema),
   sendTx: z.function().args(Tx.schema).returns(TxHash.schema),
   createAuthWit: z.function().args(schemas.AztecAddress, MessageHashOrIntentSchema).returns(AuthWitness.schema),
+  // @ts-expect-error - ApiSchemaFor cannot properly type generic methods with readonly arrays
   batch: z
     .function()
     .args(z.array(BatchedMethodSchema))
