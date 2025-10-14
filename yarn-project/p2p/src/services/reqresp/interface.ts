@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { L2Block } from '@aztec/stdlib/block';
-import { TxArray, TxHashArray } from '@aztec/stdlib/tx';
+import { Tx, TxArray, TxHashArray } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
@@ -79,6 +79,34 @@ export interface ProtocolRateLimitQuota {
 export const noopValidator = () => Promise.resolve(true);
 
 /**
+ * Validator for transaction responses from reqresp protocols.
+ * Validates that all transaction hashes in the response match their computed hashes.
+ */
+export const txValidator = async (request: TxHashArray, response: TxArray): Promise<boolean> => {
+  for (const tx of response) {
+    const expectedHash = await Tx.computeTxHash(tx);
+    if (!tx.getTxHash().equals(expectedHash)) {
+      return false;
+    }
+  }
+  return true;
+};
+
+/**
+ * Validator for block transactions responses.
+ * Validates that all transaction hashes match their computed hashes.
+ */
+export const blockTxsValidator = async (request: BlockTxsRequest, response: BlockTxsResponse): Promise<boolean> => {
+  for (const tx of response.txs) {
+    const expectedHash = await Tx.computeTxHash(tx);
+    if (!tx.getTxHash().equals(expectedHash)) {
+      return false;
+    }
+  }
+  return true;
+};
+
+/**
  * A type mapping from supprotocol to it's handling function
  */
 export type ReqRespSubProtocolHandlers = Record<ReqRespSubProtocol, ReqRespSubProtocolHandler>;
@@ -96,11 +124,11 @@ export type ReqRespSubProtocolValidators = {
 export const DEFAULT_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
   [ReqRespSubProtocol.PING]: noopValidator,
   [ReqRespSubProtocol.STATUS]: noopValidator,
-  [ReqRespSubProtocol.TX]: noopValidator,
+  [ReqRespSubProtocol.TX]: txValidator,
   [ReqRespSubProtocol.GOODBYE]: noopValidator,
   [ReqRespSubProtocol.BLOCK]: noopValidator,
   [ReqRespSubProtocol.AUTH]: noopValidator,
-  [ReqRespSubProtocol.BLOCK_TXS]: noopValidator,
+  [ReqRespSubProtocol.BLOCK_TXS]: blockTxsValidator,
 };
 
 /*

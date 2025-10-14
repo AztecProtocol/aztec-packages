@@ -452,14 +452,14 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     // Create request response protocol handlers
     const txHandler = reqRespTxHandler(this.mempools);
     const goodbyeHandler = reqGoodbyeHandler(this.peerManager);
-    const blockHandler = reqRespBlockHandler(this.archiver);
+    // const blockHandler = reqRespBlockHandler(this.archiver);
     const statusHandler = reqRespStatusHandler(this.protocolVersion, this.worldStateSynchronizer, this.logger);
 
     const requestResponseHandlers: Partial<ReqRespSubProtocolHandlers> = {
       [ReqRespSubProtocol.PING]: pingHandler,
       [ReqRespSubProtocol.STATUS]: statusHandler.bind(this),
       [ReqRespSubProtocol.GOODBYE]: goodbyeHandler.bind(this),
-      [ReqRespSubProtocol.BLOCK]: blockHandler.bind(this),
+      // [ReqRespSubProtocol.BLOCK]: blockHandler.bind(this),
     };
 
     // Only handle block transactions request if attestation pool is available to the client
@@ -890,6 +890,13 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
             this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
             throw new ValidationError(`Received tx with hash ${tx.getTxHash().toString()} that was not requested.`);
           }
+
+          // TODO: WHAT ELSE DO WE NEED TO CHECK? WE REQUESTED THE TX, BUT WHAT IF IT WAS INVALID?
+          // WE PROBABLY WANT IT ANYWAY, BUT THEN FAIL LATER?
+
+          // FOR SURE CHECK THE HASH!
+
+          // WHAT ABOUT GOSSIPSUB, NOT REQRESP?
 
           const { result } = await proofValidator.validateTx(tx);
           if (result === 'invalid') {

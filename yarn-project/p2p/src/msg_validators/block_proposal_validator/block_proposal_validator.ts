@@ -2,6 +2,7 @@ import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { NoCommitteeError } from '@aztec/ethereum';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type BlockProposal, type P2PValidator, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { Tx } from '@aztec/stdlib/tx';
 
 export class BlockProposalValidator implements P2PValidator<BlockProposal> {
   private epochCache: EpochCacheInterface;
@@ -20,14 +21,14 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
       // Check that the attestation is for the current or next slot
       const slotNumberBigInt = block.payload.header.slotNumber.toBigInt();
       if (slotNumberBigInt !== currentSlot && slotNumberBigInt !== nextSlot) {
-        this.logger.debug(`Penalizing peer for invalid slot number ${slotNumberBigInt}`, { currentSlot, nextSlot });
+        this.logger.warn(`Penalizing peer for invalid slot number ${slotNumberBigInt}`, { currentSlot, nextSlot });
         return PeerErrorSeverity.HighToleranceError;
       }
 
       // Check that the block proposal is from the current or next proposer
       const proposer = block.getSender();
       if (slotNumberBigInt === currentSlot && currentProposer !== undefined && !proposer.equals(currentProposer)) {
-        this.logger.debug(`Penalizing peer for invalid proposer for current slot ${slotNumberBigInt}`, {
+        this.logger.warn(`Penalizing peer for invalid proposer for current slot ${slotNumberBigInt}`, {
           currentProposer,
           nextProposer,
           proposer,
@@ -36,12 +37,26 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
       }
 
       if (slotNumberBigInt === nextSlot && nextProposer !== undefined && !proposer.equals(nextProposer)) {
-        this.logger.debug(`Penalizing peer for invalid proposer for next slot ${slotNumberBigInt}`, {
+        this.logger.warn(`Penalizing peer for invalid proposer for next slot ${slotNumberBigInt}`, {
           currentProposer,
           nextProposer,
           proposer,
         });
         return PeerErrorSeverity.MidToleranceError;
+      }
+
+      // If the block proposal contains full transactions, validate their hashes
+      if (block.txs && block.txs.length > 0) {
+        for (let i = 0; i < block.txs.length; i++) {
+          const tx = block.txs[i];
+          const expectedHash = await Tx.computeTxHash(tx);
+          if (!tx.getTxHash().equals(expectedHash)) {
+            this.logger.warn(
+              `Penalizing peer for invalid tx hash in block proposal. Tx index: ${i}, expected: ${expectedHash.toString()}, got: ${tx.getTxHash().toString()}`,
+            );
+            return PeerErrorSeverity.LowToleranceError;
+          }
+        }
       }
 
       return undefined;
