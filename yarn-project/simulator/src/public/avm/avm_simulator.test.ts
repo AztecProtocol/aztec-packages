@@ -1161,6 +1161,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     let siloedNullifier0: Fr;
     let uniqueNoteHash0: Fr;
 
+    let worldStateService: NativeWorldStateService;
     let treesDB: PublicTreesDB;
     let contractsDB: PublicContractsDB;
     let trace: PublicSideEffectTraceInterface;
@@ -1178,7 +1179,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       mockNoteHashCount(trace, noteHashIndexInTx);
 
       const contractDataSource = new SimpleContractDataSource();
-      const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
+      worldStateService = await NativeWorldStateService.tmp();
+      const merkleTrees = await worldStateService.fork();
       treesDB = new PublicTreesDB(merkleTrees);
       contractsDB = new PublicContractsDB(contractDataSource);
 
@@ -1189,6 +1191,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         doMerkleOperations: true,
         firstNullifier,
       });
+    });
+
+    afterEach(async () => {
+      await worldStateService.close();
     });
 
     const createContext = (calldata: Fr[] = []) => {

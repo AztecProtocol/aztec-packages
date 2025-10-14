@@ -1,4 +1,5 @@
 import { addressingWithBaseTagIssueTest } from '@aztec/simulator/public/fixtures';
+import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import {
   instructionTruncatedTest,
@@ -11,10 +12,16 @@ import {
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 
 describe('Public TX simulator apps tests: custom bytecodes unhappy paths', () => {
+  let worldStateService: NativeWorldStateService;
   let tester: PublicTxSimulationTester;
 
   beforeEach(async () => {
-    tester = await PublicTxSimulationTester.create();
+    worldStateService = await NativeWorldStateService.tmp();
+    tester = await PublicTxSimulationTester.create(worldStateService);
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
   });
 
   it('Base address uninitialized indirect relative', async () => {
@@ -29,10 +36,16 @@ describe('Public TX simulator apps tests: custom bytecodes unhappy paths', () =>
 });
 
 describe('Public TX simulator apps tests: bytecode flow unhappy paths', () => {
+  let worldStateService: NativeWorldStateService;
   let tester: PublicTxSimulationTester;
 
   beforeEach(async () => {
-    tester = await PublicTxSimulationTester.create();
+    worldStateService = await NativeWorldStateService.tmp();
+    tester = await PublicTxSimulationTester.create(worldStateService);
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
   });
 
   it('PC out of range', async () => {
