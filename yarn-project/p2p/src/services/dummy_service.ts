@@ -3,8 +3,8 @@ import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { Gossipable, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
+import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
-import type { ENR } from '@nethermindeth/enr';
 import EventEmitter from 'events';
 
 import type { PeerManagerInterface } from './peer-manager/interface.js';
