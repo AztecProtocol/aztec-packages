@@ -47,7 +47,7 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
 
     std::shared_ptr<Transcript> transcript;
 
-    HypernovaFoldingVerifier(std::shared_ptr<Transcript>& transcript)
+    HypernovaFoldingVerifier(const std::shared_ptr<Transcript>& transcript)
         : transcript(transcript) {};
 
     /**

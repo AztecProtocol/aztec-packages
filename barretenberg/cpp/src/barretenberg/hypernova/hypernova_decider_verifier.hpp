@@ -36,7 +36,7 @@ template <typename Flavor_> class HypernovaDeciderVerifier {
 
     std::shared_ptr<Transcript> transcript;
 
-    HypernovaDeciderVerifier(std::shared_ptr<Transcript>& transcript)
+    HypernovaDeciderVerifier(const std::shared_ptr<Transcript>& transcript)
         : transcript(transcript) {};
 
     PairingPoints verify_proof(Accumulator& accumulator, const Proof& proof);
