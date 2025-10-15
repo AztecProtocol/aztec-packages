@@ -397,32 +397,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     template <size_t wnaf_size, size_t staggered_lo_offset = 0, size_t staggered_hi_offset = 0>
     static secp256k1_wnaf_pair compute_secp256k1_endo_wnaf(const Fr& scalar, const bool range_constrain_wnaf = true);
 
-    Builder* get_context() const
-    {
-        if (_x.context != nullptr) {
-            return _x.context;
-        }
-        if (_y.context != nullptr) {
-            return _y.context;
-        }
-        return nullptr;
-    }
+    Builder* get_context() const { return validate_context<Builder>(_x.get_context(), _y.get_context()); }
 
     Builder* get_context(const element& other) const
     {
-        if (_x.context != nullptr) {
-            return _x.context;
-        }
-        if (_y.context != nullptr) {
-            return _y.context;
-        }
-        if (other._x.context != nullptr) {
-            return other._x.context;
-        }
-        if (other._y.context != nullptr) {
-            return other._y.context;
-        }
-        return nullptr;
+        return validate_context<Builder>(get_context(), other.get_context());
     }
 
     // Coordinate accessors (non-owning, const reference)

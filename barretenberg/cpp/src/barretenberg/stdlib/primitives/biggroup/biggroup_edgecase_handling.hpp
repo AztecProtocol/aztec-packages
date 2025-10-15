@@ -81,7 +81,7 @@ template <typename C, class Fq, class Fr, class G>
 std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr, G>::handle_points_at_infinity(
     const std::vector<element>& _points, const std::vector<Fr>& _scalars)
 {
-    auto builder = _points[0].get_context();
+    C* builder = validate_context<C>(validate_context<C>(_points), validate_context<C>(_scalars));
     std::vector<element> points;
     std::vector<Fr> scalars;
     element one = element::one(builder);
