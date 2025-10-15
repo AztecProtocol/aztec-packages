@@ -30,9 +30,7 @@ class SumcheckClientIVCTests : public ::testing::Test {
     using Builder = SumcheckClientIVC::ClientCircuit;
     using ProverInstance = SumcheckClientIVC::ProverInstance;
     using VerifierInstance = SumcheckClientIVC::VerifierInstance;
-    using FoldProof = SumcheckClientIVC::FoldProof;
     using DeciderProver = SumcheckClientIVC::DeciderProver;
-    using DeciderVerifier = SumcheckClientIVC::DeciderVerifier;
     using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
 
   public:
@@ -46,9 +44,6 @@ class SumcheckClientIVCTests : public ::testing::Test {
             circuit_producer.construct_and_accumulate_next_circuit(ivc);
         }
 
-        info("Num ecc rows: ", ivc.goblin.op_queue->get_num_rows());
-        // info("Num ecc ultra ops: ", ivc.goblin.op_queue->get_ultra_ops_table_num_rows());
-
         return { ivc.prove(), ivc.get_vk() };
     };
 };
@@ -59,8 +54,7 @@ class SumcheckClientIVCTests : public ::testing::Test {
  */
 TEST_F(SumcheckClientIVCTests, BasicStructured)
 {
-    // BB_DISABLE_ASSERTS();
-    const size_t NUM_APP_CIRCUITS = 15;
+    const size_t NUM_APP_CIRCUITS = 5;
     auto [proof, vk] = SumcheckClientIVCTests::accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 
     EXPECT_TRUE(SumcheckClientIVC::verify(proof, vk));

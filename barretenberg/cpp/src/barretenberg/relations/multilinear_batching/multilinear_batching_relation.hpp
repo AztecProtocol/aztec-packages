@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
 namespace bb {
@@ -38,11 +39,11 @@ template <typename FF_> class MultilinearBatchingAccumulatorRelationImpl {
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
+    template <typename ContainerOverSubrelations, typename AllEntities>
     inline static void accumulate(ContainerOverSubrelations& evals,
                                   const AllEntities& in,
-                                  const Parameters&,
-                                  const FF& scaling_factor)
+                                  [[maybe_unused]] const RelationParameters<FF>& relation_parameters = {},
+                                  [[maybe_unused]] const FF& scaling_factor = {})
     {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
 
@@ -50,8 +51,8 @@ template <typename FF_> class MultilinearBatchingAccumulatorRelationImpl {
         auto w_evaluations_accumulator = Accumulator(in.w_evaluations_accumulator);
         auto w_shifted_accumulator = Accumulator(in.w_shifted_accumulator);
 
-        std::get<0>(evals) += (w_non_shifted_accumulator * w_evaluations_accumulator) * scaling_factor;
-        std::get<1>(evals) += (w_shifted_accumulator * w_evaluations_accumulator) * scaling_factor;
+        std::get<0>(evals) += (w_non_shifted_accumulator * w_evaluations_accumulator);
+        std::get<1>(evals) += (w_shifted_accumulator * w_evaluations_accumulator);
     };
 };
 template <typename FF_> class MultilinearBatchingInstanceRelationImpl {
@@ -69,7 +70,7 @@ template <typename FF_> class MultilinearBatchingInstanceRelationImpl {
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    template <typename AllEntities> static bool skip(const AllEntities& in)
     {
         return (in.w_non_shifted_accumulator.is_zero() && in.w_non_shifted_instance.is_zero() &&
                 in.w_shifted_accumulator.is_zero() && in.w_shifted_instance.is_zero()) ||
@@ -84,11 +85,11 @@ template <typename FF_> class MultilinearBatchingInstanceRelationImpl {
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
-    inline static void accumulate(ContainerOverSubrelations& evals,
-                                  const AllEntities& in,
-                                  const Parameters&,
-                                  const FF& scaling_factor)
+    template <typename ContainerOverSubrelations, typename AllEntities>
+    static void accumulate(ContainerOverSubrelations& evals,
+                           const AllEntities& in,
+                           [[maybe_unused]] const RelationParameters<FF>& relation_parameters = {},
+                           [[maybe_unused]] const FF& scaling_factor = {})
     {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
 
@@ -96,8 +97,8 @@ template <typename FF_> class MultilinearBatchingInstanceRelationImpl {
         auto w_evaluations_instance = Accumulator(in.w_evaluations_instance);
         auto w_shifted_instance = Accumulator(in.w_shifted_instance);
 
-        std::get<0>(evals) += (w_non_shifted_instance * w_evaluations_instance) * scaling_factor;
-        std::get<1>(evals) += (w_shifted_instance * w_evaluations_instance) * scaling_factor;
+        std::get<0>(evals) += (w_non_shifted_instance * w_evaluations_instance);
+        std::get<1>(evals) += (w_shifted_instance * w_evaluations_instance);
     };
 };
 
