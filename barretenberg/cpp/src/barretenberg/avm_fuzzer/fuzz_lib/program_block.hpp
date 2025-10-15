@@ -56,7 +56,7 @@ class ProgramBlock {
 
     /// @brief finalize the program block with a return instruction
     /// Tries to find memory address with the given `return_value_tag`, if there are no such address (zero variables of
-    /// such tag are stored), it tries other memory tags
+    /// such tag are stored), it sets the return address to 0
     void finalize_with_return(uint8_t return_size,
                               MemoryTagWrapper return_value_tag,
                               uint16_t return_value_offset_index);

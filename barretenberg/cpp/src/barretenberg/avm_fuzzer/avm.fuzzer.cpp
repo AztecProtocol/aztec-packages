@@ -22,6 +22,7 @@ SimulatorResult fuzz(const uint8_t* buffer, size_t size)
     }
     // std::cout << "Deserialized data: " << deserialized_data << std::endl;
     auto res = fuzz(deserialized_data);
+
     return res;
 }
 
@@ -48,6 +49,7 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* serialized_fuzzer_data,
     }
 
     memcpy(serialized_fuzzer_data, mutated_serialized_fuzzer_data, mutated_serialized_fuzzer_data_size);
+    delete[] mutated_serialized_fuzzer_data;
 
     return mutated_serialized_fuzzer_data_size;
 }
