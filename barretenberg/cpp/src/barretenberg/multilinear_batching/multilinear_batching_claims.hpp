@@ -26,6 +26,23 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
     FF non_shifted_evaluation;
     Commitment non_shifted_commitment;
     Commitment shifted_commitment;
+
+    auto get_value()
+        requires Curve::is_stdlib_type
+    {
+        MultilinearBatchingVerifierClaim<typename Curve::NativeCurve> native_claim;
+        native_claim.challenge.reserve(challenge.size());
+
+        for (auto& recursive_challenge : challenge) {
+            native_claim.challenge.emplace_back(recursive_challenge.get_value());
+        }
+        native_claim.non_shifted_evaluation = non_shifted_evaluation.get_value();
+        native_claim.shifted_evaluation = shifted_evaluation.get_value();
+        native_claim.non_shifted_commitment = non_shifted_commitment.get_value();
+        native_claim.shifted_commitment = shifted_commitment.get_value();
+
+        return native_claim;
+    }
 };
 
 } // namespace bb

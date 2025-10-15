@@ -21,10 +21,10 @@ constexpr uint32_t DECOMPOSE_WINDOW_SIZE = 37; // Max size of instruction in byt
 
 struct ExecInstructionSpec {
     struct GasInfo {
-        uint16_t opcode_gas; // Base l2 gas is computed as opcode_gas + addressing_gas
-        uint16_t base_da;
-        uint16_t dyn_l2;
-        uint16_t dyn_da;
+        uint16_t opcode_gas = 0; // Base l2 gas is computed as opcode_gas + addressing_gas
+        uint16_t base_da = 0;
+        uint16_t dyn_l2 = 0;
+        uint16_t dyn_da = 0;
 
         bool operator==(const GasInfo& other) const = default;
     };
@@ -59,8 +59,8 @@ struct ExecInstructionSpec {
         bool has_output = false;
     };
 
-    uint8_t num_addresses;
-    GasInfo gas_cost;
+    uint8_t num_addresses = 0;
+    GasInfo gas_cost;        // Default values are 0.
     uint32_t dyn_gas_id = 0; // Composition of dyn gas selectors.
     RegisterInfo register_info;
 
@@ -68,9 +68,9 @@ struct ExecInstructionSpec {
 };
 
 struct WireInstructionSpec {
-    ExecutionOpCode exec_opcode;
-    uint32_t size_in_bytes;
-    std::array<uint8_t, NUM_OP_DC_SELECTORS> op_dc_selectors;
+    ExecutionOpCode exec_opcode = static_cast<ExecutionOpCode>(0);
+    uint32_t size_in_bytes = 0;
+    std::array<uint8_t, NUM_OP_DC_SELECTORS> op_dc_selectors = {};
     std::optional<uint8_t>
         tag_operand_idx; // Index of relevant operand in vector of operands as defined in WireOpCode_WIRE_FORMAT
 

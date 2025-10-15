@@ -127,7 +127,7 @@ class TranslatorFlavor {
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 91;
     static constexpr size_t NUM_WIRES_NON_SHIFTED = 1;
-    static constexpr size_t NUM_SHIFTED_WITNESSES = 86;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 86;
     static constexpr size_t NUM_INTERLEAVED = NUM_INTERLEAVED_WIRES * INTERLEAVING_GROUP_SIZE;
     // Number of elements in WireToBeShiftedWithoutConcatenated
     static constexpr size_t NUM_WIRES_TO_BE_SHIFTED_WITHOUT_INTERLEAVED = 16;
@@ -135,18 +135,18 @@ class TranslatorFlavor {
     // get_unshifted_without_interleaved(), get_to_be_shifted(), and get_groups_to_be_interleaved()
     static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED;
     // The index of the shift of the first to be shifted witness
-    static constexpr size_t SHIFTED_WITNESSES_START = NUM_SHIFTED_WITNESSES + TO_BE_SHIFTED_WITNESSES_START;
+    static constexpr size_t SHIFTED_WITNESSES_START = NUM_SHIFTED_ENTITIES + TO_BE_SHIFTED_WITNESSES_START;
     // The index of the first unshifted witness that is contained in the groups to be interleaved, when AllEntities are
     // partitioned into get_unshifted_without_interleaved(), get_to_be_shifted(), and get_groups_to_be_interleaved()
     static constexpr size_t TO_BE_INTERLEAVED_START =
         NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED + NUM_WIRES_TO_BE_SHIFTED_WITHOUT_INTERLEAVED;
     // The index of the first interleaving groups element inside AllEntities
-    static constexpr size_t INTERLEAVED_START = NUM_SHIFTED_WITNESSES + SHIFTED_WITNESSES_START;
+    static constexpr size_t INTERLEAVED_START = NUM_SHIFTED_ENTITIES + SHIFTED_WITNESSES_START;
     // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
         RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED,
-                                NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED + NUM_SHIFTED_WITNESSES,
-                                NUM_SHIFTED_WITNESSES,
+                                NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED + NUM_SHIFTED_ENTITIES,
+                                NUM_SHIFTED_ENTITIES,
                                 TO_BE_INTERLEAVED_START,
                                 INTERLEAVED_START,
                                 NUM_INTERLEAVED);

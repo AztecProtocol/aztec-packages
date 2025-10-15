@@ -48,7 +48,7 @@ const std::vector<OperandType> external_call_format = { OperandType::INDIRECT16,
                                                         /*argsSizeOffset=*/OperandType::UINT16 };
 
 // Contrary to TS, the format does not contain the WireOpCode byte which prefixes any instruction.
-// The format for WireOpCode::SET has to be handled separately as it is variable based on the tag.
+// Entries are ordered to match WireOpCode enum.
 const std::unordered_map<WireOpCode, std::vector<OperandType>> WireOpCode_WIRE_FORMAT = {
     // Compute
     // Compute - Arithmetic

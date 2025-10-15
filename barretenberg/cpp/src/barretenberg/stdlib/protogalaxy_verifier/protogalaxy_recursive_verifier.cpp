@@ -234,6 +234,5 @@ std::shared_ptr<VerifierInstance> ProtogalaxyRecursiveVerifier_<VerifierInstance
 
 // Instantiate the template with specific flavors and builders
 template class ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstance_<MegaRecursiveFlavor_<MegaCircuitBuilder>>>;
-template class ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstance_<MegaRecursiveFlavor_<UltraCircuitBuilder>>>;
 
 } // namespace bb::stdlib::recursion::honk

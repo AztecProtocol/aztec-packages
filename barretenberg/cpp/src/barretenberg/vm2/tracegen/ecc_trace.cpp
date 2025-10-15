@@ -98,13 +98,15 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
 
                       // Check coordinates to detect edge cases (double, add and infinity)
                       { C::ecc_x_match, x_match },
-                      { C::ecc_inv_x_diff, x_match ? FF::zero() : (q.x() - p.x()).invert() },
+                      { C::ecc_inv_x_diff, q.x() - p.x() }, // Will be inverted in batch later
                       { C::ecc_y_match, y_match },
-                      { C::ecc_inv_y_diff, y_match ? FF::zero() : (q.y() - p.y()).invert() },
+                      { C::ecc_inv_y_diff, q.y() - p.y() }, // Will be inverted in batch later
 
                       // Witness for doubling operation
                       { C::ecc_double_op, double_predicate },
-                      { C::ecc_inv_2_p_y, !result_is_infinity && double_predicate ? (p.y() * 2).invert() : FF::zero() },
+                      { C::ecc_inv_2_p_y,
+                        !result_is_infinity && double_predicate ? (p.y() * 2)
+                                                                : FF::zero() }, // Will be inverted in batch later
 
                       // Witness for add operation
                       { C::ecc_add_op, add_predicate },
@@ -117,6 +119,9 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
 
         row++;
     }
+
+    // Batch invert the columns.
+    trace.invert_columns({ { C::ecc_inv_x_diff, C::ecc_inv_y_diff, C::ecc_inv_2_p_y } });
 }
 
 void EccTraceBuilder::process_scalar_mul(
@@ -189,6 +194,7 @@ void EccTraceBuilder::process_add_with_memory(
         bool dst_out_of_range_err = dst_addr + 2 > AVM_HIGHEST_MEM_ADDRESS;
 
         // Error handling, check if the points are on the curve.
+        // We do not use batch inversions as we do not need to invert in the happy path.
         bool p_is_on_curve = event.p.on_curve();
         FF p_is_on_curve_eqn = compute_curve_eqn_diff(event.p);
         FF p_is_on_curve_eqn_inv = p_is_on_curve ? FF::zero() : p_is_on_curve_eqn.invert();
