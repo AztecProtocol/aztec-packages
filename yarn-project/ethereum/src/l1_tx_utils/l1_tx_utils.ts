@@ -170,11 +170,13 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     });
     const kzg = txData.kzg! as any;
 
-    for (let i = 0; i < txData.blobs!.length; i++) {
-      const blob = txData.blobs![i];
-      const [_, cellProofs] = kzg.computeCellsAndKzgProofs(blob) as [Uint8Array[], Uint8Array[]];
-      txRequest.sidecars![i]!.proof = cellProofs.map(el => bufferToHex(Buffer.from(el))) as any;
-      i++;
+    if (txData.blobs?.length) {
+      for (let i = 0; i < txData.blobs.length; i++) {
+        const blob = txData.blobs![i];
+        const [_, cellProofs] = kzg.computeCellsAndKzgProofs(blob) as [Uint8Array[], Uint8Array[]];
+        txRequest.sidecars![i]!.proof = cellProofs.map(el => bufferToHex(Buffer.from(el))) as any;
+        i++;
+      }
     }
     return await this.signTransaction(txRequest as TransactionSerializable);
   }
