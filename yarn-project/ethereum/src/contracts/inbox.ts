@@ -2,7 +2,7 @@ import { Buffer16 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { InboxAbi } from '@aztec/l1-artifacts/InboxAbi';
 
-import { type BlockTag, type GetContractReturnType, type Hex, getContract } from 'viem';
+import { type BlockTag, type GetContractReturnType, type Hex, getContract } from '@spalladino/viem';
 
 import { getPublicClient } from '../client.js';
 import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';

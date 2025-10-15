@@ -78,11 +78,11 @@
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
+    "@spalladino/viem": "2.38.2-eip7594.0",
     "lodash.groupby": "^4.6.0",
     "lodash.omit": "^4.5.0",
     "tsc-watch": "^6.0.0",
-    "tslib": "^2.5.0",
-    "viem": "2.23.7"
+    "tslib": "^2.5.0"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",

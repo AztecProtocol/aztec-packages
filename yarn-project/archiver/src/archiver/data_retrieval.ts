@@ -28,7 +28,7 @@ import {
   getAbiItem,
   hexToBytes,
   multicall3Abi,
-} from 'viem';
+} from '@spalladino/viem';
 
 import { NoBlobBodiesFoundError } from './errors.js';
 import type { DataRetrieval } from './structs/data_retrieval.js';

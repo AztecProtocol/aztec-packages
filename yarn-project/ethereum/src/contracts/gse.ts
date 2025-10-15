@@ -3,7 +3,7 @@ import { GSEAbi } from '@aztec/l1-artifacts/GSEAbi';
 
 import type { ProjPointType } from '@noble/curves/abstract/weierstrass';
 import { bn254 } from '@noble/curves/bn254';
-import { type GetContractReturnType, type Hex, getContract } from 'viem';
+import { type GetContractReturnType, type Hex, getContract } from '@spalladino/viem';
 
 import type { ViemClient } from '../types.js';
 

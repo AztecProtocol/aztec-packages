@@ -4,7 +4,7 @@ import type { Signature } from '@aztec/foundation/eth-signature';
 import type { EthRemoteSignerConfig } from '@aztec/node-keystore';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import type { TypedDataDefinition } from 'viem';
+import type { TypedDataDefinition } from '@spalladino/viem';
 
 /** Key Store
  *

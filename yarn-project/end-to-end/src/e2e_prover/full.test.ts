@@ -12,7 +12,7 @@ import { TX_ERROR_INVALID_PROOF } from '@aztec/stdlib/tx';
 
 import TOML from '@iarna/toml';
 import '@jest/globals';
-import { type GetContractReturnType, getContract } from 'viem';
+import { type GetContractReturnType, getContract } from '@spalladino/viem';
 
 import { FullProverTest } from '../fixtures/e2e_prover_test.js';
 

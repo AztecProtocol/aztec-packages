@@ -5,7 +5,7 @@ import type { Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 
-import type { TransactionSerializable, TypedDataDefinition } from 'viem';
+import type { TransactionSerializable, TypedDataDefinition } from '@spalladino/viem';
 
 /**
  * Abstraction for signing operations used by the node keystore.

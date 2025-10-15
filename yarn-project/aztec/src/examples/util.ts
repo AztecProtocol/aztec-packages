@@ -2,8 +2,8 @@ import { EthAddress } from '@aztec/aztec.js';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
+import type { Hex } from '@spalladino/viem';
 import type { Abi, Narrow } from 'abitype';
-import type { Hex } from 'viem';
 
 /**
  * Helper function to deploy ETH contracts.

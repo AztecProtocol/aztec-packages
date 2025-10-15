@@ -5,8 +5,8 @@ import type { SequencerClientConfig, TxSenderConfig } from '@aztec/sequencer-cli
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ValidatorClientConfig } from '@aztec/validator-client/config';
 
-import type { Hex } from 'viem';
-import { generatePrivateKey, privateKeyToAddress } from 'viem/accounts';
+import type { Hex } from '@spalladino/viem';
+import { generatePrivateKey, privateKeyToAddress } from '@spalladino/viem/accounts';
 
 import { createKeyStoreForValidator } from './config.js';
 

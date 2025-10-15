@@ -2,7 +2,7 @@ import type { BlobKzgInstance } from '@aztec/blob-lib/types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemTransactionSignature } from '@aztec/foundation/eth-signature';
 
-import type { Abi, Address, Hex, TransactionReceipt, TransactionSerializable } from 'viem';
+import type { Abi, Address, Hex, TransactionReceipt, TransactionSerializable } from '@spalladino/viem';
 
 import type { L1TxUtilsConfig } from './config.js';
 

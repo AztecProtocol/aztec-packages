@@ -23,8 +23,8 @@ import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
-import { getContract } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+import { getContract } from '@spalladino/viem';
+import { privateKeyToAccount } from '@spalladino/viem/accounts';
 
 import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
 

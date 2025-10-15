@@ -39,7 +39,7 @@ import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
 import { type ProposedBlockHeader, StateReference } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { type TransactionReceipt, type TypedDataDefinition, encodeFunctionData, toHex } from 'viem';
+import { type TransactionReceipt, type TypedDataDefinition, encodeFunctionData, toHex } from '@spalladino/viem';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';

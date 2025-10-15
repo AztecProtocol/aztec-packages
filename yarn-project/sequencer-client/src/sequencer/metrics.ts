@@ -12,7 +12,7 @@ import {
   ValueType,
 } from '@aztec/telemetry-client';
 
-import { type Hex, formatUnits } from 'viem';
+import { type Hex, formatUnits } from '@spalladino/viem';
 
 import type { SequencerState } from './utils.js';
 

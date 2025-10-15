@@ -4,7 +4,6 @@ import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
-import pickBy from 'lodash.pickby';
 import {
   type Abi,
   type Account,
@@ -19,7 +18,8 @@ import {
   formatGwei,
   getContractError,
   hexToBytes,
-} from 'viem';
+} from '@spalladino/viem';
+import pickBy from 'lodash.pickby';
 
 import type { ViemClient } from '../types.js';
 import { type L1TxUtilsConfig, defaultL1TxUtilsConfig, l1TxUtilsConfigMappings } from './config.js';

@@ -14,10 +14,10 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { TallySlashingProposerAbi } from '@aztec/l1-artifacts/TallySlashingProposerAbi';
 
+import { type Hex, type TypedDataDefinition, encodeFunctionData, hashTypedData } from '@spalladino/viem';
+import { type PrivateKeyAccount, privateKeyToAccount } from '@spalladino/viem/accounts';
+import { foundry } from '@spalladino/viem/chains';
 import type { Anvil } from '@viem/anvil';
-import { type Hex, type TypedDataDefinition, encodeFunctionData, hashTypedData } from 'viem';
-import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
-import { foundry } from 'viem/chains';
 
 import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
 

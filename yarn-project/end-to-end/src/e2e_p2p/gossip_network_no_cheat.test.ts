@@ -11,10 +11,10 @@ import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 
 import { jest } from '@jest/globals';
+import { getContract } from '@spalladino/viem';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { getContract } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';

@@ -2,8 +2,8 @@ import { type PXE, retryUntil } from '@aztec/aztec.js';
 import { RollupContract, type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
 
+import { createPublicClient, fallback, http } from '@spalladino/viem';
 import type { ChildProcess } from 'child_process';
-import { createPublicClient, fallback, http } from 'viem';
 
 import { startCompatiblePXE } from './setup_test_wallets.js';
 import {

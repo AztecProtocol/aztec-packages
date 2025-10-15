@@ -2,9 +2,9 @@ import { createExtendedL1Client, getPublicClient } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
+import { type PrivateKeyAccount, privateKeyToAccount } from '@spalladino/viem/accounts';
+import { foundry } from '@spalladino/viem/chains';
 import type { Anvil } from '@viem/anvil';
-import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
-import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
 import { deployL1Contracts } from '../deploy_l1_contracts.js';

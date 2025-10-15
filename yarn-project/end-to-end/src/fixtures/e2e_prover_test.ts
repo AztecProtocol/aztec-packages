@@ -33,8 +33,8 @@ import type { PXEService } from '@aztec/pxe/server';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { type Hex, getContract } from 'viem';
-import { privateKeyToAddress } from 'viem/accounts';
+import { type Hex, getContract } from '@spalladino/viem';
+import { privateKeyToAddress } from '@spalladino/viem/accounts';
 
 import { TokenSimulator } from '../simulators/token_simulator.js';
 import { getACVMConfig } from './get_acvm_config.js';

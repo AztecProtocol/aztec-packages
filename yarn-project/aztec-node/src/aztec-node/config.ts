@@ -29,7 +29,7 @@ import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
 import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state/config';
 
-import { privateKeyToAddress } from 'viem/accounts';
+import { privateKeyToAddress } from '@spalladino/viem/accounts';
 
 import { type SentinelConfig, sentinelConfigMappings } from '../sentinel/config.js';
 

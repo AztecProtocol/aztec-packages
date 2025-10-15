@@ -1,4 +1,4 @@
-import type { Hex } from 'viem';
+import type { Hex } from '@spalladino/viem';
 import { z } from 'zod';
 
 export interface PostBlobSidecarRequest {

@@ -60,7 +60,7 @@ import {
   ValidatorSelectionLibBytecode,
 } from '@aztec/l1-artifacts';
 
-import type { Hex } from 'viem';
+import type { Hex } from '@spalladino/viem';
 
 export const RegistryArtifact = {
   name: 'Registry',

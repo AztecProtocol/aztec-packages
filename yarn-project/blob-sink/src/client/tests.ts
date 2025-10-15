@@ -1,6 +1,6 @@
 import { makeEncodedBlob } from '@aztec/blob-lib/testing';
 
-import type { Hex } from 'viem';
+import type { Hex } from '@spalladino/viem';
 
 import type { BlobSinkClientInterface } from './interface.js';
 

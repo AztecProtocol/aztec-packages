@@ -8,9 +8,6 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
-import type { Abi, Narrow } from 'abitype';
-import { mkdir, writeFile } from 'fs/promises';
-import chunk from 'lodash.chunk';
 import {
   type Chain,
   type ContractConstructorArgs,
@@ -26,8 +23,11 @@ import {
   getContractAddress,
   numberToHex,
   padHex,
-} from 'viem';
-import { foundry } from 'viem/chains';
+} from '@spalladino/viem';
+import { foundry } from '@spalladino/viem/chains';
+import type { Abi, Narrow } from 'abitype';
+import { mkdir, writeFile } from 'fs/promises';
+import chunk from 'lodash.chunk';
 
 import { isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';

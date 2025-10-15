@@ -3,7 +3,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 
-import { type RpcBlock, createPublicClient, fallback, http } from 'viem';
+import { type RpcBlock, createPublicClient, fallback, http } from '@spalladino/viem';
 
 import { createBlobArchiveClient } from '../archive/factory.js';
 import type { BlobArchiveClient } from '../archive/interface.js';

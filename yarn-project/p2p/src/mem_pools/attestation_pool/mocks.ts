@@ -8,7 +8,7 @@ import {
 } from '@aztec/stdlib/p2p';
 import { makeHeader } from '@aztec/stdlib/testing';
 
-import { type LocalAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
+import { type LocalAccount, generatePrivateKey, privateKeyToAccount } from '@spalladino/viem/accounts';
 
 /** Generate Account
  *

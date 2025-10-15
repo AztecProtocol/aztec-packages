@@ -3,7 +3,6 @@ import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { EmpireSlashingProposerAbi } from '@aztec/l1-artifacts/EmpireSlashingProposerAbi';
 
-import EventEmitter from 'events';
 import {
   type EncodeFunctionDataParameters,
   type GetContractReturnType,
@@ -12,7 +11,8 @@ import {
   type TypedDataDefinition,
   encodeFunctionData,
   getContract,
-} from 'viem';
+} from '@spalladino/viem';
+import EventEmitter from 'events';
 
 import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ViemClient } from '../types.js';

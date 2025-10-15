@@ -2,7 +2,7 @@ import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { TimeoutError } from '@aztec/foundation/error';
 import type { Logger } from '@aztec/foundation/log';
 
-import { type EncodeFunctionDataParameters, type Hex, encodeFunctionData, multicall3Abi } from 'viem';
+import { type EncodeFunctionDataParameters, type Hex, encodeFunctionData, multicall3Abi } from '@spalladino/viem';
 
 import type { L1BlobInputs, L1TxConfig, L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ExtendedViemWalletClient } from '../types.js';

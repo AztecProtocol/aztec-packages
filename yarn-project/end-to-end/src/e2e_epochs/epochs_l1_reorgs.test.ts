@@ -12,8 +12,8 @@ import { executeTimeout } from '@aztec/foundation/timer';
 import type { ProverNode } from '@aztec/prover-node';
 
 import { jest } from '@jest/globals';
+import { keccak256, parseTransaction } from '@spalladino/viem';
 import 'jest-extended';
-import { keccak256, parseTransaction } from 'viem';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import type { EndToEndContext } from '../fixtures/utils.js';

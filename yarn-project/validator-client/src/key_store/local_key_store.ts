@@ -3,7 +3,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 
-import { type TypedDataDefinition, hashTypedData } from 'viem';
+import { type TypedDataDefinition, hashTypedData } from '@spalladino/viem';
 
 import type { ValidatorKeyStore } from './interface.js';
 

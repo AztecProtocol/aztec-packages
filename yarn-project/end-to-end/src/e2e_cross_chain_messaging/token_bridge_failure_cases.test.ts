@@ -2,7 +2,7 @@ import { EthAddress, Fr, L1Actor, L1ToL2Message, L2Actor } from '@aztec/aztec.js
 import { RollupContract } from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 
-import { toFunctionSelector } from 'viem';
+import { toFunctionSelector } from '@spalladino/viem';
 
 import { NO_L1_TO_L2_MSG_ERROR } from '../fixtures/fixtures.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
