@@ -1,23 +1,21 @@
-include(FetchContent)
+# Download nlohmann_json at configure time
+set(NLOHMANN_JSON_SOURCE_DIR "${CMAKE_BINARY_DIR}/_deps/nlohmann_json-src")
+set(NLOHMANN_JSON_COMMIT_HASH "9cca280a4d0ccf0c08f47a99aa71d1b0e52f8d03")
 
-set(NLOHMANN_JSON_INCLUDE "${CMAKE_BINARY_DIR}/_deps/nlohmann_json-src/include")
-
-FetchContent_Declare(
-    nlohmann_json
-    GIT_REPOSITORY https://github.com/nlohmann/json.git
-    GIT_TAG v3.11.3
-    GIT_SHALLOW TRUE
-    FIND_PACKAGE_ARGS
+execute_process(
+    COMMAND sh -c "mkdir -p ${NLOHMANN_JSON_SOURCE_DIR} && cd ${NLOHMANN_JSON_SOURCE_DIR} && git init . && (git remote add origin https://github.com/nlohmann/json.git || true) && git fetch --depth 1 origin ${NLOHMANN_JSON_COMMIT_HASH} && git checkout FETCH_HEAD"
+    RESULT_VARIABLE result
 )
+if(result)
+    message(FATAL_ERROR "Failed to download nlohmann_json")
+endif()
 
+# Set the same variables as FetchContent would have
+set(NLOHMANN_JSON_INCLUDE "${NLOHMANN_JSON_SOURCE_DIR}/include")
+
+# Set options (same as before)
 set(JSON_BuildTests OFF CACHE INTERNAL "")
 set(JSON_Install OFF CACHE INTERNAL "")
 
-FetchContent_MakeAvailable(nlohmann_json)
-
-if(NOT nlohmann_json_FOUND)
-    # FetchContent_MakeAvailable calls FetchContent_Populate if `find_package` is unsuccessful
-    # so these variables will be available if we reach this case
-    set_property(DIRECTORY ${nlohmann_json_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL)
-    set_property(DIRECTORY ${nlohmann_json_BINARY_DIR} PROPERTY EXCLUDE_FROM_ALL)
-endif()
+# Add nlohmann_json as a subdirectory (same as FetchContent_MakeAvailable would do)
+add_subdirectory(${NLOHMANN_JSON_SOURCE_DIR} ${CMAKE_BINARY_DIR}/_deps/nlohmann_json-build EXCLUDE_FROM_ALL)
