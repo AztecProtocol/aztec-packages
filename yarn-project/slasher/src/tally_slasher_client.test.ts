@@ -399,6 +399,33 @@ describe('TallySlasherClient', () => {
         expect(tallySlashingProposer.getRound).toHaveBeenCalledWith(0n);
         expect(tallySlashingProposer.getRound).toHaveBeenCalledWith(1n);
       });
+
+      it('should respect lifetimeInRounds when computing oldestExecutableRound', async () => {
+        // Use a large lookBack to test that lifetimeInRounds constrains it
+        tallySlasherClient.updateConfig({ slashExecuteRoundsLookBack: 20 });
+
+        const currentRound = 15n;
+        const currentSlot = currentRound * BigInt(roundSize);
+        const slashingLifetimeInRounds = BigInt(settings.slashingLifetimeInRounds); // 10
+
+        // The oldest executable round should be currentRound - lifetimeInRounds = 15 - 10 = 5
+        // NOT currentRound - executionDelay - 1 - lookBack = 15 - 2 - 1 - 20 = -8 (clamped to 0)
+        const expectedOldestRound = currentRound - slashingLifetimeInRounds; // 5
+
+        // Mock rounds 5-12 as executable (executableRound = currentRound - executionDelay - 1 = 15 - 2 - 1 = 12)
+        tallySlashingProposer.getRound.mockImplementation((round: bigint) =>
+          Promise.resolve(round >= expectedOldestRound && round <= 12n ? executableRoundData : emptyRoundData),
+        );
+
+        const actions = await tallySlasherClient.getProposerActions(currentSlot);
+
+        // Should execute the oldest round (5), not try to execute rounds before that
+        expect(actions).toHaveLength(1);
+        expectActionExecuteSlash(actions[0], expectedOldestRound);
+
+        // Verify we didn't try to check rounds older than the lifetime allows
+        expect(tallySlashingProposer.getRound).not.toHaveBeenCalledWith(expectedOldestRound - 1n);
+      });
     });
 
     describe('multiple', () => {

@@ -15,8 +15,8 @@
 #include "barretenberg/vm2/simulation/gadgets/bytecode_hashing.hpp"
 #include "barretenberg/vm2/simulation/gadgets/contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_protocol_contracts.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_retrieved_bytecodes_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_update_check.hpp"
@@ -218,11 +218,12 @@ TEST_F(BytecodeManagerTest, TooManyBytecodes)
 TEST_F(BytecodeManagerTest, ContractAddressNullifierNotFoundError)
 {
     StrictMock<MockUpdateCheck> update_check;
-    StrictMock<MockProtocolContractSet> protocol_contracts_set;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    ProtocolContracts protocol_contracts = {};
     EventEmitter<ContractInstanceRetrievalEvent> contract_retrieval_events;
 
     ContractInstanceManager real_contract_instance_manager(
-        contract_db, merkle_db, update_check, protocol_contracts_set, contract_retrieval_events);
+        contract_db, merkle_db, update_check, field_gt, protocol_contracts, contract_retrieval_events);
 
     TxBytecodeManager tx_bytecode_manager(contract_db,
                                           merkle_db,
@@ -237,7 +238,7 @@ TEST_F(BytecodeManagerTest, ContractAddressNullifierNotFoundError)
     AztecAddress address = AztecAddress::random_element();
     ContractInstance instance = testing::random_contract_instance();
     EXPECT_CALL(contract_db, get_contract_instance(address)).WillOnce(Return(instance));
-    EXPECT_CALL(protocol_contracts_set, contains(address)).WillOnce(Return(false));
+    EXPECT_CALL(field_gt, ff_gt(FF(MAX_PROTOCOL_CONTRACTS), address - 1)).WillOnce(Return(false));
     EXPECT_CALL(retrieved_bytecodes_tree_check, get_snapshot());
     EXPECT_CALL(merkle_db, get_tree_state()).Times(2);
     EXPECT_CALL(merkle_db, nullifier_exists(FF(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), address))
@@ -257,7 +258,6 @@ TEST_F(BytecodeManagerTest, ContractAddressNullifierNotFoundError)
     EXPECT_THAT(contract_retrieval_events_dump, SizeIs(1));
     EXPECT_EQ(contract_retrieval_events_dump[0].address, address);
     EXPECT_FALSE(contract_retrieval_events_dump[0].exists);
-    EXPECT_TRUE(contract_retrieval_events_dump[0].error);
     EXPECT_FALSE(contract_retrieval_events_dump[0].is_protocol_contract);
     EXPECT_EQ(contract_retrieval_events_dump[0].deployment_nullifier, address);
     EXPECT_EQ(contract_retrieval_events_dump[0].contract_instance, ContractInstance{});

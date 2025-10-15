@@ -112,7 +112,10 @@ describe('veto slash', () => {
       t.ctx.aztecNodeConfig.l1RpcUrls,
       bufferToHex(getPrivateKeyFromIndex(VETOER_PRIVATE_KEY_INDEX)!),
     );
-    vetoerL1TxUtils = createL1TxUtilsFromViemWallet(vetoerL1Client, t.logger, t.ctx.dateProvider);
+    vetoerL1TxUtils = createL1TxUtilsFromViemWallet(vetoerL1Client, {
+      logger: t.logger,
+      dateProvider: t.ctx.dateProvider,
+    });
 
     ({ rollup } = await t.getContracts());
 
@@ -193,7 +196,10 @@ describe('veto slash', () => {
     }
 
     debugLogger.info(`\n\ninitializing slasher with proposer: ${proposer}\n\n`);
-    const txUtils = createL1TxUtilsFromViemWallet(deployerClient, t.logger, t.ctx.dateProvider);
+    const txUtils = createL1TxUtilsFromViemWallet(deployerClient, {
+      logger: t.logger,
+      dateProvider: t.ctx.dateProvider,
+    });
     await txUtils.sendAndMonitorTransaction({
       to: slasher.toString(),
       data: encodeFunctionData({

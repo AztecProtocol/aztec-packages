@@ -191,7 +191,7 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
         lastArchive,
         l1ToL2TreeSnapshot: newL1ToL2MessageTreeSnapshot,
         vkTreeRoot: tx.data.constants.vkTreeRoot,
-        protocolContractTreeRoot: tx.data.constants.protocolContractTreeRoot,
+        protocolContractsHash: tx.data.constants.protocolContractsHash,
         globalVariables: tx.globalVariables,
         proverId,
       });

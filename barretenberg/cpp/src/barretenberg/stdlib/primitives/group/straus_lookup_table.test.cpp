@@ -34,6 +34,34 @@ STANDARD_TESTING_TAGS
 using bb::stdlib::test_utils::check_circuit_and_gate_count;
 
 /**
+ * @brief Test table construction
+ */
+TYPED_TEST(StrausLookupTableTest, TestTableConstuction)
+{
+    using Builder = TypeParam;
+    using cycle_group = typename TestFixture::cycle_group;
+    using straus_lookup_table = typename TestFixture::straus_lookup_table;
+    using Element = typename TestFixture::Element;
+
+    Builder builder;
+
+    auto base_point_native = Element::random_element(&engine);
+    auto offset_gen_native = Element::random_element(&engine);
+
+    auto base_point = cycle_group::from_witness(&builder, base_point_native);
+    auto offset_gen = cycle_group::from_witness(&builder, offset_gen_native);
+
+    const size_t table_bits = 4;
+    straus_lookup_table table(&builder, base_point, offset_gen, table_bits);
+
+    if constexpr (std::is_same_v<TypeParam, bb::UltraCircuitBuilder>) {
+        check_circuit_and_gate_count(builder, 184);
+    } else {
+        check_circuit_and_gate_count(builder, 181);
+    }
+}
+
+/**
  * @brief Test reading from lookup table
  */
 TYPED_TEST(StrausLookupTableTest, TestTableRead)

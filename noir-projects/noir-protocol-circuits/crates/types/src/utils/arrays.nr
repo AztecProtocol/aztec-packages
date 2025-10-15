@@ -16,8 +16,7 @@ pub mod sort_by_counter;
 pub use assert_array_appended::{
     assert_array_appended, assert_array_appended_and_scoped,
     assert_array_appended_reversed_to_empty_dest, assert_array_appended_reversed_up_to_some_length,
-    assert_array_appended_scoped, assert_array_appended_to_empty_dest,
-    assert_array_appended_to_empty_dest_and_scoped, assert_array_appended_to_empty_dest_scoped,
+    assert_array_appended_to_empty_dest, assert_array_appended_to_empty_dest_and_scoped,
 };
 pub use assert_array_prepended::{assert_array_prepended, assert_array_prepended_up_to_some_length};
 pub use assert_exposed_sorted_transformed_value_array::{
@@ -27,7 +26,7 @@ pub use assert_exposed_sorted_transformed_value_array::{
 pub use assert_sorted_array::assert_sorted_array;
 pub use assert_sorted_transformed_padded_array::{
     assert_sorted_transformed_i_padded_array_capped_size,
-    assert_sorted_transformed_padded_array_capped_size, validate_padded_items,
+    assert_sorted_transformed_padded_array_capped_size, check_padded_items,
 };
 pub use assert_split_sorted_transformed_value_arrays::{
     assert_split_sorted_transformed_value_arrays_asc,
@@ -139,14 +138,15 @@ where
     let maybe_length = unsafe { find_index_hint(array, |elem: T| elem.is_empty()) };
 
     let mut length = N;
+
     if maybe_length.is_some() {
         length = maybe_length.unwrap_unchecked();
 
         array[length].assert_empty("Expected array empty");
+    }
 
-        if length != 0 {
-            assert(!array[length - 1].is_empty());
-        }
+    if length != 0 {
+        assert(!array[length - 1].is_empty());
     }
 
     length
@@ -246,7 +246,7 @@ pub fn check_permutation<T, let N: u32>(
     original_indexes: [u32; N],
 )
 where
-    T: Empty,
+    T: Eq,
 {
     let mut seen_value = [false; N];
     for i in 0..N {

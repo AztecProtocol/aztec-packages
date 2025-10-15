@@ -44,8 +44,8 @@ impl SpongeBlob {
 
     /// Add `in_len` fields to the sponge.
     pub fn absorb<let N: u32>(&mut self, input: [Field; N], in_len: u32) {
-        // We skip the 0 check below, as most use cases (e.g. base rollup) constrain that the input array
-        // is constructed from i=0->in_len from an empty array, so no need to check.
+        // We omit the zero check here since for all use cases of this, we don't care about extra values being present in the input after the length.
+        // Even if non zero values are present in the input after the length, we only absorb up to in_len items.
         self.sponge = poseidon2_absorb_chunks_existing_sponge(self.sponge, input, in_len, true);
         self.fields += in_len;
     }
@@ -101,4 +101,14 @@ unconstrained fn absorb_incorrect_in_len() {
     let input_3 = [1, 2, 3];
     // The below should fail, as we try to absorb 10 inputs but only provide 3
     spongeblob.absorb(input_3, 10);
+}
+
+#[test]
+fn should_not_absorb_more_than_len() {
+    let mut spongeblob = SpongeBlob::new(3);
+    spongeblob.absorb([1, 2, 3], 1);
+    spongeblob.absorb([4, 5, 6], 1);
+    spongeblob.absorb([7, 8, 9], 1);
+
+    assert(spongeblob.squeeze() == Poseidon2Sponge::hash([1, 4, 7], 3));
 }

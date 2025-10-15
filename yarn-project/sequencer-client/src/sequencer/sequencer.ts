@@ -729,7 +729,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.setState(SequencerState.COLLECTING_ATTESTATIONS, slotNumber);
 
     this.log.debug('Creating block proposal for validators');
-    const blockProposalOptions: BlockProposalOptions = { publishFullTxs: !!this.config.publishTxsWithProposals };
+    const blockProposalOptions: BlockProposalOptions = {
+      publishFullTxs: !!this.config.publishTxsWithProposals,
+      broadcastInvalidBlockProposal: this.config.broadcastInvalidBlockProposal,
+    };
     const proposal = await this.validatorClient.createBlockProposal(
       block.header.globalVariables.blockNumber,
       block.getCheckpointHeader(),

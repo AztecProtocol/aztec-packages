@@ -11,7 +11,7 @@ import {
 } from '@aztec/aztec.js';
 import { Gas } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import type { BotConfig } from './config.js';
 

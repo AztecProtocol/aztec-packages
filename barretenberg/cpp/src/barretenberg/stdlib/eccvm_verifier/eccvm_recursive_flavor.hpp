@@ -5,21 +5,9 @@
 // =====================
 
 #pragma once
-#include "barretenberg/common/std_array.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
-#include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/flavor_macros.hpp"
-#include "barretenberg/flavor/relation_definitions.hpp"
-#include "barretenberg/relations/ecc_vm/ecc_lookup_relation.hpp"
-#include "barretenberg/relations/ecc_vm/ecc_msm_relation.hpp"
-#include "barretenberg/relations/ecc_vm/ecc_point_table_relation.hpp"
-#include "barretenberg/relations/ecc_vm/ecc_set_relation.hpp"
-#include "barretenberg/relations/ecc_vm/ecc_transcript_relation.hpp"
-#include "barretenberg/relations/ecc_vm/ecc_wnaf_relation.hpp"
-#include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members) ?
 
@@ -153,7 +141,7 @@ class ECCVMRecursiveFlavor {
     // Reuse the VerifierCommitments from ECCVM
     using VerifierCommitments = ECCVMFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from ECCVM
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
+    using Transcript = StdlibTranscript<CircuitBuilder>;
 
     using VKAndHash = VKAndHash_<VerificationKey, FF>;
 

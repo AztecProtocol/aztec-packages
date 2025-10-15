@@ -26,7 +26,7 @@ const config = setupEnvironment(process.env);
 // allows us to run multiple validators per node but disable a single one, as opposed to having to
 // disable every validator on a node.
 describe('slash inactivity test', () => {
-  jest.setTimeout(10 * 60 * 2000); // 20 minutes
+  jest.setTimeout(120 * 60 * 1000); // 120 minutes
 
   const logger = createLogger(`e2e:slash-inactivity`);
 

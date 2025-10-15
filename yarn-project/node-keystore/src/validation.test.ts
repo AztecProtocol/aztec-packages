@@ -61,6 +61,35 @@ describe('Keystore Duplication Validation', () => {
     expect(() => mergeKeystores([keystore1, keystore2])).toThrow(/Multiple prover configurations found/);
   });
 
+  it('should reject duplicate ETH attester across keystores even if BLS differs', () => {
+    const eth = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as any;
+    const bls1 = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as any;
+    const bls2 = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc' as any;
+
+    const keystore1: KeyStore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: { eth, bls: bls1 } as any,
+          feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
+        },
+      ],
+    };
+
+    const keystore2: KeyStore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: { eth, bls: bls2 } as any, // same eth, different bls
+          feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
+        },
+      ],
+    };
+
+    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(KeyStoreLoadError);
+    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(/Duplicate attester address/);
+  });
+
   it('should allow unique attester addresses across keystores', () => {
     logger.info('Testing unique attester addresses');
 

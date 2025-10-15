@@ -16,7 +16,7 @@ export const TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP = 'Invalid expiration timesta
 export const TX_ERROR_INCORRECT_L1_CHAIN_ID = 'Incorrect L1 chain id';
 export const TX_ERROR_INCORRECT_ROLLUP_VERSION = 'Incorrect rollup version';
 export const TX_ERROR_INCORRECT_VK_TREE_ROOT = 'Incorrect verification keys tree root';
-export const TX_ERROR_INCORRECT_PROTOCOL_CONTRACT_TREE_ROOT = 'Incorrect protocol contracts tree root';
+export const TX_ERROR_INCORRECT_PROTOCOL_CONTRACTS_HASH = 'Incorrect protocol contracts hash';
 
 // Proof
 export const TX_ERROR_INVALID_PROOF = 'Invalid proof';

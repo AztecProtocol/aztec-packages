@@ -1,6 +1,6 @@
 import DialogTitle from '@mui/material/DialogTitle';
 import Dialog from '@mui/material/Dialog';
-import { Fr, DeployMethod, type DeployOptions, AztecAddress } from '@aztec/aztec.js';
+import { Fr, DeployMethod, type DeployOptions, AztecAddress, type DeployAccountOptions } from '@aztec/aztec.js';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import { useState } from 'react';
@@ -70,16 +70,14 @@ export function CreateAccountDialog({
       const address = account.getAddress();
 
       let deployMethod: DeployMethod;
-      let opts: DeployOptions;
+      let opts: DeployAccountOptions;
       if (publiclyDeploy) {
         deployMethod = await accountManager.getDeployMethod();
         opts = {
           from: AztecAddress.ZERO,
-          contractAddressSalt: salt,
           fee: {
-            paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),
+            paymentMethod: feePaymentMethod,
           },
-          universalDeploy: true,
           skipClassPublication: true,
           skipInstancePublication: true,
         };

@@ -39,7 +39,7 @@ export class ReadOnlyL1TxUtils {
 
   constructor(
     public client: ViemClient,
-    protected logger: Logger = createLogger('ReadOnlyL1TxUtils'),
+    protected logger: Logger = createLogger('ethereum:readonly-l1-utils'),
     public readonly dateProvider: DateProvider,
     config?: Partial<L1TxUtilsConfig>,
     protected debugMaxGasLimit: boolean = false,

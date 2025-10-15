@@ -7,6 +7,7 @@
  * including circuit input types and proof system settings.
  */
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/client_ivc/sumcheck_client_ivc.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include <cstdint>
@@ -14,6 +15,11 @@
 #include <vector>
 
 namespace bb::bbapi {
+
+/**
+ * @brief Global flag to control whether to use SumcheckClientIVC instead of ClientIVC
+ */
+inline bool USE_SUMCHECK_IVC = false;
 
 /**
  * @struct CircuitInputNoVK
@@ -119,7 +125,7 @@ struct BBApiRequest {
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     // Current depth of the IVC stack for this request
     uint32_t ivc_stack_depth = 0;
-    std::shared_ptr<ClientIVC> ivc_in_progress;
+    std::shared_ptr<IVCBase> ivc_in_progress;
     // Name of the last loaded circuit
     std::string loaded_circuit_name;
     // Store the parsed constraint system to get ahead of parsing before accumulate

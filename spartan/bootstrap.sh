@@ -68,7 +68,7 @@ function network_test_cmds {
   # currently, we allocate just shy of one hour for each test, so we can have at most 6 tests.
   # If we have more tests, we can reduce the epoch/slot duration in the tests,
   # or parallelize somehow. It's just something to be aware of if you are adding new tests here.
-  local prefix="disabled-cache:CPUS=10:MEM=16g:TIMEOUT=55m"
+  local prefix="disabled-cache:CPUS=10:MEM=16g:TIMEOUT=120m"
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   echo $prefix $run_test_script simple src/spartan/smoke.test.ts
   echo $prefix $run_test_script simple src/spartan/transfer.test.ts
@@ -101,10 +101,14 @@ function test {
 }
 
 function network_tests {
+  local env_file="$1"
   echo_header "spartan scenario test"
 
   # no parallelize here as we want to run the tests sequentially
   export SCENARIO_TESTS=1
+  source_network_env $env_file
+
+  gcp_auth
   network_test_cmds | filter_test_cmds | parallelize 1
 }
 
@@ -142,16 +146,27 @@ case "$cmd" in
 
     ensure_eth_balances "$amount"
     ;;
+  "ensure_funded_environment")
+    shift
+    env_file="$1"
+    low_watermark="${2:-0.5}"
+    high_watermark="${3:-1.0}"
+
+    ./scripts/ensure_funded_environment.sh "$env_file" "$FUNDING_PRIVATE_KEY" "$low_watermark" "$high_watermark"
+    ;;
   "network_deploy")
     shift
     env_file="$1"
+
+    #Sets up basic env vars like RUN_TESTS
+    source_env_basic "$env_file"
 
     # Run the network deploy script
     ./scripts/network_deploy.sh "$env_file"
 
     if [[ "${RUN_TESTS:-}" == "true" ]]; then
       echo "Running tests"
-      network_tests
+      network_tests "$env_file"
     fi
     ;;
   "single_test")
@@ -167,10 +182,7 @@ case "$cmd" in
   "network_tests")
     shift
     env_file="$1"
-    source_network_env $env_file
-
-    gcp_auth
-    network_tests
+    network_tests $env_file
     ;;
   "kind")
     if ! kubectl config get-clusters | grep -q "^kind-kind$" || ! docker ps | grep -q "kind-control-plane"; then

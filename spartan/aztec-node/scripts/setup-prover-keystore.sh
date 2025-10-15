@@ -23,7 +23,7 @@ for ((i = 0; i < PUBLISHERS_PER_PROVER; i++)); do
   pub_address=$(cast wallet address --private-key $pub_private_key)
 
   if [ -n "$WEB3_SIGNER_URL" ]; then
-    # With web3signer, use addresses
+    # With web3signer, use addresses for provers (they don't need EIP-4844)
     publishers+=("$pub_address")
   else
     # Without web3signer, use private keys

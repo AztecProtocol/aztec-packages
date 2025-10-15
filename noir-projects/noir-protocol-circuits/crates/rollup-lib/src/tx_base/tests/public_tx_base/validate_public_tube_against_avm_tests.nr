@@ -1,10 +1,20 @@
 use super::TestBuilder;
+use types::{abis::protocol_contracts::ProtocolContracts, traits::Empty};
 
 #[test(should_fail_with = "Mismatched prover_id between private and avm")]
 unconstrained fn mismatch_prover_id() {
     let mut builder = TestBuilder::new();
 
     builder.avm.prover_id += 1;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "Mismatched protocol_contracts between private and avm")]
+unconstrained fn mismatch_protocol_contracts() {
+    let mut builder = TestBuilder::new();
+
+    builder.avm.protocol_contracts = ProtocolContracts::empty();
 
     builder.execute_and_fail();
 }
@@ -131,6 +141,15 @@ unconstrained fn mismatch_public_teardown_call_request() {
     let mut builder = TestBuilder::new();
 
     builder.avm.public_teardown_call_request.contract_address.inner += 1;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "Mismatched public_teardown_call_request length between private and avm")]
+unconstrained fn mismatch_public_teardown_call_request_length() {
+    let mut builder = TestBuilder::new();
+
+    builder.avm.public_call_request_array_lengths.teardown_call = true;
 
     builder.execute_and_fail();
 }

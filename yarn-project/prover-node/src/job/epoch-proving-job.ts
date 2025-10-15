@@ -6,7 +6,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { buildFinalBlobChallenges } from '@aztec/prover-client/helpers';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
@@ -166,7 +166,7 @@ export class EpochProvingJob implements Traceable {
           chainId: globalVariables.chainId,
           version: globalVariables.version,
           vkTreeRoot: getVKTreeRoot(),
-          protocolContractTreeRoot: protocolContractTreeRoot,
+          protocolContractsHash: protocolContractsHash,
           proverId: this.prover.getProverId().toField(),
           slotNumber: globalVariables.slotNumber,
           coinbase: globalVariables.coinbase,

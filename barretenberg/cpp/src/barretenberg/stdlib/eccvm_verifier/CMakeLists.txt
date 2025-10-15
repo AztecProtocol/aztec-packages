@@ -1,1 +1,1 @@
-barretenberg_module(stdlib_eccvm_verifier eccvm stdlib_transcript)
+barretenberg_module(stdlib_eccvm_verifier eccvm transcript stdlib_poseidon2 stdlib_circuit_builders)
