@@ -272,7 +272,10 @@ class ProtogalaxyRecursiveTests : public testing::Test {
             // No tampering
             break;
         case InstanceTamperingMode::Wires:
-            prover_inst->polynomials.w_l.at(1) += NativeFF(1);
+            // Tamper with each row to ensure a non-trivial (non-skippable) value is effected
+            for (auto& val : prover_inst->polynomials.w_l.coeffs()) {
+                val += NativeFF(1);
+            }
             run_oink();
             is_valid = check_accumulator_target_sum_manual(prover_inst);
             // Reset so that PG runs Oink on this instance
