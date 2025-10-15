@@ -43,7 +43,7 @@ template <typename FF_> class MultilinearBatchingAccumulatorRelationImpl {
     inline static void accumulate(ContainerOverSubrelations& evals,
                                   const AllEntities& in,
                                   [[maybe_unused]] const RelationParameters<FF>& relation_parameters = {},
-                                  [[maybe_unused]] const FF& scaling_factor = FF(1))
+                                  [[maybe_unused]] const FF& scaling_factor = {})
     {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
 
@@ -89,7 +89,7 @@ template <typename FF_> class MultilinearBatchingInstanceRelationImpl {
     static void accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>& relation_parameters = {},
-                           [[maybe_unused]] const FF& scaling_factor = FF(1))
+                           [[maybe_unused]] const FF& scaling_factor = {})
     {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
 

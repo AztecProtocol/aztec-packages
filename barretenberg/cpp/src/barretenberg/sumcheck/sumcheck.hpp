@@ -260,8 +260,6 @@ template <typename Flavor> class SumcheckProver {
         // on the boolean hypercube.
         GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
 
-        info("Pow size ", gate_separators.beta_products.size());
-
         multivariate_challenge.reserve(virtual_log_n);
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns.
