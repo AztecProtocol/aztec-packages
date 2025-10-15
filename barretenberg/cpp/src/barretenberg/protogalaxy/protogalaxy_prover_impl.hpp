@@ -28,24 +28,19 @@ void ProtogalaxyProver_<Flavor>::run_oink_prover_on_one_incomplete_instance(std:
 
 template <IsUltraOrMegaHonk Flavor> void ProtogalaxyProver_<Flavor>::run_oink_prover_on_each_incomplete_instance()
 {
-    size_t idx = 0;
-    auto& key = prover_insts_to_fold[0];
-    auto domain_separator = std::to_string(idx);
-    auto& verifier_accum = verifier_insts_to_fold[0];
+    auto key = prover_insts_to_fold[0];
+    auto domain_separator = std::to_string(0);
     if (!key->is_complete) {
-        run_oink_prover_on_one_incomplete_instance(key, verifier_accum, domain_separator);
+        run_oink_prover_on_one_incomplete_instance(key, verifier_insts_to_fold[0], domain_separator);
         // Get the gate challenges for sumcheck/combiner computation
         key->gate_challenges =
             transcript->template get_powers_of_challenge<FF>(domain_separator + "_gate_challenge", CONST_PG_LOG_N);
     }
 
-    idx++;
-
-    for (auto it = prover_insts_to_fold.begin() + 1; it != prover_insts_to_fold.end(); it++, idx++) {
-        auto key = *it;
-        auto domain_separator = std::to_string(idx);
-        run_oink_prover_on_one_incomplete_instance(key, verifier_insts_to_fold[idx], domain_separator);
-    }
+    // Complete the incoming instance
+    key = prover_insts_to_fold[1];
+    domain_separator = std::to_string(1);
+    run_oink_prover_on_one_incomplete_instance(key, verifier_insts_to_fold[1], domain_separator);
 
     accumulator = prover_insts_to_fold[0];
 };
@@ -174,6 +169,14 @@ void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
 
     parallel_for([&acc_spans, &key_spans, &lagranges, &combiner_challenge, &swap_polys](const ThreadChunk& chunk) {
         for (auto [acc_poly, key_poly] : zip_view(acc_spans, key_spans)) {
+            BB_ASSERT_LTE(
+                acc_poly.start_index,
+                key_poly.start_index,
+                "Folding a smaller polynomial into a larger one. This is only allowed when using structured traces.");
+            BB_ASSERT_GTE(
+                acc_poly.end_index(),
+                key_poly.end_index(),
+                "Folding a smaller polynomial into a larger one. This is only allowed when using structured traces.");
             size_t offset = acc_poly.start_index;
             for (size_t idx : chunk.range(acc_poly.size(), offset)) {
                 if ((idx < key_poly.start_index) || (idx >= key_poly.end_index())) {
