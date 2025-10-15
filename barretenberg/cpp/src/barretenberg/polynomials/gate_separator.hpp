@@ -57,7 +57,11 @@ template <typename FF> struct GateSeparatorPolynomial {
     GateSeparatorPolynomial(const std::vector<FF>& betas, const size_t log_num_monomials)
         : betas(betas)
         , beta_products(compute_beta_products(betas, log_num_monomials))
-    {}
+    {
+        if (betas.empty()) {
+            periodicity = 1;
+        }
+    }
 
     /**
      * @brief Construct a new GateSeparatorPolynomial object without expanding to a vector of monomials
@@ -77,8 +81,12 @@ template <typename FF> struct GateSeparatorPolynomial {
     GateSeparatorPolynomial(const std::vector<FF>& betas, const std::vector<FF>& challenge)
         : betas(betas)
     {
-        for (const auto& u_k : challenge) {
-            partially_evaluate(u_k);
+        if (!betas.empty()) {
+            for (const auto& u_k : challenge) {
+                partially_evaluate(u_k);
+            }
+        } else {
+            periodicity = 1;
         }
     }
 
@@ -94,7 +102,13 @@ template <typename FF> struct GateSeparatorPolynomial {
      *
      * @return FF
      */
-    FF current_element() const { return betas[current_element_idx]; }
+    FF current_element() const
+    {
+        if (betas.empty()) {
+            return FF(1);
+        };
+        return betas[current_element_idx];
+    }
 
     /**
      * @brief Evaluate  \f$ ((1−X_{i}) + X_{i}\cdot \beta_{i})\f$ at the challenge point \f$ X_{i}=u_{i} \f$.
@@ -109,10 +123,12 @@ template <typename FF> struct GateSeparatorPolynomial {
      */
     void partially_evaluate(FF challenge)
     {
-        FF current_univariate_eval = univariate_eval(challenge);
-        partial_evaluation_result *= current_univariate_eval;
-        current_element_idx++;
-        periodicity *= 2;
+        if (!betas.empty()) {
+            FF current_univariate_eval = univariate_eval(challenge);
+            partial_evaluation_result *= current_univariate_eval;
+            current_element_idx++;
+            periodicity *= 2;
+        }
     }
 
     /**
@@ -143,6 +159,12 @@ template <typename FF> struct GateSeparatorPolynomial {
      */
     BB_PROFILE static Polynomial<FF> compute_beta_products(const std::vector<FF>& betas, const size_t log_num_monomials)
     {
+        if (betas.empty()) {
+            Polynomial<FF> out(1);
+            out.at(0) = FF(1);
+            return out;
+        }
+
         BB_BENCH_NAME("GateSeparatorPolynomial::compute_beta_products");
         size_t pow_size = 1 << log_num_monomials;
         Polynomial<FF> beta_products(pow_size);

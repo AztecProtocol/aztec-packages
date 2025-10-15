@@ -14,9 +14,6 @@
 #include "sumcheck_round.hpp"
 
 namespace bb {
-// To know if a flavor is Multilinear Batching, without including the flavor.
-template <typename Flavor>
-concept isMultilinearBatchingFlavor = std::convertible_to<decltype(Flavor::IS_MULTILINEAR_BATCHING), bool>;
 
 /*! \brief The implementation of the sumcheck Prover for statements of the form \f$\sum_{\vec \ell \in \{0,1\}^d}
 pow_{\beta}(\vec \ell) \cdot F \left(P_1(\vec \ell),\ldots, P_N(\vec \ell) \right)  = 0 \f$ for multilinear polynomials
@@ -251,6 +248,8 @@ template <typename Flavor> class SumcheckProver {
         // GateSeparator_β (X₀, ..., X_{d−1}) = ∏ₖ₌₀^{d−1} (1 − Xₖ + Xₖ · βₖ)
         // on the boolean hypercube.
         GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
+
+        info("Pow size ", gate_separators.beta_products.size());
 
         multivariate_challenge.reserve(virtual_log_n);
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
