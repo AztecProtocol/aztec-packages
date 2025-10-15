@@ -106,15 +106,14 @@ HypernovaFoldingProver::Polynomial HypernovaFoldingProver::batch_polynomials(
 
 HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumulator(
     const std::shared_ptr<typename HypernovaFoldingProver::ProverInstance>& instance,
-    const std::optional<std::shared_ptr<VerificationKey>>& honk_vk)
+    const std::shared_ptr<VerificationKey>& honk_vk)
 {
     BB_BENCH();
 
     vinfo("HypernovaFoldingProver: converting instance to accumulator...");
 
     // Complete the incoming instance
-    auto precomputed_vk =
-        honk_vk.has_value() ? *honk_vk : std::make_shared<VerificationKey>(instance->get_precomputed());
+    auto precomputed_vk = honk_vk != nullptr ? honk_vk : std::make_shared<VerificationKey>(instance->get_precomputed());
     MegaOinkProver oink_prover{ instance, precomputed_vk, transcript };
     oink_prover.prove();
 
@@ -141,7 +140,7 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
 std::pair<HonkProof, HypernovaFoldingProver::Accumulator> HypernovaFoldingProver::fold(
     const Accumulator& accumulator,
     const std::shared_ptr<ProverInstance>& instance,
-    const std::optional<std::shared_ptr<VerificationKey>>& honk_vk)
+    const std::shared_ptr<VerificationKey>& honk_vk)
 {
     Accumulator incoming_accumulator = instance_to_accumulator(instance, honk_vk);
 
