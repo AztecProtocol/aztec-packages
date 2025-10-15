@@ -27,7 +27,7 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
     using VerifierCommitments = Flavor::VerifierCommitments;
     using Transcript = Flavor::Transcript;
     using Accumulator = MultilinearBatchingVerifierClaim<Curve>;
-    using OinkVerifier = OinkVerifier<Flavor>;
+    using OinkVerifier = bb::OinkVerifier<Flavor>;
     using SumcheckVerifier = bb::SumcheckVerifier<Flavor>;
     using MegaSumcheckOutput = SumcheckOutput<Flavor>;
     // Types conditionally assigned based on the Flavor being recursive
