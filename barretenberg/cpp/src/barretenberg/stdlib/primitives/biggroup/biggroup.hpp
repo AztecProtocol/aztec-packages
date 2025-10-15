@@ -388,32 +388,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     template <size_t wnaf_size, size_t staggered_lo_offset = 0, size_t staggered_hi_offset = 0>
     static secp256k1_wnaf_pair compute_secp256k1_endo_wnaf(const Fr& scalar, const bool range_constrain_wnaf = true);
 
-    Builder* get_context() const
-    {
-        if (x.context != nullptr) {
-            return x.context;
-        }
-        if (y.context != nullptr) {
-            return y.context;
-        }
-        return nullptr;
-    }
+    Builder* get_context() const { return validate_context<Builder>(x.get_context(), y.get_context()); }
 
     Builder* get_context(const element& other) const
     {
-        if (x.context != nullptr) {
-            return x.context;
-        }
-        if (y.context != nullptr) {
-            return y.context;
-        }
-        if (other.x.context != nullptr) {
-            return other.x.context;
-        }
-        if (other.y.context != nullptr) {
-            return other.y.context;
-        }
-        return nullptr;
+        return validate_context<Builder>(get_context(), other.get_context());
     }
 
     bool_ct is_point_at_infinity() const { return _is_infinity; }

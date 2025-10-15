@@ -10,6 +10,7 @@
 #include "../plookup/plookup.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators.hpp"
+#include "barretenberg/numeric/general/general.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 
@@ -138,10 +139,10 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
 }
 
 /**
- * @brief Enforce x and y coordinates of a point to be (0,0) in the case of point at infinity
+ * @brief Enforce x and y coordinates of a point to be (0, 0) in the case of point at infinity
  *
  * @details We need to have a standard witness in Noir and the point at infinity can have non-zero random
- * coefficients when we get it as output from our optimized algorithms. This function returns a (0,0) point, if
+ * coefficients when we get it as output from our optimized algorithms. This function returns a (0, 0) point, if
  * it is a point at infinity
  */
 template <typename C, class Fq, class Fr, class G>
@@ -708,10 +709,10 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     for (size_t i = 0; i < scalars.size(); i++) {
         // If batch_mul actually performs batch multiplication on the points and scalars, subprocedures can do
         // operations like addition or subtraction of points, which can trigger OriginTag security mechanisms
-        // even though the final result satisfies the security logic For example result = submitted_in_round_0
-        // *challenge_from_round_0 +submitted_in_round_1 * challenge_in_round_1 will trigger it, because the
-        // addition of submitted_in_round_0 to submitted_in_round_1 is dangerous by itself. To avoid this, we
-        // remove the tags, merge them separately and set the result appropriately
+        // even though the final result satisfies the security logic For example
+        // result = submitted_in_round_0 * challenge_from_round_0 + submitted_in_round_1 * challenge_in_round_1
+        // will trigger it, because the addition of submitted_in_round_0 to submitted_in_round_1 is dangerous by itself.
+        // To avoid this, we remove the tags, merge them separately and set the result appropriately
         points[i].set_origin_tag(empty_tag);
         scalars[i].set_origin_tag(empty_tag);
     }
@@ -734,28 +735,49 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     element accumulator =
         element::chain_add_end(element::chain_add(offset_generators.first, point_table.get_chain_initial_entry()));
 
+    // We use the Strauss algorithm to perform the MSM.
+    // Point  NAF(scalar)
+    // G1    [+1, -1, -1, -1, +1, ...]
+    // G2    [+1, +1, -1, -1, +1, ...]
+    // G3    [-1, +1, +1, -1, +1, ...]
+    //         ↑  ↑____________↑
+    //         I    Iteration 1
+    //
+    // The first NAF entry (I) is used to select the initial point to add to the offset generator.
+    // Thereafter, we process 4 NAF entries per iteration. For one NAF entry, we lookup the
+    // corresponding points to add, and accumulate them using `chain_add_accumulator`.
+    // After processing 4 NAF entries, we perform a single `multiple_montgomery_ladder` call to
+    // update the accumulator. For example, in iteration 1 above, for the second NAF entry, the lookup output is:
+    //
+    // table(-1, +1, +1) = (-G1 + G2 + G3)
+    //
+    // This lookup output is accumulated with the lookup outputs from the other 3 NAF entries.
+    //
     constexpr size_t num_rounds_per_iteration = 4;
-    size_t num_iterations = num_rounds / num_rounds_per_iteration;
-    num_iterations += ((num_iterations * num_rounds_per_iteration) == num_rounds) ? 0 : 1;
+    const size_t num_iterations = numeric::ceil_div((num_rounds - 1), num_rounds_per_iteration);
     const size_t num_rounds_per_final_iteration = (num_rounds - 1) - ((num_iterations - 1) * num_rounds_per_iteration);
-    for (size_t i = 0; i < num_iterations; ++i) {
 
+    for (size_t i = 0; i < num_iterations; ++i) {
         std::vector<bool_ct> nafs(num_points);
         std::vector<element::chain_add_accumulator> to_add;
         const size_t inner_num_rounds =
             (i != num_iterations - 1) ? num_rounds_per_iteration : num_rounds_per_final_iteration;
         for (size_t j = 0; j < inner_num_rounds; ++j) {
             for (size_t k = 0; k < num_points; ++k) {
-                nafs[k] = (naf_entries[k][i * num_rounds_per_iteration + j + 1]);
+                nafs[k] = (naf_entries[k][(i * num_rounds_per_iteration) + j + 1]);
             }
             to_add.emplace_back(point_table.get_chain_add_accumulator(nafs));
         }
         accumulator = accumulator.multiple_montgomery_ladder(to_add);
     }
+
+    // Subtract the skew factors (if any)
     for (size_t i = 0; i < num_points; ++i) {
         element skew = accumulator - points[i];
         accumulator = accumulator.conditional_select(skew, naf_entries[i][num_rounds]);
     }
+
+    // Subtrac the scaled offset generator
     accumulator = accumulator - offset_generators.second;
 
     accumulator.set_origin_tag(tag);
