@@ -83,9 +83,9 @@ std::pair<bool, typename MultilinearBatchingVerifier<Flavor_>::VerifierClaim> Mu
     // Verification
     bool verified = true;
     auto equality_verified = sumcheck_result.claimed_evaluations.w_evaluations_accumulator ==
-                                 EqVerifierPolynomial<FF>::eval(accumulator_challenges, sumcheck_result.challenge) &&
+                                 VerifierEqPolynomial<FF>::eval(accumulator_challenges, sumcheck_result.challenge) &&
                              sumcheck_result.claimed_evaluations.w_evaluations_instance ==
-                                 EqVerifierPolynomial<FF>::eval(instance_challenges, sumcheck_result.challenge);
+                                 VerifierEqPolynomial<FF>::eval(instance_challenges, sumcheck_result.challenge);
 
     if constexpr (IsRecursiveFlavor<Flavor>) {
         equality_verified.assert_equal(stdlib::bool_t(equality_verified.get_context(), true));
