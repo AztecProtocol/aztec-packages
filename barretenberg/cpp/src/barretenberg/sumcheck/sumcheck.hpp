@@ -190,6 +190,25 @@ template <typename Flavor> class SumcheckProver {
     */
     PartiallyEvaluatedMultivariates partially_evaluated_polynomials;
 
+    // SumcheckProver constructor for MultilinearBatchingFlavor.
+    SumcheckProver(size_t multivariate_n,
+                   ProverPolynomials& prover_polynomials,
+                   std::shared_ptr<Transcript> transcript,
+                   const FF& relation_separator,
+                   const size_t virtual_log_n,
+                   const std::vector<FF>& accumulator_challenge,
+                   const std::vector<FF>& instance_challenge)
+        : multivariate_n(multivariate_n)
+        , multivariate_d(numeric::get_msb(multivariate_n))
+        , full_polynomials(prover_polynomials)
+        , transcript(std::move(transcript))
+        , round(multivariate_n)
+        , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS - 1>(relation_separator))
+        , gate_challenges({})
+        , virtual_log_n(virtual_log_n)
+        , accumulator_challenge(accumulator_challenge)
+        , instance_challenge(instance_challenge) {};
+
     // SumcheckProver constructor for the Flavors that generate NUM_SUBRELATIONS - 1 subrelation separator challenges.
     SumcheckProver(size_t multivariate_n,
                    ProverPolynomials& prover_polynomials,
@@ -197,9 +216,7 @@ template <typename Flavor> class SumcheckProver {
                    const SubrelationSeparators& relation_separator,
                    const std::vector<FF>& gate_challenges,
                    const RelationParameters<FF>& relation_parameters,
-                   const size_t virtual_log_n,
-                   const std::vector<FF>& accumulator_challenge = {},
-                   const std::vector<FF>& instance_challenge = {})
+                   const size_t virtual_log_n)
         : multivariate_n(multivariate_n)
         , multivariate_d(numeric::get_msb(multivariate_n))
         , full_polynomials(prover_polynomials)
@@ -220,9 +237,7 @@ template <typename Flavor> class SumcheckProver {
                    const FF& alpha,
                    const std::vector<FF>& gate_challenges,
                    const RelationParameters<FF>& relation_parameters,
-                   const size_t virtual_log_n,
-                   const std::vector<FF>& accumulator_challenge = {},
-                   const std::vector<FF>& instance_challenge = {})
+                   const size_t virtual_log_n)
         : multivariate_n(multivariate_n)
         , multivariate_d(numeric::get_msb(multivariate_n))
         , full_polynomials(prover_polynomials)
