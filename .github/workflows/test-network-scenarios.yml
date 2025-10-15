@@ -179,7 +179,7 @@ jobs:
             read -r -d '' data <<EOF || true
             {
               "channel": "#alerts-next-scenario",
-              "text": "Deploy Network workflow FAILED for *next-scenario* (version ${{ inputs.semver }}): <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
+              "text": "Scenario tests FAILED for *next-scenario* (version ${{ env.SEMVER }}): <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
             }
           EOF
             curl -X POST https://slack.com/api/chat.postMessage \

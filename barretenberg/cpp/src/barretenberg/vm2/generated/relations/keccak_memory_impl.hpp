@@ -75,10 +75,10 @@ void keccak_memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // CTR_END
         using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::keccak_memory_sel)) *
-                   (((static_cast<View>(in.get(C::keccak_memory_ctr)) - CView(constants_AVM_KECCAKF1600_STATE_SIZE)) *
+                   (((CView(constants_AVM_KECCAKF1600_STATE_SIZE) - static_cast<View>(in.get(C::keccak_memory_ctr))) *
                          (static_cast<View>(in.get(C::keccak_memory_ctr_end)) *
-                              (FF(1) - static_cast<View>(in.get(C::keccak_memory_ctr_min_state_size_inv))) +
-                          static_cast<View>(in.get(C::keccak_memory_ctr_min_state_size_inv))) +
+                              (FF(1) - static_cast<View>(in.get(C::keccak_memory_state_size_min_ctr_inv))) +
+                          static_cast<View>(in.get(C::keccak_memory_state_size_min_ctr_inv))) +
                      static_cast<View>(in.get(C::keccak_memory_ctr_end))) -
                     FF(1));
         std::get<8>(evals) += (tmp * scaling_factor);

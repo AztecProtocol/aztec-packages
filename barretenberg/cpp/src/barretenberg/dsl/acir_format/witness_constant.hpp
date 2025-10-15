@@ -51,11 +51,7 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& 
                                                    const WitnessOrConstant<FF>& input_y,
                                                    const WitnessOrConstant<FF>& input_infinite,
                                                    bool has_valid_witness_assignments,
+                                                   const WitnessOrConstant<FF>& predicate,
                                                    Builder& builder);
-
-template <typename Builder, typename FF>
-bb::stdlib::cycle_group<Builder> valid_point(const bb::stdlib::cycle_group<Builder>& input,
-                                             const WitnessOrConstant<FF>& predicate,
-                                             Builder& builder);
 
 } // namespace acir_format

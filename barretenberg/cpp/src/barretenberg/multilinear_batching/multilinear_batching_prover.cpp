@@ -23,8 +23,6 @@ MultilinearBatchingProver::MultilinearBatchingProver(
     BB_BENCH();
     ProverPolynomials polynomials;
     size_t virtual_circuit_size = 1 << Flavor::VIRTUAL_LOG_N;
-    info("accumulator: ", accumulator_claim->dyadic_size);
-    info("instance: ", instance_claim->dyadic_size);
     size_t max_dyadic_size = std::max(accumulator_claim->dyadic_size, instance_claim->dyadic_size);
     polynomials.w_non_shifted_accumulator = accumulator_claim->non_shifted_polynomial;
     polynomials.w_shifted_accumulator = accumulator_claim->shifted_polynomial.shifted();

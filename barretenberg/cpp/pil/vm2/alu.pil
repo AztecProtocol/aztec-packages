@@ -335,14 +335,13 @@ DIV_OPS_NON_U128 * (ib * ic - (ia - sel_op_div * helper1)) = 0;
 
 sel_op_eq * (1 - sel_op_eq) = 0;
 pol DIFF = ia - ib;
-
-// Use helper1 to invert DIFF.
+pol commit ab_diff_inv; // Helper column for inverting DIFF.
 // ic is a boolean output and ic == 1 <==> a == b.
 // Important: ic boolean constraint is enforced as part of write to memory due to ic_tag == U1 as enforced by #[C_TAG_CHECK].
 
 // sel_op_eq == 1 => [ic == 1 <==> DIFF == 0]
 #[EQ_OP_MAIN]
-sel_op_eq * (1 - sel_tag_err) * (DIFF * (ic * (1 - helper1) + helper1) - 1 + ic) = 0;
+sel_op_eq * (1 - sel_tag_err) * (DIFF * (ic * (1 - ab_diff_inv) + ab_diff_inv) - 1 + ic) = 0;
 
 // LT
 
