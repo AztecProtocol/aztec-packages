@@ -8,11 +8,11 @@
 
 #include "barretenberg/commitment_schemes/claim_batcher.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
-#include "barretenberg/stdlib/hypernova/hypernova_verifier.hpp"
-#include "barretenberg/stdlib/hypernova/types.hpp"
+#include "barretenberg/hypernova/hypernova_verifier.hpp"
+#include "barretenberg/hypernova/types.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 
-namespace bb::stdlib::recursion::honk {
+namespace bb {
 
 template <typename Flavor_> class HypernovaDeciderVerifier {
   public:
@@ -41,4 +41,4 @@ template <typename Flavor_> class HypernovaDeciderVerifier {
 
     PairingPoints verify_proof(Accumulator& accumulator, const Proof& proof);
 };
-} // namespace bb::stdlib::recursion::honk
+} // namespace bb

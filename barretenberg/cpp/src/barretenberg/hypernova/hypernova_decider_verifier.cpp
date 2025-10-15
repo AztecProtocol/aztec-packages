@@ -4,9 +4,9 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#include "barretenberg/stdlib/hypernova/hypernova_decider_verifier.hpp"
+#include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
 
-namespace bb::stdlib::recursion::honk {
+namespace bb {
 
 template <typename Flavor>
 HypernovaDeciderVerifier<Flavor>::PairingPoints HypernovaDeciderVerifier<Flavor>::verify_proof(
@@ -44,4 +44,4 @@ HypernovaDeciderVerifier<Flavor>::PairingPoints HypernovaDeciderVerifier<Flavor>
 
 template class HypernovaDeciderVerifier<MegaFlavor>;
 template class HypernovaDeciderVerifier<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
-}; // namespace bb::stdlib::recursion::honk
+}; // namespace bb

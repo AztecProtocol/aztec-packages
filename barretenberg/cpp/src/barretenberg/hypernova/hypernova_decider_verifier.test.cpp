@@ -1,12 +1,12 @@
-#include "barretenberg/stdlib/hypernova/hypernova_decider_verifier.hpp"
+#include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/hypernova/hypernova_decider_prover.hpp"
 #include "barretenberg/hypernova/hypernova_prover.hpp"
-#include "barretenberg/stdlib/hypernova/hypernova_verifier.hpp"
+#include "barretenberg/hypernova/hypernova_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "gtest/gtest.h"
 
-using namespace bb::stdlib::recursion::honk;
+using namespace bb;
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1553): improve testing
 class HypernovaDeciderVerifierTests : public ::testing::Test {

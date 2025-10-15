@@ -13,7 +13,7 @@
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
-namespace bb::stdlib::recursion::honk {
+namespace bb {
 
 class HypernovaNativeTypes {
   public:
@@ -31,4 +31,4 @@ class HypernovaRecursiveTypes {
     using MultilinearBatchingVerifier = bb::MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor>;
     using PairingPoints = stdlib::recursion::PairingPoints<MegaCircuitBuilder>;
 };
-} // namespace bb::stdlib::recursion::honk
+} // namespace bb

@@ -4,9 +4,9 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#include "barretenberg/stdlib/hypernova/hypernova_verifier.hpp"
+#include "barretenberg/hypernova/hypernova_verifier.hpp"
 
-namespace bb::stdlib::recursion::honk {
+namespace bb {
 
 template <typename Flavor>
 HypernovaFoldingVerifier<Flavor>::Accumulator HypernovaFoldingVerifier<Flavor>::sumcheck_output_to_accumulator(
@@ -133,4 +133,4 @@ std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> H
 
 template class HypernovaFoldingVerifier<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
 template class HypernovaFoldingVerifier<MegaFlavor>;
-} // namespace bb::stdlib::recursion::honk
+} // namespace bb

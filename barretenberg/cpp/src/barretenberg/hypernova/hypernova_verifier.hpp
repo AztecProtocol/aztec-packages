@@ -7,16 +7,16 @@
 
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
+#include "barretenberg/hypernova/types.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
-#include "barretenberg/stdlib/hypernova/types.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 
-namespace bb::stdlib::recursion::honk {
+namespace bb {
 
 template <typename Flavor_> class HypernovaFoldingVerifier {
   public:
@@ -81,4 +81,4 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
         }
     }
 };
-} // namespace bb::stdlib::recursion::honk
+} // namespace bb
