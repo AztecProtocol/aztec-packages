@@ -18,6 +18,8 @@ class AvmSimulationHelper {
     // Fast simulation without event collection.
     // FIXME(fcarreiro): This should eventually only take the Tx, Globals and not much more.
     void simulate_fast(const ExecutionHints& hints, const world_state::WorldStateRevision& ws_revision);
+
+    void prepare_ws();
 };
 
 } // namespace bb::avm2

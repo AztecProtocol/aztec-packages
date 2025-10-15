@@ -341,6 +341,7 @@ void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints,
     KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check, greater_than);
 
     Ecc ecc(execution_id_manager, greater_than, to_radix, ecc_add_emitter, scalar_mul_emitter, ecc_add_memory_emitter);
+    // TODO(dbanks12): use pure contracts DB that calls back to TS
     HintedRawContractDB raw_contract_db(hints);
 
     // Connect to world state given the revision, this relies on the world state being already initialized.
