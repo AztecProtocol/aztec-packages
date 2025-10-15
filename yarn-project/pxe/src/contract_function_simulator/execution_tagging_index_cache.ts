@@ -1,4 +1,4 @@
-import { DirectionalAppTaggingSecret, type IndexedTaggingSecret } from '@aztec/stdlib/logs';
+import { DirectionalAppTaggingSecret, type PreTag } from '@aztec/stdlib/logs';
 
 /**
  * A map that stores the tagging index for a given directional app tagging secret.
@@ -21,9 +21,9 @@ export class ExecutionTaggingIndexCache {
   }
 
   /**
-   * Returns the indexed tagging secrets that were used in this execution.
+   * Returns the pre tags that were used in this execution (and that need to be stored in the db).
    */
-  public getUsedIndexedTaggingSecrets(): IndexedTaggingSecret[] {
+  public getUsedPreTags(): PreTag[] {
     return Array.from(this.taggingIndexMap.entries()).map(([secret, index]) => ({
       secret: DirectionalAppTaggingSecret.fromString(secret),
       index,

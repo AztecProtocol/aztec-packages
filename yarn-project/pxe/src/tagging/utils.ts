@@ -1,9 +1,9 @@
-import type { DirectionalAppTaggingSecret, IndexedTaggingSecret } from '@aztec/stdlib/logs';
+import type { DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 
 // TODO(benesjan): Make this return tags instead - this will moves some complexity from syncTaggedLogs
-export function getIndexedTaggingSecretsForTheWindow(
+export function getPreTagsForTheWindow(
   secretsAndWindows: { secret: DirectionalAppTaggingSecret; leftMostIndex: number; rightMostIndex: number }[],
-): IndexedTaggingSecret[] {
+): PreTag[] {
   const secrets = [];
   for (const secretAndWindow of secretsAndWindows) {
     for (let i = secretAndWindow.leftMostIndex; i <= secretAndWindow.rightMostIndex; i++) {
@@ -15,18 +15,16 @@ export function getIndexedTaggingSecretsForTheWindow(
 
 /**
  * Creates a map from directional app tagging secret to initial index.
- * @param indexedTaggingSecrets - The indexed tagging secrets to get the initial indexes from.
+ * @param preTags - The pre tags to get the initial indexes map from.
  * @returns The map from directional app tagging secret to initial index.
  */
-export function getInitialIndexesMap(
-  indexedTaggingSecrets: { secret: DirectionalAppTaggingSecret; index: number | undefined }[],
-): {
+export function getInitialIndexesMap(preTags: { secret: DirectionalAppTaggingSecret; index: number | undefined }[]): {
   [k: string]: number;
 } {
   const initialIndexes: { [k: string]: number } = {};
 
-  for (const indexedTaggingSecret of indexedTaggingSecrets) {
-    initialIndexes[indexedTaggingSecret.secret.toString()] = indexedTaggingSecret.index ?? 0;
+  for (const preTag of preTags) {
+    initialIndexes[preTag.secret.toString()] = preTag.index ?? 0;
   }
 
   return initialIndexes;

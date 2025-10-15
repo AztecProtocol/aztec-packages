@@ -46,8 +46,8 @@ import {
   SiloedTag,
   Tag,
   WINDOW_HALF_SIZE,
-  getIndexedTaggingSecretsForTheWindow,
   getInitialIndexesMap,
+  getPreTagsForTheWindow,
 } from '../tagging/index.js';
 import { EventValidationRequest } from './noir-structs/event_validation_request.js';
 import { LogRetrievalRequest } from './noir-structs/log_retrieval_request.js';
@@ -289,15 +289,19 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   /**
-   * Returns the indexed tagging secrets for a given recipient and all the senders in the address book
+   * Returns the last used tagging indexes along with the directional app tagging secrets for a given recipient and all
+   * the senders in the address book.
    * This method should be exposed as an oracle call to allow aztec.nr to perform the orchestration
    * of the syncTaggedLogs and processTaggedLogs methods. However, it is not possible to do so at the moment,
    * so we're keeping it private for now.
    * @param contractAddress - The contract address to silo the secret for
    * @param recipient - The address receiving the notes
-   * @returns A list of indexed tagging secrets. If the corresponding secret was never used, the index is undefined.
+   * @returns A list of directional app tagging secrets along with the last used tagging indexes. If the corresponding
+   * secret was never used, the index is undefined.
+   * TODO(benesjan): The naming here is broken as the function name does not reflect the return type. Fix when associating
+   * indexes with tx hash.
    */
-  async #getLastUsedIndexedTaggingSecretsForSenders(
+  async #getLastUsedTaggingIndexesForSenders(
     contractAddress: AztecAddress,
     recipient: AztecAddress,
   ): Promise<{ secret: DirectionalAppTaggingSecret; index: number | undefined }[]> {
@@ -425,7 +429,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     const contractName = await this.contractDataProvider.getDebugContractName(contractAddress);
     for (const recipient of recipients) {
       // Get all the secrets for the recipient and sender pairs (#9365)
-      const indexedSecrets = await this.#getLastUsedIndexedTaggingSecretsForSenders(contractAddress, recipient);
+      const indexedSecrets = await this.#getLastUsedTaggingIndexesForSenders(contractAddress, recipient);
 
       // We fetch logs for a window of indexes in a range:
       //    <latest_log_index - WINDOW_HALF_SIZE, latest_log_index + WINDOW_HALF_SIZE>.
@@ -459,10 +463,10 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       const initialIndexesMap = getInitialIndexesMap(indexedSecrets);
 
       while (secretsAndWindows.length > 0) {
-        const secretsForTheWholeWindow = getIndexedTaggingSecretsForTheWindow(secretsAndWindows);
+        const preTagsForTheWholeWindow = getPreTagsForTheWindow(secretsAndWindows);
         const tagsForTheWholeWindow = await Promise.all(
-          secretsForTheWholeWindow.map(async indexedSecret => {
-            return SiloedTag.compute(await Tag.compute(indexedSecret), contractAddress);
+          preTagsForTheWholeWindow.map(async preTag => {
+            return SiloedTag.compute(await Tag.compute(preTag), contractAddress);
           }),
         );
 
@@ -495,25 +499,25 @@ export class PXEOracleInterface implements ExecutionDataProvider {
               filteredLogsByBlockNumber,
             );
 
-            // We retrieve the indexed tagging secret corresponding to the log as I need that to evaluate whether
+            // We retrieve the pre tag corresponding to the log as I need that to evaluate whether
             // a new largest index have been found.
-            const secretCorrespondingToLog = secretsForTheWholeWindow[logIndex];
-            const initialIndex = initialIndexesMap[secretCorrespondingToLog.secret.toString()];
+            const preTagCorrespondingToLog = preTagsForTheWholeWindow[logIndex];
+            const initialIndex = initialIndexesMap[preTagCorrespondingToLog.secret.toString()];
 
             if (
-              secretCorrespondingToLog.index >= initialIndex &&
-              (newLargestIndexMapForIteration[secretCorrespondingToLog.secret.toString()] === undefined ||
-                secretCorrespondingToLog.index >=
-                  newLargestIndexMapForIteration[secretCorrespondingToLog.secret.toString()])
+              preTagCorrespondingToLog.index >= initialIndex &&
+              (newLargestIndexMapForIteration[preTagCorrespondingToLog.secret.toString()] === undefined ||
+                preTagCorrespondingToLog.index >=
+                  newLargestIndexMapForIteration[preTagCorrespondingToLog.secret.toString()])
             ) {
               // We have found a new largest index so we store it for later processing (storing it in the db + fetching
               // the difference of the window sets of current and the next iteration)
-              newLargestIndexMapForIteration[secretCorrespondingToLog.secret.toString()] =
-                secretCorrespondingToLog.index + 1;
+              newLargestIndexMapForIteration[preTagCorrespondingToLog.secret.toString()] =
+                preTagCorrespondingToLog.index + 1;
 
               this.log.debug(
                 `Incrementing index to ${
-                  secretCorrespondingToLog.index + 1
+                  preTagCorrespondingToLog.index + 1
                 } at contract ${contractName}(${contractAddress})`,
               );
             }

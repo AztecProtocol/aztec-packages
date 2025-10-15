@@ -14,7 +14,7 @@ import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import type { ContractClassLog, DirectionalAppTaggingSecret, IndexedTaggingSecret } from '@aztec/stdlib/logs';
+import type { ContractClassLog, DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
   type BlockHeader,
@@ -152,10 +152,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
-   * Returns the indexed tagging secrets that were used in this execution.
+   * Returns the pre tags that were used in this execution (and that need to be stored in the db).
    */
-  public getUsedIndexedTaggingSecrets(): IndexedTaggingSecret[] {
-    return this.taggingIndexCache.getUsedIndexedTaggingSecrets();
+  public getUsedPreTags(): PreTag[] {
+    return this.taggingIndexCache.getUsedPreTags();
   }
 
   /**

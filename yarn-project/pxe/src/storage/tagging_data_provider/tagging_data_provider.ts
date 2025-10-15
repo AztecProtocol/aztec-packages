@@ -1,7 +1,7 @@
 import { toArray } from '@aztec/foundation/iterable';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { DirectionalAppTaggingSecret, IndexedTaggingSecret } from '@aztec/stdlib/logs';
+import type { DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 
 export class TaggingDataProvider {
   #store: AztecAsyncKVStore;
@@ -23,34 +23,37 @@ export class TaggingDataProvider {
 
   /**
    * Sets the last used indexes when sending a log.
-   * @param indexedSecrets - The indexed secrets to set the last used indexes for.
-   * @throws If there are duplicate secrets in the input array
+   * @param preTags - The pre tags containing the directional app tagging secrets and the indexes that are to be
+   * updated in the db.
+   * @throws If any two pre tags contain the same directional app tagging secret
    */
-  setLastUsedIndexesAsSender(indexedSecrets: IndexedTaggingSecret[]) {
-    this.#assertUniqueSecrets(indexedSecrets, 'sender');
+  setLastUsedIndexesAsSender(preTags: PreTag[]) {
+    this.#assertUniqueSecrets(preTags, 'sender');
 
     return Promise.all(
-      indexedSecrets.map(({ secret, index }) => this.#lastUsedIndexesAsSenders.set(secret.toString(), index)),
+      preTags.map(({ secret, index }) => this.#lastUsedIndexesAsSenders.set(secret.toString(), index)),
     );
   }
 
   /**
    * Sets the last used indexes when looking for logs.
-   * @param indexedSecrets - The indexed secrets to set the last used indexes for.
-   * @throws If there are duplicate secrets in the input array
+   * @param preTags - The pre tags containing the directional app tagging secrets and the indexes that are to be
+   * updated in the db.
+   * @throws If any two pre tags contain the same directional app tagging secret
    */
-  setLastUsedIndexesAsRecipient(indexedSecrets: IndexedTaggingSecret[]) {
-    this.#assertUniqueSecrets(indexedSecrets, 'recipient');
+  setLastUsedIndexesAsRecipient(preTags: PreTag[]) {
+    this.#assertUniqueSecrets(preTags, 'recipient');
 
     return Promise.all(
-      indexedSecrets.map(({ secret, index }) => this.#lastUsedIndexesAsRecipients.set(secret.toString(), index)),
+      preTags.map(({ secret, index }) => this.#lastUsedIndexesAsRecipients.set(secret.toString(), index)),
     );
   }
 
-  // It should never happen that we would receive a duplicate secrets on the input of the setters as everywhere
-  // we always just apply the largest index. Hence this check is a good way to catch bugs.
-  #assertUniqueSecrets(indexedSecrets: IndexedTaggingSecret[], role: 'sender' | 'recipient'): void {
-    const secretStrings = indexedSecrets.map(({ secret }) => secret.toString());
+  // It should never happen that we would receive any two pre tags on the input containing the same directional app
+  // tagging secret as everywhere we always just apply the largest index. Hence this check is a good way to catch
+  // bugs.
+  #assertUniqueSecrets(preTags: PreTag[], role: 'sender' | 'recipient'): void {
+    const secretStrings = preTags.map(({ secret }) => secret.toString());
     const uniqueSecrets = new Set(secretStrings);
     if (uniqueSecrets.size !== secretStrings.length) {
       throw new Error(`Duplicate secrets found when setting last used indexes as ${role}`);

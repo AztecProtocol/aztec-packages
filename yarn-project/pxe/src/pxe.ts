@@ -743,14 +743,14 @@ export class PXE {
           nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,
         });
 
-        const indexedTaggingSecretsIncrementedInTheTx = privateExecutionResult.entrypoint.indexedTaggingSecrets;
-        if (indexedTaggingSecretsIncrementedInTheTx.length > 0) {
-          await this.taggingDataProvider.setLastUsedIndexesAsSender(indexedTaggingSecretsIncrementedInTheTx);
-          this.log.debug(`Stored last used tagging secret indexes as sender for the tx`, {
-            indexedTaggingSecretsIncrementedInTheTx,
+        const preTagsUsedInTheTx = privateExecutionResult.entrypoint.preTags;
+        if (preTagsUsedInTheTx.length > 0) {
+          await this.taggingDataProvider.setLastUsedIndexesAsSender(preTagsUsedInTheTx);
+          this.log.debug(`Stored used pre tags as sender for the tx`, {
+            preTagsUsedInTheTx,
           });
         } else {
-          this.log.debug(`No tagging secret indexes incremented in the tx`);
+          this.log.debug(`No pre tags used in the tx`);
         }
 
         return txProvingResult;
