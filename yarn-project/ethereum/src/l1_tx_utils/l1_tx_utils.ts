@@ -698,7 +698,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     state.lastSentAtL1Ts = new Date(await this.getL1Timestamp());
 
     const txData = this.makeTxData(state, { isCancelTx: true });
-    const signedRequest = await this.prepareSignedTransaction(txData);
+    const signedRequest = await this.prepareSignedTransaction(txData, isBlobTx);
     const cancelTxHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
 
     state.cancelTxHashes.push(cancelTxHash);
