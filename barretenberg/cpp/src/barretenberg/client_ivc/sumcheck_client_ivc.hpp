@@ -378,7 +378,7 @@ class SumcheckClientIVC : public IVCBase {
             auto unshifted_challenges =
                 generate_challenges.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>("unshifted_challenge_");
             auto shifted_challenges =
-                generate_challenges.operator()<Flavor::NUM_SHIFTED_WITNESSES>("shifted_challenge_");
+                generate_challenges.operator()<Flavor::NUM_SHIFTED_ENTITIES>("shifted_challenge_");
 
             // Batch polynomials
             auto unshifted = polynomials.get_unshifted();
@@ -386,7 +386,7 @@ class SumcheckClientIVC : public IVCBase {
 
             auto batched_unshifted = PolynomialBatcher::compute_batched<Flavor::NUM_UNSHIFTED_ENTITIES>(
                 unshifted, full_batched_size, unshifted_challenges);
-            auto batched_shifted = PolynomialBatcher::compute_batched<Flavor::NUM_SHIFTED_WITNESSES>(
+            auto batched_shifted = PolynomialBatcher::compute_batched<Flavor::NUM_SHIFTED_ENTITIES>(
                 shifted, full_batched_size, shifted_challenges, true);
 
             // Batch evaluations
@@ -395,7 +395,7 @@ class SumcheckClientIVC : public IVCBase {
 
             auto batched_unshifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
                 unshifted_evaluations, unshifted_challenges);
-            auto batched_shifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_SHIFTED_WITNESSES>(
+            auto batched_shifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_SHIFTED_ENTITIES>(
                 shifted_evaluations, shifted_challenges);
 
             // Batch commitments
@@ -403,7 +403,7 @@ class SumcheckClientIVC : public IVCBase {
             auto shifted_commitments = commitments.get_to_be_shifted();
             auto batched_unshifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
                 unshifted_commitments, unshifted_challenges);
-            auto batched_shifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_SHIFTED_WITNESSES>(
+            auto batched_shifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_SHIFTED_ENTITIES>(
                 shifted_commitments, shifted_challenges);
 
             return ProverAccumulator{
@@ -458,7 +458,7 @@ class SumcheckClientIVC : public IVCBase {
             auto unshifted_challenges =
                 generate_challenges.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>("unshifted_challenge_");
             auto shifted_challenges =
-                generate_challenges.operator()<Flavor::NUM_SHIFTED_WITNESSES>("shifted_challenge_");
+                generate_challenges.operator()<Flavor::NUM_SHIFTED_ENTITIES>("shifted_challenge_");
 
             // Batch evaluations
             auto unshifted_evaluations = claimed_evaluations.get_unshifted();
@@ -466,7 +466,7 @@ class SumcheckClientIVC : public IVCBase {
 
             auto batched_unshifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
                 unshifted_evaluations, unshifted_challenges);
-            auto batched_shifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_SHIFTED_WITNESSES>(
+            auto batched_shifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_SHIFTED_ENTITIES>(
                 shifted_evaluations, shifted_challenges);
 
             // Batch commitments
@@ -474,7 +474,7 @@ class SumcheckClientIVC : public IVCBase {
             auto shifted_commitments = verifier_commitments.get_to_be_shifted();
             auto batched_unshifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
                 unshifted_commitments, unshifted_challenges);
-            auto batched_shifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_SHIFTED_WITNESSES>(
+            auto batched_shifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_SHIFTED_ENTITIES>(
                 shifted_commitments, shifted_challenges);
 
             return VerifierAccumulator{
@@ -542,7 +542,7 @@ class SumcheckClientIVC : public IVCBase {
             auto unshifted_challenges =
                 generate_challenges.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>("unshifted_challenge_");
             auto shifted_challenges =
-                generate_challenges.operator()<Flavor::NUM_SHIFTED_WITNESSES>("shifted_challenge_");
+                generate_challenges.operator()<Flavor::NUM_SHIFTED_ENTITIES>("shifted_challenge_");
 
             // Batch evaluations
             auto unshifted_evaluations = claimed_evaluations.get_unshifted();
@@ -550,7 +550,7 @@ class SumcheckClientIVC : public IVCBase {
 
             auto batched_unshifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
                 unshifted_evaluations, unshifted_challenges);
-            auto batched_shifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_SHIFTED_WITNESSES>(
+            auto batched_shifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_SHIFTED_ENTITIES>(
                 shifted_evaluations, shifted_challenges);
 
             // Batch commitments
@@ -558,7 +558,7 @@ class SumcheckClientIVC : public IVCBase {
             auto shifted_witness_commitments = verifier_commitments.get_to_be_shifted();
             auto batched_unshifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
                 unshifted_verifier_commitments, unshifted_challenges);
-            auto batched_shifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_SHIFTED_WITNESSES>(
+            auto batched_shifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_SHIFTED_ENTITIES>(
                 shifted_witness_commitments, shifted_challenges);
 
             return RecursiveVerifierAccumulator(challenge,
