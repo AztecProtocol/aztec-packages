@@ -122,6 +122,7 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
     RecursiveFoldingVerifier folding_verifier(accumulation_recursive_transcript);
     switch (verifier_inputs.type) {
     case QUEUE_TYPE::OINK: {
+        vinfo("Recursively verifying accumulation of the first app circuit.");
         BB_ASSERT_EQ(input_verifier_accumulator.has_value(), false);
 
         auto [_, new_verifier_accumulator] =
@@ -134,12 +135,14 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
     }
     case QUEUE_TYPE::PG:
     case QUEUE_TYPE::PG_TAIL: {
+        vinfo("Recursively verifying inner accumulation.");
         auto [_first_sumcheck_verified, _second_sumcheck_verified, new_verifier_accumulator] =
             folding_verifier.verify_folding_proof(verifier_instance, verifier_inputs.proof);
         output_verifier_accumulator = std::move(new_verifier_accumulator);
         break;
     }
     case QUEUE_TYPE::PG_FINAL: {
+        vinfo("Recursively verifying accumulation of the tail kernel.");
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
 
         hide_op_queue_accumulation_result(circuit);
@@ -229,7 +232,6 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
  */
 void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
-
     // Transcript to be shared shared across recursive verification of the folding of K_{i-1} (kernel), A_{i} (app)
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
 
@@ -400,15 +402,18 @@ void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr
         break;
     case QUEUE_TYPE::PG:
     case QUEUE_TYPE::PG_TAIL:
+        vinfo("Accumulating circuit number ", num_circuits_accumulated + 1);
         std::tie(proof, prover_accumulator) = prover.fold(prover_accumulator, prover_instance, precomputed_vk);
         break;
     case QUEUE_TYPE::PG_FINAL: {
+        vinfo("Accumulating tail kernel");
         std::tie(proof, prover_accumulator) = prover.fold(prover_accumulator, prover_instance, precomputed_vk);
         DeciderProver decider(prover_accumulation_transcript);
         decider_proof = decider.construct_proof(bn254_commitment_key, prover_accumulator);
         break;
     }
     case QUEUE_TYPE::MEGA:
+        vinfo("Generating proof for hiding kernel");
         proof = construct_honk_proof_for_hiding_kernel(circuit, precomputed_vk);
         break;
     }
@@ -550,7 +555,6 @@ SumcheckClientIVC::Proof SumcheckClientIVC::prove()
     // final merging is done via appending to facilitate creating a zero-knowledge merge proof. This enables us to add
     // randomness to the beginning of the tail kernel and the end of the hiding kernel, hiding the commitments and
     // evaluations of both the previous table and the incoming subtable.
-    // https://github.com/AztecProtocol/barretenberg/issues/1360
     return { mega_proof, goblin.prove(MergeSettings::APPEND) };
 };
 
