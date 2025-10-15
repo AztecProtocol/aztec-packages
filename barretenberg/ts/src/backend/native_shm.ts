@@ -50,10 +50,7 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
     maxClients?: number,
   ): Promise<BarretenbergNativeShmSyncBackend> {
     if (!addon || !addon.MsgpackClient) {
-      throw new Error(
-        'NAPI addon not available. The nodejs_module must be built with shared memory support. ' +
-          `Expected addon at: ${addonPath}`,
-      );
+      throw new Error('Shared memory NAPI not available.');
     }
 
     // Create a unique shared memory name
