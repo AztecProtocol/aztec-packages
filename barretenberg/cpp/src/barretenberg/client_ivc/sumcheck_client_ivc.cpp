@@ -99,11 +99,6 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
     const TableCommitments& T_prev_commitments,
     const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
-    auto num_rows = circuit.op_queue->get_num_rows();
-    auto num_ops = circuit.op_queue->get_current_subtable_size();
-    info("NUM ROWS WHEN ENTERING: ", num_rows);
-    info("NUM OPS WHEN ENTERING: ", num_ops);
-
     using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
 
     // The pairing points produced by the verification of the decider proof
@@ -139,7 +134,7 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
     }
     case QUEUE_TYPE::PG:
     case QUEUE_TYPE::PG_TAIL: {
-        auto [_bool_one, _bool_two, new_verifier_accumulator] =
+        auto [_first_sumcheck_verified, _second_sumcheck_verified, new_verifier_accumulator] =
             folding_verifier.verify_folding_proof(verifier_instance, verifier_inputs.proof);
         output_verifier_accumulator = std::move(new_verifier_accumulator);
         break;
@@ -149,7 +144,7 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
 
         hide_op_queue_accumulation_result(circuit);
 
-        auto [_bool_one, _bool_two, final_verifier_accumulator] =
+        auto [_first_sumcheck_verified, _second_sumcheck_verified, final_verifier_accumulator] =
             folding_verifier.verify_folding_proof(verifier_instance, verifier_inputs.proof);
 
         RecursiveDeciderVerifier decider_verifier(accumulation_recursive_transcript);
@@ -180,8 +175,7 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
         kernel_input.app_return_data.incomplete_assert_equal(witness_commitments.secondary_calldata);
 
         // T_prev is read by the public input of the previous kernel K_{i-1} at the beginning of the recursive
-        // verification of of the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app). This verification
-        // happens in K_{i}
+        // verification of of the folding of K_{i-1} (kernel), A_{i} (app). This verification happens in K_{i}
         merge_commitments.T_prev_commitments = std::move(kernel_input.ecc_op_tables);
 
         BB_ASSERT_EQ(verifier_inputs.type == QUEUE_TYPE::PG || verifier_inputs.type == QUEUE_TYPE::PG_TAIL ||
@@ -207,9 +201,6 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
         bus_depot.set_app_return_data_commitment(witness_commitments.return_data);
     }
 
-    info("NUM ROWS DIFF: ", circuit.op_queue->get_num_rows() - num_rows);
-    info("NUM OPS DIFF: ", circuit.op_queue->get_current_subtable_size() - num_ops);
-
     // Extract the commitments to the subtable corresponding to the incoming circuit
     merge_commitments.t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
 
@@ -225,9 +216,6 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
         hide_op_queue_content_in_hiding(circuit);
     }
 
-    info("NUM ROWS DIFF AT THE END: ", circuit.op_queue->get_num_rows() - num_rows);
-    info("NUM OPS DIFF AT THE END: ", circuit.op_queue->get_current_subtable_size() - num_ops);
-
     return { output_verifier_accumulator, pairing_points, merged_table_commitments };
 }
 
@@ -242,8 +230,7 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
 void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
 
-    // Transcript to be shared shared across recursive verification of the folding of K_{i-1} (kernel), A_{i,1} (app),
-    // .., A_{i, n} (app) (all circuits accumulated between the previous kernel and current one)
+    // Transcript to be shared shared across recursive verification of the folding of K_{i-1} (kernel), A_{i} (app)
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
 
     // Commitment to the previous state of the op_queue in the recursive verification
@@ -392,9 +379,12 @@ void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr
         prover_accumulation_transcript = std::make_shared<Transcript>();
     }
 
-    // make a copy of the prover_accumulation_transcript for the verifier to use
+#ifdef NDEBUG
+    // Make a copy of the prover_accumulation_transcript for the native verifier to use, only happens in debugging
+    // builds
     auto verifier_transcript =
         Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
+#endif
 
     QUEUE_TYPE queue_type = get_queue_type();
 
@@ -426,10 +416,13 @@ void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr
     VerifierInputs queue_entry{ std::move(proof), precomputed_vk, queue_type, is_kernel };
     verification_queue.push_back(queue_entry);
 
-    // Update native verifier accumulator and construct merge proof (excluded for hiding kernel since PG terminates with
+    // Construct merge proof (excluded for hiding kernel since accumulation terminates with
     // tail kernel and hiding merge proof is constructed as part of goblin proving)
     if (queue_entry.type != QUEUE_TYPE::MEGA) {
+#ifdef NDEBUG
+        // In debugging builds update native verifier accumulator
         update_native_verifier_accumulator(queue_entry, verifier_transcript);
+#endif
         goblin.prove_merge(prover_accumulation_transcript);
     }
 
@@ -724,10 +717,13 @@ void SumcheckClientIVC::update_native_verifier_accumulator(const VerifierInputs&
         auto [_, new_accumulator] = native_verifier.instance_to_accumulator(verifier_inst, queue_entry.proof);
         native_verifier_accum = std::move(new_accumulator);
     } else {
-        auto [_bool_one, _bool_two, new_accumulator] =
+        auto [_first_sumcheck_verified, _second_sumcheck_verified, new_accumulator] =
             native_verifier.verify_folding_proof(verifier_inst, queue_entry.proof);
         native_verifier_accum = std::move(new_accumulator);
     }
+
+    info("DEBUG: Hash of verifier accumulator computed natively ",
+         native_verifier_accum.hash_through_transcript("", *verifier_transcript));
 }
 
 } // namespace bb
