@@ -178,6 +178,15 @@ export function createSafeJsonRpcClient<T extends object>(
         }
       }
     } catch (err) {
+      // Re-throw ComponentsVersionsError immediately without converting to JSON-RPC error
+      // This ensures version mismatch errors are surfaced to the user instead of being hidden
+      if (err && typeof err === 'object' && 'name' in err && err.name === 'ComponentsVersionsError') {
+        // Reject all pending requests with the version error
+        for (let i = 0; i < rpcCalls.length; i++) {
+          rpcCalls[i].deferred.reject(err);
+        }
+        return; // Return early, the promises are already rejected
+      }
       log.warn(`Failed to fetch from the remote server`, err);
       for (let i = 0; i < rpcCalls.length; i++) {
         const { request, deferred } = rpcCalls[i];
