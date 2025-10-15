@@ -14,7 +14,7 @@ import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import type { ContractClassLog, IndexedTaggingSecret } from '@aztec/stdlib/logs';
+import type { ContractClassLog, DirectionalAppTaggingSecret, IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
   type BlockHeader,
@@ -152,10 +152,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
-   * Return the tagging indexes incremented by this execution along with the directional app tagging secrets.
+   * Returns the indexed tagging secrets that were used in this execution.
    */
-  public getIndexedTaggingSecrets(): IndexedTaggingSecret[] {
-    return this.taggingIndexCache.getIndexedTaggingSecrets();
+  public getUsedIndexedTaggingSecrets(): IndexedTaggingSecret[] {
+    return this.taggingIndexCache.getUsedIndexedTaggingSecrets();
   }
 
   /**
@@ -208,34 +208,31 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       recipient,
     );
 
-    // If we have the tagging index in the cache, we use it. If not we obtain it from the execution data provider.
-    // TODO(benesjan): Make this be `getLastUsedIndex` and refactor this function to look as proposed in this comment:
-    // https://github.com/AztecProtocol/aztec-packages/pull/17445#discussion_r2400365845
-    const maybeTaggingIndex = this.taggingIndexCache.getTaggingIndex(secret);
-    let taggingIndex: number;
+    const index = await this.#getIndexToUseForSecret(secret);
+    this.log.debug(
+      `Incrementing tagging index for sender: ${sender}, recipient: ${recipient}, contract: ${this.contractAddress} to ${index}`,
+    );
+    this.taggingIndexCache.setLastUsedIndex(secret, index);
 
-    if (maybeTaggingIndex !== undefined) {
-      taggingIndex = maybeTaggingIndex;
+    return Tag.compute({ secret, index });
+  }
+
+  async #getIndexToUseForSecret(secret: DirectionalAppTaggingSecret): Promise<number> {
+    // If we have the tagging index in the cache, we use it. If not we obtain it from the execution data provider.
+    const lastUsedIndexInTx = this.taggingIndexCache.getLastUsedIndex(secret);
+
+    if (lastUsedIndexInTx !== undefined) {
+      return lastUsedIndexInTx + 1;
     } else {
       // This is a tagging secret we've not yet used in this tx, so first sync our store to make sure its indices
       // are up to date. We do this here because this store is not synced as part of the global sync because
       // that'd be wasteful as most tagging secrets are not used in each tx.
-      this.log.debug(`Syncing tagged logs as sender ${sender} for contract ${this.contractAddress}`, {
-        directionalAppTaggingSecret: secret,
-        recipient,
-      });
       await this.executionDataProvider.syncTaggedLogsAsSender(secret, this.contractAddress);
-      taggingIndex = await this.executionDataProvider.getNextIndexAsSender(secret);
+      const lastUsedIndex = await this.executionDataProvider.getLastUsedIndexAsSender(secret);
+      // If lastUsedIndex is undefined, we've never used this secret, so start from 0
+      // Otherwise, the next index to use is one past the last used index
+      return lastUsedIndex === undefined ? 0 : lastUsedIndex + 1;
     }
-
-    // Now we increment the index by 1 and store it in the cache.
-    const nextTaggingIndex = taggingIndex + 1;
-    this.log.debug(
-      `Incrementing tagging index for sender: ${sender}, recipient: ${recipient}, contract: ${this.contractAddress} to ${nextTaggingIndex}`,
-    );
-    this.taggingIndexCache.setTaggingIndex(secret, nextTaggingIndex);
-
-    return Tag.compute({ secret, index: taggingIndex });
   }
 
   /**

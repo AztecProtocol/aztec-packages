@@ -745,12 +745,12 @@ export class PXE {
 
         const indexedTaggingSecretsIncrementedInTheTx = privateExecutionResult.entrypoint.indexedTaggingSecrets;
         if (indexedTaggingSecretsIncrementedInTheTx.length > 0) {
-          await this.taggingDataProvider.setNextIndexesAsSender(indexedTaggingSecretsIncrementedInTheTx);
-          this.log.debug(`Incremented next tagging secret indexes as sender for the tx`, {
+          await this.taggingDataProvider.setLastUsedIndexesAsSender(indexedTaggingSecretsIncrementedInTheTx);
+          this.log.debug(`Stored last used tagging secret indexes as sender for the tx`, {
             indexedTaggingSecretsIncrementedInTheTx,
           });
         } else {
-          this.log.debug(`No next tagging secret indexes incremented in the tx`);
+          this.log.debug(`No tagging secret indexes incremented in the tx`);
         }
 
         return txProvingResult;

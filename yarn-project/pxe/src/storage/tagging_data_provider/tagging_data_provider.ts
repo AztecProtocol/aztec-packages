@@ -7,43 +7,43 @@ export class TaggingDataProvider {
   #store: AztecAsyncKVStore;
   #addressBook: AztecAsyncMap<string, true>;
 
-  // Stores the next index to be used for each directional app tagging secret. Taking into account whether we are
+  // Stores the last used index for each directional app tagging secret. Taking into account whether we are
   // requesting the index as a sender or as a recipient because the sender and recipient can be in the same PXE.
-  #nextIndexesAsSenders: AztecAsyncMap<string, number>;
-  #nextIndexesAsRecipients: AztecAsyncMap<string, number>;
+  #lastUsedIndexesAsSenders: AztecAsyncMap<string, number>;
+  #lastUsedIndexesAsRecipients: AztecAsyncMap<string, number>;
 
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
 
     this.#addressBook = this.#store.openMap('address_book');
 
-    this.#nextIndexesAsSenders = this.#store.openMap('next_indexes_as_senders');
-    this.#nextIndexesAsRecipients = this.#store.openMap('next_indexes_as_recipients');
+    this.#lastUsedIndexesAsSenders = this.#store.openMap('last_used_indexes_as_senders');
+    this.#lastUsedIndexesAsRecipients = this.#store.openMap('last_used_indexes_as_recipients');
   }
 
   /**
-   * Sets the next indexes to be used to compute tags when sending a log.
-   * @param indexedSecrets - The indexed secrets to set the next indexes for.
+   * Sets the last used indexes when sending a log.
+   * @param indexedSecrets - The indexed secrets to set the last used indexes for.
    * @throws If there are duplicate secrets in the input array
    */
-  setNextIndexesAsSender(indexedSecrets: IndexedTaggingSecret[]) {
+  setLastUsedIndexesAsSender(indexedSecrets: IndexedTaggingSecret[]) {
     this.#assertUniqueSecrets(indexedSecrets, 'sender');
 
     return Promise.all(
-      indexedSecrets.map(({ secret, index }) => this.#nextIndexesAsSenders.set(secret.toString(), index)),
+      indexedSecrets.map(({ secret, index }) => this.#lastUsedIndexesAsSenders.set(secret.toString(), index)),
     );
   }
 
   /**
-   * Sets the next indexes to be used to compute tags when looking for logs.
-   * @param indexedSecrets - The indexed secrets to set the next indexes for.
+   * Sets the last used indexes when looking for logs.
+   * @param indexedSecrets - The indexed secrets to set the last used indexes for.
    * @throws If there are duplicate secrets in the input array
    */
-  setNextIndexesAsRecipient(indexedSecrets: IndexedTaggingSecret[]) {
+  setLastUsedIndexesAsRecipient(indexedSecrets: IndexedTaggingSecret[]) {
     this.#assertUniqueSecrets(indexedSecrets, 'recipient');
 
     return Promise.all(
-      indexedSecrets.map(({ secret, index }) => this.#nextIndexesAsRecipients.set(secret.toString(), index)),
+      indexedSecrets.map(({ secret, index }) => this.#lastUsedIndexesAsRecipients.set(secret.toString(), index)),
     );
   }
 
@@ -53,36 +53,35 @@ export class TaggingDataProvider {
     const secretStrings = indexedSecrets.map(({ secret }) => secret.toString());
     const uniqueSecrets = new Set(secretStrings);
     if (uniqueSecrets.size !== secretStrings.length) {
-      throw new Error(`Duplicate secrets found when setting next indexes as ${role}`);
+      throw new Error(`Duplicate secrets found when setting last used indexes as ${role}`);
     }
   }
 
   /**
-   * Returns the next index to be used to compute a tag when sending a log.
+   * Returns the last used index when sending a log with a given secret.
    * @param secret - The directional app tagging secret.
-   * @returns The next index to be used to compute a tag for the given directional app tagging secret.
+   * @returns The last used index for the given directional app tagging secret, or undefined if not found.
    */
-  async getNextIndexAsSender(secret: DirectionalAppTaggingSecret): Promise<number> {
-    return (await this.#nextIndexesAsSenders.getAsync(secret.toString())) ?? 0;
+  async getLastUsedIndexesAsSender(secret: DirectionalAppTaggingSecret): Promise<number | undefined> {
+    return await this.#lastUsedIndexesAsSenders.getAsync(secret.toString());
   }
 
   /**
-   * Returns the next indexes to be used to compute tags when looking for logs.
+   * Returns the last used indexes when looking for logs as a recipient.
    * @param secrets - The directional app tagging secrets to obtain the indexes for.
-   * @returns The next indexes to be used to compute tags for the given directional app tagging secrets.
+   * @returns The last used indexes for the given directional app tagging secrets, or undefined if have never yet found
+   * a log for a given secret.
    */
-  getNextIndexesAsRecipient(secrets: DirectionalAppTaggingSecret[]): Promise<number[]> {
-    return Promise.all(
-      secrets.map(async secret => (await this.#nextIndexesAsRecipients.getAsync(secret.toString())) ?? 0),
-    );
+  getLastUsedIndexesAsRecipient(secrets: DirectionalAppTaggingSecret[]): Promise<(number | undefined)[]> {
+    return Promise.all(secrets.map(secret => this.#lastUsedIndexesAsRecipients.getAsync(secret.toString())));
   }
 
   resetNoteSyncData(): Promise<void> {
     return this.#store.transactionAsync(async () => {
-      const keysForSenders = await toArray(this.#nextIndexesAsSenders.keysAsync());
-      await Promise.all(keysForSenders.map(secret => this.#nextIndexesAsSenders.delete(secret)));
-      const keysForRecipients = await toArray(this.#nextIndexesAsRecipients.keysAsync());
-      await Promise.all(keysForRecipients.map(secret => this.#nextIndexesAsRecipients.delete(secret)));
+      const keysForSenders = await toArray(this.#lastUsedIndexesAsSenders.keysAsync());
+      await Promise.all(keysForSenders.map(secret => this.#lastUsedIndexesAsSenders.delete(secret)));
+      const keysForRecipients = await toArray(this.#lastUsedIndexesAsRecipients.keysAsync());
+      await Promise.all(keysForRecipients.map(secret => this.#lastUsedIndexesAsRecipients.delete(secret)));
     });
   }
 

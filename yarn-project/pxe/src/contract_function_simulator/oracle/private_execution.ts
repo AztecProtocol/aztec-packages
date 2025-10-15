@@ -88,7 +88,7 @@ export async function executePrivateFunction(
   const newNotes = privateExecutionOracle.getNewNotes();
   const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
   const offchainEffects = privateExecutionOracle.getOffchainEffects();
-  const indexedTaggingSecrets = privateExecutionOracle.getIndexedTaggingSecrets();
+  const indexedTaggingSecrets = privateExecutionOracle.getUsedIndexedTaggingSecrets();
   const nestedExecutionResults = privateExecutionOracle.getNestedExecutionResults();
 
   let timerSubtractionList = nestedExecutionResults;

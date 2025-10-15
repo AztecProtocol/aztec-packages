@@ -8,11 +8,11 @@ import { DirectionalAppTaggingSecret, type IndexedTaggingSecret } from '@aztec/s
 export class ExecutionTaggingIndexCache {
   private taggingIndexMap: Map<string, number> = new Map();
 
-  public getTaggingIndex(secret: DirectionalAppTaggingSecret): number | undefined {
+  public getLastUsedIndex(secret: DirectionalAppTaggingSecret): number | undefined {
     return this.taggingIndexMap.get(secret.toString());
   }
 
-  public setTaggingIndex(secret: DirectionalAppTaggingSecret, index: number) {
+  public setLastUsedIndex(secret: DirectionalAppTaggingSecret, index: number) {
     const currentValue = this.taggingIndexMap.get(secret.toString());
     if (currentValue !== undefined && currentValue !== index - 1) {
       throw new Error(`Invalid tagging index update. Current value: ${currentValue}, new value: ${index}`);
@@ -20,7 +20,10 @@ export class ExecutionTaggingIndexCache {
     this.taggingIndexMap.set(secret.toString(), index);
   }
 
-  public getIndexedTaggingSecrets(): IndexedTaggingSecret[] {
+  /**
+   * Returns the indexed tagging secrets that were used in this execution.
+   */
+  public getUsedIndexedTaggingSecrets(): IndexedTaggingSecret[] {
     return Array.from(this.taggingIndexMap.entries()).map(([secret, index]) => ({
       secret: DirectionalAppTaggingSecret.fromString(secret),
       index,

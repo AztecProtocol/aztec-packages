@@ -18,13 +18,15 @@ export function getIndexedTaggingSecretsForTheWindow(
  * @param indexedTaggingSecrets - The indexed tagging secrets to get the initial indexes from.
  * @returns The map from directional app tagging secret to initial index.
  */
-export function getInitialIndexesMap(indexedTaggingSecrets: IndexedTaggingSecret[]): {
+export function getInitialIndexesMap(
+  indexedTaggingSecrets: { secret: DirectionalAppTaggingSecret; index: number | undefined }[],
+): {
   [k: string]: number;
 } {
   const initialIndexes: { [k: string]: number } = {};
 
   for (const indexedTaggingSecret of indexedTaggingSecrets) {
-    initialIndexes[indexedTaggingSecret.secret.toString()] = indexedTaggingSecret.index;
+    initialIndexes[indexedTaggingSecret.secret.toString()] = indexedTaggingSecret.index ?? 0;
   }
 
   return initialIndexes;
