@@ -52,11 +52,13 @@ struct ConnectedComponent {
     std::vector<uint32_t> variable_indices;
     bool is_range_list_cc;
     bool is_finalize_cc;
+    bool is_process_rom_cc;
     ConnectedComponent() = default;
     ConnectedComponent(const std::vector<uint32_t>& vector)
         : variable_indices(vector)
         , is_range_list_cc(false)
-        , is_finalize_cc(false) {};
+        , is_finalize_cc(false)
+        , is_process_rom_cc(false) {};
     size_t size() const { return variable_indices.size(); }
     const std::vector<uint32_t>& vars() const { return variable_indices; }
 };
@@ -76,7 +78,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     StaticAnalyzer_(StaticAnalyzer_&& other) = delete;
     StaticAnalyzer_& operator=(const StaticAnalyzer_& other) = delete;
     StaticAnalyzer_&& operator=(StaticAnalyzer_&& other) = delete;
-    StaticAnalyzer_(CircuitBuilder& circuit_builder, bool connect_variables = true);
+    StaticAnalyzer_(CircuitBuilder& circuit_builder, bool connect_variables = true, bool debug_cc = true);
 
     /**
      * @brief Convert a vector of variable indices to their real indices
@@ -122,28 +124,27 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
                             std::vector<uint32_t>& connected_component);
     void mark_range_list_connected_components();
     void mark_finalize_connected_components();
-    std::vector<ConnectedComponent> find_connected_components(bool return_all_connected_components = false);
+    void mark_process_rom_connected_component();
+    bool is_gate_sorted_rom(size_t memory_block_idx, size_t gate_idx) const;
+    bool variable_only_in_sorted_rom_gates(uint32_t var_idx, size_t blk_idx) const;
+    std::vector<ConnectedComponent> find_connected_components();
     bool check_vertex_in_connected_component(const std::vector<uint32_t>& connected_component,
                                              const uint32_t& var_index);
     void connect_all_variables_in_vector(const std::vector<uint32_t>& variables_vector);
+
     bool check_is_not_constant_variable(const uint32_t& variable_index);
-
     void save_constant_variable_indices();
-
-    std::pair<std::vector<uint32_t>, size_t> get_connected_component_with_index(
-        const std::vector<std::vector<uint32_t>>& connected_components, size_t index);
 
     size_t process_current_decompose_chain(size_t index);
     void process_current_plookup_gate(size_t gate_index);
     void remove_unnecessary_decompose_variables(const std::unordered_set<uint32_t>& decompose_variables);
     void remove_unnecessary_plookup_variables();
     void remove_unnecessary_range_constrains_variables();
-    std::unordered_set<uint32_t> get_variables_in_one_gate();
-
     void remove_unnecessary_aes_plookup_variables(bb::plookup::BasicTableId& table_id, size_t gate_index);
     void remove_unnecessary_sha256_plookup_variables(bb::plookup::BasicTableId& table_id, size_t gate_index);
     void remove_record_witness_variables();
 
+    std::unordered_set<uint32_t> get_variables_in_one_gate();
     std::pair<std::vector<ConnectedComponent>, std::unordered_set<uint32_t>> analyze_circuit();
 
     void print_connected_components_info();
@@ -162,6 +163,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     // Store reference to the circuit builder
     CircuitBuilder& circuit_builder;
     bool connect_variables;
+    bool debug_cc;
 
     std::unordered_map<uint32_t, std::vector<uint32_t>>
         variable_adjacency_lists; // we use this data structure to contain information about variables and their

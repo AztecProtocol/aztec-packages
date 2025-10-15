@@ -196,19 +196,9 @@ class BoomerangIPARecursiveTests : public CommitmentTest<NativeCurve> {
         info("Starting analyzing circuit");
         auto tool = StaticAnalyzer(builder);
         auto tool_results = tool.analyze_circuit();
-        EXPECT_EQ(tool_results.first.size(), 1);
+        EXPECT_EQ(tool_results.first.size(), 14);
         EXPECT_EQ(tool_results.second.size(), 0);
-        if (tool_results.first.size() > 1) {
-            auto first_cc = tool_results.first[0];
-            for (const auto& elem : first_cc.vars()) {
-                info("elem == ", elem);
-            }
-        }
-        /*         if (tool_results.second.size() > 0) {
-                    auto variables_in_one_gate = tool_results.second;
-                    uint32_t first_var = std::vector<uint32_t>(variables_in_one_gate.begin(),
-           variables_in_one_gate.end())[0]; tool.print_variable_info(first_var);
-                } */
+        tool.print_connected_components_info();
     }
 };
 

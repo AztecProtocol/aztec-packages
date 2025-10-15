@@ -746,9 +746,12 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
  *          4) Special handling for sorted constraints in delta range blocks
  */
 template <typename FF, typename CircuitBuilder>
-StaticAnalyzer_<FF, CircuitBuilder>::StaticAnalyzer_(CircuitBuilder& circuit_builder, bool connect_variables)
+StaticAnalyzer_<FF, CircuitBuilder>::StaticAnalyzer_(CircuitBuilder& circuit_builder,
+                                                     bool connect_variables,
+                                                     bool debug_cc)
     : circuit_builder(circuit_builder)
     , connect_variables(connect_variables)
+    , debug_cc(debug_cc)
 {
     variables_gate_counts = std::unordered_map<uint32_t, size_t>(circuit_builder.real_variable_index.size());
     variable_adjacency_lists =
@@ -885,8 +888,7 @@ void StaticAnalyzer_<FF, CircuitBuilder>::depth_first_search(const uint32_t& var
  */
 
 template <typename FF, typename CircuitBuilder>
-std::vector<ConnectedComponent> StaticAnalyzer_<FF, CircuitBuilder>::find_connected_components(
-    bool return_all_connected_components)
+std::vector<ConnectedComponent> StaticAnalyzer_<FF, CircuitBuilder>::find_connected_components()
 {
     if (!connect_variables) {
         throw std::runtime_error("find_connected_components() can only be called when connect_variables is true");
@@ -904,16 +906,66 @@ std::vector<ConnectedComponent> StaticAnalyzer_<FF, CircuitBuilder>::find_connec
     }
     mark_range_list_connected_components();
     mark_finalize_connected_components();
-    if (!return_all_connected_components) {
+    mark_process_rom_connected_component();
+    if (!debug_cc) {
         main_connected_components.reserve(connected_components.size());
         for (auto& cc : connected_components) {
-            if (!cc.is_range_list_cc && !cc.is_finalize_cc) {
+            if (!cc.is_range_list_cc && !cc.is_finalize_cc && !cc.is_process_rom_cc) {
                 main_connected_components.emplace_back(std::move(cc));
             }
         }
         return main_connected_components;
     }
     return connected_components;
+}
+
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzer_<FF, CircuitBuilder>::is_gate_sorted_rom(size_t memory_block_idx, size_t gate_idx) const
+{
+
+    auto& memory_block = circuit_builder.blocks.get()[memory_block_idx];
+    return memory_block.q_memory()[gate_idx] == FF(1) && memory_block.q_1()[gate_idx] == FF(1) &&
+           memory_block.q_2()[gate_idx] == FF(1);
+}
+
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzer_<FF, CircuitBuilder>::variable_only_in_sorted_rom_gates(uint32_t var_idx, size_t blk_idx) const
+{
+    bool result = false;
+    KeyPair key = { var_idx, blk_idx };
+    auto it = variable_gates.find(key);
+    if (it != variable_gates.end()) {
+        const auto& gates = it->second;
+        result = std::all_of(gates.begin(), gates.end(), [this, blk_idx](size_t gate_idx) {
+            return is_gate_sorted_rom(blk_idx, gate_idx);
+        });
+    }
+    return result;
+}
+
+/**
+ * @brief
+ *
+ */
+template <typename FF, typename CircuitBuilder>
+void StaticAnalyzer_<FF, CircuitBuilder>::mark_process_rom_connected_component()
+{
+    // the point is process_ROM_array function uses only create_sorted_ROM_gate function internally
+    // for sorted_ROM_gate we know that (q_memory, q_1, q_2) == (1, 1, 1), so if all variables in connected_component
+    // are contained only in this type of gate, we can remove this connected component from the scope, cause it's
+    // a result of process_ROM_array function
+    std::optional<size_t> block_idx_opt = find_block_index(circuit_builder.blocks.memory);
+    if (!block_idx_opt.has_value()) {
+        return;
+    }
+    size_t block_idx = block_idx_opt.value();
+    for (auto& cc : connected_components) {
+        const std::vector<uint32_t>& variables = cc.vars();
+        cc.is_process_rom_cc =
+            std::all_of(variables.begin(), variables.end(), [this, block_idx](uint32_t real_var_idx) {
+                return variable_only_in_sorted_rom_gates(real_var_idx, block_idx);
+            });
+    }
 }
 
 /**
@@ -1371,13 +1423,19 @@ std::unordered_set<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_variables_
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::print_connected_components_info()
 {
-    for (size_t i = 0; i < main_connected_components.size(); i++) {
-        info("size of ", i + 1, " connected component == ", main_connected_components[i].size(), ":");
-        info("Does connected component represent range list? ", main_connected_components[i].is_range_list_cc);
-        info("Does connected component represent something from finalize? ",
-             main_connected_components[i].is_finalize_cc);
-        if (main_connected_components[i].size() < 50) {
-            for (const auto& elem : main_connected_components[i].vars()) {
+    std::vector<ConnectedComponent> print_cc;
+    if (debug_cc) {
+        print_cc = connected_components;
+    } else {
+        print_cc = main_connected_components;
+    }
+    for (size_t i = 0; i < print_cc.size(); i++) {
+        info("size of ", i + 1, " connected component == ", print_cc[i].size(), ":");
+        info("Does connected component represent range list? ", print_cc[i].is_range_list_cc);
+        info("Does connected component represent something from finalize? ", print_cc[i].is_finalize_cc);
+        info("Does connected component represent process ROM array? ", print_cc[i].is_process_rom_cc);
+        if (print_cc[i].size() < 50) {
+            for (const auto& elem : print_cc[i].vars()) {
                 info("elem == ", elem);
             }
         }
@@ -1602,12 +1660,17 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_memory_gate_info(size_t gate_ind
         auto q_3 = block.q_3()[gate_index];
         auto q_4 = block.q_4()[gate_index];
         if (q_1 == FF::one() && q_4 == FF::one()) {
+            info("q_1 == ", q_1);
+            info("q_4 == ", q_4);
             info("w_1_shift == ", block.w_l()[gate_index + 1]);
             info("w_2_shift == ", block.w_r()[gate_index + 1]);
         } else if (q_1 == FF::one() && q_2 == FF::one()) {
+            info("q_1 == ", q_1);
+            info("q_2 == ", q_2);
             info("w_1_shift == ", block.w_l()[gate_index + 1]);
             info("w_4_shift == ", block.w_4()[gate_index + 1]);
         } else if (!q_3.is_zero()) {
+            info("q_3 == ", q_3);
             info("w_1_shift == ", block.w_l()[gate_index + 1]);
             info("w_2_shift == ", block.w_r()[gate_index + 1]);
             info("w_3_shift == ", block.w_o()[gate_index + 1]);
