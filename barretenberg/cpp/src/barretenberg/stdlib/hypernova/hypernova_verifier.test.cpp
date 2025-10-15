@@ -1,6 +1,7 @@
 #include "barretenberg/stdlib/hypernova/hypernova_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/hypernova/hypernova_prover.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "gtest/gtest.h"
 
@@ -12,18 +13,27 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
   public:
-    using Builder = HypernovaFoldingVerifier::Builder;
-    using Flavor = HypernovaFoldingVerifier::Flavor;
-    using NativeFlavor = Flavor::NativeFlavor;
-    using ProverInstance = bb::ProverInstance_<NativeFlavor>;
+    // Recursive verifier
+    using RecursiveHypernovaVerifier = HypernovaFoldingVerifier<bb::MegaRecursiveFlavor_<bb::MegaCircuitBuilder>>;
+    using RecursiveFlavor = RecursiveHypernovaVerifier::Flavor;
+    using RecursiveVerifierInstance = RecursiveHypernovaVerifier::VerifierInstance;
+    using Builder = RecursiveFlavor::CircuitBuilder;
+    using RecursiveTranscript = RecursiveHypernovaVerifier::Transcript;
+    using RecursiveProof = RecursiveHypernovaVerifier::Proof;
+
+    // Native verifier
+    using NativeHypernovaVerifier = HypernovaFoldingVerifier<bb::MegaFlavor>;
+    using NativeFlavor = NativeHypernovaVerifier::Flavor;
     using NativeFF = NativeFlavor::FF;
     using NativeProverAccumulator = bb::HypernovaFoldingProver::Accumulator;
-    using NativeVerifierAccumulator = bb::MultilinearBatchingVerifierClaim<Flavor::Curve::NativeCurve>;
-    using NativeVerificationKey = bb::HypernovaFoldingProver::VerificationKey;
-    using NativeTranscript = bb::HypernovaFoldingProver::Transcript;
-    using VerifierInstance = HypernovaFoldingVerifier::VerifierInstance;
-    using Transcript = HypernovaFoldingVerifier::Transcript;
-    using Proof = HypernovaFoldingVerifier::Proof;
+    using NativeVerifierAccumulator = NativeHypernovaVerifier::Accumulator;
+    using NativeVerificationKey = NativeFlavor::VerificationKey;
+    using NativeVerifierInstance = NativeHypernovaVerifier::VerifierInstance;
+    using NativeTranscript = NativeHypernovaVerifier::Transcript;
+
+    // Prover
+    using HypernovaFoldingProver = bb::HypernovaFoldingProver;
+    using ProverInstance = HypernovaFoldingProver::ProverInstance;
 
     enum class TamperingMode : uint8_t {
         None,
@@ -95,27 +105,37 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         // Folding
         auto incoming_instance = generate_new_instance(5);
         tampering(incoming_instance, mode);
-        auto incoming_verifier_instance = std::make_shared<NativeVerificationKey>(incoming_instance->get_precomputed());
+        auto incoming_vk = std::make_shared<NativeVerificationKey>(incoming_instance->get_precomputed());
+        auto incoming_verifier_instance = std::make_shared<NativeVerifierInstance>(incoming_vk);
 
         auto folding_transcript = std::make_shared<NativeTranscript>();
-        bb::HypernovaFoldingProver folding_prover(folding_transcript);
+        HypernovaFoldingProver folding_prover(folding_transcript);
         auto [folding_proof, folded_accumulator] = folding_prover.fold(accumulator, incoming_instance);
+
+        // Natively verify the folding
+        auto native_verifier_transcript = std::make_shared<NativeTranscript>();
+        NativeHypernovaVerifier native_verifier(native_verifier_transcript);
+        auto [first_sumcheck_native, second_sumcheck_native, folded_verifier_accumulator_native] =
+            native_verifier.verify_folding_proof(incoming_verifier_instance, folding_proof);
 
         // Recursively verify the folding
         Builder builder;
 
-        auto stdlib_incoming_instance = std::make_shared<VerifierInstance>(&builder, incoming_verifier_instance);
-        auto verifier_transcript = std::make_shared<Transcript>();
-        HypernovaFoldingVerifier verifier(verifier_transcript);
-        Proof proof(builder, folding_proof);
-        auto [first_sumcheck, second_sumcheck, folded_verifier_accumulator] =
-            verifier.verify_folding_proof(builder, stdlib_incoming_instance, proof);
+        auto stdlib_incoming_instance =
+            std::make_shared<RecursiveVerifierInstance>(&builder, incoming_verifier_instance);
+        auto recursive_verifier_transcript = std::make_shared<RecursiveTranscript>();
+        RecursiveHypernovaVerifier recursive_verifier(recursive_verifier_transcript);
+        RecursiveProof proof(builder, folding_proof);
+        auto [first_sumcheck_recursive, second_sumcheck_recursive, folded_verifier_accumulator] =
+            recursive_verifier.verify_folding_proof(stdlib_incoming_instance, proof);
 
         // If the instance has been tampered with, then the first sumcheck should fail (hence the circuit is not
         // satisfied), but the second should pass
         EXPECT_EQ(bb::CircuitChecker::check(builder), mode == TamperingMode::None);
-        EXPECT_EQ(first_sumcheck, mode == TamperingMode::None);
-        EXPECT_TRUE(second_sumcheck);
+        EXPECT_EQ(first_sumcheck_recursive, mode == TamperingMode::None);
+        EXPECT_EQ(first_sumcheck_recursive, first_sumcheck_native);
+        EXPECT_TRUE(second_sumcheck_recursive);
+        EXPECT_EQ(second_sumcheck_recursive, second_sumcheck_native);
         EXPECT_TRUE(compare_prover_verifier_accumulators(folded_accumulator, folded_verifier_accumulator.get_value()));
     }
 };

@@ -8,19 +8,20 @@
 
 namespace bb::stdlib::recursion::honk {
 
-HypernovaFoldingVerifier::Accumulator HypernovaFoldingVerifier::sumcheck_output_to_accumulator(
-    HypernovaFoldingVerifier::MegaSumcheckOutput& sumcheck_output,
+template <typename Flavor>
+HypernovaFoldingVerifier<Flavor>::Accumulator HypernovaFoldingVerifier<Flavor>::sumcheck_output_to_accumulator(
+    HypernovaFoldingVerifier<Flavor>::MegaSumcheckOutput& sumcheck_output,
     const std::shared_ptr<HypernovaFoldingVerifier::VerifierInstance>& instance)
 {
     BB_BENCH();
 
     // Generate challenges to batch shifted and unshifted polynomials/commitments/evaluation
-    std::array<std::string, Flavor::NativeFlavor::NUM_UNSHIFTED_ENTITIES> labels_unshifted_entities;
-    std::array<std::string, Flavor::NativeFlavor::NUM_SHIFTED_WITNESSES> labels_shifted_witnesses;
-    for (size_t idx = 0; idx < Flavor::NativeFlavor::NUM_UNSHIFTED_ENTITIES; idx++) {
+    std::array<std::string, NUM_UNSHIFTED_ENTITIES> labels_unshifted_entities;
+    std::array<std::string, NUM_SHIFTED_WITNESSES> labels_shifted_witnesses;
+    for (size_t idx = 0; idx < NUM_UNSHIFTED_ENTITIES; idx++) {
         labels_unshifted_entities[idx] = "unshifted_challenge_" + std::to_string(idx);
     }
-    for (size_t idx = 0; idx < Flavor::NativeFlavor::NUM_SHIFTED_WITNESSES; idx++) {
+    for (size_t idx = 0; idx < NUM_SHIFTED_WITNESSES; idx++) {
         labels_shifted_witnesses[idx] = "shifted_challenge_" + std::to_string(idx);
     }
     auto unshifted_challenges = transcript->template get_challenges<FF>(labels_unshifted_entities);
@@ -38,7 +39,7 @@ HypernovaFoldingVerifier::Accumulator HypernovaFoldingVerifier::sumcheck_output_
     }
 
     // Batch commitments
-    VerifierCommitments verifier_commitments(instance->vk_and_hash->vk, instance->witness_commitments);
+    VerifierCommitments verifier_commitments(instance->get_vk(), instance->witness_commitments);
 
     Commitment batched_unshifted_commitment;
     Commitment batched_shifted_commitment;
@@ -49,7 +50,7 @@ HypernovaFoldingVerifier::Accumulator HypernovaFoldingVerifier::sumcheck_output_
         points.emplace_back(commitment);
         scalars.emplace_back(scalar);
     }
-    batched_unshifted_commitment = Curve::Group::batch_mul(points, scalars);
+    batched_unshifted_commitment = batch_mul(points, scalars);
 
     points.clear();
     scalars.clear();
@@ -57,7 +58,7 @@ HypernovaFoldingVerifier::Accumulator HypernovaFoldingVerifier::sumcheck_output_
         points.emplace_back(commitment);
         scalars.emplace_back(scalar);
     }
-    batched_shifted_commitment = Curve::Group::batch_mul(points, scalars);
+    batched_shifted_commitment = batch_mul(points, scalars);
 
     return Accumulator{
         .challenge = sumcheck_output.challenge,
@@ -68,19 +69,24 @@ HypernovaFoldingVerifier::Accumulator HypernovaFoldingVerifier::sumcheck_output_
     };
 };
 
-std::pair<bool, HypernovaFoldingVerifier::Accumulator> HypernovaFoldingVerifier::instance_to_accumulator(
-    Builder& builder,
-    const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance,
-    const Proof& proof)
+template <typename Flavor>
+std::pair<bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> HypernovaFoldingVerifier<Flavor>::
+    instance_to_accumulator(const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance,
+                            const Proof& proof)
 {
     BB_BENCH();
 
     vinfo("HypernovaFoldingVerifier: verifying Oink proof...");
     // Complete the incoming verifier instance
-    OinkVerifier verifier{ &builder, instance, transcript };
-    verifier.verify_proof(proof);
+    OinkVerifier verifier{ instance, transcript };
+    transcript->load_proof(proof);
+    verifier.verify();
 
-    instance->target_sum = FF::from_witness_index(&builder, builder.zero_idx());
+    if constexpr (IsRecursiveFlavor<Flavor>) {
+        instance->target_sum = FF::from_witness_index(instance->builder, instance->builder->zero_idx());
+    } else {
+        instance->target_sum = FF::zero();
+    }
     instance->gate_challenges = transcript->template get_powers_of_challenge<FF>(
         "HypernovaFoldingProver:gate_challenge", Flavor::VIRTUAL_LOG_N);
 
@@ -103,16 +109,16 @@ std::pair<bool, HypernovaFoldingVerifier::Accumulator> HypernovaFoldingVerifier:
     return { sumcheck_output.verified, accumulator };
 };
 
-std::tuple<bool, bool, HypernovaFoldingVerifier::Accumulator> HypernovaFoldingVerifier::verify_folding_proof(
-    Builder& builder,
-    const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance,
-    const HypernovaFoldingVerifier::Proof& proof)
+template <typename Flavor>
+std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> HypernovaFoldingVerifier<
+    Flavor>::verify_folding_proof(const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance,
+                                  const HypernovaFoldingVerifier::Proof& proof)
 {
     BB_BENCH();
 
     vinfo("HypernovaFoldingVerifier: verifying folding proof...");
 
-    auto [sumcheck_result, incoming_accumulator] = instance_to_accumulator(builder, instance, proof);
+    auto [sumcheck_result, incoming_accumulator] = instance_to_accumulator(instance, proof);
 
     MultilinearBatchingVerifier batching_verifier(transcript);
     auto [sumcheck_batching_result, new_accumulator] = batching_verifier.verify_proof();
@@ -124,4 +130,7 @@ std::tuple<bool, bool, HypernovaFoldingVerifier::Accumulator> HypernovaFoldingVe
 
     return { sumcheck_result, sumcheck_batching_result, new_accumulator };
 };
+
+template class HypernovaFoldingVerifier<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
+template class HypernovaFoldingVerifier<MegaFlavor>;
 } // namespace bb::stdlib::recursion::honk
