@@ -35,7 +35,7 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(const ScalarFiel
 /**
  * @brief Construct a cycle scalar from a witness value in the Grumpkin scalar field
  * @details Creates a cycle_scalar from a witness and validates it is in the Grumpkin scalar field.
- * @note Sets the free witness tag on the two limbs initially, but it is unset in `validate_split_in_field`.
+ * @note Sets the free witness tag on the two limbs initially, but it is unset in `validate_scalar_is_in_field`.
  *
  * @tparam Builder
  * @param context
@@ -205,10 +205,7 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
     lo.set_origin_tag(scalar.get_origin_tag());
     hi.set_origin_tag(scalar.get_origin_tag());
 
-    // Validate the scalar is in the Grumpkin scalar field (if not constant)
-    if (!scalar.is_constant()) {
-        validate_split_in_field(lo, hi, LO_BITS, ScalarField::modulus);
-    }
+    validate_scalar_is_in_field();
 };
 
 template <typename Builder> bool cycle_scalar<Builder>::is_constant() const
@@ -218,8 +215,7 @@ template <typename Builder> bool cycle_scalar<Builder>::is_constant() const
 
 /**
  * @brief Validates that the scalar (lo + hi * 2^LO_BITS) is less than the Grumpkin scalar field modulus
- * @details Simply delegates to validate_split_in_field. This method can be called to add explicit validation
- * constraints, though validation is now performed automatically during construction for witness values.
+ * @details Delegates to `validate_split_in_field`
  *
  * @tparam Builder
  */
