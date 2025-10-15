@@ -1,4 +1,4 @@
-import { Barretenberg } from '@aztec/bb.js';
+import { BarretenbergSync } from '@aztec/bb.js';
 
 import { Buffer } from 'buffer';
 
@@ -22,8 +22,9 @@ export class Aes128 {
     paddingBuffer.fill(numPaddingBytes);
     const input = Buffer.concat([data, paddingBuffer]);
 
-    const api = await Barretenberg.initSingleton();
-    const response = await api.aesEncrypt({
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
+    const response = api.aesEncrypt({
       plaintext: input,
       iv,
       key,
@@ -41,8 +42,9 @@ export class Aes128 {
    * @returns Decrypted data.
    */
   public async decryptBufferCBCKeepPadding(data: Uint8Array, iv: Uint8Array, key: Uint8Array): Promise<Buffer> {
-    const api = await Barretenberg.initSingleton();
-    const response = await api.aesDecrypt({
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
+    const response = api.aesDecrypt({
       ciphertext: data,
       iv,
       key,

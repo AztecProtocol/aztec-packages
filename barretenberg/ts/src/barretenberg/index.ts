@@ -83,7 +83,7 @@ export class Barretenberg extends AsyncApi {
    *
    * If options.backend is set: uses that specific backend (throws if unavailable)
    * If options.backend is unset: tries backends in order with fallback:
-   *   1. NativeUnixSocket (if bb binary available)
+   *   1. NativeSharedMemory (if bb binary available)
    *   2. WasmWorker (in browser) or Wasm (in Node.js)
    */
   static async new(options: BackendOptions = {}) {
@@ -95,22 +95,23 @@ export class Barretenberg extends AsyncApi {
     }
 
     if (typeof window === 'undefined') {
-      // Default: try native shm, fallback to WASM
       const bbPath = findBbBinary(options.bbPath);
-      if (bbPath) {
-        try {
-          logger(`Attempting native shm backend: ${bbPath}`);
-          return await Barretenberg.createBackend(BackendType.NativeSharedMemory, { ...options, bbPath }, logger);
-        } catch (err: any) {
-          logger(`Native shm unavailable (${err.message}), falling back to WASM`);
-        }
+      if (!bbPath) {
+        logger(`No native binary found, falling back to WASM`);
+        return Barretenberg.createBackend(BackendType.Wasm, options, logger);
+      }
+
+      try {
+        logger(`Attempting native shm backend: ${bbPath}`);
+        return await Barretenberg.createBackend(BackendType.NativeSharedMemory, { ...options, bbPath }, logger);
+      } catch (err: any) {
+        logger(`Native shm unavailable (${err.message}), falling back to WASM`);
+        return Barretenberg.createBackend(BackendType.Wasm, options, logger);
       }
     } else {
-      logger(`In browser, using WASM backend.`);
+      logger(`In browser, using WASM over worker backend.`);
+      return Barretenberg.createBackend(BackendType.WasmWorker, options, logger);
     }
-
-    // Fallback to WASM.
-    return Barretenberg.createBackend(BackendType.Wasm, options, logger);
   }
 
   /**

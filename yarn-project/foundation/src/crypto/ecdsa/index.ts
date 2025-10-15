@@ -1,4 +1,4 @@
-import { Barretenberg } from '@aztec/bb.js';
+import { BarretenbergSync } from '@aztec/bb.js';
 import { numToInt32BE } from '@aztec/foundation/serialize';
 
 import { concatenateUint8Arrays } from '../serialize.js';
@@ -18,10 +18,12 @@ export class Ecdsa {
    * @returns A secp256k1 public key.
    */
   public async computePublicKey(privateKey: Buffer): Promise<Buffer> {
-    const api = await Barretenberg.initSingleton();
-    const response = await (this.curve === 'secp256r1'
-      ? api.ecdsaSecp256r1ComputePublicKey({ privateKey })
-      : api.ecdsaSecp256k1ComputePublicKey({ privateKey }));
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
+    const response =
+      this.curve === 'secp256r1'
+        ? api.ecdsaSecp256r1ComputePublicKey({ privateKey })
+        : api.ecdsaSecp256k1ComputePublicKey({ privateKey });
     return Buffer.concat([Buffer.from(response.publicKey.x), Buffer.from(response.publicKey.y)]);
   }
 
@@ -32,11 +34,13 @@ export class Ecdsa {
    * @returns An ECDSA signature of the form (r, s, v).
    */
   public async constructSignature(msg: Uint8Array, privateKey: Buffer) {
-    const api = await Barretenberg.initSingleton();
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const response = await (this.curve === 'secp256r1'
-      ? api.ecdsaSecp256r1ConstructSignature({ message: messageArray, privateKey })
-      : api.ecdsaSecp256k1ConstructSignature({ message: messageArray, privateKey }));
+    const response =
+      this.curve === 'secp256r1'
+        ? api.ecdsaSecp256r1ConstructSignature({ message: messageArray, privateKey })
+        : api.ecdsaSecp256k1ConstructSignature({ message: messageArray, privateKey });
     return new EcdsaSignature(Buffer.from(response.r), Buffer.from(response.s), Buffer.from([response.v]));
   }
 
@@ -47,11 +51,13 @@ export class Ecdsa {
    * @returns The secp256k1 public key of the signer.
    */
   public async recoverPublicKey(msg: Uint8Array, sig: EcdsaSignature): Promise<Buffer> {
-    const api = await Barretenberg.initSingleton();
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const response = await (this.curve === 'secp256r1'
-      ? api.ecdsaSecp256r1RecoverPublicKey({ message: messageArray, r: sig.r, s: sig.s, v: sig.v[0] })
-      : api.ecdsaSecp256k1RecoverPublicKey({ message: messageArray, r: sig.r, s: sig.s, v: sig.v[0] }));
+    const response =
+      this.curve === 'secp256r1'
+        ? api.ecdsaSecp256r1RecoverPublicKey({ message: messageArray, r: sig.r, s: sig.s, v: sig.v[0] })
+        : api.ecdsaSecp256k1RecoverPublicKey({ message: messageArray, r: sig.r, s: sig.s, v: sig.v[0] });
     return Buffer.concat([Buffer.from(response.publicKey.x), Buffer.from(response.publicKey.y)]);
   }
 
@@ -63,23 +69,25 @@ export class Ecdsa {
    * @returns True or false.
    */
   public async verifySignature(msg: Uint8Array, pubKey: Buffer, sig: EcdsaSignature) {
-    const api = await Barretenberg.initSingleton();
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const response = await (this.curve === 'secp256r1'
-      ? api.ecdsaSecp256r1VerifySignature({
-          message: messageArray,
-          publicKey: { x: pubKey.subarray(0, 32), y: pubKey.subarray(32, 64) },
-          r: sig.r,
-          s: sig.s,
-          v: sig.v[0],
-        })
-      : api.ecdsaSecp256k1VerifySignature({
-          message: messageArray,
-          publicKey: { x: pubKey.subarray(0, 32), y: pubKey.subarray(32, 64) },
-          r: sig.r,
-          s: sig.s,
-          v: sig.v[0],
-        }));
+    const response =
+      this.curve === 'secp256r1'
+        ? api.ecdsaSecp256r1VerifySignature({
+            message: messageArray,
+            publicKey: { x: pubKey.subarray(0, 32), y: pubKey.subarray(32, 64) },
+            r: sig.r,
+            s: sig.s,
+            v: sig.v[0],
+          })
+        : api.ecdsaSecp256k1VerifySignature({
+            message: messageArray,
+            publicKey: { x: pubKey.subarray(0, 32), y: pubKey.subarray(32, 64) },
+            r: sig.r,
+            s: sig.s,
+            v: sig.v[0],
+          });
     return response.verified;
   }
 }
