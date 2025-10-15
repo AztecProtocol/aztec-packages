@@ -163,10 +163,10 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     return res;
   }
 
-  protected async prepareSignedTransaction(txData: PrepareTransactionRequestRequest) {
+  protected async prepareSignedTransaction(txData: PrepareTransactionRequestRequest, isBlobTx: boolean) {
     const txRequest = await this.client.prepareTransactionRequest({
       ...txData,
-      parameters: [...defaultPrepareTransactionRequestParameters, 'sidecars'],
+      ...(isBlobTx ? { parameters: [...defaultPrepareTransactionRequestParameters, 'sidecars'] } : {}),
     });
     const kzg = txData.kzg! as any;
 
@@ -234,7 +234,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       }
 
       // Send the new tx
-      const signedRequest = await this.prepareSignedTransaction(txData);
+      const signedRequest = await this.prepareSignedTransaction(txData, !!blobInputs);
       const txHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
 
       // Create the new state for monitoring
@@ -449,7 +449,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
           const txData = this.makeTxData(state, { isCancelTx });
 
-          const signedRequest = await this.prepareSignedTransaction(txData);
+          const signedRequest = await this.prepareSignedTransaction(txData, isBlobTx);
           const newHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
 
           this.logger.verbose(

@@ -178,7 +178,7 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
 
   // If it's a regular Error instance, return it with its message
   if (error instanceof Error) {
-    return new FormattedViemError(error.message, (error as any)?.metaMessages);
+    return error;
   }
 
   const body = String(error);
