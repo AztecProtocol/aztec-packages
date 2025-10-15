@@ -8,35 +8,37 @@
 
 #include "barretenberg/commitment_schemes/claim_batcher.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
-#include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/stdlib/hypernova/hypernova_verifier.hpp"
-#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+#include "barretenberg/stdlib/hypernova/types.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
-#include "barretenberg/stdlib/proof/proof.hpp"
 
 namespace bb::stdlib::recursion::honk {
-class HypernovaDeciderVerifier {
+
+template <typename Flavor_> class HypernovaDeciderVerifier {
   public:
-    using Builder = bb::MegaCircuitBuilder;
-    using Flavor = bb::MegaRecursiveFlavor_<Builder>;
+    using Flavor = Flavor_;
     using FF = Flavor::FF;
     using Curve = Flavor::Curve;
     using Commitment = Flavor::Commitment;
     using Transcript = Flavor::Transcript;
-    using Proof = stdlib::Proof<Builder>;
-    using PairingPoints = recursion::PairingPoints<Builder>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
     using ShpleminiVerifier = bb::ShpleminiVerifier_<Curve>;
     using PCS = Flavor::PCS;
-    using Accumulator = recursion::honk::HypernovaFoldingVerifier::Accumulator;
+    using Accumulator = HypernovaFoldingVerifier<Flavor>::Accumulator;
+    // Types conditionally assigned based on the Flavor being recursive
+    using Proof = std::conditional_t<IsRecursiveFlavor<Flavor>,
+                                     typename HypernovaRecursiveTypes::Proof,
+                                     typename HypernovaNativeTypes::Proof>;
+    using PairingPoints = std::conditional_t<IsRecursiveFlavor<Flavor>,
+                                             typename HypernovaRecursiveTypes::PairingPoints,
+                                             typename HypernovaNativeTypes::PairingPoints>;
 
     std::shared_ptr<Transcript> transcript;
 
     HypernovaDeciderVerifier(std::shared_ptr<Transcript>& transcript)
         : transcript(transcript) {};
 
-    PairingPoints verify_pcs_proof(Builder& builder, Accumulator& accumulator, const Proof& proof);
+    PairingPoints verify_proof(Accumulator& accumulator, const Proof& proof);
 };
 } // namespace bb::stdlib::recursion::honk

@@ -7,7 +7,7 @@
 #include "barretenberg/hypernova/hypernova_decider_prover.hpp"
 
 namespace bb {
-HonkProof HypernovaDeciderProver::construct_pcs_proof(const CommitmentKey& ck, Accumulator& accumulator)
+HonkProof HypernovaDeciderProver::construct_proof(const CommitmentKey& ck, Accumulator& accumulator)
 {
     vinfo("HypernovaFoldingDecider: prove PCS...");
 

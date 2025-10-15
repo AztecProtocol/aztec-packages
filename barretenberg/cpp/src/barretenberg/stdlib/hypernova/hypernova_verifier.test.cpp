@@ -25,7 +25,6 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
     using NativeHypernovaVerifier = HypernovaFoldingVerifier<bb::MegaFlavor>;
     using NativeFlavor = NativeHypernovaVerifier::Flavor;
     using NativeFF = NativeFlavor::FF;
-    using NativeProverAccumulator = bb::HypernovaFoldingProver::Accumulator;
     using NativeVerifierAccumulator = NativeHypernovaVerifier::Accumulator;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
     using NativeVerifierInstance = NativeHypernovaVerifier::VerifierInstance;
@@ -33,6 +32,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
 
     // Prover
     using HypernovaFoldingProver = bb::HypernovaFoldingProver;
+    using NativeProverAccumulator = HypernovaFoldingProver::Accumulator;
     using ProverInstance = HypernovaFoldingProver::ProverInstance;
 
     enum class TamperingMode : uint8_t {

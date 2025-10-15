@@ -9,6 +9,7 @@
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
+#include "barretenberg/stdlib/hypernova/types.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -17,19 +18,6 @@
 
 namespace bb::stdlib::recursion::honk {
 
-class HypernovaNativeTypes {
-  public:
-    using VerifierInstance = VerifierInstance_<MegaFlavor>;
-    using Proof = HonkProof;
-    using MultilinearBatchingVerifier = bb::MultilinearBatchingVerifier<MultilinearBatchingFlavor>;
-};
-
-class HypernovaRecursiveTypes {
-  public:
-    using VerifierInstance = RecursiveVerifierInstance_<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
-    using Proof = stdlib::Proof<MegaCircuitBuilder>;
-    using MultilinearBatchingVerifier = bb::MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor>;
-};
 template <typename Flavor_> class HypernovaFoldingVerifier {
   public:
     using Flavor = Flavor_;

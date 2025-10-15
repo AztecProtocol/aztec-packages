@@ -28,6 +28,6 @@ class HypernovaDeciderProver {
     HypernovaDeciderProver(std::shared_ptr<Transcript>& transcript)
         : transcript(transcript) {};
 
-    HonkProof construct_pcs_proof(const CommitmentKey& ck, Accumulator& accumulator);
+    HonkProof construct_proof(const CommitmentKey& ck, Accumulator& accumulator);
 };
 } // namespace bb
