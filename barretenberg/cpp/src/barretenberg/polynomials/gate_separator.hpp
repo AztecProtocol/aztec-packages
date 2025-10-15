@@ -261,6 +261,21 @@ defined by the formula
      \f}
  *where \f$(\ell_0,\ldots, \ell_{d-1})\f$ is the binary representation of \f$\ell \f$.
  *
+ * ## Special Case: Empty Betas (No Gate Separation)
+ *
+ * When `betas` is empty, the GateSeparatorPolynomial represents the constant polynomial equal to 1, meaning no gate
+ * separation is applied. This is useful for flavors where all subrelations are linearly **dependent** (not linearly
+ * independent), meaning they do not need to be scaled by the \f$ pow_{\beta} \f$-polynomial.
+ *
+ * **Behavior when `betas` is empty:**
+ * - #beta_products is a size-1 polynomial containing only \f$ [1] \f$
+ * - #periodicity is set to 1 (constant across all evaluations)
+ * - #current_element() returns \f$ 1 \f$
+ * - #partially_evaluate() becomes a no-op (no updates to #partial_evaluation_result)
+ * - #partial_evaluation_result remains \f$ 1 \f$ throughout
+ *
+ * This optimization avoids unnecessary multiplications by 1 in MultilinearBatchingFlavor, where
+ * gate separation is not needed.
  *
   ## Pow-contributions to Round Univariates in Sumcheck {#PowContributions}
  * For a fixed \f$ \vec \beta \in \mathbb{F}^d\f$, the map \f$ \ell \mapsto pow_{\ell} (\vec \beta)\f$ defines a
