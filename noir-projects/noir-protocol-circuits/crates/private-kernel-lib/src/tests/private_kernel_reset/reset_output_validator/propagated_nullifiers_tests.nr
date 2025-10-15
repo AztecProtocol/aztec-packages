@@ -73,9 +73,9 @@ fn with_padded_nullifiers() {
 
     // Pop the last two nullifiers and use them as padded nullifiers.
     builder.padded_side_effects.nullifiers[4] =
-        builder.previous_kernel.nullifiers.pop().nullifier.value;
+        builder.previous_kernel.nullifiers.pop().innermost().value;
     builder.padded_side_effects.nullifiers[3] =
-        builder.previous_kernel.nullifiers.pop().nullifier.value;
+        builder.previous_kernel.nullifiers.pop().innermost().value;
 
     builder.output.append_siloed_nullifiers(3);
     builder.output.append_padded_nullifiers(2);

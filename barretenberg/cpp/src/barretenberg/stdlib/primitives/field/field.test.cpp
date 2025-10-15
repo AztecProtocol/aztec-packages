@@ -314,7 +314,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
                     builder.create_add_gate({ .a = x.witness_index,
                                               .b = y.witness_index,
-                                              .c = builder.zero_idx,
+                                              .c = builder.zero_idx(),
                                               .a_scaling = 0,
                                               .b_scaling = 1,
                                               .c_scaling = 0,
@@ -325,7 +325,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
                     builder.create_add_gate({ .a = x.witness_index,
                                               .b = y.witness_index,
-                                              .c = builder.zero_idx,
+                                              .c = builder.zero_idx(),
                                               .a_scaling = 0,
                                               .b_scaling = 1,
                                               .c_scaling = 0,

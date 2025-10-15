@@ -19,14 +19,13 @@ void RetrievedBytecodesTreeCheckTraceBuilder::process(
         FF class_id = event.class_id;
 
         bool exists = event.low_leaf_preimage.leaf.class_id == class_id;
-        FF class_id_low_leaf_class_id_diff_inv =
-            exists ? 0 : (class_id - event.low_leaf_preimage.leaf.class_id).invert();
+        FF class_id_low_leaf_class_id_diff = class_id - event.low_leaf_preimage.leaf.class_id;
 
         bool next_class_id_is_nonzero = false;
-        FF next_class_id_inv = 0;
+        FF next_class_id = 0;
         if (!exists) {
             next_class_id_is_nonzero = event.low_leaf_preimage.nextKey != 0;
-            next_class_id_inv = next_class_id_is_nonzero ? event.low_leaf_preimage.nextKey.invert() : 0;
+            next_class_id = event.low_leaf_preimage.nextKey;
         }
 
         uint64_t updated_low_leaf_next_index = 0;
@@ -68,13 +67,18 @@ void RetrievedBytecodesTreeCheckTraceBuilder::process(
                 { C::retrieved_bytecodes_tree_check_tree_height, AVM_RETRIEVED_BYTECODES_TREE_HEIGHT },
                 { C::retrieved_bytecodes_tree_check_leaf_not_exists, !exists },
                 { C::retrieved_bytecodes_tree_check_class_id_low_leaf_class_id_diff_inv,
-                  class_id_low_leaf_class_id_diff_inv },
+                  class_id_low_leaf_class_id_diff }, // Will be inverted in batch later
                 { C::retrieved_bytecodes_tree_check_next_class_id_is_nonzero, next_class_id_is_nonzero },
-                { C::retrieved_bytecodes_tree_check_next_class_id_inv, next_class_id_inv },
+                { C::retrieved_bytecodes_tree_check_next_class_id_inv,
+                  next_class_id }, // Will be inverted in batch later
                 { C::retrieved_bytecodes_tree_check_new_leaf_hash, new_leaf_hash },
             } });
         row++;
     }
+
+    // Batch invert the columns.
+    trace.invert_columns({ { C::retrieved_bytecodes_tree_check_class_id_low_leaf_class_id_diff_inv,
+                             C::retrieved_bytecodes_tree_check_next_class_id_inv } });
 }
 
 const InteractionDefinition RetrievedBytecodesTreeCheckTraceBuilder::interactions =

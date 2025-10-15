@@ -9,13 +9,7 @@ use dep::types::{
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
         },
-        log_hash::LogHash,
-        note_hash::ScopedNoteHash,
-        nullifier::ScopedNullifier,
-        private_log::PrivateLogData,
-        side_effect::{counted::Counted, scoped::Scoped},
     },
-    messaging::l2_to_l1_message::L2ToL1Message,
     traits::Empty,
 };
 
@@ -63,17 +57,12 @@ impl TailOutputComposer {
     ) -> PrivateToRollupAccumulatedData {
         let source = self.output_composer.public_inputs_builder.end;
         let mut data = PrivateToRollupAccumulatedData::empty();
-        data.note_hashes = source.note_hashes.array.map(|n: ScopedNoteHash| n.note_hash.value);
-        data.nullifiers = source.nullifiers.array.map(|n: ScopedNullifier| n.nullifier.value);
-        data.l2_to_l1_msgs = source.l2_to_l1_msgs.array.map(|m: Scoped<Counted<L2ToL1Message>>| {
-            m.expose_to_public()
-        });
-        data.private_logs =
-            source.private_logs.array.map(|l: Scoped<PrivateLogData>| l.expose_to_public());
-        data.contract_class_logs_hashes = source
-            .contract_class_logs_hashes
-            .array
-            .map(|l: Scoped<Counted<LogHash>>| l.expose_to_public());
+        data.note_hashes = source.note_hashes.array.map(|n| n.expose_to_public());
+        data.nullifiers = source.nullifiers.array.map(|n| n.expose_to_public());
+        data.l2_to_l1_msgs = source.l2_to_l1_msgs.array.map(|m| m.expose_to_public());
+        data.private_logs = source.private_logs.array.map(|l| l.expose_to_public());
+        data.contract_class_logs_hashes =
+            source.contract_class_logs_hashes.array.map(|l| l.expose_to_public());
         data
     }
 }

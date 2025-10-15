@@ -159,7 +159,6 @@ function build {
     ./crates/blob \
     ./crates/parity-lib \
     ./crates/private-kernel-lib \
-    ./crates/reset-kernel-lib \
     ./crates/rollup-lib \
     ./crates/types \
 

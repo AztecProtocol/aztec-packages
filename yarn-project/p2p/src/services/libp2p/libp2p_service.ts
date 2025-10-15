@@ -599,13 +599,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (!this.node.services.pubsub) {
       throw new Error('Pubsub service not available.');
     }
-    const p2pMessage = await P2PMessage.fromGossipable(message);
-    this.logger.debug(`Publishing message`, {
-      topic,
-      messageId: p2pMessage.id,
-    });
+    const p2pMessage = P2PMessage.fromGossipable(message);
     const result = await this.node.services.pubsub.publish(topic, p2pMessage.toMessageData());
-
     return result.recipients.length;
   }
 
@@ -651,23 +646,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    */
   protected async handleNewGossipMessage(msg: Message, msgId: string, source: PeerId) {
     const p2pMessage = P2PMessage.fromMessageData(Buffer.from(msg.data));
-    const currentTime = new Date();
-    const messageLatency = currentTime.getTime() - p2pMessage.publishTime.getTime();
-    this.logger.debug(`Received message`, {
-      topic: msg.topic,
-      messageId: p2pMessage.id,
-      messageLatency,
-    });
 
     const preValidationResult = this.preValidateReceivedMessage(msg, msgId, source);
 
     if (!preValidationResult.result) {
       return;
-    } else if (preValidationResult.topicType !== undefined) {
-      // guard against clock skew & DST
-      if (messageLatency > 0) {
-        this.instrumentation.recordMessageLatency(preValidationResult.topicType, messageLatency);
-      }
     }
 
     if (msg.topic === this.topicStrings[TopicType.tx]) {

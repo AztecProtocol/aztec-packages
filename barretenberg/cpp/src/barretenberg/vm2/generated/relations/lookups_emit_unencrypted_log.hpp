@@ -88,46 +88,4 @@ template <typename FF_>
 using lookup_emit_unencrypted_log_write_data_to_public_inputs_relation =
     lookup_relation_base<FF_, lookup_emit_unencrypted_log_write_data_to_public_inputs_settings>;
 
-/////////////////// lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log ///////////////////
-
-struct lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_EMIT_UNENCRYPTED_LOG_DISPATCH_EXEC_EMIT_UNENCRYPTED_LOG";
-    static constexpr std::string_view RELATION_NAME = "emit_unencrypted_log";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 10;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_emit_unencrypted_log;
-    static constexpr Column DST_SELECTOR = Column::emit_unencrypted_log_start;
-    static constexpr Column COUNTS = Column::lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_counts;
-    static constexpr Column INVERSES = Column::lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_rop_1_,
-        ColumnAndShifts::execution_register_0_,
-        ColumnAndShifts::execution_contract_address,
-        ColumnAndShifts::execution_prev_num_unencrypted_log_fields,
-        ColumnAndShifts::execution_num_unencrypted_log_fields,
-        ColumnAndShifts::execution_is_static,
-        ColumnAndShifts::execution_sel_opcode_error,
-        ColumnAndShifts::execution_discard
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::emit_unencrypted_log_execution_clk,
-        ColumnAndShifts::emit_unencrypted_log_space_id,
-        ColumnAndShifts::emit_unencrypted_log_log_address,
-        ColumnAndShifts::emit_unencrypted_log_log_size,
-        ColumnAndShifts::emit_unencrypted_log_contract_address,
-        ColumnAndShifts::emit_unencrypted_log_prev_num_unencrypted_log_fields,
-        ColumnAndShifts::emit_unencrypted_log_next_num_unencrypted_log_fields,
-        ColumnAndShifts::emit_unencrypted_log_is_static,
-        ColumnAndShifts::emit_unencrypted_log_error,
-        ColumnAndShifts::emit_unencrypted_log_discard
-    };
-};
-
-using lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_settings =
-    lookup_settings<lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_settings_>;
-template <typename FF_>
-using lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_relation =
-    lookup_relation_base<FF_, lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_settings>;
-
 } // namespace bb::avm2

@@ -349,7 +349,6 @@
         "FUZZING": "ON",
         "DISABLE_ASM": "ON",
         "DISABLE_AZTEC_VM": "OFF",
-        "COVERAGE": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert"
       },
       "environment": {

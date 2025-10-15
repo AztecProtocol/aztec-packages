@@ -54,7 +54,7 @@ include "context.pil";
  *     sel_calldata_copy, sel_opcode_error
  * }
  * in
- * sel_start {
+ * sel_cd_copy_start {
  *     clk,
  *     src_context_id, dst_context_id,
  *     copy_size, offset, dst_addr,
@@ -321,48 +321,15 @@ namespace data_copy;
     calldata.sel { calldata.value, calldata.context_id, calldata.index };
 
     ////////////////////////////////////////////////
-    // Dispatch Permutation
+    // Dispatch Permutation Selectors
     ////////////////////////////////////////////////
-    // Since these are permutations, we need to distinguish between the start
-    // of a cd_copy and rd_copy.
+    // These permutations are defined in execution.pil. See #[DISPATCH_TO_CD_COPY] and #[DISPATCH_TO_RD_COPY].
     // Note that the value of sel_cd_copy and sel_rd_copy are constrained by their
     // inclusion inside the permutation.
 
     pol commit sel_cd_copy_start;
     sel_cd_copy_start = sel_start * sel_cd_copy;
-    #[DISPATCH_CD_COPY]
-    execution.sel_execute_calldata_copy {
-        precomputed.clk,
-        execution.parent_id, execution.context_id,
-        execution.register[0], execution.register[1], execution.rop[2],
-        execution.parent_calldata_addr, execution.parent_calldata_size,
-        execution.sel_execute_calldata_copy/*=1*/, execution.sel_opcode_error
-    }
-    is
-    sel_cd_copy_start {
-        clk,
-        src_context_id, dst_context_id,
-        copy_size, offset, dst_addr,
-        src_addr, src_data_size,
-        sel_cd_copy, err
-    };
 
     pol commit sel_rd_copy_start;
     sel_rd_copy_start = sel_start * sel_rd_copy;
-    #[DISPATCH_RD_COPY]
-    execution.sel_execute_returndata_copy {
-        precomputed.clk,
-        execution.last_child_id, execution.context_id,
-        execution.register[0], execution.register[1], execution.rop[2],
-        execution.last_child_returndata_addr, execution.last_child_returndata_size,
-        execution.sel_execute_returndata_copy/*=1*/, execution.sel_opcode_error
-    }
-    is
-    sel_rd_copy_start {
-        clk,
-        src_context_id, dst_context_id,
-        copy_size, offset, dst_addr,
-        src_addr, src_data_size,
-        sel_rd_copy, err
-    };
 

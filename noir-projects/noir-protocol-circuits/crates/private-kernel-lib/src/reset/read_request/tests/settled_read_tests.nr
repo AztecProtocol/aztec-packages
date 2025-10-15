@@ -79,7 +79,7 @@ fn mismatch_leaf_preimage_being_read() {
     let mut builder = TestBuilder::new_all_settled();
 
     // Read a value that does not exist.
-    builder.read_requests.array[0].read_request.value = 9999;
+    builder.read_requests.array[0].inner.inner = 9999;
 
     builder.validate();
 }

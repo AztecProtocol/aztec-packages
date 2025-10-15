@@ -8,10 +8,9 @@ use crate::{
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        note_hash::{NoteHash, ScopedNoteHash},
-        nullifier::{Nullifier, ScopedNullifier},
+        note_hash::NoteHash,
+        nullifier::Nullifier,
         private_log::{PrivateLog, PrivateLogData},
-        side_effect::{Ordered, OrderedValue, scoped::Scoped},
     },
     address::AztecAddress,
     constants::{MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS},
@@ -19,6 +18,7 @@ use dep::types::{
         compute_nonce_and_unique_note_hash, compute_siloed_note_hash,
         compute_siloed_private_log_field, silo_nullifier,
     },
+    side_effect::{Counted, Ordered, Scoped},
     utils::arrays::{
         assert_sorted_transformed_i_padded_array_capped_size,
         assert_sorted_transformed_padded_array_capped_size,
@@ -28,16 +28,16 @@ use validate_note_logs_linked_to_note_hashes::validate_note_logs_linked_to_note_
 
 fn assert_correctly_siloed_note_hash(
     out_note_hash: Field,
-    prev: ScopedNoteHash,
+    prev: Scoped<Counted<NoteHash>>,
     index: u32,
     claimed_first_nullifier: Field,
     is_private_only: bool,
     min_revertible_side_effect_counter: u32,
 ) {
     let (siloed_note_hash, unique_siloed_note_hash) = if prev.contract_address.is_zero() {
-        (prev.value(), prev.value())
+        (prev.innermost(), prev.innermost())
     } else {
-        let siloed = compute_siloed_note_hash(prev.contract_address, prev.value());
+        let siloed = compute_siloed_note_hash(prev.contract_address, prev.innermost());
         let unique = compute_nonce_and_unique_note_hash(siloed, claimed_first_nullifier, index);
         (siloed, unique)
     };
@@ -75,19 +75,19 @@ fn assert_correctly_siloed_note_hash(
 // This siloing ensures that the log is verifiably linked to the specified contract address.
 // Without this check, an app could impersonate another by emitting a log identical to one from a different contract
 // or copying a tag from another contract while using entirely different content, potentially misleading the recipient.
-fn assert_valid_siloed_private_log(out: PrivateLog, prev: Scoped<PrivateLogData>) -> () {
+fn assert_valid_siloed_private_log(out: PrivateLog, prev: Scoped<Counted<PrivateLogData>>) -> () {
     // Q: is checking `if prev.contract_address.is_zero()` being used to mean "if the prev is empty"?
     let expected_first_field = if prev.contract_address.is_zero() {
-        prev.inner.log.fields[0]
+        prev.innermost().log.fields[0]
     } else {
-        compute_siloed_private_log_field(prev.contract_address, prev.inner.log.fields[0])
+        compute_siloed_private_log_field(prev.contract_address, prev.innermost().log.fields[0])
     };
     assert_eq(out.fields[0], expected_first_field);
     for i in 1..out.fields.len() {
-        assert_eq(out.fields[i], prev.inner.log.fields[i]);
+        assert_eq(out.fields[i], prev.innermost().log.fields[i]);
     }
 
-    assert_eq(out.length, prev.inner.log.length);
+    assert_eq(out.length, prev.innermost().log.length);
 }
 
 pub struct ResetOutputValidator<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32, let NullifierPendingReadHintsLen: u32, let NullifierSettledReadHintsLen: u32, let KeyValidationHintsLen: u32, let TransientDataSquashingHintsLen: u32> {
@@ -362,7 +362,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
             } else {
                 (0, AztecAddress::zero()) // Q: can't we assert zero, instead of assign zero?
             };
-            NoteHash { value, counter }.scope(contract_address)
+            Counted::new(value, counter).scope(contract_address)
         });
 
         //---------------
@@ -376,9 +376,9 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
             self.output_hints.kept_note_hashes,
             padded_scoped_note_hashes,
             self.output.end.note_hashes,
-            |prev: ScopedNoteHash, out: ScopedNoteHash, index: u32| {
+            |prev, out, index: u32| {
                 assert_correctly_siloed_note_hash(
-                    out.value(),
+                    out.innermost(),
                     prev,
                     index,
                     self.output.claimed_first_nullifier,
@@ -406,7 +406,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
             } else {
                 (0, AztecAddress::zero())
             };
-            Nullifier { value, counter, note_hash: 0 }.scope(contract_address)
+            Nullifier { value, note_hash: 0 }.count(counter).scope(contract_address)
         });
 
         //---------------
@@ -416,15 +416,15 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
             self.output_hints.kept_nullifiers,
             padded_nullifiers,
             self.output.end.nullifiers,
-            |prev: ScopedNullifier, out: ScopedNullifier| {
+            |prev, out| {
                 assert_eq(
-                    out.value(),
+                    out.innermost().value,
                     silo_nullifier(prev),
                     "Output nullifier does not match correctly-siloed nullifier",
                 );
                 assert_eq(
-                    out.nullifier.note_hash,
-                    prev.nullifier.note_hash,
+                    out.innermost().note_hash,
+                    prev.innermost().note_hash,
                     "Linked note hash not copied correctly",
                 );
                 assert(
@@ -439,7 +439,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
 
     fn validate_sorted_siloed_padded_private_logs<let PrivateLogSiloingAmount: u32>(self) {
         // Unlike note hashes, we don't have to check that the private logs haven't been siloed.
-        // silo_private_log() will return the already-siloed value if contract address is zero.
+        // `assert_valid_siloed_private_log` checks the already-siloed value if contract address is zero.
 
         //---------------
 
@@ -451,7 +451,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
             } else {
                 (0, AztecAddress::zero())
             };
-            PrivateLogData { log, counter, note_hash_counter: 0 }.scope(contract_address)
+            PrivateLogData { log, note_hash_counter: 0 }.count(counter).scope(contract_address)
         });
 
         //---------------
@@ -461,9 +461,9 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
             self.output_hints.kept_private_logs,
             padded_logs,
             self.output.end.private_logs,
-            |prev: Scoped<PrivateLogData>, out: Scoped<PrivateLogData>| {
-                assert_valid_siloed_private_log(out.inner.log, prev);
-                assert_eq(out.inner.note_hash_counter, prev.inner.note_hash_counter);
+            |prev, out| {
+                assert_valid_siloed_private_log(out.innermost().log, prev);
+                assert_eq(out.innermost().note_hash_counter, prev.innermost().note_hash_counter);
                 assert(out.contract_address.is_zero());
                 // counter is checked in assert_sorted_transformed_padded_array_capped_size
             },
