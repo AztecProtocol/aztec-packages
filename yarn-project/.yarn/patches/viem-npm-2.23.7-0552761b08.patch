@@ -700,10 +700,10 @@ index 6390fb1bf43b2d93af2836443d669e4ecb07d11e..47cb6448869138da57919338dd51dfea
  }
  //# sourceMappingURL=parseTransaction.js.map
 diff --git a/_esm/utils/transaction/serializeTransaction.js b/_esm/utils/transaction/serializeTransaction.js
-index 0a305af80eae7bdf1effb4fb3891fc6ff074fc18..b2e44e584308fe2a04afe338778d9c6818ebb7d3 100644
+index 0a305af80eae7bdf1effb4fb3891fc6ff074fc18..7581e6667f6135a67b0119148b562b6912c9af1e 100644
 --- a/_esm/utils/transaction/serializeTransaction.js
 +++ b/_esm/utils/transaction/serializeTransaction.js
-@@ -1,219 +1,248 @@
+@@ -1,219 +1,264 @@
 -import { InvalidLegacyVError, } from '../../errors/transaction.js';
 -import { blobsToCommitments, } from '../blob/blobsToCommitments.js';
 -import { blobsToProofs, } from '../blob/blobsToProofs.js';
@@ -896,14 +896,6 @@ index 0a305af80eae7bdf1effb4fb3891fc6ff074fc18..b2e44e584308fe2a04afe338778d9c68
 -            commitments.push(commitment);
 -            proofs.push(proof);
 -        }
--    return concatHex([
--        '0x03',
--        sidecars
--            ? // If sidecars are enabled, envelope turns into a "wrapper":
--                toRlp([serializedTransaction, blobs, commitments, proofs])
--            : // If sidecars are disabled, standard envelope is used:
--                toRlp(serializedTransaction),
--    ]);
 +  }
 +  const serializedAccessList = serializeAccessList(accessList);
 +  const serializedTransaction = [
@@ -928,14 +920,36 @@ index 0a305af80eae7bdf1effb4fb3891fc6ff074fc18..b2e44e584308fe2a04afe338778d9c68
 +      const { blob, commitment, proof } = sidecars[i];
 +      blobs.push(blob);
 +      commitments.push(commitment);
-+      proofs.push(...proof);
++      // proof can be a single proof (EIP-4844) or an array of proofs (EIP-7594)
++      if (Array.isArray(proof)) {
++        proofs.push(...proof);
++      } else {
++        proofs.push(proof);
++      }
 +    }
-+  debugger;
++
++  if (chainId === 11155111) {
+     return concatHex([
+-        '0x03',
+-        sidecars
+-            ? // If sidecars are enabled, envelope turns into a "wrapper":
+-                toRlp([serializedTransaction, blobs, commitments, proofs])
+-            : // If sidecars are disabled, standard envelope is used:
+-                toRlp(serializedTransaction),
++      '0x03',
++      sidecars
++        ? // If sidecars are enabled, envelope turns into a "wrapper":
++          toRlp([serializedTransaction, '0x01', blobs, commitments, proofs])
++        : // If sidecars are disabled, standard envelope is used:
++          toRlp(serializedTransaction),
+     ]);
++  }
++
 +  return concatHex([
 +    '0x03',
 +    sidecars
 +      ? // If sidecars are enabled, envelope turns into a "wrapper":
-+        toRlp([serializedTransaction, '0x01', blobs, commitments, proofs])
++        toRlp([serializedTransaction, blobs, commitments, proofs])
 +      : // If sidecars are disabled, standard envelope is used:
 +        toRlp(serializedTransaction),
 +  ]);

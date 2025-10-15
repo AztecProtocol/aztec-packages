@@ -22185,7 +22185,7 @@ __metadata:
 
 "viem@patch:viem@npm%3A2.23.7#~/.yarn/patches/viem-npm-2.23.7-0552761b08.patch":
   version: 2.23.7
-  resolution: "viem@patch:viem@npm%3A2.23.7#~/.yarn/patches/viem-npm-2.23.7-0552761b08.patch::version=2.23.7&hash=f4c585"
+  resolution: "viem@patch:viem@npm%3A2.23.7#~/.yarn/patches/viem-npm-2.23.7-0552761b08.patch::version=2.23.7&hash=ac9049"
   dependencies:
     "@noble/curves": "npm:1.8.1"
     "@noble/hashes": "npm:1.7.1"
@@ -22200,7 +22200,7 @@ __metadata:
   peerDependenciesMeta:
     typescript:
       optional: true
-  checksum: 10/d7262ee03da0873fd501841a032fd80c6b8483d736165ca6a55c2f1ac5dcaccfd9e2313e102c77119d462917a2489ef4e7bbaae6ad348f0e9b465eebfbfa9cce
+  checksum: 10/9ba32cf004ff9222bbab49d1066362c63161eae0dbe746b7c19da9c242f52ff173f3346eea3fc91b2c087267bbd7011679ae41c4cddb5a9fe7878d193f1e26ca
   languageName: node
   linkType: hard
 

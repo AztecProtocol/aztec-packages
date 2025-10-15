@@ -170,7 +170,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     });
     const kzg = txData.kzg! as any;
 
-    if (txData.blobs?.length) {
+    if (txData.blobs?.length && this.client.chain.id === 11155111) {
       for (let i = 0; i < txData.blobs.length; i++) {
         const blob = txData.blobs![i];
         const [_, cellProofs] = kzg.computeCellsAndKzgProofs(blob) as [Uint8Array[], Uint8Array[]];
