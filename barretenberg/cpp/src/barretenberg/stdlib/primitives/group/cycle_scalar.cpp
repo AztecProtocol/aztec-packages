@@ -13,10 +13,15 @@
 namespace bb::stdlib {
 
 template <typename Builder>
-cycle_scalar<Builder>::cycle_scalar(const field_t& _lo, const field_t& _hi)
+cycle_scalar<Builder>::cycle_scalar(const field_t& _lo, const field_t& _hi, bool skip_validation)
     : lo(_lo)
     , hi(_hi)
-{}
+{
+    // Unless explicitly skipped, validate the scalar is in the Grumpkin scalar field
+    if (!skip_validation) {
+        validate_scalar_is_in_field();
+    }
+}
 
 /**
  * @brief Construct a circuit-constant cycle scalar from a value in the Grumpkin scalar field
@@ -55,9 +60,6 @@ cycle_scalar<Builder> cycle_scalar<Builder>::from_witness(Builder* context, cons
     cycle_scalar result{ lo, hi };
     result._num_bits = NUM_BITS;
 
-    // Validate the scalar is in the Grumpkin scalar field
-    result.validate_scalar_is_in_field();
-
     return result;
 }
 
@@ -79,7 +81,7 @@ cycle_scalar<Builder> cycle_scalar<Builder>::from_u256_witness(Builder* context,
     const uint256_t hi_v = bitstring.slice(LO_BITS, num_bits);
     auto lo = field_t::from_witness(context, lo_v);
     auto hi = field_t::from_witness(context, hi_v);
-    cycle_scalar result{ lo, hi };
+    cycle_scalar result{ lo, hi, /*skip_validation=*/true };
     result._num_bits = num_bits;
     return result;
 }
@@ -99,7 +101,8 @@ template <typename Builder> cycle_scalar<Builder> cycle_scalar<Builder>::create_
     // in the lookup arguments used in scalar multiplication and thus do not need to be applied here.
     // Note: split_unique validates the value is less than bn254::fr::modulus
     auto [lo, hi] = split_unique(in, LO_BITS, /*skip_range_constraints=*/true);
-    return cycle_scalar{ lo, hi };
+    // Note: we skip validation here since it is redundant with `split_unique`
+    return cycle_scalar{ lo, hi, /*skip_validation=*/true };
 }
 
 /**

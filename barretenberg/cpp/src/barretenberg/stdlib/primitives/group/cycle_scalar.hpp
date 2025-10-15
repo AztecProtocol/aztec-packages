@@ -58,7 +58,7 @@ template <typename Builder> class cycle_scalar {
   public:
     // AUDITTODO: this is used only in the fuzzer.
     cycle_scalar(const ScalarField& _in = 0);
-    cycle_scalar(const field_t& _lo, const field_t& _hi);
+    cycle_scalar(const field_t& _lo, const field_t& _hi, bool skip_validation = false);
     // AUDITTODO: this is used only in the fuzzer. Its not inherently problematic, but perhaps the fuzzer should use a
     // production entrypoint.
     static cycle_scalar from_witness(Builder* context, const ScalarField& value);

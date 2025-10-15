@@ -163,36 +163,6 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructor)
 }
 
 /**
- * @brief Test scalar field validation
- */
-TYPED_TEST(CycleScalarTest, TestScalarFieldValidation)
-{
-    using cycle_scalar = typename TestFixture::cycle_scalar;
-    using ScalarField = typename TestFixture::ScalarField;
-    using field_t = typename TestFixture::field_t;
-
-    TypeParam builder;
-
-    // Manually create a valid scalar, bypassing the constructors that perform validation
-    auto valid_scalar = ScalarField::random_element(&engine);
-    uint256_t valid_scalar_u256 = uint256_t(valid_scalar);
-    uint256_t lo_val = valid_scalar_u256.slice(0, cycle_scalar::LO_BITS);
-    uint256_t hi_val = valid_scalar_u256.slice(cycle_scalar::LO_BITS, 256);
-
-    // Create lo and hi field elements
-    auto lo = field_t::from_witness(&builder, lo_val);
-    auto hi = field_t::from_witness(&builder, hi_val);
-
-    // Construct cycle_scalar directly
-    auto scalar = cycle_scalar(lo, hi);
-
-    scalar.validate_scalar_is_in_field();
-    EXPECT_FALSE(builder.failed());
-
-    check_circuit_and_gate_count(builder, 2761);
-}
-
-/**
  * @brief Test expected scalar field validation failure with value between Grumpkin and BN254 moduli
  *
  * This test creates a scalar with hi/lo decomposition that results in a value greater than BN254::fr modulus but less
@@ -226,11 +196,9 @@ TYPED_TEST(CycleScalarTest, TestScalarFieldValidationFailureBetweenModuli)
         auto lo = field_t::from_witness(&builder, NativeField(lo_val));
         auto hi = field_t::from_witness(&builder, NativeField(hi_val));
 
-        // Construct cycle_scalar directly
+        // Construct cycle_scalar directly which will validate against Grumpkin scalar field
+        // This should pass because value < BN254::fq modulus (Grumpkin scalar field)
         auto scalar = cycle_scalar(lo, hi);
-
-        // Validate - this should pass because value < BN254::fq modulus (Grumpkin scalar field)
-        scalar.validate_scalar_is_in_field();
 
         // The builder should NOT have failed
         EXPECT_FALSE(builder.failed());
@@ -246,7 +214,7 @@ TYPED_TEST(CycleScalarTest, TestScalarFieldValidationFailureBetweenModuli)
         auto lo = field_t::from_witness(&builder, NativeField(lo_val));
         auto hi = field_t::from_witness(&builder, NativeField(hi_val));
 
-        // Construct cycle_scalar with the public constructor
+        // Construct cycle_scalar directly (validation against Grumpkin scalar field will pass)
         auto scalar = cycle_scalar(lo, hi);
 
         // Verify the reconstructed value matches what we expect
