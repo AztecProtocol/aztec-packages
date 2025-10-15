@@ -205,7 +205,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
         if (ivc.num_circuits_accumulated == ivc.get_num_circuits() - 1) {
             settings = TestSettings{};
         }
-        info("setting gates ", settings.log2_num_gates);
         auto circuit = create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs);
         return { circuit, get_verification_key(circuit) };
     }

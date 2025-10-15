@@ -38,7 +38,8 @@ class HypernovaFoldingProver {
      * @param instance
      * @return Accumulator
      */
-    Accumulator instance_to_accumulator(const std::shared_ptr<ProverInstance>& instance);
+    Accumulator instance_to_accumulator(const std::shared_ptr<ProverInstance>& instance,
+                                        const std::shared_ptr<VerificationKey>& honk_vk = nullptr);
 
     /**
      * @brief Fold an instance into an accumulator. Folding happens in place.
@@ -48,7 +49,8 @@ class HypernovaFoldingProver {
      * @return std::pair<HonkProof, Accumulator>
      */
     std::pair<HonkProof, Accumulator> fold(const Accumulator& accumulator,
-                                           const std::shared_ptr<ProverInstance>& instance);
+                                           const std::shared_ptr<ProverInstance>& instance,
+                                           const std::shared_ptr<VerificationKey>& honk_vk = nullptr);
 
     /**
      * @brief Export the proof contained in the transcript

@@ -105,15 +105,16 @@ HypernovaFoldingProver::Polynomial HypernovaFoldingProver::batch_polynomials(
 };
 
 HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumulator(
-    const std::shared_ptr<typename HypernovaFoldingProver::ProverInstance>& instance)
+    const std::shared_ptr<typename HypernovaFoldingProver::ProverInstance>& instance,
+    const std::shared_ptr<VerificationKey>& honk_vk)
 {
     BB_BENCH();
 
     vinfo("HypernovaFoldingProver: converting instance to accumulator...");
 
     // Complete the incoming instance
-    auto honk_vk = std::make_shared<VerificationKey>(instance->get_precomputed());
-    MegaOinkProver oink_prover{ instance, honk_vk, transcript };
+    auto precomputed_vk = honk_vk ? honk_vk : std::make_shared<VerificationKey>(instance->get_precomputed());
+    MegaOinkProver oink_prover{ instance, precomputed_vk, transcript };
     oink_prover.prove();
 
     instance->gate_challenges = transcript->template get_powers_of_challenge<FF>(
@@ -129,7 +130,7 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
                                 Flavor::VIRTUAL_LOG_N);
     auto sumcheck_output = sumcheck.prove();
 
-    Accumulator accumulator = sumcheck_output_to_accumulator(sumcheck_output, instance, honk_vk);
+    Accumulator accumulator = sumcheck_output_to_accumulator(sumcheck_output, instance, precomputed_vk);
 
     vinfo("HypernovaFoldingProver: accumulator constructed.");
 
@@ -137,9 +138,11 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
 }
 
 std::pair<HonkProof, HypernovaFoldingProver::Accumulator> HypernovaFoldingProver::fold(
-    const Accumulator& accumulator, const std::shared_ptr<ProverInstance>& instance)
+    const Accumulator& accumulator,
+    const std::shared_ptr<ProverInstance>& instance,
+    const std::shared_ptr<VerificationKey>& honk_vk)
 {
-    Accumulator incoming_accumulator = instance_to_accumulator(instance);
+    Accumulator incoming_accumulator = instance_to_accumulator(instance, honk_vk);
 
     // Sumcheck
     MultilinearBatchingProver batching_prover(std::make_shared<MultilinearBatchingProverClaim>(accumulator),

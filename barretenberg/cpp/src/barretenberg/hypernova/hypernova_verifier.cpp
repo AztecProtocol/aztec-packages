@@ -60,13 +60,11 @@ HypernovaFoldingVerifier<Flavor>::Accumulator HypernovaFoldingVerifier<Flavor>::
     }
     batched_shifted_commitment = batch_mul(points, scalars);
 
-    return Accumulator{
-        .challenge = sumcheck_output.challenge,
-        .shifted_evaluation = batched_shifted_evaluation,
-        .non_shifted_evaluation = batched_unshifted_evaluation,
-        .non_shifted_commitment = batched_unshifted_commitment,
-        .shifted_commitment = batched_shifted_commitment,
-    };
+    return Accumulator(sumcheck_output.challenge,
+                       batched_shifted_evaluation,
+                       batched_unshifted_evaluation,
+                       batched_unshifted_commitment,
+                       batched_shifted_commitment);
 };
 
 template <typename Flavor>
