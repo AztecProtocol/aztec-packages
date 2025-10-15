@@ -160,6 +160,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:trace_to_polynomials_objects>
     $<TARGET_OBJECTS:flavor_objects>
     $<TARGET_OBJECTS:goblin_objects>
+    $<TARGET_OBJECTS:hypernova_objects>
     $<TARGET_OBJECTS:honk>
     $<TARGET_OBJECTS:multilinear_batching_objects>
     $<TARGET_OBJECTS:numeric_objects>

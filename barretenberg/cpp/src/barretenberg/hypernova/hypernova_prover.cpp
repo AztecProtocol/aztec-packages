@@ -113,7 +113,7 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
     vinfo("HypernovaFoldingProver: converting instance to accumulator...");
 
     // Complete the incoming instance
-    auto precomputed_vk = honk_vk != nullptr ? honk_vk : std::make_shared<VerificationKey>(instance->get_precomputed());
+    auto precomputed_vk = honk_vk ? honk_vk : std::make_shared<VerificationKey>(instance->get_precomputed());
     MegaOinkProver oink_prover{ instance, precomputed_vk, transcript };
     oink_prover.prove();
 

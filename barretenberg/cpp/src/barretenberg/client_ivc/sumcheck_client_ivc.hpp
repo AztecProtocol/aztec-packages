@@ -318,6 +318,7 @@ class SumcheckClientIVC : public IVCBase {
     VerificationKey get_vk() const;
 
   private:
+#ifdef NDEBUG
     /**
      * @brief Update native verifier accumulator. Useful for debugging.
      *
@@ -326,6 +327,7 @@ class SumcheckClientIVC : public IVCBase {
      */
     void update_native_verifier_accumulator(const VerifierInputs& queue_entry,
                                             const std::shared_ptr<Transcript>& verifier_transcript);
+#endif
 
     HonkProof construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
                                                      const std::shared_ptr<MegaVerificationKey>& verification_key);

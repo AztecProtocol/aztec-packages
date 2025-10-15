@@ -232,7 +232,7 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
  */
 void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
-    // Transcript to be shared shared across recursive verification of the folding of K_{i-1} (kernel), A_{i} (app)
+    // Transcript to be shared across recursive verification of the folding of K_{i-1} (kernel), A_{i} (app)
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
 
     // Commitment to the previous state of the op_queue in the recursive verification
@@ -711,6 +711,7 @@ SumcheckClientIVC::VerificationKey SumcheckClientIVC::get_vk() const
              std::make_shared<TranslatorVerificationKey>() };
 }
 
+#ifdef NDEBUG
 void SumcheckClientIVC::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
                                                            const std::shared_ptr<Transcript>& verifier_transcript)
 {
@@ -729,5 +730,6 @@ void SumcheckClientIVC::update_native_verifier_accumulator(const VerifierInputs&
     info("DEBUG: Hash of verifier accumulator computed natively ",
          native_verifier_accum.hash_through_transcript("", *verifier_transcript));
 }
+#endif
 
 } // namespace bb
