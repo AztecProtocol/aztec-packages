@@ -18,11 +18,11 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_a
 
     // Generate challenges to batch shifted and unshifted polynomials/commitments/evaluation
     std::array<std::string, Flavor::NUM_UNSHIFTED_ENTITIES> labels_unshifted_entities;
-    std::array<std::string, Flavor::NUM_SHIFTED_WITNESSES> labels_shifted_witnesses;
+    std::array<std::string, Flavor::NUM_SHIFTED_ENTITIES> labels_shifted_witnesses;
     for (size_t idx = 0; idx < Flavor::NUM_UNSHIFTED_ENTITIES; idx++) {
         labels_unshifted_entities[idx] = "unshifted_challenge_" + std::to_string(idx);
     }
-    for (size_t idx = 0; idx < Flavor::NUM_SHIFTED_WITNESSES; idx++) {
+    for (size_t idx = 0; idx < Flavor::NUM_SHIFTED_ENTITIES; idx++) {
         labels_shifted_witnesses[idx] = "shifted_challenge_" + std::to_string(idx);
     }
     auto unshifted_challenges = transcript->template get_challenges<FF>(labels_unshifted_entities);
@@ -31,7 +31,7 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_a
     // Batch polynomials
     auto batched_unshifted_polynomial = batch_polynomials<Flavor::NUM_UNSHIFTED_ENTITIES>(
         instance->polynomials.get_unshifted(), instance->dyadic_size(), unshifted_challenges);
-    auto batched_shifted_polynomial = batch_polynomials<Flavor::NUM_SHIFTED_WITNESSES>(
+    auto batched_shifted_polynomial = batch_polynomials<Flavor::NUM_SHIFTED_ENTITIES>(
         instance->polynomials.get_to_be_shifted(), instance->dyadic_size(), shifted_challenges);
 
     // Batch evaluations

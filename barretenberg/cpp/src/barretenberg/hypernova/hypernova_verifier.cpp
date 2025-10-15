@@ -17,11 +17,11 @@ HypernovaFoldingVerifier<Flavor>::Accumulator HypernovaFoldingVerifier<Flavor>::
 
     // Generate challenges to batch shifted and unshifted polynomials/commitments/evaluation
     std::array<std::string, NUM_UNSHIFTED_ENTITIES> labels_unshifted_entities;
-    std::array<std::string, NUM_SHIFTED_WITNESSES> labels_shifted_witnesses;
+    std::array<std::string, NUM_SHIFTED_ENTITIES> labels_shifted_witnesses;
     for (size_t idx = 0; idx < NUM_UNSHIFTED_ENTITIES; idx++) {
         labels_unshifted_entities[idx] = "unshifted_challenge_" + std::to_string(idx);
     }
-    for (size_t idx = 0; idx < NUM_SHIFTED_WITNESSES; idx++) {
+    for (size_t idx = 0; idx < NUM_SHIFTED_ENTITIES; idx++) {
         labels_shifted_witnesses[idx] = "shifted_challenge_" + std::to_string(idx);
     }
     auto unshifted_challenges = transcript->template get_challenges<FF>(labels_unshifted_entities);

@@ -43,7 +43,7 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
                                      typename HypernovaNativeTypes::Proof>;
 
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES;
-    static constexpr size_t NUM_SHIFTED_WITNESSES = MegaFlavor::NUM_SHIFTED_WITNESSES;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = MegaFlavor::NUM_SHIFTED_ENTITIES;
 
     std::shared_ptr<Transcript> transcript;
 
