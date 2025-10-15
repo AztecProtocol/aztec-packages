@@ -25,30 +25,21 @@ Before proceeding, you should:
 As a provider, you register with the StakingRegistry contract and add sequencer identities (keystores) to a queue. When delegators stake to your provider, the system:
 
 1. Dequeues one keystore from your provider queue
-2. Registers that sequencer identity in the active sequencer set
-3. Backs the sequencer with the delegator's stake
-4. Creates a [Split contract](https://docs.splits.org/core/split) for reward distribution
-5. Routes all staking rewards through the Split contract according to your commission rate
+2. Creates a [Split contract](https://docs.splits.org/core/split) for reward distribution
+3. Registers the sequencer into the queue using the dequeued keystore
 
 ### Reward Distribution
 
-When a delegator stakes to your provider, a new Split contract is automatically created to manage reward distribution between you and the delegator. All staking rewards earned by the sequencer can only be withdrawn to this Split contract, which then distributes them according to the agreed commission rate:
+When a delegator stakes to your provider, a new Split contract is automatically created to manage reward distribution between you and the delegator. You then configure your sequencer node to use the Split contract address as the coinbase (see [After Delegation: Configure Sequencer Coinbase](#after-delegation-configure-sequencer-coinbase)). When configured correctly, staking rewards are sent to the Split contract, which distributes them according to your agreed commission rate:
 
-- **Provider commission**: You receive the percentage specified in your `providerTakeRate` (e.g., 5% if you set 500 basis points)
-- **Delegator rewards**: The delegator's Aztec Token Pool (ATP) receives the remaining percentage
+- **Provider commission**: Sent to your `providerRewardsRecipient` address (set during registration) at your specified commission rate (e.g., 5% for 500 basis points)
+- **Delegator rewards**: The delegator's Aztec Token Position (ATP) receives the remaining percentage
 
-This design ensures delegators maintain control of their rewards while you earn commission for operating the sequencer infrastructure. You can monitor accumulated rewards for your Split contracts through the staking dashboard.
+This design ensures delegators maintain control of their rewards while you earn commission for operating the sequencer infrastructure. The rewards flow works as follows:
 
-### Delegation Lifecycle and Unstaking
-
-Delegators can unstake at any time, giving them full flexibility to manage their stake. When a delegator unstakes from one of your sequencers:
-
-1. The sequencer identity is removed from the active sequencer set
-2. The backing stake is returned to the delegator's control
-3. The Split contract remains for final reward settlement
-4. **The sequencer identity (keystore) returns to your provider queue** and becomes available for reuse
-
-This means keystores are reusable—when a delegator unstakes, you don't lose that sequencer identity. It simply returns to your queue and can be activated again by the next delegator who stakes to your provider. This allows you to maintain a pool of sequencer identities that cycle between active use and queue availability as delegators come and go.
+1. Rewards accumulate in the rollup under the coinbase address (the Split contract)
+2. Once rewards are unlocked via a governance vote, anyone can release them from the rollup to the coinbase address
+3. In the Split contract, anyone can disperse the rewards to both the ATP and the `providerRewardsRecipient`
 
 ## Setup Process
 
@@ -58,11 +49,13 @@ Follow these steps to configure delegated stake:
 
 1. Register your provider with the Staking Registry
 2. Add sequencer identities to your provider queue
-3. (Optional) Add provider metadata via the staking dashboard
+3. (Optional) Add provider metadata with a PR
+
+**After a delegator stakes:** Configure your sequencer's coinbase (see [After Delegation](#after-delegation-configure-sequencer-coinbase))
 
 ### Step 1: Register Your Provider
 
-Register with the `StakingRegistry` contract to indicate your interest in running sequencers for delegators. This process is permissionless—anyone can register.
+Register with the `StakingRegistry` contract as a provider for delegated staking. Registration is permissionless and is open to anyone.
 
 **Function signature:**
 
@@ -94,14 +87,13 @@ cast send [STAKING_REGISTRY_ADDRESS] \
   --private-key [YOUR_PRIVATE_KEY]
 ```
 
-Replace the placeholders:
-- `[STAKING_REGISTRY_ADDRESS]`: StakingRegistry contract address
-- `[PROVIDER_ADMIN_ADDRESS]`: Your admin address
-- `[REWARDS_RECIPIENT_ADDRESS]`: Address to receive commissions
-- `[RPC_URL]`: Your Ethereum RPC endpoint
-- `[YOUR_PRIVATE_KEY]`: Your wallet's private key
+Once the transaction is confirmed, retrieve your `providerIdentifier` from the transaction receipt:
 
-The transaction returns a hash. Once confirmed, retrieve your `providerIdentifier` from the transaction logs.
+```bash
+cast receipt [TX_HASH] --rpc-url [RPC_URL] | grep "return" | awk '{print $2}' | xargs cast to-dec
+```
+
+Replace `[TX_HASH]` with the transaction hash from the `registerProvider` call. Save the resulting `providerIdentifier`—you'll need it for all subsequent provider operations.
 
 ### Step 2: Add Sequencer Identities
 
@@ -169,7 +161,44 @@ To be featured on the staking dashboard, you will have to submit metadata about 
 3. Website and social media URLs
 4. Your `providerIdentifier`
 
-The exact submission workflow is still being finalized. Check the [Aztec Discord](https://discord.gg/aztec) for the latest instructions. Good metadata helps delegators understand your offering and builds trust.
+Good metadata helps delegators understand your offering and builds trust. The exact submission workflow is still being finalized. Check the [Aztec Discord](https://discord.gg/aztec) for the latest instructions.
+
+## After Delegation: Configure Sequencer Coinbase
+
+Once a delegator stakes to your provider, the system creates a Split contract for that specific delegation and activates the corresponding sequencer. **Configure the sequencer to use the Split contract address as the coinbase recipient.**
+
+### Why This Matters
+
+The coinbase address determines where your sequencer's block rewards are sent. By setting it to the Split contract address, rewards flow through the Split contract and are distributed according to your agreed commission rate. This is critical for maintaining trust with your delegators.
+
+### How to Configure the Coinbase
+
+You need to update the `coinbase` field in your sequencer node's keystore configuration. The coinbase should be set to the Split contract address that was created for this delegation.
+
+**Example keystore configuration:**
+
+```json
+{
+  "attester": "0x...",  // Your sequencer's address / identity (from Step 2)
+  "publisher": "0x...",  // Address that submits blocks to L1
+  "coinbase": "0x[SPLIT_CONTRACT_ADDRESS]",  // Split contract for this delegation
+  "feeRecipient": "0x..."  // Aztec address for L2 fees
+}
+```
+
+Replace `[SPLIT_CONTRACT_ADDRESS]` with the actual Split contract address created for this delegation. You can find this address in the staking dashboard (see "Finding Your Split Contract Address" below).
+
+For detailed information about keystore configuration, including different storage methods and advanced patterns, see the [Advanced Keystore Guide](../keystore/index.md).
+
+### Finding Your Split Contract Address
+
+You can retrieve the Split contract address for a specific delegation through the **Staking Dashboard**, where you can view all active delegations and their associated Split contract addresses in your provider dashboard.
+
+### Important Notes
+
+- Configure the coinbase immediately after each delegation to ensure rewards flow correctly from the start
+- Each delegation creates a unique Split contract—configure each sequencer with its specific Split contract address
+- Restart your sequencer node after updating the keystore for changes to take effect
 
 ## Managing Your Provider
 
@@ -215,18 +244,6 @@ cast send [STAKING_REGISTRY_ADDRESS] \
 ```
 
 **Note:** Rate changes only apply to new delegations. Existing delegations retain the original commission rate they agreed to.
-
-**Example:**
-
-```bash
-# Update commission rate to 3% (300 basis points)
-cast send 0x1234567890abcdef1234567890abcdef12345678 \
-  "updateProviderTakeRate(uint256,uint16)" \
-  42 \
-  300 \
-  --rpc-url $RPC_URL \
-  --private-key $ADMIN_PRIVATE_KEY
-```
 
 ## Verification
 
