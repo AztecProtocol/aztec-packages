@@ -25,7 +25,7 @@ namespace bb {
  * This class provides two construction strategies:
  *
  * 1. **Optimal method (default)**: Uses coordinate transformation + GateSeparatorPolynomial
- *    - Transforms eq(X, r) = C · ∏_i (1 + γ_i X_i), where γ_i = r_i / (1 - r_i), C = ∏_i (1 - r_i)
+ *    - Transforms eq(X, r) = C · ∏_i (1 + (γ_i - 1) X_i), where γ_i = r_i / (1 - r_i), C = ∏_i (1 - r_i)
  *    - Delegation to GateSeparatorPolynomial::compute_beta_products uses the optimal pow_β algorithm
  *    - **Cost**: ~2^d multiplications (ignoring lower-order terms from transformation)
  *    - **Requirement**: All challenges r_i ≠ 1 (to avoid division by zero in γ_i = r_i / (1 - r_i))
