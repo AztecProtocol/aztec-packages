@@ -44,48 +44,45 @@ class MultilinearBatchingInstanceRelationConsistency : public testing::Test {
 
 TEST_F(MultilinearBatchingAccumulatorRelationConsistency, AccumulateMatchesDirectComputation)
 {
-    const auto run_case =
-        [](const InputElements& inputs, const SumcheckArrayOfValuesOverSubrelations& seed, const FF& scaling_factor) {
-            SumcheckArrayOfValuesOverSubrelations accumulator = seed;
-            SumcheckArrayOfValuesOverSubrelations expected = seed;
+    const auto run_case = [](const InputElements& inputs, const SumcheckArrayOfValuesOverSubrelations& seed) {
+        SumcheckArrayOfValuesOverSubrelations accumulator = seed;
+        SumcheckArrayOfValuesOverSubrelations expected = seed;
 
-            expected[0] += inputs.w_non_shifted_accumulator * inputs.w_evaluations_accumulator * scaling_factor;
-            expected[1] += inputs.w_shifted_accumulator * inputs.w_evaluations_accumulator * scaling_factor;
+        expected[0] += inputs.w_non_shifted_accumulator * inputs.w_evaluations_accumulator;
+        expected[1] += inputs.w_shifted_accumulator * inputs.w_evaluations_accumulator;
 
-            const auto parameters = RelationParameters<FF>::get_random();
-            Relation::accumulate(accumulator, inputs, parameters, scaling_factor);
+        Relation::accumulate(accumulator, inputs);
 
-            EXPECT_EQ(accumulator, expected);
-        };
+        EXPECT_EQ(accumulator, expected);
+    };
 
     SumcheckArrayOfValuesOverSubrelations zero_seed{ FF(0), FF(0) };
-    run_case(InputElements::special(), zero_seed, FF(1));
+    run_case(InputElements::special(), zero_seed);
 
     SumcheckArrayOfValuesOverSubrelations random_seed{ FF::random_element(), FF::random_element() };
-    run_case(InputElements::random(), random_seed, FF::random_element());
+    run_case(InputElements::random(), random_seed);
 }
 
 TEST_F(MultilinearBatchingInstanceRelationConsistency, AccumulateMatchesDirectComputation)
 {
-    const auto run_case =
-        [](const InputElements& inputs, const SumcheckArrayOfValuesOverSubrelations& seed, const FF& scaling_factor) {
-            SumcheckArrayOfValuesOverSubrelations accumulator = seed;
-            SumcheckArrayOfValuesOverSubrelations expected = seed;
+    const auto run_case = [](const InputElements& inputs, const SumcheckArrayOfValuesOverSubrelations& seed) {
+        SumcheckArrayOfValuesOverSubrelations accumulator = seed;
+        SumcheckArrayOfValuesOverSubrelations expected = seed;
 
-            expected[0] += inputs.w_non_shifted_instance * inputs.w_evaluations_instance * scaling_factor;
-            expected[1] += inputs.w_shifted_instance * inputs.w_evaluations_instance * scaling_factor;
+        expected[0] += inputs.w_non_shifted_instance * inputs.w_evaluations_instance;
+        expected[1] += inputs.w_shifted_instance * inputs.w_evaluations_instance;
 
-            const auto parameters = RelationParameters<FF>::get_random();
-            Relation::accumulate(accumulator, inputs, parameters, scaling_factor);
+        // const auto parameters = RelationParameters<FF>::get_random();
+        Relation::accumulate(accumulator, inputs);
 
-            EXPECT_EQ(accumulator, expected);
-        };
+        EXPECT_EQ(accumulator, expected);
+    };
 
     SumcheckArrayOfValuesOverSubrelations zero_seed{ FF(0), FF(0) };
-    run_case(InputElements::special(), zero_seed, FF(1));
+    run_case(InputElements::special(), zero_seed);
 
     SumcheckArrayOfValuesOverSubrelations random_seed{ FF::random_element(), FF::random_element() };
-    run_case(InputElements::random(), random_seed, FF::random_element());
+    run_case(InputElements::random(), random_seed);
 }
 
 TEST_F(MultilinearBatchingAccumulatorRelationConsistency, SkipLogic)

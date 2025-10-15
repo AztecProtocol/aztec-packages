@@ -49,7 +49,6 @@ class MultilinearBatchingProver {
     MultilinearBatchingProverClaim new_claim;
 
     SumcheckOutput<Flavor> sumcheck_output;
-    RelationParameters<FF> relation_parameters;
 };
 
 } // namespace bb
