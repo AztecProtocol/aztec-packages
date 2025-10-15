@@ -30,7 +30,6 @@ class SumcheckClientIVCTests : public ::testing::Test {
     using Builder = SumcheckClientIVC::ClientCircuit;
     using ProverInstance = SumcheckClientIVC::ProverInstance;
     using VerifierInstance = SumcheckClientIVC::VerifierInstance;
-    using FoldProof = SumcheckClientIVC::FoldProof;
     using DeciderProver = SumcheckClientIVC::DeciderProver;
     using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
 

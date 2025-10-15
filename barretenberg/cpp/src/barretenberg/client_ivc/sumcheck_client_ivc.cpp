@@ -429,7 +429,7 @@ void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr
     // Update native verifier accumulator and construct merge proof (excluded for hiding kernel since PG terminates with
     // tail kernel and hiding merge proof is constructed as part of goblin proving)
     if (queue_entry.type != QUEUE_TYPE::MEGA) {
-        // update_native_verifier_accumulator(queue_entry, verifier_transcript);
+        update_native_verifier_accumulator(queue_entry, verifier_transcript);
         goblin.prove_merge(prover_accumulation_transcript);
     }
 
@@ -714,27 +714,20 @@ SumcheckClientIVC::VerificationKey SumcheckClientIVC::get_vk() const
              std::make_shared<TranslatorVerificationKey>() };
 }
 
-// void SumcheckClientIVC::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
-//                                                            const std::shared_ptr<Transcript>& verifier_transcript)
-// {
-//     auto verifier_inst = std::make_shared<VerifierInstance>(queue_entry.honk_vk);
+void SumcheckClientIVC::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
+                                                           const std::shared_ptr<Transcript>& verifier_transcript)
+{
+    auto verifier_inst = std::make_shared<VerifierInstance>(queue_entry.honk_vk);
 
-//     auto incoming_accumulator =
-//         execute_first_sumcheck_native_verification(verifier_inst, verifier_transcript, queue_entry.proof);
-
-//     if (queue_entry.type != QUEUE_TYPE::OINK) {
-//         MultilinearBatchingVerifier<MultilinearBatchingFlavor> batching_verifier(verifier_transcript);
-//         auto [verified, new_accumulator] = batching_verifier.verify_proof();
-//         BB_ASSERT_EQ(verified, true, "Batching Sumcheck: Failed native sumcheck batching verification");
-
-//         native_verifier_accum = VerifierAccumulator{
-//             .challenge = new_accumulator.challenge,
-//             .batched_evaluations = { new_accumulator.non_shifted_evaluation, new_accumulator.shifted_evaluation },
-//             .batched_commitments = { new_accumulator.non_shifted_commitment, new_accumulator.shifted_commitment },
-//         };
-//     } else {
-//         native_verifier_accum = incoming_accumulator;
-//     }
-// }
+    FoldingVerifier native_verifier(verifier_transcript);
+    if (queue_entry.type == QUEUE_TYPE::OINK) {
+        auto [_, new_accumulator] = native_verifier.instance_to_accumulator(verifier_inst, queue_entry.proof);
+        native_verifier_accum = std::move(new_accumulator);
+    } else {
+        auto [_bool_one, _bool_two, new_accumulator] =
+            native_verifier.verify_folding_proof(verifier_inst, queue_entry.proof);
+        native_verifier_accum = std::move(new_accumulator);
+    }
+}
 
 } // namespace bb

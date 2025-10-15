@@ -49,20 +49,15 @@ class SumcheckClientIVC : public IVCBase {
     using Commitment = Flavor::Commitment;
     using ProverPolynomials = Flavor::ProverPolynomials;
     using Point = Flavor::Curve::AffineElement;
-
     using ProverInstance = ProverInstance_<Flavor>;
     using DeciderZKProvingKey = ProverInstance_<MegaZKFlavor>;
     using VerifierInstance = VerifierInstance_<Flavor>;
-
     using ClientCircuit = MegaCircuitBuilder; // can only be Mega
-
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
-
     using MegaProver = UltraProver_<Flavor>;
     using MegaVerifier = UltraVerifier_<Flavor>;
     using Transcript = NativeTranscript;
-
     // Recursive types
     using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
     using StdlibFF = RecursiveFlavor::FF;
@@ -71,7 +66,14 @@ class SumcheckClientIVC : public IVCBase {
     using RecursiveVerificationKey = RecursiveFlavor::VerificationKey;
     using RecursiveVKAndHash = RecursiveFlavor::VKAndHash;
     using RecursiveTranscript = RecursiveFlavor::Transcript;
-
+    using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
+    using KernelIO = bb::stdlib::recursion::honk::KernelIO;
+    using HidingKernelIO = bb::stdlib::recursion::honk::HidingKernelIO<ClientCircuit>;
+    using AppIO = bb::stdlib::recursion::honk::AppIO;
+    using StdlibProof = stdlib::Proof<ClientCircuit>;
+    using WitnessCommitments = RecursiveFlavor::WitnessCommitments;
+    using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
+    using TableCommitments = std::array<RecursiveFlavor::Commitment, ClientCircuit::NUM_WIRES>;
     // Folding
     using FoldingProver = HypernovaFoldingProver;
     using FoldingVerifier = HypernovaFoldingVerifier<Flavor>;
@@ -81,20 +83,6 @@ class SumcheckClientIVC : public IVCBase {
     using ProverAccumulator = FoldingProver::Accumulator;
     using VerifierAccumulator = FoldingVerifier::Accumulator;
     using RecursiveVerifierAccumulator = RecursiveFoldingVerifier::Accumulator;
-
-    using FoldProof = std::vector<FF>;
-
-    using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
-    using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
-    using PublicPairingPoints = stdlib::PublicInputComponent<PairingPoints>;
-    using KernelIO = bb::stdlib::recursion::honk::KernelIO;
-    using HidingKernelIO = bb::stdlib::recursion::honk::HidingKernelIO<ClientCircuit>;
-    using AppIO = bb::stdlib::recursion::honk::AppIO;
-    using StdlibProof = stdlib::Proof<ClientCircuit>;
-    using WitnessCommitments = RecursiveFlavor::WitnessCommitments;
-
-    // Merge commitments
-    using TableCommitments = std::array<RecursiveFlavor::Commitment, ClientCircuit::NUM_WIRES>;
 
     /**
      * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
@@ -237,7 +225,7 @@ class SumcheckClientIVC : public IVCBase {
     };
 
     // Specifies proof type or equivalently the type of recursive verification to be performed on a given proof
-    enum class QUEUE_TYPE {
+    enum class QUEUE_TYPE : uint8_t {
         OINK,
         PG,
         PG_FINAL, // the final PG verification, used in hiding kernel
@@ -267,7 +255,7 @@ class SumcheckClientIVC : public IVCBase {
     // Transcript for CIVC prover (shared between Hiding circuit, Merge, ECCVM, and Translator)
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
-    // Transcript to be shared across the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n}
+    // Transcript to be shared across the folding of K_{i-1} (kernel), A_{i} (app)
     std::shared_ptr<Transcript> prover_accumulation_transcript = std::make_shared<Transcript>();
 
     size_t num_circuits; // total number of circuits to be accumulated in the IVC
@@ -337,14 +325,14 @@ class SumcheckClientIVC : public IVCBase {
     VerificationKey get_vk() const;
 
   private:
-    // /**
-    //  * @brief Runs either Oink or PG native verifier to update the native verifier accumulator
-    //  *
-    //  * @param queue_entry The verifier inputs from the queue.
-    //  * @param verifier_transcript Verifier transcript corresponding to the prover transcript.
-    //  */
-    // void update_native_verifier_accumulator(const VerifierInputs& queue_entry,
-    //                                         const std::shared_ptr<Transcript>& verifier_transcript);
+    /**
+     * @brief Update native verifier accumulator. Useful for debugging.
+     *
+     * @param queue_entry The verifier inputs from the queue.
+     * @param verifier_transcript Verifier transcript corresponding to the prover transcript.
+     */
+    void update_native_verifier_accumulator(const VerifierInputs& queue_entry,
+                                            const std::shared_ptr<Transcript>& verifier_transcript);
 
     HonkProof construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
                                                      const std::shared_ptr<MegaVerificationKey>& verification_key);
