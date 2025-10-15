@@ -1002,7 +1002,7 @@ __metadata:
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    c-kzg: "npm:4.0.0-alpha.1"
+    c-kzg: "npm:4.1.0"
     get-port: "npm:^7.1.0"
     jest: "npm:^30.0.0"
     ts-node: "npm:^10.9.1"
@@ -10167,14 +10167,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"c-kzg@npm:4.0.0-alpha.1":
-  version: 4.0.0-alpha.1
-  resolution: "c-kzg@npm:4.0.0-alpha.1"
+"c-kzg@npm:4.1.0":
+  version: 4.1.0
+  resolution: "c-kzg@npm:4.1.0"
   dependencies:
     bindings: "npm:^1.5.0"
-    node-addon-api: "npm:^5.0.0"
+    node-addon-api: "npm:^8.3.1"
     node-gyp: "npm:latest"
-  checksum: 10/4095348ee345cc6db318e52fd14a6619200e5e76e5b9dcd665948bcb0b5273deb97833d910ac2aaa1ee6697610af36998f122c36a3ecb7bd674e3343328fcb42
+  checksum: 10/c5caf4b0d16ebb4890c3eb5b0a7c79792295c733767c1279fee4255a5aaab1eecbbf633ceb54a9102707d111e749da73465eeb07921bcdf7cc0126ceb7457100
   languageName: node
   linkType: hard
 
@@ -17702,21 +17702,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-addon-api@npm:^5.0.0":
-  version: 5.1.0
-  resolution: "node-addon-api@npm:5.1.0"
-  dependencies:
-    node-gyp: "npm:latest"
-  checksum: 10/595f59ffb4630564f587c502119cbd980d302e482781021f3b479f5fc7e41cf8f2f7280fdc2795f32d148e4f3259bd15043c52d4a3442796aa6f1ae97b959636
-  languageName: node
-  linkType: hard
-
 "node-addon-api@npm:^6.1.0":
   version: 6.1.0
   resolution: "node-addon-api@npm:6.1.0"
   dependencies:
     node-gyp: "npm:latest"
   checksum: 10/8eea1d4d965930a177a0508695beb0d89b4c1d80bf330646a035357a1e8fc31e0d09686e2374996e96e757b947a7ece319f98ede3146683f162597c0bcb4df90
+  languageName: node
+  linkType: hard
+
+"node-addon-api@npm:^8.3.1":
+  version: 8.5.0
+  resolution: "node-addon-api@npm:8.5.0"
+  dependencies:
+    node-gyp: "npm:latest"
+  checksum: 10/9a893f4f835fbc3908e0070f7bcacf36e37fd06be8008409b104c30df4092a0d9a29927b3a74cdbc1d34338274ba4116d597a41f573e06c29538a1a70d07413f
   languageName: node
   linkType: hard
 
