@@ -128,12 +128,14 @@ variable "L1_CONSENSUS_HOST_URLS" {
   description = "The L1 consensus host URLs"
   type        = list(string)
   default     = []
+  sensitive   = true
 }
 
 variable "L1_CONSENSUS_HOST_API_KEYS" {
   description = "The L1 consensus host API keys"
   type        = list(string)
   default     = []
+  sensitive   = true
 }
 
 variable "L1_CONSENSUS_HOST_API_KEY_HEADERS" {
@@ -161,6 +163,7 @@ variable "VALIDATOR_MNEMONIC" {
   description = "The validator mnemonic"
   type        = string
   default     = ""
+  sensitive   = true
 }
 
 variable "VALIDATOR_MNEMONIC_START_INDEX" {
@@ -196,7 +199,7 @@ variable "VALIDATOR_REPLICAS" {
 variable "PROVER_MNEMONIC" {
   description = "The prover mnemonic"
   type        = string
-  default     = "test test test test test test test test test test test junk"
+  sensitive   = true
 }
 
 variable "PROVER_REPLICAS" {
@@ -222,6 +225,7 @@ variable "OTEL_COLLECTOR_ENDPOINT" {
   type        = string
   default     = null
   nullable    = true
+  sensitive   = true
 }
 
 variable "SPONSORED_FPC" {
@@ -364,6 +368,7 @@ variable "STORE_SNAPSHOT_URL" {
   type        = string
   nullable    = true
   default     = null
+  sensitive   = true
 }
 
 variable "SNAPSHOT_CRON" {
@@ -376,6 +381,7 @@ variable "BOT_MNEMONIC" {
   description = "The bot mnemonic"
   type        = string
   default     = "test test test test test test test test test test test junk"
+  sensitive   = true
 }
 
 variable "BOT_TRANSFERS_MNEMONIC_START_INDEX" {
@@ -406,6 +412,7 @@ variable "BOT_TRANSFERS_L2_PRIVATE_KEY" {
   description = "Private key for the transfers bot (hex string starting with 0x)"
   nullable    = true
   default     = null
+  sensitive   = true
 }
 
 variable "BOT_SWAPS_MNEMONIC_START_INDEX" {
@@ -437,6 +444,7 @@ variable "BOT_SWAPS_L2_PRIVATE_KEY" {
   type        = string
   nullable    = true
   default     = null
+  sensitive   = true
 }
 
 # RPC ingress configuration (GKE-specific)
@@ -469,6 +477,7 @@ variable "PROVER_FAILED_PROOF_STORE" {
   type        = string
   nullable    = false
   default     = ""
+  sensitive   = true
 }
 
 variable "RPC_REPLICAS" {
