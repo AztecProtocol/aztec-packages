@@ -93,14 +93,14 @@ import {
 import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
+import { type Chain, type HDAccount, type Hex, type PrivateKeyAccount, getContract } from '@spalladino/viem';
+import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from '@spalladino/viem/accounts';
+import { foundry } from '@spalladino/viem/chains';
 import type { Anvil } from '@viem/anvil';
 import fs from 'fs/promises';
 import getPort from 'get-port';
 import { tmpdir } from 'os';
 import * as path from 'path';
-import { type Chain, type HDAccount, type Hex, type PrivateKeyAccount, getContract } from 'viem';
-import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
-import { foundry } from 'viem/chains';
 
 import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';

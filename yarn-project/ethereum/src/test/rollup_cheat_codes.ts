@@ -13,8 +13,8 @@ import {
   getContract,
   hexToBigInt,
   http,
-} from 'viem';
-import { foundry } from 'viem/chains';
+} from '@spalladino/viem';
+import { foundry } from '@spalladino/viem/chains';
 
 import { EthCheatCodes } from './eth_cheat_codes.js';
 

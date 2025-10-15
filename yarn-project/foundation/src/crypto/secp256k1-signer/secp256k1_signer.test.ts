@@ -2,8 +2,17 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 
-import { hashMessage, recoverAddress as viemRecoverAddress, recoverPublicKey as viemRecoverPublicKey } from 'viem';
-import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount, publicKeyToAddress } from 'viem/accounts';
+import {
+  hashMessage,
+  recoverAddress as viemRecoverAddress,
+  recoverPublicKey as viemRecoverPublicKey,
+} from '@spalladino/viem';
+import {
+  type PrivateKeyAccount,
+  generatePrivateKey,
+  privateKeyToAccount,
+  publicKeyToAddress,
+} from '@spalladino/viem/accounts';
 
 import { Secp256k1Signer } from './secp256k1_signer.js';
 import { recoverAddress as lightRecoverAddress, recoverPublicKey as lightRecoverPublicKey } from './utils.js';

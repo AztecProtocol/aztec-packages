@@ -2,7 +2,7 @@ import type { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 
-import type { TypedDataDefinition } from 'viem';
+import type { TypedDataDefinition } from '@spalladino/viem';
 
 import type { ValidatorKeyStore } from './interface.js';
 

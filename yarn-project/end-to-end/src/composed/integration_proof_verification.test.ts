@@ -7,11 +7,11 @@ import { HonkVerifierAbi, HonkVerifierBytecode, IVerifierAbi } from '@aztec/l1-a
 import { Proof } from '@aztec/stdlib/proofs';
 import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 
+import { type GetContractReturnType, type Hex, getContract } from '@spalladino/viem';
+import { mnemonicToAccount } from '@spalladino/viem/accounts';
 import type { Anvil } from '@viem/anvil';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-import { type GetContractReturnType, type Hex, getContract } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';

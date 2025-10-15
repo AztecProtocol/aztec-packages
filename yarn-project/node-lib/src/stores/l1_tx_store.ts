@@ -4,7 +4,7 @@ import type { Logger } from '@aztec/foundation/log';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 
-import type { TransactionReceipt } from 'viem';
+import type { TransactionReceipt } from '@spalladino/viem';
 
 /**
  * Serializable version of L1TxRequest for storage.

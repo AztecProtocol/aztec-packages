@@ -18,7 +18,7 @@ import {
   keccak256,
   parseTransaction,
   serializeTransaction,
-} from 'viem';
+} from '@spalladino/viem';
 
 import type { EthRemoteSignerConfig } from './types.js';
 

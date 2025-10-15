@@ -4,10 +4,10 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
+import { type Hex, encodeFunctionData, getContract } from '@spalladino/viem';
+import { mnemonicToAccount, privateKeyToAccount } from '@spalladino/viem/accounts';
+import { foundry } from '@spalladino/viem/chains';
 import type { Anvil } from '@viem/anvil';
-import { type Hex, encodeFunctionData, getContract } from 'viem';
-import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
-import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client } from '../client.js';
 import { deployL1Contract } from '../deploy_l1_contracts.js';

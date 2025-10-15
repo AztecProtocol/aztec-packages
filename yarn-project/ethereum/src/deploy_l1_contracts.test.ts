@@ -6,8 +6,8 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { MockVerifierAbi, MockVerifierBytecode, TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
-import type { Hex } from 'viem';
-import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
+import type { Hex } from '@spalladino/viem';
+import { type PrivateKeyAccount, privateKeyToAccount } from '@spalladino/viem/accounts';
 
 import { createEthereumChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';

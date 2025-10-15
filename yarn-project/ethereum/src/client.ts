@@ -11,9 +11,9 @@ import {
   fallback,
   http,
   publicActions,
-} from 'viem';
-import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
-import { foundry } from 'viem/chains';
+} from '@spalladino/viem';
+import { mnemonicToAccount, privateKeyToAccount } from '@spalladino/viem/accounts';
+import { foundry } from '@spalladino/viem/chains';
 
 import { createEthereumChain } from './chain.js';
 import type { ExtendedViemWalletClient, ViemPublicClient } from './types.js';

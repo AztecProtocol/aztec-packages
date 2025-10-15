@@ -6,9 +6,9 @@ import { type LogFn, type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 
+import { createPublicClient, fallback, getAbiItem, getAddress, http } from '@spalladino/viem';
 import chunk from 'lodash.chunk';
 import groupBy from 'lodash.groupby';
-import { createPublicClient, fallback, getAbiItem, getAddress, http } from 'viem';
 
 export async function proverStats(opts: {
   l1RpcUrls: string[];

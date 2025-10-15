@@ -4,7 +4,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { makeBlockProposal } from '@aztec/stdlib/testing';
 import { Tx } from '@aztec/stdlib/tx';
 
-import { generatePrivateKey } from 'viem/accounts';
+import { generatePrivateKey } from '@spalladino/viem/accounts';
 
 import { LocalKeyStore } from '../key_store/local_key_store.js';
 import { ValidationService } from './validation_service.js';

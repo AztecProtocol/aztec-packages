@@ -63,6 +63,7 @@
     "@iarna/toml": "^2.2.5",
     "@jest/globals": "^30.0.0",
     "@noble/curves": "=1.0.0",
+    "@spalladino/viem": "2.38.2-eip7594.0",
     "@swc/core": "^1.4.11",
     "@swc/jest": "^0.2.36",
     "@types/fs-extra": "^11.0.2",
@@ -96,7 +97,6 @@
     "tslib": "^2.4.0",
     "typescript": "^5.3.3",
     "util": "^0.12.5",
-    "viem": "2.38.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {

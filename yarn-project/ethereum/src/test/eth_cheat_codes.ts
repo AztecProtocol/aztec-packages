@@ -6,7 +6,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { pluralize } from '@aztec/foundation/string';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 
-import { type Hex, type Transaction, createPublicClient, fallback, hexToNumber, http } from 'viem';
+import { type Hex, type Transaction, createPublicClient, fallback, hexToNumber, http } from '@spalladino/viem';
 
 import type { ViemPublicClient } from '../types.js';
 

@@ -35,12 +35,12 @@
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
+    "@spalladino/viem": "2.38.2-eip7594.0",
     "@viem/anvil": "^0.0.10",
     "dotenv": "^16.0.3",
     "lodash.chunk": "^4.2.0",
     "lodash.pickby": "^4.5.0",
     "tslib": "^2.4.0",
-    "viem": "2.38.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {
