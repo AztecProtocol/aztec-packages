@@ -78,7 +78,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     StaticAnalyzer_(StaticAnalyzer_&& other) = delete;
     StaticAnalyzer_& operator=(const StaticAnalyzer_& other) = delete;
     StaticAnalyzer_&& operator=(StaticAnalyzer_&& other) = delete;
-    StaticAnalyzer_(CircuitBuilder& circuit_builder, bool connect_variables = true, bool debug_cc = true);
+    StaticAnalyzer_(CircuitBuilder& circuit_builder, bool connect_variables = true);
 
     /**
      * @brief Convert a vector of variable indices to their real indices
@@ -163,7 +163,6 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     // Store reference to the circuit builder
     CircuitBuilder& circuit_builder;
     bool connect_variables;
-    bool debug_cc;
 
     std::unordered_map<uint32_t, std::vector<uint32_t>>
         variable_adjacency_lists; // we use this data structure to contain information about variables and their

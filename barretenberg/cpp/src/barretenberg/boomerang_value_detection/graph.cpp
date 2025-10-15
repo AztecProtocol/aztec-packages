@@ -746,12 +746,9 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
  *          4) Special handling for sorted constraints in delta range blocks
  */
 template <typename FF, typename CircuitBuilder>
-StaticAnalyzer_<FF, CircuitBuilder>::StaticAnalyzer_(CircuitBuilder& circuit_builder,
-                                                     bool connect_variables,
-                                                     bool debug_cc)
+StaticAnalyzer_<FF, CircuitBuilder>::StaticAnalyzer_(CircuitBuilder& circuit_builder, bool connect_variables)
     : circuit_builder(circuit_builder)
     , connect_variables(connect_variables)
-    , debug_cc(debug_cc)
 {
     variables_gate_counts = std::unordered_map<uint32_t, size_t>(circuit_builder.real_variable_index.size());
     variable_adjacency_lists =
@@ -907,15 +904,15 @@ std::vector<ConnectedComponent> StaticAnalyzer_<FF, CircuitBuilder>::find_connec
     mark_range_list_connected_components();
     mark_finalize_connected_components();
     mark_process_rom_connected_component();
-    if (!debug_cc) {
-        main_connected_components.reserve(connected_components.size());
-        for (auto& cc : connected_components) {
-            if (!cc.is_range_list_cc && !cc.is_finalize_cc && !cc.is_process_rom_cc) {
-                main_connected_components.emplace_back(std::move(cc));
-            }
+#ifndef VERBOSE_DEBUG
+    main_connected_components.reserve(connected_components.size());
+    for (auto& cc : connected_components) {
+        if (!cc.is_range_list_cc && !cc.is_finalize_cc && !cc.is_process_rom_cc) {
+            main_connected_components.emplace_back(std::move(cc));
         }
-        return main_connected_components;
     }
+    return main_connected_components;
+#endif
     return connected_components;
 }
 
@@ -1423,23 +1420,21 @@ std::unordered_set<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_variables_
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::print_connected_components_info()
 {
-    std::vector<ConnectedComponent> print_cc;
-    if (debug_cc) {
-        print_cc = connected_components;
-    } else {
-        print_cc = main_connected_components;
-    }
-    for (size_t i = 0; i < print_cc.size(); i++) {
-        info("size of ", i + 1, " connected component == ", print_cc[i].size(), ":");
-        info("Does connected component represent range list? ", print_cc[i].is_range_list_cc);
-        info("Does connected component represent something from finalize? ", print_cc[i].is_finalize_cc);
-        info("Does connected component represent process ROM array? ", print_cc[i].is_process_rom_cc);
-        if (print_cc[i].size() < 50) {
-            for (const auto& elem : print_cc[i].vars()) {
+#ifdef VERBOSE_DEBUG
+    for (size_t i = 0; i < connected_components.size(); i++) {
+        info("size of ", i + 1, " connected component == ", connected_components[i].size(), ":");
+        info("Does connected component represent range list? ", connected_components[i].is_range_list_cc);
+        info("Does connected component represent something from finalize? ", connected_components[i].is_finalize_cc);
+        info("Does connected component represent process ROM array? ", connected_components[i].is_process_rom_cc);
+        if (connected_components[i].size() < 50) {
+            for (const auto& elem : connected_components[i].vars()) {
                 info("elem == ", elem);
             }
         }
     }
+#else
+    info("the number of main connected components = ", main_connected_components.size());
+#endif
 }
 
 /**
