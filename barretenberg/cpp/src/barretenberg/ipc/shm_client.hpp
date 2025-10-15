@@ -1,11 +1,13 @@
 #pragma once
 
 #include "barretenberg/ipc/ipc_client.hpp"
-#include "barretenberg/ipc/shm/mpsc_shm.h"
-#include "barretenberg/ipc/shm/spsc_shm.h"
+#include "barretenberg/ipc/shm/mpsc_shm.hpp"
+#include "barretenberg/ipc/shm/spsc_shm.hpp"
 #include <atomic>
 #include <cstring>
 #include <fcntl.h>
+#include <memory>
+#include <optional>
 #include <string>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -29,7 +31,7 @@ class ShmClient : public IpcClient {
 
     bool connect() override
     {
-        if (producer_) {
+        if (producer_.has_value()) {
             return true; // Already connected
         }
 
@@ -56,114 +58,113 @@ class ShmClient : public IpcClient {
             return false; // Too many clients
         }
 
-        // Connect as MPSC producer for requests
-        producer_ = mpsc_producer_connect(base_name_.c_str(), client_id_);
-        if (!producer_) {
+        try {
+            // Connect as MPSC producer for requests
+            producer_ = MpscProducer::connect(base_name_, client_id_);
+
+            // Connect to dedicated SPSC response ring
+            std::string resp_name = base_name_ + "_response_" + std::to_string(client_id_);
+            response_ring_ = SpscShm::connect(resp_name);
+
+            return true;
+        } catch (...) {
+            producer_.reset();
+            response_ring_.reset();
             return false;
         }
-
-        // Connect to dedicated SPSC response ring
-        std::string resp_name = base_name_ + "_response_" + std::to_string(client_id_);
-        response_ring_ = spsc_shm_connect(resp_name.c_str());
-        if (!response_ring_) {
-            mpsc_producer_close(producer_);
-            producer_ = nullptr;
-            return false;
-        }
-
-        return true;
     }
 
     bool send(const void* data, size_t len, uint64_t timeout_ns) override
     {
-        if (!producer_) {
+        (void)timeout_ns; // TODO: Use timeout parameter
+
+        if (!producer_.has_value()) {
             return false;
         }
 
         // Add 4-byte length prefix to match socket behavior
         size_t total_len = sizeof(uint32_t) + len;
-        uint64_t timeout_us = timeout_ns > 0 ? timeout_ns / 1000 : 1000000000; // Default 1s
+        uint32_t spin_time_ns = 10000000; // 10ms
 
-        if (!mpsc_wait_for_space(producer_, total_len, static_cast<uint32_t>(timeout_us))) {
+        // Wait for enough space
+        if (!producer_->wait_for_space(total_len, spin_time_ns)) {
             return false;
         }
 
+        // Claim space
         size_t granted = 0;
-        void* buf = mpsc_claim(producer_, total_len, &granted);
+        void* buf = producer_->claim(total_len, &granted);
         if (granted < total_len) {
-            return false;
+            return false; // Not enough space
         }
 
-        // Write length prefix then data
+        // Write message with length prefix
         auto len_u32 = static_cast<uint32_t>(len);
         std::memcpy(buf, &len_u32, sizeof(uint32_t));
         std::memcpy(static_cast<uint8_t*>(buf) + sizeof(uint32_t), data, len);
-        mpsc_publish(producer_, total_len);
+        producer_->publish(total_len);
 
         return true;
     }
 
     ssize_t recv(void* buffer, size_t max_len, uint64_t timeout_ns) override
     {
-        if (!response_ring_) {
+        if (!response_ring_.has_value()) {
             return -1;
         }
 
-        uint64_t timeout_us = timeout_ns > 0 ? timeout_ns / 1000 : 1000000000; // Default 1s
+        uint32_t spin_time_ns = 10000000; // 10ms
+        const int max_retries = timeout_ns > 0 ? static_cast<int>(timeout_ns / spin_time_ns) : 100;
 
-        if (!spsc_wait_for_data(response_ring_, static_cast<uint32_t>(timeout_us))) {
-            return -1;
-        }
+        for (int retry = 0; retry < max_retries; retry++) {
+            if (response_ring_->wait_for_data(spin_time_ns)) {
+                // Data available - peek skips padding automatically
+                size_t n = 0;
+                void* data = response_ring_->peek(&n);
+                if (!data || n < sizeof(uint32_t)) {
+                    if (n > 0) {
+                        response_ring_->release(n);
+                    }
+                    continue;
+                }
 
-        size_t n = 0;
-        void* data = spsc_peek(response_ring_, &n);
-        if (!data || n < sizeof(uint32_t)) {
-            if (n > 0) {
-                spsc_release(response_ring_, n);
+                // Read length prefix
+                uint32_t msg_len = 0;
+                std::memcpy(&msg_len, data, sizeof(uint32_t));
+
+                if (n < sizeof(uint32_t) + msg_len) {
+                    // Incomplete message - wait and retry
+                    continue;
+                }
+
+                if (msg_len > max_len) {
+                    response_ring_->release(sizeof(uint32_t) + msg_len);
+                    return -1; // Buffer too small
+                }
+
+                // Copy message data (skip length prefix)
+                std::memcpy(buffer, static_cast<const uint8_t*>(data) + sizeof(uint32_t), msg_len);
+                response_ring_->release(sizeof(uint32_t) + msg_len);
+
+                return static_cast<ssize_t>(msg_len);
             }
-            return -1;
         }
 
-        // Read length prefix
-        uint32_t msg_len = 0;
-        std::memcpy(&msg_len, data, sizeof(uint32_t));
-
-        if (n < sizeof(uint32_t) + msg_len) {
-            spsc_release(response_ring_, n);
-            return -1; // Incomplete message
-        }
-
-        if (msg_len > max_len) {
-            spsc_release(response_ring_, n);
-            return -1; // Buffer too small
-        }
-
-        // Copy message data (skip length prefix)
-        std::memcpy(buffer, static_cast<const uint8_t*>(data) + sizeof(uint32_t), msg_len);
-        spsc_release(response_ring_, sizeof(uint32_t) + msg_len);
-
-        return static_cast<ssize_t>(msg_len);
+        return -1; // Timeout
     }
 
     void close() override
     {
-        if (response_ring_) {
-            spsc_shm_close(response_ring_);
-            response_ring_ = nullptr;
-        }
-
-        if (producer_) {
-            mpsc_producer_close(producer_);
-            producer_ = nullptr;
-        }
+        response_ring_.reset();
+        producer_.reset();
     }
 
   private:
     std::string base_name_;
     size_t max_clients_;
     uint32_t client_id_ = 0;
-    struct mpsc_producer* producer_ = nullptr;
-    struct spsc_shm* response_ring_ = nullptr;
+    std::optional<MpscProducer> producer_;
+    std::optional<SpscShm> response_ring_;
 };
 
 } // namespace bb::ipc

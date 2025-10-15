@@ -1,93 +1,41 @@
 #pragma once
 
 #include "barretenberg/ipc/ipc_server.hpp"
-#include "barretenberg/ipc/socket/uds_server.h"
 #include <string>
-#include <unistd.h>
+#include <unordered_map>
+#include <vector>
 
 namespace bb::ipc {
 
 /**
  * @brief IPC server implementation using Unix domain sockets
+ *
+ * Direct implementation using epoll for efficient multi-client handling.
+ * Dynamic client capacity with no artificial limits.
  */
 class SocketServer : public IpcServer {
   public:
-    SocketServer(std::string socket_path, int max_clients)
-        : socket_path_(std::move(socket_path))
-        , max_clients_(max_clients)
-    {}
+    SocketServer(std::string socket_path, int initial_max_clients);
+    ~SocketServer() override;
 
-    ~SocketServer() override { close(); }
-
-    bool listen() override
-    {
-        if (server_) {
-            return true; // Already listening
-        }
-
-        // Clean up any leftover socket file
-        unlink(socket_path_.c_str());
-
-        server_ = uds_server_create(socket_path_.c_str(), max_clients_);
-        return server_ != nullptr;
-    }
-
-    int accept(uint64_t timeout_ns) override
-    {
-        if (!server_) {
-            return -1;
-        }
-
-        // Convert nanoseconds to microseconds
-        int timeout_us = timeout_ns > 0 ? static_cast<int>(timeout_ns / 1000) : (timeout_ns == 0 ? 0 : -1);
-        return uds_server_accept(server_, timeout_us);
-    }
-
-    int wait_for_data(uint64_t timeout_ns) override
-    {
-        if (!server_) {
-            return -1;
-        }
-
-        // Convert nanoseconds to microseconds
-        int timeout_us = timeout_ns > 0 ? static_cast<int>(timeout_ns / 1000) : -1;
-        return uds_server_wait_for_data(server_, timeout_us);
-    }
-
-    ssize_t recv(int client_id, void* buffer, size_t max_len) override
-    {
-        if (!server_) {
-            return -1;
-        }
-
-        return uds_server_recv(server_, client_id, buffer, max_len);
-    }
-
-    bool send(int client_id, const void* data, size_t len) override
-    {
-        if (!server_) {
-            return false;
-        }
-
-        ssize_t sent = uds_server_send(server_, client_id, data, len);
-        return sent > 0;
-    }
-
-    void close() override
-    {
-        if (server_) {
-            uds_server_close(server_);
-            server_ = nullptr;
-        }
-
-        // Clean up socket file
-        unlink(socket_path_.c_str());
-    }
+    bool listen() override;
+    int accept(uint64_t timeout_ns) override;
+    int wait_for_data(uint64_t timeout_ns) override;
+    ssize_t recv(int client_id, void* buffer, size_t max_len) override;
+    bool send(int client_id, const void* data, size_t len) override;
+    void close() override;
 
   private:
+    void disconnect_client(int client_id);
+    int find_free_slot();
+
     std::string socket_path_;
-    int max_clients_;
-    struct uds_server* server_ = nullptr;
+    int initial_max_clients_;
+    int listen_fd_ = -1;
+    int epoll_fd_ = -1;
+    std::vector<int> client_fds_;                  // client_id -> fd
+    std::unordered_map<int, int> fd_to_client_id_; // fd -> client_id (for fast lookup)
+    int num_clients_ = 0;
 };
 
 } // namespace bb::ipc
