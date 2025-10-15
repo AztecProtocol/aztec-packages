@@ -1683,36 +1683,39 @@ TYPED_TEST(CycleGroupTest, TestMul)
             typename Group::Fr native_scalar = Group::Fr::random_element(&engine);
             auto expected_result = element * native_scalar;
 
-            // 1: add entry where point, scalar are witnesses
+            // 1: perform mul where point, scalar are witnesses
             point = (cycle_group_ct::from_witness(&builder, element));
             scalar = (cycle_group_ct::cycle_scalar::from_witness(&builder, native_scalar));
             point.set_origin_tag(submitted_value_origin_tag);
             scalar.set_origin_tag(challenge_origin_tag);
             result = point * scalar;
-
             EXPECT_EQ((result).get_value(), (expected_result));
 
-            // 2: add entry where point is constant, scalar is witness
+            // 2: perform mul where point is constant, scalar is witness
             point = (cycle_group_ct(element));
             scalar = (cycle_group_ct::cycle_scalar::from_witness(&builder, native_scalar));
-
+            result = point * scalar;
             EXPECT_EQ((result).get_value(), (expected_result));
 
-            // 3: add entry where point is witness, scalar is constant
+            // 3: perform mul where point is witness, scalar is constant
             point = (cycle_group_ct::from_witness(&builder, element));
+            scalar = (typename cycle_group_ct::cycle_scalar(native_scalar));
+            result = point * scalar;
             EXPECT_EQ((result).get_value(), (expected_result));
 
-            // 4: add entry where point is constant, scalar is constant
+            // 4: perform mul where point is constant, scalar is constant
             point = (cycle_group_ct(element));
+            scalar = (typename cycle_group_ct::cycle_scalar(native_scalar));
+            result = point * scalar;
             EXPECT_EQ((result).get_value(), (expected_result));
         }
     }
 
     // Gate count difference due to additional constants added by default in Mega builder
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 6594); // Mega
+        check_circuit_and_gate_count(builder, 12933); // Mega
     } else {
-        check_circuit_and_gate_count(builder, 6597); // Ultra
+        check_circuit_and_gate_count(builder, 12936); // Ultra
     }
 }
 
@@ -1754,7 +1757,7 @@ TYPED_TEST(CycleGroupTest, TestConversionFromBigfield)
         if (construct_witnesses) {
             EXPECT_FALSE(big_elt.is_constant());
             EXPECT_FALSE(scalar_from_big_elt.is_constant());
-            check_circuit_and_gate_count(builder, 3498);
+            check_circuit_and_gate_count(builder, 3523);
         }
     };
     run_test(/*construct_witnesses=*/true);
