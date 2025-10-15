@@ -57,11 +57,7 @@ template <typename FF> struct GateSeparatorPolynomial {
     GateSeparatorPolynomial(const std::vector<FF>& betas, const size_t log_num_monomials)
         : betas(betas)
         , beta_products(compute_beta_products(betas, log_num_monomials))
-    {
-        if (betas.empty()) {
-            periodicity = 1;
-        }
-    }
+    {}
 
     /**
      * @brief Construct a new GateSeparatorPolynomial object without expanding to a vector of monomials
@@ -85,8 +81,6 @@ template <typename FF> struct GateSeparatorPolynomial {
             for (const auto& u_k : challenge) {
                 partially_evaluate(u_k);
             }
-        } else {
-            periodicity = 1;
         }
     }
 
@@ -163,7 +157,6 @@ template <typename FF> struct GateSeparatorPolynomial {
     {
         if (betas.empty()) {
             Polynomial<FF> out(1);
-            out.at(0) = FF(1);
             return out;
         }
 
@@ -268,8 +261,8 @@ defined by the formula
  * independent), meaning they do not need to be scaled by the \f$ pow_{\beta} \f$-polynomial.
  *
  * **Behavior when `betas` is empty:**
- * - #beta_products is a size-1 polynomial containing only \f$ [1] \f$
- * - #periodicity is set to 1 (constant across all evaluations)
+ * - #beta_products is a size-1 polynomial containing only \f$ [0] \f$
+ * - #periodicity is unused
  * - #current_element() returns \f$ 1 \f$
  * - #partially_evaluate() becomes a no-op (no updates to #partial_evaluation_result)
  * - #partial_evaluation_result remains \f$ 1 \f$ throughout
