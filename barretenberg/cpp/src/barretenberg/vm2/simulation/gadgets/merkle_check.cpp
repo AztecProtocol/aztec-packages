@@ -1,7 +1,8 @@
 #include "barretenberg/vm2/simulation/gadgets/merkle_check.hpp"
 
 #include <cassert>
-#include <cstdint>
+#include <stdexcept>
+#include <vector>
 
 namespace bb::avm2::simulation {
 

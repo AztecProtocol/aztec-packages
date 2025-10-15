@@ -1,8 +1,5 @@
 #pragma once
 
-#include <memory>
-
-#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"

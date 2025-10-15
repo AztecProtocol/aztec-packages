@@ -224,21 +224,21 @@ TEST(MerkleCheckConstrainingTest, EndWhenPathLenOne)
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_path_len, 2 },
-          { C::merkle_check_remaining_path_len_inv, FF(1).invert() },
+          { C::merkle_check_path_len_min_one_inv, FF(1).invert() },
           { C::merkle_check_end, 0 } },
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_path_len, 1 },
-          { C::merkle_check_remaining_path_len_inv, 0 },
+          { C::merkle_check_path_len_min_one_inv, 0 },
           { C::merkle_check_end, 1 } },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_END_WHEN_PATH_EMPTY);
+    check_relation<merkle_check>(trace, merkle_check::SR_END_IFF_REM_PATH_EMPTY);
 
     // Negative test - now modify to an incorrect value and verify it fails
     trace.set(C::merkle_check_end, 1, 0); // Should be 1, change to 0
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_END_WHEN_PATH_EMPTY),
-                              "END_WHEN_PATH_EMPTY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_END_IFF_REM_PATH_EMPTY),
+                              "END_IFF_REM_PATH_EMPTY");
 }
 
 TEST(MerkleCheckConstrainingTest, NextIndexIsHalved)
@@ -285,140 +285,104 @@ TEST(MerkleCheckConstrainingTest, NextIndexIsHalved)
                               "NEXT_INDEX_IS_HALVED");
 }
 
-TEST(MerkleCheckConstrainingTest, AssignCurrentReadNodeLeftOrRight)
+TEST(MerkleCheckConstrainingTest, AssignReadNodesEven)
 {
-    // Test even index (current_node goes to left_node)
+    // Test even index (current_node goes to left_node and sibling goes to right_node)
     TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 },
-          { C::merkle_check_index_is_even, 1 },
-          { C::merkle_check_read_node, 123 },
-          { C::merkle_check_sibling, 456 },
-          { C::merkle_check_read_left_node, 123 },
-          { C::merkle_check_read_right_node, 456 } },
+        {
+            { C::merkle_check_sel, 1 },
+            { C::merkle_check_index_is_even, 1 },
+            { C::merkle_check_read_node, 123 },
+            { C::merkle_check_sibling, 456 },
+            { C::merkle_check_read_left_node, 123 },
+            { C::merkle_check_read_right_node, 456 },
+        },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_NODE_LEFT_OR_RIGHT_READ);
+    check_relation<merkle_check>(trace, merkle_check::SR_READ_LEFT_NODE, merkle_check::SR_READ_RIGHT_NODE);
 
-    // Test odd index (current_node goes to right_node)
-    TestTraceContainer trace2({
-        { { C::merkle_check_sel, 1 },
-          { C::merkle_check_index_is_even, 0 },
-          { C::merkle_check_read_node, 123 },
-          { C::merkle_check_sibling, 456 },
-          { C::merkle_check_read_left_node, 456 },
-          { C::merkle_check_read_right_node, 123 } },
-    });
+    // Negative test - swap values of read_left_node and read_right_node
+    trace.set(C::merkle_check_read_left_node, 0, 456);
+    trace.set(C::merkle_check_read_right_node, 0, 123);
 
-    check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_NODE_LEFT_OR_RIGHT_READ);
-
-    // Negative test - now modify to an incorrect value and verify it fails
-    trace2.set(C::merkle_check_read_left_node, 0, 123);  // Should be 456
-    trace2.set(C::merkle_check_read_right_node, 0, 456); // Should be 123
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_NODE_LEFT_OR_RIGHT_READ),
-                              "ASSIGN_NODE_LEFT_OR_RIGHT_READ");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_READ_RIGHT_NODE), "READ_RIGHT_NODE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_READ_LEFT_NODE), "READ_LEFT_NODE");
 }
 
-TEST(MerkleCheckConstrainingTest, AssignCurrentWriteNodeLeftOrRight)
+TEST(MerkleCheckConstrainingTest, AssignReadNodesOdd)
 {
-    // Test even index (current_node goes to left_node)
+    // Test odd index (current_node goes to right_node and sibling goes to left_node)
     TestTraceContainer trace({
-        { { C::merkle_check_write, 1 },
-          { C::merkle_check_index_is_even, 1 },
-          { C::merkle_check_write_node, 123 },
-          { C::merkle_check_sibling, 456 },
-          { C::merkle_check_write_left_node, 123 },
-          { C::merkle_check_write_right_node, 456 } },
+        {
+            { C::merkle_check_sel, 1 },
+            { C::merkle_check_index_is_even, 0 },
+            { C::merkle_check_read_node, 123 },
+            { C::merkle_check_sibling, 456 },
+            { C::merkle_check_read_left_node, 456 },
+            { C::merkle_check_read_right_node, 123 },
+        },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_NODE_LEFT_OR_RIGHT_WRITE);
+    check_relation<merkle_check>(trace, merkle_check::SR_READ_LEFT_NODE, merkle_check::SR_READ_RIGHT_NODE);
 
-    // Test odd index (current_node goes to right_node)
-    TestTraceContainer trace2({
-        { { C::merkle_check_write, 1 },
-          { C::merkle_check_index_is_even, 0 },
-          { C::merkle_check_write_node, 123 },
-          { C::merkle_check_sibling, 456 },
-          { C::merkle_check_write_left_node, 456 },
-          { C::merkle_check_write_right_node, 123 } },
-    });
+    // Negative test - swap values of read_left_node and read_right_node
+    trace.set(C::merkle_check_read_left_node, 0, 123);
+    trace.set(C::merkle_check_read_right_node, 0, 456);
 
-    check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_NODE_LEFT_OR_RIGHT_WRITE);
-
-    // Negative test - now modify to an incorrect value and verify it fails
-    trace2.set(C::merkle_check_write_left_node, 0, 123);  // Should be 456
-    trace2.set(C::merkle_check_write_right_node, 0, 456); // Should be 123
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_NODE_LEFT_OR_RIGHT_WRITE),
-                              "ASSIGN_NODE_LEFT_OR_RIGHT_WRITE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_READ_RIGHT_NODE), "READ_RIGHT_NODE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_READ_LEFT_NODE), "READ_LEFT_NODE");
 }
 
-TEST(MerkleCheckConstrainingTest, AssignSiblingLeftOrRightRead)
+TEST(MerkleCheckConstrainingTest, AssignWriteNodesEven)
 {
-    // Test even index (sibling goes to right_node)
+    // Test even index (current_node goes to left_node and sibling goes to right_node)
     TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 },
-          { C::merkle_check_index_is_even, 1 },
-          { C::merkle_check_read_node, 123 },
-          { C::merkle_check_sibling, 456 },
-          { C::merkle_check_read_left_node, 123 },
-          { C::merkle_check_read_right_node, 456 } },
+        {
+            { C::merkle_check_sel, 1 },
+            { C::merkle_check_write, 1 },
+            { C::merkle_check_index_is_even, 1 },
+            { C::merkle_check_write_node, 123 },
+            { C::merkle_check_sibling, 456 },
+            { C::merkle_check_write_left_node, 123 },
+            { C::merkle_check_write_right_node, 456 },
+        },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_READ);
+    check_relation<merkle_check>(trace, merkle_check::SR_WRITE_LEFT_NODE, merkle_check::SR_WRITE_RIGHT_NODE);
 
-    // Test odd index (sibling goes to left_node)
-    TestTraceContainer trace2({
-        { { C::merkle_check_sel, 1 },
-          { C::merkle_check_index_is_even, 0 },
-          { C::merkle_check_read_node, 123 },
-          { C::merkle_check_sibling, 456 },
-          { C::merkle_check_read_left_node, 456 },
-          { C::merkle_check_read_right_node, 123 } },
-    });
+    // Negative test - swap values of write_left_node and write_right_node
+    trace.set(C::merkle_check_write_left_node, 0, 456);
+    trace.set(C::merkle_check_write_right_node, 0, 123);
 
-    check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_READ);
-
-    // Negative test - now modify to an incorrect value and verify it fails
-    trace2.set(C::merkle_check_read_left_node, 0, 123);  // Should be 456
-    trace2.set(C::merkle_check_read_right_node, 0, 456); // Should be 123
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_READ),
-                              "ASSIGN_SIBLING_LEFT_OR_RIGHT_READ");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_WRITE_RIGHT_NODE),
+                              "WRITE_RIGHT_NODE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_WRITE_LEFT_NODE), "WRITE_LEFT_NODE");
 }
 
-TEST(MerkleCheckConstrainingTest, AssignSiblingLeftOrRightWrite)
+TEST(MerkleCheckConstrainingTest, AssignWriteNodesOdd)
 {
-    // Test even index (sibling goes to right_node)
+    // Test odd index (current_node goes to right_node and sibling goes to left_node)
     TestTraceContainer trace({
-        { { C::merkle_check_write, 1 },
-          { C::merkle_check_index_is_even, 1 },
-          { C::merkle_check_write_node, 123 },
-          { C::merkle_check_sibling, 456 },
-          { C::merkle_check_write_left_node, 123 },
-          { C::merkle_check_write_right_node, 456 } },
+        {
+            { C::merkle_check_sel, 1 },
+            { C::merkle_check_write, 1 },
+            { C::merkle_check_index_is_even, 0 },
+            { C::merkle_check_write_node, 123 },
+            { C::merkle_check_sibling, 456 },
+            { C::merkle_check_write_left_node, 456 },
+            { C::merkle_check_write_right_node, 123 },
+        },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE);
+    check_relation<merkle_check>(trace, merkle_check::SR_WRITE_LEFT_NODE, merkle_check::SR_WRITE_RIGHT_NODE);
 
-    // Test odd index (sibling goes to left_node)
-    TestTraceContainer trace2({
-        { { C::merkle_check_write, 1 },
-          { C::merkle_check_index_is_even, 0 },
-          { C::merkle_check_write_node, 123 },
-          { C::merkle_check_sibling, 456 },
-          { C::merkle_check_write_left_node, 456 },
-          { C::merkle_check_write_right_node, 123 } },
-    });
+    // Negative test - swap values of write_left_node and write_right_node
+    trace.set(C::merkle_check_write_left_node, 0, 123);
+    trace.set(C::merkle_check_write_right_node, 0, 456);
 
-    check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE);
-
-    // Negative test - now modify to an incorrect value and verify it fails
-    trace2.set(C::merkle_check_write_left_node, 0, 123);  // Should be 456
-    trace2.set(C::merkle_check_write_right_node, 0, 456); // Should be 123
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE),
-                              "ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_WRITE_RIGHT_NODE),
+                              "WRITE_RIGHT_NODE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_WRITE_LEFT_NODE), "WRITE_LEFT_NODE");
 }
 
 TEST(MerkleCheckConstrainingTest, ReadOutputHashIsNextRowsNode)
@@ -687,7 +651,7 @@ TEST_F(MerkleCheckPoseidon2Test, MultipleWithTracegen)
     trace.set(Column::merkle_check_write_node, after_last_row_index, 0);
     trace.set(Column::merkle_check_index, after_last_row_index, 0);
     trace.set(Column::merkle_check_path_len, after_last_row_index, 0);
-    trace.set(Column::merkle_check_remaining_path_len_inv, after_last_row_index, 0);
+    trace.set(Column::merkle_check_path_len_min_one_inv, after_last_row_index, 0);
     trace.set(Column::merkle_check_read_root, after_last_row_index, 0);
     trace.set(Column::merkle_check_write_root, after_last_row_index, 0);
     trace.set(Column::merkle_check_sibling, after_last_row_index, 0);
