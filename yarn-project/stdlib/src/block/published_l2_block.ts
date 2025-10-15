@@ -7,8 +7,6 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { BlockAttestation } from '../p2p/block_attestation.js';
-import { ConsensusPayload } from '../p2p/consensus_payload.js';
 import { L2Block } from './l2_block.js';
 import { CommitteeAttestation } from './proposal/committee_attestation.js';
 
@@ -81,19 +79,4 @@ export class PublishedL2Block {
       this.attestations,
     );
   }
-}
-
-/**
- * Extracts block attestations from a published L2 block.
- * Returns undefined for attestations with empty signatures, preserving array indices.
- */
-export function getAttestationsFromPublishedL2Block(
-  block: Pick<PublishedL2Block, 'attestations' | 'block'>,
-): (BlockAttestation | undefined)[] {
-  const payload = ConsensusPayload.fromBlock(block.block);
-  return block.attestations.map(attestation =>
-    attestation.signature.isEmpty()
-      ? undefined
-      : new BlockAttestation(block.block.number, payload, attestation.signature),
-  );
 }
