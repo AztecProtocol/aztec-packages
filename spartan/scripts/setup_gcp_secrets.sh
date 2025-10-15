@@ -55,12 +55,25 @@ for env_var in "${!SECRET_MAPPINGS[@]}"; do
     if grep -q "^${env_var}=REPLACE_WITH_GCP_SECRET" "$ENV_FILE"; then
         # Export the secret value
         secret_value=$(get_secret "$secret_name")
+        echo "::add-mask::$secret_value"
         export $env_var="${secret_value}"
     elif grep -q "^${env_var}=REPLACE_WITH_GCP_SECRET/" "$ENV_FILE"; then
         # Handle cases like STORE_SNAPSHOT_URL=REPLACE_WITH_GCP_SECRET/network/
         suffix=$(grep "^${env_var}=REPLACE_WITH_GCP_SECRET/" "$ENV_FILE" | cut -d'/' -f2-)
         secret_value=$(get_secret "$secret_name")
+        echo "::add-mask::$secret_value"
         export $env_var='${secret_value}/'$suffix
+    elif grep -q "^${env_var}=.*REPLACE_WITH_GCP_SECRET" "$ENV_FILE"; then
+        # Replace inline occurrences within the value, preserving surrounding content
+        full_value=$(grep "^${env_var}=" "$ENV_FILE" | cut -d'=' -f2-)
+        # Strip surrounding double quotes if present
+        if [[ "$full_value" == \"*\" && "$full_value" == *\" ]]; then
+            full_value="${full_value:1:-1}"
+        fi
+        secret_value=$(get_secret "$secret_name")
+        echo "::add-mask::$secret_value"
+        replaced_value="${full_value//REPLACE_WITH_GCP_SECRET/$secret_value}"
+        export $env_var="$replaced_value"
     fi
 done
 
