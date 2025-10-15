@@ -252,8 +252,28 @@ tests:
     error_regex: "Timeout waiting for proposal execution"
     owners:
       - *palla
-  # http://ci.aztec-labs.com/3055aa95e441471f
-  - regex: "src/e2e_p2p/e2e_p2p_broadcasted_invalid_block_proposal_slash.test.ts"
+  # http://ci.aztec-labs.com/772074b07ab8e80e
+  # 11:11:32  FAIL  src/e2e_p2p/broadcasted_invalid_block_proposal_slash.test.ts
+  # 11:11:32   e2e_p2p_broadcasted_invalid_block_proposal_slash
+  # 11:11:32     ✕ slashes validator who broadcasts invalid block proposal (190879 ms)
+  # 11:11:32
+  # 11:11:32   ● e2e_p2p_broadcasted_invalid_block_proposal_slash › slashes validator who broadcasts invalid block proposal
+  # 11:11:32
+  # 11:11:32     TimeoutError: Timeout awaiting non-empty offenses
+  # 11:11:32
+  # 11:11:32       88 |         await sleep(interval * 1000);
+  # 11:11:32       89 |         if (timeout && timer.s() > timeout) {
+  # 11:11:32     > 90 |             throw new TimeoutError(name ? `Timeout awaiting ${name}` : 'Timeout');
+  # 11:11:32          |                   ^
+  # 11:11:32       91 |         }
+  # 11:11:32       92 |     }
+  # 11:11:32       93 | }
+  # 11:11:32
+  # 11:11:32       at retryUntil (../../foundation/dest/retry/index.js:90:19)
+  # 11:11:32       at awaitOffenseDetected (e2e_p2p/shared.ts:166:20)
+  # 11:11:32       at Object.<anonymous> (e2e_p2p/broadcasted_invalid_block_proposal_slash.test.ts:147:22)
+  # 11:11:32
+  - regex: "src/e2e_p2p/broadcasted_invalid_block_proposal_slash.test.ts"
     error_regex: "Timeout awaiting non-empty offenses"
     owners:
       - *palla
