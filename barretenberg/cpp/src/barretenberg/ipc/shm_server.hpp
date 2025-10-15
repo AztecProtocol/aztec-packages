@@ -4,12 +4,15 @@
 #include "barretenberg/ipc/shm/mpsc_shm.hpp"
 #include "barretenberg/ipc/shm/spsc_shm.hpp"
 #include <atomic>
+#include <cstdint>
 #include <cstring>
 #include <fcntl.h>
 #include <optional>
 #include <string>
 #include <sys/mman.h>
+#include <sys/types.h>
 #include <unistd.h>
+#include <utility>
 #include <vector>
 
 namespace bb::ipc {
@@ -30,7 +33,13 @@ class ShmServer : public IpcServer {
         , ring_size_(ring_size)
     {}
 
-    ~ShmServer() override { close(); }
+    ~ShmServer() override { close_internal(); }
+
+    // Non-copyable, non-movable (owns shared memory resources)
+    ShmServer(const ShmServer&) = delete;
+    ShmServer& operator=(const ShmServer&) = delete;
+    ShmServer(ShmServer&&) = delete;
+    ShmServer& operator=(ShmServer&&) = delete;
 
     bool listen() override
     {
@@ -105,16 +114,20 @@ class ShmServer : public IpcServer {
 
     ssize_t recv(int client_id, void* buffer, size_t max_len) override
     {
-        if (!consumer_.has_value() || client_id < 0 || static_cast<size_t>(client_id) >= max_clients_) {
+        if (!consumer_.has_value() || client_id < 0) {
+            return -1;
+        }
+        const auto client_idx = static_cast<size_t>(client_id);
+        if (client_idx >= max_clients_) {
             return -1;
         }
 
         // Peek now skips padding automatically
         size_t n = 0;
-        void* data = consumer_->peek(static_cast<size_t>(client_id), &n);
-        if (!data || n < sizeof(uint32_t)) {
+        void* data = consumer_->peek(client_idx, &n);
+        if (data == nullptr || n < sizeof(uint32_t)) {
             if (n > 0) {
-                consumer_->release(static_cast<size_t>(client_id), n);
+                consumer_->release(client_idx, n);
             }
             return -1;
         }
@@ -124,29 +137,33 @@ class ShmServer : public IpcServer {
         std::memcpy(&msg_len, data, sizeof(uint32_t));
 
         if (n < sizeof(uint32_t) + msg_len) {
-            consumer_->release(static_cast<size_t>(client_id), n);
+            consumer_->release(client_idx, n);
             return -1; // Incomplete message
         }
 
         if (msg_len > max_len) {
-            consumer_->release(static_cast<size_t>(client_id), sizeof(uint32_t) + msg_len);
+            consumer_->release(client_idx, sizeof(uint32_t) + msg_len);
             return -1; // Buffer too small
         }
 
         // Copy message data (skip length prefix)
         std::memcpy(buffer, static_cast<const uint8_t*>(data) + sizeof(uint32_t), msg_len);
-        consumer_->release(static_cast<size_t>(client_id), sizeof(uint32_t) + msg_len);
+        consumer_->release(client_idx, sizeof(uint32_t) + msg_len);
 
         return static_cast<ssize_t>(msg_len);
     }
 
     bool send(int client_id, const void* data, size_t len) override
     {
-        if (!consumer_.has_value() || client_id < 0 || static_cast<size_t>(client_id) >= max_clients_) {
+        if (!consumer_.has_value() || client_id < 0) {
+            return false;
+        }
+        const auto client_idx = static_cast<size_t>(client_id);
+        if (client_idx >= max_clients_) {
             return false;
         }
 
-        SpscShm& response_ring = response_rings_[static_cast<size_t>(client_id)];
+        SpscShm& response_ring = response_rings_[client_idx];
 
         // Add 4-byte length prefix to match socket behavior
         size_t total_len = sizeof(uint32_t) + len;
@@ -171,7 +188,10 @@ class ShmServer : public IpcServer {
         return true;
     }
 
-    void close() override
+    void close() override { close_internal(); }
+
+  private:
+    void close_internal()
     {
         // Close all response rings
         response_rings_.clear();
@@ -189,7 +209,6 @@ class ShmServer : public IpcServer {
         shm_unlink(id_name.c_str());
     }
 
-  private:
     std::string base_name_;
     size_t max_clients_;
     size_t ring_size_;

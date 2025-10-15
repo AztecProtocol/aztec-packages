@@ -1,7 +1,10 @@
 #pragma once
 
 #include "barretenberg/ipc/ipc_server.hpp"
+#include <cstddef>
+#include <cstdint>
 #include <string>
+#include <sys/types.h>
 #include <unordered_map>
 #include <vector>
 
@@ -18,6 +21,12 @@ class SocketServer : public IpcServer {
     SocketServer(std::string socket_path, int initial_max_clients);
     ~SocketServer() override;
 
+    // Non-copyable, non-movable (owns file descriptors)
+    SocketServer(const SocketServer&) = delete;
+    SocketServer& operator=(const SocketServer&) = delete;
+    SocketServer(SocketServer&&) = delete;
+    SocketServer& operator=(SocketServer&&) = delete;
+
     bool listen() override;
     int accept(uint64_t timeout_ns) override;
     int wait_for_data(uint64_t timeout_ns) override;
@@ -26,6 +35,7 @@ class SocketServer : public IpcServer {
     void close() override;
 
   private:
+    void close_internal();
     void disconnect_client(int client_id);
     int find_free_slot();
 

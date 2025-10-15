@@ -3,6 +3,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <cstring>
 #include <gtest/gtest.h>
 #include <thread>
@@ -32,7 +33,7 @@ class ShmTest : public ::testing::Test {
         server_running.store(true, std::memory_order_release);
         server_thread = std::thread([this]() {
             // Echo server: receive message and send it back
-            std::vector<uint8_t> buffer(16 * 1024 * 1024); // 16MB buffer
+            std::vector<uint8_t> buffer(16UL * 1024 * 1024); // 16MB buffer
 
             while (server_running.load(std::memory_order_acquire)) {
                 // Try to accept connections first (non-blocking)
@@ -82,22 +83,22 @@ class ShmTest : public ::testing::Test {
 // Test basic send/receive with small messages
 TEST_F(ShmTest, BasicEcho)
 {
-    std::cerr << "Creating client..." << std::endl;
+    std::cerr << "Creating client..." << '\n';
     auto client = IpcClient::create_shm(SHM_NAME, MAX_CLIENTS);
 
-    std::cerr << "Connecting client..." << std::endl;
+    std::cerr << "Connecting client..." << '\n';
     ASSERT_TRUE(client->connect()) << "Client failed to connect";
-    std::cerr << "Client connected successfully" << std::endl;
+    std::cerr << "Client connected successfully" << '\n';
 
     std::vector<uint8_t> send_data = { 1, 2, 3, 4, 5 };
     std::vector<uint8_t> recv_buffer(1024);
 
-    std::cerr << "Sending data..." << std::endl;
+    std::cerr << "Sending data..." << '\n';
     ASSERT_TRUE(client->send(send_data.data(), send_data.size(), 1000000000)); // 1s timeout
-    std::cerr << "Data sent, receiving..." << std::endl;
+    std::cerr << "Data sent, receiving..." << '\n';
 
     ssize_t n = client->recv(recv_buffer.data(), recv_buffer.size(), 5000000000); // 5s timeout
-    std::cerr << "Received " << n << " bytes" << std::endl;
+    std::cerr << "Received " << n << " bytes" << '\n';
 
     ASSERT_GT(n, 0) << "Failed to receive response";
     ASSERT_EQ(static_cast<size_t>(n), send_data.size());
@@ -112,7 +113,7 @@ TEST_F(ShmTest, VaryingMessageSizes)
     auto client = IpcClient::create_shm(SHM_NAME, MAX_CLIENTS);
     ASSERT_TRUE(client->connect()) << "Client failed to connect";
 
-    std::vector<uint8_t> recv_buffer(16 * 1024 * 1024);
+    std::vector<uint8_t> recv_buffer(16UL * 1024 * 1024);
 
     // Test with different message sizes: 50, 100, 200, 400, 800, 1600 bytes
     // These sizes will cause the ring buffer head to advance to different positions
@@ -146,7 +147,7 @@ TEST_F(ShmTest, RingBufferWrapStressTest)
     auto client = IpcClient::create_shm(SHM_NAME, MAX_CLIENTS);
     ASSERT_TRUE(client->connect()) << "Client failed to connect";
 
-    std::vector<uint8_t> recv_buffer(16 * 1024 * 1024);
+    std::vector<uint8_t> recv_buffer(16UL * 1024 * 1024);
 
     // Simulate the benchmark: many iterations with varying message sizes
     // This will advance the ring head and eventually hit a wrap boundary
@@ -162,7 +163,7 @@ TEST_F(ShmTest, RingBufferWrapStressTest)
             // Fill with iteration number so we can detect corruption
             uint32_t pattern = static_cast<uint32_t>(iter);
             for (size_t i = 0; i < size; i += 4) {
-                std::memcpy(&send_data[i], &pattern, std::min(size_t(4), size - i));
+                std::memcpy(&send_data[i], &pattern, std::min(4UL, size - i));
             }
 
             bool send_ok = client->send(send_data.data(), send_data.size(), 100000000); // 100ms timeout
@@ -190,6 +191,7 @@ TEST_F(ShmTest, ConcurrentClients)
     std::vector<std::thread> client_threads;
     std::atomic<size_t> failures{ 0 };
 
+    client_threads.reserve(num_clients);
     for (size_t client_idx = 0; client_idx < num_clients; client_idx++) {
         client_threads.emplace_back([client_idx, &failures]() {
             auto client = IpcClient::create_shm(SHM_NAME, MAX_CLIENTS);
@@ -229,7 +231,7 @@ TEST_F(ShmTest, ConcurrentClients)
         t.join();
     }
 
-    EXPECT_EQ(failures.load(), 0u) << failures.load() << " failures occurred in concurrent client test";
+    EXPECT_EQ(failures.load(), 0) << failures.load() << " failures occurred in concurrent client test";
 }
 
 } // namespace

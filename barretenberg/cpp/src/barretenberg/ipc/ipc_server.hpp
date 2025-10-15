@@ -2,11 +2,13 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <functional>
 #include <memory>
 #include <span>
-#include <stdexcept>
 #include <string>
+#include <sys/types.h>
+#include <utility>
 #include <vector>
 
 namespace bb::ipc {
@@ -35,7 +37,14 @@ class ShutdownRequested : public std::exception {
  */
 class IpcServer {
   public:
+    IpcServer() = default;
     virtual ~IpcServer() = default;
+
+    // Abstract interface - no copy or move
+    IpcServer(const IpcServer&) = delete;
+    IpcServer& operator=(const IpcServer&) = delete;
+    IpcServer(IpcServer&&) = delete;
+    IpcServer& operator=(IpcServer&&) = delete;
 
     /**
      * @brief Start listening for client connections
@@ -48,7 +57,7 @@ class IpcServer {
      * @param timeout_ns Timeout in nanoseconds (0 = infinite)
      * @return Client ID that has data available, or -1 on timeout/error
      */
-    virtual int wait_for_data(uint64_t timeout_ns = 0) = 0;
+    virtual int wait_for_data(uint64_t timeout_ns) = 0;
 
     /**
      * @brief Receive a message from a specific client
@@ -88,7 +97,7 @@ class IpcServer {
      *
      * Note: Some transports (like shared memory) may not need explicit accept calls.
      */
-    virtual int accept(uint64_t timeout_ns = 0)
+    virtual int accept(uint64_t timeout_ns)
     {
         (void)timeout_ns;
         return -1;
@@ -106,7 +115,7 @@ class IpcServer {
      * @param handler Function to process requests and generate responses
      * @param max_message_size Maximum message size to allocate buffer for (default 1MB)
      */
-    virtual void run(Handler handler, size_t max_message_size = 1024 * 1024)
+    virtual void run(const Handler& handler, size_t max_message_size)
     {
         std::vector<uint8_t> buffer(max_message_size);
 

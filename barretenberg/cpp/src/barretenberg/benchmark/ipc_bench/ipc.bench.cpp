@@ -181,8 +181,8 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
                         msgpack::pack(cmd_buffer, std::make_tuple(command));
 
                         // Send and receive (keep load on server)
-                        if (clients[i]->send(cmd_buffer.data(), cmd_buffer.size())) {
-                            clients[i]->recv(resp_buffer.data(), resp_buffer.size());
+                        if (clients[i]->send(cmd_buffer.data(), cmd_buffer.size(), 0)) {
+                            clients[i]->recv(resp_buffer.data(), resp_buffer.size(), 0);
                         }
                     }
                 });
@@ -218,8 +218,8 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
 
             // Send shutdown command
             std::array<uint8_t, 1024> resp_buffer{};
-            clients[0]->send(cmd_buffer.data(), cmd_buffer.size());
-            clients[0]->recv(resp_buffer.data(), resp_buffer.size());
+            clients[0]->send(cmd_buffer.data(), cmd_buffer.size(), 0);
+            clients[0]->recv(resp_buffer.data(), resp_buffer.size(), 0);
         }
 
         // Close all clients
@@ -257,13 +257,13 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
             msgpack::pack(cmd_buffer, std::make_tuple(command));
 
             // Send command
-            if (!clients[0]->send(cmd_buffer.data(), cmd_buffer.size())) {
+            if (!clients[0]->send(cmd_buffer.data(), cmd_buffer.size(), 0)) {
                 state.SkipWithError("Failed to send command");
                 break;
             }
 
             // Receive response
-            ssize_t n = clients[0]->recv(resp_buffer.data(), resp_buffer.size());
+            ssize_t n = clients[0]->recv(resp_buffer.data(), resp_buffer.size(), 0);
             if (n < 0) {
                 state.SkipWithError("Failed to receive response");
                 break;

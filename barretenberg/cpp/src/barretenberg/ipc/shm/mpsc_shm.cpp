@@ -1,13 +1,18 @@
 #include "barretenberg/ipc/shm/mpsc_shm.hpp"
+#include <atomic>
 #include <cerrno>
+#include <cstdint>
 #include <cstring>
 #include <fcntl.h>
 #include <linux/futex.h>
 #include <stdexcept>
+#include <string>
 #include <sys/mman.h>
 #include <sys/syscall.h>
-#include <time.h>
+#include <time.h> // NOLINT(modernize-deprecated-headers) - need POSIX clock_gettime/CLOCK_MONOTONIC
 #include <unistd.h>
+#include <utility>
+#include <vector>
 
 #if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
@@ -20,27 +25,34 @@
 
 namespace bb::ipc {
 
+namespace {
 // ----- Utilities -----
 
-static inline uint64_t mpsc_mono_ns_now()
+inline uint64_t mpsc_mono_ns_now()
 {
     struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return static_cast<uint64_t>(ts.tv_sec) * 1000000000ULL + static_cast<uint64_t>(ts.tv_nsec);
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+        return 0;
+    }
+    return (static_cast<uint64_t>(ts.tv_sec) * 1000000000ULL) + static_cast<uint64_t>(ts.tv_nsec);
 }
 
-static inline int mpsc_futex_wait(volatile uint32_t* addr, uint32_t expect)
+inline int mpsc_futex_wait(volatile uint32_t* addr, uint32_t expect)
 {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     return static_cast<int>(syscall(SYS_futex, addr, FUTEX_WAIT, expect, nullptr, nullptr, 0));
 }
 
-static inline int mpsc_futex_wake(volatile uint32_t* addr, int n)
+inline int mpsc_futex_wake(volatile uint32_t* addr, int n)
 {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     return static_cast<int>(syscall(SYS_futex, addr, FUTEX_WAKE, n, nullptr, nullptr, 0));
 }
+} // anonymous namespace
 
 // ----- MpscConsumer Implementation -----
 
+// NOLINTNEXTLINE(misc-include-cleaner) - SpscShm included via mpsc_shm.hpp
 MpscConsumer::MpscConsumer(std::vector<SpscShm>&& rings, int doorbell_fd, size_t doorbell_len, MpscDoorbell* doorbell)
     : rings_(std::move(rings))
     , doorbell_fd_(doorbell_fd)
@@ -65,7 +77,7 @@ MpscConsumer& MpscConsumer::operator=(MpscConsumer&& other) noexcept
 {
     if (this != &other) {
         // Clean up current resources
-        if (doorbell_) {
+        if (doorbell_ != nullptr) {
             munmap(doorbell_, doorbell_len_);
         }
         if (doorbell_fd_ >= 0) {
@@ -90,7 +102,7 @@ MpscConsumer& MpscConsumer::operator=(MpscConsumer&& other) noexcept
 
 MpscConsumer::~MpscConsumer()
 {
-    if (doorbell_) {
+    if (doorbell_ != nullptr) {
         munmap(doorbell_, doorbell_len_);
     }
     if (doorbell_fd_ >= 0) {
@@ -187,6 +199,7 @@ int MpscConsumer::wait_for_data(uint32_t spin_ns)
     // Phase 2: Spin phase
     if (spin_ns > 0) {
         uint64_t start = mpsc_mono_ns_now();
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-do-while)
         do {
             for (size_t i = 0; i < num_rings; i++) {
                 size_t idx = (last_served_ + 1 + i) % num_rings;
@@ -228,7 +241,7 @@ int MpscConsumer::wait_for_data(uint32_t spin_ns)
 void* MpscConsumer::peek(size_t ring_idx, size_t* n)
 {
     if (ring_idx >= rings_.size()) {
-        if (n) {
+        if (n != nullptr) {
             *n = 0;
         }
         return nullptr;
@@ -271,7 +284,7 @@ MpscProducer& MpscProducer::operator=(MpscProducer&& other) noexcept
 {
     if (this != &other) {
         // Clean up current resources
-        if (doorbell_) {
+        if (doorbell_ != nullptr) {
             munmap(doorbell_, doorbell_len_);
         }
         if (doorbell_fd_ >= 0) {
@@ -296,7 +309,7 @@ MpscProducer& MpscProducer::operator=(MpscProducer&& other) noexcept
 
 MpscProducer::~MpscProducer()
 {
-    if (doorbell_) {
+    if (doorbell_ != nullptr) {
         munmap(doorbell_, doorbell_len_);
     }
     if (doorbell_fd_ >= 0) {

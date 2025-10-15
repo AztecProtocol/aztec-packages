@@ -8,10 +8,10 @@
 #pragma once
 
 #include "barretenberg/ipc/shm/spsc_shm.hpp"
+#include <array>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -24,7 +24,7 @@ namespace bb::ipc {
  */
 struct alignas(64) MpscDoorbell {
     std::atomic<uint32_t> seq;
-    uint8_t _pad[60]; // Cache line alignment
+    std::array<uint8_t, 60> _pad; // Cache line alignment
 };
 
 /**

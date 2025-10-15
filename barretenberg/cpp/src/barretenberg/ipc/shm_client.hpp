@@ -4,13 +4,15 @@
 #include "barretenberg/ipc/shm/mpsc_shm.hpp"
 #include "barretenberg/ipc/shm/spsc_shm.hpp"
 #include <atomic>
+#include <cstdint>
 #include <cstring>
 #include <fcntl.h>
-#include <memory>
 #include <optional>
 #include <string>
 #include <sys/mman.h>
+#include <sys/types.h>
 #include <unistd.h>
+#include <utility>
 
 namespace bb::ipc {
 
@@ -27,7 +29,13 @@ class ShmClient : public IpcClient {
         , max_clients_(max_clients)
     {}
 
-    ~ShmClient() override { close(); }
+    ~ShmClient() override { close_internal(); }
+
+    // Non-copyable, non-movable (owns shared memory resources)
+    ShmClient(const ShmClient&) = delete;
+    ShmClient& operator=(const ShmClient&) = delete;
+    ShmClient(ShmClient&&) = delete;
+    ShmClient& operator=(ShmClient&&) = delete;
 
     bool connect() override
     {
@@ -76,7 +84,7 @@ class ShmClient : public IpcClient {
 
     bool send(const void* data, size_t len, uint64_t timeout_ns) override
     {
-        (void)timeout_ns; // TODO: Use timeout parameter
+        (void)timeout_ns; // TODO(charlie): Use timeout parameter
 
         if (!producer_.has_value()) {
             return false;
@@ -121,7 +129,7 @@ class ShmClient : public IpcClient {
                 // Data available - peek skips padding automatically
                 size_t n = 0;
                 void* data = response_ring_->peek(&n);
-                if (!data || n < sizeof(uint32_t)) {
+                if (data == nullptr || n < sizeof(uint32_t)) {
                     if (n > 0) {
                         response_ring_->release(n);
                     }
@@ -153,13 +161,15 @@ class ShmClient : public IpcClient {
         return -1; // Timeout
     }
 
-    void close() override
+    void close() override { close_internal(); }
+
+  private:
+    void close_internal()
     {
         response_ring_.reset();
         producer_.reset();
     }
 
-  private:
     std::string base_name_;
     size_t max_clients_;
     uint32_t client_id_ = 0;
