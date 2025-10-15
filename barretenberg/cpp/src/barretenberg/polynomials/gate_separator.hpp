@@ -141,12 +141,14 @@ template <typename FF> struct GateSeparatorPolynomial {
      */
     void partially_evaluate(const FF& challenge, const FF& indicator)
     {
-        FF current_univariate_eval = univariate_eval(challenge);
-        // If dummy round, make no update to the partial_evaluation_result
-        partial_evaluation_result = (FF(1) - indicator) * partial_evaluation_result +
-                                    indicator * partial_evaluation_result * current_univariate_eval;
-        current_element_idx++;
-        periodicity *= 2;
+        if (!betas.empty()) {
+            FF current_univariate_eval = univariate_eval(challenge);
+            // If dummy round, make no update to the partial_evaluation_result
+            partial_evaluation_result = (FF(1) - indicator) * partial_evaluation_result +
+                                        indicator * partial_evaluation_result * current_univariate_eval;
+            current_element_idx++;
+            periodicity *= 2;
+        }
     }
 
     /**

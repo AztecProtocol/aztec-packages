@@ -51,19 +51,13 @@ std::pair<bool, typename MultilinearBatchingVerifier<Flavor_>::VerifierClaim> Mu
     auto instance_shifted_evaluation = instance_evaluations[1];
 
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(Flavor::VIRTUAL_LOG_N);
-    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
-        gate_challenges[idx] = FF(1);
-    }
-
-    std::vector<FF> padding_indicator(Flavor::VIRTUAL_LOG_N, FF{ 1 });
 
     auto target_sum = (((instance_shifted_evaluation * alpha + instance_non_shifted_evaluation) * alpha +
                         accumulator_shifted_evaluation) *
                            alpha +
                        accumulator_non_shifted_evaluation);
     Sumcheck sumcheck(transcript, alpha, Flavor::VIRTUAL_LOG_N, target_sum);
-    const auto sumcheck_result = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator);
+    const auto sumcheck_result = sumcheck.verify();
 
     // Construct new claim
     auto claim_batching_challenge = transcript->template get_challenge<FF>("claim_batching_challenge");

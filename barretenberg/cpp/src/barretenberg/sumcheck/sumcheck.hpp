@@ -225,9 +225,7 @@ template <typename Flavor> class SumcheckProver {
         , alphas(relation_separator)
         , gate_challenges(gate_challenges)
         , relation_parameters(relation_parameters)
-        , virtual_log_n(virtual_log_n)
-        , accumulator_challenge(accumulator_challenge)
-        , instance_challenge(instance_challenge) {};
+        , virtual_log_n(virtual_log_n) {};
 
     // SumcheckProver constructor for the Flavors that generate a single challenge `alpha` and use its powers as
     // subrelation seperator challenges.
@@ -246,9 +244,7 @@ template <typename Flavor> class SumcheckProver {
         , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS - 1>(alpha))
         , gate_challenges(gate_challenges)
         , relation_parameters(relation_parameters)
-        , virtual_log_n(virtual_log_n)
-        , accumulator_challenge(accumulator_challenge)
-        , instance_challenge(instance_challenge) {};
+        , virtual_log_n(virtual_log_n) {};
     /**
      * @brief Non-ZK version: Compute round univariate, place it in transcript, compute challenge, partially evaluate.
      * Repeat until final round, then get full evaluations of prover polynomials, and place them in transcript.
@@ -782,14 +778,19 @@ template <typename Flavor> class SumcheckVerifier {
      * @param relation_parameters
      * @param transcript
      */
-    SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters,
-                                  std::vector<FF>& gate_challenges,
-                                  const std::vector<FF>& padding_indicator_array)
+    SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters = {},
+                                  const std::vector<FF>& gate_challenges = {},
+                                  const std::vector<FF>& padding_indicator = {})
         requires(!IsGrumpkinFlavor<Flavor>)
     {
         bool verified(true);
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges);
+
+        // Initialize padding indicator to all 1s if not provided
+        std::vector<FF> padding_indicator_array =
+            padding_indicator.empty() ? std::vector<FF>(virtual_log_n, FF(1)) : padding_indicator;
+
         // All but final round.
         // target_total_sum is initialized to zero then mutated in place.
 
