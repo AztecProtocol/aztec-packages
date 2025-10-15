@@ -113,7 +113,7 @@ class IpcServer {
      * Server exits gracefully when handler throws ShutdownRequested exception.
      *
      * @param handler Function to process requests and generate responses
-     * @param max_message_size Maximum message size to allocate buffer for (default 1MB)
+     * @param max_message_size Maximum message size to allocate buffer for
      */
     virtual void run(const Handler& handler, size_t max_message_size)
     {
@@ -148,6 +148,12 @@ class IpcServer {
             }
         }
     }
+
+    /**
+     * @brief Run server event loop with handler (default 1MB buffer)
+     * @param handler Function to process requests and generate responses
+     */
+    void run(const Handler& handler) { run(handler, static_cast<size_t>(1024) * 1024); }
 
     // Factory methods
     static std::unique_ptr<IpcServer> create_socket(const std::string& socket_path, int max_clients);

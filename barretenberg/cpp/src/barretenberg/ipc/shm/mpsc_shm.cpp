@@ -142,9 +142,8 @@ MpscConsumer MpscConsumer::create(const std::string& name, size_t num_producers,
         throw std::runtime_error("MpscConsumer::create: mmap doorbell failed: " + std::string(std::strerror(e)));
     }
 
-    // Initialize doorbell
-    std::memset(doorbell, 0, doorbell_len);
-    doorbell->seq.store(0U, std::memory_order_release);
+    // Initialize doorbell (use placement new to avoid memset on non-trivial type)
+    new (doorbell) MpscDoorbell{};
 
     // Create all SPSC rings
     std::vector<SpscShm> rings;
