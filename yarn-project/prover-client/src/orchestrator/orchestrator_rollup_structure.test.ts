@@ -53,7 +53,7 @@ describe('prover/orchestrator/rollup-structure', () => {
       const numTxsPerBlockInCheckpoints = [
         [2, 5, 1], // Checkpoint 0 has 3 blocks, with 2, 5 and 1 txs respectively.
         [3], // Checkpoint 1 has 1 block with 3 txs.
-        [1, 3, 2, 4], // Checkpoint 2 has 4 blocks, with 1, 3, 2 and 4 txs respectively.
+        [1, 3, 1, 2], // Checkpoint 2 has 4 blocks, with 1, 3, 1 and 2 txs respectively.
       ];
       const numBlocksInCheckpoints = numTxsPerBlockInCheckpoints.map(c => c.length);
       const numCheckpoints = numTxsPerBlockInCheckpoints.length;
