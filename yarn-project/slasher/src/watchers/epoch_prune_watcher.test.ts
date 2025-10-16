@@ -14,9 +14,9 @@ import { OffenseType } from '@aztec/stdlib/slashing';
 import { Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
-import type { Hex } from '@spalladino/viem';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import EventEmitter from 'node:events';
+import type { Hex } from 'viem';
 
 import { WANT_TO_SLASH_EVENT, type WantToSlashArgs } from '../watcher.js';
 import { EpochPruneWatcher } from './epoch_prune_watcher.js';

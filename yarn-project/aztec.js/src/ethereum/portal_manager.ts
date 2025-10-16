@@ -15,7 +15,7 @@ import { computeL2ToL1MessageHash, computeSecretHash } from '@aztec/stdlib/hash'
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 import { getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
 
-import { type Hex, getContract, toFunctionSelector } from '@spalladino/viem';
+import { type Hex, getContract, toFunctionSelector } from 'viem';
 
 import type { Wallet } from '../index.js';
 

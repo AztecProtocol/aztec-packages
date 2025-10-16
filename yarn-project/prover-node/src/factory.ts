@@ -20,7 +20,7 @@ import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { L1Metrics, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { createPublicClient, fallback, http } from '@spalladino/viem';
+import { createPublicClient, fallback, http } from 'viem';
 
 import { type ProverNodeConfig, createKeyStoreForProver } from './config.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';

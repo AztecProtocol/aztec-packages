@@ -1,5 +1,5 @@
-import type { Chain } from '@spalladino/viem';
-import { foundry } from '@spalladino/viem/chains';
+import type { Chain } from 'viem';
+import { foundry } from 'viem/chains';
 
 import { AZTEC_TEST_CHAIN_ID } from './constants.js';
 

@@ -6,10 +6,10 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { describe, expect, it, jest } from '@jest/globals';
-import { mnemonicToAccount } from '@spalladino/viem/accounts';
 import { mkdirSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { mnemonicToAccount } from 'viem/accounts';
 
 import { KeystoreError, KeystoreManager } from '../src/keystore_manager.js';
 import { LocalSigner, RemoteSigner } from '../src/signer.js';

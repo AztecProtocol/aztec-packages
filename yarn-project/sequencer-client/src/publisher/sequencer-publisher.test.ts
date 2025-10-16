@@ -24,17 +24,17 @@ import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { ProposedBlockHeader } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
+import express, { json } from 'express';
+import type { Server } from 'http';
+import { type MockProxy, mock } from 'jest-mock-extended';
 import {
   type GetTransactionReceiptReturnType,
   type PrivateKeyAccount,
   type TransactionReceipt,
   encodeFunctionData,
   toHex,
-} from '@spalladino/viem';
-import { privateKeyToAccount } from '@spalladino/viem/accounts';
-import express, { json } from 'express';
-import type { Server } from 'http';
-import { type MockProxy, mock } from 'jest-mock-extended';
+} from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
 import type { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';

@@ -25,10 +25,10 @@ import type { ProposedBlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
 import { NodeKeystoreAdapter, ValidatorClient } from '@aztec/validator-client';
 
 import { jest } from '@jest/globals';
-import { privateKeyToAccount } from '@spalladino/viem/accounts';
 import { mkdtemp, rmdir } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { privateKeyToAccount } from 'viem/accounts';
 
 import {
   addressForPrivateKey,

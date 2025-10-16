@@ -23,7 +23,7 @@ import { TestERC20Abi, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-art
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
-import { type Hex, getContract } from '@spalladino/viem';
+import { type Hex, getContract } from 'viem';
 
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 

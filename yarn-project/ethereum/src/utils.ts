@@ -12,7 +12,7 @@ import {
   type Log,
   decodeErrorResult,
   decodeEventLog,
-} from '@spalladino/viem';
+} from 'viem';
 
 export interface L2Claim {
   claimSecret: Fr;

@@ -31,8 +31,8 @@ import { BlockHeader, ContentCommitment, type Tx, TxHash } from '@aztec/stdlib/t
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 
 import { describe, expect, it, jest } from '@jest/globals';
-import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from '@spalladino/viem/accounts';
 import { type MockProxy, mock } from 'jest-mock-extended';
+import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import { type ValidatorClientConfig, validatorClientConfigMappings } from './config.js';
 import { ValidatorClient } from './validator.js';

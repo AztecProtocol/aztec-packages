@@ -11,7 +11,7 @@ import {
   encodeFunctionData,
   getContract,
   parseEventLogs,
-} from '@spalladino/viem';
+} from 'viem';
 
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import { createL1TxUtilsFromViemWallet } from '../l1_tx_utils/index.js';

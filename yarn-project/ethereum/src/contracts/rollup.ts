@@ -4,6 +4,7 @@ import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
 
+import chunk from 'lodash.chunk';
 import {
   type Account,
   type GetContractReturnType,
@@ -14,8 +15,7 @@ import {
   getContract,
   hexToBigInt,
   keccak256,
-} from '@spalladino/viem';
-import chunk from 'lodash.chunk';
+} from 'viem';
 
 import { getPublicClient } from '../client.js';
 import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';

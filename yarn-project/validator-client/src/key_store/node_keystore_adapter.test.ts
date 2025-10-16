@@ -3,7 +3,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
-import type { TypedDataDefinition } from '@spalladino/viem';
+import type { TypedDataDefinition } from 'viem';
 
 import { NodeKeystoreAdapter } from './node_keystore_adapter.js';
 

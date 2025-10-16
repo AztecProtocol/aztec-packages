@@ -3,7 +3,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
 
-import { createPublicClient, fallback, getContract, http } from '@spalladino/viem';
+import { createPublicClient, fallback, getContract, http } from 'viem';
 
 import { prettyPrintJSON } from '../../utils/commands.js';
 

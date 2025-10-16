@@ -13,7 +13,7 @@ import { GasFees } from '@aztec/stdlib/gas';
 import type { GlobalVariableBuilder as GlobalVariableBuilderInterface } from '@aztec/stdlib/tx';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
-import { createPublicClient, fallback, http } from '@spalladino/viem';
+import { createPublicClient, fallback, http } from 'viem';
 
 /**
  * Simple global variables builder.

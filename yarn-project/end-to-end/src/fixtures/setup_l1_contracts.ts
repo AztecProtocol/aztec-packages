@@ -3,8 +3,8 @@ import { type DeployL1ContractsArgs, type L1ContractsConfig, deployL1Contracts }
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
-import type { HDAccount, PrivateKeyAccount } from '@spalladino/viem';
-import { foundry } from '@spalladino/viem/chains';
+import type { HDAccount, PrivateKeyAccount } from 'viem';
+import { foundry } from 'viem/chains';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 

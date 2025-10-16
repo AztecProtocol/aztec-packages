@@ -66,8 +66,8 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@ethersproject/wallet": "^5.7.0",
-    "@spalladino/viem": "2.38.2-eip7594.0",
     "tslib": "^2.4.0",
+    "viem": "npm:@spalladino/viem@2.38.2-eip7594.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

@@ -3,8 +3,8 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { LocalSigner, RemoteSigner } from '@aztec/node-keystore';
 
 import { jest } from '@jest/globals';
-import type { TransactionSerializable, TypedDataDefinition } from '@spalladino/viem';
-import { generatePrivateKey, privateKeyToAddress } from '@spalladino/viem/accounts';
+import type { TransactionSerializable, TypedDataDefinition } from 'viem';
+import { generatePrivateKey, privateKeyToAddress } from 'viem/accounts';
 
 import {
   createWeb3SignerKeystore,

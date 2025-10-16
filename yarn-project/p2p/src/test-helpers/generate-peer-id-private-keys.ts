@@ -1,4 +1,4 @@
-import { generatePrivateKey } from '@spalladino/viem/accounts';
+import { generatePrivateKey } from 'viem/accounts';
 
 /**
  * Generate a list of peer id private keys

@@ -5,17 +5,10 @@ import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
-import {
-  type PrivateKeyAccount,
-  createWalletClient,
-  fallback,
-  getContract,
-  http,
-  publicActions,
-} from '@spalladino/viem';
-import { privateKeyToAccount } from '@spalladino/viem/accounts';
-import { foundry } from '@spalladino/viem/chains';
 import type { Anvil } from '@viem/anvil';
+import { type PrivateKeyAccount, createWalletClient, fallback, getContract, http, publicActions } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
 
 import type { ExtendedViemWalletClient } from '../types.js';
 import { EthCheatCodes } from './eth_cheat_codes.js';

@@ -62,8 +62,8 @@ import {
 } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
-import { toFunctionSelector } from '@spalladino/viem';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
+import { toFunctionSelector } from 'viem';
 
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';

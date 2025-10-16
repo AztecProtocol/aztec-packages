@@ -11,10 +11,10 @@ import {
   createAztecNodeClient,
 } from '@aztec/stdlib/interfaces/client';
 
-import { createPublicClient, fallback, http } from '@spalladino/viem';
 import { ChildProcess, exec, execSync, spawn } from 'child_process';
 import path from 'path';
 import { promisify } from 'util';
+import { createPublicClient, fallback, http } from 'viem';
 import { z } from 'zod';
 
 const execAsync = promisify(exec);

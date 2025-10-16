@@ -11,7 +11,7 @@ import type {
   PublicRpcSchema,
   WalletActions,
   WalletRpcSchema,
-} from '@spalladino/viem';
+} from 'viem';
 
 /** Type for a viem public client */
 export type ViemPublicClient = PublicClient<FallbackTransport<HttpTransport[]>, Chain>;

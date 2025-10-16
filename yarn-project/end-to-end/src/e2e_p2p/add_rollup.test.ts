@@ -32,11 +32,11 @@ import { computeL2ToL1MembershipWitness, getL2ToL1MessageLeafId } from '@aztec/s
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { jest } from '@jest/globals';
-import { type Hex, decodeEventLog, encodeFunctionData, getAddress, getContract } from '@spalladino/viem';
 import fs from 'fs';
 import getPort from 'get-port';
 import os from 'os';
 import path from 'path';
+import { type Hex, decodeEventLog, encodeFunctionData, getAddress, getContract } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';

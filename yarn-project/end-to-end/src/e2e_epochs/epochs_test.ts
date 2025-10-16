@@ -31,9 +31,9 @@ import { EthAddress, type L2BlockNumber } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 
-import type { Hex } from '@spalladino/viem';
-import { privateKeyToAccount } from '@spalladino/viem/accounts';
 import { join } from 'path';
+import type { Hex } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 
 import {
   type EndToEndContext,

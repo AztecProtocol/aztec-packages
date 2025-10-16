@@ -4,7 +4,7 @@ import { SecretValue } from '@aztec/foundation/config';
 import type { PXEService } from '@aztec/pxe/server';
 
 import { jest } from '@jest/globals';
-import { privateKeyToAccount } from '@spalladino/viem/accounts';
+import { privateKeyToAccount } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 import { submitTxsTo } from './shared/submit-transactions.js';

@@ -9,10 +9,10 @@ import {
 } from '@aztec/l1-artifacts';
 
 import { jest } from '@jest/globals';
-import { encodeFunctionData, getAddress, getContract } from '@spalladino/viem';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { encodeFunctionData, getAddress, getContract } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
