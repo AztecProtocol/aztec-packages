@@ -354,7 +354,7 @@ describe('HttpBlobSinkClient', () => {
       expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
     });
 
-    it('even if we ask for non-encoded blobs, we should only get encoded blobs', async () => {
+    it('we get all blobs or nothing', async () => {
       await startExecutionHostServer();
       await startConsensusHostServer();
 
@@ -364,8 +364,7 @@ describe('HttpBlobSinkClient', () => {
       });
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash, testNonEncodedBlobHash]);
-      // We should only get the correctly encoded blob
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      expect(retrievedBlobs).toEqual([]);
     });
 
     it('should handle L1 missed slots', async () => {
@@ -447,6 +446,36 @@ describe('HttpBlobSinkClient', () => {
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
       expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      expect(archiveSpy).toHaveBeenCalledWith('0x1234');
+    });
+
+    it('should return only one blob when multiple blobs with the same blobHash exist on a block', async () => {
+      // Create a blob data array with two blobs that have the same commitment (thus same blobHash)
+      const duplicateBlobData: BlobJson[] = [
+        {
+          index: '0',
+          blob: `0x${Buffer.from(testEncodedBlob.data).toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_commitment: `0x${testEncodedBlob.commitment.toString('hex')}`,
+        },
+        {
+          index: '1',
+          blob: `0x${Buffer.from(testEncodedBlob.data).toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_commitment: `0x${testEncodedBlob.commitment.toString('hex')}`,
+        },
+      ];
+
+      const client = new TestHttpBlobSinkClient({ archiveApiUrl: `https://api.blobscan.com` });
+      const archiveSpy = jest
+        .spyOn(client.getArchiveClient(), 'getBlobsFromBlock')
+        .mockResolvedValue(duplicateBlobData);
+
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+
+      // Should only return one blob despite two blobs with the same hash existing
+      expect(retrievedBlobs).toHaveLength(1);
+      expect(retrievedBlobs[0].blob).toEqual(testEncodedBlob);
       expect(archiveSpy).toHaveBeenCalledWith('0x1234');
     });
   });
