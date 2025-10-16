@@ -161,11 +161,13 @@ class PrivateFunctionExecutionMockCircuitProducer {
      * large.
      *
      */
-    ClientCircuit create_next_circuit(SumcheckClientIVC& ivc, size_t log2_num_gates = 0, size_t num_public_inputs = 0)
+    ClientCircuit create_next_circuit(SumcheckClientIVC& ivc,
+                                      size_t log2_num_gates = 0,
+                                      size_t num_public_inputs = 0,
+                                      bool check_circuit_sizes = false)
     {
-        const bool is_kernel = is_kernel_flags[circuit_counter];
-
-        circuit_counter++;
+        const bool is_kernel = is_kernel_flags[circuit_counter++];
+        const bool use_large_circuit = large_first_app && (circuit_counter == 1); // first circuit is size 2^19
 
         ClientCircuit circuit{ ivc.goblin.op_queue };
         // if the number of gates is specified we just add a number of arithmetic gates
@@ -181,7 +183,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
                 GoblinMockCircuits::construct_mock_folding_kernel(circuit); // construct mock base logic
                 mock_databus.populate_kernel_databus(circuit);              // populate databus inputs/outputs
             } else {
-                bool use_large_circuit = large_first_app && (circuit_counter == 1); // first circuit is size 2^19
                 GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
                 mock_databus.populate_app_databus(circuit);                                 // populate databus outputs
             }
@@ -192,26 +193,61 @@ class PrivateFunctionExecutionMockCircuitProducer {
         } else {
             stdlib::recursion::PairingPoints<ClientCircuit>::add_default_to_public_inputs(circuit);
         }
+
+        if (check_circuit_sizes) {
+            auto prover_instance = std::make_shared<SumcheckClientIVC::ProverInstance>(circuit);
+            size_t log2_dyadic_size = numeric::get_msb(prover_instance->get_metadata().dyadic_size);
+            if (log2_num_gates != 0) {
+                if (is_kernel) {
+                    // There are various possibilities here, so we provide a bound
+                    BB_ASSERT_LTE(
+                        log2_dyadic_size,
+                        19UL,
+                        "Log number of gates in a kernel with fixed number of arithmetic gates has exceeded bound.");
+                    vinfo("Log number of gates in a kernel with fixed number of arithmetic gates is: ",
+                          log2_dyadic_size);
+                } else {
+                    // The offset is due to the fact that finalization adds a certain number of gates
+                    size_t LOG2_OFFSET = 2;
+                    BB_ASSERT_LTE(log2_dyadic_size,
+                                  log2_num_gates + LOG2_OFFSET,
+                                  "Log number of arithemtic gates produced is different from the one requested.");
+                }
+            } else {
+                if (is_kernel) {
+                    BB_ASSERT_EQ(log2_dyadic_size,
+                                 18UL,
+                                 "There has been a change in the number of gates of a mock kernel circuit.");
+                } else {
+                    BB_ASSERT_EQ(log2_dyadic_size,
+                                 use_large_circuit ? 19UL : 17UL,
+                                 "There has been a change in the of gates generated for a mock app circuit.");
+                }
+            }
+        }
         return circuit;
     }
 
     /**
      * @brief Create the next circuit (app/kernel) in a mocked private function execution stack
      */
-    std::pair<ClientCircuit, std::shared_ptr<VerificationKey>> create_next_circuit_and_vk(SumcheckClientIVC& ivc,
-                                                                                          TestSettings settings = {})
+    std::pair<ClientCircuit, std::shared_ptr<VerificationKey>> create_next_circuit_and_vk(
+        SumcheckClientIVC& ivc, TestSettings settings = {}, bool check_circuit_size = false)
     {
         // If this is a mock hiding kernel, remove the settings and use a default (non-structured) trace
         if (ivc.num_circuits_accumulated == ivc.get_num_circuits() - 1) {
             settings = TestSettings{};
         }
-        auto circuit = create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs);
+        auto circuit =
+            create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs, check_circuit_size);
         return { circuit, get_verification_key(circuit) };
     }
 
-    void construct_and_accumulate_next_circuit(SumcheckClientIVC& ivc, TestSettings settings = {})
+    void construct_and_accumulate_next_circuit(SumcheckClientIVC& ivc,
+                                               TestSettings settings = {},
+                                               bool check_circuit_sizes = false)
     {
-        auto [circuit, vk] = create_next_circuit_and_vk(ivc, settings);
+        auto [circuit, vk] = create_next_circuit_and_vk(ivc, settings, check_circuit_sizes);
         ivc.accumulate(circuit, vk);
     }
 
