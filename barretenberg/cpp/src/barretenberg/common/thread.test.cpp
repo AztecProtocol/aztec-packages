@@ -189,4 +189,34 @@ TEST_F(ThreadTest, HardwareConcurrencyPow2)
     set_parallel_for_concurrency(16);
     EXPECT_EQ(get_num_cpus_pow2(), 16);
 }
+
+// Test that spawned threads can use parallel_for with set_parallel_for_concurrency
+TEST_F(ThreadTest, SpawnedThreadsCanUseParallelFor)
+{
+    set_parallel_for_concurrency(8);
+
+    constexpr size_t num_outer = 2;
+    constexpr size_t num_inner = 100;
+    std::vector<std::vector<char>> results(num_outer, std::vector<char>(num_inner, 0));
+
+    auto worker = [&](size_t outer_idx) {
+        set_parallel_for_concurrency(4);
+        parallel_for(num_inner, [&](size_t inner_idx) { results[outer_idx][inner_idx] = 1; });
+    };
+
+    std::vector<std::thread> threads;
+    for (size_t i = 0; i < num_outer; ++i) {
+        threads.emplace_back(worker, i);
+    }
+    for (auto& t : threads) {
+        t.join();
+    }
+
+    // Verify all work completed
+    for (size_t i = 0; i < num_outer; ++i) {
+        for (size_t j = 0; j < num_inner; ++j) {
+            EXPECT_TRUE(results[i][j]);
+        }
+    }
+}
 } // namespace bb
