@@ -20,12 +20,12 @@ uint32_t& get_num_cores_ref()
 #endif
 
 namespace bb {
-// only for testing purposes currently
 void set_parallel_for_concurrency([[maybe_unused]] size_t num_cores)
 {
 #ifdef NO_MULTITHREADING
     throw_or_abort("Cannot set hardware concurrency when multithreading is disabled.");
 #else
+    // This is already thread-local, so setting it affects only the current thread
     get_num_cores_ref() = static_cast<uint32_t>(num_cores);
 #endif
 }
@@ -260,4 +260,5 @@ size_t calculate_num_threads_pow2(size_t num_iterations, size_t min_iterations_p
     num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num_threads is at least 1
     return num_threads;
 }
+
 } // namespace bb

@@ -118,23 +118,59 @@ std::vector<uint8_t> get_or_generate_cached_vk(const std::filesystem::path& cach
 }
 
 /**
- * @brief Generate VKs for all functions in parallel
+ * @brief Generate VKs for all functions in parallel with nested parallelism
  */
 void generate_vks_for_functions(const std::filesystem::path& cache_dir,
                                 std::vector<nlohmann::json*>& functions,
                                 bool force)
 {
-    // Generate VKs in parallel (logging removed to avoid data races)
-    parallel_for(functions.size(), [&](size_t i) {
-        auto* function = functions[i];
-        std::string fn_name = (*function)["name"].get<std::string>();
+#ifdef __wasm__
+    throw_or_abort("VK generation not supported in WASM");
+#endif
 
-        // Get bytecode from function
-        auto bytecode = extract_bytecode(*function);
+    const size_t total_cpus = get_num_cpus();
+    const size_t num_functions = functions.size();
 
-        // Generate and cache VK (this will log internally if needed)
-        get_or_generate_cached_vk(cache_dir, fn_name, bytecode, force);
-    });
+    // Heuristic for nested parallelism:
+    // - actual_tasks = min(num_functions, total_cpus)
+    // - threads_per_task = min(total_cpus, max(2, total_cpus / actual_tasks * 2))
+    size_t actual_tasks = std::min(num_functions, total_cpus);
+    size_t threads_per_task = std::min(total_cpus, std::max(size_t{ 2 }, total_cpus / actual_tasks * 2));
+
+    // Track work distribution
+    std::atomic<size_t> current_function{ 0 };
+
+    // Worker function
+    auto worker = [&]() {
+        // Set thread-local concurrency for this worker
+        set_parallel_for_concurrency(threads_per_task);
+
+        // Process functions
+        size_t func_idx;
+        while ((func_idx = current_function.fetch_add(1)) < num_functions) {
+            auto* function = functions[func_idx];
+            std::string fn_name = (*function)["name"].get<std::string>();
+
+            // Get bytecode from function
+            auto bytecode = extract_bytecode(*function);
+
+            // Generate and cache VK (can use parallel_for internally)
+            get_or_generate_cached_vk(cache_dir, fn_name, bytecode, force);
+        }
+    };
+
+    // Spawn threads
+    std::vector<std::thread> threads;
+    threads.reserve(actual_tasks);
+
+    for (size_t i = 0; i < actual_tasks; ++i) {
+        threads.emplace_back(worker);
+    }
+
+    // Wait for completion
+    for (auto& t : threads) {
+        t.join();
+    }
 
     // Update JSON with VKs from cache (sequential is fine here, it's fast)
     for (auto* function : functions) {

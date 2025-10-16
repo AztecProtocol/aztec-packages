@@ -133,22 +133,25 @@ namespace bb {
  */
 void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func)
 {
-    static ThreadPool pool(get_num_cpus() - 1);
-    // Note that if this is used safely, we don't need the std::atomic_bool (can use bool), but if we are catching the
-    // mess up case of nesting parallel_for this should be atomic
-    static std::atomic_bool nested = false;
-    // Check if we are already in a nested parallel_for_mutex_pool call
-    bool expected = false;
-    if (!nested.compare_exchange_strong(expected, true)) {
-        // Run single-threaded if nested
+#ifdef __wasm__
+#define THREAD_LOCAL_MAYBE
+#else
+#define THREAD_LOCAL_MAYBE thread_local
+#endif
+
+    static THREAD_LOCAL_MAYBE ThreadPool pool(get_num_cpus() - 1);
+    static THREAD_LOCAL_MAYBE bool nested = false;
+
+    // If nested, fall back to serial execution
+    if (nested) {
         for (size_t i = 0; i < num_iterations; ++i) {
             func(i);
         }
         return;
     }
-    // info("starting job with iterations: ", num_iterations);
+
+    nested = true;
     pool.start_tasks(num_iterations, func);
-    // info("done");
     nested = false;
 }
 } // namespace bb
