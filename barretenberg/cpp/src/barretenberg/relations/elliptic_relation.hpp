@@ -40,41 +40,55 @@ template <typename FF_> class EllipticRelationImpl {
 
     /**
      * @brief Expression for elliptic curve point addition and doubling.
-     * @details This relation implements elliptic curve operations in short Weierstrass form: y^2 = x^3 + b
+     * @details This relation implements elliptic curve addition/subtraction and doubling operations in short
+     * Weierstrass form: y^2 = x^3 + b.
      *
-     * The relation supports both point addition and point doubling, controlled by q_is_double (q_l).
-     * - When q_is_double = 0: Point addition is performed
-     * - When q_is_double = 1: Point doubling is performed
+     * Addition/doubling subrelation constraints are toggled on and off via scaling by: q_elliptic * (1 - q_is_double)
+     * and q_elliptic * q_is_double respectively.
      *
-     * Point Addition/Subtraction:
+     * FORMULAS:
+     *
+     * Point addition/subtraction:
+     * ---------------------------
+     * Given two distinct points P1 = (x1, y1) and P2 = (x2, y2), compute P3 = P1 ± P2 = (x3, y3):
+     *
+     *   lambda = (q_sign * y2 - y1) / (x2 - x1)
+     *   x3 = lambda^2 - x1 - x2
+     *   y3 = lambda * (x1 - x3) - y1
+     *
+     * Point doubling:
      * ---------------
-     * For adding/subtracting two distinct points (x1, y1) and (x2, y2) to get (x3, y3):
+     * Given a point P1 = (x1, y1), compute P3 = 2*P1 = (x3, y3):
      *
-     * Let lambda = (q_sign * y2 - y1)/(x2 - x1)
-     * X-coordinate check (Contribution 1):
-     * - Formula: x3 = lambda^2 - (x1 + x2)
-     * - Constraint: (x3 + x2 + x1)(x2 - x1)^2 - y2^2 - y1^2 + 2(y2*y1)*q_sign = 0
+     *   lambda = (3*x1^2) / (2*y1)
+     *   x3 = lambda^2 - 2*x1
+     *   y3 = lambda * (x1 - x3) - `y1
      *
-     * Y-coordinate check (Contribution 2):
-     * - Formula: y3 = lambda * (x1 - x3) - y1
-     * - Constraint: (y1 + y3)(x2 - x1) + (x3 - x1)(q_sign * y2 - y1) = 0
+     * CONSTRAINTS:
      *
-     * Note: Both constraints are toggled on/off via multiplication by q_elliptic * (1 - q_is_double).
+     * To avoid divisions we multiply through by lambda denominator (or its square) and rearrange. In the x-coordinate
+     * doubling constraint we use the curve equation y^2 = x^3 + b to replace x1^4 with (y^2 - b)*x1 to reduce the
+     * subrelation degree.
      *
-     * Point Doubling:
-     * ---------------
-     * For doubling point (x1, y1) to get (x3, y3):
+     * Point addition constraints:
+     * ---------------------------
+     * Subrelation 0 (x-coordinate):
+     *   Constraint: x3 + x1 + x2 - lambda^2 = 0
+     *      ==> (x3 + x1 + x2)(x2 - x1)^2 - (y2^2 - y1^2 + 2*q_sign*y2*y1) = 0
      *
-     * Let lambda = 3*x1^2 / (2*y1)
-     * X-coordinate check (Contribution 3):
-     * - Formula: x3 = lambda^2 - 2*x1
-     * - Constraint: (x3 + x1 + x1)(4y1^2) - 9x1^4 = 0
-     * - Note: we use the curve equation x1^3 = y1^2 - b to reduce degree of last term from 4 to 3:
-     *   (x3 + x1 + x1)(4y1^2) - 9x1(y1^2 - b) = 0
+     * Subrelation 1 (y-coordinate):
+     *   Constraint: y3 + y1 - lambda*(x1 - x3) = 0
+     *      ==> (y3 + y1)(x2 - x1) + (q_sign*y2 - y1)(x3 - x1) = 0
      *
-     * Y-coordinate check (Contribution 4):
-     * - Formula: y3 = lambda * (x1 - x3) - y1
-     * - Constraint: (y1 + y3)(2y1) - (3x1^2)(x1 - x3) = 0
+     * Point doubling constraints:
+     * ---------------------------
+     * Subrelation 0 (x-coordinate) (using x1^3 = y1^2 - b):
+     *   Constraint: x3 + 2*x1 - lambda^2 = 0
+     *      ==> (x3 + 2*x1)*4*y1^2 - 9*x1*(y1^2 - b) = 0
+     *
+     * Subrelation 1 (y-coordinate):
+     *   Constraint: y3 + y1 - lambda*(x1 - x3) = 0
+     *      ==> (y3 + y1)(x2 - x1) + (q_sign*y2 - y1)(x3 - x1) = 0
      *
      * @param accumulators transformed to `accumulators + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Univariate edges.
