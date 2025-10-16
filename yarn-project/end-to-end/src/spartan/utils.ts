@@ -26,6 +26,9 @@ const testConfigSchema = z.object({
   REAL_VERIFIER: schemas.Boolean.optional().default(true),
   CREATE_ETH_DEVNET: schemas.Boolean.optional().default(false),
   L1_RPC_URLS_JSON: z.string().optional(),
+  L1_ACCOUNT_MNEMONIC: z.string().optional(),
+  AZTEC_SLOT_DURATION: z.coerce.number().optional().default(24),
+  AZTEC_PROOF_SUBMISSION_WINDOW: z.coerce.number().optional().default(5),
 });
 
 export type TestConfig = z.infer<typeof testConfigSchema>;
@@ -245,9 +248,18 @@ export function getChartDir(spartanDir: string, chartName: string) {
   return path.join(spartanDir.trim(), chartName);
 }
 
-function valuesToArgs(values: Record<string, string | number>) {
+function shellQuote(value: string) {
+  // Single-quote safe shell escaping: ' -> '\''
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function valuesToArgs(values: Record<string, string | number | boolean>) {
   return Object.entries(values)
-    .map(([key, value]) => `--set ${key}=${value}`)
+    .map(([key, value]) =>
+      typeof value === 'number' || typeof value === 'boolean'
+        ? `--set ${key}=${value}`
+        : `--set-string ${key}=${shellQuote(String(value))}`,
+    )
     .join(' ');
 }
 
@@ -305,7 +317,7 @@ export async function installChaosMeshChart({
   valuesFile,
   helmChartDir,
   chaosMeshNamespace = 'chaos-mesh',
-  timeout = '5m',
+  timeout = '10m',
   clean = true,
   values = {},
   logger,
@@ -324,18 +336,23 @@ export async function installChaosMeshChart({
     // uninstall the helm chart if it exists
     logger.info(`Uninstalling helm chart ${instanceName}`);
     await execAsync(`helm uninstall ${instanceName} --namespace ${chaosMeshNamespace} --wait --ignore-not-found`);
-    // and delete the podchaos resource
-    const deleteArgs = {
-      resource: 'podchaos',
-      namespace: chaosMeshNamespace,
-      label: `app.kubernetes.io/instance=${instanceName}`,
+    // and delete the chaos-mesh resources created by this release
+    const deleteByLabel = async (resource: string) => {
+      const args = {
+        resource,
+        namespace: chaosMeshNamespace,
+        label: `app.kubernetes.io/instance=${instanceName}`,
+      } as const;
+      logger.info(`Deleting ${resource} resources for release ${instanceName}`);
+      await deleteResourceByLabel(args).catch(e => {
+        logger.error(`Error deleting ${resource}: ${e}`);
+        logger.info(`Force deleting ${resource}`);
+        return deleteResourceByLabel({ ...args, force: true });
+      });
     };
-    logger.info(`Deleting podchaos resource`);
-    await deleteResourceByLabel(deleteArgs).catch(e => {
-      logger.error(`Error deleting podchaos resource: ${e}`);
-      logger.info(`Force deleting podchaos resource`);
-      return deleteResourceByLabel({ ...deleteArgs, force: true });
-    });
+
+    await deleteByLabel('podchaos');
+    await deleteByLabel('networkchaos');
   }
 
   return execHelmCommand({
@@ -496,10 +513,151 @@ export async function awaitL2BlockNumber(
 
 export async function restartBot(namespace: string, logger: Logger) {
   logger.info(`Restarting bot`);
-  await deleteResourceByLabel({ resource: 'pods', namespace, label: 'app=bot' });
+  await deleteResourceByLabel({ resource: 'pods', namespace, label: 'app.kubernetes.io/name=bot' });
   await sleep(10 * 1000);
-  await waitForResourceByLabel({ resource: 'pods', namespace, label: 'app=bot' });
+  // Some bot images may take time to report Ready due to heavy boot-time proving.
+  // Waiting for PodReadyToStartContainers ensures the pod is scheduled and starting without blocking on full readiness.
+  await waitForResourceByLabel({
+    resource: 'pods',
+    namespace,
+    label: 'app.kubernetes.io/name=bot',
+    condition: 'PodReadyToStartContainers',
+  });
   logger.info(`Bot restarted`);
+}
+
+/**
+ * Installs or upgrades the transfer bot Helm release for the given namespace.
+ * Intended for test setup to enable L2 traffic generation only when needed.
+ */
+export async function installTransferBot({
+  namespace,
+  spartanDir,
+  logger,
+  replicas = 1,
+  txIntervalSeconds = 10,
+  followChain = 'PENDING',
+  mnemonic = process.env.LABS_INFRA_MNEMONIC ?? 'test test test test test test test test test test test junk',
+  mnemonicStartIndex,
+  botPrivateKey = process.env.BOT_TRANSFERS_L2_PRIVATE_KEY ?? '0xcafe01',
+  nodeUrl,
+  timeout = '15m',
+  reuseValues = true,
+  aztecSlotDuration = Number(process.env.AZTEC_SLOT_DURATION ?? 12),
+}: {
+  namespace: string;
+  spartanDir: string;
+  logger: Logger;
+  replicas?: number;
+  txIntervalSeconds?: number;
+  followChain?: string;
+  mnemonic?: string;
+  mnemonicStartIndex?: number | string;
+  botPrivateKey?: string;
+  nodeUrl?: string;
+  timeout?: string;
+  reuseValues?: boolean;
+  aztecSlotDuration?: number;
+}) {
+  const instanceName = `${namespace}-bot-transfers`;
+  const helmChartDir = getChartDir(spartanDir, 'aztec-bot');
+  const resolvedNodeUrl = nodeUrl ?? `http://${namespace}-rpc-aztec-node.${namespace}.svc.cluster.local:8080`;
+
+  logger.info(`Installing/upgrading transfer bot: replicas=${replicas}, followChain=${followChain}`);
+
+  const values: Record<string, string | number | boolean> = {
+    'bot.replicaCount': replicas,
+    'bot.txIntervalSeconds': txIntervalSeconds,
+    'bot.followChain': followChain,
+    'bot.botPrivateKey': botPrivateKey,
+    'bot.nodeUrl': resolvedNodeUrl,
+    'bot.mnemonic': mnemonic,
+    'bot.feePaymentMethod': 'fee_juice',
+    'aztec.slotDuration': aztecSlotDuration,
+    // Ensure bot can reach its own PXE started in-process (default rpc.port is 8080)
+    // Note: since aztec-bot depends on aztec-node with alias `bot`, env vars go under `bot.node.env`.
+    'bot.node.env.BOT_PXE_URL': 'http://127.0.0.1:8080',
+    // Provide L1 execution RPC for bridging fee juice
+    'bot.node.env.ETHEREUM_HOSTS': `http://${namespace}-eth-execution.${namespace}.svc.cluster.local:8545`,
+    // Provide L1 mnemonic for bridging (falls back to labs mnemonic)
+    'bot.node.env.BOT_L1_MNEMONIC': mnemonic,
+  };
+  // Ensure we derive a funded L1 key (index 0 is funded on anvil default mnemonic)
+  if (mnemonicStartIndex === undefined) {
+    values['bot.mnemonicStartIndex'] = 0;
+  }
+  // Also pass a funded private key directly if available
+  if (process.env.FUNDING_PRIVATE_KEY) {
+    values['bot.node.env.BOT_L1_PRIVATE_KEY'] = process.env.FUNDING_PRIVATE_KEY;
+  }
+  // Align bot image with the running network image: prefer env var, else detect from a validator pod
+  let repositoryFromEnv: string | undefined;
+  let tagFromEnv: string | undefined;
+  const aztecDockerImage = process.env.AZTEC_DOCKER_IMAGE;
+  if (aztecDockerImage && aztecDockerImage.includes(':')) {
+    const lastColon = aztecDockerImage.lastIndexOf(':');
+    repositoryFromEnv = aztecDockerImage.slice(0, lastColon);
+    tagFromEnv = aztecDockerImage.slice(lastColon + 1);
+  }
+
+  let repository = repositoryFromEnv;
+  let tag = tagFromEnv;
+  if (!repository || !tag) {
+    try {
+      const { stdout } = await execAsync(
+        `kubectl get pods -l app.kubernetes.io/component=validator -n ${namespace} -o jsonpath='{.items[0].spec.containers[?(@.name=="aztec")].image}' | cat`,
+      );
+      const image = stdout.trim().replace(/^'|'$/g, '');
+      if (image && image.includes(':')) {
+        const lastColon = image.lastIndexOf(':');
+        repository = image.slice(0, lastColon);
+        tag = image.slice(lastColon + 1);
+      }
+    } catch (err) {
+      logger.warn(`Could not detect aztec image from validator pod: ${String(err)}`);
+    }
+  }
+  if (repository && tag) {
+    values['global.aztecImage.repository'] = repository;
+    values['global.aztecImage.tag'] = tag;
+  }
+  if (mnemonicStartIndex !== undefined) {
+    values['bot.mnemonicStartIndex'] =
+      typeof mnemonicStartIndex === 'string' ? mnemonicStartIndex : Number(mnemonicStartIndex);
+  }
+
+  await execHelmCommand({
+    instanceName,
+    helmChartDir,
+    namespace,
+    valuesFile: undefined,
+    timeout,
+    values: values as unknown as Record<string, string | number>,
+    reuseValues,
+  });
+
+  if (replicas > 0) {
+    await waitForResourceByLabel({
+      resource: 'pods',
+      namespace,
+      label: 'app.kubernetes.io/name=bot',
+      condition: 'PodReadyToStartContainers',
+    });
+  }
+}
+
+/**
+ * Uninstalls the transfer bot Helm release from the given namespace.
+ * Intended for test teardown to clean up bot resources.
+ */
+export async function uninstallTransferBot(namespace: string, logger: Logger) {
+  const instanceName = `${namespace}-bot-transfers`;
+  logger.info(`Uninstalling transfer bot release ${instanceName}`);
+  await execAsync(`helm uninstall ${instanceName} --namespace ${namespace} --wait --ignore-not-found`);
+  // Ensure any leftover pods are removed
+  await deleteResourceByLabel({ resource: 'pods', namespace, label: 'app.kubernetes.io/name=bot' }).catch(
+    () => undefined,
+  );
 }
 
 export async function enableValidatorDynamicBootNode(
