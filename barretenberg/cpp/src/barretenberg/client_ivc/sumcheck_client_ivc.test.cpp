@@ -267,20 +267,20 @@ TEST_F(SumcheckClientIVCTests, VKIndependenceWithOverflow)
     EXPECT_EQ(*civc_vk_1.translator.get(), *civc_vk_2.translator.get());
 };
 
-// /**
-//  * @brief Test to establish the "max" number of apps that can be accumulated due to limitations on the ECCVM size
-//  *
-//  */
-// HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
-// {
-//     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
+/**
+ * @brief Test to establish the "max" number of apps that can be accumulated due to limitations on the ECCVM size
+ *
+ */
+HEAVY_TEST(SumcheckClientIVCKernelCapacity, MaxCapacityPassing)
+{
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
-//     const size_t NUM_APP_CIRCUITS = 14;
-//     auto [proof, vk] = SumcheckClientIVCTests::accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
+    const size_t NUM_APP_CIRCUITS = 24;
+    auto [proof, vk] = SumcheckClientIVCTests::accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 
-//     bool verified = SumcheckClientIVC::verify(proof, vk);
-//     EXPECT_TRUE(verified);
-// };
+    bool verified = SumcheckClientIVC::verify(proof, vk);
+    EXPECT_TRUE(verified);
+};
 
 /**
  * @brief Test the structured trace overflow mechanism in a variety of different scenarios
