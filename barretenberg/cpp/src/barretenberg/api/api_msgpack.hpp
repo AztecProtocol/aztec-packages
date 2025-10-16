@@ -5,9 +5,12 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/ipc/ipc_server.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include <csignal>
 #include <cstdint>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <unistd.h>
 #include <vector>
 
 namespace bb {
@@ -58,22 +61,36 @@ inline int process_msgpack_commands(std::istream& input_stream)
         }
 
         // Deserialize the msgpack buffer
+        // The buffer should contain a tuple of arguments (array) matching the bbapi function signature.
+        // Since bbapi(Command) takes one argument, we expect a 1-element array containing the Command.
         auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(buffer.data()), buffer.size());
         auto obj = unpacked.get();
-        // access object assuming it is an array of size 2
+
+        // First, expect an array (the tuple of arguments)
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-        if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 2) {
-            throw_or_abort("Expected an array of size 2 [command-name, payload] for bbapi command deserialization");
+        if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 1) {
+            throw_or_abort("Expected an array of size 1 (tuple of arguments) for bbapi command deserialization");
         }
+
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-        auto& arr = obj.via.array;
-        if (arr.ptr[0].type != msgpack::type::STR) {
-            throw_or_abort("Expected first element to be a string (type name) in bbapi command deserialization");
+        auto& tuple_arr = obj.via.array;
+        auto& command_obj = tuple_arr.ptr[0];
+
+        // Now access the Command itself, which should be an array of size 2 [command-name, payload]
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
+        if (command_obj.type != msgpack::type::ARRAY || command_obj.via.array.size != 2) {
+            throw_or_abort("Expected Command to be an array of size 2 [command-name, payload]");
+        }
+
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
+        auto& command_arr = command_obj.via.array;
+        if (command_arr.ptr[0].type != msgpack::type::STR) {
+            throw_or_abort("Expected first element of Command to be a string (type name)");
         }
 
         // Convert to Command (which is a NamedUnion)
         bb::bbapi::Command command;
-        obj.convert(command);
+        command_obj.convert(command);
 
         // Execute the command
         auto response = bbapi::bbapi(std::move(command));
@@ -97,21 +114,63 @@ inline int process_msgpack_commands(std::istream& input_stream)
 /**
  * @brief Execute msgpack commands over IPC (shared memory or Unix domain socket)
  *
- * This function creates an IPC server that accepts up to 10 concurrent clients.
+ * This function creates an IPC server that accepts concurrent clients.
  * Clients can send msgpack commands independently, and responses are automatically
  * routed back to the correct client.
  *
  * @param path Path or name for IPC endpoint
  * @param use_shm If true, use shared memory; otherwise use Unix domain socket
+ * @param max_clients Maximum number of concurrent clients (default: 1)
  * @return int Status code: 0 for success, non-zero for errors
  */
-inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm)
+inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm, int max_clients = 1)
 {
-    constexpr int MAX_CLIENTS = 10;
-
     // Create IPC server (either socket or shared memory)
-    auto server =
-        use_shm ? ipc::IpcServer::create_shm(path, MAX_CLIENTS) : ipc::IpcServer::create_socket(path, MAX_CLIENTS);
+    // Socket server uses int, shared memory uses size_t
+    auto server = use_shm ? ipc::IpcServer::create_shm(path, static_cast<size_t>(max_clients))
+                          : ipc::IpcServer::create_socket(path, max_clients);
+
+    // Store server pointer for signal handler cleanup (works for both socket and shared memory)
+    // MUST be set before listen() since SIGBUS can occur during listen()
+    static ipc::IpcServer* global_server = nullptr;
+    global_server = server.get();
+
+    // Register signal handlers for graceful cleanup
+    // MUST be registered before listen() since SIGBUS can occur during initialization
+    // SIGTERM: Sent by processes/test frameworks on shutdown
+    // SIGINT: Sent by Ctrl+C
+    auto graceful_shutdown_handler = [](int signal) {
+        std::cerr << "\nReceived signal " << signal << ", cleaning up..." << std::endl;
+
+        // Clean up IPC resources (socket file or shared memory segments)
+        if (global_server) {
+            global_server->close();
+            std::cerr << "Cleaned up IPC resources" << std::endl;
+        }
+
+        std::exit(0);
+    };
+
+    // Register handlers for fatal memory errors (SIGBUS, SIGSEGV)
+    // These occur when shared memory exhaustion happens during initialization
+    auto fatal_error_handler = [](int signal) {
+        const char* signal_name = (signal == SIGBUS) ? "SIGBUS" : (signal == SIGSEGV) ? "SIGSEGV" : "UNKNOWN";
+        std::cerr << "\nFatal error: received " << signal_name << " during initialization" << std::endl;
+        std::cerr << "This likely means shared memory exhaustion (try reducing --max-clients)" << std::endl;
+
+        // Clean up IPC resources before exiting
+        if (global_server) {
+            global_server->close();
+            std::cerr << "Cleaned up IPC resources" << std::endl;
+        }
+
+        std::exit(1); // Exit with error code
+    };
+
+    std::signal(SIGTERM, graceful_shutdown_handler);
+    std::signal(SIGINT, graceful_shutdown_handler);
+    std::signal(SIGBUS, fatal_error_handler);
+    std::signal(SIGSEGV, fatal_error_handler);
 
     if (!server->listen()) {
         std::cerr << "Error: Could not start IPC server at " << path << std::endl;
@@ -119,37 +178,53 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm)
     }
 
     std::cerr << (use_shm ? "Shared memory" : "Socket") << " server ready at " << path << std::endl;
-    std::cerr << "Max clients: " << MAX_CLIENTS << std::endl;
+    std::cerr << "Max clients: " << max_clients << std::endl;
 
     // Run server with msgpack handler
     server->run([](int client_id, std::span<const uint8_t> request) -> std::vector<uint8_t> {
         try {
             // Deserialize msgpack command
+            // The buffer should contain a tuple of arguments (array) matching the bbapi function signature.
+            // Since bbapi(Command) takes one argument, we expect a 1-element array containing the Command.
             auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(request.data()), request.size());
             auto obj = unpacked.get();
 
-            // Validate msgpack structure
+            // First, expect an array (the tuple of arguments)
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 2) {
-                std::cerr << "Error: Invalid msgpack format from client " << client_id << std::endl;
+            if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 1) {
+                std::cerr << "Error: Expected an array of size 1 (tuple of arguments) from client " << client_id
+                          << std::endl;
                 return {}; // Return empty to skip response
             }
 
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            auto& arr = obj.via.array;
-            if (arr.ptr[0].type != msgpack::type::STR) {
-                std::cerr << "Error: Invalid command format from client " << client_id << std::endl;
+            auto& tuple_arr = obj.via.array;
+            auto& command_obj = tuple_arr.ptr[0];
+
+            // Now access the Command itself, which should be an array of size 2 [command-name, payload]
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
+            if (command_obj.type != msgpack::type::ARRAY || command_obj.via.array.size != 2) {
+                std::cerr << "Error: Expected Command to be an array of size 2 [command-name, payload] from client "
+                          << client_id << std::endl;
+                return {};
+            }
+
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
+            auto& command_arr = command_obj.via.array;
+            if (command_arr.ptr[0].type != msgpack::type::STR) {
+                std::cerr << "Error: Expected first element of Command to be a string (type name) from client "
+                          << client_id << std::endl;
                 return {};
             }
 
             // Check if this is a Shutdown command
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            std::string command_name(arr.ptr[0].via.str.ptr, arr.ptr[0].via.str.size);
+            std::string command_name(command_arr.ptr[0].via.str.ptr, command_arr.ptr[0].via.str.size);
             bool is_shutdown = (command_name == "Shutdown");
 
             // Convert to Command and execute
             bb::bbapi::Command command;
-            obj.convert(command);
+            command_obj.convert(command);
             auto response = bbapi::bbapi(std::move(command));
 
             // Serialize response
@@ -173,6 +248,11 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm)
         }
     });
 
+    // Clean up IPC resources on normal exit (e.g., after Shutdown command)
+    // The close() method handles cleanup for both socket and shared memory
+    server->close();
+    std::cerr << "Cleaned up IPC resources" << std::endl;
+
     return 0;
 }
 
@@ -185,22 +265,23 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm)
  *
  * @param msgpack_input_file Path to input file (empty string means use stdin,
  *                          .sock suffix means Unix socket, .shm suffix means shared memory)
+ * @param max_clients Maximum number of concurrent clients for IPC servers (default: 1)
  * @return int Status code: 0 for success, non-zero for errors
  */
-inline int execute_msgpack_run(const std::string& msgpack_input_file)
+inline int execute_msgpack_run(const std::string& msgpack_input_file, int max_clients = 1)
 {
     // Check if this is a shared memory path (ends with .shm)
     if (!msgpack_input_file.empty() && msgpack_input_file.size() >= 4 &&
         msgpack_input_file.substr(msgpack_input_file.size() - 4) == ".shm") {
         // Strip .shm suffix to get base name
         std::string base_name = msgpack_input_file.substr(0, msgpack_input_file.size() - 4);
-        return execute_msgpack_ipc_server(base_name, true);
+        return execute_msgpack_ipc_server(base_name, true, max_clients);
     }
 
     // Check if this is a Unix domain socket path (ends with .sock)
     if (!msgpack_input_file.empty() && msgpack_input_file.size() >= 5 &&
         msgpack_input_file.substr(msgpack_input_file.size() - 5) == ".sock") {
-        return execute_msgpack_ipc_server(msgpack_input_file, false);
+        return execute_msgpack_ipc_server(msgpack_input_file, false, max_clients);
     }
 
     // Process msgpack API commands from stdin or file
